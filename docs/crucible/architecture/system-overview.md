@@ -48,7 +48,7 @@ code.**
 
 | Artefact           | Count | Command                                              |
 | ------------------ | ----: | ---------------------------------------------------- |
-| Crucible documents |    49 | `find docs/crucible -name '*.md' \| wc -l`           |
+| Crucible documents |    48 | `find docs/crucible -name '*.md' \| wc -l`           |
 | Accepted ADRs      |    15 | `ls docs/crucible/adr/0*.md \| wc -l`                |
 | Guidelines         |     7 | `ls docs/crucible/guidelines/0*.md \| wc -l`         |
 | Design documents   |     4 | `ls docs/crucible/design/*-*.md \| wc -l`            |

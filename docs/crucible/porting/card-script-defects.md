@@ -39,8 +39,8 @@ broken to anyone who does not know that rule.
 ## Unread parameters
 
 A second gate, `tools/apiscan`, checks every param key a script writes against every key Forge reads. **18 uses of 13
-keys across 17 cards are read by nothing.** A literal grep for each key across every `.java` file in the repository
-returns zero.
+keys across 17 cards are read by nothing.** All thirteen are fixed. A literal grep for each key across every `.java`
+file in the repository returns zero.
 
 Recovering "every key Forge reads" is the hard half. Forge reads a param six ways, and a scan that knows only the first
 reports 326 keys as dead that Forge reads perfectly well:
@@ -95,19 +95,34 @@ appeared in Java in any revision and predates the 2013 module re-org; 2,198 corp
 `AlternativeMessage` was stripped from roughly 60 cards by the commit that removed its reader, and 62 cards use
 `OriginAlternative` — this is the one the sweep missed.
 
-### One still open
+### The thirteenth, and why it took a rules reading
 
-`dead_ringers` writes `ConditionPresentCompare$ EQ2` where the vocabulary is `ConditionCompare$`, so the compare
-defaults to `GE1`. It is in neither pull request: the typo is certain, the fix is not.
+`dead_ringers` writes `ConditionPresentCompare$ EQ2` where the vocabulary is `ConditionCompare$`, so the compare keeps
+its default `GE1`. Targets are pinned at two by `TargetMin$`/`TargetMax$`, so the two differ only when an opponent
+removes one target in response.
 
-| Fix                       | Result with one legal target left | Argument                          |
-| ------------------------- | --------------------------------- | --------------------------------- |
-| → `ConditionCompare$ EQ2` | Spell does nothing                | What `ca362664b7c` wrote it to do |
-| Delete the param          | Destroys the surviving target     | CR 608.2b, do as much as possible |
+The condition was not decoration. `ca362664b7c` removed the `Condition$ AllTargetsLegal` vocabulary item and rewrote
+both cards that used it — Goblin Welder got an equivalent count-of-legal-targets branch, Dead Ringers got this — so the
+typo silently disabled a deliberate fix, and deleting the param would have reverted it.
 
-Two candidates with opposite behaviour is an issue for a rules reader, not a pull request that quietly picks one. It is
-the single row on `parity-matrix.md`'s deliberate-exclusion table, which is what keeps `apiscan -check` green without
-pretending the key is fine.
+Which behaviour is right is settled by CR 608.2, not by the card:
+
+> Illegal targets, if any, won't be affected by parts of a resolving spell's effect for which they're illegal. … If part
+> of the effect requires information about an illegal target, it fails to determine any such information. Any part of
+> the effect that requires that information won't happen.
+
+"Destroy two target nonblack creatures unless either one is a color the other isn't" gates the destruction on a colour
+comparison between both targets. With one illegal, that information cannot be determined, so the destruction does not
+happen and the survivor lives. `EQ2` does that; `GE1` destroys the survivor.
+
+| Behaviour                                  | One target removed in response | Verdict                                  |
+| ------------------------------------------ | ------------------------------ | ---------------------------------------- |
+| `GE1` — today, by accident                 | Destroys the survivor          | Wrong                                    |
+| `ConditionCompare$ EQ2` — intended in 2024 | Spell does nothing             | **Correct under CR 608.2**               |
+| Pre-2024 `RememberOriginalTargets$`        | Compares the original pair     | Wrong — reads an illegal target's colour |
+
+Fixed in [#TBD](https://github.com/Card-Forge/forge). The two Gatherer rulings, both 2004-10-04, cover only the
+both-targets-legal case and are already implemented by `ConditionNoDifferentColors$ Targeted`; neither is affected.
 
 ### Counting them needs the same care as finding them
 

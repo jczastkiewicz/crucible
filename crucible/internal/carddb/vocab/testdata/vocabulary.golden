@@ -242,7 +242,6 @@ paramKey	ConditionPlayerDefined
 paramKey	ConditionPlayerTurn
 paramKey	ConditionPresent
 paramKey	ConditionPresent2
-paramKey	ConditionPresentCompare
 paramKey	ConditionSVarCompare
 paramKey	ConditionTargetValidTargeting
 paramKey	ConditionTargetsSingleTarget

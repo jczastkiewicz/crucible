@@ -39,10 +39,10 @@ Read by `tools/apiscan -check`, which fails on any param key nothing reads that 
 the token, the second names its vocabulary; the gate matches on both, so a row cannot silence a token of a different
 kind by accident.
 
-| Item                      | Kind              | Reason                                                                                         | Revisit                   |
-| ------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- | ------------------------- |
-| `ConditionPresentCompare` | Ability param key | Dead on `dead_ringers`, but rename and delete give opposite behaviour, so the fix is undecided | When upstream rules on it |
+| Item | Kind | Reason | Revisit |
+| ---- | ---- | ------ | ------- |
+| —    | —    | none   | —       |
 
-One row, and it is meant to stay at one. An exclusion is not "this token is fine"; it is "this token fails the gate and
-someone decided to ship anyway", which is only defensible while the decision is written down next to it. The twelve
-other dead keys are fixed rather than excluded — [card-script-defects.md](card-script-defects.md).
+**Empty, and that is the target.** An exclusion is not "this token is fine"; it is "this token fails the gate and
+someone decided to ship anyway". Every dead param the scan found was fixed instead —
+[card-script-defects.md](card-script-defects.md).

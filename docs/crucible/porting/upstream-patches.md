@@ -62,14 +62,14 @@ merges it and a sync brings the identical content back.
 | ---------- | ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
 | 2026-09-09 | 7 files under `res/cardsfolder` | Rename five param keys nothing reads  | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
 | 2026-09-09 | 9 files under `res/cardsfolder` | Delete seven param keys nothing reads | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
+| 2026-09-09 | `d/dead_ringers.txt`            | Rename one param key nothing reads    | not yet opened                                                 |
 
 Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied the scan
 finds zero unread keys, which is the state the M3 vocabulary gate asserts. Without them the gate would have to carry an
 allowlist of 16 uses that exists only until two pull requests land.
 
-`d/dead_ringers.txt` is deliberately not carried. Its key is equally dead, but the fix is undecided
-([card-script-defects.md](card-script-defects.md)), and carrying an edit whose content may change is how a pending row
-becomes a permanent one.
+`d/dead_ringers.txt` was held back while its fix was undecided. CR 608.2 settles it — an effect that needs a colour it
+cannot determine does not happen — so it is carried like the other two.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

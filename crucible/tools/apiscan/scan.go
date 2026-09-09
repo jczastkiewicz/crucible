@@ -303,7 +303,11 @@ func check(forge, corpus, types, allow string) error {
 	if unread > 0 {
 		return fmt.Errorf("%w: %d of them, over %d cards", errUnread, unread, cards)
 	}
-	fmt.Printf("apiscan: %d cards, no unread param key outside the %d excluded\n", cards, len(uses))
+	if len(uses) == 0 {
+		fmt.Printf("apiscan: %d cards, no param key that nothing reads\n", cards)
+	} else {
+		fmt.Printf("apiscan: %d cards, no unread param key outside the %d excluded\n", cards, len(uses))
+	}
 	return nil
 }
 

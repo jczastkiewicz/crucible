@@ -141,60 +141,53 @@ search that ignores where a token can start finds tokens that are not there, and
 ### Params the named effect does not read
 
 `tools/apiscan -check -api` asks the stronger question: not "does anything read this key" but "does the effect this card
-names read it". **39 uses across 24 (API, key) pairs.** Each was checked against the effect's complete param list, not a
-grep — the key appears nowhere in that class, and nowhere in any class it inherits from inside the effects directory.
+names read it". It reported **39 uses across 24 (API, key) pairs**, each verified against the effect's complete param
+list and against the card's printed text. All 39 are fixed.
 
-Nine of them share one root cause. `DigEffect` and `ChangeZoneEffect` use **opposite spellings for the same two
-concepts**, and cards written for one API reach for the other's name:
+Nine shared one root cause. `DigEffect` and `ChangeZoneEffect` use **opposite names for the same two concepts**, and
+cards written for one API reach for the other's:
 
 | Concept              | `Dig` reads     | `ChangeZone` reads |
 | -------------------- | --------------- | ------------------ |
 | Who chooses          | `Choser`        | `Chooser`          |
 | Prompt shown to them | `PrimaryPrompt` | `SelectPrompt`     |
 
-`Choser` is Forge's misspelling and it is load-bearing on `Dig`; the corpus writes `Chooser$` 278 times and `Choser$` 12
-times, so most cards use the correct spelling and the ones on a `Dig` line are the ones that lose the setting.
+`Choser` is Forge's misspelling and it is load-bearing on `Dig`: the corpus writes `Chooser$` 278 times against
+`Choser$` 12 times, so the cards that lose the setting are mostly the ones spelling it correctly on a `Dig` line.
 
-| Card                      | API          | Writes           | That API reads  |
-| ------------------------- | ------------ | ---------------- | --------------- |
-| `psychotic_episode`       | `Dig`        | `Chooser$`       | `Choser`        |
-| `sandstalker_moloch`      | `Dig`        | `SelectPrompt$`  | `PrimaryPrompt` |
-| `reality_shaping`         | `ChangeZone` | `Choser$`        | `Chooser`       |
-| `blood_for_bones` ×2      | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
-| `kazandu_stomper`         | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
-| `mycoid_resurrection`     | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
-| `rocco_cabaretti_caterer` | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
+#### Four that change what a card does
 
-`reality_shaping` is the one with rules consequence rather than a prompt: it means the remembered player to choose, and
-gets the activating player instead.
+| Card                    | Fix                                  | Effect today                                     |
+| ----------------------- | ------------------------------------ | ------------------------------------------------ |
+| `reality_shaping`       | `Choser$` → `Chooser$`               | One player picks the card every player puts down |
+| `mirkwood_trapper`      | `Chooser$` → `Defined$`              | The wrong player chooses the creature            |
+| `echocasting_symposium` | `TokenOwner$` → `Controller$`        | The caster gets the token, not the target player |
+| `my_followers_ascend`   | `RememberChosen$` → `RememberCards$` | The creature never gains flying and vigilance    |
 
-The remaining fifteen pairs, with the sibling key where the effect has one:
+`ChooseCardEffect` takes its choosers from `Defined$` and reads no `Chooser` at all, which is why Mirkwood Trapper's fix
+is a different key rather than a spelling. `CopyPermanentEffect` reads `Controller` and defaults to the activating
+player (`CopyPermanentEffect.java:135-142`). `CountersPutEffect` remembers with `RememberCards`
+(`CountersPutEffect.java:658`), and My Followers Ascend chains to `DBPump | Defined$ Remembered`, so nothing remembered
+means nothing pumped.
 
-| API             | Key                                              | Uses | The effect reads instead       |
-| --------------- | ------------------------------------------------ | ---: | ------------------------------ |
-| `DigUntil`      | `Reveal`                                         |    6 | nothing like it                |
-| `PeekAndReveal` | `Reveal`                                         |    3 | `NoReveal`, `RevealOptional`   |
-| `ChangeZoneAll` | `ValidDescription`                               |    2 | no description key at all      |
-| `ChangeZoneAll` | `Reveal`                                         |    2 | nothing like it                |
-| `ChangeZoneAll` | `ChangeTypeDesc`                                 |    1 | no description key at all      |
-| `Effect`        | `PumpZone`                                       |    2 | nothing; `Pump` reads it       |
-| `Token`         | `ForgetOtherRemembered`                          |    2 | nothing; `ChangeZoneAll` does  |
-| `Effect`        | `ForgetOtherRemembered`                          |    1 | `ForgetOnMoved`                |
-| `PutCounter`    | `ChoicePrompt`                                   |    1 | `ChoiceTitle`                  |
-| `PutCounter`    | `RememberChosen`                                 |    1 | `RememberCards`                |
-| `Pump`          | `Imprint`                                        |    1 | `ImprintCards`                 |
-| `CopyPermanent` | `TokenOwner`                                     |    1 | `Controller`                   |
-| `Play`          | `ExileOnMoved`                                   |    1 | nothing; `Effect` reads it     |
-| `DigMultiple`   | `ForceRevealToController`                        |    1 | `Reveal`; `Dig` reads it       |
-| `Draft`         | `Conjure`, `SpellbookName`                       |    2 | nothing; `MakeCard` reads both |
-| `ChooseCard`    | `Chooser`, `Guess`, `NoReveal`, `ChoiceOptional` |    4 | nothing like them              |
+#### Seven that lose a prompt
 
-Every one is a key some effect reads, written on an effect that does not. That is the signature of a card script copied
-from another card and edited, and it is invisible in Forge for the same reason the first thirteen were.
+`blood_for_bones` (twice), `kazandu_stomper`, `mycoid_resurrection` and `rocco_cabaretti_caterer` write `PrimaryPrompt$`
+on a `ChangeZone`; `sandstalker_moloch` writes `SelectPrompt$` on a `Dig`; `myra_the_magnificent` writes `ChoicePrompt$`
+where `CountersPutEffect` reads `ChoiceTitle`. Generic prompt instead of the written one, no rules effect.
 
-**Not yet reported upstream.** Confirming the key is unread is one question; whether each card is measurably wrong is
-the other, and it needs the printed text card by card, the way the first thirteen were settled. The gate reports these
-without failing the build until then ([parity-matrix.md](parity-matrix.md)).
+#### Twenty-seven that change nothing
+
+Deleted rather than corrected, in three groups. **Already the default:** `DigUntil` always reveals and `PeekAndReveal`
+reveals unless told not to, so nine `Reveal$ True` are decoration; `ChooseCard` is optional unless `Mandatory` and
+reveals only when `Reveal` is set; `Dig`'s chooser already defaults to the activator (`DigEffect.java:116`). **Another
+line on the same card already does it:** Chaotic Transformation imprints on its `ChangeZone`, Chandra uses
+`ReplaceGraveyard$ Exile`, The Seventh Doctor guesses in its `GenericChoice`. **Belongs to a different API:**
+`ChangeZoneAll` has no description parameter at all, `Draft` reads only `Spellbook`, `Effect` reads `ForgetOnMoved` and
+has no `PumpZone`, `Token` has no `ForgetOtherRemembered`.
+
+Every one is a key some effect reads, written on an effect that does not — the signature of a card script copied from
+another card and edited.
 
 ### Why an unread key is silent
 

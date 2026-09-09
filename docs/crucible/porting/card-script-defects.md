@@ -38,10 +38,27 @@ broken to anyone who does not know that rule.
 
 ## Unread parameters
 
-A second gate, `tools/apiscan`, checks every param key a script writes against every key Forge reads. 18 uses of 13 keys
-across 17 cards are read by nothing. Full evidence per key — the effect's source, the commit that stopped reading it,
-the sibling cards, the printed Oracle text — is in [dead-params.md](dead-params.md). Seven change what a card does and
-are fixed:
+A second gate, `tools/apiscan`, checks every param key a script writes against every key Forge reads. **18 uses of 13
+keys across 17 cards are read by nothing.** A literal grep for each key across every `.java` file in the repository
+returns zero.
+
+Recovering "every key Forge reads" is the hard half. Forge reads a param six ways, and a scan that knows only the first
+reports 326 keys as dead that Forge reads perfectly well:
+
+| Shape                                                | Example                                         |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| The accessors on an ability                          | `sa.getParam("NumDmg")`                         |
+| The raw map, before an ability object exists         | `mapParams.containsKey("Layer")`                |
+| A helper taking the key as an argument               | `getDefinedPlayersOrTargeted(sa, "TokenOwner")` |
+| A key bound to a variable first                      | `final String key = "ResultSubAbilities"`       |
+| Triggers and replacements matching against the event | `matchesValidParam("ValidExplorer", …)`         |
+| A list literal with no call site                     | `additionalAbilityKeys`                         |
+
+Each candidate rename was then checked four ways, because a plausible rename is not evidence: the effect's own source
+and its default when the key is absent, `git log -S` over the Java for the commit that stopped reading it, the sibling
+cards that write the candidate key, and the card's printed Oracle text.
+
+### Seven that change what a card does
 
 | Card                       | Defect                               | Consequence                                   | Upstream                                                       |
 | -------------------------- | ------------------------------------ | --------------------------------------------- | -------------------------------------------------------------- |
@@ -53,16 +70,57 @@ are fixed:
 | `galion_elvenkings_butler` | `ValidTgtsDes$` for `ValidTgtsDesc$` | Prompt reads the raw valid string             | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
 | `shuttle_crew`             | `ValidTgtsDes$` for `ValidTgtsDesc$` | Prompt reads the raw valid string             | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
 
-`dead_ringers` writes `ConditionPresentCompare$ EQ2` where the vocabulary is `ConditionCompare$`, so the compare
-defaults to `GE1`. It is held back from that PR: the typo is certain, the fix is not. Renaming restores what
-`ca362664b7c` intended and makes the spell do nothing once a target is removed in response; deleting the param keeps
-today's behaviour, which is what CR 608.2b's "do as much as possible" implies. Two candidates with opposite behaviour is
-an issue for a rules reader, not a pull request that quietly picks one.
+`ValidConniver` is the sharpest. `ReplaceConnive.canReplace` reads only `"ValidCard"`, and
+`CardTraitBase.matchesValidParam` returns `!hasParam("Invert" + param)` — true — when the param is absent. The
+restriction is not loosened but gone, so an opponent's connive is replaced too. The four description keys cost only a
+readable prompt: `TargetRestrictions` falls back to `Lang.buildValidDesc`, which lowercases bare card types and nothing
+else, so a valid string carrying properties reaches the player verbatim.
 
-The other nine uses — `TokenController$`, `RememberRandomChoice$`, `OverwriteSpells$`, `AISearchGoal$`,
-`AlternativeMessage$`, `SpeTgtPrompt$`, `TrigDescReminderDefined$` — change nothing observable. Three had their reader
-deleted years ago, two duplicate a default, two never existed in Java in any revision. They go upstream as deletions,
-not as fixes.
+### Nine that change nothing
+
+| Card                                  | Key                        | Why it is dead                                              |
+| ------------------------------------- | -------------------------- | ----------------------------------------------------------- |
+| `orochi_hatchery`                     | `TokenController$`         | `TokenOwner` defaults to `You`; no targeting on the ability |
+| `spawning_pit`                        | `TokenController$`         | Same                                                        |
+| `tomb_of_urami`                       | `TokenController$`         | Same                                                        |
+| `faerie_dragon`, twice                | `RememberRandomChoice$`    | `DamageDealEffect` already remembers unconditionally        |
+| `dance_of_the_dead`                   | `OverwriteSpells$`         | Reader deleted by `25900ee10cd` (#6996)                     |
+| `natural_order`                       | `AISearchGoal$`            | Reader deleted by `0ba88f3ce5c`                             |
+| `invasion_of_arcavios_invocation_...` | `AlternativeMessage$`      | Reader deleted by `da0db2282c1`, which missed this card     |
+| `explosive_getaway`                   | `SpeTgtPrompt$`            | Never existed in Java, any revision                         |
+| `nihiloor`                            | `TrigDescReminderDefined$` | Never existed in Java, any revision                         |
+
+Deleted rather than corrected, in [#11848](https://github.com/Card-Forge/forge/pull/11848). `TokenController` never
+appeared in Java in any revision and predates the 2013 module re-org; 2,198 corpus lines write `TokenOwner$ You`.
+`AlternativeMessage` was stripped from roughly 60 cards by the commit that removed its reader, and 62 cards use
+`OriginAlternative` — this is the one the sweep missed.
+
+### One still open
+
+`dead_ringers` writes `ConditionPresentCompare$ EQ2` where the vocabulary is `ConditionCompare$`, so the compare
+defaults to `GE1`. It is in neither pull request: the typo is certain, the fix is not.
+
+| Fix                       | Result with one legal target left | Argument                          |
+| ------------------------- | --------------------------------- | --------------------------------- |
+| → `ConditionCompare$ EQ2` | Spell does nothing                | What `ca362664b7c` wrote it to do |
+| Delete the param          | Destroys the surviving target     | CR 608.2b, do as much as possible |
+
+Two candidates with opposite behaviour is an issue for a rules reader, not a pull request that quietly picks one. It is
+the single row on `parity-matrix.md`'s deliberate-exclusion table, which is what keeps `apiscan -check` green without
+pretending the key is fine.
+
+### Counting them needs the same care as finding them
+
+A plain `grep -F 'Secret$'` reports two cards, because `KeepSecret$` on `ominous_lockbox` ends with the searched string.
+Keys are only ever preceded by a line start, a pipe or a colon:
+
+```console
+$ grep -rhoE '(^|[|:] )Secret\$' forge-gui/res/cardsfolder/ | wc -l
+1
+```
+
+Same class of mistake as the vocabulary scanner trimming its input and hiding `ValidTgts$ Player, Planeswalker`: a
+search that ignores where a token can start finds tokens that are not there, and misses ones that are.
 
 ### Why an unread key is silent
 

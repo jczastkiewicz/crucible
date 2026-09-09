@@ -68,8 +68,8 @@ finds zero unread keys, which is the state the M3 vocabulary gate asserts. Witho
 allowlist of 16 uses that exists only until two pull requests land.
 
 `d/dead_ringers.txt` is deliberately not carried. Its key is equally dead, but the fix is undecided
-([dead-params.md](dead-params.md)), and carrying an edit whose content may change is how a pending row becomes a
-permanent one.
+([card-script-defects.md](card-script-defects.md)), and carrying an edit whose content may change is how a pending row
+becomes a permanent one.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

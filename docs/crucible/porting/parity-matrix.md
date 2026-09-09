@@ -45,4 +45,4 @@ kind by accident.
 
 One row, and it is meant to stay at one. An exclusion is not "this token is fine"; it is "this token fails the gate and
 someone decided to ship anyway", which is only defensible while the decision is written down next to it. The twelve
-other dead keys are fixed rather than excluded — [dead-params.md](dead-params.md).
+other dead keys are fixed rather than excluded — [card-script-defects.md](card-script-defects.md).

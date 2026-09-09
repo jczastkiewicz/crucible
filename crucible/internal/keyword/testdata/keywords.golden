@@ -1,0 +1,219 @@
+kind	Unknown	1441
+kind	Simple	9674
+kind	Amount	649
+kind	Cost	1880
+kind	Type	1335
+kind	CostAndAmount	32
+kind	CostAndType	131
+kind	Special	3106
+used	Affinity	Special
+used	Afflict	Amount
+used	Afterlife	Amount
+used	Aftermath	Simple
+used	Amplify	Special
+used	Annihilator	Amount
+used	Ascend	Simple
+used	Assist	Simple
+used	Aura swap	Cost
+used	Awaken	CostAndAmount
+used	Backup	Amount
+used	Banding	Simple
+used	Bands with other	Type
+used	Bargain	Simple
+used	Battle cry	Simple
+used	Beam me up	Cost
+used	Bestow	Cost
+used	Blitz	Cost
+used	Bloodthirst	Amount
+used	Bushido	Amount
+used	Buyback	Cost
+used	Cascade	Simple
+used	Casualty	Amount
+used	Champion	Type
+used	Changeling	Simple
+used	Choose a Background	Special
+used	Cipher	Simple
+used	Companion	Special
+used	Compleated	Special
+used	Conspire	Simple
+used	Convoke	Simple
+used	Craft	Special
+used	Crew	Amount
+used	Cumulative upkeep	Cost
+used	Cycling	Cost
+used	Dash	Cost
+used	Daybound	Simple
+used	Deathtouch	Simple
+used	Decayed	Simple
+used	Defender	Simple
+used	Delve	Simple
+used	Demonstrate	Simple
+used	Dethrone	Simple
+used	Devoid	Simple
+used	Devour	Special
+used	Disguise	Cost
+used	Disturb	Cost
+used	Doctor's companion	Special
+used	Double Strike	Simple
+used	Double agenda	Simple
+used	Double team	Simple
+used	Dredge	Amount
+used	Echo	Cost
+used	Embalm	Cost
+used	Emerge	Special
+used	Enchant	Type
+used	Encore	Cost
+used	Enlist	Simple
+used	Entwine	Cost
+used	Epic	Simple
+used	Equip	Special
+used	Escalate	Cost
+used	Escape	Cost
+used	Eternalize	Cost
+used	Evoke	Cost
+used	Evolve	Simple
+used	Exalted	Simple
+used	Exploit	Simple
+used	Extort	Simple
+used	Fabricate	Amount
+used	Fading	Amount
+used	Fear	Simple
+used	Firebending	Special
+used	First Strike	Simple
+used	Flanking	Simple
+used	Flash	Simple
+used	Flashback	Cost
+used	Flying	Simple
+used	For Mirrodin	Simple
+used	Foretell	Cost
+used	Fortify	Cost
+used	Freerunning	Cost
+used	Fuse	Simple
+used	Gift	Simple
+used	Graft	Amount
+used	Gravestorm	Simple
+used	Harmonize	Cost
+used	Haste	Simple
+used	Haunt	Simple
+used	Hexproof	Special
+used	Hidden agenda	Simple
+used	Hideaway	Amount
+used	Horsemanship	Simple
+used	Impending	CostAndAmount
+used	Improvise	Simple
+used	Increment	Simple
+used	Indestructible	Simple
+used	Infect	Simple
+used	Ingest	Simple
+used	Intimidate	Simple
+used	Job select	Simple
+used	Jump-start	Simple
+used	Kicker	Special
+used	Landwalk	Special
+used	Level up	Cost
+used	Lifelink	Simple
+used	Living Weapon	Simple
+used	Living metal	Simple
+used	Madness	Cost
+used	MayFlashCost	Cost
+used	MayFlashSac	Simple
+used	Mayhem	Special
+used	Megamorph	Cost
+used	Melee	Simple
+used	Menace	Simple
+used	Mentor	Simple
+used	Miracle	Cost
+used	Mobilize	Amount
+used	Modular	Special
+used	More Than Meets the Eye	Cost
+used	Morph	Cost
+used	Multikicker	Cost
+used	Mutate	Cost
+used	Myriad	Simple
+used	Nightbound	Simple
+used	Ninjutsu	Special
+used	Offering	Type
+used	Offspring	Cost
+used	Outlast	Cost
+used	Overload	Cost
+used	Paradigm	Simple
+used	Partner	Special
+used	Partner with	Type
+used	Persist	Simple
+used	Phasing	Simple
+used	Plot	Cost
+used	Protection	Special
+used	Prototype	Cost
+used	Provoke	Simple
+used	Prowess	Simple
+used	Prowl	Cost
+used	Rampage	Amount
+used	Ravenous	Simple
+used	Reach	Simple
+used	Read ahead	Simple
+used	Rebound	Simple
+used	Reconfigure	Cost
+used	Recover	Cost
+used	Reflect	Cost
+used	Reinforce	CostAndAmount
+used	Renown	Amount
+used	Replicate	Cost
+used	Retrace	Simple
+used	Riot	Simple
+used	Ripple	Amount
+used	Saddle	Amount
+used	Scavenge	Cost
+used	Shadow	Simple
+used	Shroud	Simple
+used	Skulk	Simple
+used	Sneak	Cost
+used	Soulbond	Simple
+used	Soulshift	Amount
+used	Space sculptor	Simple
+used	Specialize	Cost
+used	Spectacle	Cost
+used	Splice	CostAndType
+used	Split second	Simple
+used	Spree	Simple
+used	Squad	Cost
+used	Start your engines	Simple
+used	Starting intensity	Amount
+used	Station	Amount
+used	Storied	Simple
+used	Storm	Simple
+used	Strive	Cost
+used	Sunburst	Simple
+used	Surge	Cost
+used	Suspend	Special
+used	Teamwork	Amount
+used	Tiered	Simple
+used	Toxic	Amount
+used	Training	Simple
+used	Trample	Special
+used	Transfigure	Cost
+used	Transmute	Cost
+used	Tribute	Amount
+used	TypeCycling	CostAndType
+used	Umbra armor	Simple
+used	Undaunted	Simple
+used	Undying	Simple
+used	Unearth	Cost
+used	Unleash	Simple
+used	Vanishing	Special
+used	Vigilance	Simple
+used	Ward	Special
+used	Warp	Cost
+used	Web-slinging	Cost
+used	Wither	Simple
+pseudo	AlternateAdditionalCost	42
+pseudo	Chapter	236
+pseudo	Class	76
+pseudo	DeckLimit	5
+pseudo	ETBReplacement	405
+pseudo	MayEffectFromOpeningDeck	4
+pseudo	MayEffectFromOpeningHand	30
+pseudo	MustBeBlockedByAll	2
+pseudo	Prize	1
+pseudo	Visit	21
+pseudo	etbCounter	475
+textKeywords	36 distinct

@@ -1,0 +1,180 @@
+card ancestral_recall
+face 0
+  Spell Draw
+    param SP$ "Draw"
+    param NumCards$ "3"
+    param ValidTgts$ "Player"
+    param SpellDescription$ "Target player draws three cards."
+face 1 empty
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+
+card orochi_hatchery
+face 0
+  Activated Token
+    param AB$ "Token"
+    param Cost$ "5 T"
+    param TokenAmount$ "Y"
+    param TokenScript$ "g_1_1_snake"
+    param SpellDescription$ "Create a 1/1 green Snake creature token for each charge counter on CARDNAME."
+face 1 empty
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+
+card beorns_hospitality
+face 0
+  Activated Animate
+    param AB$ "Animate"
+    param Cost$ "5 G G"
+    param Defined$ "Self"
+    param Types$ "Creature,Bear"
+    param staticAbilities$ "BeornStatic"
+    param Duration$ "Permanent"
+    param SpellDescription$ "This enchantment becomes a Bear creature in addition to its other types and gains \"This creature's power and toughness are each equal to the number of lands you control.\" (This effect doesn't end.)"
+  Trigger ChangesZone
+    param Mode$ "ChangesZone"
+    param Destination$ "Battlefield"
+    param ValidCard$ "Land.YouCtrl"
+    param TriggerZones$ "Battlefield"
+    param Execute$ "TrigPutCounter"
+    param TriggerDescription$ "Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control."
+    sub Execute TrigPutCounter
+      SubAbility PutCounter svar=TrigPutCounter
+        param DB$ "PutCounter"
+        param ValidTgts$ "Creature.YouCtrl"
+        param ValidTgtsDesc$ "creature you control"
+        param CounterType$ "P1P1"
+        param CounterNum$ "1"
+face 1 empty
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+
+card leader_super_genius
+face 0
+  Trigger Phase
+    param Mode$ "Phase"
+    param Phase$ "BeginCombat"
+    param ValidPlayer$ "You"
+    param TriggerZones$ "Battlefield"
+    param Execute$ "TrigConnive"
+    param TriggerDescription$ "At the beginning of combat on your turn, target creature you control connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)"
+    sub Execute TrigConnive
+      SubAbility Connive svar=TrigConnive
+        param DB$ "Connive"
+        param ValidTgts$ "Creature.YouCtrl"
+        param ValidTgtsDesc$ "creature you control"
+  Replacement Connive
+    param Event$ "Connive"
+    param ActiveZones$ "Battlefield"
+    param ValidCard$ "Creature.YouCtrl"
+    param ReplaceWith$ "DBDraw"
+    param Description$ "If a creature you control would connive, instead you draw a card, then that creature connives."
+    sub ReplaceWith DBDraw
+      SubAbility Draw svar=DBDraw
+        param DB$ "Draw"
+        param SubAbility$ "DBConnive"
+        sub SubAbility DBConnive
+          SubAbility Connive svar=DBConnive
+            param DB$ "Connive"
+            param Defined$ "ReplacedCard"
+face 1 empty
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+
+card typhoid_mary_fractured
+face 0
+  Trigger Attacks
+    param Mode$ "Attacks"
+    param ValidCard$ "Card.Self"
+    param Execute$ "TrigCharm"
+    param TriggerZones$ "Battlefield"
+    param TriggerDescription$ "Whenever NICKNAME attacks, ABILITY"
+    sub Execute TrigCharm
+      SubAbility Charm svar=TrigCharm
+        param DB$ "Charm"
+        param CharmNum$ "1"
+        param Choices$ "DBToken,DBDraw,DBDrain"
+        param Random$ "Compare"
+        param RandomCompareSVar$ "Y"
+        param RandomCompare$ "LT1"
+        param AdditionalDescription$ ". If you discarded a card this turn, you choose one instead."
+        sub Choices DBToken
+          SubAbility Token svar=DBToken
+            param DB$ "Token"
+            param TokenAmount$ "1"
+            param TokenScript$ "c_a_treasure_sac"
+            param TokenOwner$ "You"
+            param SpellDescription$ "Mary — Create a Treasure token."
+        sub Choices DBDraw
+          SubAbility Draw svar=DBDraw
+            param DB$ "Draw"
+            param SpellDescription$ "Typhoid Mary — Draw a card."
+        sub Choices DBDrain
+          SubAbility LoseLife svar=DBDrain
+            param DB$ "LoseLife"
+            param Defined$ "Opponent"
+            param LifeAmount$ "2"
+            param SubAbility$ "DBGainLife"
+            param SpellDescription$ "Bloody Mary — Each opponent loses 2 life and you gain 2 life."
+            sub SubAbility DBGainLife
+              SubAbility GainLife svar=DBGainLife
+                param DB$ "GainLife"
+                param Defined$ "You"
+                param LifeAmount$ "2"
+face 1 empty
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+
+card invasion_of_arcavios_invocation_of_the_founders
+face 0
+  Trigger ChangesZone
+    param Mode$ "ChangesZone"
+    param Origin$ "Any"
+    param Destination$ "Battlefield"
+    param ValidCard$ "Card.Self"
+    param Execute$ "TrigSearch"
+    param TriggerDescription$ "When CARDNAME enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle."
+    sub Execute TrigSearch
+      SubAbility ChangeZone svar=TrigSearch
+        param DB$ "ChangeZone"
+        param Hidden$ "True"
+        param Origin$ "Library"
+        param Destination$ "Hand"
+        param ShuffleNonMandatory$ "True"
+        param OriginAlternative$ "Graveyard,Sideboard"
+        param ChangeType$ "Sorcery.YouOwn,Instant.YouOwn"
+face 1
+  Trigger SpellCast
+    param Mode$ "SpellCast"
+    param TriggerZones$ "Battlefield"
+    param ValidCard$ "Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand"
+    param ValidActivatingPlayer$ "You"
+    param Execute$ "TrigCopy"
+    param TriggerDescription$ "Whenever you cast an instant or sorcery spell from your hand, you may copy that spell. You may choose new targets for the copy."
+    sub Execute TrigCopy
+      SubAbility CopySpellAbility svar=TrigCopy
+        param DB$ "CopySpellAbility"
+        param Defined$ "TriggeredSpellAbility"
+        param Optional$ "True"
+        param MayChooseTarget$ "True"
+face 2 empty
+face 3 empty
+face 4 empty
+face 5 empty
+face 6 empty
+

@@ -296,11 +296,31 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 }
 
 // subAbilityKeys are the params whose value is an SVar holding an ability:
-// `SubAbility`, `PreventionSubAbility`, and Java's additionalAbilityKeys list
-// verbatim (AbilityFactory.java:51). Folded, because the lookup ignores case.
+// `SubAbility`, `PreventionSubAbility`, Java's additionalAbilityKeys list
+// verbatim (AbilityFactory.java:51), and the four keys the handlers resolve
+// themselves without going through that list. Folded, because the lookup
+// ignores case.
+//
+// The list is not the whole story on its own: `additionalAbilityKeys` is what
+// AbilityFactory attaches to a SpellAbility, while a replacement's own ability
+// is fetched by ReplacementHandler and an extra turn's by the effect that
+// grants it. Reading only the list leaves 1,592 references unresolved, and a
+// reference the compiler never follows is one the corpus gate can never find
+// dangling.
 var subAbilityKeys = map[string]bool{
-	"subability":             true,
-	"preventionsubability":   true,
+	"subability":           true,
+	"preventionsubability": true,
+
+	// Resolved by the handlers rather than by AbilityFactory.
+	// ReplacementHandler.java:843, RollDiceEffect.java:474,
+	// AddPhaseEffect.java:72, AddTurnEffect.java:50. The misspelling in
+	// `ExtraPhaseDelayedTriggerExcute` is Forge's and is load-bearing: the
+	// param map is keyed on it.
+	"replacewith":                    true,
+	"else":                           true,
+	"extraphasedelayedtriggerexcute": true,
+	"extraturndelayedtriggerexecute": true,
+
 	"winsubability":          true,
 	"otherwisesubability":    true,
 	"bidsubability":          true,

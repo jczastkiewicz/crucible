@@ -59,8 +59,26 @@ Order is kept anyway, because Java's TreeMap loses it and nothing should depend 
 | SVars naming statics, triggers or replacements (`StaticAbilities$`, `Triggers$`) | M4         |
 | Functional variants -- `Variant:` faces have their own lines                     | M3 slice C |
 
+## An unknown key is not an error
+
+Java accepts any key. `AbilityFactory` builds the map, the effect asks for what it knows, and a key nobody asks for is
+neither rejected nor logged. The Go compile matches that — refusing an unknown key would reject cards Forge plays — so
+the check lives outside the compiler, in `tools/apiscan -check`, which fails the build on a key no Java code reads
+anywhere.
+
+Two Java behaviours the port depends on, both found by that gate:
+
+| Behaviour                                                     | Where                                    |
+| ------------------------------------------------------------- | ---------------------------------------- |
+| `matchesValidParam` returns **true** when the param is absent | `CardTraitBase.java:259-265`             |
+| An absent param takes the effect's default, not a failure     | e.g. `getParamOrDefault` on every effect |
+
+The first is the one that bites: a missing `Valid…` key does not narrow a restriction, it removes it.
+
 ## Known defects it surfaces
 
 Compiling the corpus found five cards whose `SubAbility$` names an SVar that does not exist. All five are fixed and
 carried until upstream merges them, so the corpus compiles whole with no exemption. Each is in
 [`../card-script-defects.md`](../card-script-defects.md) with the printed text it was checked against.
+
+The param gate found thirteen more keys that no Java code reads, across seventeen cards, in the same file.

@@ -58,11 +58,13 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path                            | Change                                | Upstream                                                       |
-| ---------- | ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| 2026-09-09 | 7 files under `res/cardsfolder` | Rename five param keys nothing reads  | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
-| 2026-09-09 | 9 files under `res/cardsfolder` | Delete seven param keys nothing reads | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
-| 2026-09-09 | `d/dead_ringers.txt`            | Rename one param key nothing reads    | [#11850](https://github.com/Card-Forge/forge/pull/11850), open |
+| Date       | Path                             | Change                                      | Upstream                                                       |
+| ---------- | -------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
+| 2026-09-09 | 7 files under `res/cardsfolder`  | Rename five param keys nothing reads        | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| 2026-09-09 | 9 files under `res/cardsfolder`  | Delete seven param keys nothing reads       | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
+| 2026-09-09 | `d/dead_ringers.txt`             | Rename one param key nothing reads          | [#11850](https://github.com/Card-Forge/forge/pull/11850), open |
+| 2026-09-10 | 10 files under `res/cardsfolder` | Rename 11 params read by a different effect | not yet opened                                                 |
+| 2026-09-10 | 27 files under `res/cardsfolder` | Delete 27 params the named effect ignores   | not yet opened                                                 |
 
 Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied the scan
 finds zero unread keys, which is the state the M3 vocabulary gate asserts. Without them the gate would have to carry an

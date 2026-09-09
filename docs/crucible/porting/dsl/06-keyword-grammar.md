@@ -19,15 +19,23 @@ Colon-separated and **positional**. There is no key naming the arguments, so eac
 
 ## Measurements
 
-```console
-$ find forge-gui/res/cardsfolder -name '*.txt' -exec cat {} + | grep -c '^K:'
-18245
-$ find forge-gui/res/cardsfolder -name '*.txt' -exec cat {} + \
-    | grep '^K:' | sed 's/^K://; s/:.*//' | sort -u | wc -l
-253
-```
+**18,248 `K:` lines**, resolved with Forge's own rule (`Keyword.getKeywordDetails`) rather than by cutting at the first
+colon:
 
-**253 distinct heads.** Argument counts:
+| What                                     | Distinct |   Uses |
+| ---------------------------------------- | -------: | -----: |
+| Keywords Forge's enum defines            |      199 | 18,062 |
+| Pseudo-keywords the card factory handles |       11 |  1,297 |
+| Lines that are rules text on a `K:` line |       36 |    144 |
+
+Forge's enum has **203** constants, so four are defined and unused. The pseudo-keywords — `etbCounter`,
+`ETBReplacement`, `Chapter`, `Class`, `AlternateAdditionalCost` and six more — are the vocabulary a compiler owes on top
+of the enum; the rules-text lines are card text and not vocabulary at all.
+
+A count taken by cutting each line at its first colon reports 253 heads instead, because every distinct sentence of
+rules text becomes its own "head".
+
+Argument counts:
 
 | Arguments | Occurrences | Share |
 | --------: | ----------: | ----: |

@@ -1,0 +1,143 @@
+part	AddCounter	426
+part	Behold	9
+part	BeholdExile	5
+part	Blight	20
+part	ChooseCard	1
+part	ChooseCreatureType	2
+part	CollectEvidence	22
+part	Discard	550
+part	Draw	40
+part	Exert	36
+part	Exile	79
+part	ExileAnyGrave	17
+part	ExileCtrlOrGrave	1
+part	ExileFromGrave	222
+part	ExileFromHand	52
+part	ExileFromStack	2
+part	ExileFromTop	8
+part	ExileSameGrave	1
+part	ExiledMoveToGrave	16
+part	Forage	7
+part	GainLife	3
+part	Mana	10
+part	Mill	8
+part	PayEnergy	96
+part	PayLife	237
+part	PutCardToLibFromBattlefield	1
+part	PutCardToLibFromGrave	3
+part	PutCardToLibFromHand	3
+part	Q	18
+part	RemoveAnyCounter	34
+part	Return	69
+part	Reveal	33
+part	RevealChosen	4
+part	RevealFromExile	1
+part	RevealOrChoose	2
+part	RollDice	1
+part	Sac	2241
+part	SubCounter	935
+part	T	5514
+part	Unattach	9
+part	Waterbend	25
+part	tapXType	231
+part	untapYType	5
+fields	AddCounter	2
+fields	AddCounter	4
+fields	Behold	2
+fields	Behold	3
+fields	BeholdExile	2
+fields	Blight	1
+fields	ChooseCard	2
+fields	ChooseCreatureType	1
+fields	CollectEvidence	1
+fields	Discard	2
+fields	Discard	3
+fields	Draw	2
+fields	Exert	2
+fields	Exile	2
+fields	Exile	3
+fields	ExileAnyGrave	2
+fields	ExileCtrlOrGrave	2
+fields	ExileFromGrave	2
+fields	ExileFromGrave	3
+fields	ExileFromHand	2
+fields	ExileFromHand	3
+fields	ExileFromStack	3
+fields	ExileFromTop	2
+fields	ExileSameGrave	2
+fields	ExiledMoveToGrave	2
+fields	ExiledMoveToGrave	3
+fields	Forage	0
+fields	GainLife	2
+fields	GainLife	3
+fields	Mana	1
+fields	Mill	1
+fields	PayEnergy	1
+fields	PayLife	1
+fields	PutCardToLibFromBattlefield	3
+fields	PutCardToLibFromGrave	3
+fields	PutCardToLibFromHand	3
+fields	Q	0
+fields	RemoveAnyCounter	3
+fields	RemoveAnyCounter	4
+fields	Return	2
+fields	Return	3
+fields	Reveal	2
+fields	Reveal	3
+fields	RevealChosen	1
+fields	RevealChosen	2
+fields	RevealFromExile	2
+fields	RevealOrChoose	2
+fields	RollDice	3
+fields	Sac	2
+fields	Sac	3
+fields	SubCounter	2
+fields	SubCounter	3
+fields	SubCounter	4
+fields	SubCounter	5
+fields	T	0
+fields	Unattach	2
+fields	Waterbend	1
+fields	tapXType	2
+fields	tapXType	3
+fields	untapYType	3
+mana	0
+mana	1
+mana	10
+mana	15
+mana	2
+mana	20
+mana	2B
+mana	2G
+mana	2R
+mana	2U
+mana	3
+mana	4
+mana	5
+mana	6
+mana	7
+mana	8
+mana	9
+mana	B
+mana	BG
+mana	BP
+mana	BR
+mana	C
+mana	G
+mana	GP
+mana	GU
+mana	GW
+mana	R
+mana	RG
+mana	RP
+mana	RW
+mana	S
+mana	U
+mana	UB
+mana	UP
+mana	UR
+mana	W
+mana	WB
+mana	WP
+mana	WU
+mana	X

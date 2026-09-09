@@ -54,7 +54,8 @@ problem exists at all.
 
 ## Cost parts
 
-**88 distinct part shapes** after normalising `<...>` bodies:
+**88 distinct part shapes** after normalising `<...>` bodies, of which **43 are named parts** and the rest are mana
+symbols:
 
 ```console
 $ cd crucible && go run ./tools/vocabscan -kind costPart | wc -l
@@ -63,6 +64,9 @@ $ cd crucible && go run ./tools/vocabscan -kind costPart | wc -l
 
 A shell pipeline that splits on whitespace before normalising reports 637 instead, and the extra 549 are fragments of
 the bodies it tore in half — the same trap as above, in the tool used to measure it.
+
+`Cost.java` knows 55 named parts. Twelve are unused by the corpus, and the ones it does use are inventoried in
+`internal/cost/testdata/costs.golden`.
 
 | Part                           | Shape     | Meaning              |
 | ------------------------------ | --------- | -------------------- |
@@ -81,10 +85,13 @@ the bodies it tore in half — the same trap as above, in the tool used to measu
 
 Roughly 45 named cost part types in total, matching the 52 files in Java's `cost/` package.
 
-## `or` — cost alternatives
+## `or` is not a separator
 
-The token `or` appears between cost parts, expressing alternative payments. It is a separator at the same level as a
-space, not a cost part, and a parser that treats it as a named cost will silently accept nonsense.
+The token appears 172 times, and every one of them is inside a `<...>` description field — "artifact or creature",
+"creatures and/or Treasures". `Cost.java` has no branch for it, and no cost string uses it between parts.
+
+A parser that splits on it would cut a description in half. The bracket-aware split is what keeps that from happening,
+and the corpus scan confirms nothing outside a body ever reads `or`.
 
 ## Amounts can be expressions
 

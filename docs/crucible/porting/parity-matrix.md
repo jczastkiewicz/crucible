@@ -53,20 +53,7 @@ someone decided to ship anyway". Every dead param the scan found was fixed inste
 this key" — is `-check -api`, which attributes keys per effect class and follows each class's superclass chain inside
 the effects directory.
 
-It reports **39 uses across 24 (API, key) pairs** and is deliberately not wired into CI. An effect that delegates to
-another effect's static helper looks, under that model, exactly like a card writing a key its own effect ignores, and
-the two need the same per-key verification the first thirteen dead params got
-([card-script-defects.md](card-script-defects.md)). Candidates, most-used first:
-
-| API             | Key                     | Cards |
-| --------------- | ----------------------- | ----: |
-| `DigUntil`      | `Reveal`                |     6 |
-| `ChangeZone`    | `PrimaryPrompt`         |     5 |
-| `PeekAndReveal` | `Reveal`                |     3 |
-| `ChangeZoneAll` | `ValidDescription`      |     2 |
-| `ChangeZoneAll` | `Reveal`                |     2 |
-| `Effect`        | `PumpZone`              |     2 |
-| `Token`         | `ForgetOtherRemembered` |     2 |
-
-Seventeen more pairs appear once each. Until they are triaged the gate asks the weaker question, which it answers
-cleanly.
+It reports **39 uses across 24 (API, key) pairs**, all verified against each effect's complete param list and listed in
+[card-script-defects.md](card-script-defects.md). It runs in CI for the record and does not fail the build: the keys are
+confirmed unread by the named effect, but whether each card is measurably wrong needs the printed text card by card, and
+the gate should not block on findings nobody has finished checking.

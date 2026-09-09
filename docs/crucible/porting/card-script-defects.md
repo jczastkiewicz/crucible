@@ -138,6 +138,64 @@ $ grep -rhoE '(^|[|:] )Secret\$' forge-gui/res/cardsfolder/ | wc -l
 Same class of mistake as the vocabulary scanner trimming its input and hiding `ValidTgts$ Player, Planeswalker`: a
 search that ignores where a token can start finds tokens that are not there, and misses ones that are.
 
+### Params the named effect does not read
+
+`tools/apiscan -check -api` asks the stronger question: not "does anything read this key" but "does the effect this card
+names read it". **39 uses across 24 (API, key) pairs.** Each was checked against the effect's complete param list, not a
+grep — the key appears nowhere in that class, and nowhere in any class it inherits from inside the effects directory.
+
+Nine of them share one root cause. `DigEffect` and `ChangeZoneEffect` use **opposite spellings for the same two
+concepts**, and cards written for one API reach for the other's name:
+
+| Concept              | `Dig` reads     | `ChangeZone` reads |
+| -------------------- | --------------- | ------------------ |
+| Who chooses          | `Choser`        | `Chooser`          |
+| Prompt shown to them | `PrimaryPrompt` | `SelectPrompt`     |
+
+`Choser` is Forge's misspelling and it is load-bearing on `Dig`; the corpus writes `Chooser$` 278 times and `Choser$` 12
+times, so most cards use the correct spelling and the ones on a `Dig` line are the ones that lose the setting.
+
+| Card                      | API          | Writes           | That API reads  |
+| ------------------------- | ------------ | ---------------- | --------------- |
+| `psychotic_episode`       | `Dig`        | `Chooser$`       | `Choser`        |
+| `sandstalker_moloch`      | `Dig`        | `SelectPrompt$`  | `PrimaryPrompt` |
+| `reality_shaping`         | `ChangeZone` | `Choser$`        | `Chooser`       |
+| `blood_for_bones` ×2      | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
+| `kazandu_stomper`         | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
+| `mycoid_resurrection`     | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
+| `rocco_cabaretti_caterer` | `ChangeZone` | `PrimaryPrompt$` | `SelectPrompt`  |
+
+`reality_shaping` is the one with rules consequence rather than a prompt: it means the remembered player to choose, and
+gets the activating player instead.
+
+The remaining fifteen pairs, with the sibling key where the effect has one:
+
+| API             | Key                                              | Uses | The effect reads instead       |
+| --------------- | ------------------------------------------------ | ---: | ------------------------------ |
+| `DigUntil`      | `Reveal`                                         |    6 | nothing like it                |
+| `PeekAndReveal` | `Reveal`                                         |    3 | `NoReveal`, `RevealOptional`   |
+| `ChangeZoneAll` | `ValidDescription`                               |    2 | no description key at all      |
+| `ChangeZoneAll` | `Reveal`                                         |    2 | nothing like it                |
+| `ChangeZoneAll` | `ChangeTypeDesc`                                 |    1 | no description key at all      |
+| `Effect`        | `PumpZone`                                       |    2 | nothing; `Pump` reads it       |
+| `Token`         | `ForgetOtherRemembered`                          |    2 | nothing; `ChangeZoneAll` does  |
+| `Effect`        | `ForgetOtherRemembered`                          |    1 | `ForgetOnMoved`                |
+| `PutCounter`    | `ChoicePrompt`                                   |    1 | `ChoiceTitle`                  |
+| `PutCounter`    | `RememberChosen`                                 |    1 | `RememberCards`                |
+| `Pump`          | `Imprint`                                        |    1 | `ImprintCards`                 |
+| `CopyPermanent` | `TokenOwner`                                     |    1 | `Controller`                   |
+| `Play`          | `ExileOnMoved`                                   |    1 | nothing; `Effect` reads it     |
+| `DigMultiple`   | `ForceRevealToController`                        |    1 | `Reveal`; `Dig` reads it       |
+| `Draft`         | `Conjure`, `SpellbookName`                       |    2 | nothing; `MakeCard` reads both |
+| `ChooseCard`    | `Chooser`, `Guess`, `NoReveal`, `ChoiceOptional` |    4 | nothing like them              |
+
+Every one is a key some effect reads, written on an effect that does not. That is the signature of a card script copied
+from another card and edited, and it is invisible in Forge for the same reason the first thirteen were.
+
+**Not yet reported upstream.** Confirming the key is unread is one question; whether each card is measurably wrong is
+the other, and it needs the printed text card by card, the way the first thirteen were settled. The gate reports these
+without failing the build until then ([parity-matrix.md](parity-matrix.md)).
+
 ### Why an unread key is silent
 
 `AbilityFactory` builds the param map from the script line and hands it to the effect; the effect asks for the keys it

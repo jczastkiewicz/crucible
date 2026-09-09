@@ -58,20 +58,18 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path                             | Change                                      | Upstream                                                       |
-| ---------- | -------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
-| 2026-09-09 | 7 files under `res/cardsfolder`  | Rename five param keys nothing reads        | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
-| 2026-09-09 | 9 files under `res/cardsfolder`  | Delete seven param keys nothing reads       | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
-| 2026-09-09 | `d/dead_ringers.txt`             | Rename one param key nothing reads          | [#11850](https://github.com/Card-Forge/forge/pull/11850), open |
-| 2026-09-10 | 10 files under `res/cardsfolder` | Rename 11 params read by a different effect | not yet opened                                                 |
-| 2026-09-10 | 27 files under `res/cardsfolder` | Delete 27 params the named effect ignores   | not yet opened                                                 |
+| Date       | Path                               | Change                                      | Upstream                                                       |
+| ---------- | ---------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
+| 2026-09-10 | 10 files under `res/cardsfolder`   | Rename 11 params read by a different effect | [#11851](https://github.com/Card-Forge/forge/pull/11851), open |
+| 2026-09-10 | 27 files under `res/cardsfolder`   | Delete 27 params the named effect ignores   | [#11852](https://github.com/Card-Forge/forge/pull/11852), open |
+| 2026-09-10 | `upcoming/ingris_stingerquill.txt` | `Svar:` for `SVar:`                         | not yet opened                                                 |
 
-Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied the scan
-finds zero unread keys, which is the state the M3 vocabulary gate asserts. Without them the gate would have to carry an
-allowlist of 16 uses that exists only until two pull requests land.
+Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied no card
+writes a param key its own effect ignores, which is what lets the `-api` gate block instead of merely report. Without
+them the gate would need an allowlist of 39 uses that exists only until two pull requests land.
 
-`d/dead_ringers.txt` was held back while its fix was undecided. CR 608.2 settles it — an effect that needs a colour it
-cannot determine does not happen — so it is carried like the other two.
+The first three rows retired on 2026-09-10: #11846, #11848 and #11850 merged, and the sync brought the identical content
+back, which is exactly the condition each row named.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

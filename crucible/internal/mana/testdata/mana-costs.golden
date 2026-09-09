@@ -618,6 +618,7 @@ CW CU CB CR CG	{C/W}{C/U}{C/B}{C/R}{C/G}	5	WUBRG
 G	{G}	1	G
 G G	{G}{G}	2	G
 G G G	{G}{G}{G}	3	G
+G G G G	{G}{G}{G}{G}	4	G
 G G G G G	{G}{G}{G}{G}{G}	5	G
 G G G G G G	{G}{G}{G}{G}{G}{G}	6	G
 G G G G G G G G	{G}{G}{G}{G}{G}{G}{G}{G}	8	G

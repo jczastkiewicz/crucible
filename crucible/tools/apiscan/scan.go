@@ -59,6 +59,10 @@ var validParamRead = regexp.MustCompile(`matchesValidParam\(\s*"([A-Za-z0-9_]+)"
 // rather than a call site.
 var additionalKeys = regexp.MustCompile(`(?s)additionalAbilityKeys\s*=\s*Lists\.newArrayList\((.*?)\);`)
 
+// effectSuper matches an effect class's superclass, so a key read in
+// TokenEffectBase counts as TokenEffect's own rather than going missing.
+var effectSuper = regexp.MustCompile(`class\s+\w+\s+extends\s+(\w+)`)
+
 // apiConstant matches one row of the ApiType enum: the API name and the effect
 // class that implements it.
 var apiConstant = regexp.MustCompile(`^\s{4}([A-Za-z][A-Za-z0-9_]*)\s*\((([A-Za-z0-9_]+)Effect)\.class`)
@@ -79,6 +83,12 @@ var sharedRoots = []string{
 	"forge-gui/src/main/java/forge/player",
 }
 
+// effectsDir holds one class per ability API. It sits inside the first shared
+// root, and is excluded from that walk: a key only its own effect reads is
+// that API's vocabulary, not the language's, and folding the two together is
+// what made every per-API set come out empty.
+const effectsDir = "forge-game/src/main/java/forge/game/ability/effects"
+
 // recordKeys lead a param map and say what the line is. They are structure, not
 // parameters, and no code reads them with getParam.
 var recordKeys = map[string]bool{
@@ -86,8 +96,8 @@ var recordKeys = map[string]bool{
 	"Mode": true, "Event": true,
 }
 
-func run(forge string) error {
-	apis, shared, err := readVocabulary(forge)
+func run(forge string, perAPI bool) error {
+	apis, shared, err := readVocabulary(forge, perAPI)
 	if err != nil {
 		return err
 	}
@@ -100,9 +110,9 @@ func run(forge string) error {
 		_, _ = fmt.Fprintf(out, "shared\t%s\n", key)
 	}
 
-	effects := filepath.Join(forge, "forge-game/src/main/java/forge/game/ability/effects")
+	effects := filepath.Join(forge, effectsDir)
 	for _, api := range apis {
-		keys, err := readParams(filepath.Join(effects, api.class+".java"))
+		keys, err := readEffectParams(effects, api.class)
 		if err != nil {
 			// An API whose class lives elsewhere is reported, not guessed at.
 			_, _ = fmt.Fprintf(out, "missing\t%s\t%s\n", api.name, api.class)
@@ -121,7 +131,7 @@ func run(forge string) error {
 }
 
 // readVocabulary returns the API list and every param key Forge reads anywhere.
-func readVocabulary(forge string) ([]api, map[string]bool, error) {
+func readVocabulary(forge string, perAPI bool) ([]api, map[string]bool, error) {
 	apis, err := readAPIs(filepath.Join(forge, "forge-game/src/main/java/forge/game/ability/ApiType.java"))
 	if err != nil {
 		return nil, nil, err
@@ -130,8 +140,17 @@ func readVocabulary(forge string) ([]api, map[string]bool, error) {
 	shared := map[string]bool{}
 	for _, root := range sharedRoots {
 		if err := filepath.WalkDir(filepath.Join(forge, root), func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() || filepath.Ext(path) != ".java" {
+			if err != nil {
 				return err
+			}
+			if d.IsDir() {
+				if perAPI && filepath.Clean(path) == filepath.Clean(filepath.Join(forge, effectsDir)) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".java" {
+				return nil
 			}
 			keys, err := readParams(path)
 			if err != nil {
@@ -226,8 +245,8 @@ type use struct{ key, card, api, line string }
 // check compiles the whole corpus and reports every param key no Java code
 // reads. Forge's param map is a TreeMap(CASE_INSENSITIVE_ORDER), so keys are
 // compared case-insensitively here for the same reason.
-func check(forge, corpus, types, allow string) error {
-	apis, shared, err := readVocabulary(forge)
+func check(forge, corpus, types, allow string, perAPI bool) error {
+	apis, shared, err := readVocabulary(forge, perAPI)
 	if err != nil {
 		return err
 	}
@@ -300,13 +319,17 @@ func check(forge, corpus, types, allow string) error {
 		unread++
 		fmt.Fprintf(os.Stderr, "%s: %s writes %s$, which nothing reads\n  %s\n", u.card, u.api, u.key, u.line)
 	}
+	scope := "no Java code reads"
+	if perAPI {
+		scope = "the named effect does not read"
+	}
 	if unread > 0 {
-		return fmt.Errorf("%w: %d of them, over %d cards", errUnread, unread, cards)
+		return fmt.Errorf("%w: %d uses of keys %s, over %d cards", errUnread, unread, scope, cards)
 	}
 	if len(uses) == 0 {
-		fmt.Printf("apiscan: %d cards, no param key that nothing reads\n", cards)
+		fmt.Printf("apiscan: %d cards, no param key %s\n", cards, scope)
 	} else {
-		fmt.Printf("apiscan: %d cards, no unread param key outside the %d excluded\n", cards, len(uses))
+		fmt.Printf("apiscan: %d cards, no param key %s outside the %d excluded\n", cards, scope, len(uses))
 	}
 	return nil
 }
@@ -347,11 +370,11 @@ func format(a *compile.Ability) string {
 // readOwnParams returns, per API, the keys its effect class reads that the
 // shared vocabulary does not already cover.
 func readOwnParams(forge string, apis []api, shared map[string]bool) (map[string]map[string]bool, error) {
-	effects := filepath.Join(forge, "forge-game/src/main/java/forge/game/ability/effects")
+	effects := filepath.Join(forge, effectsDir)
 	out := make(map[string]map[string]bool, len(apis))
 	for _, a := range apis {
 		set := map[string]bool{}
-		keys, err := readParams(filepath.Join(effects, a.class+".java"))
+		keys, err := readEffectParams(effects, a.class)
 		if err == nil {
 			for key := range keys {
 				if !shared[key] {
@@ -390,4 +413,38 @@ func readExclusions(path string) (map[string]bool, error) {
 		out[strings.ToLower(m[1])] = true
 	}
 	return out, nil
+}
+
+// readEffectParams reads one effect class and every ancestor of it that also
+// lives in the effects directory. TokenEffect reads half its params through
+// TokenEffectBase, and an API whose vocabulary stops at its own file is an API
+// reported as not reading params it plainly reads.
+func readEffectParams(effects, class string) (map[string]bool, error) {
+	keys, err := readParams(filepath.Join(effects, class+".java"))
+	if err != nil {
+		return nil, err
+	}
+	// Bounded rather than while(true): a malformed or cyclic extends chain
+	// must not hang the build.
+	for depth := 0; depth < 8; depth++ {
+		raw, err := os.ReadFile(filepath.Join(effects, class+".java"))
+		if err != nil {
+			break
+		}
+		m := effectSuper.FindStringSubmatch(string(raw))
+		if m == nil {
+			break
+		}
+		class = m[1]
+		parent, err := readParams(filepath.Join(effects, class+".java"))
+		if err != nil {
+			// The chain leaves the effects directory at SpellAbilityEffect,
+			// which is shared and already counted.
+			break
+		}
+		for key := range parent {
+			keys[key] = true
+		}
+	}
+	return keys, nil
 }

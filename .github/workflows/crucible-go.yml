@@ -116,6 +116,15 @@ jobs:
       - name: apiscan — no param key that nothing reads (P2)
         run: go run ./tools/apiscan -check
 
+      # The stronger per-effect question is -check -api. It reports 39 uses
+      # today, most of them probably effects delegating to another effect's
+      # helper rather than real dead params, so it runs for the record and does
+      # not fail the build until those are triaged
+      # (docs/crucible/porting/parity-matrix.md).
+      - name: apiscan — per-effect param attribution (reporting only)
+        continue-on-error: true
+        run: go run ./tools/apiscan -check -api
+
       # ADR-0003 admits "discipline replaces enforcement inside that boundary".
       # enginelint is the enforcement. Skipped until internal/engine exists.
       - name: enginelint

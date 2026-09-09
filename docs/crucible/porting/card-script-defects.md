@@ -26,9 +26,50 @@ Every one is merged upstream, so the fork carries no card-script divergence:
 `git diff upstream/master -- forge-gui/res/cardsfolder` is empty. `internal/carddb/compile` compiles the whole corpus
 with no exemption of any kind, and `internal/valid` parses all 49,615 valid strings with no padded base.
 
-Two more are known and deliberately unreported: `the_eagles_are_coming` writes `SubAbility$` twice on one line, where
-Java's param map keeps only the last, and `worzel_the_protector`'s `Oracle:` line spells "Faerie ceratures". Neither
-changes what a card does.
+Two more change no rules behaviour:
+
+`the_eagles_are_coming` writes `SubAbility$` twice on one line. `FileSection.parseToMap` keeps the last value, and the
+last value — `DBDelayedTrigger` — is the one with an `SVar:`; the first names a `DBChangeZone` the file does not define.
+So the card plays correctly, and only because the map resolves the way it does. Worth tidying, because the line reads as
+broken to anyone who does not know that rule.
+
+`worzel_the_protector` spells "Faerie ceratures" in both `SpellDescription$` and `Oracle:`. Printed reminder text is
+"(They're {G} 1/1 Faerie creatures with flying.)" — a one-character typo in two places, no rules effect.
+
+## Unread parameters
+
+A second gate, `tools/apiscan`, checks every param key a script writes against every key Forge reads. 18 uses of 13 keys
+across 17 cards are read by nothing. Full evidence per key — the effect's source, the commit that stopped reading it,
+the sibling cards, the printed Oracle text — is in [dead-params.md](dead-params.md). Seven change what a card does and
+are fixed:
+
+| Card                       | Defect                               | Consequence                                   | Upstream                                                       |
+| -------------------------- | ------------------------------------ | --------------------------------------------- | -------------------------------------------------------------- |
+| `leader_super_genius`      | `ValidConniver$` for `ValidCard$`    | Replacement fires on **every** connive        | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `mindblaze`                | `PeekNum$` for `PeekAmount$`         | Reveals 1 card, not the whole library         | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `mob_verdict`              | `Secret$` for `Secretly$`            | Secret council votes cast openly              | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `beorns_hospitality`       | `ValidTgtDesc$` for `ValidTgtsDesc$` | Prompt reads `Select target Creature.YouCtrl` | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `generous_revival`         | `ValidTgtDesc$` for `ValidTgtsDesc$` | Prompt reads the raw valid string             | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `galion_elvenkings_butler` | `ValidTgtsDes$` for `ValidTgtsDesc$` | Prompt reads the raw valid string             | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| `shuttle_crew`             | `ValidTgtsDes$` for `ValidTgtsDesc$` | Prompt reads the raw valid string             | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+
+`dead_ringers` writes `ConditionPresentCompare$ EQ2` where the vocabulary is `ConditionCompare$`, so the compare
+defaults to `GE1`. It is held back from that PR: the typo is certain, the fix is not. Renaming restores what
+`ca362664b7c` intended and makes the spell do nothing once a target is removed in response; deleting the param keeps
+today's behaviour, which is what CR 608.2b's "do as much as possible" implies. Two candidates with opposite behaviour is
+an issue for a rules reader, not a pull request that quietly picks one.
+
+The other nine uses — `TokenController$`, `RememberRandomChoice$`, `OverwriteSpells$`, `AISearchGoal$`,
+`AlternativeMessage$`, `SpeTgtPrompt$`, `TrigDescReminderDefined$` — change nothing observable. Three had their reader
+deleted years ago, two duplicate a default, two never existed in Java in any revision. They go upstream as deletions,
+not as fixes.
+
+### Why an unread key is silent
+
+`AbilityFactory` builds the param map from the script line and hands it to the effect; the effect asks for the keys it
+knows. A key nobody asks for is neither rejected nor logged — unlike a broken `SubAbility$` chain, which at least prints
+to stdout. So the failure mode is worse than the one above: the card loads, plays, and simply does less than its own
+line says.
 
 ## Why a broken chain is silent
 

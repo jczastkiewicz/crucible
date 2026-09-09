@@ -121,8 +121,9 @@ happen and the survivor lives. `EQ2` does that; `GE1` destroys the survivor.
 | `ConditionCompare$ EQ2` — intended in 2024 | Spell does nothing             | **Correct under CR 608.2**               |
 | Pre-2024 `RememberOriginalTargets$`        | Compares the original pair     | Wrong — reads an illegal target's colour |
 
-Fixed in [#TBD](https://github.com/Card-Forge/forge). The two Gatherer rulings, both 2004-10-04, cover only the
-both-targets-legal case and are already implemented by `ConditionNoDifferentColors$ Targeted`; neither is affected.
+Fixed in [#11850](https://github.com/Card-Forge/forge/pull/11850), open. The two Gatherer rulings, both 2004-10-04,
+cover only the both-targets-legal case and are already implemented by `ConditionNoDifferentColors$ Targeted`; neither is
+affected.
 
 ### Counting them needs the same care as finding them
 

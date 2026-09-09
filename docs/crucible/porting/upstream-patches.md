@@ -62,7 +62,7 @@ merges it and a sync brings the identical content back.
 | ---------- | ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
 | 2026-09-09 | 7 files under `res/cardsfolder` | Rename five param keys nothing reads  | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
 | 2026-09-09 | 9 files under `res/cardsfolder` | Delete seven param keys nothing reads | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
-| 2026-09-09 | `d/dead_ringers.txt`            | Rename one param key nothing reads    | not yet opened                                                 |
+| 2026-09-09 | `d/dead_ringers.txt`            | Rename one param key nothing reads    | [#11850](https://github.com/Card-Forge/forge/pull/11850), open |
 
 Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied the scan
 finds zero unread keys, which is the state the M3 vocabulary gate asserts. Without them the gate would have to carry an

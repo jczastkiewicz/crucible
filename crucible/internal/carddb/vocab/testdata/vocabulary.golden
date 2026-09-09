@@ -11,7 +11,6 @@ paramKey	AINoRecursiveCheck
 paramKey	AIPhyrexianPayment
 paramKey	AIRespondsToOwnAbility
 paramKey	AISVarCompare
-paramKey	AISearchGoal
 paramKey	AITgtOwnCards
 paramKey	AITgts
 paramKey	AITgtsStrict
@@ -89,7 +88,6 @@ paramKey	AlreadyRevealed
 paramKey	AltChoiceForEach
 paramKey	AlternateCost
 paramKey	AlternativeDecider
-paramKey	AlternativeMessage
 paramKey	AlwaysRemember
 paramKey	AlwaysReplace
 paramKey	Amount
@@ -655,11 +653,9 @@ paramKey	OtherBidder
 paramKey	OtherSVar
 paramKey	OtherwiseSubAbility
 paramKey	OverwriteColors
-paramKey	OverwriteSpells
 paramKey	Paid
 paramKey	Pawprint
 paramKey	PeekAmount
-paramKey	PeekNum
 paramKey	PersistentMana
 paramKey	Phase
 paramKey	PhaseCount
@@ -785,7 +781,6 @@ paramKey	RememberPlayed
 paramKey	RememberPlayers
 paramKey	RememberPumped
 paramKey	RememberPut
-paramKey	RememberRandomChoice
 paramKey	RememberRedirectedExcess
 paramKey	RememberRemoved
 paramKey	RememberRemovedCards
@@ -899,7 +894,6 @@ paramKey	Searched
 paramKey	SecondSVarCompare
 paramKey	Secondary
 paramKey	SecondaryType
-paramKey	Secret
 paramKey	Secretly
 paramKey	SelectPrompt
 paramKey	Separator
@@ -942,7 +936,6 @@ paramKey	Source
 paramKey	SourceCanOnlyTarget
 paramKey	SourceController
 paramKey	SourceZone
-paramKey	SpeTgtPrompt
 paramKey	SpecifyCounter
 paramKey	Spell
 paramKey	SpellDescription
@@ -1021,7 +1014,6 @@ paramKey	TokenAttacking
 paramKey	TokenBlocking
 paramKey	TokenCard
 paramKey	TokenColors
-paramKey	TokenController
 paramKey	TokenOwner
 paramKey	TokenPower
 paramKey	TokenRemembered
@@ -1033,7 +1025,6 @@ paramKey	TopCardOfLibraryIs
 paramKey	Toughness
 paramKey	TransferActivator
 paramKey	Transformed
-paramKey	TrigDescReminderDefined
 paramKey	Trigger
 paramKey	TriggerAmount
 paramKey	TriggerController
@@ -1105,7 +1096,6 @@ paramKey	ValidCardsDesc
 paramKey	ValidCause
 paramKey	ValidCauser
 paramKey	ValidChoices
-paramKey	ValidConniver
 paramKey	ValidCounterType
 paramKey	ValidCreature
 paramKey	ValidCrew
@@ -1144,9 +1134,7 @@ paramKey	ValidSpellAbility
 paramKey	ValidStepTurnToController
 paramKey	ValidSupportedCopy
 paramKey	ValidTarget
-paramKey	ValidTgtDesc
 paramKey	ValidTgts
-paramKey	ValidTgtsDes
 paramKey	ValidTgtsDesc
 paramKey	ValidToken
 paramKey	ValidTrigger

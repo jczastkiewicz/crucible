@@ -46,3 +46,27 @@ kind by accident.
 **Empty, and that is the target.** An exclusion is not "this token is fine"; it is "this token fails the gate and
 someone decided to ship anyway". Every dead param the scan found was fixed instead —
 [card-script-defects.md](card-script-defects.md).
+
+## What the gate does not yet ask
+
+`tools/apiscan -check` proves "some Java code reads this key". The stronger claim — "the effect this card names reads
+this key" — is `-check -api`, which attributes keys per effect class and follows each class's superclass chain inside
+the effects directory.
+
+It reports **39 uses across 24 (API, key) pairs** and is deliberately not wired into CI. An effect that delegates to
+another effect's static helper looks, under that model, exactly like a card writing a key its own effect ignores, and
+the two need the same per-key verification the first thirteen dead params got
+([card-script-defects.md](card-script-defects.md)). Candidates, most-used first:
+
+| API             | Key                     | Cards |
+| --------------- | ----------------------- | ----: |
+| `DigUntil`      | `Reveal`                |     6 |
+| `ChangeZone`    | `PrimaryPrompt`         |     5 |
+| `PeekAndReveal` | `Reveal`                |     3 |
+| `ChangeZoneAll` | `ValidDescription`      |     2 |
+| `ChangeZoneAll` | `Reveal`                |     2 |
+| `Effect`        | `PumpZone`              |     2 |
+| `Token`         | `ForgetOtherRemembered` |     2 |
+
+Seventeen more pairs appear once each. Until they are triaged the gate asks the weaker question, which it answers
+cleanly.

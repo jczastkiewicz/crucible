@@ -12,11 +12,21 @@
 //
 //	go run ./tools/apiscan                 # the vocabulary, as TSV
 //	go run ./tools/apiscan -check          # fail on any param key nothing reads
+//	go run ./tools/apiscan -check -api     # ... that the card's own effect reads
 //
 // -check is the gate. It compiles every card and reports each param key that no
 // Java code reads, with the card and the line that writes it, unless the key is
 // listed in the deliberate-exclusion table of
 // docs/crucible/porting/parity-matrix.md.
+//
+// -api asks the stronger question: not "does anything read this key" but "does
+// the effect this card names read it". It attributes keys per effect class,
+// following each class's superclass chain inside the effects directory, and
+// treats everything outside that directory as the language's shared
+// vocabulary. It reports 39 uses today and is not wired into CI: an effect that
+// delegates to another effect's static helper looks, to this model, like a card
+// writing a key its own effect ignores, and telling those apart needs the same
+// per-key verification the first thirteen got.
 package main
 
 import (
@@ -31,13 +41,14 @@ func main() {
 	types := flag.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
 	allow := flag.String("allow", "../docs/crucible/porting/parity-matrix.md", "deliberate-exclusion table")
 	gate := flag.Bool("check", false, "fail on any param key nothing reads")
+	perAPI := flag.Bool("api", false, "attribute keys per effect class instead of to the engine as a whole")
 	flag.Parse()
 
 	var err error
 	if *gate {
-		err = check(*forge, *corpus, *types, *allow)
+		err = check(*forge, *corpus, *types, *allow, *perAPI)
 	} else {
-		err = run(*forge)
+		err = run(*forge, *perAPI)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "apiscan: %v\n", err)

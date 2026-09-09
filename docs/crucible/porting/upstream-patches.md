@@ -58,18 +58,16 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path                               | Change                                      | Upstream                                                       |
-| ---------- | ---------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
-| 2026-09-10 | 10 files under `res/cardsfolder`   | Rename 11 params read by a different effect | [#11851](https://github.com/Card-Forge/forge/pull/11851), open |
-| 2026-09-10 | 27 files under `res/cardsfolder`   | Delete 27 params the named effect ignores   | [#11852](https://github.com/Card-Forge/forge/pull/11852), open |
-| 2026-09-10 | `upcoming/ingris_stingerquill.txt` | `Svar:` for `SVar:`                         | not yet opened                                                 |
+| Date       | Path                               | Change              | Upstream                                                       |
+| ---------- | ---------------------------------- | ------------------- | -------------------------------------------------------------- |
+| 2026-09-10 | `upcoming/ingris_stingerquill.txt` | `Svar:` for `SVar:` | [#11854](https://github.com/Card-Forge/forge/pull/11854), open |
 
-Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied no card
-writes a param key its own effect ignores, which is what lets the `-api` gate block instead of merely report. Without
-them the gate would need an allowlist of 39 uses that exists only until two pull requests land.
+Carried because the corpus gates run against the fork's own tree: a card the parser rejects fails the build whoever
+wrote it, and waiting for a merge would mean disabling a gate in the meantime.
 
-The first three rows retired on 2026-09-10: #11846, #11848 and #11850 merged, and the sync brought the identical content
-back, which is exactly the condition each row named.
+Five rows have already retired this way — #11846, #11848, #11850, #11851 and #11852 merged, and a sync brought the
+identical content back, which is exactly the condition each row named. That is the list working as intended: it empties
+itself.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

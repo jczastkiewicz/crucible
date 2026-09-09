@@ -47,13 +47,12 @@ kind by accident.
 someone decided to ship anyway". Every dead param the scan found was fixed instead —
 [card-script-defects.md](card-script-defects.md).
 
-## What the gate does not yet ask
+## Both questions, both blocking
 
-`tools/apiscan -check` proves "some Java code reads this key". The stronger claim — "the effect this card names reads
-this key" — is `-check -api`, which attributes keys per effect class and follows each class's superclass chain inside
-the effects directory.
+`tools/apiscan -check` proves "some Java code reads this key". `-check -api` proves the stronger claim — "the effect
+this card names reads this key" — by attributing keys per effect class and following each class's superclass chain
+inside the effects directory.
 
-It reports **39 uses across 24 (API, key) pairs**, all verified against each effect's complete param list and listed in
-[card-script-defects.md](card-script-defects.md). It runs in CI for the record and does not fail the build: the keys are
-confirmed unread by the named effect, but whether each card is measurably wrong needs the printed text card by card, and
-the gate should not block on findings nobody has finished checking.
+Both run in CI and both fail the build. The 39 uses the stronger gate first reported were triaged card by card against
+printed text and fixed upstream ([card-script-defects.md](card-script-defects.md)); the exclusion table is empty and no
+gate needs it.

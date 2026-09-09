@@ -116,13 +116,11 @@ jobs:
       - name: apiscan — no param key that nothing reads (P2)
         run: go run ./tools/apiscan -check
 
-      # The stronger per-effect question is -check -api. It reports 39 uses
-      # today, most of them probably effects delegating to another effect's
-      # helper rather than real dead params, so it runs for the record and does
-      # not fail the build until those are triaged
-      # (docs/crucible/porting/parity-matrix.md).
-      - name: apiscan — per-effect param attribution (reporting only)
-        continue-on-error: true
+      # The stronger per-effect question: not "does anything read this key"
+      # but "does the effect this card names read it". Blocking since the 39
+      # uses it first reported were triaged and fixed
+      # (docs/crucible/porting/card-script-defects.md).
+      - name: apiscan — per-effect param attribution (P2)
         run: go run ./tools/apiscan -check -api
 
       # ADR-0003 admits "discipline replaces enforcement inside that boundary".

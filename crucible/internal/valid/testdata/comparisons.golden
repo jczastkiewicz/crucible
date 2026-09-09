@@ -3,14 +3,14 @@ field	baseToughness	4
 field	cmc	619
 field	numColors	6
 field	numTypes	2
-field	power	387
+field	power	388
 field	totalPT	5
 field	toughness	52
 operator	EQ	155
 operator	GE	249
 operator	GT	19
 operator	LE	594
-operator	LT	63
+operator	LT	64
 operator	M2	1
 operand	0
 operand	1

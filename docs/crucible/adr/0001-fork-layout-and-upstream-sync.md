@@ -69,11 +69,24 @@ Supporting rules:
 - **Sync is a merge, never a rebase.** Rebasing Crucible commits onto a moving upstream re-resolves the same conflicts
   repeatedly and rewrites reviewed history.
 
-After each upstream sync, three checks run because upstream may have changed the card corpus:
+After each upstream sync, four steps run because upstream may have changed the card corpus:
 
-1. L2 corpus golden diff — catches a new or changed script key the Go parser does not handle.
-2. `crucible corpus-coverage` — catches new scripts using ability APIs the Go engine has not implemented.
-3. Regenerate `docs/crucible/porting/parity-matrix.md`.
+1. **Regenerate every corpus golden, in one pass.** A sync that adds a single card invalidates all of them at once, and
+   discovering that one failing test run at a time is slow enough that it gets skipped:
+
+   ```bash
+   cd crucible
+   go test $(grep -rln 'flag.Bool("update"' --include=*_test.go . | xargs -n1 dirname | sort -u | sed 's|^|./|') -update
+   ```
+
+   Then read the diff. A golden regenerated without being read converts an unexplained change into an approved one.
+
+2. L2 corpus golden diff — catches a new or changed script key the Go parser does not handle.
+3. `crucible corpus-coverage` — catches new scripts using ability APIs the Go engine has not implemented.
+4. Regenerate `docs/crucible/porting/parity-matrix.md`.
+
+Step 1 comes first because the rest are unreadable until it has run: a stale card count fails several packages at once
+and buries whatever real finding the sync brought with it.
 
 Upstream changes to `forge-game` Java require no Go change unless L4 differential parity goes red.
 

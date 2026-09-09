@@ -59,6 +59,42 @@ Order is kept anyway, because Java's TreeMap loses it and nothing should depend 
 | SVars naming statics, triggers or replacements (`StaticAbilities$`, `Triggers$`) | M4         |
 | Functional variants -- `Variant:` faces have their own lines                     | M3 slice C |
 
+## Golden AST diff
+
+`compile.WriteCanonical` writes a compiled card as deterministic, indented text; `compile.Fingerprint` hashes it.
+`testdata/ast.golden` carries one `filename<TAB>hash` line per card, and `testdata/ast-shapes.golden` carries the full
+text of six cards chosen to cover every record type and every way one ability names another.
+
+Two files rather than one because they answer different questions. The hash golden says **which** of 33,689 cards
+changed, which is the only thing a 34,000-line diff can usefully say. The shapes golden says **what** a change looks
+like, which is what a reviewer actually needs.
+
+Regenerate with `-update`, and read the diff before committing it. A golden updated without being read converts an
+unexplained change into an approved one, which is worse than having no golden.
+
+## `ReplaceWith$` and three more keys the list misses
+
+`AbilityFactory.additionalAbilityKeys` is not the whole set of params whose value is an SVar holding an ability. Four
+more are resolved by the handler or the effect that needs them, and reading only the list leaves them unfollowed:
+
+| Key                              | Resolved by                   | Corpus uses |
+| -------------------------------- | ----------------------------- | ----------: |
+| `ReplaceWith`                    | `ReplacementHandler.java:843` |       1,581 |
+| `ExtraTurnDelayedTriggerExecute` | `AddTurnEffect.java:50`       |           7 |
+| `ExtraPhaseDelayedTriggerExcute` | `AddPhaseEffect.java:72`      |           4 |
+| `Else`                           | `RollDiceEffect.java:474`     |           0 |
+
+The misspelling in `ExtraPhaseDelayedTriggerExcute` is Forge's own and is load-bearing: the param map is keyed on it, so
+correcting it in the Go port would stop the key matching.
+
+`ReplaceWith` is the one that mattered. Every replacement effect in the corpus names its ability that way, so before
+this the compiled AST stopped at the replacement line for 1,276 cards, and `TestCorpusCompiles` could not have found a
+dangling `ReplaceWith$` -- the same defect class as the five dangling `SubAbility$` references it did find. The corpus
+has none today, but it was not being checked.
+
+The golden AST diff is how this surfaced: `leader_super_genius` showed `param ReplaceWith$ "DBDraw"` with no `sub` line
+under it.
+
 ## An unknown key is not an error
 
 Java accepts any key. `AbilityFactory` builds the map, the effect asks for what it knows, and a key nobody asks for is

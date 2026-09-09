@@ -18,13 +18,14 @@ as the change.
 
 ## Log
 
-| Date       | Kind | Path                             | Why                                                                                                                                                            | Commit        |
-| ---------- | ---- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| 2026-09-06 | add  | `.github/workflows/claude.yml`   | GitHub Actions only reads workflows from `.github/workflows/`. No alternative location exists. Created by `/install-github-app`                                | `9f0d3ad315d` |
-| 2026-09-06 | add  | `.prettierrc`, `.prettierignore` | Prettier resolves config from the repo root only. `.prettierignore` is what keeps every upstream file unformatted (DOC-14)                                     | `ff8c555fdf0` |
-| 2026-09-06 | add  | `.markdownlint-cli2.jsonc`       | Same root-only resolution, and the VSCode extension reads the same file so editor and CI agree (DOC-15)                                                        | `ff8c555fdf0` |
-| 2026-09-06 | add  | `CLAUDE.md`                      | Claude Code reads it from the repo root only                                                                                                                   | `ff8c555fdf0` |
-| 2026-09-06 | add  | `.github/dependabot.yml`         | Dependabot reads config from `.github/` only. Scoped to `github-actions`; a `maven` entry at the root would auto-generate PRs editing upstream `pom.xml` files | `pending`     |
+| Date       | Kind | Path                                | Why                                                                                                                                                                                                                | Commit        |
+| ---------- | ---- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| 2026-09-06 | add  | `.github/workflows/claude.yml`      | GitHub Actions only reads workflows from `.github/workflows/`. No alternative location exists. Created by `/install-github-app`                                                                                    | `9f0d3ad315d` |
+| 2026-09-06 | add  | `.prettierrc`, `.prettierignore`    | Prettier resolves config from the repo root only. `.prettierignore` is what keeps every upstream file unformatted (DOC-14)                                                                                         | `ff8c555fdf0` |
+| 2026-09-06 | add  | `.markdownlint-cli2.jsonc`          | Same root-only resolution, and the VSCode extension reads the same file so editor and CI agree (DOC-15)                                                                                                            | `ff8c555fdf0` |
+| 2026-09-06 | add  | `CLAUDE.md`                         | Claude Code reads it from the repo root only                                                                                                                                                                       | `ff8c555fdf0` |
+| 2026-09-06 | add  | `.github/workflows/crucible-go.yml` | GitHub Actions only reads workflows from `.github/workflows/`. Crucible's own Go CI: build, race tests, and every gate. Added in M1 and logged here late — REV-1 requires the row in the same commit as the change | `b976078523d` |
+| 2026-09-06 | add  | `.github/dependabot.yml`            | Dependabot reads config from `.github/` only. Scoped to `github-actions`; a `maven` entry at the root would auto-generate PRs editing upstream `pom.xml` files                                                     | `pending`     |
 
 ### Edits
 
@@ -53,13 +54,22 @@ empties itself is not the list that makes a fork unmergeable.
 
 ### Pending upstream fixes
 
-**None.** An edit whose whole purpose is to disappear goes here: the same change open as a pull request against
+An edit whose whole purpose is to disappear goes here: the same change open as a pull request against
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date | Path | Change | Upstream |
-| ---- | ---- | ------ | -------- |
-| —    | —    | none   | —        |
+| Date       | Path                            | Change                                | Upstream                                                       |
+| ---------- | ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| 2026-09-09 | 7 files under `res/cardsfolder` | Rename five param keys nothing reads  | [#11846](https://github.com/Card-Forge/forge/pull/11846), open |
+| 2026-09-09 | 9 files under `res/cardsfolder` | Delete seven param keys nothing reads | [#11848](https://github.com/Card-Forge/forge/pull/11848), open |
+
+Carried now rather than after the merge because both change what `tools/apiscan` reports: with them applied the scan
+finds zero unread keys, which is the state the M3 vocabulary gate asserts. Without them the gate would have to carry an
+allowlist of 16 uses that exists only until two pull requests land.
+
+`d/dead_ringers.txt` is deliberately not carried. Its key is equally dead, but the fix is undecided
+([dead-params.md](dead-params.md)), and carrying an edit whose content may change is how a pending row becomes a
+permanent one.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

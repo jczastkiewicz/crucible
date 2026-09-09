@@ -108,6 +108,14 @@ jobs:
       - name: docgate — doc-before-code (DOC-12, PORT-4, ADRP-4)
         run: go run ./tools/docgate -module . -docs ../docs/crucible
 
+      # P2's first half: the corpus must not write a param key that no Java
+      # code reads. A key nothing reads is silent in Forge -- it sits in the
+      # param map and the effect resolves without it -- so a gate is the only
+      # thing that makes it visible. The allowlist is the deliberate-exclusion
+      # table in parity-matrix.md, and a key not listed there fails the build.
+      - name: apiscan — no param key that nothing reads (P2)
+        run: go run ./tools/apiscan -check
+
       # ADR-0003 admits "discipline replaces enforcement inside that boundary".
       # enginelint is the enforcement. Skipped until internal/engine exists.
       - name: enginelint

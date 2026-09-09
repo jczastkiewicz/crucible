@@ -38,8 +38,9 @@ Column meaning:
 | [`tools/docgate`](../../../crucible/tools/docgate)                     | Fails the build on code that landed without its documentation                                                                   | — new code                                                                              | —                                                                  |
 | [`tools/enginelint`](../../../crucible/tools/enginelint)               | Enforces file-group boundaries inside the single `internal/engine` package                                                      | — new code; exists because Go has no sub-package visibility                             | —                                                                  |
 | [`tools/javacycles`](../../../crucible/tools/javacycles)               | Reproduces ADR-0003's Java package-cycle count                                                                                  | — new code                                                                              | —                                                                  |
+| [`tools/apiscan`](../../../crucible/tools/apiscan)                     | Recovers each ability API's param vocabulary from Forge's call sites, and fails the build on a param key nothing reads          | — new code                                                                              | —                                                                  |
 
-**Nineteen packages: two in `pkg/`, ten in `internal/`, one `cmd/`, six in `tools/`.** The split follows
+**Twenty packages: two in `pkg/`, ten in `internal/`, one `cmd/`, seven in `tools/`.** The split follows
 [ADR-0003](../adr/0003-go-project-layout.md): `pkg/` is reserved for code with no Crucible semantics, and an ordered set
 and a generator port qualify; `tools/` holds build-time commands the engine never imports; everything with rules
 meaning, `mana` and `cardtype` included, goes in `internal/` where nothing outside the module can import it.
@@ -52,14 +53,15 @@ meaning, `mana` and `cardtype` included, goes in `internal/` where nothing outsi
 
 ## Enforcement
 
-| Tool                                                     | Scope              | Enforces                                                                            |
-| -------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------- |
-| `depguard`, inside `golangci-lint`                       | Between packages   | ADR-0002 stdlib-only runtime, ADR-0006 no global RNG, ADR-0003 arrow direction      |
-| [`tools/enginelint`](../../../crucible/tools/enginelint) | Inside one package | File-group boundaries within `internal/engine`, which no package-level tool can see |
-| [`tools/javacycles`](../../../crucible/tools/javacycles) | The Java tree      | Re-checks ADR-0003's 82-cycle premise after an upstream sync                        |
-| [`tools/docgate`](../../../crucible/tools/docgate)       | Code against docs  | DOC-12 module-map rows, PORT-4 port-log notes, ADRP-4 ADR-before-code               |
-| [`tools/covergate`](../../../crucible/tools/covergate)   | Tests against docs | TEST-12 coverage floors, read from the guideline rather than a second config        |
-| [`tools/carddump`](../../../crucible/tools/carddump)     | Go against Java    | P1: every card's canonical JSON, diffed against `oracle-java`'s `CardRulesDumper`   |
+| Tool                                                     | Scope                | Enforces                                                                               |
+| -------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `depguard`, inside `golangci-lint`                       | Between packages     | ADR-0002 stdlib-only runtime, ADR-0006 no global RNG, ADR-0003 arrow direction         |
+| [`tools/enginelint`](../../../crucible/tools/enginelint) | Inside one package   | File-group boundaries within `internal/engine`, which no package-level tool can see    |
+| [`tools/javacycles`](../../../crucible/tools/javacycles) | The Java tree        | Re-checks ADR-0003's 82-cycle premise after an upstream sync                           |
+| [`tools/docgate`](../../../crucible/tools/docgate)       | Code against docs    | DOC-12 module-map rows, PORT-4 port-log notes, ADRP-4 ADR-before-code                  |
+| [`tools/covergate`](../../../crucible/tools/covergate)   | Tests against docs   | TEST-12 coverage floors, read from the guideline rather than a second config           |
+| [`tools/carddump`](../../../crucible/tools/carddump)     | Go against Java      | P1: every card's canonical JSON, diffed against `oracle-java`'s `CardRulesDumper`      |
+| [`tools/apiscan`](../../../crucible/tools/apiscan)       | Scripts against Java | P2: no card writes a param key no Java code reads, outside the parity-matrix allowlist |
 
 ## What the arrows look like today
 

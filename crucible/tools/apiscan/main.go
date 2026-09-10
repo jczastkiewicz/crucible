@@ -42,12 +42,16 @@ func main() {
 	allow := flag.String("allow", "../docs/crucible/porting/parity-matrix.md", "deliberate-exclusion table")
 	gate := flag.Bool("check", false, "fail on any param key nothing reads")
 	perAPI := flag.Bool("api", false, "attribute keys per effect class instead of to the engine as a whole")
+	kinds := flag.Bool("kinds", false, "report each param key's type, from Java call sites and corpus values")
 	flag.Parse()
 
 	var err error
-	if *gate {
+	switch {
+	case *kinds:
+		err = reportTypes(*forge, *corpus, *types)
+	case *gate:
 		err = check(*forge, *corpus, *types, *allow, *perAPI)
-	} else {
+	default:
 		err = run(*forge, *perAPI)
 	}
 	if err != nil {

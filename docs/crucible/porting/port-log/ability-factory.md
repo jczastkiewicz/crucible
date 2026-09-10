@@ -95,6 +95,44 @@ has none today, but it was not being checked.
 The golden AST diff is how this surfaced: `leader_super_genius` showed `param ReplaceWith$ "DBDraw"` with no `sub` line
 under it.
 
+## What type is a param?
+
+ADR-0007 says parameters become typed structs per API — `DealDamageParams` holding an `expr.Amount` and a `valid.Spec`,
+not two strings. Nothing in Forge declares those types, so they have to be recovered, and `tools/apiscan -kinds` is the
+measurement. Two independent signals, because neither is sufficient:
+
+| Signal             | Settles                                                                             | Cannot settle                                      |
+| ------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------- |
+| The Java call site | `calculateAmount` → amount, `ZoneType.smartValueOf` → zone, `getValidCards` → valid | A key with no distinctive consumer                 |
+| The written values | Every value `True`/`False` → flag; an expression head → amount; spaces → prose      | Zone vs valid string vs SVar name: all bare tokens |
+
+Over the 1,139 param keys at least one card writes:
+
+| Evidence                   | Keys | Share |
+| -------------------------- | ---: | ----: |
+| Typed by a Java call site  |  257 |   23% |
+| Every value `True`/`False` |  421 |  flag |
+| Neither signal             |  445 |   39% |
+
+**So the generator cannot type everything, and should not pretend to.** A key with no evidence gets a `string` field,
+which is what Java has anyway; the win is that the ~680 with evidence get a real type, and GO-8's actual requirement —
+no `any`, no `map[string]string` — is met by the struct either way.
+
+The signals also disagree on real keys, and that is the finding worth keeping rather than averaging away:
+
+```text
+AttachedTo   valid:9,defined:11
+Choices      valid:40,defined:2
+NumCards     amount:24,int:2
+```
+
+`AttachedTo` is a valid string on some effects and an object selector on others. A per-key type would be wrong for one
+of them, which is why the type belongs to the (API, key) pair and not to the key — the same reason the vocabulary itself
+had to be attributed per effect.
+
+`testdata/param-kinds.golden` pins all 1,139 rows, so an upstream refactor that moves a `getParam` call changes a diff
+someone reads rather than the type of a generated field.
+
 ## An unknown key is not an error
 
 Java accepts any key. `AbilityFactory` builds the map, the effect asks for what it knows, and a key nobody asks for is

@@ -75,3 +75,31 @@ any of them needs a game.
 
 The 1,256 distinct property tokens are inventoried in `internal/carddb/vocab`'s golden. Classifying them into families
 belongs with the evaluator that implements them, not with the parser.
+
+## Gating the property vocabulary
+
+`valid.Parse` is total: it splits a string into a base and properties and never rejects one, because Java's
+`CardProperty` never rejects one either — it walks a 297-branch chain and returns false at the end. So a property the
+port does not implement is indistinguishable from one that simply does not match, which is the hole M3 item 19 names.
+
+The accepted vocabulary is not a list anywhere. `CardProperty` tests its explicit branches first and then falls through
+to type and keyword checks, so acceptance is the union of four sources. Measured against the corpus's 1,256 distinct
+properties:
+
+| Source                                                                | Residual unmatched |
+| --------------------------------------------------------------------- | -----------------: |
+| `property.equals` / `startsWith` in `CardProperty` + `PlayerProperty` |          342 (27%) |
+| plus subtypes from `TypeLists.txt`, and colours                       |           117 (9%) |
+| plus core types, supertypes, and the 203 keyword names                |        expected ~0 |
+
+The remaining 117 are exactly what the third row predicts: `Artifact`, `Creature` and `Enchantment` are `CoreType`
+constants rather than `TypeLists.txt` entries; `Backup`, `Bestow`, `Blitz`, `Crew`, `Cycling`, `Dash`, `Embalm`,
+`Equip`, `Flashback` and the rest are keyword names reaching `hasKeyword(property)`; `BlackSource`, `BlueSource` and
+`ColorlessSource` are a colour family.
+
+**The gate is therefore buildable from packages that already exist** — `internal/cardtype` for the three type sources
+and `internal/keyword` for the fourth — and it has to reproduce `CardProperty`'s fallthrough order rather than test a
+flat set, or a property that is both a keyword and an explicit branch would be attributed to the wrong one.
+
+Not built yet. The scrape is the same shape as `tools/apiscan`'s, and that one needed six passes before its blind spots
+stopped producing false findings; this one should be measured to zero residual before it blocks a build.

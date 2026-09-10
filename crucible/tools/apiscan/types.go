@@ -66,67 +66,97 @@ var javaEvidence = []struct {
 // presence. A key never read this way is a flag.
 var valueRead = regexp.MustCompile(`getParam(?:OrDefault)?\("([A-Za-z]+)"`)
 
-// keyEvidence is what both signals say about one param key.
-type keyEvidence struct {
-	java   map[Kind]int // Java call sites, by the kind they imply
+// pair is one (API, param key). The type belongs to the pair, not the key.
+type pair struct{ api, key string }
+
+// written is what the corpus writes for one pair.
+type written struct {
 	values map[string]int
 	uses   int
 }
 
-// classify reads the Java for call-site evidence. A key can appear under more
-// than one kind -- Defined$ is a valid string on some effects and an object
-// selector on others -- so the counts are kept rather than collapsed, and the
-// report shows the disagreement instead of hiding it behind a winner.
-func classify(forge string) (map[string]*keyEvidence, error) {
-	out := map[string]*keyEvidence{}
-	get := func(key string) *keyEvidence {
-		e, ok := out[key]
-		if !ok {
-			e = &keyEvidence{java: map[Kind]int{}, values: map[string]int{}}
-			out[key] = e
+// classify reads the Java for call-site evidence, per API.
+//
+// The measurement that motivated this: AttachedTo is a valid string on some
+// effects and an object selector on others, and Choices likewise. A per-key
+// type would be wrong for one of them, so evidence found inside an effect
+// class belongs to that API, and evidence anywhere else is the shared
+// fallback a key falls back to when its own effect says nothing.
+func classify(forge string, apis []api) (perAPI map[string]map[string]map[Kind]int, shared map[string]map[Kind]int, err error) {
+	perAPI = map[string]map[string]map[Kind]int{}
+	shared = map[string]map[Kind]int{}
+
+	scan := func(text string, into map[string]map[Kind]int) {
+		for _, ev := range javaEvidence {
+			for _, m := range ev.re.FindAllStringSubmatch(text, -1) {
+				if into[m[1]] == nil {
+					into[m[1]] = map[Kind]int{}
+				}
+				into[m[1]][ev.kind]++
+			}
 		}
-		return e
 	}
 
-	roots := append([]string{effectsDir}, sharedRoots...)
-	for _, root := range roots {
-		err := filepath.WalkDir(filepath.Join(forge, root), func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() || filepath.Ext(path) != ".java" {
+	// Per API: the effect class and every ancestor of it inside the effects
+	// directory, the same chain readEffectParams follows.
+	effects := filepath.Join(forge, effectsDir)
+	for _, a := range apis {
+		into := map[string]map[Kind]int{}
+		class := a.class
+		for depth := 0; depth < 8; depth++ {
+			raw, readErr := os.ReadFile(filepath.Join(effects, class+".java"))
+			if readErr != nil {
+				break
+			}
+			scan(string(raw), into)
+			m := effectSuper.FindStringSubmatch(string(raw))
+			if m == nil {
+				break
+			}
+			class = m[1]
+		}
+		perAPI[a.name] = into
+	}
+
+	// Shared: everything outside the effects directory.
+	for _, root := range sharedRoots {
+		walkErr := filepath.WalkDir(filepath.Join(forge, root), func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
 				return err
+			}
+			if d.IsDir() {
+				if filepath.Clean(path) == filepath.Clean(effects) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".java" {
+				return nil
 			}
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
-			text := string(raw)
-			for _, ev := range javaEvidence {
-				for _, m := range ev.re.FindAllStringSubmatch(text, -1) {
-					get(m[1]).java[ev.kind]++
-				}
-			}
-			// A key whose value is never read is a flag, so record that the
-			// value was read at all.
-			for _, m := range valueRead.FindAllStringSubmatch(text, -1) {
-				get(m[1]).java[KindUnknown] += 0 // ensure the key exists
-				_ = m
-			}
+			scan(string(raw), shared)
 			return nil
 		})
-		if err != nil {
-			return nil, err
+		if walkErr != nil {
+			return nil, nil, walkErr
 		}
 	}
-	return out, nil
+	return perAPI, shared, nil
 }
 
-// corpusKinds adds the second signal: what the values themselves parse as.
-// Java evidence says how one call site uses a key; the corpus says what every
-// card actually writes there, and the two disagreeing is worth reading.
-func corpusKinds(corpus, types string, ev map[string]*keyEvidence) (int, error) {
+// corpusKinds adds the second signal: what the values themselves parse as,
+// per API. Java evidence says how one call site uses a key; the corpus says
+// what every card actually writes there, and the two disagreeing is worth
+// reading rather than averaging away.
+func corpusKinds(corpus, types string) (map[pair]*written, int, error) {
 	reg, err := loadTypes(types)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
+	out := map[pair]*written{}
 	cards := 0
 	err = filepath.WalkDir(corpus, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".txt" {
@@ -140,38 +170,39 @@ func corpusKinds(corpus, types string, ev map[string]*keyEvidence) (int, error) 
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		out, err := compile.Compile(card)
+		out2, err := compile.Compile(card)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		cards++
-		for i := range out.Faces {
+		for i := range out2.Faces {
 			for _, group := range [][]*compile.Ability{
-				out.Faces[i].Abilities, out.Faces[i].Triggers,
-				out.Faces[i].Statics, out.Faces[i].Replacements,
+				out2.Faces[i].Abilities, out2.Faces[i].Triggers,
+				out2.Faces[i].Statics, out2.Faces[i].Replacements,
 			} {
 				for _, a := range group {
-					collectValues(a, ev)
+					collectValues(a, out)
 				}
 			}
 		}
 		return nil
 	})
-	return cards, err
+	return out, cards, err
 }
 
-func collectValues(a *compile.Ability, ev map[string]*keyEvidence) {
+func collectValues(a *compile.Ability, out map[pair]*written) {
 	for _, p := range a.Params {
-		e, ok := ev[p.Key]
+		k := pair{api: a.Name, key: p.Key}
+		w, ok := out[k]
 		if !ok {
-			e = &keyEvidence{java: map[Kind]int{}, values: map[string]int{}}
-			ev[p.Key] = e
+			w = &written{values: map[string]int{}}
+			out[k] = w
 		}
-		e.uses++
-		e.values[valueShape(p.Value)]++
+		w.uses++
+		w.values[valueShape(p.Value)]++
 	}
 	for _, s := range a.Subs {
-		collectValues(s.Ability, ev)
+		collectValues(s.Ability, out)
 	}
 }
 
@@ -209,49 +240,61 @@ func isInt(v string) bool {
 	return err == nil
 }
 
-// reportTypes prints one row per param key: what Java's call sites imply, what
-// the corpus writes, and how often. It is a report and not a gate: the two
-// signals disagree on real keys, and a generator that guessed silently would
-// bake the guess into 193 structs.
+// reportTypes prints one row per (API, key): what that API's own Java implies,
+// what the shared code implies when the API says nothing, and what the corpus
+// writes. It is a report, not a gate: the two signals disagree on real pairs,
+// and a generator that picked a winner silently would bake the guess into 193
+// structs.
 func reportTypes(forge, corpus, types string) error {
 	return writeTypes(forge, corpus, types, os.Stdout)
 }
 
 // writeTypes is reportTypes with the destination injected, so the golden test
-// can capture the same bytes CI prints (TEST-8: a different writer, not a mock).
+// captures the same bytes CI prints (TEST-8: a different writer, not a mock).
 func writeTypes(forge, corpus, types string, w *os.File) error {
-	ev, err := classify(forge)
+	apis, _, err := readVocabulary(forge, true)
 	if err != nil {
 		return err
 	}
-	cards, err := corpusKinds(corpus, types, ev)
+	perAPI, shared, err := classify(forge, apis)
+	if err != nil {
+		return err
+	}
+	corpusUse, cards, err := corpusKinds(corpus, types)
 	if err != nil {
 		return err
 	}
 
-	keys := make([]string, 0, len(ev))
-	for k := range ev {
-		keys = append(keys, k)
+	pairs := make([]pair, 0, len(corpusUse))
+	for p := range corpusUse {
+		pairs = append(pairs, p)
 	}
-	sort.Strings(keys)
-
-	counted := 0
-	for _, key := range keys {
-		e := ev[key]
-		if e.uses == 0 {
-			continue // read by Java, written by no card
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].api != pairs[j].api {
+			return pairs[i].api < pairs[j].api
 		}
-		counted++
-		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", key, e.uses, topJava(e), topValues(e))
+		return pairs[i].key < pairs[j].key
+	})
+
+	for _, p := range pairs {
+		own := "-"
+		if m := perAPI[p.api]; m != nil {
+			own = fmtKinds(m[p.key])
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\n",
+			p.api, p.key, corpusUse[p].uses, own, fmtKinds(shared[p.key]), fmtValues(corpusUse[p]))
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "apiscan -kinds: %d cards, %d param keys written by at least one card\n", cards, counted)
+	_, _ = fmt.Fprintf(os.Stderr, "apiscan -kinds: %d cards, %d (API, key) pairs\n", cards, len(pairs))
 	return nil
 }
 
-func topJava(e *keyEvidence) string {
+func fmtKinds(m map[Kind]int) string {
+	if len(m) == 0 {
+		return "-"
+	}
 	var parts []string
 	for k := KindFlag; k <= KindText; k++ {
-		if n := e.java[k]; n > 0 {
+		if n := m[k]; n > 0 {
 			parts = append(parts, fmt.Sprintf("%s:%d", k, n))
 		}
 	}
@@ -261,13 +304,13 @@ func topJava(e *keyEvidence) string {
 	return strings.Join(parts, ",")
 }
 
-func topValues(e *keyEvidence) string {
+func fmtValues(w *written) string {
 	type kv struct {
 		shape string
 		n     int
 	}
 	var all []kv
-	for s, n := range e.values {
+	for s, n := range w.values {
 		all = append(all, kv{s, n})
 	}
 	sort.Slice(all, func(i, j int) bool {

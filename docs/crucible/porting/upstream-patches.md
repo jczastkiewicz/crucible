@@ -58,9 +58,9 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path           | Change                  | Upstream       |
-| ---------- | -------------- | ----------------------- | -------------- |
-| 2026-09-10 | `o/oracle.txt` | `youCtrl` for `YouCtrl` | not yet opened |
+| Date       | Path           | Change                  | Upstream                                                       |
+| ---------- | -------------- | ----------------------- | -------------------------------------------------------------- |
+| 2026-09-10 | `o/oracle.txt` | `youCtrl` for `YouCtrl` | [#11859](https://github.com/Card-Forge/forge/pull/11859), open |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

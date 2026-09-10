@@ -23,7 +23,7 @@ Plan: `docs/crucible/00-master-implementation-plan.md`
 
 Index: `docs/crucible/guidelines/README.md`
 
-Rules have stable IDs — `DOC-4`, `GO-2`, `TEST-1`, `PORT-2`, `ADRP-1`, `REV-5`, `ARCH-2`. Cite them in comments and
+Rules have stable IDs — `DOC-4`, `GO-2`, `TEST-1`, `PORT-2`, `ADRP-1`, `REV-8`, `ARCH-2`. Cite them in comments and
 commit bodies.
 
 ---

@@ -165,7 +165,7 @@ The param gate found thirteen more keys that no Java code reads, across seventee
 
 ## The generated parameter structs
 
-`tools/gen/params` turns the evidence table into one struct per ability API — 187 of them, 4,674 fields — plus a fill
+`tools/genparams` turns the evidence table into one struct per ability API — 187 of them, 4,674 fields — plus a fill
 constructor each and a generated `ParseParams` switch. No reflection, no `init()` registry: the shape ADR-0008 describes
 for effect dispatch, applied to parameters.
 
@@ -195,3 +195,10 @@ means: `Reveal$ False` turns the flag on. Reproducing that is the point (PORT-7)
 and the remaining 220 record names are trigger modes, static modes and replacement events, whose params the handlers
 read rather than an effect. An API missing from the switch fails the test, so the generated file cannot silently fall
 behind `ApiType`.
+
+The tool is `tools/genparams` and not `tools/gen/params` for a reason worth knowing before adding another generator: the
+repository root `.gitignore` — upstream's, alongside `target` and `bin` — carries a bare `gen`, which matches a
+directory of that name at any depth. A `tools/gen/` package is therefore invisible to `git add -A` and to `git status`,
+so it commits clean and fails in CI on the module-map row pointing at a path that is not in the tree. Renaming is the
+fix rather than a negation pattern, because a negation would be an edit to an upstream file and REV-1's target is zero
+of those.

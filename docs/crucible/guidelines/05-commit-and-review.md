@@ -119,6 +119,31 @@ it is authored by people who have never heard of Crucible.
 
 ---
 
+## REV-8 — Upstream-bound commits say how they were produced
+
+A commit on a branch cut from `upstream/master` for a Card-Forge/forge pull request ends with a final line reading
+exactly:
+
+```text
+Powered by Claude Opus 5.
+```
+
+Reason: an upstream reviewer is reading a card-script fix from a fork they do not maintain, and how it was produced is
+part of what they are judging. Every one so far was found by a gate rather than by reading, and the message already
+names the Java that proves it (PORT-8) — the line completes that disclosure rather than decorating it.
+
+**A body line, not a trailer.** Not `Co-Authored-By:`. Authorship and the committer stay unchanged: these are the
+maintainer's commits.
+
+**Only on upstream-bound branches.** Crucible's own commits on `master` and on `port/`, `feat/`, `docs/` branches do not
+carry it, and neither does the cherry-picked copy carried in the fork until upstream merges the fix (REV-1) — that copy
+is a Crucible commit.
+
+Add it when the branch is created. A commit already pushed with its pull request open stays as it is: rewriting
+published history to add a disclosure line costs a reviewer their anchors and buys nothing.
+
+---
+
 ## Related
 
 - [00-documentation-style](00-documentation-style.md)

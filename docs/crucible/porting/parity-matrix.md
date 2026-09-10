@@ -1,43 +1,39 @@
 # Parity Matrix
 
-- **Status:** Half generated. The used column comes from `tools/vocabscan`; the supported column waits on M3's effect
-  registry. Counts are as of the corpus with both unread-param fixes carried
-  ([upstream-patches.md](upstream-patches.md))
+- **Status:** Generated. Do not hand-edit — regenerate with
+  `go run ./tools/vocabscan -matrix > ../docs/crucible/porting/parity-matrix.md` and then `prettier --write`, which owns
+  the table alignment (DOC-14)
 
-Support status of every card-script vocabulary item in the Go engine. Once the registry exists this file is regenerated
-in CI from it and the corpus scan, and **must not be hand-edited**.
+Support status of every card-script vocabulary item in the Go engine, over 33,697 cards.
 
-Also the home of the deliberate-exclusion allowlist: anything the P2 vocabulary scanner is permitted to skip must be
-listed here with a reason, or the build fails.
-
-Used counts are what `go run ./tools/vocabscan` reports over the whole corpus. Each is a vocabulary the compiler needs a
-type for, and the full token lists are pinned in `internal/carddb/vocab/testdata/vocabulary.golden`.
+The used column is what the corpus writes. The supported column is what the engine implements, and only the API row can
+answer it: the other vocabularies are consumed by code that has no registry to count yet, and a zero there would read as
+a measurement rather than an absence.
 
 | Kind                       | Defined in Java | Used in scripts | Supported in Go |
 | -------------------------- | --------------: | --------------: | --------------: |
-| Ability API (`ApiType`)    |             204 |             193 |               0 |
-| Ability param key          |               — |           1,185 |               0 |
-| Keyword head               |             203 |             253 |               0 |
-| Trigger and static mode    |             153 |             252 |               0 |
-| Replacement event          |              45 |              38 |               0 |
-| Cost part                  |             ~45 |              88 |               0 |
-| Count head                 |               — |             268 |               0 |
-| Count operator             |               — |              17 |               0 |
-| Amount-expression head     |               — |              87 |               0 |
-| Amount-expression property |               — |             368 |               0 |
-| Valid base                 |               — |             252 |               0 |
-| Valid property             |               — |           1,256 |               0 |
-| AI hint key                |               — |              29 |               0 |
+| Ability API (`ApiType`)    |             202 |             193 |               0 |
+| Ability param key          |               — |           1,184 |               — |
+| Keyword head               |             203 |             253 |               — |
+| Trigger and static mode    |             153 |             252 |               — |
+| Replacement event          |              45 |              38 |               — |
+| Cost part                  |             ~45 |              88 |               — |
+| Count head                 |               — |             268 |               — |
+| Count operator             |               — |              17 |               — |
+| Amount-expression head     |               — |              87 |               — |
+| Amount-expression property |               — |             368 |               — |
+| Valid base                 |               — |             252 |               — |
+| Valid property             |               — |           1,255 |               — |
+| AI hint key                |               — |              29 |               — |
 
 Two rows read higher than their Java definition count because the script vocabulary is not the enum: keyword heads
 include the ones `CardFactoryUtil` expands without a `Keyword` constant, and modes count triggers and statics together
-because 2,483 of them sit on an SVar body where nothing says which the referencing line is.
+because the ones defined on an SVar body carry nothing saying which the referencing line is.
 
 ## Deliberate exclusions
 
-Read by `tools/apiscan -check`, which fails on any param key nothing reads that is not listed here. The first column is
-the token, the second names its vocabulary; the gate matches on both, so a row cannot silence a token of a different
-kind by accident.
+Read by `tools/apiscan -check`, which fails on any param key nothing reads that is not listed here. The gate matches on
+both the item and its kind, so a row cannot silence a token of a different vocabulary by accident.
 
 | Item | Kind | Reason | Revisit |
 | ---- | ---- | ------ | ------- |
@@ -51,8 +47,4 @@ someone decided to ship anyway". Every dead param the scan found was fixed inste
 
 `tools/apiscan -check` proves "some Java code reads this key". `-check -api` proves the stronger claim — "the effect
 this card names reads this key" — by attributing keys per effect class and following each class's superclass chain
-inside the effects directory.
-
-Both run in CI and both fail the build. The 39 uses the stronger gate first reported were triaged card by card against
-printed text and fixed upstream ([card-script-defects.md](card-script-defects.md)); the exclusion table is empty and no
-gate needs it.
+inside the effects directory. Both run in CI and both fail the build.

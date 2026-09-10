@@ -30,19 +30,23 @@ func main() {
 	corpus := flag.String("corpus", "../forge-gui/res/cardsfolder", "card script directory")
 	types := flag.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
 	kind := flag.String("kind", "", "print every token of this vocabulary, most used first")
+	matrix := flag.Bool("matrix", false, "write docs/crucible/porting/parity-matrix.md to stdout")
 	names := flag.Bool("names", false, "print every token of every vocabulary, sorted, as kind<TAB>name")
 	flag.Parse()
 
-	if err := run(*corpus, *types, *kind, *names); err != nil {
+	if err := run(*corpus, *types, *kind, *names, *matrix); err != nil {
 		fmt.Fprintf(os.Stderr, "vocabscan: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(corpus, types, kind string, names bool) error {
+func run(corpus, types, kind string, names, matrix bool) error {
 	v, cards, err := scan(corpus, types)
 	if err != nil {
 		return err
+	}
+	if matrix {
+		return writeMatrix(os.Stdout, v, cards)
 	}
 
 	// bufio.Writer keeps the first write error and returns it from Flush, so

@@ -74,7 +74,7 @@ Reason: 10⁵–10⁶ games. Re-parsing is the single largest waste in the Java 
 4. Write module-level tests / fixtures against that API (TEST-1) — before the implementation body.
 5. Implement.
 6. Run differential harness against the Java oracle (ADR-0010).
-7. Update `porting/parity-matrix.md`.
+7. Regenerate `porting/parity-matrix.md` — it is generated from the corpus scan and the effect registry, never edited.
 
 Step 2 is where structural decisions get made. Skipping it produces transliteration.
 

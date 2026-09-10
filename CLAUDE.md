@@ -160,4 +160,10 @@ M2 done — `internal/carddb`, `internal/deck`, `tools/carddump`, `crucible corp
 dump is byte-identical to Forge's own `CardRules.Reader` across the whole corpus, and no script key is exempt from the
 parser.
 
-Next: M3, `internal/carddb/compile` — DSL to typed AST, P2 gates. (Plan §5)
+M3 in progress — `internal/carddb/compile` compiles all 33,697 cards with no exemption; `internal/valid`, `expr`,
+`cost`, `keyword` port the value grammars; `tools/apiscan` gates the param vocabulary two ways, both at zero. **P2 exit
+gate green:** no unknowns, allowlist empty, golden AST diff clean.
+
+Remaining in M3: generate the typed param structs (the types are measured, `apiscan -kinds`), and gate the valid
+property vocabulary (designed, `port-log/valid-strings.md`). The effect registry and the generated parity matrix wait on
+`internal/engine`, which lands in M4 — ADR-0003 puts `Effect` and `Registry` there. (Plan §5)

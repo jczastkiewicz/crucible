@@ -1,0 +1,16 @@
+{
+  "package": ".",
+  "groups": {
+    "id": ["id.go"],
+    "zone": ["zone.go"],
+    "card": ["card.go"],
+    "player": ["player.go"],
+    "game": ["game.go"]
+  },
+  "allow": {
+    "zone": ["id"],
+    "card": ["id", "zone"],
+    "player": ["id"],
+    "game": ["id", "zone", "card", "player"]
+  }
+}

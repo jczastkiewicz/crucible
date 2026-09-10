@@ -124,14 +124,10 @@ jobs:
         run: go run ./tools/apiscan -check -api
 
       # ADR-0003 admits "discipline replaces enforcement inside that boundary".
-      # enginelint is the enforcement. Skipped until internal/engine exists.
+      # enginelint is the enforcement: Go has no sub-package visibility, so
+      # nothing else can see a file group boundary inside one package.
       - name: enginelint
-        run: |
-          if [ -f internal/engine/enginelint.json ]; then
-            go run ./tools/enginelint -config internal/engine/enginelint.json
-          else
-            echo "internal/engine does not exist yet (lands at M4); nothing to check"
-          fi
+        run: go run ./tools/enginelint -config internal/engine/enginelint.json
 
   card-rules-parity:
     name: carddb vs Forge's own reader

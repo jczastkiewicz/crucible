@@ -70,6 +70,20 @@ that is what Java's `LinkedHashMap` gives and parity is measured against Java. U
 counter changing count must not jump to the end of every report — and deleting shifts rather than swapping the last
 entry into the hole, which costs O(n) and is the whole point of the type.
 
+## Effect dispatch
+
+`Registry` is an array indexed by `APIType`, not a map: dispatch sits under the stack resolution loop, so it is an index
+into an interface value with no hashing and no allocation (ADR-0008). The constants are generated from Forge's `ApiType`
+enum by `tools/genapitype` — 202 of them — so a new API upstream is a regenerated file and a build failure rather than a
+gap found on card 12,004.
+
+An unregistered API returns `ErrUnimplemented` naming the API, and does not panic. Most of the array is empty for the
+whole port; a gap is a tracked hole in coverage (ADR-0011), not an invariant breach, and one unimplemented API must fail
+its own game and no more (GO-7).
+
+`Effect` implementations are stateless shared values. That is Java measured rather than assumed: `ApiType`'s
+`isStateLess` parameter defaults to true and the count of constants passing `false` is zero.
+
 ## Not ported yet
 
 | Missing                                                       | Lands |

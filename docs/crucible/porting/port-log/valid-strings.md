@@ -97,24 +97,20 @@ rather than test a flat set, because a name can be reachable two ways:
 
 | Source                                                             | Residual, of 928 distinct properties |
 | ------------------------------------------------------------------ | -----------------------------------: |
-| `equals` and `startsWith` branches in the **four** property chains |                             342 → 62 |
+| `equals` and `startsWith` branches in the **four** property chains |                                   62 |
 | plus subtypes, core types, supertypes, colours                     |                                    6 |
 | plus the 203 keyword names                                         |                                    1 |
 
-Three corrections the measurement forced, each of which had been producing false findings:
+Three things the scrape has to get right, each of which produces false findings on its own:
 
-- **Four chains, not two.** `CardStateProperty` and `SpellAbilityProperty` hold the rest; the grammar doc named only
-  `CardProperty` and `PlayerProperty`.
+- **Four chains.** `CardProperty`, `CardStateProperty`, `PlayerProperty`, `SpellAbilityProperty`.
 - **`equals` and `startsWith` are not interchangeable.** `startsWith("AttachedTo")` accepts
-  `AttachedTo Creature.YouCtrl`; treating it as exact rejected 400 properties Forge handles.
-- **`restriction` is a second receiver name** for 12 of the branches.
+  `AttachedTo Creature.YouCtrl`; read as exact it rejects 400 properties Forge handles.
+- **`restriction` is a second receiver name**, for 12 of the branches.
 
 One deliberate exclusion, and it is not a property vocabulary at all. `ManaReflected` reads its own `Valid$` form:
 `CardUtil.java:261` tests `validCard.startsWith("Defined.")` and treats the rest as a defined name, so
 `Defined.Sacrificed` never reaches `CardProperty`. Nine cards use it.
 
-The last residual was a real defect rather than a scan gap: `oracle` wrote `youCtrl` where every other card in the
-corpus writes `YouCtrl`, and the lookup is case-sensitive, so the Vanguard's `{0}` ability had no legal target in any
-game state. Fixed upstream and carried.
-
-`TestEveryPropertyIsAccountedFor` now holds at zero.
+`TestEveryPropertyIsAccountedFor` holds at zero. The one defect it found is in
+[card-script-defects.md](../card-script-defects.md).

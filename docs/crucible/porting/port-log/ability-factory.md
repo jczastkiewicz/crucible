@@ -186,19 +186,12 @@ The rule that turns evidence into a field type lives in `fieldType`, in one plac
 | `valid.Spec`  |    194 |
 | `int`         |     68 |
 
-Two details the generator has to reproduce rather than tidy. Keys are matched folded, because Java's param map is a
+Two Java behaviours the generator reproduces rather than tidies. Keys are matched folded, because the param map is a
 `TreeMap(CASE_INSENSITIVE_ORDER)` — the corpus writes both `UpTo$` and `Upto$`, and they are one parameter and one
-field. And a `bool` field is set by the key being **present**, not by its value being `True`, which is what `hasParam`
+field. A `bool` field is set by the key being **present**, not by its value being `True`, which is what `hasParam`
 means: `Reveal$ False` turns the flag on. Reproducing that is the point (PORT-7).
 
 `TestEveryAbilityGetsTypedParams` runs all 81,830 compiled abilities through the switch: 56,751 reach a generated struct
 and the remaining 220 record names are trigger modes, static modes and replacement events, whose params the handlers
 read rather than an effect. An API missing from the switch fails the test, so the generated file cannot silently fall
 behind `ApiType`.
-
-The tool is `tools/genparams` and not `tools/gen/params` for a reason worth knowing before adding another generator: the
-repository root `.gitignore` — upstream's, alongside `target` and `bin` — carries a bare `gen`, which matches a
-directory of that name at any depth. A `tools/gen/` package is therefore invisible to `git add -A` and to `git status`,
-so it commits clean and fails in CI on the module-map row pointing at a path that is not in the tree. Renaming is the
-fix rather than a negation pattern, because a negation would be an edit to an upstream file and REV-1's target is zero
-of those.

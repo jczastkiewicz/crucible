@@ -129,6 +129,24 @@ jobs:
       - name: enginelint
         run: go run ./tools/enginelint -config internal/engine/enginelint.json
 
+      # `go build ./tools/x` drops the binary in the module root, and the
+      # .gitignore list of tool names goes stale every time a tool is added.
+      # Nothing under crucible/ is legitimately binary, so this catches one
+      # whatever it is called. git's own text/binary detection decides, via
+      # -I: a tracked, non-empty file that `git grep` will not search is a
+      # binary that should not be in the tree.
+      - name: no committed binaries
+        working-directory: .
+        run: |
+          all=$(git ls-files crucible/ | while read -r f; do [ -s "$f" ] && echo "$f"; done | sort)
+          text=$(git grep --cached -I -l -e '' -- crucible/ | sort)
+          binaries=$(comm -23 <(echo "$all") <(echo "$text"))
+          if [ -n "$binaries" ]; then
+            echo "committed binaries under crucible/:"
+            echo "$binaries"
+            exit 1
+          fi
+
   card-rules-parity:
     name: carddb vs Forge's own reader
     runs-on: ubuntu-latest

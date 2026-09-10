@@ -3,15 +3,23 @@
 # so crucible/ covers its own.
 /oracle-java/target/
 
-# Compiled Go commands. `go build ./tools/...` writes the binary into the
-# module root named after its package, which is how a 4.2 MB Mach-O executable
-# reached master in the first place. Named explicitly rather than by a broad
+# Compiled Go commands. `go build ./tools/x` writes the binary into the module
+# root named after its package. Named explicitly rather than by a broad
 # pattern, so a future Go source file cannot be silently ignored.
+#
+# This list goes stale whenever a tool is added, so it is not the guard. The
+# guard is the CI step that rejects any tracked binary under crucible/,
+# whatever it is called.
+/apiscan
+/carddump
 /covergate
+/crucible
 /docgate
 /enginelint
+/genapitype
+/genparams
 /javacycles
-/crucible
+/vocabscan
 
 # Coverage profile, written by the test step and read by covergate.
 /cover.out

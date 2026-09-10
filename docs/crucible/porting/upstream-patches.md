@@ -58,16 +58,16 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path           | Change                  | Upstream                                                       |
-| ---------- | -------------- | ----------------------- | -------------------------------------------------------------- |
-| 2026-09-10 | `o/oracle.txt` | `youCtrl` for `YouCtrl` | [#11859](https://github.com/Card-Forge/forge/pull/11859), open |
+| Date | Path | Change | Upstream |
+| ---- | ---- | ------ | -------- |
+| —    | —    | none   | —        |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
 
-Six rows have retired this way — #11846, #11848, #11850, #11851, #11852 and #11854 merged, and a sync brought the
-identical content back, which is exactly the condition each row named. None has ever graduated into a permanent edit,
-which is the outcome that would need an ADR. The list works by emptying itself.
+Seven rows have retired this way — #11846, #11848, #11850, #11851, #11852, #11854 and #11859 merged, and a sync brought
+the identical content back, which is exactly the condition each row named. None has ever graduated into a permanent
+edit, which is the outcome that would need an ADR. The list works by emptying itself.
 
 **Conflict rule while one is open: always take upstream.** If upstream applies the identical change, git merges both
 sides silently and there is nothing to resolve. If upstream fixes it differently, upstream's version wins without

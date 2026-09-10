@@ -115,3 +115,23 @@ func SupertypeFromName(name string) (Supertype, bool) {
 	}
 	return 0, false
 }
+
+// CoreTypeNames returns every core type as a card prints it.
+//
+// Exported for the valid-property gate, which has to ask whether a property is
+// a bare type name: `CardProperty` falls through to a type check, so
+// `Creature` is a property in the same sense `YouCtrl` is.
+func CoreTypeNames() []string {
+	out := make([]string, 0, numCoreTypes)
+	for i := range coreTypeTable {
+		out = append(out, coreTypeTable[i].name)
+	}
+	return out
+}
+
+// SupertypeNames returns every supertype as a card prints it.
+func SupertypeNames() []string {
+	out := make([]string, 0, numSupertypes)
+	out = append(out, supertypeNames[:]...)
+	return out
+}

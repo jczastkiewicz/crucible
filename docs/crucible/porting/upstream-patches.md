@@ -58,12 +58,12 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date | Path | Change | Upstream |
-| ---- | ---- | ------ | -------- |
-| —    | —    | none   | —        |
+| Date       | Path           | Change                  | Upstream       |
+| ---------- | -------------- | ----------------------- | -------------- |
+| 2026-09-10 | `o/oracle.txt` | `youCtrl` for `YouCtrl` | not yet opened |
 
-**None.** Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails
-the build whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
+Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
+whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
 
 Six rows have retired this way — #11846, #11848, #11850, #11851, #11852 and #11854 merged, and a sync brought the
 identical content back, which is exactly the condition each row named. None has ever graduated into a permanent edit,

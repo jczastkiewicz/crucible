@@ -83,7 +83,7 @@ After each upstream sync, four steps run because upstream may have changed the c
 
 2. L2 corpus golden diff — catches a new or changed script key the Go parser does not handle.
 3. `crucible corpus-coverage` — catches new scripts using ability APIs the Go engine has not implemented.
-4. Regenerate `docs/crucible/porting/parity-matrix.md`.
+4. Regenerate `docs/crucible/porting/parity-matrix.md` with `go run ./tools/vocabscan -matrix`, then `prettier --write`.
 
 Step 1 comes first because the rest are unreadable until it has run: a stale card count fails several packages at once
 and buries whatever real finding the sync brought with it.

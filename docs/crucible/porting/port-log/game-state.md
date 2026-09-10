@@ -43,6 +43,33 @@ ADR-0009 names the shared database `*carddb.DB`, but it cannot live in `carddb`:
 `carddb` type holding `*compile.Card` would cycle. It is `compile.DB` — the compiled corpus, built once at startup,
 never written again, shared by pointer across every game goroutine (ADR-0005).
 
+## The card's mutable parts
+
+`Card` carries identity and location; the rest is split by concern, because 8,105 lines of Java's `Card` has to land
+somewhere and these are the pieces with their own invariants (ADR-0009).
+
+| Type       | Invariant it exists to hold                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `Counters` | A count is never stored at zero — "a counter of any kind" must say no for a card that gained and lost one   |
+| `Damage`   | A deathtouch source sets a flag later ordinary damage cannot clear; the SBA checks the flag, not the amount |
+| `Memory`   | Three independent lists, because scripts clear them independently                                           |
+| Attachment | One fact stored twice, so only `Game.Attach` and `Game.Unattach` write either side                          |
+
+`CounterType` is a named string rather than a generated enum. Java's `CounterEnumType` has 233 constants and
+`CounterType` wraps it anyway to allow keyword counters the enum does not list, so a generated enum would still need the
+escape hatch and scripts write these names directly.
+
+`Memory.Remembered` holds `EntityID`, not `CardID`: `RememberObjects$ ChosenCard & Player.IsRemembered` puts a player
+and a card in one list.
+
+## `collect.OrderedMap`
+
+Counters need a key-to-count map with a stable order, and CLAUDE.md already named `collect.OrderedMap` as the tool for
+where Java used an ordered collection. It did not exist; it does now. Insertion order rather than sorted order, because
+that is what Java's `LinkedHashMap` gives and parity is measured against Java. Updating a value keeps its position — a
+counter changing count must not jump to the end of every report — and deleting shifts rather than swapping the last
+entry into the hole, which costs O(n) and is the whole point of the type.
+
 ## Not ported yet
 
 | Missing                                                       | Lands |

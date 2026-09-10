@@ -3,14 +3,16 @@
   "groups": {
     "id": ["id.go"],
     "zone": ["zone.go"],
+    "parts": ["counters.go", "damage.go", "memory.go"],
     "card": ["card.go"],
     "player": ["player.go"],
     "game": ["game.go"]
   },
   "allow": {
     "zone": ["id"],
-    "card": ["id", "zone"],
+    "parts": ["id"],
+    "card": ["id", "zone", "parts"],
     "player": ["id"],
-    "game": ["id", "zone", "card", "player"]
+    "game": ["id", "zone", "parts", "card", "player"]
   }
 }

@@ -3,7 +3,10 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/carddb/compile"
+import (
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/pkg/collect"
+)
 
 // Card is one card in one game.
 //
@@ -31,4 +34,36 @@ type Card struct {
 	// otherwise simultaneous events. Assigned from the game's counter on every
 	// zone change, never reused.
 	Timestamp uint64
+
+	// The mutable detail, split by concern rather than flattened onto Card:
+	// 8,105 lines of Java's Card has to land somewhere, and these are the
+	// parts with their own invariants (ADR-0009).
+	Counters Counters
+	Damage   Damage
+	Memory   Memory
+
+	// attachedTo is the card this one is attached to, and attachments is the
+	// reverse. Both are unexported because they are two representations of one
+	// fact and only Game.Attach and Game.Unattach may write either.
+	attachedTo  CardID
+	attachments *collect.OrderedSet[CardID]
+}
+
+// AttachedTo is what this card is attached to, and whether it is attached at
+// all. Auras, Equipment and Fortifications all use it.
+func (c *Card) AttachedTo() (CardID, bool) {
+	if c.attachedTo == NoCard {
+		return NoCard, false
+	}
+	return c.attachedTo, true
+}
+
+// Attachments returns what is attached to this card, in the order it was
+// attached. Order decides which Aura's continuous effect applies first when
+// two share a timestamp.
+func (c *Card) Attachments() []CardID {
+	if c.attachments == nil {
+		return nil
+	}
+	return c.attachments.All()
 }

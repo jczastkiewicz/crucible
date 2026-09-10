@@ -78,28 +78,43 @@ belongs with the evaluator that implements them, not with the parser.
 
 ## Gating the property vocabulary
 
-`valid.Parse` is total: it splits a string into a base and properties and never rejects one, because Java's
-`CardProperty` never rejects one either — it walks a 297-branch chain and returns false at the end. So a property the
-port does not implement is indistinguishable from one that simply does not match, which is the hole M3 item 19 names.
+`valid.Parse` is total: it splits a string into a base and properties and never rejects one, because Java never rejects
+one either. The chain ends at `CardProperty.java:2116-2119`:
 
-The accepted vocabulary is not a list anywhere. `CardProperty` tests its explicit branches first and then falls through
-to type and keyword checks, so acceptance is the union of four sources. Measured against the corpus's 1,256 distinct
-properties:
+```java
+} else if (!card.getCurrentState().hasProperty(property, sourceController, source, spellAbility)) {
+    return false;
+}
+return true;
+```
 
-| Source                                                                | Residual unmatched |
-| --------------------------------------------------------------------- | -----------------: |
-| `property.equals` / `startsWith` in `CardProperty` + `PlayerProperty` |          342 (27%) |
-| plus subtypes from `TypeLists.txt`, and colours                       |           117 (9%) |
-| plus core types, supertypes, and the 203 keyword names                |        expected ~0 |
+So an unimplemented property is not ignored — it is **false for every card**, and the alternative carrying it matches
+nothing. That makes an unaccounted property a silent targeting failure, which is why it needs a gate rather than a
+review habit.
 
-The remaining 117 are exactly what the third row predicts: `Artifact`, `Creature` and `Enchantment` are `CoreType`
-constants rather than `TypeLists.txt` entries; `Backup`, `Bestow`, `Blitz`, `Crew`, `Cycling`, `Dash`, `Embalm`,
-`Equip`, `Flashback` and the rest are keyword names reaching `hasKeyword(property)`; `BlackSource`, `BlueSource` and
-`ColorlessSource` are a colour family.
+The accepted vocabulary is not a list anywhere. Acceptance is a union, and it has to mirror Java's fallthrough order
+rather than test a flat set, because a name can be reachable two ways:
 
-**The gate is therefore buildable from packages that already exist** — `internal/cardtype` for the three type sources
-and `internal/keyword` for the fourth — and it has to reproduce `CardProperty`'s fallthrough order rather than test a
-flat set, or a property that is both a keyword and an explicit branch would be attributed to the wrong one.
+| Source                                                             | Residual, of 928 distinct properties |
+| ------------------------------------------------------------------ | -----------------------------------: |
+| `equals` and `startsWith` branches in the **four** property chains |                             342 → 62 |
+| plus subtypes, core types, supertypes, colours                     |                                    6 |
+| plus the 203 keyword names                                         |                                    1 |
 
-Not built yet. The scrape is the same shape as `tools/apiscan`'s, and that one needed six passes before its blind spots
-stopped producing false findings; this one should be measured to zero residual before it blocks a build.
+Three corrections the measurement forced, each of which had been producing false findings:
+
+- **Four chains, not two.** `CardStateProperty` and `SpellAbilityProperty` hold the rest; the grammar doc named only
+  `CardProperty` and `PlayerProperty`.
+- **`equals` and `startsWith` are not interchangeable.** `startsWith("AttachedTo")` accepts
+  `AttachedTo Creature.YouCtrl`; treating it as exact rejected 400 properties Forge handles.
+- **`restriction` is a second receiver name** for 12 of the branches.
+
+One deliberate exclusion, and it is not a property vocabulary at all. `ManaReflected` reads its own `Valid$` form:
+`CardUtil.java:261` tests `validCard.startsWith("Defined.")` and treats the rest as a defined name, so
+`Defined.Sacrificed` never reaches `CardProperty`. Nine cards use it.
+
+The last residual was a real defect rather than a scan gap: `oracle` wrote `youCtrl` where every other card in the
+corpus writes `YouCtrl`, and the lookup is case-sensitive, so the Vanguard's `{0}` ability had no legal target in any
+game state. Fixed upstream and carried.
+
+`TestEveryPropertyIsAccountedFor` now holds at zero.

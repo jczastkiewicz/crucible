@@ -95,7 +95,7 @@ func UnknownTypes(reg *Registry, text string) []string {
 		if _, ok := SupertypeFromName(word); ok {
 			continue
 		}
-		if !reg.known(word) {
+		if !reg.Known(word) {
 			out = append(out, word)
 		}
 	}
@@ -127,8 +127,12 @@ func splitTypes(reg *Registry, text string) []string {
 	return out
 }
 
-// known reports whether a word appears in any subtype category.
-func (r *Registry) known(name string) bool {
+// Known reports whether a word appears in any subtype category.
+//
+// Exported for the valid-property gate: `CardProperty` accepts a bare subtype
+// as a property, so deciding whether a property is implemented means asking
+// the subtype vocabulary the same question Java asks it.
+func (r *Registry) Known(name string) bool {
 	for c := Category(0); int(c) < numCategories; c++ {
 		if r.members[c][name] {
 			return true

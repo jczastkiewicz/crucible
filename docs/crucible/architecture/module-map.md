@@ -39,8 +39,9 @@ Column meaning:
 | [`tools/enginelint`](../../../crucible/tools/enginelint)               | Enforces file-group boundaries inside the single `internal/engine` package                                                      | — new code; exists because Go has no sub-package visibility                             | —                                                                  |
 | [`tools/javacycles`](../../../crucible/tools/javacycles)               | Reproduces ADR-0003's Java package-cycle count                                                                                  | — new code                                                                              | —                                                                  |
 | [`tools/apiscan`](../../../crucible/tools/apiscan)                     | Recovers each ability API's param vocabulary from Forge's call sites, and fails the build on a param key nothing reads          | — new code                                                                              | —                                                                  |
+| [`tools/gen/params`](../../../crucible/tools/gen/params)               | Generates the typed parameter struct for every ability API from that scan's evidence table                                      | — new code                                                                              | —                                                                  |
 
-**Twenty packages: two in `pkg/`, ten in `internal/`, one `cmd/`, seven in `tools/`.** The split follows
+**Twenty-one packages: two in `pkg/`, ten in `internal/`, one `cmd/`, eight in `tools/`.** The split follows
 [ADR-0003](../adr/0003-go-project-layout.md): `pkg/` is reserved for code with no Crucible semantics, and an ordered set
 and a generator port qualify; `tools/` holds build-time commands the engine never imports; everything with rules
 meaning, `mana` and `cardtype` included, goes in `internal/` where nothing outside the module can import it.

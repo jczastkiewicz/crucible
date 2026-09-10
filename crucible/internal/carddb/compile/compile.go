@@ -76,6 +76,8 @@ var recordKeys = map[string]Record{
 	"event": Replacement,
 }
 
+//go:generate go run ../../../tools/gen/params -table ../../../tools/apiscan/testdata/param-kinds.golden
+
 // Ability is one compiled ability line.
 type Ability struct {
 	Record Record

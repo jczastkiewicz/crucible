@@ -84,3 +84,12 @@ func (c *Counters) Total() int {
 
 // Any reports whether the card has a counter of any kind.
 func (c *Counters) Any() bool { return c.byType != nil && c.byType.Len() > 0 }
+
+// clone returns an independent copy. A card with no counters -- which is most
+// of them -- clones to another with none, allocating nothing.
+func (c Counters) clone() Counters {
+	if c.byType == nil {
+		return Counters{}
+	}
+	return Counters{byType: c.byType.Clone()}
+}

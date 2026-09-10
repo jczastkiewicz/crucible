@@ -79,3 +79,19 @@ func (m *Memory) Chosen() []CardID {
 
 // ClearChosen empties the chosen list.
 func (m *Memory) ClearChosen() { m.chosen = nil }
+
+// clone returns an independent copy. Each list is copied only when it exists,
+// because the overwhelming majority of cards remember nothing.
+func (m Memory) clone() Memory {
+	var out Memory
+	if m.remembered != nil {
+		out.remembered = m.remembered.Clone()
+	}
+	if m.imprinted != nil {
+		out.imprinted = m.imprinted.Clone()
+	}
+	if m.chosen != nil {
+		out.chosen = m.chosen.Clone()
+	}
+	return out
+}

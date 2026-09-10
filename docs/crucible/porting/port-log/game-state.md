@@ -84,6 +84,31 @@ its own game and no more (GO-7).
 `Effect` implementations are stateless shared values. That is Java measured rather than assumed: `ApiType`'s
 `isStateLess` parameter defaults to true and the count of constants passing `false` is zero.
 
+## Cloning
+
+`Game.Clone` is what the AI's lookahead runs on, so its cost decides search depth. Handles are indices, so nothing is
+remapped: there is no equivalent of Java's `CopiedGameObjectMap`, which is the point of addressing entities by handle.
+
+"A slice copy" is the shape but not the whole job. A `Card` owns collections behind pointers — counters, three memory
+lists, attachments — and copying the slice alone would leave clone and original writing to the same ones. Each is copied
+when it exists and left nil when it does not, which is most cards most of the time.
+
+| Part                                 | Clone treatment | Reason                                                                                                    |
+| ------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------------- |
+| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                       |
+| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls |
+| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                             |
+
+Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
+
+```console
+BenchmarkGameClone-14    13851 ns/op    26688 B/op    193 allocs/op
+```
+
+The allocation count is gated, not just recorded (GO-16). Allocations rather than nanoseconds, because allocation counts
+are deterministic across machines and CI runners are not: a time bound would be flaky or so loose it catches nothing.
+The budget has headroom; it exists to catch a change in shape, such as something shared becoming copied per card.
+
 ## Events
 
 `Event` is a flat fixed-size record, and `Sink` takes it by value. At 10^5 games the stream is the largest thing the

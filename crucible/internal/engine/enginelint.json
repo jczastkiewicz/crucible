@@ -7,7 +7,9 @@
     "card": ["card.go"],
     "player": ["player.go"],
     "game": ["game.go"],
-    "effect": ["effect.go", "apitype_gen.go"]
+    "effect": ["effect.go", "apitype_gen.go"],
+    "phase": ["phase.go"],
+    "event": ["event.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -15,6 +17,8 @@
     "card": ["id", "zone", "parts"],
     "player": ["id"],
     "game": ["id", "zone", "parts", "card", "player"],
-    "effect": ["id", "zone", "parts", "card", "player", "game"]
+    "effect": ["id", "zone", "parts", "card", "player", "game"],
+    "phase": [],
+    "event": ["id", "zone", "phase"]
   }
 }

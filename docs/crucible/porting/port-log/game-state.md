@@ -84,6 +84,30 @@ its own game and no more (GO-7).
 `Effect` implementations are stateless shared values. That is Java measured rather than assumed: `ApiType`'s
 `isStateLess` parameter defaults to true and the count of constants passing `false` is zero.
 
+## Events
+
+`Event` is a flat fixed-size record, and `Sink` takes it by value. At 10^5 games the stream is the largest thing the
+runner produces, so a pointer in the record would be an allocation per event and a pointer chase per read; the
+kind-specific payload is a `Detail` number rather than a field per kind.
+
+The recorder folds synchronously inside the game's goroutine. A game owns its state exclusively, so its recorder can
+too, and folding in place means there is no queue to fill, no drop policy to get wrong and no scheduling input to the
+output (ADR-0005, ADR-0013).
+
+`DiscardSink` is what a cloned game gets. The AI explores lines that never happened, and a clone holding the real sink
+would record imagined casts as real.
+
+`SchemaVersion` is stamped separately from the metrics version: the schema is what was emitted, the metrics version is
+how it was interpreted, and they move independently.
+
+Two names differ from ADR-0013's sketch. The event's card field is `Source`, not `Card`, and `EntityID`'s accessors are
+`AsCard` and `AsPlayer` — a field or method named `Card` in a package that declares a `Card` type reads as a reference
+to it, and `enginelint` scores it as one.
+
+`PhaseType` carries the names card scripts write, which are Java's second constructor argument rather than the enum
+constant: `Phase$ End of Turn` has spaces in it, so these are not identifiers. Combat is a contiguous range, which is
+what lets a trigger restricted to combat test a bound instead of listing six steps.
+
 ## Not ported yet
 
 | Missing                                                       | Lands |

@@ -202,3 +202,47 @@ func (g *Game) Unattach(attachment CardID) {
 	}
 	a.attachedTo = NoCard
 }
+
+// Clone returns an independent copy of the game.
+//
+// This is what the AI's lookahead runs on, so it is on a hot path and its cost
+// decides search depth (GO-16). Handles are indices, so nothing has to be
+// remapped: there is no equivalent of Java's CopiedGameObjectMap, and that is
+// the point of addressing entities by handle (ADR-0009).
+//
+// "A slice copy" is the shape but not the whole job. A Card owns collections
+// behind pointers -- its counters, its three memory lists, its attachments --
+// and copying the slice alone would leave the clone and the original writing
+// to the same ones. Each is copied when it exists and left nil when it does
+// not, which is most cards most of the time.
+//
+// The database is shared, because it is immutable (ADR-0005). The random
+// stream is copied by value, so the clone continues from where the original
+// is rather than replaying it or advancing it.
+func (g *Game) Clone() *Game {
+	out := &Game{
+		cards:     make([]Card, len(g.cards)),
+		players:   append([]Player(nil), g.players...),
+		zones:     make(map[zoneKey]*Zone, len(g.zones)),
+		db:        g.db,
+		timestamp: g.timestamp,
+	}
+	if g.rand != nil {
+		r := *g.rand
+		out.rand = &r
+	}
+
+	copy(out.cards, g.cards)
+	for i := range out.cards {
+		c := &out.cards[i]
+		c.Counters = g.cards[i].Counters.clone()
+		c.Memory = g.cards[i].Memory.clone()
+		if g.cards[i].attachments != nil {
+			c.attachments = g.cards[i].attachments.Clone()
+		}
+	}
+	for k, z := range g.zones {
+		out.zones[k] = &Zone{Type: z.Type, Owner: z.Owner, cards: z.cards.Clone()}
+	}
+	return out
+}

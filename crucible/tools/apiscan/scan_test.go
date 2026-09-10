@@ -1,9 +1,14 @@
 package main
 
 import (
+	"flag"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+var updateKinds = flag.Bool("update", false, "rewrite the golden files")
 
 // Internal test, deliberately. apiscan is a command, so readParams and
 // readExclusions are unexported and there is no public API to test through
@@ -90,5 +95,55 @@ func TestReadExclusions(t *testing.T) {
 				t.Errorf("readExclusions found %d rows, want %d: %v", len(got), len(tt.want), got)
 			}
 		})
+	}
+}
+
+// TestParamKinds pins the type evidence for every param key the corpus writes.
+//
+// The classification is the input to M3's generated param structs (ADR-0007),
+// and it is derived from two weak signals rather than a declaration, so a
+// change in either -- an upstream refactor moving a getParam call, a new card
+// writing a key in a new shape -- has to be a diff someone reads rather than a
+// silent shift in what a generated field's type would be.
+//
+//	go test ./tools/apiscan -run TestParamKinds -update
+func TestParamKinds(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.CreateTemp(t.TempDir(), "kinds")
+	if err != nil {
+		t.Fatalf("temp: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if err := writeTypes("../../..", "../../../forge-gui/res/cardsfolder",
+		"../../../forge-gui/res/lists/TypeLists.txt", f); err != nil {
+		t.Fatalf("writeTypes: %v", err)
+	}
+	got, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+
+	path := filepath.Join("testdata", "param-kinds.golden")
+	if *updateKinds {
+		if err := os.WriteFile(path, got, 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		return
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v (regenerate with -update)", path, err)
+	}
+	if string(got) != string(want) {
+		gl, wl := strings.Split(string(got), "\n"), strings.Split(string(want), "\n")
+		for i := 0; i < len(gl) && i < len(wl); i++ {
+			if gl[i] != wl[i] {
+				t.Fatalf("param-kinds.golden line %d:\n got %s\nwant %s\n(regenerate with -update and read the diff)",
+					i+1, gl[i], wl[i])
+			}
+		}
+		t.Fatalf("param-kinds.golden has %d lines, generated %d", len(wl), len(gl))
 	}
 }

@@ -168,3 +168,37 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c.Timestamp = g.timestamp
 	g.Zone(kind, owner).cards.Add(id)
 }
+
+// Attach attaches one card to another, moving it off whatever it was attached
+// to first.
+//
+// The two sides -- the attachment's own pointer and the host's list -- are one
+// fact stored twice, so this and [Game.Unattach] are the only writers. A card
+// cannot be attached to itself, and cannot be attached to a card that does not
+// exist; both are invariant breaches rather than rules questions (GO-7).
+func (g *Game) Attach(attachment, host CardID) {
+	if attachment == host {
+		panic("engine: card attached to itself")
+	}
+	a, h := g.Card(attachment), g.Card(host)
+	g.Unattach(attachment)
+	a.attachedTo = host
+	if h.attachments == nil {
+		h.attachments = collect.NewOrderedSet[CardID](2)
+	}
+	h.attachments.Add(attachment)
+}
+
+// Unattach detaches a card from whatever it is attached to. Detaching an
+// unattached card is a no-op, because the callers that clean up after a zone
+// change do not track whether there was anything to clean.
+func (g *Game) Unattach(attachment CardID) {
+	a := g.Card(attachment)
+	if a.attachedTo == NoCard {
+		return
+	}
+	if h := g.Card(a.attachedTo); h.attachments != nil {
+		h.attachments.Remove(attachment)
+	}
+	a.attachedTo = NoCard
+}

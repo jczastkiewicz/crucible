@@ -162,3 +162,36 @@ carried until upstream merges them, so the corpus compiles whole with no exempti
 [`../card-script-defects.md`](../card-script-defects.md) with the printed text it was checked against.
 
 The param gate found thirteen more keys that no Java code reads, across seventeen cards, in the same file.
+
+## The generated parameter structs
+
+`tools/gen/params` turns the evidence table into one struct per ability API — 187 of them, 4,674 fields — plus a fill
+constructor each and a generated `ParseParams` switch. No reflection, no `init()` registry: the shape ADR-0008 describes
+for effect dispatch, applied to parameters.
+
+The rule that turns evidence into a field type lives in `fieldType`, in one place, and its order is deliberate:
+
+1. **Unanimous values decide first.** "Every card ever written puts `True` or `False` here" outweighs a single call
+   site.
+2. **Then the API's own Java**, because a key means different things on different effects.
+3. **Then the shared code**, which is right whenever the effect does not handle the key itself.
+4. **Anything ambiguous or unevidenced stays a `string`.** A wrong type is worse than an untyped one, because it
+   compiles.
+
+| Field type    | Fields |
+| ------------- | -----: |
+| `string`      |  2,792 |
+| `bool`        |    993 |
+| `expr.Amount` |    254 |
+| `valid.Spec`  |    194 |
+| `int`         |     68 |
+
+Two details the generator has to reproduce rather than tidy. Keys are matched folded, because Java's param map is a
+`TreeMap(CASE_INSENSITIVE_ORDER)` — the corpus writes both `UpTo$` and `Upto$`, and they are one parameter and one
+field. And a `bool` field is set by the key being **present**, not by its value being `True`, which is what `hasParam`
+means: `Reveal$ False` turns the flag on. Reproducing that is the point (PORT-7).
+
+`TestEveryAbilityGetsTypedParams` runs all 81,830 compiled abilities through the switch: 56,751 reach a generated struct
+and the remaining 220 record names are trigger modes, static modes and replacement events, whose params the handlers
+read rather than an effect. An API missing from the switch fails the test, so the generated file cannot silently fall
+behind `ApiType`.

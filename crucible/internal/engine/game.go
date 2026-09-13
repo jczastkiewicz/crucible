@@ -46,7 +46,16 @@ type Game struct {
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.
 	timestamp uint64
+
+	// over is set once CheckStateBasedActions decides the game has ended --
+	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
+	// stays ended (action.go).
+	over bool
 }
+
+// Over reports whether the game has ended, per the last call to
+// CheckStateBasedActions.
+func (g *Game) Over() bool { return g.over }
 
 // zoneKey identifies a zone. Ownerless zones carry NoPlayer.
 type zoneKey struct {
@@ -152,10 +161,39 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 // Every zone change gets a new timestamp, which is what continuous effects
 // order by and what makes a card that left and came back a different object to
 // the layer system.
+//
+// Leaving the battlefield clears Counters, Damage, Tapped and any
+// attachment; entering it sets SummonSick. Java gets both for free:
+// GameAction.changeZone builds a new Card object for the destination zone
+// (CardCopyService.copyCard), so a field simply is not copied onto it, and a
+// freshly-built permanent starts sick unless something says otherwise. A
+// CardID is stable across zone changes here instead (ADR-0009) — the same
+// struct persists, so a creature that dies with three +1/+1 counters would
+// return from the graveyard still carrying them unless this clears them, and
+// a Raise Dead'd creature would enter without summoning sickness unless this
+// sets it.
+//
+// [Game.NewCard] does neither: it is the arena-allocation primitive fixture
+// loading uses to seat a board mid-game, where a battlefield permanent's
+// starting Tapped/SummonSick is exactly what the fixture says, not a rule
+// this port applies. Move is real play transitioning a card between zones;
+// NewCard is "this card already exists here."
 func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	c := g.Card(id)
+	from := c.Zone
 	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
 	g.put(id, kind, owner)
+
+	switch {
+	case from == Battlefield && kind != Battlefield:
+		c.Counters = Counters{}
+		c.Damage.Clear()
+		c.Tapped = false
+		c.SummonSick = false
+		g.Unattach(id)
+	case from != Battlefield && kind == Battlefield:
+		c.SummonSick = true
+	}
 }
 
 // put appends a card to a zone and records the reverse index on the card. It
@@ -226,10 +264,15 @@ func (g *Game) Clone() *Game {
 		zones:     make(map[zoneKey]*Zone, len(g.zones)),
 		db:        g.db,
 		timestamp: g.timestamp,
+		over:      g.over,
 	}
 	if g.rand != nil {
 		r := *g.rand
 		out.rand = &r
+	}
+
+	for i := range out.players {
+		out.players[i].Counters = g.players[i].Counters.clone()
 	}
 
 	copy(out.cards, g.cards)

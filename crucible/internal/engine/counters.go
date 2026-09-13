@@ -1,4 +1,5 @@
-// Counters on a card.
+// Counters: what a card has on it, and what player-level counters -- poison
+// chief among them -- share the type with.
 
 package engine
 
@@ -22,6 +23,9 @@ const (
 	Charge  CounterType = "CHARGE"
 	Stun    CounterType = "STUN"
 	Shield  CounterType = "SHIELD"
+	// Poison is a player-level counter. Ten or more is a state-based loss
+	// (CR 704.5c) -- the only rule that currently reads a player's Counters.
+	Poison CounterType = "POISON"
 )
 
 // Counters is what a card has on it.

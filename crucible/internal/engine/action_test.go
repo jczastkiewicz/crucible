@@ -1,0 +1,270 @@
+package engine_test
+
+import (
+	"testing"
+
+	"github.com/jczastkiewicz/crucible/internal/engine"
+)
+
+// CR 704.5a: a player at zero life loses. The other player, now the only one
+// left standing, wins and the game ends (CR 104.2a).
+func TestCheckStateBasedActionsLifeAtZero(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life = 0
+	g.Player(b).Life = 20
+
+	if !engine.CheckStateBasedActions(g) {
+		t.Fatal("game did not end")
+	}
+	if !g.Player(a).Lost {
+		t.Error("player at 0 life did not lose")
+	}
+	if !g.Player(b).Won {
+		t.Error("the only player left did not win")
+	}
+	if !g.Over() {
+		t.Error("Over() does not reflect the game ending")
+	}
+}
+
+// Negative life loses too -- the check is <= 0, not == 0.
+func TestCheckStateBasedActionsNegativeLife(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = -3, 20
+
+	engine.CheckStateBasedActions(g)
+	if !g.Player(a).Lost {
+		t.Error("player at negative life did not lose")
+	}
+}
+
+func TestCheckStateBasedActionsPositiveLifeSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 1, 20
+
+	if engine.CheckStateBasedActions(g) {
+		t.Error("game ended with both players above the loss threshold")
+	}
+	if g.Player(a).Lost {
+		t.Error("player at 1 life lost")
+	}
+}
+
+// CR 704.5c: ten or more poison counters loses. Nine does not.
+func TestCheckStateBasedActionsPoison(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.Player(a).Counters.Add(engine.Poison, 9)
+
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended at nine poison counters")
+	}
+
+	g.Player(a).Counters.Add(engine.Poison, 1)
+	if !engine.CheckStateBasedActions(g) {
+		t.Fatal("game did not end at ten poison counters")
+	}
+	if !g.Player(a).Lost {
+		t.Error("player with ten poison counters did not lose")
+	}
+}
+
+// Both players losing in the same check is a draw: nobody is left standing,
+// so nobody wins, but the game still ends.
+func TestCheckStateBasedActionsDraw(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 0, 0
+
+	if !engine.CheckStateBasedActions(g) {
+		t.Fatal("game did not end")
+	}
+	if g.Player(a).Won || g.Player(b).Won {
+		t.Error("a draw declared a winner")
+	}
+	if !g.Player(a).Lost || !g.Player(b).Lost {
+		t.Error("a draw did not record both players as having lost")
+	}
+}
+
+// A game past three or more players in contention does not end.
+func TestCheckStateBasedActionsGameContinues(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	for _, id := range g.Players() {
+		g.Player(id).Life = 20
+	}
+	g.Player(g.Players()[0]).Life = 0
+
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended with two players still standing")
+	}
+	if g.Over() {
+		t.Error("Over() reported true while two players remain")
+	}
+}
+
+// Once the game has ended, a later life change must not resurrect it: the
+// check short-circuits rather than re-deriving from current life totals.
+func TestCheckStateBasedActionsStaysOverOnceOver(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 0, 20
+	engine.CheckStateBasedActions(g)
+	if !g.Over() {
+		t.Fatal("setup: game did not end")
+	}
+	if !g.Player(b).Won {
+		t.Fatal("setup: player b did not win")
+	}
+
+	g.Player(b).Life = 0 // the winner takes damage after the game already ended
+	engine.CheckStateBasedActions(g)
+	if !g.Player(b).Won {
+		t.Error("the recorded winner changed after the game had already ended")
+	}
+}
+
+// A player who already lost is skipped on a later check, in a game that has
+// not ended yet -- losing does not clear their counters or life, so without
+// the skip a lingering 0 life would be re-evaluated every call for no reason.
+func TestCheckStateBasedActionsSkipsAlreadyLostPlayers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	for _, id := range g.Players() {
+		g.Player(id).Life = 20
+	}
+	a := g.Players()[0]
+	g.Player(a).Life = 0
+
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended with two players still standing")
+	}
+	if !g.Player(a).Lost {
+		t.Fatal("setup: player a did not lose")
+	}
+
+	// Second call: a is already Lost and must be skipped, not re-marked.
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended on the second check with two players still standing")
+	}
+}
+
+// CR 704.5q: N +1/+1 and N -1/-1 counters annihilate together, where N is
+// the smaller pile.
+func TestCheckStateBasedActionsAnnihilatesCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 5)
+	c.Counters.Add(engine.M1M1, 2)
+
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended over a counter annihilation check")
+	}
+	if got := c.Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("P1P1 %d, want 3 (5 - min(5,2))", got)
+	}
+	if got := c.Counters.Count(engine.M1M1); got != 0 {
+		t.Errorf("M1M1 %d, want 0", got)
+	}
+}
+
+// Only one kind present is untouched -- there is nothing to annihilate
+// against.
+func TestCheckStateBasedActionsOneKindOfCounterSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 4)
+
+	engine.CheckStateBasedActions(g)
+	if got := c.Counters.Count(engine.P1P1); got != 4 {
+		t.Errorf("P1P1 %d, want 4 (untouched)", got)
+	}
+}
+
+// A permanent off the battlefield does not annihilate -- the rule is about
+// permanents, and a card in hand or the graveyard is not one.
+func TestCheckStateBasedActionsCounterAnnihilationIsBattlefieldOnly(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Graveyard)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 3)
+	c.Counters.Add(engine.M1M1, 3)
+
+	engine.CheckStateBasedActions(g)
+	if got := c.Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("P1P1 %d, want 3 (untouched off the battlefield)", got)
+	}
+}
+
+// Once the game has ended, the counter loop must not run at all -- the same
+// as Java's checkStateEffects returning before its creature loop once
+// checkGameOverCondition finds the game over.
+func TestCheckStateBasedActionsSkipsCounterCheckWhenGameOver(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 0, 20
+	id := g.NewCard(nil, b, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 2)
+	c.Counters.Add(engine.M1M1, 2)
+
+	if !engine.CheckStateBasedActions(g) {
+		t.Fatal("game did not end")
+	}
+	if got := c.Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("P1P1 %d, want 2 (the counter loop must not have run)", got)
+	}
+}
+
+// Clone must not let the clone's poison counters write back to the original
+// -- the same sharing bug Counters, Memory and attachments were already
+// guarded against.
+func TestCloneCopiesPlayerCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a := g.Players()[0]
+	g.Player(a).Counters.Add(engine.Poison, 3)
+
+	c := g.Clone()
+	c.Player(a).Counters.Add(engine.Poison, 5)
+
+	if got := g.Player(a).Counters.Count(engine.Poison); got != 3 {
+		t.Errorf("original's poison became %d after the clone's changed", got)
+	}
+}

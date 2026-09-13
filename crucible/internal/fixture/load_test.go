@@ -309,22 +309,40 @@ func TestLoadUnknownActivePlayerErrors(t *testing.T) {
 	}
 }
 
-func TestLoadTopLevelPlayerFieldsAreAllUnapplied(t *testing.T) {
+// Player-level Counters: applies to engine.Player.Counters -- poison chief
+// among them, which is what CR 704.5c reads. Fields with no engine.Player
+// home yet still report through Unapplied.
+func TestLoadPlayerCountersApplyLandsPlayedStaysUnapplied(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
 	l := load(t, db, "humanlife=20\nhumancounters=POISON=3\nhumanlandsplayed=2\n")
 
-	for _, want := range []string{"counters", "lands played"} {
-		found := false
-		for _, u := range l.Unapplied {
-			if strings.Contains(u, want) {
-				found = true
-			}
+	if got := l.Game.Player(l.Game.Players()[0]).Counters.Count(engine.Poison); got != 3 {
+		t.Errorf("poison counters %d, want 3", got)
+	}
+
+	found := false
+	for _, u := range l.Unapplied {
+		if strings.Contains(u, "lands played") {
+			found = true
 		}
-		if !found {
-			t.Errorf("Unapplied %v does not mention %q", l.Unapplied, want)
-		}
+	}
+	if !found {
+		t.Errorf("Unapplied %v does not mention lands played", l.Unapplied)
+	}
+}
+
+func TestLoadMalformedPlayerCountersErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	st, err := fixture.Parse(strings.NewReader("humanlife=20\nhumancounters=POISON\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("a malformed player counters value loaded without error")
 	}
 }
 

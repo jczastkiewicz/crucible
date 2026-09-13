@@ -151,6 +151,9 @@ func Write(w io.Writer, s *State) error {
 		}
 		name := slotName(i)
 		fmt.Fprintf(&b, "%slife=%d\n", name, p.Life)
+		if p.Counters != "" {
+			fmt.Fprintf(&b, "%scounters=%s\n", name, p.Counters)
+		}
 		writeZone(&b, name, "battlefield", p.Battlefield)
 		writeZone(&b, name, "hand", p.Hand)
 		writeZone(&b, name, "graveyard", p.Graveyard)

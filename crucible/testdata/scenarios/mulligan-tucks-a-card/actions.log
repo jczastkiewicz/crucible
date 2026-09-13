@@ -1,0 +1,12 @@
+# Consumption order per player is seating order: human first, then ai, each
+# round, until everyone has kept (game-state.md's "Mulligans" section).
+queue keephand false
+# human: mulligan
+queue keephand true
+# ai: keep, asked in the same round
+queue tuck 1
+# the card human's mulligan tucks -- a name Load resolved from setup.state's
+# own Id:1, stable across the shuffle a mulligan performs
+queue keephand true
+# human: keep the redrawn, six-card hand
+mulligan human

@@ -25,7 +25,7 @@ func TestWriteEveryGlobalDirective(t *testing.T) {
 		RemoveSummoningSickness: true,
 		AbilityStrings:          map[string]string{"2": "second", "1": "first"},
 	}
-	st.Players[0] = fixture.PlayerState{Named: true, Life: 20}
+	st.Players[0] = fixture.PlayerState{Named: true, Life: 20, Counters: "POISON=3"}
 
 	var buf strings.Builder
 	if err := fixture.Write(&buf, st); err != nil {
@@ -36,7 +36,7 @@ func TestWriteEveryGlobalDirective(t *testing.T) {
 	for _, want := range []string{
 		"turn=2\n", "activeplayer=human\n", "activephase=Main1\n",
 		"activephaseadvance=BeginCombat\n", "removesummoningsickness=true\n",
-		"humanlife=20\n", "ability1=first\n", "ability2=second\n",
+		"humanlife=20\n", "humancounters=POISON=3\n", "ability1=first\n", "ability2=second\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Write output missing %q; got:\n%s", want, text)
@@ -58,6 +58,9 @@ func TestWriteEveryGlobalDirective(t *testing.T) {
 	}
 	if got.AbilityStrings["1"] != "first" || got.AbilityStrings["2"] != "second" {
 		t.Errorf("round trip: ability strings %v", got.AbilityStrings)
+	}
+	if got.Players[0].Counters != "POISON=3" {
+		t.Errorf("round trip: human counters %q, want POISON=3", got.Players[0].Counters)
 	}
 }
 

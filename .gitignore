@@ -36,6 +36,11 @@ bin
 gen
 *.log
 
+# *.log above is aimed at build/runtime logs, not Crucible's TEST-5 scenario
+# fixtures, which are named setup.state/actions.log/expect.state by the
+# master plan and are checked-in test data, not output.
+!crucible/testdata/scenarios/**/actions.log
+
 # Ignore macOS Spotlight rubbish
 .DS_Store
 

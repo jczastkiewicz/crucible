@@ -1,0 +1,8 @@
+turn=2
+activeplayer=human
+activephase=Draw
+humanlife=20
+ailife=20
+humanbattlefield=Grizzly Bears|Id:1
+humanhand=Mountain|Id:2
+humanlibrary=Grizzly Bears|Id:3

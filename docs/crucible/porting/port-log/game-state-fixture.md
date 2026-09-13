@@ -3,8 +3,9 @@
 - **Java source:** `forge-game/src/main/java/forge/game/GameState.java` (1,432 LOC) — `parse`/`parseLine`,
   `processCardsForZone`, `applyGameOnThread`, `toString`, and `PhaseType.smartValueOf`
 - **Go target:** `crucible/internal/fixture`
-- **Status:** Text parse, `Load` and `Dump` done for a core slice — M4. The per-card annotation long tail, tokens, and
-  every `Player` field with no `engine.Player` home yet stay text-only; see "Not ported yet"
+- **Status:** Text parse, `Load` and `Dump` done for a core slice (M4); `RunActions` and the scenario harness (M5) run
+  against the real corpus. The per-card annotation long tail, tokens, and most remaining `Player` fields stay text-only;
+  see "Not ported yet"
 
 ## What it does
 
@@ -74,6 +75,51 @@ golden AST diff (M3's P2 gate) is unaffected.
 corpus directory, which is wrong for a test that wants three known cards and nothing else. `NewDB` builds a `*DB` from
 an already-compiled `map[string]*Card`.
 
+Nothing had actually called `LoadDB` against the real corpus before the scenario harness below did, and it turned out
+not to work: it compiled each script inside the same pass that parsed it, which fails any `CopyFaceFrom:` card (Bind //
+Liberate among them) since that placeholder only resolves once the whole corpus has been read. Fixed in `LoadDB` itself
+— `porting/port-log/ability-factory.md`'s own section on it, since the bug was there, not here.
+
+## Scenarios: `actions.log` and the harness
+
+`internal/engine`'s `TestScenarios` (`scenario_test.go`) is TEST-5's directory walk: `setup.state` and `expect.state`
+are this package's `Parse`/`Load`, unchanged. What is new is `RunActions` (`actions.go`) — the "ordered, explicit
+decisions" Plan Section 3.3 names but does not itself define a format for, because Java's own differential tooling
+drives a real `PlayerController` from Java code and never needed a text vocabulary for it. This one is Crucible's own,
+line-oriented the same way `setup.state` is:
+
+```text
+startturn <player>          Game.StartTurn(player)
+advance [n]                 Game.AdvancePhase(), n times (default 1)
+mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
+queue keephand <bool>       ScriptedController.QueueKeepHand
+queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
+queue startingplayer <p>    ScriptedController.QueueStartingPlayer
+queue startinghand <n>      ScriptedController.QueueStartingHand
+```
+
+`Loaded.CardByFixtureID` is the other piece `RunActions` needed: the same `Id:` map `AttachedTo:`/`RememberedCards:`
+resolution already builds internally, kept around after `Load` returns instead of discarded. A scenario naming a
+specific card to tuck needs a handle that survives a mulligan's shuffle, and `Id:` — assigned once, at load time, never
+touched again — is exactly that; the `CardID` a shuffle produces is not something a fixture author could predict.
+
+The comparison itself does not go through `Dump`. `Dump`'s `Id:` is the card's own `CardID` (see above), and
+`setup.state` (run through actions.log) and `expect.state` are two independently loaded games whose `CardID`s were never
+going to agree by number. `compareGames` (`scenario_test.go`) compares the two `*engine.Game`s directly instead — zone
+contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment per card — which sidesteps the
+numbering question entirely and reaches fields `Dump` cannot write down at all (see below).
+
+**`Lost`, `Won` and `Over` are not compared.** `fixture.State` has no key that sets a player's `Lost` or `Won` —
+`GameState.java`'s own format has none either — so an `expect.state` loaded fresh always reports them `false`,
+regardless of what a scenario intends. Comparing them would fail every scenario that legitimately ends the game. A
+scenario that needs to assert a state-based loss has to check `Over()`/`Lost` against the loaded `*engine.Game` directly
+until the format grows a way to write the expectation down — not done yet, so no scenario in the corpus tests one.
+
+`TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
+would defeat the point of a format meant to run against the Java oracle too, and 33,697 cards is too much to pay for per
+case. That first load costs real time (order a minute, cold); TEST-13 already prices L3 at "every commit," same as L1,
+so this is the cost that entry was always going to have once scenarios existed to pay it.
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |
@@ -103,6 +149,8 @@ an already-compiled `map[string]*Card`.
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Token cards (`t:`/`T:` entries) — need `TokenInfo`/`AbilityFactory`, neither built                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | M5-M6                                  |
 | The rest of the per-card annotation grammar: `Renowned`, `Solved`, `Saddled`, `Suspected`, `Monstrous`, `PhasedOut`, `FaceDown`, `Transformed`/`Modal`/`Flipped`/`Meld`, `OnAdventure`, `IsCommander`, `IsRingBearer`, `EnchantingPlayer:`, `Ability:`, `ChosenColor:`/`ChosenType:`/`ChosenType2:`, `ChosenCards:`, `MergedCards:`, `NamedCard:`, `ExecuteScript:`, `ExiledWith:`, `Attacking`, `NoETBTrigs`, `Foretold`/`ForetoldThisTurn`, `IsToken`, `ClassLevel:`, `UnlockedRoom:` — each needs a mechanic or a type (`CardState`, `SpellAbility`, combat) this port has not reached | M5-M6, mechanic by mechanic            |
-| Player-level `Counters:`, `ManaPool:`, `PersistentMana:`, `LandsPlayed[LastTurn]:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet                                                                                                                                                                                                                                                                                                                                                                                                                         | M4-M5, as each field lands on `Player` |
+| Player-level `ManaPool:`, `PersistentMana:`, `LandsPlayed[LastTurn]:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work)                                                                                                                                                                                                                                                                                                                                                                     | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
+| A way for a fixture to express a player's `Lost`/`Won` — blocks `compareGames` from checking either, so no scenario yet tests a state-based loss end to end                                                                                                                                                                                                                                                                                                                                                                                                                               | M5-M6                                  |
+| `actions.log` verbs for anything past turn advance and mulligans — casting, targeting, combat — nothing downstream of `ScriptedController` can answer those decisions yet either                                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6                                  |

@@ -55,6 +55,7 @@ func Dump(l *Loaded) *State {
 		ps := &st.Players[slot]
 		ps.Named = true
 		ps.Life = g.Player(pid).Life
+		ps.Counters = dumpCounters(g.Player(pid).Counters)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)
 		ps.Hand = dumpZone(g, engine.Hand, pid)
@@ -122,7 +123,7 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		}
 	}
 	if c.Zone == engine.Battlefield || c.Zone == engine.Exile {
-		if s := dumpCounters(c); s != "" {
+		if s := dumpCounters(c.Counters); s != "" {
 			b.WriteString("|Counters:")
 			b.WriteString(s)
 		}
@@ -153,14 +154,14 @@ func joinCardIDs(ids []engine.CardID) string {
 
 // dumpCounters renders a card's counters as Counters:'s "TYPE=n,TYPE=n"
 // value, in the order they were first put on the card.
-func dumpCounters(c *engine.Card) string {
-	kinds := c.Counters.Kinds()
+func dumpCounters(counters engine.Counters) string {
+	kinds := counters.Kinds()
 	if len(kinds) == 0 {
 		return ""
 	}
 	parts := make([]string, len(kinds))
 	for i, k := range kinds {
-		parts[i] = string(k) + "=" + strconv.Itoa(c.Counters.Count(k))
+		parts[i] = string(k) + "=" + strconv.Itoa(counters.Count(k))
 	}
 	return strings.Join(parts, ",")
 }

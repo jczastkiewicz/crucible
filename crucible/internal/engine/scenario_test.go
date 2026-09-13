@@ -99,14 +99,12 @@ func loadScenarioFile(t *testing.T, db *compile.DB, path string) *fixture.Loaded
 // agree by number. Comparing the games themselves sidesteps that entirely,
 // and reaches fields Dump does not carry at all.
 //
-// Lost, Won and Over are deliberately not compared. fixture.State has no key
-// that sets a player's Lost or Won -- GameState.java's own format has none
-// either -- so want's are always their zero value, false, regardless of what
-// a scenario intends: comparing them would fail every scenario that
-// legitimately ends the game and pass every one that silently should not
-// have. A scenario testing a state-based loss has to assert Over()/Lost
-// against setup.Game directly until the format grows a way to write the
-// expectation down.
+// Lost, Won and Over are compared too, now that fixture.State has lost=,
+// won= and over= keys for them (Crucible-only -- GameState.java's own format
+// has none, since a fixture is always a still-being-played snapshot there).
+// Before those existed, an expect.state loaded fresh always reported them
+// false regardless of what a scenario intended, so comparing them would have
+// failed every scenario that legitimately ends the game.
 //
 // Players are matched by position in seating order (Players()[i] against
 // Players()[i]), which holds as long as setup.state and expect.state name
@@ -120,6 +118,9 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 	}
 	if got.ActivePhase() != want.ActivePhase() {
 		t.Errorf("activephase = %v, want %v", got.ActivePhase(), want.ActivePhase())
+	}
+	if got.Over() != want.Over() {
+		t.Errorf("over = %v, want %v", got.Over(), want.Over())
 	}
 
 	gotPlayers, wantPlayers := got.Players(), want.Players()
@@ -136,6 +137,12 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		wantIsActive := want.ActivePlayer() == wantPlayers[i]
 		if gotIsActive != wantIsActive {
 			t.Errorf("%s: is the active player = %v, want %v", gp.Name, gotIsActive, wantIsActive)
+		}
+		if gp.Lost != wp.Lost {
+			t.Errorf("%s: lost = %v, want %v", gp.Name, gp.Lost, wp.Lost)
+		}
+		if gp.Won != wp.Won {
+			t.Errorf("%s: won = %v, want %v", gp.Name, gp.Won, wp.Won)
 		}
 		if gp.Life != wp.Life {
 			t.Errorf("%s: life = %d, want %d", gp.Name, gp.Life, wp.Life)

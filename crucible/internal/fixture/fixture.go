@@ -46,6 +46,12 @@ type State struct {
 	PhaseAdvanced      bool
 	// RemoveSummoningSickness applies to every creature on the battlefield.
 	RemoveSummoningSickness bool
+	// Over is whether the game has ended. Java's GameState has no such key --
+	// a fixture is always a snapshot of a game still being played -- but
+	// TEST-5's scenario harness needs expect.state to be able to say a
+	// scenario ends the game, and Over is what Game.Over reports, so this is
+	// the fixture's way of writing that expectation down (Crucible-only).
+	Over bool
 	// Players is indexed by slot: 0 is `human`, 1 is `ai`, and `p<n>` is n.
 	Players [MaxPlayers]PlayerState
 	// AbilityStrings holds `ability<key>=` lines verbatim, keyed by what
@@ -71,6 +77,10 @@ type PlayerState struct {
 	LandsPlayedLastTurn int
 	NumRingTemptedYou   int
 	Speed               int
+	// Lost and Won are Player.Lost/Player.Won written down. Crucible-only,
+	// the same reason and for the same scenario-harness need as State.Over.
+	Lost bool
+	Won  bool
 
 	Battlefield string
 	Hand        string
@@ -143,6 +153,9 @@ func Write(w io.Writer, s *State) error {
 	if s.RemoveSummoningSickness {
 		b.WriteString("removesummoningsickness=true\n")
 	}
+	if s.Over {
+		b.WriteString("over=true\n")
+	}
 
 	for i := range s.Players {
 		p := &s.Players[i]
@@ -153,6 +166,12 @@ func Write(w io.Writer, s *State) error {
 		fmt.Fprintf(&b, "%slife=%d\n", name, p.Life)
 		if p.Counters != "" {
 			fmt.Fprintf(&b, "%scounters=%s\n", name, p.Counters)
+		}
+		if p.Lost {
+			fmt.Fprintf(&b, "%slost=true\n", name)
+		}
+		if p.Won {
+			fmt.Fprintf(&b, "%swon=true\n", name)
 		}
 		writeZone(&b, name, "battlefield", p.Battlefield)
 		writeZone(&b, name, "hand", p.Hand)
@@ -210,6 +229,9 @@ func (s *State) apply(key, value string) error {
 		return nil
 	case key == "removesummoningsickness":
 		s.RemoveSummoningSickness = strings.EqualFold(strings.TrimSpace(value), "true")
+		return nil
+	case key == "over":
+		s.Over = strings.EqualFold(strings.TrimSpace(value), "true")
 		return nil
 	case strings.HasPrefix(key, "ability"):
 		if s.AbilityStrings == nil {
@@ -329,6 +351,10 @@ func (s *State) applyPlayer(slot int, key, value string) error {
 		return number(&p.NumRingTemptedYou)
 	case strings.HasSuffix(key, "speed"):
 		return number(&p.Speed)
+	case strings.HasSuffix(key, "lost"):
+		p.Lost = strings.EqualFold(strings.TrimSpace(value), "true")
+	case strings.HasSuffix(key, "won"):
+		p.Won = strings.EqualFold(strings.TrimSpace(value), "true")
 	default:
 		s.Unknown = append(s.Unknown, key)
 	}

@@ -81,12 +81,15 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		active = slotToID[slot]
 	}
 	g.SetTurnState(st.Turn, active, st.ActivePhase)
+	g.SetOver(st.Over)
 
 	ld := &loader{game: g, slotToID: slotToID, idToCard: map[int]engine.CardID{}}
 	for _, slot := range slots {
 		ps := &st.Players[slot]
 		pid := slotToID[slot]
 		g.Player(pid).Life = ps.Life
+		g.Player(pid).Lost = ps.Lost
+		g.Player(pid).Won = ps.Won
 		if ps.Counters != "" {
 			if err := applyCounters(&g.Player(pid).Counters, ps.Counters); err != nil {
 				return nil, fmt.Errorf("%s counters: %w", slotName(slot), err)

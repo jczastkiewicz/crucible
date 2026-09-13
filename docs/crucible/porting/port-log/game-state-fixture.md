@@ -4,8 +4,8 @@
   `processCardsForZone`, `applyGameOnThread`, `toString`, and `PhaseType.smartValueOf`
 - **Go target:** `crucible/internal/fixture`
 - **Status:** Text parse, `Load` and `Dump` done for a core slice (M4); `RunActions` and the scenario harness (M5) run
-  against the real corpus. The per-card annotation long tail, tokens, and most remaining `Player` fields stay text-only;
-  see "Not ported yet"
+  against the real corpus, including `lost=`/`won=`/`over=` so a scenario can assert a game actually ended. The per-card
+  annotation long tail, tokens, and most remaining `Player` fields stay text-only; see "Not ported yet"
 
 ## What it does
 
@@ -109,11 +109,16 @@ going to agree by number. `compareGames` (`scenario_test.go`) compares the two `
 contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment per card — which sidesteps the
 numbering question entirely and reaches fields `Dump` cannot write down at all (see below).
 
-**`Lost`, `Won` and `Over` are not compared.** `fixture.State` has no key that sets a player's `Lost` or `Won` —
-`GameState.java`'s own format has none either — so an `expect.state` loaded fresh always reports them `false`,
-regardless of what a scenario intends. Comparing them would fail every scenario that legitimately ends the game. A
-scenario that needs to assert a state-based loss has to check `Over()`/`Lost` against the loaded `*engine.Game` directly
-until the format grows a way to write the expectation down — not done yet, so no scenario in the corpus tests one.
+**`Lost`, `Won` and `Over` have their own keys: `lost=`, `won=`, `over=`.** `GameState.java`'s own format has none of
+these — a Java fixture is always a still-being-played snapshot, never one that asserts the game already ended — so this
+is Crucible-only, the same category as `actions.log` itself. Without them an `expect.state` loaded fresh always reported
+`Lost`/`Won`/`Over` `false` regardless of what a scenario intended, which is why `compareGames` used to skip comparing
+them: comparing would have failed every scenario that legitimately ends the game. `<player>lost=true` and
+`<player>won=true` sit next to the other per-player keys (`PlayerState.Lost`/`Won`); `over=true` is top-level
+(`State.Over`), since a game ending is not itself a per-player fact even though CR 104.2a's loss/win bookkeeping is.
+`testdata/scenarios/poison-loss` is the example: ten poison counters going in via `setup.state`, `startturn human`
+running `CheckStateBasedActions` in `actions.log`, and `expect.state` writing `humanlost=true`, `aiwon=true`,
+`over=true` down as the assertion.
 
 `TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
 would defeat the point of a format meant to run against the Java oracle too, and 33,697 cards is too much to pay for per
@@ -152,5 +157,4 @@ so this is the cost that entry was always going to have once scenarios existed t
 | Player-level `ManaPool:`, `PersistentMana:`, `LandsPlayed[LastTurn]:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work)                                                                                                                                                                                                                                                                                                                                                                     | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
-| A way for a fixture to express a player's `Lost`/`Won` — blocks `compareGames` from checking either, so no scenario yet tests a state-based loss end to end                                                                                                                                                                                                                                                                                                                                                                                                                               | M5-M6                                  |
 | `actions.log` verbs for anything past turn advance and mulligans — casting, targeting, combat — nothing downstream of `ScriptedController` can answer those decisions yet either                                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6                                  |

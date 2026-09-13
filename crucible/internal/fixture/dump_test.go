@@ -99,6 +99,40 @@ func TestDumpRoundTripsThroughParse(t *testing.T) {
 	}
 }
 
+// Dump round-trips Lost/Won/Over through Write and back, the way it already
+// does for Life and Counters -- the whole point of adding them was to make
+// this comparable at all (game-state-fixture.md).
+func TestDumpAndWriteRoundTripLostWonOver(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=0\nhumanlost=true\nailife=20\naiwon=true\nover=true\n")
+	st := fixture.Dump(l)
+
+	if !st.Players[0].Lost {
+		t.Error("Dump: human.Lost did not carry over")
+	}
+	if !st.Players[1].Won {
+		t.Error("Dump: ai.Won did not carry over")
+	}
+	if !st.Over {
+		t.Error("Dump: Over did not carry over")
+	}
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse(Write(x)): %v", err)
+	}
+	if !got.Players[0].Lost || !got.Players[1].Won || !got.Over {
+		t.Errorf("round trip: lost=%v won=%v over=%v, want true/true/true",
+			got.Players[0].Lost, got.Players[1].Won, got.Over)
+	}
+}
+
 func TestDumpOwnerOnlyWhenDifferentFromController(t *testing.T) {
 	t.Parallel()
 

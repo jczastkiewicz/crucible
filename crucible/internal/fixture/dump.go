@@ -36,6 +36,7 @@ func Dump(l *Loaded) *State {
 		// the directive here would be asserting something Dump cannot
 		// actually know.
 		RemoveSummoningSickness: false,
+		Over:                    g.Over(),
 	}
 	// ActivePhase has no "unset" of its own on Game -- a real game always has
 	// some active phase once its turn state is initialised. Emitting it only
@@ -55,6 +56,8 @@ func Dump(l *Loaded) *State {
 		ps := &st.Players[slot]
 		ps.Named = true
 		ps.Life = g.Player(pid).Life
+		ps.Lost = g.Player(pid).Lost
+		ps.Won = g.Player(pid).Won
 		ps.Counters = dumpCounters(g.Player(pid).Counters)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)

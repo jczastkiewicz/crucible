@@ -441,6 +441,24 @@ func TestLoadImprintingMissingIDErrors(t *testing.T) {
 	}
 }
 
+func TestLoadLostWonOver(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=0\nhumanlost=true\nailife=20\naiwon=true\nover=true\n")
+
+	human, ai := l.Game.Players()[0], l.Game.Players()[1]
+	if !l.Game.Player(human).Lost {
+		t.Error("human.Lost did not apply")
+	}
+	if !l.Game.Player(ai).Won {
+		t.Error("ai.Won did not apply")
+	}
+	if !l.Game.Over() {
+		t.Error("Game.Over() did not apply")
+	}
+}
+
 func TestLoadActivePlayerAndPhase(t *testing.T) {
 	t.Parallel()
 

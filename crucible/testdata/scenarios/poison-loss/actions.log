@@ -1,0 +1,4 @@
+# StartTurn runs the Untap step's actions and the state-based-action check
+# that follows every phase entry (CR 704.3). Human already has ten poison
+# counters, so CR 704.5c ends the game right there.
+startturn human

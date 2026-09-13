@@ -51,11 +51,30 @@ type Game struct {
 	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
 	// stays ended (action.go).
 	over bool
+
+	// turn, activePlayer and activePhase are the turn structure: whose turn
+	// it is, what step or phase it is in, and how many turns have passed.
+	// Zero-valued (0, NoPlayer, Untap) until StartTurn, which is also a
+	// coherent "the game has not started its turn structure yet" reading --
+	// nothing downstream treats an unstarted game's phase as meaningful
+	// without also checking activePlayer (turn.go).
+	turn         int
+	activePlayer PlayerID
+	activePhase  PhaseType
 }
 
 // Over reports whether the game has ended, per the last call to
 // CheckStateBasedActions.
 func (g *Game) Over() bool { return g.over }
+
+// Turn is the current turn number, per the last player whose turn ended.
+func (g *Game) Turn() int { return g.turn }
+
+// ActivePlayer is whose turn it is. NoPlayer before StartTurn.
+func (g *Game) ActivePlayer() PlayerID { return g.activePlayer }
+
+// ActivePhase is the step or phase in progress.
+func (g *Game) ActivePhase() PhaseType { return g.activePhase }
 
 // zoneKey identifies a zone. Ownerless zones carry NoPlayer.
 type zoneKey struct {
@@ -259,12 +278,15 @@ func (g *Game) Unattach(attachment CardID) {
 // is rather than replaying it or advancing it.
 func (g *Game) Clone() *Game {
 	out := &Game{
-		cards:     make([]Card, len(g.cards)),
-		players:   append([]Player(nil), g.players...),
-		zones:     make(map[zoneKey]*Zone, len(g.zones)),
-		db:        g.db,
-		timestamp: g.timestamp,
-		over:      g.over,
+		cards:        make([]Card, len(g.cards)),
+		players:      append([]Player(nil), g.players...),
+		zones:        make(map[zoneKey]*Zone, len(g.zones)),
+		db:           g.db,
+		timestamp:    g.timestamp,
+		over:         g.over,
+		turn:         g.turn,
+		activePlayer: g.activePlayer,
+		activePhase:  g.activePhase,
 	}
 	if g.rand != nil {
 		r := *g.rand

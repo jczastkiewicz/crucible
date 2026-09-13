@@ -39,14 +39,14 @@ func TestDumpRoundTripsThroughParse(t *testing.T) {
 	}
 
 	// Life, turn and phase survive.
-	if l2.Turn != l1.Turn {
-		t.Errorf("turn %d, want %d", l2.Turn, l1.Turn)
+	if l2.Game.Turn() != l1.Game.Turn() {
+		t.Errorf("turn %d, want %d", l2.Game.Turn(), l1.Game.Turn())
 	}
-	if got, want := l2.Game.Player(l2.ActivePlayer).Name, l1.Game.Player(l1.ActivePlayer).Name; got != want {
+	if got, want := l2.Game.Player(l2.Game.ActivePlayer()).Name, l1.Game.Player(l1.Game.ActivePlayer()).Name; got != want {
 		t.Errorf("active player %q, want %q", got, want)
 	}
-	if l2.ActivePhase != l1.ActivePhase {
-		t.Errorf("active phase %v, want %v", l2.ActivePhase, l1.ActivePhase)
+	if l2.Game.ActivePhase() != l1.Game.ActivePhase() {
+		t.Errorf("active phase %v, want %v", l2.Game.ActivePhase(), l1.Game.ActivePhase())
 	}
 
 	human1, human2 := l1.Game.Players()[0], l2.Game.Players()[0]

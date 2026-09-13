@@ -11,18 +11,20 @@
     "phase": ["phase.go"],
     "event": ["event.go"],
     "control": ["control.go"],
-    "action": ["action.go"]
+    "action": ["action.go"],
+    "turn": ["turn.go"]
   },
   "allow": {
     "zone": ["id"],
     "parts": ["id"],
     "card": ["id", "zone", "parts"],
     "player": ["id", "parts"],
-    "game": ["id", "zone", "parts", "card", "player"],
+    "game": ["id", "zone", "parts", "card", "player", "phase"],
     "effect": ["id", "zone", "parts", "card", "player", "game"],
     "phase": [],
     "event": ["id", "zone", "phase"],
     "control": ["id", "game"],
-    "action": ["id", "zone", "parts", "card", "player", "game"]
+    "action": ["id", "zone", "parts", "card", "player", "game"],
+    "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action"]
   }
 }

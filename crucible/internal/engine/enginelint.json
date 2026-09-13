@@ -23,6 +23,6 @@
     "phase": [],
     "event": ["id", "zone", "phase"],
     "control": ["id", "game"],
-    "action": ["id", "parts", "player", "game"]
+    "action": ["id", "zone", "parts", "card", "player", "game"]
   }
 }

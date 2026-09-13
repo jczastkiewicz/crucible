@@ -168,6 +168,89 @@ func TestCheckStateBasedActionsSkipsAlreadyLostPlayers(t *testing.T) {
 	}
 }
 
+// CR 704.5q: N +1/+1 and N -1/-1 counters annihilate together, where N is
+// the smaller pile.
+func TestCheckStateBasedActionsAnnihilatesCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 5)
+	c.Counters.Add(engine.M1M1, 2)
+
+	if engine.CheckStateBasedActions(g) {
+		t.Fatal("game ended over a counter annihilation check")
+	}
+	if got := c.Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("P1P1 %d, want 3 (5 - min(5,2))", got)
+	}
+	if got := c.Counters.Count(engine.M1M1); got != 0 {
+		t.Errorf("M1M1 %d, want 0", got)
+	}
+}
+
+// Only one kind present is untouched -- there is nothing to annihilate
+// against.
+func TestCheckStateBasedActionsOneKindOfCounterSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 4)
+
+	engine.CheckStateBasedActions(g)
+	if got := c.Counters.Count(engine.P1P1); got != 4 {
+		t.Errorf("P1P1 %d, want 4 (untouched)", got)
+	}
+}
+
+// A permanent off the battlefield does not annihilate -- the rule is about
+// permanents, and a card in hand or the graveyard is not one.
+func TestCheckStateBasedActionsCounterAnnihilationIsBattlefieldOnly(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Graveyard)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 3)
+	c.Counters.Add(engine.M1M1, 3)
+
+	engine.CheckStateBasedActions(g)
+	if got := c.Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("P1P1 %d, want 3 (untouched off the battlefield)", got)
+	}
+}
+
+// Once the game has ended, the counter loop must not run at all -- the same
+// as Java's checkStateEffects returning before its creature loop once
+// checkGameOverCondition finds the game over.
+func TestCheckStateBasedActionsSkipsCounterCheckWhenGameOver(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 0, 20
+	id := g.NewCard(nil, b, engine.Battlefield)
+	c := g.Card(id)
+	c.Counters.Add(engine.P1P1, 2)
+	c.Counters.Add(engine.M1M1, 2)
+
+	if !engine.CheckStateBasedActions(g) {
+		t.Fatal("game did not end")
+	}
+	if got := c.Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("P1P1 %d, want 2 (the counter loop must not have run)", got)
+	}
+}
+
 // Clone must not let the clone's poison counters write back to the original
 // -- the same sharing bug Counters, Memory and attachments were already
 // guarded against.

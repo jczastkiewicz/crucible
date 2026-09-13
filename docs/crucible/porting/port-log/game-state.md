@@ -153,16 +153,23 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 
 ## State-based actions
 
-`CheckStateBasedActions` is `GameAction.checkGameOverCondition` and `Player.checkLoseCondition`, reduced to the two
-rules answerable without the layer system: CR 704.5a (a player at zero or less life loses) and CR 704.5c (ten or more
-poison counters loses). Every other SBA in Java's loop — lethal damage, zero toughness, an aura with nothing to enchant
-— reads a characteristic (toughness, "is this an Aura") the continuous-effect layer system computes, and that is M5 work
-this has not reached. A rule this port has not implemented simply never fires, the same as a real game with no permanent
-that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+`CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition` and
+`stateBasedAction704_5q`, reduced to the three rules answerable without the layer system: CR 704.5a (a player at zero or
+less life loses), CR 704.5c (ten or more poison counters loses), and CR 704.5q (a permanent carrying both +1/+1 and
+-1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and
+none). Every other SBA in Java's loop — lethal damage, zero toughness, an aura with nothing to enchant — reads a
+characteristic (toughness, "is this an Aura") the continuous-effect layer system computes, and that is M5 work this has
+not reached. A rule this port has not implemented simply never fires, the same as a real game with no permanent that
+rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
-Java's own loop runs up to nine times, because one SBA firing can make another one true. Neither rule here can trigger
-the other, and nothing else in the engine can trigger either of them, so one pass is complete. The loop returns once a
-second rule that can cascade lands — a card script writing to `Player.Life` mid-check does not exist yet either.
+CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
+checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
+
+Java's own loop runs up to nine times, because one SBA firing can make another one true. None of the three rules here
+can trigger each other or be triggered by anything else this port has, so one pass is complete. A game that already
+ended skips 704.5q entirely, the same as Java: `checkStateEffects` returns before its creature loop runs once
+`checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade lands — a card script
+writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
 
 `Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`

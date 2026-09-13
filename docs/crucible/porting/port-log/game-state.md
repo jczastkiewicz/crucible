@@ -1,7 +1,7 @@
 # Port Log — Game State
 
-- **Java counterpart:** `forge-game/src/main/java/forge/game/Game.java`, `card/Card.java` (8,105 LOC),
-  `player/Player.java`, `player/PlayerController.java`, `zone/Zone.java`, `zone/ZoneType.java`
+- **Java counterpart:** `forge-game/src/main/java/forge/game/Game.java`, `GameAction.java` (2,897 LOC), `card/Card.java`
+  (8,105 LOC), `player/Player.java`, `player/PlayerController.java`, `zone/Zone.java`, `zone/ZoneType.java`
 - **Go:** [`internal/engine`](../../../crucible/internal/engine)
 
 The arena, and the handles that address it. Everything else in the engine indexes into this.
@@ -142,7 +142,7 @@ land in M5. Porting the full interface now would mean inventing those types spec
 actually designs them, so only the four methods answerable with today's engine are here: `ChooseStartingPlayer`,
 `ChooseStartingHand`, `MulliganKeepHand`, `TuckCardsViaMulligan`. Each gets added when its own caller does, same as
 these four — mulligans and the starting-player choice have real callers in `GameAction` and `mulligan/`, even though
-neither is ported yet.
+`mulligan/` is not ported yet.
 
 Forge instantiates one controller per player. Go's methods take the deciding player as an explicit `PlayerID` instead of
 binding an instance to one seat, so `ScriptedController` — the fixture-driven implementation TEST-5 runs scenarios
@@ -151,11 +151,51 @@ against — answers for every player in a game from one value, with no per-playe
 A `ScriptedController` queue running dry mid-scenario panics rather than returning a zero value: it is a
 fixture-authoring mistake, not a rules question a card script could cause, so it has to fail loud (GO-7).
 
+## State-based actions
+
+`CheckStateBasedActions` is `GameAction.checkGameOverCondition` and `Player.checkLoseCondition`, reduced to the two
+rules answerable without the layer system: CR 704.5a (a player at zero or less life loses) and CR 704.5c (ten or more
+poison counters loses). Every other SBA in Java's loop — lethal damage, zero toughness, an aura with nothing to enchant
+— reads a characteristic (toughness, "is this an Aura") the continuous-effect layer system computes, and that is M5 work
+this has not reached. A rule this port has not implemented simply never fires, the same as a real game with no permanent
+that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+
+Java's own loop runs up to nine times, because one SBA firing can make another one true. Neither rule here can trigger
+the other, and nothing else in the engine can trigger either of them, so one pass is complete. The loop returns once a
+second rule that can cascade lands — a card script writing to `Player.Life` mid-check does not exist yet either.
+
+`Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
+rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
+deep-copies it for the same reason it already deep-copies a card's — sharing the underlying map would let the AI's
+lookahead poison the real game.
+
+## Move carries what Java gets for free
+
+`GameAction.changeZone` (2,897 LOC, most of it replacement effects, triggers and last-known-information bookkeeping this
+port has not reached) is not ported. One piece of it is: the part that exists only because Go's cards do not work the
+way Java's do.
+
+Java rebuilds a `Card` as a new object on every zone change (`CardCopyService.copyCard`), so a field the new object does
+not carry — tapped, damage, counters, summoning sickness — is simply gone, free of charge. ADR-0009 chose the opposite:
+a `CardID` is stable for the card's whole life in the game, so the same struct that was tapped on the battlefield is
+still tapped after `Move` if nothing clears it. `Move` now does that clearing explicitly: leaving the battlefield clears
+`Counters`, `Damage`, `Tapped` and the card's own attachment; entering it sets `SummonSick`, since a freshly-arrived
+permanent has not been under its controller's control since their last turn began (CR 302.6).
+
+What it deliberately does not do: unattach whatever was attached _to_ the leaving card (an Equipment left behind when
+its creature dies keeps pointing at a `CardID` no longer on the battlefield) — CR 704.5m is the state-based action that
+would clean that up, and it is not built. `Game.NewCard` stays untouched by any of this: it is the arena-allocation
+primitive fixture loading uses to seat a board mid-game, where a battlefield card's starting `Tapped`/`SummonSick` is
+exactly what the fixture says, not a rule this port applies at construction time.
+
 ## Not ported yet
 
-| Missing                                                                                                          | Lands |
-| ---------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                             | M5    |
-| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                           | M7    |
-| Stack, combat, phases, priority                                                                                  | M5    |
+| Missing                                                                                                               | Lands |
+| --------------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                  | M5    |
+| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment      | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                | M7    |
+| Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled | M5-M6 |
+| CR 704.5m: cleaning up a dangling attachment left behind on the object the leaving card was attached to               | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                   | M5-M6 |
+| Stack, combat, `PhaseHandler`'s turn/step loop, priority                                                              | M5    |

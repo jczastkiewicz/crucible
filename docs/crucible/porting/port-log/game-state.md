@@ -156,22 +156,36 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 ## State-based actions
 
 `CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition` and
-`stateBasedAction704_5q`, reduced to the three rules answerable without the layer system: CR 704.5a (a player at zero or
-less life loses), CR 704.5c (ten or more poison counters loses), and CR 704.5q (a permanent carrying both +1/+1 and
--1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and
-none). Every other SBA in Java's loop — lethal damage, zero toughness, an aura with nothing to enchant — reads a
-characteristic (toughness, "is this an Aura") the continuous-effect layer system computes, and that is M5 work this has
-not reached. A rule this port has not implemented simply never fires, the same as a real game with no permanent that
-rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+`stateBasedAction704_5q`, plus `cleanupDanglingAttachments` for a slice of what `changeZone` folds in elsewhere in Java
+(`## Move carries what Java gets for free`, below) — the rules answerable without the layer system: CR 704.5a (a player
+at zero or less life loses), CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent carrying both +1/+1
+and -1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and
+none), and a partial CR 704.5f/704.5m (an Aura not attached to a permanent on the battlefield goes to its owner's
+graveyard; an Equipment or Fortification in the same state just becomes unattached). Every other SBA in Java's loop —
+lethal damage, zero toughness, the rest of 704.5f/704.5m's own legality (an Aura's `Enchant` restriction violated by
+something other than its host leaving, protection, hexproof) — reads a characteristic the continuous-effect layer system
+computes, or a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and neither is
+M5 work this has reached yet. A rule this port has not implemented simply never fires, the same as a real game with no
+permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
 
-Java's own loop runs up to nine times, because one SBA firing can make another one true. None of the three rules here
-can trigger each other or be triggered by anything else this port has, so one pass is complete. A game that already
-ended skips 704.5q entirely, the same as Java: `checkStateEffects` returns before its creature loop runs once
-`checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade lands — a card script
+Java's own loop runs up to nine times, because one SBA firing can make another one true. None of the four rules here can
+trigger each other or be triggered by anything else this port has — an Aura leaving for the graveyard does not change
+any player's life, poison count or a permanent's counters — so one pass is complete. A game that already ended skips
+704.5q and the attachment cleanup entirely, the same as Java: `checkStateEffects` returns before its creature loop runs
+once `checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade lands — a card script
 writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
+
+`cleanupDanglingAttachments` needed `Card.Type()` to exist at all: `compile.Card` carried no printed characteristics
+before this, only compiled ability lines, because nothing before this needed to go from a compiled card back to "what
+type is it" (`## Compiled cards needed a name back` in `game-state-fixture.md` is the same shape of gap, for `Name`
+instead of `Type`). `carddb.Face` already parses one (`Type cardtype.Line`, from the corpus's own `Type:` line);
+`compile.Face` now carries it through unchanged, since it is a printed value `Compile` does not interpret, the same way
+`Name` is copied rather than recomputed. `Card.Type()` returns the primary face's line and, for a `nil` `Def` (every
+synthetic test card in this package), the zero `Line` — which matches no subtype, so a test card is never mistaken for
+an Aura.
 
 `Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
@@ -192,10 +206,11 @@ still tapped after `Move` if nothing clears it. `Move` now does that clearing ex
 permanent has not been under its controller's control since their last turn began (CR 302.6).
 
 What it deliberately does not do: unattach whatever was attached _to_ the leaving card (an Equipment left behind when
-its creature dies keeps pointing at a `CardID` no longer on the battlefield) — CR 704.5m is the state-based action that
-would clean that up, and it is not built. `Game.NewCard` stays untouched by any of this: it is the arena-allocation
-primitive fixture loading uses to seat a board mid-game, where a battlefield card's starting `Tapped`/`SummonSick` is
-exactly what the fixture says, not a rule this port applies at construction time.
+its creature dies keeps pointing at a `CardID` no longer on the battlefield). That is CR 704.5f/704.5m's job, not
+`Move`'s — it is an SBA, checked continuously, not something a zone change fires inline — and `## State-based actions`
+above is where it landed (`cleanupDanglingAttachments`). `Game.NewCard` stays untouched by any of this: it is the
+arena-allocation primitive fixture loading uses to seat a board mid-game, where a battlefield card's starting
+`Tapped`/`SummonSick` is exactly what the fixture says, not a rule this port applies at construction time.
 
 ## Turn structure
 
@@ -358,7 +373,7 @@ compared were never going to agree on those by number.
 | 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                          | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                    | M7    |
 | Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled                                                                                     | M5-M6 |
-| CR 704.5m: cleaning up a dangling attachment left behind on the object the leaving card was attached to                                                                                                   | M5-M6 |
+| The rest of CR 704.5f/704.5m's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                       | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat                                                                                      | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond | M5-M6 |

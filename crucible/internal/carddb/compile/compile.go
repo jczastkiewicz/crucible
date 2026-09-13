@@ -18,6 +18,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 )
 
 // Errors a card script can cause. Each names the card and the reference that
@@ -145,6 +146,14 @@ func mergeParams(params []vocab.Param) []vocab.Param {
 
 // Face is one printed face's compiled definitions, in script order.
 type Face struct {
+	// Type is the face's printed card type line, carried through unchanged
+	// from carddb.Face -- the engine's only way to ask "is this an Aura"
+	// today. It is the printed value only: nothing that would change it
+	// (the layer system) exists yet, so a card whose type a continuous
+	// effect currently changes reports the one on the card, not the one in
+	// play (game-state.md's "Not ported yet").
+	Type cardtype.Line
+
 	Abilities    []*Ability
 	Triggers     []*Ability
 	Statics      []*Ability
@@ -184,7 +193,7 @@ func Compile(card *carddb.Card) (*Card, error) {
 func compileFace(face *carddb.Face) (Face, error) {
 	c := &faceCompiler{face: face, open: map[string]bool{}}
 
-	var out Face
+	out := Face{Type: face.Type}
 	for _, group := range []struct {
 		lines  []string
 		target *[]*Ability

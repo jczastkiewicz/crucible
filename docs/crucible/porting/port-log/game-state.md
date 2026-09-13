@@ -1,7 +1,7 @@
 # Port Log — Game State
 
 - **Java counterpart:** `forge-game/src/main/java/forge/game/Game.java`, `card/Card.java` (8,105 LOC),
-  `player/Player.java`, `zone/Zone.java`, `zone/ZoneType.java`
+  `player/Player.java`, `player/PlayerController.java`, `zone/Zone.java`, `zone/ZoneType.java`
 - **Go:** [`internal/engine`](../../../crucible/internal/engine)
 
 The arena, and the handles that address it. Everything else in the engine indexes into this.
@@ -133,11 +133,29 @@ to it, and `enginelint` scores it as one.
 constant: `Phase$ End of Turn` has spaces in it, so these are not identifiers. Combat is a contiguous range, which is
 what lets a trigger restricted to combat test a bound instead of listing six steps.
 
+## Controller
+
+`PlayerController` is where the game asks a player to decide something. Ported from
+`forge-game/src/main/java/forge/game/player/PlayerController.java`, which has 110 abstract methods — most of them take
+`SpellAbility`, `Combat`, `ReplacementEffect` or other types that do not exist until the stack, combat and layer system
+land in M5. Porting the full interface now would mean inventing those types speculatively, ahead of the milestone that
+actually designs them, so only the four methods answerable with today's engine are here: `ChooseStartingPlayer`,
+`ChooseStartingHand`, `MulliganKeepHand`, `TuckCardsViaMulligan`. Each gets added when its own caller does, same as
+these four — mulligans and the starting-player choice have real callers in `GameAction` and `mulligan/`, even though
+neither is ported yet.
+
+Forge instantiates one controller per player. Go's methods take the deciding player as an explicit `PlayerID` instead of
+binding an instance to one seat, so `ScriptedController` — the fixture-driven implementation TEST-5 runs scenarios
+against — answers for every player in a game from one value, with no per-player state to wire up (GO-2, PORT-1).
+
+A `ScriptedController` queue running dry mid-scenario panics rather than returning a zero value: it is a
+fixture-authoring mistake, not a rules question a card script could cause, so it has to fail loud (GO-7).
+
 ## Not ported yet
 
-| Missing                                                       | Lands |
-| ------------------------------------------------------------- | ----- |
-| `CardState`, counters, damage, attachments as their own types | M4    |
-| The ~110-method `PlayerController` interface                  | M4    |
-| `GameState` fixture load and dump                             | M4    |
-| Stack, combat, phases, priority                               | M5    |
+| Missing                                                                                                          | Lands |
+| ---------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                             | M5    |
+| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                           | M7    |
+| Stack, combat, phases, priority                                                                                  | M5    |

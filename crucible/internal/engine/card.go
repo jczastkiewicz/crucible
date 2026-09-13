@@ -42,6 +42,15 @@ type Card struct {
 	Damage   Damage
 	Memory   Memory
 
+	// Tapped and SummonSick are the two pieces of battlefield state every
+	// permanent carries that are not "how much of something" -- everything
+	// else that shape (Renowned, Monstrous, PhasedOut, and the rest of
+	// GameState's per-card annotation grammar) waits on the mechanic that
+	// reads it, which is card-type-specific and not built yet
+	// (porting/port-log/game-state-fixture.md).
+	Tapped     bool
+	SummonSick bool
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.

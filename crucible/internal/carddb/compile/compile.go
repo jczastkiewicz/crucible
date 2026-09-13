@@ -154,7 +154,13 @@ type Face struct {
 // Card is a compiled card: one [Face] per face the script filled.
 type Card struct {
 	Filename string
-	Faces    [carddb.NumFaces]Face
+	// Name is the primary face's printed name -- the same string DB.Card
+	// looks compiled cards up by. It is carried on the compiled value itself
+	// because nothing else a *Card holds can answer "what card is this": the
+	// script string is gone by this stage, and Filename is a snake_case file
+	// stem, not a printed name (card.go:196).
+	Name  string
+	Faces [carddb.NumFaces]Face
 }
 
 // Compile resolves every ability line of every face.
@@ -164,7 +170,7 @@ type Card struct {
 // is how a card can ship with an ability that silently does half of what its
 // text says; a script that cannot be compiled is a script to fix (PORT-8).
 func Compile(card *carddb.Card) (*Card, error) {
-	out := &Card{Filename: card.Filename}
+	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name}
 	for _, i := range card.PresentFaces() {
 		face, err := compileFace(&card.Faces[i])
 		if err != nil {

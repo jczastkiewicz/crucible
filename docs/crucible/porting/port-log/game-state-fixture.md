@@ -18,13 +18,22 @@ The split mirrors `internal/carddb`'s own two stages (PORT-2): `Parse` keeps zon
 test: `TestDumpRoundTripsThroughParse` runs a fixture through `Parse → Load → Dump → Write → Parse → Load` and checks
 every field the second `Loaded` produces against the first.
 
-## `Loaded`, not fields on `Game`
+## `Loaded` no longer carries turn state
 
-`Load` returns a `*Loaded` — the `*Game` plus `Turn`, `ActivePlayer` and `ActivePhase` — rather than adding those as
-fields on `engine.Game` itself. The turn/phase loop that would actually own that state is `PhaseHandler`, M5, not built
-yet, and guessing its shape now — one flat field, a struct, an enum of steps — is exactly the kind of speculative design
-CLAUDE.md rules out: M5 would likely have to redesign it anyway. `Loaded` is the seam that keeps `Game` from being
-threaded with fields nothing writes to yet without blocking `Load`/`Dump` on M5 landing first.
+`Turn`, `ActivePlayer` and `ActivePhase` used to live on `Loaded` rather than `engine.Game`, because M5's turn/phase
+loop had not landed and guessing its shape early was exactly the kind of speculative design CLAUDE.md rules out.
+`turn.go`'s `StartTurn`/`AdvancePhase` gave them a real home (`porting/port-log/game-state.md`'s "turn structure"
+section), so `Load` now calls `Game.SetTurnState` and `Dump` reads `Game.Turn`/`ActivePlayer`/`ActivePhase` back —
+`SetTurnState` is `Load`'s tool for this the same way `devAdvanceToPhase` is Java's: a state injection, not a step
+`AdvancePhase` would actually run.
+
+`Loaded` keeps only what still has no `Game` equivalent: `ActivePhaseAdvance`/`PhaseAdvanced`, a fixture-only "advance
+once more after setup" directive that is parsed but not yet applied, and `Unapplied`.
+
+One consequence of the move: `Game` has no "phase is unset" state of its own — a real game always has some active phase
+once turn state is initialised. `Dump` only writes `activephase=` when `ActivePlayer` is also set, so a fixture that
+names no active player does not gain a phantom `activephase=Untap` line it never wrote; one that does gain an explicit
+phase on its first dump, stable from then on.
 
 ## Load builds the game itself
 

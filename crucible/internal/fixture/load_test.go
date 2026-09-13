@@ -429,13 +429,13 @@ func TestLoadActivePlayerAndPhase(t *testing.T) {
 	db := testDB(t)
 	l := load(t, db, "humanlife=20\nailife=20\nactiveplayer=ai\nactivephase=Main1\nturn=3\n")
 
-	if l.Turn != 3 {
-		t.Errorf("turn %d, want 3", l.Turn)
+	if l.Game.Turn() != 3 {
+		t.Errorf("turn %d, want 3", l.Game.Turn())
 	}
-	if l.ActivePlayer != l.Game.Players()[1] {
-		t.Errorf("active player %v, want ai", l.ActivePlayer)
+	if l.Game.ActivePlayer() != l.Game.Players()[1] {
+		t.Errorf("active player %v, want ai", l.Game.ActivePlayer())
 	}
-	if !l.Phased || l.ActivePhase != engine.Main1 {
-		t.Errorf("phase %v phased=%v, want Main1", l.ActivePhase, l.Phased)
+	if l.Game.ActivePhase() != engine.Main1 {
+		t.Errorf("phase %v, want Main1", l.Game.ActivePhase())
 	}
 }

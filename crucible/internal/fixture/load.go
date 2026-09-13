@@ -12,16 +12,17 @@ import (
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
-// Loaded is what Load produces: the engine.Game plus the fixture-level state
-// that has no home in the engine yet, because the turn/phase loop that would
-// own it -- Forge's PhaseHandler -- is M5, not built (Plan Section 3.2, P4).
+// Loaded is what Load produces: the engine.Game, plus the one directive that
+// still has no home in it. Turn, ActivePlayer and ActivePhase used to live
+// here too -- they moved onto Game itself once turn.go gave them one
+// (porting/port-log/game-state.md's "turn structure" section); read them
+// from Game.Turn, Game.ActivePlayer and Game.ActivePhase.
 type Loaded struct {
 	Game *engine.Game
 
-	Turn               int
-	ActivePlayer       engine.PlayerID
-	ActivePhase        engine.PhaseType
-	Phased             bool
+	// ActivePhaseAdvance and PhaseAdvanced are a fixture-only convenience --
+	// a second phase to fast-forward to after setup -- not real game state,
+	// so they have no Game equivalent and are not applied by Load yet.
 	ActivePhaseAdvance engine.PhaseType
 	PhaseAdvanced      bool
 
@@ -61,19 +62,18 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 
 	l := &Loaded{
 		Game:               g,
-		Turn:               st.Turn,
-		ActivePhase:        st.ActivePhase,
-		Phased:             st.Phased,
 		ActivePhaseAdvance: st.ActivePhaseAdvance,
 		PhaseAdvanced:      st.PhaseAdvanced,
 	}
+	active := engine.NoPlayer
 	if st.ActivePlayer != "" {
 		slot, ok := playerSlot(st.ActivePlayer)
 		if !ok || slotToID[slot] == engine.NoPlayer {
 			return nil, fmt.Errorf("activeplayer %q: no such player", st.ActivePlayer)
 		}
-		l.ActivePlayer = slotToID[slot]
+		active = slotToID[slot]
 	}
+	g.SetTurnState(st.Turn, active, st.ActivePhase)
 
 	ld := &loader{game: g, slotToID: slotToID, idToCard: map[int]engine.CardID{}}
 	for _, slot := range slots {

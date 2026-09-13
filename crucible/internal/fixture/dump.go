@@ -26,9 +26,7 @@ import (
 func Dump(l *Loaded) *State {
 	g := l.Game
 	st := &State{
-		Turn:               l.Turn,
-		ActivePhase:        l.ActivePhase,
-		Phased:             l.Phased,
+		Turn:               g.Turn(),
 		ActivePhaseAdvance: l.ActivePhaseAdvance,
 		PhaseAdvanced:      l.PhaseAdvanced,
 		// RemoveSummoningSickness is a one-time load directive, not state a
@@ -39,8 +37,14 @@ func Dump(l *Loaded) *State {
 		// actually know.
 		RemoveSummoningSickness: false,
 	}
-	if l.ActivePlayer != engine.NoPlayer {
-		st.ActivePlayer = g.Player(l.ActivePlayer).Name
+	// ActivePhase has no "unset" of its own on Game -- a real game always has
+	// some active phase once its turn state is initialised. Emitting it only
+	// alongside ActivePlayer keeps a truly empty fixture (no active player at
+	// all) from gaining a phantom activephase=Untap line it never wrote.
+	if g.ActivePlayer() != engine.NoPlayer {
+		st.ActivePlayer = g.Player(g.ActivePlayer()).Name
+		st.ActivePhase = g.ActivePhase()
+		st.Phased = true
 	}
 
 	for _, pid := range g.Players() {

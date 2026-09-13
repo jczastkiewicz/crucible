@@ -8,16 +8,22 @@ package engine
 //
 // Ported from forge-game/src/main/java/forge/game/GameAction.java
 // (checkGameOverCondition, stateBasedAction704_5q) and
-// forge/game/player/Player.java (checkLoseCondition). Three of Java's checks
-// are here: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten
-// or more poison counters loses), and CR 704.5q (a permanent carrying both
-// +1/+1 and -1/-1 counters loses the smaller pile from each, in equal
-// number). Every other rule in Java's loop -- lethal damage, zero toughness,
-// an aura with nothing to enchant, a planeswalker at zero loyalty -- needs
-// either the continuous-effect layer system to compute a characteristic
-// (P/T, loyalty) or a permanent type (Aura, Planeswalker, Battle) this port
-// has not built. A rule this port has not reached simply never fires, the
-// same as it would in a real game with no permanent that rule applies to.
+// forge/game/player/Player.java (checkLoseCondition). Four of Java's checks
+// are here: CR 704.5b (an attempted draw with nothing to draw loses), CR
+// 704.5a (a player at zero or less life loses), CR 704.5c (ten or more
+// poison counters loses), and CR 704.5q (a permanent carrying both +1/+1 and
+// -1/-1 counters loses the smaller pile from each, in equal number). Every
+// other rule in Java's loop -- lethal damage, zero toughness, an aura with
+// nothing to enchant, a planeswalker at zero loyalty -- needs either the
+// continuous-effect layer system to compute a characteristic (P/T, loyalty)
+// or a permanent type (Aura, Planeswalker, Battle) this port has not built.
+// A rule this port has not reached simply never fires, the same as it would
+// in a real game with no permanent that rule applies to.
+//
+// 704.5b is checked first, matching Java's own order -- its comment cites
+// Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
+// the same result in any order. Kept anyway: it costs nothing, and a future
+// port of that card should not have to notice these were ever reordered.
 //
 // Java's `canRemoveCounters` guard on 704.5q -- some cards grant "counters
 // can't be removed from CARDNAME" -- is a static ability, so it is not
@@ -38,13 +44,15 @@ func CheckStateBasedActions(g *Game) bool {
 		return true
 	}
 
-	// CR 704.5a, 704.5c
+	// CR 704.5b, 704.5a, 704.5c
 	for _, id := range g.Players() {
 		p := g.Player(id)
+		drewFromEmpty := p.DrewFromEmptyLibrary
+		p.DrewFromEmptyLibrary = false
 		if p.Lost {
 			continue
 		}
-		if p.Life <= 0 || p.Counters.Count(Poison) >= 10 {
+		if drewFromEmpty || p.Life <= 0 || p.Counters.Count(Poison) >= 10 {
 			p.Lost = true
 		}
 	}

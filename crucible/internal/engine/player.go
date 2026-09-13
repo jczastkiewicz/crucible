@@ -27,4 +27,11 @@ type Player struct {
 	// what CR 704.5c checks. The same type as a card's, because nothing about
 	// "a count that is never stored at zero" is specific to what holds it.
 	Counters Counters
+	// DrewFromEmptyLibrary records an attempted draw with nothing to draw.
+	// CheckStateBasedActions reads it for CR 704.5b and clears it either way
+	// -- a one-shot check, the same as Java's triedToDrawFromEmptyLibrary --
+	// so a player who survives this check (because a replacement effect
+	// intervenes, once one exists) does not lose on the next one for a draw
+	// that already happened.
+	DrewFromEmptyLibrary bool
 }

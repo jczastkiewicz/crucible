@@ -195,6 +195,46 @@ would clean that up, and it is not built. `Game.NewCard` stays untouched by any 
 primitive fixture loading uses to seat a board mid-game, where a battlefield card's starting `Tapped`/`SummonSick` is
 exactly what the fixture says, not a rule this port applies at construction time.
 
+## Turn structure
+
+`turn.go` is `PhaseHandler.java` (1,324 LOC), reduced to what does not need the stack, triggers or `SpellAbility`:
+`Turn`, `ActivePlayer` and `ActivePhase` live on `Game` now (`StartTurn`, `AdvancePhase`, `SetTurnState`), and two steps
+— Untap and Draw — have real bodies. Every other step (`onPhaseBegin`'s Upkeep, Main, five combat steps, End of Turn,
+Cleanup cases) still just changes `ActivePhase` and nothing else, because casting, blocking, discarding to hand size and
+firing a trigger all need machinery this port has not reached. `AdvancePhase` walks through them as bookkeeping only,
+until each one's turn comes.
+
+Priority (`mainLoopStep`) is not here either, on purpose. With no stack and no `PlayerController` method that can cast
+anything, asking a player "do you have a legal action" always answers no — building that loop today would be a stub
+standing in for a decision no one can make yet, not a real one deferred. It lands with the stack.
+
+Two rules came along because Draw needed them to mean something real rather than silently doing nothing:
+
+- **CR 103.7a** — the first player skips the draw step of their own first turn in a two-player game.
+  `turn == 1 && len(Players()) == 2`, the same condition Java's `isSkippingPhase` uses.
+- **CR 704.5b** — an attempted draw with nothing to draw loses the game. `Player.DrewFromEmptyLibrary` records the
+  attempt (a one-shot flag, cleared the moment `CheckStateBasedActions` reads it, matching Java's
+  `triedToDrawFromEmptyLibrary`), checked first among the loss conditions per Java's own order — its comment cites
+  Lich's Mirror, a card not ported, so today the order changes nothing observable.
+
+`CheckStateBasedActions` runs after every phase entry, not just when a card script asks: `beginPhase` calls it right
+after the step's own action, the same pairing `onPhaseBegin`/`checkStateBasedEffects` make at the top of `mainLoopStep`
+(CR 704.3, "whenever a player would get priority").
+
+Turn order skips a player who has lost (`nextPlayerAfter`), which is CR 800-something's "a player who has left the game
+is skipped when play passes to them" — needed the moment a 3+ player game outlives its first loser, which
+`CheckStateBasedActions` already supports.
+
+**The top of the library is index 0** of the zone's order — a design decision, not a Java fact reproduced: nothing
+established a convention before this, so `drawStep` set one. A fixture author writing `humanlibrary=Top;Next;...` names
+it left to right, top to bottom, and `Load` already builds cards in that order, so drawing `Cards()[0]` and returning a
+mulligan's tuck to the zone's end (bottom) both fall out of the existing `Zone`/`Move` behaviour with no new API.
+
+Not modeled, and each is a real rule some card will eventually need: Java's extra-turn and extra-phase stacks
+(`AddTurnEffect`, `SkipPhaseEffect` — nothing can push onto either yet, since neither ability is implemented),
+topsy-turvy phase order (a handful of effects reverse it), and CR 502.3's "this permanent doesn't untap" effects.
+Skipping them today is not a gap a card can expose, because nothing that would trigger them exists yet.
+
 ## Not ported yet
 
 | Missing                                                                                                               | Lands |
@@ -205,4 +245,6 @@ exactly what the fixture says, not a rule this port applies at construction time
 | Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled | M5-M6 |
 | CR 704.5m: cleaning up a dangling attachment left behind on the object the leaving card was attached to               | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                   | M5-M6 |
-| Stack, combat, `PhaseHandler`'s turn/step loop, priority                                                              | M5    |
+| `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat  | M5-M6 |
+| Priority (`mainLoopStep`), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects                       | M5-M6 |
+| Stack, combat                                                                                                         | M5    |

@@ -19,6 +19,11 @@ from `TypeLists.txt`. That vocabulary is also what makes `Time Lord` one subtype
 Both that file and the card scripts are upstream inputs, so `crucible-go.yml` triggers on them and a sync that adds a
 type is caught by the corpus golden on the sync itself (see [`mana-cost.md`](mana-cost.md)).
 
+`HasStringType` (M5) is `CardType.hasStringType`: one name, and the caller does not have to know whether it is a core
+type, a supertype or a subtype to ask "does this line have it". `engine.Matches`
+([`valid-strings.md`](valid-strings.md)) is the first caller — `Card.isValid`'s own default case and every property
+chain's fallthrough both resolve a bare word the same way in Java, so one method answers both here too.
+
 ## Deviations from Java
 
 | Deviation                                                                    | Reason                                                                                                                                                                                                    |

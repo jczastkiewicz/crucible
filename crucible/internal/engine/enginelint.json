@@ -15,7 +15,8 @@
     "action": ["action.go"],
     "turn": ["turn.go"],
     "mulligan": ["mulligan.go"],
-    "stack": ["stack.go"]
+    "stack": ["stack.go"],
+    "valid": ["valid.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -31,6 +32,7 @@
     "action": ["id", "zone", "parts", "card", "player", "game", "event"],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event"],
     "mulligan": ["id", "zone", "game", "control"],
-    "stack": ["id", "ability", "game", "effect", "event", "action"]
+    "stack": ["id", "ability", "game", "effect", "event", "action"],
+    "valid": ["id", "card"]
   }
 }

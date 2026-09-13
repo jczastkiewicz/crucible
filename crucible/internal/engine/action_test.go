@@ -41,6 +41,13 @@ func equipmentDef(t *testing.T) *compile.Card {
 	return def
 }
 
+func creatureDef(t *testing.T) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Creature"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	return def
+}
+
 // CR 704.5a: a player at zero life loses. The other player, now the only one
 // left standing, wins and the game ends (CR 104.2a).
 func TestCheckStateBasedActionsLifeAtZero(t *testing.T) {

@@ -237,6 +237,35 @@ func TestLineQueries(t *testing.T) {
 	}
 }
 
+// HasStringType is CardType.hasStringType: one lookup that answers "is this
+// word a core type, a supertype, or a subtype" without the caller knowing
+// which.
+func TestHasStringType(t *testing.T) {
+	t.Parallel()
+
+	line := cardtype.Parse(testRegistry(t), "Legendary Creature Elf Warrior")
+
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"Creature", true},  // core type
+		{"Legendary", true}, // supertype
+		{"Elf", true},       // subtype
+		{"Warrior", true},   // second subtype
+		{"Land", false},     // a type it does not have
+		{"Nonsense", false}, // not a type word at all
+		{"", false},         // empty is never a type
+		{"creature", true},  // Java capitalizes a lowercase core type before lookup
+		{"legendary", true}, // same, for a supertype
+		{"elf", false},      // a subtype is matched exactly as printed, no capitalization
+	} {
+		if got := line.HasStringType(tc.name); got != tc.want {
+			t.Errorf("HasStringType(%q) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestParsePanicsOnNilRegistry(t *testing.T) {
 	t.Parallel()
 

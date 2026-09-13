@@ -9,7 +9,8 @@
     "game": ["game.go"],
     "effect": ["effect.go", "apitype_gen.go"],
     "phase": ["phase.go"],
-    "event": ["event.go"]
+    "event": ["event.go"],
+    "control": ["control.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -19,6 +20,7 @@
     "game": ["id", "zone", "parts", "card", "player"],
     "effect": ["id", "zone", "parts", "card", "player", "game"],
     "phase": [],
-    "event": ["id", "zone", "phase"]
+    "event": ["id", "zone", "phase"],
+    "control": ["id", "game"]
   }
 }

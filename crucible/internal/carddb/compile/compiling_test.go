@@ -23,6 +23,19 @@ func compileScript(t *testing.T, script string) *compile.Card {
 	return out
 }
 
+// A compiled card carries its own printed name. Nothing else it holds can
+// answer "what card is this" -- the script string is gone by this stage, and
+// Filename is a snake_case file stem, not a printed name -- so a caller that
+// only has a *Card (fixture.Dump, a report) still needs it.
+func TestCardCarriesItsName(t *testing.T) {
+	t.Parallel()
+
+	out := compileScript(t, "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:\n")
+	if out.Name != "Grizzly Bears" {
+		t.Errorf("Name %q, want %q", out.Name, "Grizzly Bears")
+	}
+}
+
 // The first key of a line decides what the line is, and the line it sits on
 // decides only whether a `Mode$` is a trigger or a continuous effect.
 func TestRecordTypes(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
@@ -69,6 +70,21 @@ func LoadDB(root, typeList string) (*DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+// NewDB builds a database from already-compiled cards, keyed by name.
+//
+// LoadDB is the only other constructor, and it always walks a real corpus
+// directory -- fine for the P1 gate, wrong for a test that wants three known
+// cards and nothing else. Names is sorted rather than insertion order, since
+// a map has none to give.
+func NewDB(cards map[string]*Card) *DB {
+	db := &DB{byName: cards, names: make([]string, 0, len(cards))}
+	for name := range cards {
+		db.names = append(db.names, name)
+	}
+	sort.Strings(db.names)
+	return db
 }
 
 // Card looks a card up by its printed name, and reports whether the database

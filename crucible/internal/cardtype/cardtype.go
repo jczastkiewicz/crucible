@@ -10,7 +10,11 @@
 // Deviations recorded in docs/crucible/porting/port-log/card-type.md.
 package cardtype
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
 
 // Line is a parsed type line.
 //
@@ -156,6 +160,44 @@ func (l Line) HasSubtype(name string) bool {
 		}
 	}
 	return false
+}
+
+// HasStringType reports whether the line carries the named core type,
+// supertype or subtype -- ported from CardType.hasStringType, which valid
+// strings and card scripts alike use to ask "is this a Creature" or "is
+// this an Elf" by the word as written, without the caller knowing which of
+// the three the word names.
+//
+// A subtype is checked first, exactly as written (HasSubtype's own
+// case-sensitive match): a script never has reason to write a subtype in
+// anything but its printed case. Only if that fails does the name get
+// Java's one-character capitalization (StringUtils.capitalize: the first
+// rune uppercased, everything after left alone) before it is tried as a
+// core type, then a supertype -- catching a script that writes "creature"
+// lowercase, which a subtype never would.
+func (l Line) HasStringType(name string) bool {
+	if name == "" {
+		return false
+	}
+	if l.HasSubtype(name) {
+		return true
+	}
+	name = capitalizeFirst(name)
+	if t, ok := CoreTypeFromName(name); ok {
+		return l.Has(t)
+	}
+	if t, ok := SupertypeFromName(name); ok {
+		return l.HasSupertype(t)
+	}
+	return false
+}
+
+func capitalizeFirst(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError || unicode.IsUpper(r) {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[size:]
 }
 
 // IsPermanent reports whether a card with this type line stays on the

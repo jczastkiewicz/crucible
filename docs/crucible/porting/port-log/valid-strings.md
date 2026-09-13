@@ -4,7 +4,10 @@
   ported), `forge/util/Expressions.java`, and the callers that split the param — `CardTraitBase.java:261`,
   `CardLists.java:189`
 - **Go target:** `crucible/internal/valid`
-- **Status:** Parsing done — M3 slice C. Evaluation needs a game and lands with the engine
+- **Status:** Parsing done — M3 slice C. Evaluation started in `internal/engine` (M5): `Matches` covers the
+  `Card.isValid` control flow in full and three property names (`YouCtrl`, `OppCtrl`, `Self`) plus the bare
+  type/supertype/subtype fallthrough every property chain shares. The other ~925 property names are M5-M6, corpus
+  frequency order
 
 ## What it does
 
@@ -56,22 +59,57 @@ no card.
 Operands stay text. A number, `X`, `Chosen`, an SVar name, or a whole `Count$` expression appears there, and resolving
 any of them needs a game.
 
+## Evaluation lands in `internal/engine`
+
+`engine.Matches` (`valid.go`) is `Card.isValid` plus the one branch of `Card.hasProperty` that matters for negation, not
+`CardProperty.cardHasProperty` itself yet — that 2,135-line switch is corpus-frequency work, same as `effect.go`'s
+`Registry` (ADR-0011), and starts with three names: `YouCtrl`, `OppCtrl`, `Self`. A fourth case, a bare
+type/supertype/subtype word used as either a `Base` or a `Property`, reaches
+[`cardtype.Line.HasStringType`](../../../crucible/internal/cardtype/cardtype.go) — the Go port of
+`CardType.hasStringType`, which both `Card.isValid`'s own default case and every property chain's final fallthrough call
+in Java.
+
+**A `!` on the base negates the whole alternative, not just the base.** `Card.isValid` reads as an AND-chain — the base,
+then every property in order — where any failing check returns early with a shared `testFailed` flag set once from the
+base's own leading `!`; only if everything passes does it return `!testFailed`. `!Creature.YouCtrl` is therefore "not (a
+creature you control)" — true for an opponent's creature and for any non-creature you control alike — not "a
+non-creature you control". `valid.Base.Negated` already carried the flag; `altMatches` is what reproduces the
+short-circuit. A `!` on a property is the simple case: `Card.hasProperty`'s own wrapper just inverts `cardHasProperty`'s
+result for that one property (`valid.Property.Negated`), independent of the base's flag.
+
+**`YouCtrl`/`OppCtrl` read `Card.Controller` directly, not Java's LKI-derived controller.**
+`CardProperty.cardHasProperty` compares against `game.getChangeZoneLKIInfo(card).getController()`, last-known
+information for a card whose own zone change might be mid-resolution. This port has no LKI tracking (`game-state.md`'s
+"Not ported yet"), so it reads the current `Controller` — correct except for the one moment a card's own leaving is what
+a property is trying to describe, the same category of gap `Move`'s missing LKI already is.
+
+**`OppCtrl` has no team system to be aware of.** Java's is `controller.getOpponents().contains(sourceController)`; this
+port reads it as "controlled by anyone other than `sourceController`" — right for every game this port can play today
+(two players, or free-for-all with no teams), wrong only once a team variant exists to disagree with it.
+
+`Matches` takes `sourceController PlayerID, source CardID` rather than a `*Game` or an `*Ability`: nothing it currently
+does needs the game, and tying it to `Ability` specifically would assume every valid-string check happens during ability
+resolution, which CR 704.5f/704.5m's still-unbuilt `Enchant`-restriction check will not (its source is the Aura itself,
+not anything on a stack).
+
 ## Deviations from Java
 
-| Java                                                                   | Go                                                                                |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| The property string is re-parsed on every evaluation                   | Parsed once at load into `Spec` (ADR-0007)                                        |
-| `!` is consumed by mutating the local `incR[0]`                        | `Negated bool` on both `Base` and `Property`, so the sign is not part of the name |
-| A comparison is recognised by a chain of `startsWith` in the evaluator | `Compare` on the property, filled at parse time                                   |
-| Matching happens against a `Card` and a `Game`                         | Not here. `valid` imports the engine when it evaluates, which is M5 (ADR-0003)    |
+| Java                                                                   | Go                                                                                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| The property string is re-parsed on every evaluation                   | Parsed once at load into `Spec` (ADR-0007)                                                                                |
+| `!` is consumed by mutating the local `incR[0]`                        | `Negated bool` on both `Base` and `Property`, so the sign is not part of the name                                         |
+| A comparison is recognised by a chain of `startsWith` in the evaluator | `Compare` on the property, filled at parse time                                                                           |
+| Matching happens against a `Card` and a `Game`                         | Not here (ADR-0003 stays honoured): `engine.Matches` evaluates a `Spec`, `internal/valid` never imports `internal/engine` |
 
 ## Not ported yet
 
-| Java                                                              | When       |
-| ----------------------------------------------------------------- | ---------- |
-| `CardProperty.cardHasProperty` — the 2,135-line evaluation switch | M5         |
-| `PlayerProperty.playerHasProperty` (517)                          | M5         |
-| Property heads as a closed vocabulary, for the P2 gate            | M3 slice H |
+| Java                                                                                                                 | When       |
+| -------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `CardProperty.cardHasProperty` — 311 of its 314 branches; `YouCtrl`, `OppCtrl`, `Self` are ported (`engine.Matches`) | M5-M6      |
+| `CardStateProperty`, `SpellAbilityProperty` — the other two of the four property chains                              | M5-M6      |
+| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet           | M5-M6      |
+| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                            | M5-M6      |
+| Property heads as a closed vocabulary, for the P2 gate                                                               | M3 slice H |
 
 The 1,256 distinct property tokens are inventoried in `internal/carddb/vocab`'s golden. Classifying them into families
 belongs with the evaluator that implements them, not with the parser.

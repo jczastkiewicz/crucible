@@ -9,12 +9,13 @@
 // only, changing ActivePhase and nothing else, until each one's turn comes
 // (porting/port-log/game-state.md).
 //
-// PhaseHandler's priority loop (mainLoopStep) is not here either. With no
-// stack and no PlayerController method that can cast anything, priority is
-// vacuous today: a player asked "do you have a legal action" always answers
-// no, so the loop would exist only to immediately fall through every time.
-// Building that as a stub would be scaffolding for a decision no one can
-// make yet -- it lands with the stack (M5, later).
+// PhaseHandler's priority loop (mainLoopStep) is still not wired in here,
+// even though the stack itself now exists (stack.go). No PlayerController
+// method can cast or activate anything, so a player asked "do you have a
+// legal action" always answers no -- calling ResolveStack from beginPhase
+// today would be a no-op on every call, since nothing yet pushes an ability
+// in production. It lands here once something does (triggers, at the
+// earliest).
 
 package engine
 

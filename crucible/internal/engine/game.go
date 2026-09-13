@@ -66,6 +66,13 @@ type Game struct {
 	// callers -- every test, fixture loading -- have nothing listening and
 	// should not have to construct a sink just to build a game.
 	sink Sink
+
+	// stack is CR 405's stack of resolvable abilities, last on first off (the
+	// last element is the top). Distinct from the Stack ZoneType a spell's
+	// own card occupies -- Zone(Stack, NoPlayer) tracks where the card is,
+	// this tracks resolution order, and nothing yet moves a card there or
+	// pushes an ability here (stack.go).
+	stack []Ability
 }
 
 // SetSink replaces the game's event sink. The zero Game has a DiscardSink,
@@ -337,7 +344,8 @@ func (g *Game) Clone() *Game {
 		// Always DiscardSink, whatever the original's sink is: the AI's
 		// lookahead explores lines that never happened, and a clone holding
 		// the real sink would record imagined casts as real.
-		sink: DiscardSink{},
+		sink:  DiscardSink{},
+		stack: append([]Ability(nil), g.stack...),
 	}
 	if g.rand != nil {
 		r := *g.rand

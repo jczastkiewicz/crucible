@@ -99,6 +99,7 @@ when it exists and left nil when it does not, which is most cards most of the ti
 | `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                       |
 | `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls |
 | Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                             |
+| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other |
 
 Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
 
@@ -236,6 +237,43 @@ Not modeled, and each is a real rule some card will eventually need: Java's extr
 topsy-turvy phase order (a handful of effects reverse it), and CR 502.3's "this permanent doesn't untap" effects.
 Skipping them today is not a gap a card can expose, because nothing that would trigger them exists yet.
 
+## Stack
+
+`stack.go` is `forge-game/src/main/java/forge/game/zone/MagicStack.java` (1,025 LOC), cut down to CR 405's container and
+CR 405.5/608's resolve loop. `PushAbility`, `StackLen`, `StackTop` and `ResolveStack` are new methods on `Game`, not a
+new type: `Ability` already said "one resolvable ability on the stack" when `effect.go` landed it, so the stack itself
+is `[]Ability`, last element on top. `ResolveStack` pops the top, dispatches it through the `Registry` the caller
+supplies, emits `AbilityResolved`, then runs `CheckStateBasedActions` before popping what is now on top -- the same
+pairing `beginPhase` already runs after a turn-based action.
+
+`Ability` (and `APIType` with it) moved out of `effect.go` into a new `ability.go` to make `Game.stack []Ability` legal.
+`Effect.Resolve(g *Game, a *Ability) error` already made the `effect` group depend on `game`; adding an `Ability` field
+to `Game` itself would have made `game` depend on `effect` right back — a cycle `enginelint` is built to catch, not a
+hole it missed. Splitting the vocabulary (`APIType`, `Ability`) from the dispatch machinery that resolves one against a
+`*Game` (`Effect`, `Registry`) put the former below both `game` and `effect`, the same position `id.go` already holds
+relative to everything else.
+
+Most of `MagicStack.java` is not here: `freezeStack`/`unfreezeStack` (holding new pushes while one ability is still
+resolving), `addSimultaneousStackEntry` (CR 603.3b's "your own simultaneous triggers, in an order you choose"), and
+`undoStack` all exist to serve a second ability arriving on top of one still resolving -- and nothing can make that
+happen yet. Casting has no cost payment or targeting to drive it, and triggered abilities have no firing pipeline
+(matching a trigger's `ValidCard`-shaped conditions against an event needs a card/game evaluator for the `valid` grammar
+that does not exist -- `internal/valid` parses the grammar today, nothing evaluates it). This is the same "mechanism
+now, content later" shape `effect.go`'s `Registry` already landed in: zero production callers, proven by tests that push
+a stub `Ability` the way `effect_test.go` registers a stub `Effect` (`stack_test.go`).
+
+`ResolveStack` is also CR 117's priority algorithm, for the one case this port can play out today. Priority's real job
+-- offering every player, in APNAP order, a chance to respond to what is on top before it resolves -- needs a
+`PlayerController` method that can activate or cast something, which does not exist (`## Controller`). With nobody able
+to respond, every priority pass is a pass in succession, so the top item always resolves next; `ResolveStack` encodes
+exactly that degenerate case rather than a full pass-tracking loop nothing could yet exercise.
+
+`turn.go`'s `beginPhase` does not call `ResolveStack`. Doing so today would be a no-op on every call -- nothing pushes
+an ability in production yet -- and a call site that can never do anything is exactly the "stub standing in for a
+decision no one can make yet" the turn-structure port already ruled out once for priority itself. It is wired in once a
+real production pusher exists; triggered abilities are the more likely first one, since they need no cast cost or target
+to fire.
+
 ## Mulligans
 
 `PerformMulligans` (`mulligan.go`) is `MulliganService` plus `LondonMulligan` — one rule, not the five-class strategy
@@ -282,6 +320,8 @@ a `Sink`, and nothing called `Emit`. Every mechanism this port has built now doe
 | `beginPhase` (every step)               | `PhaseBegan`                                      |
 | `drawStep`                              | `CardDrawn`, alongside `Move`'s own `ZoneChanged` |
 | `CheckStateBasedActions` (once, on end) | `GameEnded`                                       |
+| `PushAbility`                           | `AbilityActivated`                                |
+| `ResolveStack` (per item)               | `AbilityResolved`                                 |
 
 `Game.sink` defaults to `DiscardSink{}`, set in `NewGame`, so no existing caller — every test, `fixture.Load` — had to
 start constructing one. `SetSink` is the opt-in a recorder (M8) uses. `Game.Clone` always gives the clone a fresh
@@ -295,10 +335,12 @@ Draw" before "drew a card," matching when a real player would notice the step ch
 
 Not wired, and each is a real gap rather than an oversight: `CounterChanged` (annihilating counters is the only thing
 that would fire it, and `Event.Detail` is a numeric payload that has nowhere to put an open string like `CounterType`
-without inventing an encoding first), `SpellCast`/`AbilityActivated`/`AbilityResolved`/`DamageDealt` (nothing that would
-fire them exists yet), and anything from `PerformMulligans` itself — a mulligan is fully visible as the `ZoneChanged`
-cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the schema to add without also bumping
-`SchemaVersion`, a more deliberate act than this pass earned.
+without inventing an encoding first), `SpellCast`/`DamageDealt` (nothing that would fire them exists yet — casting and
+damage dealing, unlike stack resolution itself, are still unbuilt), and anything from `PerformMulligans` itself — a
+mulligan is fully visible as the `ZoneChanged` cascade `Move` already produces, and no `MulliganTaken`-shaped kind
+exists in the schema to add without also bumping `SchemaVersion`, a more deliberate act than this pass earned.
+`AbilityActivated`/`AbilityResolved` are wired now (`## Stack`), even though nothing yet calls `PushAbility` or
+`ResolveStack` outside a test — the same "mechanism now, content later" the effect registry already established.
 
 ## The scenario harness lives partly here
 
@@ -310,17 +352,20 @@ compared were never going to agree on those by number.
 
 ## Not ported yet
 
-| Missing                                                                                                               | Lands |
-| --------------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                                  | M5    |
-| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment      | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                                | M7    |
-| Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled | M5-M6 |
-| CR 704.5m: cleaning up a dangling attachment left behind on the object the leaving card was attached to               | M5-M6 |
-| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                   | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat  | M5-M6 |
-| Priority (`mainLoopStep`), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects                       | M5-M6 |
-| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                           | never |
-| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                        | M5    |
-| `CounterChanged`, `SpellCast`, `AbilityActivated`, `AbilityResolved`, `DamageDealt` — nothing yet causes them         | M5-M6 |
-| Stack, combat                                                                                                         | M5    |
+| Missing                                                                                                                                                                                                   | Lands |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                      | M5    |
+| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                          | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                                                                                                    | M7    |
+| Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled                                                                                     | M5-M6 |
+| CR 704.5m: cleaning up a dangling attachment left behind on the object the leaving card was attached to                                                                                                   | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                       | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat                                                                                      | M5-M6 |
+| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                               | never |
+| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                            | M5    |
+| `CounterChanged`, `SpellCast`, `DamageDealt` — nothing yet causes them                                                                                                                                    | M5-M6 |
+| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                       | M5-M6 |
+| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                 | M5-M6 |
+| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                           | M5-M6 |
+| Combat                                                                                                                                                                                                    | M5    |

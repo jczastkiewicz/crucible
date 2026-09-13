@@ -103,6 +103,26 @@ func TestCloneSharesTheDatabase(t *testing.T) {
 	}
 }
 
+// A clone always gets a DiscardSink, whatever the original's sink is -- the
+// AI's lookahead explores lines that never happened, and a clone holding the
+// real sink would record imagined casts as real.
+func TestCloneAlwaysDiscardsEvents(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	c := g.Clone()
+	c.NewCard(nil, p, engine.Hand)
+	c.Move(c.Zone(engine.Hand, p).Cards()[0], engine.Graveyard, p)
+
+	if len(sink.events) != 0 {
+		t.Errorf("the original's sink saw %d events from the clone, want 0", len(sink.events))
+	}
+}
+
 // Handles stay valid in the clone without being remapped, which is the whole
 // reason entities are addressed by index.
 func TestCloneKeepsHandlesValid(t *testing.T) {

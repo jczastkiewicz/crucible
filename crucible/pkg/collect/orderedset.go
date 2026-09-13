@@ -56,6 +56,16 @@ func (s *OrderedSet[T]) Remove(v T) bool {
 	return true
 }
 
+// Swap exchanges the elements at i and j, keeping the lookup index in step.
+// It exists for a caller driving a Fisher-Yates shuffle (javarand.Rand.Shuffle
+// takes exactly this signature) -- the one place order is deliberately not
+// insertion order, because a library has to be genuinely shuffled.
+func (s *OrderedSet[T]) Swap(i, j int) {
+	s.items[i], s.items[j] = s.items[j], s.items[i]
+	s.index[s.items[i]] = i
+	s.index[s.items[j]] = j
+}
+
 // Contains reports membership.
 func (s *OrderedSet[T]) Contains(v T) bool {
 	_, ok := s.index[v]

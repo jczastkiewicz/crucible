@@ -61,7 +61,18 @@ type Game struct {
 	turn         int
 	activePlayer PlayerID
 	activePhase  PhaseType
+
+	// sink is where this game's events go. DiscardSink by default: most
+	// callers -- every test, fixture loading -- have nothing listening and
+	// should not have to construct a sink just to build a game.
+	sink Sink
 }
+
+// SetSink replaces the game's event sink. The zero Game has a DiscardSink,
+// so this is opt-in for whatever eventually reads the stream (a recorder,
+// M8) rather than a constructor parameter every existing caller would have
+// had to grow one to keep compiling.
+func (g *Game) SetSink(s Sink) { g.sink = s }
 
 // Over reports whether the game has ended, per the last call to
 // CheckStateBasedActions.
@@ -96,6 +107,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 		zones:   make(map[zoneKey]*Zone, len(names)*8),
 		db:      db,
 		rand:    rng,
+		sink:    DiscardSink{},
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
@@ -197,6 +209,10 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 // starting Tapped/SummonSick is exactly what the fixture says, not a rule
 // this port applies. Move is real play transitioning a card between zones;
 // NewCard is "this card already exists here."
+//
+// Every call emits a ZoneChanged event, for the same reason NewCard does
+// not: this is real play, and NewCard is setup nothing downstream should
+// see as something happening.
 func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	c := g.Card(id)
 	from := c.Zone
@@ -213,6 +229,31 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true
 	}
+
+	g.sink.Emit(Event{
+		Kind:   ZoneChanged,
+		Phase:  g.activePhase,
+		Active: g.activePlayer,
+		Actor:  owner,
+		Turn:   uint16(g.turn),
+		Source: id,
+		From:   from,
+		To:     kind,
+	})
+}
+
+// Shuffle randomises one zone's order, in place, using the game's own random
+// stream. Ported from Player.shuffle (Collections.shuffle(list,
+// MyRandom.getRandom())): javarand.Rand.Shuffle reproduces that algorithm
+// exactly, which is what makes a shuffled library replay identically from
+// the same seed (pkg/javarand's P0 gate).
+//
+// A shuffle stamps no timestamp and fires no zone-change: order within a zone
+// is not itself a zone change, and nothing reads a card's Timestamp to learn
+// where it sits in its own library.
+func (g *Game) Shuffle(kind ZoneType, owner PlayerID) {
+	z := g.Zone(kind, owner)
+	g.rand.Shuffle(z.cards.Len(), z.cards.Swap)
 }
 
 // put appends a card to a zone and records the reverse index on the card. It
@@ -287,6 +328,10 @@ func (g *Game) Clone() *Game {
 		turn:         g.turn,
 		activePlayer: g.activePlayer,
 		activePhase:  g.activePhase,
+		// Always DiscardSink, whatever the original's sink is: the AI's
+		// lookahead explores lines that never happened, and a clone holding
+		// the real sink would record imagined casts as real.
+		sink: DiscardSink{},
 	}
 	if g.rand != nil {
 		r := *g.rand

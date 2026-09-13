@@ -6,6 +6,42 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
+// Every Move emits a ZoneChanged event naming the card, both zones, and the
+// game's turn/phase/active context at the time -- a recorder should not have
+// to cross-reference a separate log to know when a move happened.
+func TestMoveEmitsZoneChanged(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	var sink recordingSink
+	g.SetSink(&sink)
+	g.SetTurnState(3, p, engine.Main1)
+	id := g.NewCard(nil, p, engine.Hand)
+
+	g.Move(id, engine.Graveyard, p)
+
+	if len(sink.events) != 1 {
+		t.Fatalf("sink saw %d events, want 1", len(sink.events))
+	}
+	e := sink.events[0]
+	if e.Kind != engine.ZoneChanged {
+		t.Errorf("kind %s, want ZoneChanged", e.Kind)
+	}
+	if e.Source != id {
+		t.Errorf("source %v, want %v", e.Source, id)
+	}
+	if e.From != engine.Hand || e.To != engine.Graveyard {
+		t.Errorf("from/to %v/%v, want Hand/Graveyard", e.From, e.To)
+	}
+	if e.Actor != p {
+		t.Errorf("actor %v, want %v", e.Actor, p)
+	}
+	if e.Turn != 3 || e.Phase != engine.Main1 {
+		t.Errorf("turn/phase %d/%v, want 3/Main1", e.Turn, e.Phase)
+	}
+}
+
 // Leaving the battlefield clears everything Java gets for free by building a
 // new Card object for the destination zone: counters, damage, tapped, and
 // what this card itself was attached to.

@@ -251,6 +251,36 @@ func TestCheckStateBasedActionsSkipsCounterCheckWhenGameOver(t *testing.T) {
 	}
 }
 
+// GameEnded fires exactly once, on the call that actually ends the game --
+// not on a later call finding it already over, which the top-of-function
+// short circuit skips entirely.
+func TestCheckStateBasedActionsEmitsGameEndedOnce(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 0, 20
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g)
+
+	var ended []engine.Event
+	for _, e := range sink.events {
+		if e.Kind == engine.GameEnded {
+			ended = append(ended, e)
+		}
+	}
+	if len(ended) != 1 {
+		t.Fatalf("saw %d GameEnded events across three calls, want 1: %+v", len(ended), ended)
+	}
+	if ended[0].Actor != b {
+		t.Errorf("GameEnded actor %v, want %v (the winner)", ended[0].Actor, b)
+	}
+}
+
 // Clone must not let the clone's poison counters write back to the original
 // -- the same sharing bug Counters, Memory and attachments were already
 // guarded against.

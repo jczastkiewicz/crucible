@@ -23,4 +23,8 @@ type Player struct {
 	// it. Both can be false at once; both true is an engine invariant breach.
 	Lost bool
 	Won  bool
+	// Counters is player-level counters -- poison chief among them, which is
+	// what CR 704.5c checks. The same type as a card's, because nothing about
+	// "a count that is never stored at zero" is specific to what holds it.
+	Counters Counters
 }

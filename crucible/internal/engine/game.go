@@ -46,7 +46,16 @@ type Game struct {
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.
 	timestamp uint64
+
+	// over is set once CheckStateBasedActions decides the game has ended --
+	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
+	// stays ended (action.go).
+	over bool
 }
+
+// Over reports whether the game has ended, per the last call to
+// CheckStateBasedActions.
+func (g *Game) Over() bool { return g.over }
 
 // zoneKey identifies a zone. Ownerless zones carry NoPlayer.
 type zoneKey struct {
@@ -226,10 +235,15 @@ func (g *Game) Clone() *Game {
 		zones:     make(map[zoneKey]*Zone, len(g.zones)),
 		db:        g.db,
 		timestamp: g.timestamp,
+		over:      g.over,
 	}
 	if g.rand != nil {
 		r := *g.rand
 		out.rand = &r
+	}
+
+	for i := range out.players {
+		out.players[i].Counters = g.players[i].Counters.clone()
 	}
 
 	copy(out.cards, g.cards)

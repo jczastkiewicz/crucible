@@ -7,32 +7,6 @@ import (
 	"fmt"
 )
 
-//go:generate go run ../../tools/genapitype -apitype ../../../forge-game/src/main/java/forge/game/ability/ApiType.java
-
-// APIType names an ability API. The constants are generated from Forge's
-// ApiType enum, so the set cannot drift from upstream without a build failure.
-type APIType uint16
-
-// String returns the API as a card script spells it.
-func (a APIType) String() string {
-	if int(a) >= numAPITypes {
-		return fmt.Sprintf("APIType(%d)", uint16(a))
-	}
-	return apiNames[a]
-}
-
-// APIByName looks an API up by the name a script writes, and reports whether
-// it is one. Exact match: an API that silently resolves to something else is
-// a card doing the wrong thing rather than nothing.
-func APIByName(name string) (APIType, bool) {
-	for i, n := range apiNames {
-		if n == name {
-			return APIType(i), true
-		}
-	}
-	return 0, false
-}
-
 // Effect resolves one ability.
 //
 // Implementations are stateless shared values, which is what Java measured
@@ -42,19 +16,6 @@ func APIByName(name string) (APIType, bool) {
 // no per-resolution allocation and no instance per card.
 type Effect interface {
 	Resolve(g *Game, a *Ability) error
-}
-
-// Ability is one resolvable ability on the stack. The fields land with the
-// stack itself; for now it carries the API so dispatch has something to
-// dispatch on.
-type Ability struct {
-	// API decides which Effect resolves this.
-	API APIType
-	// Source is the card the ability came from.
-	Source CardID
-	// Controller is who is resolving it, which is not always the source's
-	// controller once control-changing effects are involved.
-	Controller PlayerID
 }
 
 // Registry maps an API to the code that resolves it.

@@ -7,26 +7,30 @@
     "card": ["card.go"],
     "player": ["player.go"],
     "game": ["game.go"],
-    "effect": ["effect.go", "apitype_gen.go"],
+    "ability": ["ability.go", "apitype_gen.go"],
+    "effect": ["effect.go"],
     "phase": ["phase.go"],
     "event": ["event.go"],
     "control": ["control.go"],
     "action": ["action.go"],
     "turn": ["turn.go"],
-    "mulligan": ["mulligan.go"]
+    "mulligan": ["mulligan.go"],
+    "stack": ["stack.go"]
   },
   "allow": {
     "zone": ["id"],
     "parts": ["id"],
     "card": ["id", "zone", "parts"],
     "player": ["id", "parts"],
-    "game": ["id", "zone", "parts", "card", "player", "phase", "event"],
-    "effect": ["id", "zone", "parts", "card", "player", "game"],
+    "ability": ["id"],
+    "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability"],
+    "effect": ["id", "zone", "parts", "card", "player", "game", "ability"],
     "phase": [],
     "event": ["id", "zone", "phase"],
     "control": ["id", "game"],
     "action": ["id", "zone", "parts", "card", "player", "game", "event"],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event"],
-    "mulligan": ["id", "zone", "game", "control"]
+    "mulligan": ["id", "zone", "game", "control"],
+    "stack": ["id", "ability", "game", "effect", "event", "action"]
   }
 }

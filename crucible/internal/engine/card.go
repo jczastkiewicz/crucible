@@ -5,6 +5,7 @@ package engine
 
 import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
 
@@ -56,6 +57,19 @@ type Card struct {
 	// fact and only Game.Attach and Game.Unattach may write either.
 	attachedTo  CardID
 	attachments *collect.OrderedSet[CardID]
+}
+
+// Type is the card's printed type line: its own primary face's, since
+// CardState -- which face is current for a transformed, flipped or melded
+// card -- is not modeled yet (game-state.md's "Not ported yet"), so every
+// card reports the one it entered the game with. A synthetic card built
+// with a nil Def (most engine tests) reports the zero Line, which matches
+// nothing -- consistent with "no Def" already meaning "no name" elsewhere.
+func (c *Card) Type() cardtype.Line {
+	if c.Def == nil {
+		return cardtype.Line{}
+	}
+	return c.Def.Faces[0].Type
 }
 
 // AttachedTo is what this card is attached to, and whether it is attached at

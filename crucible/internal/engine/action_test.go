@@ -1,10 +1,45 @@
 package engine_test
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
+
+// attachmentTypeRegistry is the minimal type vocabulary a test needs to build
+// a cardtype.Line: LoadRegistry only insists on a CreatureTypes section
+// existing at all (its own sanity check against a wrong file), and Parse
+// treats any other word -- Aura, Equipment, Fortification included -- as a
+// subtype whether or not the registry names it (cardtype.Parse's own doc
+// comment), so nothing else needs to be here.
+func attachmentTypeRegistry(t *testing.T) *cardtype.Registry {
+	t.Helper()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	return reg
+}
+
+// auraDef and permanentDef build just enough of a *compile.Card for
+// Card.Type() to answer "is this an Aura" -- the only thing
+// cleanupDanglingAttachments reads off a card's definition.
+func auraDef(t *testing.T) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Aura"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Enchantment Aura")
+	return def
+}
+
+func equipmentDef(t *testing.T) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Equipment"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Artifact Equipment")
+	return def
+}
 
 // CR 704.5a: a player at zero life loses. The other player, now the only one
 // left standing, wins and the game ends (CR 104.2a).
@@ -317,5 +352,142 @@ func TestCloneCopiesPlayerCounters(t *testing.T) {
 
 	if got := g.Player(a).Counters.Count(engine.Poison); got != 3 {
 		t.Errorf("original's poison became %d after the clone's changed", got)
+	}
+}
+
+// A synthetic card built with a nil Def -- every card the rest of this
+// package builds -- reports the zero type line, which HasSubtype("Aura")
+// correctly reads as "not an Aura": nothing else in this file has to worry
+// about cleanupDanglingAttachments mistaking an ordinary test card for one.
+func TestCardTypeNilDefIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	id := g.NewCard(nil, g.Players()[0], engine.Battlefield)
+	if got := g.Card(id).Type(); got.HasSubtype("Aura") {
+		t.Errorf("a card with no Def reported Aura: %+v", got)
+	}
+}
+
+// CR 704.5f: an Aura whose host left the battlefield goes to its owner's
+// graveyard.
+func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostLeaves(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	host := g.NewCard(nil, a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, host)
+
+	g.Move(host, engine.Graveyard, a)
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard", z)
+	}
+	if _, attached := g.Card(aura).AttachedTo(); attached {
+		t.Error("aura still reports an attachment after going to the graveyard")
+	}
+}
+
+// CR 704.5f's other half: an Aura on the battlefield that was never attached
+// at all is equally illegal.
+func TestCheckStateBasedActionsUnattachedAuraGoesToGraveyard(t *testing.T) {
+	t.Parallel()
+
+	// Two players, both above the loss threshold: a single-player game
+	// satisfies CR 104.2a's "one player left standing" trivially and would
+	// end the game -- and return -- before ever reaching this check.
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard", z)
+	}
+}
+
+// CR 704.5f goes to the owner's graveyard, not the controller's -- the two
+// differ once anything takes control of the Aura.
+func TestCheckStateBasedActionsAuraGoesToOwnersGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Card(aura).Controller = b // controlled by b, still owned by a
+
+	engine.CheckStateBasedActions(g)
+
+	if z, owner := g.Card(aura).Zone, g.Card(aura).ZoneOwner; z != engine.Graveyard || owner != a {
+		t.Errorf("aura ended in %v/%d, want Graveyard/%d (the owner, not the controller)", z, owner, a)
+	}
+}
+
+// A legally attached Aura is untouched.
+func TestCheckStateBasedActionsLegalAuraSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	host := g.NewCard(nil, p, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(aura).Zone; z != engine.Battlefield {
+		t.Errorf("legally attached aura zone = %v, want Battlefield", z)
+	}
+	if got, attached := g.Card(aura).AttachedTo(); !attached || got != host {
+		t.Errorf("legally attached aura AttachedTo() = (%d, %v), want (%d, true)", got, attached, host)
+	}
+}
+
+// CR 704.5m: an Equipment whose host left the battlefield becomes
+// unattached, and stays on the battlefield -- unlike an Aura, it is not put
+// anywhere.
+func TestCheckStateBasedActionsEquipmentUnattachesWhenHostLeaves(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	host := g.NewCard(nil, p, engine.Battlefield)
+	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	g.Attach(equipment, host)
+
+	g.Move(host, engine.Graveyard, p)
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(equipment).Zone; z != engine.Battlefield {
+		t.Errorf("equipment zone = %v, want Battlefield (704.5m does not move it)", z)
+	}
+	if _, attached := g.Card(equipment).AttachedTo(); attached {
+		t.Error("equipment still reports an attachment after its host left")
+	}
+}
+
+// An Equipment that was never attached is legal on its own -- unlike an
+// Aura, sitting unattached on the battlefield is not itself illegal for it.
+func TestCheckStateBasedActionsUnattachedEquipmentSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(equipment).Zone; z != engine.Battlefield {
+		t.Errorf("unattached equipment zone = %v, want Battlefield", z)
 	}
 }

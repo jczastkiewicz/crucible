@@ -26,6 +26,13 @@ type Loaded struct {
 	ActivePhaseAdvance engine.PhaseType
 	PhaseAdvanced      bool
 
+	// CardByFixtureID is the same fixture-declared Id: a card carried into
+	// AttachedTo:/RememberedCards:/Imprinting: resolution, kept around after
+	// Load returns. A scenario's actions.log needs it for the same reason
+	// those annotations do: it has to name a specific card, and CardID is
+	// not something a fixture author can predict ahead of a shuffle.
+	CardByFixtureID map[int]engine.CardID
+
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
 	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
@@ -74,14 +81,19 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		active = slotToID[slot]
 	}
 	g.SetTurnState(st.Turn, active, st.ActivePhase)
+	g.SetOver(st.Over)
 
 	ld := &loader{game: g, slotToID: slotToID, idToCard: map[int]engine.CardID{}}
 	for _, slot := range slots {
 		ps := &st.Players[slot]
 		pid := slotToID[slot]
 		g.Player(pid).Life = ps.Life
+		g.Player(pid).Lost = ps.Lost
+		g.Player(pid).Won = ps.Won
 		if ps.Counters != "" {
-			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: counters %q -- engine.Player has no counters yet", slotName(slot), ps.Counters))
+			if err := applyCounters(&g.Player(pid).Counters, ps.Counters); err != nil {
+				return nil, fmt.Errorf("%s counters: %w", slotName(slot), err)
+			}
 		}
 		if ps.ManaPool != "" || ps.PersistentMana != "" {
 			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: mana pool -- engine.Player has no mana pool yet", slotName(slot)))
@@ -119,6 +131,7 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		}
 	}
 	l.Unapplied = append(l.Unapplied, ld.unapplied...)
+	l.CardByFixtureID = ld.idToCard
 	return l, nil
 }
 
@@ -213,7 +226,7 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
 		case strings.HasPrefix(info, "Counters:"):
-			if err := applyCounters(c, strings.TrimPrefix(info, "Counters:")); err != nil {
+			if err := applyCounters(&c.Counters, strings.TrimPrefix(info, "Counters:")); err != nil {
 				return fmt.Errorf("%s: %w", name, err)
 			}
 		case strings.HasPrefix(info, "Damage:"):
@@ -299,7 +312,7 @@ func (ld *loader) resolveRefs() error {
 
 // applyCounters parses Counters:'s "TYPE=n,TYPE=n" value, the same format
 // Player-level counters use.
-func applyCounters(c *engine.Card, value string) error {
+func applyCounters(counters *engine.Counters, value string) error {
 	for _, pair := range strings.Split(value, ",") {
 		typ, n, ok := strings.Cut(pair, "=")
 		if !ok {
@@ -309,7 +322,7 @@ func applyCounters(c *engine.Card, value string) error {
 		if err != nil {
 			return fmt.Errorf("counter %q: %w", pair, err)
 		}
-		c.Counters.Add(engine.CounterType(strings.TrimSpace(typ)), count)
+		counters.Add(engine.CounterType(strings.TrimSpace(typ)), count)
 	}
 	return nil
 }

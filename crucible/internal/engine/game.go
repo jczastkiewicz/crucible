@@ -78,6 +78,12 @@ func (g *Game) SetSink(s Sink) { g.sink = s }
 // CheckStateBasedActions.
 func (g *Game) Over() bool { return g.over }
 
+// SetOver writes Over directly, the same relationship SetTurnState has to
+// StartTurn/AdvancePhase: a state injection for fixture loading, not
+// something real play calls. CheckStateBasedActions is the only thing that
+// sets it as a side effect of actually deciding a game has ended.
+func (g *Game) SetOver(over bool) { g.over = over }
+
 // Turn is the current turn number, per the last player whose turn ended.
 func (g *Game) Turn() int { return g.turn }
 

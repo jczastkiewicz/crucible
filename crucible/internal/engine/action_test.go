@@ -252,6 +252,27 @@ func TestCheckStateBasedActionsSkipsCounterCheckWhenGameOver(t *testing.T) {
 }
 
 // GameEnded fires exactly once, on the call that actually ends the game --
+// SetOver is fixture loading's tool, the same relationship SetTurnState has
+// to StartTurn/AdvancePhase: a state injection, not something real play
+// calls. CheckStateBasedActions is the only thing that sets Over as a side
+// effect of actually deciding a game has ended.
+func TestSetOver(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	if g.Over() {
+		t.Fatal("a fresh game reports Over")
+	}
+	g.SetOver(true)
+	if !g.Over() {
+		t.Error("SetOver(true) did not take")
+	}
+	g.SetOver(false)
+	if g.Over() {
+		t.Error("SetOver(false) did not take")
+	}
+}
+
 // not on a later call finding it already over, which the top-of-function
 // short circuit skips entirely.
 func TestCheckStateBasedActionsEmitsGameEndedOnce(t *testing.T) {

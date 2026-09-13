@@ -1,0 +1,6 @@
+# ai's Cleanup wraps straight to human's turn 2, Untap.
+advance
+# Untap -> Upkeep.
+advance
+# Upkeep -> Draw. Turn is 2, so CR 103.7a's skip does not apply.
+advance

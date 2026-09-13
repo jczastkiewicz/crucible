@@ -30,6 +30,14 @@ type DB struct {
 // It stops at the first failure rather than skipping it. A card that will not
 // compile is an upstream defect to report, not a card to run without
 // (PORT-8), and the corpus gates keep that count at zero.
+//
+// Two passes, not one: a card with `CopyFaceFrom:` parses to a placeholder
+// face with no name of its own -- carddb.ParseScript's own doc comment says
+// so -- and only resolves once every other script in the corpus has been
+// read too (carddb.ResolvePlaceholders). Compiling within the same walk that
+// parses, the way this function did before anything actually called it
+// against the real corpus, fails the first split card whose printed name is
+// borrowed from another file -- "Bind // Liberate" among them.
 func LoadDB(root, typeList string) (*DB, error) {
 	f, err := os.Open(typeList)
 	if err != nil {
@@ -41,7 +49,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 		return nil, err
 	}
 
-	db := &DB{byName: map[string]*Card{}}
+	var cards []*carddb.Card
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".txt" {
 			return err
@@ -54,20 +62,29 @@ func LoadDB(root, typeList string) (*DB, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		card, err := Compile(parsed)
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		name := parsed.Faces[0].Name
-		if name == "" {
-			return fmt.Errorf("%s: no name", path)
-		}
-		db.byName[name] = card
-		db.names = append(db.names, name)
+		cards = append(cards, parsed)
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if err := carddb.ResolvePlaceholders(cards, carddb.IndexByFaceName(cards)); err != nil {
+		return nil, err
+	}
+
+	db := &DB{byName: make(map[string]*Card, len(cards))}
+	for _, parsed := range cards {
+		card, err := Compile(parsed)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", parsed.Filename, err)
+		}
+		name := parsed.Faces[0].Name
+		if name == "" {
+			return nil, fmt.Errorf("%s: no name", parsed.Filename)
+		}
+		db.byName[name] = card
+		db.names = append(db.names, name)
 	}
 	return db, nil
 }
@@ -75,9 +92,9 @@ func LoadDB(root, typeList string) (*DB, error) {
 // NewDB builds a database from already-compiled cards, keyed by name.
 //
 // LoadDB is the only other constructor, and it always walks a real corpus
-// directory -- fine for the P1 gate, wrong for a test that wants three known
-// cards and nothing else. Names is sorted rather than insertion order, since
-// a map has none to give.
+// directory -- right for a scenario harness that needs actual corpus cards,
+// wrong for a test that wants three known cards and nothing else. Names is
+// sorted rather than insertion order, since a map has none to give.
 func NewDB(cards map[string]*Card) *DB {
 	db := &DB{byName: cards, names: make([]string, 0, len(cards))}
 	for name := range cards {

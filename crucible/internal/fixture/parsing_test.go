@@ -314,6 +314,25 @@ func TestRingTemptationAndSpeed(t *testing.T) {
 	}
 }
 
+// lost=, won= and over= are Crucible-only -- Java's GameState has no such
+// key, since a fixture is always a snapshot of a game still being played.
+// TEST-5's scenario harness needs expect.state able to say a scenario ends
+// the game, which is what these exist for.
+func TestLostWonOver(t *testing.T) {
+	t.Parallel()
+
+	st := parse(t, "humanlost=true\naiwon=true\nover=true\n")
+	if !st.Players[0].Lost {
+		t.Error("human lost did not parse true")
+	}
+	if !st.Players[1].Won {
+		t.Error("ai won did not parse true")
+	}
+	if !st.Over {
+		t.Error("over did not parse true")
+	}
+}
+
 // ability<key> lines are not player-scoped in Java -- they resolve targets
 // for puzzle-mode precast spells by a key of the fixture author's choosing.
 func TestAbilityStringsAreGlobal(t *testing.T) {

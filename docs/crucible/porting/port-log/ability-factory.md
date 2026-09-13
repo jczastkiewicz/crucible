@@ -195,3 +195,16 @@ means: `Reveal$ False` turns the flag on. Reproducing that is the point (PORT-7)
 and the remaining 220 record names are trigger modes, static modes and replacement events, whose params the handlers
 read rather than an effect. An API missing from the switch fails the test, so the generated file cannot silently fall
 behind `ApiType`.
+
+## `LoadDB` compiled before resolving `CopyFaceFrom:`
+
+`compile.DB.LoadDB` walks the corpus, parsing and compiling each script inside the same pass. That fails any card with
+`CopyFaceFrom:` — Bind // Liberate among them — because `carddb.ParseScript`'s own doc comment says the placeholder face
+it leaves behind needs the whole corpus read first: `carddb.ResolvePlaceholders` is a second pass, over every parsed
+card together, not a per-file step. `LoadDB` never took that second pass.
+
+This is not a Forge defect (PORT-8) — it is Crucible's own, in code M3 shipped. Nothing had called `LoadDB` against the
+real corpus before `internal/engine`'s scenario harness did (`porting/port-log/game-state-fixture.md`); the P1/P2 gates
+that claim the whole corpus compiles clean go through `tools/carddump` and `compile_test.go`'s own `parseCorpus`, which
+already call `ResolvePlaceholders` themselves. Fixed by splitting `LoadDB` into the same two passes: parse every file,
+resolve placeholders once across all of them, then compile.

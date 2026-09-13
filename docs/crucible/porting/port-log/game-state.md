@@ -300,6 +300,14 @@ fire them exists yet), and anything from `PerformMulligans` itself — a mulliga
 cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the schema to add without also bumping
 `SchemaVersion`, a more deliberate act than this pass earned.
 
+## The scenario harness lives partly here
+
+`TestScenarios` and `compareGames` (`scenario_test.go`) are this package's half of TEST-5's Layer 2 harness; the other
+half — `Parse`/`Load`/`Dump`/`RunActions` — is `internal/fixture`'s, documented in full there
+(`porting/port-log/game-state-fixture.md`'s "Scenarios" section). Worth repeating here: `compareGames` reads two
+`*engine.Game`s directly rather than through `Dump`, because `Dump`'s `Id:` is a `CardID` and the two games being
+compared were never going to agree on those by number.
+
 ## Not ported yet
 
 | Missing                                                                                                               | Lands |

@@ -39,6 +39,10 @@ package engine
 // A game that has already ended skips 704.5q entirely, the same as Java:
 // checkStateEffects returns as soon as checkGameOverCondition finds the game
 // over, before its creature loop ever runs.
+//
+// A GameEnded event fires exactly once, on the call that flips g.over --
+// never on a later call finding it already true, and not from any other
+// path: this is the only place g.over is set.
 func CheckStateBasedActions(g *Game) bool {
 	if g.over {
 		return true
@@ -76,6 +80,10 @@ func CheckStateBasedActions(g *Game) bool {
 		g.over = true
 	}
 	if g.over {
+		// Actor is the winner, or NoPlayer for a draw -- there is no
+		// separate PlayerLost event, so this is also where a loss is
+		// visible in the stream: everyone else in the game lost.
+		g.sink.Emit(Event{Kind: GameEnded, Active: g.activePlayer, Actor: remaining, Turn: uint16(g.turn)})
 		return true
 	}
 

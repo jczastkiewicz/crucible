@@ -6,6 +6,114 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
+// StartTurn announces the turn beginning before the phase it starts in --
+// a recorder reading TurnBegan before the first PhaseBegan should not have
+// to infer that turn 1 opens on Untap from context.
+func TestStartTurnEmitsTurnBeganThenPhaseBegan(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	g.StartTurn(a)
+
+	if len(sink.events) < 2 {
+		t.Fatalf("sink saw %d events, want at least 2", len(sink.events))
+	}
+	if sink.events[0].Kind != engine.TurnBegan || sink.events[0].Turn != 1 || sink.events[0].Active != a {
+		t.Errorf("first event %+v, want TurnBegan turn=1 active=%v", sink.events[0], a)
+	}
+	if sink.events[1].Kind != engine.PhaseBegan || sink.events[1].Phase != engine.Untap {
+		t.Errorf("second event %+v, want PhaseBegan phase=Untap", sink.events[1])
+	}
+}
+
+// AdvancePhase emits PhaseBegan every step, and TurnBegan only on the one
+// that wraps back to Untap -- a recorder should be able to count turns from
+// TurnBegan alone, without also counting Cleanup-to-Untap transitions.
+func TestAdvancePhaseEmitsPhaseBeganEveryStepAndTurnBeganOnlyOnWrap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Cleanup)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	g.AdvancePhase() // wraps to turn 2, Untap
+
+	turnBegans, phaseBegans := 0, 0
+	for _, e := range sink.events {
+		switch e.Kind {
+		case engine.TurnBegan:
+			turnBegans++
+			if e.Turn != 2 || e.Active != b {
+				t.Errorf("TurnBegan %+v, want turn=2 active=%v", e, b)
+			}
+		case engine.PhaseBegan:
+			phaseBegans++
+			if e.Phase != engine.Untap {
+				t.Errorf("PhaseBegan %+v, want phase=Untap", e)
+			}
+		}
+	}
+	if turnBegans != 1 {
+		t.Errorf("saw %d TurnBegan events, want 1", turnBegans)
+	}
+	if phaseBegans != 1 {
+		t.Errorf("saw %d PhaseBegan events, want 1", phaseBegans)
+	}
+	// TurnBegan has to come first: it is emitted before ActivePhase changes
+	// and beginPhase runs.
+	if sink.events[0].Kind != engine.TurnBegan {
+		t.Errorf("first event is %s, want TurnBegan", sink.events[0].Kind)
+	}
+}
+
+// A draw emits both events Move and drawStep are each responsible for, in
+// the order they actually happened: the zone change first, then the
+// draw-specific signal on top of it.
+func TestDrawEmitsZoneChangedThenCardDrawn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	top := g.NewCard(nil, a, engine.Library)
+	g.SetTurnState(2, a, engine.Upkeep)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	g.AdvancePhase() // -> Draw
+
+	var kinds []engine.EventKind
+	for _, e := range sink.events {
+		kinds = append(kinds, e.Kind)
+	}
+	zc, cd := -1, -1
+	for i, k := range kinds {
+		if k == engine.ZoneChanged {
+			zc = i
+		}
+		if k == engine.CardDrawn {
+			cd = i
+		}
+	}
+	if zc == -1 || cd == -1 {
+		t.Fatalf("events %v, want both ZoneChanged and CardDrawn", kinds)
+	}
+	if zc >= cd {
+		t.Errorf("ZoneChanged at %d, CardDrawn at %d -- want ZoneChanged first", zc, cd)
+	}
+	if sink.events[cd].Source != top {
+		t.Errorf("CardDrawn source %v, want %v", sink.events[cd].Source, top)
+	}
+}
+
 func TestStartTurnEntersUntap(t *testing.T) {
 	t.Parallel()
 

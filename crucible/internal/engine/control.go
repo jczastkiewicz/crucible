@@ -37,9 +37,11 @@ type PlayerController interface {
 	ChooseStartingHand(g *Game, decider PlayerID, hands [][]CardID) int
 
 	// MulliganKeepHand asks whether decider keeps their current hand.
-	// firstPlayer is who is on the play this game, which several mulligan
-	// rules key their free-mulligan count off; cardsToReturn is how many
-	// cards keeping this hand will cost under the active rule.
+	// firstPlayer is who is on the play this game, which the free-mulligan
+	// count keys off; cardsToReturn is not what keeping costs -- keeping is
+	// always free under London, the only rule this port has -- it is what
+	// taking one *more* mulligan would cost, so the decision is informed by
+	// the price of saying no.
 	MulliganKeepHand(g *Game, decider PlayerID, firstPlayer PlayerID, cardsToReturn int) bool
 
 	// TuckCardsViaMulligan picks which cards from hand go to the bottom of

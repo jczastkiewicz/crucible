@@ -35,6 +35,7 @@ func (g *Game) StartTurn(active PlayerID) {
 	g.turn = 1
 	g.activePlayer = active
 	g.activePhase = Untap
+	g.sink.Emit(Event{Kind: TurnBegan, Active: active, Turn: uint16(g.turn)})
 	g.beginPhase()
 }
 
@@ -53,6 +54,7 @@ func (g *Game) AdvancePhase() {
 	if next == Untap {
 		g.turn++
 		g.activePlayer = g.nextPlayerAfter(g.activePlayer)
+		g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 	}
 	g.activePhase = next
 	g.beginPhase()
@@ -86,6 +88,7 @@ func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
 // same pairing Java's onPhaseBegin and checkStateBasedEffects run back to
 // back at the top of mainLoopStep.
 func (g *Game) beginPhase() {
+	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	switch g.activePhase {
 	case Untap:
 		g.untapStep()
@@ -130,5 +133,11 @@ func (g *Game) drawStep() {
 		g.Player(g.activePlayer).DrewFromEmptyLibrary = true
 		return
 	}
-	g.Move(lib.Cards()[0], Hand, g.activePlayer)
+	id := lib.Cards()[0]
+	g.Move(id, Hand, g.activePlayer)
+	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
+	// says a card moved, CardDrawn says why, which is what makes a draw
+	// countable without inspecting every zone change for the ones that
+	// happen to be library-to-hand.
+	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: g.activePlayer, Turn: uint16(g.turn), Source: id})
 }

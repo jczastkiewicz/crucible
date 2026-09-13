@@ -1,7 +1,8 @@
 # Port Log — Game State
 
 - **Java counterpart:** `forge-game/src/main/java/forge/game/Game.java`, `GameAction.java` (2,897 LOC), `card/Card.java`
-  (8,105 LOC), `player/Player.java`, `player/PlayerController.java`, `zone/Zone.java`, `zone/ZoneType.java`
+  (8,105 LOC), `player/Player.java`, `player/PlayerController.java`, `zone/Zone.java`, `zone/ZoneType.java`,
+  `phase/PhaseHandler.java` (1,324 LOC), `mulligan/*` (338 LOC across 7 files)
 - **Go:** [`internal/engine`](../../../crucible/internal/engine)
 
 The arena, and the handles that address it. Everything else in the engine indexes into this.
@@ -235,6 +236,70 @@ Not modeled, and each is a real rule some card will eventually need: Java's extr
 topsy-turvy phase order (a handful of effects reverse it), and CR 502.3's "this permanent doesn't untap" effects.
 Skipping them today is not a gap a card can expose, because nothing that would trigger them exists yet.
 
+## Mulligans
+
+`PerformMulligans` (`mulligan.go`) is `MulliganService` plus `LondonMulligan` — one rule, not the five-class strategy
+hierarchy Java has. London is the only one modern paper Magic has used since 2019 and the only one the constructed
+corpus Crucible targets exercises; Original, Paris and Vancouver are the rules it replaced, and Houston is a
+Forge-specific casual variant. Porting a hierarchy for four rules nothing in scope calls is exactly the speculative work
+CLAUDE.md rules out (PORT-6) — a straight function reads better than an interface with one real implementation.
+
+It calls the two `PlayerController` methods M4 built and never used: `MulliganKeepHand` and `TuckCardsViaMulligan`.
+Building the controller interface ahead of its callers, the way `ChooseStartingPlayer` was already sitting there unused,
+is exactly what paid off here.
+
+Two real rules came with it:
+
+- **CR 103.4** — a game with more than two players gives every player one free mulligan. Heads-up London gives none: the
+  very first mulligan already costs a card.
+- **The last-offered mulligan can cost more than a fresh hand holds.** `LondonMulligan.canMulligan`'s bound
+  (`tuckCardsDuringMulligan() <= maxHandSize`) reads the mulligan count from _before_ the mulligan it is gating, one
+  step behind what that mulligan will actually cost once taken — Java's own code, not a port artifact. The practical
+  effect is the last offered mulligan can ask a seven-card hand to tuck eight. `mulligan()` clamps the tuck count to the
+  hand's actual size before asking `TuckCardsViaMulligan` for it — a defensive floor, not a rules change: tucking
+  everything and tucking "everything, and then some" both leave an empty hand.
+
+`Player.shuffle` needed `OrderedSet` to support reordering at all, which it could not: `Add` only appends, and nothing
+before this needed to put a zone's cards in anything but insertion order. `OrderedSet.Swap(i, j)` is the addition —
+exchanges two positions and keeps the lookup index in step — and `Game.Shuffle` drives it with `javarand.Rand.Shuffle`,
+the same `Collections.shuffle(list, MyRandom.getRandom())` call Java's `Player.shuffle` makes, so a shuffled library
+replays identically from the same seed (pkg/javarand's own P0 gate covers the algorithm; this is the first caller that
+exercises it against a real zone).
+
+Opening hands are not dealt here. Java's `MulliganService` assumes `Game` already dealt one per player, and so does
+`PerformMulligans` — dealing one needs a `Match`/`StartGame` flow this port has not built, so a caller populates each
+hand (a fixture, today; a real game-start procedure, eventually) before calling this.
+
+## Events, wired
+
+ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held
+a `Sink`, and nothing called `Emit`. Every mechanism this port has built now does:
+
+| Call site                               | Kind(s)                                           |
+| --------------------------------------- | ------------------------------------------------- |
+| `Move`                                  | `ZoneChanged`                                     |
+| `StartTurn`, `AdvancePhase` (on wrap)   | `TurnBegan`                                       |
+| `beginPhase` (every step)               | `PhaseBegan`                                      |
+| `drawStep`                              | `CardDrawn`, alongside `Move`'s own `ZoneChanged` |
+| `CheckStateBasedActions` (once, on end) | `GameEnded`                                       |
+
+`Game.sink` defaults to `DiscardSink{}`, set in `NewGame`, so no existing caller — every test, `fixture.Load` — had to
+start constructing one. `SetSink` is the opt-in a recorder (M8) uses. `Game.Clone` always gives the clone a fresh
+`DiscardSink` regardless of what the original holds, which is the reason `DiscardSink`'s own doc comment already gave
+before anything called it: the AI's lookahead explores lines that never happened, and a clone holding the real sink
+would record imagined casts as real.
+
+`PhaseBegan` fires before that phase's own actions, not after — a recorder reading the stream in order sees "entered
+Draw" before "drew a card," matching when a real player would notice the step change. `TurnBegan` fires before
+`ActivePhase` changes to `Untap`, for the same reason.
+
+Not wired, and each is a real gap rather than an oversight: `CounterChanged` (annihilating counters is the only thing
+that would fire it, and `Event.Detail` is a numeric payload that has nowhere to put an open string like `CounterType`
+without inventing an encoding first), `SpellCast`/`AbilityActivated`/`AbilityResolved`/`DamageDealt` (nothing that would
+fire them exists yet), and anything from `PerformMulligans` itself — a mulligan is fully visible as the `ZoneChanged`
+cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the schema to add without also bumping
+`SchemaVersion`, a more deliberate act than this pass earned.
+
 ## Not ported yet
 
 | Missing                                                                                                               | Lands |
@@ -247,4 +312,7 @@ Skipping them today is not a gap a card can expose, because nothing that would t
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                   | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat  | M5-M6 |
 | Priority (`mainLoopStep`), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects                       | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                           | never |
+| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                        | M5    |
+| `CounterChanged`, `SpellCast`, `AbilityActivated`, `AbilityResolved`, `DamageDealt` — nothing yet causes them         | M5-M6 |
 | Stack, combat                                                                                                         | M5    |

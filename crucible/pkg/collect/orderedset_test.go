@@ -118,6 +118,53 @@ func TestOrderedSetCloneIsIndependent(t *testing.T) {
 	}
 }
 
+// Swap has to keep the lookup index in step with the reordered slice, or a
+// shuffled set would answer Contains/Remove for the wrong element.
+func TestOrderedSetSwapKeepsIndexInStep(t *testing.T) {
+	t.Parallel()
+	s := collect.NewOrderedSet[int](0)
+	for _, v := range []int{1, 2, 3, 4} {
+		s.Add(v)
+	}
+
+	s.Swap(0, 3)
+
+	if got := s.All(); !slices.Equal(got, []int{4, 2, 3, 1}) {
+		t.Fatalf("order after swap = %v, want [4 2 3 1]", got)
+	}
+	for i, v := range s.All() {
+		if !s.Remove(v) {
+			t.Fatalf("element %d at position %d: Remove says absent after swap", v, i)
+		}
+		s.Add(v)
+	}
+}
+
+// A full Fisher-Yates walk through Swap must still hold every original
+// element exactly once -- Shuffle only reorders, it never loses or
+// duplicates a card.
+func TestOrderedSetSwapDrivenShuffleIsAPermutation(t *testing.T) {
+	t.Parallel()
+	s := collect.NewOrderedSet[int](0)
+	for i := range 20 {
+		s.Add(i)
+	}
+
+	for i := s.Len(); i > 1; i-- {
+		s.Swap(i-1, (i-1)/2)
+	}
+
+	got := append([]int(nil), s.All()...)
+	slices.Sort(got)
+	want := make([]int, 20)
+	for i := range want {
+		want[i] = i
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("elements after shuffling = %v, want every original element exactly once", got)
+	}
+}
+
 func BenchmarkOrderedSetClone(b *testing.B) {
 	s := collect.NewOrderedSet[int](256)
 	for i := range 256 {

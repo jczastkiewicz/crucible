@@ -125,6 +125,73 @@ func TestZoneKeepsInsertionOrder(t *testing.T) {
 	}
 }
 
+// Shuffle reorders a zone's cards in place: every card that went in comes
+// out, none lost or duplicated, and the order actually changed for a deck
+// big enough that "no-op" would be a vanishingly unlikely coincidence.
+func TestShuffleIsAPermutation(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	before := make([]engine.CardID, 40)
+	for i := range before {
+		before[i] = g.NewCard(nil, p, engine.Library)
+	}
+
+	g.Shuffle(engine.Library, p)
+
+	after := g.Zone(engine.Library, p).Cards()
+	if len(after) != len(before) {
+		t.Fatalf("library holds %d cards after shuffling, want %d", len(after), len(before))
+	}
+	seen := map[engine.CardID]bool{}
+	for _, id := range after {
+		seen[id] = true
+	}
+	for _, id := range before {
+		if !seen[id] {
+			t.Fatalf("card %d present before the shuffle is gone after it", id)
+		}
+	}
+	same := true
+	for i := range before {
+		if before[i] != after[i] {
+			same = false
+			break
+		}
+	}
+	if same {
+		t.Error("order is unchanged after shuffling 40 cards")
+	}
+}
+
+// Shuffling one zone leaves an unrelated one untouched.
+func TestShuffleTouchesOnlyItsOwnZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	var hand []engine.CardID
+	for i := 0; i < 5; i++ {
+		hand = append(hand, g.NewCard(nil, p, engine.Hand))
+	}
+	for i := 0; i < 20; i++ {
+		g.NewCard(nil, p, engine.Library)
+	}
+
+	g.Shuffle(engine.Library, p)
+
+	got := g.Zone(engine.Hand, p).Cards()
+	if len(got) != len(hand) {
+		t.Fatalf("hand holds %d cards, want %d", len(got), len(hand))
+	}
+	for i := range hand {
+		if got[i] != hand[i] {
+			t.Errorf("hand position %d is card %d, want %d -- shuffling the library moved it", i, got[i], hand[i])
+		}
+	}
+}
+
 // An EntityID is a card or a player and must never be mistaken for the other.
 // The tag is a bit, so the failure mode without a test is a player id read as
 // a card id -- an index into the wrong arena.

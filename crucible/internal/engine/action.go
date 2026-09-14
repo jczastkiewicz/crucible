@@ -15,23 +15,26 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // 704.5a (a player at zero or less life loses), CR 704.5c (ten or more
 // poison counters loses), CR 704.5q (a permanent carrying both +1/+1 and
 // -1/-1 counters loses the smaller pile from each, in equal number), a
-// partial CR 704.5g (a creature with printed toughness zero or less goes to
-// its owner's graveyard), and a partial CR 704.5f/704.5m (an Aura not
-// attached to anything on the battlefield goes to its owner's graveyard; an
-// Equipment or Fortification attached to something no longer on the
-// battlefield becomes unattached). Every other rule in Java's loop --
-// lethal damage, a planeswalker at zero loyalty, the rest of 704.5g's own
-// toughness (anything past a plain printed integer -- "*", a Count$
-// reference, or toughness a continuous effect has changed), and the rest of
-// 704.5f/704.5m's own legality (an Aura's own "Enchant" restriction being
-// violated by something other than its host leaving, protection, hexproof)
-// -- needs either the continuous-effect layer system to compute a
-// characteristic (current P/T, loyalty) or a permanent type (Planeswalker,
-// Battle) this port has not built, or a valid-string evaluator to check a
-// restriction this port does not have (game-state.md's "Not ported yet",
-// `internal/valid`'s own doc comment). A rule this port has not implemented
-// simply never fires, the same as it would in a real game with no permanent
-// that rule applies to.
+// partial CR 704.5g (a creature at zero or less toughness -- printed, Layer
+// 7's own SETPT/MODIFYPT/CHARACTERISTIC effects and +1/+1 or -1/-1 counters
+// all folded in, Card.Toughness's own job -- goes to its owner's graveyard),
+// and a partial CR 704.5f/704.5m (an Aura not attached to anything on the
+// battlefield goes to its owner's graveyard; an Equipment or Fortification
+// attached to something no longer on the battlefield becomes unattached).
+// Every other rule in Java's loop -- lethal damage, a planeswalker at zero
+// loyalty, the rest of 704.5g's own toughness (a "*" with no
+// characteristic-defining effect to replace it, or a Count$ reference --
+// `internal/expr` has no evaluator yet), and the rest of 704.5f/704.5m's own
+// legality (an Aura's own "Enchant" restriction being violated by something
+// other than its host leaving, protection, hexproof) -- needs either the
+// rest of the continuous-effect layer system (type, color, ability layers;
+// CR 613.6-613.8's dependency reordering, which nothing here has more than
+// one effect to need yet) or a permanent type (Planeswalker, Battle) this
+// port has not built, or a valid-string evaluator to check a restriction
+// this port does not have (game-state.md's "Not ported yet", `internal/valid`'s
+// own doc comment). A rule this port has not implemented simply never
+// fires, the same as it would in a real game with no permanent that rule
+// applies to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -131,13 +134,15 @@ func annihilateCounters(c *Card) {
 	c.Counters.Add(M1M1, -remove)
 }
 
-// destroyLethalToughness is CR 704.5g, for the one toughness value this
-// port can currently read: a plain printed integer (Card.BaseToughness).
-// Anything past that -- "*", a Count$ reference, or toughness a continuous
-// effect (M1M1 counters included, per CR 613.4's own ordering) has since
-// changed -- is not checked, because this port cannot compute it yet
-// (game-state.md's "Not ported yet"): a creature whose printed toughness
-// reads 1 but is actually 0 after counters does not die here.
+// destroyLethalToughness is CR 704.5g: Card.Toughness (card.go) folds
+// Layer 7's continuous effects and +1/+1 and -1/-1 counters onto the
+// printed value already, so a creature reduced to zero by an annihilated
+// -1/-1 pile, a MODIFYPT pump, or a SETPT/CHARACTERISTIC effect all die
+// here the same as one whose printed toughness always read zero. What
+// still does not die: a creature whose toughness is unresolvable at every
+// layer -- "*" with no characteristic-defining effect to replace it, or a
+// Count$ reference -- since Toughness reports that as ok=false rather than
+// a wrong number (game-state.md's "Not ported yet").
 //
 // Candidates are collected before Move runs, the same reason
 // cleanupDanglingAttachments collects first: Move mutates the battlefield
@@ -150,7 +155,7 @@ func destroyLethalToughness(g *Game) {
 			if !c.Type().Has(cardtype.Creature) {
 				continue
 			}
-			if t, ok := c.BaseToughness(); ok && t <= 0 {
+			if t, ok := c.Toughness(); ok && t <= 0 {
 				dead = append(dead, id)
 			}
 		}

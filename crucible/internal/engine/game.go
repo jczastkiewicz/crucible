@@ -236,6 +236,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	case from == Battlefield && kind != Battlefield:
 		c.Counters = Counters{}
 		c.Damage.Clear()
+		c.PT.Clear()
 		c.Tapped = false
 		c.SummonSick = false
 		g.Unattach(id)
@@ -361,6 +362,7 @@ func (g *Game) Clone() *Game {
 		c := &out.cards[i]
 		c.Counters = g.cards[i].Counters.clone()
 		c.Memory = g.cards[i].Memory.clone()
+		c.PT = g.cards[i].PT.clone()
 		if g.cards[i].attachments != nil {
 			c.attachments = g.cards[i].attachments.Clone()
 		}

@@ -1,0 +1,43 @@
+// PT: Layer 7's continuous power/toughness effects, the mutable part of a
+// card Card.Power/Toughness (card.go) folds against the printed value.
+
+package engine
+
+// PT is the continuous power/toughness effects currently affecting one
+// card -- CHARACTERISTIC, SETPT and MODIFYPT, Layer 7's own three
+// sub-layers (CR 613.4). Counters are not here: CR 613.4 applies them
+// after Layer 7, not as a layer of their own, and Card.Counters already
+// tracks them -- Card.Power/Toughness reads both.
+type PT struct {
+	effects []PTEffect
+}
+
+// PTEffect is one continuous effect's contribution to a card's power
+// and/or toughness. Layer decides how it combines with whatever came
+// before: LayerCharacteristic and LayerSetPT replace it, LayerModifyPT
+// adds to it (CR 613.4) -- Card.Power/Toughness is what applies that rule,
+// this only records the effect.
+type PTEffect struct {
+	Layer            StaticAbilityLayer
+	Timestamp        uint64
+	Power, Toughness int
+}
+
+// Add records one continuous effect. Order does not matter here: folding
+// sorts by Layer then Timestamp, not insertion order.
+func (pt *PT) Add(e PTEffect) { pt.effects = append(pt.effects, e) }
+
+// Clear removes every effect, which Move calls when a card leaves the
+// battlefield: an effect that only applied there stops the moment it does.
+// This port has no duration tracking yet (an "until end of turn" pump
+// wearing off on its own is a separate, unbuilt mechanic,
+// game-state.md's "Not ported yet"), so leaving the battlefield is the one
+// case this clears today.
+func (pt *PT) Clear() { pt.effects = nil }
+
+// clone is PT's half of Game.Clone: a shared backing array would let a
+// push on the clone alias the original, the same reasoning stack.go's own
+// clone has.
+func (pt PT) clone() PT {
+	return PT{effects: append([]PTEffect(nil), pt.effects...)}
+}

@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -44,6 +45,7 @@ type Card struct {
 	Counters Counters
 	Damage   Damage
 	Memory   Memory
+	PT       PT
 
 	// Tapped and SummonSick are the two pieces of battlefield state every
 	// permanent carries that are not "how much of something" -- everything
@@ -75,16 +77,14 @@ func (c *Card) Type() cardtype.Line {
 }
 
 // BasePower and BaseToughness are the card's printed power and toughness --
-// CR 613's Layer 0, before anything in Layer 7 (a characteristic-defining
-// ability, a +1/+1 effect, a counter) has applied. Java calls these
-// getBasePower/getBaseToughness for the same reason: "base" is a named
-// concept in the rules, distinct from "current" (getNetPower), and nothing
-// computes current yet -- the layer system this belongs to has not landed
-// (game-state.md's "Not ported yet").
+// CR 613's Layer 0, before anything in Layer 7 or a counter has applied.
+// Java calls these getBasePower/getBaseToughness for the same reason:
+// "base" is a named concept in the rules, distinct from "current"
+// (getNetPower) -- Power/Toughness, below, is this port's getNetPower.
 //
 // ok is false for anything that is not a plain integer: "*", "1+*", a
 // Count$ reference, or a card with no printed toughness at all (an
-// instant, a nil Def). Resolving those needs a game and the layer system,
+// instant, a nil Def). Resolving those needs `internal/expr` and a game,
 // neither of which this reaches yet -- a coverage gap, not a wrong answer,
 // the same category CheckStateBasedActions's own gaps are in.
 func (c *Card) BasePower() (int, bool) {
@@ -102,6 +102,63 @@ func (c *Card) BaseToughness() (int, bool) {
 	}
 	n, err := strconv.Atoi(c.Def.Faces[0].Toughness)
 	return n, err == nil
+}
+
+// Power and Toughness are the card's current power and toughness: Layer 0
+// (BasePower/BaseToughness) with Layer 7's continuous effects (PT) folded
+// in, plus +1/+1 and -1/-1 counters, in CR 613.4's own order -- counters
+// apply after every layer, not as one themselves.
+//
+// ok is false wherever BasePower/BaseToughness's own ok is, unless a
+// LayerCharacteristic effect supplies a value of its own: a
+// characteristic-defining ability's whole point is replacing an
+// unresolvable printed value ("*") with a computed one, so PT can turn an
+// unresolvable base into a resolvable current value, never the reverse.
+func (c *Card) Power() (int, bool) {
+	base, ok := c.BasePower()
+	v, ok := foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Power })
+	if !ok {
+		return 0, false
+	}
+	return v + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+}
+
+// Toughness is Power's counterpart; see its doc comment.
+func (c *Card) Toughness() (int, bool) {
+	base, ok := c.BaseToughness()
+	v, ok := foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Toughness })
+	if !ok {
+		return 0, false
+	}
+	return v + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+}
+
+// foldPT applies Layer 7's own sub-layers in order (CR 613.4):
+// LayerCharacteristic and LayerSetPT each replace the running value,
+// LayerModifyPT adds to it. Ties within a layer break by Timestamp,
+// ascending -- CR 613.7's own tiebreak once dependency reordering (CR
+// 613.8) is not in play, which it cannot be: nothing here has more than
+// one continuous effect on the same card yet to depend on another.
+func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) int) (int, bool) {
+	sorted := append([]PTEffect(nil), effects...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Layer != sorted[j].Layer {
+			return sorted[i].Layer < sorted[j].Layer
+		}
+		return sorted[i].Timestamp < sorted[j].Timestamp
+	})
+	value, ok := base, baseOK
+	for _, e := range sorted {
+		switch e.Layer {
+		case LayerCharacteristic, LayerSetPT:
+			value, ok = pick(e), true
+		case LayerModifyPT:
+			if ok {
+				value += pick(e)
+			}
+		}
+	}
+	return value, ok
 }
 
 // AttachedTo is what this card is attached to, and whether it is attached at

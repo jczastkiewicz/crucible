@@ -60,6 +60,13 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 	return hand[:cardsToReturn]
 }
 
+// ChooseLegendaryToKeep is never exercised by this controller's own tests --
+// no scenario here creates a legend-rule conflict -- but the interface still
+// has to be satisfied.
+func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
+	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
+}
+
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)
 
 func TestPerformMulligansEveryoneKeepsImmediately(t *testing.T) {
@@ -215,7 +222,7 @@ func TestPerformMulligansStopsWhenTheGameEndsMidLoop(t *testing.T) {
 	c.queue(a, true)
 	c.onDecide = func() {
 		g.Player(a).Life, g.Player(b).Life = 0, 0
-		engine.CheckStateBasedActions(g)
+		engine.CheckStateBasedActions(g, c)
 	}
 	// b has no answers queued: if the loop reached b after a's decision
 	// ended the game, this would panic.

@@ -125,6 +125,55 @@ func TestRunActionsQueueTuckMultipleIDs(t *testing.T) {
 	}
 }
 
+// queue legendarykeep resolves setup.state's Id: number the same way tuck
+// does, for the one card ChooseLegendaryToKeep should return.
+func TestRunActionsQueueLegendaryKeepResolvesFixtureID(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:7\n")
+	want, ok := l.CardByFixtureID[7]
+	if !ok {
+		t.Fatal("setup: Id:7 did not resolve to a CardID")
+	}
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue legendarykeep 7\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseLegendaryToKeep(l.Game, l.Game.Players()[0], nil)
+	if got != want {
+		t.Errorf("legendary to keep = %v, want %v", got, want)
+	}
+}
+
+// queue legendarykeep takes exactly one id -- unlike tuck, there is only
+// ever one permanent to keep.
+func TestRunActionsQueueLegendaryKeepWantsExactlyOneID(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue legendarykeep 1,2\n"); err == nil {
+		t.Error("two ids did not error")
+	}
+}
+
+func TestRunActionsQueueLegendaryKeepBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue legendarykeep abc\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

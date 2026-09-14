@@ -8,15 +8,16 @@ import "fmt"
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the four answerable with today's
+// which has 110 abstract methods; only the five answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, Combat, targeting, replacement effects and cost
 // payment -- types that do not exist until the stack, combat and layer system
-// land in M5. Each is added when its own caller is, the same as these four:
+// land in M5. Each is added when its own caller is, the same as these five:
 // mulligans and the starting-player choice have callers in GameAction and
-// mulligan/, even though neither is ported yet, so the decision point can be
-// built ahead of them (Plan Section 1.3).
+// mulligan/, even though neither is ported yet, and ChooseLegendaryToKeep's
+// caller (resolveLegendRule, action.go) is fully built, so the decision point
+// can be built ahead of them (Plan Section 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -50,6 +51,13 @@ type PlayerController interface {
 	// mulligan rule's job, not the controller's -- Forge's own callers
 	// (LondonMulligan, HoustonMulligan) do the move themselves after asking.
 	TuckCardsViaMulligan(g *Game, decider PlayerID, hand []CardID, cardsToReturn int) []CardID
+
+	// ChooseLegendaryToKeep decides which of several legendary permanents
+	// sharing a name decider keeps when the legend rule applies; the rest
+	// go to their owner's graveyard (resolveLegendRule, action.go).
+	// duplicates always has at least two elements, and the return value
+	// must be one of them.
+	ChooseLegendaryToKeep(g *Game, decider PlayerID, duplicates []CardID) CardID
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -66,6 +74,7 @@ type ScriptedController struct {
 	startingHands   []int
 	keepHand        []bool
 	tucked          [][]CardID
+	legendaryKeep   []CardID
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -91,6 +100,12 @@ func (c *ScriptedController) QueueKeepHand(keep bool) {
 // QueueTuck appends the answer to the next TuckCardsViaMulligan call.
 func (c *ScriptedController) QueueTuck(cards []CardID) {
 	c.tucked = append(c.tucked, cards)
+}
+
+// QueueLegendaryToKeep appends the answer to the next ChooseLegendaryToKeep
+// call.
+func (c *ScriptedController) QueueLegendaryToKeep(id CardID) {
+	c.legendaryKeep = append(c.legendaryKeep, id)
 }
 
 func (c *ScriptedController) ChooseStartingPlayer(g *Game, decider PlayerID, isFirstGame bool) PlayerID {
@@ -126,6 +141,15 @@ func (c *ScriptedController) TuckCardsViaMulligan(g *Game, decider PlayerID, han
 	}
 	v := c.tucked[0]
 	c.tucked = c.tucked[1:]
+	return v
+}
+
+func (c *ScriptedController) ChooseLegendaryToKeep(g *Game, decider PlayerID, duplicates []CardID) CardID {
+	if len(c.legendaryKeep) == 0 {
+		panic(scriptExhausted("legendary to keep"))
+	}
+	v := c.legendaryKeep[0]
+	c.legendaryKeep = c.legendaryKeep[1:]
 	return v
 }
 

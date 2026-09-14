@@ -30,13 +30,14 @@ import (
 // A blank line or one starting with # is skipped, matching setup.state's own
 // convention. Each other line is one action:
 //
-//	startturn <player>          Game.StartTurn(player)
-//	advance [n]                 Game.AdvancePhase(), n times (default 1)
+//	startturn <player>          Game.StartTurn(player, controller)
+//	advance [n]                 Game.AdvancePhase(controller), n times (default 1)
 //	mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
 //	queue keephand <bool>       ScriptedController.QueueKeepHand
 //	queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from CardByFixtureID
 //	queue startingplayer <p>    ScriptedController.QueueStartingPlayer
 //	queue startinghand <n>      ScriptedController.QueueStartingHand
+//	queue legendarykeep <id>    ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything, declaring an attacker -- cannot be written yet, because nothing
@@ -65,7 +66,7 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if err != nil {
 			return err
 		}
-		l.Game.StartTurn(pid)
+		l.Game.StartTurn(pid, c)
 
 	case "advance":
 		n := 1
@@ -77,7 +78,7 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			n = v
 		}
 		for i := 0; i < n; i++ {
-			l.Game.AdvancePhase()
+			l.Game.AdvancePhase(c)
 		}
 
 	case "mulligan":
@@ -130,6 +131,16 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue startinghand %q: %w", value, err)
 		}
 		c.QueueStartingHand(n)
+
+	case "legendarykeep":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue legendarykeep: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("queue legendarykeep: want exactly one id, got %q", value)
+		}
+		c.QueueLegendaryToKeep(ids[0])
 
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)

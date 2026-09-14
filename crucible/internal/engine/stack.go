@@ -56,7 +56,7 @@ func (g *Game) StackTop() (Ability, bool) {
 // caller unchanged (GO-7): a bad card fails its game, not the batch, and
 // does not get to resolve whatever was left under it as if nothing
 // happened.
-func (g *Game) ResolveStack(reg *Registry) error {
+func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
 	for len(g.stack) > 0 && !g.over {
 		n := len(g.stack) - 1
 		a := g.stack[n]
@@ -67,7 +67,7 @@ func (g *Game) ResolveStack(reg *Registry) error {
 			return err
 		}
 		g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
-		CheckStateBasedActions(g)
+		CheckStateBasedActions(g, controller)
 	}
 	return nil
 }

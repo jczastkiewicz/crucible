@@ -107,7 +107,7 @@ func TestResolveStackDispatchesLIFOThroughRegistry(t *testing.T) {
 	for _, id := range []engine.CardID{1, 2, 3} {
 		g.PushAbility(engine.Ability{API: api, Source: id, Controller: p})
 	}
-	if err := g.ResolveStack(&reg); err != nil {
+	if err := g.ResolveStack(&reg, engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
@@ -148,7 +148,7 @@ func TestResolveStackEmitsAbilityResolvedPerItem(t *testing.T) {
 	g.PushAbility(engine.Ability{API: api, Source: 1, Controller: p})
 	g.PushAbility(engine.Ability{API: api, Source: 2, Controller: p})
 
-	if err := g.ResolveStack(&reg); err != nil {
+	if err := g.ResolveStack(&reg, engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
@@ -188,7 +188,7 @@ func TestResolveStackStopsOnEffectError(t *testing.T) {
 	g.PushAbility(engine.Ability{API: api, Source: 1, Controller: p})
 	g.PushAbility(engine.Ability{API: api, Source: 2, Controller: p})
 
-	err := g.ResolveStack(&reg)
+	err := g.ResolveStack(&reg, engine.NewScriptedController())
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("ResolveStack() = %v, want the effect's own error", err)
 	}
@@ -207,7 +207,7 @@ func TestResolveStackPropagatesUnimplemented(t *testing.T) {
 	var reg engine.Registry
 	g.PushAbility(engine.Ability{Controller: p})
 
-	if err := g.ResolveStack(&reg); !errors.Is(err, engine.ErrUnimplemented) {
+	if err := g.ResolveStack(&reg, engine.NewScriptedController()); !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("ResolveStack() = %v, want ErrUnimplemented", err)
 	}
 }
@@ -232,7 +232,7 @@ func TestResolveStackStopsWhenGameEnds(t *testing.T) {
 	g.PushAbility(engine.Ability{API: api, Source: 1, Controller: a})
 	g.PushAbility(engine.Ability{API: api, Source: 2, Controller: a})
 
-	if err := g.ResolveStack(&reg); err != nil {
+	if err := g.ResolveStack(&reg, engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	if !g.Over() {

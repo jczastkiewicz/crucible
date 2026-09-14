@@ -4,7 +4,8 @@
   the 27 `KeywordInstance` subclasses beside it
 - **Go target:** `crucible/internal/keyword`
 - **Status:** Parsing and the definition table done — M3 slice F. Expansion into triggers, statics and abilities needs
-  the effect layer
+  the effect layer. `engine.Card.HasKeyword` (M5) is the first engine consumer, and only ever asks "is the bare word
+  present" — it does not expand a keyword into what it grants
 
 ## What it does
 
@@ -12,6 +13,12 @@ Reads a `K:` line into a head, its details, and the enum entry that says how the
 nothing, `Ward:2` an amount, `Dash:4 R W` a cost, `Awaken:3:4 U` both.
 
 18,248 `K:` lines in the corpus.
+
+`compile.Face.Keywords` carries the raw lines through from `carddb.Face.Keywords` unchanged (`game-state.md`'s "Lethal
+and deathtouch damage" section), the same "carry the printed text, interpret it downstream" split
+`Type`/`Power`/`Toughness`/`Loyalty` already use. `engine.Card.HasKeyword(name)` is the interpreter: it calls `Parse` on
+each line and compares `.Name`, so a keyword written with arguments (`"Ward:2"`) is still found by its bare head
+(`"Ward"`).
 
 ## The head is not "everything before the first colon"
 

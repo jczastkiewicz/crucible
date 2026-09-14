@@ -3,29 +3,35 @@
 
 package engine
 
+import "github.com/jczastkiewicz/crucible/internal/cardtype"
+
 // CheckStateBasedActions applies every state-based action this port checks
 // today and reports whether the game has ended as a result.
 //
 // Ported from forge-game/src/main/java/forge/game/GameAction.java
 // (checkGameOverCondition, stateBasedAction704_5q) and
-// forge/game/player/Player.java (checkLoseCondition). Six of Java's checks
+// forge/game/player/Player.java (checkLoseCondition). Seven of Java's checks
 // are here: CR 704.5b (an attempted draw with nothing to draw loses), CR
 // 704.5a (a player at zero or less life loses), CR 704.5c (ten or more
 // poison counters loses), CR 704.5q (a permanent carrying both +1/+1 and
-// -1/-1 counters loses the smaller pile from each, in equal number), and a
-// partial CR 704.5f/704.5m (an Aura not attached to anything on the
-// battlefield goes to its owner's graveyard; an Equipment or Fortification
-// attached to something no longer on the battlefield becomes unattached).
-// Every other rule in Java's loop -- lethal damage, zero toughness, a
-// planeswalker at zero loyalty, and the rest of 704.5f/704.5m's own
-// legality (an Aura's own "Enchant" restriction being violated by something
-// other than its host leaving, protection, hexproof) -- needs either the
-// continuous-effect layer system to compute a characteristic (P/T, loyalty)
-// or a permanent type (Planeswalker, Battle) this port has not built, or a
-// valid-string evaluator to check a restriction this port does not have
-// (game-state.md's "Not ported yet", `internal/valid`'s own doc comment). A
-// rule this port has not reached simply never fires, the same as it would
-// in a real game with no permanent that rule applies to.
+// -1/-1 counters loses the smaller pile from each, in equal number), a
+// partial CR 704.5g (a creature with printed toughness zero or less goes to
+// its owner's graveyard), and a partial CR 704.5f/704.5m (an Aura not
+// attached to anything on the battlefield goes to its owner's graveyard; an
+// Equipment or Fortification attached to something no longer on the
+// battlefield becomes unattached). Every other rule in Java's loop --
+// lethal damage, a planeswalker at zero loyalty, the rest of 704.5g's own
+// toughness (anything past a plain printed integer -- "*", a Count$
+// reference, or toughness a continuous effect has changed), and the rest of
+// 704.5f/704.5m's own legality (an Aura's own "Enchant" restriction being
+// violated by something other than its host leaving, protection, hexproof)
+// -- needs either the continuous-effect layer system to compute a
+// characteristic (current P/T, loyalty) or a permanent type (Planeswalker,
+// Battle) this port has not built, or a valid-string evaluator to check a
+// restriction this port does not have (game-state.md's "Not ported yet",
+// `internal/valid`'s own doc comment). A rule this port has not implemented
+// simply never fires, the same as it would in a real game with no permanent
+// that rule applies to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -39,13 +45,17 @@ package engine
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a creature can, in turn, empty an
-// Aura's target). None of the three rules here can trigger each other or be
-// triggered by anything else this port has, so one pass is complete; the loop
-// returns when a rule that can cascade lands.
+// Aura's target -- exactly the interaction 704.5g and the attachment cleanup
+// below have, which is why destroyLethalToughness runs before
+// cleanupDanglingAttachments rather than on a later call). Nothing here
+// cascades a second time: destroying a creature cannot itself change another
+// creature's printed toughness, and nothing yet grants an effect that could.
+// One pass is complete; the loop returns once a rule that can cascade twice
+// lands.
 //
-// A game that has already ended skips 704.5q entirely, the same as Java:
-// checkStateEffects returns as soon as checkGameOverCondition finds the game
-// over, before its creature loop ever runs.
+// A game that has already ended skips every check below entirely, the same
+// as Java: checkStateEffects returns as soon as checkGameOverCondition finds
+// the game over, before its creature loop ever runs.
 //
 // A GameEnded event fires exactly once, on the call that flips g.over --
 // never on a later call finding it already true, and not from any other
@@ -100,6 +110,7 @@ func CheckStateBasedActions(g *Game) bool {
 			annihilateCounters(g.Card(id))
 		}
 	}
+	destroyLethalToughness(g)
 	cleanupDanglingAttachments(g)
 	return false
 }
@@ -118,6 +129,35 @@ func annihilateCounters(c *Card) {
 	}
 	c.Counters.Add(P1P1, -remove)
 	c.Counters.Add(M1M1, -remove)
+}
+
+// destroyLethalToughness is CR 704.5g, for the one toughness value this
+// port can currently read: a plain printed integer (Card.BaseToughness).
+// Anything past that -- "*", a Count$ reference, or toughness a continuous
+// effect (M1M1 counters included, per CR 613.4's own ordering) has since
+// changed -- is not checked, because this port cannot compute it yet
+// (game-state.md's "Not ported yet"): a creature whose printed toughness
+// reads 1 but is actually 0 after counters does not die here.
+//
+// Candidates are collected before Move runs, the same reason
+// cleanupDanglingAttachments collects first: Move mutates the battlefield
+// zone this ranges over.
+func destroyLethalToughness(g *Game) {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if !c.Type().Has(cardtype.Creature) {
+				continue
+			}
+			if t, ok := c.BaseToughness(); ok && t <= 0 {
+				dead = append(dead, id)
+			}
+		}
+	}
+	for _, id := range dead {
+		g.Move(id, Graveyard, g.Card(id).Owner)
+	}
 }
 
 // cleanupDanglingAttachments is the one case CR 704.5f/704.5m checks that

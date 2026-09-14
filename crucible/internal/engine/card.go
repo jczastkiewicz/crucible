@@ -4,6 +4,8 @@
 package engine
 
 import (
+	"strconv"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
@@ -70,6 +72,36 @@ func (c *Card) Type() cardtype.Line {
 		return cardtype.Line{}
 	}
 	return c.Def.Faces[0].Type
+}
+
+// BasePower and BaseToughness are the card's printed power and toughness --
+// CR 613's Layer 0, before anything in Layer 7 (a characteristic-defining
+// ability, a +1/+1 effect, a counter) has applied. Java calls these
+// getBasePower/getBaseToughness for the same reason: "base" is a named
+// concept in the rules, distinct from "current" (getNetPower), and nothing
+// computes current yet -- the layer system this belongs to has not landed
+// (game-state.md's "Not ported yet").
+//
+// ok is false for anything that is not a plain integer: "*", "1+*", a
+// Count$ reference, or a card with no printed toughness at all (an
+// instant, a nil Def). Resolving those needs a game and the layer system,
+// neither of which this reaches yet -- a coverage gap, not a wrong answer,
+// the same category CheckStateBasedActions's own gaps are in.
+func (c *Card) BasePower() (int, bool) {
+	if c.Def == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(c.Def.Faces[0].Power)
+	return n, err == nil
+}
+
+// BaseToughness is BasePower's counterpart; see its doc comment.
+func (c *Card) BaseToughness() (int, bool) {
+	if c.Def == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(c.Def.Faces[0].Toughness)
+	return n, err == nil
 }
 
 // AttachedTo is what this card is attached to, and whether it is attached at

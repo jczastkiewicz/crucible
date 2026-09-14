@@ -154,6 +154,14 @@ type Face struct {
 	// play (game-state.md's "Not ported yet").
 	Type cardtype.Line
 
+	// Power and Toughness are carried through unchanged from carddb.Face,
+	// printed values only -- either can be "*", "1+*" or a Count$
+	// reference, which is why they stay text here rather than becoming an
+	// int at compile time (carddb.Face's own doc comment). Resolving one to
+	// a number, when it is a plain integer, is engine.Card.BasePower/
+	// BaseToughness's job (game-state.md's "Layer 0" section).
+	Power, Toughness string
+
 	Abilities    []*Ability
 	Triggers     []*Ability
 	Statics      []*Ability
@@ -193,7 +201,7 @@ func Compile(card *carddb.Card) (*Card, error) {
 func compileFace(face *carddb.Face) (Face, error) {
 	c := &faceCompiler{face: face, open: map[string]bool{}}
 
-	out := Face{Type: face.Type}
+	out := Face{Type: face.Type, Power: face.Power, Toughness: face.Toughness}
 	for _, group := range []struct {
 		lines  []string
 		target *[]*Ability

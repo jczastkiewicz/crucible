@@ -156,26 +156,31 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 ## State-based actions
 
 `CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition` and
-`stateBasedAction704_5q`, plus `cleanupDanglingAttachments` for a slice of what `changeZone` folds in elsewhere in Java
-(`## Move carries what Java gets for free`, below) — the rules answerable without the layer system: CR 704.5a (a player
-at zero or less life loses), CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent carrying both +1/+1
-and -1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and
-none), and a partial CR 704.5f/704.5m (an Aura not attached to a permanent on the battlefield goes to its owner's
-graveyard; an Equipment or Fortification in the same state just becomes unattached). Every other SBA in Java's loop —
-lethal damage, zero toughness, the rest of 704.5f/704.5m's own legality (an Aura's `Enchant` restriction violated by
-something other than its host leaving, protection, hexproof) — reads a characteristic the continuous-effect layer system
-computes, or a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and neither is
-M5 work this has reached yet. A rule this port has not implemented simply never fires, the same as a real game with no
-permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+`stateBasedAction704_5q`, plus `destroyLethalToughness` and `cleanupDanglingAttachments` for a slice of what
+`changeZone` folds in elsewhere in Java (`## Move carries what Java gets for free`, below) — the rules answerable
+without the full layer system: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten or more poison counters
+loses), CR 704.5q (a permanent carrying both +1/+1 and -1/-1 counters loses the smaller pile from each, in equal number
+— five +1/+1 and two -1/-1 leaves three +1/+1 and none), a partial CR 704.5g (a creature with a plain printed integer
+toughness of zero or less dies), and a partial CR 704.5f/704.5m (an Aura not attached to a permanent on the battlefield
+goes to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached). Every other SBA
+in Java's loop — lethal damage, a planeswalker at zero loyalty, the rest of 704.5g's own toughness (`*`, a `Count$`
+reference, or toughness a continuous effect or a counter has changed — CR 613.4 runs counters after Layer 7, which this
+port has no layer to run after yet), the rest of 704.5f/704.5m's own legality (an Aura's `Enchant` restriction violated
+by something other than its host leaving, protection, hexproof) — reads a characteristic the continuous-effect layer
+system computes, or a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and
+neither is M5 work this has fully reached yet. A rule this port has not implemented simply never fires, the same as a
+real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
 
-Java's own loop runs up to nine times, because one SBA firing can make another one true. None of the four rules here can
-trigger each other or be triggered by anything else this port has — an Aura leaving for the graveyard does not change
-any player's life, poison count or a permanent's counters — so one pass is complete. A game that already ended skips
-704.5q and the attachment cleanup entirely, the same as Java: `checkStateEffects` returns before its creature loop runs
-once `checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade lands — a card script
+Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness` runs
+before `cleanupDanglingAttachments`, not after, for exactly that reason: a creature this pass destroys can leave an Aura
+dangling that the very same `CheckStateBasedActions` call has to catch, the one real cascade among the five rules here.
+Nothing else cascades a second time — destroying a creature cannot itself change another creature's printed toughness,
+and nothing yet grants an effect that could — so one ordered pass is complete. A game that already ended skips every
+check below entirely, the same as Java: `checkStateEffects` returns before its creature loop runs once
+`checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade twice lands — a card script
 writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
 
 `cleanupDanglingAttachments` needed `Card.Type()` to exist at all: `compile.Card` carried no printed characteristics
@@ -186,6 +191,22 @@ instead of `Type`). `carddb.Face` already parses one (`Type cardtype.Line`, from
 `Name` is copied rather than recomputed. `Card.Type()` returns the primary face's line and, for a `nil` `Def` (every
 synthetic test card in this package), the zero `Line` — which matches no subtype, so a test card is never mistaken for
 an Aura.
+
+## Layer 0: printed power and toughness
+
+`destroyLethalToughness` needed the same kind of characteristic `Card.Type()` already carries, for power and toughness
+instead of the type line: `compile.Face` now also copies `Power`/`Toughness` through from `carddb.Face` unchanged,
+printed text, not a number — either can be `*`, `1+*` or a `Count$` reference (`carddb.Face`'s own doc comment), which
+is exactly why they stay text at this layer too. `Card.BasePower`/`BaseToughness` resolve that text to an `int` only
+when it is a plain integer (`strconv.Atoi`), reporting `false` otherwise rather than a wrong number or a panic — the
+same "coverage gap, not a wrong answer" contract `Type()` already keeps.
+
+"Base" is Java's own word (`getBasePower`/`getBaseToughness`) for the printed value, CR 613's Layer 0 — before a
+characteristic-defining ability (Layer 7a), a setting effect (7b), a modifying effect (7c) or a counter (CR 613.4, after
+Layer 7) has applied. None of those exist in this port yet, so `BasePower`/`BaseToughness` are also, today, the only
+power and toughness a card has — a `Power()`/`Toughness()` pair reading the fully layered value is what lands once
+something can push a continuous effect onto a card, the same "mechanism has no content yet" gap `stack.go`'s
+`ResolveStack` is already in (`## Stack`).
 
 `Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
@@ -372,8 +393,10 @@ compared were never going to agree on those by number.
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                      | M5    |
 | 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                          | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                    | M7    |
-| Every other CR 704.5 state-based action — needs the layer system (toughness, loyalty) or a permanent type not modeled                                                                                     | M5-M6 |
+| Every other CR 704.5 state-based action — lethal damage, a planeswalker at zero loyalty — needs the full layer system or a permanent type not modeled                                                     | M5-M6 |
+| The rest of CR 704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
 | The rest of CR 704.5f/704.5m's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
+| `Power()`/`Toughness()` reading the fully layered value — the layer-folding mechanism itself (CR 613.6-613.8's dependency reordering included) has no continuous effect yet to fold in                    | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                       | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat                                                                                      | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond | M5-M6 |

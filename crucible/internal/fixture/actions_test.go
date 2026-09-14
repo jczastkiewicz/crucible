@@ -342,6 +342,81 @@ func TestRunActionsQueueBlocksMissingEqualsErrors(t *testing.T) {
 	}
 }
 
+// combatdamage runs with no attackers declared without error -- there is
+// nothing to deal, so Game.DealCombatDamage never touches the controller's
+// queue at all.
+func TestRunActionsCombatDamageWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ncombatdamage\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue damage resolves each blocker=amount pair's setup.state Id: number
+// the same way queue blocks resolves its pairs, keeping the pair order the
+// line was written in.
+func TestRunActionsQueueDamageResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1=3,2=2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.AssignCombatDamage(l.Game, l.Game.Players()[0], 0, nil)
+	want := []engine.DamageAssignment{
+		{Blocker: l.CardByFixtureID[1], Amount: 3},
+		{Blocker: l.CardByFixtureID[2], Amount: 2},
+	}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("damage assignment %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueDamageBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage abc=3\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
+func TestRunActionsQueueDamageBadAmountErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nhumanbattlefield=Mountain|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1=xyz\n"); err == nil {
+		t.Error("a non-numeric amount did not error")
+	}
+}
+
+func TestRunActionsQueueDamageMissingEqualsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1\n"); err == nil {
+		t.Error("a pair with no amount half did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

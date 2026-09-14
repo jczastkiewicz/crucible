@@ -35,6 +35,7 @@ import (
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
 //	declareblockers               Game.DeclareCombatBlockers(controller)
+//	combatdamage                  Game.DealCombatDamage(controller)
 //	queue keephand <bool>         ScriptedController.QueueKeepHand
 //	queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from CardByFixtureID
 //	queue startingplayer <p>      ScriptedController.QueueStartingPlayer
@@ -42,6 +43,7 @@ import (
 //	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
 //	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
 //	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
+//	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything -- cannot be written yet, because nothing downstream of
@@ -97,6 +99,9 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 
 	case "declareblockers":
 		l.Game.DeclareCombatBlockers(c)
+
+	case "combatdamage":
+		l.Game.DealCombatDamage(c)
 
 	case "queue":
 		return runQueue(args, l, c)
@@ -180,6 +185,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueBlocks(blocks)
 
+	case "damage":
+		assignment, err := resolveDamageAssignment(l, value)
+		if err != nil {
+			return fmt.Errorf("queue damage: %w", err)
+		}
+		c.QueueDamageAssignment(assignment)
+
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)
 	}
@@ -237,4 +249,29 @@ func resolveBlocks(l *Loaded, value string) ([]engine.Block, error) {
 		blocks[i] = engine.Block{Blocker: ids[0], Attacker: ids[1]}
 	}
 	return blocks, nil
+}
+
+// resolveDamageAssignment turns a comma-separated list of blocker=amount
+// pairs into the []engine.DamageAssignment AssignCombatDamage expects, in
+// the order written -- that order is the order the attacking player assigns
+// in (CR 510.1c), so unlike resolveBlocks this cannot reorder its pairs.
+func resolveDamageAssignment(l *Loaded, value string) ([]engine.DamageAssignment, error) {
+	pairs := strings.Split(value, ",")
+	assignment := make([]engine.DamageAssignment, len(pairs))
+	for i, p := range pairs {
+		halves := strings.SplitN(p, "=", 2)
+		if len(halves) != 2 {
+			return nil, fmt.Errorf("pair %q: want blocker=amount", p)
+		}
+		ids, err := resolveCardIDs(l, halves[0])
+		if err != nil {
+			return nil, err
+		}
+		amount, err := strconv.Atoi(strings.TrimSpace(halves[1]))
+		if err != nil {
+			return nil, fmt.Errorf("amount %q: %w", halves[1], err)
+		}
+		assignment[i] = engine.DamageAssignment{Blocker: ids[0], Amount: amount}
+	}
+	return assignment, nil
 }

@@ -20,7 +20,8 @@
     "valid": ["valid.go"],
     "combat": ["combat.go"],
     "attack": ["attack.go"],
-    "block": ["block.go"]
+    "block": ["block.go"],
+    "combatdamage": ["combatdamage.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -41,6 +42,7 @@
     "stack": ["id", "ability", "game", "effect", "event", "action", "control"],
     "valid": ["id", "card"],
     "attack": ["id", "zone", "card", "game", "control"],
-    "block": ["id", "zone", "card", "game", "control", "combat"]
+    "block": ["id", "zone", "card", "game", "control", "combat"],
+    "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat"]
   }
 }

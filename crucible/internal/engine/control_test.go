@@ -93,6 +93,7 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"legendary keep": func(c *engine.ScriptedController) { c.ChooseLegendaryToKeep(g, p0, nil) },
 		"attackers":      func(c *engine.ScriptedController) { c.DeclareCombatAttackers(g, p0, nil) },
 		"blocks":         func(c *engine.ScriptedController) { c.DeclareCombatBlockers(g, p0, nil, nil) },
+		"damage":         func(c *engine.ScriptedController) { c.AssignCombatDamage(g, p0, 0, nil) },
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

@@ -89,14 +89,16 @@ drives a real `PlayerController` from Java code and never needed a text vocabula
 line-oriented the same way `setup.state` is:
 
 ```text
-startturn <player>          Game.StartTurn(player, controller)
-advance [n]                 Game.AdvancePhase(controller), n times (default 1)
-mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
-queue keephand <bool>       ScriptedController.QueueKeepHand
-queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
-queue startingplayer <p>    ScriptedController.QueueStartingPlayer
-queue startinghand <n>      ScriptedController.QueueStartingHand
-queue legendarykeep <id>    ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
+startturn <player>            Game.StartTurn(player, controller)
+advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+declareattackers              Game.DeclareCombatAttackers(controller)
+queue keephand <bool>         ScriptedController.QueueKeepHand
+queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
+queue startingplayer <p>      ScriptedController.QueueStartingPlayer
+queue startinghand <n>        ScriptedController.QueueStartingHand
+queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
+queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
 ```
 
 `Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs

@@ -61,6 +61,13 @@ func indestructibleCreatureDefPT(t *testing.T, power, toughness string) *compile
 	return def
 }
 
+func creatureDefPTKeywords(t *testing.T, power, toughness string, keywords ...string) *compile.Card {
+	t.Helper()
+	def := creatureDefPT(t, power, toughness)
+	def.Faces[0].Keywords = keywords
+	return def
+}
+
 func planeswalkerDefLoyalty(t *testing.T, loyalty string) *compile.Card {
 	t.Helper()
 	def := &compile.Card{Name: "Test Planeswalker"}

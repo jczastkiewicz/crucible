@@ -30,17 +30,19 @@ import (
 // A blank line or one starting with # is skipped, matching setup.state's own
 // convention. Each other line is one action:
 //
-//	startturn <player>          Game.StartTurn(player, controller)
-//	advance [n]                 Game.AdvancePhase(controller), n times (default 1)
-//	mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
-//	queue keephand <bool>       ScriptedController.QueueKeepHand
-//	queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from CardByFixtureID
-//	queue startingplayer <p>    ScriptedController.QueueStartingPlayer
-//	queue startinghand <n>      ScriptedController.QueueStartingHand
-//	queue legendarykeep <id>    ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
+//	startturn <player>            Game.StartTurn(player, controller)
+//	advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+//	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+//	declareattackers              Game.DeclareCombatAttackers(controller)
+//	queue keephand <bool>         ScriptedController.QueueKeepHand
+//	queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from CardByFixtureID
+//	queue startingplayer <p>      ScriptedController.QueueStartingPlayer
+//	queue startinghand <n>        ScriptedController.QueueStartingHand
+//	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
+//	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
 //
 // A scenario that needs a decision point no verb here reaches -- casting
-// anything, declaring an attacker -- cannot be written yet, because nothing
+// anything, declaring a blocker -- cannot be written yet, because nothing
 // downstream of ScriptedController can answer it either (M5, later).
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
 	sc := bufio.NewScanner(r)
@@ -87,6 +89,9 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return err
 		}
 		engine.PerformMulligans(l.Game, c, pid)
+
+	case "declareattackers":
+		l.Game.DeclareCombatAttackers(c)
 
 	case "queue":
 		return runQueue(args, l, c)
@@ -141,6 +146,21 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue legendarykeep: want exactly one id, got %q", value)
 		}
 		c.QueueLegendaryToKeep(ids[0])
+
+	case "attackers":
+		// "none" is written explicitly, not an empty value, because every
+		// other queue kind requires a value too (the len(args) < 2 check
+		// above) -- declining to attack with anything is still an answer
+		// that has to be queued, not an absent one.
+		if value == "none" {
+			c.QueueAttackers(nil)
+			break
+		}
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue attackers: %w", err)
+		}
+		c.QueueAttackers(ids)
 
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)

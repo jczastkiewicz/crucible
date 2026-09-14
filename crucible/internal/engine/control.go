@@ -8,15 +8,16 @@ import "fmt"
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the five answerable with today's
+// which has 110 abstract methods; only the six answerable with today's
 // engine are here.
 //
-// The rest need SpellAbility, Combat, targeting, replacement effects and cost
-// payment -- types that do not exist until the stack, combat and layer system
-// land in M5. Each is added when its own caller is, the same as these five:
+// The rest need SpellAbility, targeting, replacement effects and cost
+// payment -- types that do not exist until the stack and layer system fully
+// land in M5. Each is added when its own caller is, the same as these six:
 // mulligans and the starting-player choice have callers in GameAction and
 // mulligan/, even though neither is ported yet, and ChooseLegendaryToKeep's
-// caller (resolveLegendRule, action.go) is fully built, so the decision point
+// and DeclareCombatAttackers's own callers (resolveLegendRule, action.go;
+// Game.DeclareCombatAttackers, attack.go) are fully built, so the decision point
 // can be built ahead of them (Plan Section 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
@@ -58,6 +59,13 @@ type PlayerController interface {
 	// duplicates always has at least two elements, and the return value
 	// must be one of them.
 	ChooseLegendaryToKeep(g *Game, decider PlayerID, duplicates []CardID) CardID
+
+	// DeclareCombatAttackers decides which of decider's eligible creatures attack
+	// (CR 508.1, Game.DeclareCombatAttackers, attack.go). The return value is a
+	// subset of eligible, which is never empty (Game.DeclareCombatAttackers does
+	// not call this otherwise) -- an empty return is a legal answer, the
+	// active player declining to attack with anything.
+	DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -75,6 +83,7 @@ type ScriptedController struct {
 	keepHand        []bool
 	tucked          [][]CardID
 	legendaryKeep   []CardID
+	attackers       [][]CardID
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -106,6 +115,13 @@ func (c *ScriptedController) QueueTuck(cards []CardID) {
 // call.
 func (c *ScriptedController) QueueLegendaryToKeep(id CardID) {
 	c.legendaryKeep = append(c.legendaryKeep, id)
+}
+
+// QueueAttackers appends the answer to the next DeclareCombatAttackers call. An
+// empty or nil cards declines to attack with anything, a legal answer that
+// still consumes the queue slot.
+func (c *ScriptedController) QueueAttackers(cards []CardID) {
+	c.attackers = append(c.attackers, cards)
 }
 
 func (c *ScriptedController) ChooseStartingPlayer(g *Game, decider PlayerID, isFirstGame bool) PlayerID {
@@ -150,6 +166,15 @@ func (c *ScriptedController) ChooseLegendaryToKeep(g *Game, decider PlayerID, du
 	}
 	v := c.legendaryKeep[0]
 	c.legendaryKeep = c.legendaryKeep[1:]
+	return v
+}
+
+func (c *ScriptedController) DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID {
+	if len(c.attackers) == 0 {
+		panic(scriptExhausted("attackers"))
+	}
+	v := c.attackers[0]
+	c.attackers = c.attackers[1:]
 	return v
 }
 

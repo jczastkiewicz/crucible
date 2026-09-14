@@ -174,6 +174,73 @@ func TestRunActionsQueueLegendaryKeepBadIDErrors(t *testing.T) {
 	}
 }
 
+// declareattackers runs with nothing on the battlefield without error --
+// there is nothing eligible, so Game.DeclareCombatAttackers never touches
+// the controller's queue at all.
+func TestRunActionsDeclareAttackersWithNothingOnTheBattlefield(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ndeclareattackers\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue attackers resolves setup.state's Id: numbers the same way tuck and
+// legendarykeep do.
+func TestRunActionsQueueAttackersResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers 1,2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatAttackers(l.Game, l.Game.Players()[0], nil)
+	want := []engine.CardID{l.CardByFixtureID[1], l.CardByFixtureID[2]}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("attackers %v, want %v", got, want)
+	}
+}
+
+// queue attackers none is how a scenario queues "decline to attack" --
+// there being no ids is not the same as the line being absent, since every
+// other queue kind also requires a value.
+func TestRunActionsQueueAttackersNoneDeclines(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatAttackers(l.Game, l.Game.Players()[0], nil)
+	if got != nil {
+		t.Errorf("attackers = %v, want nil", got)
+	}
+}
+
+func TestRunActionsQueueAttackersBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers abc\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

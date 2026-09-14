@@ -91,6 +91,7 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"keep hand":      func(c *engine.ScriptedController) { c.MulliganKeepHand(g, p0, p0, 0) },
 		"tuck":           func(c *engine.ScriptedController) { c.TuckCardsViaMulligan(g, p0, nil, 0) },
 		"legendary keep": func(c *engine.ScriptedController) { c.ChooseLegendaryToKeep(g, p0, nil) },
+		"attackers":      func(c *engine.ScriptedController) { c.DeclareCombatAttackers(g, p0, nil) },
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

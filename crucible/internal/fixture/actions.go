@@ -34,16 +34,18 @@ import (
 //	advance [n]                   Game.AdvancePhase(controller), n times (default 1)
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
+//	declareblockers               Game.DeclareCombatBlockers(controller)
 //	queue keephand <bool>         ScriptedController.QueueKeepHand
 //	queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from CardByFixtureID
 //	queue startingplayer <p>      ScriptedController.QueueStartingPlayer
 //	queue startinghand <n>        ScriptedController.QueueStartingHand
 //	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
 //	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
+//	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
 //
 // A scenario that needs a decision point no verb here reaches -- casting
-// anything, declaring a blocker -- cannot be written yet, because nothing
-// downstream of ScriptedController can answer it either (M5, later).
+// anything -- cannot be written yet, because nothing downstream of
+// ScriptedController can answer it either (M5, later).
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
@@ -92,6 +94,9 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 
 	case "declareattackers":
 		l.Game.DeclareCombatAttackers(c)
+
+	case "declareblockers":
+		l.Game.DeclareCombatBlockers(c)
 
 	case "queue":
 		return runQueue(args, l, c)
@@ -162,6 +167,19 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueAttackers(ids)
 
+	case "blocks":
+		// "none" mirrors "attackers none" above: declining to block is a
+		// queued answer too, not an absent one.
+		if value == "none" {
+			c.QueueBlocks(nil)
+			break
+		}
+		blocks, err := resolveBlocks(l, value)
+		if err != nil {
+			return fmt.Errorf("queue blocks: %w", err)
+		}
+		c.QueueBlocks(blocks)
+
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)
 	}
@@ -200,4 +218,23 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		ids[i] = id
 	}
 	return ids, nil
+}
+
+// resolveBlocks turns a comma-separated list of blocker=attacker fixture-ID
+// pairs into the Blocks Load's ids resolve to.
+func resolveBlocks(l *Loaded, value string) ([]engine.Block, error) {
+	pairs := strings.Split(value, ",")
+	blocks := make([]engine.Block, len(pairs))
+	for i, p := range pairs {
+		halves := strings.SplitN(p, "=", 2)
+		if len(halves) != 2 {
+			return nil, fmt.Errorf("pair %q: want blocker=attacker", p)
+		}
+		ids, err := resolveCardIDs(l, halves[0]+","+halves[1])
+		if err != nil {
+			return nil, err
+		}
+		blocks[i] = engine.Block{Blocker: ids[0], Attacker: ids[1]}
+	}
+	return blocks, nil
 }

@@ -93,13 +93,18 @@ startturn <player>            Game.StartTurn(player, controller)
 advance [n]                   Game.AdvancePhase(controller), n times (default 1)
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 declareattackers              Game.DeclareCombatAttackers(controller)
+declareblockers               Game.DeclareCombatBlockers(controller)
 queue keephand <bool>         ScriptedController.QueueKeepHand
 queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
 queue startingplayer <p>      ScriptedController.QueueStartingPlayer
 queue startinghand <n>        ScriptedController.QueueStartingHand
 queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
 queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
+queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
 ```
+
+`queue blocks`' pairs are `blocker=attacker`, both `Id:` numbers — `1=2` means the card with `Id:1` blocks the card with
+`Id:2`; `1=3,2=3` is a gang block, two blockers on one attacker.
 
 `Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs
 one (`game-state.md`'s "The legend rule needed `CheckStateBasedActions` to take a controller"), and every path that

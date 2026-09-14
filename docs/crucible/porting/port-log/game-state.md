@@ -101,7 +101,7 @@ when it exists and left nil when it does not, which is most cards most of the ti
 | Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                  |
 | Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other      |
 | `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array |
-| `Combat`                             | deep            | Same reasoning again: `Attackers []CardID` needs its own backing array                                         |
+| `Combat`                             | deep            | Same reasoning again: `Attackers []CardID` and `Blocks []Block` each need their own backing array              |
 
 Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
 
@@ -467,14 +467,17 @@ Opening hands are not dealt here. Java's `MulliganService` assumes `Game` alread
 `PerformMulligans` — dealing one needs a `Match`/`StartGame` flow this port has not built, so a caller populates each
 hand (a fixture, today; a real game-start procedure, eventually) before calling this.
 
-## Combat: declaring attackers
+## Combat: declaring attackers and blockers
 
-`combat.go`/`attack.go` are CR 506-510, cut down to CR 508.1's declare-attackers step — the only piece of Combat this
-port has reached. `Combat` (combat.go) is the game's own combat state, currently just `Attackers []CardID`; it is a new
-`Game` field (`combat Combat`), cloned and cleared the same way `Card.PT`/the stack already are, and split into its own
-file for the same reason `ability.go`/`layer.go`/`pt.go` are: `Game` needs the `Combat` type for its own field, and
-`Game.DeclareCombatAttackers` (attack.go) needs `*Game` — one of them has to sit below the other in the dependency
-graph, or `enginelint` catches the cycle the same way it already has three times this milestone.
+`combat.go`/`attack.go`/`block.go` are CR 506-510, cut down to CR 508.1's declare-attackers step and CR 509.1's
+declare-blockers step — the only pieces of Combat this port has reached. `Combat` (combat.go) is the game's own combat
+state, currently `Attackers []CardID` and `Blocks []Block`; it is a new `Game` field (`combat Combat`), cloned and
+cleared the same way `Card.PT`/the stack already are, and split into its own file for the same reason
+`ability.go`/`layer.go`/`pt.go` are: `Game` needs the `Combat` type for its own field, and `Game.DeclareCombatAttackers`
+(attack.go)/`Game.DeclareCombatBlockers` (block.go) need `*Game` — one of them has to sit below the other in the
+dependency graph, or `enginelint` catches the cycle the same way it already has three times this milestone. `control.go`
+needed to move into the `combat` group's own allow-list too, once `PlayerController.DeclareCombatBlockers` had to name
+`Block` in its signature.
 
 `Game.DeclareCombatAttackers` computes eligibility itself — untapped, and either no summoning sickness or haste (CR
 302.6) — rather than trusting the caller, the same "the game decides what is legal, the controller only decides among
@@ -482,28 +485,57 @@ what is offered" split `PerformMulligans` already uses for `MulliganKeepHand`. A
 vigilance (CR 508.1f) — `Card.HasKeyword`'s second real caller, after `destroyDamagedCreatures`'s `Indestructible`
 check.
 
-**Named `DeclareCombatAttackers`, not `DeclareAttackers`.** `PhaseType` already has a `DeclareAttackers` constant
-(phase.go) — Go allows a method and a package-level constant to share a name, since methods live under their receiver's
-own namespace, but `enginelint`'s plain-identifier matching does not tell the two apart, and neither would a reader
-skimming for one and finding the other. The method, the `PlayerController` interface method and the `ScriptedController`
-implementation are all renamed; the phase constant, the actual CR 508 step this method is one piece of, keeps its own
-name unchanged.
+**Named `DeclareCombatAttackers`/`DeclareCombatBlockers`, not `DeclareAttackers`/`DeclareBlockers`.** `PhaseType`
+already has constants with both of those exact names (phase.go) — Go allows a method and a package-level constant to
+share a name, since methods live under their receiver's own namespace, but `enginelint`'s plain-identifier matching does
+not tell the two apart, and neither would a reader skimming for one and finding the other. `enginelint` caught this
+twice, once per method: `attack.go`'s `DeclareAttackers` first, and `block.go`'s `DeclareBlockers` the same way when it
+landed. The method, the `PlayerController` interface method and the `ScriptedController` implementation are all renamed
+in both cases; the phase constants, the actual CR 508/509 steps these methods are one piece of, keep their own names
+unchanged.
+
+**Blocking does not tap the blocker.** CR 508.1f taps an attacker; CR 509 has no equivalent step for a blocker, so
+`Game.DeclareCombatBlockers` never touches `Card.Tapped`. Gang blocking (CR 509.1c) is unrestricted on the attacker side
+— `Block` is a flat `[]Block` of `{Blocker, Attacker}` pairs, and more than one pair naming the same `Attacker` is
+ordinary, not a case the code has to special-case.
+
+**Flying/reach, menace, protection and every other block restriction are not checked.** `Game.DeclareCombatBlockers`'s
+own eligibility computation is only "untapped creature the defending player controls." This is a deliberate,
+architecture-driven gap, not an oversight parallel to the Indestructible/Vigilance precedent: in Forge, CR 509.1b's
+restrictions — Flying included — all run through the general `CantBlockBy` static-ability engine
+(`StaticAbilityCantAttackBlock.java`, `ValidBlocker`-matched against arbitrary strings), the same generic mechanism
+Menace's minimum-blocker-count and every "can't be blocked except by"/"must be blocked by" card use. Indestructible
+(`GameAction.java`) and Vigilance (`Card.attackVigilance()`) are different in kind — Forge hardcodes those two directly
+in engine code, which is exactly why `Card.HasKeyword` special-cases them here too. Hardcoding Flying the same way would
+invent a mechanism specific to one keyword that Forge itself does not use for it, and would need re-deciding once the
+real static-ability engine lands and the two disagree. The honest gap is "wait for that engine" (M5/M6), not a
+Flying-shaped patch now.
 
 **Not wired into `AdvancePhase`'s automatic walk through the phases.** `PerformMulligans` is the standing precedent for
-a real M5 mechanic a scenario calls explicitly (`actions.log`'s own `declareattackers` verb) rather than one the turn
-structure invokes on every entry to that phase — the same "stub standing in for a decision no one can make yet"
-reasoning `turn.go`'s own comment already gives for keeping `ResolveStack` out of `beginPhase`. Most games reaching the
-DeclareAttackers phase attack with nothing at all; auto-wiring would mean every such phase entry pays the cost of asking
-a question with an empty answer set almost every time.
+a real M5 mechanic a scenario calls explicitly (`actions.log`'s own `declareattackers`/`declareblockers` verbs) rather
+than one the turn structure invokes on every entry to that phase — the same "stub standing in for a decision no one can
+make yet" reasoning `turn.go`'s own comment already gives for keeping `ResolveStack` out of `beginPhase`. Most games
+reaching the DeclareAttackers phase attack with nothing at all; auto-wiring would mean every such phase entry pays the
+cost of asking a question with an empty answer set almost every time.
 
-**No eligible creature means the controller is never asked.** The same reasoning: there is nothing meaningful to decide,
-so nothing is queued for it — and this is also what lets every existing scenario and test that walks through the
-DeclareAttackers phase without ever creating a creature keep working without queuing an attackers answer it was never
-going to need.
+**No eligible creature means the controller is never asked.** The same reasoning applies on both sides:
+`Game.DeclareCombatAttackers` skips the question when the active player has nothing eligible, and
+`Game.DeclareCombatBlockers` skips it both when there are no attackers at all and when the defending player has nothing
+untapped to block with — there is nothing meaningful to decide, so nothing is queued for it. This is also what lets
+every existing scenario and test that walks through combat without ever creating a creature keep working without queuing
+an attackers or blocks answer it was never going to need.
 
-Not here yet: declaring blockers (CR 509), combat damage (CR 510), first strike's extra damage step, and anything past a
-creature attacking the opponent directly — no planeswalker- or battle-attacking, no multiplayer "attacks which opponent"
-choice, since this port's own combat has exactly one thing to attack until either exists as a target.
+**Multiplayer's "who is defending" is the same gap `DeclareCombatAttackers` already carries.** This port has no
+per-attacker defender assignment (no planeswalker- or battle-attacking, no multiplayer "attacks which opponent" choice),
+so `Game.DeclareCombatBlockers` reuses `nextPlayerAfter` — turn order's own "who's next" — to find the one opponent
+every attacker is assumed to share. Two-player games, the only kind this port's own scenarios build, get the right
+answer from that for free; multiplayer needs the real per-attacker defender before this reuse is correct.
+
+Not here yet: combat damage (CR 510), first strike's extra damage step, and anything past a creature attacking the
+opponent directly — no planeswalker- or battle-attacking, no multiplayer "attacks which opponent" choice, since this
+port's own combat has exactly one thing to attack until either exists as a target. Block legality beyond "untapped
+creature the defending player controls" — Flying/reach, menace, protection, "must be blocked by" — waits on the general
+static-ability engine, above.
 
 ## Events, wired
 
@@ -552,7 +584,7 @@ compared were never going to agree on those by number.
 | Missing                                                                                                                                                                                                       | Lands |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                          | M5    |
-| 104 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past declaring attackers                                                       | M5-M6 |
+| 103 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past declaring attackers/blockers                                              | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                        | M7    |
 | Every other CR 704.5 state-based action — lethal damage to a planeswalker or a Battle via life/loyalty/defense reduction rather than `Damage` — needs damage dealing, which does not exist yet                | M5-M6 |
 | CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet  | M5-M6 |
@@ -564,7 +596,7 @@ compared were never going to agree on those by number.
 | CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                             | M5-M6 |
 | Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                      | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                           | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and every combat step past DeclareAttackers — need triggers, `SpellAbility` or the rest of Combat                                                  | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and every combat step past DeclareBlockers — need triggers, `SpellAbility` or the rest of Combat                                                   | M5-M6 |
 | The rest of CR 514: discarding to the maximum hand size (needs a `PlayerController` decision) and "until end of turn"/"this turn" effects ending (needs duration tracking) — Cleanup only clears damage today | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond     | M5-M6 |
 | Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                   | never |
@@ -573,4 +605,5 @@ compared were never going to agree on those by number.
 | `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                           | M5-M6 |
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                     | M5-M6 |
 | Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                               | M5-M6 |
-| Combat past declaring attackers — declaring blockers (CR 509), combat damage (CR 510), first strike, attacking a planeswalker/battle or (in multiplayer) choosing which opponent to attack                    | M5    |
+| Combat past declaring attackers/blockers — combat damage (CR 510), first strike, attacking a planeswalker/battle or (in multiplayer) choosing which opponent to attack/block                                  | M5    |
+| Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                      | M5-M6 |

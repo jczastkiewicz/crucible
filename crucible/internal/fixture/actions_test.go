@@ -241,6 +241,107 @@ func TestRunActionsQueueAttackersBadIDErrors(t *testing.T) {
 	}
 }
 
+// declareblockers runs with no attackers declared without error -- there is
+// nothing to block, so Game.DeclareCombatBlockers never touches the
+// controller's queue at all.
+func TestRunActionsDeclareBlockersWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ndeclareblockers\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue blocks resolves each blocker=attacker pair's setup.state Id:
+// numbers the same way tuck and legendarykeep resolve theirs.
+func TestRunActionsQueueBlocksResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1=2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	want := engine.Block{Blocker: l.CardByFixtureID[1], Attacker: l.CardByFixtureID[2]}
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("blocks %v, want [%v]", got, want)
+	}
+}
+
+// queue blocks accepts more than one pair, comma-separated -- gang blocking
+// (CR 509.1c).
+func TestRunActionsQueueBlocksMultiplePairs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest", "Island")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2;Island|Id:3\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1=3,2=3\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	want := []engine.Block{
+		{Blocker: l.CardByFixtureID[1], Attacker: l.CardByFixtureID[3]},
+		{Blocker: l.CardByFixtureID[2], Attacker: l.CardByFixtureID[3]},
+	}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("blocks %v, want %v", got, want)
+	}
+}
+
+// queue blocks none is how a scenario queues "decline to block" -- the same
+// convention queue attackers none uses.
+func TestRunActionsQueueBlocksNoneDeclines(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	if got != nil {
+		t.Errorf("blocks = %v, want nil", got)
+	}
+}
+
+func TestRunActionsQueueBlocksBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks abc=def\n"); err == nil {
+		t.Error("non-numeric ids did not error")
+	}
+}
+
+func TestRunActionsQueueBlocksMissingEqualsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1\n"); err == nil {
+		t.Error("a pair with no attacker half did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

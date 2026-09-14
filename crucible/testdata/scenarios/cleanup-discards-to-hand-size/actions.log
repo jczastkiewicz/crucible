@@ -1,0 +1,7 @@
+# Nine cards in hand, MaxHandSize is 7: at cleanup the active player
+# discards the two named by Id:1/Id:2 -- CR 514.1. Twelve advances from
+# Untap lands exactly on Cleanup (Untap=0 .. Cleanup=12), whose own phase
+# entry is what runs cleanupStep.
+queue discard 1,2
+startturn human
+advance 12

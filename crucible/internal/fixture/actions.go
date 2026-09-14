@@ -46,6 +46,7 @@ import (
 //	queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's CardByFixtureID
 //	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
+//	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything -- cannot be written yet, because nothing downstream of
@@ -203,6 +204,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue damage: %w", err)
 		}
 		c.QueueDamageAssignment(assignment)
+
+	case "discard":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue discard: %w", err)
+		}
+		c.QueueDiscard(ids)
 
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)

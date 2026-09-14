@@ -498,6 +498,37 @@ func TestRunActionsQueueAttackTargetUnknownFixtureIDErrors(t *testing.T) {
 	}
 }
 
+// queue discard resolves setup.state's Id: numbers the same way tuck does.
+func TestRunActionsQueueDiscardResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue discard 1,2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DiscardToHandSize(l.Game, l.Game.Players()[0], nil, 2)
+	want := []engine.CardID{l.CardByFixtureID[1], l.CardByFixtureID[2]}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("discard %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueDiscardBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue discard abc\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

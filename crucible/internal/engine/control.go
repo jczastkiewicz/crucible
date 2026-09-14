@@ -8,20 +8,20 @@ import "fmt"
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the nine answerable with today's
+// which has 110 abstract methods; only the ten answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and cost
 // payment -- types that do not exist until the stack and layer system fully
-// land in M5. Each is added when its own caller is, the same as these nine:
+// land in M5. Each is added when its own caller is, the same as these ten:
 // mulligans and the starting-player choice have callers in GameAction and
 // mulligan/, even though neither is ported yet, and ChooseLegendaryToKeep's,
-// DeclareCombatAttackers's, ChooseAttackTarget's, DeclareCombatBlockers's and
-// AssignCombatDamage's own callers (resolveLegendRule, action.go;
-// Game.DeclareCombatAttackers and Game.assignAttackTargets, attack.go;
-// Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
-// combatdamage.go) are fully built, so the decision point can be built ahead
-// of them (Plan Section 1.3).
+// DeclareCombatAttackers's, ChooseAttackTarget's, DeclareCombatBlockers's,
+// AssignCombatDamage's and DiscardToHandSize's own callers (resolveLegendRule,
+// action.go; Game.DeclareCombatAttackers and Game.assignAttackTargets,
+// attack.go; Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
+// combatdamage.go; Game.cleanupStep, turn.go) are fully built, so the
+// decision point can be built ahead of them (Plan Section 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -97,6 +97,14 @@ type PlayerController interface {
 	// 510.1c imposes -- trust the controller's answer, the same as
 	// ChooseLegendaryToKeep.
 	AssignCombatDamage(g *Game, decider PlayerID, attacker CardID, blockers []CardID) []DamageAssignment
+
+	// DiscardToHandSize decides which of decider's hand to discard at
+	// cleanup (CR 514.1, Game.cleanupStep, turn.go). Only called when hand
+	// has more than MaxHandSize cards; count is exactly how many the
+	// returned slice must have (hand.Len() - MaxHandSize), a constraint not
+	// re-checked here -- trust the controller's answer, the same as
+	// ChooseLegendaryToKeep.
+	DiscardToHandSize(g *Game, decider PlayerID, hand []CardID, count int) []CardID
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -118,6 +126,7 @@ type ScriptedController struct {
 	attackTargets   []EntityID
 	blocks          [][]Block
 	damage          [][]DamageAssignment
+	discards        [][]CardID
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -174,6 +183,11 @@ func (c *ScriptedController) QueueBlocks(blocks []Block) {
 // call.
 func (c *ScriptedController) QueueDamageAssignment(assignment []DamageAssignment) {
 	c.damage = append(c.damage, assignment)
+}
+
+// QueueDiscard appends the answer to the next DiscardToHandSize call.
+func (c *ScriptedController) QueueDiscard(cards []CardID) {
+	c.discards = append(c.discards, cards)
 }
 
 func (c *ScriptedController) ChooseStartingPlayer(g *Game, decider PlayerID, isFirstGame bool) PlayerID {
@@ -254,6 +268,15 @@ func (c *ScriptedController) AssignCombatDamage(g *Game, decider PlayerID, attac
 	}
 	v := c.damage[0]
 	c.damage = c.damage[1:]
+	return v
+}
+
+func (c *ScriptedController) DiscardToHandSize(g *Game, decider PlayerID, hand []CardID, count int) []CardID {
+	if len(c.discards) == 0 {
+		panic(scriptExhausted("discard"))
+	}
+	v := c.discards[0]
+	c.discards = c.discards[1:]
 	return v
 }
 

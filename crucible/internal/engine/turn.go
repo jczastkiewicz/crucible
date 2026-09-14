@@ -2,14 +2,14 @@
 // per-step actions this port has reached.
 //
 // Ported from forge-game/src/main/java/forge/game/phase/PhaseHandler.java.
-// Three steps have a body: Untap, Draw and a partial Cleanup (damage only,
-// CR 514.2 -- discarding to hand size and ending "until end of turn"
-// effects both need machinery this port has not reached, below). Every
-// other step in PhaseHandler.onPhaseBegin needs the stack, triggers,
-// SpellAbility or Combat to do anything -- upkeep triggers, casting in a
-// main phase, declaring attackers -- so AdvancePhase walks through them as
-// bookkeeping only, changing ActivePhase and nothing else, until each one's
-// turn comes (porting/port-log/game-state.md).
+// Three steps have a body: Untap, Draw and Cleanup (CR 514.1's discard to
+// hand size and CR 514.2's damage clear -- 514.2's other half, ending
+// "until end of turn" effects, still needs machinery this port has not
+// reached, below). Every other step in PhaseHandler.onPhaseBegin needs the
+// stack, triggers, SpellAbility or Combat to do anything -- upkeep
+// triggers, casting in a main phase, declaring attackers -- so AdvancePhase
+// walks through them as bookkeeping only, changing ActivePhase and nothing
+// else, until each one's turn comes (porting/port-log/game-state.md).
 //
 // PhaseHandler's priority loop (mainLoopStep) is still not wired in here,
 // even though the stack itself now exists (stack.go). No PlayerController
@@ -102,7 +102,7 @@ func (g *Game) beginPhase(controller PlayerController) {
 	case Draw:
 		g.drawStep()
 	case Cleanup:
-		g.cleanupStep()
+		g.cleanupStep(controller)
 	}
 	CheckStateBasedActions(g, controller)
 }
@@ -151,24 +151,47 @@ func (g *Game) drawStep() {
 	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: g.activePlayer, Turn: uint16(g.turn), Source: id})
 }
 
-// cleanupStep is a partial CR 514.2: "all damage marked on permanents ...
-// is removed" -- every permanent on the battlefield, not just the active
-// player's, unlike untapStep (CR 514.2 is not scoped to whoever's turn it
-// is; a blocker that survived combat clears the same as the attacker did).
+// MaxHandSize is CR 103.4's default maximum hand size, used unconditionally
+// (CR 514.1): nothing this port can grant "no maximum hand size" or a
+// modified one yet (StaticAbilityMaxHandSize.java, effects like Spellbook's
+// static ability or Thought Vessel's), since that needs the continuous-effect
+// layer system reading a card's own static abilities, which layers 1-6/8
+// aren't (game-state.md's "Not ported yet"). A future effect that changes it
+// is a coverage gap the same way any other unimplemented continuous effect
+// is, not a wrong answer -- every hand this port cleans up caps at 7 exactly
+// as if nothing on the battlefield said otherwise.
+const MaxHandSize = 7
+
+// cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
+// partial CR 514.2 ("all damage marked on permanents ... is removed").
+// 514.1 only concerns the active player -- discarding down is not scoped to
+// everyone the way clearing damage is (below); an untapStep-shaped
+// difference the two halves of this step have from each other. If the
+// active player's hand already fits, or is empty, the controller is never
+// asked, the same "nothing meaningful to decide" reasoning every other
+// combat/mulligan decision point in this port uses for an empty or
+// already-satisfied set.
 //
-// Not here: discarding down to the maximum hand size (CR 514.1, needs a
-// PlayerController decision this port cannot ask yet) and "until end of
-// turn"/"this turn" effects ending (CR 514.2's other half, needs duration
-// tracking this port does not have -- PT's own effects, for one, have no
-// timestamp-scoped-to-a-turn concept yet, game-state.md's "Not ported
-// yet"). Cleanup normally does not check state-based actions or allow
-// priority at all (CR 514.3) unless one of those two skipped actions would
-// have applied; since neither is built, that exception cannot fire either,
-// so beginPhase's own CheckStateBasedActions call after this is technically
+// Not here: "until end of turn"/"this turn" effects ending (CR 514.2's
+// other half, needs duration tracking this port does not have -- PT's own
+// effects, for one, have no timestamp-scoped-to-a-turn concept yet,
+// game-state.md's "Not ported yet"). Cleanup normally does not check
+// state-based actions or allow priority at all (CR 514.3) unless a discard
+// or an ending effect triggered something; since triggers aren't built and
+// ending effects aren't tracked, that exception cannot fire either, so
+// beginPhase's own CheckStateBasedActions call after this is technically
 // one PhaseHandler does not make here -- harmless today, since nothing this
 // port can do inside cleanupStep creates a new state-based condition to
 // check for the first time in this same phase.
-func (g *Game) cleanupStep() {
+func (g *Game) cleanupStep(controller PlayerController) {
+	hand := g.Zone(Hand, g.activePlayer).Cards()
+	if len(hand) > MaxHandSize {
+		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-MaxHandSize)
+		for _, id := range discard {
+			g.Move(id, Graveyard, g.Card(id).Owner)
+		}
+	}
+
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).Damage.Clear()

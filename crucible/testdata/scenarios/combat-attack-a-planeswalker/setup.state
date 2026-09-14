@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Grizzly Bears|Id:1
+aibattlefield=Narset, Parter of Veils|Id:2|Counters:LOYALTY=5

@@ -161,6 +161,32 @@ would defeat the point of a format meant to run against the Java oracle too, and
 case. That first load costs real time (order a minute, cold); TEST-13 already prices L3 at "every commit," same as L1,
 so this is the cost that entry was always going to have once scenarios existed to pay it.
 
+**Combat's own fixtures cover what its Go unit tests already prove, at the whole-engine level CLAUDE.md's testing table
+asks for.** Every combat mechanic — declaring attackers/blockers, first strike, trample, gang blocking, attacking a
+planeswalker, the legend rule — landed with full `package engine_test` coverage, but none of it had a
+`testdata/scenarios/*` directory until this pass added seven: `combat-attacker-unblocked`,
+`combat-single-block-kills-attacker`, `combat-first-strike-prevents-return-damage`, `combat-trample-excess-to-player`,
+`combat-gang-block-damage-assignment`, `combat-attack-a-planeswalker`, `legend-rule-keeps-one`. Real corpus cards
+throughout — Silvercoat Lion; Silver Knight; Craw Giant; Craw Wurm; Narset, Parter of Veils; Isamaru, Hound of Konda —
+not synthetic defs, since `TestScenarios` runs against the real corpus and a scenario naming a card the corpus doesn't
+have is a scenario with a typo. Each card's non-combat text (Rampage on Craw Giant, an activated ability on Narset) is
+inert here on purpose: nothing this port has built fires a trigger, evaluates a static ability or activates anything, so
+a real card's full script is exactly as safe a source of "just the keyword/type/P-T this scenario needs" as a synthetic
+one — safer, since it also proves the scenario would keep meaning what it says once those systems exist and start
+reading the rest of that same script.
+
+Getting a first-strike or gang-block scenario right needs the phase walk to be real, not shortcut: `declareattackers`
+and `declareblockers` each run while `AdvancePhase` has actually put the game in the matching phase
+(`Declare Attackers`, `Declare Blockers`), one `advance` apart, because nothing in either method reads `ActivePhase` to
+enforce that itself (game-state.md's "Combat" section) — a scenario that called them back-to-back without advancing
+would still "work" mechanically but would end up asserting a phase that never happened. The state-based-action check
+between the first-strike and regular damage steps is the sharper version of the same discipline:
+`combat-first-strike-prevents-return-damage` only gets the right answer because `advance`ing from `First Strike Damage`
+into `Combat Damage` is what actually kills the lethally-struck blocker before `combatdamage` runs
+(`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn structure") — skipping that `advance` would
+leave the blocker alive to hit back, a different (wrong) scenario the fixture format makes easy to write by accident if
+the phase walk isn't respected.
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |

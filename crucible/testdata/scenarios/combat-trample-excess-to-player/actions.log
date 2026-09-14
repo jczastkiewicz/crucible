@@ -1,0 +1,17 @@
+# Craw Giant (6/4, Trample) attacks; Devoted Hero (1/2) blocks. The Giant
+# assigns exactly lethal (2) to the Hero and tramples the rest (4) over to
+# the defending player -- CR 702.19b, computed automatically since a single
+# blocker is never itself a decision (lethalDamage, combatdamage.go).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance so the state-based-action check moves the lethally
+# damaged Hero to the graveyard.
+advance

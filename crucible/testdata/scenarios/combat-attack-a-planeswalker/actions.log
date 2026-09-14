@@ -1,0 +1,16 @@
+# Grizzly Bears (2/2) attacks Narset, Parter of Veils rather than the
+# player -- ai controls no creature, so this is the two-eligible-target case
+# (the player, or their planeswalker) that makes DeclareCombatAttackers ask
+# ChooseAttackTarget at all (CR 508.1d). Combat damage removes loyalty
+# counters instead of reducing life (CR 120.3c).
+startturn human
+advance 5
+queue attackers 1
+queue attacktarget 2
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

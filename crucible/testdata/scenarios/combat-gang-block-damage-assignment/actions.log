@@ -1,0 +1,20 @@
+# Craw Wurm (6/4, no trample) is gang-blocked by Devoted Hero (1/2) and
+# Silvercoat Lion (2/2). The attacking player assigns exactly lethal to each
+# (2 + 2) and leaves the remaining 2 unassigned -- CR 510.1c's own decision,
+# AssignCombatDamage -- which is simply wasted, no trample to carry it
+# further (unlike combat-trample-excess-to-player). Both blockers still deal
+# their own full power back to the Wurm (1 + 2 = 3, survives at 4 toughness).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1,3=1
+declareblockers
+advance
+advance
+queue damage 2=2,3=2
+combatdamage
+# One more advance for the state-based-action check that moves both
+# lethally damaged blockers to the graveyard.
+advance

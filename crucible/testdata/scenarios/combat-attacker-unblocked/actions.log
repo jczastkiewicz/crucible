@@ -1,0 +1,11 @@
+# Untap -> Upkeep -> Draw -> Main1 -> BeginCombat -> Declare Attackers.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

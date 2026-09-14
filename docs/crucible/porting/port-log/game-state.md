@@ -94,12 +94,13 @@ remapped: there is no equivalent of Java's `CopiedGameObjectMap`, which is the p
 lists, attachments — and copying the slice alone would leave clone and original writing to the same ones. Each is copied
 when it exists and left nil when it does not, which is most cards most of the time.
 
-| Part                                 | Clone treatment | Reason                                                                                                    |
-| ------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------------- |
-| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                       |
-| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls |
-| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                             |
-| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other |
+| Part                                 | Clone treatment | Reason                                                                                                         |
+| ------------------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                            |
+| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls      |
+| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                  |
+| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other      |
+| `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array |
 
 Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
 
@@ -203,10 +204,37 @@ same "coverage gap, not a wrong answer" contract `Type()` already keeps.
 
 "Base" is Java's own word (`getBasePower`/`getBaseToughness`) for the printed value, CR 613's Layer 0 — before a
 characteristic-defining ability (Layer 7a), a setting effect (7b), a modifying effect (7c) or a counter (CR 613.4, after
-Layer 7) has applied. None of those exist in this port yet, so `BasePower`/`BaseToughness` are also, today, the only
-power and toughness a card has — a `Power()`/`Toughness()` pair reading the fully layered value is what lands once
-something can push a continuous effect onto a card, the same "mechanism has no content yet" gap `stack.go`'s
-`ResolveStack` is already in (`## Stack`).
+Layer 7) has applied.
+
+## Layer 7: `PT` and `Card.Power`/`Toughness`
+
+`layer.go` is `forge.game.staticability.StaticAbilityLayer`: the ten-value enum, Forge's own order, 7a/7b/7c split and
+Layer 8 (Forge's own rule-changing bookkeeping, no CR number) included, even though only 7a/7b/7c have anything to apply
+yet. `pt.go`'s `PT` is a card's set of `PTEffect`s — one continuous effect's power/toughness contribution, a layer, a
+timestamp, nothing else — the same "mechanism now, content later" shape `effect.go`'s `Registry` and `stack.go`'s stack
+already landed in: zero production writers, proven by tests that add a `PTEffect` directly the way `stack_test.go`
+pushes a stub `Ability`.
+
+`Card.Power`/`Toughness` (`card.go`) is what actually applies CR 613.4's ordering: sort `PT`'s effects by layer then
+timestamp, then fold — `LayerCharacteristic` and `LayerSetPT` each replace the running value, `LayerModifyPT` adds to
+it, and +1/+1/-1/-1 counters (`Card.Counters`, already built) apply last, after every layer. A `LayerCharacteristic`
+effect can turn an unresolvable base (`*`, `BasePower`'s own `ok=false`) into a resolvable one — a
+characteristic-defining ability's entire purpose — so `foldPT` starts from `(base, baseOK)` rather than requiring
+`baseOK` up front. `destroyLethalToughness` (CR 704.5g, `## State-based actions`) now reads `Toughness()` instead of
+`BaseToughness()`, so a creature a `LayerModifyPT` pump or an annihilated -1/-1 pile actually reduces to zero dies here
+too, not only one whose printed toughness always read zero.
+
+**Not here: CR 613.6-613.8's dependency reordering.** Java sorts effects within a layer by timestamp and then
+re-evaluates whether an unapplied effect has become dependent on or independent of another as each one resolves
+(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`, 1,099-line `StaticAbilityContinuous.java`). Nothing
+this port can build yet puts more than one continuous effect on the same card that could disagree about order — no
+static ability content exists to generate a `PTEffect` in production at all — so `foldPT`'s plain timestamp sort is a
+real port of CR 613.7's tiebreak, not a stand-in for 613.8's harder case; that case is only decidable once the first two
+effects that could actually depend on each other exist to prove it against.
+
+`PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
+already clear there: a continuous effect that only applied on the battlefield does not survive the trip, and this port
+has no duration tracking ("until end of turn" wearing off on its own) to model the alternative anyway.
 
 `Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
@@ -223,8 +251,8 @@ Java rebuilds a `Card` as a new object on every zone change (`CardCopyService.co
 not carry — tapped, damage, counters, summoning sickness — is simply gone, free of charge. ADR-0009 chose the opposite:
 a `CardID` is stable for the card's whole life in the game, so the same struct that was tapped on the battlefield is
 still tapped after `Move` if nothing clears it. `Move` now does that clearing explicitly: leaving the battlefield clears
-`Counters`, `Damage`, `Tapped` and the card's own attachment; entering it sets `SummonSick`, since a freshly-arrived
-permanent has not been under its controller's control since their last turn began (CR 302.6).
+`Counters`, `Damage`, `PT`, `Tapped` and the card's own attachment; entering it sets `SummonSick`, since a
+freshly-arrived permanent has not been under its controller's control since their last turn began (CR 302.6).
 
 What it deliberately does not do: unattach whatever was attached _to_ the leaving card (an Equipment left behind when
 its creature dies keeps pointing at a `CardID` no longer on the battlefield). That is CR 704.5f/704.5m's job, not
@@ -396,7 +424,8 @@ compared were never going to agree on those by number.
 | Every other CR 704.5 state-based action — lethal damage, a planeswalker at zero loyalty — needs the full layer system or a permanent type not modeled                                                     | M5-M6 |
 | The rest of CR 704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
 | The rest of CR 704.5f/704.5m's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
-| `Power()`/`Toughness()` reading the fully layered value — the layer-folding mechanism itself (CR 613.6-613.8's dependency reordering included) has no continuous effect yet to fold in                    | M5-M6 |
+| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                         | M5-M6 |
+| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                  | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                       | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat                                                                                      | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond | M5-M6 |

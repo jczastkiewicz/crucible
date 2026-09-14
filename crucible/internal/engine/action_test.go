@@ -390,7 +390,7 @@ func TestCardTypeNilDefIsEmpty(t *testing.T) {
 	}
 }
 
-// CR 704.5f: an Aura whose host left the battlefield goes to its owner's
+// CR 704.5: an Aura whose host left the battlefield goes to its owner's
 // graveyard.
 func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostLeaves(t *testing.T) {
 	t.Parallel()
@@ -413,8 +413,8 @@ func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostLeaves(t *testing.T) {
 	}
 }
 
-// CR 704.5f's other half: an Aura on the battlefield that was never attached
-// at all is equally illegal.
+// The other half of the same rule: an Aura on the battlefield that was
+// never attached at all is equally illegal.
 func TestCheckStateBasedActionsUnattachedAuraGoesToGraveyard(t *testing.T) {
 	t.Parallel()
 
@@ -433,8 +433,8 @@ func TestCheckStateBasedActionsUnattachedAuraGoesToGraveyard(t *testing.T) {
 	}
 }
 
-// CR 704.5f goes to the owner's graveyard, not the controller's -- the two
-// differ once anything takes control of the Aura.
+// It goes to the owner's graveyard, not the controller's -- the two differ
+// once anything takes control of the Aura.
 func TestCheckStateBasedActionsAuraGoesToOwnersGraveyard(t *testing.T) {
 	t.Parallel()
 
@@ -472,9 +472,9 @@ func TestCheckStateBasedActionsLegalAuraSurvives(t *testing.T) {
 	}
 }
 
-// CR 704.5m: an Equipment whose host left the battlefield becomes
-// unattached, and stays on the battlefield -- unlike an Aura, it is not put
-// anywhere.
+// CR 704.5's other case: an Equipment whose host left the battlefield
+// becomes unattached, and stays on the battlefield -- unlike an Aura, it
+// is not put anywhere.
 func TestCheckStateBasedActionsEquipmentUnattachesWhenHostLeaves(t *testing.T) {
 	t.Parallel()
 
@@ -489,7 +489,7 @@ func TestCheckStateBasedActionsEquipmentUnattachesWhenHostLeaves(t *testing.T) {
 	engine.CheckStateBasedActions(g)
 
 	if z := g.Card(equipment).Zone; z != engine.Battlefield {
-		t.Errorf("equipment zone = %v, want Battlefield (704.5m does not move it)", z)
+		t.Errorf("equipment zone = %v, want Battlefield (unattaching does not move it)", z)
 	}
 	if _, attached := g.Card(equipment).AttachedTo(); attached {
 		t.Error("equipment still reports an attachment after its host left")
@@ -547,8 +547,8 @@ func TestBasePowerToughness(t *testing.T) {
 	}
 }
 
-// CR 704.5g: a creature with printed toughness zero or less goes to its
-// owner's graveyard.
+// CR 704.5f (GameAction.java's own comment): a creature with printed
+// toughness zero or less goes to its owner's graveyard.
 func TestCheckStateBasedActionsLethalToughnessDies(t *testing.T) {
 	t.Parallel()
 
@@ -573,7 +573,7 @@ func TestCheckStateBasedActionsLethalToughnessDies(t *testing.T) {
 }
 
 // A non-creature permanent with the same printed "toughness" text is
-// untouched -- 704.5g is about creatures, not the field being nonempty.
+// untouched -- this rule is about creatures, not the field being nonempty.
 func TestCheckStateBasedActionsLethalToughnessOnlyAppliesToCreatures(t *testing.T) {
 	t.Parallel()
 
@@ -582,7 +582,7 @@ func TestCheckStateBasedActionsLethalToughnessOnlyAppliesToCreatures(t *testing.
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	host := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
-	g.Attach(aura, host) // legally attached, so 704.5f leaves it alone too
+	g.Attach(aura, host) // legally attached, so the attachment rule leaves it alone too
 
 	engine.CheckStateBasedActions(g)
 
@@ -657,8 +657,8 @@ func TestBaseLoyalty(t *testing.T) {
 	}
 }
 
-// CR 704.5h: a planeswalker with loyalty zero or less goes to its owner's
-// graveyard.
+// CR 704.5's planeswalker-loyalty rule: a planeswalker with loyalty zero
+// or less goes to its owner's graveyard.
 func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
 	t.Parallel()
 
@@ -689,8 +689,8 @@ func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
 }
 
 // A non-planeswalker permanent at the same (absent) loyalty count is
-// untouched -- 704.5h is about planeswalkers, not about the counter being
-// absent.
+// untouched -- this rule is about planeswalkers, not about the counter
+// being absent.
 func TestCheckStateBasedActionsZeroLoyaltyOnlyAppliesToPlaneswalkers(t *testing.T) {
 	t.Parallel()
 

@@ -89,8 +89,9 @@ port reads it as "controlled by anyone other than `sourceController`" — right 
 
 `Matches` takes `sourceController PlayerID, source CardID` rather than a `*Game` or an `*Ability`: nothing it currently
 does needs the game, and tying it to `Ability` specifically would assume every valid-string check happens during ability
-resolution, which CR 704.5f/704.5m's still-unbuilt `Enchant`-restriction check will not (its source is the Aura itself,
-not anything on a stack).
+resolution, which CR 704.5's still-unbuilt Aura `Enchant`-restriction check will not (its source is the Aura itself, not
+anything on a stack — `game-state.md`'s "State-based actions" section has the full citation caveat: Java's own comments
+do not cleanly single-letter this rule).
 
 ## Deviations from Java
 

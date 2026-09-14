@@ -69,6 +69,14 @@ func planeswalkerDefLoyalty(t *testing.T, loyalty string) *compile.Card {
 	return def
 }
 
+func legendaryCreatureDef(t *testing.T, name string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: name}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Creature Elf")
+	def.Faces[0].Power, def.Faces[0].Toughness = "2", "2"
+	return def
+}
+
 // CR 704.5a: a player at zero life loses. The other player, now the only one
 // left standing, wins and the game ends (CR 104.2a).
 func TestCheckStateBasedActionsLifeAtZero(t *testing.T) {
@@ -79,7 +87,7 @@ func TestCheckStateBasedActionsLifeAtZero(t *testing.T) {
 	g.Player(a).Life = 0
 	g.Player(b).Life = 20
 
-	if !engine.CheckStateBasedActions(g) {
+	if !engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game did not end")
 	}
 	if !g.Player(a).Lost {
@@ -101,7 +109,7 @@ func TestCheckStateBasedActionsNegativeLife(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = -3, 20
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 	if !g.Player(a).Lost {
 		t.Error("player at negative life did not lose")
 	}
@@ -114,7 +122,7 @@ func TestCheckStateBasedActionsPositiveLifeSurvives(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 1, 20
 
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Error("game ended with both players above the loss threshold")
 	}
 	if g.Player(a).Lost {
@@ -131,12 +139,12 @@ func TestCheckStateBasedActionsPoison(t *testing.T) {
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	g.Player(a).Counters.Add(engine.Poison, 9)
 
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game ended at nine poison counters")
 	}
 
 	g.Player(a).Counters.Add(engine.Poison, 1)
-	if !engine.CheckStateBasedActions(g) {
+	if !engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game did not end at ten poison counters")
 	}
 	if !g.Player(a).Lost {
@@ -153,7 +161,7 @@ func TestCheckStateBasedActionsDraw(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 0, 0
 
-	if !engine.CheckStateBasedActions(g) {
+	if !engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game did not end")
 	}
 	if g.Player(a).Won || g.Player(b).Won {
@@ -174,7 +182,7 @@ func TestCheckStateBasedActionsGameContinues(t *testing.T) {
 	}
 	g.Player(g.Players()[0]).Life = 0
 
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game ended with two players still standing")
 	}
 	if g.Over() {
@@ -190,7 +198,7 @@ func TestCheckStateBasedActionsStaysOverOnceOver(t *testing.T) {
 	g := newGame(t, "a", "b")
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 0, 20
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 	if !g.Over() {
 		t.Fatal("setup: game did not end")
 	}
@@ -199,7 +207,7 @@ func TestCheckStateBasedActionsStaysOverOnceOver(t *testing.T) {
 	}
 
 	g.Player(b).Life = 0 // the winner takes damage after the game already ended
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 	if !g.Player(b).Won {
 		t.Error("the recorded winner changed after the game had already ended")
 	}
@@ -218,7 +226,7 @@ func TestCheckStateBasedActionsSkipsAlreadyLostPlayers(t *testing.T) {
 	a := g.Players()[0]
 	g.Player(a).Life = 0
 
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game ended with two players still standing")
 	}
 	if !g.Player(a).Lost {
@@ -226,7 +234,7 @@ func TestCheckStateBasedActionsSkipsAlreadyLostPlayers(t *testing.T) {
 	}
 
 	// Second call: a is already Lost and must be skipped, not re-marked.
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game ended on the second check with two players still standing")
 	}
 }
@@ -244,7 +252,7 @@ func TestCheckStateBasedActionsAnnihilatesCounters(t *testing.T) {
 	c.Counters.Add(engine.P1P1, 5)
 	c.Counters.Add(engine.M1M1, 2)
 
-	if engine.CheckStateBasedActions(g) {
+	if engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game ended over a counter annihilation check")
 	}
 	if got := c.Counters.Count(engine.P1P1); got != 3 {
@@ -267,7 +275,7 @@ func TestCheckStateBasedActionsOneKindOfCounterSurvives(t *testing.T) {
 	c := g.Card(id)
 	c.Counters.Add(engine.P1P1, 4)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 	if got := c.Counters.Count(engine.P1P1); got != 4 {
 		t.Errorf("P1P1 %d, want 4 (untouched)", got)
 	}
@@ -286,7 +294,7 @@ func TestCheckStateBasedActionsCounterAnnihilationIsBattlefieldOnly(t *testing.T
 	c.Counters.Add(engine.P1P1, 3)
 	c.Counters.Add(engine.M1M1, 3)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 	if got := c.Counters.Count(engine.P1P1); got != 3 {
 		t.Errorf("P1P1 %d, want 3 (untouched off the battlefield)", got)
 	}
@@ -306,7 +314,7 @@ func TestCheckStateBasedActionsSkipsCounterCheckWhenGameOver(t *testing.T) {
 	c.Counters.Add(engine.P1P1, 2)
 	c.Counters.Add(engine.M1M1, 2)
 
-	if !engine.CheckStateBasedActions(g) {
+	if !engine.CheckStateBasedActions(g, engine.NewScriptedController()) {
 		t.Fatal("game did not end")
 	}
 	if got := c.Counters.Count(engine.P1P1); got != 2 {
@@ -347,9 +355,9 @@ func TestCheckStateBasedActionsEmitsGameEndedOnce(t *testing.T) {
 	var sink recordingSink
 	g.SetSink(&sink)
 
-	engine.CheckStateBasedActions(g)
-	engine.CheckStateBasedActions(g)
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	var ended []engine.Event
 	for _, e := range sink.events {
@@ -410,7 +418,7 @@ func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostLeaves(t *testing.T) {
 	g.Attach(aura, host)
 
 	g.Move(host, engine.Graveyard, a)
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard", z)
@@ -433,7 +441,7 @@ func TestCheckStateBasedActionsUnattachedAuraGoesToGraveyard(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard", z)
@@ -451,7 +459,7 @@ func TestCheckStateBasedActionsAuraGoesToOwnersGraveyard(t *testing.T) {
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
 	g.Card(aura).Controller = b // controlled by b, still owned by a
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z, owner := g.Card(aura).Zone, g.Card(aura).ZoneOwner; z != engine.Graveyard || owner != a {
 		t.Errorf("aura ended in %v/%d, want Graveyard/%d (the owner, not the controller)", z, owner, a)
@@ -469,7 +477,7 @@ func TestCheckStateBasedActionsLegalAuraSurvives(t *testing.T) {
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 	g.Attach(aura, host)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(aura).Zone; z != engine.Battlefield {
 		t.Errorf("legally attached aura zone = %v, want Battlefield", z)
@@ -493,7 +501,7 @@ func TestCheckStateBasedActionsEquipmentUnattachesWhenHostLeaves(t *testing.T) {
 	g.Attach(equipment, host)
 
 	g.Move(host, engine.Graveyard, p)
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(equipment).Zone; z != engine.Battlefield {
 		t.Errorf("equipment zone = %v, want Battlefield (unattaching does not move it)", z)
@@ -513,7 +521,7 @@ func TestCheckStateBasedActionsUnattachedEquipmentSurvives(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(equipment).Zone; z != engine.Battlefield {
 		t.Errorf("unattached equipment zone = %v, want Battlefield", z)
@@ -566,7 +574,7 @@ func TestCheckStateBasedActionsLethalToughnessDies(t *testing.T) {
 	negative := g.NewCard(creatureDefPT(t, "2", "-1"), a, engine.Battlefield)
 	alive := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(dead).Zone; z != engine.Graveyard {
 		t.Errorf("zero-toughness creature zone = %v, want Graveyard", z)
@@ -591,7 +599,7 @@ func TestCheckStateBasedActionsLethalToughnessOnlyAppliesToCreatures(t *testing.
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
 	g.Attach(aura, host) // legally attached, so the attachment rule leaves it alone too
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(aura).Zone; z != engine.Battlefield {
 		t.Errorf("an Aura (no toughness at all) zone = %v, want Battlefield", z)
@@ -609,7 +617,7 @@ func TestCheckStateBasedActionsUnresolvableToughnessSurvives(t *testing.T) {
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	star := g.NewCard(creatureDefPT(t, "*", "*"), a, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(star).Zone; z != engine.Battlefield {
 		t.Errorf("a creature with unresolvable toughness zone = %v, want Battlefield", z)
@@ -630,7 +638,7 @@ func TestCheckStateBasedActionsLethalToughnessCascadesToAttachments(t *testing.T
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
 	g.Attach(aura, host)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(host).Zone; z != engine.Graveyard {
 		t.Fatalf("setup: host zone = %v, want Graveyard", z)
@@ -682,7 +690,7 @@ func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
 	// to give it its printed starting loyalty (destroyZeroLoyalty's own doc
 	// comment), which is itself what this test exercises.
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(dead).Zone; z != engine.Graveyard {
 		t.Errorf("zero-loyalty planeswalker zone = %v, want Graveyard", z)
@@ -706,7 +714,7 @@ func TestCheckStateBasedActionsZeroLoyaltyOnlyAppliesToPlaneswalkers(t *testing.
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	creature := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(creature).Zone; z != engine.Battlefield {
 		t.Errorf("a creature (no loyalty counter at all) zone = %v, want Battlefield", z)
@@ -754,7 +762,7 @@ func TestCheckStateBasedActionsLethalDamageDies(t *testing.T) {
 	g.Card(excess).Damage.Mark(10, false)
 	g.Card(survives).Damage.Mark(2, false)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(exact).Zone; z != engine.Graveyard {
 		t.Errorf("creature dealt exactly lethal damage, zone = %v, want Graveyard", z)
@@ -778,7 +786,7 @@ func TestCheckStateBasedActionsDeathtouchDamageDies(t *testing.T) {
 	id := g.NewCard(creatureDefPT(t, "2", "10"), a, engine.Battlefield)
 	g.Card(id).Damage.Mark(1, true)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(id).Zone; z != engine.Graveyard {
 		t.Errorf("a 10-toughness creature dealt 1 deathtouch damage, zone = %v, want Graveyard", z)
@@ -799,7 +807,7 @@ func TestCheckStateBasedActionsIndestructibleSurvivesLethalAndDeathtouchDamage(t
 	g.Card(lethal).Damage.Mark(5, false)
 	g.Card(deathtouched).Damage.Mark(1, true)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(lethal).Zone; z != engine.Battlefield {
 		t.Errorf("indestructible creature dealt lethal damage, zone = %v, want Battlefield", z)
@@ -824,7 +832,7 @@ func TestCheckStateBasedActionsSubLethalDamageAndNonCreaturesSurvive(t *testing.
 	g.Attach(aura, host) // legally attached, so 704.5's attachment rule leaves it alone too
 	g.Card(aura).Damage.Mark(100, false)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(survives).Zone; z != engine.Battlefield {
 		t.Errorf("creature dealt sub-lethal damage, zone = %v, want Battlefield", z)
@@ -846,9 +854,123 @@ func TestCheckStateBasedActionsUnresolvableToughnessSurvivesDamage(t *testing.T)
 	star := g.NewCard(creatureDefPT(t, "*", "*"), a, engine.Battlefield)
 	g.Card(star).Damage.Mark(100, false)
 
-	engine.CheckStateBasedActions(g)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if z := g.Card(star).Zone; z != engine.Battlefield {
 		t.Errorf("a creature with unresolvable toughness under damage, zone = %v, want Battlefield", z)
+	}
+}
+
+// The legend rule: two legendary permanents sharing a name under one
+// player's control leave only the one the controller chooses.
+func TestCheckStateBasedActionsLegendRuleKeepsOnlyOne(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueLegendaryToKeep(first)
+	engine.CheckStateBasedActions(g, c)
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("kept legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Graveyard {
+		t.Errorf("other legend zone = %v, want Graveyard", z)
+	}
+}
+
+// Two different players may each legally control their own copy of one
+// legendary permanent -- the rule is "you control", not "anyone controls".
+func TestCheckStateBasedActionsLegendRuleIsPerPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	mine := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	theirs := g.NewCard(legendaryCreatureDef(t, "Test Legend"), b, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(mine).Zone; z != engine.Battlefield {
+		t.Errorf("a's own legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(theirs).Zone; z != engine.Battlefield {
+		t.Errorf("b's own legend zone = %v, want Battlefield", z)
+	}
+}
+
+// Legendary permanents with different names never conflict, and a
+// legendary creature alone (no duplicate) is untouched.
+func TestCheckStateBasedActionsLegendRuleNeedsAMatchingName(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	alone := g.NewCard(legendaryCreatureDef(t, "Solo Legend"), a, engine.Battlefield)
+	other := g.NewCard(legendaryCreatureDef(t, "A Different Legend"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(alone).Zone; z != engine.Battlefield {
+		t.Errorf("a lone legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(other).Zone; z != engine.Battlefield {
+		t.Errorf("a differently-named legend zone = %v, want Battlefield", z)
+	}
+}
+
+// A non-legendary creature sharing a name with another is untouched -- the
+// rule is about the Legendary supertype, not about names in general.
+func TestCheckStateBasedActionsLegendRuleOnlyAppliesToLegendaryPermanents(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("non-legendary creature zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Battlefield {
+		t.Errorf("its same-named non-legendary sibling zone = %v, want Battlefield", z)
+	}
+}
+
+// A legendary permanent destroyed by the legend rule can leave its own Aura
+// dangling in the same pass -- resolveLegendRule has to run before
+// cleanupDanglingAttachments for one CheckStateBasedActions call to catch
+// both.
+func TestCheckStateBasedActionsLegendRuleCascadesToAttachments(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	keep := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	lose := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, lose)
+
+	c := engine.NewScriptedController()
+	c.QueueLegendaryToKeep(keep)
+
+	engine.CheckStateBasedActions(g, c)
+
+	if z := g.Card(lose).Zone; z != engine.Graveyard {
+		t.Fatalf("setup: losing legend zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
 	}
 }

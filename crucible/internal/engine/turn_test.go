@@ -18,7 +18,7 @@ func TestStartTurnEmitsTurnBeganThenPhaseBegan(t *testing.T) {
 	var sink recordingSink
 	g.SetSink(&sink)
 
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 
 	if len(sink.events) < 2 {
 		t.Fatalf("sink saw %d events, want at least 2", len(sink.events))
@@ -44,7 +44,7 @@ func TestAdvancePhaseEmitsPhaseBeganEveryStepAndTurnBeganOnlyOnWrap(t *testing.T
 	var sink recordingSink
 	g.SetSink(&sink)
 
-	g.AdvancePhase() // wraps to turn 2, Untap
+	g.AdvancePhase(engine.NewScriptedController()) // wraps to turn 2, Untap
 
 	turnBegans, phaseBegans := 0, 0
 	for _, e := range sink.events {
@@ -88,7 +88,7 @@ func TestDrawEmitsZoneChangedThenCardDrawn(t *testing.T) {
 	var sink recordingSink
 	g.SetSink(&sink)
 
-	g.AdvancePhase() // -> Draw
+	g.AdvancePhase(engine.NewScriptedController()) // -> Draw
 
 	var kinds []engine.EventKind
 	for _, e := range sink.events {
@@ -119,7 +119,7 @@ func TestStartTurnEntersUntap(t *testing.T) {
 
 	g := newGame(t, "a", "b")
 	a := g.Players()[0]
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 
 	if g.Turn() != 1 {
 		t.Errorf("turn %d, want 1", g.Turn())
@@ -140,7 +140,7 @@ func TestAdvancePhaseWalksStepsInOrder(t *testing.T) {
 	g := newGame(t, "a", "b")
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 
 	want := []engine.PhaseType{
 		engine.Upkeep, engine.Draw, engine.Main1, engine.CombatBegin,
@@ -148,7 +148,7 @@ func TestAdvancePhaseWalksStepsInOrder(t *testing.T) {
 		engine.CombatDamage, engine.CombatEnd, engine.Main2, engine.EndOfTurn, engine.Cleanup,
 	}
 	for i, phase := range want {
-		g.AdvancePhase()
+		g.AdvancePhase(engine.NewScriptedController())
 		if g.ActivePhase() != phase {
 			t.Fatalf("step %d: phase %v, want %v", i, g.ActivePhase(), phase)
 		}
@@ -165,10 +165,10 @@ func TestAdvancePhaseWrapsToNextTurnAndRotatesPlayer(t *testing.T) {
 	g := newGame(t, "a", "b")
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 	g.SetTurnState(1, a, engine.Cleanup)
 
-	g.AdvancePhase()
+	g.AdvancePhase(engine.NewScriptedController())
 
 	if g.Turn() != 2 {
 		t.Errorf("turn %d, want 2", g.Turn())
@@ -194,7 +194,7 @@ func TestAdvancePhaseSkipsLostPlayersInRotation(t *testing.T) {
 	g.Player(b).Lost = true
 	g.SetTurnState(1, a, engine.Cleanup)
 
-	g.AdvancePhase()
+	g.AdvancePhase(engine.NewScriptedController())
 
 	if g.ActivePlayer() != c {
 		t.Errorf("active player %v, want %v (b has lost)", g.ActivePlayer(), c)
@@ -213,7 +213,7 @@ func TestAdvancePhaseWithNoPlayersLeftReturnsSamePlayer(t *testing.T) {
 	g.Player(b).Lost = true
 	g.SetTurnState(1, a, engine.Cleanup)
 
-	g.AdvancePhase()
+	g.AdvancePhase(engine.NewScriptedController())
 
 	if g.ActivePlayer() != a {
 		t.Errorf("active player %v, want %v (the only player left)", g.ActivePlayer(), a)
@@ -233,7 +233,7 @@ func TestAdvancePhaseWithEveryoneLostIncludingSelfReturnsSamePlayer(t *testing.T
 	g.Player(b).Lost = true
 	g.SetTurnState(1, a, engine.Cleanup)
 
-	g.AdvancePhase()
+	g.AdvancePhase(engine.NewScriptedController())
 
 	if g.ActivePlayer() != a {
 		t.Errorf("active player %v, want %v (nowhere left to pass to)", g.ActivePlayer(), a)
@@ -251,7 +251,7 @@ func TestUntapClearsTappedAndSummonSickForTheActivePlayerOnly(t *testing.T) {
 	g.Card(mine).Tapped, g.Card(mine).SummonSick = true, true
 	g.Card(theirs).Tapped, g.Card(theirs).SummonSick = true, true
 
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 
 	if c := g.Card(mine); c.Tapped || c.SummonSick {
 		t.Errorf("active player's permanent tapped=%v summonsick=%v after untap, want false/false", c.Tapped, c.SummonSick)
@@ -273,7 +273,7 @@ func TestDrawMovesTopOfLibraryToHand(t *testing.T) {
 	rest := g.NewCard(nil, a, engine.Library)
 	g.SetTurnState(2, a, engine.Upkeep) // past the turn-1 skip
 
-	g.AdvancePhase() // -> Draw
+	g.AdvancePhase(engine.NewScriptedController()) // -> Draw
 
 	if g.ActivePhase() != engine.Draw {
 		t.Fatalf("phase %v, want Draw", g.ActivePhase())
@@ -296,10 +296,10 @@ func TestDrawSkipsFirstPlayerFirstTurnTwoPlayer(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	g.NewCard(nil, a, engine.Library)
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 
-	g.AdvancePhase() // Upkeep
-	g.AdvancePhase() // Draw
+	g.AdvancePhase(engine.NewScriptedController()) // Upkeep
+	g.AdvancePhase(engine.NewScriptedController()) // Draw
 
 	if hand := g.Zone(engine.Hand, a).Cards(); len(hand) != 0 {
 		t.Errorf("hand %v, want empty -- turn 1 draw should have been skipped", hand)
@@ -319,7 +319,7 @@ func TestDrawSkipDoesNotApplyOutsideItsCase(t *testing.T) {
 		g.NewCard(nil, a, engine.Library)
 		g.SetTurnState(2, a, engine.Upkeep)
 
-		g.AdvancePhase()
+		g.AdvancePhase(engine.NewScriptedController())
 
 		if hand := g.Zone(engine.Hand, a).Cards(); len(hand) != 1 {
 			t.Errorf("hand %v, want one card -- turn 2 draws normally", hand)
@@ -334,10 +334,10 @@ func TestDrawSkipDoesNotApplyOutsideItsCase(t *testing.T) {
 			g.Player(id).Life = 20
 		}
 		g.NewCard(nil, a, engine.Library)
-		g.StartTurn(a)
+		g.StartTurn(a, engine.NewScriptedController())
 
-		g.AdvancePhase() // Upkeep
-		g.AdvancePhase() // Draw
+		g.AdvancePhase(engine.NewScriptedController()) // Upkeep
+		g.AdvancePhase(engine.NewScriptedController()) // Draw
 
 		if hand := g.Zone(engine.Hand, a).Cards(); len(hand) != 1 {
 			t.Errorf("hand %v, want one card -- the skip is two-player only", hand)
@@ -356,7 +356,7 @@ func TestDrawFromEmptyLibraryLosesTheGame(t *testing.T) {
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	g.SetTurnState(2, a, engine.Upkeep)
 
-	g.AdvancePhase() // -> Draw, library is empty
+	g.AdvancePhase(engine.NewScriptedController()) // -> Draw, library is empty
 
 	if !g.Player(a).Lost {
 		t.Error("player who drew from an empty library did not lose")
@@ -401,7 +401,7 @@ func TestAdvancePhaseChecksStateBasedActionsEveryStep(t *testing.T) {
 	g.SetTurnState(1, a, engine.Main1)
 
 	g.Player(a).Life = 0
-	g.AdvancePhase() // -> CombatBegin; no combat logic runs, but the SBA check does
+	g.AdvancePhase(engine.NewScriptedController()) // -> CombatBegin; no combat logic runs, but the SBA check does
 
 	if !g.Player(a).Lost {
 		t.Error("player at 0 life did not lose on the next phase entry")
@@ -423,7 +423,7 @@ func TestCleanupClearsDamageForEveryPlayer(t *testing.T) {
 	g.Card(theirs).Damage.Mark(5, true)
 
 	g.SetTurnState(1, a, engine.EndOfTurn)
-	g.AdvancePhase() // -> Cleanup
+	g.AdvancePhase(engine.NewScriptedController()) // -> Cleanup
 
 	if d := g.Card(mine).Damage; d.Marked != 0 {
 		t.Errorf("active player's permanent has %d damage marked after cleanup, want 0", d.Marked)
@@ -438,7 +438,7 @@ func TestCloneCopiesTurnState(t *testing.T) {
 
 	g := newGame(t, "a", "b")
 	a := g.Players()[0]
-	g.StartTurn(a)
+	g.StartTurn(a, engine.NewScriptedController())
 	g.SetTurnState(7, a, engine.Main2)
 
 	c := g.Clone()

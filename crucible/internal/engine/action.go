@@ -20,7 +20,7 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // looking for the Java source and finds a different rule at that letter
 // has no way to tell whether the port or the citation is wrong.
 //
-// Eight of Java's checks are here: CR 704.5b (an attempted draw with
+// Nine of Java's checks are here: CR 704.5b (an attempted draw with
 // nothing to draw loses), CR 704.5a (a player at zero or less life loses),
 // CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent
 // carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
@@ -30,21 +30,25 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // or -1/-1 counters all folded in, Card.Toughness's own job -- goes to its
 // owner's graveyard), CR 704.5g and 704.5h together (a creature dealt
 // damage at least equal to its toughness, or dealt any deathtouch damage
-// at all, is destroyed -- destroyDamagedCreatures, below), and two rules
+// at all, is destroyed -- destroyDamagedCreatures, below), and three rules
 // Java's own comments do not cleanly single-letter: a partial "cleanup
 // aura" (Java's own comment for it, GameAction.java:1511 -- an Aura not
 // attached to anything on the battlefield goes to its owner's graveyard;
 // an Equipment or Fortification attached to something no longer on the
 // battlefield becomes unattached alongside it, folded into the same nearby
-// but differently-labelled `stateBasedAction704_attach`) and a planeswalker
+// but differently-labelled `stateBasedAction704_attach`), a planeswalker
 // at zero loyalty (`handlePlaneswalkerRule`, which Java's own comments do
-// not number at all). Every other rule in Java's loop -- indestructible
-// aside (destroyDamagedCreatures checks it; nothing else here needs to),
-// the rest of 704.5f's own toughness (a "*" with no characteristic-defining
-// effect to replace it, or a Count$ reference -- `internal/expr` has no
-// evaluator yet), and the rest of the attachment rules' own legality (an
-// Aura's own "Enchant" restriction being violated by something other than
-// its host leaving, protection, hexproof) -- needs either the rest of the
+// not number at all), and the legend rule (`handleLegendRule`, same --
+// resolveLegendRule, below, is the first state-based action that needs a
+// PlayerController, so CheckStateBasedActions takes one now). Every other
+// rule in Java's loop -- indestructible aside (destroyDamagedCreatures
+// checks it; nothing else here needs to), the rest of 704.5f's own
+// toughness (a "*" with no characteristic-defining effect to replace it, or
+// a Count$ reference -- `internal/expr` has no evaluator yet), the rest of
+// the attachment rules' own legality (an Aura's own "Enchant" restriction
+// being violated by something other than its host leaving, protection,
+// hexproof), and the legend rule's own two corner cases
+// (resolveLegendRule's doc comment) -- needs either the rest of the
 // continuous-effect layer system (type, color, ability layers; CR
 // 613.6-613.8's dependency reordering, which nothing here has more than one
 // effect to need yet) or a permanent type (Battle) this port has not built,
@@ -64,14 +68,16 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // absence changes no card's behaviour today.
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
-// can make another one true (destroying a creature can, in turn, empty an
-// Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h and the
-// attachment cleanup below have, which is why destroyLethalToughness and
-// destroyDamagedCreatures both run before cleanupDanglingAttachments rather
-// than on a later call). Nothing here cascades a second time: destroying a
-// creature cannot itself change another creature's printed toughness or
-// deal it damage, and nothing yet grants an effect that could. One pass is
-// complete; the loop returns once a rule that can cascade twice lands.
+// can make another one true (destroying a permanent can, in turn, empty an
+// Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h, the legend
+// rule and the attachment cleanup below have, which is why
+// destroyLethalToughness, destroyDamagedCreatures, destroyZeroLoyalty and
+// resolveLegendRule all run before cleanupDanglingAttachments rather than on
+// a later call). Nothing here cascades a second time: destroying a permanent
+// cannot itself change another one's printed toughness, deal it damage, or
+// give it the same name, and nothing yet grants an effect that could. One
+// pass is complete; the loop returns once a rule that can cascade twice
+// lands.
 //
 // A game that has already ended skips every check below entirely, the same
 // as Java: checkStateEffects returns as soon as checkGameOverCondition finds
@@ -80,7 +86,7 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // A GameEnded event fires exactly once, on the call that flips g.over --
 // never on a later call finding it already true, and not from any other
 // path: this is the only place g.over is set.
-func CheckStateBasedActions(g *Game) bool {
+func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	if g.over {
 		return true
 	}
@@ -133,6 +139,7 @@ func CheckStateBasedActions(g *Game) bool {
 	destroyLethalToughness(g)
 	destroyDamagedCreatures(g)
 	destroyZeroLoyalty(g)
+	resolveLegendRule(g, controller)
 	cleanupDanglingAttachments(g)
 	return false
 }
@@ -261,6 +268,53 @@ func destroyZeroLoyalty(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
+	}
+}
+
+// resolveLegendRule is the legend rule -- another of Java's own comments do
+// not number (`handleLegendRule`, CheckStateBasedActions's doc comment): a
+// player controlling two or more legendary permanents that share a name
+// keeps one and puts the rest into their owners' graveyards.
+//
+// Grouping is per player, not across the whole battlefield: two different
+// players may each legally control their own copy of one legendary
+// permanent, so only a player's own duplicates trigger this. Within a
+// player, names are grouped in the order their permanents first appear on
+// the battlefield (GO-12) -- the same determinism `Multimaps.index`'s
+// insertion-ordered keys give Java.
+//
+// Two of Java's own corner cases are not here: a legendary permanent that
+// opts out via `ignoreLegendRule` (nothing this port can grant that effect
+// yet), and Partner-with-a-non-legendary-creature-name pairs (Spy Kit and
+// similar) sharing a "true name" even though their printed names differ --
+// a rule specific to a handful of cards, not the general case.
+func resolveLegendRule(g *Game, controller PlayerController) {
+	for _, pid := range g.Players() {
+		byName := map[string][]CardID{}
+		var order []string
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if !c.Type().HasSupertype(cardtype.Legendary) {
+				continue
+			}
+			name := c.Def.Name
+			if _, ok := byName[name]; !ok {
+				order = append(order, name)
+			}
+			byName[name] = append(byName[name], id)
+		}
+		for _, name := range order {
+			dup := byName[name]
+			if len(dup) < 2 {
+				continue
+			}
+			keep := controller.ChooseLegendaryToKeep(g, pid, dup)
+			for _, id := range dup {
+				if id != keep {
+					g.Move(id, Graveyard, g.Card(id).Owner)
+				}
+			}
+		}
 	}
 }
 

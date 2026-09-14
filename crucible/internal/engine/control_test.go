@@ -87,9 +87,10 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 	p0 := g.Players()[0]
 
 	calls := map[string]func(*engine.ScriptedController){
-		"starting hand": func(c *engine.ScriptedController) { c.ChooseStartingHand(g, p0, nil) },
-		"keep hand":     func(c *engine.ScriptedController) { c.MulliganKeepHand(g, p0, p0, 0) },
-		"tuck":          func(c *engine.ScriptedController) { c.TuckCardsViaMulligan(g, p0, nil, 0) },
+		"starting hand":  func(c *engine.ScriptedController) { c.ChooseStartingHand(g, p0, nil) },
+		"keep hand":      func(c *engine.ScriptedController) { c.MulliganKeepHand(g, p0, p0, 0) },
+		"tuck":           func(c *engine.ScriptedController) { c.TuckCardsViaMulligan(g, p0, nil, 0) },
+		"legendary keep": func(c *engine.ScriptedController) { c.ChooseLegendaryToKeep(g, p0, nil) },
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

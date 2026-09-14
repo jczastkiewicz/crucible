@@ -89,14 +89,19 @@ drives a real `PlayerController` from Java code and never needed a text vocabula
 line-oriented the same way `setup.state` is:
 
 ```text
-startturn <player>          Game.StartTurn(player)
-advance [n]                 Game.AdvancePhase(), n times (default 1)
+startturn <player>          Game.StartTurn(player, controller)
+advance [n]                 Game.AdvancePhase(controller), n times (default 1)
 mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
 queue keephand <bool>       ScriptedController.QueueKeepHand
 queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
 queue startingplayer <p>    ScriptedController.QueueStartingPlayer
 queue startinghand <n>      ScriptedController.QueueStartingHand
+queue legendarykeep <id>    ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
 ```
+
+`Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs
+one (`game-state.md`'s "The legend rule needed `CheckStateBasedActions` to take a controller"), and every path that
+reaches a state-based-action check had to gain the same parameter.
 
 `Loaded.CardByFixtureID` is the other piece `RunActions` needed: the same `Id:` map `AttachedTo:`/`RememberedCards:`
 resolution already builds internally, kept around after `Load` returns instead of discarded. A scenario naming a

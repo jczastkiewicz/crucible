@@ -34,12 +34,16 @@ func (g *Game) SetTurnState(turn int, active PlayerID, phase PhaseType) {
 // given -- and runs the untap step's actions and the state-based-action
 // check that follows every phase entry. Ported from
 // PhaseHandler.startFirstTurn.
-func (g *Game) StartTurn(active PlayerID) {
+//
+// controller is CheckStateBasedActions's own (action.go): the legend rule
+// is a state-based action that can fire on any phase entry, not just when a
+// card is cast, so every path into beginPhase needs one to hand it.
+func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 	g.turn = 1
 	g.activePlayer = active
 	g.activePhase = Untap
 	g.sink.Emit(Event{Kind: TurnBegan, Active: active, Turn: uint16(g.turn)})
-	g.beginPhase()
+	g.beginPhase(controller)
 }
 
 // AdvancePhase moves to the next step or phase, rotating the active player
@@ -52,7 +56,7 @@ func (g *Game) StartTurn(active PlayerID) {
 // not here: both are abilities this port has not implemented, so nothing can
 // push onto either yet, and skipping them is not a gap a card can currently
 // expose.
-func (g *Game) AdvancePhase() {
+func (g *Game) AdvancePhase(controller PlayerController) {
 	next := PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
 	if next == Untap {
 		g.turn++
@@ -60,7 +64,7 @@ func (g *Game) AdvancePhase() {
 		g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 	}
 	g.activePhase = next
-	g.beginPhase()
+	g.beginPhase(controller)
 }
 
 // nextPlayerAfter is turn order: seating order, skipping anyone who has
@@ -90,7 +94,7 @@ func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
 // state-based-action check CR 704.3 requires before anyone can act -- the
 // same pairing Java's onPhaseBegin and checkStateBasedEffects run back to
 // back at the top of mainLoopStep.
-func (g *Game) beginPhase() {
+func (g *Game) beginPhase(controller PlayerController) {
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	switch g.activePhase {
 	case Untap:
@@ -100,7 +104,7 @@ func (g *Game) beginPhase() {
 	case Cleanup:
 		g.cleanupStep()
 	}
-	CheckStateBasedActions(g)
+	CheckStateBasedActions(g, controller)
 }
 
 // untapStep untaps every permanent the active player controls and clears

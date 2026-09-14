@@ -43,8 +43,14 @@ func equipmentDef(t *testing.T) *compile.Card {
 
 func creatureDef(t *testing.T) *compile.Card {
 	t.Helper()
+	return creatureDefPT(t, "2", "2")
+}
+
+func creatureDefPT(t *testing.T, power, toughness string) *compile.Card {
+	t.Helper()
 	def := &compile.Card{Name: "Test Creature"}
 	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	def.Faces[0].Power, def.Faces[0].Toughness = power, toughness
 	return def
 }
 
@@ -496,5 +502,125 @@ func TestCheckStateBasedActionsUnattachedEquipmentSurvives(t *testing.T) {
 
 	if z := g.Card(equipment).Zone; z != engine.Battlefield {
 		t.Errorf("unattached equipment zone = %v, want Battlefield", z)
+	}
+}
+
+// BasePower/BaseToughness resolve a plain printed integer, and report false
+// -- not zero, not a panic -- for anything they cannot: "*", a Count$
+// reference, or a nil Def.
+func TestBasePowerToughness(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	plain := g.NewCard(creatureDefPT(t, "3", "4"), p, engine.Battlefield)
+	if pw, ok := g.Card(plain).BasePower(); !ok || pw != 3 {
+		t.Errorf("BasePower() = (%d, %v), want (3, true)", pw, ok)
+	}
+	if tg, ok := g.Card(plain).BaseToughness(); !ok || tg != 4 {
+		t.Errorf("BaseToughness() = (%d, %v), want (4, true)", tg, ok)
+	}
+
+	star := g.NewCard(creatureDefPT(t, "*", "1+*"), p, engine.Battlefield)
+	if _, ok := g.Card(star).BasePower(); ok {
+		t.Error("BasePower() resolved a \"*\" power")
+	}
+	if _, ok := g.Card(star).BaseToughness(); ok {
+		t.Error("BaseToughness() resolved a \"1+*\" toughness")
+	}
+
+	noDef := g.NewCard(nil, p, engine.Battlefield)
+	if _, ok := g.Card(noDef).BasePower(); ok {
+		t.Error("BasePower() resolved a card with no Def")
+	}
+	if _, ok := g.Card(noDef).BaseToughness(); ok {
+		t.Error("BaseToughness() resolved a card with no Def")
+	}
+}
+
+// CR 704.5g: a creature with printed toughness zero or less goes to its
+// owner's graveyard.
+func TestCheckStateBasedActionsLethalToughnessDies(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	dead := g.NewCard(creatureDefPT(t, "2", "0"), a, engine.Battlefield)
+	negative := g.NewCard(creatureDefPT(t, "2", "-1"), a, engine.Battlefield)
+	alive := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Errorf("zero-toughness creature zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(negative).Zone; z != engine.Graveyard {
+		t.Errorf("negative-toughness creature zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(alive).Zone; z != engine.Battlefield {
+		t.Errorf("positive-toughness creature zone = %v, want Battlefield", z)
+	}
+}
+
+// A non-creature permanent with the same printed "toughness" text is
+// untouched -- 704.5g is about creatures, not the field being nonempty.
+func TestCheckStateBasedActionsLethalToughnessOnlyAppliesToCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	host := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, host) // legally attached, so 704.5f leaves it alone too
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(aura).Zone; z != engine.Battlefield {
+		t.Errorf("an Aura (no toughness at all) zone = %v, want Battlefield", z)
+	}
+}
+
+// An unresolvable toughness ("*") is a coverage gap, not a death sentence:
+// the creature survives because this port cannot yet tell what its
+// toughness actually is.
+func TestCheckStateBasedActionsUnresolvableToughnessSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	star := g.NewCard(creatureDefPT(t, "*", "*"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(star).Zone; z != engine.Battlefield {
+		t.Errorf("a creature with unresolvable toughness zone = %v, want Battlefield", z)
+	}
+}
+
+// A creature dying to lethal toughness in the same pass that cleans up
+// dangling attachments must have its own Aura sent along with it --
+// destroyLethalToughness has to run before cleanupDanglingAttachments, not
+// on a later call, for a single CheckStateBasedActions pass to be enough.
+func TestCheckStateBasedActionsLethalToughnessCascadesToAttachments(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	host := g.NewCard(creatureDefPT(t, "2", "0"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Fatalf("setup: host zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
 	}
 }

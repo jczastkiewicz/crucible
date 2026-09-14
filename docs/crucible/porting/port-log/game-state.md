@@ -157,40 +157,44 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 ## State-based actions
 
 `CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition`, `stateBasedAction704_5q`
-and `handlePlaneswalkerRule`, plus `destroyLethalToughness` and `cleanupDanglingAttachments` for a slice of what
-`changeZone` folds in elsewhere in Java (`## Move carries what Java gets for free`, below) — the rules answerable
-without the full layer system: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten or more poison counters
-loses), CR 704.5q (a permanent carrying both +1/+1 and -1/-1 counters loses the smaller pile from each, in equal number
-— five +1/+1 and two -1/-1 leaves three +1/+1 and none — `stateBasedAction704_5q`'s own name is the source for this
-letter), CR 704.5f (a creature at zero or less toughness dies, Layer 7 and counters folded in — `GameAction.java`'s own
-comment on this check, not 704.5g), a planeswalker at zero or less loyalty dies (`handlePlaneswalkerRule`, which Java's
-own comments do not number at all), and a partial "cleanup aura" rule (Java's own comment for it, `GameAction.java:1511`
-— an Aura not attached to a permanent on the battlefield goes to its owner's graveyard; an Equipment or Fortification in
-the same state just becomes unattached alongside it). Citing these against Java's own comments rather than the rulebook
-from memory is deliberate: `GameAction.java` labels the toughness check 704.5f, not 704.5g, and disagrees with itself
-about the attachment rule (one comment calls it 704.5q, the same letter `stateBasedAction704_5q`'s own name already
-claims for counter annihilation) — a wrong citation is worse than none, so the attachment and loyalty rules are not
-asserted a specific sub-letter here. Every other SBA in Java's loop — lethal damage marked on a creature (704.5g in
-Java's comment), deathtouch damage (704.5h), the rest of 704.5f's own toughness (`*` with no characteristic-defining
-effect to replace it, or a `Count$` reference — `internal/expr` has no evaluator yet), and the rest of the attachment
-rules' own legality (an Aura's `Enchant` restriction violated by something other than its host leaving, protection,
-hexproof) — reads a characteristic the rest of the continuous-effect layer system computes, or a restriction a
-`valid`-string evaluator would check (`internal/valid`'s own doc comment), and neither is M5 work this has fully reached
-yet. A rule this port has not implemented simply never fires, the same as a real game with no permanent that rule ever
-applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+and `handlePlaneswalkerRule`, plus `destroyLethalToughness`, `destroyDamagedCreatures` and `cleanupDanglingAttachments`
+for a slice of what `changeZone` folds in elsewhere in Java (`## Move carries what Java gets for free`, below) — the
+rules answerable without the full layer system: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten or more
+poison counters loses), CR 704.5q (a permanent carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
+in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and none — `stateBasedAction704_5q`'s own name is the
+source for this letter), CR 704.5f (a creature at zero or less toughness dies, Layer 7 and counters folded in —
+`GameAction.java`'s own comment on this check, not 704.5g), CR 704.5g and 704.5h together (a creature dealt lethal
+damage, or any deathtouch damage at all, dies — indestructible creatures excepted, `## Lethal and deathtouch damage`,
+below), a planeswalker at zero or less loyalty dies (`handlePlaneswalkerRule`, which Java's own comments do not number
+at all), and a partial "cleanup aura" rule (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to
+a permanent on the battlefield goes to its owner's graveyard; an Equipment or Fortification in the same state just
+becomes unattached alongside it). Citing these against Java's own comments rather than the rulebook from memory is
+deliberate: `GameAction.java` labels the toughness check 704.5f, not 704.5g, and disagrees with itself about the
+attachment rule (one comment calls it 704.5q, the same letter `stateBasedAction704_5q`'s own name already claims for
+counter annihilation) — a wrong citation is worse than none, so the attachment and loyalty rules are not asserted a
+specific sub-letter here. Every other SBA in Java's loop — lethal damage to a planeswalker via its loyalty rather than a
+creature's toughness, the rest of 704.5f/704.5g's own toughness (`*` with no characteristic-defining effect to replace
+it, or a `Count$` reference — `internal/expr` has no evaluator yet), and the rest of the attachment rules' own legality
+(an Aura's `Enchant` restriction violated by something other than its host leaving, protection, hexproof) — reads a
+characteristic the rest of the continuous-effect layer system computes, or a restriction a `valid`-string evaluator
+would check (`internal/valid`'s own doc comment), and neither is M5 work this has fully reached yet. Damage dealt to a
+planeswalker or a player removing loyalty counters or life directly, rather than marking `Damage` the way combat damage
+to a creature does, is not wired either — nothing yet deals damage at all, so this is unexercised in either direction. A
+rule this port has not implemented simply never fires, the same as a real game with no permanent that rule ever applies
+to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
 
-Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness` and
-`destroyZeroLoyalty` both run before `cleanupDanglingAttachments`, not after, for exactly that reason: a creature or
-planeswalker this pass destroys can leave an Aura dangling that the very same `CheckStateBasedActions` call has to
-catch, the one real cascade among the six rules here. Nothing else cascades a second time — destroying a permanent
-cannot itself change another one's printed toughness or loyalty count, and nothing yet grants an effect that could — so
-one ordered pass is complete. A game that already ended skips every check below entirely, the same as Java:
-`checkStateEffects` returns before its creature loop runs once `checkGameOverCondition` finds the game over. The loop
-returns once a rule that can cascade twice lands — a card script writing to `Player.Life` or a permanent's counters
-mid-check does not exist yet either.
+Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness`,
+`destroyDamagedCreatures` and `destroyZeroLoyalty` all run before `cleanupDanglingAttachments`, not after, for exactly
+that reason: a creature or planeswalker this pass destroys can leave an Aura dangling that the very same
+`CheckStateBasedActions` call has to catch, the one real cascade among the seven rules here. Nothing else cascades a
+second time — destroying a permanent cannot itself change another one's printed toughness, damage total or loyalty
+count, and nothing yet grants an effect that could — so one ordered pass is complete. A game that already ended skips
+every check below entirely, the same as Java: `checkStateEffects` returns before its creature loop runs once
+`checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade twice lands — a card script
+writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
 
 `cleanupDanglingAttachments` needed `Card.Type()` to exist at all: `compile.Card` carried no printed characteristics
 before this, only compiled ability lines, because nothing before this needed to go from a compiled card back to "what
@@ -264,6 +268,29 @@ no ETB hook for any permanent's starting counters, the same gap `changeZone`'s u
 triggers already are (below). A fixture or a test sets `Loyalty` counters directly (`humancounters=LOYALTY=5`) until
 that lands — `destroyZeroLoyalty` is real and correct against whatever count is there, however it got there, the same as
 `destroyLethalToughness` was real before `Power`/`Toughness` folded in Layer 7.
+
+## Lethal and deathtouch damage, and the one keyword this port checks
+
+`destroyDamagedCreatures` is CR 704.5g and 704.5h, Java's own comments on a single `else if` in `GameAction.java`'s
+loop: a creature dealt damage at least equal to its current `Toughness()` dies, and a creature dealt any amount of
+deathtouch damage dies regardless of the amount — `Card.Damage`'s own `Marked`/`Deathtouch` fields already existed for
+exactly this (`## The card's mutable parts`) but had no reader until now.
+
+Java's own check has an earlier branch first: indestructible creatures skip both halves. This is the one keyword this
+port reads anywhere — not because keywords in general are in scope, but because getting this one wrong would not be a
+coverage gap, it would be an actively wrong answer: a creature this port destroys that a real game would not.
+`Card.HasKeyword` (card.go) is the accessor, `compile.Face.Keywords` (carried through from `carddb.Face.Keywords`
+unchanged, the same "carry the printed text" split `Type`/`Power`/`Toughness`/`Loyalty` already use) is what it reads,
+and `internal/keyword`'s own `Parse(line).Name` does the actual matching — the head as written, so `"Ward:2"` is still
+found by `"Ward"`. Expanding a keyword into what it actually grants (the triggers, statics and abilities behind it) is a
+different, much larger job `keyword.go`'s own doc comment already says this package does not do; `HasKeyword` only ever
+answers "is the bare word present."
+
+`cleanupStep` (`turn.go`) is a partial CR 514.2, landing alongside this because a damage-based SBA that never clears the
+damage it is checking would be testing a state that cannot occur in a real game past one turn. Clearing damage on every
+permanent in the game (not just the active player's, unlike `untapStep`) is the only piece built: discarding to hand
+size (CR 514.1) needs a `PlayerController` decision this port cannot ask yet, and ending "until end of turn" effects
+(514.2's other half) needs duration tracking this port does not have.
 
 ## Move carries what Java gets for free
 
@@ -440,24 +467,26 @@ compared were never going to agree on those by number.
 
 ## Not ported yet
 
-| Missing                                                                                                                                                                                                   | Lands |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                      | M5    |
-| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                          | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                                                                                                                    | M7    |
-| Every other CR 704.5 state-based action — lethal damage, a Battle at zero defense — needs the full layer system or a permanent type not modeled                                                           | M5-M6 |
-| CR 121.5: a planeswalker entering the battlefield with its printed starting loyalty as counters — `Move` has no ETB hook for any permanent's starting counters yet                                        | M5-M6 |
-| The rest of CR 704.5f's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
-| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"            | M5-M6 |
-| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                         | M5-M6 |
-| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                  | M5-M6 |
-| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                       | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main, combat, End of Turn and Cleanup step bodies — need triggers, `SpellAbility` or Combat                                                                                      | M5-M6 |
-| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond | M5-M6 |
-| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                               | never |
-| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                            | M5    |
-| `CounterChanged`, `SpellCast`, `DamageDealt` — nothing yet causes them                                                                                                                                    | M5-M6 |
-| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                       | M5-M6 |
-| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                 | M5-M6 |
-| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                           | M5-M6 |
-| Combat                                                                                                                                                                                                    | M5    |
+| Missing                                                                                                                                                                                                       | Lands |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                          | M5    |
+| 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                              | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                                                                                                        | M7    |
+| Every other CR 704.5 state-based action — a Battle at zero defense — needs a permanent type not modeled                                                                                                       | M5-M6 |
+| CR 121.5: a planeswalker entering the battlefield with its printed starting loyalty as counters — `Move` has no ETB hook for any permanent's starting counters yet                                            | M5-M6 |
+| Damage dealt to a planeswalker or a player removing loyalty counters or life directly — nothing yet deals damage at all, so `Damage.Mark`'s only callers are tests                                            | M5-M6 |
+| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`  | M5-M6 |
+| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                | M5-M6 |
+| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                             | M5-M6 |
+| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                      | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                           | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main, combat and End of Turn step bodies — need triggers, `SpellAbility` or Combat                                                                                                   | M5-M6 |
+| The rest of CR 514: discarding to the maximum hand size (needs a `PlayerController` decision) and "until end of turn"/"this turn" effects ending (needs duration tracking) — Cleanup only clears damage today | M5-M6 |
+| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond     | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                   | never |
+| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                | M5    |
+| `CounterChanged`, `SpellCast`, `DamageDealt` — nothing yet causes them                                                                                                                                        | M5-M6 |
+| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                           | M5-M6 |
+| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                     | M5-M6 |
+| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                               | M5-M6 |
+| Combat                                                                                                                                                                                                        | M5    |

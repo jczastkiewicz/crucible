@@ -168,6 +168,12 @@ type Face struct {
 	// job.
 	Loyalty string
 
+	// Defense is a Battle's printed starting defense -- the same shape as
+	// Loyalty, and for the same reason: CR 704.5v checks the Defense counter
+	// count directly, not a layered value, so engine.Card.BaseDefense is
+	// only ever "how many counters would it enter with."
+	Defense string
+
 	// Keywords are the face's `K:` lines, carried through unchanged from
 	// carddb.Face -- keyword.Parse resolves one to a name at read time
 	// (engine.Card.HasKeyword's job), the same "carry the printed text,
@@ -218,7 +224,7 @@ func compileFace(face *carddb.Face) (Face, error) {
 
 	out := Face{
 		Type: face.Type, Power: face.Power, Toughness: face.Toughness,
-		Loyalty: face.InitialLoyalty, Keywords: face.Keywords,
+		Loyalty: face.InitialLoyalty, Defense: face.Defense, Keywords: face.Keywords,
 	}
 	for _, group := range []struct {
 		lines  []string

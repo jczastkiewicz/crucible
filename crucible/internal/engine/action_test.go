@@ -69,6 +69,14 @@ func planeswalkerDefLoyalty(t *testing.T, loyalty string) *compile.Card {
 	return def
 }
 
+func battleDefDefense(t *testing.T, defense string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Battle"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Battle Siege")
+	def.Faces[0].Defense = defense
+	return def
+}
+
 func legendaryCreatureDef(t *testing.T, name string) *compile.Card {
 	t.Helper()
 	def := &compile.Card{Name: name}
@@ -969,6 +977,90 @@ func TestCheckStateBasedActionsLegendRuleCascadesToAttachments(t *testing.T) {
 
 	if z := g.Card(lose).Zone; z != engine.Graveyard {
 		t.Fatalf("setup: losing legend zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
+	}
+}
+
+// BaseDefense resolves a plain printed integer, on the same terms
+// BaseLoyalty already does.
+func TestBaseDefense(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	plain := g.NewCard(battleDefDefense(t, "4"), p, engine.Battlefield)
+	if d, ok := g.Card(plain).BaseDefense(); !ok || d != 4 {
+		t.Errorf("BaseDefense() = (%d, %v), want (4, true)", d, ok)
+	}
+
+	noDef := g.NewCard(nil, p, engine.Battlefield)
+	if _, ok := g.Card(noDef).BaseDefense(); ok {
+		t.Error("BaseDefense() resolved a card with no Def")
+	}
+}
+
+// CR 704.5v: a Battle with defense zero or less goes to its owner's
+// graveyard.
+func TestCheckStateBasedActionsZeroDefenseDies(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	dead := g.NewCard(battleDefDefense(t, "3"), a, engine.Battlefield)
+	alive := g.NewCard(battleDefDefense(t, "3"), a, engine.Battlefield)
+	g.Card(alive).Counters.Add(engine.Defense, 3)
+	// dead is left at the default zero counters -- no ETB hook exists yet
+	// to give it its printed starting defense (destroyZeroDefense's own doc
+	// comment), which is itself what this test exercises.
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Errorf("zero-defense battle zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(alive).Zone; z != engine.Battlefield {
+		t.Errorf("positive-defense battle zone = %v, want Battlefield", z)
+	}
+}
+
+// A non-Battle permanent at the same (absent) defense count is untouched.
+func TestCheckStateBasedActionsZeroDefenseOnlyAppliesToBattles(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(creature).Zone; z != engine.Battlefield {
+		t.Errorf("a creature (no defense counter at all) zone = %v, want Battlefield", z)
+	}
+}
+
+// A Battle destroyed by zero defense can leave its own Aura dangling in
+// the same pass -- destroyZeroDefense has to run before
+// cleanupDanglingAttachments for one CheckStateBasedActions call to catch
+// both.
+func TestCheckStateBasedActionsZeroDefenseCascadesToAttachments(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	host := g.NewCard(battleDefDefense(t, "3"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Fatalf("setup: host zone = %v, want Graveyard", z)
 	}
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)

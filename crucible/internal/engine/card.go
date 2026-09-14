@@ -142,6 +142,17 @@ func (c *Card) BaseLoyalty() (int, bool) {
 	return n, err == nil
 }
 
+// BaseDefense is BaseLoyalty's counterpart for a Battle: its printed
+// starting defense, entered as that many Defense counters (counters.go)
+// the same way a planeswalker's loyalty is, not a Layer 7 value.
+func (c *Card) BaseDefense() (int, bool) {
+	if c.Def == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(c.Def.Faces[0].Defense)
+	return n, err == nil
+}
+
 // Power and Toughness are the card's current power and toughness: Layer 0
 // (BasePower/BaseToughness) with Layer 7's continuous effects (PT) folded
 // in, plus +1/+1 and -1/-1 counters, in CR 613.4's own order -- counters

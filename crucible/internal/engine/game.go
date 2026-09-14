@@ -73,6 +73,11 @@ type Game struct {
 	// this tracks resolution order, and nothing yet moves a card there or
 	// pushes an ability here (stack.go).
 	stack []Ability
+
+	// combat is CR 506-510's combat state, starting with CR 508's declared
+	// attackers (combat.go, attack.go). Zero-valued when no combat is in
+	// progress.
+	combat Combat
 }
 
 // SetSink replaces the game's event sink. The zero Game has a DiscardSink,
@@ -345,8 +350,9 @@ func (g *Game) Clone() *Game {
 		// Always DiscardSink, whatever the original's sink is: the AI's
 		// lookahead explores lines that never happened, and a clone holding
 		// the real sink would record imagined casts as real.
-		sink:  DiscardSink{},
-		stack: append([]Ability(nil), g.stack...),
+		sink:   DiscardSink{},
+		stack:  append([]Ability(nil), g.stack...),
+		combat: g.combat.clone(),
 	}
 	if g.rand != nil {
 		r := *g.rand

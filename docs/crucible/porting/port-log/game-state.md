@@ -94,13 +94,14 @@ remapped: there is no equivalent of Java's `CopiedGameObjectMap`, which is the p
 lists, attachments — and copying the slice alone would leave clone and original writing to the same ones. Each is copied
 when it exists and left nil when it does not, which is most cards most of the time.
 
-| Part                                 | Clone treatment | Reason                                                                                                         |
-| ------------------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                            |
-| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls      |
-| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                  |
-| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other      |
-| `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array |
+| Part                                 | Clone treatment | Reason                                                                                                                                   |
+| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                                                      |
+| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls                                |
+| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                                            |
+| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other                                |
+| `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array                           |
+| `Combat`                             | deep            | Same reasoning again: `Attackers []CardID`, `AttackTargets map[CardID]EntityID` and `Blocks []Block` each need their own backing storage |
 
 Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
 
@@ -184,10 +185,14 @@ by something other than its host leaving, protection, hexproof), and the legend 
 (`ignoreLegendRule`, Partner-with-non-legendary-creature-names) — reads a characteristic the rest of the
 continuous-effect layer system computes, needs combat or a new decision point, or needs a restriction a `valid`-string
 evaluator would check (`internal/valid`'s own doc comment), and none of that is M5 work this has fully reached yet.
-Damage dealt to a planeswalker, a Battle or a player removing loyalty/defense counters or life directly, rather than
-marking `Damage` the way combat damage to a creature does, is not wired either — nothing yet deals damage at all, so
-this is unexercised in either direction. A rule this port has not implemented simply never fires, the same as a real
-game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+Damage dealt to a planeswalker or a Battle, which CR 120.3c/121.5 removes as loyalty/defense counters rather than
+marking `Damage`, is wired now too (`dealPermanentDamage`, `## Combat`, below) — combat can attack one directly, so
+`destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real play as well as by tests that remove counters directly.
+Only _non-combat_ damage to a planeswalker or Battle is still a gap: nothing that deals damage outside combat exists yet
+(no `SpellAbility`, no activated ability), so a burn spell or an ability aimed at a planeswalker's loyalty has nowhere
+to come from regardless of whether the target-side plumbing is ready. A rule this port has not implemented simply never
+fires, the same as a real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a
+wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
@@ -466,20 +471,174 @@ Opening hands are not dealt here. Java's `MulliganService` assumes `Game` alread
 `PerformMulligans` — dealing one needs a `Match`/`StartGame` flow this port has not built, so a caller populates each
 hand (a fixture, today; a real game-start procedure, eventually) before calling this.
 
+## Combat: declaring attackers, declaring blockers, and dealing damage
+
+`combat.go`/`attack.go`/`block.go`/`combatdamage.go` are CR 506-510, cut down to CR 508.1's declare-attackers step (now
+including 508.1d's attack-target choice), CR 509.1's declare-blockers step, and CR 510.1-510.4's combat damage — both
+the first-strike sub-step and the regular one — plus CR 702.19's trample. This is the whole of Combat this port has
+reached; not every keyword or restriction is (below). `Combat` (combat.go) is the game's own combat state, currently
+`Attackers []CardID`, `AttackTargets map[CardID]EntityID` and `Blocks []Block`; it is a new `Game` field
+(`combat Combat`), cloned and cleared the same way `Card.PT`/the stack already are, and split into its own file for the
+same reason `ability.go`/`layer.go`/`pt.go` are: `Game` needs the `Combat` type for its own field, and
+`Game.DeclareCombatAttackers` (attack.go)/`Game.DeclareCombatBlockers` (block.go)/`Game.DealCombatDamage`/
+`Game.DealFirstStrikeDamage` (combatdamage.go) need `*Game` — one of them has to sit below the other in the dependency
+graph, or `enginelint` catches the cycle the same way it already has three times this milestone. `control.go` needed to
+move into the `combat` group's own allow-list too, once `PlayerController.DeclareCombatBlockers` had to name `Block` in
+its signature; `combatdamage`'s own group needed `parts` added to its allow-list, the first combat file to touch
+`Card.Damage`; `block`/`combatdamage` both needed `attack` added once they started calling `defenderOf` (below).
+
+`Game.DeclareCombatAttackers` computes eligibility itself — untapped, and either no summoning sickness or haste (CR
+302.6) — rather than trusting the caller, the same "the game decides what is legal, the controller only decides among
+what is offered" split `PerformMulligans` already uses for `MulliganKeepHand`. A declared attacker taps unless it has
+vigilance (CR 508.1f) — `Card.HasKeyword`'s second real caller, after `destroyDamagedCreatures`'s `Indestructible`
+check.
+
+**Named `DeclareCombatAttackers`/`DeclareCombatBlockers`, not `DeclareAttackers`/`DeclareBlockers`.** `PhaseType`
+already has constants with both of those exact names (phase.go) — Go allows a method and a package-level constant to
+share a name, since methods live under their receiver's own namespace, but `enginelint`'s plain-identifier matching does
+not tell the two apart, and neither would a reader skimming for one and finding the other. `enginelint` caught this
+twice, once per method: `attack.go`'s `DeclareAttackers` first, and `block.go`'s `DeclareBlockers` the same way when it
+landed. The method, the `PlayerController` interface method and the `ScriptedController` implementation are all renamed
+in both cases; the phase constants, the actual CR 508/509 steps these methods are one piece of, keep their own names
+unchanged.
+
+**Blocking does not tap the blocker.** CR 508.1f taps an attacker; CR 509 has no equivalent step for a blocker, so
+`Game.DeclareCombatBlockers` never touches `Card.Tapped`. Gang blocking (CR 509.1c) is unrestricted on the attacker side
+— `Block` is a flat `[]Block` of `{Blocker, Attacker}` pairs, and more than one pair naming the same `Attacker` is
+ordinary, not a case the code has to special-case.
+
+**Flying/reach, menace, protection and every other block restriction are not checked.** `Game.DeclareCombatBlockers`'s
+own eligibility computation is only "untapped creature the defending player controls." This is a deliberate,
+architecture-driven gap, not an oversight parallel to the Indestructible/Vigilance precedent: in Forge, CR 509.1b's
+restrictions — Flying included — all run through the general `CantBlockBy` static-ability engine
+(`StaticAbilityCantAttackBlock.java`, `ValidBlocker`-matched against arbitrary strings), the same generic mechanism
+Menace's minimum-blocker-count and every "can't be blocked except by"/"must be blocked by" card use. Indestructible
+(`GameAction.java`) and Vigilance (`Card.attackVigilance()`) are different in kind — Forge hardcodes those two directly
+in engine code, which is exactly why `Card.HasKeyword` special-cases them here too. Hardcoding Flying the same way would
+invent a mechanism specific to one keyword that Forge itself does not use for it, and would need re-deciding once the
+real static-ability engine lands and the two disagree. The honest gap is "wait for that engine" (M5/M6), not a
+Flying-shaped patch now.
+
+**Not wired into `AdvancePhase`'s automatic walk through the phases.** `PerformMulligans` is the standing precedent for
+a real M5 mechanic a scenario calls explicitly (`actions.log`'s own `declareattackers`/`declareblockers` verbs) rather
+than one the turn structure invokes on every entry to that phase — the same "stub standing in for a decision no one can
+make yet" reasoning `turn.go`'s own comment already gives for keeping `ResolveStack` out of `beginPhase`. Most games
+reaching the DeclareAttackers phase attack with nothing at all; auto-wiring would mean every such phase entry pays the
+cost of asking a question with an empty answer set almost every time.
+
+**No eligible creature means the controller is never asked.** The same reasoning applies on both sides:
+`Game.DeclareCombatAttackers` skips the question when the active player has nothing eligible, and
+`Game.DeclareCombatBlockers` skips it both when there are no attackers at all and when the defending player has nothing
+untapped to block with — there is nothing meaningful to decide, so nothing is queued for it. This is also what lets
+every existing scenario and test that walks through combat without ever creating a creature keep working without queuing
+an attackers or blocks answer it was never going to need.
+
+**Attack targets: CR 508.1d generalized "who's defending" into "what's being attacked."** `assignAttackTargets`
+(attack.go), called from inside `DeclareCombatAttackers` right after attackers are chosen and tapped, gives every
+declared attacker an `EntityID` target — a player, or a planeswalker/battle that player controls
+(`eligibleAttackTargets`). CR 508.1d makes "which creatures attack" and "what each attacks" one combined announcement,
+not two sequential decisions, which is why this lives inside `DeclareCombatAttackers` rather than as its own
+`actions.log` verb: `Game.DeclareCombatAttackers`'s own public signature and return value (`[]CardID`, which creatures
+attacked) don't change at all, only a new side effect and, sometimes, a new controller call get added.
+
+A lone eligible target — any two-player game with no planeswalker or battle on the other side, the case every existing
+scenario before this one was — is assigned automatically, without ever calling `ChooseAttackTarget`. This is the load-
+bearing backward-compatibility property: every fixture and test written before attack targets existed keeps passing
+unmodified, because none of them gives an opponent a second thing to be attacked, so the ask branch never fires and
+`ScriptedController.attackTargets` never has to hold anything. More than one eligible target — a planeswalker/battle
+present, or (multiplayer) more than one living opponent — asks `ChooseAttackTarget` once per attacker, trusted the same
+way `ChooseLegendaryToKeep`'s answer is.
+
+**`defenderOf` (attack.go) is what `DeclareCombatBlockers` and `DealCombatDamage` now ask instead of
+`nextPlayerAfter`.** It resolves an attacker's own `AttackTarget` to the player who can legally block it (CR 802.4a):
+itself, if the target is a player; the target's controller, if it's a planeswalker or battle. Both callers ask it only
+once, for `g.combat.Attackers[0]`, and assume every attacker in the current combat shares that one defender — true of
+any two-player game (with or without a planeswalker/battle target) and of a multiplayer game where the active player
+sends every attacker at one opponent, but not of a single combat split across several different defending players at
+once. That narrower case — several defending players each declaring their own blocks against their own share of the
+attackers, in some order — needs per-defender block declaration passes, a bigger redesign than assigning targets is;
+this slice closes "which opponent" and "attack a planeswalker/battle" without needing that redesign, because both stay
+within the one-shared-defender assumption.
+
+**Attacking a planeswalker or battle changes how combat damage lands, not who deals it.** `dealAttackTargetDamage`
+(combatdamage.go) is the dispatcher every "damage past the last blocker" call site (unblocked, trample overflow) now
+goes through, in place of always calling `dealPlayerDamage`: a player target still reduces `Life`, but a
+planeswalker/battle target goes to `dealPermanentDamage` instead. `dealPermanentDamage` (renamed from
+`dealCreatureDamage`, which it still does everything of) removes loyalty or defense counters for a planeswalker or
+battle target (CR 120.3c, 121.5) in addition to — not instead of — marking `Card.Damage` if the target is also a
+creature, the same independent-checks shape Forge's own `Card.addDamageAfterPrevention` uses for a card that's more than
+one type at once. No new state-based-action work was needed: `destroyZeroLoyalty`/`destroyZeroDefense`
+(`## State-based actions`) already existed and already read `Counters.Count(Loyalty/Defense)`, so removing counters via
+combat damage is all it took to make them fire for real instead of only in tests that added counters by hand.
+
+**Combat damage is the first thing that actually deals damage.** Every earlier state-based action reading
+`Card.Damage.Marked`/`Deathtouch` (`destroyDamagedCreatures`) only ever saw what a test had marked directly —
+"`Damage.Mark`'s only callers are tests" (below, "Not ported yet") stops being true here. `dealCombatDamageStep`
+(combatdamage.go), the shared body behind both `DealFirstStrikeDamage` and `DealCombatDamage`, computes every attacker's
+exchange one at a time rather than computing all amounts first and applying them together: CR 510.2 makes a single
+step's damage simultaneous, but nothing this port has built triggers off damage being dealt or reads a life total
+mid-step, so the two orders are indistinguishable to anything that can currently observe them. An unblocked attacker
+deals its power to whatever it's attacking (`dealAttackTargetDamage`, below). A single blocker exchanges full power for
+full power automatically; a gang-blocked attacker (more than one live `Block` naming it) asks its controller to divide
+its power via `AssignCombatDamage` (CR 510.1c) — trusted the same way `ChooseLegendaryToKeep`'s answer is, including the
+"lethal before moving on" ordering constraint CR 510.1c itself imposes. `DamageDealt` and `LifeChanged` both wire here
+for the first time (below, "Events, wired"), each attributed to `Source` (the dealing card) and flagged `FlagCombat`,
+plus `FlagDeathtouch` when the source has that keyword.
+
+**First strike (CR 510.4) is one function asked twice, not two functions.** `dealsInStep(c, firstStrike)` is the whole
+of it: a creature with "First Strike" acts only when `firstStrike` is true, "Double Strike" acts either way, everything
+else only when it's false. `DealFirstStrikeDamage` and `DealCombatDamage` are that same body called with `true` and
+`false` — a fixture with no first striker at all can still call `DealFirstStrikeDamage` and get a real no-op back
+(nobody's `dealsInStep` returns true), the same "the game decides what is legal, ask anyway" reasoning
+`DeclareCombatAttackers` already applies to an empty eligible list. The two steps are separate `actions.log` verbs
+(`firststrikedamage`, `combatdamage`, `game-state-fixture.md`), not one call that internally loops twice, because a real
+state-based-action check has to happen between them — a first-strike kill has to be dead before the regular step asks
+whether it still deals or receives anything — and that check already happens for free: `beginPhase` runs
+`CheckStateBasedActions` on every phase entry (`## Turn structure`, `turn.go:107`), so a scenario that `advance`s from
+`FirstStrikeDamage` into `CombatDamage` between the two verbs gets the kill applied without a new verb invented just for
+it.
+
+**A creature that left the battlefield between the two steps deals nothing and receives nothing.** This was a
+documented, genuinely unreachable gap before first strike existed — nothing could kill a creature between
+`DeclareCombatBlockers` and combat damage. First strike makes it reachable: `alive` (`Card.Zone == Battlefield`) gates
+every attacker at the top of `dealCombatDamageStep`, and a dead attacker's blockers are filtered out before either side
+of its exchange runs, so a creature killed by a first-strike blow neither swings again in the regular step nor gets hit
+by something that's no longer there to hit it. `wasUnblocked` (`dealAttackerDamage`'s own parameter) tracks whether an
+attacker was ever blocked at all, separately from whether it currently has zero live blockers — CR 510.1c treats "never
+blocked" (hits the player) and "blocked, but every blocker has since died" (hits nobody, no trample) as different
+outcomes that happen to look the same by the time only `len(liveBlockers) == 0` is left to check.
+
+**Trample (CR 702.19) changes only how an attacker's own power splits, not who decides.** Against a single live blocker,
+`lethalDamage` computes the minimum this port can assign it — the game deciding, since no decision was being asked in
+that case anyway — and the rest goes to the player; against a gang-blocked attacker, whatever the controller's
+`AssignCombatDamage` answer leaves unassigned across all its named blockers goes to the player instead of being wasted
+(a non-trampler's own unassigned remainder is still wasted, unchanged from before trample existed). An unresolvable
+toughness (`Toughness`'s own `*`/`Count$` gap) makes `lethalDamage` unable to compute lethal at all; its caller treats
+that as "not trampling this blocker" — full power assigned to it, nothing guessed at — the same conservative default
+`Toughness`'s own `ok`-false already gets everywhere else in this port, not a new one invented for trample. CR 702.19e's
+"every blocker gone by the time damage is assigned" case — reachable the same way the paragraph above is, a trampler's
+blocker dying to first strike — sends the attacker's full power to the player.
+
+Not here yet: a single combat split across more than one defending player at once (`defenderOf`'s own doc comment has
+the reason) and CR 704.5w/704.5x's Battle protector assignment (needs a new `PlayerController` decision, not built).
+Block legality beyond "untapped creature the defending player controls" — Flying/reach, menace, protection, "must be
+blocked by" — waits on the general static-ability engine, above.
+
 ## Events, wired
 
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held
 a `Sink`, and nothing called `Emit`. Every mechanism this port has built now does:
 
-| Call site                               | Kind(s)                                           |
-| --------------------------------------- | ------------------------------------------------- |
-| `Move`                                  | `ZoneChanged`                                     |
-| `StartTurn`, `AdvancePhase` (on wrap)   | `TurnBegan`                                       |
-| `beginPhase` (every step)               | `PhaseBegan`                                      |
-| `drawStep`                              | `CardDrawn`, alongside `Move`'s own `ZoneChanged` |
-| `CheckStateBasedActions` (once, on end) | `GameEnded`                                       |
-| `PushAbility`                           | `AbilityActivated`                                |
-| `ResolveStack` (per item)               | `AbilityResolved`                                 |
+| Call site                                                | Kind(s)                                             |
+| -------------------------------------------------------- | --------------------------------------------------- |
+| `Move`                                                   | `ZoneChanged`                                       |
+| `StartTurn`, `AdvancePhase` (on wrap)                    | `TurnBegan`                                         |
+| `beginPhase` (every step)                                | `PhaseBegan`                                        |
+| `drawStep`                                               | `CardDrawn`, alongside `Move`'s own `ZoneChanged`   |
+| `CheckStateBasedActions` (once, on end)                  | `GameEnded`                                         |
+| `PushAbility`                                            | `AbilityActivated`                                  |
+| `ResolveStack` (per item)                                | `AbilityResolved`                                   |
+| `dealCombatDamageStep` (per exchange, both damage steps) | `DamageDealt`, plus `LifeChanged` for player damage |
 
 `Game.sink` defaults to `DiscardSink{}`, set in `NewGame`, so no existing caller — every test, `fixture.Load` — had to
 start constructing one. `SetSink` is the opt-in a recorder (M8) uses. `Game.Clone` always gives the clone a fresh
@@ -493,12 +652,15 @@ Draw" before "drew a card," matching when a real player would notice the step ch
 
 Not wired, and each is a real gap rather than an oversight: `CounterChanged` (annihilating counters is the only thing
 that would fire it, and `Event.Detail` is a numeric payload that has nowhere to put an open string like `CounterType`
-without inventing an encoding first), `SpellCast`/`DamageDealt` (nothing that would fire them exists yet — casting and
-damage dealing, unlike stack resolution itself, are still unbuilt), and anything from `PerformMulligans` itself — a
-mulligan is fully visible as the `ZoneChanged` cascade `Move` already produces, and no `MulliganTaken`-shaped kind
-exists in the schema to add without also bumping `SchemaVersion`, a more deliberate act than this pass earned.
-`AbilityActivated`/`AbilityResolved` are wired now (`## Stack`), even though nothing yet calls `PushAbility` or
-`ResolveStack` outside a test — the same "mechanism now, content later" the effect registry already established.
+without inventing an encoding first), `SpellCast` (nothing that would fire it exists yet — casting, unlike combat damage
+or stack resolution, is still unbuilt), and anything from `PerformMulligans` itself — a mulligan is fully visible as the
+`ZoneChanged` cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the schema to add without
+also bumping `SchemaVersion`, a more deliberate act than this pass earned. `AbilityActivated`/`AbilityResolved` are
+wired now (`## Stack`), even though nothing yet calls `PushAbility` or `ResolveStack` outside a test — the same
+"mechanism now, content later" the effect registry already established. `DamageDealt`/`LifeChanged` are wired for real
+content now too (`## Combat`, above) — every combat exchange fires `DamageDealt`, and player damage also fires
+`LifeChanged` with `Amount` as the signed change (negative for the ordinary case, a loss), a sign convention this port
+chose freely since nothing wired either kind before combat damage did.
 
 ## The scenario harness lives partly here
 
@@ -510,28 +672,28 @@ compared were never going to agree on those by number.
 
 ## Not ported yet
 
-| Missing                                                                                                                                                                                                       | Lands |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                          | M5    |
-| 105 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                              | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                                                                                                                        | M7    |
-| Every other CR 704.5 state-based action — lethal damage to a planeswalker or a Battle via life/loyalty/defense reduction rather than `Damage` — needs damage dealing, which does not exist yet                | M5-M6 |
-| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet  | M5-M6 |
-| CR 704.5w/704.5x: a Battle's protector assignment — needs combat and a new `PlayerController` decision, neither built                                                                                         | M5-M6 |
-| Damage dealt to a planeswalker or a player removing loyalty counters or life directly — nothing yet deals damage at all, so `Damage.Mark`'s only callers are tests                                            | M5-M6 |
-| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`  | M5-M6 |
-| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                | M5-M6 |
-| The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                         | M5-M6 |
-| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                             | M5-M6 |
-| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                      | M5-M6 |
-| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                           | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main, combat and End of Turn step bodies — need triggers, `SpellAbility` or Combat                                                                                                   | M5-M6 |
-| The rest of CR 514: discarding to the maximum hand size (needs a `PlayerController` decision) and "until end of turn"/"this turn" effects ending (needs duration tracking) — Cleanup only clears damage today | M5-M6 |
-| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond     | M5-M6 |
-| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                   | never |
-| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                | M5    |
-| `CounterChanged`, `SpellCast`, `DamageDealt` — nothing yet causes them                                                                                                                                        | M5-M6 |
-| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                           | M5-M6 |
-| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                     | M5-M6 |
-| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                               | M5-M6 |
-| Combat                                                                                                                                                                                                        | M5    |
+| Missing                                                                                                                                                                                                          | Lands |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                             | M5    |
+| 101 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                               | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                                                                                                           | M7    |
+| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet | M5-M6 |
+| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet     | M5-M6 |
+| CR 704.5w/704.5x: a Battle's protector assignment — needs a new `PlayerController` decision, not built                                                                                                           | M5-M6 |
+| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
+| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
+| The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                            | M5-M6 |
+| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                | M5-M6 |
+| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                         | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                              | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                 | M5-M6 |
+| The rest of CR 514: discarding to the maximum hand size (needs a `PlayerController` decision) and "until end of turn"/"this turn" effects ending (needs duration tracking) — Cleanup only clears damage today    | M5-M6 |
+| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond        | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                      | never |
+| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                   | M5    |
+| `CounterChanged`, `SpellCast` — nothing yet causes them                                                                                                                                                          | M5-M6 |
+| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                              | M5-M6 |
+| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                        | M5-M6 |
+| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                  | M5-M6 |
+| A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes | M5-M6 |
+| Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                         | M5-M6 |

@@ -1,0 +1,17 @@
+# Silvercoat Lion (2/2) attacks; Hill Giant (3/3) blocks. The Lion deals 2 to
+# the Giant (survives, 3 toughness); the Giant deals 3 to the Lion (dies, 2
+# toughness) -- CR 510.1b, no decision needed on either side.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that actually moves the
+# lethally-damaged Lion to the graveyard (destroyDamagedCreatures runs on
+# phase entry, not inside DealCombatDamage itself).
+advance

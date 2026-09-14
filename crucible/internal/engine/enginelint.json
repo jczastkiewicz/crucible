@@ -17,7 +17,11 @@
     "turn": ["turn.go"],
     "mulligan": ["mulligan.go"],
     "stack": ["stack.go"],
-    "valid": ["valid.go"]
+    "valid": ["valid.go"],
+    "combat": ["combat.go"],
+    "attack": ["attack.go"],
+    "block": ["block.go"],
+    "combatdamage": ["combatdamage.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -26,15 +30,19 @@
     "card": ["id", "zone", "parts", "layer"],
     "player": ["id", "parts"],
     "ability": ["id"],
-    "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability"],
+    "combat": ["id"],
+    "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],
     "effect": ["id", "zone", "parts", "card", "player", "game", "ability"],
     "phase": [],
     "event": ["id", "zone", "phase"],
-    "control": ["id", "game"],
+    "control": ["id", "game", "combat"],
     "action": ["id", "zone", "parts", "card", "player", "game", "event", "control"],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event", "control"],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control"],
-    "valid": ["id", "card"]
+    "valid": ["id", "card"],
+    "attack": ["id", "zone", "card", "player", "game", "control"],
+    "block": ["id", "zone", "card", "game", "control", "combat", "attack"],
+    "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"]
   }
 }

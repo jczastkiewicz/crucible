@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=20
+humanbattlefield=Silver Knight|Tapped
+ailife=20
+aigraveyard=Devoted Hero

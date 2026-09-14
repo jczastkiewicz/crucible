@@ -174,6 +174,330 @@ func TestRunActionsQueueLegendaryKeepBadIDErrors(t *testing.T) {
 	}
 }
 
+// declareattackers runs with nothing on the battlefield without error --
+// there is nothing eligible, so Game.DeclareCombatAttackers never touches
+// the controller's queue at all.
+func TestRunActionsDeclareAttackersWithNothingOnTheBattlefield(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ndeclareattackers\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue attackers resolves setup.state's Id: numbers the same way tuck and
+// legendarykeep do.
+func TestRunActionsQueueAttackersResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers 1,2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatAttackers(l.Game, l.Game.Players()[0], nil)
+	want := []engine.CardID{l.CardByFixtureID[1], l.CardByFixtureID[2]}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("attackers %v, want %v", got, want)
+	}
+}
+
+// queue attackers none is how a scenario queues "decline to attack" --
+// there being no ids is not the same as the line being absent, since every
+// other queue kind also requires a value.
+func TestRunActionsQueueAttackersNoneDeclines(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatAttackers(l.Game, l.Game.Players()[0], nil)
+	if got != nil {
+		t.Errorf("attackers = %v, want nil", got)
+	}
+}
+
+func TestRunActionsQueueAttackersBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attackers abc\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
+// declareblockers runs with no attackers declared without error -- there is
+// nothing to block, so Game.DeclareCombatBlockers never touches the
+// controller's queue at all.
+func TestRunActionsDeclareBlockersWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ndeclareblockers\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue blocks resolves each blocker=attacker pair's setup.state Id:
+// numbers the same way tuck and legendarykeep resolve theirs.
+func TestRunActionsQueueBlocksResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1=2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	want := engine.Block{Blocker: l.CardByFixtureID[1], Attacker: l.CardByFixtureID[2]}
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("blocks %v, want [%v]", got, want)
+	}
+}
+
+// queue blocks accepts more than one pair, comma-separated -- gang blocking
+// (CR 509.1c).
+func TestRunActionsQueueBlocksMultiplePairs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest", "Island")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2;Island|Id:3\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1=3,2=3\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	want := []engine.Block{
+		{Blocker: l.CardByFixtureID[1], Attacker: l.CardByFixtureID[3]},
+		{Blocker: l.CardByFixtureID[2], Attacker: l.CardByFixtureID[3]},
+	}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("blocks %v, want %v", got, want)
+	}
+}
+
+// queue blocks none is how a scenario queues "decline to block" -- the same
+// convention queue attackers none uses.
+func TestRunActionsQueueBlocksNoneDeclines(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks none\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.DeclareCombatBlockers(l.Game, l.Game.Players()[0], nil, nil)
+	if got != nil {
+		t.Errorf("blocks = %v, want nil", got)
+	}
+}
+
+func TestRunActionsQueueBlocksBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks abc=def\n"); err == nil {
+		t.Error("non-numeric ids did not error")
+	}
+}
+
+func TestRunActionsQueueBlocksMissingEqualsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue blocks 1\n"); err == nil {
+		t.Error("a pair with no attacker half did not error")
+	}
+}
+
+// firststrikedamage runs with no attackers declared without error --
+// there is nothing to deal, so Game.DealFirstStrikeDamage never touches the
+// controller's queue at all.
+func TestRunActionsFirstStrikeDamageWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\nfirststrikedamage\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// combatdamage runs with no attackers declared without error -- there is
+// nothing to deal, so Game.DealCombatDamage never touches the controller's
+// queue at all.
+func TestRunActionsCombatDamageWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\ncombatdamage\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
+// queue damage resolves each blocker=amount pair's setup.state Id: number
+// the same way queue blocks resolves its pairs, keeping the pair order the
+// line was written in.
+func TestRunActionsQueueDamageResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1=3,2=2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.AssignCombatDamage(l.Game, l.Game.Players()[0], 0, nil)
+	want := []engine.DamageAssignment{
+		{Blocker: l.CardByFixtureID[1], Amount: 3},
+		{Blocker: l.CardByFixtureID[2], Amount: 2},
+	}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("damage assignment %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueDamageBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage abc=3\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
+func TestRunActionsQueueDamageBadAmountErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nhumanbattlefield=Mountain|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1=xyz\n"); err == nil {
+		t.Error("a non-numeric amount did not error")
+	}
+}
+
+func TestRunActionsQueueDamageMissingEqualsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue damage 1\n"); err == nil {
+		t.Error("a pair with no amount half did not error")
+	}
+}
+
+// queue attacktarget accepts a seated player's name.
+func TestRunActionsQueueAttackTargetResolvesAPlayerName(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget ai\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseAttackTarget(l.Game, l.Game.Players()[0], 0, nil)
+	want := engine.PlayerEntity(l.Game.Players()[1])
+	if got != want {
+		t.Errorf("attack target = %v, want %v", got, want)
+	}
+}
+
+// queue attacktarget accepts a setup.state Id: number, resolving to the
+// CardID Load assigned it, for a planeswalker or battle target.
+func TestRunActionsQueueAttackTargetResolvesFixtureID(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:7\n")
+	want, ok := l.CardByFixtureID[7]
+	if !ok {
+		t.Fatal("setup: Id:7 did not resolve to a CardID")
+	}
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget 7\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseAttackTarget(l.Game, l.Game.Players()[0], 0, nil)
+	if got != engine.CardEntity(want) {
+		t.Errorf("attack target = %v, want CardEntity(%v)", got, want)
+	}
+}
+
+func TestRunActionsQueueAttackTargetBadPlayerNameErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget nobody\n"); err == nil {
+		t.Error("an unseated player name did not error")
+	}
+}
+
+func TestRunActionsQueueAttackTargetUnknownFixtureIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget 99\n"); err == nil {
+		t.Error("an Id: with no matching card did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

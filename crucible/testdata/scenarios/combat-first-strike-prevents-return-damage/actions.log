@@ -1,0 +1,18 @@
+# Silver Knight (2/2, First Strike) attacks; Devoted Hero (1/2, no first
+# strike) blocks. The Knight's 2 damage is exactly lethal to the Hero's 2
+# toughness in the first-strike step; the advance into Combat Damage runs the
+# state-based-action check that kills the Hero before the regular step ever
+# asks whether it deals damage back -- CR 510.4, CR 510.1c's "attacker
+# remains blocked but a removed blocker gets nothing" via a dead blocker
+# rather than a dead attacker this time.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

@@ -89,15 +89,46 @@ drives a real `PlayerController` from Java code and never needed a text vocabula
 line-oriented the same way `setup.state` is:
 
 ```text
-startturn <player>          Game.StartTurn(player, controller)
-advance [n]                 Game.AdvancePhase(controller), n times (default 1)
-mulligan <firstplayer>      PerformMulligans(game, controller, firstplayer)
-queue keephand <bool>       ScriptedController.QueueKeepHand
-queue tuck <id>[,<id>...]   ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
-queue startingplayer <p>    ScriptedController.QueueStartingPlayer
-queue startinghand <n>      ScriptedController.QueueStartingHand
-queue legendarykeep <id>    ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
+startturn <player>            Game.StartTurn(player, controller)
+advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+declareattackers              Game.DeclareCombatAttackers(controller)
+declareblockers               Game.DeclareCombatBlockers(controller)
+firststrikedamage             Game.DealFirstStrikeDamage(controller)
+combatdamage                  Game.DealCombatDamage(controller)
+queue keephand <bool>         ScriptedController.QueueKeepHand
+queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
+queue startingplayer <p>      ScriptedController.QueueStartingPlayer
+queue startinghand <n>        ScriptedController.QueueStartingHand
+queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
+queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
+queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's Loaded.CardByFixtureID
+queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
+queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 ```
+
+`queue attacktarget` is needed only when a declared attacker has more than one eligible target -- a planeswalker or
+battle present on the opponent's side, or (multiplayer) more than one living opponent -- one call per such attacker, in
+the order `declareattackers` declared them. A lone eligible target (any two-player game with nothing else to attack, the
+ordinary case) is assigned automatically without consuming a queue entry; an entry queued for a question that was never
+asked is simply left unread, the same as any other over-queued answer (`ScriptedController` has no "everything was
+consumed" check of its own).
+
+A scenario with a first striker needs both `firststrikedamage` and `combatdamage`, with an `advance` between them: a
+first-strike kill has to actually happen (`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn
+structure") before the regular step asks whether the dead creature still deals or receives anything, and `advance`ing
+from the `FirstStrikeDamage` phase into `CombatDamage` is what runs that check — no separate verb exists just for it. A
+scenario with nothing carrying "First Strike"/"Double Strike" can skip `firststrikedamage` entirely; calling it anyway
+is a safe no-op.
+
+`queue blocks`' pairs are `blocker=attacker`, both `Id:` numbers — `1=2` means the card with `Id:1` blocks the card with
+`Id:2`; `1=3,2=3` is a gang block, two blockers on one attacker. `queue damage`'s pairs are `blocker=amount` and, unlike
+`queue blocks`, keep the order written: that order is the order `AssignCombatDamage` divides a gang-blocked attacker's
+damage in (CR 510.1c), so reordering the pairs would answer a different question. Any of an attacker's power left
+unassigned across the pairs tramples over to the defending player if the attacker has trample (CR 702.19c), or is wasted
+if not — both are computed after `queue damage`'s answer is applied, not part of what it names. There is no `none`
+shortcut for `queue damage` — `Game.DealCombatDamage` only ever asks when an attacker has more than one blocker, so an
+empty answer is never itself the legal one the way declining to attack or block is.
 
 `Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs
 one (`game-state.md`'s "The legend rule needed `CheckStateBasedActions` to take a controller"), and every path that
@@ -129,6 +160,32 @@ running `CheckStateBasedActions` in `actions.log`, and `expect.state` writing `h
 would defeat the point of a format meant to run against the Java oracle too, and 33,697 cards is too much to pay for per
 case. That first load costs real time (order a minute, cold); TEST-13 already prices L3 at "every commit," same as L1,
 so this is the cost that entry was always going to have once scenarios existed to pay it.
+
+**Combat's own fixtures cover what its Go unit tests already prove, at the whole-engine level CLAUDE.md's testing table
+asks for.** Every combat mechanic — declaring attackers/blockers, first strike, trample, gang blocking, attacking a
+planeswalker, the legend rule — landed with full `package engine_test` coverage, but none of it had a
+`testdata/scenarios/*` directory until this pass added seven: `combat-attacker-unblocked`,
+`combat-single-block-kills-attacker`, `combat-first-strike-prevents-return-damage`, `combat-trample-excess-to-player`,
+`combat-gang-block-damage-assignment`, `combat-attack-a-planeswalker`, `legend-rule-keeps-one`. Real corpus cards
+throughout — Silvercoat Lion; Silver Knight; Craw Giant; Craw Wurm; Narset, Parter of Veils; Isamaru, Hound of Konda —
+not synthetic defs, since `TestScenarios` runs against the real corpus and a scenario naming a card the corpus doesn't
+have is a scenario with a typo. Each card's non-combat text (Rampage on Craw Giant, an activated ability on Narset) is
+inert here on purpose: nothing this port has built fires a trigger, evaluates a static ability or activates anything, so
+a real card's full script is exactly as safe a source of "just the keyword/type/P-T this scenario needs" as a synthetic
+one — safer, since it also proves the scenario would keep meaning what it says once those systems exist and start
+reading the rest of that same script.
+
+Getting a first-strike or gang-block scenario right needs the phase walk to be real, not shortcut: `declareattackers`
+and `declareblockers` each run while `AdvancePhase` has actually put the game in the matching phase
+(`Declare Attackers`, `Declare Blockers`), one `advance` apart, because nothing in either method reads `ActivePhase` to
+enforce that itself (game-state.md's "Combat" section) — a scenario that called them back-to-back without advancing
+would still "work" mechanically but would end up asserting a phase that never happened. The state-based-action check
+between the first-strike and regular damage steps is the sharper version of the same discipline:
+`combat-first-strike-prevents-return-damage` only gets the right answer because `advance`ing from `First Strike Damage`
+into `Combat Damage` is what actually kills the lethally-struck blocker before `combatdamage` runs
+(`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn structure") — skipping that `advance` would
+leave the blocker alive to hit back, a different (wrong) scenario the fixture format makes easy to write by accident if
+the phase walk isn't respected.
 
 ## Deviations from Java
 

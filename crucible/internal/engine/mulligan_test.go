@@ -60,11 +60,28 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 	return hand[:cardsToReturn]
 }
 
-// ChooseLegendaryToKeep is never exercised by this controller's own tests --
-// no scenario here creates a legend-rule conflict -- but the interface still
-// has to be satisfied.
+// ChooseLegendaryToKeep, DeclareCombatAttackers, ChooseAttackTarget,
+// DeclareCombatBlockers and AssignCombatDamage are never exercised by this
+// controller's own tests -- no scenario here creates a legend-rule conflict
+// or reaches combat -- but the interface still has to be satisfied.
 func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
 	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
+}
+
+func (c *scriptedMulliganController) DeclareCombatAttackers(_ *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
+	panic("scriptedMulliganController: DeclareCombatAttackers was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseAttackTarget(_ *engine.Game, _ engine.PlayerID, attacker engine.CardID, eligible []engine.EntityID) engine.EntityID {
+	panic("scriptedMulliganController: ChooseAttackTarget was not expected to be called")
+}
+
+func (c *scriptedMulliganController) DeclareCombatBlockers(_ *engine.Game, _ engine.PlayerID, attackers []engine.CardID, eligible []engine.CardID) []engine.Block {
+	panic("scriptedMulliganController: DeclareCombatBlockers was not expected to be called")
+}
+
+func (c *scriptedMulliganController) AssignCombatDamage(_ *engine.Game, _ engine.PlayerID, attacker engine.CardID, blockers []engine.CardID) []engine.DamageAssignment {
+	panic("scriptedMulliganController: AssignCombatDamage was not expected to be called")
 }
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)

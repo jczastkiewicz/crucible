@@ -1,0 +1,6 @@
+# Two copies of the same legendary permanent on one player's battlefield --
+# the legend rule (CR 704.5j, resolveLegendRule) fires as a state-based
+# action, which StartTurn's own Untap-step beginPhase already checks, so no
+# advance is needed to reach it.
+queue legendarykeep 1
+startturn human

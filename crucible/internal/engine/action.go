@@ -114,6 +114,7 @@ func CheckStateBasedActions(g *Game) bool {
 		}
 	}
 	destroyLethalToughness(g)
+	destroyZeroLoyalty(g)
 	cleanupDanglingAttachments(g)
 	return false
 }
@@ -156,6 +157,38 @@ func destroyLethalToughness(g *Game) {
 				continue
 			}
 			if t, ok := c.Toughness(); ok && t <= 0 {
+				dead = append(dead, id)
+			}
+		}
+	}
+	for _, id := range dead {
+		g.Move(id, Graveyard, g.Card(id).Owner)
+	}
+}
+
+// destroyZeroLoyalty is CR 704.5h: a planeswalker with loyalty zero or
+// less goes to its owner's graveyard. Loyalty is entirely counter-based
+// (Card.BaseLoyalty's own doc comment) -- there is no Layer 7 to fold, no
+// printed-value fallback the way BaseToughness has one, so this reads
+// Card.Counters.Count(Loyalty) directly rather than calling a "current
+// loyalty" accessor that would just be that same call one level removed.
+//
+// Nothing yet puts a starting loyalty counter on a planeswalker when it
+// enters the battlefield (CR 121.5): Move has no ETB hook for any
+// permanent's starting counters today, the same gap "Move carries what
+// Java gets for free" already documents for triggers and replacement
+// effects. A fixture or a test sets Loyalty counters directly until that
+// lands -- this SBA is real and correct against whatever count is there,
+// however it got there.
+//
+// Candidates are collected before Move runs, the same reason
+// destroyLethalToughness and cleanupDanglingAttachments do.
+func destroyZeroLoyalty(g *Game) {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Type().Has(cardtype.Planeswalker) && c.Counters.Count(Loyalty) <= 0 {
 				dead = append(dead, id)
 			}
 		}

@@ -157,16 +157,18 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 ## State-based actions
 
 `CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition`, `stateBasedAction704_5q`,
-`handlePlaneswalkerRule` and `handleLegendRule`, plus `destroyLethalToughness`, `destroyDamagedCreatures` and
-`cleanupDanglingAttachments` for a slice of what `changeZone` folds in elsewhere in Java
+`handlePlaneswalkerRule`, `stateBasedAction_Battle` and `handleLegendRule`, plus `destroyLethalToughness`,
+`destroyDamagedCreatures` and `cleanupDanglingAttachments` for a slice of what `changeZone` folds in elsewhere in Java
 (`## Move carries what Java gets for free`, below) — the rules answerable without the full layer system: CR 704.5a (a
 player at zero or less life loses), CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent carrying both
 +1/+1 and -1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1
 and none — `stateBasedAction704_5q`'s own name is the source for this letter), CR 704.5f (a creature at zero or less
 toughness dies, Layer 7 and counters folded in — `GameAction.java`'s own comment on this check, not 704.5g), CR 704.5g
 and 704.5h together (a creature dealt lethal damage, or any deathtouch damage at all, dies — indestructible creatures
-excepted, `## Lethal and deathtouch damage`, below), and three rules Java's own comments do not number: a planeswalker
-at zero or less loyalty dies (`handlePlaneswalkerRule`), the legend rule (`handleLegendRule` —
+excepted, `## Lethal and deathtouch damage`, below), a partial CR 704.5v (a Battle at zero or less defense dies, its own
+trigger-on-the-stack exception checked and always false today — `## Loyalty is not a layer`'s Battle paragraph, below),
+and three rules Java's own comments do not number: a planeswalker at zero or less loyalty dies
+(`handlePlaneswalkerRule`), the legend rule (`handleLegendRule` —
 `## The legend rule needed CheckStateBasedActions to take a controller`, below), and a partial "cleanup aura" rule
 (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to a permanent on the battlefield goes to its
 owner's graveyard; an Equipment or Fortification in the same state just becomes unattached alongside it). Citing these
@@ -174,29 +176,32 @@ against Java's own comments rather than the rulebook from memory is deliberate: 
 check 704.5f, not 704.5g, and disagrees with itself about the attachment rule (one comment calls it 704.5q, the same
 letter `stateBasedAction704_5q`'s own name already claims for counter annihilation) — a wrong citation is worse than
 none, so the attachment, loyalty and legend rules are not asserted a specific sub-letter here. Every other SBA in Java's
-loop — lethal damage to a planeswalker via its loyalty rather than a creature's toughness, the rest of 704.5f/704.5g's
-own toughness (`*` with no characteristic-defining effect to replace it, or a `Count$` reference — `internal/expr` has
-no evaluator yet), the rest of the attachment rules' own legality (an Aura's `Enchant` restriction violated by something
-other than its host leaving, protection, hexproof), and the legend rule's own two corner cases (`ignoreLegendRule`,
-Partner-with-non-legendary-creature-names) — reads a characteristic the rest of the continuous-effect layer system
-computes, or a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and neither is
-M5 work this has fully reached yet. Damage dealt to a planeswalker or a player removing loyalty counters or life
-directly, rather than marking `Damage` the way combat damage to a creature does, is not wired either — nothing yet deals
-damage at all, so this is unexercised in either direction. A rule this port has not implemented simply never fires, the
-same as a real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+loop — lethal damage to a planeswalker or a Battle via its loyalty/defense rather than a creature's toughness, the rest
+of 704.5f/704.5g's own toughness (`*` with no characteristic-defining effect to replace it, or a `Count$` reference —
+`internal/expr` has no evaluator yet), CR 704.5w/704.5x's Battle protector assignment (needs combat and a new
+`PlayerController` decision), the rest of the attachment rules' own legality (an Aura's `Enchant` restriction violated
+by something other than its host leaving, protection, hexproof), and the legend rule's own two corner cases
+(`ignoreLegendRule`, Partner-with-non-legendary-creature-names) — reads a characteristic the rest of the
+continuous-effect layer system computes, needs combat or a new decision point, or needs a restriction a `valid`-string
+evaluator would check (`internal/valid`'s own doc comment), and none of that is M5 work this has fully reached yet.
+Damage dealt to a planeswalker, a Battle or a player removing loyalty/defense counters or life directly, rather than
+marking `Damage` the way combat damage to a creature does, is not wired either — nothing yet deals damage at all, so
+this is unexercised in either direction. A rule this port has not implemented simply never fires, the same as a real
+game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
 
 Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness`,
-`destroyDamagedCreatures`, `destroyZeroLoyalty` and `resolveLegendRule` all run before `cleanupDanglingAttachments`, not
-after, for exactly that reason: a creature, planeswalker or legendary permanent this pass destroys can leave an Aura
-dangling that the very same `CheckStateBasedActions` call has to catch, the one real cascade among the eight rules here.
-Nothing else cascades a second time — destroying a permanent cannot itself change another one's printed toughness,
-damage total, loyalty count or name, and nothing yet grants an effect that could — so one ordered pass is complete. A
-game that already ended skips every check below entirely, the same as Java: `checkStateEffects` returns before its
-creature loop runs once `checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade
-twice lands — a card script writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
+`destroyDamagedCreatures`, `destroyZeroLoyalty`, `destroyZeroDefense` and `resolveLegendRule` all run before
+`cleanupDanglingAttachments`, not after, for exactly that reason: a creature, planeswalker, Battle or legendary
+permanent this pass destroys can leave an Aura dangling that the very same `CheckStateBasedActions` call has to catch,
+the one real cascade among the nine rules here. Nothing else cascades a second time — destroying a permanent cannot
+itself change another one's printed toughness, damage total, loyalty/defense count or name, and nothing yet grants an
+effect that could — so one ordered pass is complete. A game that already ended skips every check below entirely, the
+same as Java: `checkStateEffects` returns before its creature loop runs once `checkGameOverCondition` finds the game
+over. The loop returns once a rule that can cascade twice lands — a card script writing to `Player.Life` or a
+permanent's counters mid-check does not exist yet either.
 
 `cleanupDanglingAttachments` needed `Card.Type()` to exist at all: `compile.Card` carried no printed characteristics
 before this, only compiled ability lines, because nothing before this needed to go from a compiled card back to "what
@@ -270,6 +275,16 @@ no ETB hook for any permanent's starting counters, the same gap `changeZone`'s u
 triggers already are (below). A fixture or a test sets `Loyalty` counters directly (`humancounters=LOYALTY=5`) until
 that lands — `destroyZeroLoyalty` is real and correct against whatever count is there, however it got there, the same as
 `destroyLethalToughness` was real before `Power`/`Toughness` folded in Layer 7.
+
+**A Battle's defense is the same shape.** `Card.BaseDefense`/`compile.Face.Defense`/`carddb.Face.Defense` mirror
+`BaseLoyalty` exactly, and `destroyZeroDefense` (CR 704.5v, `GameAction.java`'s own comment) reads
+`Card.Counters.Count(Defense)` directly, the same "no Layer 7, no ETB hook yet" story. One extra piece of 704.5v is here
+too: Java's own version does not destroy a Battle at zero defense if it is the source of a trigger that has fired but
+not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is checked, not skipped —
+`destroyZeroDefense`'s own doc comment explains why it always reads false today (nothing puts a trigger on the stack
+yet) rather than being silently dropped. What is not here: CR 704.5w/704.5x, a Battle's protector assignment, which
+needs combat (to know whether it is currently being attacked) and, for a Siege, a new `PlayerController` decision —
+neither exists, and neither is a prerequisite for 704.5v's own defense check to be correct on its own terms.
 
 ## Lethal and deathtouch damage, and the one keyword this port checks
 
@@ -500,8 +515,9 @@ compared were never going to agree on those by number.
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                          | M5    |
 | 105 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                              | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                        | M7    |
-| Every other CR 704.5 state-based action — a Battle at zero defense — needs a permanent type not modeled                                                                                                       | M5-M6 |
-| CR 121.5: a planeswalker entering the battlefield with its printed starting loyalty as counters — `Move` has no ETB hook for any permanent's starting counters yet                                            | M5-M6 |
+| Every other CR 704.5 state-based action — lethal damage to a planeswalker or a Battle via life/loyalty/defense reduction rather than `Damage` — needs damage dealing, which does not exist yet                | M5-M6 |
+| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet  | M5-M6 |
+| CR 704.5w/704.5x: a Battle's protector assignment — needs combat and a new `PlayerController` decision, neither built                                                                                         | M5-M6 |
 | Damage dealt to a planeswalker or a player removing loyalty counters or life directly — nothing yet deals damage at all, so `Damage.Mark`'s only callers are tests                                            | M5-M6 |
 | The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`  | M5-M6 |
 | The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                | M5-M6 |

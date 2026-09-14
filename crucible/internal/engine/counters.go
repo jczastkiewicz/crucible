@@ -20,6 +20,7 @@ const (
 	P1P1    CounterType = "P1P1"
 	M1M1    CounterType = "M1M1"
 	Loyalty CounterType = "LOYALTY"
+	Defense CounterType = "DEFENSE"
 	Charge  CounterType = "CHARGE"
 	Stun    CounterType = "STUN"
 	Shield  CounterType = "SHIELD"

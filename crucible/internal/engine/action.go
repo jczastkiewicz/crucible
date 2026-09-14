@@ -20,7 +20,7 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // looking for the Java source and finds a different rule at that letter
 // has no way to tell whether the port or the citation is wrong.
 //
-// Nine of Java's checks are here: CR 704.5b (an attempted draw with
+// Ten of Java's checks are here: CR 704.5b (an attempted draw with
 // nothing to draw loses), CR 704.5a (a player at zero or less life loses),
 // CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent
 // carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
@@ -30,32 +30,37 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // or -1/-1 counters all folded in, Card.Toughness's own job -- goes to its
 // owner's graveyard), CR 704.5g and 704.5h together (a creature dealt
 // damage at least equal to its toughness, or dealt any deathtouch damage
-// at all, is destroyed -- destroyDamagedCreatures, below), and three rules
-// Java's own comments do not cleanly single-letter: a partial "cleanup
-// aura" (Java's own comment for it, GameAction.java:1511 -- an Aura not
-// attached to anything on the battlefield goes to its owner's graveyard;
-// an Equipment or Fortification attached to something no longer on the
-// battlefield becomes unattached alongside it, folded into the same nearby
-// but differently-labelled `stateBasedAction704_attach`), a planeswalker
-// at zero loyalty (`handlePlaneswalkerRule`, which Java's own comments do
-// not number at all), and the legend rule (`handleLegendRule`, same --
-// resolveLegendRule, below, is the first state-based action that needs a
-// PlayerController, so CheckStateBasedActions takes one now). Every other
-// rule in Java's loop -- indestructible aside (destroyDamagedCreatures
-// checks it; nothing else here needs to), the rest of 704.5f's own
-// toughness (a "*" with no characteristic-defining effect to replace it, or
-// a Count$ reference -- `internal/expr` has no evaluator yet), the rest of
-// the attachment rules' own legality (an Aura's own "Enchant" restriction
-// being violated by something other than its host leaving, protection,
-// hexproof), and the legend rule's own two corner cases
-// (resolveLegendRule's doc comment) -- needs either the rest of the
+// at all, is destroyed -- destroyDamagedCreatures, below), a partial CR
+// 704.5v (a Battle at zero or less defense goes to its owner's graveyard --
+// destroyZeroDefense, below), and three rules Java's own comments do not
+// cleanly single-letter: a partial "cleanup aura" (Java's own comment for
+// it, GameAction.java:1511 -- an Aura not attached to anything on the
+// battlefield goes to its owner's graveyard; an Equipment or Fortification
+// attached to something no longer on the battlefield becomes unattached
+// alongside it, folded into the same nearby but differently-labelled
+// `stateBasedAction704_attach`), a planeswalker at zero loyalty
+// (`handlePlaneswalkerRule`, which Java's own comments do not number at
+// all), and the legend rule (`handleLegendRule`, same -- resolveLegendRule,
+// below, is the first state-based action that needs a PlayerController, so
+// CheckStateBasedActions takes one now). Every other rule in Java's loop --
+// indestructible aside (destroyDamagedCreatures checks it; nothing else
+// here needs to), the rest of 704.5f's own toughness (a "*" with no
+// characteristic-defining effect to replace it, or a Count$ reference --
+// `internal/expr` has no evaluator yet), the rest of 704.5v's own exception
+// (a Battle whose own trigger is still on the stack -- always false today,
+// destroyZeroDefense's own doc comment) and 704.5w/704.5x's protector
+// assignment (needs combat and a new PlayerController decision, neither
+// built), the rest of the attachment rules' own legality (an Aura's own
+// "Enchant" restriction being violated by something other than its host
+// leaving, protection, hexproof), and the legend rule's own two corner
+// cases (resolveLegendRule's doc comment) -- needs either the rest of the
 // continuous-effect layer system (type, color, ability layers; CR
 // 613.6-613.8's dependency reordering, which nothing here has more than one
-// effect to need yet) or a permanent type (Battle) this port has not built,
-// or a valid-string evaluator to check a restriction this port does not
-// have (game-state.md's "Not ported yet", `internal/valid`'s own doc
-// comment). A rule this port has not implemented simply never fires, the
-// same as it would in a real game with no permanent that rule applies to.
+// effect to need yet), combat, a new decision point, or a valid-string
+// evaluator to check a restriction this port does not have (game-state.md's
+// "Not ported yet", `internal/valid`'s own doc comment). A rule this port
+// has not implemented simply never fires, the same as it would in a real
+// game with no permanent that rule applies to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -69,15 +74,15 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a permanent can, in turn, empty an
-// Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h, the legend
-// rule and the attachment cleanup below have, which is why
-// destroyLethalToughness, destroyDamagedCreatures, destroyZeroLoyalty and
-// resolveLegendRule all run before cleanupDanglingAttachments rather than on
-// a later call). Nothing here cascades a second time: destroying a permanent
-// cannot itself change another one's printed toughness, deal it damage, or
-// give it the same name, and nothing yet grants an effect that could. One
-// pass is complete; the loop returns once a rule that can cascade twice
-// lands.
+// Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h, 704.5v, the
+// legend rule and the attachment cleanup below have, which is why
+// destroyLethalToughness, destroyDamagedCreatures, destroyZeroLoyalty,
+// destroyZeroDefense and resolveLegendRule all run before
+// cleanupDanglingAttachments rather than on a later call). Nothing here
+// cascades a second time: destroying a permanent cannot itself change another
+// one's printed toughness, deal it damage, or give it the same name, and
+// nothing yet grants an effect that could. One pass is complete; the loop
+// returns once a rule that can cascade twice lands.
 //
 // A game that has already ended skips every check below entirely, the same
 // as Java: checkStateEffects returns as soon as checkGameOverCondition finds
@@ -139,6 +144,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	destroyLethalToughness(g)
 	destroyDamagedCreatures(g)
 	destroyZeroLoyalty(g)
+	destroyZeroDefense(g)
 	resolveLegendRule(g, controller)
 	cleanupDanglingAttachments(g)
 	return false
@@ -262,6 +268,47 @@ func destroyZeroLoyalty(g *Game) {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
 			if c.Type().Has(cardtype.Planeswalker) && c.Counters.Count(Loyalty) <= 0 {
+				dead = append(dead, id)
+			}
+		}
+	}
+	for _, id := range dead {
+		g.Move(id, Graveyard, g.Card(id).Owner)
+	}
+}
+
+// destroyZeroDefense is CR 704.5v: a Battle at defense zero or less goes to
+// its owner's graveyard, unless it is the source of a triggered ability
+// that has triggered but not yet left the stack (`hasSourceOnStack` in
+// Java) -- CR 704.5v's own exception exists so a Battle's own "when this
+// reaches 0 defense" trigger still gets to resolve. This port checks the
+// exception exactly, not by skipping it: `g.StackTop`'s kind of lookup
+// would need to inspect every item, not just the top, since anything could
+// be pushed above the Battle's own trigger by the time this runs, and CR
+// 613.6-613.8's ordering makes "is it still there" the only question that
+// matters. Today it is always answered no -- nothing puts a trigger on the
+// stack yet (`## Stack`), so every Battle is checked as if the exception
+// never applies, which is the exception's own correct answer whenever it
+// genuinely does not.
+//
+// Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
+// doc comment): entering the battlefield with printed-defense-many Defense
+// counters is CR 704.5v's own prerequisite, and this port has no ETB hook
+// for that yet either (destroyZeroLoyalty's own doc comment, same gap).
+//
+// Not here: CR 704.5w/704.5x, a Battle's protector assignment. Both need
+// combat (to know whether the Battle is currently being attacked) and,
+// for a Siege, a new PlayerController decision ("choose an opponent to
+// protect this battle") this port has not built. A Battle with no
+// protector assigned is not itself destroyed by that gap -- only
+// zero-or-less Defense destroys a Battle -- so this SBA is correct on its
+// own terms even without the other half existing yet.
+func destroyZeroDefense(g *Game) {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Type().Has(cardtype.Battle) && c.Counters.Count(Defense) <= 0 {
 				dead = append(dead, id)
 			}
 		}

@@ -105,7 +105,13 @@ queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded
 queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's Loaded.CardByFixtureID
 queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
+queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 ```
+
+`queue discard` is needed only when `advance` reaches `Cleanup` with the active player's hand over `MaxHandSize` (7,
+`game-state.md`'s "Turn structure") — a hand already at or under that never asks. There is no `none` shortcut, the same
+reasoning `queue damage` has none: `Game.cleanupStep` only asks when there is a nonzero, known count to discard
+(`hand.Len() - MaxHandSize`), so declining entirely was never a legal answer to make room for.
 
 `queue attacktarget` is needed only when a declared attacker has more than one eligible target -- a planeswalker or
 battle present on the opponent's side, or (multiplayer) more than one living opponent -- one call per such attacker, in
@@ -186,6 +192,11 @@ into `Combat Damage` is what actually kills the lethally-struck blocker before `
 (`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn structure") — skipping that `advance` would
 leave the blocker alive to hit back, a different (wrong) scenario the fixture format makes easy to write by accident if
 the phase walk isn't respected.
+
+**`cleanup-discards-to-hand-size`** is the same discipline applied to CR 514.1 rather than combat: nine real cards
+(Mountain) in hand, twelve `advance`s from `Untap` to land exactly on `Cleanup` (`Untap` is phase 0, `Cleanup` is 12),
+`queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`
+short lands on `End of Turn` instead, where `cleanupStep` never runs at all and the queued discard is simply never read.
 
 ## Deviations from Java
 

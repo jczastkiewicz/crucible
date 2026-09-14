@@ -433,6 +433,98 @@ func TestCleanupClearsDamageForEveryPlayer(t *testing.T) {
 	}
 }
 
+// CR 514.1: an active-player hand over MaxHandSize discards down to it,
+// asking the controller which cards go.
+func TestCleanupDiscardsDownToMaxHandSize(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	var hand []engine.CardID
+	for i := 0; i < engine.MaxHandSize+2; i++ {
+		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+	}
+	discard := hand[:2]
+
+	c := engine.NewScriptedController()
+	c.QueueDiscard(discard)
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(c) // -> Cleanup
+
+	if got := g.Zone(engine.Hand, a).Len(); got != engine.MaxHandSize {
+		t.Errorf("hand size = %d, want %d", got, engine.MaxHandSize)
+	}
+	if got := g.Zone(engine.Graveyard, a).Len(); got != 2 {
+		t.Errorf("graveyard size = %d, want 2", got)
+	}
+	for _, id := range discard {
+		if g.Card(id).Zone != engine.Graveyard {
+			t.Errorf("discarded card %v zone = %v, want Graveyard", id, g.Card(id).Zone)
+		}
+	}
+}
+
+// A hand already at MaxHandSize never asks -- an empty discard queue must
+// not panic.
+func TestCleanupHandAtMaxSizeDoesNotAsk(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	for i := 0; i < engine.MaxHandSize; i++ {
+		g.NewCard(nil, a, engine.Hand)
+	}
+
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(engine.NewScriptedController()) // -> Cleanup, no QueueDiscard
+
+	if got := g.Zone(engine.Hand, a).Len(); got != engine.MaxHandSize {
+		t.Errorf("hand size = %d, want unchanged at %d", got, engine.MaxHandSize)
+	}
+}
+
+// A hand under MaxHandSize never asks either.
+func TestCleanupHandUnderMaxSizeDoesNotAsk(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.NewCard(nil, a, engine.Hand)
+
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(engine.NewScriptedController()) // -> Cleanup, no QueueDiscard
+
+	if got := g.Zone(engine.Hand, a).Len(); got != 1 {
+		t.Errorf("hand size = %d, want unchanged at 1", got)
+	}
+}
+
+// CR 514.1 only concerns the active player -- a non-active player's
+// oversized hand is untouched and never asked about, unlike CR 514.2's
+// damage clear just below, which applies to everyone.
+func TestCleanupDiscardOnlyAppliesToTheActivePlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	for i := 0; i < engine.MaxHandSize+2; i++ {
+		g.NewCard(nil, b, engine.Hand)
+	}
+
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	// No QueueDiscard: if the non-active player's oversized hand were asked
+	// about, this would panic on the empty queue.
+	g.AdvancePhase(engine.NewScriptedController()) // -> Cleanup
+
+	if got := g.Zone(engine.Hand, b).Len(); got != engine.MaxHandSize+2 {
+		t.Errorf("non-active player's hand size = %d, want unchanged at %d", got, engine.MaxHandSize+2)
+	}
+}
+
 func TestCloneCopiesTurnState(t *testing.T) {
 	t.Parallel()
 

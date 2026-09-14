@@ -363,11 +363,22 @@ starting `Tapped`/`SummonSick` is exactly what the fixture says, not a rule this
 ## Turn structure
 
 `turn.go` is `PhaseHandler.java` (1,324 LOC), reduced to what does not need the stack, triggers or `SpellAbility`:
-`Turn`, `ActivePlayer` and `ActivePhase` live on `Game` now (`StartTurn`, `AdvancePhase`, `SetTurnState`), and two steps
-— Untap and Draw — have real bodies. Every other step (`onPhaseBegin`'s Upkeep, Main, five combat steps, End of Turn,
-Cleanup cases) still just changes `ActivePhase` and nothing else, because casting, blocking, discarding to hand size and
-firing a trigger all need machinery this port has not reached. `AdvancePhase` walks through them as bookkeeping only,
-until each one's turn comes.
+`Turn`, `ActivePlayer` and `ActivePhase` live on `Game` now (`StartTurn`, `AdvancePhase`, `SetTurnState`), and three
+steps — Untap, Draw and Cleanup — have real bodies (below). Every other step (`onPhaseBegin`'s Upkeep, Main, five combat
+steps, End of Turn) still just changes `ActivePhase` and nothing else, because casting, blocking and firing a trigger
+all need machinery this port has not reached. `AdvancePhase` walks through them as bookkeeping only, until each one's
+turn comes.
+
+**Cleanup discards to hand size (CR 514.1) before clearing damage (CR 514.2).** `cleanupStep(controller)` gained the
+`controller` parameter and a new `DiscardToHandSize` decision (`PlayerController`, control.go) once the active player's
+own hand could actually need asking about: `Game.Zone(Hand, g.activePlayer).Len() > MaxHandSize` (a new constant, 7 — CR
+103.4's default, used unconditionally since nothing this port can grant a modified or unlimited hand size yet, the same
+continuous-effect gap the rest of the layer system has) is what decides whether to ask at all, the same "nothing
+meaningful to decide" reasoning every other decision point in this port uses for an empty or already-satisfied set.
+Unlike the damage clear right after it, CR 514.1 is scoped to the active player only — Forge's own `CLEANUP` case reads
+`playerTurn`'s hand, not every player's, which is why `cleanupStep` checks just the one zone before its existing
+every-player damage loop runs. The discarded cards go to their owner's graveyard the same way `resolveLegendRule` and
+every "destroy" state-based action already move things — `g.Move(id, Graveyard, g.Card(id).Owner)`, not a new pattern.
 
 Priority (`mainLoopStep`) is not here either, on purpose. With no stack and no `PlayerController` method that can cast
 anything, asking a player "do you have a legal action" always answers no — building that loop today would be a stub
@@ -675,7 +686,7 @@ compared were never going to agree on those by number.
 | Missing                                                                                                                                                                                                          | Lands |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                             | M5    |
-| 101 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                               | M5-M6 |
+| 100 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                               | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                           | M7    |
 | Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet | M5-M6 |
 | CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet     | M5-M6 |
@@ -687,7 +698,8 @@ compared were never going to agree on those by number.
 | Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                         | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                              | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                 | M5-M6 |
-| The rest of CR 514: discarding to the maximum hand size (needs a `PlayerController` decision) and "until end of turn"/"this turn" effects ending (needs duration tracking) — Cleanup only clears damage today    | M5-M6 |
+| The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                              | M5-M6 |
+| A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                             | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond        | M5-M6 |
 | Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                      | never |
 | Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                   | M5    |

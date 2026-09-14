@@ -94,6 +94,7 @@ advance [n]                   Game.AdvancePhase(controller), n times (default 1)
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 declareattackers              Game.DeclareCombatAttackers(controller)
 declareblockers               Game.DeclareCombatBlockers(controller)
+firststrikedamage             Game.DealFirstStrikeDamage(controller)
 combatdamage                  Game.DealCombatDamage(controller)
 queue keephand <bool>         ScriptedController.QueueKeepHand
 queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from Loaded.CardByFixtureID
@@ -105,12 +106,21 @@ queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker p
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 ```
 
+A scenario with a first striker needs both `firststrikedamage` and `combatdamage`, with an `advance` between them: a
+first-strike kill has to actually happen (`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn
+structure") before the regular step asks whether the dead creature still deals or receives anything, and `advance`ing
+from the `FirstStrikeDamage` phase into `CombatDamage` is what runs that check — no separate verb exists just for it. A
+scenario with nothing carrying "First Strike"/"Double Strike" can skip `firststrikedamage` entirely; calling it anyway
+is a safe no-op.
+
 `queue blocks`' pairs are `blocker=attacker`, both `Id:` numbers — `1=2` means the card with `Id:1` blocks the card with
 `Id:2`; `1=3,2=3` is a gang block, two blockers on one attacker. `queue damage`'s pairs are `blocker=amount` and, unlike
 `queue blocks`, keep the order written: that order is the order `AssignCombatDamage` divides a gang-blocked attacker's
-damage in (CR 510.1c), so reordering the pairs would answer a different question. There is no `none` shortcut for
-`queue damage` — `Game.DealCombatDamage` only ever asks when an attacker has more than one blocker, so an empty answer
-is never itself the legal one the way declining to attack or block is.
+damage in (CR 510.1c), so reordering the pairs would answer a different question. Any of an attacker's power left
+unassigned across the pairs tramples over to the defending player if the attacker has trample (CR 702.19c), or is wasted
+if not — both are computed after `queue damage`'s answer is applied, not part of what it names. There is no `none`
+shortcut for `queue damage` — `Game.DealCombatDamage` only ever asks when an attacker has more than one blocker, so an
+empty answer is never itself the legal one the way declining to attack or block is.
 
 `Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs
 one (`game-state.md`'s "The legend rule needed `CheckStateBasedActions` to take a controller"), and every path that

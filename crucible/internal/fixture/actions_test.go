@@ -342,6 +342,21 @@ func TestRunActionsQueueBlocksMissingEqualsErrors(t *testing.T) {
 	}
 }
 
+// firststrikedamage runs with no attackers declared without error --
+// there is nothing to deal, so Game.DealFirstStrikeDamage never touches the
+// controller's queue at all.
+func TestRunActionsFirstStrikeDamageWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\nfirststrikedamage\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+}
+
 // combatdamage runs with no attackers declared without error -- there is
 // nothing to deal, so Game.DealCombatDamage never touches the controller's
 // queue at all.

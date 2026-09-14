@@ -35,6 +35,7 @@ import (
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
 //	declareblockers               Game.DeclareCombatBlockers(controller)
+//	firststrikedamage             Game.DealFirstStrikeDamage(controller)
 //	combatdamage                  Game.DealCombatDamage(controller)
 //	queue keephand <bool>         ScriptedController.QueueKeepHand
 //	queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from CardByFixtureID
@@ -99,6 +100,9 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 
 	case "declareblockers":
 		l.Game.DeclareCombatBlockers(c)
+
+	case "firststrikedamage":
+		l.Game.DealFirstStrikeDamage(c)
 
 	case "combatdamage":
 		l.Game.DealCombatDamage(c)

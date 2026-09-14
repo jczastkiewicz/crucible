@@ -41,8 +41,8 @@
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control"],
     "valid": ["id", "card"],
-    "attack": ["id", "zone", "card", "game", "control"],
-    "block": ["id", "zone", "card", "game", "control", "combat"],
-    "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat"]
+    "attack": ["id", "zone", "card", "player", "game", "control"],
+    "block": ["id", "zone", "card", "game", "control", "combat", "attack"],
+    "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"]
   }
 }

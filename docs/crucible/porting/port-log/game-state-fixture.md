@@ -102,9 +102,17 @@ queue startingplayer <p>      ScriptedController.QueueStartingPlayer
 queue startinghand <n>        ScriptedController.QueueStartingHand
 queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
 queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
+queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's Loaded.CardByFixtureID
 queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 ```
+
+`queue attacktarget` is needed only when a declared attacker has more than one eligible target -- a planeswalker or
+battle present on the opponent's side, or (multiplayer) more than one living opponent -- one call per such attacker, in
+the order `declareattackers` declared them. A lone eligible target (any two-player game with nothing else to attack, the
+ordinary case) is assigned automatically without consuming a queue entry; an entry queued for a question that was never
+asked is simply left unread, the same as any other over-queued answer (`ScriptedController` has no "everything was
+consumed" check of its own).
 
 A scenario with a first striker needs both `firststrikedamage` and `combatdamage`, with an `advance` between them: a
 first-strike kill has to actually happen (`CheckStateBasedActions` runs on every phase entry, `game-state.md`'s "Turn

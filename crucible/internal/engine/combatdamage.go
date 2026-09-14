@@ -3,6 +3,8 @@
 
 package engine
 
+import "github.com/jczastkiewicz/crucible/internal/cardtype"
+
 // DealFirstStrikeDamage is CR 510.4's first sub-step: only creatures with
 // first strike or double strike deal damage. A safe no-op when nothing in
 // combat has either keyword -- a fixture need not check first before
@@ -37,10 +39,9 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // applying one attacker's exchange at a time produces the same result as
 // computing every amount first and applying them together.
 //
-// An unblocked attacker deals its power to the player it's attacking --
-// nextPlayerAfter's own single-defender assumption, the same gap
-// DeclareCombatBlockers already carries (game-state.md). A blocked attacker
-// with exactly one live blocker and no trample exchanges full power for
+// An unblocked attacker deals its power to whatever it's attacking (CR
+// 508.1d) -- a player, planeswalker or battle, via dealAttackTargetDamage.
+// A blocked attacker with exactly one live blocker and no trample exchanges full power for
 // full power automatically, no decision needed, the same "nothing
 // meaningful to decide" reasoning DeclareCombatAttackers/Blockers use for
 // an empty eligible list. A gang-blocked attacker (more than one live
@@ -50,15 +51,15 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // on" ordering constraint CR 510.1c itself imposes.
 //
 // Trample (CR 702.19) changes only how much of a blocked attacker's power
-// reaches its blocker(s) versus the defending player, not who decides:
+// reaches its blocker(s) versus what it's attacking, not who decides:
 // against a single live blocker, `lethalDamage` computes the minimum this
 // port can assign it (the game deciding, since no decision was being asked
-// in that case anyway) and the rest goes to the player, unless lethal can't
-// be computed at all (`lethalDamage`'s own doc comment) -- against a
+// in that case anyway) and the rest tramples over, unless lethal can't be
+// computed at all (`lethalDamage`'s own doc comment) -- against a
 // gang-blocked attacker, whatever the controller's AssignCombatDamage
-// answer leaves unassigned across all named blockers goes to the player
-// instead of being wasted. A non-trampler's unassigned remainder is wasted
-// exactly as before this method existed.
+// answer leaves unassigned across all named blockers tramples over instead
+// of being wasted. A non-trampler's unassigned remainder is wasted exactly
+// as before this method existed.
 //
 // A creature that has left the battlefield since DeclareCombatBlockers --
 // reachable now that first strike damage can kill a creature before the
@@ -95,7 +96,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			blk := g.Card(blkID)
 			if dealsInStep(blk, firstStrike) {
 				if bp, ok := blk.Power(); ok && bp > 0 {
-					g.dealCreatureDamage(blkID, atkID, bp, blk.HasKeyword("Deathtouch"))
+					g.dealPermanentDamage(blkID, atkID, bp, blk.HasKeyword("Deathtouch"))
 				}
 			}
 		}
@@ -125,7 +126,10 @@ func (g *Game) alive(id CardID) bool {
 // where its power goes, given liveBlockers (already filtered to what's
 // still on the battlefield) and wasUnblocked (true only when the attacker
 // was never blocked at all, as opposed to blocked by creatures that have
-// since died -- CR 510.1c treats the two differently).
+// since died -- CR 510.1c treats the two differently). Damage that reaches
+// past every blocker goes to whatever attacker is attacking (CR 508.1d) --
+// a player, a planeswalker, or a battle -- not always the defending player,
+// via dealAttackTargetDamage.
 func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, power int, liveBlockers []CardID, wasUnblocked bool) {
 	atk := g.Card(attacker)
 	deathtouch := atk.HasKeyword("Deathtouch")
@@ -133,13 +137,12 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 
 	switch len(liveBlockers) {
 	case 0:
-		// Unblocked always hits the player (CR 510.1a). Blocked with every
-		// blocker since dead hits the player too, but only with trample (CR
+		// Unblocked always hits its target (CR 510.1a). Blocked with every
+		// blocker since dead hits it too, but only with trample (CR
 		// 702.19e) -- without it, CR 510.1c leaves the attacker dealing
-		// nothing at all, not even to the player it's attacking.
+		// nothing at all, not even to what it's attacking.
 		if wasUnblocked || trample {
-			defender := g.nextPlayerAfter(g.activePlayer)
-			g.dealPlayerDamage(attacker, defender, power)
+			g.dealAttackTargetDamage(attacker, power, deathtouch)
 		}
 
 	case 1:
@@ -150,23 +153,36 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 				toBlocker = lethal
 			}
 		}
-		g.dealCreatureDamage(attacker, blocker, toBlocker, deathtouch)
+		g.dealPermanentDamage(attacker, blocker, toBlocker, deathtouch)
 		if trample && power > toBlocker {
-			defender := g.nextPlayerAfter(g.activePlayer)
-			g.dealPlayerDamage(attacker, defender, power-toBlocker)
+			g.dealAttackTargetDamage(attacker, power-toBlocker, deathtouch)
 		}
 
 	default:
 		assigned := 0
 		for _, a := range controller.AssignCombatDamage(g, atk.Controller, attacker, liveBlockers) {
-			g.dealCreatureDamage(attacker, a.Blocker, a.Amount, deathtouch)
+			g.dealPermanentDamage(attacker, a.Blocker, a.Amount, deathtouch)
 			assigned += a.Amount
 		}
 		if trample && power > assigned {
-			defender := g.nextPlayerAfter(g.activePlayer)
-			g.dealPlayerDamage(attacker, defender, power-assigned)
+			g.dealAttackTargetDamage(attacker, power-assigned, deathtouch)
 		}
 	}
+}
+
+// dealAttackTargetDamage sends amount to whatever attacker is attacking (CR
+// 508.1d, attack.go) -- a player (dealPlayerDamage) or a planeswalker/battle
+// (dealPermanentDamage) -- rather than assuming it's always the defending
+// player directly, the way this port's combat did before a target could be
+// anything else.
+func (g *Game) dealAttackTargetDamage(attacker CardID, amount int, deathtouch bool) {
+	target := g.combat.AttackTargets[attacker]
+	if pid, ok := target.AsPlayer(); ok {
+		g.dealPlayerDamage(attacker, pid, amount)
+		return
+	}
+	cid, _ := target.AsCard()
+	g.dealPermanentDamage(attacker, cid, amount, deathtouch)
 }
 
 // lethalDamage is CR 510.1c/702.19c's "lethal damage": 1 from a deathtouch
@@ -191,13 +207,27 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 	return remaining, true
 }
 
-// dealCreatureDamage marks amount on target, sourced from source, and emits
-// the DamageDealt event.
-func (g *Game) dealCreatureDamage(source, target CardID, amount int, deathtouch bool) {
+// dealPermanentDamage marks amount on target -- Damage if it's a creature,
+// loyalty or defense counters removed if it's a planeswalker or battle (CR
+// 120.3c, 121.5) -- sourced from source, and emits the DamageDealt event. A
+// permanent can be more than one of these (a creature planeswalker); each
+// check runs independently rather than picking one, the same as Forge's own
+// Card.addDamageAfterPrevention does.
+func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch bool) {
 	if amount <= 0 {
 		return
 	}
-	g.Card(target).Damage.Mark(amount, deathtouch)
+	c := g.Card(target)
+	t := c.Type()
+	if t.Has(cardtype.Planeswalker) {
+		c.Counters.Add(Loyalty, -amount)
+	}
+	if t.Has(cardtype.Battle) {
+		c.Counters.Add(Defense, -amount)
+	}
+	if t.Has(cardtype.Creature) {
+		c.Damage.Mark(amount, deathtouch)
+	}
 	flags := FlagCombat
 	if deathtouch {
 		flags |= FlagDeathtouch

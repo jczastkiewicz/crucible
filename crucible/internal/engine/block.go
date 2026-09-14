@@ -25,9 +25,12 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // "wait for the static-ability engine" (M5/M6), documented in
 // game-state.md.
 //
-// Multiplayer's "who is defending" mirrors DeclareCombatAttackers' own
-// gap: this port has no per-attacker defender assignment yet, so every
-// attacker is assumed to share the one opponent nextPlayerAfter finds.
+// "Who is defending" is attackers[0]'s own defender (defenderOf, attack.go)
+// -- the controller of whatever it's attacking, a player, planeswalker or
+// battle. Every attacker in this combat is assumed to share that one
+// defender, so only the first is asked; a combat where the active player
+// split attackers across several different defending players at once isn't
+// handled -- defenderOf's own doc comment has the reason why.
 //
 // If no creature is eligible, the controller is not asked at all, the same
 // reasoning DeclareCombatAttackers uses for an active player with nothing
@@ -37,7 +40,7 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 	if len(attackers) == 0 {
 		return nil
 	}
-	defender := g.nextPlayerAfter(g.activePlayer)
+	defender := g.defenderOf(attackers[0])
 
 	var eligible []CardID
 	for _, id := range g.Zone(Battlefield, defender).Cards() {

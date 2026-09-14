@@ -54,5 +54,72 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 		}
 	}
 	g.combat.Attackers = attackers
+	g.assignAttackTargets(controller, attackers)
 	return attackers
+}
+
+// AttackTarget returns what attacker is attacking -- a player, or a
+// planeswalker/battle that player controls.
+func (g *Game) AttackTarget(attacker CardID) EntityID { return g.combat.AttackTargets[attacker] }
+
+// assignAttackTargets is CR 508.1d: for each declared attacker, what it's
+// attacking. Every attacker shares the same eligible set (nothing this port
+// models restricts one creature's targets differently from another's), so
+// it's computed once and reused. A lone eligible target -- the ordinary
+// two-player game with no planeswalker or battle on the other side -- is
+// assigned automatically, the same "nothing meaningful to decide" reasoning
+// DeclareCombatAttackers/Blockers use for an empty eligible list; more than
+// one asks the controller per attacker (ChooseAttackTarget).
+func (g *Game) assignAttackTargets(controller PlayerController, attackers []CardID) {
+	eligible := g.eligibleAttackTargets()
+	targets := make(map[CardID]EntityID, len(attackers))
+	for _, id := range attackers {
+		if len(eligible) == 1 {
+			targets[id] = eligible[0]
+			continue
+		}
+		targets[id] = controller.ChooseAttackTarget(g, g.activePlayer, id, eligible)
+	}
+	g.combat.AttackTargets = targets
+}
+
+// eligibleAttackTargets is every opponent still in the game, plus every
+// planeswalker or battle any of them controls (CR 506.4c).
+func (g *Game) eligibleAttackTargets() []EntityID {
+	var eligible []EntityID
+	for _, pid := range g.Players() {
+		if pid == g.activePlayer || g.Player(pid).Lost {
+			continue
+		}
+		eligible = append(eligible, PlayerEntity(pid))
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			t := g.Card(id).Type()
+			if t.Has(cardtype.Planeswalker) || t.Has(cardtype.Battle) {
+				eligible = append(eligible, CardEntity(id))
+			}
+		}
+	}
+	return eligible
+}
+
+// defenderOf is the player defending against attacker: the player it's
+// attacking directly, or the controller of the planeswalker/battle it's
+// attacking (CR 802.4a's "attacking him/her or a planeswalker/battle he/she
+// controls" is what makes that player the one who can block it).
+//
+// This assumes every attacker in the current combat shares one defender --
+// true of any two-player game, and of a multiplayer game where the active
+// player sends every attacker at a single opponent, but not of one combat
+// split across multiple defending players at once. DeclareCombatBlockers and
+// DealCombatDamage both call this only once, for the whole combat, rather
+// than per attacker -- splitting a single combat's blocks across several
+// defending players needs per-defender block declaration passes, a bigger
+// redesign than assigning targets is (game-state.md).
+func (g *Game) defenderOf(attacker CardID) PlayerID {
+	target := g.combat.AttackTargets[attacker]
+	if pid, ok := target.AsPlayer(); ok {
+		return pid
+	}
+	cid, _ := target.AsCard()
+	return g.Card(cid).Controller
 }

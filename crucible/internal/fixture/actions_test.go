@@ -432,6 +432,72 @@ func TestRunActionsQueueDamageMissingEqualsErrors(t *testing.T) {
 	}
 }
 
+// queue attacktarget accepts a seated player's name.
+func TestRunActionsQueueAttackTargetResolvesAPlayerName(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget ai\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseAttackTarget(l.Game, l.Game.Players()[0], 0, nil)
+	want := engine.PlayerEntity(l.Game.Players()[1])
+	if got != want {
+		t.Errorf("attack target = %v, want %v", got, want)
+	}
+}
+
+// queue attacktarget accepts a setup.state Id: number, resolving to the
+// CardID Load assigned it, for a planeswalker or battle target.
+func TestRunActionsQueueAttackTargetResolvesFixtureID(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:7\n")
+	want, ok := l.CardByFixtureID[7]
+	if !ok {
+		t.Fatal("setup: Id:7 did not resolve to a CardID")
+	}
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget 7\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseAttackTarget(l.Game, l.Game.Players()[0], 0, nil)
+	if got != engine.CardEntity(want) {
+		t.Errorf("attack target = %v, want CardEntity(%v)", got, want)
+	}
+}
+
+func TestRunActionsQueueAttackTargetBadPlayerNameErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget nobody\n"); err == nil {
+		t.Error("an unseated player name did not error")
+	}
+}
+
+func TestRunActionsQueueAttackTargetUnknownFixtureIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue attacktarget 99\n"); err == nil {
+		t.Error("an Id: with no matching card did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

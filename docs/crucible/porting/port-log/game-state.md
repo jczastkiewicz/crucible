@@ -94,14 +94,14 @@ remapped: there is no equivalent of Java's `CopiedGameObjectMap`, which is the p
 lists, attachments — and copying the slice alone would leave clone and original writing to the same ones. Each is copied
 when it exists and left nil when it does not, which is most cards most of the time.
 
-| Part                                 | Clone treatment | Reason                                                                                                         |
-| ------------------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                            |
-| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls      |
-| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                  |
-| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other      |
-| `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array |
-| `Combat`                             | deep            | Same reasoning again: `Attackers []CardID` and `Blocks []Block` each need their own backing array              |
+| Part                                 | Clone treatment | Reason                                                                                                                                   |
+| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `compile.DB`                         | shared          | Immutable, one per process; copying it would be the costliest thing                                                                      |
+| `javarand.Rand`                      | copied by value | The clone continues the stream; sharing it would let the AI's exploration change what the real game rolls                                |
+| Zones, counters, memory, attachments | deep            | Otherwise the lookahead mutates the real game                                                                                            |
+| Stack (`[]Ability`)                  | deep            | `Ability` has no pointer fields, but a shared backing array would still let a push on one alias the other                                |
+| `Card.PT`                            | deep            | Same reasoning as the stack: `PTEffect` has no pointer fields, but the slice still needs its own backing array                           |
+| `Combat`                             | deep            | Same reasoning again: `Attackers []CardID`, `AttackTargets map[CardID]EntityID` and `Blocks []Block` each need their own backing storage |
 
 Measured on a mid-game board — 118 cards, two players, counters on twelve permanents:
 
@@ -186,11 +186,13 @@ by something other than its host leaving, protection, hexproof), and the legend 
 continuous-effect layer system computes, needs combat or a new decision point, or needs a restriction a `valid`-string
 evaluator would check (`internal/valid`'s own doc comment), and none of that is M5 work this has fully reached yet.
 Damage dealt to a planeswalker or a Battle, which CR 120.3c/121.5 removes as loyalty/defense counters rather than
-marking `Damage`, is still not wired: `DealCombatDamage` (`## Combat`, below) only exists once combat's own targets do,
-and this port's combat has no planeswalker- or battle-attacking yet, so `destroyZeroLoyalty`/`destroyZeroDefense` stay
-exercised only by tests that remove counters directly. Combat damage to a creature or a player is wired now — the
-paragraph above no longer describes either of those. A rule this port has not implemented simply never fires, the same
-as a real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+marking `Damage`, is wired now too (`dealPermanentDamage`, `## Combat`, below) — combat can attack one directly, so
+`destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real play as well as by tests that remove counters directly.
+Only _non-combat_ damage to a planeswalker or Battle is still a gap: nothing that deals damage outside combat exists yet
+(no `SpellAbility`, no activated ability), so a burn spell or an ability aimed at a planeswalker's loyalty has nowhere
+to come from regardless of whether the target-side plumbing is ready. A rule this port has not implemented simply never
+fires, the same as a real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a
+wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
@@ -471,18 +473,19 @@ hand (a fixture, today; a real game-start procedure, eventually) before calling 
 
 ## Combat: declaring attackers, declaring blockers, and dealing damage
 
-`combat.go`/`attack.go`/`block.go`/`combatdamage.go` are CR 506-510, cut down to CR 508.1's declare-attackers step, CR
-509.1's declare-blockers step, and CR 510.1-510.4's combat damage — both the first-strike sub-step and the regular one —
-plus CR 702.19's trample. This is the whole of Combat this port has reached; not every keyword or target is (below).
-`Combat` (combat.go) is the game's own combat state, currently `Attackers []CardID` and `Blocks []Block`; it is a new
-`Game` field (`combat Combat`), cloned and cleared the same way `Card.PT`/the stack already are, and split into its own
-file for the same reason `ability.go`/`layer.go`/`pt.go` are: `Game` needs the `Combat` type for its own field, and
+`combat.go`/`attack.go`/`block.go`/`combatdamage.go` are CR 506-510, cut down to CR 508.1's declare-attackers step (now
+including 508.1d's attack-target choice), CR 509.1's declare-blockers step, and CR 510.1-510.4's combat damage — both
+the first-strike sub-step and the regular one — plus CR 702.19's trample. This is the whole of Combat this port has
+reached; not every keyword or restriction is (below). `Combat` (combat.go) is the game's own combat state, currently
+`Attackers []CardID`, `AttackTargets map[CardID]EntityID` and `Blocks []Block`; it is a new `Game` field
+(`combat Combat`), cloned and cleared the same way `Card.PT`/the stack already are, and split into its own file for the
+same reason `ability.go`/`layer.go`/`pt.go` are: `Game` needs the `Combat` type for its own field, and
 `Game.DeclareCombatAttackers` (attack.go)/`Game.DeclareCombatBlockers` (block.go)/`Game.DealCombatDamage`/
 `Game.DealFirstStrikeDamage` (combatdamage.go) need `*Game` — one of them has to sit below the other in the dependency
 graph, or `enginelint` catches the cycle the same way it already has three times this milestone. `control.go` needed to
 move into the `combat` group's own allow-list too, once `PlayerController.DeclareCombatBlockers` had to name `Block` in
 its signature; `combatdamage`'s own group needed `parts` added to its allow-list, the first combat file to touch
-`Card.Damage`.
+`Card.Damage`; `block`/`combatdamage` both needed `attack` added once they started calling `defenderOf` (below).
 
 `Game.DeclareCombatAttackers` computes eligibility itself — untapped, and either no summoning sickness or haste (CR
 302.6) — rather than trusting the caller, the same "the game decides what is legal, the controller only decides among
@@ -530,11 +533,43 @@ untapped to block with — there is nothing meaningful to decide, so nothing is 
 every existing scenario and test that walks through combat without ever creating a creature keep working without queuing
 an attackers or blocks answer it was never going to need.
 
-**Multiplayer's "who is defending" is the same gap `DeclareCombatAttackers` already carries.** This port has no
-per-attacker defender assignment (no planeswalker- or battle-attacking, no multiplayer "attacks which opponent" choice),
-so `Game.DeclareCombatBlockers` reuses `nextPlayerAfter` — turn order's own "who's next" — to find the one opponent
-every attacker is assumed to share. Two-player games, the only kind this port's own scenarios build, get the right
-answer from that for free; multiplayer needs the real per-attacker defender before this reuse is correct.
+**Attack targets: CR 508.1d generalized "who's defending" into "what's being attacked."** `assignAttackTargets`
+(attack.go), called from inside `DeclareCombatAttackers` right after attackers are chosen and tapped, gives every
+declared attacker an `EntityID` target — a player, or a planeswalker/battle that player controls
+(`eligibleAttackTargets`). CR 508.1d makes "which creatures attack" and "what each attacks" one combined announcement,
+not two sequential decisions, which is why this lives inside `DeclareCombatAttackers` rather than as its own
+`actions.log` verb: `Game.DeclareCombatAttackers`'s own public signature and return value (`[]CardID`, which creatures
+attacked) don't change at all, only a new side effect and, sometimes, a new controller call get added.
+
+A lone eligible target — any two-player game with no planeswalker or battle on the other side, the case every existing
+scenario before this one was — is assigned automatically, without ever calling `ChooseAttackTarget`. This is the load-
+bearing backward-compatibility property: every fixture and test written before attack targets existed keeps passing
+unmodified, because none of them gives an opponent a second thing to be attacked, so the ask branch never fires and
+`ScriptedController.attackTargets` never has to hold anything. More than one eligible target — a planeswalker/battle
+present, or (multiplayer) more than one living opponent — asks `ChooseAttackTarget` once per attacker, trusted the same
+way `ChooseLegendaryToKeep`'s answer is.
+
+**`defenderOf` (attack.go) is what `DeclareCombatBlockers` and `DealCombatDamage` now ask instead of
+`nextPlayerAfter`.** It resolves an attacker's own `AttackTarget` to the player who can legally block it (CR 802.4a):
+itself, if the target is a player; the target's controller, if it's a planeswalker or battle. Both callers ask it only
+once, for `g.combat.Attackers[0]`, and assume every attacker in the current combat shares that one defender — true of
+any two-player game (with or without a planeswalker/battle target) and of a multiplayer game where the active player
+sends every attacker at one opponent, but not of a single combat split across several different defending players at
+once. That narrower case — several defending players each declaring their own blocks against their own share of the
+attackers, in some order — needs per-defender block declaration passes, a bigger redesign than assigning targets is;
+this slice closes "which opponent" and "attack a planeswalker/battle" without needing that redesign, because both stay
+within the one-shared-defender assumption.
+
+**Attacking a planeswalker or battle changes how combat damage lands, not who deals it.** `dealAttackTargetDamage`
+(combatdamage.go) is the dispatcher every "damage past the last blocker" call site (unblocked, trample overflow) now
+goes through, in place of always calling `dealPlayerDamage`: a player target still reduces `Life`, but a
+planeswalker/battle target goes to `dealPermanentDamage` instead. `dealPermanentDamage` (renamed from
+`dealCreatureDamage`, which it still does everything of) removes loyalty or defense counters for a planeswalker or
+battle target (CR 120.3c, 121.5) in addition to — not instead of — marking `Card.Damage` if the target is also a
+creature, the same independent-checks shape Forge's own `Card.addDamageAfterPrevention` uses for a card that's more than
+one type at once. No new state-based-action work was needed: `destroyZeroLoyalty`/`destroyZeroDefense`
+(`## State-based actions`) already existed and already read `Counters.Count(Loyalty/Defense)`, so removing counters via
+combat damage is all it took to make them fire for real instead of only in tests that added counters by hand.
 
 **Combat damage is the first thing that actually deals damage.** Every earlier state-based action reading
 `Card.Damage.Marked`/`Deathtouch` (`destroyDamagedCreatures`) only ever saw what a test had marked directly —
@@ -543,12 +578,12 @@ answer from that for free; multiplayer needs the real per-attacker defender befo
 exchange one at a time rather than computing all amounts first and applying them together: CR 510.2 makes a single
 step's damage simultaneous, but nothing this port has built triggers off damage being dealt or reads a life total
 mid-step, so the two orders are indistinguishable to anything that can currently observe them. An unblocked attacker
-deals its power to `nextPlayerAfter`'s defender — the same single-opponent assumption `DeclareCombatBlockers` already
-carries. A single blocker exchanges full power for full power automatically; a gang-blocked attacker (more than one live
-`Block` naming it) asks its controller to divide its power via `AssignCombatDamage` (CR 510.1c) — trusted the same way
-`ChooseLegendaryToKeep`'s answer is, including the "lethal before moving on" ordering constraint CR 510.1c itself
-imposes. `DamageDealt` and `LifeChanged` both wire here for the first time (below, "Events, wired"), each attributed to
-`Source` (the dealing card) and flagged `FlagCombat`, plus `FlagDeathtouch` when the source has that keyword.
+deals its power to whatever it's attacking (`dealAttackTargetDamage`, below). A single blocker exchanges full power for
+full power automatically; a gang-blocked attacker (more than one live `Block` naming it) asks its controller to divide
+its power via `AssignCombatDamage` (CR 510.1c) — trusted the same way `ChooseLegendaryToKeep`'s answer is, including the
+"lethal before moving on" ordering constraint CR 510.1c itself imposes. `DamageDealt` and `LifeChanged` both wire here
+for the first time (below, "Events, wired"), each attributed to `Source` (the dealing card) and flagged `FlagCombat`,
+plus `FlagDeathtouch` when the source has that keyword.
 
 **First strike (CR 510.4) is one function asked twice, not two functions.** `dealsInStep(c, firstStrike)` is the whole
 of it: a creature with "First Strike" acts only when `firstStrike` is true, "Double Strike" acts either way, everything
@@ -584,10 +619,10 @@ that as "not trampling this blocker" — full power assigned to it, nothing gues
 "every blocker gone by the time damage is assigned" case — reachable the same way the paragraph above is, a trampler's
 blocker dying to first strike — sends the attacker's full power to the player.
 
-Not here yet: anything past a creature attacking the opponent directly — no planeswalker- or battle-attacking, no
-multiplayer "attacks which opponent" choice, since this port's own combat has exactly one thing to attack until either
-exists as a target. Block legality beyond "untapped creature the defending player controls" — Flying/reach, menace,
-protection, "must be blocked by" — waits on the general static-ability engine, above.
+Not here yet: a single combat split across more than one defending player at once (`defenderOf`'s own doc comment has
+the reason) and CR 704.5w/704.5x's Battle protector assignment (needs a new `PlayerController` decision, not built).
+Block legality beyond "untapped creature the defending player controls" — Flying/reach, menace, protection, "must be
+blocked by" — waits on the general static-ability engine, above.
 
 ## Events, wired
 
@@ -640,12 +675,11 @@ compared were never going to agree on those by number.
 | Missing                                                                                                                                                                                                          | Lands |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                             | M5    |
-| 102 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                               | M5-M6 |
+| 101 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                               | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                           | M7    |
-| Every other CR 704.5 state-based action — lethal damage to a planeswalker or a Battle via loyalty/defense reduction rather than `Damage` — needs planeswalker-/battle-attacking, which combat does not reach yet | M5-M6 |
+| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet | M5-M6 |
 | CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet     | M5-M6 |
 | CR 704.5w/704.5x: a Battle's protector assignment — needs a new `PlayerController` decision, not built                                                                                                           | M5-M6 |
-| Damage dealt to a planeswalker or a Battle, removing loyalty/defense counters directly instead of marking `Damage` — needs planeswalker-/battle-attacking                                                        | M5-M6 |
 | The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
 | The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
 | The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                            | M5-M6 |
@@ -661,5 +695,5 @@ compared were never going to agree on those by number.
 | `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                              | M5-M6 |
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                        | M5-M6 |
 | Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                  | M5-M6 |
-| Combat past dealing damage — attacking a planeswalker/battle, or (in multiplayer) choosing which opponent to attack/block                                                                                        | M5    |
+| A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes | M5-M6 |
 | Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                         | M5-M6 |

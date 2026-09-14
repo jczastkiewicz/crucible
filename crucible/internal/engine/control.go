@@ -8,17 +8,18 @@ import "fmt"
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the eight answerable with today's
+// which has 110 abstract methods; only the nine answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and cost
 // payment -- types that do not exist until the stack and layer system fully
-// land in M5. Each is added when its own caller is, the same as these eight:
+// land in M5. Each is added when its own caller is, the same as these nine:
 // mulligans and the starting-player choice have callers in GameAction and
 // mulligan/, even though neither is ported yet, and ChooseLegendaryToKeep's,
-// DeclareCombatAttackers's, DeclareCombatBlockers's and AssignCombatDamage's
-// own callers (resolveLegendRule, action.go; Game.DeclareCombatAttackers,
-// attack.go; Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
+// DeclareCombatAttackers's, ChooseAttackTarget's, DeclareCombatBlockers's and
+// AssignCombatDamage's own callers (resolveLegendRule, action.go;
+// Game.DeclareCombatAttackers and Game.assignAttackTargets, attack.go;
+// Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
 // combatdamage.go) are fully built, so the decision point can be built ahead
 // of them (Plan Section 1.3).
 //
@@ -69,6 +70,15 @@ type PlayerController interface {
 	// active player declining to attack with anything.
 	DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
+	// ChooseAttackTarget decides what a single declared attacker is
+	// attacking -- the defending player, or one of the planeswalkers/battles
+	// they control (CR 508.1d, Game.assignAttackTargets, attack.go). eligible
+	// always has at least two elements: Game.assignAttackTargets assigns a
+	// lone eligible target automatically without asking. The return value
+	// should be one of eligible's elements, and is not re-checked -- trust
+	// the controller's answer, the same as ChooseLegendaryToKeep.
+	ChooseAttackTarget(g *Game, decider PlayerID, attacker CardID, eligible []EntityID) EntityID
+
 	// DeclareCombatBlockers decides which of decider's eligible creatures block
 	// which attacker (CR 509.1, Game.DeclareCombatBlockers, block.go). eligible is
 	// never empty. The return value need not use every element of eligible
@@ -105,6 +115,7 @@ type ScriptedController struct {
 	tucked          [][]CardID
 	legendaryKeep   []CardID
 	attackers       [][]CardID
+	attackTargets   []EntityID
 	blocks          [][]Block
 	damage          [][]DamageAssignment
 }
@@ -145,6 +156,11 @@ func (c *ScriptedController) QueueLegendaryToKeep(id CardID) {
 // still consumes the queue slot.
 func (c *ScriptedController) QueueAttackers(cards []CardID) {
 	c.attackers = append(c.attackers, cards)
+}
+
+// QueueAttackTarget appends the answer to the next ChooseAttackTarget call.
+func (c *ScriptedController) QueueAttackTarget(target EntityID) {
+	c.attackTargets = append(c.attackTargets, target)
 }
 
 // QueueBlocks appends the answer to the next DeclareCombatBlockers call. Nil
@@ -211,6 +227,15 @@ func (c *ScriptedController) DeclareCombatAttackers(g *Game, decider PlayerID, e
 	}
 	v := c.attackers[0]
 	c.attackers = c.attackers[1:]
+	return v
+}
+
+func (c *ScriptedController) ChooseAttackTarget(g *Game, decider PlayerID, attacker CardID, eligible []EntityID) EntityID {
+	if len(c.attackTargets) == 0 {
+		panic(scriptExhausted("attack target"))
+	}
+	v := c.attackTargets[0]
+	c.attackTargets = c.attackTargets[1:]
 	return v
 }
 

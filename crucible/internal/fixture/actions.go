@@ -43,6 +43,7 @@ import (
 //	queue startinghand <n>        ScriptedController.QueueStartingHand
 //	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
 //	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
+//	queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's CardByFixtureID
 //	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //
@@ -176,6 +177,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueAttackers(ids)
 
+	case "attacktarget":
+		target, err := resolveAttackTarget(l, value)
+		if err != nil {
+			return fmt.Errorf("queue attacktarget: %w", err)
+		}
+		c.QueueAttackTarget(target)
+
 	case "blocks":
 		// "none" mirrors "attackers none" above: declining to block is a
 		// queued answer too, not an absent one.
@@ -234,6 +242,25 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		ids[i] = id
 	}
 	return ids, nil
+}
+
+// resolveAttackTarget turns a queue attacktarget value into the EntityID
+// ChooseAttackTarget expects: a numeric value is a setup.state Id: naming a
+// planeswalker or battle, anything else is a seated player's name (the same
+// vocabulary resolveActionPlayer uses).
+func resolveAttackTarget(l *Loaded, value string) (engine.EntityID, error) {
+	if n, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
+		id, ok := l.CardByFixtureID[n]
+		if !ok {
+			return engine.EntityID(0), fmt.Errorf("id %d: no card in setup.state has that Id:", n)
+		}
+		return engine.CardEntity(id), nil
+	}
+	pid, err := resolveActionPlayer(l, []string{value}, 1)
+	if err != nil {
+		return engine.EntityID(0), err
+	}
+	return engine.PlayerEntity(pid), nil
 }
 
 // resolveBlocks turns a comma-separated list of blocker=attacker fixture-ID

@@ -54,6 +54,13 @@ func creatureDefPT(t *testing.T, power, toughness string) *compile.Card {
 	return def
 }
 
+func indestructibleCreatureDefPT(t *testing.T, power, toughness string) *compile.Card {
+	t.Helper()
+	def := creatureDefPT(t, power, toughness)
+	def.Faces[0].Keywords = []string{"Indestructible"}
+	return def
+}
+
 func planeswalkerDefLoyalty(t *testing.T, loyalty string) *compile.Card {
 	t.Helper()
 	def := &compile.Card{Name: "Test Planeswalker"}
@@ -703,5 +710,145 @@ func TestCheckStateBasedActionsZeroLoyaltyOnlyAppliesToPlaneswalkers(t *testing.
 
 	if z := g.Card(creature).Zone; z != engine.Battlefield {
 		t.Errorf("a creature (no loyalty counter at all) zone = %v, want Battlefield", z)
+	}
+}
+
+// HasKeyword matches the head as written, args or no args, and reports
+// false for a keyword the card does not carry and for a nil Def.
+func TestHasKeyword(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	def := creatureDefPT(t, "2", "2")
+	def.Faces[0].Keywords = []string{"Flying", "Ward:2"}
+	id := g.NewCard(def, p, engine.Battlefield)
+
+	if !g.Card(id).HasKeyword("Flying") {
+		t.Error("HasKeyword(\"Flying\") = false, want true")
+	}
+	if !g.Card(id).HasKeyword("Ward") {
+		t.Error("HasKeyword(\"Ward\") = false for \"Ward:2\", want true -- the head, not the whole line")
+	}
+	if g.Card(id).HasKeyword("Trample") {
+		t.Error("HasKeyword(\"Trample\") = true for a card that does not have it")
+	}
+
+	noDef := g.NewCard(nil, p, engine.Battlefield)
+	if g.Card(noDef).HasKeyword("Flying") {
+		t.Error("HasKeyword resolved a card with no Def")
+	}
+}
+
+// CR 704.5g: a creature dealt damage at least equal to its toughness dies.
+func TestCheckStateBasedActionsLethalDamageDies(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	exact := g.NewCard(creatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	excess := g.NewCard(creatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	survives := g.NewCard(creatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	g.Card(exact).Damage.Mark(3, false)
+	g.Card(excess).Damage.Mark(10, false)
+	g.Card(survives).Damage.Mark(2, false)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(exact).Zone; z != engine.Graveyard {
+		t.Errorf("creature dealt exactly lethal damage, zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(excess).Zone; z != engine.Graveyard {
+		t.Errorf("creature dealt excess damage, zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(survives).Zone; z != engine.Battlefield {
+		t.Errorf("creature dealt sub-lethal damage, zone = %v, want Battlefield", z)
+	}
+}
+
+// CR 704.5h: any amount of deathtouch damage is lethal on its own,
+// regardless of toughness.
+func TestCheckStateBasedActionsDeathtouchDamageDies(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(creatureDefPT(t, "2", "10"), a, engine.Battlefield)
+	g.Card(id).Damage.Mark(1, true)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(id).Zone; z != engine.Graveyard {
+		t.Errorf("a 10-toughness creature dealt 1 deathtouch damage, zone = %v, want Graveyard", z)
+	}
+}
+
+// Indestructible is the one keyword this port checks anywhere, and it
+// stops both halves of the rule: lethal damage and deathtouch damage
+// alike leave an indestructible creature on the battlefield.
+func TestCheckStateBasedActionsIndestructibleSurvivesLethalAndDeathtouchDamage(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	lethal := g.NewCard(indestructibleCreatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	deathtouched := g.NewCard(indestructibleCreatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	g.Card(lethal).Damage.Mark(5, false)
+	g.Card(deathtouched).Damage.Mark(1, true)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(lethal).Zone; z != engine.Battlefield {
+		t.Errorf("indestructible creature dealt lethal damage, zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(deathtouched).Zone; z != engine.Battlefield {
+		t.Errorf("indestructible creature dealt deathtouch damage, zone = %v, want Battlefield", z)
+	}
+}
+
+// A creature with damage marked but not yet lethal, and a non-creature
+// permanent carrying damage, are both untouched.
+func TestCheckStateBasedActionsSubLethalDamageAndNonCreaturesSurvive(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	survives := g.NewCard(creatureDefPT(t, "2", "3"), a, engine.Battlefield)
+	g.Card(survives).Damage.Mark(2, false)
+	host := g.NewCard(creatureDefPT(t, "2", "5"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, host) // legally attached, so 704.5's attachment rule leaves it alone too
+	g.Card(aura).Damage.Mark(100, false)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(survives).Zone; z != engine.Battlefield {
+		t.Errorf("creature dealt sub-lethal damage, zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(aura).Zone; z != engine.Battlefield {
+		t.Errorf("a non-creature carrying damage, zone = %v, want Battlefield", z)
+	}
+}
+
+// A creature whose toughness cannot be resolved (an unresolvable "*") is
+// left alone even under damage, the same coverage-gap reasoning
+// destroyLethalToughness already applies.
+func TestCheckStateBasedActionsUnresolvableToughnessSurvivesDamage(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	star := g.NewCard(creatureDefPT(t, "*", "*"), a, engine.Battlefield)
+	g.Card(star).Damage.Mark(100, false)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(star).Zone; z != engine.Battlefield {
+		t.Errorf("a creature with unresolvable toughness under damage, zone = %v, want Battlefield", z)
 	}
 }

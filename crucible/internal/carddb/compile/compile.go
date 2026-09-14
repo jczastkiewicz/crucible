@@ -168,6 +168,15 @@ type Face struct {
 	// job.
 	Loyalty string
 
+	// Keywords are the face's `K:` lines, carried through unchanged from
+	// carddb.Face -- keyword.Parse resolves one to a name at read time
+	// (engine.Card.HasKeyword's job), the same "carry the printed text,
+	// interpret it downstream" split Type/Power/Toughness/Loyalty already
+	// use. Expanding a keyword into the triggers, statics and abilities it
+	// stands for is a different job entirely (keyword.go's own doc
+	// comment) that this does not do.
+	Keywords []string
+
 	Abilities    []*Ability
 	Triggers     []*Ability
 	Statics      []*Ability
@@ -207,7 +216,10 @@ func Compile(card *carddb.Card) (*Card, error) {
 func compileFace(face *carddb.Face) (Face, error) {
 	c := &faceCompiler{face: face, open: map[string]bool{}}
 
-	out := Face{Type: face.Type, Power: face.Power, Toughness: face.Toughness, Loyalty: face.InitialLoyalty}
+	out := Face{
+		Type: face.Type, Power: face.Power, Toughness: face.Toughness,
+		Loyalty: face.InitialLoyalty, Keywords: face.Keywords,
+	}
 	for _, group := range []struct {
 		lines  []string
 		target *[]*Ability

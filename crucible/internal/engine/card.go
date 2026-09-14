@@ -9,6 +9,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
 
@@ -74,6 +75,26 @@ func (c *Card) Type() cardtype.Line {
 		return cardtype.Line{}
 	}
 	return c.Def.Faces[0].Type
+}
+
+// HasKeyword reports whether the card's primary face carries the named
+// keyword, exact match against keyword.Parse's own Name (the head as
+// written -- "Indestructible" for a bare line, "Ward" for "Ward:2"), so a
+// keyword written with arguments is still found by its bare name. Every
+// keyword this grants from a script that has not been read is invisible
+// here the same way BasePower is blind to "*": a card whose keywords a
+// continuous effect currently changes reports the printed set, not the
+// one in play (game-state.md's "Not ported yet").
+func (c *Card) HasKeyword(name string) bool {
+	if c.Def == nil {
+		return false
+	}
+	for _, line := range c.Def.Faces[0].Keywords {
+		if keyword.Parse(line).Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // BasePower and BaseToughness are the card's printed power and toughness --

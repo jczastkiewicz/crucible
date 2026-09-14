@@ -408,6 +408,31 @@ func TestAdvancePhaseChecksStateBasedActionsEveryStep(t *testing.T) {
 	}
 }
 
+// CR 514.2: cleanup clears marked damage on every permanent in the game,
+// not just the active player's -- unlike untapStep, this is not scoped to
+// whoever's turn it is.
+func TestCleanupClearsDamageForEveryPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	mine := g.NewCard(nil, a, engine.Battlefield)
+	theirs := g.NewCard(nil, b, engine.Battlefield)
+	g.Card(mine).Damage.Mark(3, false)
+	g.Card(theirs).Damage.Mark(5, true)
+
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase() // -> Cleanup
+
+	if d := g.Card(mine).Damage; d.Marked != 0 {
+		t.Errorf("active player's permanent has %d damage marked after cleanup, want 0", d.Marked)
+	}
+	if d := g.Card(theirs).Damage; d.Marked != 0 || d.Deathtouch {
+		t.Errorf("opponent's permanent damage = %+v after cleanup, want cleared", d)
+	}
+}
+
 func TestCloneCopiesTurnState(t *testing.T) {
 	t.Parallel()
 

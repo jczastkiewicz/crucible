@@ -20,25 +20,27 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 // looking for the Java source and finds a different rule at that letter
 // has no way to tell whether the port or the citation is wrong.
 //
-// Six of Java's checks are here: CR 704.5b (an attempted draw with nothing
-// to draw loses), CR 704.5a (a player at zero or less life loses), CR
-// 704.5c (ten or more poison counters loses), CR 704.5q (a permanent
+// Eight of Java's checks are here: CR 704.5b (an attempted draw with
+// nothing to draw loses), CR 704.5a (a player at zero or less life loses),
+// CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent
 // carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
 // in equal number -- `stateBasedAction704_5q`'s own name is the source for
 // this letter), a partial CR 704.5f (a creature at zero or less toughness
 // -- printed, Layer 7's own SETPT/MODIFYPT/CHARACTERISTIC effects and +1/+1
 // or -1/-1 counters all folded in, Card.Toughness's own job -- goes to its
-// owner's graveyard), and two rules Java's own comments do not cleanly
-// single-letter: a partial "cleanup aura" (Java's own comment for it,
-// GameAction.java:1511 -- an Aura not attached to anything on the
-// battlefield goes to its owner's graveyard; an Equipment or Fortification
-// attached to something no longer on the battlefield becomes unattached
-// alongside it, folded into the same nearby but differently-labelled
-// `stateBasedAction704_attach`) and a planeswalker at zero loyalty
-// (`handlePlaneswalkerRule`, which Java's own comments do not number at
-// all). Every other rule in Java's loop -- lethal damage marked on a
-// creature (CR 704.5g in Java's comment), deathtouch damage (704.5h), the
-// rest of 704.5f's own toughness (a "*" with no characteristic-defining
+// owner's graveyard), CR 704.5g and 704.5h together (a creature dealt
+// damage at least equal to its toughness, or dealt any deathtouch damage
+// at all, is destroyed -- destroyDamagedCreatures, below), and two rules
+// Java's own comments do not cleanly single-letter: a partial "cleanup
+// aura" (Java's own comment for it, GameAction.java:1511 -- an Aura not
+// attached to anything on the battlefield goes to its owner's graveyard;
+// an Equipment or Fortification attached to something no longer on the
+// battlefield becomes unattached alongside it, folded into the same nearby
+// but differently-labelled `stateBasedAction704_attach`) and a planeswalker
+// at zero loyalty (`handlePlaneswalkerRule`, which Java's own comments do
+// not number at all). Every other rule in Java's loop -- indestructible
+// aside (destroyDamagedCreatures checks it; nothing else here needs to),
+// the rest of 704.5f's own toughness (a "*" with no characteristic-defining
 // effect to replace it, or a Count$ reference -- `internal/expr` has no
 // evaluator yet), and the rest of the attachment rules' own legality (an
 // Aura's own "Enchant" restriction being violated by something other than
@@ -63,13 +65,13 @@ import "github.com/jczastkiewicz/crucible/internal/cardtype"
 //
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a creature can, in turn, empty an
-// Aura's target -- exactly the interaction 704.5f and the attachment cleanup
-// below have, which is why destroyLethalToughness runs before
-// cleanupDanglingAttachments rather than on a later call). Nothing here
-// cascades a second time: destroying a creature cannot itself change another
-// creature's printed toughness, and nothing yet grants an effect that could.
-// One pass is complete; the loop returns once a rule that can cascade twice
-// lands.
+// Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h and the
+// attachment cleanup below have, which is why destroyLethalToughness and
+// destroyDamagedCreatures both run before cleanupDanglingAttachments rather
+// than on a later call). Nothing here cascades a second time: destroying a
+// creature cannot itself change another creature's printed toughness or
+// deal it damage, and nothing yet grants an effect that could. One pass is
+// complete; the loop returns once a rule that can cascade twice lands.
 //
 // A game that has already ended skips every check below entirely, the same
 // as Java: checkStateEffects returns as soon as checkGameOverCondition finds
@@ -129,6 +131,7 @@ func CheckStateBasedActions(g *Game) bool {
 		}
 	}
 	destroyLethalToughness(g)
+	destroyDamagedCreatures(g)
 	destroyZeroLoyalty(g)
 	cleanupDanglingAttachments(g)
 	return false
@@ -174,6 +177,49 @@ func destroyLethalToughness(g *Game) {
 				continue
 			}
 			if t, ok := c.Toughness(); ok && t <= 0 {
+				dead = append(dead, id)
+			}
+		}
+	}
+	for _, id := range dead {
+		g.Move(id, Graveyard, g.Card(id).Owner)
+	}
+}
+
+// destroyDamagedCreatures is CR 704.5g and 704.5h together, GameAction.java's
+// own comments (both cited on the same `else if`, since Java checks them in
+// one branch): a creature dealt damage at least equal to its current
+// toughness is destroyed, and a creature dealt any amount of deathtouch
+// damage is destroyed regardless of the amount (CR 702.2c -- deathtouch
+// makes any nonzero damage lethal on its own, so the marked total is never
+// consulted for that half of the check). Indestructible
+// (`c.hasKeyword(Keyword.INDESTRUCTIBLE)` in Java, an earlier branch in the
+// same if/else chain) skips both: an indestructible creature that has taken
+// lethal damage is not destroyed here, the one keyword this port checks
+// anywhere, because getting it wrong would make this SBA actively incorrect
+// for those cards rather than merely incomplete.
+//
+// Card.Toughness already folds Layer 7 and +1/+1/-1/-1 counters onto the
+// printed value (`## Layer 7`, game-state.md), so this reads the same
+// current toughness destroyLethalToughness does; a creature whose toughness
+// is unresolvable at every layer is left alone here too, for the same
+// reason.
+//
+// Candidates are collected before Move runs, the same reason every other
+// SBA in this file does.
+func destroyDamagedCreatures(g *Game) {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if !c.Type().Has(cardtype.Creature) || c.HasKeyword("Indestructible") {
+				continue
+			}
+			if c.Damage.Deathtouch {
+				dead = append(dead, id)
+				continue
+			}
+			if t, ok := c.Toughness(); ok && c.Damage.Marked > 0 && c.Damage.Marked >= t {
 				dead = append(dead, id)
 			}
 		}

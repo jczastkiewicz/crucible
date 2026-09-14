@@ -104,6 +104,23 @@ func (c *Card) BaseToughness() (int, bool) {
 	return n, err == nil
 }
 
+// BaseLoyalty is a planeswalker's printed starting loyalty -- CR 121.5's
+// own words, since unlike power and toughness a planeswalker's loyalty is
+// not something Layer 7 recomputes on every check. It exists once, the
+// moment the permanent enters the battlefield, as that many loyalty
+// counters (Loyalty, counters.go); everything after that -- gaining,
+// losing, paying loyalty costs -- is ordinary counter addition and
+// removal, which Card.Counters already handles. ok is false on the same
+// terms as BasePower/BaseToughness: anything past a plain printed integer,
+// or a nil Def.
+func (c *Card) BaseLoyalty() (int, bool) {
+	if c.Def == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(c.Def.Faces[0].Loyalty)
+	return n, err == nil
+}
+
 // Power and Toughness are the card's current power and toughness: Layer 0
 // (BasePower/BaseToughness) with Layer 7's continuous effects (PT) folded
 // in, plus +1/+1 and -1/-1 counters, in CR 613.4's own order -- counters

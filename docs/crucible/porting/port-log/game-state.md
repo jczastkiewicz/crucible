@@ -156,33 +156,34 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 
 ## State-based actions
 
-`CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition` and
-`stateBasedAction704_5q`, plus `destroyLethalToughness` and `cleanupDanglingAttachments` for a slice of what
+`CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition`, `stateBasedAction704_5q`
+and `handlePlaneswalkerRule`, plus `destroyLethalToughness` and `cleanupDanglingAttachments` for a slice of what
 `changeZone` folds in elsewhere in Java (`## Move carries what Java gets for free`, below) — the rules answerable
 without the full layer system: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten or more poison counters
 loses), CR 704.5q (a permanent carrying both +1/+1 and -1/-1 counters loses the smaller pile from each, in equal number
-— five +1/+1 and two -1/-1 leaves three +1/+1 and none), a partial CR 704.5g (a creature with a plain printed integer
-toughness of zero or less dies), and a partial CR 704.5f/704.5m (an Aura not attached to a permanent on the battlefield
-goes to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached). Every other SBA
-in Java's loop — lethal damage, a planeswalker at zero loyalty, the rest of 704.5g's own toughness (`*`, a `Count$`
-reference, or toughness a continuous effect or a counter has changed — CR 613.4 runs counters after Layer 7, which this
-port has no layer to run after yet), the rest of 704.5f/704.5m's own legality (an Aura's `Enchant` restriction violated
-by something other than its host leaving, protection, hexproof) — reads a characteristic the continuous-effect layer
-system computes, or a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and
-neither is M5 work this has fully reached yet. A rule this port has not implemented simply never fires, the same as a
-real game with no permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+— five +1/+1 and two -1/-1 leaves three +1/+1 and none), CR 704.5g (a creature at zero or less toughness dies, Layer 7
+and counters folded in), CR 704.5h (a planeswalker at zero or less loyalty dies), and a partial CR 704.5f/704.5m (an
+Aura not attached to a permanent on the battlefield goes to its owner's graveyard; an Equipment or Fortification in the
+same state just becomes unattached). Every other SBA in Java's loop — lethal damage, the rest of 704.5g's own toughness
+(`*` with no characteristic-defining effect to replace it, or a `Count$` reference — `internal/expr` has no evaluator
+yet), and the rest of 704.5f/704.5m's own legality (an Aura's `Enchant` restriction violated by something other than its
+host leaving, protection, hexproof) — reads a characteristic the rest of the continuous-effect layer system computes, or
+a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and neither is M5 work this
+has fully reached yet. A rule this port has not implemented simply never fires, the same as a real game with no
+permanent that rule ever applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
 
-Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness` runs
-before `cleanupDanglingAttachments`, not after, for exactly that reason: a creature this pass destroys can leave an Aura
-dangling that the very same `CheckStateBasedActions` call has to catch, the one real cascade among the five rules here.
-Nothing else cascades a second time — destroying a creature cannot itself change another creature's printed toughness,
-and nothing yet grants an effect that could — so one ordered pass is complete. A game that already ended skips every
-check below entirely, the same as Java: `checkStateEffects` returns before its creature loop runs once
-`checkGameOverCondition` finds the game over. The loop returns once a rule that can cascade twice lands — a card script
-writing to `Player.Life` or a permanent's counters mid-check does not exist yet either.
+Java's own loop runs up to nine times, because one SBA firing can make another one true. `destroyLethalToughness` and
+`destroyZeroLoyalty` both run before `cleanupDanglingAttachments`, not after, for exactly that reason: a creature or
+planeswalker this pass destroys can leave an Aura dangling that the very same `CheckStateBasedActions` call has to
+catch, the one real cascade among the six rules here. Nothing else cascades a second time — destroying a permanent
+cannot itself change another one's printed toughness or loyalty count, and nothing yet grants an effect that could — so
+one ordered pass is complete. A game that already ended skips every check below entirely, the same as Java:
+`checkStateEffects` returns before its creature loop runs once `checkGameOverCondition` finds the game over. The loop
+returns once a rule that can cascade twice lands — a card script writing to `Player.Life` or a permanent's counters
+mid-check does not exist yet either.
 
 `cleanupDanglingAttachments` needed `Card.Type()` to exist at all: `compile.Card` carried no printed characteristics
 before this, only compiled ability lines, because nothing before this needed to go from a compiled card back to "what
@@ -240,6 +241,22 @@ has no duration tracking ("until end of turn" wearing off on its own) to model t
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
 deep-copies it for the same reason it already deep-copies a card's — sharing the underlying map would let the AI's
 lookahead poison the real game.
+
+## Loyalty is not a layer
+
+`Card.BaseLoyalty` mirrors `BasePower`/`BaseToughness` — `compile.Face.Loyalty` carried through from `carddb.Face`'s
+`InitialLoyalty`, resolved to an `int` only when it is a plain printed integer — but a planeswalker's loyalty does not
+have a `Card.Loyalty()` counterpart the way power and toughness have `Power()`/`Toughness()`, because CR 121.5 does not
+put loyalty through Layer 7 at all: a planeswalker's loyalty _is_ its `Loyalty` counter count (`counters.go`) from the
+moment it enters the battlefield, full stop. `BaseLoyalty` only ever answers "how many counters would it enter with" —
+`destroyZeroLoyalty` (CR 704.5h, `## State-based actions`) reads `Card.Counters.Count(Loyalty)` directly, not a computed
+accessor that would just be that same call one level removed.
+
+Nothing yet puts a planeswalker's starting loyalty counters on it when it enters the battlefield (CR 121.5): `Move` has
+no ETB hook for any permanent's starting counters, the same gap `changeZone`'s un-ported replacement effects and
+triggers already are (below). A fixture or a test sets `Loyalty` counters directly (`humancounters=LOYALTY=5`) until
+that lands — `destroyZeroLoyalty` is real and correct against whatever count is there, however it got there, the same as
+`destroyLethalToughness` was real before `Power`/`Toughness` folded in Layer 7.
 
 ## Move carries what Java gets for free
 
@@ -421,7 +438,8 @@ compared were never going to agree on those by number.
 | `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                      | M5    |
 | 106 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, `Combat`, targeting or cost payment                                                                                          | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                    | M7    |
-| Every other CR 704.5 state-based action — lethal damage, a planeswalker at zero loyalty — needs the full layer system or a permanent type not modeled                                                     | M5-M6 |
+| Every other CR 704.5 state-based action — lethal damage, a Battle at zero defense — needs the full layer system or a permanent type not modeled                                                           | M5-M6 |
+| CR 121.5: a planeswalker entering the battlefield with its printed starting loyalty as counters — `Move` has no ETB hook for any permanent's starting counters yet                                        | M5-M6 |
 | The rest of CR 704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
 | The rest of CR 704.5f/704.5m's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
 | CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                         | M5-M6 |

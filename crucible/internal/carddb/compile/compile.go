@@ -162,6 +162,12 @@ type Face struct {
 	// BaseToughness's job (game-state.md's "Layer 0" section).
 	Power, Toughness string
 
+	// Loyalty is a planeswalker's printed starting loyalty, carried through
+	// the same way and for the same reason: it can be a plain integer or an
+	// SVar reference, and resolving a plain one is engine.Card.BaseLoyalty's
+	// job.
+	Loyalty string
+
 	Abilities    []*Ability
 	Triggers     []*Ability
 	Statics      []*Ability
@@ -201,7 +207,7 @@ func Compile(card *carddb.Card) (*Card, error) {
 func compileFace(face *carddb.Face) (Face, error) {
 	c := &faceCompiler{face: face, open: map[string]bool{}}
 
-	out := Face{Type: face.Type, Power: face.Power, Toughness: face.Toughness}
+	out := Face{Type: face.Type, Power: face.Power, Toughness: face.Toughness, Loyalty: face.InitialLoyalty}
 	for _, group := range []struct {
 		lines  []string
 		target *[]*Ability

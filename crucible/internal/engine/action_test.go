@@ -54,6 +54,14 @@ func creatureDefPT(t *testing.T, power, toughness string) *compile.Card {
 	return def
 }
 
+func planeswalkerDefLoyalty(t *testing.T, loyalty string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Planeswalker"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Planeswalker Test")
+	def.Faces[0].Loyalty = loyalty
+	return def
+}
+
 // CR 704.5a: a player at zero life loses. The other player, now the only one
 // left standing, wins and the game ends (CR 104.2a).
 func TestCheckStateBasedActionsLifeAtZero(t *testing.T) {
@@ -622,5 +630,78 @@ func TestCheckStateBasedActionsLethalToughnessCascadesToAttachments(t *testing.T
 	}
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
+	}
+}
+
+// BaseLoyalty resolves a plain printed integer, on the same terms
+// BasePower/BaseToughness already do.
+func TestBaseLoyalty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	plain := g.NewCard(planeswalkerDefLoyalty(t, "5"), p, engine.Battlefield)
+	if l, ok := g.Card(plain).BaseLoyalty(); !ok || l != 5 {
+		t.Errorf("BaseLoyalty() = (%d, %v), want (5, true)", l, ok)
+	}
+
+	x := g.NewCard(planeswalkerDefLoyalty(t, "X"), p, engine.Battlefield)
+	if _, ok := g.Card(x).BaseLoyalty(); ok {
+		t.Error("BaseLoyalty() resolved an \"X\" loyalty")
+	}
+
+	noDef := g.NewCard(nil, p, engine.Battlefield)
+	if _, ok := g.Card(noDef).BaseLoyalty(); ok {
+		t.Error("BaseLoyalty() resolved a card with no Def")
+	}
+}
+
+// CR 704.5h: a planeswalker with loyalty zero or less goes to its owner's
+// graveyard.
+func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	dead := g.NewCard(planeswalkerDefLoyalty(t, "3"), a, engine.Battlefield)
+	pastZero := g.NewCard(planeswalkerDefLoyalty(t, "3"), a, engine.Battlefield)
+	alive := g.NewCard(planeswalkerDefLoyalty(t, "3"), a, engine.Battlefield)
+	g.Card(alive).Counters.Add(engine.Loyalty, 3)
+	g.Card(pastZero).Counters.Add(engine.Loyalty, 1)
+	g.Card(pastZero).Counters.Add(engine.Loyalty, -2) // paid a loyalty cost it did not have
+	// dead is left at the default zero counters -- no ETB hook exists yet
+	// to give it its printed starting loyalty (destroyZeroLoyalty's own doc
+	// comment), which is itself what this test exercises.
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Errorf("zero-loyalty planeswalker zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(pastZero).Zone; z != engine.Graveyard {
+		t.Errorf("planeswalker paid past zero loyalty, zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(alive).Zone; z != engine.Battlefield {
+		t.Errorf("positive-loyalty planeswalker zone = %v, want Battlefield", z)
+	}
+}
+
+// A non-planeswalker permanent at the same (absent) loyalty count is
+// untouched -- 704.5h is about planeswalkers, not about the counter being
+// absent.
+func TestCheckStateBasedActionsZeroLoyaltyOnlyAppliesToPlaneswalkers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g)
+
+	if z := g.Card(creature).Zone; z != engine.Battlefield {
+		t.Errorf("a creature (no loyalty counter at all) zone = %v, want Battlefield", z)
 	}
 }

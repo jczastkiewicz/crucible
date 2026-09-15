@@ -25,10 +25,10 @@ func TestMatchesColor(t *testing.T) {
 		{"1 G", "Green", "White"},
 	} {
 		id := g.NewCard(creatureDefManaCost(t, tc.cost), p, engine.Battlefield)
-		if !engine.Matches(g.Card(id), valid.Parse("Creature."+tc.color), p, engine.NoCard) {
+		if !engine.Matches(g, g.Card(id), valid.Parse("Creature."+tc.color), p, engine.NoCard) {
 			t.Errorf("a %s creature did not match Creature.%s", tc.color, tc.color)
 		}
-		if engine.Matches(g.Card(id), valid.Parse("Creature."+tc.other), p, engine.NoCard) {
+		if engine.Matches(g, g.Card(id), valid.Parse("Creature."+tc.other), p, engine.NoCard) {
 			t.Errorf("a %s creature matched Creature.%s", tc.color, tc.other)
 		}
 	}
@@ -44,10 +44,10 @@ func TestMatchesNonColor(t *testing.T) {
 	red := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
 	black := g.NewCard(creatureDefManaCost(t, "1 B"), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(red), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(red), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
 		t.Error("a red creature did not match Creature.nonBlack")
 	}
-	if engine.Matches(g.Card(black), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(black), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
 		t.Error("a black creature matched Creature.nonBlack")
 	}
 }
@@ -63,7 +63,7 @@ func TestMatchesColorSourceSuffixIsNotImplemented(t *testing.T) {
 	p := g.Players()[0]
 	white := g.NewCard(creatureDefManaCost(t, "1 W"), p, engine.Battlefield)
 
-	if engine.Matches(g.Card(white), valid.Parse("Creature.WhiteSource"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(white), valid.Parse("Creature.WhiteSource"), p, engine.NoCard) {
 		t.Error("a white creature matched the unimplemented WhiteSource property")
 	}
 }
@@ -79,16 +79,16 @@ func TestMatchesColorlessAndNonColorless(t *testing.T) {
 	colorless := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Battlefield)
 	red := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(colorless), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(colorless), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
 		t.Error("a colorless creature did not match Creature.Colorless")
 	}
-	if engine.Matches(g.Card(red), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(red), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
 		t.Error("a red creature matched Creature.Colorless")
 	}
-	if !engine.Matches(g.Card(red), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(red), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
 		t.Error("a red creature did not match Creature.nonColorless")
 	}
-	if engine.Matches(g.Card(colorless), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(colorless), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
 		t.Error("a colorless creature matched Creature.nonColorless")
 	}
 }
@@ -102,10 +102,10 @@ func TestMatchesMultiColor(t *testing.T) {
 	mono := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
 	multi := g.NewCard(creatureDefManaCost(t, "R G"), p, engine.Battlefield)
 
-	if engine.Matches(g.Card(mono), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(mono), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
 		t.Error("a monocolored creature matched Creature.MultiColor")
 	}
-	if !engine.Matches(g.Card(multi), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(multi), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
 		t.Error("a two-color creature did not match Creature.MultiColor")
 	}
 }
@@ -118,10 +118,10 @@ func TestMatchesYouDontCtrl(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	id := g.NewCard(nil, a, engine.Battlefield)
 
-	if engine.Matches(g.Card(id), valid.Parse("Card.YouDontCtrl"), a, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.YouDontCtrl"), a, engine.NoCard) {
 		t.Error("a's own card matched YouDontCtrl from a's perspective")
 	}
-	if !engine.Matches(g.Card(id), valid.Parse("Card.YouDontCtrl"), b, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.YouDontCtrl"), b, engine.NoCard) {
 		t.Error("a's card did not match YouDontCtrl from b's perspective")
 	}
 }
@@ -136,19 +136,19 @@ func TestMatchesYouOwnOppOwn(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	id := g.NewCard(nil, a, engine.Battlefield) // owned and controlled by a
 
-	if !engine.Matches(g.Card(id), valid.Parse("Card.YouOwn"), a, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.YouOwn"), a, engine.NoCard) {
 		t.Error("a's own card did not match YouOwn from a's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.YouOwn"), b, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.YouOwn"), b, engine.NoCard) {
 		t.Error("a's card matched YouOwn from b's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.YouDontOwn"), a, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.YouDontOwn"), a, engine.NoCard) {
 		t.Error("a's own card matched YouDontOwn from a's perspective")
 	}
-	if !engine.Matches(g.Card(id), valid.Parse("Card.OppOwn"), b, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.OppOwn"), b, engine.NoCard) {
 		t.Error("a's card did not match OppOwn from b's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.OppOwn"), a, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.OppOwn"), a, engine.NoCard) {
 		t.Error("a's own card matched OppOwn from a's own perspective")
 	}
 }
@@ -163,15 +163,15 @@ func TestMatchesOther(t *testing.T) {
 	source := g.NewCard(nil, p, engine.Battlefield)
 	other := g.NewCard(nil, p, engine.Battlefield)
 
-	if engine.Matches(g.Card(source), valid.Parse("Card.Other"), p, source) {
+	if engine.Matches(g, g.Card(source), valid.Parse("Card.Other"), p, source) {
 		t.Error("the source card matched Other")
 	}
-	if !engine.Matches(g.Card(other), valid.Parse("Card.Other"), p, source) {
+	if !engine.Matches(g, g.Card(other), valid.Parse("Card.Other"), p, source) {
 		t.Error("a different card did not match Other")
 	}
 	// StrictlyOther has no game-timestamp tracking to distinguish from
 	// Other with (game-state.md's "Not ported yet"), so it reads the same.
-	if !engine.Matches(g.Card(other), valid.Parse("Card.StrictlyOther"), p, source) {
+	if !engine.Matches(g, g.Card(other), valid.Parse("Card.StrictlyOther"), p, source) {
 		t.Error("a different card did not match StrictlyOther")
 	}
 }
@@ -184,18 +184,18 @@ func TestMatchesTappedUntapped(t *testing.T) {
 	p := g.Players()[0]
 	id := g.NewCard(nil, p, engine.Battlefield)
 
-	if engine.Matches(g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
 		t.Error("an untapped card matched tapped")
 	}
-	if !engine.Matches(g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
 		t.Error("an untapped card did not match untapped")
 	}
 
 	g.Card(id).Tapped = true
-	if !engine.Matches(g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
 		t.Error("a tapped card did not match tapped")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
 		t.Error("a tapped card matched untapped")
 	}
 }
@@ -212,17 +212,17 @@ func TestMatchesKeywordProperties(t *testing.T) {
 	grounded := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 
 	for _, spec := range []string{"Creature.withFlying", "Creature.hasKeywordFlying"} {
-		if !engine.Matches(g.Card(flier), valid.Parse(spec), p, engine.NoCard) {
+		if !engine.Matches(g, g.Card(flier), valid.Parse(spec), p, engine.NoCard) {
 			t.Errorf("a flier did not match %s", spec)
 		}
-		if engine.Matches(g.Card(grounded), valid.Parse(spec), p, engine.NoCard) {
+		if engine.Matches(g, g.Card(grounded), valid.Parse(spec), p, engine.NoCard) {
 			t.Errorf("a grounded creature matched %s", spec)
 		}
 	}
-	if !engine.Matches(g.Card(grounded), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(grounded), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
 		t.Error("a grounded creature did not match Creature.withoutFlying")
 	}
-	if engine.Matches(g.Card(flier), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(flier), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
 		t.Error("a flier matched Creature.withoutFlying")
 	}
 }
@@ -236,10 +236,10 @@ func TestMatchesNonTypeFallback(t *testing.T) {
 	p := g.Players()[0]
 	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(creature), valid.Parse("Card.nonLand"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(creature), valid.Parse("Card.nonLand"), p, engine.NoCard) {
 		t.Error("a creature did not match Card.nonLand")
 	}
-	if engine.Matches(g.Card(creature), valid.Parse("Card.nonCreature"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(creature), valid.Parse("Card.nonCreature"), p, engine.NoCard) {
 		t.Error("a creature matched Card.nonCreature")
 	}
 }
@@ -254,13 +254,13 @@ func TestMatchesBaseCoreType(t *testing.T) {
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(aura), valid.Parse("Enchantment"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Enchantment"), p, engine.NoCard) {
 		t.Error("an Aura did not match its own core type")
 	}
-	if engine.Matches(g.Card(aura), valid.Parse("Creature"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(aura), valid.Parse("Creature"), p, engine.NoCard) {
 		t.Error("an Aura matched Creature")
 	}
-	if !engine.Matches(g.Card(equipment), valid.Parse("Artifact"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(equipment), valid.Parse("Artifact"), p, engine.NoCard) {
 		t.Error("an Equipment did not match its own core type")
 	}
 }
@@ -275,7 +275,7 @@ func TestMatchesBaseSubtype(t *testing.T) {
 	p := g.Players()[0]
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(aura), valid.Parse("Aura"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Aura"), p, engine.NoCard) {
 		t.Error("an Aura did not match its own subtype")
 	}
 }
@@ -289,10 +289,10 @@ func TestMatchesSpecialBases(t *testing.T) {
 	p := g.Players()[0]
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield) // Enchantment: a permanent
 
-	if !engine.Matches(g.Card(aura), valid.Parse("Permanent"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Permanent"), p, engine.NoCard) {
 		t.Error("an Aura (a permanent) did not match Permanent")
 	}
-	if !engine.Matches(g.Card(aura), valid.Parse("Card"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Card"), p, engine.NoCard) {
 		t.Error("an ordinary card did not match Card")
 	}
 }
@@ -307,10 +307,10 @@ func TestMatchesBaseAny(t *testing.T) {
 	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(creature), valid.Parse("Any"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(creature), valid.Parse("Any"), p, engine.NoCard) {
 		t.Error("a creature did not match Any")
 	}
-	if engine.Matches(g.Card(aura), valid.Parse("Any"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(aura), valid.Parse("Any"), p, engine.NoCard) {
 		t.Error("an Aura (not a creature, planeswalker or battle) matched Any")
 	}
 }
@@ -324,10 +324,10 @@ func TestMatchesPropertyTypeWordFallthrough(t *testing.T) {
 	p := g.Players()[0]
 	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(creature), valid.Parse("Permanent.Creature"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(creature), valid.Parse("Permanent.Creature"), p, engine.NoCard) {
 		t.Error("a creature did not match Permanent.Creature")
 	}
-	if engine.Matches(g.Card(creature), valid.Parse("Permanent.Land"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(creature), valid.Parse("Permanent.Land"), p, engine.NoCard) {
 		t.Error("a creature matched Permanent.Land")
 	}
 }
@@ -342,7 +342,7 @@ func TestMatchesUnbuiltBasesNeverMatch(t *testing.T) {
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 
 	for _, base := range []string{"Spell", "Effect", "Emblem", "Boon"} {
-		if engine.Matches(g.Card(aura), valid.Parse(base), p, engine.NoCard) {
+		if engine.Matches(g, g.Card(aura), valid.Parse(base), p, engine.NoCard) {
 			t.Errorf("an ordinary permanent matched Base %q", base)
 		}
 	}
@@ -358,16 +358,16 @@ func TestMatchesYouCtrlOppCtrl(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	id := g.NewCard(nil, a, engine.Battlefield) // controlled by a
 
-	if !engine.Matches(g.Card(id), valid.Parse("Card.YouCtrl"), a, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.YouCtrl"), a, engine.NoCard) {
 		t.Error("a's own card did not match YouCtrl from a's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.YouCtrl"), b, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.YouCtrl"), b, engine.NoCard) {
 		t.Error("a's card matched YouCtrl from b's perspective")
 	}
-	if !engine.Matches(g.Card(id), valid.Parse("Card.OppCtrl"), b, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.OppCtrl"), b, engine.NoCard) {
 		t.Error("a's card did not match OppCtrl from b's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.OppCtrl"), a, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.OppCtrl"), a, engine.NoCard) {
 		t.Error("a's own card matched OppCtrl from a's own perspective")
 	}
 }
@@ -381,10 +381,10 @@ func TestMatchesSelf(t *testing.T) {
 	source := g.NewCard(nil, p, engine.Battlefield)
 	other := g.NewCard(nil, p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(source), valid.Parse("Card.Self"), p, source) {
+	if !engine.Matches(g, g.Card(source), valid.Parse("Card.Self"), p, source) {
 		t.Error("the source card did not match Self")
 	}
-	if engine.Matches(g.Card(other), valid.Parse("Card.Self"), p, source) {
+	if engine.Matches(g, g.Card(other), valid.Parse("Card.Self"), p, source) {
 		t.Error("a different card matched Self")
 	}
 }
@@ -397,13 +397,13 @@ func TestMatchesPropertiesAreConjunctive(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
 
-	if !engine.Matches(g.Card(aura), valid.Parse("Enchantment.YouCtrl"), a, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Enchantment.YouCtrl"), a, engine.NoCard) {
 		t.Error("an Aura controlled by a did not match Enchantment.YouCtrl from a's perspective")
 	}
-	if engine.Matches(g.Card(aura), valid.Parse("Enchantment.YouCtrl"), b, engine.NoCard) {
+	if engine.Matches(g, g.Card(aura), valid.Parse("Enchantment.YouCtrl"), b, engine.NoCard) {
 		t.Error("an Aura controlled by a matched Enchantment.YouCtrl from b's perspective")
 	}
-	if engine.Matches(g.Card(aura), valid.Parse("Creature.YouCtrl"), a, engine.NoCard) {
+	if engine.Matches(g, g.Card(aura), valid.Parse("Creature.YouCtrl"), a, engine.NoCard) {
 		t.Error("an Aura matched Creature.YouCtrl even though the base does not match")
 	}
 }
@@ -416,10 +416,10 @@ func TestMatchesAlternativesAreDisjunctive(t *testing.T) {
 	p := g.Players()[0]
 	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
 
-	if !engine.Matches(g.Card(aura), valid.Parse("Creature,Enchantment"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(aura), valid.Parse("Creature,Enchantment"), p, engine.NoCard) {
 		t.Error("an Aura did not match the second alternative of Creature,Enchantment")
 	}
-	if engine.Matches(g.Card(aura), valid.Parse("Creature,Land"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(aura), valid.Parse("Creature,Land"), p, engine.NoCard) {
 		t.Error("an Aura matched neither alternative but Matches still reported true")
 	}
 }
@@ -433,10 +433,10 @@ func TestMatchesPropertyNegation(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	id := g.NewCard(nil, a, engine.Battlefield)
 
-	if !engine.Matches(g.Card(id), valid.Parse("Card.!OppCtrl"), a, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.!OppCtrl"), a, engine.NoCard) {
 		t.Error("a's own card did not match Card.!OppCtrl from a's perspective")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Card.!OppCtrl"), b, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.!OppCtrl"), b, engine.NoCard) {
 		t.Error("a's card matched Card.!OppCtrl from b's perspective, where OppCtrl itself holds")
 	}
 }
@@ -476,7 +476,7 @@ func TestMatchesNumericComparisons(t *testing.T) {
 			if tc.name == "power folds counters" {
 				g.Card(id).Counters.Add(engine.P1P1, 2)
 			}
-			if got := engine.Matches(g.Card(id), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
+			if got := engine.Matches(g, g.Card(id), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
 				t.Errorf("%s: Matches(%s) = %v, want %v", tc.name, tc.spec, got, tc.want)
 			}
 		})
@@ -494,13 +494,13 @@ func TestMatchesNumericComparisonsExcludeCountersFromBaseForms(t *testing.T) {
 	id := g.NewCard(creatureDefPT(t, "3", "2"), p, engine.Battlefield)
 	g.Card(id).Counters.Add(engine.P1P1, 5)
 
-	if !engine.Matches(g.Card(id), valid.Parse("Creature.basePowerEQ3"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Creature.basePowerEQ3"), p, engine.NoCard) {
 		t.Error("basePowerEQ3 did not match a printed-3-power creature with +1/+1 counters piled on")
 	}
-	if engine.Matches(g.Card(id), valid.Parse("Creature.basePowerEQ8"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Creature.basePowerEQ8"), p, engine.NoCard) {
 		t.Error("basePowerEQ8 matched -- counters must not have leaked into the base form")
 	}
-	if !engine.Matches(g.Card(id), valid.Parse("Creature.powerEQ8"), p, engine.NoCard) {
+	if !engine.Matches(g, g.Card(id), valid.Parse("Creature.powerEQ8"), p, engine.NoCard) {
 		t.Error("powerEQ8 did not match -- the full form must fold counters in")
 	}
 }
@@ -514,7 +514,7 @@ func TestMatchesNumericComparisonUnresolvableFieldIsGap(t *testing.T) {
 	p := g.Players()[0]
 	id := g.NewCard(creatureDefPT(t, "*", "2"), p, engine.Battlefield)
 
-	if engine.Matches(g.Card(id), valid.Parse("Creature.powerGE0"), p, engine.NoCard) {
+	if engine.Matches(g, g.Card(id), valid.Parse("Creature.powerGE0"), p, engine.NoCard) {
 		t.Error("a Creature.powerGE0 matched a card with unresolvable (\"*\") power")
 	}
 }
@@ -530,8 +530,96 @@ func TestMatchesNumericComparisonNonNumericOperandIsGap(t *testing.T) {
 	id := g.NewCard(creatureDefPT(t, "3", "2"), p, engine.Battlefield)
 
 	for _, spec := range []string{"Creature.powerGEX", "Creature.powerGEChosen", "Creature.powerGEY"} {
-		if engine.Matches(g.Card(id), valid.Parse(spec), p, engine.NoCard) {
+		if engine.Matches(g, g.Card(id), valid.Parse(spec), p, engine.NoCard) {
 			t.Errorf("%s matched despite a non-numeric operand", spec)
+		}
+	}
+}
+
+// IsRemembered matches only the card source has remembered, not any other
+// card -- membership in Memory.Remembered, keyed by entity handle rather
+// than card handle (Remembered holds players too).
+func TestMatchesIsRemembered(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	remembered := g.NewCard(nil, p, engine.Battlefield)
+	forgotten := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.CardEntity(remembered))
+
+	if !engine.Matches(g, g.Card(remembered), valid.Parse("Card.IsRemembered"), p, source) {
+		t.Error("a remembered card did not match Card.IsRemembered")
+	}
+	if engine.Matches(g, g.Card(forgotten), valid.Parse("Card.IsRemembered"), p, source) {
+		t.Error("an unremembered card matched Card.IsRemembered")
+	}
+}
+
+// IsImprinted mirrors IsRemembered, against Memory.Imprinted.
+func TestMatchesIsImprinted(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	imprinted := g.NewCard(nil, p, engine.Battlefield)
+	other := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(source).Memory.Imprint(imprinted)
+
+	if !engine.Matches(g, g.Card(imprinted), valid.Parse("Card.IsImprinted"), p, source) {
+		t.Error("an imprinted card did not match Card.IsImprinted")
+	}
+	if engine.Matches(g, g.Card(other), valid.Parse("Card.IsImprinted"), p, source) {
+		t.Error("a card that was not imprinted matched Card.IsImprinted")
+	}
+}
+
+// ChosenCard and ChosenCardStrict read the same Memory.Chosen membership --
+// this port has no game-timestamp tracking to tell the "Strict" form apart
+// (Self/StrictlyOther's own precedent). nonChosenCard is the plain
+// negation, its own named property in the corpus rather than a `!` prefix.
+func TestMatchesChosenCard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	chosen := g.NewCard(nil, p, engine.Battlefield)
+	unchosen := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(source).Memory.Choose(chosen)
+
+	for _, spec := range []string{"Card.ChosenCard", "Card.ChosenCardStrict"} {
+		if !engine.Matches(g, g.Card(chosen), valid.Parse(spec), p, source) {
+			t.Errorf("a chosen card did not match %s", spec)
+		}
+		if engine.Matches(g, g.Card(unchosen), valid.Parse(spec), p, source) {
+			t.Errorf("an unchosen card matched %s", spec)
+		}
+	}
+	if engine.Matches(g, g.Card(chosen), valid.Parse("Card.nonChosenCard"), p, source) {
+		t.Error("a chosen card matched Card.nonChosenCard")
+	}
+	if !engine.Matches(g, g.Card(unchosen), valid.Parse("Card.nonChosenCard"), p, source) {
+		t.Error("an unchosen card did not match Card.nonChosenCard")
+	}
+}
+
+// A memory-based property with no source card at all (NoCard) matches
+// nothing, the same "false for every card" answer any other unresolvable
+// property gives -- not a panic, even though Game.Card itself panics on
+// NoCard everywhere else it is called.
+func TestMatchesMemoryPropertiesWithoutASourceCard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Battlefield)
+
+	for _, spec := range []string{"Card.IsRemembered", "Card.IsImprinted", "Card.ChosenCard", "Card.nonChosenCard"} {
+		if engine.Matches(g, g.Card(id), valid.Parse(spec), p, engine.NoCard) {
+			t.Errorf("%s matched with no source card", spec)
 		}
 	}
 }
@@ -551,13 +639,13 @@ func TestMatchesBaseNegationCoversTheWholeAlternative(t *testing.T) {
 
 	spec := valid.Parse("!Permanent.YouCtrl")
 
-	if engine.Matches(g.Card(yours), spec, a, engine.NoCard) {
+	if engine.Matches(g, g.Card(yours), spec, a, engine.NoCard) {
 		t.Error("a permanent a controls matched !Permanent.YouCtrl from a's own perspective")
 	}
 	// theirs is a permanent OppCtrl-relative to a, so "Permanent.YouCtrl" is
 	// false for it from a's perspective -- and the negated form must then be
 	// true, not "false because theirs is still a Permanent".
-	if !engine.Matches(g.Card(theirs), spec, a, engine.NoCard) {
+	if !engine.Matches(g, g.Card(theirs), spec, a, engine.NoCard) {
 		t.Error("a permanent a does not control did not match !Permanent.YouCtrl from a's perspective")
 	}
 }

@@ -5,16 +5,16 @@
   `CardLists.java:189`
 - **Go target:** `crucible/internal/valid`
 - **Status:** Parsing done — M3 slice C. Evaluation started in `internal/engine` (M5): `Matches` covers the
-  `Card.isValid` control flow in full; controller/owner relative to `sourceController` (`YouCtrl`, `YouDontCtrl`,
-  `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`, `Other`, `StrictlyOther`); the
-  five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings (`with`/`without`/`hasKeyword`);
-  `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`, `toughness`, `baseToughness`, `cmc`, `totalPT`,
-  `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a plain-integer operand; the generic
-  `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare type/supertype/subtype fallthrough every property
-  chain shares. The other ~905 property names are M5-M6, corpus frequency order (`tools/vocabscan -kind validProperty`)
-  — a rough figure the numeric-comparison batch does not update, since it collapses many raw tokens (`power` alone spans
-  33, per `vocabscan -kind validProperty`) into one mechanism and no earlier count of this file's own "~905" was
-  computed at that granularity either
+  `Card.isValid` control flow in full; `ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered` and `IsImprinted`
+  (membership in `source`'s own `Memory` lists); controller/owner relative to `sourceController` (`YouCtrl`,
+  `YouDontCtrl`, `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`, `Other`,
+  `StrictlyOther`); the five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings
+  (`with`/`without`/`hasKeyword`); `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`, `toughness`,
+  `baseToughness`, `cmc`, `totalPT`, `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a
+  plain-integer operand; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
+  type/supertype/subtype fallthrough every property chain shares. The other ~900 property names are M5-M6, corpus
+  frequency order (`tools/vocabscan -kind validProperty`) — a rough figure, not a precisely tracked count (the "Numeric
+  comparisons" section below already explains why a batch like that one does not move it by a countable amount)
 
 ## What it does
 
@@ -94,8 +94,8 @@ a property is trying to describe, the same category of gap `Move`'s missing LKI 
 port reads it as "controlled by anyone other than `sourceController`" — right for every game this port can play today
 (two players, or free-for-all with no teams), wrong only once a team variant exists to disagree with it.
 
-`Matches` takes `sourceController PlayerID, source CardID` rather than a `*Game` or an `*Ability`: nothing it currently
-does needs the game, and tying it to `Ability` specifically would assume every valid-string check happens during ability
+`Matches` takes `sourceController PlayerID, source CardID` (plus, since the memory-based batch below, a `*Game`) rather
+than an `*Ability`: tying it to `Ability` specifically would assume every valid-string check happens during ability
 resolution, which CR 704.5's still-unbuilt Aura `Enchant`-restriction check will not (its source is the Aura itself, not
 anything on a stack — `game-state.md`'s "State-based actions" section has the full citation caveat: Java's own comments
 do not cleanly single-letter this rule).
@@ -204,27 +204,66 @@ still be individually unresolvable, propagated as `ok=false` the same way `BaseP
 `Card.Colors().Count()` (already used by `MultiColor`) and `numTypes` is `len(Card.Type().CoreTypes())`, both always
 resolvable since neither a color set nor a type line is ever a printed `"*"`.
 
+## `Matches` gains a `*Game`, for the properties that read `source`'s own card
+
+`ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered` and `IsImprinted` (1,413 + 97 + 72 + 69 + 27 = 1,678
+occurrences, the single biggest remaining gap by corpus weight — `tools/vocabscan -kind validProperty`) all ask the same
+question in Java: is the candidate card present in a list carried by `source` itself
+(`source.getChosenCards()`/`isRemembered()`/`hasImprintedCard()`), not anything on the candidate `card` or
+`sourceController`. `Card.Memory` (`memory.go`) already carries exactly those three lists — `Remembered`, `Imprinted`,
+`Chosen`, written by `RememberChanged$`/`ImprintCards$`/`ChooseCard` — but `Matches` had no way to reach the _card_
+behind `source CardID`, only the handle. `Matches`, `altMatches` and `propertyMatches` all gained a `*Game` parameter so
+`propertyMatches` can call `g.Card(source)`; nothing else in the file needed it, and `baseMatches`/`compareMatches`
+still do not take one. Zero non-test callers existed yet (`effect.go`'s `Registry` has not started calling `Matches`
+during ability resolution), so this was the cheap moment to make the change — the same "thread it through now, not
+later" call the port has made before rather than adding a narrower parameter it would outgrow on the very next batch
+(`EnchantedBy`/`EquippedBy`/`AttachedBy`, corpus rank 2 by combined weight, also need to resolve an arbitrary card by ID
+— an attachment, not `source` — the same capability this grants).
+
+**`Game.Card` panics on `NoCard` (GO-7's own engine-invariant-breach case everywhere else it is called); a `Matches`
+caller legitimately passes `NoCard` as `source` when there is no meaningful one at all** (`Matches`'s own doc comment:
+the base/property checks that never needed a source, the majority of the file). `sourceCard` (`valid.go`) is the guard:
+`ok` is false on `NoCard`, and all five properties read it as "does not match" rather than propagating a panic a caller
+was never wrong to trigger — the same "unresolvable input is a false, not a crash" shape `BasePower`'s own `ok` already
+has, applied to a missing source card instead of a missing printed value.
+
+**`ChosenCardStrict` collapses to `ChosenCard`, the same way `StrictlyOther` collapses to `Other`.** Java's `Strict`
+suffix additionally checks `equalsWithGameTimestamp` — telling a chosen card from a same-named copy of itself apart
+across a zone change — which this port has no game-timestamp tracking for (`game-state.md`'s "Not ported yet", the same
+gap this doc's own "Ownership, identity and keyword properties" section already names for `StrictlyOther`).
+`nonChosenCard` is `ChosenCard`'s negation and its own named token in the corpus (27 occurrences) rather than a bare
+`!ChosenCard` — Forge exposes both spellings, so both are ported, and `nonChosenCard` shares `sourceCard`'s
+`NoCard`-is-false answer rather than flipping to true on a missing source: "not chosen" is exactly as unknowable as
+"chosen" when there is nothing to have chosen it, and the honest-unknown answer is the same one every other gap in this
+file gives.
+
+**`IsRemembered` compares by `EntityID`, not `CardID`** — `Memory.Remembered` holds entities generally
+(`RememberObjects$ ChosenCard & Player.IsRemembered` puts a player in the same list as a card, `memory.go`'s own doc
+comment), so the candidate card's identity has to go through `CardEntity(c.ID)` before the membership check, where
+`IsImprinted`/`ChosenCard` compare `CardID` directly against lists `Memory.Imprinted`/`Memory.Chosen` already type that
+way.
+
 ## Deviations from Java
 
-| Java                                                                   | Go                                                                                                                        |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| The property string is re-parsed on every evaluation                   | Parsed once at load into `Spec` (ADR-0007)                                                                                |
-| `!` is consumed by mutating the local `incR[0]`                        | `Negated bool` on both `Base` and `Property`, so the sign is not part of the name                                         |
-| A comparison is recognised by a chain of `startsWith` in the evaluator | `Compare` on the property, filled at parse time                                                                           |
-| Matching happens against a `Card` and a `Game`                         | Not here (ADR-0003 stays honoured): `engine.Matches` evaluates a `Spec`, `internal/valid` never imports `internal/engine` |
-| Color is read via `card.getColor(cardState)`, LKI/state-aware          | `Card.Colors()`, current state only — the same gap every other characteristic accessor on `Card` already has              |
+| Java                                                                   | Go                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The property string is re-parsed on every evaluation                   | Parsed once at load into `Spec` (ADR-0007)                                                                                                                                                                                                                                                                               |
+| `!` is consumed by mutating the local `incR[0]`                        | `Negated bool` on both `Base` and `Property`, so the sign is not part of the name                                                                                                                                                                                                                                        |
+| A comparison is recognised by a chain of `startsWith` in the evaluator | `Compare` on the property, filled at parse time                                                                                                                                                                                                                                                                          |
+| Matching happens against a `Card` and a `Game`                         | ADR-0003 stays honoured either way: `internal/valid` only parses a `Spec` and never imports `internal/engine`; `engine.Matches` does take a `*Game` (for `source`'s own `Memory`, this doc's own "`Matches` gains a `*Game`" section) but that boundary is between the two packages, not inside `internal/engine` itself |
+| Color is read via `card.getColor(cardState)`, LKI/state-aware          | `Card.Colors()`, current state only — the same gap every other characteristic accessor on `Card` already has                                                                                                                                                                                                             |
 
 ## Not ported yet
 
-| Java                                                                                                                                                                                                                                                                                                   | When       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped`, the numeric comparisons (`engine.Matches`)                  | M5-M6      |
-| `AbilityUtils.calculateAmount` for a numeric-comparison `Operand` that is not a plain integer — `X`, `Chosen`, an SVar name; needs an ability-context evaluator `internal/expr` does not have yet                                                                                                      | M5-M6      |
-| `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported) | M5-M6      |
-| `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                          | M5-M6      |
-| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                             | M5-M6      |
-| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                                                                                                                                                                                                              | M5-M6      |
-| Property heads as a closed vocabulary, for the P2 gate                                                                                                                                                                                                                                                 | M3 slice H |
+| Java                                                                                                                                                                                                                                                                                                                                                                  | When       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered`, `IsImprinted`, `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped`, the numeric comparisons (`engine.Matches`) | M5-M6      |
+| `AbilityUtils.calculateAmount` for a numeric-comparison `Operand` that is not a plain integer — `X`, `Chosen`, an SVar name; needs an ability-context evaluator `internal/expr` does not have yet                                                                                                                                                                     | M5-M6      |
+| `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported)                                                                | M5-M6      |
+| `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                                                                                         | M5-M6      |
+| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                                                                                            | M5-M6      |
+| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                                                                                                                                                                                                                                                                             | M5-M6      |
+| Property heads as a closed vocabulary, for the P2 gate                                                                                                                                                                                                                                                                                                                | M3 slice H |
 
 The 1,256 distinct property tokens are inventoried in `internal/carddb/vocab`'s golden. Classifying them into families
 belongs with the evaluator that implements them, not with the parser.

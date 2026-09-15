@@ -1,0 +1,35 @@
+# Durkwood Boars (4/4, no keywords) is gang-blocked by Elvish Archers (2/1,
+# First Strike) and Devoted Hero (1/2, no first strike) -- neither existing
+# first-strike fixture nor the existing gang-block fixture combines the two:
+# one blocker in the gang deals damage a step early, the other does not, and
+# both still have to be alive and both still have to be offered to
+# AssignCombatDamage in the regular step (dealsInStep, combatdamage.go).
+#
+# First strike step: Archers deals its 2 power to the Boars (dealsInStep
+# true for a first striker, false for the Boars and for Devoted Hero) -- the
+# Boars take 2, well short of lethal on 4 toughness, and nothing dies yet:
+# nothing has touched Archers or Devoted Hero at this point.
+#
+# Regular step: the Boars deal all 4 power, split by AssignCombatDamage
+# across both still-live blockers -- 1 to Archers (lethal, 1 toughness) and
+# 3 to Devoted Hero (lethal, 2 toughness, 1 wasted, no trample to carry it).
+# Archers does not deal damage again (dealsInStep is false for a plain first
+# striker in the regular step); Devoted Hero deals its 1 power back. The
+# Boars end the exchange with 2+1=3 damage marked, short of their 4
+# toughness -- survives. Both blockers, lethally damaged in the same pass,
+# die to the same state-based-action check.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1,3=1
+declareblockers
+advance
+firststrikedamage
+advance
+queue damage 2=1,3=3
+combatdamage
+# One more advance for the state-based-action check that moves both
+# lethally damaged blockers to the graveyard.
+advance

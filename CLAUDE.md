@@ -177,4 +177,4 @@ actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdama
 (`port-log/valid-strings.md`). Thin or missing: the stack is push/resolve only — no simultaneous-trigger ordering, no
 replacement effects; the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not
 types/colors/abilities; mana payment has not started. **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:**
-12 fixtures exist today (`testdata/scenarios/`).
+13 fixtures exist today (`testdata/scenarios/`).

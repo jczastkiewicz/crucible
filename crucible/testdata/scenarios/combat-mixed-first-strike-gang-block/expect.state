@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Durkwood Boars|Tapped|Damage:3
+ailife=20
+aigraveyard=Elvish Archers;Devoted Hero

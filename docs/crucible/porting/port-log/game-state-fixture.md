@@ -216,6 +216,15 @@ into `Combat Damage` is what actually kills the lethally-struck blocker before `
 leave the blocker alive to hit back, a different (wrong) scenario the fixture format makes easy to write by accident if
 the phase walk isn't respected.
 
+**`combat-mixed-first-strike-gang-block`** covers a combination the original seven didn't: one gang-blocked attacker
+with blockers on both sides of the first-strike line, not one fixture per keyword. Durkwood Boars (4/4, no keywords) is
+blocked by Elvish Archers (2/1, First Strike) and Devoted Hero (1/2, no keywords) — `firststrikedamage` only lets
+Archers act, and `combatdamage`'s own `AssignCombatDamage` call still has to see both blockers as live, since neither
+has taken any damage yet at that point (Archers dealt damage in the earlier step; nothing has dealt any to it). Getting
+`dealsInStep`'s per-creature check wrong in either direction — Archers firing twice, or `AssignCombatDamage` only being
+offered the blocker without first strike — is exactly the class of bug a first-strike fixture and a gang-block fixture,
+each exercised alone, cannot catch.
+
 **`cleanup-discards-to-hand-size`** is the same discipline applied to CR 514.1 rather than combat: nine real cards
 (Mountain) in hand, twelve `advance`s from `Untap` to land exactly on `Cleanup` (`Untap` is phase 0, `Cleanup` is 12),
 `queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`

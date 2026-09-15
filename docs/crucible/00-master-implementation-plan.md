@@ -628,7 +628,7 @@ printed form.
     `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle. **Mulligans
     done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment not started.**
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 12 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 13 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

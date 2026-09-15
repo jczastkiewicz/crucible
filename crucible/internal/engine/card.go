@@ -10,6 +10,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
 
@@ -159,6 +160,28 @@ func (c *Card) BaseDefense() (int, bool) {
 	return n, err == nil
 }
 
+// Colors is the card's color identity for rules purposes (CR 105, valid.go's
+// White/Blue/Black/Red/Green/Colorless/MultiColor properties): a script's
+// explicit `Colors:` override, or (absent one) whatever its mana cost's own
+// colored symbols say -- the exact "override, else derive" logic
+// carddb.Face.dumpColors already carries out and M2's P1 gate already
+// verifies byte-identical to Forge's own dump, not a new derivation. A
+// color-changing effect (Layer 5) is not folded in, the same "printed
+// value only" limit every other characteristic on this type has until the
+// rest of the continuous-effect layer system lands (game-state.md's "Not
+// ported yet"). A nil Def reports the zero value, mana.Colors' own
+// "colorless" -- consistent with every other Def-derived accessor here.
+func (c *Card) Colors() mana.Colors {
+	if c.Def == nil {
+		return 0
+	}
+	f := c.Def.Faces[0]
+	if f.HasColors {
+		return f.Colors
+	}
+	return f.ManaCost.Colors()
+}
+
 // Power and Toughness are the card's current power and toughness: Layer 0
 // (BasePower/BaseToughness) with Layer 7's continuous effects (PT) folded
 // in, plus +1/+1 and -1/-1 counters, in CR 613.4's own order -- counters
@@ -170,8 +193,7 @@ func (c *Card) BaseDefense() (int, bool) {
 // unresolvable printed value ("*") with a computed one, so PT can turn an
 // unresolvable base into a resolvable current value, never the reverse.
 func (c *Card) Power() (int, bool) {
-	base, ok := c.BasePower()
-	v, ok := foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Power })
+	v, ok := c.layer7Power()
 	if !ok {
 		return 0, false
 	}
@@ -180,12 +202,44 @@ func (c *Card) Power() (int, bool) {
 
 // Toughness is Power's counterpart; see its doc comment.
 func (c *Card) Toughness() (int, bool) {
-	base, ok := c.BaseToughness()
-	v, ok := foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Toughness })
+	v, ok := c.layer7Toughness()
 	if !ok {
 		return 0, false
 	}
 	return v + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+}
+
+// layer7Power and layer7Toughness are Power/Toughness stopped one step
+// early: base folded with Layer 7, counters not yet added. This is Java's
+// own getCurrentPower/getCurrentToughness (Card.java:4407,4450) -- a
+// distinct, more confusingly-named thing than getBasePower/getBaseToughness
+// (this port's BasePower/BaseToughness) -- and it is what
+// CardProperty.java's "basePower"/"baseToughness" valid-string properties
+// actually measure (valid.go's compareFieldValue), not the printed value
+// the names suggest. Neither this port nor Java's own getNetPower folds in
+// the "CARDNAME's power and toughness are switched" keyword here; Power and
+// Toughness don't either, so a switched creature's valid-string comparisons
+// share the same gap every other switch-blind read on this type already has
+// (game-state.md's "Not ported yet").
+func (c *Card) layer7Power() (int, bool) {
+	base, ok := c.BasePower()
+	return foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Power })
+}
+
+func (c *Card) layer7Toughness() (int, bool) {
+	base, ok := c.BaseToughness()
+	return foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Toughness })
+}
+
+// CMC is the card's printed mana value (CR 202.3), the sum of its mana
+// cost's own symbols -- compile.Face's own ManaCost (Colors' own doc
+// comment carries the same "printed value only" limit). A nil Def reports
+// 0, mana.Cost's own zero value.
+func (c *Card) CMC() int {
+	if c.Def == nil {
+		return 0
+	}
+	return c.Def.Faces[0].ManaCost.CMC()
 }
 
 // foldPT applies Layer 7's own sub-layers in order (CR 613.4):

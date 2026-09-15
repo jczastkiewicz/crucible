@@ -19,6 +19,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Errors a card script can cause. Each names the card and the reference that
@@ -174,6 +175,17 @@ type Face struct {
 	// only ever "how many counters would it enter with."
 	Defense string
 
+	// ManaCost, Colors and HasColors are carried through unchanged from
+	// carddb.Face, the same "printed value only" shape Type/Power/Toughness
+	// already use. Colors is only meaningful when HasColors is true (a
+	// script's explicit `Colors:` override); absent that, a card's color is
+	// derived from ManaCost, which is engine.Card.Colors' job -- the exact
+	// logic carddb.Face.dumpColors already verifies against Forge's own
+	// dump (M2's P1 gate), not a new derivation invented here.
+	ManaCost  mana.Cost
+	Colors    mana.Colors
+	HasColors bool
+
 	// Keywords are the face's `K:` lines, carried through unchanged from
 	// carddb.Face -- keyword.Parse resolves one to a name at read time
 	// (engine.Card.HasKeyword's job), the same "carry the printed text,
@@ -225,6 +237,7 @@ func compileFace(face *carddb.Face) (Face, error) {
 	out := Face{
 		Type: face.Type, Power: face.Power, Toughness: face.Toughness,
 		Loyalty: face.InitialLoyalty, Defense: face.Defense, Keywords: face.Keywords,
+		ManaCost: face.ManaCost, Colors: face.Colors, HasColors: face.HasColors,
 	}
 	for _, group := range []struct {
 		lines  []string

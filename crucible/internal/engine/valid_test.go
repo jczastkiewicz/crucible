@@ -4,9 +4,20 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
+
+// typedDef builds just enough of a *compile.Card for Card.Type() to answer
+// with typeLine -- the generic version of action_test.go's auraDef/
+// equipmentDef, for a type shape neither of those already covers.
+func typedDef(t *testing.T, typeLine string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test " + typeLine}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), typeLine)
+	return def
+}
 
 // A bare color name matches a card carrying that color, derived from its
 // mana cost (Card.Colors' own doc comment) -- and not one it lacks. All
@@ -975,6 +986,179 @@ func TestMatchesModified(t *testing.T) {
 	// "modified" cares who controls it.
 	if !engine.Matches(g, g.Card(oppAura), valid.Parse("Card.enchanted"), a, engine.NoCard) {
 		t.Error("a host enchanted by an opponent's Aura did not match Card.enchanted")
+	}
+}
+
+// RememberedPlayerCtrl matches a card whose controller source has
+// remembered, not one whose owner has been remembered instead (a
+// distinction only visible once control changes, which this test does not
+// need to exercise to prove the two fields are read separately).
+func TestMatchesRememberedPlayerCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	source := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(a))
+
+	yours := g.NewCard(nil, a, engine.Battlefield)
+	theirs := g.NewCard(nil, b, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(yours), valid.Parse("Card.RememberedPlayerCtrl"), a, source) {
+		t.Error("a card controlled by the remembered player did not match Card.RememberedPlayerCtrl")
+	}
+	if engine.Matches(g, g.Card(theirs), valid.Parse("Card.RememberedPlayerCtrl"), a, source) {
+		t.Error("a card controlled by an unremembered player matched Card.RememberedPlayerCtrl")
+	}
+}
+
+// RememberedPlayerOwn is RememberedPlayerCtrl's own counterpart against
+// Owner instead of Controller.
+func TestMatchesRememberedPlayerOwn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	source := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(b))
+
+	ownedByB := g.NewCard(nil, b, engine.Battlefield)
+	ownedByA := g.NewCard(nil, a, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(ownedByB), valid.Parse("Card.RememberedPlayerOwn"), a, source) {
+		t.Error("a card owned by the remembered player did not match Card.RememberedPlayerOwn")
+	}
+	if engine.Matches(g, g.Card(ownedByA), valid.Parse("Card.RememberedPlayerOwn"), a, source) {
+		t.Error("a card owned by an unremembered player matched Card.RememberedPlayerOwn")
+	}
+}
+
+// A `$`-suffixed RememberedPlayerCtrl/RememberedPlayerOwn form is a
+// coverage gap -- neither name is an exact match once anything follows it,
+// so it falls through rather than guessing which player field to read.
+func TestMatchesRememberedPlayerSuffixedFormIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(p))
+	id := g.NewCard(nil, p, engine.Battlefield)
+
+	for _, spec := range []string{
+		"Card.RememberedPlayerCtrl$GreatestCardManaCost",
+		"Card.RememberedPlayerOwn$GreatestCardManaCost",
+	} {
+		if engine.Matches(g, g.Card(id), valid.Parse(spec), p, source) {
+			t.Errorf("%s matched despite the suffix never being evaluated", spec)
+		}
+	}
+}
+
+// ActivePlayerCtrl matches a card controlled by whoever's turn it is, not by
+// sourceController -- it reads Game.ActivePlayer, not the perspective
+// Matches was called from.
+func TestMatchesActivePlayerCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	active := g.NewCard(nil, a, engine.Battlefield)
+	inactive := g.NewCard(nil, b, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(active), valid.Parse("Card.ActivePlayerCtrl"), b, engine.NoCard) {
+		t.Error("the active player's card did not match Card.ActivePlayerCtrl from the other player's perspective")
+	}
+	if engine.Matches(g, g.Card(inactive), valid.Parse("Card.ActivePlayerCtrl"), b, engine.NoCard) {
+		t.Error("the inactive player's card matched Card.ActivePlayerCtrl")
+	}
+}
+
+// Historic matches a Legendary permanent, an Artifact, or a Saga -- CR's
+// own umbrella, three different type chains, any one of which is enough --
+// and nothing else.
+func TestMatchesHistoric(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	legendary := g.NewCard(legendaryCreatureDef(t, "Test Legend"), p, engine.Battlefield)
+	artifact := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	saga := g.NewCard(typedDef(t, "Enchantment Saga"), p, engine.Battlefield)
+	plain := g.NewCard(creatureDef(t), p, engine.Battlefield)
+
+	for _, tc := range []struct {
+		name string
+		id   engine.CardID
+		want bool
+	}{
+		{"legendary", legendary, true},
+		{"artifact", artifact, true},
+		{"saga", saga, true},
+		{"plain creature", plain, false},
+	} {
+		if got := engine.Matches(g, g.Card(tc.id), valid.Parse("Card.Historic"), p, engine.NoCard); got != tc.want {
+			t.Errorf("%s: Matches(Card.Historic) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// Outlaw and Party each match a Creature (or Kindred) with one of a fixed
+// set of creature types -- Assassin/Mercenary/Pirate/Rogue/Warlock for
+// Outlaw, Cleric/Rogue/Warrior/Wizard for Party -- and nothing else, not
+// even a noncreature permanent of the same subtype.
+func TestMatchesOutlawAndParty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	pirate := g.NewCard(typedDef(t, "Creature Pirate"), p, engine.Battlefield)
+	wizard := g.NewCard(typedDef(t, "Creature Wizard"), p, engine.Battlefield)
+	rogue := g.NewCard(typedDef(t, "Creature Rogue"), p, engine.Battlefield) // both Outlaw and Party
+	elf := g.NewCard(creatureDef(t), p, engine.Battlefield)                  // neither
+
+	if !engine.Matches(g, g.Card(pirate), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Pirate did not match Creature.Outlaw")
+	}
+	if engine.Matches(g, g.Card(pirate), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Pirate matched Creature.Party")
+	}
+	if !engine.Matches(g, g.Card(wizard), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Wizard did not match Creature.Party")
+	}
+	if engine.Matches(g, g.Card(wizard), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Wizard matched Creature.Outlaw")
+	}
+	if !engine.Matches(g, g.Card(rogue), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Rogue did not match Creature.Outlaw")
+	}
+	if !engine.Matches(g, g.Card(rogue), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Rogue did not match Creature.Party")
+	}
+	if engine.Matches(g, g.Card(elf), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("an Elf matched Creature.Outlaw")
+	}
+	if engine.Matches(g, g.Card(elf), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("an Elf matched Creature.Party")
+	}
+}
+
+// A permanent with an Outlaw/Party subtype but no Creature or Kindred type
+// does not match -- CardType.isOutlaw/isParty both require one of those two
+// core types first.
+func TestMatchesOutlawRequiresCreatureOrKindred(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	// A Rogue-typed Instant is not realistic, but the property's own
+	// definition does not care what kind of permanent (or non-permanent)
+	// carries the subtype -- only whether Creature/Kindred is also present.
+	id := g.NewCard(typedDef(t, "Instant Rogue"), p, engine.Battlefield)
+
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.Outlaw"), p, engine.NoCard) {
+		t.Error("a non-Creature, non-Kindred Rogue matched Card.Outlaw")
 	}
 }
 

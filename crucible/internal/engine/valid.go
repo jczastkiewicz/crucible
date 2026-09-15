@@ -20,13 +20,14 @@
 // comment), enchanted/equipped/modified (attachedByType/isModified's own
 // doc comments), RememberedPlayerCtrl/RememberedPlayerOwn (membership in
 // source's own Memory, by player rather than by card) and ActivePlayerCtrl
-// (c's controller against Game.ActivePlayer), controller/owner relative to
-// sourceController (YouCtrl, YouDontCtrl, OppCtrl, YouOwn, YouDontOwn,
-// OppOwn), identity relative to source (Self, Other, StrictlyOther), the
-// five colors plus Colorless and MultiColor, a generic keyword check under
-// three spellings
-// (with/without/hasKeyword), tapped/untapped, the numeric comparisons
-// (power, toughness, cmc and the rest of compareFields, crossed with
+// (c's controller against Game.ActivePlayer), Historic/Outlaw/Party (pure
+// CardType checks, isHistoric/isTribalMember's own doc comments),
+// controller/owner relative to sourceController (YouCtrl, YouDontCtrl,
+// OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to source (Self,
+// Other, StrictlyOther), the five colors plus Colorless and MultiColor, a
+// generic keyword check under three spellings (with/without/hasKeyword),
+// tapped/untapped, the numeric comparisons (power, toughness, cmc and the
+// rest of compareFields, crossed with
 // LT/LE/EQ/GE/GT/NE/M2 -- compareMatches' own doc comment) for a
 // plain-integer operand, the generic `non<Type>` fallback every chain
 // shares, and the bare type/supertype/subtype fallthrough every chain ends
@@ -251,6 +252,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// (turn.go); nothing new to build.
 	case name == "ActivePlayerCtrl":
 		return c.Controller == g.ActivePlayer()
+	// Historic, Outlaw and Party are all CardType's own methods
+	// (forge-core/src/main/java/forge/card/CardType.java) -- pure type
+	// checks, nothing that needed a Def this port didn't already read for
+	// the bare type/supertype/subtype fallthrough below.
+	case name == "Historic":
+		return isHistoric(c.Type())
+	case name == "Outlaw":
+		return isTribalMember(c.Type(), outlawTypes)
+	case name == "Party":
+		return isTribalMember(c.Type(), partyTypes)
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):
@@ -379,6 +390,41 @@ func containsCard(list []CardID, id CardID) bool {
 func containsEntity(list []EntityID, e EntityID) bool {
 	for _, x := range list {
 		if x == e {
+			return true
+		}
+	}
+	return false
+}
+
+// isHistoric is CardType.isHistoric: Legendary, Artifact, or a Saga --
+// CR's own "historic" umbrella, three different chains (a supertype, a
+// core type, a subtype) that a printed card can satisfy any one of.
+func isHistoric(t cardtype.Line) bool {
+	return t.HasSupertype(cardtype.Legendary) || t.Has(cardtype.Artifact) || t.HasSubtype("Saga")
+}
+
+// outlawTypes and partyTypes are CardType.Constant.OUTLAW_TYPES/PARTY_TYPES
+// (forge-core/src/main/java/forge/card/CardType.java) -- the fixed
+// creature-type sets the Outlaw (Assassin, Mercenary, Pirate, Rogue,
+// Warlock) and Party (Cleric, Rogue, Warrior, Wizard) valid-string
+// properties name. Neither list is derivable from the type grammar itself;
+// both are closed, hand-picked sets a rules text names by mechanic.
+var (
+	outlawTypes = []string{"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"}
+	partyTypes  = []string{"Cleric", "Rogue", "Warrior", "Wizard"}
+)
+
+// isTribalMember is CardType.isOutlaw/isParty's shared shape: a Creature or
+// Kindred card with at least one of names as a subtype. Kindred is checked
+// alongside Creature because both mechanics predate typal(Kindred)
+// permanents that carry a creature type without being a Creature
+// themselves, and CardType.java checks both the same way.
+func isTribalMember(t cardtype.Line, names []string) bool {
+	if !t.Has(cardtype.Creature) && !t.Has(cardtype.Kindred) {
+		return false
+	}
+	for _, n := range names {
+		if t.HasSubtype(n) {
 			return true
 		}
 	}

@@ -4,9 +4,20 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
+
+// typedDef builds just enough of a *compile.Card for Card.Type() to answer
+// with typeLine -- the generic version of action_test.go's auraDef/
+// equipmentDef, for a type shape neither of those already covers.
+func typedDef(t *testing.T, typeLine string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test " + typeLine}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), typeLine)
+	return def
+}
 
 // A bare color name matches a card carrying that color, derived from its
 // mana cost (Card.Colors' own doc comment) -- and not one it lacks. All
@@ -1061,6 +1072,93 @@ func TestMatchesActivePlayerCtrl(t *testing.T) {
 	}
 	if engine.Matches(g, g.Card(inactive), valid.Parse("Card.ActivePlayerCtrl"), b, engine.NoCard) {
 		t.Error("the inactive player's card matched Card.ActivePlayerCtrl")
+	}
+}
+
+// Historic matches a Legendary permanent, an Artifact, or a Saga -- CR's
+// own umbrella, three different type chains, any one of which is enough --
+// and nothing else.
+func TestMatchesHistoric(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	legendary := g.NewCard(legendaryCreatureDef(t, "Test Legend"), p, engine.Battlefield)
+	artifact := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	saga := g.NewCard(typedDef(t, "Enchantment Saga"), p, engine.Battlefield)
+	plain := g.NewCard(creatureDef(t), p, engine.Battlefield)
+
+	for _, tc := range []struct {
+		name string
+		id   engine.CardID
+		want bool
+	}{
+		{"legendary", legendary, true},
+		{"artifact", artifact, true},
+		{"saga", saga, true},
+		{"plain creature", plain, false},
+	} {
+		if got := engine.Matches(g, g.Card(tc.id), valid.Parse("Card.Historic"), p, engine.NoCard); got != tc.want {
+			t.Errorf("%s: Matches(Card.Historic) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// Outlaw and Party each match a Creature (or Kindred) with one of a fixed
+// set of creature types -- Assassin/Mercenary/Pirate/Rogue/Warlock for
+// Outlaw, Cleric/Rogue/Warrior/Wizard for Party -- and nothing else, not
+// even a noncreature permanent of the same subtype.
+func TestMatchesOutlawAndParty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	pirate := g.NewCard(typedDef(t, "Creature Pirate"), p, engine.Battlefield)
+	wizard := g.NewCard(typedDef(t, "Creature Wizard"), p, engine.Battlefield)
+	rogue := g.NewCard(typedDef(t, "Creature Rogue"), p, engine.Battlefield) // both Outlaw and Party
+	elf := g.NewCard(creatureDef(t), p, engine.Battlefield)                  // neither
+
+	if !engine.Matches(g, g.Card(pirate), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Pirate did not match Creature.Outlaw")
+	}
+	if engine.Matches(g, g.Card(pirate), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Pirate matched Creature.Party")
+	}
+	if !engine.Matches(g, g.Card(wizard), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Wizard did not match Creature.Party")
+	}
+	if engine.Matches(g, g.Card(wizard), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Wizard matched Creature.Outlaw")
+	}
+	if !engine.Matches(g, g.Card(rogue), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("a Rogue did not match Creature.Outlaw")
+	}
+	if !engine.Matches(g, g.Card(rogue), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("a Rogue did not match Creature.Party")
+	}
+	if engine.Matches(g, g.Card(elf), valid.Parse("Creature.Outlaw"), p, engine.NoCard) {
+		t.Error("an Elf matched Creature.Outlaw")
+	}
+	if engine.Matches(g, g.Card(elf), valid.Parse("Creature.Party"), p, engine.NoCard) {
+		t.Error("an Elf matched Creature.Party")
+	}
+}
+
+// A permanent with an Outlaw/Party subtype but no Creature or Kindred type
+// does not match -- CardType.isOutlaw/isParty both require one of those two
+// core types first.
+func TestMatchesOutlawRequiresCreatureOrKindred(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	// A Rogue-typed Instant is not realistic, but the property's own
+	// definition does not care what kind of permanent (or non-permanent)
+	// carries the subtype -- only whether Creature/Kindred is also present.
+	id := g.NewCard(typedDef(t, "Instant Rogue"), p, engine.Battlefield)
+
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.Outlaw"), p, engine.NoCard) {
+		t.Error("a non-Creature, non-Kindred Rogue matched Card.Outlaw")
 	}
 }
 

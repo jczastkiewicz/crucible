@@ -5,13 +5,16 @@
 //
 // Ported from forge-game/src/main/java/forge/game/card/Card.java's
 // isValid/hasProperty and the small slice of CardProperty.java's 2,135-line
-// cardHasProperty this covers. CardProperty, CardStateProperty,
-// PlayerProperty and SpellAbilityProperty together answer 928 residual
-// property names (docs/crucible/porting/port-log/valid-strings.md); this is
-// three of them (YouCtrl, OppCtrl, Self) plus the one fallthrough every
-// chain shares -- a bare type, supertype or subtype word is a property in
-// the same sense a keyword name is. The rest is M5-M6, corpus-frequency
-// order, the same shape effect.go's Registry was always going to grow in
+// cardHasProperty (plus, for color, CardStateProperty.java's own chain --
+// colorMatches's own doc comment has the reason color lives there instead)
+// this covers. CardProperty, CardStateProperty, PlayerProperty and
+// SpellAbilityProperty together answer 928 residual property names
+// (docs/crucible/porting/port-log/valid-strings.md); this is three names
+// ported outright (YouCtrl, OppCtrl, Self), the five colors plus Colorless
+// and MultiColor, the generic `non<Type>` fallback every chain shares, and
+// the bare type/supertype/subtype fallthrough every chain ends on. The rest
+// is M5-M6, corpus-frequency order (tools/vocabscan -kind validProperty),
+// the same shape effect.go's Registry was always going to grow in
 // (ADR-0011).
 package engine
 
@@ -19,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -88,15 +92,17 @@ func baseMatches(c *Card, name string) bool {
 	}
 }
 
-// propertyMatches is the slice of CardProperty.cardHasProperty this port
-// answers. Three branches are ported by name, `strings.HasPrefix` rather
-// than `==` because Java's own chain tests with `startsWith` (a property
-// can carry a suffix argument on other branches this port does not reach,
-// and reproducing the match style is what keeps a future addition from
-// silently behaving differently on the bare token) -- and a fourth
-// fallthrough covers a bare type/supertype/subtype word used as a
-// property, the same fallthrough CardState.hasProperty eventually reaches
-// for one (`internal/cardtype.CoreTypeNames`'s own doc comment).
+// propertyMatches is the slice of CardProperty.cardHasProperty (and, for
+// color, CardStateProperty.hasProperty -- colorMatches's own doc comment)
+// this port answers. Three branches are ported by name, `strings.HasPrefix`
+// rather than `==` because Java's own chain tests with `startsWith` (a
+// property can carry a suffix argument on other branches this port does
+// not reach, and reproducing the match style is what keeps a future
+// addition from silently behaving differently on the bare token). Color
+// and the generic `non<Type>` fallback come next, and a final fallthrough
+// covers a bare type/supertype/subtype word used as a property, the same
+// fallthrough CardState.hasProperty eventually reaches for one
+// (`internal/cardtype.CoreTypeNames`'s own doc comment).
 //
 // Java's `YouCtrl`/`OppCtrl` compare against the controller
 // `game.getChangeZoneLKIInfo` resolves, not `card.getController()`
@@ -119,7 +125,57 @@ func propertyMatches(c *Card, name string, sourceController PlayerID, source Car
 		return c.Controller != sourceController
 	case strings.HasPrefix(name, "Self"):
 		return c.ID == source
-	default:
-		return c.Type().HasStringType(name)
 	}
+	if color, mustHave, ok := colorMatches(name); ok {
+		return mustHave == c.Colors().Has(color)
+	}
+	switch name {
+	case "Colorless":
+		return c.Colors().IsColorless()
+	case "nonColorless":
+		return !c.Colors().IsColorless()
+	case "MultiColor":
+		return c.Colors().Count() > 1
+	}
+	if rest, ok := strings.CutPrefix(name, "non"); ok {
+		// CardStateProperty.java's own generic tail, reached once none of
+		// its named branches (color included, checked first, above) claim
+		// the property -- "nonLand", "nonCreature", "nonArtifact", and
+		// every other `non<Type>` this port's `cardtype` recognizes.
+		return !c.Type().HasStringType(rest)
+	}
+	return c.Type().HasStringType(name)
+}
+
+// colorMatches is CardStateProperty.hasProperty's color branch (White,
+// Blue, Black, Red, Green, each with a `non` form), exact-matched rather
+// than Java's `Contains`/prefix-stripped form: this port does not
+// implement the "Source" suffix (`WhiteSource`, a damage-context check
+// needing a source distinct from the candidate card, which propertyMatches
+// has no context for), and an exact match is what keeps that gap honest --
+// "WhiteSource" falls through to propertyMatches' own type-name
+// fallthrough (false for every card, the same as any other unimplemented
+// property) rather than being silently misread as bare "White".
+//
+// mustHave mirrors Java's own local of the same name: false for the `non`
+// form, meaning the card must lack the color rather than carry it.
+func colorMatches(name string) (color mana.Colors, mustHave bool, ok bool) {
+	mustHave = true
+	colorName := name
+	if rest, isNon := strings.CutPrefix(name, "non"); isNon {
+		mustHave, colorName = false, rest
+	}
+	switch colorName {
+	case "White":
+		return mana.White, mustHave, true
+	case "Blue":
+		return mana.Blue, mustHave, true
+	case "Black":
+		return mana.Black, mustHave, true
+	case "Red":
+		return mana.Red, mustHave, true
+	case "Green":
+		return mana.Green, mustHave, true
+	}
+	return 0, false, false
 }

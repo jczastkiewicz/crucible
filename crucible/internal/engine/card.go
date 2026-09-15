@@ -10,6 +10,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
 
@@ -157,6 +158,28 @@ func (c *Card) BaseDefense() (int, bool) {
 	}
 	n, err := strconv.Atoi(c.Def.Faces[0].Defense)
 	return n, err == nil
+}
+
+// Colors is the card's color identity for rules purposes (CR 105, valid.go's
+// White/Blue/Black/Red/Green/Colorless/MultiColor properties): a script's
+// explicit `Colors:` override, or (absent one) whatever its mana cost's own
+// colored symbols say -- the exact "override, else derive" logic
+// carddb.Face.dumpColors already carries out and M2's P1 gate already
+// verifies byte-identical to Forge's own dump, not a new derivation. A
+// color-changing effect (Layer 5) is not folded in, the same "printed
+// value only" limit every other characteristic on this type has until the
+// rest of the continuous-effect layer system lands (game-state.md's "Not
+// ported yet"). A nil Def reports the zero value, mana.Colors' own
+// "colorless" -- consistent with every other Def-derived accessor here.
+func (c *Card) Colors() mana.Colors {
+	if c.Def == nil {
+		return 0
+	}
+	f := c.Def.Faces[0]
+	if f.HasColors {
+		return f.Colors
+	}
+	return f.ManaCost.Colors()
 }
 
 // Power and Toughness are the card's current power and toughness: Layer 0

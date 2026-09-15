@@ -5,9 +5,10 @@
   `CardLists.java:189`
 - **Go target:** `crucible/internal/valid`
 - **Status:** Parsing done — M3 slice C. Evaluation started in `internal/engine` (M5): `Matches` covers the
-  `Card.isValid` control flow in full and three property names (`YouCtrl`, `OppCtrl`, `Self`) plus the bare
-  type/supertype/subtype fallthrough every property chain shares. The other ~925 property names are M5-M6, corpus
-  frequency order
+  `Card.isValid` control flow in full, three property names (`YouCtrl`, `OppCtrl`, `Self`), the five colors plus
+  `Colorless`/`MultiColor` and the generic `non<Type>` fallback (`CardStateProperty`'s own chain), and the bare
+  type/supertype/subtype fallthrough every property chain shares. The other ~915 property names are M5-M6, corpus
+  frequency order (`tools/vocabscan -kind validProperty`)
 
 ## What it does
 
@@ -93,6 +94,42 @@ resolution, which CR 704.5's still-unbuilt Aura `Enchant`-restriction check will
 anything on a stack — `game-state.md`'s "State-based actions" section has the full citation caveat: Java's own comments
 do not cleanly single-letter this rule).
 
+## Color reaches `Matches` through a second chain, `CardStateProperty`
+
+The five colors, `Colorless`/`MultiColor` and the generic `non<Type>` fallback are not in `CardProperty.cardHasProperty`
+at all — Java's own switch has no `case "White"`. `CardProperty`'s final `else` calls
+`card.getCurrentState().hasProperty(property, ...)`, `CardStateProperty.hasProperty`, the second of the four property
+chains (`CardProperty`, `CardStateProperty`, `PlayerProperty`, `SpellAbilityProperty`), and that is where color lives —
+confirmed by grepping `CardProperty.java` for a bare color-name case and finding none, then finding all of them in
+`CardStateProperty.java` instead. `colorMatches` (`valid.go`) is that chain's own color branch, ported as a small
+function of its own rather than folded into `propertyMatches`'s switch, since it has real internal structure (a shared
+`mustHave`/`non`-prefix computation across all five names) `propertyMatches`'s existing three cases do not.
+
+**Card color needed a real source: `Card.Colors()`, from `compile.Face`'s new `ManaCost`/`Colors`/`HasColors`.** Neither
+existed before this — `compile.Face` carried Type/Power/Toughness/Loyalty/Defense/Keywords through from `carddb.Face`
+but not the mana cost or a color override, because nothing before `colorMatches` needed a card's color at all.
+`Card.Colors()` is exactly `carddb.Face.dumpColors()`'s own "override, else derive from cost" logic — not a new
+derivation invented for this, but a second caller of one M2's P1 gate already verified byte-identical to Forge's own
+dump across the whole corpus. `internal/mana.Colors`, the bitmask type both share, already existed too
+(`internal/mana`'s own doc comment, ported from `MagicColor`/`ColorSet` for M1's mana-cost work) — this is its first use
+outside cost parsing.
+
+**`colorMatches` exact-matches rather than reproducing Java's `Contains`/prefix-stripped form, on purpose.** Java folds
+a `Source` suffix into the same branch (`WhiteSource`, a damage-context check comparing the color of whatever _dealt_
+damage, not the candidate card `Matches` is given) by slicing the trailing characters off before the
+`MagicColor.fromName` lookup. `Matches` has no damage-source context to answer that question with, so implementing the
+slice without the context it exists for would either panic on an unexpected shape or (worse) silently answer the wrong
+question. An exact match against `White`/`Blue`/.../`nonGreen` means `WhiteSource` simply does not match `colorMatches`
+at all and falls through to `propertyMatches`'s own type-name fallthrough — false for every card, the honest "not
+implemented" answer, rather than a plausible-looking wrong one.
+
+**The generic `non<Type>` fallback is `CardStateProperty`'s own tail, reached only after color already had first
+refusal.** `nonBlack` and `nonLand` look identical in shape but mean different things — one is a color negation
+(`colorMatches` claims it), the other is a type negation (`c.Type().HasStringType("Land")`, inverted). Checking color
+first is what keeps `nonBlack` from ever reaching the type fallback and being asked whether "Black" is a recognized
+subtype (it is not, so the type fallback would answer `true` for every card — the exact wrong-answer shape colorMatches
+existing to intercept color names avoids).
+
 ## Deviations from Java
 
 | Java                                                                   | Go                                                                                                                        |
@@ -101,16 +138,18 @@ do not cleanly single-letter this rule).
 | `!` is consumed by mutating the local `incR[0]`                        | `Negated bool` on both `Base` and `Property`, so the sign is not part of the name                                         |
 | A comparison is recognised by a chain of `startsWith` in the evaluator | `Compare` on the property, filled at parse time                                                                           |
 | Matching happens against a `Card` and a `Game`                         | Not here (ADR-0003 stays honoured): `engine.Matches` evaluates a `Spec`, `internal/valid` never imports `internal/engine` |
+| Color is read via `card.getColor(cardState)`, LKI/state-aware          | `Card.Colors()`, current state only — the same gap every other characteristic accessor on `Card` already has              |
 
 ## Not ported yet
 
-| Java                                                                                                                 | When       |
-| -------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `CardProperty.cardHasProperty` — 311 of its 314 branches; `YouCtrl`, `OppCtrl`, `Self` are ported (`engine.Matches`) | M5-M6      |
-| `CardStateProperty`, `SpellAbilityProperty` — the other two of the four property chains                              | M5-M6      |
-| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet           | M5-M6      |
-| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                            | M5-M6      |
-| Property heads as a closed vocabulary, for the P2 gate                                                               | M3 slice H |
+| Java                                                                                                                                                                                                                                                                                                   | When       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `CardProperty.cardHasProperty` — 311 of its 314 branches; `YouCtrl`, `OppCtrl`, `Self` are ported (`engine.Matches`)                                                                                                                                                                                   | M5-M6      |
+| `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported) | M5-M6      |
+| `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                          | M5-M6      |
+| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                             | M5-M6      |
+| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                                                                                                                                                                                                              | M5-M6      |
+| Property heads as a closed vocabulary, for the P2 gate                                                                                                                                                                                                                                                 | M3 slice H |
 
 The 1,256 distinct property tokens are inventoried in `internal/carddb/vocab`'s golden. Classifying them into families
 belongs with the evaluator that implements them, not with the parser.

@@ -7,6 +7,125 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
+// A bare color name matches a card carrying that color, derived from its
+// mana cost (Card.Colors' own doc comment) -- and not one it lacks. All
+// five, not just one, since colorMatches names each independently.
+func TestMatchesColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	for _, tc := range []struct{ cost, color, other string }{
+		{"1 W", "White", "Blue"},
+		{"1 U", "Blue", "Black"},
+		{"1 B", "Black", "Red"},
+		{"1 R", "Red", "Green"},
+		{"1 G", "Green", "White"},
+	} {
+		id := g.NewCard(creatureDefManaCost(t, tc.cost), p, engine.Battlefield)
+		if !engine.Matches(g.Card(id), valid.Parse("Creature."+tc.color), p, engine.NoCard) {
+			t.Errorf("a %s creature did not match Creature.%s", tc.color, tc.color)
+		}
+		if engine.Matches(g.Card(id), valid.Parse("Creature."+tc.other), p, engine.NoCard) {
+			t.Errorf("a %s creature matched Creature.%s", tc.color, tc.other)
+		}
+	}
+}
+
+// The "non" form of a color negates it -- "nonBlack" matches anything that
+// is not black, including a card of a different color entirely.
+func TestMatchesNonColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	red := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
+	black := g.NewCard(creatureDefManaCost(t, "1 B"), p, engine.Battlefield)
+
+	if !engine.Matches(g.Card(red), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
+		t.Error("a red creature did not match Creature.nonBlack")
+	}
+	if engine.Matches(g.Card(black), valid.Parse("Creature.nonBlack"), p, engine.NoCard) {
+		t.Error("a black creature matched Creature.nonBlack")
+	}
+}
+
+// "WhiteSource" is not implemented (colorMatches' own doc comment -- it
+// needs a damage-source context Matches does not carry) and must not be
+// silently misread as bare "White": a white card should not match it, and
+// neither should a card of any other color.
+func TestMatchesColorSourceSuffixIsNotImplemented(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	white := g.NewCard(creatureDefManaCost(t, "1 W"), p, engine.Battlefield)
+
+	if engine.Matches(g.Card(white), valid.Parse("Creature.WhiteSource"), p, engine.NoCard) {
+		t.Error("a white creature matched the unimplemented WhiteSource property")
+	}
+}
+
+// Colorless and nonColorless are each other's opposite, and neither is a
+// color name -- a colored card is not Colorless, and a colorless one is not
+// nonColorless.
+func TestMatchesColorlessAndNonColorless(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	colorless := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Battlefield)
+	red := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
+
+	if !engine.Matches(g.Card(colorless), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
+		t.Error("a colorless creature did not match Creature.Colorless")
+	}
+	if engine.Matches(g.Card(red), valid.Parse("Creature.Colorless"), p, engine.NoCard) {
+		t.Error("a red creature matched Creature.Colorless")
+	}
+	if !engine.Matches(g.Card(red), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
+		t.Error("a red creature did not match Creature.nonColorless")
+	}
+	if engine.Matches(g.Card(colorless), valid.Parse("Creature.nonColorless"), p, engine.NoCard) {
+		t.Error("a colorless creature matched Creature.nonColorless")
+	}
+}
+
+// MultiColor matches two or more colors, not one and not zero.
+func TestMatchesMultiColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	mono := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
+	multi := g.NewCard(creatureDefManaCost(t, "R G"), p, engine.Battlefield)
+
+	if engine.Matches(g.Card(mono), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
+		t.Error("a monocolored creature matched Creature.MultiColor")
+	}
+	if !engine.Matches(g.Card(multi), valid.Parse("Creature.MultiColor"), p, engine.NoCard) {
+		t.Error("a two-color creature did not match Creature.MultiColor")
+	}
+}
+
+// A generic "non<Type>" property, not one of the five named colors, falls
+// to the type-negation fallback -- "nonLand" is "!HasStringType(Land)".
+func TestMatchesNonTypeFallback(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
+
+	if !engine.Matches(g.Card(creature), valid.Parse("Card.nonLand"), p, engine.NoCard) {
+		t.Error("a creature did not match Card.nonLand")
+	}
+	if engine.Matches(g.Card(creature), valid.Parse("Card.nonCreature"), p, engine.NoCard) {
+		t.Error("a creature matched Card.nonCreature")
+	}
+}
+
 // A bare type word as a Base matches by type, ignoring properties entirely
 // when there are none.
 func TestMatchesBaseCoreType(t *testing.T) {

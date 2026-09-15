@@ -7,6 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // attachmentTypeRegistry is the minimal type vocabulary a test needs to build
@@ -65,6 +66,13 @@ func creatureDefPTKeywords(t *testing.T, power, toughness string, keywords ...st
 	t.Helper()
 	def := creatureDefPT(t, power, toughness)
 	def.Faces[0].Keywords = keywords
+	return def
+}
+
+func creatureDefManaCost(t *testing.T, cost string) *compile.Card {
+	t.Helper()
+	def := creatureDefPT(t, "1", "1")
+	def.Faces[0].ManaCost = mana.MustParse(cost)
 	return def
 }
 
@@ -1006,6 +1014,55 @@ func TestBaseDefense(t *testing.T) {
 	noDef := g.NewCard(nil, p, engine.Battlefield)
 	if _, ok := g.Card(noDef).BaseDefense(); ok {
 		t.Error("BaseDefense() resolved a card with no Def")
+	}
+}
+
+// Colors derives from the mana cost absent a Colors: override -- the same
+// logic carddb.Face.dumpColors already verifies byte-identical to Forge's
+// own dump (M2's P1 gate).
+func TestColorsDerivedFromManaCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	rg := g.NewCard(creatureDefManaCost(t, "1 R G"), p, engine.Battlefield)
+	if got := g.Card(rg).Colors(); got != mana.Red|mana.Green {
+		t.Errorf("Colors() = %v, want Red|Green", got)
+	}
+
+	colorless := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Battlefield)
+	if got := g.Card(colorless).Colors(); !got.IsColorless() {
+		t.Errorf("Colors() = %v, want colorless", got)
+	}
+}
+
+// An explicit Colors: override wins over the mana cost, the same as Forge's
+// own dumpColors.
+func TestColorsOverride(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	def := creatureDefManaCost(t, "1 R")
+	def.Faces[0].Colors, def.Faces[0].HasColors = mana.Black, true
+	id := g.NewCard(def, p, engine.Battlefield)
+
+	if got := g.Card(id).Colors(); got != mana.Black {
+		t.Errorf("Colors() = %v, want Black (the override), not Red (the cost)", got)
+	}
+}
+
+func TestColorsNilDefIsColorless(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	id := g.NewCard(nil, p, engine.Battlefield)
+	if got := g.Card(id).Colors(); !got.IsColorless() {
+		t.Errorf("Colors() = %v, want colorless for a nil Def", got)
 	}
 }
 

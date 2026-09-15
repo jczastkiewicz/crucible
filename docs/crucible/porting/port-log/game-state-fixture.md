@@ -113,10 +113,10 @@ queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated 
 `Game.CheckStateBasedActions` asks it whenever a Battle has no protector (or its protector has left the game) and
 nothing is currently attacking it (`game-state.md`'s "Combat" section, `assignBattleProtector`). A fixture with a Battle
 in `setup.state` needs one queued before the first `startturn`/`advance`/`combatdamage`-family action that would run a
-state-based-action check, since that first check is what asks. There is no way to name the resulting protector in
-`expect.state` yet — the text format has no per-card key for it, and `compareGames` does not compare it — so a scenario
-can drive the decision but cannot assert its outcome; `assignBattleProtector`'s own Go tests are what verify the result
-today.
+state-based-action check, since that first check is what asks. The result is nameable in `expect.state` too —
+`Protector:<player>`, Crucible-only the same way `lost=`/`won=`/`over=` are (no Java `GameState` key exists to diverge
+from), compared by name the same way everything else two independently loaded games disagree on numerically is.
+`testdata/scenarios/battle-protector-assigned-to-opponent` is the example.
 
 `queue discard` is needed only when `advance` reaches `Cleanup` with the active player's hand over `MaxHandSize` (7,
 `game-state.md`'s "Turn structure") — a hand already at or under that never asks. There is no `none` shortcut, the same
@@ -158,8 +158,10 @@ touched again — is exactly that; the `CardID` a shuffle produces is not someth
 The comparison itself does not go through `Dump`. `Dump`'s `Id:` is the card's own `CardID` (see above), and
 `setup.state` (run through actions.log) and `expect.state` are two independently loaded games whose `CardID`s were never
 going to agree by number. `compareGames` (`scenario_test.go`) compares the two `*engine.Game`s directly instead — zone
-contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment per card — which sidesteps the
-numbering question entirely and reaches fields `Dump` cannot write down at all (see below).
+contents by name and position, `Tapped`/`SummonSick`/`Damage`/`Counters`/attachment/protector per card — which sidesteps
+the numbering question entirely and reaches fields `Dump` cannot write down at all (see below). Protector is compared by
+name too, the same reasoning `CardID` gets: two independently loaded games were never going to agree on raw `PlayerID`s
+either, only on who they name.
 
 **`Lost`, `Won` and `Over` have their own keys: `lost=`, `won=`, `over=`.** `GameState.java`'s own format has none of
 these — a Java fixture is always a still-being-played snapshot, never one that asserts the game already ended — so this
@@ -171,6 +173,17 @@ them: comparing would have failed every scenario that legitimately ends the game
 `testdata/scenarios/poison-loss` is the example: ten poison counters going in via `setup.state`, `startturn human`
 running `CheckStateBasedActions` in `actions.log`, and `expect.state` writing `humanlost=true`, `aiwon=true`,
 `over=true` down as the assertion.
+
+**`Protector:` is `lost=`/`won=`/`over=`'s own pattern applied to a single card field.** `Card.ProtectingPlayer` (CR
+704.5w, `game-state.md`'s "Combat") is Crucible state with no Java `GameState` key to diverge from at all — grep finds
+nothing resembling one in `GameState.java`. `Load`'s case is `Owner:`'s own shape exactly (`playerSlot`, then
+`ld.slotToID[slot]`), gated to Battlefield-only in `Dump` the same way `Owner:`/`Tapped`/`Damage` are, since `Move`
+clears it on the same "left the battlefield" transition. Written only when set (`ProtectingPlayer != NoPlayer`), the
+same "say nothing when there's nothing to say" discipline `Owner:` already follows for when owner equals controller.
+`testdata/scenarios/battle-protector-assigned-to-opponent` exercises the whole path: `queue battleprotector`, a
+`Counters:DEFENSE=` high enough to survive `destroyZeroDefense` until the state-based action that assigns a protector
+runs (CR 704.5v's ETB gap means a Battle placed directly on the battlefield starts at zero defense otherwise), and
+`expect.state` naming the result with `Protector:`.
 
 `TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
 would defeat the point of a format meant to run against the Java oracle too, and 33,697 cards is too much to pay for per

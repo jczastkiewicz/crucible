@@ -133,6 +133,56 @@ func TestDumpAndWriteRoundTripLostWonOver(t *testing.T) {
 	}
 }
 
+// Dump round-trips Protector through Write and back, the same as
+// Lost/Won/Over above -- Crucible-only, no Java GameState key to diverge
+// from (game-state-fixture.md's Load section has the reason).
+func TestDumpAndWriteRoundTripProtector(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Invasion of Amonkhet")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Invasion of Amonkhet|Protector:ai\n")
+	st := fixture.Dump(l)
+
+	if !strings.Contains(st.Players[0].Battlefield, "Protector:ai") {
+		t.Errorf("battlefield %q does not carry Protector:ai", st.Players[0].Battlefield)
+	}
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	st2, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse(Write(x)): %v", err)
+	}
+	l2, err := fixture.Load(st2, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load(Parse(Write(x))): %v", err)
+	}
+
+	battle := l2.Game.Zone(engine.Battlefield, l2.Game.Players()[0]).Cards()[0]
+	got := l2.Game.Card(battle).ProtectingPlayer
+	want := l2.Game.Players()[1]
+	if got != want {
+		t.Errorf("round trip: protector = %v, want %v", got, want)
+	}
+}
+
+// A card with no protector round-trips without ever gaining a Protector:
+// entry -- the same "only write it when it says something" discipline
+// Owner: already follows.
+func TestDumpNoProtectorWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Grizzly Bears\n")
+	st := fixture.Dump(l)
+
+	if strings.Contains(st.Players[0].Battlefield, "Protector:") {
+		t.Errorf("battlefield %q carries a Protector:, want none -- nothing set one", st.Players[0].Battlefield)
+	}
+}
+
 func TestDumpOwnerOnlyWhenDifferentFromController(t *testing.T) {
 	t.Parallel()
 

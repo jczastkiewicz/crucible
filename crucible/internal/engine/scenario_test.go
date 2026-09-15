@@ -187,6 +187,19 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		if gAttached != wAttached {
 			t.Errorf("%s attached = %v, want %v", label, gAttached, wAttached)
 		}
+		// By name, not PlayerID: got and want are two independently loaded
+		// games, the same reason nothing here compares CardIDs directly
+		// either.
+		gProtector, wProtector := "", ""
+		if gcard.ProtectingPlayer != engine.NoPlayer {
+			gProtector = got.Player(gcard.ProtectingPlayer).Name
+		}
+		if wcard.ProtectingPlayer != engine.NoPlayer {
+			wProtector = want.Player(wcard.ProtectingPlayer).Name
+		}
+		if gProtector != wProtector {
+			t.Errorf("%s protector = %q, want %q", label, gProtector, wProtector)
+		}
 		compareCounters(t, label, gcard.Counters, wcard.Counters)
 	}
 }

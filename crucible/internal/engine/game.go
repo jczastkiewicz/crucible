@@ -244,6 +244,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.PT.Clear()
 		c.Tapped = false
 		c.SummonSick = false
+		c.ProtectingPlayer = NoPlayer
 		g.Unattach(id)
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true

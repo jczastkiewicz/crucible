@@ -123,3 +123,17 @@ func (g *Game) defenderOf(attacker CardID) PlayerID {
 	cid, _ := target.AsCard()
 	return g.Card(cid).Controller
 }
+
+// attackersOf is every creature currently attacking target directly -- a
+// player or, more often the reason this exists, a planeswalker or battle
+// (assignBattleProtector, action.go, CR 704.5w's "no attacking creatures
+// currently attacking that battle"). Nil, not an error, when nothing is.
+func (g *Game) attackersOf(target EntityID) []CardID {
+	var attackers []CardID
+	for _, id := range g.combat.Attackers {
+		if g.combat.AttackTargets[id] == target {
+			attackers = append(attackers, id)
+		}
+	}
+	return attackers
+}

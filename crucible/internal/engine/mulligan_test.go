@@ -61,10 +61,11 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 }
 
 // ChooseLegendaryToKeep, DeclareCombatAttackers, ChooseAttackTarget,
-// DeclareCombatBlockers, AssignCombatDamage and DiscardToHandSize are never
-// exercised by this controller's own tests -- no scenario here creates a
-// legend-rule conflict, reaches combat, or reaches cleanup with a hand over
-// size -- but the interface still has to be satisfied.
+// DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize and
+// ChooseBattleProtector are never exercised by this controller's own tests
+// -- no scenario here creates a legend-rule conflict, reaches combat,
+// reaches cleanup with a hand over size, or has a Battle needing a
+// protector -- but the interface still has to be satisfied.
 func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
 	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
 }
@@ -87,6 +88,10 @@ func (c *scriptedMulliganController) AssignCombatDamage(_ *engine.Game, _ engine
 
 func (c *scriptedMulliganController) DiscardToHandSize(_ *engine.Game, _ engine.PlayerID, hand []engine.CardID, count int) []engine.CardID {
 	panic("scriptedMulliganController: DiscardToHandSize was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ engine.PlayerID, battle engine.CardID, eligible []engine.PlayerID) engine.PlayerID {
+	panic("scriptedMulliganController: ChooseBattleProtector was not expected to be called")
 }
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)

@@ -106,7 +106,17 @@ queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player nam
 queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
+queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 ```
+
+`queue battleprotector` is a state-based action's own question, not tied to any combat verb:
+`Game.CheckStateBasedActions` asks it whenever a Battle has no protector (or its protector has left the game) and
+nothing is currently attacking it (`game-state.md`'s "Combat" section, `assignBattleProtector`). A fixture with a Battle
+in `setup.state` needs one queued before the first `startturn`/`advance`/`combatdamage`-family action that would run a
+state-based-action check, since that first check is what asks. There is no way to name the resulting protector in
+`expect.state` yet — the text format has no per-card key for it, and `compareGames` does not compare it — so a scenario
+can drive the decision but cannot assert its outcome; `assignBattleProtector`'s own Go tests are what verify the result
+today.
 
 `queue discard` is needed only when `advance` reaches `Cleanup` with the active player's hand over `MaxHandSize` (7,
 `game-state.md`'s "Turn structure") — a hand already at or under that never asks. There is no `none` shortcut, the same

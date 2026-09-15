@@ -166,6 +166,26 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "IsImprinted":
 		sc, ok := sourceCard(g, source)
 		return ok && containsCard(sc.Memory.Imprinted(), c.ID)
+	case name == "EnchantedBy", name == "EquippedBy", name == "AttachedBy", name == "FortifiedBy":
+		// All four are one check in Java too: GameEntity.isEnchantedBy,
+		// isEquippedBy and isFortifiedBy each just call hasCardAttachment,
+		// and hasCardAttachment is getAttachedCards().contains(c) --
+		// GameEntity.java's own comment on isEnchantedBy: "Even if c is no
+		// Aura it still counts". This port's Attach/Unattach is one
+		// mechanism for Auras, Equipment and Fortifications alike
+		// (card.go's own doc comment on Attachments), so there is nothing
+		// left to distinguish between the four names for the bare form --
+		// exact-matched, not prefix-matched, because a trailing restriction
+		// ("EnchantedBy Aura.YouCtrl", "EquippedByTargeted") is a nested
+		// valid.Spec matched against each attachment, or an ability's
+		// current targets, neither of which this covers yet. That is a
+		// genuine gap, but a small one: 2,338 of 2,345 occurrences of the
+		// four names are the bare form, negated or not (tools/vocabscan
+		// -kind validProperty), and a suffixed name simply is not equal to
+		// any of the four cases here, so it falls through to the same
+		// "false for every card" answer any other unimplemented property
+		// gets.
+		return containsCard(c.Attachments(), source)
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):

@@ -624,6 +624,50 @@ func TestMatchesMemoryPropertiesWithoutASourceCard(t *testing.T) {
 	}
 }
 
+// EnchantedBy, EquippedBy, AttachedBy and FortifiedBy are one check in this
+// port regardless of which of the four names is written: is source among
+// the things attached to c. Direction matters -- the attachment does not
+// match from the host's own perspective, only the other way around.
+func TestMatchesAttachmentProperties(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	host := g.NewCard(nil, p, engine.Battlefield)
+	attachment := g.NewCard(nil, p, engine.Battlefield)
+	other := g.NewCard(nil, p, engine.Battlefield)
+	g.Attach(attachment, host)
+
+	for _, spec := range []string{"Card.EnchantedBy", "Card.EquippedBy", "Card.AttachedBy", "Card.FortifiedBy"} {
+		if !engine.Matches(g, g.Card(host), valid.Parse(spec), p, attachment) {
+			t.Errorf("the attached host did not match %s from the attachment's own perspective", spec)
+		}
+		if engine.Matches(g, g.Card(host), valid.Parse(spec), p, other) {
+			t.Errorf("the attached host matched %s from an unrelated card's perspective", spec)
+		}
+		if engine.Matches(g, g.Card(attachment), valid.Parse(spec), p, host) {
+			t.Errorf("the attachment itself matched %s from its own host's perspective -- direction reversed", spec)
+		}
+	}
+}
+
+// A restricted form ("EnchantedBy Aura.YouCtrl") is not equal to any of the
+// four bare names, so it is a coverage gap: it matches nothing rather than
+// evaluating the nested restriction.
+func TestMatchesAttachmentPropertyRestrictedFormIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	host := g.NewCard(nil, p, engine.Battlefield)
+	attachment := g.NewCard(nil, p, engine.Battlefield)
+	g.Attach(attachment, host)
+
+	if engine.Matches(g, g.Card(host), valid.Parse("Card.EnchantedBy Aura.YouCtrl"), p, attachment) {
+		t.Error("a restricted EnchantedBy form matched despite the restriction never being evaluated")
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

@@ -484,9 +484,20 @@ the same `Collections.shuffle(list, MyRandom.getRandom())` call Java's `Player.s
 replays identically from the same seed (pkg/javarand's own P0 gate covers the algorithm; this is the first caller that
 exercises it against a real zone).
 
-Opening hands are not dealt here. Java's `MulliganService` assumes `Game` already dealt one per player, and so does
-`PerformMulligans` — dealing one needs a `Match`/`StartGame` flow this port has not built, so a caller populates each
-hand (a fixture, today; a real game-start procedure, eventually) before calling this.
+**`DealOpeningHands` (`mulligan.go`) is the flow that was missing: `GameAction.startGame`'s pre-mulligan half,** with
+every `Match`-level part trimmed. It decides who plays first (CR 103.2's coin flip — `g.rand`'s own
+`Int32n(len(players))`, `Aggregates.random`'s algorithm for a `List` source, the exact call Java's own
+`Aggregates.random(game.getPlayers())` makes), shuffles every library, and deals each player `startingHandSize` cards.
+It does not call `PerformMulligans` itself, and does not start the first turn either — both stay separate, explicit
+calls a caller makes with the returned first player, the same way `DeclareCombatAttackers` and `DealCombatDamage` stayed
+separate functions rather than one that "plays a combat": `PerformMulligans` already has its own test suite built
+against hands dealt directly (no RNG in the loop to predict), and coupling the two would break that.
+
+**This port has no `Match`, so `isFirstGame` is always `true`.** Java's `determineFirstTurnPlayer` only reaches the coin
+flip when there is no previous game's loser to name (`lastGameOutcome == null`); every other branch — Puzzle, Archenemy,
+Power Play — is a format variant nothing in the corpus this port targets uses. A future `Match` that plays more than one
+game and needs "the loser of the last one goes first" is new work for `DealOpeningHands` to grow into, not a shortcut
+taken here.
 
 ## Combat: declaring attackers, declaring blockers, and dealing damage
 
@@ -746,11 +757,11 @@ compared were never going to agree on those by number.
 | Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                            | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                                 | M5-M6 |
 | `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                    | M5-M6 |
+| `Match` — a series spanning more than one game, "the loser of the last game goes first" (`DealOpeningHands` always takes CR 103.2's coin flip), Puzzle/Archenemy/Power Play's own starting-player rules             | M5-M6 |
 | The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                                 | M5-M6 |
 | A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond           | M5-M6 |
 | Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                         | never |
-| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                      | M5    |
 | `CounterChanged`, `SpellCast` — nothing yet causes them                                                                                                                                                             | M5-M6 |
 | `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                                 | M5-M6 |
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                           | M5-M6 |

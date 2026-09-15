@@ -277,22 +277,25 @@ moment it enters the battlefield, full stop. `BaseLoyalty` only ever answers "ho
 `destroyZeroLoyalty` (CR 704.5, `## State-based actions` — Java's own comments do not number this one) reads
 `Card.Counters.Count(Loyalty)` directly, not a computed accessor that would just be that same call one level removed.
 
-Nothing yet puts a planeswalker's starting loyalty counters on it when it enters the battlefield (CR 121.5): `Move` has
-no ETB hook for any permanent's starting counters, the same gap `changeZone`'s un-ported replacement effects and
-triggers already are (below). A fixture or a test sets `Loyalty` counters directly (`humancounters=LOYALTY=5`) until
-that lands — `destroyZeroLoyalty` is real and correct against whatever count is there, however it got there, the same as
-`destroyLethalToughness` was real before `Power`/`Toughness` folded in Layer 7.
+`Move` grants a planeswalker its printed starting loyalty as counters the moment it enters the battlefield (CR 121.5) —
+the same "Java gets this for free by building a new Card object" gap `SummonSick` already closed for combat, closed here
+for loyalty. `NewCard` still does not: fixture loading seats a battlefield permanent with exactly the counters the
+fixture names, on purpose (`Move`'s own doc comment), so a scenario or a unit test isolating a state-based action still
+sets `Loyalty` counters directly (`humancounters=LOYALTY=5`, or `Counters.Add` in a Go test) rather than relying on an
+ETB grant that only fires for a card genuinely transitioning zones. `destroyZeroLoyalty` reads
+`Card.Counters.Count(Loyalty)` either way, real and correct against whatever count is there, however it got there — the
+same as `destroyLethalToughness` was real before `Power`/`Toughness` folded in Layer 7.
 
-**A Battle's defense is the same shape.** `Card.BaseDefense`/`compile.Face.Defense`/`carddb.Face.Defense` mirror
-`BaseLoyalty` exactly, and `destroyZeroDefense` (CR 704.5v, `GameAction.java`'s own comment) reads
-`Card.Counters.Count(Defense)` directly, the same "no Layer 7, no ETB hook yet" story. One extra piece of 704.5v is here
-too: Java's own version does not destroy a Battle at zero defense if it is the source of a trigger that has fired but
-not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is checked, not skipped —
-`destroyZeroDefense`'s own doc comment explains why it always reads false today (nothing puts a trigger on the stack
-yet) rather than being silently dropped. CR 704.5w/704.5x, a Battle's protector assignment, is a separate state-based
-action now too (`assignBattleProtector`, `## Combat`'s own paragraph on it, below) — never a prerequisite for 704.5v's
-own defense check to be correct on its own terms, which is why the two landed in different sessions without either one
-blocking on the other.
+**A Battle's defense is the same shape, granted the same way.** `Card.BaseDefense`/`compile.Face.Defense`/
+`carddb.Face.Defense` mirror `BaseLoyalty` exactly, `Move` grants it on entry the same way, and `destroyZeroDefense` (CR
+704.5v, `GameAction.java`'s own comment) reads `Card.Counters.Count(Defense)` directly, the same story. One extra piece
+of 704.5v is here too: Java's own version does not destroy a Battle at zero defense if it is the source of a trigger
+that has fired but not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is checked, not
+skipped — `destroyZeroDefense`'s own doc comment explains why it always reads false today (nothing puts a trigger on the
+stack yet) rather than being silently dropped. CR 704.5w/704.5x, a Battle's protector assignment, is a separate
+state-based action now too (`assignBattleProtector`, `## Combat`'s own paragraph on it, below) — never a prerequisite
+for 704.5v's own defense check to be correct on its own terms, which is why the two landed in different sessions without
+either one blocking on the other.
 
 ## Lethal and deathtouch damage, and the one keyword this port checks
 
@@ -736,7 +739,6 @@ compared were never going to agree on those by number.
 | 99 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                                   | M5-M6 |
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                              | M7    |
 | Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet    | M5-M6 |
-| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet        | M5-M6 |
 | The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`        | M5-M6 |
 | The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                      | M5-M6 |
 | The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                               | M5-M6 |

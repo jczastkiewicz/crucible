@@ -111,6 +111,80 @@ func TestMoveSetsSummonSickOnEnteringBattlefield(t *testing.T) {
 	}
 }
 
+// Entering the battlefield gives a planeswalker its printed starting
+// loyalty as counters (CR 121.5) -- the same "Java gets this for free by
+// building a new Card object" gap SummonSick's own test closes for combat.
+func TestMoveGrantsAPlaneswalkerItsStartingLoyalty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(planeswalkerDefLoyalty(t, "5"), p, engine.Hand)
+
+	g.Move(id, engine.Battlefield, p)
+
+	if got := g.Card(id).Counters.Count(engine.Loyalty); got != 5 {
+		t.Errorf("loyalty counters after entering the battlefield = %d, want 5", got)
+	}
+}
+
+// Entering the battlefield gives a Battle its printed starting defense as
+// counters (CR 704.5v) -- Loyalty's own counterpart.
+func TestMoveGrantsABattleItsStartingDefense(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(battleDefDefense(t, "5"), p, engine.Hand)
+
+	g.Move(id, engine.Battlefield, p)
+
+	if got := g.Card(id).Counters.Count(engine.Defense); got != 5 {
+		t.Errorf("defense counters after entering the battlefield = %d, want 5", got)
+	}
+}
+
+// An ordinary creature entering the battlefield gets neither counter kind --
+// the ETB grant is specific to what a planeswalker or a Battle's loyalty/
+// defense actually is, not a blanket "starting counters" rule.
+func TestMoveGrantsNoStartingCountersToAnOrdinaryCreature(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDef(t), p, engine.Hand)
+
+	g.Move(id, engine.Battlefield, p)
+
+	c := g.Card(id)
+	if got := c.Counters.Count(engine.Loyalty); got != 0 {
+		t.Errorf("a creature entering the battlefield has %d loyalty counters, want 0", got)
+	}
+	if got := c.Counters.Count(engine.Defense); got != 0 {
+		t.Errorf("a creature entering the battlefield has %d defense counters, want 0", got)
+	}
+}
+
+// A planeswalker that dies and re-enters gets a fresh loyalty grant, not
+// whatever count it happened to have (zero, since dying cleared it) --
+// entering the battlefield is entering as a new object every time.
+func TestMovePlaneswalkerReenteringGetsFreshLoyalty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(planeswalkerDefLoyalty(t, "4"), p, engine.Battlefield)
+	g.Card(id).Counters.Add(engine.Loyalty, 4)
+	g.Card(id).Counters.Add(engine.Loyalty, -4) // paid down to 0, as if by an ability
+
+	g.Move(id, engine.Graveyard, p)
+	g.Move(id, engine.Battlefield, p)
+
+	if got := g.Card(id).Counters.Count(engine.Loyalty); got != 4 {
+		t.Errorf("loyalty counters after re-entering the battlefield = %d, want 4", got)
+	}
+}
+
 // A card that dies and returns is freshly sick and clean, not a survivor of
 // its last trip: this is the round trip the two halves of Move exist for.
 func TestMoveRoundTripLeavesNoResidue(t *testing.T) {

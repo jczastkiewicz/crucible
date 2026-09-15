@@ -1150,7 +1150,7 @@ func TestAssignBattleProtectorAsksWhenNoneSet(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
-	g.Card(battle).Counters.Add(engine.Defense, 5) // survive destroyZeroDefense; no ETB hook sets this yet
+	g.Card(battle).Counters.Add(engine.Defense, 5) // survive destroyZeroDefense; NewCard seeds battlefield state directly, not through Move's ETB hook
 
 	c := engine.NewScriptedController()
 	c.QueueBattleProtector(b)

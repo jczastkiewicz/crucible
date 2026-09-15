@@ -109,6 +109,123 @@ func TestMatchesMultiColor(t *testing.T) {
 	}
 }
 
+// YouDontCtrl is YouCtrl's simple negation.
+func TestMatchesYouDontCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	id := g.NewCard(nil, a, engine.Battlefield)
+
+	if engine.Matches(g.Card(id), valid.Parse("Card.YouDontCtrl"), a, engine.NoCard) {
+		t.Error("a's own card matched YouDontCtrl from a's perspective")
+	}
+	if !engine.Matches(g.Card(id), valid.Parse("Card.YouDontCtrl"), b, engine.NoCard) {
+		t.Error("a's card did not match YouDontCtrl from b's perspective")
+	}
+}
+
+// YouOwn/YouDontOwn/OppOwn mirror YouCtrl/YouDontCtrl/OppCtrl exactly, but
+// against Owner rather than Controller -- distinct once something steals
+// control, which nothing here needs to for this test.
+func TestMatchesYouOwnOppOwn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	id := g.NewCard(nil, a, engine.Battlefield) // owned and controlled by a
+
+	if !engine.Matches(g.Card(id), valid.Parse("Card.YouOwn"), a, engine.NoCard) {
+		t.Error("a's own card did not match YouOwn from a's perspective")
+	}
+	if engine.Matches(g.Card(id), valid.Parse("Card.YouOwn"), b, engine.NoCard) {
+		t.Error("a's card matched YouOwn from b's perspective")
+	}
+	if engine.Matches(g.Card(id), valid.Parse("Card.YouDontOwn"), a, engine.NoCard) {
+		t.Error("a's own card matched YouDontOwn from a's perspective")
+	}
+	if !engine.Matches(g.Card(id), valid.Parse("Card.OppOwn"), b, engine.NoCard) {
+		t.Error("a's card did not match OppOwn from b's perspective")
+	}
+	if engine.Matches(g.Card(id), valid.Parse("Card.OppOwn"), a, engine.NoCard) {
+		t.Error("a's own card matched OppOwn from a's own perspective")
+	}
+}
+
+// Other is Self's negation: the source card does not match, any other card
+// does.
+func TestMatchesOther(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	other := g.NewCard(nil, p, engine.Battlefield)
+
+	if engine.Matches(g.Card(source), valid.Parse("Card.Other"), p, source) {
+		t.Error("the source card matched Other")
+	}
+	if !engine.Matches(g.Card(other), valid.Parse("Card.Other"), p, source) {
+		t.Error("a different card did not match Other")
+	}
+	// StrictlyOther has no game-timestamp tracking to distinguish from
+	// Other with (game-state.md's "Not ported yet"), so it reads the same.
+	if !engine.Matches(g.Card(other), valid.Parse("Card.StrictlyOther"), p, source) {
+		t.Error("a different card did not match StrictlyOther")
+	}
+}
+
+// tapped and untapped read Card.Tapped directly.
+func TestMatchesTappedUntapped(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Battlefield)
+
+	if engine.Matches(g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
+		t.Error("an untapped card matched tapped")
+	}
+	if !engine.Matches(g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
+		t.Error("an untapped card did not match untapped")
+	}
+
+	g.Card(id).Tapped = true
+	if !engine.Matches(g.Card(id), valid.Parse("Card.tapped"), p, engine.NoCard) {
+		t.Error("a tapped card did not match tapped")
+	}
+	if engine.Matches(g.Card(id), valid.Parse("Card.untapped"), p, engine.NoCard) {
+		t.Error("a tapped card matched untapped")
+	}
+}
+
+// with<Keyword>/without<Keyword>/hasKeyword<Keyword> all reduce to the same
+// HasKeyword check -- three spellings the corpus uses for the same
+// question.
+func TestMatchesKeywordProperties(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	flier := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Flying"), p, engine.Battlefield)
+	grounded := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	for _, spec := range []string{"Creature.withFlying", "Creature.hasKeywordFlying"} {
+		if !engine.Matches(g.Card(flier), valid.Parse(spec), p, engine.NoCard) {
+			t.Errorf("a flier did not match %s", spec)
+		}
+		if engine.Matches(g.Card(grounded), valid.Parse(spec), p, engine.NoCard) {
+			t.Errorf("a grounded creature matched %s", spec)
+		}
+	}
+	if !engine.Matches(g.Card(grounded), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
+		t.Error("a grounded creature did not match Creature.withoutFlying")
+	}
+	if engine.Matches(g.Card(flier), valid.Parse("Creature.withoutFlying"), p, engine.NoCard) {
+		t.Error("a flier matched Creature.withoutFlying")
+	}
+}
+
 // A generic "non<Type>" property, not one of the five named colors, falls
 // to the type-negation fallback -- "nonLand" is "!HasStringType(Land)".
 func TestMatchesNonTypeFallback(t *testing.T) {

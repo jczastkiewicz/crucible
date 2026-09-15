@@ -5,9 +5,11 @@
   `CardLists.java:189`
 - **Go target:** `crucible/internal/valid`
 - **Status:** Parsing done — M3 slice C. Evaluation started in `internal/engine` (M5): `Matches` covers the
-  `Card.isValid` control flow in full, three property names (`YouCtrl`, `OppCtrl`, `Self`), the five colors plus
-  `Colorless`/`MultiColor` and the generic `non<Type>` fallback (`CardStateProperty`'s own chain), and the bare
-  type/supertype/subtype fallthrough every property chain shares. The other ~915 property names are M5-M6, corpus
+  `Card.isValid` control flow in full; controller/owner relative to `sourceController` (`YouCtrl`, `YouDontCtrl`,
+  `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`, `Other`, `StrictlyOther`); the
+  five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings (`with`/`without`/`hasKeyword`);
+  `tapped`/`untapped`; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
+  type/supertype/subtype fallthrough every property chain shares. The other ~905 property names are M5-M6, corpus
   frequency order (`tools/vocabscan -kind validProperty`)
 
 ## What it does
@@ -130,6 +132,37 @@ first is what keeps `nonBlack` from ever reaching the type fallback and being as
 subtype (it is not, so the type fallback would answer `true` for every card — the exact wrong-answer shape colorMatches
 existing to intercept color names avoids).
 
+## Ownership, identity and keyword properties: back in `CardProperty` proper
+
+The second highest-frequency gap after color (`tools/vocabscan -kind validProperty`) turned out to already be in the
+chain `Matches` was reading — `CardProperty.cardHasProperty` itself, just further down than `YouCtrl`/`OppCtrl`/`Self`
+reach: `YouDontCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn` sit right next to the three ported names, and
+`Other`/`StrictlyOther` sit right next to `Self`. Corpus weight alone justified this batch — `Other` (2,068 occurrences)
+and `YouOwn` (1,853) outrank every property but `Self` and `YouCtrl` themselves.
+
+**`YouOwn`/`YouDontOwn`/`OppOwn` are `YouCtrl`/`YouDontCtrl`/`OppCtrl` against `Card.Owner` instead of
+`Card.Controller`.** Distinct once something steals control (an Owner and Controller can differ, `## Cloning`'s own
+table in game-state.md has the reason both fields exist), otherwise identical in shape and in every LKI/team
+simplification `YouCtrl`/`OppCtrl` already carry (this doc's own "Evaluation lands in `internal/engine`" section).
+
+**`Other`/`StrictlyOther` are `Self`'s negation, collapsed to one behavior.** Java's `Strictly` forms
+(`equalsWithGameTimestamp`) exist to tell a card from a same-named copy of itself apart across a zone change this port
+has no game-timestamp/LKI tracking for (game-state.md's "Not ported yet") — the same gap `YouCtrl`'s own LKI paragraph
+already documents, reached from a different direction. `StrictlyOther` therefore reads exactly like `Other`:
+`c.ID != source`.
+
+**Keyword properties reach `Card.HasKeyword` under three spellings Forge's own corpus uses interchangeably:
+`with<Keyword>`, `without<Keyword>`, `hasKeyword<Keyword>`.** This is a fully generic mechanism, not Flying-specific —
+`HasKeyword`'s own exact-match-on-parsed-name behavior (`card.go`'s own doc comment) already handles every keyword the
+corpus has a name for, so porting the three prefixes once covers all of them. `without` is checked before the shorter
+`with` prefix on purpose: `without` itself starts with the four characters `with`, so checking `with` first and
+stripping only four characters would leave `"outFlying"` where `"Flying"` belongs — the same ordering mistake Java's own
+nested `if` (`property.startsWith("without") && ...` checked inside the outer `property.startsWith("with")`) avoids by
+checking the longer, more specific prefix first.
+
+**`tapped`/`untapped` read `Card.Tapped` directly** — the same battlefield-only field `Game.Move` already clears on
+leaving it (game-state.md's "The card's mutable parts").
+
 ## Deviations from Java
 
 | Java                                                                   | Go                                                                                                                        |
@@ -144,7 +177,7 @@ existing to intercept color names avoids).
 
 | Java                                                                                                                                                                                                                                                                                                   | When       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| `CardProperty.cardHasProperty` — 311 of its 314 branches; `YouCtrl`, `OppCtrl`, `Self` are ported (`engine.Matches`)                                                                                                                                                                                   | M5-M6      |
+| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped` (`engine.Matches`)                                           | M5-M6      |
 | `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported) | M5-M6      |
 | `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                          | M5-M6      |
 | `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                             | M5-M6      |

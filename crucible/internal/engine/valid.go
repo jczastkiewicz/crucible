@@ -4,14 +4,17 @@
 // comment says lands here.
 //
 // Ported from forge-game/src/main/java/forge/game/card/Card.java's
-// isValid/hasProperty and the small slice of CardProperty.java's 2,135-line
+// isValid/hasProperty and the slice of CardProperty.java's 2,135-line
 // cardHasProperty (plus, for color, CardStateProperty.java's own chain --
 // colorMatches's own doc comment has the reason color lives there instead)
 // this covers. CardProperty, CardStateProperty, PlayerProperty and
 // SpellAbilityProperty together answer 928 residual property names
-// (docs/crucible/porting/port-log/valid-strings.md); this is three names
-// ported outright (YouCtrl, OppCtrl, Self), the five colors plus Colorless
-// and MultiColor, the generic `non<Type>` fallback every chain shares, and
+// (docs/crucible/porting/port-log/valid-strings.md); this is:
+// controller/owner relative to sourceController (YouCtrl, YouDontCtrl,
+// OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to source (Self,
+// Other, StrictlyOther), the five colors plus Colorless and MultiColor, a
+// generic keyword check under three spellings (with/without/hasKeyword),
+// tapped/untapped, the generic `non<Type>` fallback every chain shares, and
 // the bare type/supertype/subtype fallthrough every chain ends on. The rest
 // is M5-M6, corpus-frequency order (tools/vocabscan -kind validProperty),
 // the same shape effect.go's Registry was always going to grow in
@@ -94,37 +97,78 @@ func baseMatches(c *Card, name string) bool {
 
 // propertyMatches is the slice of CardProperty.cardHasProperty (and, for
 // color, CardStateProperty.hasProperty -- colorMatches's own doc comment)
-// this port answers. Three branches are ported by name, `strings.HasPrefix`
-// rather than `==` because Java's own chain tests with `startsWith` (a
-// property can carry a suffix argument on other branches this port does
-// not reach, and reproducing the match style is what keeps a future
-// addition from silently behaving differently on the bare token). Color
-// and the generic `non<Type>` fallback come next, and a final fallthrough
+// this port answers. Ownership/control and identity branches are ported by
+// name with `strings.HasPrefix` rather than `==`, because Java's own chain
+// tests with `startsWith` (a property can carry a suffix argument on other
+// branches this port does not reach, and reproducing the match style is
+// what keeps a future addition from silently behaving differently on the
+// bare token). `tapped`/`untapped` are exact-matched instead, the same
+// choice colorMatches' own tokens make, since Java's `startsWith` there has
+// no observed suffixed form in the corpus to preserve. Keyword, color and
+// the generic `non<Type>` fallback come next, and a final fallthrough
 // covers a bare type/supertype/subtype word used as a property, the same
 // fallthrough CardState.hasProperty eventually reaches for one
 // (`internal/cardtype.CoreTypeNames`'s own doc comment).
 //
-// Java's `YouCtrl`/`OppCtrl` compare against the controller
-// `game.getChangeZoneLKIInfo` resolves, not `card.getController()`
-// directly -- last-known-information for a card whose own zone change is
-// mid-resolution. This port has no LKI tracking (game-state.md's "Not
-// ported yet"), so this reads `c.Controller` as of now, which agrees with
-// Java's LKI everywhere except the one moment a card's own leaving is what
-// a property is trying to describe.
+// Java's `YouCtrl`/`OppCtrl`/`YouOwn`/`OppOwn` compare against the
+// controller/owner `game.getChangeZoneLKIInfo` resolves, not
+// `card.getController()`/`card.getOwner()` directly -- last-known
+// information for a card whose own zone change is mid-resolution. This
+// port has no LKI tracking (game-state.md's "Not ported yet"), so these
+// read `c.Controller`/`c.Owner` as of now, which agrees with Java's LKI
+// everywhere except the one moment a card's own leaving is what a property
+// is trying to describe. `Self`/`Other`/`StrictlyOther` carry the same
+// simplification one step further: Java's "Strictly" forms are
+// game-timestamp-aware (telling a card from a same-named copy of itself
+// apart), which this port also has no tracking for, so they read
+// identically to their non-"Strictly" counterparts.
 //
-// `OppCtrl` is `controller.getOpponents().contains(sourceController)` in
-// Java, which is team-aware. This port has no team system, so it reads as
-// "controlled by anyone other than sourceController" -- correct for every
-// game this port can play today (two players, or free-for-all with no
-// teams), wrong only once a team variant exists to disagree with it.
+// `OppCtrl`/`OppOwn` are `X.getOpponents().contains(sourceController)` in
+// Java, which is team-aware. This port has no team system, so both read as
+// "controlled/owned by anyone other than sourceController" -- correct for
+// every game this port can play today (two players, or free-for-all with
+// no teams), wrong only once a team variant exists to disagree with it.
 func propertyMatches(c *Card, name string, sourceController PlayerID, source CardID) bool {
 	switch {
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
+	case strings.HasPrefix(name, "YouDontCtrl"):
+		return c.Controller != sourceController
 	case strings.HasPrefix(name, "OppCtrl"):
 		return c.Controller != sourceController
+	case strings.HasPrefix(name, "YouDontOwn"):
+		return c.Owner != sourceController
+	case strings.HasPrefix(name, "YouOwn"):
+		return c.Owner == sourceController
+	case strings.HasPrefix(name, "OppOwn"):
+		return c.Owner != sourceController
+	case strings.HasPrefix(name, "StrictlyOther"), strings.HasPrefix(name, "Other"):
+		// StrictlySelf/StrictlyOther are Java's game-timestamp-aware forms
+		// of Self/Other, for telling a card from a same-named copy of
+		// itself apart. This port has no LKI/game-timestamp tracking
+		// (game-state.md's "Not ported yet"), so both read as plain
+		// identity, the same simplification Self's own doc comment already
+		// makes for YouCtrl/OppCtrl's LKI gap.
+		return c.ID != source
 	case strings.HasPrefix(name, "Self"):
 		return c.ID == source
+	case name == "tapped":
+		return c.Tapped
+	case name == "untapped":
+		return !c.Tapped
+	}
+	if rest, ok := strings.CutPrefix(name, "without"); ok {
+		return !c.HasKeyword(rest)
+	}
+	if rest, ok := strings.CutPrefix(name, "with"); ok {
+		// "without" is checked first: it also starts with "with", and
+		// stripping the shorter prefix from it would leave "out<Keyword>"
+		// instead of the keyword name, the same ordering mistake Java's own
+		// nested if avoids by checking the longer prefix first.
+		return c.HasKeyword(rest)
+	}
+	if rest, ok := strings.CutPrefix(name, "hasKeyword"); ok {
+		return c.HasKeyword(rest)
 	}
 	if color, mustHave, ok := colorMatches(name); ok {
 		return mustHave == c.Colors().Has(color)

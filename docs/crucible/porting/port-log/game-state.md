@@ -650,6 +650,38 @@ Not here yet: a single combat split across more than one defending player at onc
 the reason). Block legality beyond "untapped creature the defending player controls" — Flying/reach, menace, protection,
 "must be blocked by" — waits on the general static-ability engine, above.
 
+## Mana pool and payment
+
+`mana.go`'s `Pool` (CR 106.4, one per `Player`) and its `Pay` method (CR 601.2h/601.2i) are M5 item 28's mana-payment
+slice — the plan's own "budget the most time here" warning is about the full version, and this is deliberately not that:
+`Pay` handles a cost's `Generic` amount plus its six "pure" shards (`ShardW`/`U`/`B`/`R`/`G`/`C`) and nothing else, the
+same "plain-integer operand" discipline `valid.go`'s `compareMatches` already applies to numeric comparisons, for the
+same reason — the harder cases are each a real decision (which color a hybrid symbol takes, mana or life for a Phyrexian
+one) this port has no `PlayerController` method to ask yet.
+
+**Nothing casts a spell yet, and `Pay` does not need one to be worth building.** `turn.go`'s own doc comment already
+says why the priority loop isn't wired in: no `PlayerController` method can cast or activate anything, so `Pay` has no
+real caller today beyond its own tests — the same position `DeclareCombatAttackers`/`AssignCombatDamage` were in before
+anything glued a full combat together, and CR 106/601.2h is exactly as self-contained a rules chapter as CR 508-510 was.
+What is not deferrable is CR 500.4: mana already empties between every phase and step regardless of whether anything is
+being cast, so `emptyManaPools` is a real, unconditional consumer of `Pool` from the moment `beginPhase` exists — not a
+hypothetical one waiting on a future effect, the gap every other "build state ahead of its writer" call this port has
+made (`Memory`, before anything in `effect.go`'s empty `Registry` could write to it) had to weigh instead.
+
+**`emptyManaPools` runs at the top of `beginPhase`, not a separate `onPhaseEnd`.** Java's `PhaseHandler.onPhaseEnd`
+clears every player's pool once per transition, right before the next phase's `onPhaseBegin` runs; this port's phase
+walk has no separate "ending" hook (`beginPhase`'s own comment: `AdvancePhase` "walks through them as bookkeeping
+only... until each one's turn comes"), so the one hook that already fires on every transition is where CR 500.4 lands —
+same cadence, same effect, just attached to whichever half of the transition this port actually implemented. Mana burn
+(losing life for mana left unspent) is not reproduced: it left the rules in 2010, before anything this port's corpus
+targets, so there is no parity to keep with a rule no card in scope was ever printed under.
+
+**Generic is paid from whatever is left over, in a fixed order, not a real choice.** CR 601.2h gives the paying player
+free choice of which floating mana covers a generic cost; `Pay` spends colorless first, then white/blue/black
+/red/green, a deterministic tie-break rather than a decision — nothing reads what is left in the pool after a payment
+yet, so the order cannot be observably wrong today, only arbitrary. It becomes a real `PlayerController` question once
+something does.
+
 ## Events, wired
 
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held
@@ -698,28 +730,30 @@ compared were never going to agree on those by number.
 
 ## Not ported yet
 
-| Missing                                                                                                                                                                                                          | Lands |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                             | M5    |
-| 99 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                                | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                                                                                                                           | M7    |
-| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet | M5-M6 |
-| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet     | M5-M6 |
-| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`     | M5-M6 |
-| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                   | M5-M6 |
-| The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                            | M5-M6 |
-| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                | M5-M6 |
-| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                         | M5-M6 |
-| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                              | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                 | M5-M6 |
-| The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                              | M5-M6 |
-| A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                             | M5-M6 |
-| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond        | M5-M6 |
-| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                      | never |
-| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                   | M5    |
-| `CounterChanged`, `SpellCast` — nothing yet causes them                                                                                                                                                          | M5-M6 |
-| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                              | M5-M6 |
-| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                        | M5-M6 |
-| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                  | M5-M6 |
-| A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes | M5-M6 |
-| Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                         | M5-M6 |
+| Missing                                                                                                                                                                                                             | Lands |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                                | M5    |
+| 99 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, targeting or cost payment, and the rest of Combat past dealing damage                                                                   | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                                                                                                              | M7    |
+| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet    | M5-M6 |
+| CR 121.5/704.5v's own ETB half: a planeswalker or a Battle entering the battlefield with its printed starting loyalty/defense as counters — `Move` has no ETB hook for any permanent's starting counters yet        | M5-M6 |
+| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`        | M5-M6 |
+| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                      | M5-M6 |
+| The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                               | M5-M6 |
+| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                   | M5-M6 |
+| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                            | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                                 | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                    | M5-M6 |
+| The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                                 | M5-M6 |
+| A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                | M5-M6 |
+| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond           | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                         | never |
+| Dealing opening hands — no `Match`/`StartGame` flow exists to call `PerformMulligans` from yet                                                                                                                      | M5    |
+| `CounterChanged`, `SpellCast` — nothing yet causes them                                                                                                                                                             | M5-M6 |
+| `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                                 | M5-M6 |
+| Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                           | M5-M6 |
+| Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                     | M5-M6 |
+| A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes    | M5-M6 |
+| Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                            | M5-M6 |
+| `Pool.Pay` for hybrid, Phyrexian, `{X}` and snow shards — each is a real decision (which color, mana or life) with no `PlayerController` method to ask it; a real choice of which floating mana pays a generic cost | M5-M6 |
+| Mana abilities themselves — nothing taps a land or activates anything to put mana in a `Pool` yet; `Pool.Add`/`AddColorless` exist for `Pay`'s own tests today                                                      | M5-M6 |

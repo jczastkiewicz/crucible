@@ -21,14 +21,15 @@
     "combat": ["combat.go"],
     "attack": ["attack.go"],
     "block": ["block.go"],
-    "combatdamage": ["combatdamage.go"]
+    "combatdamage": ["combatdamage.go"],
+    "mana": ["mana.go"]
   },
   "allow": {
     "zone": ["id"],
     "layer": [],
     "parts": ["id", "layer"],
     "card": ["id", "zone", "parts", "layer"],
-    "player": ["id", "parts"],
+    "player": ["id", "parts", "mana"],
     "ability": ["id"],
     "combat": ["id"],
     "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],

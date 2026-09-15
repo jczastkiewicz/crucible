@@ -14,7 +14,9 @@
 // membership in source's own Memory lists (sourceCard's own doc comment) --
 // EnchantedBy/EquippedBy/AttachedBy/FortifiedBy, bare form only (one check
 // in Java too, before it ever reaches CardProperty), inZone/inRealZone (c's
-// own Zone, LKI-collapsed the same way YouCtrl already is), controller/owner
+// own Zone, LKI-collapsed the same way YouCtrl already is), attacking and
+// blocking, bare form only (the current Combat's Attackers/Blocks),
+// controller/owner
 // relative to sourceController (YouCtrl, YouDontCtrl, OppCtrl, YouOwn,
 // YouDontOwn, OppOwn), identity relative to source (Self, Other,
 // StrictlyOther), the five colors plus Colorless and MultiColor, a generic
@@ -202,6 +204,14 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// c.Zone.
 		zone, ok := ZoneByName(strings.TrimPrefix(name, "inZone"))
 		return ok && c.Zone == zone
+	case name == "attacking":
+		// Java checks combat != nil before card.isAttacking(); this port has
+		// no nil combat, only a zero-valued one, but Attackers is empty
+		// either way when no attack was declared, so containsCard answers
+		// the same "false" a nil combat would without a separate check.
+		return containsCard(g.Attackers(), c.ID)
+	case name == "blocking":
+		return isBlocking(g.Blocks(), c.ID)
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):
@@ -330,6 +340,18 @@ func containsCard(list []CardID, id CardID) bool {
 func containsEntity(list []EntityID, e EntityID) bool {
 	for _, x := range list {
 		if x == e {
+			return true
+		}
+	}
+	return false
+}
+
+// isBlocking reports whether id is a Blocker in any Block -- CardProperty's
+// own "blocking" branch reads combat.isBlocking(card), true the moment a
+// card blocks anything at all, gang block or not.
+func isBlocking(blocks []Block, id CardID) bool {
+	for _, b := range blocks {
+		if b.Blocker == id {
 			return true
 		}
 	}

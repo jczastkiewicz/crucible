@@ -719,6 +719,99 @@ func TestMatchesInZoneUnknownZoneNameIsGap(t *testing.T) {
 	}
 }
 
+// attacking matches only a declared attacker, not a creature that could
+// have attacked but did not, and not the defending creature.
+func TestMatchesAttacking(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	stayedHome := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	defender := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if !engine.Matches(g, g.Card(attacker), valid.Parse("Card.attacking"), a, engine.NoCard) {
+		t.Error("the declared attacker did not match Card.attacking")
+	}
+	if engine.Matches(g, g.Card(stayedHome), valid.Parse("Card.attacking"), a, engine.NoCard) {
+		t.Error("a creature that did not attack matched Card.attacking")
+	}
+	if engine.Matches(g, g.Card(defender), valid.Parse("Card.attacking"), a, engine.NoCard) {
+		t.Error("the defending creature matched Card.attacking")
+	}
+}
+
+// A creature does not match attacking before any attack is declared --
+// Combat's zero value (no combat in progress) reads the same as combat
+// having happened with zero attackers, and both mean "not attacking".
+func TestMatchesAttackingBeforeCombat(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.attacking"), p, engine.NoCard) {
+		t.Error("a creature matched Card.attacking with no combat declared at all")
+	}
+}
+
+// blocking matches a declared blocker, not the attacker it blocks and not
+// an eligible-but-undeclared blocker.
+func TestMatchesBlocking(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	stayedHome := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+
+	if !engine.Matches(g, g.Card(blocker), valid.Parse("Card.blocking"), a, engine.NoCard) {
+		t.Error("the declared blocker did not match Card.blocking")
+	}
+	if engine.Matches(g, g.Card(attacker), valid.Parse("Card.blocking"), a, engine.NoCard) {
+		t.Error("the attacker matched Card.blocking")
+	}
+	if engine.Matches(g, g.Card(stayedHome), valid.Parse("Card.blocking"), a, engine.NoCard) {
+		t.Error("an undeclared creature matched Card.blocking")
+	}
+}
+
+// A suffixed attacking/blocking form ("attackingYou", "blockingSource") is
+// not equal to the bare name, so it is a coverage gap: it matches nothing
+// rather than evaluating the suffix.
+func TestMatchesAttackingBlockingSuffixedFormIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a := g.Players()[0]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if engine.Matches(g, g.Card(attacker), valid.Parse("Card.attackingYou"), a, engine.NoCard) {
+		t.Error("Card.attackingYou matched despite the suffix never being evaluated")
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

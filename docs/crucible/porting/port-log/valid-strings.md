@@ -7,16 +7,16 @@
 - **Status:** Parsing done — M3 slice C. Evaluation started in `internal/engine` (M5): `Matches` covers the
   `Card.isValid` control flow in full; `ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered` and `IsImprinted`
   (membership in `source`'s own `Memory` lists); `EnchantedBy`/`EquippedBy`/`AttachedBy`/`FortifiedBy` (membership in
-  `c`'s own `Attachments`), bare form only; `inZone`/`inRealZone` (`c`'s own `Zone`); controller/owner relative to
-  `sourceController` (`YouCtrl`, `YouDontCtrl`, `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to
-  `source` (`Self`, `Other`, `StrictlyOther`); the five colors plus `Colorless`/`MultiColor`; a keyword check under
-  three spellings (`with`/`without`/`hasKeyword`); `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`,
-  `toughness`, `baseToughness`, `cmc`, `totalPT`, `numColors`, `numTypes`, crossed with
-  `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a plain-integer operand; the generic `non<Type>` fallback
-  (`CardStateProperty`'s own chain); and the bare type/supertype/subtype fallthrough every property chain shares. The
-  other ~893 property names are M5-M6, corpus frequency order (`tools/vocabscan -kind validProperty`) — a rough figure,
-  not a precisely tracked count (the "Numeric comparisons" section below already explains why a batch like that one does
-  not move it by a countable amount)
+  `c`'s own `Attachments`), bare form only; `inZone`/`inRealZone` (`c`'s own `Zone`); `attacking`/`blocking` (the
+  current `Combat`'s `Attackers`/`Blocks`), bare form only; controller/owner relative to `sourceController` (`YouCtrl`,
+  `YouDontCtrl`, `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`, `Other`,
+  `StrictlyOther`); the five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings
+  (`with`/`without`/`hasKeyword`); `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`, `toughness`,
+  `baseToughness`, `cmc`, `totalPT`, `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a
+  plain-integer operand; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
+  type/supertype/subtype fallthrough every property chain shares. The other ~891 property names are M5-M6, corpus
+  frequency order (`tools/vocabscan -kind validProperty`) — a rough figure, not a precisely tracked count (the "Numeric
+  comparisons" section below already explains why a batch like that one does not move it by a countable amount)
 
 ## What it does
 
@@ -290,6 +290,27 @@ ask for), but the comment's claim about what Java does was simply wrong, not a d
 correcting on sight rather than carrying the wrong reason forward into a property that now depends on reading it
 correctly.
 
+## `attacking`/`blocking`, bare form: the current `Combat`, not LKI
+
+`attacking` (626) and `blocking` (148) are the two highest-weight combat properties by a wide margin over every suffixed
+form combined (`tools/vocabscan -kind validProperty`) — `card.isAttacking()`/`combat.isBlocking(card)` in Java,
+`containsCard(g.Attackers(), c.ID)`/`isBlocking(g.Blocks(), c.ID)` here, reusing the exported accessors
+`attack.go`/`block.go` already have rather than reaching into `Game.combat` directly.
+
+**No nil check needed for "no combat in progress."** Java guards both branches with `combat == null`; this port's
+`Combat` is a value, not a pointer, so there is no nil state to check — but a zero-valued `Combat` (no attack declared
+yet, or no combat happening at all) has an empty `Attackers`/`Blocks` either way, and `containsCard`/`isBlocking`
+already answer `false` on an empty list. The two cases collapse to the same answer without a separate check, the same
+way `inZone` and `inRealZone` collapsed into each other one section up.
+
+**Bare form only, same reasoning as `EnchantedBy`'s own batch.** `attacking`'s suffixed forms alone run to
+`attackingYou`, `attackingAlone`, `attackingSame`, `attackingBattle`, `attackingYouOrYourPW`, and a generic
+`attacking <DefinedGameEntity>`; `blocking`'s add `blockingSource`, `blockingCreatureYouCtrl`, and a generic
+`blocking <DefinedCards>`. Each is a real, distinct check (an LKI comparison, a defined-entity lookup, a
+count-across-the-battlefield), not one shared mechanism the way the numeric comparisons or `EnchantedBy`'s four names
+were — porting them is individual work for another turn, not a natural extension of this one. An exact match on the two
+bare names keeps every suffixed form a coverage gap rather than a silently-wrong bare-form answer.
+
 ## Deviations from Java
 
 | Java                                                                   | Go                                                                                                                                                                                                                                                                                                                       |
@@ -302,17 +323,18 @@ correctly.
 
 ## Not ported yet
 
-| Java                                                                                                                                                                                                                                                                                                                                                                                                                                                            | When       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered`, `IsImprinted`, `EnchantedBy`/`EquippedBy`/`AttachedBy`/`FortifiedBy` (bare form), `inZone`/`inRealZone`, `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped`, the numeric comparisons (`engine.Matches`) | M5-M6      |
-| `EnchantedBy`/`EquippedBy`/`AttachedBy`/`AttachedTo` restricted forms — a nested `valid.Spec` matched against each attachment, or against an ability's current targets                                                                                                                                                                                                                                                                                          | M5-M6      |
-| `Enchanted`/`EnchantedController`/`EnchantedPlayerCtrl` — the Aura's own perspective on what it enchants, the reverse direction from `EnchantedBy`                                                                                                                                                                                                                                                                                                              | M5-M6      |
-| `AbilityUtils.calculateAmount` for a numeric-comparison `Operand` that is not a plain integer — `X`, `Chosen`, an SVar name; needs an ability-context evaluator `internal/expr` does not have yet                                                                                                                                                                                                                                                               | M5-M6      |
-| `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported)                                                                                                                                                          | M5-M6      |
-| `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                                                                                                                                                                                   | M5-M6      |
-| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                                                                                                                                                                                      | M5-M6      |
-| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                                                                                                                                                                                                                                                                                                                                                                       | M5-M6      |
-| Property heads as a closed vocabulary, for the P2 gate                                                                                                                                                                                                                                                                                                                                                                                                          | M3 slice H |
+| Java                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | When       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `ChosenCard`/`ChosenCardStrict`/`nonChosenCard`, `IsRemembered`, `IsImprinted`, `EnchantedBy`/`EquippedBy`/`AttachedBy`/`FortifiedBy` (bare form), `inZone`/`inRealZone`, `attacking`/`blocking` (bare form), `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped`, the numeric comparisons (`engine.Matches`) | M5-M6      |
+| `attacking`/`blocking` suffixed forms — `attackingYou`/`attackingAlone`/`attackingSame`/`attackingBattle`/`attackingYouOrYourPW`/`attacking <DefinedGameEntity>`, `blockingSource`/`blockingCreatureYouCtrl`/`blocking <DefinedCards>`, and the rest                                                                                                                                                                                                                                                | M5-M6      |
+| `EnchantedBy`/`EquippedBy`/`AttachedBy`/`AttachedTo` restricted forms — a nested `valid.Spec` matched against each attachment, or against an ability's current targets                                                                                                                                                                                                                                                                                                                              | M5-M6      |
+| `Enchanted`/`EnchantedController`/`EnchantedPlayerCtrl` — the Aura's own perspective on what it enchants, the reverse direction from `EnchantedBy`                                                                                                                                                                                                                                                                                                                                                  | M5-M6      |
+| `AbilityUtils.calculateAmount` for a numeric-comparison `Operand` that is not a plain integer — `X`, `Chosen`, an SVar name; needs an ability-context evaluator `internal/expr` does not have yet                                                                                                                                                                                                                                                                                                   | M5-M6      |
+| `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported)                                                                                                                                                                                              | M5-M6      |
+| `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                                                                                                                                                                                                                       | M5-M6      |
+| `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6      |
+| LKI-aware `YouCtrl`/`OppCtrl`, and a team-aware `OppCtrl`                                                                                                                                                                                                                                                                                                                                                                                                                                           | M5-M6      |
+| Property heads as a closed vocabulary, for the P2 gate                                                                                                                                                                                                                                                                                                                                                                                                                                              | M3 slice H |
 
 The 1,256 distinct property tokens are inventoried in `internal/carddb/vocab`'s golden. Classifying them into families
 belongs with the evaluator that implements them, not with the parser.

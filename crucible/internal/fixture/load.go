@@ -253,6 +253,16 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: owner %q: no such player", name, info)
 			}
 			c.Owner = ld.slotToID[slot]
+		case strings.HasPrefix(info, "Protector:"):
+			// Crucible-only, the same category as lost=/won=/over= -- CR
+			// 704.5w's protector (Card.ProtectingPlayer, game-state.md's
+			// "Combat") has no equivalent key in Java's own GameState text
+			// format at all, not even one this port chose to diverge from.
+			slot, ok := playerSlot(strings.ToLower(strings.TrimSpace(strings.TrimPrefix(info, "Protector:"))))
+			if !ok {
+				return fmt.Errorf("%s: protector %q: no such player", name, info)
+			}
+			c.ProtectingPlayer = ld.slotToID[slot]
 		case strings.HasPrefix(info, "RememberedCards:"):
 			ids, err := parseIDList(strings.TrimPrefix(info, "RememberedCards:"))
 			if err != nil {

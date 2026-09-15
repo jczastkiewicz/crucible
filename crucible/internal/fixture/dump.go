@@ -89,7 +89,10 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 // dumpCard writes one card's `|`-separated entry. The zone gates Java's
 // GameState.toString applies stand as written: Tapped, SummonSick, Owner,
 // AttachedTo, Damage, RememberedCards and Imprinting are Battlefield-only;
-// Counters is Battlefield or Exile; Id has no gate.
+// Counters is Battlefield or Exile; Id has no gate. Protector is
+// Crucible-only (Load's own case has the reason) but gated the same way as
+// the rest of the Battlefield-only state it sits next to -- Move clears it
+// on the same "left the battlefield" transition.
 func dumpCard(g *engine.Game, id engine.CardID) string {
 	c := g.Card(id)
 	var b strings.Builder
@@ -101,6 +104,10 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if c.Owner != c.Controller {
 			b.WriteString("|Owner:")
 			b.WriteString(g.Player(c.Owner).Name)
+		}
+		if c.ProtectingPlayer != engine.NoPlayer {
+			b.WriteString("|Protector:")
+			b.WriteString(g.Player(c.ProtectingPlayer).Name)
 		}
 		if c.Tapped {
 			b.WriteString("|Tapped")

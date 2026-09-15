@@ -224,6 +224,32 @@ func TestLoadOwnerDiffersFromController(t *testing.T) {
 	}
 }
 
+func TestLoadProtector(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Invasion of Amonkhet")
+	l := load(t, db, "humanbattlefield=Invasion of Amonkhet|Protector:ai\nailife=20\n")
+
+	ai := l.Game.Players()[1]
+	id := l.Game.Zone(engine.Battlefield, l.Game.Players()[0]).Cards()[0]
+	if got := l.Game.Card(id).ProtectingPlayer; got != ai {
+		t.Errorf("ProtectingPlayer = %v, want %v", got, ai)
+	}
+}
+
+func TestLoadBadProtectorNameErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Invasion of Amonkhet")
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=Invasion of Amonkhet|Protector:nobody\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("an unseated protector name loaded without error")
+	}
+}
+
 func TestLoadRememberedAndImprintedCards(t *testing.T) {
 	t.Parallel()
 

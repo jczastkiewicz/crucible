@@ -585,28 +585,51 @@ printed form.
 
 ### M3 — DSL compilation to typed AST — 3–5 wks
 
+**Complete.**
+
 17. `internal/carddb/compile`: param maps, SVar resolution + `SubAbility$` recursion, cost strings, valid strings,
-    count/X expressions, keyword strings.
-18. `go:generate` pipeline for typed param structs + the effect registry (ADR-0008).
-19. Vocabulary-completeness scanner (hard-fails on unknown keys/props/cost parts).
-20. `porting/parity-matrix.md` generated from the registry. **Exit gate:** P2 gates — zero unknowns outside the explicit
-    allowlist; golden AST diff clean.
+    count/X expressions, keyword strings. **Done**: all 33,697 cards compile with no exemption.
+18. `go:generate` pipeline for typed param structs + the effect registry (ADR-0008). **Done**: `compile/params_gen.go`
+    generates the typed param structs; `internal/engine`'s `Effect`/`Registry` (ADR-0011) is the effect-registry half,
+    scaffolded and holding zero implementations — corpus-first implementation is M6.
+19. Vocabulary-completeness scanner (hard-fails on unknown keys/props/cost parts). **Done**: `tools/apiscan` gates the
+    param vocabulary at zero unknowns; `internal/valid`'s `TestEveryPropertyIsAccountedFor` gates the property
+    vocabulary the same way.
+20. `porting/parity-matrix.md` generated from the registry. **Done**: `tools/vocabscan -matrix` writes it from the
+    corpus scan and `Registry.Implemented()`, generated prose included, no hand-maintained half. **Exit gate:** P2 gates
+    — zero unknowns outside the explicit allowlist; golden AST diff clean. **Green.**
 
 ### M4 — Core state model + controller interface + event bus — 2–3 wks
 
+**Complete.**
+
 21. `internal/engine/{game,card,player,zone,event,control}`; the ~110-method `PlayerController` interface with
-    `ScriptedController`.
-22. `GameState` fixture load/dump in Go (byte-identical to Java's).
-23. Event schema v1 implemented per ADR-0013. **Exit gate:** P3 gate — fixture round-trip parity.
+    `ScriptedController`. **Done**: the interface has eleven decision methods so far (combat declaration, mulligans, the
+    legend rule, cleanup discard, Battle protector) — nowhere near the ~110 estimate, because most of what drives a
+    `PlayerController` call is M5/M6 rules and effects that have not landed yet to ask the question.
+22. `GameState` fixture load/dump in Go (byte-identical to Java's). **Done** — `internal/fixture`.
+23. Event schema v1 implemented per ADR-0013. **Done. Exit gate:** P3 gate — fixture round-trip parity. **Green.**
 
 ### M5 — Rules kernel — 6–10 wks _(the largest single risk)_
 
-24. Turn/phase/step loop + priority (`PhaseHandler` port).
-25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here).
-26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`).
-27. Continuous effects & the layer system (`StaticAbilityContinuous`).
-28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`).
-29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Exit gate:** P4 gate — scenario suite green.
+**In progress.**
+
+24. Turn/phase/step loop + priority (`PhaseHandler` port). **Done** — `turn.go`, `phase.go`.
+25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here). **Done** for the
+    SBAs reached so far (`action.go`: legend rule, zero toughness/loyalty/defense, lethal damage, Battle protector,
+    dangling-attachment cleanup); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not
+    (`porting/port-log/game-state.md`'s "Not ported yet").
+26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin** — `stack.go` is
+    push/resolve only; no simultaneous-trigger ordering, no replacement-effect system.
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Thin** — `layer.go` has the CR 613 layer
+    _numbers_; `pt.go` folds power/toughness through them. Types, colors, abilities and the rest of the layer stack are
+    not built.
+28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done** (`combat.go`, `attack.go`,
+    `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle. **Mulligans
+    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment not started.**
+29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
+    `testdata/scenarios/`), but 12 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

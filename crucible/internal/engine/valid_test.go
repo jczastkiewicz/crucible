@@ -668,6 +668,57 @@ func TestMatchesAttachmentPropertyRestrictedFormIsGap(t *testing.T) {
 	}
 }
 
+// inZone reads c.Zone directly, matching only the zone actually named.
+func TestMatchesInZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	onBattlefield := g.NewCard(nil, p, engine.Battlefield)
+	inGraveyard := g.NewCard(nil, p, engine.Graveyard)
+
+	if !engine.Matches(g, g.Card(onBattlefield), valid.Parse("Card.inZoneBattlefield"), p, engine.NoCard) {
+		t.Error("a battlefield card did not match Card.inZoneBattlefield")
+	}
+	if engine.Matches(g, g.Card(onBattlefield), valid.Parse("Card.inZoneGraveyard"), p, engine.NoCard) {
+		t.Error("a battlefield card matched Card.inZoneGraveyard")
+	}
+	if !engine.Matches(g, g.Card(inGraveyard), valid.Parse("Card.inZoneGraveyard"), p, engine.NoCard) {
+		t.Error("a graveyard card did not match Card.inZoneGraveyard")
+	}
+}
+
+// inRealZone reads the same c.Zone, no LKI to distinguish it from inZone in
+// this port (YouCtrl's own LKI-collapse precedent).
+func TestMatchesInRealZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Stack)
+
+	if !engine.Matches(g, g.Card(id), valid.Parse("Card.inRealZoneStack"), p, engine.NoCard) {
+		t.Error("a stack card did not match Card.inRealZoneStack")
+	}
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.inRealZoneExile"), p, engine.NoCard) {
+		t.Error("a stack card matched Card.inRealZoneExile")
+	}
+}
+
+// A zone name ZoneByName does not recognize is a coverage gap: the property
+// matches nothing rather than guessing.
+func TestMatchesInZoneUnknownZoneNameIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Battlefield)
+
+	if engine.Matches(g, g.Card(id), valid.Parse("Card.inZoneNotAZone"), p, engine.NoCard) {
+		t.Error("Card.inZoneNotAZone matched despite naming no real zone")
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

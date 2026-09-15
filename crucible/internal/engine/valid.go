@@ -12,10 +12,13 @@
 // (docs/crucible/porting/port-log/valid-strings.md); this is:
 // ChosenCard/ChosenCardStrict/nonChosenCard, IsRemembered and IsImprinted --
 // membership in source's own Memory lists (sourceCard's own doc comment) --
-// controller/owner relative to sourceController (YouCtrl, YouDontCtrl,
-// OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to source (Self,
-// Other, StrictlyOther), the five colors plus Colorless and MultiColor, a
-// generic keyword check under three spellings (with/without/hasKeyword),
+// EnchantedBy/EquippedBy/AttachedBy/FortifiedBy, bare form only (one check
+// in Java too, before it ever reaches CardProperty), inZone/inRealZone (c's
+// own Zone, LKI-collapsed the same way YouCtrl already is), controller/owner
+// relative to sourceController (YouCtrl, YouDontCtrl, OppCtrl, YouOwn,
+// YouDontOwn, OppOwn), identity relative to source (Self, Other,
+// StrictlyOther), the five colors plus Colorless and MultiColor, a generic
+// keyword check under three spellings (with/without/hasKeyword),
 // tapped/untapped, the numeric comparisons (power, toughness, cmc and the
 // rest of compareFields, crossed with LT/LE/EQ/GE/GT/NE/M2 -- compareMatches'
 // own doc comment) for a plain-integer operand, the generic `non<Type>`
@@ -186,6 +189,19 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// "false for every card" answer any other unimplemented property
 		// gets.
 		return containsCard(c.Attachments(), source)
+	case strings.HasPrefix(name, "inRealZone"):
+		// inRealZone reads c.Zone directly, no LKI involved (card.isInZone).
+		zone, ok := ZoneByName(strings.TrimPrefix(name, "inRealZone"))
+		return ok && c.Zone == zone
+	case strings.HasPrefix(name, "inZone"):
+		// inZone reads Java's LKI-derived zone, which "falls back" to the
+		// object's own current zone once there is no better LKI (Java's own
+		// comment on the branch) -- this port has no LKI tracking
+		// (YouCtrl's own doc comment already makes the same simplification),
+		// so inZone and inRealZone read identically here: both are just
+		// c.Zone.
+		zone, ok := ZoneByName(strings.TrimPrefix(name, "inZone"))
+		return ok && c.Zone == zone
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):

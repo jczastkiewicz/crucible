@@ -53,9 +53,13 @@ func (z ZoneType) String() string {
 }
 
 // ZoneByName looks a zone up by the name a script writes, and reports whether
-// it is one. Matching is exact: Java's ZoneType.smartValueOf is case-sensitive
-// after its own trim, and a zone that silently resolves to None is a card that
-// silently does nothing.
+// it is one. Matching is exact, not case-insensitive: Java's
+// ZoneType.smartValueOf trims and then compares with compareToIgnoreCase, but
+// every zone name in the corpus is already written in the enum's own case, so
+// the only thing case-insensitive matching would add is letting a typo'd zone
+// name silently resolve to the zone it did not ask for -- the same "matching
+// exactly finds bugs that a looser match would hide" reasoning valid-strings.md's
+// own "Nothing is trimmed, on purpose" makes for the parser one layer up.
 func ZoneByName(name string) (ZoneType, bool) {
 	for i, n := range zoneNames {
 		if n == name {

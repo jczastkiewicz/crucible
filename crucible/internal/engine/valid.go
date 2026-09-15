@@ -16,16 +16,17 @@
 // in Java too, before it ever reaches CardProperty), inZone/inRealZone (c's
 // own Zone, LKI-collapsed the same way YouCtrl already is), attacking and
 // blocking, bare form only (the current Combat's Attackers/Blocks),
-// controller/owner
-// relative to sourceController (YouCtrl, YouDontCtrl, OppCtrl, YouOwn,
-// YouDontOwn, OppOwn), identity relative to source (Self, Other,
-// StrictlyOther), the five colors plus Colorless and MultiColor, a generic
-// keyword check under three spellings (with/without/hasKeyword),
-// tapped/untapped, the numeric comparisons (power, toughness, cmc and the
-// rest of compareFields, crossed with LT/LE/EQ/GE/GT/NE/M2 -- compareMatches'
-// own doc comment) for a plain-integer operand, the generic `non<Type>`
-// fallback every chain shares, and the bare type/supertype/subtype
-// fallthrough every chain ends on. The rest is M5-M6, corpus-frequency order
+// HasCounters and counters_<op><n>_<type> (countersMatches' own doc
+// comment), controller/owner relative to sourceController (YouCtrl,
+// YouDontCtrl, OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to
+// source (Self, Other, StrictlyOther), the five colors plus Colorless and
+// MultiColor, a generic keyword check under three spellings
+// (with/without/hasKeyword), tapped/untapped, the numeric comparisons
+// (power, toughness, cmc and the rest of compareFields, crossed with
+// LT/LE/EQ/GE/GT/NE/M2 -- compareMatches' own doc comment) for a
+// plain-integer operand, the generic `non<Type>` fallback every chain
+// shares, and the bare type/supertype/subtype fallthrough every chain ends
+// on. The rest is M5-M6, corpus-frequency order
 // (tools/vocabscan -kind validProperty), the same shape effect.go's Registry
 // was always going to grow in (ADR-0011).
 package engine
@@ -212,6 +213,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return containsCard(g.Attackers(), c.ID)
 	case name == "blocking":
 		return isBlocking(g.Blocks(), c.ID)
+	case name == "HasCounters":
+		return c.Counters.Any()
+	case strings.HasPrefix(name, "counters_"):
+		return countersMatches(c, name)
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):
@@ -442,4 +447,64 @@ func compareOp(left int, operator string, right int) bool {
 		return left%2 == right%2
 	}
 	return false
+}
+
+// countersMatches is CardProperty.java's counters_ branch (its own comment:
+// "syntax example: counters_GE9_P1P1 or counters_LT12_TIME") -- a second,
+// independent numeric-comparison shape from compareMatches' own, so it gets
+// its own split rather than folding into internal/valid's Compare (that
+// grammar has no field name to key off before the operator; here the field
+// is the whole property, "counters", so it is always the same one
+// measurement, `Card.Counters`, crossed with an operator, an operand and a
+// CounterType name, "_"-separated instead of packed into one token).
+//
+// name is split on "_" into exactly three parts, `counters`, an
+// operator+operand run together the way compareMatches' own tokens are, and
+// a CounterType name -- the caller's `counters_` prefix match already spent
+// the underscore that separates them. `countersReceivedThisTurn_<op><n>_<type>_<player>`
+// (Java: `splitProperty[0].endsWith("ReceivedThisTurn")`, a per-turn count
+// this port does not track, game-state.md's "Not ported yet") never reaches
+// here at all: Java's own property spells that segment with no underscore
+// of its own, "countersReceivedThisTurn", so it does not match the caller's
+// `counters_` prefix either -- the three-part check below is defensive, not
+// what does the excluding. CounterType is an open string (counters.go's own
+// doc comment), so the type name needs no lookup, only a cast.
+func countersMatches(c *Card, name string) bool {
+	parts := strings.Split(name, "_")
+	if len(parts) != 3 {
+		return false
+	}
+	operator, ok := operatorPrefix(parts[1])
+	if !ok {
+		return false
+	}
+	operand, err := strconv.Atoi(strings.TrimPrefix(parts[1], operator))
+	if err != nil {
+		return false
+	}
+	return compareOp(c.Counters.Count(CounterType(parts[2])), operator, operand)
+}
+
+// counterOperators is compareOp's own operator set, Java's order
+// (Expressions.compare's own chain of `contains` checks) -- internal/valid's
+// own compareOperators is unexported and parses a different token shape
+// (countersMatches' own doc comment on why counters_ gets its own split), so
+// this is its own copy rather than a shared one.
+var counterOperators = [...]string{"LT", "LE", "EQ", "GE", "GT", "NE", "M2"}
+
+// operatorPrefix finds which of counterOperators parts[1] (an operator
+// immediately followed by its operand, "GE1", "LT12") starts with. Unlike
+// compareOp's own containment search, this one has to anchor on the prefix:
+// the operand that follows is arbitrary digits, and nothing else in "GE1"
+// could contain a second operator's two letters by accident, so a prefix
+// check is enough (and, unlike compareFields' offsets, needs no
+// per-operator length table -- every operator here is exactly two
+// characters).
+func operatorPrefix(s string) (string, bool) {
+	for _, operator := range counterOperators {
+		if strings.HasPrefix(s, operator) {
+			return operator, true
+		}
+	}
+	return "", false
 }

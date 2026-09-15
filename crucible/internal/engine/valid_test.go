@@ -812,6 +812,70 @@ func TestMatchesAttackingBlockingSuffixedFormIsGap(t *testing.T) {
 	}
 }
 
+// HasCounters matches any card with a counter of any kind, and nothing
+// without one.
+func TestMatchesHasCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	countered := g.NewCard(nil, p, engine.Battlefield)
+	bare := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(countered).Counters.Add(engine.P1P1, 1)
+
+	if !engine.Matches(g, g.Card(countered), valid.Parse("Card.HasCounters"), p, engine.NoCard) {
+		t.Error("a countered card did not match Card.HasCounters")
+	}
+	if engine.Matches(g, g.Card(bare), valid.Parse("Card.HasCounters"), p, engine.NoCard) {
+		t.Error("a card with no counters matched Card.HasCounters")
+	}
+}
+
+// counters_<op><n>_<type> compares one counter kind's count, the same
+// operators compareOp already covers for power/toughness/cmc.
+func TestMatchesCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(id).Counters.Add(engine.P1P1, 3)
+
+	for _, tc := range []struct {
+		spec string
+		want bool
+	}{
+		{"Card.counters_GE1_P1P1", true},
+		{"Card.counters_GE9_P1P1", false},
+		{"Card.counters_LT4_P1P1", true},
+		{"Card.counters_EQ3_P1P1", true},
+		{"Card.counters_GE1_M1M1", false}, // a different counter kind entirely
+	} {
+		if got := engine.Matches(g, g.Card(id), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
+			t.Errorf("Matches(%s) = %v, want %v", tc.spec, got, tc.want)
+		}
+	}
+}
+
+// A non-numeric operand ("counters_LTX_P1P1") is a coverage gap, the same as
+// the plain numeric comparisons' own X/Chosen/SVar gap -- it matches nothing
+// rather than guessing. The four-part "ReceivedThisTurn" form is a separate
+// gap this port has no per-turn counter tracking for at all.
+func TestMatchesCountersGaps(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(id).Counters.Add(engine.P1P1, 3)
+
+	for _, spec := range []string{"Card.counters_LTX_P1P1", "Card.countersReceivedThisTurn_GE1_P1P1_You"} {
+		if engine.Matches(g, g.Card(id), valid.Parse(spec), p, engine.NoCard) {
+			t.Errorf("%s matched despite being an unhandled form", spec)
+		}
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

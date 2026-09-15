@@ -978,6 +978,92 @@ func TestMatchesModified(t *testing.T) {
 	}
 }
 
+// RememberedPlayerCtrl matches a card whose controller source has
+// remembered, not one whose owner has been remembered instead (a
+// distinction only visible once control changes, which this test does not
+// need to exercise to prove the two fields are read separately).
+func TestMatchesRememberedPlayerCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	source := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(a))
+
+	yours := g.NewCard(nil, a, engine.Battlefield)
+	theirs := g.NewCard(nil, b, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(yours), valid.Parse("Card.RememberedPlayerCtrl"), a, source) {
+		t.Error("a card controlled by the remembered player did not match Card.RememberedPlayerCtrl")
+	}
+	if engine.Matches(g, g.Card(theirs), valid.Parse("Card.RememberedPlayerCtrl"), a, source) {
+		t.Error("a card controlled by an unremembered player matched Card.RememberedPlayerCtrl")
+	}
+}
+
+// RememberedPlayerOwn is RememberedPlayerCtrl's own counterpart against
+// Owner instead of Controller.
+func TestMatchesRememberedPlayerOwn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	source := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(b))
+
+	ownedByB := g.NewCard(nil, b, engine.Battlefield)
+	ownedByA := g.NewCard(nil, a, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(ownedByB), valid.Parse("Card.RememberedPlayerOwn"), a, source) {
+		t.Error("a card owned by the remembered player did not match Card.RememberedPlayerOwn")
+	}
+	if engine.Matches(g, g.Card(ownedByA), valid.Parse("Card.RememberedPlayerOwn"), a, source) {
+		t.Error("a card owned by an unremembered player matched Card.RememberedPlayerOwn")
+	}
+}
+
+// A `$`-suffixed RememberedPlayerCtrl/RememberedPlayerOwn form is a
+// coverage gap -- neither name is an exact match once anything follows it,
+// so it falls through rather than guessing which player field to read.
+func TestMatchesRememberedPlayerSuffixedFormIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(nil, p, engine.Battlefield)
+	g.Card(source).Memory.Remember(engine.PlayerEntity(p))
+	id := g.NewCard(nil, p, engine.Battlefield)
+
+	for _, spec := range []string{
+		"Card.RememberedPlayerCtrl$GreatestCardManaCost",
+		"Card.RememberedPlayerOwn$GreatestCardManaCost",
+	} {
+		if engine.Matches(g, g.Card(id), valid.Parse(spec), p, source) {
+			t.Errorf("%s matched despite the suffix never being evaluated", spec)
+		}
+	}
+}
+
+// ActivePlayerCtrl matches a card controlled by whoever's turn it is, not by
+// sourceController -- it reads Game.ActivePlayer, not the perspective
+// Matches was called from.
+func TestMatchesActivePlayerCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	active := g.NewCard(nil, a, engine.Battlefield)
+	inactive := g.NewCard(nil, b, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(active), valid.Parse("Card.ActivePlayerCtrl"), b, engine.NoCard) {
+		t.Error("the active player's card did not match Card.ActivePlayerCtrl from the other player's perspective")
+	}
+	if engine.Matches(g, g.Card(inactive), valid.Parse("Card.ActivePlayerCtrl"), b, engine.NoCard) {
+		t.Error("the inactive player's card matched Card.ActivePlayerCtrl")
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

@@ -18,10 +18,13 @@
 // blocking, bare form only (the current Combat's Attackers/Blocks),
 // HasCounters and counters_<op><n>_<type> (countersMatches' own doc
 // comment), enchanted/equipped/modified (attachedByType/isModified's own
-// doc comments), controller/owner relative to sourceController (YouCtrl,
-// YouDontCtrl, OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to
-// source (Self, Other, StrictlyOther), the five colors plus Colorless and
-// MultiColor, a generic keyword check under three spellings
+// doc comments), RememberedPlayerCtrl/RememberedPlayerOwn (membership in
+// source's own Memory, by player rather than by card) and ActivePlayerCtrl
+// (c's controller against Game.ActivePlayer), controller/owner relative to
+// sourceController (YouCtrl, YouDontCtrl, OppCtrl, YouOwn, YouDontOwn,
+// OppOwn), identity relative to source (Self, Other, StrictlyOther), the
+// five colors plus Colorless and MultiColor, a generic keyword check under
+// three spellings
 // (with/without/hasKeyword), tapped/untapped, the numeric comparisons
 // (power, toughness, cmc and the rest of compareFields, crossed with
 // LT/LE/EQ/GE/GT/NE/M2 -- compareMatches' own doc comment) for a
@@ -224,6 +227,30 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return attachedByType(g, c, "Equipment")
 	case name == "modified":
 		return isModified(g, c)
+	// RememberedPlayerCtrl/RememberedPlayerOwn ask whether c's controller/owner
+	// is among the players source has remembered -- CardProperty.java's own
+	// ternary picks the field by whether the property string ends in "Ctrl",
+	// not by matching a name against a fixed set of two, so a third suffix
+	// this port has never seen would silently fall to the owner check in
+	// Java too. Exact-matching the two names the corpus actually writes is
+	// safer than reproducing that ternary: a `$GreatestCardManaCost` tail
+	// (2 occurrences on RememberedPlayerCtrl, 1 on RememberedPlayerOwn,
+	// tools/vocabscan -kind validProperty) does not end in "Ctrl" either, so
+	// Java's own ternary reads it as an owner check regardless of which name
+	// it is attached to -- a coupling to an unrelated Count$-style suffix
+	// this port has no reason to reproduce when it does not resolve that
+	// suffix at all. Both fall through to a coverage gap here instead.
+	case name == "RememberedPlayerCtrl":
+		sc, ok := sourceCard(g, source)
+		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Controller))
+	case name == "RememberedPlayerOwn":
+		sc, ok := sourceCard(g, source)
+		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Owner))
+	// ActivePlayerCtrl is c's controller relative to whose turn it is, not
+	// relative to sourceController -- Game.ActivePlayer already exists
+	// (turn.go); nothing new to build.
+	case name == "ActivePlayerCtrl":
+		return c.Controller == g.ActivePlayer()
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):

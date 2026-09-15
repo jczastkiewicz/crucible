@@ -3,6 +3,7 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -437,6 +438,101 @@ func TestMatchesPropertyNegation(t *testing.T) {
 	}
 	if engine.Matches(g.Card(id), valid.Parse("Card.!OppCtrl"), b, engine.NoCard) {
 		t.Error("a's card matched Card.!OppCtrl from b's perspective, where OppCtrl itself holds")
+	}
+}
+
+// Each numeric-comparison field reads the value CardProperty.java names for
+// it, not the accessor its own name might suggest -- basePower/baseToughness
+// measure Layer 7 folded in (layer7Power's own doc comment), not the printed
+// BasePower/BaseToughness.
+func TestMatchesNumericComparisons(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	for _, tc := range []struct {
+		name string
+		def  *compile.Card
+		spec string
+		want bool
+	}{
+		{"power current", creatureDefPT(t, "3", "2"), "Creature.powerGE3", true},
+		{"power current miss", creatureDefPT(t, "3", "2"), "Creature.powerGE4", false},
+		{"power folds counters", creatureDefPT(t, "3", "2"), "Creature.powerGE5", true /* +2 counters below */},
+		{"toughness LT", creatureDefPT(t, "3", "2"), "Creature.toughnessLT3", true},
+		{"toughness EQ", creatureDefPT(t, "3", "2"), "Creature.toughnessEQ2", true},
+		{"cmc GE", creatureDefManaCost(t, "2 R"), "Creature.cmcGE3", true},
+		{"cmc NE", creatureDefManaCost(t, "2 R"), "Creature.cmcNE3", false},
+		{"numColors EQ", creatureDefManaCost(t, "R G"), "Creature.numColorsEQ2", true},
+		{"numTypes GE", creatureDef(t), "Creature.numTypesGE1", true},
+		{"totalPT GE", creatureDefPT(t, "3", "2"), "Creature.totalPT_GE5", true},
+		{"totalPT LT", creatureDefPT(t, "3", "2"), "Creature.totalPT_LT5", false},
+		{"M2 even", creatureDefPT(t, "4", "2"), "Creature.powerM20", true},
+		{"M2 odd", creatureDefPT(t, "3", "2"), "Creature.powerM20", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			id := g.NewCard(tc.def, p, engine.Battlefield)
+			if tc.name == "power folds counters" {
+				g.Card(id).Counters.Add(engine.P1P1, 2)
+			}
+			if got := engine.Matches(g.Card(id), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
+				t.Errorf("%s: Matches(%s) = %v, want %v", tc.name, tc.spec, got, tc.want)
+			}
+		})
+	}
+}
+
+// basePower/baseToughness measure Java's getCurrentPower/getCurrentToughness
+// -- base folded with Layer 7, but counters excluded -- distinct from the
+// printed-only BasePower/BaseToughness accessors of the same name.
+func TestMatchesNumericComparisonsExcludeCountersFromBaseForms(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDefPT(t, "3", "2"), p, engine.Battlefield)
+	g.Card(id).Counters.Add(engine.P1P1, 5)
+
+	if !engine.Matches(g.Card(id), valid.Parse("Creature.basePowerEQ3"), p, engine.NoCard) {
+		t.Error("basePowerEQ3 did not match a printed-3-power creature with +1/+1 counters piled on")
+	}
+	if engine.Matches(g.Card(id), valid.Parse("Creature.basePowerEQ8"), p, engine.NoCard) {
+		t.Error("basePowerEQ8 matched -- counters must not have leaked into the base form")
+	}
+	if !engine.Matches(g.Card(id), valid.Parse("Creature.powerEQ8"), p, engine.NoCard) {
+		t.Error("powerEQ8 did not match -- the full form must fold counters in")
+	}
+}
+
+// An unresolvable printed value ("*") is a coverage gap, not a wrong answer:
+// the comparison matches nothing rather than guessing.
+func TestMatchesNumericComparisonUnresolvableFieldIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDefPT(t, "*", "2"), p, engine.Battlefield)
+
+	if engine.Matches(g.Card(id), valid.Parse("Creature.powerGE0"), p, engine.NoCard) {
+		t.Error("a Creature.powerGE0 matched a card with unresolvable (\"*\") power")
+	}
+}
+
+// A non-numeric operand ("X", "Chosen", an SVar name) is a coverage gap this
+// port cannot resolve without an ability-context evaluator -- the property
+// matches nothing rather than guessing.
+func TestMatchesNumericComparisonNonNumericOperandIsGap(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDefPT(t, "3", "2"), p, engine.Battlefield)
+
+	for _, spec := range []string{"Creature.powerGEX", "Creature.powerGEChosen", "Creature.powerGEY"} {
+		if engine.Matches(g.Card(id), valid.Parse(spec), p, engine.NoCard) {
+			t.Errorf("%s matched despite a non-numeric operand", spec)
+		}
 	}
 }
 

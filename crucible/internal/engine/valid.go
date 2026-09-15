@@ -14,14 +14,17 @@
 // OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to source (Self,
 // Other, StrictlyOther), the five colors plus Colorless and MultiColor, a
 // generic keyword check under three spellings (with/without/hasKeyword),
-// tapped/untapped, the generic `non<Type>` fallback every chain shares, and
-// the bare type/supertype/subtype fallthrough every chain ends on. The rest
-// is M5-M6, corpus-frequency order (tools/vocabscan -kind validProperty),
-// the same shape effect.go's Registry was always going to grow in
-// (ADR-0011).
+// tapped/untapped, the numeric comparisons (power, toughness, cmc and the
+// rest of compareFields, crossed with LT/LE/EQ/GE/GT/NE/M2 -- compareMatches'
+// own doc comment) for a plain-integer operand, the generic `non<Type>`
+// fallback every chain shares, and the bare type/supertype/subtype
+// fallthrough every chain ends on. The rest is M5-M6, corpus-frequency order
+// (tools/vocabscan -kind validProperty), the same shape effect.go's Registry
+// was always going to grow in (ADR-0011).
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -58,7 +61,7 @@ func altMatches(c *Card, alt valid.Alternative, sourceController PlayerID, sourc
 		return alt.Base.Negated
 	}
 	for _, p := range alt.Properties {
-		ok := propertyMatches(c, p.Name, sourceController, source)
+		ok := propertyMatches(c, p, sourceController, source)
 		if p.Negated {
 			ok = !ok
 		}
@@ -97,8 +100,12 @@ func baseMatches(c *Card, name string) bool {
 
 // propertyMatches is the slice of CardProperty.cardHasProperty (and, for
 // color, CardStateProperty.hasProperty -- colorMatches's own doc comment)
-// this port answers. Ownership/control and identity branches are ported by
-// name with `strings.HasPrefix` rather than `==`, because Java's own chain
+// this port answers. p.Compare is checked first and, when set, dispatches
+// straight to compareMatches: internal/valid already parsed a numeric
+// comparison out of p.Name at load time, so nothing below ever needs to
+// re-derive one from the name string. Ownership/control and identity
+// branches are ported by name with `strings.HasPrefix` rather than `==`,
+// because Java's own chain
 // tests with `startsWith` (a property can carry a suffix argument on other
 // branches this port does not reach, and reproducing the match style is
 // what keeps a future addition from silently behaving differently on the
@@ -128,7 +135,11 @@ func baseMatches(c *Card, name string) bool {
 // "controlled/owned by anyone other than sourceController" -- correct for
 // every game this port can play today (two players, or free-for-all with
 // no teams), wrong only once a team variant exists to disagree with it.
-func propertyMatches(c *Card, name string, sourceController PlayerID, source CardID) bool {
+func propertyMatches(c *Card, p valid.Property, sourceController PlayerID, source CardID) bool {
+	name := p.Name
+	if p.Compare != nil {
+		return compareMatches(c, *p.Compare)
+	}
 	switch {
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
@@ -222,4 +233,90 @@ func colorMatches(name string) (color mana.Colors, mustHave bool, ok bool) {
 		return mana.Green, mustHave, true
 	}
 	return 0, false, false
+}
+
+// compareMatches is the numeric-comparison branch of CardProperty.java:1423
+// ("power"/"basePower"/"toughness"/"baseToughness"/"cmc"/"totalPT"/
+// "numColors"/"numTypes", each crossed with LT/LE/EQ/GE/GT/NE/M2) --
+// internal/valid.parseCompare already split the property into Field,
+// Operator and Operand at load time (that package's own doc comment says
+// evaluation waits here).
+//
+// Operand is only handled when it is a plain base-10 integer. Java resolves
+// it with AbilityUtils.calculateAmount, which also accepts "X", "Chosen"
+// (source.getChosenNumber()) and an SVar name -- none of which this port can
+// resolve without an ability-context evaluator internal/expr does not have
+// yet (compare.go's own doc comment: "resolving it needs a game"). A
+// non-numeric Operand is a coverage gap, so the property matches nothing,
+// the same as any other unimplemented property -- not a wrong answer for
+// the common numeric case, which is what the corpus mostly uses these for.
+func compareMatches(c *Card, cmp valid.Compare) bool {
+	operand, err := strconv.Atoi(cmp.Operand)
+	if err != nil {
+		return false
+	}
+	value, ok := compareFieldValue(c, cmp.Field)
+	if !ok {
+		return false
+	}
+	return compareOp(value, cmp.Operator, operand)
+}
+
+// compareFieldValue reads the measured field CardProperty.java:1432-1451
+// names. power/toughness are the full current values (Power/Toughness,
+// Layer 7 and counters both folded in -- Java's getNetPower/getNetToughness).
+// basePower/baseToughness are Layer 7 folded in but counters not yet added
+// (layer7Power/layer7Toughness's own doc comment has the reason this is not
+// BasePower/BaseToughness despite the name). totalPT is full power plus full
+// toughness. numColors and numTypes have no unresolvable form, so they are
+// always ok.
+//
+// ok is false wherever the underlying accessor's is -- an unresolvable "*"
+// or Count$ printed value this port has no expr evaluator to resolve
+// (BasePower's own doc comment), propagated rather than guessed at.
+func compareFieldValue(c *Card, field string) (int, bool) {
+	switch field {
+	case "power":
+		return c.Power()
+	case "basePower":
+		return c.layer7Power()
+	case "toughness":
+		return c.Toughness()
+	case "baseToughness":
+		return c.layer7Toughness()
+	case "cmc":
+		return c.CMC(), true
+	case "totalPT":
+		p, okP := c.Power()
+		t, okT := c.Toughness()
+		return p + t, okP && okT
+	case "numColors":
+		return c.Colors().Count(), true
+	case "numTypes":
+		return len(c.Type().CoreTypes()), true
+	}
+	return 0, false
+}
+
+// compareOp is Expressions.compare (forge/util/Expressions.java), ported
+// operator for operator including M2's modulo-2 equality (a creature's power
+// and an operand agreeing on even/odd, not on value).
+func compareOp(left int, operator string, right int) bool {
+	switch operator {
+	case "LT":
+		return left < right
+	case "LE":
+		return left <= right
+	case "EQ":
+		return left == right
+	case "GE":
+		return left >= right
+	case "GT":
+		return left > right
+	case "NE":
+		return left != right
+	case "M2":
+		return left%2 == right%2
+	}
+	return false
 }

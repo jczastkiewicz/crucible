@@ -8,9 +8,13 @@
   `Card.isValid` control flow in full; controller/owner relative to `sourceController` (`YouCtrl`, `YouDontCtrl`,
   `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`, `Other`, `StrictlyOther`); the
   five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings (`with`/`without`/`hasKeyword`);
-  `tapped`/`untapped`; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
-  type/supertype/subtype fallthrough every property chain shares. The other ~905 property names are M5-M6, corpus
-  frequency order (`tools/vocabscan -kind validProperty`)
+  `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`, `toughness`, `baseToughness`, `cmc`, `totalPT`,
+  `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a plain-integer operand; the generic
+  `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare type/supertype/subtype fallthrough every property
+  chain shares. The other ~905 property names are M5-M6, corpus frequency order (`tools/vocabscan -kind validProperty`)
+  — a rough figure the numeric-comparison batch does not update, since it collapses many raw tokens (`power` alone spans
+  33, per `vocabscan -kind validProperty`) into one mechanism and no earlier count of this file's own "~905" was
+  computed at that granularity either
 
 ## What it does
 
@@ -163,6 +167,43 @@ checking the longer, more specific prefix first.
 **`tapped`/`untapped` read `Card.Tapped` directly** — the same battlefield-only field `Game.Move` already clears on
 leaving it (game-state.md's "The card's mutable parts").
 
+## Numeric comparisons land in `engine.Matches`, plain-integer operands only
+
+`internal/valid` already split `powerGE1` into `Compare{Field: "power", Operator: "GE", Operand: "1"}` at parse time
+(this doc's own "Numeric comparisons" section, M3). `propertyMatches` (`valid.go`) checks `p.Compare` first, before its
+name-based switch, and hands off to `compareMatches` — the corpus-frequency-first mechanism this is, rather than eight
+one-off branches, is the same shape `effect.go`'s `Registry` grows in (ADR-0011): one field-to-value table
+(`compareFieldValue`) and one operator table (`compareOp`, `Expressions.compare` ported operator for operator, including
+`M2`'s modulo-2 equality) cover every field/operator combination at once.
+
+**Only a plain base-10 `Operand` is handled.** Java resolves it with `AbilityUtils.calculateAmount`, which also accepts
+`X`, `Chosen` (`source.getChosenNumber()`), and an SVar name — none of which this port can resolve without an
+ability-context evaluator `internal/expr` does not have yet (`compare.go`'s own doc comment: "resolving any of them
+needs a game"). `strconv.Atoi` failing is the signal: the property matches nothing, the same "false for every card"
+answer any other unimplemented property gives, not a wrong one — `powerGEX` and `powerGEChosen` are both this gap, not
+special cases of it.
+
+**`basePower`/`baseToughness` measure Java's `getCurrentPower`/`getCurrentToughness` (`Card.java:4407,4450`), not
+`getBasePower`/`getBaseToughness`.** The names are Java's own trap: `getCurrentPower` is base folded with Layer 7's
+`LayerCharacteristic`/`LayerSetPT` sub-layers, counters and the power/toughness-switch keyword excluded, while
+`getBasePower` is the printed value alone — this port's own `BasePower`/`BaseToughness` accessors. Reusing `Power`'s own
+Layer-7-fold (`foldPT`) rather than reaching for `BasePower` was the fix: `Power`/`Toughness` now split into a new
+`layer7Power`/`layer7Toughness` step (base folded with Layer 7, no counters yet) and the counters addition that used to
+be inline in one function, so `compareFieldValue`'s `basePower`/`baseToughness` cases read the same intermediate value
+Java's `getCurrentPower`/`getCurrentToughness` compute, and `power`/`toughness` (Java's `getNetPower`/`getNetToughness`)
+keep reading the full `Power`/`Toughness`, counters included. Neither this port's `Power`/`Toughness` nor `getNetPower`
+folds in "CARDNAME's power and toughness are switched" here, so a switched creature's numeric comparisons share the same
+gap every other switch-blind read on `Card` already has (game-state.md's "Not ported yet").
+
+**`cmc` needed a new accessor, `Card.CMC()`** — nothing before this read a card's own mana value; `mana.Cost.CMC()`
+already existed (M1) and `compile.Face.ManaCost` already existed (this doc's own "Color reaches `Matches`" section, for
+the same reason), so `Card.CMC()` is a one-line composition of the two, not a new derivation.
+
+**`totalPT`, `numColors` and `numTypes` have no unresolvable form.** `totalPT` is full `Power`+`Toughness` (both can
+still be individually unresolvable, propagated as `ok=false` the same way `BasePower`'s own `ok` does); `numColors` is
+`Card.Colors().Count()` (already used by `MultiColor`) and `numTypes` is `len(Card.Type().CoreTypes())`, both always
+resolvable since neither a color set nor a type line is ever a printed `"*"`.
+
 ## Deviations from Java
 
 | Java                                                                   | Go                                                                                                                        |
@@ -177,7 +218,8 @@ leaving it (game-state.md's "The card's mutable parts").
 
 | Java                                                                                                                                                                                                                                                                                                   | When       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped` (`engine.Matches`)                                           | M5-M6      |
+| `CardProperty.cardHasProperty` — the great majority of its branches; ported so far: `YouCtrl`/`YouDontCtrl`/`OppCtrl`, `YouOwn`/`YouDontOwn`/`OppOwn`, `Self`/`Other`/`StrictlyOther`, `with`/`without`/`hasKeyword`, `tapped`/`untapped`, the numeric comparisons (`engine.Matches`)                  | M5-M6      |
+| `AbilityUtils.calculateAmount` for a numeric-comparison `Operand` that is not a plain integer — `X`, `Chosen`, an SVar name; needs an ability-context evaluator `internal/expr` does not have yet                                                                                                      | M5-M6      |
 | `CardStateProperty.hasProperty` — the rest of it: `AllColors`, `MonoColor`, `ChosenColor`/`AnyChosenColor`, `EnemyColor`, `AssociatedWithChosenColor`, `Worthy`/`Outlaw`/`Party`, `HasSVar`, and everything past it (color, `Colorless`, `MultiColor` and the generic `non<Type>` fallback are ported) | M5-M6      |
 | `SpellAbilityProperty` — the fourth property chain, untouched                                                                                                                                                                                                                                          | M5-M6      |
 | `PlayerProperty.playerHasProperty` (517) — no `Base`/`Property` this port evaluates targets a `Player` yet                                                                                                                                                                                             | M5-M6      |

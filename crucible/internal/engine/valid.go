@@ -17,7 +17,8 @@
 // own Zone, LKI-collapsed the same way YouCtrl already is), attacking and
 // blocking, bare form only (the current Combat's Attackers/Blocks),
 // HasCounters and counters_<op><n>_<type> (countersMatches' own doc
-// comment), controller/owner relative to sourceController (YouCtrl,
+// comment), enchanted/equipped/modified (attachedByType/isModified's own
+// doc comments), controller/owner relative to sourceController (YouCtrl,
 // YouDontCtrl, OppCtrl, YouOwn, YouDontOwn, OppOwn), identity relative to
 // source (Self, Other, StrictlyOther), the five colors plus Colorless and
 // MultiColor, a generic keyword check under three spellings
@@ -217,6 +218,12 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Counters.Any()
 	case strings.HasPrefix(name, "counters_"):
 		return countersMatches(c, name)
+	case name == "enchanted":
+		return attachedByType(g, c, "Aura")
+	case name == "equipped":
+		return attachedByType(g, c, "Equipment")
+	case name == "modified":
+		return isModified(g, c)
 	case strings.HasPrefix(name, "YouCtrl"):
 		return c.Controller == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):
@@ -357,6 +364,41 @@ func containsEntity(list []EntityID, e EntityID) bool {
 func isBlocking(blocks []Block, id CardID) bool {
 	for _, b := range blocks {
 		if b.Blocker == id {
+			return true
+		}
+	}
+	return false
+}
+
+// attachedByType reports whether any of c's attachments carries the named
+// subtype -- GameEntity.isEnchanted/isEquipped in Java
+// (`getAttachedCards().anyMatch(Card::isAura)`/`Card::isEquipment`), read
+// here by resolving each attachment through g rather than a predicate,
+// since this port has no Card::isAura-shaped method to call in bulk.
+func attachedByType(g *Game, c *Card, subtype string) bool {
+	for _, id := range c.Attachments() {
+		if g.Card(id).Type().HasSubtype(subtype) {
+			return true
+		}
+	}
+	return false
+}
+
+// isModified is CR 707.9's own name for Card.isModified: c has a counter of
+// any kind, an Equipment attached, or an Aura attached that its own
+// controller controls -- Java's exact three-way OR
+// (`isEquipped() || hasCounters() || getEnchantedBy().anyMatch(isController(controller))`).
+// The Aura leg is not plain attachedByType(g, c, "Aura"): "modified" cares
+// who controls the enchanting Aura, an ordinary "enchanted" check does not,
+// so it gets its own loop rather than reusing that one with a filter bolted
+// on.
+func isModified(g *Game, c *Card) bool {
+	if attachedByType(g, c, "Equipment") || c.Counters.Any() {
+		return true
+	}
+	for _, id := range c.Attachments() {
+		aura := g.Card(id)
+		if aura.Type().HasSubtype("Aura") && aura.Controller == c.Controller {
 			return true
 		}
 	}

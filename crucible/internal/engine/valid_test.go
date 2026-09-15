@@ -876,6 +876,108 @@ func TestMatchesCountersGaps(t *testing.T) {
 	}
 }
 
+// enchanted matches a host with an Aura attached, not one with an Equipment
+// attached and not a bare host -- the subtype of the attachment is what
+// this checks, not mere presence.
+func TestMatchesEnchanted(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	host := g.NewCard(nil, p, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
+	g.Attach(aura, host)
+
+	bare := g.NewCard(nil, p, engine.Battlefield)
+	equippedHost := g.NewCard(nil, p, engine.Battlefield)
+	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	g.Attach(equipment, equippedHost)
+
+	if !engine.Matches(g, g.Card(host), valid.Parse("Card.enchanted"), p, engine.NoCard) {
+		t.Error("a host with an Aura attached did not match Card.enchanted")
+	}
+	if engine.Matches(g, g.Card(bare), valid.Parse("Card.enchanted"), p, engine.NoCard) {
+		t.Error("a bare host matched Card.enchanted")
+	}
+	if engine.Matches(g, g.Card(equippedHost), valid.Parse("Card.enchanted"), p, engine.NoCard) {
+		t.Error("a host with only an Equipment attached matched Card.enchanted")
+	}
+}
+
+// equipped mirrors enchanted, against Equipment instead of Aura.
+func TestMatchesEquipped(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	host := g.NewCard(nil, p, engine.Battlefield)
+	equipment := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	g.Attach(equipment, host)
+
+	bare := g.NewCard(nil, p, engine.Battlefield)
+	enchantedHost := g.NewCard(nil, p, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), p, engine.Battlefield)
+	g.Attach(aura, enchantedHost)
+
+	if !engine.Matches(g, g.Card(host), valid.Parse("Card.equipped"), p, engine.NoCard) {
+		t.Error("a host with an Equipment attached did not match Card.equipped")
+	}
+	if engine.Matches(g, g.Card(bare), valid.Parse("Card.equipped"), p, engine.NoCard) {
+		t.Error("a bare host matched Card.equipped")
+	}
+	if engine.Matches(g, g.Card(enchantedHost), valid.Parse("Card.equipped"), p, engine.NoCard) {
+		t.Error("a host with only an Aura attached matched Card.equipped")
+	}
+}
+
+// modified is CR 707.9's three-way OR: a counter, an Equipment, or an Aura
+// controlled by the same player who controls the modified card.
+func TestMatchesModified(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+
+	countered := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(countered).Counters.Add(engine.P1P1, 1)
+
+	equippedHost := g.NewCard(nil, a, engine.Battlefield)
+	equipment := g.NewCard(equipmentDef(t), a, engine.Battlefield)
+	g.Attach(equipment, equippedHost)
+
+	ownAura := g.NewCard(nil, a, engine.Battlefield)
+	auraFromOwner := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(auraFromOwner, ownAura)
+
+	oppAura := g.NewCard(nil, a, engine.Battlefield)
+	auraFromOpponent := g.NewCard(auraDef(t), b, engine.Battlefield)
+	g.Attach(auraFromOpponent, oppAura)
+
+	bare := g.NewCard(nil, a, engine.Battlefield)
+
+	for _, tc := range []struct {
+		name string
+		id   engine.CardID
+		want bool
+	}{
+		{"counter", countered, true},
+		{"equipment", equippedHost, true},
+		{"own-controlled aura", ownAura, true},
+		{"opponent-controlled aura", oppAura, false},
+		{"bare", bare, false},
+	} {
+		if got := engine.Matches(g, g.Card(tc.id), valid.Parse("Card.modified"), a, engine.NoCard); got != tc.want {
+			t.Errorf("%s: Matches(Card.modified) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+
+	// The opponent-controlled Aura still makes the host "enchanted" -- only
+	// "modified" cares who controls it.
+	if !engine.Matches(g, g.Card(oppAura), valid.Parse("Card.enchanted"), a, engine.NoCard) {
+		t.Error("a host enchanted by an opponent's Aura did not match Card.enchanted")
+	}
+}
+
 // A `!` on the base negates the whole alternative -- base AND every
 // property -- not just the base by itself (Card.isValid's testFailed
 // short-circuit). "!Creature.YouCtrl" matches everything that is not a

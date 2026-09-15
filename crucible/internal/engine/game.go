@@ -16,6 +16,7 @@ package engine
 
 import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
@@ -212,21 +213,30 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 // the layer system.
 //
 // Leaving the battlefield clears Counters, Damage, Tapped and any
-// attachment; entering it sets SummonSick. Java gets both for free:
-// GameAction.changeZone builds a new Card object for the destination zone
-// (CardCopyService.copyCard), so a field simply is not copied onto it, and a
-// freshly-built permanent starts sick unless something says otherwise. A
-// CardID is stable across zone changes here instead (ADR-0009) — the same
-// struct persists, so a creature that dies with three +1/+1 counters would
-// return from the graveyard still carrying them unless this clears them, and
-// a Raise Dead'd creature would enter without summoning sickness unless this
-// sets it.
+// attachment; entering it sets SummonSick and, for a planeswalker or a
+// Battle, its printed starting loyalty/defense as counters (CR 121.5,
+// 704.5v). Java gets all three for free: GameAction.changeZone builds a new
+// Card object for the destination zone (CardCopyService.copyCard), so a
+// field simply is not copied onto it, a freshly-built permanent starts sick
+// unless something says otherwise, and a planeswalker's loyalty is set once
+// at that same construction -- CR 121.5 puts loyalty nowhere near Layer 7,
+// so it has no computed accessor the way Power/Toughness do; it is exactly
+// its Loyalty counter count from the moment of entry, full stop
+// (game-state.md's "Loyalty is not a layer" section has the full citation).
+// A CardID is stable across zone changes here instead (ADR-0009) — the same
+// struct persists, so a creature that dies with three +1/+1 counters would return
+// from the graveyard still carrying them unless this clears them, a Raise
+// Dead'd creature would enter without summoning sickness unless this sets
+// it, and a planeswalker cast a second time would enter with whatever
+// loyalty its last trip to the battlefield ended at unless this sets a
+// fresh value every time.
 //
-// [Game.NewCard] does neither: it is the arena-allocation primitive fixture
-// loading uses to seat a board mid-game, where a battlefield permanent's
-// starting Tapped/SummonSick is exactly what the fixture says, not a rule
-// this port applies. Move is real play transitioning a card between zones;
-// NewCard is "this card already exists here."
+// [Game.NewCard] does none of the three: it is the arena-allocation
+// primitive fixture loading uses to seat a board mid-game, where a
+// battlefield permanent's starting Tapped/SummonSick/loyalty-or-defense is
+// exactly what the fixture says, not a rule this port applies for it. Move
+// is real play transitioning a card between zones; NewCard is "this card
+// already exists here."
 //
 // Every call emits a ZoneChanged event, for the same reason NewCard does
 // not: this is real play, and NewCard is setup nothing downstream should
@@ -248,6 +258,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		g.Unattach(id)
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true
+		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
+			c.Counters.Add(Loyalty, loyalty)
+		}
+		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) {
+			c.Counters.Add(Defense, defense)
+		}
 	}
 
 	g.sink.Emit(Event{

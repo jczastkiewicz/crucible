@@ -529,6 +529,38 @@ func TestRunActionsQueueDiscardBadIDErrors(t *testing.T) {
 	}
 }
 
+// queue battleprotector accepts a seated player's name, the same vocabulary
+// queue startingplayer uses.
+func TestRunActionsQueueBattleProtectorResolvesAPlayerName(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue battleprotector ai\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseBattleProtector(l.Game, l.Game.Players()[0], 0, nil)
+	want := l.Game.Players()[1]
+	if got != want {
+		t.Errorf("battle protector = %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueBattleProtectorBadPlayerNameErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue battleprotector nobody\n"); err == nil {
+		t.Error("an unseated player name did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

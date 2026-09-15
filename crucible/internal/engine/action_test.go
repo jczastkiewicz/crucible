@@ -1022,7 +1022,13 @@ func TestCheckStateBasedActionsZeroDefenseDies(t *testing.T) {
 	g.Card(alive).Counters.Add(engine.Defense, 3)
 	// dead is left at the default zero counters -- no ETB hook exists yet
 	// to give it its printed starting defense (destroyZeroDefense's own doc
-	// comment), which is itself what this test exercises.
+	// comment), which is itself what this test exercises. Both get a
+	// protector set directly, isolating destroyZeroDefense's own behavior
+	// from assignBattleProtector, a separate state-based action this test
+	// is not about (CR 704.5w -- a protectorless Battle would otherwise ask
+	// the controller's queue for one, which this test never populates).
+	g.Card(dead).ProtectingPlayer = b
+	g.Card(alive).ProtectingPlayer = b
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
@@ -1063,6 +1069,10 @@ func TestCheckStateBasedActionsZeroDefenseCascadesToAttachments(t *testing.T) {
 	host := g.NewCard(battleDefDefense(t, "3"), a, engine.Battlefield)
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
 	g.Attach(aura, host)
+	// A protector set directly isolates destroyZeroDefense from
+	// assignBattleProtector, a separate state-based action this test is not
+	// about (CR 704.5w).
+	g.Card(host).ProtectingPlayer = b
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
@@ -1071,5 +1081,132 @@ func TestCheckStateBasedActionsZeroDefenseCascadesToAttachments(t *testing.T) {
 	}
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
+	}
+}
+
+// CR 704.5w: a Battle with no protector, and nothing attacking it, asks its
+// controller to choose one of their opponents.
+func TestAssignBattleProtectorAsksWhenNoneSet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
+	g.Card(battle).Counters.Add(engine.Defense, 5) // survive destroyZeroDefense; no ETB hook sets this yet
+
+	c := engine.NewScriptedController()
+	c.QueueBattleProtector(b)
+	engine.CheckStateBasedActions(g, c)
+
+	if got := g.Card(battle).ProtectingPlayer; got != b {
+		t.Errorf("ProtectingPlayer = %v, want %v", got, b)
+	}
+}
+
+// A Battle with a protector already set, still in the game, is never asked
+// again -- an empty queue must not panic.
+func TestAssignBattleProtectorDoesNotAskWhenAlreadySet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
+	g.Card(battle).Counters.Add(engine.Defense, 5)
+	g.Card(battle).ProtectingPlayer = b
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(battle).ProtectingPlayer; got != b {
+		t.Errorf("ProtectingPlayer = %v, want unchanged at %v", got, b)
+	}
+}
+
+// A protector who has since lost the game no longer counts as one -- the
+// Battle asks again.
+func TestAssignBattleProtectorAsksAgainWhenProtectorHasLost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	a, b, c2 := g.Players()[0], g.Players()[1], g.Players()[2]
+	g.Player(a).Life, g.Player(b).Life, g.Player(c2).Life = 20, 20, 20
+	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
+	g.Card(battle).Counters.Add(engine.Defense, 5)
+	g.Card(battle).ProtectingPlayer = b
+	g.Player(b).Lost = true
+
+	c := engine.NewScriptedController()
+	c.QueueBattleProtector(c2)
+	engine.CheckStateBasedActions(g, c)
+
+	if got := g.Card(battle).ProtectingPlayer; got != c2 {
+		t.Errorf("ProtectingPlayer = %v, want %v (b has left the game)", got, c2)
+	}
+}
+
+// A Battle currently being attacked is not asked about a protector at all
+// -- CR 704.5w's own "no attacking creatures currently attacking that
+// battle" condition.
+func TestAssignBattleProtectorNotAskedWhileBeingAttacked(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	battle := g.NewCard(battleDefDefense(t, "5"), b, engine.Battlefield)
+	g.Card(battle).Counters.Add(engine.Defense, 5)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	ac.QueueAttackTarget(engine.CardEntity(battle))
+	g.DeclareCombatAttackers(ac)
+
+	// No QueueBattleProtector call: if assignBattleProtector asked anyway,
+	// this panics on the empty queue, which is exactly the assertion.
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(battle).ProtectingPlayer; got != engine.NoPlayer {
+		t.Errorf("ProtectingPlayer = %v, want NoPlayer (still unset while attacked)", got)
+	}
+}
+
+// CR 704.5x: a Battle whose protector is somehow its own controller
+// re-chooses, even though nothing attacks it.
+func TestAssignBattleProtectorReassignsWhenProtectorIsOwnController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
+	g.Card(battle).Counters.Add(engine.Defense, 5)
+	g.Card(battle).ProtectingPlayer = a // the battle's own controller
+
+	c := engine.NewScriptedController()
+	c.QueueBattleProtector(b)
+	engine.CheckStateBasedActions(g, c)
+
+	if got := g.Card(battle).ProtectingPlayer; got != b {
+		t.Errorf("ProtectingPlayer = %v, want %v", got, b)
+	}
+}
+
+// A Battle leaving the battlefield loses its protector, the same as any
+// other battlefield-only state Move clears.
+func TestMoveClearsProtectingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	battle := g.NewCard(battleDefDefense(t, "5"), a, engine.Battlefield)
+	g.Card(battle).ProtectingPlayer = b
+
+	g.Move(battle, engine.Graveyard, a)
+
+	if got := g.Card(battle).ProtectingPlayer; got != engine.NoPlayer {
+		t.Errorf("ProtectingPlayer = %v after leaving the battlefield, want NoPlayer", got)
 	}
 }

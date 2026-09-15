@@ -57,6 +57,12 @@ type Card struct {
 	Tapped     bool
 	SummonSick bool
 
+	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
+	// defending a Battle. NoPlayer for anything that is not a Battle, or a
+	// Battle that has not been assigned one yet (assignBattleProtector,
+	// action.go).
+	ProtectingPlayer PlayerID
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.

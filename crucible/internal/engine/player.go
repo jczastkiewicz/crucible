@@ -34,4 +34,8 @@ type Player struct {
 	// intervenes, once one exists) does not lose on the next one for a draw
 	// that already happened.
 	DrewFromEmptyLibrary bool
+	// ManaPool is this player's own floating mana (CR 106.4, mana.go).
+	// Emptied every phase/step transition (CR 500.4, emptyManaPools,
+	// turn.go), not something a card ability triggers.
+	ManaPool Pool
 }

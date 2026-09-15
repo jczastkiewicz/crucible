@@ -626,7 +626,10 @@ printed form.
     not built.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done** (`combat.go`, `attack.go`,
     `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle. **Mulligans
-    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment not started.**
+    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment started** (`mana.go`): a `Pool` per player
+    and `Pay` for the plain colored-and-generic case, plus CR 500.4's emptying every phase/step — hybrid, Phyrexian,
+    `{X}`, snow shards, a real choice of which mana pays generic, and anything that fills a `Pool` in the first place
+    (no mana ability exists yet) are not.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
     `testdata/scenarios/`), but 13 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**

@@ -95,6 +95,7 @@ func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
 // same pairing Java's onPhaseBegin and checkStateBasedEffects run back to
 // back at the top of mainLoopStep.
 func (g *Game) beginPhase(controller PlayerController) {
+	g.emptyManaPools()
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	switch g.activePhase {
 	case Untap:
@@ -105,6 +106,25 @@ func (g *Game) beginPhase(controller PlayerController) {
 		g.cleanupStep(controller)
 	}
 	CheckStateBasedActions(g, controller)
+}
+
+// emptyManaPools is CR 500.4: as a step or phase ends, every player's
+// floating mana empties, not just the active player's. Java runs the
+// equivalent (PhaseHandler.onPhaseEnd, which calls Player.getManaPool().
+// clearPool for every player) once per transition, right before the next
+// phase begins; this port has no separate "phase ended" hook, so it runs at
+// the top of beginPhase instead -- the same transition, the same "once per
+// step or phase" cadence, just named for where this port's phase walk
+// actually stops to do work (this file's own doc comment: "AdvancePhase
+// walks through them as bookkeeping only... until each one's turn comes").
+//
+// Mana burn -- losing life for unspent mana -- is not reproduced: it left
+// the rules in 2010, before any Standard-legal card this port's corpus
+// targets was printed, so there is nothing to carry parity with.
+func (g *Game) emptyManaPools() {
+	for _, id := range g.Players() {
+		g.Player(id).ManaPool.Empty()
+	}
 }
 
 // untapStep untaps every permanent the active player controls and clears

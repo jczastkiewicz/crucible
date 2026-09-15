@@ -174,7 +174,9 @@ but holds zero implementations — that is M6's job, not M4's or M5's.
 M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`); zone changes + state-based
 actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`); mulligans (`mulligan.go`); the
 `engine.Matches` valid-string evaluator (`valid.go`) that SBAs and future targeting read, built corpus-frequency-first
-(`port-log/valid-strings.md`). Thin or missing: the stack is push/resolve only — no simultaneous-trigger ordering, no
-replacement effects; the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not
-types/colors/abilities; mana payment has not started. **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:**
-13 fixtures exist today (`testdata/scenarios/`).
+(`port-log/valid-strings.md`); a mana pool and payment for the plain colored-and-generic case (`mana.go`) — CR 500.4's
+emptying between every phase/step, not just casting a spell. Thin or missing: the stack is push/resolve only — no
+simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer _numbers_ plus
+power/toughness folding only, not types/colors/abilities; mana payment has no hybrid/Phyrexian/`{X}`/snow shards and no
+mana abilities to fill a pool with yet. **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 13 fixtures
+exist today (`testdata/scenarios/`).

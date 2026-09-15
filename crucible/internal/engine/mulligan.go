@@ -8,6 +8,40 @@ package engine
 // invented ahead of a caller that would set it.
 const startingHandSize = 7
 
+// DealOpeningHands is CR 103.1-103.4's procedure up to the point
+// PerformMulligans, below, can run: decide who plays first and deal each
+// seated player an opening hand of startingHandSize, shuffled library first.
+// Ported from GameAction.startGame with the Match-level parts trimmed --
+// this port has no Match, so there is no previous game's loser to name and
+// every game reaches CR 103.2's coin flip the same way
+// (determineFirstTurnPlayer's own isFirstGame branch, Java's
+// chooseStartingPlayer(isFirstGame) always called with true here).
+//
+// The coin flip is g.rand's own Int32n(len(players)) -- Aggregates.random's
+// algorithm for a List source, which game.getPlayers() is, not a new
+// derivation.
+//
+// The returned PlayerID is ChooseStartingPlayer's own answer, who actually
+// goes first, not necessarily the player asked to decide. Calling
+// PerformMulligans with it, and calling Game.StartTurn once mulligans are
+// done, are both left to the caller: this port has no Match-level "play a
+// whole game" loop for DealOpeningHands to be one step inside of yet, so
+// there is no single flow to hand the return value to automatically.
+func DealOpeningHands(g *Game, controller PlayerController) PlayerID {
+	players := g.Players()
+	decider := players[g.rand.Int32n(int32(len(players)))]
+	first := controller.ChooseStartingPlayer(g, decider, true)
+
+	for _, pid := range players {
+		g.Shuffle(Library, pid)
+		lib := g.Zone(Library, pid)
+		for i := 0; i < startingHandSize && lib.Len() > 0; i++ {
+			g.Move(lib.Cards()[0], Hand, pid)
+		}
+	}
+	return first
+}
+
 // PerformMulligans runs the London mulligan procedure for every seated
 // player, ported from forge-game/src/main/java/forge/game/mulligan/
 // MulliganService.java and LondonMulligan.java.
@@ -19,9 +53,8 @@ const startingHandSize = 7
 // strategy hierarchy for four rules nothing in scope exercises would be
 // exactly the speculative work CLAUDE.md rules out (PORT-6).
 //
-// Callers deal each player's opening hand before calling this -- Java's
-// MulliganService assumes Game already has, and dealing one needs a Match or
-// StartGame flow this port has not built.
+// Callers deal each player's opening hand before calling this (DealOpeningHands,
+// above) -- Java's MulliganService assumes Game already has.
 func PerformMulligans(g *Game, controller PlayerController, firstPlayer PlayerID) {
 	order := turnOrderFrom(g, firstPlayer)
 	// CR 103.4: every player gets one free mulligan in a game with more than

@@ -96,6 +96,106 @@ func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ eng
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)
 
+// deciderSpyController wraps ScriptedController to record the decider
+// ChooseStartingPlayer was actually asked with, then delegates to it for
+// the answer -- embedding rather than a fresh 11-method stub, since every
+// other method's behavior is exactly ScriptedController's own.
+type deciderSpyController struct {
+	*engine.ScriptedController
+	decider engine.PlayerID
+}
+
+func (c *deciderSpyController) ChooseStartingPlayer(g *engine.Game, decider engine.PlayerID, isFirstGame bool) engine.PlayerID {
+	c.decider = decider
+	return c.ScriptedController.ChooseStartingPlayer(g, decider, isFirstGame)
+}
+
+// DealOpeningHands shuffles every player's library and deals each a
+// startingHandSize hand.
+func TestDealOpeningHandsDealsToEveryPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	for i := 0; i < 10; i++ {
+		g.NewCard(nil, a, engine.Library)
+		g.NewCard(nil, b, engine.Library)
+	}
+
+	c := engine.NewScriptedController()
+	c.QueueStartingPlayer(a)
+	engine.DealOpeningHands(g, c)
+
+	if got := g.Zone(engine.Hand, a).Len(); got != 7 {
+		t.Errorf("a's hand = %d cards, want 7", got)
+	}
+	if got := g.Zone(engine.Library, a).Len(); got != 3 {
+		t.Errorf("a's library = %d cards, want 3", got)
+	}
+	if got := g.Zone(engine.Hand, b).Len(); got != 7 {
+		t.Errorf("b's hand = %d cards, want 7", got)
+	}
+	if got := g.Zone(engine.Library, b).Len(); got != 3 {
+		t.Errorf("b's library = %d cards, want 3", got)
+	}
+}
+
+// A library with fewer than startingHandSize cards deals what it has,
+// rather than asking for more cards than exist -- the same defensive floor
+// mulligan's own fresh-seven draw already applies.
+func TestDealOpeningHandsWithAShortLibraryDealsWhatThereIs(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	for i := 0; i < 3; i++ {
+		g.NewCard(nil, p, engine.Library)
+	}
+
+	c := engine.NewScriptedController()
+	c.QueueStartingPlayer(p)
+	engine.DealOpeningHands(g, c)
+
+	if got := g.Zone(engine.Hand, p).Len(); got != 3 {
+		t.Errorf("hand = %d cards, want 3", got)
+	}
+	if got := g.Zone(engine.Library, p).Len(); got != 0 {
+		t.Errorf("library = %d cards, want 0", got)
+	}
+}
+
+// The returned player is ChooseStartingPlayer's own answer, not necessarily
+// the player the coin flip named as decider.
+func TestDealOpeningHandsReturnsChooseStartingPlayerAnswer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+
+	c := engine.NewScriptedController()
+	c.QueueStartingPlayer(b)
+	if got := engine.DealOpeningHands(g, c); got != b {
+		t.Errorf("DealOpeningHands() = %v, want %v (queued answer, not necessarily the decider %v)", got, b, a)
+	}
+}
+
+// The coin flip names one of the actual seated players as decider, never a
+// zero value or a handle outside the game.
+func TestDealOpeningHandsDeciderIsASeatedPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+
+	spy := &deciderSpyController{ScriptedController: engine.NewScriptedController()}
+	spy.QueueStartingPlayer(a)
+	engine.DealOpeningHands(g, spy)
+
+	if spy.decider != a && spy.decider != b {
+		t.Errorf("decider = %v, want %v or %v", spy.decider, a, b)
+	}
+}
+
 func TestPerformMulligansEveryoneKeepsImmediately(t *testing.T) {
 	t.Parallel()
 

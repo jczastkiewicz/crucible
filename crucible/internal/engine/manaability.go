@@ -4,7 +4,10 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/mana"
+import (
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
+)
 
 // basicLandType maps CR 305.6's five basic land colors to the subtype that
 // grants each one its intrinsic mana ability. Forge synthesizes this ability
@@ -28,6 +31,13 @@ var basicLandType = map[mana.Colors]string{
 // land's basic land types to tap for when it has more than one -- a
 // Snow-Covered Plains Island keeps two separate intrinsic abilities, and
 // tapping activates only one of them.
+//
+// The mana produced is snow (CR 106.3a: any mana a snow permanent produces
+// is snow mana of that type) exactly when the land itself carries the Snow
+// supertype (forge-gui/res/cardsfolder's own snow_covered_plains.txt:
+// "Types:Basic Snow Land Plains", the identical no-A:-line shape plains.txt
+// has, differing only in that one supertype) -- nothing about the ability
+// itself changes, so this is the only place that distinction is read.
 //
 // Reports whether the tap succeeded. false covers every legal-but-failed
 // case a bad decision could reach: land not controlled by pid, not on the
@@ -55,6 +65,10 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors) bool
 		return false
 	}
 	c.Tapped = true
-	g.Player(pid).ManaPool.Add(color, 1)
+	if c.Type().HasSupertype(cardtype.Snow) {
+		g.Player(pid).ManaPool.AddSnow(color, 1)
+	} else {
+		g.Player(pid).ManaPool.Add(color, 1)
+	}
 	return true
 }

@@ -127,6 +127,27 @@ func TestTapLandForManaSupportsDualBasicLandType(t *testing.T) {
 	}
 }
 
+// A land carrying the Snow supertype produces snow mana (CR 106.3a) --
+// nothing about the ability itself differs from a plain basic land's, only
+// which of Pool's two buckets for that color receives it.
+func TestTapLandForManaProducesSnowManaFromASnowLand(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	snowPlains := g.NewCard(landDef(t, "Snow-Covered Plains", "Basic Snow Land Plains"), p, engine.Battlefield)
+
+	if !g.TapLandForMana(p, snowPlains, mana.White) {
+		t.Fatal("TapLandForMana failed tapping a Snow-Covered Plains for white")
+	}
+	if got, want := g.Player(p).ManaPool.SnowBreakdown(), [6]int{1, 0, 0, 0, 0, 0}; got != want {
+		t.Errorf("SnowBreakdown() = %v, want %v (the mana produced is snow)", got, want)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), [6]int{1, 0, 0, 0, 0, 0}; got != want {
+		t.Errorf("Breakdown() = %v, want %v", got, want)
+	}
+}
+
 // color must be exactly one of the five basic colors -- the zero value or
 // more than one bit set is an engine invariant breach, not something a
 // fixture or a card can cause, so it panics rather than silently reporting

@@ -502,3 +502,85 @@ func TestPayManaCostFailsWhenXIsNegative(t *testing.T) {
 		t.Errorf("pool total after a failed payment = %d, want 1 (unchanged)", got)
 	}
 }
+
+// {S}: ChoosePaySnow answers which color's snow mana pays the symbol --
+// plain mana of that color, however much is floating, does not substitute.
+func TestPayManaCostResolvesSnowFromControllerChoice(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.AddSnow(mana.White, 1)
+	c := engine.NewScriptedController()
+	c.QueuePaySnow(mana.ShardW)
+
+	if !g.PayManaCost(p, mana.MustParse("S"), c) {
+		t.Fatal("PayManaCost failed paying {S} with one snow white in the pool")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}
+
+// {S}{S}: two snow symbols in the same cost are two independent questions,
+// not one value reused -- unlike X, each can be paid with a different
+// color's snow mana.
+func TestPayManaCostResolvesTwoSnowSymbolsIndependently(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.AddSnow(mana.White, 1)
+	g.Player(p).ManaPool.AddSnow(mana.Blue, 1)
+	c := engine.NewScriptedController()
+	c.QueuePaySnow(mana.ShardW)
+	c.QueuePaySnow(mana.ShardU)
+
+	if !g.PayManaCost(p, mana.MustParse("S S"), c) {
+		t.Fatal("PayManaCost failed paying {S}{S} with snow white and snow blue in the pool")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}
+
+// Plain white does not substitute for {S}'s own requirement, however much
+// of it is floating -- choosing white when the pool holds only plain white
+// fails, the same as choosing a hybrid color the pool does not have.
+func TestPayManaCostFailsWhenChosenSnowColorHasNoSnowMana(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.Add(mana.White, 5)
+	c := engine.NewScriptedController()
+	c.QueuePaySnow(mana.ShardW)
+
+	if g.PayManaCost(p, mana.MustParse("S"), c) {
+		t.Fatal("PayManaCost succeeded paying {S} with only plain white in the pool")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 5 {
+		t.Errorf("pool total after a failed payment = %d, want 5 (unchanged)", got)
+	}
+}
+
+// A cost mixing a snow symbol and a plain pip pays both from the same
+// payment: the snow answer spends only the snow bucket, the plain pip
+// spends (or falls back to) the ordinary one.
+func TestPayManaCostResolvesSnowAlongsidePlainShards(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.AddSnow(mana.White, 1)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	c.QueuePaySnow(mana.ShardW)
+
+	if !g.PayManaCost(p, mana.MustParse("S R"), c) {
+		t.Fatal("PayManaCost failed paying {S}{R} with snow white and plain red in the pool")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}

@@ -121,6 +121,9 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"pay x": func(c *engine.ScriptedController) {
 			c.ChoosePayX(g, p0, mana.Cost{})
 		},
+		"pay snow": func(c *engine.ScriptedController) {
+			c.ChoosePaySnow(g, p0)
+		},
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

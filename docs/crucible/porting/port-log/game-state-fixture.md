@@ -112,6 +112,7 @@ paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost i
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
+queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
 queue hybridmanacolor <color> ScriptedController.QueueHybridManaColor, a bare color letter
 queue paymonocoloredhybrid <bool>     ScriptedController.QueuePayMonocoloredHybrid
 queue paycolorlesshybrid <bool>       ScriptedController.QueuePayColorlessHybrid
@@ -200,6 +201,15 @@ the paid mana comes from a real card (a corpus `Plains`) rather than `manapool=`
 `{X}`s (CR 107.3f) still consumes exactly one `queue payx` line; `mana-payment-resolves-x` writes `queue payx 3` once
 and three `queue paygeneric` lines after it (X's chosen value folds into the generic amount `queue paygeneric` already
 knows how to spend), not three `queue payx` lines.
+
+`queue paysnow` reuses `mana.ParseShard` the same way `queue paygeneric` does -- `ChoosePaySnow`'s own answer is a plain
+color shard, not a "this is snow" flag, since by construction the answer is already only ever asked for a snow ({S})
+symbol. Unlike `queue payx`, one `queue paysnow` line answers exactly one `{S}` symbol: CR 106.3a puts no "announced
+once" language on snow the way CR 601.2b does for X, so a cost with two `{S}` symbols needs two `queue paysnow` lines
+and can name two different colors. `setup.state` has no way to put snow mana in a pool directly -- `manapool=` only ever
+produces plain mana (`## Mana pool and payment`, `game-state.md`) -- so every snow fixture needs a real snow land and
+`tapformana` first; `mana-payment-resolves-snow` is the one fixture, a Snow-Covered Plains tapped for snow white, then
+spent paying a bare `{S}` cost.
 
 `Loaded.CardByFixtureID` is the other piece `RunActions` needed: the same `Id:` map `AttachedTo:`/`RememberedCards:`
 resolution already builds internally, kept around after `Load` returns instead of discarded. A scenario naming a

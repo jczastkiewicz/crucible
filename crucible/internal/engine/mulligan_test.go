@@ -65,7 +65,7 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 // DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize,
 // ChooseBattleProtector, ChooseHybridManaColor, ChoosePayMonocoloredHybrid,
 // ChoosePayColorlessHybrid, ChoosePayPhyrexian, ChoosePayHybridPhyrexian,
-// ChoosePayGeneric and ChoosePayX are never exercised by this controller's own tests -- no scenario here
+// ChoosePayGeneric, ChoosePayX and ChoosePaySnow are never exercised by this controller's own tests -- no scenario here
 // creates a legend-rule conflict, reaches combat, reaches cleanup with a
 // hand over size, has a Battle needing a protector, or pays a mana cost --
 // but the interface still has to be satisfied.
@@ -123,6 +123,10 @@ func (c *scriptedMulliganController) ChoosePayGeneric(_ *engine.Game, _ engine.P
 
 func (c *scriptedMulliganController) ChoosePayX(_ *engine.Game, _ engine.PlayerID, _ mana.Cost) int {
 	panic("scriptedMulliganController: ChoosePayX was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePaySnow(_ *engine.Game, _ engine.PlayerID) mana.Shard {
+	panic("scriptedMulliganController: ChoosePaySnow was not expected to be called")
 }
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)

@@ -1,0 +1,8 @@
+# CR 106.3a: a Snow-Covered Plains produces snow white, not plain white --
+# TapLandForMana reads the land's own Snow supertype, the same subtype-only
+# mechanism the plain basic land ability already reads (manaability.go).
+# Snow mana pays a snow ({S}) requirement no plain mana of that color can,
+# which is what ChoosePaySnow (queue paysnow) exists to answer.
+tapformana human 1 W
+queue paysnow W
+paymanacost human S

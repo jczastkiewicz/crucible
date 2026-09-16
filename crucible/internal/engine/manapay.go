@@ -8,26 +8,25 @@ package engine
 import "github.com/jczastkiewicz/crucible/internal/mana"
 
 // PayManaCost pays cost from decider's mana pool, asking controller the
-// value of X if the cost carries one (CR 601.2b), how to resolve each
-// two-colour hybrid, monocoloured hybrid, colourless hybrid, single-colour
-// Phyrexian and hybrid Phyrexian shard (CR 601.2h, CR 118.4), then which
-// mana type covers each unit of the cost's generic amount (CR 106.6),
-// before handing the result to [Pool.Pay]. Reports whether it succeeded;
-// the pool is unchanged if it did not, the same guarantee Pay itself
-// makes -- and life is deducted only after Pay reports success, so a
+// value of X if the cost carries one (CR 601.2b), which color of snow mana
+// pays each snow symbol (CR 106.3a), how to resolve each two-colour hybrid,
+// monocoloured hybrid, colourless hybrid, single-colour Phyrexian and hybrid
+// Phyrexian shard (CR 601.2h, CR 118.4), then which mana type covers each
+// unit of the cost's generic amount (CR 106.6), before handing the result
+// to [Pool.PayWithSnow]. Reports whether it succeeded; the pool is
+// unchanged if it did not, the same guarantee PayWithSnow itself makes --
+// and life is deducted only after PayWithSnow reports success, so a
 // Phyrexian shard resolved to life never costs life on a payment that fails
 // for an unrelated shard.
 //
-// A shard offering anything else -- snow -- is not resolved here: it passes
-// through unchanged, and Pay's own "unresolvable shard" branch fails the
-// whole payment for it, exactly as it already does today. It is a real
-// decision with no PlayerController method built for it yet --
 // ChooseHybridManaColor, ChoosePayMonocoloredHybrid, ChoosePayColorlessHybrid,
-// ChoosePayPhyrexian, ChoosePayHybridPhyrexian, ChoosePayGeneric and
-// ChoosePayX are the first seven, not the last (game-state.md's "Mana pool
-// and payment" section).
+// ChoosePayPhyrexian, ChoosePayHybridPhyrexian, ChoosePayGeneric, ChoosePayX
+// and ChoosePaySnow are the first eight harder shapes this port resolves,
+// not necessarily the last (game-state.md's "Mana pool and payment"
+// section).
 func (g *Game) PayManaCost(decider PlayerID, cost mana.Cost, controller PlayerController) bool {
 	resolved := make([]mana.Shard, 0, len(cost.Shards())+cost.Generic())
+	var snow []mana.Shard
 	generic := cost.Generic()
 	life := 0
 
@@ -47,6 +46,15 @@ func (g *Game) PayManaCost(decider PlayerID, cost mana.Cost, controller PlayerCo
 		case s.IsX():
 			// Resolved above, ahead of this loop: every X symbol already
 			// folded into generic, so it contributes nothing here.
+		case s.IsSnow():
+			// CR 106.3a: each snow symbol is its own independent question --
+			// unlike X, two snow symbols in the same cost can be paid with
+			// two different colors, so this asks once per occurrence rather
+			// than once per cost. The answer is collected separately from
+			// resolved (below) because a snow requirement can only be paid
+			// from the pool's snow bucket for that color, never the plain
+			// one -- PayWithSnow's own contract, not Pay's.
+			snow = append(snow, controller.ChoosePaySnow(g, decider))
 		case isTwoColorHybrid(s):
 			choice := controller.ChooseHybridManaColor(g, decider, s.Colors())
 			pure, ok := mana.PureShard(choice)
@@ -107,7 +115,7 @@ func (g *Game) PayManaCost(decider PlayerID, cost mana.Cost, controller PlayerCo
 		resolved = append(resolved, controller.ChoosePayGeneric(g, decider))
 	}
 
-	if !g.Player(decider).ManaPool.Pay(mana.FromShards(resolved, 0)) {
+	if !g.Player(decider).ManaPool.PayWithSnow(mana.FromShards(resolved, 0), snow) {
 		return false
 	}
 	if life > 0 {

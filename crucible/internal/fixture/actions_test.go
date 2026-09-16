@@ -736,6 +736,34 @@ func TestRunActionsQueuePayXBadIntErrors(t *testing.T) {
 	}
 }
 
+func TestRunActionsQueuePaySnowResolvesAShard(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paysnow W\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got, want := c.ChoosePaySnow(l.Game, l.Game.Players()[0]), mana.ShardW; got != want {
+		t.Errorf("paysnow answer = %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueuePaySnowBadShardErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paysnow ZZ\n"); err == nil {
+		t.Error("an unparseable shard did not error")
+	}
+}
+
 func TestRunActionsQueueHybridManaColorResolvesAColor(t *testing.T) {
 	t.Parallel()
 

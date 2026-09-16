@@ -12,24 +12,24 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the eighteen answerable with today's
+// which has 110 abstract methods; only the nineteen answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// eighteen: mulligans and the starting-player choice have callers in
+// nineteen: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
 // ChooseBattleProtector's, ChooseHybridManaColor's,
 // ChoosePayMonocoloredHybrid's, ChoosePayColorlessHybrid's,
-// ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's, ChoosePayGeneric's and
-// ChoosePayX's own callers (resolveLegendRule, action.go;
+// ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's, ChoosePayGeneric's,
+// ChoosePayX's and ChoosePaySnow's own callers (resolveLegendRule, action.go;
 // Game.DeclareCombatAttackers and Game.assignAttackTargets, attack.go;
 // Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
 // combatdamage.go; Game.cleanupStep, turn.go; assignBattleProtector,
-// action.go; Game.PayManaCost, manapay.go, seven times over) are fully
+// action.go; Game.PayManaCost, manapay.go, eight times over) are fully
 // built, so the decision point can be built ahead of them (Plan Section
 // 1.3).
 //
@@ -204,6 +204,20 @@ type PlayerController interface {
 	// reports payment failure rather than trusting a value CR 601.2b's own
 	// "non-negative integer" rule forbids.
 	ChoosePayX(g *Game, decider PlayerID, cost mana.Cost) int
+
+	// ChoosePaySnow decides which color of floating snow mana decider spends
+	// on one snow ({S}, CR 106.3a) symbol. [Game.PayManaCost] calls this once
+	// per {S} symbol the cost carries, independently -- unlike ChoosePayX,
+	// two {S} symbols in the same cost are two separate questions, not one
+	// value reused, since each can be paid with a different color's snow
+	// mana. The return value should be one of mana.ShardW/U/B/R/G/C; it is
+	// not re-checked here, but [Pool.PayWithSnow]'s own bucket check fails
+	// the whole payment if decider's pool does not actually hold snow mana of
+	// the color chosen, the same as an unavailable hybrid colour choice
+	// already does. Snow-tagged mana still pays a same-color pip or a
+	// generic unit the same as plain mana of that color -- this method exists
+	// only for the one requirement plain mana cannot cover.
+	ChoosePaySnow(g *Game, decider PlayerID) mana.Shard
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -234,6 +248,7 @@ type ScriptedController struct {
 	hybridPhyrexian []mana.Colors
 	genericMana     []mana.Shard
 	xValues         []int
+	snowMana        []mana.Shard
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -502,6 +517,20 @@ func (c *ScriptedController) ChoosePayX(g *Game, decider PlayerID, cost mana.Cos
 	}
 	v := c.xValues[0]
 	c.xValues = c.xValues[1:]
+	return v
+}
+
+// QueuePaySnow appends the answer to the next ChoosePaySnow call.
+func (c *ScriptedController) QueuePaySnow(s mana.Shard) {
+	c.snowMana = append(c.snowMana, s)
+}
+
+func (c *ScriptedController) ChoosePaySnow(g *Game, decider PlayerID) mana.Shard {
+	if len(c.snowMana) == 0 {
+		panic(scriptExhausted("pay snow"))
+	}
+	v := c.snowMana[0]
+	c.snowMana = c.snowMana[1:]
 	return v
 }
 

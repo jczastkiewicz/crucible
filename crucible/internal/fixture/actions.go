@@ -54,6 +54,7 @@ import (
 //	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
+//	queue paysnow <shard>                 ScriptedController.QueuePaySnow, a bare shard symbol naming the color
 //	queue hybridmanacolor <color>        ScriptedController.QueueHybridManaColor, a bare color letter
 //	queue paymonocoloredhybrid <bool>    ScriptedController.QueuePayMonocoloredHybrid
 //	queue paycolorlesshybrid <bool>      ScriptedController.QueuePayColorlessHybrid
@@ -289,6 +290,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue payx %q: %w", value, err)
 		}
 		c.QueuePayX(x)
+
+	case "paysnow":
+		s, err := mana.ParseShard(value)
+		if err != nil {
+			return fmt.Errorf("queue paysnow %q: %w", value, err)
+		}
+		c.QueuePaySnow(s)
 
 	case "hybridmanacolor":
 		color, err := resolveManaColor(value)

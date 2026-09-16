@@ -184,16 +184,19 @@ colored-and-generic case (`mana.go`) — CR 500.4's emptying between every phase
 `CounterChanged` event, wired at every counter change this port can cause (`annihilateCounters`, `dealPermanentDamage`,
 `Move`'s ETB grant) with a closed `CounterDetail` encoding (`event.go`) over the eight named `CounterType` constants;
 `Game.PayManaCost` (`manapay.go`), which resolves `{X}` (CR 601.2b) via `ChoosePayX` — asked once per cost regardless of
-how many `{X}` symbols it carries (CR 107.3f), folded into `Generic` as `x * CountX()` before anything else — a
+how many `{X}` symbols it carries (CR 107.3f), folded into `Generic` as `x * CountX()` before anything else — snow
+(`{S}`, CR 106.3a) via `ChoosePaySnow`, asked once per `{S}` symbol independently (unlike `{X}`, two can take two
+different colors' snow mana) and spent through `Pool.PayWithSnow`'s own snow-only bucket, never the plain one, a
 two-color hybrid shard (`{W/U}`) via `ChooseHybridManaColor`, a monocolored hybrid shard (`{2/W}`) via
 `ChoosePayMonocoloredHybrid`, a colorless hybrid shard (`{C/W}`) via `ChoosePayColorlessHybrid`, a single-color
 Phyrexian shard (`{W/P}`) via `ChoosePayPhyrexian`, a hybrid Phyrexian shard (`{B/G/P}`) via `ChoosePayHybridPhyrexian`
 (either kind's paid life fires `LifeChanged`, `Source: NoCard`), and each unit of a cost's generic amount via
-`ChoosePayGeneric` before handing the rest to `Pay` unchanged; `TapLandForMana` (`manaability.go`), CR 305.6's intrinsic
-basic-land mana ability (Forge synthesizes it from the type line rather than script text — `CardState.java`'s
-`getLandTraitChanges`/`getLandManaForColor` — so this port keys off `cardtype.Line`'s subtypes the same way
-`enchantSpec`/`resolveWorldRule` do), `Pool.Add`'s first real (non-test) caller. Thin or missing: the stack is
-push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer
-_numbers_ plus power/toughness folding only, not types/colors/abilities; mana payment still has no snow shards;
-`CounterDetail` has no case for a script-written counter name, unreachable until a `SpellAbility` can create one (M6).
-**P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 32 fixtures exist today (`testdata/scenarios/`).
+`ChoosePayGeneric` before handing the rest to `Pay`/`PayWithSnow` unchanged — mana payment's own eight harder shapes are
+now all resolved; `TapLandForMana` (`manaability.go`), CR 305.6's intrinsic basic-land mana ability (Forge synthesizes
+it from the type line rather than script text — `CardState.java`'s `getLandTraitChanges`/`getLandManaForColor` — so this
+port keys off `cardtype.Line`'s subtypes the same way `enchantSpec`/`resolveWorldRule` do, and off the land's own Snow
+supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-test) caller. Thin or missing: the stack
+is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer
+_numbers_ plus power/toughness folding only, not types/colors/abilities; `CounterDetail` has no case for a
+script-written counter name, unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity
+harness, ≥300 fixtures) not met:** 33 fixtures exist today (`testdata/scenarios/`).

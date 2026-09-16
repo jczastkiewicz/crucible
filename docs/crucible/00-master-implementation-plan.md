@@ -629,18 +629,22 @@ printed form.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done** (`combat.go`, `attack.go`,
     `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle, and a combat
     split across more than one defending player at once (CR 506.4). **Mulligans done** (`mulligan.go`) — London, free
-    mulligans, tucking. **Mana payment started** (`mana.go`, `manapay.go`): a `Pool` per player, `Pay` for the plain
-    colored-and-generic case, CR 500.4's emptying every phase/step, and `PayManaCost` resolving `{X}` via `ChoosePayX`
-    (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f), a two-color hybrid shard via
-    `ChooseHybridManaColor`, a monocolored hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via
-    `ChoosePayColorlessHybrid`, a single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via
-    `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — only snow shards are
-    not. A basic land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s
-    first real (non-test) caller — any other mana ability (a nonbasic land, a creature, an artifact) still needs the M6
-    effect-dispatch machinery this one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the
-    type line, not script text.
+    mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
+    colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
+    same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a snow ({S})
+    symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and `PayManaCost`
+    resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f),
+    snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two different
+    colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
+    `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a single-color Phyrexian
+    shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and each unit of a cost's
+    generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve are resolved. A basic
+    land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real
+    (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR 106.3a) — any other mana
+    ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch machinery this one
+    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 32 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 33 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

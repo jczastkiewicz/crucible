@@ -150,6 +150,9 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		if got, want := gp.ManaPool.Breakdown(), wp.ManaPool.Breakdown(); got != want {
 			t.Errorf("%s: mana pool = %v, want %v", gp.Name, got, want)
 		}
+		if got, want := gp.ManaPool.SnowBreakdown(), wp.ManaPool.SnowBreakdown(); got != want {
+			t.Errorf("%s: mana pool snow breakdown = %v, want %v", gp.Name, got, want)
+		}
 		compareCounters(t, gp.Name, gp.Counters, wp.Counters)
 		for _, zone := range []engine.ZoneType{
 			engine.Battlefield, engine.Hand, engine.Graveyard, engine.Library,

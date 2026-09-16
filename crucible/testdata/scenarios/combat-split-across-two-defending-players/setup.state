@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+p2life=20
+humanlibrary=Hill Giant|Id:5
+humanbattlefield=Grizzly Bears|Id:1;Silvercoat Lion|Id:2
+aibattlefield=Hill Giant|Id:3
+p2battlefield=Durkwood Boars|Id:4

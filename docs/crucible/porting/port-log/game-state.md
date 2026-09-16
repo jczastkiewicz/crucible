@@ -577,16 +577,19 @@ unmodified, because none of them gives an opponent a second thing to be attacked
 present, or (multiplayer) more than one living opponent — asks `ChooseAttackTarget` once per attacker, trusted the same
 way `ChooseLegendaryToKeep`'s answer is.
 
-**`defenderOf` (attack.go) is what `DeclareCombatBlockers` and `DealCombatDamage` now ask instead of
-`nextPlayerAfter`.** It resolves an attacker's own `AttackTarget` to the player who can legally block it (CR 802.4a):
-itself, if the target is a player; the target's controller, if it's a planeswalker or battle. Both callers ask it only
-once, for `g.combat.Attackers[0]`, and assume every attacker in the current combat shares that one defender — true of
-any two-player game (with or without a planeswalker/battle target) and of a multiplayer game where the active player
-sends every attacker at one opponent, but not of a single combat split across several different defending players at
-once. That narrower case — several defending players each declaring their own blocks against their own share of the
-attackers, in some order — needs per-defender block declaration passes, a bigger redesign than assigning targets is;
-this slice closes "which opponent" and "attack a planeswalker/battle" without needing that redesign, because both stay
-within the one-shared-defender assumption.
+\*\*`defenderOf` (attack.go) is what `DeclareCombatBlockers` resolves an attacker's own `AttackTarget` to the player who
+can legally block it (CR 802.4a): itself, if the target is a player; the target's controller, if it's a planeswalker or
+battle. `dealCombatDamageStep` (combatdamage.go) never needed it at all — it walks `g.combat.Attackers` and
+`g.combat.Blocks` directly, resolving each attacker/blocker pair on its own terms, so it never assumed one defender to
+begin with. `DeclareCombatBlockers` used to: it called `defenderOf` once, for `g.combat.Attackers[0]`, and asked only
+that one player to declare blocks for every attacker. It now calls `defenderOf` per attacker, groups by the result, and
+asks each distinct defender in turn — only about the attacker(s) actually attacking them, offering only their own
+eligible creatures (CR 506.4's "each defending player" read per defender rather than assumed singular). Defenders are
+asked in the order their first attacker appears in `g.combat.Attackers`, so the sequence is deterministic across a run
+(GO-12) — the same reasoning `resolveLegendRule`'s own `order` slice exists for. A defender with no eligible creature is
+skipped, not asked with an empty list, matching `DeclareCombatAttackers`'s own "nothing meaningful to decide" reasoning
+for an inactive player. The scenario fixture `combat-split-across-two-defending-players` (`game-state-fixture.md`) is
+the first in the corpus to seat three players and exercise it end to end.
 
 **Attacking a planeswalker or battle changes how combat damage lands, not who deals it.** `dealAttackTargetDamage`
 (combatdamage.go) is the dispatcher every "damage past the last blocker" call site (unblocked, trample overflow) now
@@ -660,9 +663,8 @@ running first (its own doc comment works through why), kept anyway because Forge
 reachable given today's engine, but a fully specified rule" reason (Forge's own comment: "unless range of influence gets
 implemented").
 
-Not here yet: a single combat split across more than one defending player at once (`defenderOf`'s own doc comment has
-the reason). Block legality beyond "untapped creature the defending player controls" — Flying/reach, menace, protection,
-"must be blocked by" — waits on the general static-ability engine, above.
+Not here yet: block legality beyond "untapped creature the defending player controls" — Flying/reach, menace,
+protection, "must be blocked by" — waits on the general static-ability engine, above.
 
 ## Mana pool and payment
 
@@ -786,7 +788,6 @@ compared were never going to agree on those by number.
 | `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                                                                                                                                                                                                                                                                                                                                    | M5-M6 |
 | Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                                                                                                                                                                                                                                                                                                                              | M5-M6 |
-| A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes                                                                                                                                                                                                                                                                                                             | M5-M6 |
 | Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
 | `PayManaCost` for a monocoloured hybrid, colourless hybrid, Phyrexian, hybrid Phyrexian, `{X}` or snow shard — each is still a real decision with no `PlayerController` method to ask it; a real choice of which floating mana pays a generic cost                                                                                                                                                                                                                                                                           | M5-M6 |
 | Mana abilities themselves — nothing taps a land or activates anything to put mana in a `Pool` yet; `Pool.Add`/`AddColorless` exist for `Pay`'s own tests today                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |

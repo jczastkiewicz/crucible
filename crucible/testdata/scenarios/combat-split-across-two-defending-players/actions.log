@@ -1,0 +1,31 @@
+# CR 506.4: a single combat split across two defending players at once.
+# Grizzly Bears (2/2) attacks ai; Silvercoat Lion (2/2) attacks p2 -- two
+# different defenders in one combat, the case DeclareCombatBlockers used to
+# assume away (block.go, "who is defending" used to mean attackers[0]'s
+# defender only). ai's Hill Giant (3/3) blocks the Bears; p2's Durkwood
+# Boars (4/4) blocks the Lion. Each defender is asked separately and only
+# about the attacker(s) actually attacking them: ai never sees the Lion, p2
+# never sees the Bears, and neither blocker crosses over to the other
+# attacker. Both attackers take lethal damage and die (2/2 vanillas against
+# 3 and 4 power respectively); both blockers survive.
+#
+# human has a real library card: CR 103.8a's "the first player skips their
+# first draw step" is two-player-only (drawStep, turn.go), so in this
+# three-player game human draws for real during the Draw step "advance 5"
+# passes through, same as ai or p2 would on their own first turn here.
+startturn human
+advance 5
+queue attackers 1,2
+queue attacktarget ai
+queue attacktarget p2
+declareattackers
+advance
+queue blocks 3=1
+queue blocks 4=2
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves both
+# lethally damaged attackers to the graveyard.
+advance

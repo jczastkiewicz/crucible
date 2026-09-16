@@ -172,16 +172,17 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 but holds zero implementations — that is M6's job, not M4's or M5's.
 
 M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`); zone changes + state-based
-actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`); mulligans (`mulligan.go`); the
-`engine.Matches` valid-string evaluator (`valid.go`) that SBAs and future targeting read, built corpus-frequency-first
-(`port-log/valid-strings.md`); a mana pool and payment for the plain colored-and-generic case (`mana.go`) — CR 500.4's
-emptying between every phase/step, not just casting a spell; the `CounterChanged` event, wired at every counter change
-this port can cause (`annihilateCounters`, `dealPermanentDamage`, `Move`'s ETB grant) with a closed `CounterDetail`
-encoding (`event.go`) over the eight named `CounterType` constants; `Game.PayManaCost` (`manapay.go`), which resolves a
-two-color hybrid shard (`{W/U}`) via a new `ChooseHybridManaColor` controller method before handing the rest to `Pay`
-unchanged. Thin or missing: the stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects;
-the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana
-payment still has no monocolored/colorless hybrid, Phyrexian, `{X}` or snow shards, and no mana abilities to fill a pool
-with yet; `CounterDetail` has no case for a script-written counter name, unreachable until a `SpellAbility` can create
-one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 14 fixtures exist today
-(`testdata/scenarios/`).
+actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`), including a combat split across
+more than one defending player at once (CR 506.4, `DeclareCombatBlockers` groups attackers by `defenderOf` and asks each
+defender in turn); mulligans (`mulligan.go`); the `engine.Matches` valid-string evaluator (`valid.go`) that SBAs and
+future targeting read, built corpus-frequency-first (`port-log/valid-strings.md`); a mana pool and payment for the plain
+colored-and-generic case (`mana.go`) — CR 500.4's emptying between every phase/step, not just casting a spell; the
+`CounterChanged` event, wired at every counter change this port can cause (`annihilateCounters`, `dealPermanentDamage`,
+`Move`'s ETB grant) with a closed `CounterDetail` encoding (`event.go`) over the eight named `CounterType` constants;
+`Game.PayManaCost` (`manapay.go`), which resolves a two-color hybrid shard (`{W/U}`) via a new `ChooseHybridManaColor`
+controller method before handing the rest to `Pay` unchanged. Thin or missing: the stack is push/resolve only — no
+simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer _numbers_ plus
+power/toughness folding only, not types/colors/abilities; mana payment still has no monocolored/colorless hybrid,
+Phyrexian, `{X}` or snow shards, and no mana abilities to fill a pool with yet; `CounterDetail` has no case for a
+script-written counter name, unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity
+harness, ≥300 fixtures) not met:** 15 fixtures exist today (`testdata/scenarios/`).

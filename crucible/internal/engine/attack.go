@@ -107,14 +107,12 @@ func (g *Game) eligibleAttackTargets() []EntityID {
 // attacking (CR 802.4a's "attacking him/her or a planeswalker/battle he/she
 // controls" is what makes that player the one who can block it).
 //
-// This assumes every attacker in the current combat shares one defender --
-// true of any two-player game, and of a multiplayer game where the active
-// player sends every attacker at a single opponent, but not of one combat
-// split across multiple defending players at once. DeclareCombatBlockers and
-// DealCombatDamage both call this only once, for the whole combat, rather
-// than per attacker -- splitting a single combat's blocks across several
-// defending players needs per-defender block declaration passes, a bigger
-// redesign than assigning targets is (game-state.md).
+// Called per attacker, not once for the whole combat: a two-player game, or
+// a multiplayer game where the active player sent every attacker at a
+// single opponent, gets the same defender back every time, but a combat
+// split across more than one defending player at once (CR 506.4) does not,
+// and DeclareCombatBlockers (block.go) groups by the result rather than
+// assuming one answer for every attacker.
 func (g *Game) defenderOf(attacker CardID) PlayerID {
 	target := g.combat.AttackTargets[attacker]
 	if pid, ok := target.AsPlayer(); ok {

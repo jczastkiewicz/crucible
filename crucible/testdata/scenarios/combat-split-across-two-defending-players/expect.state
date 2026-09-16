@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanhand=Hill Giant
+humangraveyard=Grizzly Bears;Silvercoat Lion
+ailife=20
+aibattlefield=Hill Giant|Damage:2
+p2life=20
+p2battlefield=Durkwood Boars|Damage:2

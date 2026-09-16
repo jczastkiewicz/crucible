@@ -625,14 +625,15 @@ printed form.
     _numbers_; `pt.go` folds power/toughness through them. Types, colors, abilities and the rest of the layer stack are
     not built.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done** (`combat.go`, `attack.go`,
-    `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle. **Mulligans
-    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment started** (`mana.go`, `manapay.go`): a
-    `Pool` per player, `Pay` for the plain colored-and-generic case, CR 500.4's emptying every phase/step, and
-    `PayManaCost` resolving a two-color hybrid shard via a new `ChooseHybridManaColor` controller method — monocolored
-    hybrid, colorless hybrid, Phyrexian, `{X}`, snow shards, a real choice of which mana pays generic, and anything that
-    fills a `Pool` in the first place (no mana ability exists yet) are not.
+    `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle, and a combat
+    split across more than one defending player at once (CR 506.4). **Mulligans done** (`mulligan.go`) — London, free
+    mulligans, tucking. **Mana payment started** (`mana.go`, `manapay.go`): a `Pool` per player, `Pay` for the plain
+    colored-and-generic case, CR 500.4's emptying every phase/step, and `PayManaCost` resolving a two-color hybrid shard
+    via a new `ChooseHybridManaColor` controller method — monocolored hybrid, colorless hybrid, Phyrexian, `{X}`, snow
+    shards, a real choice of which mana pays generic, and anything that fills a `Pool` in the first place (no mana
+    ability exists yet) are not.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 14 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 15 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

@@ -25,35 +25,53 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // "wait for the static-ability engine" (M5/M6), documented in
 // game-state.md.
 //
-// "Who is defending" is attackers[0]'s own defender (defenderOf, attack.go)
-// -- the controller of whatever it's attacking, a player, planeswalker or
-// battle. Every attacker in this combat is assumed to share that one
-// defender, so only the first is asked; a combat where the active player
-// split attackers across several different defending players at once isn't
-// handled -- defenderOf's own doc comment has the reason why.
+// "Who is defending" is each attacker's own defender (defenderOf,
+// attack.go) -- the controller of whatever it's attacking, a player,
+// planeswalker or battle. A two-player game, or a multiplayer game where
+// the active player sent every attacker at one opponent, has exactly one:
+// that defender is asked once, for every attacker, the same as before CR
+// 506.4's multiplayer case existed. When attackers are split across more
+// than one defending player at once, each defender is asked in turn, only
+// about the attackers actually attacking them, offering only their own
+// eligible creatures -- CR 509.1's "the defending player" read per
+// defender rather than assumed singular. Defenders are asked in the order
+// their first attacker appears in attackers, so the sequence is
+// deterministic across a run (GO-12).
 //
-// If no creature is eligible, the controller is not asked at all, the same
-// reasoning DeclareCombatAttackers uses for an active player with nothing
-// to attack with.
+// A defender with no eligible creature is skipped, not asked with an
+// empty list -- the same reasoning DeclareCombatAttackers uses for an
+// active player with nothing to attack with. The combined result is nil,
+// not an empty non-nil slice, when every defender is skipped this way.
 func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 	attackers := g.combat.Attackers
 	if len(attackers) == 0 {
 		return nil
 	}
-	defender := g.defenderOf(attackers[0])
 
-	var eligible []CardID
-	for _, id := range g.Zone(Battlefield, defender).Cards() {
-		c := g.Card(id)
-		if c.Type().Has(cardtype.Creature) && !c.Tapped {
-			eligible = append(eligible, id)
+	byDefender := map[PlayerID][]CardID{}
+	var defenders []PlayerID
+	for _, id := range attackers {
+		d := g.defenderOf(id)
+		if _, ok := byDefender[d]; !ok {
+			defenders = append(defenders, d)
 		}
-	}
-	if len(eligible) == 0 {
-		return nil
+		byDefender[d] = append(byDefender[d], id)
 	}
 
-	blocks := controller.DeclareCombatBlockers(g, defender, attackers, eligible)
+	var blocks []Block
+	for _, defender := range defenders {
+		var eligible []CardID
+		for _, id := range g.Zone(Battlefield, defender).Cards() {
+			c := g.Card(id)
+			if c.Type().Has(cardtype.Creature) && !c.Tapped {
+				eligible = append(eligible, id)
+			}
+		}
+		if len(eligible) == 0 {
+			continue
+		}
+		blocks = append(blocks, controller.DeclareCombatBlockers(g, defender, byDefender[defender], eligible)...)
+	}
 	g.combat.Blocks = blocks
 	return blocks
 }

@@ -232,6 +232,15 @@ despite its 4 toughness — `destroyDamagedCreatures` reading the deathtouch fla
 isolating that one function already proves correctly in isolation but which no scenario had exercised end to end through
 declare-attackers/declare-blockers/combat-damage/state-based-actions together.
 
+**`combat-split-across-two-defending-players`** is the first fixture to seat three players. Grizzly Bears attacks ai,
+Silvercoat Lion attacks p2 — one combat, two defending players (CR 506.4) — and each is blocked by only that defender's
+own creature (Hill Giant, Durkwood Boars), proving `DeclareCombatBlockers`' per-defender grouping asks the right player
+about the right attacker rather than assuming one shared defender the way it did before this fixture existed. Human's
+library needed a real card, not an empty one: CR 103.8a's "the first player skips their first draw step" is
+two-player-only, so unlike every other fixture here (which are all two-player and rely on that skip), this one's active
+player draws for real on turn 1 — the fixture's own `humanhand=Hill Giant` is that draw, not a card placed directly in
+hand.
+
 **`cleanup-discards-to-hand-size`** is the same discipline applied to CR 514.1 rather than combat: nine real cards
 (Mountain) in hand, twelve `advance`s from `Untap` to land exactly on `Cleanup` (`Untap` is phase 0, `Cleanup` is 12),
 `queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`

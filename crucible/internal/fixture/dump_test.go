@@ -174,6 +174,45 @@ func TestDumpAndWriteRoundTripManaPool(t *testing.T) {
 	}
 }
 
+// Dump round-trips LandsPlayed/LandsPlayedLastTurn through Write and back --
+// Write had no landsplayed=/landsplayedlastturn= line at all until now, the
+// same gap ManaPool had, just on the Parse/Load side already working rather
+// than not.
+func TestDumpAndWriteRoundTripLandsPlayed(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanlandsplayed=1\nhumanlandsplayedlastturn=2\n")
+	st := fixture.Dump(l)
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humanlandsplayed=1") {
+		t.Fatalf("Write did not emit landsplayed=1:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "humanlandsplayedlastturn=2") {
+		t.Fatalf("Write did not emit landsplayedlastturn=2:\n%s", buf.String())
+	}
+
+	got, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse(Write(x)): %v", err)
+	}
+	l2, err := fixture.Load(got, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load(Parse(Write(x))): %v", err)
+	}
+	p2 := l2.Game.Player(l2.Game.Players()[0])
+	if p2.LandsPlayed != 1 {
+		t.Errorf("LandsPlayed after round trip = %d, want 1", p2.LandsPlayed)
+	}
+	if p2.LandsPlayedLastTurn != 2 {
+		t.Errorf("LandsPlayedLastTurn after round trip = %d, want 2", p2.LandsPlayedLastTurn)
+	}
+}
+
 // Dump round-trips Protector through Write and back, the same as
 // Lost/Won/Over above -- Crucible-only, no Java GameState key to diverge
 // from (game-state-fixture.md's Load section has the reason).

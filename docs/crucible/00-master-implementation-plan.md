@@ -642,9 +642,14 @@ printed form.
     land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real
     (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR 106.3a) — any other mana
     ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch machinery this one
-    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text.
+    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text. **Playing
+    a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no stack; sorcery-speed
+    timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's one-per-turn limit via new
+    `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by `cleanupStep`. The first card
+    this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
+    directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 35 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 36 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

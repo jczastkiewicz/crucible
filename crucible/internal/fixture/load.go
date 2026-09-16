@@ -37,10 +37,10 @@ type Loaded struct {
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
 	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
-	// no corresponding engine.Player field (PersistentMana, LandsPlayed,
-	// ...). Silently dropping these would make a fixture that names, say, a
-	// Monstrous creature pass while testing something other than what it
-	// says.
+	// no corresponding engine.Player field (PersistentMana, NumRingTemptedYou,
+	// Speed, ...). Silently dropping these would make a fixture that names,
+	// say, a Monstrous creature pass while testing something other than what
+	// it says.
 	Unapplied []string
 }
 
@@ -104,9 +104,8 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		if ps.PersistentMana != "" {
 			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: persistent mana -- engine.Pool has no persistence tracking yet (CR 500.4's own emptying applies to every kind of floating mana this port has)", slotName(slot)))
 		}
-		if ps.LandsPlayed != 0 || ps.LandsPlayedLastTurn != 0 {
-			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: lands played -- engine.Player has no lands-played count yet", slotName(slot)))
-		}
+		g.Player(pid).LandsPlayed = ps.LandsPlayed
+		g.Player(pid).LandsPlayedLastTurn = ps.LandsPlayedLastTurn
 
 		for _, z := range []struct {
 			text string

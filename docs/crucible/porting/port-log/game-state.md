@@ -863,6 +863,49 @@ is the format's own limit, and `queue paysnow` (a `ScriptedController` answer, `
 Crucible-only category) plus `tapformana` on a real snow land are the only way a fixture gets snow mana into a pool
 today.
 
+## Playing a land is not casting a spell
+
+`Game.PlayLand` (`land.go`) is CR 305: no cost, no stack (CR 305.1) — the card moves straight from hand to the
+battlefield. It is the first thing in this port that gets a card from a player's hand onto the battlefield through a
+real game action rather than `setup.state` placing it there directly, which is why it took this long to reach even
+though nothing about it needed the M6 effect-dispatch machinery `manaability.go`'s own precedent already established
+mana abilities and basic-land-type checks do not need: CR 305 is a fixed rule with no script content to interpret, the
+same category `TapLandForMana` and `enchantSpec`/`resolveWorldRule` are already in.
+
+Timing is CR 305.3's own gate ("any time they could cast a sorcery"), collapsed to what this port can check without an
+interactive priority system: `pid` is the active player, `ActivePhase` is `Main1` or `Main2`, and the stack is empty.
+That last check is never false today — nothing pushes an ability yet outside `stack.go`'s own tests — but is checked
+anyway, on the same "should not have to change again once casting exists to make it meaningful" reasoning
+`ResolveStack`'s own doc comment already gives for building the resolve loop ahead of a real pusher. `mayPlay` alternate
+zones, `CantBeCast` static abilities and every other `canPlayLand` condition Java checks beyond these three plus "in
+hand" plus "is a land" are M5-M6 gaps this port does not have the machinery for yet (a quality-matching static-ability
+engine, mostly) and are not checked, the same "a rule this port has not implemented simply never fires" position
+`CheckStateBasedActions`'s own doc comment already states for its own gaps.
+
+CR 305.2's one-land-per-turn limit is `Player.LandsPlayed` (`player.go`), a genuinely new field with a real caller —
+`engine.Player` had no lands-played count at all before this, even though `setup.state`'s own `landsplayed=`/
+`landsplayedlastturn=` keys have existed and parsed successfully since before `PlayLand` did, landing in `Unapplied` for
+lack of anywhere to put them (the same position `manapool=` was in before `TapLandForMana`). `maxLandPlays` is Java's
+own `getMaxLandPlays()` default of 1 with no `adjustLandPlays` term added — nothing in this port grants an extra land
+play yet, so there is nothing to add. `cleanupStep` (`turn.go`) now rolls `LandsPlayed` into `LandsPlayedLastTurn` and
+resets it to zero for every player, not just the active one — `Game.onCleanupPhase` in Java loops every registered
+player the same way, the same "every player, not just the active one" scope CR 500.4's own mana-pool emptying already
+has in this port. `LandsPlayedLastTurn` has no reader yet (a replacement effect keyed on "if you've played a land this
+turn" would be one), but resets alongside `LandsPlayed` regardless, since nothing about resetting per-turn state should
+wait on a reader existing before it starts happening correctly.
+
+`playland <player> <id>` (`game-state-fixture.md`) is the verb, `id` from `Loaded.CardByFixtureID` the same as
+`tapformana`. `Game.PlayLand`'s `bool` return is not asserted, the same "declined by the rules, not a fixture error"
+convention `paymanacost`/`tapformana` already established. `land-played-then-tapped-for-mana` is the fixture: a Plains
+drawn into hand at setup, played, then tapped for its own intrinsic mana the same turn and spent paying a `{W}` cost —
+CR 302.6's summoning-sickness restriction is a creature's own tap-ability gate, not a land's mana ability, so
+`TapLandForMana` correctly has no `SummonSick` check to get in the way of playing and tapping the same land in one turn.
+
+`compareGames` (`scenario_test.go`) gained `LandsPlayed`/`LandsPlayedLastTurn` alongside `ManaPool`'s own two
+comparisons — a field `Load` now applies has to be a field the scenario harness actually checks, or a fixture naming it
+would silently assert nothing (the exact gap the fixture-level `Dump` audit that found `ManaPool`'s own missing
+write-back caught, `game-state-fixture.md`'s own section on it).
+
 ## Events, wired
 
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held

@@ -369,27 +369,26 @@ func TestLoadUnknownActivePlayerErrors(t *testing.T) {
 	}
 }
 
-// Player-level Counters: applies to engine.Player.Counters -- poison chief
-// among them, which is what CR 704.5c reads. Fields with no engine.Player
-// home yet still report through Unapplied.
-func TestLoadPlayerCountersApplyLandsPlayedStaysUnapplied(t *testing.T) {
+// Player-level Counters applies to engine.Player.Counters -- poison chief
+// among them, which is what CR 704.5c reads -- and landsplayed/
+// landsplayedlastturn apply straight to engine.Player.LandsPlayed/
+// LandsPlayedLastTurn (PlayLand's own per-turn limit, land.go), the same as
+// ManaPool since M5's mana-payment work.
+func TestLoadPlayerCountersAndLandsPlayedApply(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	l := load(t, db, "humanlife=20\nhumancounters=POISON=3\nhumanlandsplayed=2\n")
+	l := load(t, db, "humanlife=20\nhumancounters=POISON=3\nhumanlandsplayed=1\nhumanlandsplayedlastturn=2\n")
 
-	if got := l.Game.Player(l.Game.Players()[0]).Counters.Count(engine.Poison); got != 3 {
+	p := l.Game.Player(l.Game.Players()[0])
+	if got := p.Counters.Count(engine.Poison); got != 3 {
 		t.Errorf("poison counters %d, want 3", got)
 	}
-
-	found := false
-	for _, u := range l.Unapplied {
-		if strings.Contains(u, "lands played") {
-			found = true
-		}
+	if got := p.LandsPlayed; got != 1 {
+		t.Errorf("LandsPlayed = %d, want 1", got)
 	}
-	if !found {
-		t.Errorf("Unapplied %v does not mention lands played", l.Unapplied)
+	if got := p.LandsPlayedLastTurn; got != 2 {
+		t.Errorf("LandsPlayedLastTurn = %d, want 2", got)
 	}
 }
 

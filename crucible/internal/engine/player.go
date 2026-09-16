@@ -38,4 +38,17 @@ type Player struct {
 	// Emptied every phase/step transition (CR 500.4, emptyManaPools,
 	// turn.go), not something a card ability triggers.
 	ManaPool Pool
+	// LandsPlayed is how many lands this player has played this turn (CR
+	// 305.2), read by PlayLand's own per-turn limit. LandsPlayedLastTurn is
+	// last turn's count, Java's own landsPlayedLastTurn -- no card in scope
+	// reads it yet (a replacement effect keyed on "if you've played a land
+	// this turn" would), but cleanupStep (turn.go) rolls it forward every
+	// turn regardless, the same "reset land-bearing state whether or not a
+	// reader exists yet" position CR 500.4's own mana-pool emptying is in.
+	// Both reset for every player at cleanup, not just the active one (CR
+	// 305.2's own scope: any player who played a land this turn, and every
+	// game player's Game.onCleanupPhase in Java runs the same reset over
+	// every registered player).
+	LandsPlayed         int
+	LandsPlayedLastTurn int
 }

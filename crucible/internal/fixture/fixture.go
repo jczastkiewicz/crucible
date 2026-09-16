@@ -170,6 +170,12 @@ func Write(w io.Writer, s *State) error {
 		if p.ManaPool != "" {
 			fmt.Fprintf(&b, "%smanapool=%s\n", name, p.ManaPool)
 		}
+		if p.LandsPlayed != 0 {
+			fmt.Fprintf(&b, "%slandsplayed=%d\n", name, p.LandsPlayed)
+		}
+		if p.LandsPlayedLastTurn != 0 {
+			fmt.Fprintf(&b, "%slandsplayedlastturn=%d\n", name, p.LandsPlayedLastTurn)
+		}
 		if p.Lost {
 			fmt.Fprintf(&b, "%slost=true\n", name)
 		}

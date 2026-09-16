@@ -1172,3 +1172,67 @@ func TestRunActionsTapForManaTooFewArgsErrors(t *testing.T) {
 		t.Error("tapformana with no color did not error")
 	}
 }
+
+// playland resolves a player and a setup.state Id: number the same way
+// tapformana does, and hands them straight to Game.PlayLand.
+func TestRunActionsPlayLandMovesCardToBattlefield(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "startturn human\nadvance 3\nplayland human 1\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Battlefield {
+		t.Error("Plains not on the battlefield after playland")
+	}
+	if got := l.Game.Player(l.Game.Players()[0]).LandsPlayed; got != 1 {
+		t.Errorf("LandsPlayed = %d, want 1", got)
+	}
+}
+
+// A declined play -- here, a second land the same turn -- is not a fixture
+// error: the verb does not assert success, the same as tapformana.
+func TestRunActionsPlayLandFailureLeavesCardInHand(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Plains|Id:1;Plains|Id:2\n")
+	c := engine.NewScriptedController()
+
+	err := runActions(t, l, c, "startturn human\nadvance 3\nplayland human 1\nplayland human 2\n")
+	if err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if l.Game.Card(l.CardByFixtureID[2]).Zone != engine.Hand {
+		t.Error("second Plains left hand despite the declined play")
+	}
+}
+
+func TestRunActionsPlayLandUnknownCardIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "playland human 99\n"); err == nil {
+		t.Error("an id absent from setup.state did not error")
+	}
+}
+
+func TestRunActionsPlayLandTooFewArgsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "playland human\n"); err == nil {
+		t.Error("playland with no card id did not error")
+	}
+}

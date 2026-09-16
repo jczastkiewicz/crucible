@@ -60,6 +60,8 @@ func Dump(l *Loaded) *State {
 		ps.Won = g.Player(pid).Won
 		ps.Counters = dumpCounters(g.Player(pid).Counters)
 		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
+		ps.LandsPlayed = g.Player(pid).LandsPlayed
+		ps.LandsPlayedLastTurn = g.Player(pid).LandsPlayedLastTurn
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)
 		ps.Hand = dumpZone(g, engine.Hand, pid)

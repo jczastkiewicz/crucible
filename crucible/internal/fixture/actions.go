@@ -52,6 +52,7 @@ import (
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 //	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
 //	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
+//	playland <player> <id>               Game.PlayLand(player, id), id from CardByFixtureID
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
 //	queue paysnow <shard>                 ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -166,6 +167,23 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("tapformana color %q: %w", args[2], err)
 		}
 		l.Game.TapLandForMana(pid, ids[0], color)
+
+	case "playland":
+		if len(args) < 2 {
+			return fmt.Errorf("playland: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("playland: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
+		}
+		l.Game.PlayLand(pid, ids[0])
 
 	case "queue":
 		return runQueue(args, l, c)

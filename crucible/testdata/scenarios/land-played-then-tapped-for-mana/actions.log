@@ -1,0 +1,13 @@
+# CR 305: playing a land is not casting a spell -- no cost, no stack, one
+# per turn. Untap -> Upkeep -> Draw -> Main1, then playland moves the Plains
+# from hand to the battlefield and counts it against the turn's own limit,
+# and CR 305.6's own intrinsic mana ability (TapLandForMana) works on it
+# immediately, the same turn -- a land is summoning-sick for combat and
+# tap abilities that need it, but tapping a land for its own basic mana is
+# not a tap ability with a summoning-sickness restriction (CR 302.6 only
+# restricts a creature's own tap abilities).
+startturn human
+advance 3
+playland human 1
+tapformana human 1 W
+paymanacost human W

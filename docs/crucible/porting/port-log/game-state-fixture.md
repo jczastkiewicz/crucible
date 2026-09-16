@@ -97,6 +97,12 @@ own `ManaAtom.MANATYPES` has no snow entry either, so there was never a snow tok
 first place). `TestDumpRoundTripsThroughParse`'s own fixture now sets `humanmanapool=W W U` so this exact gap cannot
 reopen silently; `TestDumpAndWriteRoundTripManaPool` is the narrower, Lost/Won/Over-shaped test for it on its own.
 
+`landsplayed=`/`landsplayedlastturn=` had the identical gap on the `Write` side alone: `Parse` has read both since
+before `PlayLand` existed (`fixture.go`'s own `number(&p.LandsPlayed)` case), but `Write` had no line to emit either
+one. Caught this time before a scenario ever needed the round trip, while adding `Player.LandsPlayed` itself
+(`## Playing a land is not casting a spell`, `game-state.md`) rather than after — `TestDumpAndWriteRoundTripLandsPlayed`
+is `TestDumpAndWriteRoundTripManaPool`'s own shape, for this pair.
+
 ## Scenarios: `actions.log` and the harness
 
 `internal/engine`'s `TestScenarios` (`scenario_test.go`) is TEST-5's directory walk: `setup.state` and `expect.state`
@@ -127,6 +133,7 @@ queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.C
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
+playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -212,6 +219,15 @@ reuses `resolveManaColor` for its own `<color>` argument and `resolveCardIDs` (r
 "declined by the rules, not a fixture error" convention `paymanacost` already established —
 `testdata/scenarios/mana-payment-tap-land-for-mana` is the one fixture so far, and the first mana-payment fixture where
 the paid mana comes from a real card (a corpus `Plains`) rather than `manapool=`.
+
+`playland` is `tapformana`'s own shape — one action verb, no `queue`, `<id>` resolved the same way — for `Game.PlayLand`
+(CR 305, `game-state.md`'s own section on it). It is the first verb that moves a card from hand to the battlefield
+through a real game action rather than `setup.state` placing it there directly: every existing combat/mana fixture's
+battlefield cards start on the battlefield already, and `mulligan-tucks-a-card` is the only other fixture that moves a
+card between zones at all before this. `land-played-then-tapped-for-mana` is the fixture: a Plains starts in hand,
+`playland` puts it on the battlefield, and `tapformana` taps it for mana the same turn — proving `TapLandForMana` has no
+summoning-sickness check to get in the way, since CR 302.6 restricts a creature's own tap ability, not a land's mana
+ability.
 
 `queue payx` is a bare `strconv.Atoi`, the plainest parser of the whole file — `ChoosePayX`'s own answer is just an
 `int`, no shard or color vocabulary involved. It is asked once per cost, not once per `{X}` symbol, so a cost with two
@@ -383,8 +399,8 @@ check instead of staying answered).
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Token cards (`t:`/`T:` entries) — need `TokenInfo`/`AbilityFactory`, neither built                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | M5-M6                                  |
 | The rest of the per-card annotation grammar: `Renowned`, `Solved`, `Saddled`, `Suspected`, `Monstrous`, `PhasedOut`, `FaceDown`, `Transformed`/`Modal`/`Flipped`/`Meld`, `OnAdventure`, `IsCommander`, `IsRingBearer`, `EnchantingPlayer:`, `Ability:`, `ChosenColor:`/`ChosenType:`/`ChosenType2:`, `ChosenCards:`, `MergedCards:`, `NamedCard:`, `ExecuteScript:`, `ExiledWith:`, `Attacking`, `NoETBTrigs`, `Foretold`/`ForetoldThisTurn`, `IsToken`, `ClassLevel:`, `UnlockedRoom:` — each needs a mechanic or a type (`CardState`, `SpellAbility`, combat) this port has not reached | M5-M6, mechanic by mechanic            |
-| Player-level `PersistentMana:`, `LandsPlayed[LastTurn]:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work), and so is `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work)                                                                                                                                                                                                                                                                                        | M5-M6, as each field lands on `Player` |
+| Player-level `PersistentMana:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:`/`LandsPlayedLastTurn:` (`Player.LandsPlayed`/`LandsPlayedLastTurn`, since `PlayLand`) are all applied now                                                                                                                                                                                              | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
-| `actions.log` verbs for casting or targeting — nothing downstream of `ScriptedController` can answer those decisions yet either. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask) and the one mana ability this port has (`tapformana`) have verbs                                                                                                                                                                                                                                                                                                       | M5-M6                                  |
+| `actions.log` verbs for casting or targeting — nothing downstream of `ScriptedController` can answer those decisions yet either. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`) and playing a land (`playland` — not casting a spell at all, CR 305.1) have verbs                                                                                                                                                                                                                                   | M5-M6                                  |
 | `expect.events` — the Plan's own fixture shape names it (Section 3.5) alongside `setup.state`/`actions.log`/`expect.state`, but `TestScenarios` (`internal/engine/scenario_test.go`) never reads a fourth file: `runScenario` loads only `setup.state` and `expect.state` and calls `compareGames`, which does not touch `Game`'s event sink at all. A fixture proving `LifeChanged`/`CounterChanged` actually fired (not just that life or a counter ended up at the right number) has nowhere to assert that yet                                                                        | M5-M6                                  |

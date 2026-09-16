@@ -195,8 +195,12 @@ Phyrexian shard (`{W/P}`) via `ChoosePayPhyrexian`, a hybrid Phyrexian shard (`{
 now all resolved; `TapLandForMana` (`manaability.go`), CR 305.6's intrinsic basic-land mana ability (Forge synthesizes
 it from the type line rather than script text — `CardState.java`'s `getLandTraitChanges`/`getLandManaForColor` — so this
 port keys off `cardtype.Line`'s subtypes the same way `enchantSpec`/`resolveWorldRule` do, and off the land's own Snow
-supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-test) caller. Thin or missing: the stack
-is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer
-_numbers_ plus power/toughness folding only, not types/colors/abilities; `CounterDetail` has no case for a
-script-written counter name, unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity
-harness, ≥300 fixtures) not met:** 35 fixtures exist today (`testdata/scenarios/`).
+supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-test) caller; `Game.PlayLand`
+(`land.go`), CR 305 — playing a land is not casting a spell, no cost and no stack, sorcery-speed timing collapsed to
+active player, a main phase and an empty stack, one per turn via the new `Player.LandsPlayed`/`LandsPlayedLastTurn`
+fields (`cleanupStep` rolls them forward for every player each turn, CR 500.4's own "every player" scope). Thin or
+missing: the stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects, nothing pushes an
+ability onto it yet; the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not
+types/colors/abilities; `CounterDetail` has no case for a script-written counter name, unreachable until a
+`SpellAbility` can create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 36 fixtures exist
+today (`testdata/scenarios/`).

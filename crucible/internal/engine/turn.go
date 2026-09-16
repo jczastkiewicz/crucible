@@ -208,14 +208,14 @@ func (g *Game) endCombat() {
 }
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
-// partial CR 514.2 ("all damage marked on permanents ... is removed").
-// 514.1 only concerns the active player -- discarding down is not scoped to
-// everyone the way clearing damage is (below); an untapStep-shaped
-// difference the two halves of this step have from each other. If the
-// active player's hand already fits, or is empty, the controller is never
-// asked, the same "nothing meaningful to decide" reasoning every other
-// combat/mulligan decision point in this port uses for an empty or
-// already-satisfied set.
+// partial CR 514.2 ("all damage marked on permanents ... is removed") and
+// CR 305.2's own per-turn land-play reset. 514.1 only concerns the active
+// player -- discarding down is not scoped to everyone the way clearing
+// damage and the land-play reset are (below); an untapStep-shaped difference
+// these have from each other. If the active player's hand already fits, or
+// is empty, the controller is never asked, the same "nothing meaningful to
+// decide" reasoning every other combat/mulligan decision point in this port
+// uses for an empty or already-satisfied set.
 //
 // Not here: "until end of turn"/"this turn" effects ending (CR 514.2's
 // other half, needs duration tracking this port does not have -- PT's own
@@ -241,5 +241,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).Damage.Clear()
 		}
+		p := g.Player(pid)
+		p.LandsPlayedLastTurn = p.LandsPlayed
+		p.LandsPlayed = 0
 	}
 }

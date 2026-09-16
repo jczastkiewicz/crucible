@@ -1,0 +1,21 @@
+# Typhoid Rats (1/1, Deathtouch) attacks; Durkwood Boars (4/4, no keywords)
+# blocks. No fixture exercises Deathtouch at all today. The Rats' single
+# point of damage is lethal to the Boars regardless of its 4 toughness --
+# CR 702.2b, destroyDamagedCreatures reading the deathtouch flag
+# dealPermanentDamage set on the mark, not the raw amount against toughness
+# (game-state.md's "Lethal and deathtouch damage" section). The Boars' 4
+# damage back is ordinary-lethal to the Rats' own 1 toughness regardless --
+# both die to the same state-based-action check.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves both
+# lethally damaged creatures to the graveyard.
+advance

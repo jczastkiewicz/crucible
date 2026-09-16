@@ -225,6 +225,13 @@ has taken any damage yet at that point (Archers dealt damage in the earlier step
 offered the blocker without first strike — is exactly the class of bug a first-strike fixture and a gang-block fixture,
 each exercised alone, cannot catch.
 
+**`combat-deathtouch-kills-regardless-of-toughness`** is the first fixture to touch Deathtouch at all. Typhoid Rats
+(1/1, Deathtouch) attacks; Durkwood Boars (4/4, no keywords) blocks. A single point of damage is lethal to the Boars
+despite its 4 toughness — `destroyDamagedCreatures` reading the deathtouch flag `dealPermanentDamage` set on the mark
+(`game-state.md`'s "Lethal and deathtouch damage" section), not the raw amount against toughness a Go unit test
+isolating that one function already proves correctly in isolation but which no scenario had exercised end to end through
+declare-attackers/declare-blockers/combat-damage/state-based-actions together.
+
 **`cleanup-discards-to-hand-size`** is the same discipline applied to CR 514.1 rather than combat: nine real cards
 (Mountain) in hand, twelve `advance`s from `Untap` to land exactly on `Cleanup` (`Untap` is phase 0, `Cleanup` is 12),
 `queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`

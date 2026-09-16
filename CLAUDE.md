@@ -178,5 +178,5 @@ actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdama
 emptying between every phase/step, not just casting a spell. Thin or missing: the stack is push/resolve only — no
 simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer _numbers_ plus
 power/toughness folding only, not types/colors/abilities; mana payment has no hybrid/Phyrexian/`{X}`/snow shards and no
-mana abilities to fill a pool with yet. **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 13 fixtures
+mana abilities to fill a pool with yet. **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 14 fixtures
 exist today (`testdata/scenarios/`).

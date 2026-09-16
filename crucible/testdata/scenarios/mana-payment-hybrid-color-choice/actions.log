@@ -1,0 +1,6 @@
+# CR 601.2h: a two-colour hybrid shard ({W/U}) resolves to whichever colour
+# the controller chooses -- ChooseHybridManaColor, manapay.go -- not a fixed
+# order. Only blue is in the pool, so the answer has to be blue for the
+# payment to succeed.
+queue hybridmanacolor U
+paymanacost human W/U

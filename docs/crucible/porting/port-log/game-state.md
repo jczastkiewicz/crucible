@@ -783,9 +783,14 @@ for its own generic answers) calls `Game.PayManaCost` directly — the same "cal
 `DeclareCombatAttackers` was in before combat glued together (`manapay.go`'s own doc comment). `Pool.Breakdown`
 (`mana.go`) is the new exported reader both the fixture harness's own `compareGames` and any future caller need to
 compare two pools' full contents rather than just `Total`. `PersistentMana:` stays `Unapplied`: `Pool` tracks no
-persistence, and CR 500.4's own emptying applies to every kind of floating mana this port has. A hybrid or Phyrexian
-shard still has no `actions.log` verb of its own -- `ChooseHybridManaColor` and the rest are real, queueable
-`PlayerController` methods (above), just not yet reachable from fixture text.
+persistence, and CR 500.4's own emptying applies to every kind of floating mana this port has. Every hybrid and
+Phyrexian shard has its own verb too now (`queue hybridmanacolor`, `queue paymonocoloredhybrid`,
+`queue paycolorlesshybrid`, `queue payphyrexian`, `queue payhybridphyrexian` -- `game-state-fixture.md`'s own verb
+table), each mirroring its `ScriptedController` method's argument shape exactly -- a bare color letter or a bool, and
+`payhybridphyrexian`'s own third answer written as the literal word `life` rather than an empty value, the same "decline
+explicitly" convention `queue attackers none`/`queue blocks none` already use. Five fixtures exercise the six resolved
+shapes end to end: `mana-payment-pays-colored-and-generic`, `mana-payment-fails-atomically`,
+`mana-payment-hybrid-color-choice`, `mana-payment-monocolored-hybrid-generic` and `mana-payment-hybrid-phyrexian-life`.
 
 ## Events, wired
 

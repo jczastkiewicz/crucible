@@ -49,8 +49,13 @@ import (
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
-//	paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
-//	queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+//	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
+//	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+//	queue hybridmanacolor <color>        ScriptedController.QueueHybridManaColor, a bare color letter
+//	queue paymonocoloredhybrid <bool>    ScriptedController.QueuePayMonocoloredHybrid
+//	queue paycolorlesshybrid <bool>      ScriptedController.QueuePayColorlessHybrid
+//	queue payphyrexian <bool>            ScriptedController.QueuePayPhyrexian
+//	queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything -- cannot be written yet, because nothing downstream of
@@ -248,6 +253,49 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueuePayGeneric(s)
 
+	case "hybridmanacolor":
+		color, err := resolveManaColor(value)
+		if err != nil {
+			return fmt.Errorf("queue hybridmanacolor %q: %w", value, err)
+		}
+		c.QueueHybridManaColor(color)
+
+	case "paymonocoloredhybrid":
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue paymonocoloredhybrid %q: %w", value, err)
+		}
+		c.QueuePayMonocoloredHybrid(v)
+
+	case "paycolorlesshybrid":
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue paycolorlesshybrid %q: %w", value, err)
+		}
+		c.QueuePayColorlessHybrid(v)
+
+	case "payphyrexian":
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue payphyrexian %q: %w", value, err)
+		}
+		c.QueuePayPhyrexian(v)
+
+	case "payhybridphyrexian":
+		// "life" is written explicitly, not an empty value, the same reason
+		// "attackers none"/"blocks none" spell out declining rather than
+		// leaving the value blank -- the zero mana.Colors answer (pay with 2
+		// life instead) is a real, legal answer that still has to be queued.
+		if value == "life" {
+			c.QueuePayHybridPhyrexian(0)
+			break
+		}
+		color, err := resolveManaColor(value)
+		if err != nil {
+			return fmt.Errorf("queue payhybridphyrexian %q: %w", value, err)
+		}
+		c.QueuePayHybridPhyrexian(color)
+
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)
 	}
@@ -286,6 +334,18 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		ids[i] = id
 	}
 	return ids, nil
+}
+
+// resolveManaColor reads a bare color letter ("W", "U", ...) the way
+// queue paygeneric already reads a bare shard: through mana.ParseShard,
+// taking only its Colors() half, since a plain color letter parses to the
+// pure shard of that color and pure Shard.Colors() is exactly one bit.
+func resolveManaColor(value string) (mana.Colors, error) {
+	s, err := mana.ParseShard(value)
+	if err != nil {
+		return 0, err
+	}
+	return s.Colors(), nil
 }
 
 // resolveAttackTarget turns a queue attacktarget value into the EntityID

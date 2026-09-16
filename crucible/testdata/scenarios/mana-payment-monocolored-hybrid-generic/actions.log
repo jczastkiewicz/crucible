@@ -1,0 +1,8 @@
+# CR 601.2h: a monocoloured hybrid shard ({2/W}) declined in favor of its
+# generic side adds its own CMC (2) onto the cost's generic amount instead of
+# spending white -- ChoosePayMonocoloredHybrid false, manapay.go -- so two
+# units of generic are still asked for even though no coloured pip is paid.
+queue paymonocoloredhybrid false
+queue paygeneric C
+queue paygeneric C
+paymanacost human 2/W

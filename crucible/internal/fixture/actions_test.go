@@ -656,6 +656,165 @@ func TestRunActionsQueuePayGenericBadShardErrors(t *testing.T) {
 	}
 }
 
+func TestRunActionsQueueHybridManaColorResolvesAColor(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue hybridmanacolor U\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got, want := c.ChooseHybridManaColor(l.Game, l.Game.Players()[0], 0), mana.Blue; got != want {
+		t.Errorf("hybridmanacolor answer = %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueHybridManaColorBadColorErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue hybridmanacolor ZZ\n"); err == nil {
+		t.Error("an unparseable color did not error")
+	}
+}
+
+func TestRunActionsQueuePayMonocoloredHybridResolvesABool(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paymonocoloredhybrid true\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got := c.ChoosePayMonocoloredHybrid(l.Game, l.Game.Players()[0], 0, 2); !got {
+		t.Error("paymonocoloredhybrid answer = false, want true")
+	}
+}
+
+func TestRunActionsQueuePayMonocoloredHybridBadBoolErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paymonocoloredhybrid maybe\n"); err == nil {
+		t.Error("an unparseable bool did not error")
+	}
+}
+
+func TestRunActionsQueuePayColorlessHybridResolvesABool(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paycolorlesshybrid false\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got := c.ChoosePayColorlessHybrid(l.Game, l.Game.Players()[0], 0); got {
+		t.Error("paycolorlesshybrid answer = true, want false")
+	}
+}
+
+func TestRunActionsQueuePayColorlessHybridBadBoolErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paycolorlesshybrid maybe\n"); err == nil {
+		t.Error("an unparseable bool did not error")
+	}
+}
+
+func TestRunActionsQueuePayPhyrexianResolvesABool(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payphyrexian false\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got := c.ChoosePayPhyrexian(l.Game, l.Game.Players()[0], 0); got {
+		t.Error("payphyrexian answer = true, want false")
+	}
+}
+
+func TestRunActionsQueuePayPhyrexianBadBoolErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payphyrexian maybe\n"); err == nil {
+		t.Error("an unparseable bool did not error")
+	}
+}
+
+func TestRunActionsQueuePayHybridPhyrexianResolvesAColor(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payhybridphyrexian G\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got, want := c.ChoosePayHybridPhyrexian(l.Game, l.Game.Players()[0], 0), mana.Green; got != want {
+		t.Errorf("payhybridphyrexian answer = %v, want %v", got, want)
+	}
+}
+
+// "life" is the zero mana.Colors answer -- the third option a color letter
+// cannot spell, the same convention ChoosePayHybridPhyrexian's own doc
+// comment (control.go) already uses.
+func TestRunActionsQueuePayHybridPhyrexianLifeAnswersZero(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payhybridphyrexian life\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got := c.ChoosePayHybridPhyrexian(l.Game, l.Game.Players()[0], 0); got != 0 {
+		t.Errorf("payhybridphyrexian life answer = %v, want the zero mana.Colors", got)
+	}
+}
+
+func TestRunActionsQueuePayHybridPhyrexianBadColorErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payhybridphyrexian ZZ\n"); err == nil {
+		t.Error("an unparseable color did not error")
+	}
+}
+
 func TestRunActionsUnknownVerbErrors(t *testing.T) {
 	t.Parallel()
 

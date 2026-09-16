@@ -192,4 +192,4 @@ stack is push/resolve only — no simultaneous-trigger ordering, no replacement 
 layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana payment still has no `{X}` or snow
 shards, and no mana abilities to fill a pool with yet; `CounterDetail` has no case for a script-written counter name,
 unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not
-met:** 19 fixtures exist today (`testdata/scenarios/`).
+met:** 22 fixtures exist today (`testdata/scenarios/`).

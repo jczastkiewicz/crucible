@@ -636,7 +636,7 @@ printed form.
     via `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — `{X}`, snow
     shards, and anything that fills a `Pool` in the first place (no mana ability exists yet) are not.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 19 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 22 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

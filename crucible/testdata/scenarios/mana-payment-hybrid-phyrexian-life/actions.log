@@ -1,0 +1,7 @@
+# CR 118.4/601.2h: a hybrid Phyrexian shard ({B/G/P}) can pay with either of
+# its two colours or with 2 life instead -- ChoosePayHybridPhyrexian's own
+# three-way choice, the zero mana.Colors answer meaning life
+# (queue payhybridphyrexian life). No mana in the pool at all: the payment
+# still succeeds because nothing here spends mana.
+queue payhybridphyrexian life
+paymanacost human B/G/P

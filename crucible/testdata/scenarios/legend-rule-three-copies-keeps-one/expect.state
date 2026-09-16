@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=20
+humanbattlefield=Isamaru, Hound of Konda
+humangraveyard=Isamaru, Hound of Konda;Isamaru, Hound of Konda
+ailife=20

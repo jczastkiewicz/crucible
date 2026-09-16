@@ -1,0 +1,8 @@
+# CR 508.1f: a vigilant attacker does not tap when declared -- the one
+# combat mechanic no other combat fixture's attacker (Silvercoat Lion, no
+# keywords) ever exercises. Untap -> Upkeep -> Draw -> Main1 -> BeginCombat
+# -> Declare Attackers.
+startturn human
+advance 5
+queue attackers 1
+declareattackers

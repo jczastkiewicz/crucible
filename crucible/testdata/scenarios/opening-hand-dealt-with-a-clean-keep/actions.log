@@ -1,0 +1,15 @@
+# CR 103.1-103.4: DealOpeningHands shuffles each library and deals seven
+# cards before any mulligan decision exists to make -- distinct from
+# PerformMulligans below, which only runs the London mulligan procedure on
+# whatever DealOpeningHands already dealt, and takes no coin flip of its
+# own. queue startingplayer answers ChooseStartingPlayer's own CR 103.2
+# coin flip; the answer does not depend on which player g.rand happened to
+# ask, so naming human here is deterministic regardless of the flip itself,
+# and ten identical Mountains per library makes the shuffle's own
+# randomness unobservable too. Both players keep their opening hand -- no
+# mulligan happens at all.
+queue startingplayer human
+dealopeninghands
+queue keephand true
+queue keephand true
+mulligan human

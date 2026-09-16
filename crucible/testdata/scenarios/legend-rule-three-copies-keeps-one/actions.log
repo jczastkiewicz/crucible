@@ -1,0 +1,5 @@
+# CR 704.5j, resolveLegendRule -- legend-rule-keeps-one already covers two
+# copies; this is three, proving the loop that destroys every id but the
+# kept one runs for more than a single "the other one" pair.
+queue legendarykeep 2
+startturn human

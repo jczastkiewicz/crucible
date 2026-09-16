@@ -91,6 +91,7 @@ line-oriented the same way `setup.state` is:
 ```text
 startturn <player>            Game.StartTurn(player, controller)
 advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 declareattackers              Game.DeclareCombatAttackers(controller)
 declareblockers               Game.DeclareCombatBlockers(controller)
@@ -153,6 +154,19 @@ unassigned across the pairs tramples over to the defending player if the attacke
 if not — both are computed after `queue damage`'s answer is applied, not part of what it names. There is no `none`
 shortcut for `queue damage` — `Game.DealCombatDamage` only ever asks when an attacker has more than one blocker, so an
 empty answer is never itself the legal one the way declining to attack or block is.
+
+`dealopeninghands` had no verb at all until this pass, even though `DealOpeningHands` (CR 103.1-103.4) has been done
+since before `mulligan` itself was: `mulligan`'s own fixture (`mulligan-tucks-a-card`) starts from a hand `setup.state`
+already wrote directly, never from a shuffled library `DealOpeningHands` actually dealt. `queue startingplayer` answers
+`ChooseStartingPlayer`'s own CR 103.2 coin flip the same way it already does for `mulligan`'s starting-player question;
+the coin flip itself (which player `g.rand` happens to ask) stays unobservable either way, since a
+`ScriptedController`'s queued answer does not depend on who asked. Its return value (who actually goes first) is
+discarded, the same "the fixture already knows because it queued a fixed answer" reasoning `paymanacost`'s `bool` and
+`TapLandForMana`'s `bool` are not asserted for either — a fixture that needs the value for a later
+`mulligan`/`startturn` call just writes down the same player name it already queued.
+`testdata/scenarios/opening-hand-dealt-with-a-clean-keep` is the example: two ten-card libraries of identical Mountains
+(so the shuffle's own randomness is unobservable in the dealt hand's contents), a full deal, and both players keeping
+without a single mulligan.
 
 `Game.StartTurn`/`AdvancePhase` take `controller` because `CheckStateBasedActions` does now too — the legend rule needs
 one (`game-state.md`'s "The legend rule needed `CheckStateBasedActions` to take a controller"), and every path that
@@ -276,7 +290,7 @@ hand.
 `queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`
 short lands on `End of Turn` instead, where `cleanupStep` never runs at all and the queued discard is simply never read.
 
-\*\*Five state-based actions `CheckStateBasedActions`'s own doc comment lists had no fixture at all:
+Five state-based actions `CheckStateBasedActions`'s own doc comment lists had no fixture at all:
 `counters-annihilate-plus-minus` (CR 704.5q), `life-loss-at-zero` (CR 704.5a — `poison-loss` already covered 704.5c,
 nothing covered 704.5a), `draw-from-empty-library-loses` (CR 704.5b, the same `advance`-three-times-from-ai's-Cleanup
 shape `untap-and-draw` already uses to reach a real Draw step, but with no library at all),
@@ -288,6 +302,13 @@ though the Battle is about to die the very next statement in the same pass — `
 unconditionally for any Battle with no protector yet, run before `destroyZeroDefense` gets a chance to send it to the
 graveyard, so skipping the queued answer panics on an unread decision rather than skipping a question that was never
 going to be asked.
+
+Two more fixtures cover a corner case of a mechanic that already had a fixture, not a whole missing rule:
+`combat-vigilance-attacker-stays-untapped` (CR 508.1f — every other combat fixture's attacker, Silvercoat Lion, has no
+keywords, so none of them exercise `DeclareCombatAttackers`' own vigilance check) and
+`legend-rule-three-copies-keeps-one` (CR 704.5j with three copies of Isamaru, Hound of Konda rather than
+`legend-rule-keeps-one`'s two, proving `resolveLegendRule`'s destroy loop handles more than one "the other one" at
+once).
 
 ## Deviations from Java
 

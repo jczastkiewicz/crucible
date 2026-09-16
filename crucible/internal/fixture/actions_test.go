@@ -77,6 +77,32 @@ func TestRunActionsSkipsCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
+// dealopeninghands deals a real seven-card hand from a real library --
+// queue startingplayer answers ChooseStartingPlayer's own CR 103.2 coin
+// flip, the one decision DealOpeningHands asks before shuffling and
+// dealing.
+func TestRunActionsDealOpeningHandsDealsSevenCards(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain")
+	l := load(t, db, "humanlife=20\nailife=20\n"+
+		"humanlibrary=Mountain|Id:1;Mountain|Id:2;Mountain|Id:3;Mountain|Id:4;"+
+		"Mountain|Id:5;Mountain|Id:6;Mountain|Id:7;Mountain|Id:8;Mountain|Id:9;Mountain|Id:10\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue startingplayer human\ndealopeninghands\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	human := l.Game.Players()[0]
+	if got := l.Game.Zone(engine.Hand, human).Len(); got != 7 {
+		t.Errorf("human's hand has %d cards, want 7", got)
+	}
+	if got := l.Game.Zone(engine.Library, human).Len(); got != 3 {
+		t.Errorf("human's library has %d cards, want 3", got)
+	}
+}
+
 // A full mulligan exchange, scripted end to end: queue the decisions and the
 // tuck before the action that consumes them, the same order
 // ScriptedController expects. Id: on every hand card is what lets

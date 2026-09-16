@@ -33,6 +33,7 @@ import (
 //
 //	startturn <player>            Game.StartTurn(player, controller)
 //	advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+//	dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
 //	declareblockers               Game.DeclareCombatBlockers(controller)
@@ -105,6 +106,9 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		for i := 0; i < n; i++ {
 			l.Game.AdvancePhase(c)
 		}
+
+	case "dealopeninghands":
+		engine.DealOpeningHands(l.Game, c)
 
 	case "mulligan":
 		pid, err := resolveActionPlayer(l, args, 1)

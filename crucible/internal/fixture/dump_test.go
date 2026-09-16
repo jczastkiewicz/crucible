@@ -19,6 +19,7 @@ func TestDumpRoundTripsThroughParse(t *testing.T) {
 	original := "humanlife=17\nailife=9\nturn=5\nactiveplayer=ai\nactivephase=Main2\n" +
 		"humanbattlefield=Rancor|Id:1|AttachedTo:2|Tapped;Grizzly Bears|Id:2|Counters:P1P1=2|Damage:1|SummonSick\n" +
 		"humanhand=Mountain;Llanowar Elves\n" +
+		"humanmanapool=W W U\n" +
 		"ailife=9\n"
 
 	l1 := load(t, db, original)
@@ -52,6 +53,9 @@ func TestDumpRoundTripsThroughParse(t *testing.T) {
 	human1, human2 := l1.Game.Players()[0], l2.Game.Players()[0]
 	if got, want := l2.Game.Player(human2).Life, l1.Game.Player(human1).Life; got != want {
 		t.Errorf("human life %d, want %d", got, want)
+	}
+	if got, want := l2.Game.Player(human2).ManaPool.Breakdown(), l1.Game.Player(human1).ManaPool.Breakdown(); got != want {
+		t.Errorf("human mana pool %v, want %v", got, want)
 	}
 
 	bf1 := l1.Game.Zone(engine.Battlefield, human1).Cards()
@@ -130,6 +134,43 @@ func TestDumpAndWriteRoundTripLostWonOver(t *testing.T) {
 	if !got.Players[0].Lost || !got.Players[1].Won || !got.Over {
 		t.Errorf("round trip: lost=%v won=%v over=%v, want true/true/true",
 			got.Players[0].Lost, got.Players[1].Won, got.Over)
+	}
+}
+
+// Dump round-trips ManaPool through Write and back, the same as
+// Lost/Won/Over above -- a real gap until now: applyManaPool (load.go) has
+// read manapool= into Player.ManaPool since before TapLandForMana existed,
+// but nothing wrote it back out, so Dump silently dropped every floating
+// mana a loaded game had.
+func TestDumpAndWriteRoundTripManaPool(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanmanapool=W W U\n")
+	st := fixture.Dump(l)
+
+	if st.Players[0].ManaPool == "" {
+		t.Fatal("Dump: human.ManaPool did not carry over")
+	}
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humanmanapool=") {
+		t.Fatalf("Write did not emit a manapool= line at all:\n%s", buf.String())
+	}
+
+	got, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse(Write(x)): %v", err)
+	}
+	l2, err := fixture.Load(got, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load(Parse(Write(x))): %v", err)
+	}
+	if got, want := l2.Game.Player(l2.Game.Players()[0]).ManaPool.Breakdown(), l.Game.Player(l.Game.Players()[0]).ManaPool.Breakdown(); got != want {
+		t.Errorf("mana pool after round trip = %v, want %v", got, want)
 	}
 }
 

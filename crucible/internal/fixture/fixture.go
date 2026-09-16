@@ -167,6 +167,9 @@ func Write(w io.Writer, s *State) error {
 		if p.Counters != "" {
 			fmt.Fprintf(&b, "%scounters=%s\n", name, p.Counters)
 		}
+		if p.ManaPool != "" {
+			fmt.Fprintf(&b, "%smanapool=%s\n", name, p.ManaPool)
+		}
 		if p.Lost {
 			fmt.Fprintf(&b, "%slost=true\n", name)
 		}

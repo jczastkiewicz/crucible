@@ -59,6 +59,7 @@ func Dump(l *Loaded) *State {
 		ps.Lost = g.Player(pid).Lost
 		ps.Won = g.Player(pid).Won
 		ps.Counters = dumpCounters(g.Player(pid).Counters)
+		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)
 		ps.Hand = dumpZone(g, engine.Hand, pid)
@@ -174,4 +175,27 @@ func dumpCounters(counters engine.Counters) string {
 		parts[i] = string(k) + "=" + strconv.Itoa(counters.Count(k))
 	}
 	return strings.Join(parts, ",")
+}
+
+// manaPoolLetters is Breakdown's own white/blue/black/red/green/{C} order,
+// MagicColor.java's own short names (load.go's applyManaPool doc comment).
+var manaPoolLetters = [6]string{"W", "U", "B", "R", "G", "C"}
+
+// dumpManaPool writes a player's floating mana back into manapool='s own
+// token format -- applyManaPool's inverse (load.go): one space-separated
+// letter per unit of floating mana, in Breakdown's own order. Snow and plain
+// mana are indistinguishable here, the same as they are in setup.state's own
+// manapool= key: GameState.java's own processManaPool/updateManaPool iterate
+// ManaAtom.MANATYPES, which has no snow entry (game-state.md's "Mana pool and
+// payment" section), so Breakdown's already-summed total is exactly what
+// this format can say -- SnowBreakdown's finer split has nowhere to go.
+func dumpManaPool(pool engine.Pool) string {
+	breakdown := pool.Breakdown()
+	var parts []string
+	for i, n := range breakdown {
+		for j := 0; j < n; j++ {
+			parts = append(parts, manaPoolLetters[i])
+		}
+	}
+	return strings.Join(parts, " ")
 }

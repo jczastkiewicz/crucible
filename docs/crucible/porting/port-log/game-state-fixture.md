@@ -80,6 +80,23 @@ not to work: it compiled each script inside the same pass that parsed it, which 
 Liberate among them) since that placeholder only resolves once the whole corpus has been read. Fixed in `LoadDB` itself
 — `porting/port-log/ability-factory.md`'s own section on it, since the bug was there, not here.
 
+## `Dump` dropped `ManaPool` entirely
+
+`Load`'s `applyManaPool` has read `manapool=` into `Player.ManaPool` since before `TapLandForMana` existed, but `Dump`
+never wrote a `PlayerState.ManaPool` back from it, and `Write` had no `manapool=` line to emit even if something had —
+every other player field `Load` applies (`Life`, `Counters`, `Lost`, `Won`) had a matching pair on the way out;
+`ManaPool` had neither. `TestDumpRoundTripsThroughParse` — the test that is P3's own exit gate, whose whole job is
+"checks every field the second `Loaded` produces against the first" — never caught it because its own fixture text never
+set `manapool=`, so both sides compared empty against empty.
+
+Fixed with the same shape `dumpCounters` already has: `dumpManaPool` (`dump.go`) inverts `Pool.Breakdown` into
+`manapool=`'s own space-separated letters, and `Write` (`fixture.go`) gained the missing `if p.ManaPool != "" {...}`
+line every other non-empty field already had. Snow and plain mana dump identically — `Breakdown`, not `SnowBreakdown` —
+the same limit `manapool=`'s own read side already has (`## Mana pool and payment`, `game-state.md`: `GameState.java`'s
+own `ManaAtom.MANATYPES` has no snow entry either, so there was never a snow token for `dumpManaPool` to write in the
+first place). `TestDumpRoundTripsThroughParse`'s own fixture now sets `humanmanapool=W W U` so this exact gap cannot
+reopen silently; `TestDumpAndWriteRoundTripManaPool` is the narrower, Lost/Won/Over-shaped test for it on its own.
+
 ## Scenarios: `actions.log` and the harness
 
 `internal/engine`'s `TestScenarios` (`scenario_test.go`) is TEST-5's directory walk: `setup.state` and `expect.state`

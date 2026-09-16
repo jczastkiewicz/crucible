@@ -199,4 +199,4 @@ supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-t
 is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer
 _numbers_ plus power/toughness folding only, not types/colors/abilities; `CounterDetail` has no case for a
 script-written counter name, unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity
-harness, ≥300 fixtures) not met:** 33 fixtures exist today (`testdata/scenarios/`).
+harness, ≥300 fixtures) not met:** 35 fixtures exist today (`testdata/scenarios/`).

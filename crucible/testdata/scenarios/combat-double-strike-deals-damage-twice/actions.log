@@ -1,0 +1,15 @@
+# CR 702.4: a double striker deals combat damage in both the First Strike
+# Damage step and the regular Combat Damage step -- Raging Redcap (1/2,
+# Double Strike, unblocked) hits ai for 1 in each, 2 total, not the 1 a
+# plain attacker's single combatdamage step would deal.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

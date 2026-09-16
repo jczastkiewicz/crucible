@@ -327,6 +327,16 @@ keywords, so none of them exercise `DeclareCombatAttackers`' own vigilance check
 `legend-rule-keeps-one`'s two, proving `resolveLegendRule`'s destroy loop handles more than one "the other one" at
 once).
 
+Two more still cover combat damage itself, not a keyword or a rule around it: `combat-double-strike-deals-damage-twice`
+(CR 702.4 — Raging Redcap, unblocked, hits for 1 in `firststrikedamage` and 1 again in `combatdamage`; every other
+first-strike fixture's attacker has plain `First Strike`, which only ever deals damage once, so none of them reach
+`dealsInStep`'s other branch) and `combat-attack-and-damage-a-battle` (CR 121.5 — `combat-attack-a-planeswalker`'s own
+shape, but `dealPermanentDamage` removes `Defense` counters through a wholly separate `if t.Has(cardtype.Battle)` case,
+not the `Loyalty` branch a planeswalker target already exercises; needs `queue battleprotector human` before
+`startturn`, and specifically not `ai` — the Battle is `ai`-controlled here, and naming the controller itself as its own
+protector leaves `assignBattleProtector`'s `selfProtector` case true, asking again on every later state-based-action
+check instead of staying answered).
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |

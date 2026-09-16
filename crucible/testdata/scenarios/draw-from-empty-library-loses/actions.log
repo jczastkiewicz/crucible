@@ -1,0 +1,10 @@
+# CR 704.5b: an attempted draw with nothing to draw loses. drawStep sets
+# Player.DrewFromEmptyLibrary when the library is empty, and
+# CheckStateBasedActions -- run at the end of the same beginPhase call, not
+# a separate advance later -- turns that into a loss immediately. Starting
+# at ai's Cleanup on turn 1 and advancing three times reaches human's own
+# Draw step on turn 2, past CR 103.7a's first-turn skip, with no library at
+# all.
+advance
+advance
+advance

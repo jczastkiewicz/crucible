@@ -1,0 +1,5 @@
+turn=1
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20

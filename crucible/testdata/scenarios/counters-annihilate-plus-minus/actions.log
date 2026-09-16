@@ -1,0 +1,7 @@
+# CR 704.5q: N +1/+1 and N -1/-1 counters on the same permanent are removed
+# together, N being the smaller pile -- annihilateCounters, checked on every
+# state-based-action pass, which StartTurn's own Untap-step beginPhase
+# already runs. Three +1/+1 and one -1/-1 leaves two +1/+1 and no -1/-1 --
+# not zero written down, no -1/-1 entry at all, since a counter count that
+# reaches zero is deleted (Counters.Add).
+startturn human

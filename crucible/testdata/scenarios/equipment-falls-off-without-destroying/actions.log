@@ -1,0 +1,9 @@
+# The "cleanup" rule's Equipment/Fortification half (GameAction.java:1511,
+# cleanupDanglingAttachments): unlike an Aura, which the same rule sends to
+# its owner's graveyard, an Equipment or Fortification whose host just left
+# the battlefield only becomes unattached -- it stays right where it was.
+# Grizzly Bears (2/2) already carries lethal marked damage, so the first
+# state-based-action check (StartTurn's own Untap-step beginPhase) destroys
+# it (CR 704.5g/h, destroyDamagedCreatures) and, the same pass,
+# cleanupDanglingAttachments finds Sword of Body and Mind with no host left.
+startturn human

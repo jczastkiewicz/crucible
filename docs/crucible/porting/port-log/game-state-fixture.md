@@ -276,6 +276,19 @@ hand.
 `queue discard` naming the two that should leave. The count matters here more than in most scenarios — one `advance`
 short lands on `End of Turn` instead, where `cleanupStep` never runs at all and the queued discard is simply never read.
 
+\*\*Five state-based actions `CheckStateBasedActions`'s own doc comment lists had no fixture at all:
+`counters-annihilate-plus-minus` (CR 704.5q), `life-loss-at-zero` (CR 704.5a — `poison-loss` already covered 704.5c,
+nothing covered 704.5a), `draw-from-empty-library-loses` (CR 704.5b, the same `advance`-three-times-from-ai's-Cleanup
+shape `untap-and-draw` already uses to reach a real Draw step, but with no library at all),
+`equipment-falls-off-without-destroying` (the "cleanup" rule's other half —
+`aura-enchant-restriction-sends-illegal-aura-to-graveyard` already covers the Aura branch, nothing covered the
+Equipment/Fortification one, which unattaches instead of dying) and `battle-zero-defense-destroyed` (CR 704.5v with no
+`Counters:DEFENSE=` at all, `game-state.md`'s own CR 704.5v ETB gap). The last one needs `queue battleprotector` even
+though the Battle is about to die the very next statement in the same pass — `assignBattleProtector` asks
+unconditionally for any Battle with no protector yet, run before `destroyZeroDefense` gets a chance to send it to the
+graveyard, so skipping the queued answer panics on an unread decision rather than skipping a question that was never
+going to be asked.
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |

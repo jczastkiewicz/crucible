@@ -1,0 +1,15 @@
+# CR 704.5v: a Battle at zero or less defense goes to its owner's graveyard
+# -- destroyZeroDefense, run right after assignBattleProtector in the same
+# state-based-action pass. assignBattleProtector asks unconditionally for
+# any Battle with no protector yet, so a queued answer is still needed even
+# though destroyZeroDefense is about to send this one straight to the
+# graveyard the very next statement -- CheckStateBasedActions asking before
+# checking is what battle-protector-assigned-to-opponent's own comment means
+# by "the Battle would die to zero defense before this scenario ever got to
+# observe its protector": the assignment still happens, there is just
+# nothing left afterward for expect.state to show it on. Nothing puts a
+# Battle's own printed starting defense on it yet (game-state.md's "Not
+# ported yet"), so with no DEFENSE counters set at all it already reads
+# zero.
+queue battleprotector ai
+startturn human

@@ -194,5 +194,5 @@ subtypes the same way `enchantSpec`/`resolveWorldRule` do), `Pool.Add`'s first r
 the stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR
 613 layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana payment still has no `{X}` or
 snow shards; `CounterDetail` has no case for a script-written counter name, unreachable until a `SpellAbility` can
-create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 23 fixtures exist today
+create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 28 fixtures exist today
 (`testdata/scenarios/`).

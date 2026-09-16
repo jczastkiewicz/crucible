@@ -1,0 +1,4 @@
+# CR 704.5a: a player at zero or less life loses, checked at the top of
+# every state-based-action pass -- StartTurn's own Untap-step beginPhase is
+# the first one, so no advance is needed to reach it.
+startturn human

@@ -1,0 +1,8 @@
+turn=2
+activeplayer=human
+activephase=Draw
+humanlife=20
+humanlost=true
+ailife=20
+aiwon=true
+over=true

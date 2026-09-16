@@ -50,6 +50,7 @@ import (
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 //	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
+//	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue hybridmanacolor <color>        ScriptedController.QueueHybridManaColor, a bare color letter
 //	queue paymonocoloredhybrid <bool>    ScriptedController.QueuePayMonocoloredHybrid
@@ -59,10 +60,13 @@ import (
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything -- cannot be written yet, because nothing downstream of
-// ScriptedController can answer it either (M5, later). PayManaCost itself is
-// not "casting anything": it is CR 106/601.2h's own self-contained payment
-// step, callable directly the same way Game.DeclareCombatAttackers is before
-// a full turn glues combat together (manapay.go's own doc comment).
+// ScriptedController can answer it either (M5, later). PayManaCost and
+// TapLandForMana are each not "casting anything": PayManaCost is CR
+// 106/601.2h's own self-contained payment step, and TapLandForMana is CR
+// 305.6/605.3's mana ability, which resolves immediately with no stack and so
+// never needed a casting or activation framework to be reachable -- both are
+// callable directly the same way Game.DeclareCombatAttackers is before a full
+// turn glues combat together (manapay.go's own doc comment).
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
@@ -135,6 +139,27 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("paymanacost cost %q: %w", costText, err)
 		}
 		l.Game.PayManaCost(pid, cost, c)
+
+	case "tapformana":
+		if len(args) < 3 {
+			return fmt.Errorf("tapformana: want a player, a card id, and a color, got %q", strings.Join(args, " "))
+		}
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("tapformana: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("tapformana: want exactly one card id, got %q", args[1])
+		}
+		color, err := resolveManaColor(args[2])
+		if err != nil {
+			return fmt.Errorf("tapformana color %q: %w", args[2], err)
+		}
+		l.Game.TapLandForMana(pid, ids[0], color)
 
 	case "queue":
 		return runQueue(args, l, c)

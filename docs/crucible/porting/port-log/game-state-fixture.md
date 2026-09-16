@@ -108,6 +108,7 @@ queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
+tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue hybridmanacolor <color> ScriptedController.QueueHybridManaColor, a bare color letter
 queue paymonocoloredhybrid <bool>     ScriptedController.QueuePayMonocoloredHybrid
@@ -169,6 +170,15 @@ either a color letter or the literal word `life` for the zero `mana.Colors` answ
 `ChoosePayHybridPhyrexian`'s own doc comment) — `resolveManaColor` (`actions.go`) is the one parser both
 `hybridmanacolor` and `payhybridphyrexian` share, since a bare color letter is exactly `mana.ParseShard`'s own pure
 shard, taken down to its `Colors()` half.
+
+`tapformana` is the one action verb, not a `queue` kind: unlike every `ScriptedController` answer, there is no decision
+here for a controller to make ahead of time — the player, the card and the color are all named directly in the line, the
+same "self-contained rules chapter, no turn/phase/combat verb needed first" position `paymanacost` is already in. It
+reuses `resolveManaColor` for its own `<color>` argument and `resolveCardIDs` (requiring exactly one id, the same check
+`queue legendarykeep` already makes) for `<id>`. `Game.TapLandForMana`'s `bool` return is not asserted, the same
+"declined by the rules, not a fixture error" convention `paymanacost` already established —
+`testdata/scenarios/mana-payment-tap-land-for-mana` is the one fixture so far, and the first mana-payment fixture where
+the paid mana comes from a real card (a corpus `Plains`) rather than `manapool=`.
 
 `Loaded.CardByFixtureID` is the other piece `RunActions` needed: the same `Id:` map `AttachedTo:`/`RememberedCards:`
 resolution already builds internally, kept around after `Load` returns instead of discarded. A scenario naming a
@@ -298,5 +308,5 @@ short lands on `End of Turn` instead, where `cleanupStep` never runs at all and 
 | Player-level `PersistentMana:`, `LandsPlayed[LastTurn]:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work), and so is `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work)                                                                                                                                                                                                                                                                                        | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
-| `actions.log` verbs for casting or targeting — nothing downstream of `ScriptedController` can answer those decisions yet either. Combat and mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask) have verbs                                                                                                                                                                                                                                                                                                                                                          | M5-M6                                  |
+| `actions.log` verbs for casting or targeting — nothing downstream of `ScriptedController` can answer those decisions yet either. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask) and the one mana ability this port has (`tapformana`) have verbs                                                                                                                                                                                                                                                                                                       | M5-M6                                  |
 | `expect.events` — the Plan's own fixture shape names it (Section 3.5) alongside `setup.state`/`actions.log`/`expect.state`, but `TestScenarios` (`internal/engine/scenario_test.go`) never reads a fourth file: `runScenario` loads only `setup.state` and `expect.state` and calls `compareGames`, which does not touch `Game`'s event sink at all. A fixture proving `LifeChanged`/`CounterChanged` actually fired (not just that life or a counter ended up at the right number) has nowhere to assert that yet                                                                        | M5-M6                                  |

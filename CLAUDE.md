@@ -187,9 +187,12 @@ colored-and-generic case (`mana.go`) — CR 500.4's emptying between every phase
 monocolored hybrid shard (`{2/W}`) via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard (`{C/W}`) via
 `ChoosePayColorlessHybrid`, a single-color Phyrexian shard (`{W/P}`) via `ChoosePayPhyrexian`, a hybrid Phyrexian shard
 (`{B/G/P}`) via `ChoosePayHybridPhyrexian` (either kind's paid life fires `LifeChanged`, `Source: NoCard`), and each
-unit of a cost's generic amount via `ChoosePayGeneric` before handing the rest to `Pay` unchanged. Thin or missing: the
-stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613
-layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana payment still has no `{X}` or snow
-shards, and no mana abilities to fill a pool with yet; `CounterDetail` has no case for a script-written counter name,
-unreachable until a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not
-met:** 22 fixtures exist today (`testdata/scenarios/`).
+unit of a cost's generic amount via `ChoosePayGeneric` before handing the rest to `Pay` unchanged; `TapLandForMana`
+(`manaability.go`), CR 305.6's intrinsic basic-land mana ability (Forge synthesizes it from the type line rather than
+script text — `CardState.java`'s `getLandTraitChanges`/`getLandManaForColor` — so this port keys off `cardtype.Line`'s
+subtypes the same way `enchantSpec`/`resolveWorldRule` do), `Pool.Add`'s first real (non-test) caller. Thin or missing:
+the stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects; the layer system is the CR
+613 layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana payment still has no `{X}` or
+snow shards; `CounterDetail` has no case for a script-written counter name, unreachable until a `SpellAbility` can
+create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 23 fixtures exist today
+(`testdata/scenarios/`).

@@ -1,0 +1,6 @@
+# CR 305.6's intrinsic land ability plus CR 601.2h payment: tap the Plains
+# for white, then spend it paying a {W} cost. Every other mana-payment
+# fixture preloads the pool via setup.state's own manapool= -- this is the
+# first one where the mana actually comes from a card on the battlefield.
+tapformana human 1 W
+paymanacost human W

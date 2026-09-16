@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/fixture"
 	"github.com/jczastkiewicz/crucible/internal/mana"
@@ -12,6 +15,29 @@ import (
 func runActions(t *testing.T, l *fixture.Loaded, c *engine.ScriptedController, log string) error {
 	t.Helper()
 	return fixture.RunActions(strings.NewReader(log), l, c)
+}
+
+// landDB builds a one-card database like testDB, except this card carries a
+// real type line. tapformana needs Card.Type() to answer "does this have a
+// basic land type", which testDB's own vanilla cards never set -- testDB's
+// own doc comment says Load never reads it, so building it there would test
+// something Load itself does not care about.
+func landDB(t *testing.T, name, typeLine string) *compile.DB {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{
+		Filename: name,
+		Faces:    [carddb.NumFaces]carddb.Face{{Present: true, Name: name, Type: cardtype.Parse(reg, typeLine)}},
+	}
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return compile.NewDB(map[string]*compile.Card{name: c})
 }
 
 func TestRunActionsStartTurnAndAdvance(t *testing.T) {
@@ -979,5 +1005,88 @@ func TestRunActionsStartTurnWithNoPlayerErrors(t *testing.T) {
 
 	if err := runActions(t, l, c, "startturn\n"); err == nil {
 		t.Error("startturn with no player ran without error")
+	}
+}
+
+// tapformana resolves a player, a setup.state Id: number, and a bare color
+// letter, and hands them straight to Game.TapLandForMana -- a real Plains
+// from the corpus, not a synthetic def, so this exercises the actual basic
+// land type on the actual card the compiler produced.
+func TestRunActionsTapForManaAddsColorAndTaps(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "tapformana human 1 W\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	p := l.Game.Players()[0]
+	if got, want := l.Game.Player(p).ManaPool.Breakdown(), [6]int{1, 0, 0, 0, 0, 0}; got != want {
+		t.Errorf("mana pool = %v, want one white", got)
+	}
+	if !l.Game.Card(l.CardByFixtureID[1]).Tapped {
+		t.Error("Plains not tapped after tapformana")
+	}
+}
+
+// A failed tap -- here, asking a Plains for blue -- is declined by the
+// rules, not a fixture error: the verb does not assert success, the same
+// as paymanacost.
+func TestRunActionsTapForManaFailureLeavesPoolAndCardUnchanged(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "tapformana human 1 U\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	p := l.Game.Players()[0]
+	if got, want := l.Game.Player(p).ManaPool.Total(), 0; got != want {
+		t.Errorf("mana pool total = %d, want %d (a failed tap adds nothing)", got, want)
+	}
+	if l.Game.Card(l.CardByFixtureID[1]).Tapped {
+		t.Error("Plains tapped despite the failed request")
+	}
+}
+
+func TestRunActionsTapForManaUnknownCardIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "tapformana human 99 W\n"); err == nil {
+		t.Error("an id absent from setup.state did not error")
+	}
+}
+
+func TestRunActionsTapForManaBadColorErrors(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "tapformana human 1 ZZ\n"); err == nil {
+		t.Error("an unparseable color did not error")
+	}
+}
+
+func TestRunActionsTapForManaTooFewArgsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := landDB(t, "Plains", "Basic Land Plains")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Plains|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "tapformana human 1\n"); err == nil {
+		t.Error("tapformana with no color did not error")
 	}
 }

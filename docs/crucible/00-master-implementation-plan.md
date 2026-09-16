@@ -633,10 +633,13 @@ printed form.
     colored-and-generic case, CR 500.4's emptying every phase/step, and `PayManaCost` resolving a two-color hybrid shard
     via `ChooseHybridManaColor`, a monocolored hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard
     via `ChoosePayColorlessHybrid`, a single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard
-    via `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — `{X}`, snow
-    shards, and anything that fills a `Pool` in the first place (no mana ability exists yet) are not.
+    via `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — `{X}` and snow
+    shards are not. A basic land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`),
+    `Pool.Add`'s first real (non-test) caller — any other mana ability (a nonbasic land, a creature, an artifact) still
+    needs the M6 effect-dispatch machinery this one deliberately bypasses, since CR 305.6's ability is a fixed rule
+    keyed off the type line, not script text.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 22 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 23 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

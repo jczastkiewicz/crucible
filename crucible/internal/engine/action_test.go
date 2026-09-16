@@ -42,6 +42,16 @@ func equipmentDef(t *testing.T) *compile.Card {
 	return def
 }
 
+// worldDef builds just enough of a *compile.Card for Card.Type() to answer
+// "does this carry the World supertype" -- the only thing resolveWorldRule
+// reads off a card's definition.
+func worldDef(t *testing.T, name string) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: name}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "World Enchantment")
+	return def
+}
+
 // auraDefWithEnchant builds an Aura carrying an `Enchant` keyword written
 // exactly the way the corpus writes one -- "K:Enchant:<validString>", with
 // no display-text half, which enchantSpec's own doc comment says is a legal
@@ -1133,6 +1143,121 @@ func TestCheckStateBasedActionsLegendRuleCascadesToAttachments(t *testing.T) {
 
 	if z := g.Card(lose).Zone; z != engine.Graveyard {
 		t.Fatalf("setup: losing legend zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)
+	}
+}
+
+// CR 704.5m: a second World permanent entering the battlefield destroys the
+// older one -- the newer one, by Card.Timestamp, survives.
+func TestCheckStateBasedActionsWorldRuleKeepsOnlyTheNewest(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	older := g.NewCard(worldDef(t, "Older World"), a, engine.Library)
+	g.Move(older, engine.Battlefield, a)
+	newer := g.NewCard(worldDef(t, "Newer World"), a, engine.Library)
+	g.Move(newer, engine.Battlefield, a)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(newer).Zone; z != engine.Battlefield {
+		t.Errorf("newer World zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(older).Zone; z != engine.Graveyard {
+		t.Errorf("older World zone = %v, want Graveyard", z)
+	}
+}
+
+// Unlike the legend rule, the World rule is not grouped per player: two
+// World permanents controlled by different players still conflict.
+func TestCheckStateBasedActionsWorldRuleIsAcrossPlayers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	older := g.NewCard(worldDef(t, "Older World"), a, engine.Library)
+	g.Move(older, engine.Battlefield, a)
+	newer := g.NewCard(worldDef(t, "Newer World"), b, engine.Library)
+	g.Move(newer, engine.Battlefield, b)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(newer).Zone; z != engine.Battlefield {
+		t.Errorf("newer World zone = %v, want Battlefield (a's own copy leaving does not save it)", z)
+	}
+	if z := g.Card(older).Zone; z != engine.Graveyard {
+		t.Errorf("a's older World zone = %v, want Graveyard", z)
+	}
+}
+
+// A tie for the newest timestamp destroys every tied permanent, not just the
+// older ones. g.timestamp increments on every placement (NewCard and Move
+// alike, game.go's own put), so no two cards ever tie through the public API
+// -- the same reason a real game cannot reach this branch either
+// (resolveWorldRule's own doc comment) -- and the tie has to be forced by
+// setting Card.Timestamp directly.
+func TestCheckStateBasedActionsWorldRuleTieDestroysBoth(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	first := g.NewCard(worldDef(t, "Tied World One"), p, engine.Battlefield)
+	second := g.NewCard(worldDef(t, "Tied World Two"), p, engine.Battlefield)
+	g.Card(second).Timestamp = g.Card(first).Timestamp
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(first).Zone; z != engine.Graveyard {
+		t.Errorf("first tied World zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Graveyard {
+		t.Errorf("second tied World zone = %v, want Graveyard", z)
+	}
+}
+
+// A lone World permanent has nothing to conflict with -- the rule never
+// fires for fewer than two.
+func TestCheckStateBasedActionsLoneWorldSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	world := g.NewCard(worldDef(t, "Solo World"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(world).Zone; z != engine.Battlefield {
+		t.Errorf("lone World zone = %v, want Battlefield", z)
+	}
+}
+
+// The World rule's own destruction cascades to a dangling Aura in the same
+// CheckStateBasedActions call, the same as the legend rule's own cascade
+// above -- resolveWorldRule has to run before cleanupDanglingAttachments.
+func TestCheckStateBasedActionsWorldRuleCascadesToAttachments(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	older := g.NewCard(worldDef(t, "Older World"), a, engine.Library)
+	g.Move(older, engine.Battlefield, a)
+	newer := g.NewCard(worldDef(t, "Newer World"), a, engine.Library)
+	g.Move(newer, engine.Battlefield, a)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, older)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(older).Zone; z != engine.Graveyard {
+		t.Fatalf("setup: older World zone = %v, want Graveyard", z)
 	}
 	if z := g.Card(aura).Zone; z != engine.Graveyard {
 		t.Errorf("aura zone = %v, want Graveyard (its host died in the same pass)", z)

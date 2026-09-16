@@ -26,7 +26,7 @@ import (
 // looking for the Java source and finds a different rule at that letter
 // has no way to tell whether the port or the citation is wrong.
 //
-// Eleven of Java's checks are here: CR 704.5b (an attempted draw with
+// Twelve of Java's checks are here: CR 704.5b (an attempted draw with
 // nothing to draw loses), CR 704.5a (a player at zero or less life loses),
 // CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent
 // carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
@@ -40,32 +40,35 @@ import (
 // 704.5v (a Battle at zero or less defense goes to its owner's graveyard --
 // destroyZeroDefense, below), CR 704.5w/704.5x (a Battle's protector --
 // assignBattleProtector, below, the first state-based action besides the
-// legend rule that needs a PlayerController), and three rules Java's own
-// comments do not cleanly single-letter: a partial "cleanup aura" (Java's
-// own comment for it, GameAction.java:1511 -- an Aura not attached to
-// anything on the battlefield goes to its owner's graveyard; an Equipment
-// or Fortification attached to something no longer on the battlefield
-// becomes unattached alongside it, folded into the same nearby but
-// differently-labelled `stateBasedAction704_attach`), a planeswalker at
-// zero loyalty (`handlePlaneswalkerRule`, which Java's own comments do not
-// number at all), and the legend rule (`handleLegendRule`, same --
-// resolveLegendRule, below). Every other rule in Java's loop --
-// indestructible aside (destroyDamagedCreatures checks it; nothing else
-// here needs to), the rest of 704.5f's own toughness (a "*" with no
-// characteristic-defining effect to replace it, or a Count$ reference --
-// `internal/expr` has no evaluator yet), the rest of 704.5v's own exception
-// (a Battle whose own trigger is still on the stack -- always false today,
-// destroyZeroDefense's own doc comment), the rest of the attachment rules'
-// own legality (an Aura's own "Enchant" restriction being violated by
-// something other than its host leaving, protection, hexproof), and the
-// legend rule's own two corner cases (resolveLegendRule's doc comment) --
-// needs either the rest of the continuous-effect layer system (type,
-// color, ability layers; CR 613.6-613.8's dependency reordering, which
-// nothing here has more than one effect to need yet) or a valid-string
-// evaluator to check a restriction this port does not have (game-state.md's
-// "Not ported yet", `internal/valid`'s own doc comment). A rule this port
-// has not implemented simply never fires, the same as it would in a real
-// game with no permanent that rule applies to.
+// legend rule that needs a PlayerController), CR 704.5m (more than one
+// permanent with the World supertype on the battlefield destroys every one
+// but the newest, by the same Card.Timestamp every zone change already
+// stamps for CR 613's own ordering -- resolveWorldRule, below), and three
+// rules Java's own comments do not cleanly single-letter: a "cleanup aura"
+// rule (Java's own comment for it, GameAction.java:1511 -- an Aura not
+// attached to a permanent on the battlefield, or attached to one that no
+// longer matches its own `Enchant` restriction, goes to its owner's
+// graveyard; an Equipment or Fortification in the same state just becomes
+// unattached), a planeswalker at zero loyalty (`handlePlaneswalkerRule`,
+// which Java's own comments do not number at all), and the legend rule
+// (`handleLegendRule`, same -- resolveLegendRule, below). Every other rule
+// in Java's loop -- indestructible aside (destroyDamagedCreatures checks
+// it; nothing else here needs to), the rest of 704.5f's own toughness (a
+// "*" with no characteristic-defining effect to replace it, or a Count$
+// reference -- `internal/expr` has no evaluator yet), the rest of 704.5v's
+// own exception (a Battle whose own trigger is still on the stack -- always
+// false today, destroyZeroDefense's own doc comment), protection and
+// hexproof preventing an attachment in the first place (CR
+// 702.11h/702.16e -- a distinct check from the Enchant restriction itself,
+// which cleanupDanglingAttachments below does resolve), and the legend
+// rule's own two corner cases (resolveLegendRule's doc comment) -- needs
+// either the rest of the continuous-effect layer system (type, color,
+// ability layers; CR 613.6-613.8's dependency reordering, which nothing
+// here has more than one effect to need yet) or a quality-matching
+// static-ability engine this port does not have (game-state.md's "Not
+// ported yet"). A rule this port has not implemented simply never fires,
+// the same as it would in a real game with no permanent that rule applies
+// to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -80,9 +83,9 @@ import (
 // Java's own checkStateEffects loops up to nine times, because one SBA firing
 // can make another one true (destroying a permanent can, in turn, empty an
 // Aura's target -- exactly the interaction 704.5f, 704.5g/704.5h, 704.5v, the
-// legend rule and the attachment cleanup below have, which is why
-// destroyLethalToughness, destroyDamagedCreatures, destroyZeroLoyalty,
-// destroyZeroDefense and resolveLegendRule all run before
+// legend rule, the World rule and the attachment cleanup below have, which is
+// why destroyLethalToughness, destroyDamagedCreatures, destroyZeroLoyalty,
+// destroyZeroDefense, resolveLegendRule and resolveWorldRule all run before
 // cleanupDanglingAttachments rather than on a later call). Nothing here
 // cascades a second time: destroying a permanent cannot itself change another
 // one's printed toughness, deal it damage, or give it the same name, and
@@ -152,6 +155,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	assignBattleProtector(g, controller)
 	destroyZeroDefense(g)
 	resolveLegendRule(g, controller)
+	resolveWorldRule(g)
 	cleanupDanglingAttachments(g)
 	return false
 }
@@ -442,6 +446,63 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 				}
 			}
 		}
+	}
+}
+
+// resolveWorldRule is CR 704.5m: at most one permanent with the World
+// supertype may be on the battlefield at once, across every player at once --
+// unlike the legend rule, this is not grouped per player. The newest one, by
+// Card.Timestamp, survives; every other one goes to its owner's graveyard.
+//
+// Ported from GameAction.java's handleWorldRule. World permanents enter the
+// battlefield the same as any other permanent, so Card.Timestamp -- already
+// stamped on every zone change for CR 613's own layer ordering (game.go) --
+// is exactly Java's own getWorldTimestamp(), with no new field needed to
+// answer this.
+//
+// A tie for the newest timestamp destroys every tied permanent too, not just
+// the older ones: Java's own toKeep.size() == 1 guard only spares the survivor
+// when there is exactly one, reproduced here as tied == 1. g.timestamp
+// increments on every single put -- NewCard and Move alike -- so no two
+// cards placed through the public API ever actually share one (game.go's own
+// put, arena_test.go's timestamp test), the same way Java's own
+// getNextTimestamp() cannot hand out one value twice either; a tie needs two
+// World permanents entering as one designed-simultaneous batch, which
+// neither engine has a mechanism for yet. This branch is untested by real
+// play today for exactly that reason -- the same "kept for when it becomes
+// reachable" position destroyZeroDefense's own stack-trigger exception is
+// in -- and is exercised here only by a test that sets Card.Timestamp
+// directly.
+func resolveWorldRule(g *Game) {
+	var worlds []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if g.Card(id).Type().HasSupertype(cardtype.World) {
+				worlds = append(worlds, id)
+			}
+		}
+	}
+	if len(worlds) < 2 {
+		return
+	}
+
+	var newest CardID
+	var newestTS uint64
+	tied := 0
+	for _, id := range worlds {
+		switch ts := g.Card(id).Timestamp; {
+		case ts > newestTS:
+			newestTS, newest, tied = ts, id, 1
+		case ts == newestTS:
+			tied++
+		}
+	}
+
+	for _, id := range worlds {
+		if tied == 1 && id == newest {
+			continue
+		}
+		g.Move(id, Graveyard, g.Card(id).Owner)
 	}
 }
 

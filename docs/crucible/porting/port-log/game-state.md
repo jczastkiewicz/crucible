@@ -158,40 +158,43 @@ fixture-authoring mistake, not a rules question a card script could cause, so it
 ## State-based actions
 
 `CheckStateBasedActions` is `GameAction.checkGameOverCondition`, `Player.checkLoseCondition`, `stateBasedAction704_5q`,
-`handlePlaneswalkerRule`, `stateBasedAction_Battle` and `handleLegendRule`, plus `destroyLethalToughness`,
-`destroyDamagedCreatures` and `cleanupDanglingAttachments` for a slice of what `changeZone` folds in elsewhere in Java
-(`## Move carries what Java gets for free`, below) — the rules answerable without the full layer system: CR 704.5a (a
-player at zero or less life loses), CR 704.5c (ten or more poison counters loses), CR 704.5q (a permanent carrying both
-+1/+1 and -1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1
-and none — `stateBasedAction704_5q`'s own name is the source for this letter), CR 704.5f (a creature at zero or less
-toughness dies, Layer 7 and counters folded in — `GameAction.java`'s own comment on this check, not 704.5g), CR 704.5g
-and 704.5h together (a creature dealt lethal damage, or any deathtouch damage at all, dies — indestructible creatures
-excepted, `## Lethal and deathtouch damage`, below), a partial CR 704.5v (a Battle at zero or less defense dies, its own
-trigger-on-the-stack exception checked and always false today — `## Loyalty is not a layer`'s Battle paragraph, below),
-CR 704.5w/704.5x (a Battle's protector — `assignBattleProtector`, `## Combat`'s own paragraph on it, below), and three
-rules Java's own comments do not number: a planeswalker at zero or less loyalty dies (`handlePlaneswalkerRule`), the
-legend rule (`handleLegendRule` — `## The legend rule needed CheckStateBasedActions to take a controller`, below), and a
-"cleanup aura" rule (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to a permanent on the
-battlefield, or attached to one that no longer matches the Aura's own `Enchant` restriction (CR 303.4a, `enchantSpec`,
-below), goes to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached alongside
-it). Citing these against Java's own comments rather than the rulebook from memory is deliberate: `GameAction.java`
-labels the toughness check 704.5f, not 704.5g, and disagrees with itself about the attachment rule (one comment calls it
-704.5q, the same letter `stateBasedAction704_5q`'s own name already claims for counter annihilation) — a wrong citation
-is worse than none, so the attachment, loyalty and legend rules are not asserted a specific sub-letter here. Every other
-SBA in Java's loop — lethal damage to a planeswalker or a Battle via its loyalty/defense rather than a creature's
-toughness, the rest of 704.5f/704.5g's own toughness (`*` with no characteristic-defining effect to replace it, or a
-`Count$` reference — `internal/expr` has no evaluator yet), protection and hexproof preventing an attachment in the
-first place (CR 702.11h/702.16e, a quality-matching static-ability question, not the `Enchant` restriction itself), and
-the legend rule's own two corner cases (`ignoreLegendRule`, Partner-with-non-legendary-creature-names) — reads a
-characteristic the rest of the continuous-effect layer system computes, or needs a static-ability engine this port does
-not have, and none of that is M5 work this has fully reached yet. Damage dealt to a planeswalker or a Battle, which CR
-120.3c/121.5 removes as loyalty/defense counters rather than marking `Damage`, is wired too (`dealPermanentDamage`,
-`## Combat`, below) — combat can attack one directly, so `destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real
-play as well as by tests that remove counters directly. Only _non-combat_ damage to a planeswalker or Battle is still a
-gap: nothing that deals damage outside combat exists yet (no `SpellAbility`, no activated ability), so a burn spell or
-an ability aimed at a planeswalker's loyalty has nowhere to come from regardless of whether the target-side plumbing is
-ready. A rule this port has not implemented simply never fires, the same as a real game with no permanent that rule ever
-applies to — it is a coverage gap (ADR-0011), not a wrong answer.
+`handlePlaneswalkerRule`, `stateBasedAction_Battle`, `handleLegendRule` and `handleWorldRule`, plus
+`destroyLethalToughness`, `destroyDamagedCreatures` and `cleanupDanglingAttachments` for a slice of what `changeZone`
+folds in elsewhere in Java (`## Move carries what Java gets for free`, below) — the rules answerable without the full
+layer system: CR 704.5a (a player at zero or less life loses), CR 704.5c (ten or more poison counters loses), CR 704.5q
+(a permanent carrying both +1/+1 and -1/-1 counters loses the smaller pile from each, in equal number — five +1/+1 and
+two -1/-1 leaves three +1/+1 and none — `stateBasedAction704_5q`'s own name is the source for this letter), CR 704.5f (a
+creature at zero or less toughness dies, Layer 7 and counters folded in — `GameAction.java`'s own comment on this check,
+not 704.5g), CR 704.5g and 704.5h together (a creature dealt lethal damage, or any deathtouch damage at all, dies —
+indestructible creatures excepted, `## Lethal and deathtouch damage`, below), a partial CR 704.5v (a Battle at zero or
+less defense dies, its own trigger-on-the-stack exception checked and always false today — `## Loyalty is not a layer`'s
+Battle paragraph, below), CR 704.5w/704.5x (a Battle's protector — `assignBattleProtector`, `## Combat`'s own paragraph
+on it, below), CR 704.5m (more than one permanent with the World supertype on the battlefield at once, across every
+player, destroys every one but the newest by `Card.Timestamp` — `resolveWorldRule`, the same field
+`## Handles, not pointers`'s own table above already stamps on every zone change), and three rules Java's own comments
+do not number: a planeswalker at zero or less loyalty dies (`handlePlaneswalkerRule`), the legend rule
+(`handleLegendRule` — `## The legend rule needed CheckStateBasedActions to take a controller`, below), and a "cleanup
+aura" rule (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to a permanent on the battlefield,
+or attached to one that no longer matches the Aura's own `Enchant` restriction (CR 303.4a, `enchantSpec`, below), goes
+to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached alongside it). Citing
+these against Java's own comments rather than the rulebook from memory is deliberate: `GameAction.java` labels the
+toughness check 704.5f, not 704.5g, and disagrees with itself about the attachment rule (one comment calls it 704.5q,
+the same letter `stateBasedAction704_5q`'s own name already claims for counter annihilation) — a wrong citation is worse
+than none, so the attachment, loyalty and legend rules are not asserted a specific sub-letter here. Every other SBA in
+Java's loop — lethal damage to a planeswalker or a Battle via its loyalty/defense rather than a creature's toughness,
+the rest of 704.5f/704.5g's own toughness (`*` with no characteristic-defining effect to replace it, or a `Count$`
+reference — `internal/expr` has no evaluator yet), protection and hexproof preventing an attachment in the first place
+(CR 702.11h/702.16e, a quality-matching static-ability question, not the `Enchant` restriction itself), and the legend
+rule's own two corner cases (`ignoreLegendRule`, Partner-with-non-legendary-creature-names) — reads a characteristic the
+rest of the continuous-effect layer system computes, or needs a static-ability engine this port does not have, and none
+of that is M5 work this has fully reached yet. Damage dealt to a planeswalker or a Battle, which CR 120.3c/121.5 removes
+as loyalty/defense counters rather than marking `Damage`, is wired too (`dealPermanentDamage`, `## Combat`, below) —
+combat can attack one directly, so `destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real play as well as by
+tests that remove counters directly. Only _non-combat_ damage to a planeswalker or Battle is still a gap: nothing that
+deals damage outside combat exists yet (no `SpellAbility`, no activated ability), so a burn spell or an ability aimed at
+a planeswalker's loyalty has nowhere to come from regardless of whether the target-side plumbing is ready. A rule this
+port has not implemented simply never fires, the same as a real game with no permanent that rule ever applies to — it is
+a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
@@ -359,6 +362,25 @@ insertion-ordered keys give Java. Two of Java's own corner cases are not here: a
 `ignoreLegendRule` (nothing this port can grant that effect yet), and Partner-with-a-non-legendary-creature-name pairs
 (Spy Kit and similar) sharing a "true name" even though their printed names differ — a rule specific to a handful of
 cards, not the general case.
+
+## The World rule needed no new field, only the one every zone change already stamps
+
+`resolveWorldRule` is `handleWorldRule` (CR 704.5m): at most one permanent with the World supertype may be on the
+battlefield at once, across every player at once, not grouped per player the way the legend rule is above — the newest
+one survives, and every other one goes to its owner's graveyard. It asks nobody anything, unlike the legend rule right
+above it: Java's own version picks the newest by `getWorldTimestamp()`, a plain comparison, not a choice, so
+`resolveWorldRule` takes no `PlayerController` at all.
+
+The comparison it needs already existed: `Card.Timestamp` (`## Handles, not pointers`'s own table, above) is stamped on
+every zone change for CR 613's own layer ordering, and a World permanent enters the battlefield through the same
+`Move`/`put` every other permanent does, so there was no `getWorldTimestamp()`-equivalent field to add — the general
+`Timestamp` already answers "which one is newest" without knowing anything about World in particular.
+
+A tie for the newest timestamp destroys every tied permanent too, not just the older ones — Java's own
+`toKeep.size() == 1` guard only spares the survivor when there is exactly one. `g.timestamp` increments on every single
+`put`, so no two cards placed through the public API (`NewCard`, `Move`) ever actually share one; the tie branch is
+reachable only by a test that sets `Card.Timestamp` directly, the same "kept for when it becomes reachable" position
+`destroyZeroDefense`'s own stack-trigger exception is already in (`## Loyalty is not a layer`, below).
 
 ## Move carries what Java gets for free
 

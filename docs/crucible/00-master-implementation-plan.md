@@ -617,10 +617,10 @@ printed form.
 24. Turn/phase/step loop + priority (`PhaseHandler` port). **Done** — `turn.go`, `phase.go`, including CR 511.3's end of
     combat cleanup (`endCombat`).
 25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here). **Done** for the
-    SBAs reached so far (`action.go`: legend rule, zero toughness/loyalty/defense, lethal damage, Battle protector,
-    dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present host);
-    zone-change machinery itself (`Game.Move`) exists, LKI tracking does not (`porting/port-log/game-state.md`'s "Not
-    ported yet").
+    SBAs reached so far (`action.go`: legend rule, World rule, zero toughness/loyalty/defense, lethal damage, Battle
+    protector, dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present
+    host); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not (`porting/port-log/game-state.md`'s
+    "Not ported yet").
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin** — `stack.go` is
     push/resolve only; no simultaneous-trigger ordering, no replacement-effect system.
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Thin** — `layer.go` has the CR 613 layer

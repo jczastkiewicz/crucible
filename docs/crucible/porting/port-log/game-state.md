@@ -171,27 +171,27 @@ trigger-on-the-stack exception checked and always false today — `## Loyalty is
 CR 704.5w/704.5x (a Battle's protector — `assignBattleProtector`, `## Combat`'s own paragraph on it, below), and three
 rules Java's own comments do not number: a planeswalker at zero or less loyalty dies (`handlePlaneswalkerRule`), the
 legend rule (`handleLegendRule` — `## The legend rule needed CheckStateBasedActions to take a controller`, below), and a
-partial "cleanup aura" rule (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to a permanent on
-the battlefield goes to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached
-alongside it). Citing these against Java's own comments rather than the rulebook from memory is deliberate:
-`GameAction.java` labels the toughness check 704.5f, not 704.5g, and disagrees with itself about the attachment rule
-(one comment calls it 704.5q, the same letter `stateBasedAction704_5q`'s own name already claims for counter
-annihilation) — a wrong citation is worse than none, so the attachment, loyalty and legend rules are not asserted a
-specific sub-letter here. Every other SBA in Java's loop — lethal damage to a planeswalker or a Battle via its
-loyalty/defense rather than a creature's toughness, the rest of 704.5f/704.5g's own toughness (`*` with no
-characteristic-defining effect to replace it, or a `Count$` reference — `internal/expr` has no evaluator yet), the rest
-of the attachment rules' own legality (an Aura's `Enchant` restriction violated by something other than its host
-leaving, protection, hexproof), and the legend rule's own two corner cases (`ignoreLegendRule`,
-Partner-with-non-legendary-creature-names) — reads a characteristic the rest of the continuous-effect layer system
-computes, or needs a restriction a `valid`-string evaluator would check (`internal/valid`'s own doc comment), and none
-of that is M5 work this has fully reached yet. Damage dealt to a planeswalker or a Battle, which CR 120.3c/121.5 removes
-as loyalty/defense counters rather than marking `Damage`, is wired too (`dealPermanentDamage`, `## Combat`, below) —
-combat can attack one directly, so `destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real play as well as by
-tests that remove counters directly. Only _non-combat_ damage to a planeswalker or Battle is still a gap: nothing that
-deals damage outside combat exists yet (no `SpellAbility`, no activated ability), so a burn spell or an ability aimed at
-a planeswalker's loyalty has nowhere to come from regardless of whether the target-side plumbing is ready. A rule this
-port has not implemented simply never fires, the same as a real game with no permanent that rule ever applies to — it is
-a coverage gap (ADR-0011), not a wrong answer.
+"cleanup aura" rule (Java's own comment for it, `GameAction.java:1511` — an Aura not attached to a permanent on the
+battlefield, or attached to one that no longer matches the Aura's own `Enchant` restriction (CR 303.4a, `enchantSpec`,
+below), goes to its owner's graveyard; an Equipment or Fortification in the same state just becomes unattached alongside
+it). Citing these against Java's own comments rather than the rulebook from memory is deliberate: `GameAction.java`
+labels the toughness check 704.5f, not 704.5g, and disagrees with itself about the attachment rule (one comment calls it
+704.5q, the same letter `stateBasedAction704_5q`'s own name already claims for counter annihilation) — a wrong citation
+is worse than none, so the attachment, loyalty and legend rules are not asserted a specific sub-letter here. Every other
+SBA in Java's loop — lethal damage to a planeswalker or a Battle via its loyalty/defense rather than a creature's
+toughness, the rest of 704.5f/704.5g's own toughness (`*` with no characteristic-defining effect to replace it, or a
+`Count$` reference — `internal/expr` has no evaluator yet), protection and hexproof preventing an attachment in the
+first place (CR 702.11h/702.16e, a quality-matching static-ability question, not the `Enchant` restriction itself), and
+the legend rule's own two corner cases (`ignoreLegendRule`, Partner-with-non-legendary-creature-names) — reads a
+characteristic the rest of the continuous-effect layer system computes, or needs a static-ability engine this port does
+not have, and none of that is M5 work this has fully reached yet. Damage dealt to a planeswalker or a Battle, which CR
+120.3c/121.5 removes as loyalty/defense counters rather than marking `Damage`, is wired too (`dealPermanentDamage`,
+`## Combat`, below) — combat can attack one directly, so `destroyZeroLoyalty`/`destroyZeroDefense` are exercised by real
+play as well as by tests that remove counters directly. Only _non-combat_ damage to a planeswalker or Battle is still a
+gap: nothing that deals damage outside combat exists yet (no `SpellAbility`, no activated ability), so a burn spell or
+an ability aimed at a planeswalker's loyalty has nowhere to come from regardless of whether the target-side plumbing is
+ready. A rule this port has not implemented simply never fires, the same as a real game with no permanent that rule ever
+applies to — it is a coverage gap (ADR-0011), not a wrong answer.
 
 CR 704.5q's own guard — some cards grant "counters can't be removed from CARDNAME" — is a static ability, so it is not
 checked either: nothing this port can grant that effect yet, so its absence changes no card's behaviour today.
@@ -218,6 +218,20 @@ instead of `Type`). `carddb.Face` already parses one (`Type cardtype.Line`, from
 `Name` is copied rather than recomputed. `Card.Type()` returns the primary face's line and, for a `nil` `Def` (every
 synthetic test card in this package), the zero `Line` — which matches no subtype, so a test card is never mistaken for
 an Aura.
+
+**`cleanupDanglingAttachments` now checks an Aura's own `Enchant` restriction, not just its host's presence.**
+`enchantSpec` (`action.go`) reads the Aura's `K:Enchant:...` keyword (`internal/keyword`'s `Type`-kind parsing) and
+turns the valid-string half of it into an `internal/valid.Spec` — `KeywordWithType.java`'s own
+`"<validString>:<display text>"` split, reproduced with `strings.Cut` on the first remaining `:` in
+`keyword.Keyword.Details` since Go's own `keyword.Parse` only cuts the head off once. `Matches` (`valid.go`) then checks
+the host against that spec from the Aura's own controller and the Aura itself — exactly the call `Matches`'s own doc
+comment already named as this rule's eventual caller, with no `Ability` in sight, before this landed. `"Player"` and
+`"Opponent"` (`K:Enchant:Player`, `K:Enchant:Opponent` — Tenuous Truce, Archenemy, Overencumbered, Psychic Possession)
+are Java's own literal forms for an Aura that enchants a player rather than a permanent; `enchantSpec` reports no
+checkable spec for either rather than reading the bare word as a card-type restriction no permanent's type line could
+ever contain, which would silently destroy every such Aura on the very next `CheckStateBasedActions` call. This port's
+`AttachedTo` (`CardID`-only) has no representation for "attached to a player" at all, so a player-target Aura is a gap
+this specific check does not close — a distinct, larger one from the type-restriction check it does close.
 
 ## Layer 0: printed power and toughness
 
@@ -808,7 +822,7 @@ compared were never going to agree on those by number.
 | `AIController`, the real (non-scripted) implementation                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | M7    |
 | Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet                                                                                                                                                                                                                                                                                                             | M5-M6 |
 | The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`                                                                                                                                                                                                                                                                                                                 | M5-M6 |
-| The rest of the "cleanup aura" rule's legality — an Aura's own `Enchant` restriction, protection, hexproof — needs a `valid`-string evaluator, not just "is the host still on the battlefield"                                                                                                                                                                                                                                                                                                                               | M5-M6 |
+| The rest of the "cleanup aura" rule's legality — protection and hexproof preventing an attachment in the first place (CR 702.11h/702.16e) — needs a quality-matching static-ability engine, not the `Enchant`-restriction check itself (an Aura's own restriction against its still-present host is resolved, `## State-based actions`)                                                                                                                                                                                      | M5-M6 |
 | The legend rule's own two corner cases — `ignoreLegendRule` (nothing grants that effect yet) and Partner-with-non-legendary-creature-name pairs sharing a "true name"                                                                                                                                                                                                                                                                                                                                                        | M5-M6 |
 | CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                                                                                                                                                                                                                                                                                                                            | M5-M6 |
 | Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                                                                                                                                                                                                                                                                                                                                     | M5-M6 |

@@ -42,6 +42,18 @@ func equipmentDef(t *testing.T) *compile.Card {
 	return def
 }
 
+// auraDefWithEnchant builds an Aura carrying an `Enchant` keyword written
+// exactly the way the corpus writes one -- "K:Enchant:<validString>", with
+// no display-text half, which enchantSpec's own doc comment says is a legal
+// form too (cut on the first remaining ":" finds none, so the whole string
+// is the spec).
+func auraDefWithEnchant(t *testing.T, validString string) *compile.Card {
+	t.Helper()
+	def := auraDef(t)
+	def.Faces[0].Keywords = []string{"Enchant:" + validString}
+	return def
+}
+
 func creatureDef(t *testing.T) *compile.Card {
 	t.Helper()
 	return creatureDefPT(t, "2", "2")
@@ -547,6 +559,95 @@ func TestCheckStateBasedActionsLegalAuraSurvives(t *testing.T) {
 	}
 	if got, attached := g.Card(aura).AttachedTo(); !attached || got != host {
 		t.Errorf("legally attached aura AttachedTo() = (%d, %v), want (%d, true)", got, attached, host)
+	}
+}
+
+// CR 303.4a/704.5: an Aura's own `Enchant` restriction is checked against a
+// host that is still on the battlefield, not just the host's presence there
+// -- an Aura enchanting a Land finds a Creature host illegal even though
+// the host never left.
+func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostNoLongerMatchesEnchant(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	host := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Land"), p, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (host is a Creature, not a Land)", z)
+	}
+}
+
+// The matching half of the same check: an Aura enchanting a Creature finds a
+// Creature host legal, and is left alone.
+func TestCheckStateBasedActionsAuraSurvivesWhenHostMatchesEnchant(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	host := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(aura).Zone; z != engine.Battlefield {
+		t.Errorf("aura zone = %v, want Battlefield (host is a Creature, matching Enchant:Creature)", z)
+	}
+	if got, attached := g.Card(aura).AttachedTo(); !attached || got != host {
+		t.Errorf("aura AttachedTo() = (%d, %v), want (%d, true)", got, attached, host)
+	}
+}
+
+// A property on the Enchant restriction is checked too, not just the base
+// type -- CR 303.4a's restriction is the whole valid string, and
+// Enchant:Creature.YouCtrl is violated the moment the host changes
+// controller even though it is still a Creature.
+func TestCheckStateBasedActionsAuraGoesToGraveyardWhenEnchantPropertyStopsMatching(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	host := g.NewCard(creatureDef(t), a, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature.YouCtrl"), a, engine.Battlefield)
+	g.Attach(aura, host)
+	g.Card(host).Controller = b // no longer the Aura controller's own creature
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard (host is no longer YouCtrl from the aura's side)", z)
+	}
+}
+
+// "Player" and "Opponent" (K:Enchant:Player, K:Enchant:Opponent -- real
+// corpus cards, Tenuous Truce among them) name an Aura that enchants a
+// player, not a permanent -- a shape this port's AttachedTo cannot even
+// represent. enchantSpec reports no checkable spec for either rather than
+// reading the literal word as a card-type restriction, which would
+// incorrectly destroy the aura on every call: no permanent's type line ever
+// contains the string "Opponent".
+func TestCheckStateBasedActionsAuraWithPlayerEnchantIsNotCheckedAgainstHost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	host := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Opponent"), p, engine.Battlefield)
+	g.Attach(aura, host)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(aura).Zone; z != engine.Battlefield {
+		t.Errorf("aura zone = %v, want Battlefield (Enchant:Opponent is not a card-type restriction to check)", z)
 	}
 }
 

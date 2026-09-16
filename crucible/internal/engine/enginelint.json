@@ -38,7 +38,7 @@
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
     "control": ["id", "game", "combat"],
-    "action": ["id", "zone", "parts", "card", "player", "game", "event", "control"],
+    "action": ["id", "zone", "parts", "card", "player", "game", "event", "control", "valid"],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event", "control", "combat"],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control"],

@@ -3,7 +3,13 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/cardtype"
+import (
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
 
 // CheckStateBasedActions applies every state-based action this port checks
 // today and reports whether the game has ended as a result.
@@ -439,27 +445,36 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 	}
 }
 
-// cleanupDanglingAttachments is CR 704.5's attachment-legality rule, which
-// this port can decide without the layer system or a valid-string
-// evaluator only for the one case where the card an attachment pointed at
-// left the battlefield out from under it. Not one clean letter: Java's own
-// "cleanup aura" comment (GameAction.java:1511, CheckStateBasedActions's
-// doc comment) is unlabeled, and the nearby attach-legality check it
-// shares a loop with is labeled 704.5q in one comment even though
-// `stateBasedAction704_5q`'s own name gives that letter to counter
-// annihilation instead -- Java's comments disagree with each other here,
-// so no sub-letter is asserted for this rule either. Move already
-// unattaches a card from whatever *it* was attached to the moment it
-// leaves (game.go); this is the other direction -- nothing walked the
-// leaving card's own attachments -- and it has to be an SBA, not something
-// Move does inline, because a Zone or Move test exercising a single card
-// should not have to know about Aura at all.
+// cleanupDanglingAttachments is CR 704.5's attachment-legality rule: an
+// attachment is illegal once either its host left the battlefield out from
+// under it, or -- for an Aura specifically -- its host is still there but no
+// longer matches the Aura's own `Enchant` restriction (CR 303.4a,
+// enchantSpec, below). Not one clean letter: Java's own "cleanup aura"
+// comment (GameAction.java:1511, CheckStateBasedActions's doc comment) is
+// unlabeled, and the nearby attach-legality check it shares a loop with is
+// labeled 704.5q in one comment even though `stateBasedAction704_5q`'s own
+// name gives that letter to counter annihilation instead -- Java's comments
+// disagree with each other here, so no sub-letter is asserted for this rule
+// either. Move already unattaches a card from whatever *it* was attached to
+// the moment it leaves (game.go); this is the other direction -- nothing
+// walked the leaving card's own attachments -- and it has to be an SBA, not
+// something Move does inline, because a Zone or Move test exercising a
+// single card should not have to know about Aura at all.
 //
-// An Aura goes to its owner's graveyard whether the host left or the Aura
-// was never attached to begin with -- both are "not attached to a legal
-// object". An Equipment or Fortification only loses the attachment, not
-// the permanent: staying on the battlefield unattached is legal for those
-// two, the way it is not for an Aura.
+// An Aura goes to its owner's graveyard whether the host left, never
+// legally matched the restriction to begin with, or stopped matching it --
+// all three are "not attached to a legal object". An Equipment or
+// Fortification only loses the attachment, not the permanent: staying on
+// the battlefield unattached is legal for those two, the way it is not for
+// an Aura, and neither carries an `Enchant` restriction to re-check --
+// `enchantSpec` only ever fires for an Aura.
+//
+// What is still not checked: protection and hexproof preventing the
+// attachment in the first place (CR 702.11h/702.16e, a static-ability
+// "can't be enchanted/equipped" question, not the Enchant string itself) --
+// game-state.md's "Not ported yet" has the reason, a quality-matching
+// static-ability engine this port does not have, distinct from the
+// valid-string evaluator the Enchant restriction itself needed.
 //
 // Candidates are collected before either Move or Unattach runs, because
 // both mutate the battlefield zone or a card's own attachment list -- the
@@ -472,6 +487,11 @@ func cleanupDanglingAttachments(g *Game) {
 			c := g.Card(id)
 			host, attached := c.AttachedTo()
 			legal := attached && g.Card(host).Zone == Battlefield
+			if legal && c.Type().HasSubtype("Aura") {
+				if spec, ok := enchantSpec(c); ok {
+					legal = Matches(g, g.Card(host), spec, c.Controller, id)
+				}
+			}
 			switch {
 			case legal:
 				continue
@@ -490,4 +510,37 @@ func cleanupDanglingAttachments(g *Game) {
 		// battlefield (game.go), so there is nothing left to do here.
 		g.Move(id, Graveyard, g.Card(id).Owner)
 	}
+}
+
+// enchantSpec parses c's own `Enchant` keyword (CR 303.4a) into a valid.Spec,
+// reporting whether it found a checkable one. `Enchant`'s value is a
+// KeywordWithType, whose written form is "<validString>:<display text>"
+// when it carries a display text at all (KeywordWithType.java's own parse,
+// `k[0]`/`k[1]` after splitting on every `:`); Go's own keyword.Parse only
+// cuts the head off once, so Details still carries both halves here, and
+// only the first is a valid.Spec.
+//
+// "Player" and "Opponent" (`K:Enchant:Player`, `K:Enchant:Opponent` --
+// Tenuous Truce, Archenemy, Overencumbered, Psychic Possession) are Java's
+// own literal forms for an Aura that enchants a player rather than a
+// permanent, not a card-type restriction valid.Parse can express -- and
+// this port's AttachedTo (card.go) has no representation for "attached to a
+// player" at all, so those two report no checkable spec rather than being
+// misread as a card-type restriction no permanent could ever match.
+func enchantSpec(c *Card) (valid.Spec, bool) {
+	if c.Def == nil {
+		return valid.Spec{}, false
+	}
+	for _, line := range c.Def.Faces[0].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Enchant" {
+			continue
+		}
+		typ, _, _ := strings.Cut(k.Details, ":")
+		if typ == "" || typ == "Player" || typ == "Opponent" {
+			return valid.Spec{}, false
+		}
+		return valid.Parse(typ), true
+	}
+	return valid.Spec{}, false
 }

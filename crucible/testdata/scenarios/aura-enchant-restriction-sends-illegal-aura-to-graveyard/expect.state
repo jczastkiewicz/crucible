@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=20
+humanbattlefield=Silvercoat Lion|Id:1;Forest|Id:2;Pacifism|Id:3|AttachedTo:1
+humangraveyard=Pacifism
+ailife=20

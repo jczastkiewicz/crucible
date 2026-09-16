@@ -1,0 +1,5 @@
+# Two World enchantments on the battlefield -- CR 704.5m, resolveWorldRule --
+# fires as a state-based action, which StartTurn's own Untap-step beginPhase
+# already checks, so no advance is needed to reach it. No PlayerController
+# decision either: the newest one, by Card.Timestamp, wins automatically.
+startturn human

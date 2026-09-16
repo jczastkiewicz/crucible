@@ -1,0 +1,6 @@
+# Pacifism (K:Enchant:Creature) legally attached to a creature stays; a
+# second copy illegally attached to a Forest -- never a Creature -- is a CR
+# 303.4a Enchant-restriction violation, caught by cleanupDanglingAttachments
+# (enchantSpec) as soon as CheckStateBasedActions runs, which StartTurn's own
+# Untap-step beginPhase already does. No advance needed to reach it.
+startturn human

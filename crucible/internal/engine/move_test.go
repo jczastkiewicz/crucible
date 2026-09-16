@@ -128,6 +128,43 @@ func TestMoveGrantsAPlaneswalkerItsStartingLoyalty(t *testing.T) {
 	}
 }
 
+// The ETB loyalty grant emits CounterChanged, not just the counter itself --
+// a recorder watching the event stream sees a planeswalker's starting loyalty
+// the same way it sees any other counter change.
+func TestMoveEmitsCounterChangedForAPlaneswalkerETBGrant(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(planeswalkerDefLoyalty(t, "5"), p, engine.Hand)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	g.Move(id, engine.Battlefield, p)
+
+	var found *engine.Event
+	for i := range sink.events {
+		if sink.events[i].Kind == engine.CounterChanged {
+			found = &sink.events[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("no CounterChanged event among %d emitted", len(sink.events))
+	}
+	if found.Source != id {
+		t.Errorf("source %v, want %v", found.Source, id)
+	}
+	if found.Target != engine.CardEntity(id) {
+		t.Errorf("target %v, want %v", found.Target, engine.CardEntity(id))
+	}
+	if found.Amount != 5 {
+		t.Errorf("amount %d, want 5", found.Amount)
+	}
+	if found.Detail != uint32(engine.CounterDetailLoyalty) {
+		t.Errorf("detail %d, want CounterDetailLoyalty", found.Detail)
+	}
+}
+
 // Entering the battlefield gives a Battle its printed starting defense as
 // counters (CR 704.5v) -- Loyalty's own counterpart.
 func TestMoveGrantsABattleItsStartingDefense(t *testing.T) {

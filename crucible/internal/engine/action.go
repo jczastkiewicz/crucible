@@ -137,7 +137,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// CR 704.5q
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			annihilateCounters(g.Card(id))
+			annihilateCounters(g, id)
 		}
 	}
 	destroyLethalToughness(g)
@@ -152,8 +152,11 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 
 // annihilateCounters is CR 704.5q: N +1/+1 and N -1/-1 counters are removed
 // together, where N is the smaller pile. A card carrying only one kind, or
-// neither, is untouched.
-func annihilateCounters(c *Card) {
+// neither, is untouched. Sourced from id itself: the rule is self-inflicted,
+// not a card's ability doing it, the same as Move's ETB loyalty/defense grant
+// (game.go) has no other card to attribute it to.
+func annihilateCounters(g *Game, id CardID) {
+	c := g.Card(id)
 	plus, minus := c.Counters.Count(P1P1), c.Counters.Count(M1M1)
 	if plus == 0 || minus == 0 {
 		return
@@ -164,6 +167,8 @@ func annihilateCounters(c *Card) {
 	}
 	c.Counters.Add(P1P1, -remove)
 	c.Counters.Add(M1M1, -remove)
+	emitCounterChanged(g.sink, id, CardEntity(id), P1P1, -remove)
+	emitCounterChanged(g.sink, id, CardEntity(id), M1M1, -remove)
 }
 
 // destroyLethalToughness is CR 704.5f, GameAction.java's own comment (not

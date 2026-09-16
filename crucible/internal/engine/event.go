@@ -111,6 +111,68 @@ type Sink interface {
 	Emit(Event)
 }
 
+// CounterDetail is the Event.Detail payload a CounterChanged event carries.
+// Closed over the eight named CounterType constants (counters.go), not every
+// string CounterType allows: nothing yet creates a counter from a
+// script-written name -- that needs a SpellAbility to run one, M6 -- so
+// there is no open-string case to encode today. Extending this switch, or
+// replacing it with a per-Game interning table (ADR-0009's arena pattern,
+// the same shape as CardID) if the corpus turns out to need more than a
+// closed set, is whichever M6 needs when a real caller forces the choice.
+type CounterDetail uint32
+
+// The details, one per named CounterType (counters.go). counterDetailNone is
+// the zero value and is never carried by a real CounterChanged event --
+// symmetric with EventNone above.
+const (
+	counterDetailNone CounterDetail = iota
+	CounterDetailP1P1
+	CounterDetailM1M1
+	CounterDetailLoyalty
+	CounterDetailDefense
+	CounterDetailCharge
+	CounterDetailStun
+	CounterDetailShield
+	CounterDetailPoison
+)
+
+// counterDetail maps t to the Detail value CounterChanged carries for it, and
+// false for a CounterType outside the closed set above.
+func counterDetail(t CounterType) (CounterDetail, bool) {
+	switch t {
+	case P1P1:
+		return CounterDetailP1P1, true
+	case M1M1:
+		return CounterDetailM1M1, true
+	case Loyalty:
+		return CounterDetailLoyalty, true
+	case Defense:
+		return CounterDetailDefense, true
+	case Charge:
+		return CounterDetailCharge, true
+	case Stun:
+		return CounterDetailStun, true
+	case Shield:
+		return CounterDetailShield, true
+	case Poison:
+		return CounterDetailPoison, true
+	default:
+		return counterDetailNone, false
+	}
+}
+
+// emitCounterChanged emits CounterChanged for a change of delta counters of
+// kind t on target, sourced from source. Does nothing for a CounterType
+// counterDetail does not encode -- unreachable today, and dropping the event
+// beats emitting one whose Detail lies about what kind changed.
+func emitCounterChanged(sink Sink, source CardID, target EntityID, t CounterType, delta int) {
+	detail, ok := counterDetail(t)
+	if !ok {
+		return
+	}
+	sink.Emit(Event{Kind: CounterChanged, Source: source, Target: target, Amount: int32(delta), Detail: uint32(detail)})
+}
+
 // DiscardSink drops every event.
 //
 // This is what a cloned game gets. The AI explores lines that never happened,

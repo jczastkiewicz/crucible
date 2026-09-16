@@ -701,16 +701,17 @@ something does.
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held
 a `Sink`, and nothing called `Emit`. Every mechanism this port has built now does:
 
-| Call site                                                | Kind(s)                                             |
-| -------------------------------------------------------- | --------------------------------------------------- |
-| `Move`                                                   | `ZoneChanged`                                       |
-| `StartTurn`, `AdvancePhase` (on wrap)                    | `TurnBegan`                                         |
-| `beginPhase` (every step)                                | `PhaseBegan`                                        |
-| `drawStep`                                               | `CardDrawn`, alongside `Move`'s own `ZoneChanged`   |
-| `CheckStateBasedActions` (once, on end)                  | `GameEnded`                                         |
-| `PushAbility`                                            | `AbilityActivated`                                  |
-| `ResolveStack` (per item)                                | `AbilityResolved`                                   |
-| `dealCombatDamageStep` (per exchange, both damage steps) | `DamageDealt`, plus `LifeChanged` for player damage |
+| Call site                                                                       | Kind(s)                                             |
+| ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `Move`                                                                          | `ZoneChanged`                                       |
+| `StartTurn`, `AdvancePhase` (on wrap)                                           | `TurnBegan`                                         |
+| `beginPhase` (every step)                                                       | `PhaseBegan`                                        |
+| `drawStep`                                                                      | `CardDrawn`, alongside `Move`'s own `ZoneChanged`   |
+| `CheckStateBasedActions` (once, on end)                                         | `GameEnded`                                         |
+| `PushAbility`                                                                   | `AbilityActivated`                                  |
+| `ResolveStack` (per item)                                                       | `AbilityResolved`                                   |
+| `dealCombatDamageStep` (per exchange, both damage steps)                        | `DamageDealt`, plus `LifeChanged` for player damage |
+| `annihilateCounters`, `dealPermanentDamage`, `Move`'s ETB loyalty/defense grant | `CounterChanged`                                    |
 
 `Game.sink` defaults to `DiscardSink{}`, set in `NewGame`, so no existing caller — every test, `fixture.Load` — had to
 start constructing one. `SetSink` is the opt-in a recorder (M8) uses. `Game.Clone` always gives the clone a fresh
@@ -722,17 +723,29 @@ would record imagined casts as real.
 Draw" before "drew a card," matching when a real player would notice the step change. `TurnBegan` fires before
 `ActivePhase` changes to `Untap`, for the same reason.
 
-Not wired, and each is a real gap rather than an oversight: `CounterChanged` (annihilating counters is the only thing
-that would fire it, and `Event.Detail` is a numeric payload that has nowhere to put an open string like `CounterType`
-without inventing an encoding first), `SpellCast` (nothing that would fire it exists yet — casting, unlike combat damage
-or stack resolution, is still unbuilt), and anything from `PerformMulligans` itself — a mulligan is fully visible as the
-`ZoneChanged` cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the schema to add without
-also bumping `SchemaVersion`, a more deliberate act than this pass earned. `AbilityActivated`/`AbilityResolved` are
-wired now (`## Stack`), even though nothing yet calls `PushAbility` or `ResolveStack` outside a test — the same
-"mechanism now, content later" the effect registry already established. `DamageDealt`/`LifeChanged` are wired for real
-content now too (`## Combat`, above) — every combat exchange fires `DamageDealt`, and player damage also fires
-`LifeChanged` with `Amount` as the signed change (negative for the ordinary case, a loss), a sign convention this port
-chose freely since nothing wired either kind before combat damage did.
+`CounterChanged` fires from every counter change this port can cause today — `annihilateCounters`'s CR 704.5q pile
+shrink, `dealPermanentDamage`'s loyalty/defense removal, `Move`'s ETB loyalty/defense grant — with `Amount` as the
+signed delta (negative for a loss, matching `LifeChanged`'s own convention) and `Detail` as a `CounterDetail`
+(`event.go`) encoding which `CounterType` changed. `CounterDetail` is closed over the eight named `CounterType`
+constants (`counters.go`) — `P1P1`, `M1M1`, `Loyalty`, `Defense`, `Charge`, `Stun`, `Shield`, `Poison` — not the open
+string `CounterType` itself allows, because nothing yet creates a counter from a script-written name; that needs a
+`SpellAbility` to run one, M6's problem. `counterDetail` (unexported, `event.go`) returns `ok == false` for anything
+outside that set, and the caller drops the event rather than emit one with a lying `Detail` — unreachable today, since
+every existing caller passes a named constant, but the seam exists for when M6's script-driven counters make it
+reachable. Extending the switch, or replacing it with a per-`Game` interning table (ADR-0009's arena pattern, the same
+shape as `CardID`) if the corpus turns out to need more than a closed set, is whichever shape M6 needs when a real
+caller forces the choice — not a decision worth making before one exists.
+
+Not wired, and each is a real gap rather than an oversight: `SpellCast` (nothing that would fire it exists yet —
+casting, unlike combat damage, counters changing, or stack resolution, is still unbuilt), and anything from
+`PerformMulligans` itself — a mulligan is fully visible as the `ZoneChanged` cascade `Move` already produces, and no
+`MulliganTaken`-shaped kind exists in the schema to add without also bumping `SchemaVersion`, a more deliberate act than
+this pass earned. `AbilityActivated`/`AbilityResolved` are wired now (`## Stack`), even though nothing yet calls
+`PushAbility` or `ResolveStack` outside a test — the same "mechanism now, content later" the effect registry already
+established. `DamageDealt`/`LifeChanged` are wired for real content now too (`## Combat`, above) — every combat exchange
+fires `DamageDealt`, and player damage also fires `LifeChanged` with `Amount` as the signed change (negative for the
+ordinary case, a loss), a sign convention this port chose freely since nothing wired either kind before combat damage
+did.
 
 ## The scenario harness lives partly here
 
@@ -762,8 +775,8 @@ compared were never going to agree on those by number.
 | A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                                                                                                                                                                                                                                                                                                                         | M5-M6 |
 | Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond                                                                                                                                                                                                                                                                                                                    | M5-M6 |
 | Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                                                                                                                                                                                                                                                                                                                                  | never |
-| `CounterChanged`, `SpellCast` — nothing yet causes them                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | M5-M6 |
-| `Event.Detail`'s encoding for `CounterChanged` — `Detail` (`event.go:101`) is documented as carrying "the counter type," but `CounterType` is an open string by design, not a closed enum, and ADR-0013 never addresses packing one into a fixed `uint32`. Needs its own decision, not a guess made in passing when the event finally fires                                                                                                                                                                                  | M5-M6 |
+| `SpellCast` — nothing yet causes it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
+| `CounterChanged` for a script-written (non-named-constant) `CounterType` — `counterDetail` (`event.go`) is closed over the eight named constants; a `SpellAbility` creating an arbitrary keyword counter needs the encoding extended or replaced first (`## Events, wired`)                                                                                                                                                                                                                                                  | M5-M6 |
 | Basic land mana abilities — `Plains.txt` carries no ability line at all (`Name:Plains / ManaCost:no cost / Types:Basic Land Plains / Oracle:({T}: Add {W}.)`); the Java mechanism that synthesizes a basic land's tap-for-mana ability from its subtype was not found after checking `Card.java`, `CardFactory.java`, `MagicColor.java`, `CardRules.java`, `AbilityManaPart.java` and `Aggregates.java`. Blocks `Pool.Add`'s first real (non-test) caller (PORT-8: find the mechanism or leave the gap open, don't guess it) | M5-M6 |
 | `MagicStack`'s freeze/unfreeze, `addSimultaneousStackEntry`, `undoStack` — need a second ability arriving while one is still resolving, which nothing can cause yet                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                                                                                                                                                                                                                                                                                                                                    | M5-M6 |

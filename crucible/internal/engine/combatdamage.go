@@ -221,9 +221,11 @@ func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch
 	t := c.Type()
 	if t.Has(cardtype.Planeswalker) {
 		c.Counters.Add(Loyalty, -amount)
+		emitCounterChanged(g.sink, source, CardEntity(target), Loyalty, -amount)
 	}
 	if t.Has(cardtype.Battle) {
 		c.Counters.Add(Defense, -amount)
+		emitCounterChanged(g.sink, source, CardEntity(target), Defense, -amount)
 	}
 	if t.Has(cardtype.Creature) {
 		c.Damage.Mark(amount, deathtouch)

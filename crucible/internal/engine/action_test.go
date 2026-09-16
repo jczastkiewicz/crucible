@@ -286,6 +286,46 @@ func TestCheckStateBasedActionsAnnihilatesCounters(t *testing.T) {
 	}
 }
 
+// Annihilation emits CounterChanged for both piles it shrinks, sourced from
+// the card itself -- the rule is self-inflicted, no other card causes it.
+func TestCheckStateBasedActionsAnnihilationEmitsCounterChanged(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	id := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(id).Counters.Add(engine.P1P1, 5)
+	g.Card(id).Counters.Add(engine.M1M1, 2)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	var p1p1, m1m1 *engine.Event
+	for i := range sink.events {
+		e := &sink.events[i]
+		if e.Kind != engine.CounterChanged {
+			continue
+		}
+		switch engine.CounterDetail(e.Detail) {
+		case engine.CounterDetailP1P1:
+			p1p1 = e
+		case engine.CounterDetailM1M1:
+			m1m1 = e
+		}
+	}
+	if p1p1 == nil || m1m1 == nil {
+		t.Fatalf("CounterChanged for both P1P1 and M1M1 among %d events, got p1p1=%v m1m1=%v", len(sink.events), p1p1, m1m1)
+	}
+	if p1p1.Source != id || p1p1.Target != engine.CardEntity(id) || p1p1.Amount != -2 {
+		t.Errorf("P1P1 event = %+v, want source/target %v, amount -2", *p1p1, id)
+	}
+	if m1m1.Source != id || m1m1.Target != engine.CardEntity(id) || m1m1.Amount != -2 {
+		t.Errorf("M1M1 event = %+v, want source/target %v, amount -2", *m1m1, id)
+	}
+}
+
 // Only one kind present is untouched -- there is nothing to annihilate
 // against.
 func TestCheckStateBasedActionsOneKindOfCounterSurvives(t *testing.T) {

@@ -35,7 +35,7 @@
     "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],
     "effect": ["id", "zone", "parts", "card", "player", "game", "ability"],
     "phase": [],
-    "event": ["id", "zone", "phase"],
+    "event": ["id", "zone", "phase", "parts"],
     "control": ["id", "game", "combat"],
     "action": ["id", "zone", "parts", "card", "player", "game", "event", "control"],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event", "control"],

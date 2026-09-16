@@ -164,6 +164,57 @@ func TestDealCombatDamageToAPlaneswalkerRemovesLoyalty(t *testing.T) {
 	}
 }
 
+// Combat damage removing loyalty emits CounterChanged with a negative amount
+// -- the same event a gain would emit, sign flipped, not a separate kind for
+// loss.
+func TestDealCombatDamageToAPlaneswalkerEmitsCounterChanged(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "4", "4"), a, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefLoyalty(t, "6"), b, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 6)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	ac.QueueAttackTarget(engine.CardEntity(pw))
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	var found *engine.Event
+	for i := range sink.events {
+		if sink.events[i].Kind == engine.CounterChanged {
+			found = &sink.events[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("no CounterChanged event among %d emitted", len(sink.events))
+	}
+	if found.Source != attacker {
+		t.Errorf("source %v, want the attacker %v", found.Source, attacker)
+	}
+	if found.Target != engine.CardEntity(pw) {
+		t.Errorf("target %v, want the planeswalker %v", found.Target, engine.CardEntity(pw))
+	}
+	if found.Amount != -4 {
+		t.Errorf("amount %d, want -4", found.Amount)
+	}
+	if found.Detail != uint32(engine.CounterDetailLoyalty) {
+		t.Errorf("detail %d, want CounterDetailLoyalty", found.Detail)
+	}
+}
+
 // Attacking a battle routes combat damage into its defense counters -- CR
 // 121.5's combat-damage analogue to a planeswalker's loyalty.
 func TestDealCombatDamageToABattleRemovesDefense(t *testing.T) {

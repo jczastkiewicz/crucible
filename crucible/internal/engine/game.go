@@ -260,9 +260,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.SummonSick = true
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
 			c.Counters.Add(Loyalty, loyalty)
+			emitCounterChanged(g.sink, id, CardEntity(id), Loyalty, loyalty)
 		}
 		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) {
 			c.Counters.Add(Defense, defense)
+			emitCounterChanged(g.sink, id, CardEntity(id), Defense, defense)
 		}
 	}
 

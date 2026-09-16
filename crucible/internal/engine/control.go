@@ -12,25 +12,26 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the seventeen answerable with today's
+// which has 110 abstract methods; only the eighteen answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// seventeen: mulligans and the starting-player choice have callers in
+// eighteen: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
 // ChooseBattleProtector's, ChooseHybridManaColor's,
 // ChoosePayMonocoloredHybrid's, ChoosePayColorlessHybrid's,
-// ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's and ChoosePayGeneric's own
-// callers (resolveLegendRule, action.go; Game.DeclareCombatAttackers and
-// Game.assignAttackTargets, attack.go; Game.DeclareCombatBlockers, block.go;
-// Game.DealCombatDamage, combatdamage.go; Game.cleanupStep, turn.go;
-// assignBattleProtector, action.go; Game.PayManaCost, manapay.go, six
-// times over) are fully built, so the decision point can be built ahead of
-// them (Plan Section 1.3).
+// ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's, ChoosePayGeneric's and
+// ChoosePayX's own callers (resolveLegendRule, action.go;
+// Game.DeclareCombatAttackers and Game.assignAttackTargets, attack.go;
+// Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
+// combatdamage.go; Game.cleanupStep, turn.go; assignBattleProtector,
+// action.go; Game.PayManaCost, manapay.go, seven times over) are fully
+// built, so the decision point can be built ahead of them (Plan Section
+// 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -185,6 +186,24 @@ type PlayerController interface {
 	// payment if decider's pool does not actually hold what was chosen, the
 	// same as an unavailable hybrid colour choice already does.
 	ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard
+
+	// ChoosePayX decides the value of X for a cost carrying one or more X
+	// symbols (CR 601.2b/107.3f: chosen once per cast, then every X symbol in
+	// the cost stands for that same value -- a cost with two X symbols owes
+	// twice the chosen amount, not one value each). cost is the whole mana
+	// cost being paid, exactly as [Game.PayManaCost] received it, so a real
+	// controller can see what accompanies the X symbols and how much floating
+	// mana is available before answering; [mana.Cost.CountX] is how many X
+	// symbols it carries.
+	//
+	// The return value is folded into the cost's generic amount (chosen
+	// value times [mana.Cost.CountX]) before anything else resolves, the
+	// same "ahead of every other shard" position CR 601.2b's own ordering
+	// puts X's announcement in. A negative answer is not re-checked here,
+	// the same as an unavailable hybrid colour choice: [Game.PayManaCost]
+	// reports payment failure rather than trusting a value CR 601.2b's own
+	// "non-negative integer" rule forbids.
+	ChoosePayX(g *Game, decider PlayerID, cost mana.Cost) int
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -214,6 +233,7 @@ type ScriptedController struct {
 	phyrexian       []bool
 	hybridPhyrexian []mana.Colors
 	genericMana     []mana.Shard
+	xValues         []int
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -468,6 +488,20 @@ func (c *ScriptedController) ChoosePayGeneric(g *Game, decider PlayerID) mana.Sh
 	}
 	v := c.genericMana[0]
 	c.genericMana = c.genericMana[1:]
+	return v
+}
+
+// QueuePayX appends the answer to the next ChoosePayX call.
+func (c *ScriptedController) QueuePayX(x int) {
+	c.xValues = append(c.xValues, x)
+}
+
+func (c *ScriptedController) ChoosePayX(g *Game, decider PlayerID, cost mana.Cost) int {
+	if len(c.xValues) == 0 {
+		panic(scriptExhausted("pay x"))
+	}
+	v := c.xValues[0]
+	c.xValues = c.xValues[1:]
 	return v
 }
 

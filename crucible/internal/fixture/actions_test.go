@@ -708,6 +708,34 @@ func TestRunActionsQueuePayGenericBadShardErrors(t *testing.T) {
 	}
 }
 
+func TestRunActionsQueuePayXResolvesAnInt(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payx 3\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got, want := c.ChoosePayX(l.Game, l.Game.Players()[0], mana.Cost{}), 3; got != want {
+		t.Errorf("payx answer = %d, want %d", got, want)
+	}
+}
+
+func TestRunActionsQueuePayXBadIntErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue payx abc\n"); err == nil {
+		t.Error("an unparseable int did not error")
+	}
+}
+
 func TestRunActionsQueueHybridManaColorResolvesAColor(t *testing.T) {
 	t.Parallel()
 

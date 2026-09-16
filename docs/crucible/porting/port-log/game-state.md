@@ -720,12 +720,18 @@ protection, "must be blocked by" — waits on the general static-ability engine,
 slice — the plan's own "budget the most time here" warning is about the full version, and this is deliberately not that:
 `Pay` itself handles a cost's `Generic` amount plus its six "pure" shards (`ShardW`/`U`/`B`/`R`/`G`/`C`) and nothing
 else, the same "plain-integer operand" discipline `valid.go`'s `compareMatches` already applies to numeric comparisons.
-`Game.PayManaCost` (`manapay.go`) layers six harder cases on top without touching `Pay`: a two-colour hybrid shard
-(`{W/U}`) asks `ChooseHybridManaColor` which colour to pay with, substitutes the plain shard for the answer, and hands
-the result to `Pay` unchanged; a monocoloured hybrid (`{2/W}`) asks `ChoosePayMonocoloredHybrid` whether to pay with
-colour or with the shard's own `CMC` (2) worth of generic instead — `true` substitutes the plain colour shard the same
-way the two-colour case does, `false` adds the shard's `CMC` onto the cost's `Generic` amount instead of adding a shard
-at all; a colourless hybrid (`{C/W}`) asks `ChoosePayColorlessHybrid` the same true/false shape, but `false` substitutes
+`Game.PayManaCost` (`manapay.go`) layers seven harder cases on top without touching `Pay`: `{X}` (CR 601.2b) asks
+`ChoosePayX` for the value of X exactly once, before anything else in the cost resolves, and folds it into `Generic` as
+`x * cost.CountX()` — every `X` symbol the cost carries stands for the same announced value, not one value each (CR
+107.3f), so a cost with two `{X}` symbols owes twice the chosen amount, and `ChoosePayX` is asked once regardless of how
+many `{X}` symbols there are. A negative answer is not re-checked against anything downstream — `PayManaCost` itself
+reports failure before the shard loop or `Pool.Pay` ever run, since CR 601.2b restricts X to a non-negative integer and
+there is no meaningful `Pay`-level failure to delegate that to. Then a two-colour hybrid shard (`{W/U}`) asks
+`ChooseHybridManaColor` which colour to pay with, substitutes the plain shard for the answer, and hands the result to
+`Pay` unchanged; a monocoloured hybrid (`{2/W}`) asks `ChoosePayMonocoloredHybrid` whether to pay with colour or with
+the shard's own `CMC` (2) worth of generic instead — `true` substitutes the plain colour shard the same way the
+two-colour case does, `false` adds the shard's `CMC` onto the cost's `Generic` amount instead of adding a shard at all;
+a colourless hybrid (`{C/W}`) asks `ChoosePayColorlessHybrid` the same true/false shape, but `false` substitutes
 `mana.ShardC` for the symbol instead of touching `Generic` — its other side is a specific mana type, not an amount, so
 it is resolved the same way the two-colour case's colour choice is, not the way the monocoloured case's generic choice
 is; a single-colour Phyrexian shard (`{W/P}`, CR 118.4) asks `ChoosePayPhyrexian` the same true/false shape, but `false`
@@ -743,11 +749,11 @@ whole cost. `PayManaCost` only deducts `life` from `Player.Life` directly, after
 payment that fails on an unrelated shard never costs life for a Phyrexian shard (either kind) it already resolved.
 Paying life this way fires `LifeChanged` with `Source: NoCard` (no card causes it — `PayManaCost` takes no card
 parameter today) and `Amount` as the negative life lost, the same wiring discipline `CounterChanged` got when a real
-mutator needed it (`## Events, wired`, below). All six ask before `Pay` ever sees the cost; `Pay` itself is unaware any
-hybrid, Phyrexian or controller-chosen generic shard exists — it always receives an already-resolved shard list and a
-`Generic` of zero when called from here. Every other harder shape — `{X}` or snow — is still a real decision this port
-has no `PlayerController` method to ask, and `PayManaCost` passes each through unresolved so `Pay`'s own "unresolvable
-shard" branch fails the payment for it, the same as calling `Pay` directly already did.
+mutator needed it (`## Events, wired`, below). All seven ask before `Pay` ever sees the cost; `Pay` itself is unaware
+any hybrid, Phyrexian, `{X}` or controller-chosen generic shard exists — it always receives an already-resolved shard
+list and a `Generic` of zero when called from here. Snow is still a real decision this port has no `PlayerController`
+method to ask, and `PayManaCost` passes a snow shard through unresolved so `Pay`'s own "unresolvable shard" branch fails
+the payment for it, the same as calling `Pay` directly already did.
 
 **Nothing casts a spell yet, and `Pay` does not need one to be worth building.** `turn.go`'s own doc comment already
 says why the priority loop isn't wired in: no `PlayerController` method can cast or activate anything, so `Pay` has no
@@ -788,13 +794,20 @@ Phyrexian shard has its own verb too now (`queue hybridmanacolor`, `queue paymon
 `queue paycolorlesshybrid`, `queue payphyrexian`, `queue payhybridphyrexian` -- `game-state-fixture.md`'s own verb
 table), each mirroring its `ScriptedController` method's argument shape exactly -- a bare color letter or a bool, and
 `payhybridphyrexian`'s own third answer written as the literal word `life` rather than an empty value, the same "decline
-explicitly" convention `queue attackers none`/`queue blocks none` already use. Five fixtures exercise the six resolved
-shapes end to end: `mana-payment-pays-colored-and-generic`, `mana-payment-fails-atomically`,
+explicitly" convention `queue attackers none`/`queue blocks none` already use. Five fixtures exercise six of the seven
+resolved shapes end to end: `mana-payment-pays-colored-and-generic`, `mana-payment-fails-atomically`,
 `mana-payment-hybrid-color-choice`, `mana-payment-monocolored-hybrid-generic` and `mana-payment-hybrid-phyrexian-life`.
 
-**`Pool.Add` has a real (non-test) caller now: `TapLandForMana` (`manaability.go`), CR 305.6's intrinsic land ability.**
-Every fixture above preloads the pool through `manapool=` directly; nothing in the engine had ever put mana there
-itself. The blocking question — how Forge derives a basic land's "T: Add [color]" ability, since
+**`{X}` turned out not to need a real caster after all.** Earlier passes over this section assumed CR 601.2b's "the
+player announces X" belonged to the missing casting flow (M6) and left it unresolved alongside snow. Revisiting it:
+`PayManaCost` is already called standalone, ahead of any cast (the same position every other shape here is in), and CR
+601.2b's announcement is itself just one more decision `PlayerController` can be asked before the rest of the cost
+resolves — no different in kind from `ChoosePayGeneric` asking which mana covers a generic unit.
+`ChoosePayX(g, decider, cost) int` is that decision, asked once per cost regardless of how many `{X}` symbols it
+carries, and its answer times `cost.CountX()` is added to `Generic` before the shard loop runs at all. `queue payx <n>`
+(`game-state-fixture.md`) is the verb; `mana-payment-resolves-x` is the fixture, paying `{X}{R}` with X=3 from a pool of
+one red and three white. Every fixture above preloads the pool through `manapool=` directly; nothing in the engine had
+ever put mana there itself. The blocking question — how Forge derives a basic land's "T: Add [color]" ability, since
 `forge-gui/res/cardsfolder/p/plains.txt` carries no `A:` line at all, only `Oracle:({T}: Add {W}.)` — turned out to live
 in a file the previous search had not checked: `CardState.java`'s `getLandTraitChanges`/`getLandManaForColor` walks
 `MagicColor.Color.values()`, and for each one whose `getBasicLandType()` the card's current type line has as a subtype

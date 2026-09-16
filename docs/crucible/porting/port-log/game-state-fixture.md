@@ -111,6 +111,7 @@ queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated 
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue hybridmanacolor <color> ScriptedController.QueueHybridManaColor, a bare color letter
 queue paymonocoloredhybrid <bool>     ScriptedController.QueuePayMonocoloredHybrid
 queue paycolorlesshybrid <bool>       ScriptedController.QueuePayColorlessHybrid
@@ -193,6 +194,12 @@ reuses `resolveManaColor` for its own `<color>` argument and `resolveCardIDs` (r
 "declined by the rules, not a fixture error" convention `paymanacost` already established —
 `testdata/scenarios/mana-payment-tap-land-for-mana` is the one fixture so far, and the first mana-payment fixture where
 the paid mana comes from a real card (a corpus `Plains`) rather than `manapool=`.
+
+`queue payx` is a bare `strconv.Atoi`, the plainest parser of the whole file — `ChoosePayX`'s own answer is just an
+`int`, no shard or color vocabulary involved. It is asked once per cost, not once per `{X}` symbol, so a cost with two
+`{X}`s (CR 107.3f) still consumes exactly one `queue payx` line; `mana-payment-resolves-x` writes `queue payx 3` once
+and three `queue paygeneric` lines after it (X's chosen value folds into the generic amount `queue paygeneric` already
+knows how to spend), not three `queue payx` lines.
 
 `Loaded.CardByFixtureID` is the other piece `RunActions` needed: the same `Id:` map `AttachedTo:`/`RememberedCards:`
 resolution already builds internally, kept around after `Load` returns instead of discarded. A scenario naming a

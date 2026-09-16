@@ -1,0 +1,11 @@
+# CR 601.2b: X is announced once, before any other part of the cost is
+# paid -- ChoosePayX, asked ahead of every shard and every unit of generic --
+# and its value is folded straight into the generic amount, so the same
+# ChoosePayGeneric loop every other mana-payment fixture already exercises
+# is what actually spends it: X=3 owes three units of generic on top of
+# the plain {R} pip.
+queue payx 3
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+paymanacost human X R

@@ -53,6 +53,7 @@ import (
 //	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
 //	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
+//	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
 //	queue hybridmanacolor <color>        ScriptedController.QueueHybridManaColor, a bare color letter
 //	queue paymonocoloredhybrid <bool>    ScriptedController.QueuePayMonocoloredHybrid
 //	queue paycolorlesshybrid <bool>      ScriptedController.QueuePayColorlessHybrid
@@ -281,6 +282,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue paygeneric %q: %w", value, err)
 		}
 		c.QueuePayGeneric(s)
+
+	case "payx":
+		x, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("queue payx %q: %w", value, err)
+		}
+		c.QueuePayX(x)
 
 	case "hybridmanacolor":
 		color, err := resolveManaColor(value)

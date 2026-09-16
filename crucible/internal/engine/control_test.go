@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 func TestScriptedControllerAnswersInOrder(t *testing.T) {
@@ -116,6 +117,9 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		},
 		"pay generic": func(c *engine.ScriptedController) {
 			c.ChoosePayGeneric(g, p0)
+		},
+		"pay x": func(c *engine.ScriptedController) {
+			c.ChoosePayX(g, p0, mana.Cost{})
 		},
 	}
 	for name, call := range calls {

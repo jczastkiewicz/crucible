@@ -413,3 +413,92 @@ func TestPayManaCostResolvesMultipleGenericUnitsIndependently(t *testing.T) {
 		t.Errorf("pool total after payment = %d, want 0", got)
 	}
 }
+
+// {X R}: ChoosePayX answers X once, folded into the generic amount before
+// the generic-resolution loop asks ChoosePayGeneric once per unit owed --
+// the same "X announced ahead of everything else" order CR 601.2b puts it
+// in.
+func TestPayManaCostResolvesXFromControllerChoice(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	g.Player(p).ManaPool.Add(mana.White, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayX(3)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+
+	if !g.PayManaCost(p, mana.MustParse("X R"), c) {
+		t.Fatal("PayManaCost failed paying {X}{R} with X=3 against a pool of 1 red and 3 white")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}
+
+// {X X}: two X symbols in the same cost stand for one chosen value each,
+// not two independent ones -- ChoosePayX is asked exactly once regardless
+// of how many X symbols the cost carries (CR 601.2b/107.3f).
+func TestPayManaCostFoldsEveryXSymbolToTheSameChosenValue(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.Add(mana.White, 4)
+	c := engine.NewScriptedController()
+	c.QueuePayX(2)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+
+	if !g.PayManaCost(p, mana.MustParse("X X"), c) {
+		t.Fatal("PayManaCost failed paying {X}{X} with X=2 (4 generic total) against a pool of 4 white")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}
+
+// X=0 is a legal answer (CR 601.2b's "non-negative integer") and asks
+// ChoosePayGeneric zero times -- paying {X}{R} with X=0 is exactly paying
+// {R}.
+func TestPayManaCostXZeroAsksNoGeneric(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayX(0)
+
+	if !g.PayManaCost(p, mana.MustParse("X R"), c) {
+		t.Fatal("PayManaCost failed paying {X}{R} with X=0 against a pool of 1 red")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool total after payment = %d, want 0", got)
+	}
+}
+
+// A negative X is not a legal answer (CR 601.2b) and is not re-checked by
+// asking Pay to fail on it -- PayManaCost declines the payment itself,
+// before ChoosePayGeneric is ever asked or the pool is touched.
+func TestPayManaCostFailsWhenXIsNegative(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayX(-1)
+
+	if g.PayManaCost(p, mana.MustParse("X R"), c) {
+		t.Fatal("PayManaCost succeeded with a negative X")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 1 {
+		t.Errorf("pool total after a failed payment = %d, want 1 (unchanged)", got)
+	}
+}

@@ -408,6 +408,73 @@ func TestAdvancePhaseChecksStateBasedActionsEveryStep(t *testing.T) {
 	}
 }
 
+// CR 511.3: advancing into the end of combat step removes every creature
+// from combat.
+func TestAdvancePhaseIntoCombatEndClearsCombat(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	g.SetTurnState(1, a, engine.Main1)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	if len(g.Attackers()) == 0 {
+		t.Fatal("setup: no attacker declared")
+	}
+	g.SetTurnState(1, a, engine.CombatDamage)
+
+	g.AdvancePhase(engine.NewScriptedController()) // -> CombatEnd
+
+	if g.ActivePhase() != engine.CombatEnd {
+		t.Fatalf("phase %v, want CombatEnd", g.ActivePhase())
+	}
+	if got := g.Attackers(); got != nil {
+		t.Errorf("Attackers() = %v, want nil after CombatEnd", got)
+	}
+	if got := g.Blocks(); got != nil {
+		t.Errorf("Blocks() = %v, want nil after CombatEnd", got)
+	}
+	if got := g.AttackTarget(attacker); got != engine.NoEntity {
+		t.Errorf("AttackTarget(attacker) = %v, want NoEntity after CombatEnd", got)
+	}
+}
+
+// Before endCombat existed, a combat's Attackers/Blocks survived into any
+// later turn that never declared new ones -- DeclareCombatAttackers only
+// overwrites g.combat on the branch where something is actually eligible,
+// and returns early otherwise without touching it. A turn with nothing to
+// attack with must see a clean slate, not the previous combat's attacker.
+func TestDeclareCombatAttackersAfterCombatEndSeesNoStaleAttackers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	g.SetTurnState(1, a, engine.Main1)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	g.SetTurnState(1, a, engine.CombatDamage)
+	g.AdvancePhase(engine.NewScriptedController()) // -> CombatEnd, clears combat
+
+	// A later turn where the same creature (now tapped from last combat)
+	// has nothing eligible to attack with: DeclareCombatAttackers returns
+	// early without asking the controller at all.
+	g.SetTurnState(2, a, engine.Main1)
+	got := g.DeclareCombatAttackers(engine.NewScriptedController())
+
+	if got != nil {
+		t.Errorf("DeclareCombatAttackers() = %v, want nil (nothing eligible)", got)
+	}
+	if got := g.Attackers(); got != nil {
+		t.Errorf("Attackers() = %v, want nil -- stale from the previous combat", got)
+	}
+}
+
 // CR 514.2: cleanup clears marked damage on every permanent in the game,
 // not just the active player's -- unlike untapStep, this is not scoped to
 // whoever's turn it is.

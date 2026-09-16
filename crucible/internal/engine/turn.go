@@ -2,14 +2,17 @@
 // per-step actions this port has reached.
 //
 // Ported from forge-game/src/main/java/forge/game/phase/PhaseHandler.java.
-// Three steps have a body: Untap, Draw and Cleanup (CR 514.1's discard to
-// hand size and CR 514.2's damage clear -- 514.2's other half, ending
-// "until end of turn" effects, still needs machinery this port has not
-// reached, below). Every other step in PhaseHandler.onPhaseBegin needs the
-// stack, triggers, SpellAbility or Combat to do anything -- upkeep
-// triggers, casting in a main phase, declaring attackers -- so AdvancePhase
-// walks through them as bookkeeping only, changing ActivePhase and nothing
-// else, until each one's turn comes (porting/port-log/game-state.md).
+// Four steps have a body: Untap, Draw, CombatEnd (CR 511.3's "remove every
+// creature and planeswalker/battle from combat" -- pure bookkeeping this
+// port already has everything it needs for, unlike the rest of Combat) and
+// Cleanup (CR 514.1's discard to hand size and CR 514.2's damage clear --
+// 514.2's other half, ending "until end of turn" effects, still needs
+// machinery this port has not reached, below). Every other step in
+// PhaseHandler.onPhaseBegin needs the stack, triggers, SpellAbility or the
+// rest of Combat to do anything -- upkeep triggers, casting in a main
+// phase, declaring attackers -- so AdvancePhase walks through them as
+// bookkeeping only, changing ActivePhase and nothing else, until each one's
+// turn comes (porting/port-log/game-state.md).
 //
 // PhaseHandler's priority loop (mainLoopStep) is still not wired in here,
 // even though the stack itself now exists (stack.go). No PlayerController
@@ -102,6 +105,8 @@ func (g *Game) beginPhase(controller PlayerController) {
 		g.untapStep()
 	case Draw:
 		g.drawStep()
+	case CombatEnd:
+		g.endCombat()
 	case Cleanup:
 		g.cleanupStep(controller)
 	}
@@ -181,6 +186,26 @@ func (g *Game) drawStep() {
 // is, not a wrong answer -- every hand this port cleans up caps at 7 exactly
 // as if nothing on the battlefield said otherwise.
 const MaxHandSize = 7
+
+// endCombat is CR 511.3: at the beginning of the end of combat step, every
+// creature and planeswalker/battle is removed from combat. Java's
+// PhaseHandler.endCombat sets its Combat field to null; this port's
+// `Game.combat` is a value, not a pointer, so the zero value is the
+// equivalent -- a fresh `Combat{}` has no Attackers, AttackTargets or
+// Blocks left over.
+//
+// Real, unconditional bookkeeping, unlike every other step this file still
+// walks past empty-handed: nothing here needs the stack, triggers,
+// SpellAbility or more of Combat than already exists, so it does not wait
+// on M6 the way Upkeep's or Main1's real bodies do. Before this, a turn
+// that reached combat once and then had nothing eligible to attack with on
+// a later turn would still report the earlier combat's Attackers and
+// Blocks -- DeclareCombatAttackers/DeclareCombatBlockers only overwrite
+// `g.combat` on the branch where something is actually declared, and
+// neither returns early by clearing it (game-state.md's "Combat" section).
+func (g *Game) endCombat() {
+	g.combat = Combat{}
+}
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
 // partial CR 514.2 ("all damage marked on permanents ... is removed").

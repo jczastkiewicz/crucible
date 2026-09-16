@@ -614,7 +614,8 @@ printed form.
 
 **In progress.**
 
-24. Turn/phase/step loop + priority (`PhaseHandler` port). **Done** — `turn.go`, `phase.go`.
+24. Turn/phase/step loop + priority (`PhaseHandler` port). **Done** — `turn.go`, `phase.go`, including CR 511.3's end of
+    combat cleanup (`endCombat`).
 25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here). **Done** for the
     SBAs reached so far (`action.go`: legend rule, zero toughness/loyalty/defense, lethal damage, Battle protector,
     dangling-attachment cleanup); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not

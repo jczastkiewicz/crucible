@@ -369,10 +369,11 @@ starting `Tapped`/`SummonSick` is exactly what the fixture says, not a rule this
 ## Turn structure
 
 `turn.go` is `PhaseHandler.java` (1,324 LOC), reduced to what does not need the stack, triggers or `SpellAbility`:
-`Turn`, `ActivePlayer` and `ActivePhase` live on `Game` now (`StartTurn`, `AdvancePhase`, `SetTurnState`), and three
-steps — Untap, Draw and Cleanup — have real bodies (below). Every other step (`onPhaseBegin`'s Upkeep, Main, five combat
-steps, End of Turn) still just changes `ActivePhase` and nothing else, because casting, blocking and firing a trigger
-all need machinery this port has not reached. `AdvancePhase` walks through them as bookkeeping only, until each one's
+`Turn`, `ActivePlayer` and `ActivePhase` live on `Game` now (`StartTurn`, `AdvancePhase`, `SetTurnState`), and four
+steps — Untap, Draw, CombatEnd and Cleanup — have real bodies (below). Every other step (`onPhaseBegin`'s Upkeep, Main,
+the rest of combat, End of Turn) still just changes `ActivePhase` and nothing else, because casting, blocking and firing
+a trigger all need machinery this port has not reached; CombatEnd's own action (CR 511.3, below) needed none of that,
+just resetting state this port already has. `AdvancePhase` walks through the rest as bookkeeping only, until each one's
 turn comes.
 
 **Cleanup discards to hand size (CR 514.1) before clearing damage (CR 514.2).** `cleanupStep(controller)` gained the
@@ -663,6 +664,17 @@ running first (its own doc comment works through why), kept anyway because Forge
 reachable given today's engine, but a fully specified rule" reason (Forge's own comment: "unless range of influence gets
 implemented").
 
+**`endCombat` (turn.go) is CR 511.3, wired as the End of Combat step's body.** `beginPhase`'s switch picked up a fourth
+case (`## Turn structure`): the other bookkeeping-only steps (Upkeep, Main1, the rest) stay empty because they need the
+stack, triggers or `SpellAbility` to do anything, but CombatEnd's real action — every creature and planeswalker/battle
+stops being attacking/blocking — needs none of that, just resetting `g.combat` to its zero value the same way Java's
+`PhaseHandler.endCombat` sets its `Combat` field to `null`. Before this landed, nothing cleared
+`Combat.Attackers`/`AttackTargets`/`Blocks` between combats at all: `DeclareCombatAttackers` and `DeclareCombatBlockers`
+only overwrite `g.combat` on the branch where something is actually declared, and both return early without touching it
+when nothing is eligible (the same "nothing meaningful to decide" shortcut that makes them cheap to call
+unconditionally) — a real combat's data would have silently survived into a later turn that never attacked with
+anything, latent because no fixture or test happened to play two turns of combat in the same game before this one.
+
 Not here yet: block legality beyond "untapped creature the defending player controls" — Flying/reach, menace,
 protection, "must be blocked by" — waits on the general static-ability engine, above.
 
@@ -776,7 +788,7 @@ compared were never going to agree on those by number.
 | CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                                                                                                                                                                                                                                                                                                                            | M5-M6 |
 | Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — only 7a/7b/7c (power/toughness) have anything to apply yet                                                                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
 | `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies, and `CombatEnd` — need triggers, `SpellAbility` or the rest of Combat                                                                                                                                                                                                                                                                                                                                                                                             | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies — need triggers, `SpellAbility` or the rest of Combat                                                                                                                                                                                                                                                                                                                                                                                                              | M5-M6 |
 | `Match` — a series spanning more than one game, "the loser of the last game goes first" (`DealOpeningHands` always takes CR 103.2's coin flip), Puzzle/Archenemy/Power Play's own starting-player rules                                                                                                                                                                                                                                                                                                                      | M5-M6 |
 | The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
 | A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                                                                                                                                                                                                                                                                                                                         | M5-M6 |

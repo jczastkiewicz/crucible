@@ -99,6 +99,9 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"battle protector": func(c *engine.ScriptedController) {
 			c.ChooseBattleProtector(g, p0, 0, nil)
 		},
+		"hybrid mana color": func(c *engine.ScriptedController) {
+			c.ChooseHybridManaColor(g, p0, 0)
+		},
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

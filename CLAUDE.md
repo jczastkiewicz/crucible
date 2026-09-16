@@ -177,9 +177,11 @@ actions (`action.go`); combat (`combat.go`, `attack.go`, `block.go`, `combatdama
 (`port-log/valid-strings.md`); a mana pool and payment for the plain colored-and-generic case (`mana.go`) — CR 500.4's
 emptying between every phase/step, not just casting a spell; the `CounterChanged` event, wired at every counter change
 this port can cause (`annihilateCounters`, `dealPermanentDamage`, `Move`'s ETB grant) with a closed `CounterDetail`
-encoding (`event.go`) over the eight named `CounterType` constants. Thin or missing: the stack is push/resolve only — no
-simultaneous-trigger ordering, no replacement effects; the layer system is the CR 613 layer _numbers_ plus
-power/toughness folding only, not types/colors/abilities; mana payment has no hybrid/Phyrexian/`{X}`/snow shards and no
-mana abilities to fill a pool with yet; `CounterDetail` has no case for a script-written counter name, unreachable until
-a `SpellAbility` can create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 14 fixtures
-exist today (`testdata/scenarios/`).
+encoding (`event.go`) over the eight named `CounterType` constants; `Game.PayManaCost` (`manapay.go`), which resolves a
+two-color hybrid shard (`{W/U}`) via a new `ChooseHybridManaColor` controller method before handing the rest to `Pay`
+unchanged. Thin or missing: the stack is push/resolve only — no simultaneous-trigger ordering, no replacement effects;
+the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not types/colors/abilities; mana
+payment still has no monocolored/colorless hybrid, Phyrexian, `{X}` or snow shards, and no mana abilities to fill a pool
+with yet; `CounterDetail` has no case for a script-written counter name, unreachable until a `SpellAbility` can create
+one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 14 fixtures exist today
+(`testdata/scenarios/`).

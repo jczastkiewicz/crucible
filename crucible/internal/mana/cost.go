@@ -48,6 +48,16 @@ func NoCost() Cost { return Cost{noCost: true} }
 // GenericCost returns a cost of n generic mana and nothing else.
 func GenericCost(n int) Cost { return Cost{generic: n} }
 
+// FromShards returns a cost of exactly the given shards plus generic. Order
+// is kept, the same as [Parse] keeps the order a card script writes.
+//
+// Exists for a caller that has already resolved every shard needing a
+// player's choice (a hybrid symbol, CR 601.2h) down to a plain shard and
+// wants the result back as an ordinary [Cost] rather than a bare slice --
+// [Cost.Shards]' own doc comment on why the caller must not then mutate the
+// slice applies here too, since shards aliases the argument.
+func FromShards(shards []Shard, generic int) Cost { return Cost{shards: shards, generic: generic} }
+
 // Parse reads a mana cost.
 //
 // Both spellings the project has to handle are accepted: the space-separated

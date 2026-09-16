@@ -668,10 +668,15 @@ the reason). Block legality beyond "untapped creature the defending player contr
 
 `mana.go`'s `Pool` (CR 106.4, one per `Player`) and its `Pay` method (CR 601.2h/601.2i) are M5 item 28's mana-payment
 slice — the plan's own "budget the most time here" warning is about the full version, and this is deliberately not that:
-`Pay` handles a cost's `Generic` amount plus its six "pure" shards (`ShardW`/`U`/`B`/`R`/`G`/`C`) and nothing else, the
-same "plain-integer operand" discipline `valid.go`'s `compareMatches` already applies to numeric comparisons, for the
-same reason — the harder cases are each a real decision (which color a hybrid symbol takes, mana or life for a Phyrexian
-one) this port has no `PlayerController` method to ask yet.
+`Pay` itself handles a cost's `Generic` amount plus its six "pure" shards (`ShardW`/`U`/`B`/`R`/`G`/`C`) and nothing
+else, the same "plain-integer operand" discipline `valid.go`'s `compareMatches` already applies to numeric comparisons.
+`Game.PayManaCost` (`manapay.go`) layers one harder case on top without touching `Pay`: a two-colour hybrid shard
+(`{W/U}`) asks `ChooseHybridManaColor` which colour to pay with, substitutes the plain shard for the answer, and hands
+the result to `Pay` unchanged. Every other harder shape — a monocoloured hybrid (`{2/W}`, mana or 2 generic), a
+colourless hybrid (`{C/W}`, mana or `{C}`), Phyrexian (`{W/P}`, mana or 2 life), a hybrid Phyrexian (`{B/G/P}`, either
+colour or 2 life), `{X}` or snow — is still a real decision this port has no `PlayerController` method to ask, and
+`PayManaCost` passes each through unresolved so `Pay`'s own "unresolvable shard" branch fails the payment for it, the
+same as calling `Pay` directly already did.
 
 **Nothing casts a spell yet, and `Pay` does not need one to be worth building.** `turn.go`'s own doc comment already
 says why the priority loop isn't wired in: no `PlayerController` method can cast or activate anything, so `Pay` has no
@@ -783,5 +788,5 @@ compared were never going to agree on those by number.
 | Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                                                                                                                                                                                                                                                                                                                              | M5-M6 |
 | A single combat split across more than one defending player at once (multiplayer, attackers sent at different opponents) — `defenderOf` assumes one shared defender; needs per-defender block declaration passes                                                                                                                                                                                                                                                                                                             | M5-M6 |
 | Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
-| `Pool.Pay` for hybrid, Phyrexian, `{X}` and snow shards — each is a real decision (which color, mana or life) with no `PlayerController` method to ask it; a real choice of which floating mana pays a generic cost                                                                                                                                                                                                                                                                                                          | M5-M6 |
+| `PayManaCost` for a monocoloured hybrid, colourless hybrid, Phyrexian, hybrid Phyrexian, `{X}` or snow shard — each is still a real decision with no `PlayerController` method to ask it; a real choice of which floating mana pays a generic cost                                                                                                                                                                                                                                                                           | M5-M6 |
 | Mana abilities themselves — nothing taps a land or activates anything to put mana in a `Pool` yet; `Pool.Add`/`AddColorless` exist for `Pay`'s own tests today                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |

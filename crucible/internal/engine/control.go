@@ -4,26 +4,30 @@
 
 package engine
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/mana"
+)
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the eleven answerable with today's
+// which has 110 abstract methods; only the twelve answerable with today's
 // engine are here.
 //
-// The rest need SpellAbility, targeting, replacement effects and cost
-// payment -- types that do not exist until the stack and layer system fully
-// land in M5. Each is added when its own caller is, the same as these
-// eleven: mulligans and the starting-player choice have callers in
+// The rest need SpellAbility, targeting, replacement effects and the rest of
+// cost payment -- types that do not exist until the stack and layer system
+// fully land in M5. Each is added when its own caller is, the same as these
+// twelve: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
-// DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's and
-// ChooseBattleProtector's own callers (resolveLegendRule, action.go;
-// Game.DeclareCombatAttackers and Game.assignAttackTargets, attack.go;
-// Game.DeclareCombatBlockers, block.go; Game.DealCombatDamage,
-// combatdamage.go; Game.cleanupStep, turn.go; assignBattleProtector,
-// action.go) are fully built, so the decision point can be built ahead of
-// them (Plan Section 1.3).
+// DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
+// ChooseBattleProtector's and ChooseHybridManaColor's own callers
+// (resolveLegendRule, action.go; Game.DeclareCombatAttackers and
+// Game.assignAttackTargets, attack.go; Game.DeclareCombatBlockers, block.go;
+// Game.DealCombatDamage, combatdamage.go; Game.cleanupStep, turn.go;
+// assignBattleProtector, action.go; Game.PayManaCost, manapay.go) are fully
+// built, so the decision point can be built ahead of them (Plan Section 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -114,6 +118,14 @@ type PlayerController interface {
 	// and is not re-checked -- trust the controller's answer, the same as
 	// ChooseLegendaryToKeep.
 	ChooseBattleProtector(g *Game, decider PlayerID, battle CardID, eligible []PlayerID) PlayerID
+
+	// ChooseHybridManaColor decides which of a two-colour hybrid mana
+	// symbol's colours decider pays with (CR 601.2h, [Game.PayManaCost],
+	// manapay.go). options is exactly the two colours the symbol offers
+	// ([mana.Shard.Colors]); the return value should be exactly one of
+	// them, and is not re-checked -- trust the controller's answer, the
+	// same as ChooseLegendaryToKeep.
+	ChooseHybridManaColor(g *Game, decider PlayerID, options mana.Colors) mana.Colors
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -137,6 +149,7 @@ type ScriptedController struct {
 	damage          [][]DamageAssignment
 	discards        [][]CardID
 	battleProtector []PlayerID
+	hybridMana      []mana.Colors
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -302,6 +315,21 @@ func (c *ScriptedController) ChooseBattleProtector(g *Game, decider PlayerID, ba
 	}
 	v := c.battleProtector[0]
 	c.battleProtector = c.battleProtector[1:]
+	return v
+}
+
+// QueueHybridManaColor appends the answer to the next ChooseHybridManaColor
+// call.
+func (c *ScriptedController) QueueHybridManaColor(color mana.Colors) {
+	c.hybridMana = append(c.hybridMana, color)
+}
+
+func (c *ScriptedController) ChooseHybridManaColor(g *Game, decider PlayerID, options mana.Colors) mana.Colors {
+	if len(c.hybridMana) == 0 {
+		panic(scriptExhausted("hybrid mana color"))
+	}
+	v := c.hybridMana[0]
+	c.hybridMana = c.hybridMana[1:]
 	return v
 }
 

@@ -290,3 +290,26 @@ func (s Shard) IsOr2Generic() bool { return shardTable[s].atoms&atomOr2Generic !
 
 // IsGeneric reports whether the shard is the plain number shard.
 func (s Shard) IsGeneric() bool { return s == ShardGeneric }
+
+// PureShard returns the plain colour shard for exactly one colour -- ShardW
+// for White, and so on. ok is false for anything but a single colour, the
+// same input [ColorFromLetter]'s own second half already accepts.
+//
+// Exists for a caller that has resolved a hybrid symbol down to one colour
+// (a player's choice among a shard's [Shard.Colors] options, CR 601.2h) and
+// needs the plain shard that color pays like.
+func PureShard(c Colors) (Shard, bool) {
+	switch c {
+	case White:
+		return ShardW, true
+	case Blue:
+		return ShardU, true
+	case Black:
+		return ShardB, true
+	case Red:
+		return ShardR, true
+	case Green:
+		return ShardG, true
+	}
+	return 0, false
+}

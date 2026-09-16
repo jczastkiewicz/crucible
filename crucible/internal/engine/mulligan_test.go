@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // scriptedMulliganController answers MulliganKeepHand from a fixed, per-player
@@ -61,11 +62,12 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 }
 
 // ChooseLegendaryToKeep, DeclareCombatAttackers, ChooseAttackTarget,
-// DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize and
-// ChooseBattleProtector are never exercised by this controller's own tests
-// -- no scenario here creates a legend-rule conflict, reaches combat,
-// reaches cleanup with a hand over size, or has a Battle needing a
-// protector -- but the interface still has to be satisfied.
+// DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize,
+// ChooseBattleProtector and ChooseHybridManaColor are never exercised by
+// this controller's own tests -- no scenario here creates a legend-rule
+// conflict, reaches combat, reaches cleanup with a hand over size, has a
+// Battle needing a protector, or pays a mana cost -- but the interface
+// still has to be satisfied.
 func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
 	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
 }
@@ -92,6 +94,10 @@ func (c *scriptedMulliganController) DiscardToHandSize(_ *engine.Game, _ engine.
 
 func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ engine.PlayerID, battle engine.CardID, eligible []engine.PlayerID) engine.PlayerID {
 	panic("scriptedMulliganController: ChooseBattleProtector was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseHybridManaColor(_ *engine.Game, _ engine.PlayerID, options mana.Colors) mana.Colors {
+	panic("scriptedMulliganController: ChooseHybridManaColor was not expected to be called")
 }
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)

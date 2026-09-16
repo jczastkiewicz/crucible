@@ -381,3 +381,41 @@ func TestCostWithReducedGenericPrintsTheReduction(t *testing.T) {
 		t.Errorf("CMC() = %d, want %d", got, want)
 	}
 }
+
+func TestPureShard(t *testing.T) {
+	t.Parallel()
+
+	for color, want := range map[mana.Colors]mana.Shard{
+		mana.White: mana.ShardW,
+		mana.Blue:  mana.ShardU,
+		mana.Black: mana.ShardB,
+		mana.Red:   mana.ShardR,
+		mana.Green: mana.ShardG,
+	} {
+		got, ok := mana.PureShard(color)
+		if !ok || got != want {
+			t.Errorf("PureShard(%v) = %v, %v; want %v, true", color, got, ok, want)
+		}
+	}
+	if _, ok := mana.PureShard(mana.White | mana.Blue); ok {
+		t.Error("PureShard(White|Blue) reported a shard; two colours is not one")
+	}
+	if _, ok := mana.PureShard(0); ok {
+		t.Error("PureShard(0) reported a shard; the empty set is not one colour")
+	}
+}
+
+func TestFromShards(t *testing.T) {
+	t.Parallel()
+
+	cost := mana.FromShards([]mana.Shard{mana.ShardW, mana.ShardU}, 2)
+	if got, want := cost.String(), "{2}{W}{U}"; got != want {
+		t.Errorf("String() = %q, want %q", got, want)
+	}
+	if got, want := cost.Generic(), 2; got != want {
+		t.Errorf("Generic() = %d, want %d", got, want)
+	}
+	if !cost.Equal(mana.MustParse("2 W U")) {
+		t.Error("FromShards([W, U], 2) does not equal the equivalent parsed cost")
+	}
+}

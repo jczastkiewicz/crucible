@@ -12,22 +12,25 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twelve answerable with today's
+// which has 110 abstract methods; only the seventeen answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// twelve: mulligans and the starting-player choice have callers in
+// seventeen: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
-// ChooseBattleProtector's and ChooseHybridManaColor's own callers
-// (resolveLegendRule, action.go; Game.DeclareCombatAttackers and
+// ChooseBattleProtector's, ChooseHybridManaColor's,
+// ChoosePayMonocoloredHybrid's, ChoosePayColorlessHybrid's,
+// ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's and ChoosePayGeneric's own
+// callers (resolveLegendRule, action.go; Game.DeclareCombatAttackers and
 // Game.assignAttackTargets, attack.go; Game.DeclareCombatBlockers, block.go;
 // Game.DealCombatDamage, combatdamage.go; Game.cleanupStep, turn.go;
-// assignBattleProtector, action.go; Game.PayManaCost, manapay.go) are fully
-// built, so the decision point can be built ahead of them (Plan Section 1.3).
+// assignBattleProtector, action.go; Game.PayManaCost, manapay.go, six
+// times over) are fully built, so the decision point can be built ahead of
+// them (Plan Section 1.3).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -126,6 +129,62 @@ type PlayerController interface {
 	// them, and is not re-checked -- trust the controller's answer, the
 	// same as ChooseLegendaryToKeep.
 	ChooseHybridManaColor(g *Game, decider PlayerID, options mana.Colors) mana.Colors
+
+	// ChoosePayMonocoloredHybrid decides whether decider pays a monocoloured
+	// hybrid symbol ({2/W}, CR 601.2h) with color or with generic mana
+	// instead. generic is the shard's own [mana.Shard.CMC] -- 2 for every
+	// {2/W}-shaped symbol printed so far, carried as a parameter rather than
+	// assumed so a future symbol with a different generic side is not a
+	// silent wrong answer. true pays with color; false leaves the payment to
+	// [Game.PayManaCost]'s own extra generic instead. Not re-checked --
+	// trust the controller's answer, the same as ChooseLegendaryToKeep.
+	ChoosePayMonocoloredHybrid(g *Game, decider PlayerID, color mana.Colors, generic int) bool
+
+	// ChoosePayColorlessHybrid decides whether decider pays a colourless
+	// hybrid symbol ({C/W}, CR 601.2h) with color or with {C} instead. color
+	// is exactly the one colour the symbol offers ([mana.Shard.Colors]).
+	// true pays with color; false substitutes [mana.ShardC] for the symbol
+	// instead of adding to generic -- a colourless hybrid's other side is a
+	// specific mana type, not an amount, unlike ChoosePayMonocoloredHybrid's
+	// generic side. Not re-checked -- trust the controller's answer, the
+	// same as ChooseLegendaryToKeep.
+	ChoosePayColorlessHybrid(g *Game, decider PlayerID, color mana.Colors) bool
+
+	// ChoosePayPhyrexian decides whether decider pays a single-colour
+	// Phyrexian mana symbol ({W/P}, CR 118.4/601.2h) with color or with 2
+	// life instead. color is the one colour the symbol offers
+	// ([mana.Shard.Colors]). true pays with color; false leaves
+	// [Game.PayManaCost] to deduct the life once the rest of the payment is
+	// confirmed to succeed, the same as [Game.PayManaCost] never spending
+	// mana it cannot finish paying. A hybrid Phyrexian symbol ({B/G/P}, two
+	// colours plus life) is a three-way choice this method's boolean shape
+	// cannot express -- ChoosePayHybridPhyrexian asks that one. Not
+	// re-checked -- trust the controller's answer, the same as
+	// ChooseLegendaryToKeep.
+	ChoosePayPhyrexian(g *Game, decider PlayerID, color mana.Colors) bool
+
+	// ChoosePayHybridPhyrexian decides how decider pays a hybrid Phyrexian
+	// mana symbol ({B/G/P}, CR 118.4/601.2h): with either of its two
+	// colours, or with 2 life. colors is exactly the two colours the symbol
+	// offers ([mana.Shard.Colors]). Returning one of those two colours pays
+	// with it; returning the zero [mana.Colors] pays with 2 life instead,
+	// deducted by [Game.PayManaCost] once the rest of the payment is
+	// confirmed to succeed, the same guarantee ChoosePayPhyrexian's own
+	// life side gets. Not re-checked -- trust the controller's answer, the
+	// same as ChooseLegendaryToKeep.
+	ChoosePayHybridPhyrexian(g *Game, decider PlayerID, colors mana.Colors) mana.Colors
+
+	// ChoosePayGeneric decides which single type of mana decider spends
+	// toward one unit of a mana cost's generic amount (CR 106.6: "any type
+	// of mana, including colorless mana, can be used to pay a generic mana
+	// cost"; CR 601.2h). [Game.PayManaCost] calls this once per unit of
+	// generic still owed, after every colour, hybrid and Phyrexian shard is
+	// already resolved -- CR 601.2h's own pips-before-generic order. The
+	// return value should be one of mana.ShardW/U/B/R/G/C; it is not
+	// re-checked here, but [Pool.Pay]'s own bucket check fails the whole
+	// payment if decider's pool does not actually hold what was chosen, the
+	// same as an unavailable hybrid colour choice already does.
+	ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -150,6 +209,11 @@ type ScriptedController struct {
 	discards        [][]CardID
 	battleProtector []PlayerID
 	hybridMana      []mana.Colors
+	monoHybrid      []bool
+	colorlessHybrid []bool
+	phyrexian       []bool
+	hybridPhyrexian []mana.Colors
+	genericMana     []mana.Shard
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -330,6 +394,80 @@ func (c *ScriptedController) ChooseHybridManaColor(g *Game, decider PlayerID, op
 	}
 	v := c.hybridMana[0]
 	c.hybridMana = c.hybridMana[1:]
+	return v
+}
+
+// QueuePayMonocoloredHybrid appends the answer to the next
+// ChoosePayMonocoloredHybrid call.
+func (c *ScriptedController) QueuePayMonocoloredHybrid(payColor bool) {
+	c.monoHybrid = append(c.monoHybrid, payColor)
+}
+
+func (c *ScriptedController) ChoosePayMonocoloredHybrid(g *Game, decider PlayerID, color mana.Colors, generic int) bool {
+	if len(c.monoHybrid) == 0 {
+		panic(scriptExhausted("pay monocolored hybrid"))
+	}
+	v := c.monoHybrid[0]
+	c.monoHybrid = c.monoHybrid[1:]
+	return v
+}
+
+// QueuePayColorlessHybrid appends the answer to the next
+// ChoosePayColorlessHybrid call.
+func (c *ScriptedController) QueuePayColorlessHybrid(payColor bool) {
+	c.colorlessHybrid = append(c.colorlessHybrid, payColor)
+}
+
+func (c *ScriptedController) ChoosePayColorlessHybrid(g *Game, decider PlayerID, color mana.Colors) bool {
+	if len(c.colorlessHybrid) == 0 {
+		panic(scriptExhausted("pay colorless hybrid"))
+	}
+	v := c.colorlessHybrid[0]
+	c.colorlessHybrid = c.colorlessHybrid[1:]
+	return v
+}
+
+// QueuePayPhyrexian appends the answer to the next ChoosePayPhyrexian call.
+func (c *ScriptedController) QueuePayPhyrexian(payColor bool) {
+	c.phyrexian = append(c.phyrexian, payColor)
+}
+
+func (c *ScriptedController) ChoosePayPhyrexian(g *Game, decider PlayerID, color mana.Colors) bool {
+	if len(c.phyrexian) == 0 {
+		panic(scriptExhausted("pay phyrexian"))
+	}
+	v := c.phyrexian[0]
+	c.phyrexian = c.phyrexian[1:]
+	return v
+}
+
+// QueuePayHybridPhyrexian appends the answer to the next
+// ChoosePayHybridPhyrexian call. Queue the zero [mana.Colors] for "pay with
+// life instead."
+func (c *ScriptedController) QueuePayHybridPhyrexian(colors mana.Colors) {
+	c.hybridPhyrexian = append(c.hybridPhyrexian, colors)
+}
+
+func (c *ScriptedController) ChoosePayHybridPhyrexian(g *Game, decider PlayerID, colors mana.Colors) mana.Colors {
+	if len(c.hybridPhyrexian) == 0 {
+		panic(scriptExhausted("pay hybrid phyrexian"))
+	}
+	v := c.hybridPhyrexian[0]
+	c.hybridPhyrexian = c.hybridPhyrexian[1:]
+	return v
+}
+
+// QueuePayGeneric appends the answer to the next ChoosePayGeneric call.
+func (c *ScriptedController) QueuePayGeneric(s mana.Shard) {
+	c.genericMana = append(c.genericMana, s)
+}
+
+func (c *ScriptedController) ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard {
+	if len(c.genericMana) == 0 {
+		panic(scriptExhausted("pay generic"))
+	}
+	v := c.genericMana[0]
+	c.genericMana = c.genericMana[1:]
 	return v
 }
 

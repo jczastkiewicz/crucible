@@ -684,13 +684,34 @@ protection, "must be blocked by" — waits on the general static-ability engine,
 slice — the plan's own "budget the most time here" warning is about the full version, and this is deliberately not that:
 `Pay` itself handles a cost's `Generic` amount plus its six "pure" shards (`ShardW`/`U`/`B`/`R`/`G`/`C`) and nothing
 else, the same "plain-integer operand" discipline `valid.go`'s `compareMatches` already applies to numeric comparisons.
-`Game.PayManaCost` (`manapay.go`) layers one harder case on top without touching `Pay`: a two-colour hybrid shard
+`Game.PayManaCost` (`manapay.go`) layers six harder cases on top without touching `Pay`: a two-colour hybrid shard
 (`{W/U}`) asks `ChooseHybridManaColor` which colour to pay with, substitutes the plain shard for the answer, and hands
-the result to `Pay` unchanged. Every other harder shape — a monocoloured hybrid (`{2/W}`, mana or 2 generic), a
-colourless hybrid (`{C/W}`, mana or `{C}`), Phyrexian (`{W/P}`, mana or 2 life), a hybrid Phyrexian (`{B/G/P}`, either
-colour or 2 life), `{X}` or snow — is still a real decision this port has no `PlayerController` method to ask, and
-`PayManaCost` passes each through unresolved so `Pay`'s own "unresolvable shard" branch fails the payment for it, the
-same as calling `Pay` directly already did.
+the result to `Pay` unchanged; a monocoloured hybrid (`{2/W}`) asks `ChoosePayMonocoloredHybrid` whether to pay with
+colour or with the shard's own `CMC` (2) worth of generic instead — `true` substitutes the plain colour shard the same
+way the two-colour case does, `false` adds the shard's `CMC` onto the cost's `Generic` amount instead of adding a shard
+at all; a colourless hybrid (`{C/W}`) asks `ChoosePayColorlessHybrid` the same true/false shape, but `false` substitutes
+`mana.ShardC` for the symbol instead of touching `Generic` — its other side is a specific mana type, not an amount, so
+it is resolved the same way the two-colour case's colour choice is, not the way the monocoloured case's generic choice
+is; a single-colour Phyrexian shard (`{W/P}`, CR 118.4) asks `ChoosePayPhyrexian` the same true/false shape, but `false`
+adds 2 to a running `life` total instead of touching `resolved` or `Generic` at all; a hybrid Phyrexian shard
+(`{B/G/P}`) asks `ChoosePayHybridPhyrexian` a genuinely three-way question — its return type is `mana.Colors`, not
+`bool`, since there are two colours to offer plus life, and returning the zero `mana.Colors` is how the controller picks
+life over either one, the same "reuse the type, encode the third option in its zero value" shape
+`ChooseHybridManaColor`'s own two-colour return already established, just extended one option further. Once every shard
+is resolved, `PayManaCost` asks `ChoosePayGeneric` once per unit of the cost's `Generic` amount still owed (CR 106.6:
+"any type of mana, including colorless mana, can be used to pay a generic mana cost") — a plain `mana.Shard` answer (one
+of `ShardW`/`U`/`B`/`R`/`G`/`C`), appended to the resolved shards the same as every other case, then handed to `Pay`
+with `Generic` itself reduced to zero. Each unit is its own call, not one combined answer for the whole amount — the
+same "one decision per shard" granularity `ChooseHybridManaColor` already uses per hybrid symbol, not batched across a
+whole cost. `PayManaCost` only deducts `life` from `Player.Life` directly, after `Pool.Pay` reports success, so a
+payment that fails on an unrelated shard never costs life for a Phyrexian shard (either kind) it already resolved.
+Paying life this way fires `LifeChanged` with `Source: NoCard` (no card causes it — `PayManaCost` takes no card
+parameter today) and `Amount` as the negative life lost, the same wiring discipline `CounterChanged` got when a real
+mutator needed it (`## Events, wired`, below). All six ask before `Pay` ever sees the cost; `Pay` itself is unaware any
+hybrid, Phyrexian or controller-chosen generic shard exists — it always receives an already-resolved shard list and a
+`Generic` of zero when called from here. Every other harder shape — `{X}` or snow — is still a real decision this port
+has no `PlayerController` method to ask, and `PayManaCost` passes each through unresolved so `Pay`'s own "unresolvable
+shard" branch fails the payment for it, the same as calling `Pay` directly already did.
 
 **Nothing casts a spell yet, and `Pay` does not need one to be worth building.** `turn.go`'s own doc comment already
 says why the priority loop isn't wired in: no `PlayerController` method can cast or activate anything, so `Pay` has no
@@ -709,11 +730,12 @@ same cadence, same effect, just attached to whichever half of the transition thi
 (losing life for mana left unspent) is not reproduced: it left the rules in 2010, before anything this port's corpus
 targets, so there is no parity to keep with a rule no card in scope was ever printed under.
 
-**Generic is paid from whatever is left over, in a fixed order, not a real choice.** CR 601.2h gives the paying player
-free choice of which floating mana covers a generic cost; `Pay` spends colorless first, then white/blue/black
-/red/green, a deterministic tie-break rather than a decision — nothing reads what is left in the pool after a payment
-yet, so the order cannot be observably wrong today, only arbitrary. It becomes a real `PlayerController` question once
-something does.
+**`Pay`'s own fixed generic order only fires for a caller that reaches it directly, bypassing `PayManaCost`.** CR
+106.6/601.2h give the paying player free choice of which floating mana covers a generic cost; `Pay` itself still spends
+colorless first, then white/blue/black/red/green, a deterministic tie-break rather than a decision, for exactly the
+callers that were already calling `Pay` before `PayManaCost` existed (its own tests, `mana_test.go`). Every real answer
+to that choice now goes through `ChoosePayGeneric` instead (above) — `PayManaCost` never leaves a nonzero `Generic` for
+`Pay` to guess about.
 
 ## Events, wired
 
@@ -731,6 +753,7 @@ a `Sink`, and nothing called `Emit`. Every mechanism this port has built now doe
 | `ResolveStack` (per item)                                                       | `AbilityResolved`                                   |
 | `dealCombatDamageStep` (per exchange, both damage steps)                        | `DamageDealt`, plus `LifeChanged` for player damage |
 | `annihilateCounters`, `dealPermanentDamage`, `Move`'s ETB loyalty/defense grant | `CounterChanged`                                    |
+| `PayManaCost` (a Phyrexian or hybrid Phyrexian shard resolved to life)          | `LifeChanged`                                       |
 
 `Game.sink` defaults to `DiscardSink{}`, set in `NewGame`, so no existing caller — every test, `fixture.Load` — had to
 start constructing one. `SetSink` is the opt-in a recorder (M8) uses. `Game.Clone` always gives the clone a fresh
@@ -764,7 +787,9 @@ this pass earned. `AbilityActivated`/`AbilityResolved` are wired now (`## Stack`
 established. `DamageDealt`/`LifeChanged` are wired for real content now too (`## Combat`, above) — every combat exchange
 fires `DamageDealt`, and player damage also fires `LifeChanged` with `Amount` as the signed change (negative for the
 ordinary case, a loss), a sign convention this port chose freely since nothing wired either kind before combat damage
-did.
+did. `LifeChanged` fires a second way now too, from `PayManaCost` (`## Mana pool and payment`, above) when a Phyrexian
+or hybrid Phyrexian shard resolves to life instead of mana — `Source: NoCard`, since paying a cost has no card of its
+own to name the way combat damage's attacker does.
 
 ## The scenario harness lives partly here
 
@@ -801,5 +826,5 @@ compared were never going to agree on those by number.
 | Trigger firing (CR 603) — needs a `valid`-grammar evaluator against `Game`/`Card` and a `TriggerType` port, neither built                                                                                                                                                                                                                                                                                                                                                                                                    | M5-M6 |
 | Replacement effects (CR 616, `ReplacementHandler.java`) — same evaluator dependency as triggers                                                                                                                                                                                                                                                                                                                                                                                                                              | M5-M6 |
 | Block legality beyond "untapped creature the defending player controls" — flying/reach, menace, protection, "must be blocked by" — needs the general `CantBlockBy` static-ability engine                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
-| `PayManaCost` for a monocoloured hybrid, colourless hybrid, Phyrexian, hybrid Phyrexian, `{X}` or snow shard — each is still a real decision with no `PlayerController` method to ask it; a real choice of which floating mana pays a generic cost                                                                                                                                                                                                                                                                           | M5-M6 |
+| `PayManaCost` for `{X}` or a snow shard — each is still a real decision with no `PlayerController` method to ask it (monocoloured, colourless and two-colour hybrid, single-colour and hybrid Phyrexian, and which mana pays a generic cost, are all resolved)                                                                                                                                                                                                                                                               | M5-M6 |
 | Mana abilities themselves — nothing taps a land or activates anything to put mana in a `Pool` yet; `Pool.Add`/`AddColorless` exist for `Pay`'s own tests today                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |

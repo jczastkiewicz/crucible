@@ -63,11 +63,12 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 
 // ChooseLegendaryToKeep, DeclareCombatAttackers, ChooseAttackTarget,
 // DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize,
-// ChooseBattleProtector and ChooseHybridManaColor are never exercised by
-// this controller's own tests -- no scenario here creates a legend-rule
-// conflict, reaches combat, reaches cleanup with a hand over size, has a
-// Battle needing a protector, or pays a mana cost -- but the interface
-// still has to be satisfied.
+// ChooseBattleProtector, ChooseHybridManaColor, ChoosePayMonocoloredHybrid,
+// ChoosePayColorlessHybrid, ChoosePayPhyrexian, ChoosePayHybridPhyrexian and
+// ChoosePayGeneric are never exercised by this controller's own tests -- no scenario here
+// creates a legend-rule conflict, reaches combat, reaches cleanup with a
+// hand over size, has a Battle needing a protector, or pays a mana cost --
+// but the interface still has to be satisfied.
 func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
 	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
 }
@@ -98,6 +99,26 @@ func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ eng
 
 func (c *scriptedMulliganController) ChooseHybridManaColor(_ *engine.Game, _ engine.PlayerID, options mana.Colors) mana.Colors {
 	panic("scriptedMulliganController: ChooseHybridManaColor was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePayMonocoloredHybrid(_ *engine.Game, _ engine.PlayerID, color mana.Colors, generic int) bool {
+	panic("scriptedMulliganController: ChoosePayMonocoloredHybrid was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePayColorlessHybrid(_ *engine.Game, _ engine.PlayerID, color mana.Colors) bool {
+	panic("scriptedMulliganController: ChoosePayColorlessHybrid was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePayPhyrexian(_ *engine.Game, _ engine.PlayerID, color mana.Colors) bool {
+	panic("scriptedMulliganController: ChoosePayPhyrexian was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePayHybridPhyrexian(_ *engine.Game, _ engine.PlayerID, colors mana.Colors) mana.Colors {
+	panic("scriptedMulliganController: ChoosePayHybridPhyrexian was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePayGeneric(_ *engine.Game, _ engine.PlayerID) mana.Shard {
+	panic("scriptedMulliganController: ChoosePayGeneric was not expected to be called")
 }
 
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)

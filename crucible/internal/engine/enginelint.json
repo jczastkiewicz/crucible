@@ -46,6 +46,6 @@
     "attack": ["id", "zone", "card", "player", "game", "control"],
     "block": ["id", "zone", "card", "game", "control", "combat", "attack"],
     "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"],
-    "manapay": ["id", "game", "player", "control"]
+    "manapay": ["id", "game", "player", "control", "event"]
   }
 }

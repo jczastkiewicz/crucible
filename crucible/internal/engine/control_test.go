@@ -102,6 +102,21 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"hybrid mana color": func(c *engine.ScriptedController) {
 			c.ChooseHybridManaColor(g, p0, 0)
 		},
+		"pay monocolored hybrid": func(c *engine.ScriptedController) {
+			c.ChoosePayMonocoloredHybrid(g, p0, 0, 2)
+		},
+		"pay colorless hybrid": func(c *engine.ScriptedController) {
+			c.ChoosePayColorlessHybrid(g, p0, 0)
+		},
+		"pay phyrexian": func(c *engine.ScriptedController) {
+			c.ChoosePayPhyrexian(g, p0, 0)
+		},
+		"pay hybrid phyrexian": func(c *engine.ScriptedController) {
+			c.ChoosePayHybridPhyrexian(g, p0, 0)
+		},
+		"pay generic": func(c *engine.ScriptedController) {
+			c.ChoosePayGeneric(g, p0)
+		},
 	}
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {

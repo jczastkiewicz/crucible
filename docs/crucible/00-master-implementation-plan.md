@@ -630,9 +630,10 @@ printed form.
     split across more than one defending player at once (CR 506.4). **Mulligans done** (`mulligan.go`) — London, free
     mulligans, tucking. **Mana payment started** (`mana.go`, `manapay.go`): a `Pool` per player, `Pay` for the plain
     colored-and-generic case, CR 500.4's emptying every phase/step, and `PayManaCost` resolving a two-color hybrid shard
-    via a new `ChooseHybridManaColor` controller method — monocolored hybrid, colorless hybrid, Phyrexian, `{X}`, snow
-    shards, a real choice of which mana pays generic, and anything that fills a `Pool` in the first place (no mana
-    ability exists yet) are not.
+    via `ChooseHybridManaColor`, a monocolored hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard
+    via `ChoosePayColorlessHybrid`, a single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard
+    via `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — `{X}`, snow
+    shards, and anything that fills a `Pool` in the first place (no mana ability exists yet) are not.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
     `testdata/scenarios/`), but 15 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**

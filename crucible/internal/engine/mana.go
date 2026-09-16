@@ -73,10 +73,12 @@ func (p *Pool) Empty() { *p = Pool{} }
 // is deliberate: neither means the pool can safely be spent.
 //
 // Generic is paid from whatever the pool has left after every pip, in a
-// fixed order (colorless, then white/blue/black/red/green) rather than a
-// controller's real choice (CR 601.2h grants one) -- nothing decides that
-// choice yet, and the order only affects what is left in the pool
-// afterward, which nothing currently reads.
+// fixed order (colorless, then white/blue/black/red/green) -- a caller that
+// bypasses PayManaCost and reaches Pay directly gets this order instead of a
+// real choice. PayManaCost (manapay.go) is CR 601.2h/CR 106.6's real answer:
+// it resolves every unit of generic into an explicit shard via
+// ChoosePayGeneric before it ever calls Pay, so the cost Pay sees when called
+// from there always has zero generic left to guess about.
 func (p *Pool) Pay(cost mana.Cost) bool {
 	spend := *p
 	for _, s := range cost.Shards() {

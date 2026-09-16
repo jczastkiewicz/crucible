@@ -69,51 +69,51 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 // creates a legend-rule conflict, reaches combat, reaches cleanup with a
 // hand over size, has a Battle needing a protector, or pays a mana cost --
 // but the interface still has to be satisfied.
-func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, duplicates []engine.CardID) engine.CardID {
+func (c *scriptedMulliganController) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) engine.CardID {
 	panic("scriptedMulliganController: ChooseLegendaryToKeep was not expected to be called")
 }
 
-func (c *scriptedMulliganController) DeclareCombatAttackers(_ *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
+func (c *scriptedMulliganController) DeclareCombatAttackers(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) []engine.CardID {
 	panic("scriptedMulliganController: DeclareCombatAttackers was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChooseAttackTarget(_ *engine.Game, _ engine.PlayerID, attacker engine.CardID, eligible []engine.EntityID) engine.EntityID {
+func (c *scriptedMulliganController) ChooseAttackTarget(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.EntityID) engine.EntityID {
 	panic("scriptedMulliganController: ChooseAttackTarget was not expected to be called")
 }
 
-func (c *scriptedMulliganController) DeclareCombatBlockers(_ *engine.Game, _ engine.PlayerID, attackers []engine.CardID, eligible []engine.CardID) []engine.Block {
+func (c *scriptedMulliganController) DeclareCombatBlockers(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ []engine.CardID) []engine.Block {
 	panic("scriptedMulliganController: DeclareCombatBlockers was not expected to be called")
 }
 
-func (c *scriptedMulliganController) AssignCombatDamage(_ *engine.Game, _ engine.PlayerID, attacker engine.CardID, blockers []engine.CardID) []engine.DamageAssignment {
+func (c *scriptedMulliganController) AssignCombatDamage(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.CardID) []engine.DamageAssignment {
 	panic("scriptedMulliganController: AssignCombatDamage was not expected to be called")
 }
 
-func (c *scriptedMulliganController) DiscardToHandSize(_ *engine.Game, _ engine.PlayerID, hand []engine.CardID, count int) []engine.CardID {
+func (c *scriptedMulliganController) DiscardToHandSize(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ int) []engine.CardID {
 	panic("scriptedMulliganController: DiscardToHandSize was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ engine.PlayerID, battle engine.CardID, eligible []engine.PlayerID) engine.PlayerID {
+func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.PlayerID) engine.PlayerID {
 	panic("scriptedMulliganController: ChooseBattleProtector was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChooseHybridManaColor(_ *engine.Game, _ engine.PlayerID, options mana.Colors) mana.Colors {
+func (c *scriptedMulliganController) ChooseHybridManaColor(_ *engine.Game, _ engine.PlayerID, _ mana.Colors) mana.Colors {
 	panic("scriptedMulliganController: ChooseHybridManaColor was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChoosePayMonocoloredHybrid(_ *engine.Game, _ engine.PlayerID, color mana.Colors, generic int) bool {
+func (c *scriptedMulliganController) ChoosePayMonocoloredHybrid(_ *engine.Game, _ engine.PlayerID, _ mana.Colors, _ int) bool {
 	panic("scriptedMulliganController: ChoosePayMonocoloredHybrid was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChoosePayColorlessHybrid(_ *engine.Game, _ engine.PlayerID, color mana.Colors) bool {
+func (c *scriptedMulliganController) ChoosePayColorlessHybrid(_ *engine.Game, _ engine.PlayerID, _ mana.Colors) bool {
 	panic("scriptedMulliganController: ChoosePayColorlessHybrid was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChoosePayPhyrexian(_ *engine.Game, _ engine.PlayerID, color mana.Colors) bool {
+func (c *scriptedMulliganController) ChoosePayPhyrexian(_ *engine.Game, _ engine.PlayerID, _ mana.Colors) bool {
 	panic("scriptedMulliganController: ChoosePayPhyrexian was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChoosePayHybridPhyrexian(_ *engine.Game, _ engine.PlayerID, colors mana.Colors) mana.Colors {
+func (c *scriptedMulliganController) ChoosePayHybridPhyrexian(_ *engine.Game, _ engine.PlayerID, _ mana.Colors) mana.Colors {
 	panic("scriptedMulliganController: ChoosePayHybridPhyrexian was not expected to be called")
 }
 

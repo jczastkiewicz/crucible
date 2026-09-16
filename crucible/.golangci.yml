@@ -52,8 +52,15 @@ linters:
                 seeded per game (ADR-0006), or pkg/javarand for oracle parity.
 
         # ADR-0003: the dependency arrow points into internal/engine and never
-        # out. engine declares interfaces; effect, valid, expr and ai implement
-        # or consume them. Inert until internal/engine exists at M4.
+        # out, for the packages that genuinely sit outside the core. effect and
+        # ai implement or consume engine's own interfaces from outside it.
+        # valid and expr are the one exception, and a deliberate one (ADR-0003
+        # itself, "valid and expr turned out to be parsers, not evaluators"):
+        # they are leaf value-grammar parsers with zero Game/Card dependency,
+        # same as mana/cardtype, so engine legitimately imports them for their
+        # parsed types (valid.Spec, expr.Amount) to evaluate against live game
+        # state -- the evaluator (engine.Matches, valid.go) has to live where
+        # Game and Card do. Inert until internal/engine exists at M4.
         engine-core-imports-nothing-outward:
           files:
             - '**/internal/engine/*.go'
@@ -61,10 +68,6 @@ linters:
           deny:
             - pkg: github.com/jczastkiewicz/crucible/internal/engine/effect
               desc: 'ADR-0003: engine declares the Effect interface; effect implements it. The arrow points inward.'
-            - pkg: github.com/jczastkiewicz/crucible/internal/valid
-              desc: 'ADR-0003: valid evaluates against engine state, so it imports engine, not the reverse.'
-            - pkg: github.com/jczastkiewicz/crucible/internal/expr
-              desc: 'ADR-0003: expr evaluates against engine state, so it imports engine, not the reverse.'
             - pkg: github.com/jczastkiewicz/crucible/internal/ai
               desc: 'ADR-0003: the AI plugs in through PlayerController. engine must not know it exists.'
             - pkg: github.com/jczastkiewicz/crucible/internal/telemetry

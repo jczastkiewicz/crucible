@@ -12,6 +12,7 @@
 // This is "mechanism now, content later," the shape effect.go's Registry
 // already landed in -- zero production callers, proven by tests that push a
 // stub Ability the way effect_test.go registers a stub Effect.
+
 package engine
 
 // PushAbility puts an ability on the stack (CR 405.1, 601.2i, 603.3b) and

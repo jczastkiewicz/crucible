@@ -392,7 +392,7 @@ func resolveCardIDs(l *Loaded, value string) ([]engine.CardID, error) {
 		}
 		id, ok := l.CardByFixtureID[n]
 		if !ok {
-			return nil, fmt.Errorf("id %d: no card in setup.state has that Id:", n)
+			return nil, fmt.Errorf("id %d: no card in setup.state has that Id: entry", n)
 		}
 		ids[i] = id
 	}
@@ -419,7 +419,7 @@ func resolveAttackTarget(l *Loaded, value string) (engine.EntityID, error) {
 	if n, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
 		id, ok := l.CardByFixtureID[n]
 		if !ok {
-			return engine.EntityID(0), fmt.Errorf("id %d: no card in setup.state has that Id:", n)
+			return engine.EntityID(0), fmt.Errorf("id %d: no card in setup.state has that Id: entry", n)
 		}
 		return engine.CardEntity(id), nil
 	}

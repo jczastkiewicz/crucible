@@ -34,6 +34,7 @@
 // on. The rest is M5-M6, corpus-frequency order
 // (tools/vocabscan -kind validProperty), the same shape effect.go's Registry
 // was always going to grow in (ADR-0011).
+
 package engine
 
 import (

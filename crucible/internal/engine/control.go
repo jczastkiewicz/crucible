@@ -318,7 +318,8 @@ func (c *ScriptedController) QueueBattleProtector(p PlayerID) {
 	c.battleProtector = append(c.battleProtector, p)
 }
 
-func (c *ScriptedController) ChooseStartingPlayer(g *Game, decider PlayerID, isFirstGame bool) PlayerID {
+// ChooseStartingPlayer returns the next answer QueueStartingPlayer queued.
+func (c *ScriptedController) ChooseStartingPlayer(_ *Game, _ PlayerID, _ bool) PlayerID {
 	if len(c.startingPlayers) == 0 {
 		panic(scriptExhausted("starting player"))
 	}
@@ -327,7 +328,8 @@ func (c *ScriptedController) ChooseStartingPlayer(g *Game, decider PlayerID, isF
 	return v
 }
 
-func (c *ScriptedController) ChooseStartingHand(g *Game, decider PlayerID, hands [][]CardID) int {
+// ChooseStartingHand returns the next answer QueueStartingHand queued.
+func (c *ScriptedController) ChooseStartingHand(_ *Game, _ PlayerID, _ [][]CardID) int {
 	if len(c.startingHands) == 0 {
 		panic(scriptExhausted("starting hand"))
 	}
@@ -336,7 +338,8 @@ func (c *ScriptedController) ChooseStartingHand(g *Game, decider PlayerID, hands
 	return v
 }
 
-func (c *ScriptedController) MulliganKeepHand(g *Game, decider, firstPlayer PlayerID, cardsToReturn int) bool {
+// MulliganKeepHand returns the next answer QueueKeepHand queued.
+func (c *ScriptedController) MulliganKeepHand(_ *Game, _, _ PlayerID, _ int) bool {
 	if len(c.keepHand) == 0 {
 		panic(scriptExhausted("keep hand"))
 	}
@@ -345,7 +348,8 @@ func (c *ScriptedController) MulliganKeepHand(g *Game, decider, firstPlayer Play
 	return v
 }
 
-func (c *ScriptedController) TuckCardsViaMulligan(g *Game, decider PlayerID, hand []CardID, cardsToReturn int) []CardID {
+// TuckCardsViaMulligan returns the next answer QueueTuck queued.
+func (c *ScriptedController) TuckCardsViaMulligan(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
 	if len(c.tucked) == 0 {
 		panic(scriptExhausted("tuck via mulligan"))
 	}
@@ -354,7 +358,8 @@ func (c *ScriptedController) TuckCardsViaMulligan(g *Game, decider PlayerID, han
 	return v
 }
 
-func (c *ScriptedController) ChooseLegendaryToKeep(g *Game, decider PlayerID, duplicates []CardID) CardID {
+// ChooseLegendaryToKeep returns the next answer QueueLegendaryToKeep queued.
+func (c *ScriptedController) ChooseLegendaryToKeep(_ *Game, _ PlayerID, _ []CardID) CardID {
 	if len(c.legendaryKeep) == 0 {
 		panic(scriptExhausted("legendary to keep"))
 	}
@@ -363,7 +368,8 @@ func (c *ScriptedController) ChooseLegendaryToKeep(g *Game, decider PlayerID, du
 	return v
 }
 
-func (c *ScriptedController) DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID {
+// DeclareCombatAttackers returns the next answer QueueAttackers queued.
+func (c *ScriptedController) DeclareCombatAttackers(_ *Game, _ PlayerID, _ []CardID) []CardID {
 	if len(c.attackers) == 0 {
 		panic(scriptExhausted("attackers"))
 	}
@@ -372,7 +378,8 @@ func (c *ScriptedController) DeclareCombatAttackers(g *Game, decider PlayerID, e
 	return v
 }
 
-func (c *ScriptedController) ChooseAttackTarget(g *Game, decider PlayerID, attacker CardID, eligible []EntityID) EntityID {
+// ChooseAttackTarget returns the next answer QueueAttackTarget queued.
+func (c *ScriptedController) ChooseAttackTarget(_ *Game, _ PlayerID, _ CardID, _ []EntityID) EntityID {
 	if len(c.attackTargets) == 0 {
 		panic(scriptExhausted("attack target"))
 	}
@@ -381,7 +388,8 @@ func (c *ScriptedController) ChooseAttackTarget(g *Game, decider PlayerID, attac
 	return v
 }
 
-func (c *ScriptedController) DeclareCombatBlockers(g *Game, decider PlayerID, attackers []CardID, eligible []CardID) []Block {
+// DeclareCombatBlockers returns the next answer QueueBlocks queued.
+func (c *ScriptedController) DeclareCombatBlockers(_ *Game, _ PlayerID, _ []CardID, _ []CardID) []Block {
 	if len(c.blocks) == 0 {
 		panic(scriptExhausted("blocks"))
 	}
@@ -390,7 +398,8 @@ func (c *ScriptedController) DeclareCombatBlockers(g *Game, decider PlayerID, at
 	return v
 }
 
-func (c *ScriptedController) AssignCombatDamage(g *Game, decider PlayerID, attacker CardID, blockers []CardID) []DamageAssignment {
+// AssignCombatDamage returns the next answer QueueDamageAssignment queued.
+func (c *ScriptedController) AssignCombatDamage(_ *Game, _ PlayerID, _ CardID, _ []CardID) []DamageAssignment {
 	if len(c.damage) == 0 {
 		panic(scriptExhausted("damage assignment"))
 	}
@@ -399,7 +408,8 @@ func (c *ScriptedController) AssignCombatDamage(g *Game, decider PlayerID, attac
 	return v
 }
 
-func (c *ScriptedController) DiscardToHandSize(g *Game, decider PlayerID, hand []CardID, count int) []CardID {
+// DiscardToHandSize returns the next answer QueueDiscard queued.
+func (c *ScriptedController) DiscardToHandSize(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
 	if len(c.discards) == 0 {
 		panic(scriptExhausted("discard"))
 	}
@@ -408,7 +418,8 @@ func (c *ScriptedController) DiscardToHandSize(g *Game, decider PlayerID, hand [
 	return v
 }
 
-func (c *ScriptedController) ChooseBattleProtector(g *Game, decider PlayerID, battle CardID, eligible []PlayerID) PlayerID {
+// ChooseBattleProtector returns the next answer QueueBattleProtector queued.
+func (c *ScriptedController) ChooseBattleProtector(_ *Game, _ PlayerID, _ CardID, _ []PlayerID) PlayerID {
 	if len(c.battleProtector) == 0 {
 		panic(scriptExhausted("battle protector"))
 	}
@@ -423,7 +434,8 @@ func (c *ScriptedController) QueueHybridManaColor(color mana.Colors) {
 	c.hybridMana = append(c.hybridMana, color)
 }
 
-func (c *ScriptedController) ChooseHybridManaColor(g *Game, decider PlayerID, options mana.Colors) mana.Colors {
+// ChooseHybridManaColor returns the next answer QueueHybridManaColor queued.
+func (c *ScriptedController) ChooseHybridManaColor(_ *Game, _ PlayerID, _ mana.Colors) mana.Colors {
 	if len(c.hybridMana) == 0 {
 		panic(scriptExhausted("hybrid mana color"))
 	}
@@ -438,7 +450,8 @@ func (c *ScriptedController) QueuePayMonocoloredHybrid(payColor bool) {
 	c.monoHybrid = append(c.monoHybrid, payColor)
 }
 
-func (c *ScriptedController) ChoosePayMonocoloredHybrid(g *Game, decider PlayerID, color mana.Colors, generic int) bool {
+// ChoosePayMonocoloredHybrid returns the next answer QueuePayMonocoloredHybrid queued.
+func (c *ScriptedController) ChoosePayMonocoloredHybrid(_ *Game, _ PlayerID, _ mana.Colors, _ int) bool {
 	if len(c.monoHybrid) == 0 {
 		panic(scriptExhausted("pay monocolored hybrid"))
 	}
@@ -453,7 +466,8 @@ func (c *ScriptedController) QueuePayColorlessHybrid(payColor bool) {
 	c.colorlessHybrid = append(c.colorlessHybrid, payColor)
 }
 
-func (c *ScriptedController) ChoosePayColorlessHybrid(g *Game, decider PlayerID, color mana.Colors) bool {
+// ChoosePayColorlessHybrid returns the next answer QueuePayColorlessHybrid queued.
+func (c *ScriptedController) ChoosePayColorlessHybrid(_ *Game, _ PlayerID, _ mana.Colors) bool {
 	if len(c.colorlessHybrid) == 0 {
 		panic(scriptExhausted("pay colorless hybrid"))
 	}
@@ -467,7 +481,8 @@ func (c *ScriptedController) QueuePayPhyrexian(payColor bool) {
 	c.phyrexian = append(c.phyrexian, payColor)
 }
 
-func (c *ScriptedController) ChoosePayPhyrexian(g *Game, decider PlayerID, color mana.Colors) bool {
+// ChoosePayPhyrexian returns the next answer QueuePayPhyrexian queued.
+func (c *ScriptedController) ChoosePayPhyrexian(_ *Game, _ PlayerID, _ mana.Colors) bool {
 	if len(c.phyrexian) == 0 {
 		panic(scriptExhausted("pay phyrexian"))
 	}
@@ -483,7 +498,8 @@ func (c *ScriptedController) QueuePayHybridPhyrexian(colors mana.Colors) {
 	c.hybridPhyrexian = append(c.hybridPhyrexian, colors)
 }
 
-func (c *ScriptedController) ChoosePayHybridPhyrexian(g *Game, decider PlayerID, colors mana.Colors) mana.Colors {
+// ChoosePayHybridPhyrexian returns the next answer QueuePayHybridPhyrexian queued.
+func (c *ScriptedController) ChoosePayHybridPhyrexian(_ *Game, _ PlayerID, _ mana.Colors) mana.Colors {
 	if len(c.hybridPhyrexian) == 0 {
 		panic(scriptExhausted("pay hybrid phyrexian"))
 	}
@@ -497,7 +513,8 @@ func (c *ScriptedController) QueuePayGeneric(s mana.Shard) {
 	c.genericMana = append(c.genericMana, s)
 }
 
-func (c *ScriptedController) ChoosePayGeneric(g *Game, decider PlayerID) mana.Shard {
+// ChoosePayGeneric returns the next answer QueuePayGeneric queued.
+func (c *ScriptedController) ChoosePayGeneric(_ *Game, _ PlayerID) mana.Shard {
 	if len(c.genericMana) == 0 {
 		panic(scriptExhausted("pay generic"))
 	}
@@ -511,7 +528,8 @@ func (c *ScriptedController) QueuePayX(x int) {
 	c.xValues = append(c.xValues, x)
 }
 
-func (c *ScriptedController) ChoosePayX(g *Game, decider PlayerID, cost mana.Cost) int {
+// ChoosePayX returns the next answer QueuePayX queued.
+func (c *ScriptedController) ChoosePayX(_ *Game, _ PlayerID, _ mana.Cost) int {
 	if len(c.xValues) == 0 {
 		panic(scriptExhausted("pay x"))
 	}
@@ -525,7 +543,8 @@ func (c *ScriptedController) QueuePaySnow(s mana.Shard) {
 	c.snowMana = append(c.snowMana, s)
 }
 
-func (c *ScriptedController) ChoosePaySnow(g *Game, decider PlayerID) mana.Shard {
+// ChoosePaySnow returns the next answer QueuePaySnow queued.
+func (c *ScriptedController) ChoosePaySnow(_ *Game, _ PlayerID) mana.Shard {
 	if len(c.snowMana) == 0 {
 		panic(scriptExhausted("pay snow"))
 	}

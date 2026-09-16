@@ -66,9 +66,9 @@ crucible/
     carddb/              .txt -> CardRules            (no engine import)
     carddb/compile/      script -> typed AST          (no engine import)
     mana/  cardtype/     value types                  (leaf)
+    valid/  expr/        parse the value grammars     (leaf)
     engine/              THE RECURSIVE CORE — one package, see below
     engine/effect/       203 API implementations      (imports engine)
-    valid/  expr/        evaluate against game state  (imports engine)
     ai/                  controllers, eval, lookahead (imports engine)
     sim/  telemetry/  store/  report/
   pkg/collect/  pkg/javarand/
@@ -87,7 +87,19 @@ wiring from `cmd/`, not by `init()`, so the direction stays visible and test bin
 
 **Reducing the core is ongoing work, not a one-time decision.** Any type that stops needing a back-reference moves out.
 Handles help here: a `Card` holds a `CardID`, never a `*Game`, and operations take `*Game` as a parameter (GO-9,
-ADR-0009). That is what makes `valid` and `expr` separate packages rather than core members.
+ADR-0009).
+
+**`valid` and `expr` turned out to be parsers, not evaluators, which flips the arrow this ADR originally drew for
+them.** The plan above had them importing `engine` to evaluate a parsed grammar against live game state. What actually
+got built (M3, before `internal/engine` existed to import) is the opposite split: `valid`/`expr` parse a script's value
+grammar into a plain value type (`valid.Spec`, `expr.Amount`) with zero `Game`/`Card` dependency — the same "leaf,
+corpus-fuzzed pure function" category `mana` and `cardtype` are already in, and TEST-2's own table names them by name
+for it. Evaluating a parsed `Spec` against a real game needs `Game`/`Card`, which only exist inside the core, so that
+half (`engine.Matches`, `valid.go`) lives in `internal/engine` itself, importing `valid` for the types it walks — the
+one direction that does not create a cycle, since the alternative (moving the evaluator into `valid`, which would then
+import `engine`) would leave `internal/engine`'s own state-based-action code needing to import `valid` right back to
+call it. `valid`/`expr` stay separate packages for the same handles-shaped reason this ADR already gives: they are
+genuinely usable, and fuzz-tested, without a `Game` in scope at all.
 
 **Handles do not dissolve the cycles, though, and neither does deleting the GUI.** The 82 cycles were measured on Java,
 where cards hold `*Game`. [ADR-0009](0009-game-state-representation.md) removes exactly that, so the fair question is
@@ -134,6 +146,12 @@ forge-game, src/main                    125,436
   subtotal                                78,531
   Go 20-35% denser than Java          51,000-63,000
 ```
+
+This table is a pre-implementation estimate, not a measurement, and one line undercounts what actually landed in the
+core: `valid/ and expr/ leave the core` assumed all of `CardProperty`/`AbilityUtils` moved out, but only the parsing
+half did (above) — the evaluation half came back in as `internal/engine/valid.go`, 626 lines measured today, `expr`'s
+own evaluator not built yet. Small next to the budget below, not worth re-deriving the Java-side split for, but the
+`-6,085` is an overstatement by that much.
 
 **Budget 50,000 to 65,000 lines in one package.** Packages that size resist navigation, slow incremental compilation,
 and let unrelated internals reach each other with no compiler objection. `enginelint` covers the last of those and

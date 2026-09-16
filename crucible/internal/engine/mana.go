@@ -50,6 +50,16 @@ func (p *Pool) Total() int {
 	return p.white + p.blue + p.black + p.red + p.green + p.colorless
 }
 
+// Breakdown is how much floating mana of each type the pool holds, in a
+// fixed order -- white, blue, black, red, green, {C} -- rather than one
+// exported reader per field: a caller that needs to compare two pools
+// wholesale (the scenario harness, TestScenarios) can compare the array
+// directly with ==, and there is no real caller yet that needs only one
+// color's own count on its own.
+func (p *Pool) Breakdown() [6]int {
+	return [6]int{p.white, p.blue, p.black, p.red, p.green, p.colorless}
+}
+
 // Empty clears the pool -- CR 500.4, run once per phase/step transition
 // (emptyManaPools, turn.go) for every player, not something a card ability
 // triggers.

@@ -1,0 +1,7 @@
+# The pip resolves against the pool's own white, but the two units of
+# generic are answered with colourless mana the pool does not actually
+# have -- Pool.Pay's own "never spends part of a cost it cannot finish
+# paying" guarantee means even the matched white pip is not spent either.
+queue paygeneric C
+queue paygeneric C
+paymanacost human 2 W

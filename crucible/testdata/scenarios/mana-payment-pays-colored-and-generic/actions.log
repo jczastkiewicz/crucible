@@ -1,0 +1,6 @@
+# CR 601.2h/106.6: {1}{W} from a pool holding two white and one red -- the
+# white pip spends a white mana, and the one unit of generic is answered
+# from the red rather than any fixed leftover order (manapay.go,
+# ChoosePayGeneric).
+queue paygeneric R
+paymanacost human 1 W

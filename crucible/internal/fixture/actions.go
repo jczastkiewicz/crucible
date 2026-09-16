@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // RunActions executes a TEST-5 actions.log against a loaded game.
@@ -48,10 +49,15 @@ import (
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
+//	paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
+//	queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //
 // A scenario that needs a decision point no verb here reaches -- casting
 // anything -- cannot be written yet, because nothing downstream of
-// ScriptedController can answer it either (M5, later).
+// ScriptedController can answer it either (M5, later). PayManaCost itself is
+// not "casting anything": it is CR 106/601.2h's own self-contained payment
+// step, callable directly the same way Game.DeclareCombatAttackers is before
+// a full turn glues combat together (manapay.go's own doc comment).
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
@@ -109,6 +115,21 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 
 	case "combatdamage":
 		l.Game.DealCombatDamage(c)
+
+	case "paymanacost":
+		if len(args) < 2 {
+			return fmt.Errorf("paymanacost: want a player and a cost, got %q", strings.Join(args, " "))
+		}
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		costText := strings.Join(args[1:], " ")
+		cost, err := mana.Parse(costText)
+		if err != nil {
+			return fmt.Errorf("paymanacost cost %q: %w", costText, err)
+		}
+		l.Game.PayManaCost(pid, cost, c)
 
 	case "queue":
 		return runQueue(args, l, c)
@@ -219,6 +240,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return err
 		}
 		c.QueueBattleProtector(pid)
+
+	case "paygeneric":
+		s, err := mana.ParseShard(value)
+		if err != nil {
+			return fmt.Errorf("queue paygeneric %q: %w", value, err)
+		}
+		c.QueuePayGeneric(s)
 
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)

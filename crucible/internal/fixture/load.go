@@ -9,6 +9,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -36,8 +37,8 @@ type Loaded struct {
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
 	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
-	// no corresponding engine.Player field (ManaPool, LandsPlayed, ...).
-	// Silently dropping these would make a fixture that names, say, a
+	// no corresponding engine.Player field (PersistentMana, LandsPlayed,
+	// ...). Silently dropping these would make a fixture that names, say, a
 	// Monstrous creature pass while testing something other than what it
 	// says.
 	Unapplied []string
@@ -95,8 +96,13 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 				return nil, fmt.Errorf("%s counters: %w", slotName(slot), err)
 			}
 		}
-		if ps.ManaPool != "" || ps.PersistentMana != "" {
-			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: mana pool -- engine.Player has no mana pool yet", slotName(slot)))
+		if ps.ManaPool != "" {
+			if err := applyManaPool(&g.Player(pid).ManaPool, ps.ManaPool); err != nil {
+				return nil, fmt.Errorf("%s manapool: %w", slotName(slot), err)
+			}
+		}
+		if ps.PersistentMana != "" {
+			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: persistent mana -- engine.Pool has no persistence tracking yet (CR 500.4's own emptying applies to every kind of floating mana this port has)", slotName(slot)))
 		}
 		if ps.LandsPlayed != 0 || ps.LandsPlayedLastTurn != 0 {
 			l.Unapplied = append(l.Unapplied, fmt.Sprintf("%s: lands played -- engine.Player has no lands-played count yet", slotName(slot)))
@@ -322,6 +328,34 @@ func (ld *loader) resolveRefs() error {
 
 // applyCounters parses Counters:'s "TYPE=n,TYPE=n" value, the same format
 // Player-level counters use.
+// applyManaPool is GameState.java's own manapool= shape (processManaPool/
+// updateManaPool): one space-separated token per floating mana, "W"/"U"/"B"
+// /"R"/"G" for the five colors and "C" for colorless (MagicColor.Color's own
+// short names) -- "W W U" is two white and one blue, not a mana cost's "2W"
+// shorthand, so this reads each token as a bare color letter rather than
+// handing the whole value to mana.Parse.
+func applyManaPool(pool *engine.Pool, value string) error {
+	for _, tok := range strings.Fields(value) {
+		switch tok {
+		case "W":
+			pool.Add(mana.White, 1)
+		case "U":
+			pool.Add(mana.Blue, 1)
+		case "B":
+			pool.Add(mana.Black, 1)
+		case "R":
+			pool.Add(mana.Red, 1)
+		case "G":
+			pool.Add(mana.Green, 1)
+		case "C":
+			pool.AddColorless(1)
+		default:
+			return fmt.Errorf("mana pool token %q: not one of W/U/B/R/G/C", tok)
+		}
+	}
+	return nil
+}
+
 func applyCounters(counters *engine.Counters, value string) error {
 	for _, pair := range strings.Split(value, ",") {
 		typ, n, ok := strings.Cut(pair, "=")

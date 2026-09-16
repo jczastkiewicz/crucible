@@ -147,6 +147,9 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		if gp.Life != wp.Life {
 			t.Errorf("%s: life = %d, want %d", gp.Name, gp.Life, wp.Life)
 		}
+		if got, want := gp.ManaPool.Breakdown(), wp.ManaPool.Breakdown(); got != want {
+			t.Errorf("%s: mana pool = %v, want %v", gp.Name, got, want)
+		}
 		compareCounters(t, gp.Name, gp.Counters, wp.Counters)
 		for _, zone := range []engine.ZoneType{
 			engine.Battlefield, engine.Hand, engine.Graveyard, engine.Library,

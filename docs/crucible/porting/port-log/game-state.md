@@ -773,6 +773,20 @@ callers that were already calling `Pay` before `PayManaCost` existed (its own te
 to that choice now goes through `ChoosePayGeneric` instead (above) — `PayManaCost` never leaves a nonzero `Generic` for
 `Pay` to guess about.
 
+**`PayManaCost` now has real `TEST-5` fixture coverage, not just unit tests.** Two gaps blocked writing one:
+`setup.state`'s own `manapool=` key (Java's `GameState` format) parsed but never applied to `Player.ManaPool`
+(`internal/fixture/load.go`'s `Unapplied` list carried it since before `Pool` existed), and `actions.log` had no verb to
+call `PayManaCost` at all. Both are fixed: `applyManaPool` reads `manapool=`'s space-separated color letters (`"W W U"`,
+`MagicColor.Color`'s own short names, not a mana cost's `"2W"` shorthand) into the pool the same
+`Pool.Add`/`AddColorless` every unit test already uses, and `paymanacost <player> <cost>` (`queue paygeneric <shard>`
+for its own generic answers) calls `Game.PayManaCost` directly — the same "callable ahead of a full turn" position
+`DeclareCombatAttackers` was in before combat glued together (`manapay.go`'s own doc comment). `Pool.Breakdown`
+(`mana.go`) is the new exported reader both the fixture harness's own `compareGames` and any future caller need to
+compare two pools' full contents rather than just `Total`. `PersistentMana:` stays `Unapplied`: `Pool` tracks no
+persistence, and CR 500.4's own emptying applies to every kind of floating mana this port has. A hybrid or Phyrexian
+shard still has no `actions.log` verb of its own -- `ChooseHybridManaColor` and the rest are real, queueable
+`PlayerController` methods (above), just not yet reachable from fixture text.
+
 ## Events, wired
 
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held

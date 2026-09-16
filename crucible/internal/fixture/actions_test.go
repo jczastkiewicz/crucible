@@ -6,6 +6,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/fixture"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 func runActions(t *testing.T, l *fixture.Loaded, c *engine.ScriptedController, log string) error {
@@ -558,6 +559,100 @@ func TestRunActionsQueueBattleProtectorBadPlayerNameErrors(t *testing.T) {
 
 	if err := runActions(t, l, c, "queue battleprotector nobody\n"); err == nil {
 		t.Error("an unseated player name did not error")
+	}
+}
+
+// paymanacost pays straight from the pool manapool= already loaded, with one
+// queue paygeneric per unit of the cost's generic amount.
+func TestRunActionsPayManaCostSucceeds(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanmanapool=W W\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paygeneric W\nqueue paygeneric W\npaymanacost human 2\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	p := l.Game.Players()[0]
+	if got, want := l.Game.Player(p).ManaPool.Breakdown(), [6]int{}; got != want {
+		t.Errorf("mana pool = %v, want %v (both white spent on generic)", got, want)
+	}
+}
+
+// A payment the pool cannot cover fails silently, the same as calling
+// Game.PayManaCost directly does -- the verb does not assert success, and
+// the pool is left exactly as manapool= loaded it.
+func TestRunActionsPayManaCostFailureLeavesPoolUnchanged(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	// A pure colored pip, no generic amount -- PayManaCost never reaches
+	// ChoosePayGeneric for this cost, so no queue paygeneric is needed to
+	// reach the pool's own insufficient-mana failure.
+	if err := runActions(t, l, c, "paymanacost human W\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	p := l.Game.Players()[0]
+	if got, want := l.Game.Player(p).ManaPool.Breakdown(), [6]int{}; got != want {
+		t.Errorf("mana pool = %v, want %v (a failed payment spends nothing)", got, want)
+	}
+}
+
+func TestRunActionsPayManaCostMalformedCostErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "paymanacost human not-a-cost\n"); err == nil {
+		t.Error("a malformed cost did not error")
+	}
+}
+
+func TestRunActionsPayManaCostTooFewArgsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "paymanacost human\n"); err == nil {
+		t.Error("a paymanacost with no cost did not error")
+	}
+}
+
+func TestRunActionsQueuePayGenericResolvesAShard(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paygeneric C\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if got, want := c.ChoosePayGeneric(l.Game, l.Game.Players()[0]), mana.ShardC; got != want {
+		t.Errorf("paygeneric answer = %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueuePayGenericBadShardErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue paygeneric ZZ\n"); err == nil {
+		t.Error("an unparseable shard did not error")
 	}
 }
 

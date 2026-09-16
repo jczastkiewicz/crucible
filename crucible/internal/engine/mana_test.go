@@ -22,6 +22,22 @@ func TestPoolAddAndTotal(t *testing.T) {
 	}
 }
 
+// Breakdown reports every type's own count, in a fixed white/blue/black/red
+// /green/colorless order -- Total alone cannot tell two differently-composed
+// pools apart.
+func TestPoolBreakdown(t *testing.T) {
+	t.Parallel()
+
+	var p engine.Pool
+	p.Add(mana.White, 1)
+	p.Add(mana.Red, 2)
+	p.AddColorless(3)
+
+	if got, want := p.Breakdown(), [6]int{1, 0, 0, 2, 0, 3}; got != want {
+		t.Errorf("Breakdown() = %v, want %v", got, want)
+	}
+}
+
 // Add wants exactly one color -- the zero value or more than one bit set is
 // an engine invariant breach, not something a card script can cause, so it
 // panics rather than silently doing nothing (GO-7).

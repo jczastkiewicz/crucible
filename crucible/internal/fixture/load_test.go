@@ -288,20 +288,54 @@ func TestLoadUnappliedAnnotationsAreRecorded(t *testing.T) {
 	}
 }
 
-func TestLoadUnappliedPlayerFieldsAreRecorded(t *testing.T) {
+// manapool= applies to engine.Player.ManaPool for real -- GameState.java's
+// own space-separated-letters shape, not a mana cost's "2W" shorthand.
+func TestLoadAppliesManaPool(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	l := load(t, db, "humanlife=20\nhumanmanapool=R R\n")
+	l := load(t, db, "humanlife=20\nhumanmanapool=R R W\n")
+
+	p := l.Game.Players()[0]
+	if got, want := l.Game.Player(p).ManaPool.Breakdown(), [6]int{1, 0, 0, 2, 0, 0}; got != want {
+		t.Errorf("mana pool = %v, want %v (one white, two red)", got, want)
+	}
+}
+
+// A token manapool= does not recognise fails the load outright -- the same
+// "fail loud on a fixture-authoring mistake" reasoning every other malformed
+// value here already gets, not a silently empty pool.
+func TestLoadManaPoolRejectsUnknownToken(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	st, err := fixture.Parse(strings.NewReader("humanlife=20\nhumanmanapool=Q\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, db, javarand.New(1)); err == nil {
+		t.Error("an unknown mana pool token loaded without error")
+	}
+}
+
+// persistentmana= has nowhere to go yet -- engine.Pool tracks no
+// persistence, CR 500.4's own emptying applies to every kind of floating
+// mana this port has -- so it is still reported through Unapplied rather
+// than silently dropped.
+func TestLoadUnappliedPersistentManaIsRecorded(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nhumanpersistentmana=R R\n")
 
 	found := false
 	for _, u := range l.Unapplied {
-		if strings.Contains(u, "mana pool") {
+		if strings.Contains(u, "persistent mana") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("Unapplied %v does not mention the dropped mana pool", l.Unapplied)
+		t.Errorf("Unapplied %v does not mention the dropped persistent mana", l.Unapplied)
 	}
 }
 

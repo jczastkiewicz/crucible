@@ -52,6 +52,11 @@ var basicLandType = map[mana.Colors]string{
 // invariant breach, not something a fixture or a card can cause (GO-7):
 // nothing here ever computes a Colors value with more than one bit, so
 // reaching that panic means a caller passed one in by hand.
+//
+// A successful tap checks CR 603's own "becomes tapped" and "taps for mana"
+// triggers (checkTapsTriggers/checkTapsForManaTriggers, trigger.go) --
+// this port's only other tap site (DeclareCombatAttackers, attack.go) checks
+// the first but not the second, since attacking is not a mana ability.
 func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors) bool {
 	basic, ok := basicLandType[color]
 	if !ok {
@@ -70,5 +75,7 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors) bool
 	} else {
 		g.Player(pid).ManaPool.Add(color, 1)
 	}
+	g.checkTapsTriggers(land, pid, false)
+	g.checkTapsForManaTriggers(land, pid)
 	return true
 }

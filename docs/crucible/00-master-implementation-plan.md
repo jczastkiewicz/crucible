@@ -627,48 +627,55 @@ printed form.
     (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
     Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup).
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes and seven trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
+    cast shapes and nine trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
     `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to decide,
     `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s parsed
     `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
     `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers`/
     `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkDamageDoneTriggersToCard`/
-    `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkSpellCastTriggers` (`trigger.go`, eleven functions
-    in all once each mode's own "other" half is counted) cover the corpus's seven most frequent trigger shapes — a
-    permanent's own "enters" (`Mode$ ChangesZone`, `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`,
-    `Origin$ Battlefield`, `Destination$ Graveyard`, CR 700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks"
-    (`Mode$ Blocks`, CR 509.2), "deals damage" (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is
-    discarded" (`Mode$ Discarded`, CR 603, `TriggerDiscarded.performTest`) and "a player casts a spell"
-    (`Mode$ SpellCast`, CR 603) — the first two also checked against every OTHER battlefield permanent's own matching
-    trigger (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks`, `DamageDone` and `SpellCast` need
-    no separate "other" loop at all, since none of those Java trigger classes special-cases its own host's trigger to
-    begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals damage"/"you cast a
-    spell" and "a creature you control attacks/blocks/deals damage"/"a player casts a spell" alike. `Discarded` is the
-    one exception: a "Card.Self" shaped line (14 of 105 real lines, the Madness-adjacent "when this card is discarded,
-    you may cast it" shape) lives on a card that is never on the battlefield when it fires — discarded FROM HAND — so
-    `checkDiscardedTriggers` needed its own explicit "own" half checking the discarded card directly, on top of
-    `checkOtherDiscardedTriggers`' battlefield walk (caught by `TestCleanupFiresDiscardedTrigger` failing on the first,
-    battlefield-only attempt — a self-caught gap, not a hypothetical one). `Blocks` needs only `ValidCard` (matched
-    against the declared blocker); its own `ValidBlocked$` (8 of 127 real lines) matches against the FULL collection of
-    attackers one blocker blocks, which this port's `Block` (combat.go) never groups back into a per-blocker set, so a
-    trigger carrying it is skipped rather than checked against only the one attacker in the current `Block` — called
-    once per declared `Block`, after `CanBlock` and `menaceLegal` have both already filtered it legal
-    (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two functions because the actual damaged object is
-    either a `*Card` or a `*Player` (Java's own `DamageTarget` is a `GameEntity`), each needing a different
-    `ValidTarget` evaluator — fired from `dealPermanentDamage`/ `dealPlayerDamage` (combatdamage.go), `CombatDamage$`
-    checked against a hardcoded `true` since nothing outside combat deals damage in this port yet.
-    `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded` all match something other than a `*Card` at some point
-    (`ValidActivatingPlayer`, `ValidDefender`, `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`) — a new
-    `matchesPlayerBase` (`valid.go`) is the shared three-bare-value (`You`/`Opponent`/`Player`) dispatch all four now
-    reuse, factored out once a third caller needed the identical switch two callers had already written separately. All
-    seven modes are keyed off `compile.Face.Triggers` (typed since M3, never read by the engine before now). A trigger's
-    `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`,
-    `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became
-    the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still
-    reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is discarded"/"casts a spell" (`Tapped`, ...); `Attacks`'s own
-    `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` params; `DamageDone`'s own
-    `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$`; `Discarded`'s own `ValidCause$`;
+    `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkTapsTriggers`/`checkTapsForManaTriggers`/
+    `checkSpellCastTriggers` (`trigger.go`, thirteen functions in all once each mode's own "other" half is counted)
+    cover the corpus's nine most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
+    `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR
+    700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2), "deals damage"
+    (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is discarded" (`Mode$ Discarded`, CR 603,
+    `TriggerDiscarded.performTest`), "becomes tapped" (`Mode$ Taps`, CR 603, `TriggerTaps.performTest`), "taps for mana"
+    (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`) and "a player casts a spell" (`Mode$ SpellCast`, CR 603) —
+    the first two also checked against every OTHER battlefield permanent's own matching trigger
+    (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks`, `DamageDone`, `Taps`, `TapsForMana` and
+    `SpellCast` need no separate "other" loop at all, since none of those Java trigger classes special-cases its own
+    host's trigger to begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals
+    damage/becomes tapped"/"you cast a spell" and "a creature you control attacks/blocks/deals damage/becomes tapped"/"a
+    player casts a spell" alike. `Discarded` is the one exception: a "Card.Self" shaped line (14 of 105 real lines, the
+    Madness-adjacent "when this card is discarded, you may cast it" shape) lives on a card that is never on the
+    battlefield when it fires — discarded FROM HAND — so `checkDiscardedTriggers` needed its own explicit "own" half
+    checking the discarded card directly, on top of `checkOtherDiscardedTriggers`' battlefield walk (caught by
+    `TestCleanupFiresDiscardedTrigger` failing on the first, battlefield-only attempt — a self-caught gap, not a
+    hypothetical one). `Blocks` needs only `ValidCard` (matched against the declared blocker); its own `ValidBlocked$`
+    (8 of 127 real lines) matches against the FULL collection of attackers one blocker blocks, which this port's `Block`
+    (combat.go) never groups back into a per-blocker set, so a trigger carrying it is skipped rather than checked
+    against only the one attacker in the current `Block` — called once per declared `Block`, after `CanBlock` and
+    `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two
+    functions because the actual damaged object is either a `*Card` or a `*Player` (Java's own `DamageTarget` is a
+    `GameEntity`), each needing a different `ValidTarget` evaluator — fired from `dealPermanentDamage`/
+    `dealPlayerDamage` (combatdamage.go), `CombatDamage$` checked against a hardcoded `true` since nothing outside
+    combat deals damage in this port yet. `Taps` fires from this port's only two real tap sites
+    (`DeclareCombatAttackers`, attack.go; `TapLandForMana`, manaability.go), `Attacker$` resolved as the boolean that
+    tells them apart; `TapsForMana` is `Taps`'s own narrower sibling, its own separate Java `Trigger` subclass, firing
+    only from the mana-ability site. `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded`/`Taps`/`TapsForMana` all match
+    something other than a `*Card` at some point (`ValidActivatingPlayer`, `ValidDefender`,
+    `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`, `Activator`) — a new `matchesPlayerBase` (`valid.go`) is the
+    shared three-bare-value (`You`/`Opponent`/`Player`) dispatch all of them now reuse, factored out once a third caller
+    needed the identical switch two callers had already written separately. All nine modes are keyed off
+    `compile.Face.Triggers` (typed since M3, never read by the engine before now). A trigger's `Execute$` sub-ability's
+    own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`, `ability.go`) — the gap
+    that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became the first of the 203
+    corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still reports
+    `ErrUnimplemented` for the other 202. Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/
+    "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell" (`Countered`, `Exiled`, `Sacrificed`,
+    ...); `Attacks`'s own `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/ `AttackDifferentPlayers$`
+    params; `DamageDone`'s own `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$`;
+    `Discarded`'s own `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$`;
     `SpellCast`'s own qualified `ValidActivatingPlayer$` forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines)
     and nine other unresolved params (`ValidSA`, `TargetsValid`, `HasXManaCost`, ... —
     `porting/port-log/game-state.md`'s trigger-firing section has the full list); simultaneous-trigger ordering
@@ -725,10 +732,10 @@ printed form.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,
     trample, gang blocking, attacking a planeswalker/Battle, a combat split across more than one defending player at
-    once (CR 506.4), and block legality's `CantBlockBy` (CR 509.1b): flying/reach, Fear, Horsemanship, Intimidate and
-    Landwalk (keyword-synthesized the same way `CardFactoryUtil.java` builds them, `cantBlockByKeywords` for the first
-    four; Landwalk separately, its own restriction being the keyword's OWN per-card argument rather than a name every
-    carrier shares) and every literal `S:Mode$ CantBlockBy` line, walked across every battlefield permanent as a
+    once (CR 506.4), and block legality's `CantBlockBy` (CR 509.1b): flying/reach, Fear, Horsemanship and Intimidate
+    (keyword-synthesized the same way `CardFactoryUtil.java` builds them, `cantBlockByKeywords`); Landwalk and
+    Protection separately, each one's own restriction being the keyword's OWN per-card argument rather than a name every
+    carrier shares; and every literal `S:Mode$ CantBlockBy` line, walked across every battlefield permanent as a
     possible source, not just the attacker's own card; Menace too (`menaceLegal`, a group-cardinality check `CanBlock`'s
     own per-pair one cannot express, hardcoded the same way Forge's own `getMinMaxBlocker` is — not routed through
     `CantBlockBy` at all). Intimidate's own `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed a new
@@ -738,8 +745,11 @@ printed form.
     `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`): a `Player`, not a
     `Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is (item 26) — `You`/`Opponent`/`Player` bare
     forms plus a `"controls<Type>"` battlefield scan, `landwalkType` reading the type argument straight off the keyword
-    line (`enchantSpec`'s own precedent). Protection and Skulk remain gaps, each blocked on its own specific missing
-    piece (`Protection.java`'s own valid-string builder, and an SVar-driven `X` respectively —
+    line (`enchantSpec`'s own precedent). Protection's own restriction (`protectionValid`, staticability.go) needed no
+    new property at all: both real corpus shapes — the natural-language "Protection from red" and the colon-structured
+    "Protection:Artifact" — resolve through `Matches`/`baseMatches` exactly as written once
+    `Protection.getProtectionValid`'s own two branches are reproduced, `keyword.Parse`'s existing space-vs-colon split
+    telling them apart. Skulk remains the one gap, blocked on its own specific missing piece (an SVar-driven `X` —
     `porting/port-log/game-state.md`'s "Block legality" section). **Mulligans done** (`mulligan.go`) — London, free
     mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
     colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
@@ -772,8 +782,8 @@ printed form.
     own literal-token subset, Layer 5's own and Layer 6's own (`applyContinuousType`/`applyContinuousColor`/
     `applyContinuousKeyword`, item 27) are proven only at the Go module level (`continuous_test.go`), not yet by a
     scenario fixture, and replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals
-    damage"/"is discarded"/"casts a spell" remain gaps too. **Partially reached** — blocked on the rest of M5 landing,
-    not on writing more fixtures.
+    damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell" remain gaps too. **Partially reached** —
+    blocked on the rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

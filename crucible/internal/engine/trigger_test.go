@@ -1248,3 +1248,269 @@ func TestCleanupSkipsDiscardedTriggerWithUnresolvedParam(t *testing.T) {
 		t.Fatalf("StackLen() = %d, want 0 -- ValidCause$ is not evaluated, so the trigger must not fire", got)
 	}
 }
+
+// tapsTriggerCreatureDefPT builds a *compile.Card for a creature with a real
+// "when CARDNAME becomes tapped" trigger -- Mode$ Taps, ValidCard$ Card.Self.
+func tapsTriggerCreatureDefPT(t *testing.T, name, power, toughness string, keywords ...string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Keywords = keywords
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Taps | ValidCard$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresTapsTrigger proves checkTapsTriggers
+// (trigger.go) is wired into DeclareCombatAttackers (attack.go): a declared
+// attacker's own "when this becomes tapped" trigger fires the instant
+// tapping it for attacking actually happens.
+func TestDeclareCombatAttackersFiresTapsTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(tapsTriggerCreatureDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the Taps trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsTapsTriggerForVigilantAttacker proves the
+// Taps trigger does NOT fire for a Vigilance attacker: CR 508.1f itself
+// never taps it, so there is no tap event for checkTapsTriggers to detect.
+func TestDeclareCombatAttackersSkipsTapsTriggerForVigilantAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(tapsTriggerCreatureDefPT(t, "Test Vigilant Attacker", "2", "2", "Vigilance"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- Vigilance means no tap, so no Taps trigger should have fired", got)
+	}
+}
+
+// tapsWatcherDef builds a *compile.Card for a non-creature permanent
+// watching for ANY land its controller controls to become tapped
+// (ValidCard$ Land.YouCtrl), not tied to becoming tapped itself --
+// checkTapsTriggers needs no separate "own" and "other" loop, the same as
+// checkAttacksTriggers/checkBlocksTriggers/checkDamageDoneTriggersToCard.
+func tapsWatcherDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Taps Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Taps Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Taps | ValidCard$ Land.YouCtrl | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestTapLandForManaFiresOtherPermanentsWatchingTapsTrigger proves
+// checkTapsTriggers fires a watcher's own trigger off a land tapping for
+// mana too, not just combat's own tap site: the land itself carries no
+// trigger, so the pushed Draw can only have come from the watcher.
+func TestTapLandForManaFiresOtherPermanentsWatchingTapsTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(tapsWatcherDef(t), p, engine.Battlefield)
+	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	if !g.TapLandForMana(p, plains, mana.White) {
+		t.Fatal("TapLandForMana failed tapping a Plains for white")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the watcher's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// tapsTriggerWithFirstTimeParamDefPT builds a creature whose own Taps
+// trigger carries FirstTime$, a param checkTapsTriggers does not evaluate.
+func tapsTriggerWithFirstTimeParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Taps | ValidCard$ Card.Self | FirstTime$ True | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersSkipsTapsTriggerWithUnresolvedParam proves a
+// trigger carrying a param this port cannot evaluate (FirstTime$) is skipped
+// entirely -- never fired unconditionally, which would be silently wrong
+// (GO-7).
+func TestDeclareCombatAttackersSkipsTapsTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(tapsTriggerWithFirstTimeParamDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- FirstTime$ is not evaluated, so the trigger must not fire", got)
+	}
+}
+
+// tapsForManaTriggerLandDef builds a *compile.Card for a land with a real
+// "whenever this taps for mana" trigger -- Mode$ TapsForMana, ValidCard$
+// Card.Self.
+func tapsForManaTriggerLandDef(t *testing.T, name, typeLine string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, typeLine)
+	raw.Faces[0].Triggers = []string{
+		"Mode$ TapsForMana | ValidCard$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestTapLandForManaFiresTapsForManaTrigger proves checkTapsForManaTriggers
+// (trigger.go) is wired into TapLandForMana (manaability.go): a land's own
+// "whenever this taps for mana" trigger fires, distinct from the general
+// Taps trigger.
+func TestTapLandForManaFiresTapsForManaTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	plains := g.NewCard(tapsForManaTriggerLandDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	if !g.TapLandForMana(p, plains, mana.White) {
+		t.Fatal("TapLandForMana failed tapping a Plains for white")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the TapsForMana trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersDoesNotFireTapsForManaTrigger proves
+// checkTapsForManaTriggers is narrower than checkTapsTriggers: attacking is
+// not a mana ability, so a land's own TapsForMana trigger must not fire off
+// an attack tap (there is none here -- the land does not even attack -- but
+// the point is checkTapsForManaTriggers is never called from attack.go at
+// all, only checkTapsTriggers is).
+func TestDeclareCombatAttackersDoesNotFireTapsForManaTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test TapsForMana Creature"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test TapsForMana Creature"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ TapsForMana | ValidCard$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	attacker := g.NewCard(def, p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- attacking is not a mana ability, so TapsForMana must not fire", got)
+	}
+}

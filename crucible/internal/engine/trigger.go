@@ -624,6 +624,128 @@ func isDiscardedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Discarded")
 }
 
+// checkTapsTriggers is CR 603's own "whenever ~ becomes tapped" mode, Mode$
+// Taps, ported from TriggerTaps.performTest -- the identical single-walk
+// shape checkAttacksTriggers/checkBlocksTriggers/checkDamageDoneTriggersToCard
+// already established, since TriggerTaps never special-cases the tapped
+// card's own trigger either. player is the tapped card's own controller at
+// both real call sites this port has (DeclareCombatAttackers, attack.go;
+// TapLandForMana, manaability.go) -- neither models anyone else's action
+// tapping a permanent yet, so ValidPlayer's own dominant real value ("You,"
+// 4 of 4 real lines that carry it) is exactly this.
+//
+// Not resolved: FirstTime$ (1 of 177 real lines) -- "the first time a
+// permanent taps this turn," per-card-per-turn state this port tracks
+// nothing for; Teamwork$ (1) -- CostTeamwork, a cost-type this port has no
+// concept of; ValidCause$ (0) -- a SpellAbility, not a Card, Matches
+// (valid.go) cannot evaluate one. A trigger carrying any of these three is
+// skipped entirely, not fired unconditionally (GO-7). Attacker$ (2) IS
+// resolved: isAttacker reports whether this tap was caused by attacking or
+// something else (a mana ability, the only other real tap site) -- the same
+// boolean TriggerTaps.performTest itself compares against
+// AbilityKey.Attacker. 173 of 177 real lines carry none of the three
+// skipped params.
+func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) {
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isTapsTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "FirstTime", "Teamwork", "ValidCause") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if validPlayer, ok := t.Param("ValidPlayer"); ok {
+						matched, recognized := matchesPlayerBase(player, h.Controller, validPlayer)
+						if !recognized || !matched {
+							continue
+						}
+					}
+					if attacker, ok := t.Param("Attacker"); ok {
+						if strings.EqualFold(attacker, "True") != isAttacker {
+							continue
+						}
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// isTapsTrigger reports whether t is CR 603's "becomes tapped" shape: Mode$
+// Taps.
+func isTapsTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Taps")
+}
+
+// checkTapsForManaTriggers is CR 603's own "whenever ~ taps for mana" mode,
+// Mode$ TapsForMana, ported from TriggerTapsForMana.performTest -- narrower
+// than checkTapsTriggers (a mana ability specifically, not any tap), so it
+// is its own check rather than a param on the general one, matching Java's
+// own separate Trigger subclass. Activator -- a Player, not a Card,
+// matchesPlayerBase's own job -- is player, the same "the tapped card's own
+// controller" simplification checkTapsTriggers already makes, since
+// TapLandForMana (manaability.go) is the only real mana-ability call site
+// this port has and nothing there models anyone but the land's own
+// controller activating it.
+//
+// Not resolved: Produced$ (3 of 65 real lines) -- "C" (2) can never match
+// anyway, since TapLandForMana only ever produces one of the five colors,
+// never colorless, and "ChosenColor" (1) needs a runtime value this port
+// has no evaluator for; skipped together rather than trying to resolve one
+// and not the other. 62 of 65 real lines carry none of it.
+func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isTapsForManaTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "Produced") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if activator, ok := t.Param("Activator"); ok {
+						matched, recognized := matchesPlayerBase(player, h.Controller, activator)
+						if !recognized || !matched {
+							continue
+						}
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// isTapsForManaTrigger reports whether t is CR 603's "taps for mana" shape:
+// Mode$ TapsForMana.
+func isTapsForManaTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "TapsForMana")
+}
+
 // hasAnyParam reports whether t carries any of keys, regardless of value --
 // checkAttacksTriggers' own way of skipping a trigger this port cannot fully
 // evaluate rather than firing it as if the extra condition were not there.

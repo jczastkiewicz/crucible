@@ -181,6 +181,71 @@ func TestCanBlockIslandwalkAttackerIgnoresAttackersOwnIsland(t *testing.T) {
 	}
 }
 
+// TestCanBlockProtectionFromColorAttacker proves Protection's own
+// natural-language color form ("K:Protection from red," 154 of roughly 219
+// real corpus lines) end to end: a red blocker cannot block, a blue one can.
+func TestCanBlockProtectionFromColorAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Protection from red"), a, engine.Battlefield)
+	redBlocker := g.NewCard(creatureDefManaCost(t, "R"), b, engine.Battlefield)
+	blueBlocker := g.NewCard(creatureDefManaCost(t, "U"), b, engine.Battlefield)
+
+	if g.CanBlock(attacker, redBlocker) {
+		t.Error("CanBlock(protection-from-red attacker, red blocker) = true, want false")
+	}
+	if !g.CanBlock(attacker, blueBlocker) {
+		t.Error("CanBlock(protection-from-red attacker, blue blocker) = false, want true")
+	}
+}
+
+// TestCanBlockProtectionFromArtifactAttacker proves Protection's other real
+// shape, the colon-structured form ("K:Protection:Artifact," 65 real
+// lines): an artifact blocker cannot block, a plain one can.
+func TestCanBlockProtectionFromArtifactAttacker(t *testing.T) {
+	t.Parallel()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\nGolem\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Protection:Artifact"), a, engine.Battlefield)
+
+	artifactDef := &compile.Card{Name: "Test Artifact Blocker"}
+	artifactDef.Faces[0].Type = cardtype.Parse(reg, "Artifact Creature Golem")
+	artifactDef.Faces[0].Power, artifactDef.Faces[0].Toughness = "2", "2"
+	artifactBlocker := g.NewCard(artifactDef, b, engine.Battlefield)
+	plainBlocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	if g.CanBlock(attacker, artifactBlocker) {
+		t.Error("CanBlock(protection-from-artifact attacker, artifact blocker) = true, want false")
+	}
+	if !g.CanBlock(attacker, plainBlocker) {
+		t.Error("CanBlock(protection-from-artifact attacker, plain blocker) = false, want true")
+	}
+}
+
+// TestCanBlockProtectionFromEverythingAttacker proves the unconditional
+// shape (Java's own getProtectionValid returns an empty validSource,
+// CardFactoryUtil then omits ValidBlocker$ entirely): unblockable by
+// anything.
+func TestCanBlockProtectionFromEverythingAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Protection from everything"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	if g.CanBlock(attacker, blocker) {
+		t.Error("CanBlock(protection-from-everything attacker, any blocker) = true, want false")
+	}
+}
+
 // cantBlockByAuraDef builds a *compile.Card for an Aura carrying a real,
 // literal S:Mode$ CantBlockBy line written on the Aura itself rather than
 // synthesized from a keyword -- ValidAttacker$ Creature.EnchantedBy, the

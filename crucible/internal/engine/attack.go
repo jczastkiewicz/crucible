@@ -55,6 +55,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	for _, id := range attackers {
 		if !g.Card(id).HasKeyword("Vigilance") {
 			g.Card(id).Tapped = true
+			g.checkTapsTriggers(id, g.Card(id).Controller, true)
 		}
 	}
 	g.combat.Attackers = attackers

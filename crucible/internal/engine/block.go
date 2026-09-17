@@ -34,8 +34,8 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // Forge itself does not run Menace through the CantBlockBy static-ability
 // engine either (cantBlockByKeywords' own doc comment, staticability.go) --
 // getMinMaxBlocker hardcodes attacker.hasKeyword(Keyword.MENACE) directly,
-// reproduced here the same way. Still not checked: Protection and Skulk,
-// each blocked on its own specific missing dependency (same doc comment).
+// reproduced here the same way. Still not checked: Skulk, blocked on its
+// own specific missing dependency (same doc comment).
 //
 // "Who is defending" is each attacker's own defender (defenderOf,
 // attack.go) -- the controller of whatever it's attacking, a player,

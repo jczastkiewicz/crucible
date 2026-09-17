@@ -39,11 +39,14 @@ import (
 // are. landwalkType (below) reads it directly off the keyword line instead
 // (enchantSpec's own precedent, action.go).
 //
-// Not every keyword CardFactoryUtil expands this way is here -- each
+// Protection is not here either, for the same per-card reason Landwalk
+// is not: its own ValidBlocker is built from the keyword's own argument
+// (Protection.getProtectionValid), a different value per card, not a fixed
+// string every carrier shares. protectionValid (below) reads it directly.
+//
+// Not every keyword CardFactoryUtil expands this way is here -- one
 // remaining omission is a specific missing dependency, not an oversight:
 //
-//   - Protection needs Protection.java's own valid-string builder
-//     (Protection.getProtectionValid), not a fixed string.
 //   - Skulk's ValidBlocker$ Creature.powerGTX needs an SVar-driven X;
 //     compareMatches (valid.go) already documents a non-numeric Compare
 //     operand as unresolvable, so a Skulk entry here would just never match,
@@ -112,6 +115,10 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 				applyCantBlockBy(g, h, "Creature.Self", "", false, "Player.controls"+typ, true, attacker, blocker) {
 				return true
 			}
+			if vb, hasVB, ok := protectionValid(h); ok &&
+				applyCantBlockBy(g, h, "Creature.Self", vb, hasVB, "", false, attacker, blocker) {
+				return true
+			}
 		}
 	}
 	return false
@@ -141,6 +148,79 @@ func landwalkType(h *Card) (string, bool) {
 		return args[0], true
 	}
 	return "", false
+}
+
+// protectionValid reports h's own Protection keyword's CantBlockBy
+// restriction, ported from CardFactoryUtil.java's `keyword.startsWith("Protection")`
+// branch and Protection.getProtectionValid(keyword, false) (damage=false,
+// the block-legality call, not the damage-prevention one) -- the natural
+// corpus reason CantBlockBy could not use a fixed cantBlockByKeywords entry
+// the way Fear/Flying/Horsemanship/Intimidate do: what a blocker must avoid
+// being differs per card (a color, a type, a subtype), not a name every
+// carrier shares, the identical reason landwalkType exists.
+//
+// Two real corpus shapes, both handled: the natural-language form
+// ("K:Protection from red," 154 of roughly 219 real lines) and the
+// colon-structured form ("K:Protection:Artifact," 65 lines) --
+// keyword.Parse already tells them apart (Details is "from red" for the
+// first, the characteristic itself for the second, keyword.go's own doc
+// comment on the space-vs-colon split). ok is false only when h carries no
+// Protection keyword at all. hasValidBlocker is false for "protection from
+// everything" (1 real line): Java's own getProtectionValid returns an empty
+// string there, which CardFactoryUtil reads as "omit ValidBlocker$
+// entirely," an unconditional CantBlockBy -- applyCantBlockBy's own
+// contract for hasValidBlocker=false already gives this for free.
+func protectionValid(h *Card) (validBlocker string, hasValidBlocker, ok bool) {
+	if h.Def == nil {
+		return "", false, false
+	}
+	for _, line := range h.Def.Faces[0].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Protection" {
+			continue
+		}
+		if rest, isColor := strings.CutPrefix(k.Details, "from "); isColor {
+			valid, hasVB, recognized := protectionColorValid(rest)
+			if !recognized {
+				continue
+			}
+			return valid, hasVB, true
+		}
+		characteristic, _, _ := strings.Cut(k.Details, ":")
+		if characteristic == "" {
+			continue
+		}
+		return characteristic, true, true
+	}
+	return "", false, false
+}
+
+// protectionColorValid is Protection.getProtectionValid's own color branch
+// for the natural-language "Protection from <word>" form, damage=false
+// (CantBlockBy, not damage prevention, so no "Source" suffix is ever
+// appended -- that only happens on the damage=true call this port does not
+// make). recognized is false only for a protectType this port's own corpus
+// scan never found real ("each color" does not appear in the real corpus
+// at all, so it is not special-cased -- a future card using it would fall
+// here and correctly get skipped, GO-7, rather than silently mismatched).
+func protectionColorValid(protectType string) (valid string, hasValidBlocker, recognized bool) {
+	switch protectType {
+	case "white":
+		return "Card.White,Emblem.White", true, true
+	case "blue":
+		return "Card.Blue,Emblem.Blue", true, true
+	case "black":
+		return "Card.Black,Emblem.Black", true, true
+	case "red":
+		return "Card.Red,Emblem.Red", true, true
+	case "green":
+		return "Card.Green,Emblem.Green", true, true
+	case "colorless":
+		return "Card.Colorless,Emblem.Colorless", true, true
+	case "everything":
+		return "", false, true
+	}
+	return "", false, false
 }
 
 // applyCantBlockBy is applyCantBlockByAbility's ValidAttacker/ValidBlocker

@@ -17,10 +17,22 @@ type PT struct {
 // before: LayerCharacteristic and LayerSetPT replace it, LayerModifyPT
 // adds to it (CR 613.4) -- Card.Power/Toughness is what applies that rule,
 // this only records the effect.
+//
+// HasPower and HasToughness matter only for LayerCharacteristic/LayerSetPT:
+// a real corpus SetPower/SetToughness line sets just one dimension far more
+// often than both together (68 SetPower-only, 9 SetToughness-only lines,
+// port-log/game-state.md's "Continuous effects" section), and the
+// dimension it leaves alone must stay exactly what came before it, not
+// reset to zero -- foldPT (card.go) only overwrites a dimension one of
+// these two flags is true for. LayerModifyPT needs neither flag: adding
+// zero to a dimension an effect does not mention is already a no-op, the
+// reason every ModifyPT-only caller (pt_test.go's own) can leave both
+// false.
 type PTEffect struct {
-	Layer            StaticAbilityLayer
-	Timestamp        uint64
-	Power, Toughness int
+	Layer                  StaticAbilityLayer
+	Timestamp              uint64
+	Power, Toughness       int
+	HasPower, HasToughness bool
 }
 
 // Add records one continuous effect. Order does not matter here: folding

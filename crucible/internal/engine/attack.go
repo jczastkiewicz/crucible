@@ -31,6 +31,10 @@ func (g *Game) Attackers() []CardID { return g.combat.Attackers }
 // keeps ResolveStack out of beginPhase too, since most games reaching this
 // phase attack with nothing and the call would be a no-op far more often
 // than not.
+// checkAttacksTriggers (trigger.go) runs once per declared attacker, after
+// tapping and target assignment both landed -- CR 508.3's own "whenever ~
+// attacks" trigger fires off the attack as declared, not off a
+// still-provisional one.
 func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	var eligible []CardID
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
@@ -55,6 +59,9 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	}
 	g.combat.Attackers = attackers
 	g.assignAttackTargets(controller, attackers)
+	for _, id := range attackers {
+		g.checkAttacksTriggers(id)
+	}
 	return attackers
 }
 

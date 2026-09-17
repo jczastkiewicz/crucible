@@ -1,7 +1,8 @@
-// Trigger firing: CR 603, trimmed to the two Mode$ ChangesZone shapes the
-// corpus uses most -- a permanent entering the battlefield (Destination$
-// Battlefield) and one leaving it to a graveyard (Origin$ Battlefield,
-// Destination$ Graveyard, CR 700.4's "dies").
+// Trigger firing: CR 603, trimmed to the corpus's three most frequent modes
+// -- a permanent entering the battlefield (Mode$ ChangesZone, Destination$
+// Battlefield), one leaving it to a graveyard (Mode$ ChangesZone, Origin$
+// Battlefield, Destination$ Graveyard, CR 700.4's "dies"), and a creature
+// attacking (Mode$ Attacks, CR 508.3).
 
 package engine
 
@@ -25,8 +26,8 @@ import (
 // Mode$ ChangesZone with Destination$ Battlefield fires (an ETB trigger),
 // keyed off compile.Face.Triggers -- M3's own trigger-line compilation,
 // already typed the same way an ability line is (compile.Ability), just
-// never read by the engine before now. Every other trigger mode (Attacks,
-// Tapped, a spell being cast, ...) is a gap this does not close
+// never read by the engine before now. Every other trigger mode but Attacks
+// and Dies (Tapped, a spell being cast, ...) is a gap this does not close
 // (game-state.md's "Not ported yet"). CR 603.3b's own simultaneous-trigger
 // ordering (a controller's own multiple triggers, in an order they choose;
 // APNAP order between different controllers') does apply now that
@@ -211,6 +212,75 @@ func (g *Game) checkOtherDiesTriggers(left CardID) {
 			}
 		}
 	}
+}
+
+// checkAttacksTriggers is CR 508.3's own "whenever ~ attacks" trigger,
+// ported from TriggerAttacks.performTest at the one param this port can
+// resolve: ValidCard matched against the declared attacker. Unlike
+// checkETBTriggers/checkDiesTriggers, this needs no separate "own" and
+// "other" loop: TriggerAttacks itself never special-cases the attacker's own
+// trigger, so ValidCard$ Card.Self (1,282 of 1,606 real corpus lines) and
+// ValidCard$ Creature.YouCtrl (an anthem-shaped "whenever a creature you
+// control attacks") both fall out of the identical check below, just with
+// different ValidCard strings and a different host.
+//
+// Not resolved: Attacked$ (47 real lines) -- TriggerAttacks.performTest
+// matches it against a GameEntity (a player, planeswalker or Battle), and
+// Matches (valid.go) only evaluates a *Card; Alone$ (57), FirstAttack$ (4),
+// DefendingPlayerPoisoned$ (1) and AttackDifferentPlayers$ (1) -- each its
+// own runtime condition (how many other attackers, a creature's own
+// attack-count history, a player's poison count, attacking more than one
+// player at once) this port tracks nothing for. A trigger carrying any of
+// these five is skipped entirely, not fired unconditionally -- GO-7: better
+// to miss a real trigger than fire one whose own restriction this port
+// silently ignored. 1,496 of 1,606 real lines carry none of them.
+func (g *Game) checkAttacksTriggers(attacker CardID) {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isAttacksTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "Attacked", "Alone", "FirstAttack", "DefendingPlayerPoisoned", "AttackDifferentPlayers") {
+						continue
+					}
+					validCard, ok := t.Param("ValidCard")
+					if !ok {
+						continue
+					}
+					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// hasAnyParam reports whether t carries any of keys, regardless of value --
+// checkAttacksTriggers' own way of skipping a trigger this port cannot fully
+// evaluate rather than firing it as if the extra condition were not there.
+func hasAnyParam(t *compile.Ability, keys ...string) bool {
+	for _, k := range keys {
+		if _, ok := t.Param(k); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// isAttacksTrigger reports whether t is CR 508.3's "attacks" shape: Mode$
+// Attacks.
+func isAttacksTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Attacks")
 }
 
 // isETBTrigger reports whether t is CR 603.2's "enters the battlefield"

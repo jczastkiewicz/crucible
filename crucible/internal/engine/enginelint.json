@@ -29,7 +29,8 @@
     "land": ["land.go"],
     "castspell": ["castspell.go"],
     "trigger": ["trigger.go"],
-    "draweffect": ["draweffect.go"]
+    "draweffect": ["draweffect.go"],
+    "continuous": ["continuous.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -44,12 +45,25 @@
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
     "control": ["id", "game", "combat"],
-    "action": ["id", "zone", "parts", "card", "player", "game", "event", "control", "valid", "trigger"],
+    "action": [
+      "id",
+      "zone",
+      "parts",
+      "card",
+      "player",
+      "game",
+      "event",
+      "control",
+      "valid",
+      "trigger",
+      "staticability",
+      "continuous"
+    ],
     "turn": ["id", "zone", "parts", "card", "player", "game", "phase", "action", "event", "control", "combat"],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control"],
     "valid": ["id", "zone", "card", "parts", "game", "combat"],
-    "attack": ["id", "zone", "card", "player", "game", "control"],
+    "attack": ["id", "zone", "card", "player", "game", "control", "trigger"],
     "staticability": ["id", "zone", "card", "game", "valid"],
     "block": ["id", "zone", "card", "game", "control", "combat", "attack", "staticability"],
     "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"],
@@ -73,6 +87,7 @@
       "draweffect"
     ],
     "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack"],
-    "draweffect": ["id", "game", "player", "ability", "turn"]
+    "draweffect": ["id", "game", "player", "ability", "turn"],
+    "continuous": ["id", "zone", "card", "game", "valid", "parts", "layer", "ability"]
   }
 }

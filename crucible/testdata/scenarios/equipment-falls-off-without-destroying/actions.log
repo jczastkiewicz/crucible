@@ -2,8 +2,11 @@
 # cleanupDanglingAttachments): unlike an Aura, which the same rule sends to
 # its owner's graveyard, an Equipment or Fortification whose host just left
 # the battlefield only becomes unattached -- it stays right where it was.
-# Grizzly Bears (2/2) already carries lethal marked damage, so the first
-# state-based-action check (StartTurn's own Untap-step beginPhase) destroys
-# it (CR 704.5g/h, destroyDamagedCreatures) and, the same pass,
-# cleanupDanglingAttachments finds Sword of Body and Mind with no host left.
+# Grizzly Bears (2/2) is a 4/4 while Sword of Body and Mind's own
+# Mode$ Continuous | AddPower$ 2 | AddToughness$ 2 applies (applyContinuousPT,
+# continuous.go), so 4 marked damage -- not 2 -- is what makes it lethal.
+# The first state-based-action check (StartTurn's own Untap-step
+# beginPhase) destroys it (CR 704.5g/h, destroyDamagedCreatures) and, the
+# same pass, cleanupDanglingAttachments finds Sword of Body and Mind with
+# no host left.
 startturn human

@@ -32,8 +32,9 @@ import (
 // carrying both +1/+1 and -1/-1 counters loses the smaller pile from each,
 // in equal number -- `stateBasedAction704_5q`'s own name is the source for
 // this letter), a partial CR 704.5f (a creature at zero or less toughness
-// -- printed, Layer 7's own SETPT/MODIFYPT/CHARACTERISTIC effects and +1/+1
-// or -1/-1 counters all folded in, Card.Toughness's own job -- goes to its
+// -- printed, Layer 7's own SETPT/MODIFYPT effects (applyContinuousPT,
+// continuous.go, recomputed fresh right before this loop runs) and +1/+1 or
+// -1/-1 counters all folded in, Card.Toughness's own job -- goes to its
 // owner's graveyard), CR 704.5g and 704.5h together (a creature dealt
 // damage at least equal to its toughness, or dealt any deathtouch damage
 // at all, is destroyed -- destroyDamagedCreatures, below), a partial CR
@@ -61,14 +62,12 @@ import (
 // hexproof preventing an attachment in the first place (CR
 // 702.11h/702.16e -- a distinct check from the Enchant restriction itself,
 // which cleanupDanglingAttachments below does resolve), and the legend
-// rule's own two corner cases (resolveLegendRule's doc comment) -- needs
-// either the rest of the continuous-effect layer system (type, color,
-// ability layers; CR 613.6-613.8's dependency reordering, which nothing
-// here has more than one effect to need yet) or a quality-matching
-// static-ability engine this port does not have (game-state.md's "Not
-// ported yet"). A rule this port has not implemented simply never fires,
-// the same as it would in a real game with no permanent that rule applies
-// to.
+// rule's own remaining corner case, Partner-with-a-non-legendary-creature-name
+// pairs sharing a "true name" (resolveLegendRule's doc comment) -- needs
+// `StaticData`'s own card-name lookup, which this port's `carddb`/`compile`
+// layer has no equivalent of. A rule this port has not implemented simply
+// never fires, the same as it would in a real game with no permanent that
+// rule applies to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -142,6 +141,11 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 		g.sink.Emit(Event{Kind: GameEnded, Active: g.activePlayer, Actor: remaining, Turn: uint16(g.turn)})
 		return true
 	}
+
+	// CR 613: recomputed fresh every pass, before anything below reads
+	// Power()/Toughness() -- applyContinuousPT's own doc comment
+	// (continuous.go) has the reason this cannot be a one-time push instead.
+	applyContinuousPT(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {
@@ -425,11 +429,15 @@ func destroyZeroDefense(g *Game) {
 // the battlefield (GO-12) -- the same determinism `Multimaps.index`'s
 // insertion-ordered keys give Java.
 //
-// Two of Java's own corner cases are not here: a legendary permanent that
-// opts out via `ignoreLegendRule` (nothing this port can grant that effect
-// yet), and Partner-with-a-non-legendary-creature-name pairs (Spy Kit and
-// similar) sharing a "true name" even though their printed names differ --
-// a rule specific to a handful of cards, not the general case.
+// A legendary permanent exempted by some Mode$ IgnoreLegendRule static
+// ability (ignoreLegendRule, staticability.go) never enters the grouping at
+// all, the same as Java's own handleLegendRule filters its own candidate
+// list before grouping by name (GameAction.java). One of Java's own corner
+// cases is still not here: Partner-with-a-non-legendary-creature-name pairs
+// (Spy Kit and similar) sharing a "true name" even though their printed
+// names differ -- a rule specific to a handful of cards, not the general
+// case, and needing `StaticData`'s own card-name lookup this port's
+// `carddb`/`compile` layer has no equivalent of.
 func resolveLegendRule(g *Game, controller PlayerController) {
 	for _, pid := range g.Players() {
 		byName := map[string][]CardID{}
@@ -437,6 +445,9 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
 			if !c.Type().HasSupertype(cardtype.Legendary) {
+				continue
+			}
+			if ignoreLegendRule(g, id) {
 				continue
 			}
 			name := c.Def.Name

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -1118,6 +1119,78 @@ func TestCheckStateBasedActionsLegendRuleOnlyAppliesToLegendaryPermanents(t *tes
 	}
 	if z := g.Card(second).Zone; z != engine.Battlefield {
 		t.Errorf("its same-named non-legendary sibling zone = %v, want Battlefield", z)
+	}
+}
+
+// legendaryCreatureDefIgnoreLegendRule builds a legendary creature carrying a
+// real S:Mode$ IgnoreLegendRule line (ValidCard$ Card.Self, the unconditional
+// "the legend rule doesn't apply to this" shape), compiled through the real
+// pipeline the same reason cantBlockByAuraDef (staticability_test.go) is.
+func legendaryCreatureDefIgnoreLegendRule(t *testing.T, name string) *compile.Card {
+	t.Helper()
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Statics = []string{"Mode$ IgnoreLegendRule | ValidCard$ Card.Self"}
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// Two same-named legends both exempted by their own IgnoreLegendRule static
+// ability never conflict -- ignoreLegendRule (staticability.go) removes both
+// from the candidate pool before grouping, so the legend rule never even
+// finds a group of two to resolve. No QueueLegendaryToKeep is queued: if
+// resolveLegendRule asked anyway, this panics on an empty queue, which is
+// exactly the assertion.
+func TestCheckStateBasedActionsLegendRuleExemptedCardsSurviveTogether(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(legendaryCreatureDefIgnoreLegendRule(t, "Test Exempt Legend"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDefIgnoreLegendRule(t, "Test Exempt Legend"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("first exempted legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Battlefield {
+		t.Errorf("second exempted legend zone = %v, want Battlefield", z)
+	}
+}
+
+// An exemption only removes the exempted card from the candidate pool, not
+// the whole name-group: two ordinary legends sharing a name with an exempted
+// third one still conflict with each other.
+func TestCheckStateBasedActionsLegendRuleOnlyExemptsMatchingCard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	exempt := g.NewCard(legendaryCreatureDefIgnoreLegendRule(t, "Test Mixed Legend"), a, engine.Battlefield)
+	first := g.NewCard(legendaryCreatureDef(t, "Test Mixed Legend"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDef(t, "Test Mixed Legend"), a, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueLegendaryToKeep(first)
+	engine.CheckStateBasedActions(g, c)
+
+	if z := g.Card(exempt).Zone; z != engine.Battlefield {
+		t.Errorf("exempted legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("kept legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Graveyard {
+		t.Errorf("other non-exempt legend zone = %v, want Graveyard", z)
 	}
 }
 

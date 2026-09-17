@@ -76,13 +76,33 @@ func TestPowerToughnessSetPTReplaces(t *testing.T) {
 	p := g.Players()[0]
 	id := g.NewCard(creatureDefPT(t, "4", "4"), p, engine.Battlefield)
 	c := g.Card(id)
-	c.PT.Add(engine.PTEffect{Layer: engine.LayerSetPT, Timestamp: 1, Power: 0, Toughness: 1})
+	c.PT.Add(engine.PTEffect{Layer: engine.LayerSetPT, Timestamp: 1, Power: 0, Toughness: 1, HasPower: true, HasToughness: true})
 
 	if pw, ok := c.Power(); !ok || pw != 0 {
 		t.Errorf("Power() = (%d, %v), want (0, true)", pw, ok)
 	}
 	if tg, ok := c.Toughness(); !ok || tg != 1 {
 		t.Errorf("Toughness() = (%d, %v), want (1, true)", tg, ok)
+	}
+}
+
+// A LayerSetPT effect naming only one dimension (a real corpus SetPower or
+// SetToughness line without the other) leaves the other exactly as it was --
+// not reset to zero, which HasPower/HasToughness (pt.go) exist to prevent.
+func TestPowerToughnessSetPTPartialLeavesOtherDimensionAlone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	id := g.NewCard(creatureDefPT(t, "4", "4"), p, engine.Battlefield)
+	c := g.Card(id)
+	c.PT.Add(engine.PTEffect{Layer: engine.LayerSetPT, Timestamp: 1, Power: 0, HasPower: true})
+
+	if pw, ok := c.Power(); !ok || pw != 0 {
+		t.Errorf("Power() = (%d, %v), want (0, true)", pw, ok)
+	}
+	if tg, ok := c.Toughness(); !ok || tg != 4 {
+		t.Errorf("Toughness() = (%d, %v), want (4, true) -- SetPower alone must not touch Toughness", tg, ok)
 	}
 }
 
@@ -98,7 +118,7 @@ func TestPowerToughnessSetPTAppliesBeforeModifyPT(t *testing.T) {
 	id := g.NewCard(creatureDefPT(t, "4", "4"), p, engine.Battlefield)
 	c := g.Card(id)
 	c.PT.Add(engine.PTEffect{Layer: engine.LayerModifyPT, Timestamp: 1, Power: 1, Toughness: 1})
-	c.PT.Add(engine.PTEffect{Layer: engine.LayerSetPT, Timestamp: 2, Power: 0, Toughness: 1})
+	c.PT.Add(engine.PTEffect{Layer: engine.LayerSetPT, Timestamp: 2, Power: 0, Toughness: 1, HasPower: true, HasToughness: true})
 
 	if pw, ok := c.Power(); !ok || pw != 1 {
 		t.Errorf("Power() = (%d, %v), want (1, true): set to 0 first, then +1", pw, ok)
@@ -119,7 +139,7 @@ func TestPowerToughnessCharacteristicResolvesUnresolvableBase(t *testing.T) {
 		t.Fatal("setup: an unresolvable base resolved before any effect was added")
 	}
 
-	c.PT.Add(engine.PTEffect{Layer: engine.LayerCharacteristic, Timestamp: 1, Power: 2, Toughness: 2})
+	c.PT.Add(engine.PTEffect{Layer: engine.LayerCharacteristic, Timestamp: 1, Power: 2, Toughness: 2, HasPower: true, HasToughness: true})
 
 	if pw, ok := c.Power(); !ok || pw != 2 {
 		t.Errorf("Power() = (%d, %v), want (2, true)", pw, ok)

@@ -180,17 +180,21 @@ SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-stri
 covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's intrinsic mana ability
 (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an Aura, through the stack
 — (`castspell.go`), the first two real `Effect` implementations (`permanentEffect`/`attachEffect`); trigger firing
-(`trigger.go`) — a permanent's own "enters" and "dies" modes, plus another permanent watching one enter or die — detects
-and queues a trigger; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Menace and
-every literal `S:Mode$ CantBlockBy` line, the first slice of the general static-ability engine PORT-8 requires reading
-Java's own mechanism for rather than hardcoding a keyword check. M6 in progress alongside it: `Draw` (`draweffect.go`)
-is the first of the 203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability`
-gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that
-possible. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
-`docs/crucible/porting/port-log/game-state.md`. Thin or missing: the layer system is CR 613's layer _numbers_ plus a
-power/toughness folding mechanism with zero real callers; the legend rule's `ignoreLegendRule` corner case and
-`Mode$ Continuous` (folding itself) wait on the rest of that same static-ability engine; Intimidate, Landwalk,
-Protection and Skulk are `CantBlockBy` gaps of their own (`game-state.md`'s "Block legality" section has the reason for
-each); 202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:**
-342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
-3.2) is not.
+(`trigger.go`) — "enters", "dies" and "attacks", plus another permanent watching one enter, die or attack — detects and
+queues a trigger; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Menace and every
+literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption (`staticability.go`) — three
+slices of the general static-ability engine PORT-8 requires reading Java's own mechanism for rather than hardcoding a
+keyword check; and a first slice of the engine's biggest piece, `Mode$ Continuous` itself — `applyContinuousPT`
+(`continuous.go`) resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness lines (anthem effects,
+equipment bonuses), recomputed fresh every `CheckStateBasedActions` pass rather than pushed once, `pt.go`'s own folding
+mechanism's first real caller. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203
+script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
+(`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
+missing: Layers 1-6, 8 and 7a (`CharacteristicDefining$`) need the rest of the same static-ability engine
+`Mode$ Continuous`'s own 7b/7c slice does not close; the legend rule's Partner-non-legendary-name corner case;
+Intimidate, Landwalk, Protection and Skulk are `CantBlockBy` gaps of their own (`game-state.md`'s "Block legality"
+section has the reason for each); `Attacks`'s own five unresolved params and every trigger mode past
+enters/dies/attacks; 202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit gate's
+fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer,
+every SBA," Plan Section 3.2) is not.

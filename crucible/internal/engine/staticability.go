@@ -1,11 +1,16 @@
-// Block legality beyond "untapped": CR 509.1b's CantBlockBy static ability
-// (flying/reach, Fear, Horsemanship, and every real corpus S: line written
-// in that shape), the general mechanism block.go's own doc comment named
-// as a gap.
+// Two static-ability modes with no layer-folding of their own: CR 509.1b's
+// CantBlockBy (flying/reach, Fear, Horsemanship, and every real corpus S:
+// line written in that shape) and the legend rule's own IgnoreLegendRule
+// corner case. Neither needs CR 613's layer system -- each is a plain
+// ValidCard/ValidAttacker/ValidBlocker match, same shape valid.go already
+// evaluates for everything else -- which is what makes both buildable ahead
+// of Mode$ Continuous itself (game-state.md's "Continuous effects" section
+// has the reasoning in full).
 //
 // Ported from
 // forge-game/src/main/java/forge/game/staticability/StaticAbilityCantAttackBlock.java's
-// cantBlockBy/applyCantBlockByAbility.
+// cantBlockBy/applyCantBlockByAbility, and
+// forge-game/src/main/java/forge/game/staticability/StaticAbilityIgnoreLegendRule.java.
 
 package engine
 
@@ -138,4 +143,53 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 		return false
 	}
 	return true
+}
+
+// ignoreLegendRule reports whether id is exempt from the legend rule (CR
+// 704.5j) by some Mode$ IgnoreLegendRule static ability in play. Ported from
+// StaticAbilityIgnoreLegendRule.ignoreLegendRule/applyIgnoreLegendRuleAbility:
+// every battlefield permanent is walked as a possible host (Java's own
+// STATIC_ABILITIES_SOURCE_ZONES, trimmed to Battlefield the same way
+// cantBlockBy's own doc comment justifies), and a ValidCard-less line (1 of
+// the 11 real corpus lines, an unconditional "the legend rule doesn't
+// apply") matches every card, exactly Java's own
+// `stAb.matchesValidParam("ValidCard", card)` contract for an absent param.
+//
+// Not ported: a line carrying IsPresent$/PresentCompare$ (2 of the 11 --
+// "if you control exactly two permanents named X") -- StaticAbility.java's
+// own checkConditions evaluates those generically for every static-ability
+// mode, a mechanism this port has not built for any mode yet (game-state.md's
+// "Not ported yet"). Skipped rather than guessed at: an ability this port
+// cannot evaluate the condition for is treated as not currently active, the
+// same safe default an unresolvable Toughness leaves a creature alive under
+// (destroyLethalToughness's own doc comment, action.go) -- wrong only in the
+// rare case the condition holds, never in the far more common case it does
+// not.
+func ignoreLegendRule(g *Game, id CardID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "IgnoreLegendRule") {
+						continue
+					}
+					if _, ok := s.Param("IsPresent"); ok {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if !ok {
+						return true
+					}
+					if Matches(g, g.Card(id), valid.Parse(validCard), h.Controller, h.ID) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

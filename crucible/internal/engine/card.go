@@ -223,12 +223,12 @@ func (c *Card) Toughness() (int, bool) {
 // (game-state.md's "Not ported yet").
 func (c *Card) layer7Power() (int, bool) {
 	base, ok := c.BasePower()
-	return foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Power })
+	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Power, e.HasPower })
 }
 
 func (c *Card) layer7Toughness() (int, bool) {
 	base, ok := c.BaseToughness()
-	return foldPT(base, ok, c.PT.effects, func(e PTEffect) int { return e.Toughness })
+	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Toughness, e.HasToughness })
 }
 
 // CMC is the card's printed mana value (CR 202.3), the sum of its mana
@@ -243,12 +243,16 @@ func (c *Card) CMC() int {
 }
 
 // foldPT applies Layer 7's own sub-layers in order (CR 613.4):
-// LayerCharacteristic and LayerSetPT each replace the running value,
-// LayerModifyPT adds to it. Ties within a layer break by Timestamp,
+// LayerCharacteristic and LayerSetPT each replace the running value --
+// unless pick's own bool reports this effect does not set this particular
+// dimension at all (PTEffect's own HasPower/HasToughness doc comment has
+// the reason), in which case the running value is left exactly as it was --
+// LayerModifyPT adds to it, using pick's value regardless of its bool since
+// adding zero is always safe. Ties within a layer break by Timestamp,
 // ascending -- CR 613.7's own tiebreak once dependency reordering (CR
-// 613.8) is not in play, which it cannot be: nothing here has more than
-// one continuous effect on the same card yet to depend on another.
-func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) int) (int, bool) {
+// 613.8) is not in play, which it cannot be: nothing here has more than one
+// continuous effect on the same card yet to depend on another.
+func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) (int, bool)) (int, bool) {
 	sorted := append([]PTEffect(nil), effects...)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].Layer != sorted[j].Layer {
@@ -258,12 +262,15 @@ func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) int) 
 	})
 	value, ok := base, baseOK
 	for _, e := range sorted {
+		v, has := pick(e)
 		switch e.Layer {
 		case LayerCharacteristic, LayerSetPT:
-			value, ok = pick(e), true
+			if has {
+				value, ok = v, true
+			}
 		case LayerModifyPT:
 			if ok {
-				value += pick(e)
+				value += v
 			}
 		}
 	}

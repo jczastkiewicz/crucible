@@ -250,35 +250,78 @@ same "coverage gap, not a wrong answer" contract `Type()` already keeps.
 characteristic-defining ability (Layer 7a), a setting effect (7b), a modifying effect (7c) or a counter (CR 613.4, after
 Layer 7) has applied.
 
-## Layer 7: `PT` and `Card.Power`/`Toughness`
+## Layer 7: `PT`, `Card.Power`/`Toughness`, and the first real Continuous caller
 
 `layer.go` is `forge.game.staticability.StaticAbilityLayer`: the ten-value enum, Forge's own order, 7a/7b/7c split and
-Layer 8 (Forge's own rule-changing bookkeeping, no CR number) included, even though only 7a/7b/7c have anything to apply
-yet. `pt.go`'s `PT` is a card's set of `PTEffect`s — one continuous effect's power/toughness contribution, a layer, a
-timestamp, nothing else — the same "mechanism now, content later" shape `effect.go`'s `Registry` and `stack.go`'s stack
-already landed in: zero production writers, proven by tests that add a `PTEffect` directly the way `stack_test.go`
-pushes a stub `Ability`.
+Layer 8 (Forge's own rule-changing bookkeeping, no CR number) included, even though only 7b/7c have a real caller today.
+`pt.go`'s `PT` is a card's set of `PTEffect`s — one continuous effect's power/toughness contribution, a layer, a
+timestamp, and (`HasPower`/`HasToughness`, below) which dimension it actually sets.
 
 `Card.Power`/`Toughness` (`card.go`) is what actually applies CR 613.4's ordering: sort `PT`'s effects by layer then
 timestamp, then fold — `LayerCharacteristic` and `LayerSetPT` each replace the running value, `LayerModifyPT` adds to
 it, and +1/+1/-1/-1 counters (`Card.Counters`, already built) apply last, after every layer. A `LayerCharacteristic`
 effect can turn an unresolvable base (`*`, `BasePower`'s own `ok=false`) into a resolvable one — a
 characteristic-defining ability's entire purpose — so `foldPT` starts from `(base, baseOK)` rather than requiring
-`baseOK` up front. `destroyLethalToughness` (CR 704.5f, `## State-based actions`) now reads `Toughness()` instead of
+`baseOK` up front. `destroyLethalToughness` (CR 704.5f, `## State-based actions`) reads `Toughness()` instead of
 `BaseToughness()`, so a creature a `LayerModifyPT` pump or an annihilated -1/-1 pile actually reduces to zero dies here
 too, not only one whose printed toughness always read zero.
 
+`PTEffect` gained `HasPower`/`HasToughness` the moment a real caller needed them: a `LayerSetPT`/`LayerCharacteristic`
+effect naming only one dimension (68 real corpus `SetPower$`-only lines, 9 `SetToughness$`-only) must leave the other
+exactly as it was, not reset it to zero the way the original zero-value `Power`/`Toughness` `int` fields alone would
+have — `foldPT`'s own `pick` function now returns `(value, hasThisDimension)`, overwriting only when `has` is true.
+`LayerModifyPT` needs neither flag: adding zero to a dimension an effect does not mention is already a no-op. Every
+existing `pt_test.go` literal that builds a `LayerSetPT`/`LayerCharacteristic` `PTEffect` needed both flags added to
+keep testing what it already did; `TestPowerToughnessSetPTPartialLeavesOtherDimensionAlone` is the new case that
+motivated the change.
+
+`applyContinuousPT` (`continuous.go`) is the first real (non-test) `PT.Add` caller: `Mode$ Continuous` lines carrying
+`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$`, matched against every battlefield permanent via a blanket
+`Affected$` valid-string — the anthem shape (Glorious Anthem, and 2,192 of 2,426 real corpus `S:Mode$ Continuous` lines
+carrying one of those four keys). Ported from `StaticAbilityContinuous.applyContinuousAbility`/`getAffectedCards`.
+
+Recomputed from scratch on every `CheckStateBasedActions` call, not pushed once when a source or an affected creature
+enters: Java's own `applyContinuousAbility` runs fresh from `GameAction.checkStateEffects` every state-based-action pass
+for exactly this reason — an anthem has to reach a creature that enters after it, and stop the instant the anthem itself
+leaves, neither of which a one-time push at either card's own entry could give it
+(`TestApplyContinuousPTRecomputesWhenSourceLeaves`, continuous_test.go, proves the second half). Every battlefield
+card's own `PT.effects` is cleared before the rebuild; safe today because nothing else this port can build yet ever adds
+a `PTEffect` of its own (a real "+3/+3 until end of turn" pump would need its own duration-scoped bucket this clear
+would not touch, `## Not ported yet`, below) — recomputing everything from `Mode$ Continuous` statics alone is exactly
+correct until one exists, not an approximation that happens to work today.
+
+Not resolved, each for a specific reason: `Condition$` (116 of 2,426 real lines) — a generic runtime gate
+(`StaticAbility.java`'s own `checkConditions`, no equivalent for any static-ability mode in this port yet);
+`AffectedDefined$`/`AffectedZone$` (0 and 24) — a targeted or `Remembered`-driven affected set, not a blanket
+valid-string match; `CharacteristicDefining$ True` (265, Layer 7a) — almost always an SVar-driven value (a "\*/\*"
+creature's own `Count$`-based power), the identical evaluator gap `compareMatches` (`valid.go`) already documents, so
+skipped as a whole rather than chasing the rare plain-integer case; and a non-numeric `AddPower$`/`AddToughness$`/
+`SetPower$`/`SetToughness$` (`X`, `Y`, `Z`, `AffectedX`, a named SVar) — the same `AbilityUtils.calculateAmount` gap
+`Draw`'s own `NumCards$` already has (`## M6's first effect: Draw`, above), skipped per missing dimension rather than
+per whole line.
+
+One real fixture needed fixing because of this, not writing: `equipment-falls-off-without-destroying`'s own Grizzly
+Bears carried 2 marked damage on a printed 2/2, lethal only because Sword of Body and Mind's real
+`Mode$ Continuous | AddPower$ 2 | AddToughness$ 2` was not applying yet. Equipped, it is actually a 4/4 — 2 damage was
+never lethal to it in a rules-correct game, only in a port that had not built this yet. The fixture's own expected
+outcome was accidentally right for the wrong reason; `setup.state` now marks 4 damage, actually lethal on a 4/4, so the
+scenario still demonstrates what it was written for (`cleanupDanglingAttachments`'s Equipment-vs-Aura distinction)
+without depending on a gap this port no longer has.
+
 **Not here: CR 613.6-613.8's dependency reordering.** Java sorts effects within a layer by timestamp and then
 re-evaluates whether an unapplied effect has become dependent on or independent of another as each one resolves
-(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`, 1,099-line `StaticAbilityContinuous.java`). Nothing
-this port can build yet puts more than one continuous effect on the same card that could disagree about order — no
-static ability content exists to generate a `PTEffect` in production at all — so `foldPT`'s plain timestamp sort is a
-real port of CR 613.7's tiebreak, not a stand-in for 613.8's harder case; that case is only decidable once the first two
-effects that could actually depend on each other exist to prove it against.
+(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`, 1,099-line `StaticAbilityContinuous.java`). Real
+`PTEffect`s exist now, but nothing in the real corpus subset this slice resolves puts two effects on one card that could
+actually disagree about order (an anthem and an equipment bonus stack additively regardless of which applied first) —
+`foldPT`'s plain timestamp sort remains a real port of CR 613.7's tiebreak, not yet a stand-in for 613.8's harder case.
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip, and this port
-has no duration tracking ("until end of turn" wearing off on its own) to model the alternative anyway.
+has no duration tracking ("until end of turn" wearing off on its own) to model the alternative anyway. That clear is now
+redundant with `applyContinuousPT`'s own rebuild-from-scratch for anything `Mode$ Continuous` produces (a card that has
+left is not on the battlefield to be walked as a host or an affected card on the next pass either way), but still
+matters for the same real gap `applyContinuousPT` does not close: an event-driven "+3/+3 until end of turn" pump, once
+built, would need `Move`'s own clear exactly the way it always has.
 
 `Player.Counters` is new here, the same type `Card.Counters` already uses: poison is the only player-level counter any
 rule reads today, but nothing about "a count that is never stored at zero" is specific to what holds it. `Game.Clone`
@@ -359,10 +402,22 @@ not, reachable the same way.
 Grouping is per player, not across the whole battlefield: two different players may each legally control their own copy
 of one legendary permanent, so only a player's own duplicates trigger the rule. Within a player, names are grouped in
 the order their permanents first appear on the battlefield (GO-12) — the same determinism `Multimaps.index`'s
-insertion-ordered keys give Java. Two of Java's own corner cases are not here: a legendary permanent that opts out via
-`ignoreLegendRule` (nothing this port can grant that effect yet), and Partner-with-a-non-legendary-creature-name pairs
-(Spy Kit and similar) sharing a "true name" even though their printed names differ — a rule specific to a handful of
-cards, not the general case.
+insertion-ordered keys give Java.
+
+A legendary permanent exempted by its own `Mode$ IgnoreLegendRule` static ability (`ignoreLegendRule`,
+`staticability.go`) is filtered out before grouping even starts, the same as Java's own `handleLegendRule` filters its
+candidate list first (`GameAction.java`). Ported from
+`StaticAbilityIgnoreLegendRule.ignoreLegendRule`/`applyIgnoreLegendRuleAbility`: every battlefield permanent is walked
+as a possible host (Battlefield only, the same trim `cantBlockBy`'s own doc comment justifies), and a `ValidCard`-less
+line (1 of the 11 real corpus lines, an unconditional "the legend rule doesn't apply") matches every card, exactly
+Java's own `matchesValidParam` contract for an absent param. Two of the 11 carry `IsPresent$`/`PresentCompare$` (a "you
+control exactly two of them" condition `StaticAbility.java`'s own generic `checkConditions` evaluates, no equivalent for
+any static-ability mode in this port yet) — skipped rather than guessed at, the same safe default an unresolvable
+`Toughness` leaves a creature alive under.
+
+One of Java's own corner cases is still not here: Partner-with-a-non-legendary-creature-name pairs (Spy Kit and similar)
+sharing a "true name" even though their printed names differ — needs `StaticData`'s own card-name lookup, which this
+port's `carddb`/`compile` layer has no equivalent of.
 
 ## The World rule needed no new field, only the one every zone change already stamps
 
@@ -1001,13 +1056,29 @@ exactly as legal at resolution, and `cleanupDanglingAttachments` would catch it 
 `cast-an-aura-spell- attaches-to-chosen-target` is the fixture: a real Pacifism (`{1}{W}`, `K:Enchant:Creature`) cast at
 a lone Grizzly Bears on the battlefield, assigned automatically, attached at resolution.
 
-## Trigger firing: entering the battlefield, dying, and watching another permanent
+## Trigger firing: entering, dying, attacking, and watching another permanent
 
 `checkETBTriggers` (`trigger.go`) is CR 603 at its narrowest: only `Mode$ ChangesZone` with `Destination$ Battlefield`
 fires — a permanent's own "when this enters" trigger. `checkDiesTriggers` is the identical narrowness applied to the
 corpus's other frequent `ChangesZone` shape — `Origin$ Battlefield`, `Destination$ Graveyard`, CR 700.4's "dies" —
 checked only against the dying card's own `Card.Self` triggers. `isETBTrigger`/`isDiesTrigger` factor the shared
 `Mode$ ChangesZone` + zone-key check both need, on top of `hasZone`.
+
+`checkAttacksTriggers` is CR 508.3's own mode, `Mode$ Attacks`, entirely — not a `ChangesZone` shape at all, so it needs
+no zone-key check, only `ValidCard` matched against the declared attacker. Ported from `TriggerAttacks.performTest`.
+Unlike `checkETBTriggers`/`checkDiesTriggers`, this needs no separate "own" and "other" loop: `TriggerAttacks` itself
+never special-cases the attacker's own trigger, so `ValidCard$ Card.Self`/`Creature.Self` (1,282 of 1,606 real corpus
+lines — the attacker's own trigger) and `ValidCard$ Creature.YouCtrl` (an anthem-shaped "whenever a creature you control
+attacks" watcher) fall out of the identical single walk over every battlefield permanent, just with a different
+`ValidCard` string and a different host — one loop where `checkOtherETBTriggers` and `checkOtherDiesTriggers` each
+needed a second one. Not resolved: `Attacked$` (47 real lines) — `performTest` matches it against a `GameEntity` (a
+player, planeswalker or Battle), and `Matches` (valid.go) only evaluates a `*Card`; `Alone$` (57), `FirstAttack$` (4),
+`DefendingPlayerPoisoned$` (1) and `AttackDifferentPlayers$` (1) — each its own runtime condition (how many other
+attackers, a creature's own attack-count history, a player's poison count, attacking more than one player at once) this
+port tracks nothing for. A trigger carrying any of these five is skipped entirely, not fired unconditionally (GO-7) —
+1,496 of 1,606 real lines carry none of them. Called once per declared attacker, after tapping and target assignment
+both land (`Game.DeclareCombatAttackers`, attack.go) — `enginelint`'s `attack` group gained `trigger` as a dependency,
+the same way `castspell`/`land`/`action` already have.
 
 Both started out checked only against the one card's own `Triggers`, not every other permanent's own triggers watching
 for someone else's zone change. `checkOtherETBTriggers`/`checkOtherDiesTriggers` close that gap for both: every
@@ -1054,14 +1125,17 @@ other key the sub-ability itself carries, which worked only as long as nothing o
 `Execute$` sub-ability can be any of the 202 remaining corpus-frequency effects M6 owns (`Token`, `GainLife`,
 `DealDamage`, ...), and `NewRegistry` implements four of them today (casting a permanent, an Aura, and `Draw`) —
 `ResolveStack` reports `ErrUnimplemented` for the other 202. `TestCastSpellFiresETBTrigger`,
-`TestDestroyLethalToughnessFiresDiesTrigger`, `TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger` and
-`TestCastSpellFiresOtherPermanentsWatchingTrigger` (trigger_test.go) prove all four paths against synthetic
-Elvish-Visionary-, Rotting-Regisaur-, Blood-Artist- and Impact-Tremors-shaped cards, each compiled through the real
-pipeline.
+`TestDestroyLethalToughnessFiresDiesTrigger`, `TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger`,
+`TestCastSpellFiresOtherPermanentsWatchingTrigger`, `TestDeclareCombatAttackersFiresAttacksTrigger`,
+`TestDeclareCombatAttackersFiresOtherPermanentsWatchingAttackTrigger` and
+`TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam` (trigger_test.go) prove all four modes against synthetic
+Elvish-Visionary-, Rotting-Regisaur-, Blood-Artist-, Impact-Tremors- and attacking-creature-shaped cards, each compiled
+through the real pipeline.
 
 Corpus-frequency: 5,688 cards carry the ETB shape (`Destination$ Battlefield`); 1,341 carry the dies shape
-(`Origin$ Battlefield` + `Destination$ Graveyard`); 205 of the dies-shaped ones watch some other creature rather than
-themselves (`ValidCard$ *.Other`/`*.YouCtrl`) — the corpus count behind `checkOtherDiesTriggers`.
+(`Origin$ Battlefield` + `Destination$ Graveyard`, 205 of them watching some other creature rather than themselves,
+`ValidCard$ *.Other`/`*.YouCtrl` — the count behind `checkOtherDiesTriggers`); 1,606 carry `Mode$ Attacks`, 1,496 of
+them resolvable.
 
 One real fixture changed because of this: `cast-a-battle-spell-reaches-the-stack` (formerly
 `...-resolves-to- battlefield`) stops at the stack rather than resolving fully, because every Battle in the corpus turns
@@ -1239,27 +1313,27 @@ compared were never going to agree on those by number.
 
 ## Not ported yet
 
-| Missing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Lands |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                                                                                                                                                                                                                                                                                                                                            | M5    |
-| 90 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, non-Aura targeting or the rest of Combat past dealing damage                                                                                                                                                                                                                                                                                                                                                                                        | M5-M6 |
-| `AIController`, the real (non-scripted) implementation                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | M7    |
-| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet                                                                                                                                                                                                                                                                                                                | M5-M6 |
-| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`                                                                                                                                                                                                                                                                                                                    | M5-M6 |
-| The rest of the "cleanup aura" rule's legality — protection and hexproof preventing an attachment in the first place (CR 702.11h/702.16e) — needs a quality-matching static-ability engine, not the `Enchant`-restriction check itself (an Aura's own restriction against its still-present host is resolved, `## State-based actions`)                                                                                                                                                                                         | M5-M6 |
-| The legend rule's own two corner cases — `ignoreLegendRule` (`StaticAbilityIgnoreLegendRule.java`: scans every permanent's own static abilities for one matching `IgnoreLegendRule` mode — a different `Mode$` than `CantBlockBy` checks, so `cantBlockBy`'s own walk (`## Block legality: CantBlockBy`, above) does not cover it) and Partner-with-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup, which this port's `carddb`/`compile` layer has no equivalent of)        | M5-M6 |
-| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |
-| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects) — `PT` (`pt.go`) has 7a/7b/7c's own folding mechanism, but even that has zero non-test callers today: producing a real `PTEffect` needs the `Mode$ Continuous` static-ability engine, a different (and much larger — 5,621 corpus occurrences) mechanism than the `Mode$ CantBlockBy` slice above, not a new layer number to add                                                                                                                    | M5-M6 |
-| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                                                                                                                                                                                                                                                                                                                                             | M5-M6 |
-| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies — need triggers, `SpellAbility` or the rest of Combat                                                                                                                                                                                                                                                                                                                                                                                                                 | M5-M6 |
-| `Match` — a series spanning more than one game, "the loser of the last game goes first" (`DealOpeningHands` always takes CR 103.2's coin flip), Puzzle/Archenemy/Power Play's own starting-player rules                                                                                                                                                                                                                                                                                                                         | M5-M6 |
-| The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                                                                                                                                                                                                                                                                                                                                             | M5-M6 |
-| A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                                                                                                                                                                                                                                                                                                                            | M5-M6 |
-| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond                                                                                                                                                                                                                                                                                                                       | M5-M6 |
-| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                                                                                                                                                                                                                                                                                                                                     | never |
-| `CounterChanged` for a script-written (non-named-constant) `CounterType` — `counterDetail` (`event.go`) is closed over the eight named constants; a `SpellAbility` creating an arbitrary keyword counter needs the encoding extended or replaced first (`## Events, wired`)                                                                                                                                                                                                                                                     | M5-M6 |
-| `MagicStack`'s `addSimultaneousStackEntry` (CR 603.3b's controller-chosen/APNAP order for more than one trigger firing off the same event — a real gap now that `checkOtherETBTriggers` can cause it, `## Stack`, above) and `undoStack` (needs an interactive priority pass to undo mid-pass); `freezeStack`/`unfreezeStack` is no longer a gap: `checkETBTriggers`/`checkDiesTriggers` pushing during another ability's own resolution needs no freezing since nothing can respond in between either way                      | M5-M6 |
-| Trigger firing (CR 603) beyond a permanent's own "enters"/"dies" modes and watching another permanent enter or die — `checkETBTriggers`/`checkOtherETBTriggers`/`checkDiesTriggers`/`checkOtherDiesTriggers` (trigger.go) cover those four; every other mode (`Attacks`, `Tapped`, a spell being cast, ...) remains a gap, and resolving what fires beyond `Draw` (`## M6's first effect: Draw`, above) is M6's 202 remaining corpus-frequency effects, not this                                                                | M5-M6 |
-| Replacement effects (CR 616, `ReplacementHandler.java`) — same missing dependency as triggers: the ability-vocabulary port, not the value-grammar evaluator                                                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
-| Block legality's remaining `CantBlockBy` gaps — Intimidate (`SharesColorWith` property `valid.go` does not evaluate), Landwalk (`ValidDefender$ Player.controls<Type>` needs a `*Player` match `Matches` cannot make), Protection (needs `Protection.java`'s own valid-string builder) and Skulk (`ValidBlocker$ Creature.powerGTX` needs an SVar-driven `X`) — `## Block legality: CantBlockBy` (above) has the full account; flying/reach, Fear, Horsemanship, Menace and every literal `S:Mode$ CantBlockBy` line are ported | M5-M6 |
-| Any mana ability besides a basic land's own intrinsic one (`TapLandForMana`, CR 305.6, `## Mana pool and payment`, above) — a nonbasic land, a creature, an artifact all need the M6 effect-dispatch machinery that one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text                                                                                                                                                                                                | M6    |
+| Missing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Lands |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| `CardState` — face/characteristics data for transform, flip and meld                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | M5    |
+| 90 of `PlayerController`'s 110 methods — everything needing `SpellAbility`, non-Aura targeting or the rest of Combat past dealing damage                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |
+| `AIController`, the real (non-scripted) implementation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | M7    |
+| Non-combat damage to a planeswalker or a Battle (a burn spell, an activated ability) — combat damage already removes loyalty/defense counters (CR 120.3c, 121.5); nothing outside combat deals damage at all yet                                                                                                                                                                                                                                                                                                                                                                                                                                       | M5-M6 |
+| The rest of CR 704.5f/704.5g's toughness — `*`, `1+*`, a `Count$` reference, or toughness a continuous effect or a counter has changed — needs `internal/expr` and the layer system, not just `strconv.Atoi`                                                                                                                                                                                                                                                                                                                                                                                                                                           | M5-M6 |
+| The rest of the "cleanup aura" rule's legality — protection and hexproof preventing an attachment in the first place (CR 702.11h/702.16e) — needs a quality-matching static-ability engine, not the `Enchant`-restriction check itself (an Aura's own restriction against its still-present host is resolved, `## State-based actions`)                                                                                                                                                                                                                                                                                                                | M5-M6 |
+| The legend rule's own remaining corner case — Partner-with-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup, which this port's `carddb`/`compile` layer has no equivalent of); `ignoreLegendRule` itself is ported (`## The legend rule needed CheckStateBasedActions to take a controller`, above)                                                                                                                                                                                                                                                                                                  | M5-M6 |
+| CR 613.6-613.8's dependency reordering within a layer — `foldPT` only sorts by timestamp, correct until two effects on one card can actually disagree about order                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | M5-M6 |
+| Layers 1-6 and 8 (copy, control, text, type, color, ability, rules effects), plus Layer 7a (`CharacteristicDefining$`) — `applyContinuousPT` (continuous.go, `## Layer 7`, above) resolves Layer 7b/7c's own `Affected$`-matched, plain-integer `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` lines (2,192 of 2,426 real `Mode$ Continuous` lines with one of those four keys); every other layer and Layer 7a both need the rest of the same general engine, mostly for keys an SVar/`Count$` evaluator this port does not have would resolve, not a new layer number to add                                                                | M5-M6 |
+| `changeZone`'s replacement effects, triggers, last-known-information and token/copy-vanishing rules                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | M5-M6 |
+| `PhaseHandler`'s Upkeep, Main and End of Turn step bodies — need triggers, `SpellAbility` or the rest of Combat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | M5-M6 |
+| `Match` — a series spanning more than one game, "the loser of the last game goes first" (`DealOpeningHands` always takes CR 103.2's coin flip), Puzzle/Archenemy/Power Play's own starting-player rules                                                                                                                                                                                                                                                                                                                                                                                                                                                | M5-M6 |
+| The rest of CR 514.2: "until end of turn"/"this turn" effects ending — needs duration tracking this port does not have, `PT`'s own effects included                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | M5-M6 |
+| A modified or unlimited maximum hand size (CR 514.1's `isUnlimitedHandSize`/a continuous effect changing it) — `MaxHandSize` is used unconditionally since layers 1-6/8 aren't built                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | M5-M6 |
+| Interactive priority (`mainLoopStep`'s real APNAP pass), extra turns/phases, topsy-turvy phase order, "doesn't untap" effects — `ResolveStack` plays out only the degenerate case, nobody able to respond                                                                                                                                                                                                                                                                                                                                                                                                                                              | M5-M6 |
+| Original, Paris, Vancouver and Houston mulligan rules — out of scope, not deferred (PORT-6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | never |
+| `CounterChanged` for a script-written (non-named-constant) `CounterType` — `counterDetail` (`event.go`) is closed over the eight named constants; a `SpellAbility` creating an arbitrary keyword counter needs the encoding extended or replaced first (`## Events, wired`)                                                                                                                                                                                                                                                                                                                                                                            | M5-M6 |
+| `MagicStack`'s `addSimultaneousStackEntry` (CR 603.3b's controller-chosen/APNAP order for more than one trigger firing off the same event — a real gap now that `checkOtherETBTriggers` can cause it, `## Stack`, above) and `undoStack` (needs an interactive priority pass to undo mid-pass); `freezeStack`/`unfreezeStack` is no longer a gap: `checkETBTriggers`/`checkDiesTriggers` pushing during another ability's own resolution needs no freezing since nothing can respond in between either way                                                                                                                                             | M5-M6 |
+| Trigger firing (CR 603) beyond "enters"/"dies"/"attacks" and watching another permanent enter or die — `checkETBTriggers`/`checkOtherETBTriggers`/`checkDiesTriggers`/`checkOtherDiesTriggers`/`checkAttacksTriggers` (trigger.go) cover those five; every other mode (`Tapped`, a spell being cast, ...), a permanent watching another one attack via anything but `checkAttacksTriggers`'s own single walk already covers, and `Attacks`'s own `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` all remain gaps; resolving what fires beyond `Draw` is M6's 202 remaining corpus-frequency effects, not this | M5-M6 |
+| Replacement effects (CR 616, `ReplacementHandler.java`) — same missing dependency as triggers: the ability-vocabulary port, not the value-grammar evaluator                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | M5-M6 |
+| Block legality's remaining `CantBlockBy` gaps — Intimidate (`SharesColorWith` property `valid.go` does not evaluate), Landwalk (`ValidDefender$ Player.controls<Type>` needs a `*Player` match `Matches` cannot make), Protection (needs `Protection.java`'s own valid-string builder) and Skulk (`ValidBlocker$ Creature.powerGTX` needs an SVar-driven `X`) — `## Block legality: CantBlockBy` (above) has the full account; flying/reach, Fear, Horsemanship, Menace and every literal `S:Mode$ CantBlockBy` line are ported                                                                                                                        | M5-M6 |
+| Any mana ability besides a basic land's own intrinsic one (`TapLandForMana`, CR 305.6, `## Mana pool and payment`, above) — a nonbasic land, a creature, an artifact all need the M6 effect-dispatch machinery that one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text                                                                                                                                                                                                                                                                                                                       | M6    |

@@ -180,27 +180,32 @@ SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-stri
 own bare form; a mana pool and payment covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's
 intrinsic mana ability (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an
 Aura, through the stack — (`castspell.go`), the first two real `Effect` implementations
-(`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks" and "a player casts a
-spell," plus another permanent watching one enter, die, attack or a spell being cast — detects and queues a trigger;
-block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Menace and every literal
-`S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption (`staticability.go`) — three slices of
-the general static-ability engine PORT-8 requires reading Java's own mechanism for rather than hardcoding a keyword
-check; and two layers of the engine's biggest piece, `Mode$ Continuous` itself (`continuous.go`) — `applyContinuousPT`
-resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness lines (anthem effects, equipment bonuses);
-`applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines naming only literal type words (no dynamic
-value, no bulk-category-removal flag) — both recomputed fresh every `CheckStateBasedActions` pass rather than pushed
-once, `pt.go`'s own folding mechanism and its new `typemod.go` counterpart's first real callers. `cardtype.Line` gained
-`ParseToken`/`Union`/`Without` to make the latter possible without a `*cardtype.Registry` this port still does not
-inject into the engine (`ParseToken`'s own doc comment). M6 in progress alongside it: `Draw` (`draweffect.go`) is the
-first of the 203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a
-`Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full
-detail: `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`.
-Thin or missing: Layers 1-3, 5, 6, 8 and 7a (`CharacteristicDefining$`) need the rest of the same static-ability engine
-`Mode$ Continuous`'s own two slices do not close, and Layer 4 itself is only its safely-implementable literal-token
-subset (201 of 284 real `AddType$`/`RemoveType$` lines; a dynamic value, `AddAllCreatureTypes$`, or a bulk
-`RemoveXTypes$` flag skips the whole line rather than applying it wrong); the legend rule's Partner-non-legendary-name
-corner case; Landwalk, Protection and Skulk are `CantBlockBy` gaps of their own (`game-state.md`'s "Block legality"
-section has the reason for each); `Attacks`'s own five unresolved params, `SpellCast`'s own qualified
-`ValidActivatingPlayer$` forms, and every trigger mode past enters/dies/attacks/casts; 202 script-driven effects past
-`Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`)
-past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+(`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks," "blocks" and "a player
+casts a spell," plus another permanent watching one enter, die, attack, block or a spell being cast — detects and queues
+a trigger; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk,
+Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption
+(`staticability.go`) — three slices of the general static-ability engine PORT-8 requires reading Java's own mechanism
+for rather than hardcoding a keyword check; and three layers of the engine's biggest piece, `Mode$ Continuous` itself
+(`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness
+lines (anthem effects, equipment bonuses); `applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines
+naming only literal type words (no dynamic value, no bulk-category-removal flag); `applyContinuousColor` resolves Layer
+5's own `AddColor$`/`SetColor$` lines naming a literal color, `All` or `Colorless` (no `ChosenColor`) — all three
+recomputed fresh every `CheckStateBasedActions` pass rather than pushed once, `pt.go`'s own folding mechanism and its
+new `typemod.go`/`colormod.go` counterparts' first real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without`
+to make Layer 4 possible without a `*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s
+own doc comment); Landwalk's own `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender`
+(`staticability.go`), a `Player`, not a `Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is. M6 in
+progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather
+than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own
+`Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
+missing: Layers 1-3, 6, 8 and 7a (`CharacteristicDefining$`) need the rest of the same static-ability engine
+`Mode$ Continuous`'s own three slices do not close, and Layers 4/5 themselves are only their safely-implementable
+literal-token subsets (201 of 284 real `AddType$`/`RemoveType$` lines, 54 of 61 real `AddColor$`/`SetColor$` lines; a
+dynamic value, `AddAllCreatureTypes$`, or a bulk `RemoveXTypes$` flag skips the whole line rather than applying it
+wrong); the legend rule's Partner-non-legendary-name corner case; Protection and Skulk are `CantBlockBy` gaps of their
+own (`game-state.md`'s "Block legality" section has the reason for each); `Attacks`'s own five unresolved params,
+`Blocks`'s own `ValidBlocked$`, `SpellCast`'s own qualified `ValidActivatingPlayer$` forms, and every trigger mode past
+enters/dies/attacks/blocks/casts; 202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit
+gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every
+layer, every SBA," Plan Section 3.2) is not.

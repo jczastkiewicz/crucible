@@ -365,19 +365,28 @@ func colorMatches(name string) (color mana.Colors, mustHave bool, ok bool) {
 	if rest, isNon := strings.CutPrefix(name, "non"); isNon {
 		mustHave, colorName = false, rest
 	}
-	switch colorName {
+	color, ok = colorFromName(colorName)
+	return color, mustHave, ok
+}
+
+// colorFromName maps one of the five color words to its mana.Colors bit --
+// colorMatches' own switch, pulled out so a caller that needs the bare
+// name-to-color mapping without the "non" prefix handling (continuous.go's
+// colorTokens, Layer 5's own AddColor$/SetColor$) does not duplicate it.
+func colorFromName(name string) (mana.Colors, bool) {
+	switch name {
 	case "White":
-		return mana.White, mustHave, true
+		return mana.White, true
 	case "Blue":
-		return mana.Blue, mustHave, true
+		return mana.Blue, true
 	case "Black":
-		return mana.Black, mustHave, true
+		return mana.Black, true
 	case "Red":
-		return mana.Red, mustHave, true
+		return mana.Red, true
 	case "Green":
-		return mana.Green, mustHave, true
+		return mana.Green, true
 	}
-	return 0, false, false
+	return 0, false
 }
 
 // sourceCard resolves source to its own *Card, for the properties that read

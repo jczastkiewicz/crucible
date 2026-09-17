@@ -49,6 +49,7 @@ type Card struct {
 	Memory   Memory
 	PT       PT
 	TypeMod  TypeMod
+	ColorMod ColorMod
 
 	// Tapped and SummonSick are the two pieces of battlefield state every
 	// permanent carries that are not "how much of something" -- everything
@@ -164,26 +165,28 @@ func (c *Card) BaseDefense() (int, bool) {
 	return n, err == nil
 }
 
-// Colors is the card's color identity for rules purposes (CR 105, valid.go's
-// White/Blue/Black/Red/Green/Colorless/MultiColor properties): a script's
-// explicit `Colors:` override, or (absent one) whatever its mana cost's own
-// colored symbols say -- the exact "override, else derive" logic
+// Colors is the card's current color identity for rules purposes (CR 105,
+// valid.go's White/Blue/Black/Red/Green/Colorless/MultiColor properties): a
+// script's explicit `Colors:` override, or (absent one) whatever its mana
+// cost's own colored symbols say -- the exact "override, else derive" logic
 // carddb.Face.dumpColors already carries out and M2's P1 gate already
-// verifies byte-identical to Forge's own dump, not a new derivation. A
-// color-changing effect (Layer 5) is not folded in, the same "printed
-// value only" limit every other characteristic on this type has until the
-// rest of the continuous-effect layer system lands (game-state.md's "Not
-// ported yet"). A nil Def reports the zero value, mana.Colors' own
-// "colorless" -- consistent with every other Def-derived accessor here.
+// verifies byte-identical to Forge's own dump, not a new derivation --
+// with Layer 5's own continuous color-changing effects (ColorMod,
+// colormod.go) folded in, Type()'s own Layer 4 counterpart (card.go's own
+// doc comment on foldType). A nil Def reports the zero value, mana.Colors'
+// own "colorless" -- consistent with every other Def-derived accessor here,
+// and skips the fold entirely: ColorMod on a nil-Def card is never
+// populated by anything real.
 func (c *Card) Colors() mana.Colors {
 	if c.Def == nil {
 		return 0
 	}
 	f := c.Def.Faces[0]
+	base := f.ManaCost.Colors()
 	if f.HasColors {
-		return f.Colors
+		base = f.Colors
 	}
-	return f.ManaCost.Colors()
+	return foldColor(base, c.ColorMod.effects)
 }
 
 // Power and Toughness are the card's current power and toughness: Layer 0

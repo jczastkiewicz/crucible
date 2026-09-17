@@ -1,10 +1,11 @@
-// Continuous effects: CR 613, two layers deep so far. Layer 7b/7c's own
+// Continuous effects: CR 613, three layers deep so far. Layer 7b/7c's own
 // power/toughness keys (SetPower$/SetToughness$/AddPower$/AddToughness$) are
 // the single most common real corpus shape (2,192 of 2,426 real S:Mode$
 // Continuous lines carrying one of these four keys, port-log/game-state.md's
 // "Continuous effects" section); Layer 4's own type-changing keys (AddType$/
-// RemoveType$, applyContinuousType below) are the next slice, both evaluated
-// against the same blanket Affected$ valid-string.
+// RemoveType$, applyContinuousType) and Layer 5's own color-changing keys
+// (AddColor$/SetColor$, applyContinuousColor below) are the next two slices,
+// all three evaluated against the same blanket Affected$ valid-string.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/staticability/StaticAbilityContinuous.java's
@@ -18,6 +19,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -250,6 +252,117 @@ func typeTokens(s *compile.Ability, key string) (cardtype.Line, bool) {
 			return cardtype.Line{}, false
 		}
 		out = out.Union(cardtype.ParseToken(word))
+	}
+	return out, true
+}
+
+// applyContinuousColor recomputes every battlefield permanent's own Layer 5
+// ColorMod effects from scratch, from every real Mode$ Continuous S: line
+// currently in play -- applyContinuousPT's/applyContinuousType's own
+// reasoning applies identically here.
+func applyContinuousColor(g *Game) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			g.Card(id).ColorMod.Clear()
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousColor(g, h, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousColor is applyOneContinuousPT's/applyOneContinuousType's
+// own Layer 5 counterpart: s applies to every battlefield permanent its own
+// Affected$ valid-string matches, if s is a Mode$ Continuous line naming
+// AddColor$ and/or SetColor$ in the one shape this slice can resolve -- a
+// plain, " & "-separated list of literal color words (White/Blue/Black/
+// Red/Green), plus the two fixed tokens "All" (WUBRG) and "Colorless" (no
+// color at all, `SetColor$ Colorless`'s own real corpus shape).
+//
+// Skipped, the same reasons applyOneContinuousPT/applyOneContinuousType
+// already give for their own params: Condition$/AffectedDefined$/
+// AffectedZone$/CharacteristicDefining$. A "ChosenColor" token (7 of 61 real
+// AddColor$/SetColor$ lines) skips the whole line -- a runtime value
+// (Card.getChosenColors()) this port has no evaluator for, the identical
+// "whole line, not partial" choice typeTokens already makes for ChosenType.
+// 54 of 61 real lines carry none of it.
+func applyOneContinuousColor(g *Game, host *Card, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+	addColors, hasAdd := colorTokens(s, "AddColor")
+	setColors, hasSet := colorTokens(s, "SetColor")
+	if !hasAdd && !hasSet {
+		return
+	}
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+
+	spec := valid.Parse(affected)
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+				continue
+			}
+			c := g.Card(id)
+			if hasSet {
+				c.ColorMod.Add(ColorEffect{Timestamp: host.Timestamp, Colors: setColors, Overwrite: true})
+			}
+			if hasAdd {
+				c.ColorMod.Add(ColorEffect{Timestamp: host.Timestamp, Colors: addColors})
+			}
+		}
+	}
+}
+
+// colorTokens reads key (AddColor$ or SetColor$) as its own " & "-separated
+// list of literal color words, unioned together via colorFromName (valid.go)
+// -- the same per-word classification colorMatches uses, without its "non"
+// prefix handling, which no real AddColor$/SetColor$ token carries. "All"
+// resolves to every color (mana.AllColors) and "Colorless" to no color at
+// all (mana.Colors(0), already the zero value) -- Java's own getColorsFromParam
+// special-cases both the identical way. false, for the whole token list, the
+// moment "ChosenColor" appears anywhere in it -- applyOneContinuousColor's
+// own doc comment has the reason.
+func colorTokens(s *compile.Ability, key string) (mana.Colors, bool) {
+	v, ok := s.Param(key)
+	if !ok {
+		return 0, false
+	}
+	var out mana.Colors
+	for _, word := range strings.Split(v, " & ") {
+		switch word {
+		case "ChosenColor":
+			return 0, false
+		case "All":
+			out |= mana.AllColors
+		case "Colorless":
+			// No color at all -- contributes nothing to out, which is
+			// exactly right for a lone "Colorless" token.
+		default:
+			c, ok := colorFromName(word)
+			if !ok {
+				return 0, false
+			}
+			out |= c
+		}
 	}
 	return out, true
 }

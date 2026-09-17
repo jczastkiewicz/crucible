@@ -627,35 +627,42 @@ printed form.
     (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
     Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup).
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes and four trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
+    cast shapes and five trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
     `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to decide,
     `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s parsed
     `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
     `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers`/
-    `checkDiesTriggers`/`checkAttacksTriggers`/`checkSpellCastTriggers` (`trigger.go`) cover the corpus's four most
-    frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`, `Destination$ Battlefield`), "dies"
-    (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR 700.4), "attacks" (`Mode$ Attacks`, CR
-    508.3) and "a player casts a spell" (`Mode$ SpellCast`, CR 603, `TriggerSpellAbilityCastOrCopy.performTest`) — the
-    first two also checked against every OTHER battlefield permanent's own matching trigger
-    (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks` and `SpellCast` need no separate "other" loop at all,
-    since neither Java trigger class special-cases its own host's trigger to begin with — one walk over the battlefield
-    covers both "this creature attacks"/"you cast a spell" and "a creature you control attacks"/"a player casts a spell"
-    alike. `SpellCast` is also the first trigger mode matched against something other than a `*Card`:
-    `ValidActivatingPlayer` (1,216 of 1,435 real lines, more common than `ValidCard` itself) is a `Player`, so a new
-    `matchesActivatingPlayer` (not `Matches`, `valid.go`) checks its three bare values (`You`/`Opponent`/`Player`, 1,191
-    of those 1,216) directly. All four modes are keyed off `compile.Face.Triggers` (typed since M3, never read by the
-    engine before now). A trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the
-    stack now too (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until
-    `Draw` (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting
-    itself; `ResolveStack` still reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"casts a spell" (`Tapped`, ...); `Attacks`'s own `Attacked$`/`Alone$`/`FirstAttack$`/
-    `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` params; `SpellCast`'s own qualified `ValidActivatingPlayer$`
-    forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines) and nine other unresolved params (`ValidSA`,
-    `TargetsValid`, `HasXManaCost`, ... — `porting/port-log/game-state.md`'s trigger-firing section has the full list);
-    simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP order) is a real gap
-    now rather than a hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can genuinely push more than
-    one trigger off a single event, in a fixed order rather than a chosen one — and the whole replacement-effect system.
-27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Two real slices of `Mode$ Continuous` now,
+    `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkSpellCastTriggers` (`trigger.go`) cover the
+    corpus's five most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
+    `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR
+    700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2, `TriggerBlocks.performTest`) and
+    "a player casts a spell" (`Mode$ SpellCast`, CR 603, `TriggerSpellAbilityCastOrCopy.performTest`) — the first two
+    also checked against every OTHER battlefield permanent's own matching trigger
+    (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks` and `SpellCast` need no separate "other"
+    loop at all, since none of the three Java trigger classes special-cases its own host's trigger to begin with — one
+    walk over the battlefield covers both "this creature attacks/blocks"/"you cast a spell" and "a creature you control
+    attacks/blocks"/"a player casts a spell" alike. `Blocks` needs only `ValidCard` (matched against the declared
+    blocker); its own `ValidBlocked$` (8 of 127 real lines) matches against the FULL collection of attackers one blocker
+    blocks, which this port's `Block` (combat.go) never groups back into a per-blocker set, so a trigger carrying it is
+    skipped rather than checked against only the one attacker in the current `Block` — called once per declared `Block`,
+    after `CanBlock` and `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go).
+    `SpellCast` is also the first trigger mode matched against something other than a `*Card`: `ValidActivatingPlayer`
+    (1,216 of 1,435 real lines, more common than `ValidCard` itself) is a `Player`, so a new `matchesActivatingPlayer`
+    (not `Matches`, `valid.go`) checks its three bare values (`You`/`Opponent`/`Player`, 1,191 of those 1,216) directly.
+    All five modes are keyed off `compile.Face.Triggers` (typed since M3, never read by the engine before now). A
+    trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too
+    (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw`
+    (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself;
+    `ResolveStack` still reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
+    "enters"/"dies"/"attacks"/"blocks"/"casts a spell" (`Tapped`, ...); `Attacks`'s own `Attacked$`/`Alone$`/
+    `FirstAttack$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` params; `SpellCast`'s own qualified
+    `ValidActivatingPlayer$` forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines) and nine other unresolved
+    params (`ValidSA`, `TargetsValid`, `HasXManaCost`, ... — `porting/port-log/game-state.md`'s trigger-firing section
+    has the full list); simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP
+    order) is a real gap now rather than a hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can
+    genuinely push more than one trigger off a single event, in a fixed order rather than a chosen one — and the whole
+    replacement-effect system.
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Three real slices of `Mode$ Continuous` now,
     alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_; `pt.go` folds
     power/toughness through them, and that folding mechanism has a real (non-test) caller for the first time:
     `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c (`SetPower$`/`SetToughness$`/`AddPower$`/`AddToughness$`)
@@ -674,50 +681,61 @@ printed form.
     partially applied, the moment it carries a dynamic value (`ChosenType`, `ImprintedCreatureType`, ... — 29 of 256
     real `AddType$` lines), a bulk `RemoveXTypes$` flag (62 of 284, the real "becomes a Turtle" shape pairing `AddType$`
     with a wipe-first flag — applying the add half alone would leave both the old and new types, worse than the gap), or
-    `AddAllCreatureTypes$` (8, needs the `Registry` this port does not inject). Not resolved for either layer:
-    `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24), `CharacteristicDefining$` (265, Layer 7a — almost
-    always an SVar-driven value), and a non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` (`X`, `Y`,
-    `Z`, `AffectedX`, a named SVar) — each its own specific missing piece (`porting/port-log/game-state.md`'s "Layer 7
-    and Layer 4" section has the full account), not a reason to have skipped the slices that do resolve. The legend
-    rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already showed a
-    static-ability mode can be independently buildable when it needs no layer-folding of its own — `Mode$ Continuous`
-    was always going to be the one mode that could not skip that machinery entirely, and now two of its layers partly
-    haven't had to: both subsets needed only the valid-string evaluator (`valid.go`) every other slice already reused,
-    plus (for Layer 4) two small additions to `cardtype.Line` itself. The rest of Layer 7 (7a), the rest of Layer 4, and
-    Layers 1-3/5/6/8 are still the real remaining size of this item.
+    `AddAllCreatureTypes$` (8, needs the `Registry` this port does not inject). A new `applyContinuousColor` is Layer
+    5's own counterpart: `AddColor$`/`SetColor$` lines naming a literal color, `All` (WUBRG) or `Colorless` (54 of 61
+    real lines), folded through a new `ColorMod`/`ColorEffect` (`colormod.go`, `TypeMod`'s own structure copied again,
+    with one `Overwrite bool` standing in for `SetColor$`'s own "replace outright" vs `AddColor$`'s own "union in") — a
+    `"ChosenColor"` token (7 of 61) skips the whole line, `AddType$`'s own dynamic-value reasoning applied identically.
+    `colorFromName` (`valid.go`'s own `colorMatches`, pulled out so both share the five-color mapping) backs both. Not
+    resolved for any of the three: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24),
+    `CharacteristicDefining$` (265, Layer 7a — almost always an SVar-driven value), and a non-numeric
+    `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` (`X`, `Y`, `Z`, `AffectedX`, a named SVar) — each its own
+    specific missing piece (`porting/port-log/game-state.md`'s "Layer 7, Layer 4 and Layer 5" section has the full
+    account), not a reason to have skipped the slices that do resolve. The legend rule's own `ignoreLegendRule`
+    exemption (item 25) and `CantBlockBy` (item 28's own combat note) already showed a static-ability mode can be
+    independently buildable when it needs no layer-folding of its own — `Mode$ Continuous` was always going to be the
+    one mode that could not skip that machinery entirely, and now three of its layers partly haven't had to: all three
+    subsets needed only the valid-string evaluator (`valid.go`) every other slice already reused, plus (for Layers 4/5)
+    small additions to `cardtype.Line`/`valid.go` themselves. The rest of Layer 7 (7a), the rest of Layers 4/5, and
+    Layers 1-3/6/8 are still the real remaining size of this item.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,
     trample, gang blocking, attacking a planeswalker/Battle, a combat split across more than one defending player at
-    once (CR 506.4), and block legality's `CantBlockBy` (CR 509.1b): flying/reach, Fear, Horsemanship and Intimidate
-    (keyword-synthesized the same way `CardFactoryUtil.java` builds them, `cantBlockByKeywords`) and every literal
-    `S:Mode$ CantBlockBy` line, walked across every battlefield permanent as a possible source, not just the attacker's
-    own card; Menace too (`menaceLegal`, a group-cardinality check `CanBlock`'s own per-pair one cannot express,
-    hardcoded the same way Forge's own `getMinMaxBlocker` is — not routed through `CantBlockBy` at all). Intimidate's
-    own `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed a new `SharesColorWith` valid-string property
-    (`valid.go`, `c.Colors().HasAny(sourceCard.Colors())`) — left unbuilt earlier because the generic `non<Type>`
-    fallthrough it would otherwise reach reads it as a nonexistent type and the leading `!` then negates that to an
-    actively wrong "matches everything," not an absent property. Landwalk, Protection and Skulk remain gaps, each
-    blocked on its own specific missing piece (a player-targeted `ValidDefender` match, `Protection.java`'s own
-    valid-string builder, and an SVar-driven `X` respectively — `porting/port-log/game-state.md`'s "Block legality"
-    section). **Mulligans done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment done** (`mana.go`,
-    `manapay.go`): a `Pool` per player (twelve buckets — six colors/colorless, each split plain/snow),
-    `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a same-color pip or generic unit falls back to
-    the snow bucket once the plain one is empty, CR 106.3a; a snow ({S}) symbol spends only the snow bucket, never the
-    plain one), CR 500.4's emptying every phase/step, and `PayManaCost` resolving `{X}` via `ChoosePayX` (asked once per
-    cost regardless of how many `{X}` symbols it carries, CR 107.3f), snow via `ChoosePaySnow` (asked once per `{S}`
-    symbol independently — unlike `{X}`, two can take two different colors), a two-color hybrid shard via
-    `ChooseHybridManaColor`, a monocolored hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via
-    `ChoosePayColorlessHybrid`, a single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via
-    `ChoosePayHybridPhyrexian`, and each unit of a cost's generic amount via `ChoosePayGeneric` — all eight harder
-    shapes this port set out to resolve are resolved. A basic land's own intrinsic mana ability (CR 305.6) is:
-    `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real (non-test) caller, snow-aware (a land carrying the Snow
-    supertype produces snow mana, CR 106.3a) — any other mana ability (a nonbasic land, a creature, an artifact) still
-    needs the M6 effect-dispatch machinery this one deliberately bypasses, since CR 305.6's ability is a fixed rule
-    keyed off the type line, not script text. **Playing a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting
-    a spell, so no cost and no stack; sorcery-speed timing (CR 305.3) collapsed to active player, a main phase, empty
-    stack; CR 305.2's one-per-turn limit via new `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every
-    player each turn by `cleanupStep`. The first card this port moves from hand to the battlefield through a real game
-    action rather than `setup.state` placing it there directly.
+    once (CR 506.4), and block legality's `CantBlockBy` (CR 509.1b): flying/reach, Fear, Horsemanship, Intimidate and
+    Landwalk (keyword-synthesized the same way `CardFactoryUtil.java` builds them, `cantBlockByKeywords` for the first
+    four; Landwalk separately, its own restriction being the keyword's OWN per-card argument rather than a name every
+    carrier shares) and every literal `S:Mode$ CantBlockBy` line, walked across every battlefield permanent as a
+    possible source, not just the attacker's own card; Menace too (`menaceLegal`, a group-cardinality check `CanBlock`'s
+    own per-pair one cannot express, hardcoded the same way Forge's own `getMinMaxBlocker` is — not routed through
+    `CantBlockBy` at all). Intimidate's own `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed a new
+    `SharesColorWith` valid-string property (`valid.go`, `c.Colors().HasAny(sourceCard.Colors())`) — left unbuilt
+    earlier because the generic `non<Type>` fallthrough it would otherwise reach reads it as a nonexistent type and the
+    leading `!` then negates that to an actively wrong "matches everything," not an absent property. Landwalk's own
+    `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`): a `Player`, not a
+    `Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is (item 26) — `You`/`Opponent`/`Player` bare
+    forms plus a `"controls<Type>"` battlefield scan, `landwalkType` reading the type argument straight off the keyword
+    line (`enchantSpec`'s own precedent). Protection and Skulk remain gaps, each blocked on its own specific missing
+    piece (`Protection.java`'s own valid-string builder, and an SVar-driven `X` respectively —
+    `porting/port-log/game-state.md`'s "Block legality" section). **Mulligans done** (`mulligan.go`) — London, free
+    mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
+    colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
+    same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a snow ({S})
+    symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and `PayManaCost`
+    resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f),
+    snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two different
+    colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
+    `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a single-color Phyrexian
+    shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and each unit of a cost's
+    generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve are resolved. A basic
+    land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real
+    (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR 106.3a) — any other mana
+    ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch machinery this one
+    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text. **Playing
+    a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no stack; sorcery-speed
+    timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's one-per-turn limit via new
+    `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by `cleanupStep`. The first card
+    this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
+    directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
     harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
@@ -727,10 +745,10 @@ printed form.
     count and the step-transition/SBA breadth are met; "every layer" is not — only Layer 7b/7c's own plain-integer
     subset (`applyContinuousPT`, item 27) has a scenario fixture exercising it
     (`equipment-falls-off-without-destroying`, via Sword of Body and Mind's real `AddPower$`/`AddToughness$`); Layer 4's
-    own literal-token subset (`applyContinuousType`, item 27) is proven only at the Go module level
-    (`continuous_test.go`), not yet by a scenario fixture, and replacement effects and every trigger mode but
-    "enters"/"dies"/"attacks"/"casts a spell" remain gaps too. **Partially reached** — blocked on the rest of M5
-    landing, not on writing more fixtures.
+    own literal-token subset and Layer 5's own (`applyContinuousType`/`applyContinuousColor`, item 27) are proven only
+    at the Go module level (`continuous_test.go`), not yet by a scenario fixture, and replacement effects and every
+    trigger mode but "enters"/"dies"/"attacks"/"blocks"/"casts a spell" remain gaps too. **Partially reached** — blocked
+    on the rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

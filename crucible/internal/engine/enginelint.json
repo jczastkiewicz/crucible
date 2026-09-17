@@ -4,7 +4,7 @@
     "id": ["id.go"],
     "zone": ["zone.go"],
     "layer": ["layer.go"],
-    "parts": ["counters.go", "damage.go", "memory.go", "pt.go", "typemod.go"],
+    "parts": ["counters.go", "damage.go", "memory.go", "pt.go", "typemod.go", "colormod.go"],
     "card": ["card.go"],
     "player": ["player.go"],
     "game": ["game.go"],
@@ -65,7 +65,7 @@
     "valid": ["id", "zone", "card", "parts", "game", "combat"],
     "attack": ["id", "zone", "card", "player", "game", "control", "trigger"],
     "staticability": ["id", "zone", "card", "game", "valid"],
-    "block": ["id", "zone", "card", "game", "control", "combat", "attack", "staticability"],
+    "block": ["id", "zone", "card", "game", "control", "combat", "attack", "staticability", "trigger"],
     "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"],
     "manapay": ["id", "game", "player", "control", "event"],
     "manaability": ["id", "zone", "card", "game", "player"],
@@ -86,7 +86,7 @@
       "trigger",
       "draweffect"
     ],
-    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack"],
+    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack", "combat"],
     "draweffect": ["id", "game", "player", "ability", "turn"],
     "continuous": ["id", "zone", "card", "game", "valid", "parts", "layer", "ability"]
   }

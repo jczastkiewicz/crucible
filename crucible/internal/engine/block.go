@@ -34,9 +34,8 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // Forge itself does not run Menace through the CantBlockBy static-ability
 // engine either (cantBlockByKeywords' own doc comment, staticability.go) --
 // getMinMaxBlocker hardcodes attacker.hasKeyword(Keyword.MENACE) directly,
-// reproduced here the same way. Still not checked: Intimidate, Landwalk,
-// Protection and Skulk, each blocked on its own specific missing dependency
-// (same doc comment).
+// reproduced here the same way. Still not checked: Protection and Skulk,
+// each blocked on its own specific missing dependency (same doc comment).
 //
 // "Who is defending" is each attacker's own defender (defenderOf,
 // attack.go) -- the controller of whatever it's attacking, a player,
@@ -55,6 +54,10 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // empty list -- the same reasoning DeclareCombatAttackers uses for an
 // active player with nothing to attack with. The combined result is nil,
 // not an empty non-nil slice, when every defender is skipped this way.
+//
+// checkBlocksTriggers (trigger.go) runs once per final Block, after every
+// filter above -- CR 509.2's own "whenever ~ blocks" fires only for a
+// legally declared block, not one CanBlock or menaceLegal already dropped.
 func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 	attackers := g.combat.Attackers
 	if len(attackers) == 0 {
@@ -92,6 +95,9 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 		blocks = append(blocks, menaceLegal(g, accepted)...)
 	}
 	g.combat.Blocks = blocks
+	for _, blk := range blocks {
+		g.checkBlocksTriggers(blk)
+	}
 	return blocks
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // continuousDef builds a *compile.Card for a non-creature permanent carrying
@@ -299,5 +300,151 @@ func TestApplyContinuousTypeSkipsBulkRemovalFlag(t *testing.T) {
 	}
 	if !typ.HasSubtype("Elf") {
 		t.Errorf("Type() = %q, want the creature's own printed Elf left untouched by the skipped line", typ)
+	}
+}
+
+// TestApplyContinuousColorAddsColorToMatchingCreatures proves Layer 5's own
+// AddColor$: a blanket "creatures you control are also blue" effect unions
+// Blue in without displacing the creature's own printed Red.
+func TestApplyContinuousColorAddsColorToMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Color Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddColor$ Blue"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	colors := g.Card(creature).Colors()
+	if !colors.Has(mana.Blue) {
+		t.Errorf("Colors() = %v, want it to carry the added Blue", colors)
+	}
+	if !colors.Has(mana.Red) {
+		t.Errorf("Colors() = %v, want it to still carry its own printed Red", colors)
+	}
+}
+
+// TestApplyContinuousColorSetColorOverwrites proves SetColor$'s own
+// "replace outright" semantics (Java's overwriteColors): the creature's own
+// printed Red is gone, not merely joined by Black.
+func TestApplyContinuousColorSetColorOverwrites(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Color Setter", "Mode$ Continuous | Affected$ Creature.YouCtrl | SetColor$ Black"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	colors := g.Card(creature).Colors()
+	if !colors.Has(mana.Black) {
+		t.Errorf("Colors() = %v, want Black", colors)
+	}
+	if colors.Has(mana.Red) {
+		t.Errorf("Colors() = %v, want the printed Red replaced, not joined", colors)
+	}
+}
+
+// TestApplyContinuousColorDoesNotAffectNonMatchingCreatures mirrors the
+// Layer 7/Layer 4 non-matching tests: an opponent's creature is untouched.
+func TestApplyContinuousColorDoesNotAffectNonMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Color Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddColor$ Blue"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefManaCost(t, "R"), other, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if colors := g.Card(theirs).Colors(); colors.Has(mana.Blue) {
+		t.Errorf("Colors() = %v, an opponent's anthem must not add Blue to it", colors)
+	}
+}
+
+// TestApplyContinuousColorRecomputesWhenSourceLeaves mirrors the Layer
+// 7/Layer 4 leave tests: once the color-granting source itself leaves the
+// battlefield, the added color is gone on the very next check.
+func TestApplyContinuousColorRecomputesWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	anthem := g.NewCard(continuousDef(t, "Test Color Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddColor$ Blue"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if colors := g.Card(creature).Colors(); !colors.Has(mana.Blue) {
+		t.Fatalf("setup: Colors() = %v, want it to carry Blue", colors)
+	}
+
+	g.Move(anthem, engine.Graveyard, p)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if colors := g.Card(creature).Colors(); colors.Has(mana.Blue) {
+		t.Errorf("Colors() after the anthem left = %v, want Blue gone", colors)
+	}
+}
+
+// TestApplyContinuousColorSetColorAll proves the fixed "All" token Java's
+// own getColorsFromParam special-cases: SetColor$ All resolves to every
+// color (mana.AllColors), not a literal color named "All".
+func TestApplyContinuousColorSetColorAll(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test All Colors", "Mode$ Continuous | Affected$ Creature.YouCtrl | SetColor$ All"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(creature).Colors(); got != mana.AllColors {
+		t.Errorf("Colors() = %v, want mana.AllColors", got)
+	}
+}
+
+// TestApplyContinuousColorSetColorColorless proves the other fixed token:
+// SetColor$ Colorless resolves to no color at all, replacing the creature's
+// own printed Red rather than leaving it untouched.
+func TestApplyContinuousColorSetColorColorless(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Colorless", "Mode$ Continuous | Affected$ Creature.YouCtrl | SetColor$ Colorless"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(creature).Colors(); got != 0 {
+		t.Errorf("Colors() = %v, want colorless (0)", got)
+	}
+}
+
+// TestApplyContinuousColorSkipsChosenColor proves an AddColor$/SetColor$
+// token this port cannot resolve at runtime (ChosenColor) skips the whole
+// line rather than crashing or resolving to no color.
+func TestApplyContinuousColorSkipsChosenColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Chosen Color Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddColor$ ChosenColor"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if colors := g.Card(creature).Colors(); colors != mana.Red {
+		t.Errorf("Colors() = %v, want unchanged Red -- an unresolvable ChosenColor token must not apply", colors)
 	}
 }

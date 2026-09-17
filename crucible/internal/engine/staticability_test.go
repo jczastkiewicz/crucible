@@ -138,6 +138,49 @@ func TestCanBlockIntimidateAttacker(t *testing.T) {
 	}
 }
 
+// TestCanBlockIslandwalkAttacker proves Landwalk's own CantBlockBy synthesis
+// (landwalkType/matchesValidDefender, staticability.go): a creature with
+// K:Landwalk:Island is unblockable exactly while its defender controls an
+// Island, and freely blockable before one enters -- CardFactoryUtil.java's
+// own "Mode$ CantBlockBy | ValidAttacker$ Creature.Self | ValidDefender$
+// Player.controlsIsland" end to end.
+func TestCanBlockIslandwalkAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Landwalk:Island"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	if !g.CanBlock(attacker, blocker) {
+		t.Error("CanBlock(islandwalk attacker, blocker) = false, want true -- defender controls no Island yet")
+	}
+
+	g.NewCard(landDef(t, "Island", "Basic Land Island"), b, engine.Battlefield)
+
+	if g.CanBlock(attacker, blocker) {
+		t.Error("CanBlock(islandwalk attacker, blocker) = true, want false -- defender now controls an Island")
+	}
+}
+
+// TestCanBlockIslandwalkAttackerIgnoresAttackersOwnIsland proves
+// matchesValidDefender checks the BLOCKER's own controller, not the
+// attacker's: an Island under the attacker's control (not the defender's)
+// must not trigger the restriction.
+func TestCanBlockIslandwalkAttackerIgnoresAttackersOwnIsland(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Landwalk:Island"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	g.NewCard(landDef(t, "Island", "Basic Land Island"), a, engine.Battlefield)
+
+	if !g.CanBlock(attacker, blocker) {
+		t.Error("CanBlock(islandwalk attacker, blocker) = false, want true -- the attacker's own Island must not restrict the defender's blocker")
+	}
+}
+
 // cantBlockByAuraDef builds a *compile.Card for an Aura carrying a real,
 // literal S:Mode$ CantBlockBy line written on the Aura itself rather than
 // synthesized from a keyword -- ValidAttacker$ Creature.EnchantedBy, the

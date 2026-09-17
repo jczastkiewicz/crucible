@@ -147,6 +147,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// (continuous.go) has the reason this cannot be a one-time push instead.
 	applyContinuousPT(g)
 	applyContinuousType(g)
+	applyContinuousColor(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {

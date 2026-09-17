@@ -17,6 +17,7 @@ package engine
 import (
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -30,12 +31,17 @@ import (
 // keyword-synthesized one, since Java attaches the synthesized
 // StaticAbility to the very card carrying the keyword.
 //
-// Not every keyword CardFactoryUtil expands this way is here -- each
-// omission is a specific missing dependency, not an oversight:
+// Landwalk is not in this table: its own CantBlockBy carries no ValidBlocker
+// at all, only ValidDefender$ Player.controls<Type>, and <Type> is the
+// keyword's OWN argument (K:Landwalk:Island's own "Island") -- a different
+// value per card, not a name shared by every card carrying the keyword the
+// way Fear's/Flying's/Horsemanship's/Intimidate's fixed ValidBlocker strings
+// are. landwalkType (below) reads it directly off the keyword line instead
+// (enchantSpec's own precedent, action.go).
 //
-//   - Landwalk's CantBlockBy carries no ValidBlocker at all, only
-//     ValidDefender$ Player.controls<Type> -- Matches (valid.go) evaluates a
-//     *Card, not a *Player, so nothing here can check it yet.
+// Not every keyword CardFactoryUtil expands this way is here -- each
+// remaining omission is a specific missing dependency, not an oversight:
+//
 //   - Protection needs Protection.java's own valid-string builder
 //     (Protection.getProtectionValid), not a fixed string.
 //   - Skulk's ValidBlocker$ Creature.powerGTX needs an SVar-driven X;
@@ -91,19 +97,50 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 						continue
 					}
 					vb, hasVB := s.Param("ValidBlocker")
-					if applyCantBlockBy(g, h, va, vb, hasVB, attacker, blocker) {
+					vd, hasVD := s.Param("ValidDefender")
+					if applyCantBlockBy(g, h, va, vb, hasVB, vd, hasVD, attacker, blocker) {
 						return true
 					}
 				}
 			}
 			for _, kb := range cantBlockByKeywords {
-				if h.HasKeyword(kb.keyword) && applyCantBlockBy(g, h, "Creature.Self", kb.validBlocker, true, attacker, blocker) {
+				if h.HasKeyword(kb.keyword) && applyCantBlockBy(g, h, "Creature.Self", kb.validBlocker, true, "", false, attacker, blocker) {
 					return true
 				}
+			}
+			if typ, ok := landwalkType(h); ok &&
+				applyCantBlockBy(g, h, "Creature.Self", "", false, "Player.controls"+typ, true, attacker, blocker) {
+				return true
 			}
 		}
 	}
 	return false
+}
+
+// landwalkType reports h's own Landwalk keyword argument (K:Landwalk:Island
+// -> "Island", K:Landwalk:Forest.Snow:snow Forest -> "Forest.Snow" -- the
+// keyword's own first Args() element, exactly Landwalk.java's own
+// getValidType/KeywordWithType.type), and whether h carries the keyword at
+// all. Read directly off the keyword line rather than through
+// cantBlockByKeywords' fixed-string table, since this value is the one part
+// of Landwalk's own CantBlockBy synthesis
+// (CardFactoryUtil.java's `Landwalk landwalk` branch) that differs per card.
+func landwalkType(h *Card) (string, bool) {
+	if h.Def == nil {
+		return "", false
+	}
+	for _, line := range h.Def.Faces[0].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Landwalk" {
+			continue
+		}
+		args := k.Args()
+		if len(args) == 0 || args[0] == "" {
+			continue
+		}
+		return args[0], true
+	}
+	return "", false
 }
 
 // applyCantBlockBy is applyCantBlockByAbility's ValidAttacker/ValidBlocker
@@ -125,18 +162,69 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 // if a separate CanBlockIfReach static grants that specific blocker
 // effective reach against this specific attacker) -- one real corpus card
 // needs it; ValidAttackerRelative/ValidBlockerRelative -- one real corpus
-// card; ValidDefender -- zero real corpus S:CantBlockBy lines use it; and
-// the Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) -- Landwalk
-// itself is not in cantBlockByKeywords, so this never reaches a case that
-// would need it (game-state.md's "Not ported yet" has the corpus counts).
-func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, hasValidBlocker bool, attacker, blocker CardID) bool {
+// card; and the Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) --
+// zero real corpus S:Mode$ IgnoreLandwalk lines exist, so nothing here can
+// ever need to consult it.
+func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, hasValidBlocker bool,
+	validDefender string, hasValidDefender bool, attacker, blocker CardID) bool {
 	if !Matches(g, g.Card(attacker), valid.Parse(validAttacker), host.Controller, host.ID) {
 		return false
 	}
 	if hasValidBlocker && !Matches(g, g.Card(blocker), valid.Parse(validBlocker), host.Controller, host.ID) {
 		return false
 	}
+	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller, validDefender, host) {
+		return false
+	}
 	return true
+}
+
+// matchesValidDefender is ValidDefender's own check
+// (StaticAbilityCantAttackBlock.applyCantBlockByAbility:
+// `stAb.matchesValidParam("ValidDefender", blocker.getController())`) -- a
+// Player, not a Card, so Matches (valid.go) cannot evaluate it, the same
+// reason matchesActivatingPlayer (trigger.go) exists for SpellCast's own
+// ValidActivatingPlayer. "You"/"Opponent"/"Player" are the identical three
+// bare values matchesActivatingPlayer resolves (4, 1 and 1 of the 8 real
+// literal ValidDefender$ lines), checked here against defender vs
+// host.Controller instead of a trigger's activator. A "Player.controls<Type>"
+// value -- Landwalk's own entire restriction, landwalkType's own doc comment
+// has the reason it is built per card rather than looked up -- asks whether
+// defender controls at least one battlefield permanent valid.Parse(type)
+// matches (PlayerProperty.java's own "controls" branch,
+// `property.substring(8)`, no comparator suffix: every real corpus use of
+// this shape is the bare "at least one" default). Any other value
+// (Player.Condition, Card.Self -- 2 of the 8 real literal lines) never
+// matches, the same skip-rather-than-fire contract every other unresolved
+// param in this port gets.
+func matchesValidDefender(g *Game, defender PlayerID, spec string, host *Card) bool {
+	switch spec {
+	case "You":
+		return defender == host.Controller
+	case "Opponent":
+		return defender != host.Controller
+	case "Player":
+		return true
+	}
+	if typ, ok := strings.CutPrefix(spec, "Player.controls"); ok {
+		return controllerControlsType(g, defender, typ, host)
+	}
+	return false
+}
+
+// controllerControlsType reports whether pid controls at least one
+// battlefield permanent valid.Parse(typeSpec) matches, source/sourceController
+// the ability's own host -- Matches's own "source is the card the spec is
+// written on" contract (valid.go), the same pairing every other
+// staticability.go check already passes.
+func controllerControlsType(g *Game, pid PlayerID, typeSpec string, host *Card) bool {
+	spec := valid.Parse(typeSpec)
+	for _, id := range g.Zone(Battlefield, pid).Cards() {
+		if Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+			return true
+		}
+	}
+	return false
 }
 
 // ignoreLegendRule reports whether id is exempt from the legend rule (CR

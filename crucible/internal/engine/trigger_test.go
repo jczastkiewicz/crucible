@@ -706,3 +706,174 @@ func TestCastSpellSkipsSpellCastTriggerWithUnresolvedParam(t *testing.T) {
 		t.Errorf("library card zone = %v, want Library -- TargetsValid$ is not evaluated, so this must not fire", g.Card(top).Zone)
 	}
 }
+
+// blocksTriggerCreatureDefPT builds a *compile.Card for a creature with a
+// real "when CARDNAME blocks" trigger -- Mode$ Blocks, ValidCard$ Card.Self.
+func blocksTriggerCreatureDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatBlockersFiresBlocksTrigger proves checkBlocksTriggers
+// (trigger.go) is wired into DeclareCombatBlockers (block.go): a declared
+// blocker's own "when this blocks" trigger is detected and its Execute$
+// sub-ability (Draw) actually resolves.
+func TestDeclareCombatBlockersFiresBlocksTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	blocker := g.NewCard(blocksTriggerCreatureDefPT(t, "Test Blocker", "2", "2"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+
+	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the Blocks trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// blocksWatcherDef builds a *compile.Card for a non-creature permanent
+// watching for ANY creature its controller controls to block (ValidCard$
+// Creature.YouCtrl), not tied to blocking itself -- checkBlocksTriggers
+// needs no separate "own" and "other" loop, the same as checkAttacksTriggers.
+func blocksWatcherDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Blocks Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Blocks Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Blocks | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDeclareCombatBlockersFiresOtherPermanentsWatchingBlockTrigger proves
+// checkBlocksTriggers fires a watcher's own trigger off a DIFFERENT
+// creature blocking: the blocker itself carries no trigger, so the pushed
+// Draw can only have come from the watcher.
+func TestDeclareCombatBlockersFiresOtherPermanentsWatchingBlockTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	g.NewCard(blocksWatcherDef(t), b, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+
+	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the watcher's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// blocksTriggerWithValidBlockedParamDefPT builds a creature whose own Blocks
+// trigger carries ValidBlocked$, a param checkBlocksTriggers does not
+// evaluate.
+func blocksTriggerWithValidBlockedParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature.powerGE4 | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam proves a
+// trigger carrying a param this port cannot evaluate (ValidBlocked$) is
+// skipped entirely -- never fired unconditionally, which would be silently
+// wrong (GO-7).
+func TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	blocker := g.NewCard(blocksTriggerWithValidBlockedParamDefPT(t, "Test Blocker", "2", "2"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- ValidBlocked$ is not evaluated, so the trigger must not fire", got)
+	}
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- nothing should have drawn it", g.Card(top).Zone)
+	}
+}

@@ -371,6 +371,64 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "SpellCast")
 }
 
+// checkBlocksTriggers is CR 509.2's own "whenever ~ blocks" trigger, ported
+// from TriggerBlocks.performTest at the one param this port can resolve:
+// ValidCard matched against the declared blocker. Like checkAttacksTriggers,
+// one walk covers both a creature's own "when this blocks" and another
+// permanent's "whenever a creature you control blocks" -- TriggerBlocks
+// itself never special-cases the blocker's own trigger either.
+//
+// Not resolved: ValidBlocked$ (8 of 127 real lines) -- TriggerBlocks.performTest
+// matches it against the full collection of attackers this blocker blocks
+// (AbilityKey.Attackers), which this port's Block (combat.go) never groups
+// back into a per-blocker set of attackers, so a trigger carrying it is
+// skipped entirely rather than checked against only the one attacker in blk.
+// 119 of 127 real lines carry none of it.
+//
+// Called once per declared Block, after CanBlock and menaceLegal have both
+// already filtered the pairing down to a legal one (DeclareCombatBlockers,
+// block.go) -- a blocker declared against more than one attacker at once (a
+// real corpus rarity this port's own combat model does not otherwise
+// restrict) fires once per Block entry rather than once with every attacker
+// gathered, the same per-pair granularity every other Block-consuming caller
+// already uses.
+func (g *Game) checkBlocksTriggers(blk Block) {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isBlocksTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "ValidBlocked") {
+						continue
+					}
+					validCard, ok := t.Param("ValidCard")
+					if !ok {
+						continue
+					}
+					if !Matches(g, g.Card(blk.Blocker), valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// isBlocksTrigger reports whether t is CR 509.2's "blocks" shape: Mode$
+// Blocks.
+func isBlocksTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Blocks")
+}
+
 // hasAnyParam reports whether t carries any of keys, regardless of value --
 // checkAttacksTriggers' own way of skipping a trigger this port cannot fully
 // evaluate rather than firing it as if the extra condition were not there.

@@ -179,9 +179,9 @@ more than one defending player; mulligans (`mulligan.go`); the valid-string eval
 SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-strings.md`); a mana pool and payment
 covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's intrinsic mana ability
 (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an Aura, through the stack
-— (`castspell.go`), the first two real `Effect` implementations (`permanentEffect`/`attachEffect`); a permanent's own
-"enters the battlefield" trigger (`trigger.go`), the first trigger-firing mode — detects and queues a trigger, does not
-resolve it (M6's 203 corpus-frequency effects still own that). Full detail:
+— (`castspell.go`), the first two real `Effect` implementations (`permanentEffect`/`attachEffect`); trigger firing
+(`trigger.go`) — a permanent's own "enters" and "dies" modes, plus another permanent watching one enter — detects and
+queues a trigger, does not resolve it (M6's 203 corpus-frequency effects still own that). Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: the layer system is CR 613's layer _numbers_ plus a power/toughness folding mechanism with zero real callers;
 block legality beyond "untapped" and the legend rule's `ignoreLegendRule` corner case wait on the same missing general

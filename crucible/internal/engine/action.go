@@ -211,6 +211,7 @@ func destroyLethalToughness(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 
@@ -254,6 +255,7 @@ func destroyDamagedCreatures(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 
@@ -291,6 +293,7 @@ func destroyZeroLoyalty(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 
@@ -367,6 +370,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 		}
 		if len(eligible) == 0 {
 			g.Move(id, Graveyard, c.Owner)
+			g.checkDiesTriggers(id)
 			continue
 		}
 		c.ProtectingPlayer = controller.ChooseBattleProtector(g, c.Controller, id, eligible)
@@ -405,6 +409,7 @@ func destroyZeroDefense(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 
@@ -449,6 +454,7 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 			for _, id := range dup {
 				if id != keep {
 					g.Move(id, Graveyard, g.Card(id).Owner)
+					g.checkDiesTriggers(id)
 				}
 			}
 		}
@@ -509,6 +515,7 @@ func resolveWorldRule(g *Game) {
 			continue
 		}
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 
@@ -576,6 +583,7 @@ func cleanupDanglingAttachments(g *Game) {
 		// Move unattaches id itself as a side effect of leaving the
 		// battlefield (game.go), so there is nothing left to do here.
 		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(id)
 	}
 }
 

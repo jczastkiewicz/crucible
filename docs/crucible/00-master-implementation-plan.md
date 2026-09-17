@@ -651,22 +651,31 @@ printed form.
     battlefield when it fires — discarded FROM HAND — so `checkDiscardedTriggers` needed its own explicit "own" half
     checking the discarded card directly, on top of `checkOtherDiscardedTriggers`' battlefield walk (caught by
     `TestCleanupFiresDiscardedTrigger` failing on the first, battlefield-only attempt — a self-caught gap, not a
-    hypothetical one). `Blocks` needs only `ValidCard` (matched against the declared blocker); its own `ValidBlocked$`
-    (8 of 127 real lines) matches against the FULL collection of attackers one blocker blocks, which this port's `Block`
-    (combat.go) never groups back into a per-blocker set, so a trigger carrying it is skipped rather than checked
-    against only the one attacker in the current `Block` — called once per declared `Block`, after `CanBlock` and
-    `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two
-    functions because the actual damaged object is either a `*Card` or a `*Player` (Java's own `DamageTarget` is a
-    `GameEntity`), each needing a different `ValidTarget` evaluator — fired from `dealPermanentDamage`/
-    `dealPlayerDamage` (combatdamage.go), `CombatDamage$` checked against a hardcoded `true` since nothing outside
-    combat deals damage in this port yet. `Taps` fires from this port's only two real tap sites
+    hypothetical one). `Blocks` needs `ValidCard` (matched against the declared blocker) and `ValidBlocked$` (8 of 127
+    real lines, every one an "or blocks/becomes blocked by one or more X creatures" description), checked against
+    `blk.Attacker` directly: Java's own `performTest` matches it against the FULL collection of attackers one blocker
+    blocks, ANY of which satisfying it fires the trigger once, but `checkBlocksTriggers` is already called once per
+    declared `Block` rather than once per blocker with every attacker gathered, so checking the one attacker each call
+    already has stands in for "any member of the collection" correctly for the overwhelming single-attacker case — after
+    `CanBlock` and `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone`
+    splits into two functions because the actual damaged object is either a `*Card` or a `*Player` (Java's own
+    `DamageTarget` is a `GameEntity`), each needing a different `ValidTarget` evaluator — fired from
+    `dealPermanentDamage`/ `dealPlayerDamage` (combatdamage.go), `CombatDamage$` checked against a hardcoded `true`
+    since nothing outside combat deals damage in this port yet. `Taps` fires from this port's only two real tap sites
     (`DeclareCombatAttackers`, attack.go; `TapLandForMana`, manaability.go), `Attacker$` resolved as the boolean that
     tells them apart; `TapsForMana` is `Taps`'s own narrower sibling, its own separate Java `Trigger` subclass, firing
     only from the mana-ability site. `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded`/`Taps`/`TapsForMana` all match
     something other than a `*Card` at some point (`ValidActivatingPlayer`, `ValidDefender`,
     `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`, `Activator`) — a new `matchesPlayerBase` (`valid.go`) is the
     shared three-bare-value (`You`/`Opponent`/`Player`) dispatch all of them now reuse, factored out once a third caller
-    needed the identical switch two callers had already written separately. All nine modes are keyed off
+    needed the identical switch two callers had already written separately. `matchesPlayerSpec`/`matchesPlayerProperty`
+    (`valid.go`) sit on top of it, the identical `Base.Property` split `Player.isValid` (Player.java) itself does,
+    adding `Active`/`NonActive` (`Game.ActivePlayer()`) and `Other` (not `sourceController`) — `SpellCast`'s own
+    `matchesActivatingPlayer`, `DamageDone`'s own `ValidTarget`-as-a-player and `TapsForMana`'s own `Activator` call it,
+    closing 19 of `SpellCast`'s 25 real qualified `ValidActivatingPlayer$` lines, `DamageDone`'s own qualified
+    `ValidTarget$ Player.Opponent`/`Player.Other` and `TapsForMana`'s own `Activator$ Player.NonActive`; `CantBlockBy`'s
+    `ValidDefender`, `Discarded`'s `ValidPlayer` and `Taps`'s `ValidPlayer` keep calling `matchesPlayerBase` directly,
+    verified against the real corpus to carry zero qualified lines for those exact params. All nine modes are keyed off
     `compile.Face.Triggers` (typed since M3, never read by the engine before now). A trigger's `Execute$` sub-ability's
     own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`, `ability.go`) — the gap
     that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became the first of the 203
@@ -674,14 +683,15 @@ printed form.
     `ErrUnimplemented` for the other 202. Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/
     "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell" (`Countered`, `Exiled`, `Sacrificed`,
     ...); `Attacks`'s own `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/ `AttackDifferentPlayers$`
-    params; `DamageDone`'s own `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$`;
-    `Discarded`'s own `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$`;
-    `SpellCast`'s own qualified `ValidActivatingPlayer$` forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines)
-    and nine other unresolved params (`ValidSA`, `TargetsValid`, `HasXManaCost`, ... —
-    `porting/port-log/game-state.md`'s trigger-firing section has the full list); simultaneous-trigger ordering
-    (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP order) is a real gap now rather than a
-    hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can genuinely push more than one trigger off a
-    single event, in a fixed order rather than a chosen one — and the whole replacement-effect system.
+    params; `DamageDone`'s own `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own
+    qualified `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not);
+    `Discarded`'s own `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own
+    qualified `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen`
+    qualified `ValidActivatingPlayer$` forms (6 of the original 25 lines) and nine other unresolved params (`ValidSA`,
+    `TargetsValid`, `HasXManaCost`, ... — `porting/port-log/game-state.md`'s trigger-firing section has the full list);
+    simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP order) is a real gap
+    now rather than a hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can genuinely push more than
+    one trigger off a single event, in a fixed order rather than a chosen one — and the whole replacement-effect system.
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Four real slices of `Mode$ Continuous` now,
     alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_; `pt.go` folds
     power/toughness through them, and that folding mechanism has a real (non-test) caller for the first time:

@@ -286,12 +286,13 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 // ValidActivatingPlayer is the corpus's dominant param here (1,216 of 1,435
 // lines -- more common than ValidCard itself), matched by
 // matchesActivatingPlayer below against three bare values covering 1,191 of
-// those 1,216 (You/Opponent/Player); a qualified form (Player.Opponent,
-// Player.EnchantedBy, Player.NonActive, Player.Active, Player.Other,
-// Player.Chosen -- 25 lines) has no player-valid evaluator this port
-// builds, so it is skipped the same way hasAnyParam skips a trigger with an
-// unresolved card-valid param: never fires, rather than fires unconditionally
-// (GO-7).
+// those 1,216 (You/Opponent/Player), plus matchesPlayerSpec's own
+// Active/NonActive/Other dotted property, covering Player.Opponent (12),
+// Player.NonActive (4), Player.Active (2), Player.Other (1) and
+// Opponent.NonActive (1) -- 19 more of the 25 qualified lines. The
+// remaining 6 (Player.EnchantedBy, 5; Player.Chosen, 1) stay unresolved
+// (matchesPlayerSpec's own doc comment, valid.go): a trigger carrying one
+// never fires, rather than firing unconditionally (GO-7).
 //
 // Not resolved, skipped via hasAnyParam below: ValidSA/ValidSAonCard (a
 // SpellAbility, not a Card, Matches (valid.go) only evaluates one of
@@ -325,7 +326,7 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
 						continue
 					}
-					if !matchesActivatingPlayer(t, activator, h.Controller) {
+					if !matchesActivatingPlayer(g, t, activator, h.Controller) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
@@ -338,18 +339,21 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 }
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
-// matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerBase
-// (valid.go)'s own three bare values. Missing entirely is a pass, the same
-// CardTraitBase.matchesValidParam contract ValidCard's own absence gets
-// above. Any qualified form (a dot in the value) is unrecognized and never
-// matches -- checkSpellCastTriggers' own doc comment names the six real
-// ones this cannot evaluate.
-func matchesActivatingPlayer(t *compile.Ability, activator, hostController PlayerID) bool {
+// matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerSpec
+// (valid.go)'s own bare values plus its Active/NonActive/Other property
+// layer, together covering 19 of the 25 real qualified lines
+// checkSpellCastTriggers' own doc comment counts (Player.Opponent,
+// Player.NonActive, Player.Active, Player.Other, Opponent.NonActive).
+// Missing entirely is a pass, the same CardTraitBase.matchesValidParam
+// contract ValidCard's own absence gets above. Player.EnchantedBy (5) and
+// Player.Chosen (1) stay unrecognized -- matchesPlayerSpec's own doc comment
+// has the reason.
+func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostController PlayerID) bool {
 	v, ok := t.Param("ValidActivatingPlayer")
 	if !ok {
 		return true
 	}
-	matched, recognized := matchesPlayerBase(activator, hostController, v)
+	matched, recognized := matchesPlayerSpec(g, activator, hostController, v)
 	return recognized && matched
 }
 
@@ -366,12 +370,20 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 // permanent's "whenever a creature you control blocks" -- TriggerBlocks
 // itself never special-cases the blocker's own trigger either.
 //
-// Not resolved: ValidBlocked$ (8 of 127 real lines) -- TriggerBlocks.performTest
-// matches it against the full collection of attackers this blocker blocks
-// (AbilityKey.Attackers), which this port's Block (combat.go) never groups
-// back into a per-blocker set of attackers, so a trigger carrying it is
-// skipped entirely rather than checked against only the one attacker in blk.
-// 119 of 127 real lines carry none of it.
+// ValidBlocked$ (8 of 127 real lines, every one an "or blocks/becomes
+// blocked by one or more X creatures" description) is resolved against
+// blk.Attacker directly: TriggerBlocks.performTest itself matches it
+// against the full collection of attackers this blocker blocks
+// (AbilityKey.Attackers), ANY of which satisfying it fires the trigger
+// once -- but this port's own checkBlocksTriggers is already called once
+// per declared Block (a per-pair granularity, this doc comment's own next
+// paragraph), never once per blocker with every attacker gathered, so
+// checking the one attacker each call already has stands in for "any
+// member of the collection" correctly for the overwhelming single-attacker
+// case and no worse than the existing per-pair granularity for the rare
+// double-block one (a blocker legally blocking two attackers at once fires
+// once per matching attacker here, where Java fires once total -- an
+// existing divergence, not a new one this param introduces).
 //
 // Called once per declared Block, after CanBlock and menaceLegal have both
 // already filtered the pairing down to a legal one (DeclareCombatBlockers,
@@ -392,14 +404,15 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 					if !isBlocksTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "ValidBlocked") {
-						continue
-					}
 					validCard, ok := t.Param("ValidCard")
 					if !ok {
 						continue
 					}
 					if !Matches(g, g.Card(blk.Blocker), valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if validBlocked, ok := t.Param("ValidBlocked"); ok &&
+						!Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller, host) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
@@ -422,11 +435,13 @@ func isBlocksTrigger(t *compile.Ability) bool {
 // TriggerDamageDone.performTest -- split in two because the actual damaged
 // object is either a *Card (a creature, planeswalker or battle) or a
 // *Player, and ValidTarget needs a different evaluator for each: Matches
-// (valid.go) for the first, matchesPlayerBase (valid.go, the same one
-// matchesActivatingPlayer/matchesValidDefender already use) for the second.
-// damageDoneMatches (below) is everything the two calls share -- one walk
-// over the battlefield, ValidSource, and CombatDamage$ -- everything but
-// that one different check.
+// (valid.go) for the first, matchesPlayerSpec (valid.go, the same one
+// matchesActivatingPlayer uses) for the second -- 4 of the 5 real qualified
+// ValidTarget$ Player.* lines resolve this way (Player.Opponent x3,
+// Player.Other x1); the fifth, Player.EnchantedBy, does not
+// (matchesPlayerSpec's own doc comment). damageDoneMatches (below) is
+// everything the two calls share -- one walk over the battlefield,
+// ValidSource, and CombatDamage$ -- everything but that one different check.
 //
 // isCombat is always true at both real call sites (dealPermanentDamage/
 // dealPlayerDamage, combatdamage.go): nothing outside combat deals damage
@@ -472,7 +487,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, i
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok {
-						matched, recognized := matchesPlayerBase(target, h.Controller, validTarget)
+						matched, recognized := matchesPlayerSpec(g, target, h.Controller, validTarget)
 						if !recognized || !matched {
 							continue
 						}
@@ -695,11 +710,13 @@ func isTapsTrigger(t *compile.Ability) bool {
 // than checkTapsTriggers (a mana ability specifically, not any tap), so it
 // is its own check rather than a param on the general one, matching Java's
 // own separate Trigger subclass. Activator -- a Player, not a Card,
-// matchesPlayerBase's own job -- is player, the same "the tapped card's own
+// matchesPlayerSpec's own job -- is player, the same "the tapped card's own
 // controller" simplification checkTapsTriggers already makes, since
 // TapLandForMana (manaability.go) is the only real mana-ability call site
 // this port has and nothing there models anyone but the land's own
-// controller activating it.
+// controller activating it. The one real qualified value, Activator$
+// Player.NonActive, resolves through matchesPlayerSpec's own Active/
+// NonActive property.
 //
 // Not resolved: Produced$ (3 of 65 real lines) -- "C" (2) can never match
 // anyway, since TapLandForMana only ever produces one of the five colors,
@@ -726,7 +743,7 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 						continue
 					}
 					if activator, ok := t.Param("Activator"); ok {
-						matched, recognized := matchesPlayerBase(player, h.Controller, activator)
+						matched, recognized := matchesPlayerSpec(g, player, h.Controller, activator)
 						if !recognized || !matched {
 							continue
 						}

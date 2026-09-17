@@ -652,6 +652,37 @@ func TestCastSpellFiresSpellCastTriggerForOpponentActivatingPlayer(t *testing.T)
 	}
 }
 
+// TestCastSpellFiresSpellCastTriggerForQualifiedOpponentActivatingPlayer
+// proves the dotted form (ValidActivatingPlayer$ Player.Opponent, 12 of the
+// real corpus's 25 qualified lines) resolves through matchesPlayerSpec
+// (valid.go) to the identical answer the bare "Opponent" form already gets --
+// unlike TestCastSpellFiresSpellCastTriggerForOpponentActivatingPlayer, this
+// exercises matchesPlayerBase through the Base.Property split rather than
+// directly.
+func TestCastSpellFiresSpellCastTriggerForQualifiedOpponentActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	g.NewCard(spellCastWatcherDef(t, "Test Qualified Opponent Watcher", "Player.Opponent"), other, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "G"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- other's own ValidActivatingPlayer$ Player.Opponent should match p casting", g.Card(top).Zone)
+	}
+}
+
 // spellCastWatcherWithTargetsValidDef builds a *compile.Card carrying
 // TargetsValid$, a param checkSpellCastTriggers does not evaluate (no
 // per-trigger target-inspection hook this port has), alongside an otherwise
@@ -822,8 +853,8 @@ func TestDeclareCombatBlockersFiresOtherPermanentsWatchingBlockTrigger(t *testin
 }
 
 // blocksTriggerWithValidBlockedParamDefPT builds a creature whose own Blocks
-// trigger carries ValidBlocked$, a param checkBlocksTriggers does not
-// evaluate.
+// trigger carries ValidBlocked$ Creature.powerGE4, checked against
+// blk.Attacker (checkBlocksTriggers' own doc comment).
 func blocksTriggerWithValidBlockedParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
 	t.Helper()
 
@@ -848,11 +879,39 @@ func blocksTriggerWithValidBlockedParamDefPT(t *testing.T, name, power, toughnes
 	return c
 }
 
-// TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam proves a
-// trigger carrying a param this port cannot evaluate (ValidBlocked$) is
-// skipped entirely -- never fired unconditionally, which would be silently
-// wrong (GO-7).
-func TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam(t *testing.T) {
+// TestDeclareCombatBlockersFiresBlocksTriggerWhenValidBlockedMatches proves
+// ValidBlocked$ is checked against blk.Attacker: a power-4 attacker
+// satisfies Creature.powerGE4, so the trigger fires.
+func TestDeclareCombatBlockersFiresBlocksTriggerWhenValidBlockedMatches(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "4", "4"), a, engine.Battlefield)
+	blocker := g.NewCard(blocksTriggerWithValidBlockedParamDefPT(t, "Test Blocker", "2", "2"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+
+	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- ValidBlocked$ Creature.powerGE4 should match a power-4 attacker", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatBlockersSkipsBlocksTriggerWhenValidBlockedDoesNotMatch
+// proves the same trigger does NOT fire against a power-2 attacker, which
+// Creature.powerGE4 rejects.
+func TestDeclareCombatBlockersSkipsBlocksTriggerWhenValidBlockedDoesNotMatch(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -871,7 +930,7 @@ func TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam(t *testing.T
 	g.DeclareCombatBlockers(bc)
 
 	if got := g.StackLen(); got != 0 {
-		t.Fatalf("StackLen() = %d, want 0 -- ValidBlocked$ is not evaluated, so the trigger must not fire", got)
+		t.Fatalf("StackLen() = %d, want 0 -- ValidBlocked$ Creature.powerGE4 must reject a power-2 attacker", got)
 	}
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- nothing should have drawn it", g.Card(top).Zone)
@@ -934,6 +993,65 @@ func TestDealCombatDamageFiresDamageDoneTriggerToPlayer(t *testing.T) {
 	}
 	if g.Card(top).Zone != engine.Hand {
 		t.Errorf("library card zone = %v, want Hand -- the DamageDone trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// damageDoneTriggerCreatureDefPTValidTarget is
+// damageDoneTriggerCreatureDefPT plus a ValidTarget$, checked against the
+// damaged player through matchesPlayerSpec (valid.go) when the target is a
+// *Player rather than a *Card (checkDamageDoneTriggersToPlayer, trigger.go).
+func damageDoneTriggerCreatureDefPTValidTarget(t *testing.T, name, power, toughness, validTarget string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ " + validTarget + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDealCombatDamageFiresDamageDoneTriggerToPlayerForQualifiedOther proves
+// ValidTarget$ Player.Other -- a property matchesPlayerBase itself has no
+// case for, only reachable through matchesPlayerSpec's own dotted dispatch
+// (valid.go) -- matches the defending player b, who is not sourceController
+// a.
+func TestDealCombatDamageFiresDamageDoneTriggerToPlayerForQualifiedOther(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerCreatureDefPTValidTarget(t, "Test Attacker", "3", "3", "Player.Other"), a, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- ValidTarget$ Player.Other should match defending player b", g.Card(top).Zone)
 	}
 }
 
@@ -1512,5 +1630,77 @@ func TestDeclareCombatAttackersDoesNotFireTapsForManaTrigger(t *testing.T) {
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- attacking is not a mana ability, so TapsForMana must not fire", got)
+	}
+}
+
+// tapsForManaTriggerLandDefActivator is tapsForManaTriggerLandDef plus an
+// Activator$, checked through matchesPlayerSpec (valid.go) the same way
+// checkSpellCastTriggers' own ValidActivatingPlayer is.
+func tapsForManaTriggerLandDefActivator(t *testing.T, name, typeLine, activator string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, typeLine)
+	raw.Faces[0].Triggers = []string{
+		"Mode$ TapsForMana | ValidCard$ Card.Self | Activator$ " + activator + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator proves
+// Activator$ Player.NonActive resolves through matchesPlayerSpec's own
+// Active/NonActive property (Game.ActivePlayer(), valid.go): other, not the
+// active player p, taps their own land, so NonActive matches.
+func TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.SetTurnState(1, p, engine.Main1)
+	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), other, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	if !g.TapLandForMana(other, plains, mana.White) {
+		t.Fatal("TapLandForMana failed tapping a Plains for white")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- Activator$ Player.NonActive should match other, not the active player p", g.Card(top).Zone)
+	}
+}
+
+// TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator proves the
+// same trigger does NOT fire when the active player p taps their own land --
+// p is Active, not NonActive.
+func TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.SetTurnState(1, p, engine.Main1)
+	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), p, engine.Battlefield)
+
+	if !g.TapLandForMana(p, plains, mana.White) {
+		t.Fatal("TapLandForMana failed tapping a Plains for white")
+	}
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- Activator$ Player.NonActive must reject the active player p", got)
 	}
 }

@@ -203,8 +203,13 @@ new `matchesValidDefender` (`staticability.go`), a `Player`, not a `Card`, match
 `ValidActivatingPlayer` is; Protection's own CantBlockBy restriction (`protectionValid`, `staticability.go`) is built
 per card from the keyword's own argument the identical way Landwalk's is, both real corpus shapes (the natural-language
 "Protection from red" and the colon-structured "Protection:Artifact") resolving through the existing valid-string
-evaluator with no new property needed. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203
-script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
+evaluator with no new property needed; `Blocks`'s own `ValidBlocked$` is checked against the declared attacker directly,
+the per-pair granularity `checkBlocksTriggers` already has standing in for Java's own full-attacker-collection match;
+and `matchesPlayerSpec`/`matchesPlayerProperty` (`valid.go`) extend `matchesPlayerBase` with the one dotted-property
+layer (`Active`/`NonActive`/`Other`, `Game.ActivePlayer()`) real corpus lines put on top of it, closing 19 of
+`SpellCast`'s own 25 qualified `ValidActivatingPlayer$` lines plus `DamageDone`'s own qualified `ValidTarget$` and
+`TapsForMana`'s own qualified `Activator$`. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the
+203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
 (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: Layers 1-3 and 8, plus Layer 7a (`CharacteristicDefining$`), need the rest of the same static-ability engine
@@ -212,9 +217,9 @@ missing: Layers 1-3 and 8, plus Layer 7a (`CharacteristicDefining$`), need the r
 literal-token subsets (a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo skips the whole
 line rather than applying it wrong); the legend rule's Partner-non-legendary-name corner case; Skulk is the one
 remaining `CantBlockBy` gap (`game-state.md`'s "Block legality" section has the reason); `Attacks`'s own five unresolved
-params, `Blocks`'s own `ValidBlocked$`, `DamageDone`'s own `DamageAmount$`/`ValidCause$`, `Discarded`'s own
-`ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own qualified
-`ValidActivatingPlayer$` forms, and every trigger mode past enters/dies/attacks/blocks/deals-damage/is-discarded/
-becomes-tapped/taps-for-mana/casts; 202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit
-gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every
-layer, every SBA," Plan Section 3.2) is not.
+params, `DamageDone`'s own `DamageAmount$`/`ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
+`FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
+qualified `ValidActivatingPlayer$` forms, and every trigger mode past
+enters/dies/attacks/blocks/deals-damage/is-discarded/ becomes-tapped/taps-for-mana/casts; 202 script-driven effects past
+`Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`)
+past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

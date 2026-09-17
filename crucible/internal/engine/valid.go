@@ -391,19 +391,20 @@ func colorFromName(name string) (mana.Colors, bool) {
 
 // matchesPlayerBase is CardTraitBase's own bare "You"/"Opponent"/"Player"
 // dispatch against a Player rather than a Card, shared by every
-// ValidXPlayer-shaped check this port has needed so far: SpellCast's own
-// ValidActivatingPlayer (matchesActivatingPlayer, trigger.go), CantBlockBy's
-// own ValidDefender (matchesValidDefender, staticability.go) and
-// DamageDone's own ValidSource/ValidTarget when the damaged object is a
-// player rather than a card (checkDamageDoneTriggers, trigger.go). None of
-// the three is a *Card, so Matches itself cannot answer any of them.
-// "Opponent"/"You" reuse the same no-team simplification OppCtrl/OppOwn
-// already carry (this file's own doc comment on propertyMatches):
-// "controlled by anyone other than host" stands in for
-// getOpponents().contains(candidate). ok is false for spec anything else,
-// so a caller with its own additional dispatch (matchesValidDefender's own
-// "Player.controls<Type>") knows to keep looking rather than treat an
-// unrecognized spec as a plain non-match.
+// ValidXPlayer-shaped check this port has needed so far -- directly, where
+// the real corpus never qualifies the value with a dotted property
+// (CantBlockBy's own ValidDefender, matchesValidDefender, staticability.go;
+// Discarded's own ValidPlayer and Taps's own ValidPlayer, trigger.go), and
+// through matchesPlayerSpec (below), where it sometimes does (SpellCast's
+// own ValidActivatingPlayer, DamageDone's own ValidTarget when the damaged
+// object is a player, and TapsForMana's own Activator). None of these is a
+// *Card, so Matches itself cannot answer any of them. "Opponent"/"You" reuse
+// the same no-team simplification OppCtrl/OppOwn already carry (this file's
+// own doc comment on propertyMatches): "controlled by anyone other than
+// host" stands in for getOpponents().contains(candidate). ok is false for
+// spec anything else, so a caller with its own additional dispatch
+// (matchesValidDefender's own "Player.controls<Type>") knows to keep
+// looking rather than treat an unrecognized spec as a plain non-match.
 func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool) {
 	switch spec {
 	case "You":
@@ -412,6 +413,70 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 		return candidate != host, true
 	case "Player":
 		return true, true
+	}
+	return false, false
+}
+
+// matchesPlayerSpec is matchesPlayerBase plus the one dotted-property layer
+// real corpus lines put on top of it -- Player.isValid (Player.java) always
+// splits its restriction string on the first "." the same way Card.isValid
+// does, checks the base clause first (matchesPlayerBase, above), then ANDs
+// every "+"-joined property via hasProperty/PlayerProperty.playerHasProperty.
+// No real corpus line this port's callers pass ever joins more than one
+// property this way (SpellCast's own ValidActivatingPlayer$
+// Opponent.NonActive is the single "+"-free two-clause example,
+// game-state.md's own count), so only Base.Property is split here, not
+// Base.Property1+Property2.
+//
+// ok is false whenever the base itself is unrecognized (matchesPlayerBase's
+// own contract) or the property is -- a caller with its own further dispatch
+// (matchesValidDefender's own "Player.controls<Type>", staticability.go)
+// checks that first and never reaches this function for those specs.
+func matchesPlayerSpec(g *Game, candidate, host PlayerID, spec string) (matched, ok bool) {
+	base, property, hasProperty := strings.Cut(spec, ".")
+	baseMatched, baseOK := matchesPlayerBase(candidate, host, base)
+	if !baseOK {
+		return false, false
+	}
+	if !hasProperty {
+		return baseMatched, true
+	}
+	propMatched, propOK := matchesPlayerProperty(g, candidate, host, property)
+	if !propOK {
+		return false, false
+	}
+	return baseMatched && propMatched, true
+}
+
+// matchesPlayerProperty is matchesPlayerSpec's own property half, ported
+// from the slice of PlayerProperty.playerHasProperty real corpus lines this
+// port can evaluate: a bare You/Opponent/Player value (Java's own
+// "Opponent"/"You" property branches reuse the identical base check a
+// property token gets, so this does too, via matchesPlayerBase), Active/
+// NonActive (Game.ActivePlayer(), the same accessor Matches' own
+// ActivePlayerCtrl property already reads for a *Card, valid.go), and Other
+// (not sourceController -- Java's own distinction from "Opponent," a
+// teammate counts as "Other" but not "Opponent," collapses into the
+// identical check anyway under this port's own no-team simplification,
+// matchesPlayerBase's own doc comment).
+//
+// Every other real property (EnchantedBy, Chosen, IsRemembered, and the
+// rest game-state.md's own trigger sections name) needs state this port
+// does not track per player -- an Aura enchanting a player, a ChosenPlayer
+// memory slot, a remembered-players list -- and is left unrecognized here,
+// ok=false, the same "skip rather than guess" contract every other
+// unresolved param in this port already has (GO-7).
+func matchesPlayerProperty(g *Game, candidate, host PlayerID, property string) (matched, ok bool) {
+	if matched, ok := matchesPlayerBase(candidate, host, property); ok {
+		return matched, true
+	}
+	switch property {
+	case "Active":
+		return candidate == g.ActivePlayer(), true
+	case "NonActive":
+		return candidate != g.ActivePlayer(), true
+	case "Other":
+		return candidate != host, true
 	}
 	return false, false
 }

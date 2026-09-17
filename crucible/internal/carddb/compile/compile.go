@@ -19,6 +19,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -199,6 +200,19 @@ type Face struct {
 	Triggers     []*Ability
 	Statics      []*Ability
 	Replacements []*Ability
+
+	// Amounts is every SVar this face defines that is NOT itself an ability
+	// (one of the four slices above, reached through a Sub reference when a
+	// param names it) -- most commonly a `SVar:X:Count$...` line, the value
+	// a param like `AddPower$ X` or `SetToughness$ Y` names. Parsed once
+	// here, the same "compile once, never re-interpret a script string at
+	// runtime" reason every other Face field is (PORT-2) -- an engine
+	// resolver (resolveAmount, internal/engine) reads this map by name
+	// rather than re-parsing the raw SVar text itself. Keyed by the SVar's
+	// own name, folded to lower case (SVars.Get's own case-insensitive
+	// contract, carddb/card.go) since a param value naming it may not match
+	// its declared spelling exactly. nil when the face defines no such SVar.
+	Amounts map[string]expr.Amount
 }
 
 // Card is a compiled card: one [Face] per face the script filled.
@@ -257,7 +271,42 @@ func compileFace(face *carddb.Face) (Face, error) {
 			*group.target = append(*group.target, ability)
 		}
 	}
+	out.Amounts = compileAmounts(face)
 	return out, nil
+}
+
+// compileAmounts parses every SVar face defines that is NOT itself an
+// ability -- Face.Amounts' own doc comment has the reason and the shape --
+// via internal/expr, keyed by name folded to lower case.
+//
+// An SVar whose body IS an ability (its own head, up to the first `$`,
+// folds to one of recordKeys -- `DB$`, `AB$`, `SP$`, `ST$`, `RE$`,
+// `Mode$`/`Event$`) is skipped: it already compiles through
+// reference/SubRef above when a param names it, and running it through
+// expr.Parse too would store a meaningless Amount for it (Head would be
+// "DB" or "Mode", never a real Count$ family resolveAmount evaluates).
+// expr.Parse never fails (its own doc comment), so every other SVar gets an
+// entry even when its body is not a shape resolveAmount can use yet --
+// exactly the same "record what recognizing it needs, evaluator decides
+// whether it can" split Ability.Params already has, GO-8's reason params
+// stay text at this layer.
+func compileAmounts(face *carddb.Face) map[string]expr.Amount {
+	names := face.SVars.Names()
+	if len(names) == 0 {
+		return nil
+	}
+	out := make(map[string]expr.Amount, len(names))
+	for _, name := range names {
+		body, _ := face.SVars.Get(name)
+		amt := expr.Parse(body)
+		if amt.Kind == expr.Expression {
+			if _, isAbility := recordKeys[strings.ToLower(amt.Head)]; isAbility {
+				continue
+			}
+		}
+		out[strings.ToLower(name)] = amt
+	}
+	return out
 }
 
 // faceCompiler holds the SVar namespace one face's references resolve in, and

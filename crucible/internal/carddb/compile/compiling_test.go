@@ -7,6 +7,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
 func compileScript(t *testing.T, script string) *compile.Card {
@@ -105,6 +106,43 @@ func TestTriggerExecuteResolves(t *testing.T) {
 	trigger := card.Faces[0].Triggers[0]
 	if len(trigger.Subs) != 1 || trigger.Subs[0].Key != "Execute" || trigger.Subs[0].Ability.Name != "Draw" {
 		t.Errorf("trigger subs = %+v, want one Execute naming Draw", trigger.Subs)
+	}
+}
+
+// An SVar a param names as a plain value, not an ability -- AddPower$ X, the
+// real corpus shape a characteristic-defining or anthem-shaped Mode$
+// Continuous line writes -- is parsed as an amount expression
+// (internal/expr) rather than left as inert text, keyed by name folded to
+// lower case (Face.Amounts' own doc comment).
+func TestAmountsParsesNonAbilitySVars(t *testing.T) {
+	t.Parallel()
+
+	card := compileScript(t, "Name:X\nManaCost:1 G\nTypes:Creature Elf\nPT:0/0\n"+
+		"S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n"+
+		"SVar:X:Count$Valid Elf\n")
+
+	amt, ok := card.Faces[0].Amounts["x"]
+	if !ok {
+		t.Fatalf("Amounts[%q] missing, want an entry -- SVar:X is not an ability", "x")
+	}
+	if amt.Kind != expr.Expression || amt.Head != "Count" || amt.Body != "Valid Elf" {
+		t.Errorf("Amounts[%q] = %+v, want Kind=Expression Head=Count Body=%q", "x", amt, "Valid Elf")
+	}
+}
+
+// An SVar that IS an ability -- referenced through Execute$/SubAbility$ and
+// compiled into a Sub above -- is not duplicated into Amounts: its own body
+// starts with a recognized record key (DB$ here), not a Count$/Number$/
+// SVar$ amount shape.
+func TestAmountsSkipsAbilityShapedSVars(t *testing.T) {
+	t.Parallel()
+
+	card := compileScript(t, "Name:X\nManaCost:R\nTypes:Instant\n"+
+		"A:SP$ Pump | SubAbility$ DBCleanup\n"+
+		"SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n")
+
+	if _, ok := card.Faces[0].Amounts["dbcleanup"]; ok {
+		t.Errorf("Amounts[%q] present, want absent -- DBCleanup is an ability, already reached through Subs", "dbcleanup")
 	}
 }
 

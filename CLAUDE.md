@@ -213,16 +213,22 @@ the per-pair granularity `checkBlocksTriggers` already has standing in for Java'
 and `matchesPlayerSpec`/`matchesPlayerProperty` (`valid.go`) extend `matchesPlayerBase` with the one dotted-property
 layer (`Active`/`NonActive`/`Other`, `Game.ActivePlayer()`) real corpus lines put on top of it, closing 19 of
 `SpellCast`'s own 25 qualified `ValidActivatingPlayer$` lines plus `DamageDone`'s own qualified `ValidTarget$` and
-`TapsForMana`'s own qualified `Activator$`. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the
-203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
-(`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
-`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
-missing: Layers 1-3 and 8, plus Layer 7a (`CharacteristicDefining$`), need the rest of the same static-ability engine
-`Mode$ Continuous`'s own four slices do not close, and Layers 4/5/6 themselves are only their safely-implementable
-literal-token subsets (a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo skips the whole
-line rather than applying it wrong); the legend rule's Partner-non-legendary-name corner case; Skulk is the one
-remaining `CantBlockBy` gap (`game-state.md`'s "Block legality" section has the reason); `Attacks`'s own five unresolved
-params, `DamageDone`'s own `DamageAmount$`/`ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
+`TapsForMana`'s own qualified `Activator$`. A new `compile.Face.Amounts` (compile.go) parses every non-ability SVar a
+face defines (`internal/expr`) at compile time, and a new `resolveAmount` (`amount.go`) evaluates the one family of it
+this port's own `Matches` already can, `Count$Valid[<Zone>...] <spec>` — 2,804 of the corpus's 6,186 real `Count$`
+expressions — closing `ptParam`'s own dynamic-`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` gap for that shape
+and, with it, Layer 7a itself: `applyOneCharacteristicDefiningPT` (`continuous.go`) resolves a
+`CharacteristicDefining$ True` line's own `SetPower$`/`SetToughness$` and applies the result to its host alone, at
+`LayerCharacteristic` — a layer `PTEffect`'s own folding already carried, unused until now. M6 in progress alongside it:
+`Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
+`ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
+onto the stack to make that possible. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
+`docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layers 1-3 and 8 in full, plus the rest of Layers 4/5/6
+past a literal token list and Layer 7a's own SVar shapes outside the Valid family (`xPaid`, `CardCounters`, `Devotion`,
+...) — a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line
+rather than applying it wrong; the legend rule's Partner-non-legendary-name corner case; Skulk is the one remaining
+`CantBlockBy` gap (`game-state.md`'s "Block legality" section has the reason); `Attacks`'s own five unresolved params,
+`DamageDone`'s own `DamageAmount$`/`ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
 `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
 qualified `ValidActivatingPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/ becomes-tapped/taps-for-mana/casts; 202 script-driven effects past

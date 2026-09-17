@@ -22,6 +22,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -59,7 +60,7 @@ func applyContinuousPT(g *Game) {
 			}
 			for _, face := range h.Def.Faces {
 				for _, s := range face.Statics {
-					applyOneContinuousPT(g, h, s)
+					applyOneContinuousPT(g, h, face.Amounts, s)
 				}
 			}
 		}
@@ -68,7 +69,9 @@ func applyContinuousPT(g *Game) {
 
 // applyOneContinuousPT applies s to every battlefield permanent its own
 // Affected$ valid-string matches, if s is a Mode$ Continuous line this slice
-// can resolve.
+// can resolve -- or, when s is CharacteristicDefining$ (Layer 7a), computes
+// host's own power/toughness and applies it to host alone
+// (applyOneCharacteristicDefiningPT, below).
 //
 // Not resolved, each for a specific reason (game-state.md's "Continuous
 // effects" section has the corpus counts behind every number below):
@@ -80,37 +83,35 @@ func applyContinuousPT(g *Game) {
 //   - AffectedDefined$/AffectedZone$ (0 and 24) -- a targeted or
 //     Remembered-driven affected set (AbilityUtils.getDefinedCards) rather
 //     than a blanket valid-string match against the whole battlefield.
-//   - CharacteristicDefining$ True (265) -- Layer 7a: the ability describes
-//     the host's OWN power/toughness (a "*/*" creature), almost always via
-//     a Count$ SVar this port has no evaluator for (the identical gap
-//     compareMatches, valid.go, already documents) -- skipped as a whole
-//     rather than only for the SVar-driven cases, since a plain-integer
-//     CharacteristicDefining line is not a real corpus shape worth a
-//     separate code path for.
-//   - A non-numeric AddPower$/AddToughness$/SetPower$/SetToughness$ (X, Y,
-//     Z, AffectedX, a named SVar) -- needs AbilityUtils.calculateAmount,
-//     which needs an ability-context evaluator internal/expr does not have.
-//     Skipped per missing dimension (ptParam, below), not per whole line:
-//     a real corpus line naming both a resolvable and an unresolvable
-//     dimension together is not a shape worth losing the resolvable half
-//     over.
-func applyOneContinuousPT(g *Game, host *Card, s *compile.Ability) {
+//   - A non-numeric, non-resolvable AddPower$/AddToughness$/SetPower$/
+//     SetToughness$ -- resolveAmount (amount.go) now evaluates a named SVar
+//     whose own body is a Count$Valid* expression (ptParam, below); a plain
+//     integer resolves as it always did, and only a genuinely unresolvable
+//     value (xPaid, an operator suffix, ChosenNumber, ...) is skipped, per
+//     missing dimension rather than per whole line -- a real corpus line
+//     naming both a resolvable and an unresolvable dimension together is
+//     not a shape worth losing the resolvable half over.
+func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
+	}
+	if _, ok := s.Param("CharacteristicDefining"); ok {
+		applyOneCharacteristicDefiningPT(g, host, amounts, s)
+		return
 	}
 	affected, ok := s.Param("Affected")
 	if !ok {
 		return
 	}
-	addP, hasAddP := ptParam(s, "AddPower")
-	addT, hasAddT := ptParam(s, "AddToughness")
-	setP, hasSetP := ptParam(s, "SetPower")
-	setT, hasSetT := ptParam(s, "SetToughness")
+	addP, hasAddP := ptParam(g, amounts, host, s, "AddPower")
+	addT, hasAddT := ptParam(g, amounts, host, s, "AddToughness")
+	setP, hasSetP := ptParam(g, amounts, host, s, "SetPower")
+	setT, hasSetT := ptParam(g, amounts, host, s, "SetToughness")
 	if !hasAddP && !hasAddT && !hasSetP && !hasSetT {
 		return
 	}
@@ -134,6 +135,44 @@ func applyOneContinuousPT(g *Game, host *Card, s *compile.Ability) {
 			}
 		}
 	}
+}
+
+// applyOneCharacteristicDefiningPT is Layer 7a: a characteristic-defining
+// ability's own SetPower$/SetToughness$ describes what host's power/
+// toughness IS, not an anthem effect reaching other permanents --
+// StaticAbilityContinuous.getAffectedCards' own CharacteristicDefining
+// branch hardcodes the affected set to `new CardCollection(hostCard)`
+// regardless of any Affected$ a real corpus line happens to also carry
+// (revenant.txt's own "Affected$ Card.Self," redundant with what Java
+// already does unconditionally) -- so this reads no Affected$ param at all,
+// unlike every other applyOneContinuous* sibling.
+//
+// AddPower$/AddToughness$ are not read here: CR 613.3's own "characteristic-
+// defining ability... functions in the layer the appropriate
+// characteristic-setting ability would normally apply" means a CDA always
+// SETS the base value it defines, never adds to one -- no real corpus
+// CharacteristicDefining line pairs SetPower$/SetToughness$ with an
+// Add-shaped key.
+//
+// ExcludeZone$ (1 real line among 264 CharacteristicDefining$ True cards) --
+// skip host entirely while it sits in one of the named zones -- is not
+// resolved: a single real line is not a shape worth a separate zone check
+// for, and applyContinuousPT's own battlefield-only walk means host is
+// always on the one zone this port could check anyway.
+func applyOneCharacteristicDefiningPT(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+	if _, ok := s.Param("ExcludeZone"); ok {
+		return
+	}
+	setP, hasSetP := ptParam(g, amounts, host, s, "SetPower")
+	setT, hasSetT := ptParam(g, amounts, host, s, "SetToughness")
+	if !hasSetP && !hasSetT {
+		return
+	}
+	host.PT.Add(PTEffect{
+		Layer: LayerCharacteristic, Timestamp: host.Timestamp,
+		Power: setP, Toughness: setT,
+		HasPower: hasSetP, HasToughness: hasSetT,
+	})
 }
 
 // applyContinuousType recomputes every battlefield permanent's own Layer 4
@@ -489,15 +528,24 @@ func keywordTokens(s *compile.Ability, key string) ([]string, bool) {
 
 // ptParam reads key as a plain base-10 integer (optionally negative) --
 // AddPower$/AddToughness$/SetPower$/SetToughness$'s own corpus-frequent
-// shape. Reports false for a missing key or a non-numeric one (X, Y, Z,
-// AffectedX, a named SVar), the same "not a plain integer, coverage gap
-// rather than a wrong answer" contract compareMatches (valid.go) already
-// documents.
-func ptParam(s *compile.Ability, key string) (int, bool) {
+// shape -- or, failing that, as the name of an SVar amounts defines (Java's
+// own `ctb.getSVar(n)` lookup, xCount), resolved via resolveAmount
+// (amount.go). Reports false for a missing key, or a value that is neither
+// a plain integer nor a name amounts resolves (a genuinely dynamic value --
+// AffectedX, ChosenNumber, xPaid, ... -- resolveAmount's own doc comment has
+// the full account) -- the same "not resolvable, coverage gap rather than a
+// wrong answer" contract compareMatches (valid.go) already documents.
+func ptParam(g *Game, amounts map[string]expr.Amount, host *Card, s *compile.Ability, key string) (int, bool) {
 	v, ok := s.Param(key)
 	if !ok {
 		return 0, false
 	}
-	n, err := strconv.Atoi(v)
-	return n, err == nil
+	if n, err := strconv.Atoi(v); err == nil {
+		return n, true
+	}
+	amt, ok := amounts[strings.ToLower(v)]
+	if !ok {
+		return 0, false
+	}
+	return resolveAmount(g, amounts, host.Controller, host.ID, amt)
 }

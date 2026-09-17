@@ -708,52 +708,73 @@ printed form.
     since this port has no `PlayerController` hook for a real player choice among them (`orderAndPlaySimultaneousSa`,
     `MagicStack.java`) — the whole replacement-effect system remains a gap.
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Four real slices of `Mode$ Continuous` now,
-    alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_; `pt.go` folds
-    power/toughness through them, and that folding mechanism has a real (non-test) caller for the first time:
-    `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c (`SetPower$`/`SetToughness$`/`AddPower$`/`AddToughness$`)
-    matched against a blanket `Affected$` valid-string — the anthem/equipment-bonus shape, 2,192 of 2,426 real
-    `S:Mode$ Continuous` lines carrying one of those four keys — recomputed from scratch every `CheckStateBasedActions`
-    pass rather than pushed once, matching Java's own `applyContinuousAbility` running fresh from
-    `GameAction.checkStateEffects` every time (an anthem has to reach a creature that enters after it, and stop the
-    instant it itself leaves). `PTEffect` gained `HasPower`/`HasToughness` flags to make this correct: a real corpus
-    `SetPower$`-only or `SetToughness$`-only line (68 and 9 of them) must leave the other dimension untouched, which the
-    original bare `int` fields could not express. A new `applyContinuousType` is Layer 4's own counterpart:
-    `AddType$`/`RemoveType$` lines naming only literal type words (201 of 284 real lines), folded through a new
-    `TypeMod`/`TypeEffect` (`typemod.go`, `pt.go`'s own structure copied for the type line) via two new `cardtype.Line`
-    methods, `Union`/`Without`, and a new `ParseToken` (classifies one already-split type word with no `*Registry`
-    needed, since `AddType$`/`RemoveType$` values are already split on `" & "` — this port still injects no
-    `*cardtype.Registry`/`*carddb.DB` into the engine, GO-2). A whole `AddType$`/`RemoveType$` line is skipped, not
-    partially applied, the moment it carries a dynamic value (`ChosenType`, `ImprintedCreatureType`, ... — 29 of 256
-    real `AddType$` lines), a bulk `RemoveXTypes$` flag (62 of 284, the real "becomes a Turtle" shape pairing `AddType$`
-    with a wipe-first flag — applying the add half alone would leave both the old and new types, worse than the gap), or
-    `AddAllCreatureTypes$` (8, needs the `Registry` this port does not inject). A new `applyContinuousColor` is Layer
-    5's own counterpart: `AddColor$`/`SetColor$` lines naming a literal color, `All` (WUBRG) or `Colorless` (54 of 61
-    real lines), folded through a new `ColorMod`/`ColorEffect` (`colormod.go`, `TypeMod`'s own structure copied again,
-    with one `Overwrite bool` standing in for `SetColor$`'s own "replace outright" vs `AddColor$`'s own "union in") — a
-    `"ChosenColor"` token (7 of 61) skips the whole line, `AddType$`'s own dynamic-value reasoning applied identically.
-    `colorFromName` (`valid.go`'s own `colorMatches`, pulled out so both share the five-color mapping) backs both. A new
-    `applyContinuousKeyword` is Layer 6's own counterpart, and the single largest real slice of all four: `AddKeyword$`
-    lines naming only literal keyword lines (1,556 of 1,857 real lines — more than Layer 7's own 2,192 of 2,426), folded
-    through a new `KeywordMod`/`KeywordEffect` (`keywordmod.go`) `Card.HasKeyword` now reads back the identical way it
-    already reads a printed keyword line, reaching `cantBlockByKeywords` and combat's own First Strike/Trample/
-    Deathtouch reads for free without changing either. Unlike `TypeMod`/`ColorMod`, `KeywordEffect` needs no fold order
-    at all: `HasKeyword` only ever asks membership, never "what is the current value," so two continuous effects both
-    granting a keyword never disagree about anything. Skipped whole: `RemoveKeyword$`/`RemoveAllAbilities$` (5 of 1,561)
-    — the identical "gains X, loses Y" reasoning `AddType$`'s own bulk-removal skip already gives;
-    `SharedKeywords$`/`FromDraftNotes$` — a game-wide/remembered-list/draft-note keyword source rather than a fixed
-    token list; a dynamic-value marker anywhere inside any one token (42 of 1,857), checked by substring
-    (`strings.Contains`) since a marker is often a qualifier embedded in a larger token
-    (`"Protection:Card.ChosenColor:chosenColor"`) rather than the whole token itself. Not resolved for any of the four
-    layers: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24), `CharacteristicDefining$` (265, Layer 7a
-    — almost always an SVar-driven value), and a non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$`
-    (`X`, `Y`, `Z`, `AffectedX`, a named SVar) — each its own specific missing piece (`porting/port-log/game-state.md`'s
-    "Layer 7, Layer 4, Layer 5 and Layer 6" section has the full account), not a reason to have skipped the slices that
-    do resolve. The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat
-    note) already showed a static-ability mode can be independently buildable when it needs no layer-folding of its own
-    — `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now four
-    of its layers partly haven't had to: all four subsets needed only the valid-string evaluator (`valid.go`) every
-    other slice already reused, plus (for Layers 4/5) small additions to `cardtype.Line`/`valid.go` themselves. The rest
-    of Layer 7 (7a), the rest of Layers 4/5/6, and Layers 1-3/8 are still the real remaining size of this item.
+    Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
+    `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first
+    time: `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c
+    (`SetPower$`/`SetToughness$`/`AddPower$`/`AddToughness$`) matched against a blanket `Affected$` valid-string — the
+    anthem/equipment-bonus shape, 2,192 of 2,426 real `S:Mode$ Continuous` lines carrying one of those four keys —
+    recomputed from scratch every `CheckStateBasedActions` pass rather than pushed once, matching Java's own
+    `applyContinuousAbility` running fresh from `GameAction.checkStateEffects` every time (an anthem has to reach a
+    creature that enters after it, and stop the instant it itself leaves). `PTEffect` gained `HasPower`/`HasToughness`
+    flags to make this correct: a real corpus `SetPower$`-only or `SetToughness$`-only line (68 and 9 of them) must
+    leave the other dimension untouched, which the original bare `int` fields could not express. A new
+    `applyContinuousType` is Layer 4's own counterpart: `AddType$`/`RemoveType$` lines naming only literal type words
+    (201 of 284 real lines), folded through a new `TypeMod`/`TypeEffect` (`typemod.go`, `pt.go`'s own structure copied
+    for the type line) via two new `cardtype.Line` methods, `Union`/`Without`, and a new `ParseToken` (classifies one
+    already-split type word with no `*Registry` needed, since `AddType$`/`RemoveType$` values are already split on
+    `" & "` — this port still injects no `*cardtype.Registry`/`*carddb.DB` into the engine, GO-2). A whole
+    `AddType$`/`RemoveType$` line is skipped, not partially applied, the moment it carries a dynamic value
+    (`ChosenType`, `ImprintedCreatureType`, ... — 29 of 256 real `AddType$` lines), a bulk `RemoveXTypes$` flag (62 of
+    284, the real "becomes a Turtle" shape pairing `AddType$` with a wipe-first flag — applying the add half alone would
+    leave both the old and new types, worse than the gap), or `AddAllCreatureTypes$` (8, needs the `Registry` this port
+    does not inject). A new `applyContinuousColor` is Layer 5's own counterpart: `AddColor$`/`SetColor$` lines naming a
+    literal color, `All` (WUBRG) or `Colorless` (54 of 61 real lines), folded through a new `ColorMod`/`ColorEffect`
+    (`colormod.go`, `TypeMod`'s own structure copied again, with one `Overwrite bool` standing in for `SetColor$`'s own
+    "replace outright" vs `AddColor$`'s own "union in") — a `"ChosenColor"` token (7 of 61) skips the whole line,
+    `AddType$`'s own dynamic-value reasoning applied identically. `colorFromName` (`valid.go`'s own `colorMatches`,
+    pulled out so both share the five-color mapping) backs both. A new `applyContinuousKeyword` is Layer 6's own
+    counterpart, and the single largest real slice of all four: `AddKeyword$` lines naming only literal keyword lines
+    (1,556 of 1,857 real lines — more than Layer 7's own 2,192 of 2,426), folded through a new
+    `KeywordMod`/`KeywordEffect` (`keywordmod.go`) `Card.HasKeyword` now reads back the identical way it already reads a
+    printed keyword line, reaching `cantBlockByKeywords` and combat's own First Strike/Trample/ Deathtouch reads for
+    free without changing either. Unlike `TypeMod`/`ColorMod`, `KeywordEffect` needs no fold order at all: `HasKeyword`
+    only ever asks membership, never "what is the current value," so two continuous effects both granting a keyword
+    never disagree about anything. Skipped whole: `RemoveKeyword$`/`RemoveAllAbilities$` (5 of 1,561) — the identical
+    "gains X, loses Y" reasoning `AddType$`'s own bulk-removal skip already gives; `SharedKeywords$`/`FromDraftNotes$` —
+    a game-wide/remembered-list/draft-note keyword source rather than a fixed token list; a dynamic-value marker
+    anywhere inside any one token (42 of 1,857), checked by substring (`strings.Contains`) since a marker is often a
+    qualifier embedded in a larger token (`"Protection:Card.ChosenColor:chosenColor"`) rather than the whole token
+    itself. Not resolved for any of the four layers: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24) —
+    each its own specific missing piece (`porting/port-log/game-state.md`'s "Layer 7, Layer 4, Layer 5 and Layer 6"
+    section has the full account), not a reason to have skipped the slices that do resolve.
+
+    `CharacteristicDefining$` (265 real lines, Layer 7a) and a non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/
+    `SetToughness$` naming a named SVar are resolved now, for the one shape both actually need most:
+    `Count$Valid [<Zone>...] <spec>` — 2,804 of the corpus's 6,186 real `Count$` expressions (45%),
+    `CardLists.getValidCardCount` against a zone, ported as a new `compile.Face.Amounts` (compile.go — every SVar a face
+    defines that is not itself an ability, parsed once via `internal/expr.Parse`) and `resolveAmount`/`countValid` (a
+    new `amount.go`, `internal/engine` — a `Literal` resolves directly, a `Reference` looks its name up in `Amounts` and
+    resolves that in turn, an `Expression` resolves only when its outer head is `Count`, carries no operator suffix, and
+    its own inner `Count$` head is one of the "Valid" family, reusing `Matches` (valid.go) and this port's own `Zone`
+    (zone.go) the identical way every other valid-string check already does). `ptParam` (continuous.go) tries this once
+    a plain `strconv.Atoi` fails; `applyOneCharacteristicDefiningPT` is Layer 7a's own new branch of
+    `applyOneContinuousPT`, applying `SetPower$`/`SetToughness$` to host ALONE
+    (`StaticAbilityContinuous.getAffectedCards`'s own CharacteristicDefining branch hardcodes the affected set to the
+    host card regardless of any `Affected$` a real corpus line also carries) at `LayerCharacteristic` — a layer
+    `PTEffect`'s own folding already carried since Layer 7b/7c first landed, unused as a real caller until now. Still
+    not resolved: every other `Count$` head (`xPaid`, `CardCounters`, `Devotion`, and eighty-some more
+    `AbilityUtils.calculateAmount` itself dispatches on) and any `Count$Valid...` expression carrying an operator suffix
+    (Roiling Horror's own `Y -> Z` chain, 267 of the 2,804) — a full `AbilityUtils.calculateAmount` port, not this
+    slice's job.
+
+    The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already
+    showed a static-ability mode can be independently buildable when it needs no layer-folding of its own —
+    `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now four of
+    its layers partly haven't had to: all four subsets needed only the valid-string evaluator (`valid.go`) every other
+    slice already reused, plus (for Layers 4/5) small additions to `cardtype.Line`/`valid.go` themselves. The rest of
+    Layers 4/5/6 past a literal token list, Layer 7a's own SVar shapes outside the Valid family, and Layers 1-3/8 in
+    full are still the real remaining size of this item.
+
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,
     trample, gang blocking, attacking a planeswalker/Battle, a combat split across more than one defending player at

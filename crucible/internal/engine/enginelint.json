@@ -30,7 +30,8 @@
     "castspell": ["castspell.go"],
     "trigger": ["trigger.go"],
     "draweffect": ["draweffect.go"],
-    "continuous": ["continuous.go"]
+    "continuous": ["continuous.go"],
+    "amount": ["amount.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -88,6 +89,7 @@
     ],
     "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack", "combat"],
     "draweffect": ["id", "game", "player", "ability", "turn"],
-    "continuous": ["id", "zone", "card", "game", "valid", "parts", "layer", "ability"]
+    "continuous": ["id", "zone", "card", "game", "valid", "parts", "layer", "ability", "amount"],
+    "amount": ["id", "zone", "card", "game", "valid"]
   }
 }

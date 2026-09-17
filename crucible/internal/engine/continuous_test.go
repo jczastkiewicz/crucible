@@ -165,6 +165,222 @@ func TestApplyContinuousPTSkipsNonNumericValue(t *testing.T) {
 	}
 }
 
+// continuousDefWithSVar is continuousDef plus one SVar the static line's own
+// AddPower$/SetPower$/etc names -- resolveAmount's own real corpus shape
+// (amount.go), compiled through the real pipeline so compile.Face.Amounts is
+// actually built, not hand-constructed.
+func continuousDefWithSVar(t *testing.T, name, static, svarName, svarBody string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Statics = []string{static}
+	raw.Faces[0].SVars.Set(svarName, svarBody)
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestApplyContinuousPTResolvesNamedSVarCountValid proves resolveAmount
+// (amount.go) closes the gap TestApplyContinuousPTSkipsNonNumericValue
+// documents, for the one shape it actually can: AddPower$/AddToughness$
+// naming an SVar whose own body is Count$Valid <spec> -- here, the number
+// of Elves on the battlefield, which includes the anthem's own host (an
+// Enchantment, not an Elf, so it does not count itself) and the one
+// creature.
+func TestApplyContinuousPTResolvesNamedSVarCountValid(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDefWithSVar(t, "Test X Anthem",
+		"Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ X | AddToughness$ X",
+		"X", "Count$Valid Elf"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- AddPower$ X should resolve to 1, the one Elf on the battlefield", pw, ok)
+	}
+	if tg, ok := g.Card(creature).Toughness(); !ok || tg != 3 {
+		t.Errorf("Toughness() = (%d, %v), want (3, true)", tg, ok)
+	}
+}
+
+// TestApplyContinuousCharacteristicDefiningSetsFromCountValid proves Layer
+// 7a: a CharacteristicDefining$ True line's own SetPower$/SetToughness$,
+// naming an SVar whose body is Count$Valid <spec>, sets the host's own
+// power/toughness to the number of matches -- reckless_one.txt's own real
+// shape ("CARDNAME's power and toughness are each equal to the number of
+// Goblins on the battlefield"), Elf standing in for Goblin here. Applies to
+// the host itself only, not blanket to every Elf -- a second Elf on the
+// battlefield is unaffected, proving Affected$ is not read for this shape
+// (applyOneCharacteristicDefiningPT's own doc comment).
+func TestApplyContinuousCharacteristicDefiningSetsFromCountValid(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test CDA Elf"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test CDA Elf"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "0", "0"
+	raw.Faces[0].Statics = []string{"Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X"}
+	raw.Faces[0].SVars.Set("X", "Count$Valid Elf")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	cda := g.NewCard(def, p, engine.Battlefield)
+	other2 := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(cda).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- 2 Elves on the battlefield (CDA host + creatureDefPT)", pw, ok)
+	}
+	if tg, ok := g.Card(cda).Toughness(); !ok || tg != 2 {
+		t.Errorf("Toughness() = (%d, %v), want (2, true)", tg, ok)
+	}
+	if pw, ok := g.Card(other2).Power(); !ok || pw != 1 {
+		t.Errorf("other Elf's Power() = (%d, %v), want (1, true) -- CharacteristicDefining only ever describes its own host", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTResolvesChainedSVarReference proves resolveAmount's
+// own Reference case: AddPower$ X, where X's own body is just "Y" (another
+// SVar name, no Count$ of its own) and Y's is Count$Valid Elf -- one level
+// of SVar-to-SVar indirection on top of the Expression case
+// TestApplyContinuousPTResolvesNamedSVarCountValid already proves.
+func TestApplyContinuousPTResolvesChainedSVarReference(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Chained SVar Anthem"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Chained SVar Anthem"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Statics = []string{"Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ X | AddToughness$ X"}
+	raw.Faces[0].SVars.Set("X", "Y")
+	raw.Faces[0].SVars.Set("Y", "Count$Valid Elf")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	g.NewCard(def, p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- AddPower$ X should chain X->Y->Count$Valid Elf to 1", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsCountWithOperator proves a Count$ expression
+// carrying an operator suffix (/Plus.1) is left unresolved rather than
+// applied with the operator silently ignored -- resolveAmount's own doc
+// comment names this as out of scope (needs its own operand evaluation,
+// itself sometimes another SVar reference, Roiling Horror's own real shape).
+func TestApplyContinuousPTSkipsCountWithOperator(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDefWithSVar(t, "Test Operator Anthem",
+		"Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ X | AddToughness$ X",
+		"X", "Count$Valid Elf/Plus.1"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- an operator suffix must not resolve", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTResolvesMultiZoneCount proves a Count$Valid<Zone1>,
+// <Zone2> head (a real corpus shape, 40-some lines naming more than one
+// zone) counts across every zone it names, not just the first: one matching
+// card on the battlefield and one in the graveyard both count.
+func TestApplyContinuousPTResolvesMultiZoneCount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDefWithSVar(t, "Test Multi-Zone Anthem",
+		"Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ X | AddToughness$ X",
+		"X", "Count$ValidGraveyard,Battlefield Creature.YouOwn"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 4 {
+		t.Errorf("Power() = (%d, %v), want (4, true) -- AddPower$ X should count both the battlefield creature and the graveyard one", pw, ok)
+	}
+}
+
+// TestApplyContinuousCharacteristicDefiningSkipsUnresolvableSVar proves a
+// CharacteristicDefining$ line whose own SetPower$/SetToughness$ SVar is not
+// a shape resolveAmount evaluates (a bare Count head outside the Valid
+// family) is skipped entirely -- the host's own printed "*/*" base stays
+// unresolvable, not silently zero.
+func TestApplyContinuousCharacteristicDefiningSkipsUnresolvableSVar(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test CDA Unresolvable"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test CDA Unresolvable"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "*", "*"
+	raw.Faces[0].Statics = []string{"Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X"}
+	raw.Faces[0].SVars.Set("X", "Count$CardPower")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	cda := g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if _, ok := g.Card(cda).Power(); ok {
+		t.Error("Power() resolved, want unresolvable -- Count$CardPower is outside the Valid family this port evaluates")
+	}
+}
+
 // TestApplyContinuousTypeAddsTypeToMatchingCreatures proves Layer 4's own
 // AddType$, the type-line counterpart to TestApplyContinuousPTAppliesAnthemToMatchingCreatures:
 // a blanket "creatures you control are also Zombies" effect adds Zombie

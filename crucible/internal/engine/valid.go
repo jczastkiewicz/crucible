@@ -216,9 +216,15 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// no nil combat, only a zero-valued one, but Attackers is empty
 		// either way when no attack was declared, so containsCard answers
 		// the same "false" a nil combat would without a separate check.
-		return containsCard(g.Attackers(), c.ID)
+		// Reads g.combat.Attackers directly rather than calling g.Attackers()
+		// (attack.go): that exported accessor is nothing more than this same
+		// field read, and calling it would make this "valid" group depend on
+		// "attack" for no reason beyond a wrapper -- enginelint would then
+		// forbid "attack"/"block" from ever depending on "valid" back, which
+		// cantBlockBy (staticability.go) needs to.
+		return containsCard(g.combat.Attackers, c.ID)
 	case name == "blocking":
-		return isBlocking(g.Blocks(), c.ID)
+		return isBlocking(g.combat.Blocks, c.ID)
 	case name == "HasCounters":
 		return c.Counters.Any()
 	case strings.HasPrefix(name, "counters_"):

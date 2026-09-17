@@ -12,18 +12,25 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // blocking does not tap the blocker -- CR 508.1f only taps attackers, CR
 // 509 has no equivalent.
 //
-// Eligibility here is only "untapped creature the defending player
-// controls." Flying/reach (CR 702.9b), menace (CR 702.111b), protection,
-// "can't be blocked except by," "must be blocked by," and every other CR
-// 509.1b/509.1c restriction are not checked: in Forge, all of them (Flying
-// included) run through the general CantBlockBy static-ability engine
-// (StaticAbilityCantAttackBlock.java), not a keyword-specific check --
-// unlike Indestructible or Vigilance, which Forge itself hardcodes
-// (GameAction.java, Card.attackVigilance()) the same way HasKeyword does
-// here. Reproducing Flying's restriction as a one-off HasKeyword check
-// would invent a mechanism Forge doesn't use for it; the honest gap is
-// "wait for the static-ability engine" (M5/M6), documented in
-// game-state.md.
+// The offered eligible list is still only "untapped creature the defending
+// player controls" -- CR 509.1a's own "eligible" is a property of the
+// creature (untapped, yours), not of a specific attacker/blocker pairing.
+// CantBlockBy (CR 509.1b: flying/reach, Fear, Horsemanship, and every real
+// corpus S: line in that shape, cantBlockBy in staticability.go) is a
+// property of the pairing -- the same creature can be eligible in general
+// and still illegal against one particular attacker -- so it is checked
+// after the controller answers, via CanBlock, not folded into eligible.
+// This is the one place a controller's own answer IS re-checked, unlike
+// every other Choose*/Declare* method (control.go's own doc comment):
+// "eligible" was never meant to encode a per-attacker answer, so nothing
+// else here would catch a pairing this port now knows is illegal. An
+// illegal pairing is dropped silently, the same as a controller declining
+// to use part of what it was offered.
+//
+// Still not checked: Menace (CR 702.111b) -- Forge itself does not run it
+// through CantBlockBy either (cantBlockByKeywords' own doc comment,
+// staticability.go) -- and Intimidate, Landwalk, Protection and Skulk,
+// each blocked on its own specific missing dependency (same doc comment).
 //
 // "Who is defending" is each attacker's own defender (defenderOf,
 // attack.go) -- the controller of whatever it's attacking, a player,
@@ -70,8 +77,22 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 		if len(eligible) == 0 {
 			continue
 		}
-		blocks = append(blocks, controller.DeclareCombatBlockers(g, defender, byDefender[defender], eligible)...)
+		for _, blk := range controller.DeclareCombatBlockers(g, defender, byDefender[defender], eligible) {
+			if g.CanBlock(blk.Attacker, blk.Blocker) {
+				blocks = append(blocks, blk)
+			}
+		}
 	}
 	g.combat.Blocks = blocks
 	return blocks
+}
+
+// CanBlock reports whether blocker may legally block attacker (CR 509.1):
+// an untapped creature the defender controls, the same base rule
+// DeclareCombatBlockers's own eligible filter already applies, and not
+// excluded by any Mode$ CantBlockBy static ability in play (cantBlockBy,
+// staticability.go).
+func (g *Game) CanBlock(attacker, blocker CardID) bool {
+	b := g.Card(blocker)
+	return b.Type().Has(cardtype.Creature) && !b.Tapped && !cantBlockBy(g, attacker, blocker)
 }

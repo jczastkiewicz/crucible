@@ -182,12 +182,17 @@ intrinsic mana ability (`manaability.go`) and playing a land (`land.go`); castin
 Aura, through the stack — (`castspell.go`), the first two real `Effect` implementations
 (`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks," "blocks," "deals
 damage," "is discarded," "becomes tapped," "taps for mana" and "a player casts a spell," plus another permanent watching
-one do any of those — detects and queues a trigger, `matchesPlayerBase` (`valid.go`) the shared
-`You`/`Opponent`/`Player` dispatch several of those modes now reuse; block legality (`staticability.go`, `CanBlock`) —
-flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection, Menace and every literal `S:Mode$ CantBlockBy` line;
-the legend rule's own `ignoreLegendRule` exemption (`staticability.go`) — three slices of the general static-ability
-engine PORT-8 requires reading Java's own mechanism for rather than hardcoding a keyword check; and four layers of the
-engine's biggest piece, `Mode$ Continuous` itself (`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own
+one do any of those — detects and queues a trigger, pushed through a new `pushTriggeredAbilities` (`trigger.go`) that
+ports CR 603.3b's own APNAP ordering for the first time (`playersInAPNAPOrder` — `Game.ActivePlayer()`, then turn order
+— walking each player's own group in turn, so the non-active player's own trigger resolves before the active player's
+when more than one fires off the same event, the stack's own LIFO order applied to `MagicStack`'s own player-iteration
+sequence); every trigger-check function now collects its own matches first and calls it once, rather than calling
+`PushAbility` the instant each match is found. `matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player`
+dispatch several of those modes now reuse; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear,
+Horsemanship, Intimidate, Landwalk, Protection, Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's
+own `ignoreLegendRule` exemption (`staticability.go`) — three slices of the general static-ability engine PORT-8
+requires reading Java's own mechanism for rather than hardcoding a keyword check; and four layers of the engine's
+biggest piece, `Mode$ Continuous` itself (`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own
 `Affected$`-matched, plain-integer power/toughness lines (anthem effects, equipment bonuses); `applyContinuousType`
 resolves Layer 4's own `AddType$`/`RemoveType$` lines naming only literal type words; `applyContinuousColor` resolves
 Layer 5's own `AddColor$`/`SetColor$` lines naming a literal color, `All` or `Colorless`; `applyContinuousKeyword`

@@ -1,8 +1,15 @@
-// Trigger firing: CR 603, trimmed to the corpus's three most frequent modes
+// Trigger firing: CR 603, trimmed to the corpus's nine most frequent modes
 // -- a permanent entering the battlefield (Mode$ ChangesZone, Destination$
 // Battlefield), one leaving it to a graveyard (Mode$ ChangesZone, Origin$
-// Battlefield, Destination$ Graveyard, CR 700.4's "dies"), and a creature
-// attacking (Mode$ Attacks, CR 508.3).
+// Battlefield, Destination$ Graveyard, CR 700.4's "dies"), a creature
+// attacking (Mode$ Attacks, CR 508.3), blocking (Mode$ Blocks, CR 509.2),
+// dealing damage (Mode$ DamageDone), a card being discarded (Mode$
+// Discarded), a permanent becoming tapped (Mode$ Taps) or tapping for mana
+// (Mode$ TapsForMana), and a player casting a spell (Mode$ SpellCast) --
+// plus, for every one of those nine, CR 603.3b's own APNAP ordering when
+// more than one triggers off a single event (pushTriggeredAbilities, below).
+// game-state.md's own trigger-firing section has every mode's own
+// corpus-frequency count and unresolved params.
 
 package engine
 
@@ -29,13 +36,12 @@ import (
 // never read by the engine before now. Every other trigger mode but Attacks
 // and Dies (Tapped, a spell being cast, ...) is a gap this does not close
 // (game-state.md's "Not ported yet"). CR 603.3b's own simultaneous-trigger
-// ordering (a controller's own multiple triggers, in an order they choose;
-// APNAP order between different controllers') does apply now that
-// checkOtherETBTriggers exists -- one entering card can push both its own
-// trigger and another permanent's -- but is not implemented: both are pushed
-// in a fixed order (entered's own trigger, then every other battlefield
-// permanent's own in Players()/zone order), not a chosen or APNAP one
-// (game-state.md's "Not ported yet" has the same gap for addSimultaneousStackEntry).
+// ordering applies now that checkOtherETBTriggers exists -- one entering
+// card can push both its own trigger and another permanent's -- and is
+// implemented via pushTriggeredAbilities (below): every match this function
+// finds, its own and checkOtherETBTriggers', is collected first and pushed
+// together in one APNAP pass, rather than each pushed the moment it is
+// found.
 //
 // Checked against two sets of Triggers: entered's own ("when CARDNAME
 // enters", ValidCard$ Card.Self, the overwhelming corpus-frequency shape --
@@ -58,6 +64,7 @@ import (
 // trigger correctly, regardless of whether its own Execute$ API happens to
 // be implemented yet, is this port's whole job here.
 func (g *Game) checkETBTriggers(entered CardID) {
+	var matches []Ability
 	c := g.Card(entered)
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
@@ -73,21 +80,22 @@ func (g *Game) checkETBTriggers(entered CardID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					g.PushAbility(Ability{API: api, Source: entered, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller, Params: sub})
 				}
 			}
 		}
 	}
-	g.checkOtherETBTriggers(entered)
+	matches = append(matches, g.otherETBTriggerMatches(entered)...)
+	g.pushTriggeredAbilities(matches)
 }
 
-// checkOtherETBTriggers is checkETBTriggers's wider half: every permanent
+// otherETBTriggerMatches is checkETBTriggers's wider half: every permanent
 // already on the battlefield, other than entered itself, gets its own
 // Triggers walked against entered -- CR 603.2's "look back in time" applied
 // from the watcher's side rather than the entering card's own. entered is
 // skipped because its own Card.Self-shaped triggers are already handled by
-// the loop above; running both loops over every card would fire that trigger
-// twice.
+// checkETBTriggers directly; running both loops over every card would fire
+// that trigger twice.
 //
 // A watcher's ValidCard is matched with the watcher as source and the
 // watcher's own controller, not entered's -- Matches's own doc comment
@@ -102,7 +110,12 @@ func (g *Game) checkETBTriggers(entered CardID) {
 // -- needs no separate check: only cards this loop already found on the
 // battlefield are walked, so a watcher not there is never considered in the
 // first place.
-func (g *Game) checkOtherETBTriggers(entered CardID) {
+//
+// Returns matches rather than pushing them directly -- checkETBTriggers
+// pushes its own plus these together, in one CR 603.3b APNAP pass
+// (pushTriggeredAbilities, below).
+func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
 			if watcher == entered {
@@ -125,12 +138,13 @@ func (g *Game) checkOtherETBTriggers(entered CardID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	return matches
 }
 
 // checkDiesTriggers is CR 603.6d's "look back in time" for a card that just
@@ -147,6 +161,7 @@ func (g *Game) checkOtherETBTriggers(entered CardID) {
 // it on leaving) still reads the last real controller, exactly the
 // last-known-information Java's own layer system gives a leaving card.
 func (g *Game) checkDiesTriggers(left CardID) {
+	var matches []Ability
 	c := g.Card(left)
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
@@ -162,22 +177,23 @@ func (g *Game) checkDiesTriggers(left CardID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					g.PushAbility(Ability{API: api, Source: left, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller, Params: sub})
 				}
 			}
 		}
 	}
-	g.checkOtherDiesTriggers(left)
+	matches = append(matches, g.otherDiesTriggerMatches(left)...)
+	g.pushTriggeredAbilities(matches)
 }
 
-// checkOtherDiesTriggers is checkDiesTriggers's wider half, the identical
-// shape checkOtherETBTriggers is for entering: every permanent still on the
+// otherDiesTriggerMatches is checkDiesTriggers's wider half, the identical
+// shape otherETBTriggerMatches is for entering: every permanent still on the
 // battlefield gets its own Triggers walked against left, the card that just
 // died ("Whenever a creature you control dies...", "Whenever another Cleric
-// dies..."). No entered == left skip is needed the way checkOtherETBTriggers
+// dies..."). No entered == left skip is needed the way otherETBTriggerMatches
 // has one: left is already in the graveyard by the time this runs (every
 // real call site moves it there first, action.go), so it never appears in
-// the Battlefield walk to begin with -- unlike checkOtherETBTriggers, where
+// the Battlefield walk to begin with -- unlike otherETBTriggerMatches, where
 // the entered card is already ON the battlefield being walked.
 //
 // This closes the gap checkDiesTriggers's own doc comment used to name as
@@ -186,7 +202,11 @@ func (g *Game) checkDiesTriggers(left CardID) {
 // unaffected by left leaving and is exactly as reachable by a battlefield
 // walk as any ETB watcher is, so nothing about "look back in time" actually
 // blocks this the way an earlier version of this comment assumed.
-func (g *Game) checkOtherDiesTriggers(left CardID) {
+//
+// Returns matches rather than pushing them directly, checkDiesTriggers's own
+// reason (otherETBTriggerMatches's own doc comment).
+func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
 			w := g.Card(watcher)
@@ -206,12 +226,13 @@ func (g *Game) checkOtherDiesTriggers(left CardID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	return matches
 }
 
 // checkAttacksTriggers is CR 508.3's own "whenever ~ attacks" trigger,
@@ -235,6 +256,7 @@ func (g *Game) checkOtherDiesTriggers(left CardID) {
 // to miss a real trigger than fire one whose own restriction this port
 // silently ignored. 1,496 of 1,606 real lines carry none of them.
 func (g *Game) checkAttacksTriggers(attacker CardID) {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -257,12 +279,13 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // checkSpellCastTriggers is CR 603's own "whenever a player casts a spell"
@@ -306,6 +329,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 // count this port tracks nothing for). 1,163 of 1,435 real lines carry none
 // of these.
 func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
+	var matches []Ability
 	c := g.Card(cast)
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -330,12 +354,13 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
@@ -393,6 +418,7 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 // gathered, the same per-pair granularity every other Block-consuming caller
 // already uses.
 func (g *Game) checkBlocksTriggers(blk Block) {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -416,12 +442,13 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // isBlocksTrigger reports whether t is CR 509.2's "blocks" shape: Mode$
@@ -450,6 +477,7 @@ func isBlocksTrigger(t *compile.Ability) bool {
 // shape) never fires and a CombatDamage$ True line or one carrying neither
 // always passes that part of the check.
 func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat bool) {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -466,15 +494,17 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat boo
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, isCombat bool) {
+	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -493,12 +523,13 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, i
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // damageDoneMatches is checkDamageDoneTriggersToCard/ToPlayer's own shared
@@ -560,6 +591,7 @@ func isDamageDoneTrigger(t *compile.Ability) bool {
 // battlefield), on top of checkOtherDiscardedTriggers' battlefield walk for
 // a watcher.
 func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
+	var matches []Ability
 	c := g.Card(card)
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
@@ -568,19 +600,23 @@ func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					g.PushAbility(Ability{API: api, Source: card, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller, Params: sub})
 				}
 			}
 		}
 	}
-	g.checkOtherDiscardedTriggers(card, player)
+	matches = append(matches, g.otherDiscardedTriggerMatches(card, player)...)
+	g.pushTriggeredAbilities(matches)
 }
 
-// checkOtherDiscardedTriggers is checkDiscardedTriggers' wider half: every
+// otherDiscardedTriggerMatches is checkDiscardedTriggers' wider half: every
 // permanent on the battlefield gets its own Triggers walked against the
 // discarded card and the player who discarded it ("Whenever you discard a
-// card, ..."), checkOtherETBTriggers'/checkOtherDiesTriggers' own shape.
-func (g *Game) checkOtherDiscardedTriggers(card CardID, player PlayerID) {
+// card, ..."), otherETBTriggerMatches'/otherDiesTriggerMatches' own shape,
+// including the "return matches, don't push them" contract
+// (otherETBTriggerMatches' own doc comment has the reason).
+func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Ability {
+	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -594,12 +630,13 @@ func (g *Game) checkOtherDiscardedTriggers(card CardID, player PlayerID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	return matches
 }
 
 // discardedTriggerMatches is checkDiscardedTriggers'/checkOtherDiscardedTriggers'
@@ -661,6 +698,7 @@ func isDiscardedTrigger(t *compile.Ability) bool {
 // AbilityKey.Attacker. 173 of 177 real lines carry none of the three
 // skipped params.
 func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) {
+	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -691,12 +729,13 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // isTapsTrigger reports whether t is CR 603's "becomes tapped" shape: Mode$
@@ -724,6 +763,7 @@ func isTapsTrigger(t *compile.Ability) bool {
 // has no evaluator for; skipped together rather than trying to resolve one
 // and not the other. 62 of 65 real lines carry none of it.
 func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
+	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -749,18 +789,76 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
 				}
 			}
 		}
 	}
+	g.pushTriggeredAbilities(matches)
 }
 
 // isTapsForManaTrigger reports whether t is CR 603's "taps for mana" shape:
 // Mode$ TapsForMana.
 func isTapsForManaTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "TapsForMana")
+}
+
+// pushTriggeredAbilities is CR 603.3b: when more than one ability triggers
+// off a single event, each player -- in APNAP order (playersInAPNAPOrder,
+// below) -- puts the abilities they control on the stack, choosing their own
+// order among more than one (Player.getController().orderAndPlaySimultaneousSa,
+// MagicStack.addAllTriggeredAbilitiesToStack). This port has no
+// PlayerController hook for that choice yet (control.go's own "90 of 110
+// methods" gap, game-state.md), so a single player's own multiple matches
+// stay in the deterministic order the caller found them (GO-12) -- the same
+// simplification every other real-choice gap already makes when the
+// corresponding PlayerController method does not exist.
+//
+// MagicStack's own addAllTriggeredAbilitiesToStack pushes the active
+// player's own group onto the stack FIRST, then each following player's
+// group in turn order, one player at a time -- so, since the stack is LIFO
+// (PushAbility's own doc comment, "last on, first off"), the LAST player in
+// APNAP order ends up on top, resolving FIRST; the active player's own group
+// resolves LAST. Before this, every trigger-check function pushed each match
+// the instant it found one, in whatever order Players()/the battlefield walk
+// happened to visit -- correct only when a single card's own trigger fires
+// alone, wrong the instant checkOtherETBTriggers (or any of its siblings)
+// makes more than one permanent trigger off the same event, which is a real
+// case now (game-state.md's own account of this gap, "Not ported yet").
+//
+// Every check function collects its own matches into a []Ability first (its
+// own "own" and "other" halves both feed the same slice when it has both)
+// and calls this once at the end, instead of pushing inline.
+func (g *Game) pushTriggeredAbilities(matches []Ability) {
+	for _, pid := range g.playersInAPNAPOrder() {
+		for _, a := range matches {
+			if a.Controller == pid {
+				g.PushAbility(a)
+			}
+		}
+	}
+}
+
+// playersInAPNAPOrder is CR 603.3b's own "APNAP order": Game.ActivePlayer()
+// first, then turn order after it (nextPlayerAfter, turn.go -- the same
+// seating-order/skip-a-lost-player rule turn advancement itself already
+// uses) until every seated player has appeared once. Before StartTurn,
+// ActivePlayer() is NoPlayer (game.go's own doc comment) -- Players()' own
+// seating order stands in, since there is no active player yet to order
+// around; no real call site reaches pushTriggeredAbilities before StartTurn
+// today, but a helper that panicked on it would be a worse failure mode than
+// falling back to a deterministic order that still is one (GO-7).
+func (g *Game) playersInAPNAPOrder() []PlayerID {
+	active := g.ActivePlayer()
+	if active == NoPlayer {
+		return g.Players()
+	}
+	order := []PlayerID{active}
+	for p := g.nextPlayerAfter(active); p != active; p = g.nextPlayerAfter(p) {
+		order = append(order, p)
+	}
+	return order
 }
 
 // hasAnyParam reports whether t carries any of keys, regardless of value --

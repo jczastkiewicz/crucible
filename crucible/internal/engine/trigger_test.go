@@ -248,7 +248,7 @@ func TestDestroyLethalToughnessSkipsNonMatchingDiesTrigger(t *testing.T) {
 // impactTremorsDef builds a *compile.Card for Impact Tremors' own real
 // "whenever a creature you control enters, deal 1 damage to each opponent"
 // trigger -- compiled through the real pipeline, watching for another
-// permanent to enter rather than itself (checkOtherETBTriggers, trigger.go).
+// permanent to enter rather than itself (otherETBTriggerMatches, trigger.go).
 func impactTremorsDef(t *testing.T) *compile.Card {
 	t.Helper()
 
@@ -272,7 +272,7 @@ func impactTremorsDef(t *testing.T) *compile.Card {
 	return c
 }
 
-// TestCastSpellFiresOtherPermanentsWatchingTrigger proves checkOtherETBTriggers
+// TestCastSpellFiresOtherPermanentsWatchingTrigger proves otherETBTriggerMatches
 // (trigger.go): Impact Tremors, already on the battlefield, carries no
 // trigger of its own tied to itself entering -- its trigger watches for some
 // OTHER creature to enter under its controller. Casting one that carries no
@@ -313,6 +313,80 @@ func TestCastSpellFiresOtherPermanentsWatchingTrigger(t *testing.T) {
 	}
 	if g.StackLen() != 0 {
 		t.Errorf("StackLen() = %d, want 0 -- the failed trigger was popped before its own Resolve ran", g.StackLen())
+	}
+}
+
+// apnapWatcherDef builds a *compile.Card watching for ANY land entering the
+// battlefield (ValidCard$ Land, unrestricted -- unlike impactTremorsDef's
+// own Creature.YouCtrl, so one entering land fires a copy of this on EVERY
+// player's battlefield regardless of who controls it), with a Draw
+// sub-ability so which copy actually resolved is directly observable --
+// used to prove CR 603.3b's own APNAP ordering (pushTriggeredAbilities,
+// trigger.go). PlayLand (land.go), not CastSpell, is the real call site:
+// playing a land never touches the stack (CR 305.1, land.go's own doc
+// comment), so checkETBTriggers runs synchronously and StackTop() names the
+// pushed triggers directly, with no cast-and-resolve step in between to
+// obscure the push order the way it would for a cast creature spell.
+func apnapWatcherDef(t *testing.T, name string) *compile.Card {
+	t.Helper()
+
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Land | TriggerZones$ Battlefield | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestPlayLandPushesETBTriggersInAPNAPOrder proves pushTriggeredAbilities
+// (trigger.go): a land entering under active player p's control matches
+// BOTH p's own watcher and other's, since ValidCard$ Land carries no YouCtrl
+// restriction -- otherETBTriggerMatches finds both. CR 603.3b's own APNAP
+// order puts the active player's own group on the stack first, then the
+// non-active player's group on top of it, so the non-active player's
+// (other's) trigger is the one that resolves FIRST -- StackTop() names it
+// before anything is resolved, and ResolveStack's own Draw confirms other,
+// not p, actually drew.
+func TestPlayLandPushesETBTriggersInAPNAPOrder(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(apnapWatcherDef(t, "Active Watcher"), p, engine.Battlefield)
+	otherWatcher := g.NewCard(apnapWatcherDef(t, "Other Watcher"), other, engine.Battlefield)
+	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+	pTop := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	otherTop := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	if !g.PlayLand(p, plains) {
+		t.Fatal("PlayLand failed playing a Plains from hand")
+	}
+
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 -- both watchers should have fired", got)
+	}
+	if top, ok := g.StackTop(); !ok || top.Source != otherWatcher {
+		t.Fatalf("StackTop() = %+v, ok=%v, want other's watcher (%v) on top -- CR 603.3b resolves the non-active player's trigger first", top, ok, otherWatcher)
+	}
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(otherTop).Zone != engine.Hand {
+		t.Errorf("other's library card zone = %v, want Hand -- other's watcher should have drawn first", g.Card(otherTop).Zone)
+	}
+	if g.Card(pTop).Zone != engine.Hand {
+		t.Errorf("p's library card zone = %v, want Hand -- p's own watcher should also have drawn, just second", g.Card(pTop).Zone)
 	}
 }
 
@@ -479,7 +553,7 @@ func TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam(t *testing.T) {
 // dyingWatcherDef builds a *compile.Card for a real "whenever a creature you
 // control dies" trigger (Blood Artist/Zulaport Cutthroat's own corpus shape,
 // 205 real cards) -- ValidCard$ Creature.YouCtrl, watching for some OTHER
-// permanent to die rather than itself (checkOtherDiesTriggers, trigger.go).
+// permanent to die rather than itself (otherDiesTriggerMatches, trigger.go).
 func dyingWatcherDef(t *testing.T) *compile.Card {
 	t.Helper()
 
@@ -504,7 +578,7 @@ func dyingWatcherDef(t *testing.T) *compile.Card {
 }
 
 // TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger proves
-// checkOtherDiesTriggers (trigger.go): a watcher already on the battlefield,
+// otherDiesTriggerMatches (trigger.go): a watcher already on the battlefield,
 // carrying no dies trigger tied to itself, still detects some OTHER
 // creature dying under its own controller. The dying creature itself
 // carries no trigger of its own (plain creatureDefPT), so the pushed

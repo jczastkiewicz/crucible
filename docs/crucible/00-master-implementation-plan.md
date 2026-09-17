@@ -627,10 +627,10 @@ printed form.
     (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
     Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup).
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes and nine trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
-    `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to decide,
-    `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s parsed
-    `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
+    cast shapes, nine trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
+    real (non-test) `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to
+    decide, `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s
+    parsed `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
     `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers`/
     `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkDamageDoneTriggersToCard`/
     `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkTapsTriggers`/`checkTapsForManaTriggers`/
@@ -642,7 +642,7 @@ printed form.
     `TriggerDiscarded.performTest`), "becomes tapped" (`Mode$ Taps`, CR 603, `TriggerTaps.performTest`), "taps for mana"
     (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`) and "a player casts a spell" (`Mode$ SpellCast`, CR 603) —
     the first two also checked against every OTHER battlefield permanent's own matching trigger
-    (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks`, `DamageDone`, `Taps`, `TapsForMana` and
+    (`otherETBTriggerMatches`/`otherDiesTriggerMatches`); `Attacks`, `Blocks`, `DamageDone`, `Taps`, `TapsForMana` and
     `SpellCast` need no separate "other" loop at all, since none of those Java trigger classes special-cases its own
     host's trigger to begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals
     damage/becomes tapped"/"you cast a spell" and "a creature you control attacks/blocks/deals damage/becomes tapped"/"a
@@ -676,22 +676,37 @@ printed form.
     `ValidTarget$ Player.Opponent`/`Player.Other` and `TapsForMana`'s own `Activator$ Player.NonActive`; `CantBlockBy`'s
     `ValidDefender`, `Discarded`'s `ValidPlayer` and `Taps`'s `ValidPlayer` keep calling `matchesPlayerBase` directly,
     verified against the real corpus to carry zero qualified lines for those exact params. All nine modes are keyed off
-    `compile.Face.Triggers` (typed since M3, never read by the engine before now). A trigger's `Execute$` sub-ability's
-    own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`, `ability.go`) — the gap
-    that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became the first of the 203
-    corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still reports
-    `ErrUnimplemented` for the other 202. Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/
-    "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell" (`Countered`, `Exiled`, `Sacrificed`,
-    ...); `Attacks`'s own `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/ `AttackDifferentPlayers$`
-    params; `DamageDone`'s own `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own
-    qualified `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not);
-    `Discarded`'s own `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own
-    qualified `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen`
-    qualified `ValidActivatingPlayer$` forms (6 of the original 25 lines) and nine other unresolved params (`ValidSA`,
+    `compile.Face.Triggers` (typed since M3, never read by the engine before now), and all nine now push what they find
+    through `pushTriggeredAbilities` (`trigger.go`) rather than `PushAbility` directly — CR 603.3b's own APNAP ordering:
+    each trigger-check function collects its own matches (its "own" and "other" halves, where it has both, feeding one
+    `[]Ability`) and calls it once at the end. `pushTriggeredAbilities` walks `playersInAPNAPOrder`
+    (`Game.ActivePlayer()` first, then `nextPlayerAfter`, `turn.go`'s own seating order) and pushes each player's whole
+    group in that order; since the stack is LIFO and `MagicStack.addAllTriggeredAbilitiesToStack` itself pushes the
+    active player's group first, the LAST player in APNAP order ends up on top, resolving FIRST — the active player's
+    own group resolves last, ported faithfully from `MagicStack.chooseOrderOfSimultaneousStackEntry`'s own
+    player-iteration order. A single player's own multiple matches stay in the order they were found rather than a real
+    player choice (`Player.orderAndPlaySimultaneousSa`), since no `PlayerController` hook for that exists yet. Caught
+    and proven by `TestPlayLandPushesETBTriggersInAPNAPOrder` (trigger_test.go): before this, every trigger-check
+    function pushed each match the instant it found one, correct only when a single card's own trigger fires alone. A
+    trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too
+    (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw`
+    (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself;
+    `ResolveStack` still reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
+    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell"
+    (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own
+    `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/ `AttackDifferentPlayers$` params; `DamageDone`'s own
+    `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
+    `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
+    `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified
+    `ValidActivatingPlayer$` forms (6 of the original 25 lines) and nine other unresolved params (`ValidSA`,
     `TargetsValid`, `HasXManaCost`, ... — `porting/port-log/game-state.md`'s trigger-firing section has the full list);
-    simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP order) is a real gap
-    now rather than a hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can genuinely push more than
-    one trigger off a single event, in a fixed order rather than a chosen one — and the whole replacement-effect system.
+    simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's own controller-chosen/APNAP order) is
+    resolved now — `pushTriggeredAbilities`/`playersInAPNAPOrder` (`trigger.go`) push each player's own group of matches
+    in APNAP order rather than a fixed one, every trigger-check function's own "own" and "other" halves collecting into
+    one `[]Ability` first; a single player's own multiple matches still stay in the deterministic order they were found,
+    since this port has no `PlayerController` hook for a real player choice among them (`orderAndPlaySimultaneousSa`,
+    `MagicStack.java`) — the whole replacement-effect system remains a gap.
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Four real slices of `Mode$ Continuous` now,
     alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_; `pt.go` folds
     power/toughness through them, and that folding mechanism has a real (non-test) caller for the first time:

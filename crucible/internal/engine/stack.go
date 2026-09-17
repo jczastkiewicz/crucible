@@ -2,24 +2,25 @@
 //
 // Ported from forge-game/src/main/java/forge/game/zone/MagicStack.java
 // (1,025 LOC), cut down to the container and CR 405.5/608's resolve loop.
-// Everything else there -- freezeStack/unfreezeStack (holding new pushes
-// while one ability is already resolving), addSimultaneousStackEntry
-// (ordering several triggers a player controls that became true at once),
-// undoStack -- only matters once something can push a second ability while
-// the first is still open. Nothing can yet: casting has no cost-payment or
-// targeting to drive it, and triggered abilities have no firing pipeline
-// (control.go's four PlayerController methods are the same shape of gap).
-// This is "mechanism now, content later," the shape effect.go's Registry
-// already landed in -- zero production callers, proven by tests that push a
-// stub Ability the way effect_test.go registers a stub Effect.
-
+// addSimultaneousStackEntry itself (ordering several triggers that became
+// true at once) is ported too, as pushTriggeredAbilities (trigger.go) --
+// every real trigger-check function collects its own matches and calls it
+// once, rather than calling PushAbility inline as each match is found.
+// freezeStack/unfreezeStack (holding new pushes while one ability is
+// already resolving) and undoStack only matter once something can push a
+// second ability while the first is still open, and casting still has no
+// cost-payment or targeting to drive that (control.go's four
+// PlayerController methods are the same shape of gap) -- "mechanism now,
+// content later," the shape effect.go's Registry already landed in.
 package engine
 
 // PushAbility puts an ability on the stack (CR 405.1, 601.2i, 603.3b) and
-// emits AbilityActivated. It does not check who is entitled to push or in
-// what order -- APNAP and the "your triggers first, in an order you choose"
-// rule (CR 603.3b) are the caller's job once something drives them, the same
-// as Move does not itself decide whether a zone change is legal.
+// emits AbilityActivated. It does not itself decide who is entitled to push
+// or in what order -- that is pushTriggeredAbilities' own job (trigger.go)
+// for CR 603.3b's APNAP ordering, the same way Move does not itself decide
+// whether a zone change is legal. A caller pushing one ability at a time,
+// unconditionally (casting a spell, an activated ability once one exists)
+// has no ordering question to answer and calls this directly.
 func (g *Game) PushAbility(a Ability) {
 	g.stack = append(g.stack, a)
 	g.sink.Emit(Event{Kind: AbilityActivated, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})

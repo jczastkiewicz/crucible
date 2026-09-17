@@ -249,6 +249,61 @@ func TestDeclareCombatBlockersSkipsADefenderWithNoEligibleCreature(t *testing.T)
 	}
 }
 
+// A Menace attacker (CR 702.111b) blocked by only one creature has the
+// whole illegal block dropped, not reduced to a single-blocker assignment.
+func TestDeclareCombatBlockersDropsSingleBlockerAgainstMenace(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Menace"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	got := g.DeclareCombatBlockers(bc)
+
+	if got != nil {
+		t.Errorf("DeclareCombatBlockers() = %v, want nil -- one creature can't legally block a Menace attacker", got)
+	}
+	if len(g.Blocks()) != 0 {
+		t.Errorf("Blocks() = %v, want none", g.Blocks())
+	}
+}
+
+// A Menace attacker blocked by two creatures is legal -- CR 702.111b's own
+// requirement met exactly.
+func TestDeclareCombatBlockersAllowsTwoBlockersAgainstMenace(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Menace"), a, engine.Battlefield)
+	blocker1 := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	blocker2 := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{
+		{Blocker: blocker1, Attacker: attacker},
+		{Blocker: blocker2, Attacker: attacker},
+	})
+	got := g.DeclareCombatBlockers(bc)
+
+	if len(got) != 2 {
+		t.Fatalf("DeclareCombatBlockers() = %v, want 2 blocks", got)
+	}
+}
+
 // A cloned game's combat state is its own slice: declaring on the clone
 // must not write back to the original.
 func TestCloneCopiesBlocks(t *testing.T) {

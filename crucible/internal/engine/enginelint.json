@@ -28,7 +28,8 @@
     "manaability": ["manaability.go"],
     "land": ["land.go"],
     "castspell": ["castspell.go"],
-    "trigger": ["trigger.go"]
+    "trigger": ["trigger.go"],
+    "draweffect": ["draweffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -68,8 +69,10 @@
       "event",
       "action",
       "valid",
-      "trigger"
+      "trigger",
+      "draweffect"
     ],
-    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack"]
+    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack"],
+    "draweffect": ["id", "game", "player", "ability", "turn"]
   }
 }

@@ -151,29 +151,44 @@ func (g *Game) untapStep() {
 // drawStep draws one card for the active player, ported from
 // PhaseHandler.onPhaseBegin's DRAW case and PhaseHandler.isSkippingPhase's
 // DRAW rule (CR 103.7a): the first player skips the draw step of their own
-// first turn in a two-player game. A library with nothing left to draw
-// records the attempt rather than silently doing nothing -- CheckStateBasedActions
-// reads that flag for CR 704.5b.
-//
-// The top of the library is index 0 of the zone's order: a fixture author
-// who writes `humanlibrary=TopCard;NextCard;...` names it left to right, top
-// to bottom, and Load builds cards in that same order (game-state-fixture.md).
+// first turn in a two-player game.
 func (g *Game) drawStep() {
 	if g.turn == 1 && len(g.Players()) == 2 {
 		return
 	}
-	lib := g.Zone(Library, g.activePlayer)
-	if lib.Len() == 0 {
-		g.Player(g.activePlayer).DrewFromEmptyLibrary = true
-		return
+	g.DrawCards(g.activePlayer, 1)
+}
+
+// DrawCards draws n cards for pid, one at a time (Player.drawCards' own
+// per-card loop in Java, not a single Move of n cards at once) -- CR 120.3's
+// "draw a card," repeated, matters once something reacts to an individual
+// draw rather than the batch (nothing does yet, game-state.md's "Not ported
+// yet"), so this port matches the granularity rather than guessing it never
+// matters. A library that runs out partway through records the attempt
+// (CheckStateBasedActions' own CR 704.5b) and stops -- the remaining draws
+// never happened, the same as a real player who cannot pay to keep drawing
+// past empty.
+//
+// The top of the library is index 0 of the zone's order: a fixture author
+// who writes `humanlibrary=TopCard;NextCard;...` names it left to right, top
+// to bottom, and Load builds cards in that same order (game-state-fixture.md).
+// drawStep (above) and drawEffect (draweffect.go, CR 120.3/M6's own Draw
+// effect) are this port's two callers.
+func (g *Game) DrawCards(pid PlayerID, n int) {
+	for i := 0; i < n; i++ {
+		lib := g.Zone(Library, pid)
+		if lib.Len() == 0 {
+			g.Player(pid).DrewFromEmptyLibrary = true
+			return
+		}
+		id := lib.Cards()[0]
+		g.Move(id, Hand, pid)
+		// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
+		// says a card moved, CardDrawn says why, which is what makes a draw
+		// countable without inspecting every zone change for the ones that
+		// happen to be library-to-hand.
+		g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 	}
-	id := lib.Cards()[0]
-	g.Move(id, Hand, g.activePlayer)
-	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
-	// says a card moved, CardDrawn says why, which is what makes a draw
-	// countable without inspecting every zone change for the ones that
-	// happen to be library-to-hand.
-	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: g.activePlayer, Turn: uint16(g.turn), Source: id})
 }
 
 // MaxHandSize is CR 103.4's default maximum hand size, used unconditionally

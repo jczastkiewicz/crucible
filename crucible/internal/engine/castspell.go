@@ -175,19 +175,22 @@ func (attachEffect) Resolve(g *Game, a *Ability) error {
 	return nil
 }
 
-// NewRegistry builds a Registry carrying every Effect this port has. Three
+// NewRegistry builds a Registry carrying every Effect this port has. Four
 // entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
-// own. Explicit construction here, not an init() populating a package-level
-// Registry, is ADR-0003's own "explicit wiring... so the direction stays
-// visible and test binaries can register a subset" -- a caller that wants
-// fewer registered APIs builds its own Registry by hand instead of calling
-// this.
+// own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
+// effect and trigger.go's first real Execute$ sub-ability to actually
+// resolve rather than report ErrUnimplemented. Explicit construction here,
+// not an init() populating a package-level Registry, is ADR-0003's own
+// "explicit wiring... so the direction stays visible and test binaries can
+// register a subset" -- a caller that wants fewer registered APIs builds its
+// own Registry by hand instead of calling this.
 func NewRegistry() *Registry {
 	var r Registry
 	r[APIPermanentCreature] = permanentEffect{}
 	r[APIPermanentNoncreature] = permanentEffect{}
 	r[APIAttach] = attachEffect{}
+	r[APIDraw] = drawEffect{}
 	return &r
 }

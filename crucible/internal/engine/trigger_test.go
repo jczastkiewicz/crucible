@@ -45,14 +45,14 @@ func etbTriggerCreatureDef(t *testing.T, name, cost string) *compile.Card {
 }
 
 // TestCastSpellFiresETBTrigger casts a creature carrying a real "when
-// CARDNAME enters, draw a card" trigger and proves checkETBTriggers
-// (trigger.go) detects it and pushes its own Execute$ sub-ability (Draw)
-// onto the stack -- ResolveStack resolving the permanent spell itself
-// succeeds (the creature reaches the battlefield), then immediately finds
-// the pushed Draw ability on top and reports ErrUnimplemented for it, since
-// Draw is one of the 203 corpus-frequency effects M6 still owns
-// (effect.go's own Registry contract). Detecting and queuing the trigger
-// correctly -- not resolving it -- is this port's job today.
+// CARDNAME enters, draw a card" trigger and proves the whole pipeline end to
+// end: checkETBTriggers (trigger.go) detects it and pushes its own Execute$
+// sub-ability (Draw) onto the stack with Ability.Params carrying
+// Defined$/NumCards$ (ability.go), and ResolveStack finds it on top the
+// instant the permanent spell's own resolution returns and resolves it for
+// real -- drawEffect (draweffect.go), M6's first implemented effect and
+// trigger.go's first Execute$ sub-ability to do more than surface
+// ErrUnimplemented by name.
 //
 // Two players, not one, and both with Life set explicitly: CheckStateBasedActions
 // (run after every resolved ability, stack.go) declares a lone remaining
@@ -62,8 +62,8 @@ func etbTriggerCreatureDef(t *testing.T, name, cost string) *compile.Card {
 // NewGame's own zero value (0 <= 0 loses immediately, action.go). Either
 // way, Over stops ResolveStack's own loop (`for len(g.stack) > 0 &&
 // !g.over`) before it ever reaches the pushed trigger, and this test would
-// pass for the wrong reason: not because the trigger correctly failed to
-// resolve, but because the game ended first.
+// pass for the wrong reason: not because the trigger correctly drew a card,
+// but because the game ended first.
 func TestCastSpellFiresETBTrigger(t *testing.T) {
 	t.Parallel()
 
@@ -74,6 +74,7 @@ func TestCastSpellFiresETBTrigger(t *testing.T) {
 	g.Player(p).ManaPool.Add(mana.Green, 1)
 	g.Player(p).ManaPool.AddColorless(1)
 	creature := g.NewCard(etbTriggerCreatureDef(t, "Test Visionary", "1 G"), p, engine.Hand)
+	topOfLibrary := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 	c := engine.NewScriptedController()
 	c.QueuePayGeneric(mana.ShardC)
 
@@ -81,18 +82,17 @@ func TestCastSpellFiresETBTrigger(t *testing.T) {
 		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
 	}
 
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if !errors.Is(err, engine.ErrUnimplemented) {
-		t.Fatalf("ResolveStack error = %v, want ErrUnimplemented (Draw)", err)
-	}
-	if !strings.Contains(err.Error(), "Draw") {
-		t.Errorf("ResolveStack error = %q, want it to name Draw", err.Error())
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if g.Card(creature).Zone != engine.Battlefield {
-		t.Errorf("creature zone = %v, want Battlefield -- the permanent spell itself should still have resolved", g.Card(creature).Zone)
+		t.Errorf("creature zone = %v, want Battlefield", g.Card(creature).Zone)
+	}
+	if g.Card(topOfLibrary).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the ETB trigger's own Draw should have resolved", g.Card(topOfLibrary).Zone)
 	}
 	if g.StackLen() != 0 {
-		t.Errorf("StackLen() = %d, want 0 -- the failed trigger was popped before its own Resolve ran", g.StackLen())
+		t.Errorf("StackLen() = %d, want 0", g.StackLen())
 	}
 }
 
@@ -313,5 +313,67 @@ func TestCastSpellFiresOtherPermanentsWatchingTrigger(t *testing.T) {
 	}
 	if g.StackLen() != 0 {
 		t.Errorf("StackLen() = %d, want 0 -- the failed trigger was popped before its own Resolve ran", g.StackLen())
+	}
+}
+
+// dyingWatcherDef builds a *compile.Card for a real "whenever a creature you
+// control dies" trigger (Blood Artist/Zulaport Cutthroat's own corpus shape,
+// 205 real cards) -- ValidCard$ Creature.YouCtrl, watching for some OTHER
+// permanent to die rather than itself (checkOtherDiesTriggers, trigger.go).
+func dyingWatcherDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Dies Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Dies Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger proves
+// checkOtherDiesTriggers (trigger.go): a watcher already on the battlefield,
+// carrying no dies trigger tied to itself, still detects some OTHER
+// creature dying under its own controller. The dying creature itself
+// carries no trigger of its own (plain creatureDefPT), so the pushed
+// ability can only have come from the watcher.
+func TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	watcher := g.NewCard(dyingWatcherDef(t), p, engine.Battlefield)
+	dead := g.NewCard(creatureDefPT(t, "2", "0"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Fatalf("creature zone = %v, want Graveyard", z)
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 (the watcher's own Execute$ sub-ability)", got)
+	}
+	top, ok := g.StackTop()
+	if !ok {
+		t.Fatal("StackTop() = false, want an ability on top")
+	}
+	if top.Source != watcher {
+		t.Errorf("pushed ability Source = %v, want %v (the watcher, not the dying creature)", top.Source, watcher)
+	}
+	if top.Controller != p {
+		t.Errorf("pushed ability Controller = %v, want %v", top.Controller, p)
 	}
 }

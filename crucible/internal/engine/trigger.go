@@ -46,15 +46,16 @@ import (
 // matched against.
 //
 // A matching trigger's own Execute$ sub-ability names the API it would run
-// (triggerEffectAPI, below) -- pushed onto the stack the same way CastSpell
+// and carries that sub-ability's own params onto the stack as Ability.Params
+// (triggerEffectAPI, below, ability.go) -- pushed the same way CastSpell
 // pushes a cast spell, CR 603.3's own "triggered ability becomes an object on
 // the stack." Resolving it is a different question: the 203 corpus-frequency
-// effects a real trigger's own sub-ability needs are M6's job, so
-// ResolveStack reports ErrUnimplemented for every one of them today
+// effects a real trigger's own sub-ability can need are M6's job, one at a
+// time as each lands in NewRegistry (draweffect.go's Draw is the first) --
+// ResolveStack reports ErrUnimplemented for every API that has not yet
 // (Registry.Resolve's own contract, effect.go) -- detecting and queuing a
-// trigger correctly is this port's whole job here, the same "mechanism now,
-// content later" shape permanentEffect/attachEffect's own Registry already
-// established for casting.
+// trigger correctly, regardless of whether its own Execute$ API happens to
+// be implemented yet, is this port's whole job here.
 func (g *Game) checkETBTriggers(entered CardID) {
 	c := g.Card(entered)
 	if c.Def != nil {
@@ -70,8 +71,8 @@ func (g *Game) checkETBTriggers(entered CardID) {
 				if !Matches(g, c, valid.Parse(validCard), c.Controller, entered) {
 					continue
 				}
-				if api, ok := triggerEffectAPI(t); ok {
-					g.PushAbility(Ability{API: api, Source: entered, Controller: c.Controller})
+				if sub, api, ok := triggerEffectAPI(t); ok {
+					g.PushAbility(Ability{API: api, Source: entered, Controller: c.Controller, Params: sub})
 				}
 			}
 		}
@@ -122,8 +123,8 @@ func (g *Game) checkOtherETBTriggers(entered CardID) {
 					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller, watcher) {
 						continue
 					}
-					if api, ok := triggerEffectAPI(t); ok {
-						g.PushAbility(Ability{API: api, Source: watcher, Controller: w.Controller})
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
 					}
 				}
 			}
@@ -135,15 +136,8 @@ func (g *Game) checkOtherETBTriggers(entered CardID) {
 // left the battlefield to a graveyard -- checkETBTriggers's own narrowness,
 // just for Mode$ ChangesZone's other corpus-frequent shape (Origin$
 // Battlefield, Destination$ Graveyard, CR 700.4's "dies") instead of
-// entering. Only the dying card's own Card.Self triggers ("when CARDNAME
-// dies") are checked here, not any OTHER permanent's own "whenever a
-// creature dies" trigger watching it -- the identical wider-search gap
-// checkETBTriggers's own doc comment used to name before
-// checkOtherETBTriggers closed it for entering; closing it for dying is a
-// distinct, not-yet-done step (a watcher's own dies-shaped trigger almost
-// always carries TriggerZones$ Battlefield, so unlike checkOtherETBTriggers
-// it cannot simply walk the battlefield -- the dying card itself is already
-// gone from it by the time this runs).
+// entering. Checked against the dying card's own Card.Self triggers here
+// ("when CARDNAME dies"); checkOtherDiesTriggers, below, is the wider half.
 //
 // Card.Def is fixed at compile time and unaffected by the zone a card now
 // sits in, so nothing here actually needs to look anything up as it "was":
@@ -153,23 +147,67 @@ func (g *Game) checkOtherETBTriggers(entered CardID) {
 // last-known-information Java's own layer system gives a leaving card.
 func (g *Game) checkDiesTriggers(left CardID) {
 	c := g.Card(left)
-	if c.Def == nil {
-		return
+	if c.Def != nil {
+		for _, face := range c.Def.Faces {
+			for _, t := range face.Triggers {
+				if !isDiesTrigger(t) {
+					continue
+				}
+				validCard, ok := t.Param("ValidCard")
+				if !ok {
+					continue
+				}
+				if !Matches(g, c, valid.Parse(validCard), c.Controller, left) {
+					continue
+				}
+				if sub, api, ok := triggerEffectAPI(t); ok {
+					g.PushAbility(Ability{API: api, Source: left, Controller: c.Controller, Params: sub})
+				}
+			}
+		}
 	}
-	for _, face := range c.Def.Faces {
-		for _, t := range face.Triggers {
-			if !isDiesTrigger(t) {
+	g.checkOtherDiesTriggers(left)
+}
+
+// checkOtherDiesTriggers is checkDiesTriggers's wider half, the identical
+// shape checkOtherETBTriggers is for entering: every permanent still on the
+// battlefield gets its own Triggers walked against left, the card that just
+// died ("Whenever a creature you control dies...", "Whenever another Cleric
+// dies..."). No entered == left skip is needed the way checkOtherETBTriggers
+// has one: left is already in the graveyard by the time this runs (every
+// real call site moves it there first, action.go), so it never appears in
+// the Battlefield walk to begin with -- unlike checkOtherETBTriggers, where
+// the entered card is already ON the battlefield being walked.
+//
+// This closes the gap checkDiesTriggers's own doc comment used to name as
+// not-yet-done: a watcher's own dies-shaped trigger needs left's state as a
+// dying object, not the watcher's own zone -- the watcher itself is
+// unaffected by left leaving and is exactly as reachable by a battlefield
+// walk as any ETB watcher is, so nothing about "look back in time" actually
+// blocks this the way an earlier version of this comment assumed.
+func (g *Game) checkOtherDiesTriggers(left CardID) {
+	for _, pid := range g.Players() {
+		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
+			w := g.Card(watcher)
+			if w.Def == nil {
 				continue
 			}
-			validCard, ok := t.Param("ValidCard")
-			if !ok {
-				continue
-			}
-			if !Matches(g, c, valid.Parse(validCard), c.Controller, left) {
-				continue
-			}
-			if api, ok := triggerEffectAPI(t); ok {
-				g.PushAbility(Ability{API: api, Source: left, Controller: c.Controller})
+			for _, face := range w.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isDiesTrigger(t) {
+						continue
+					}
+					validCard, ok := t.Param("ValidCard")
+					if !ok {
+						continue
+					}
+					if !Matches(g, g.Card(left), valid.Parse(validCard), w.Controller, watcher) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
+					}
+				}
 			}
 		}
 	}
@@ -207,19 +245,23 @@ func hasZone(t *compile.Ability, key, zone string) bool {
 	return false
 }
 
-// triggerEffectAPI is the APIType a trigger's own Execute$ sub-ability would
-// run -- the "DB$ <API>" record its SVar compiled into (compile.Ability's own
-// Name field, the API for a Spell/DB record). Reports false for a trigger
-// with no Execute key at all, or one naming an API string ApiType.java does
-// not have (APIByName's own exact-match contract) -- neither is reachable
-// against the real corpus today, but a card cannot be trusted not to be the
-// first (PORT-8).
-func triggerEffectAPI(t *compile.Ability) (APIType, bool) {
+// triggerEffectAPI is a trigger's own Execute$ sub-ability -- the "DB$ <API>"
+// record its SVar compiled into -- and the APIType that record's own Name
+// names (compile.Ability's own Name field, the API for a Spell/DB record).
+// The returned *compile.Ability is what Ability.Params carries onto the
+// stack: an Effect's own Resolve reads Defined$/NumCards$/whatever else it
+// needs straight off it (drawEffect, draweffect.go, is the first). Reports
+// false for a trigger with no Execute key at all, or one naming an API
+// string ApiType.java does not have (APIByName's own exact-match contract)
+// -- neither is reachable against the real corpus today, but a card cannot
+// be trusted not to be the first (PORT-8).
+func triggerEffectAPI(t *compile.Ability) (*compile.Ability, APIType, bool) {
 	for _, sub := range t.Subs {
 		if !strings.EqualFold(sub.Key, "Execute") {
 			continue
 		}
-		return APIByName(sub.Ability.Name)
+		api, ok := APIByName(sub.Ability.Name)
+		return sub.Ability, api, ok
 	}
-	return 0, false
+	return nil, 0, false
 }

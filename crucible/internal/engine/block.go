@@ -27,10 +27,16 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // illegal pairing is dropped silently, the same as a controller declining
 // to use part of what it was offered.
 //
-// Still not checked: Menace (CR 702.111b) -- Forge itself does not run it
-// through CantBlockBy either (cantBlockByKeywords' own doc comment,
-// staticability.go) -- and Intimidate, Landwalk, Protection and Skulk,
-// each blocked on its own specific missing dependency (same doc comment).
+// Menace (CR 702.111b) is checked too, but not via CanBlock: it is a
+// minimum-blocker-_count_ rule over the whole group assigned to one
+// attacker, not a per-pair question, so it is a second filter (menaceLegal,
+// below) applied after CanBlock's, on whatever CanBlock already accepted.
+// Forge itself does not run Menace through the CantBlockBy static-ability
+// engine either (cantBlockByKeywords' own doc comment, staticability.go) --
+// getMinMaxBlocker hardcodes attacker.hasKeyword(Keyword.MENACE) directly,
+// reproduced here the same way. Still not checked: Intimidate, Landwalk,
+// Protection and Skulk, each blocked on its own specific missing dependency
+// (same doc comment).
 //
 // "Who is defending" is each attacker's own defender (defenderOf,
 // attack.go) -- the controller of whatever it's attacking, a player,
@@ -77,14 +83,43 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 		if len(eligible) == 0 {
 			continue
 		}
+		var accepted []Block
 		for _, blk := range controller.DeclareCombatBlockers(g, defender, byDefender[defender], eligible) {
 			if g.CanBlock(blk.Attacker, blk.Blocker) {
-				blocks = append(blocks, blk)
+				accepted = append(accepted, blk)
 			}
 		}
+		blocks = append(blocks, menaceLegal(g, accepted)...)
 	}
 	g.combat.Blocks = blocks
 	return blocks
+}
+
+// menaceLegal drops every Block naming an attacker with Menace that ends up
+// with fewer than two distinct blockers -- CR 702.111b, checked as a group
+// once CanBlock has already filtered blocks down to individually legal
+// pairs (DeclareCombatBlockers's own doc comment has the reason Menace is a
+// second, group-cardinality filter rather than another CanBlock check). Both
+// blockers of a legal two-plus group stay; every Block naming a Menace
+// attacker that got only one is dropped entirely, not reduced to a
+// single-blocker assignment -- CR 702.111b makes the whole attempt illegal
+// to declare, not partially legal.
+func menaceLegal(g *Game, blocks []Block) []Block {
+	blockers := map[CardID]map[CardID]bool{}
+	for _, blk := range blocks {
+		if blockers[blk.Attacker] == nil {
+			blockers[blk.Attacker] = map[CardID]bool{}
+		}
+		blockers[blk.Attacker][blk.Blocker] = true
+	}
+	var legal []Block
+	for _, blk := range blocks {
+		if g.Card(blk.Attacker).HasKeyword("Menace") && len(blockers[blk.Attacker]) < 2 {
+			continue
+		}
+		legal = append(legal, blk)
+	}
+	return legal
 }
 
 // CanBlock reports whether blocker may legally block attacker (CR 509.1):

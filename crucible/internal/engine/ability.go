@@ -7,7 +7,11 @@
 
 package engine
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
 
 //go:generate go run ../../tools/genapitype -apitype ../../../forge-game/src/main/java/forge/game/ability/ApiType.java
 
@@ -57,4 +61,12 @@ type Ability struct {
 	// exists yet), so a single CardID is enough rather than a slice or an
 	// EntityID.
 	Target CardID
+	// Params is the compiled sub-ability record backing this API call --
+	// Defined$, NumCards$, and every other key an Effect's own Resolve reads
+	// (compile.Ability.Param). Nil for a cast ability
+	// (APIPermanentCreature/APIPermanentNoncreature/APIAttach): nothing
+	// reads a param off casting itself, only off a card script's own
+	// sub-ability -- a trigger's Execute$ (triggerEffectAPI, trigger.go)
+	// today, an activated ability's own cost-paid effect once that exists.
+	Params *compile.Ability
 }

@@ -170,7 +170,7 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 `ScriptedController`; `GameState` fixture load/dump, byte-identical round-trip (`internal/fixture`); event schema v1
 (ADR-0013). Effect dispatch scaffolding (`Effect`/`Registry`, ADR-0011, ADR-0003 puts them in `internal/engine`) landed
 holding zero implementations — M5's own `permanentEffect` (below) is the first two, but the 203 script-driven APIs in
-corpus-frequency order are still M6's job, not M4's or M5's.
+corpus-frequency order were still M6's job, not M4's or M5's, until `Draw` (below) became the first to land.
 
 M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`); zone changes + state-based
 actions (`action.go`) — legend rule, World rule, lethal damage, Battle protector, dangling-attachment cleanup; combat
@@ -180,14 +180,17 @@ SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-stri
 covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's intrinsic mana ability
 (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an Aura, through the stack
 — (`castspell.go`), the first two real `Effect` implementations (`permanentEffect`/`attachEffect`); trigger firing
-(`trigger.go`) — a permanent's own "enters" and "dies" modes, plus another permanent watching one enter — detects and
-queues a trigger, does not resolve it (M6's 203 corpus-frequency effects still own that); block legality
-(`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship and every literal `S:Mode$ CantBlockBy` line, the
-first slice of the general static-ability engine PORT-8 requires reading Java's own mechanism for rather than hardcoding
-a keyword check. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
+(`trigger.go`) — a permanent's own "enters" and "dies" modes, plus another permanent watching one enter or die — detects
+and queues a trigger; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Menace and
+every literal `S:Mode$ CantBlockBy` line, the first slice of the general static-ability engine PORT-8 requires reading
+Java's own mechanism for rather than hardcoding a keyword check. M6 in progress alongside it: `Draw` (`draweffect.go`)
+is the first of the 203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability`
+gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that
+possible. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
 `docs/crucible/porting/port-log/game-state.md`. Thin or missing: the layer system is CR 613's layer _numbers_ plus a
 power/toughness folding mechanism with zero real callers; the legend rule's `ignoreLegendRule` corner case and
-`Mode$ Continuous` (folding itself) wait on the rest of that same static-ability engine; Menace, Intimidate, Landwalk,
+`Mode$ Continuous` (folding itself) wait on the rest of that same static-ability engine; Intimidate, Landwalk,
 Protection and Skulk are `CantBlockBy` gaps of their own (`game-state.md`'s "Block legality" section has the reason for
-each). **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the
-qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+each); 202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:**
+342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
+3.2) is not.

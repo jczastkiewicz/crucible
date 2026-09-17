@@ -7,9 +7,11 @@
 # checking is what battle-protector-assigned-to-opponent's own comment means
 # by "the Battle would die to zero defense before this scenario ever got to
 # observe its protector": the assignment still happens, there is just
-# nothing left afterward for expect.state to show it on. Nothing puts a
-# Battle's own printed starting defense on it yet (game-state.md's "Not
-# ported yet"), so with no DEFENSE counters set at all it already reads
-# zero.
+# nothing left afterward for expect.state to show it on. Move only grants a
+# Battle's printed starting defense on a real zone change
+# (cast-a-battle-spell-resolves-to-battlefield is that case); this Battle is
+# placed directly by setup.state (Game.NewCard), which sets exactly what the
+# fixture says and nothing more, so with no DEFENSE counters written here it
+# already reads zero.
 queue battleprotector ai
 startturn human

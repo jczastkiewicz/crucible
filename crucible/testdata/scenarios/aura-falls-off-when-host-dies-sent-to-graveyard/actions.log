@@ -1,0 +1,12 @@
+# equipment-falls-off-without-destroying is this fixture's mirror image: an
+# Equipment left unattached by its host's death just sits there, but CR
+# 704.5m sends an Aura the same way to its OWNER's graveyard instead
+# (cleanupDanglingAttachments) -- the same function, branching on the
+# attachment's own card type. Grizzly Bears (2/2) already carries lethal
+# marked damage, so the first state-based-action check (StartTurn's own
+# Untap-step beginPhase) destroys it (destroyDamagedCreatures) and, the same
+# pass, cleanupDanglingAttachments finds Pacifism with no host left and
+# sends it to the graveyard too -- distinct from
+# aura-enchant-restriction-sends-illegal-aura-to-graveyard, where the Aura's
+# host was illegal from the start rather than dying mid-game.
+startturn human

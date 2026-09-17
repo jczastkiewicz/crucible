@@ -1,0 +1,15 @@
+# dealCombatDamageStep only calls dealAttackerDamage when power > 0
+# (combatdamage.go's own "if power, ok := atk.Power(); ok && power > 0"
+# guard) -- Ornithopter (0/2, Flying, irrelevant here since block legality
+# beyond untapped is not built) attacks unblocked and deals nothing at all,
+# not even a zero-amount DamageDealt event.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

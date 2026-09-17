@@ -1,0 +1,19 @@
+# The mirror of combat-first-strike-prevents-return-damage: there the
+# ATTACKER had first strike; here the BLOCKER does. Silvercoat Lion (2/2, no
+# keywords) attacks; Elvish Archers (2/1, First Strike) blocks. dealsInStep
+# (combatdamage.go) is keyed off each creature's own keyword regardless of
+# attacker/blocker role, so the Archers' 2 power is exactly lethal to the
+# Lion's 2 toughness in the first-strike step -- the advance into Combat
+# Damage runs the state-based-action check that kills the Lion before the
+# regular step ever asks whether it deals damage back.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

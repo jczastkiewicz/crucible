@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Silent Artisan
+ailife=20
+aibattlefield=Silverback Ape|Damage:3

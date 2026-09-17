@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Prakhata Club Security
+ailife=20
+aibattlefield=Primordial Wurm|Damage:3

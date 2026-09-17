@@ -1,0 +1,16 @@
+# The same power > 0 guard on the blocker's own half of the exchange: Hill
+# Giant (3/3) attacks; Ornithopter (0/2) blocks. The Giant's 3 damage kills
+# the Thopter outright, but the Thopter's 0 power never calls
+# dealPermanentDamage against the Giant at all -- it takes no damage marked,
+# not merely an amount too small to matter.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Cleanup
+humanlife=20
+humanlandsplayedlastturn=1
+humanbattlefield=Plains|SummonSick
+ailife=20

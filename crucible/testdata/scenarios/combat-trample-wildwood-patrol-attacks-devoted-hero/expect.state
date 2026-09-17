@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Wildwood Patrol|Tapped|Damage:1
+ailife=18
+aigraveyard=Devoted Hero

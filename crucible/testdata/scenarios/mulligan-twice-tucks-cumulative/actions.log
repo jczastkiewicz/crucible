@@ -1,0 +1,22 @@
+# mulligan-tucks-a-card already proves one London mulligan; this is two in a
+# row, proving londonTuckCount's own escalation (mulligan.go): the first
+# mulligan costs one card, the second costs two, not one-plus-one. Each
+# mulligan reshuffles the ENTIRE current hand back into the library before
+# redrawing seven fresh (mulligan, mulligan.go), so the card tucked by the
+# first mulligan is back in the pool the second one draws from -- only the
+# second mulligan's own two tucked cards end up on the bottom for good; a
+# CardID is stable across all of it (ADR-0009), so `queue tuck` can keep
+# naming the original fixture ids throughout.
+queue keephand false
+# human: first mulligan
+queue tuck 1
+# the card the first mulligan tucks
+queue keephand true
+# ai: keeps its own hand in the same round
+queue keephand false
+# human: second mulligan
+queue tuck 2,3
+# the two cards the second mulligan tucks
+queue keephand true
+# human: keeps the redrawn, five-card hand
+mulligan human

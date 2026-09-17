@@ -1,0 +1,5 @@
+# CR 704.5a reads "0 or less," not "exactly 0" -- life-loss-at-zero already
+# covers zero; this proves the check is p.Life <= 0 (action.go), not
+# p.Life == 0, against a negative total nothing in this port currently
+# produces on its own but a fixture can still assert against directly.
+startturn human

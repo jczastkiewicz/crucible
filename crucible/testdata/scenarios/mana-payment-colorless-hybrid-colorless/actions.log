@@ -1,0 +1,6 @@
+# CR 601.2h: the same {C/W} shard declined in favor of its colourless side --
+# ChoosePayColorlessHybrid false -- resolves to a plain colourless mana.ShardC
+# instead, which only a colourless source in the pool (not any old leftover
+# color) can pay.
+queue paycolorlesshybrid false
+paymanacost human C/W

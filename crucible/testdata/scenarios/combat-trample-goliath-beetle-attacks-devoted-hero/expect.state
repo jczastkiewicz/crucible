@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Goliath Beetle
+ailife=19
+aigraveyard=Devoted Hero

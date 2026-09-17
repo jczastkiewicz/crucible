@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Rotted Hystrix|Tapped|Damage:5
+ailife=20
+aigraveyard=Rotting Fensnake

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=20
+humanbattlefield=Axegrinder Giant|Tapped|Damage:3
+ailife=20
+aibattlefield=Catacomb Crocodile|Damage:6

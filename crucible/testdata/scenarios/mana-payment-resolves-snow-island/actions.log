@@ -1,0 +1,6 @@
+# CR 106.3a: Snow-Covered Island produces snow U, not plain U --
+# mana-payment-resolves-snow already proves this for Snow-Covered Plains;
+# here for Snow-Covered Island, a snow requirement (queue paysnow) rather than a plain one.
+tapformana human 1 U
+queue paysnow U
+paymanacost human S

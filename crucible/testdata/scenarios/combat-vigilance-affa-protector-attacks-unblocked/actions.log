@@ -1,0 +1,14 @@
+# CR 508.1f: a vigilant attacker does not tap when declared -- Affa Protector
+# (1/4, Vigilance) attacks unblocked and stays untapped, unlike
+# every plain attacker fixture (combat-vigilance-attacker-stays-untapped is
+# the original; this is the same rule against a different corpus card).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Order of the Sacred Bell
+ailife=20
+aibattlefield=Ordinary Bear|Damage:4

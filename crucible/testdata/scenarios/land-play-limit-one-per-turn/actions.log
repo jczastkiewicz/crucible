@@ -1,0 +1,9 @@
+# CR 305.2's default one-land-per-turn limit (maxLandPlays, land.go): the
+# first playland succeeds and counts against Player.LandsPlayed; the second
+# is declined by the rules and its own bool is silently discarded, the same
+# convention every other declined action already has -- the Island simply
+# never leaves hand.
+startturn human
+advance 3
+playland human 1
+playland human 2

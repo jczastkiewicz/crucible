@@ -1,0 +1,13 @@
+# Corpus-diversity unblocked attack: Loxodon Wayfarer (1/5) attacks with
+# no blocker available -- CR 510.1a, dealAttackTargetDamage sends its full
+# power straight to the defending player.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

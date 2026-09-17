@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Mountain Bandit
+ailife=20
+aigraveyard=Nest Robber

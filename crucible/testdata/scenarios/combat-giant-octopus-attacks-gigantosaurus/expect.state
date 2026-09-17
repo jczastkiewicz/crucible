@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Giant Octopus
+ailife=20
+aibattlefield=Gigantosaurus|Damage:3

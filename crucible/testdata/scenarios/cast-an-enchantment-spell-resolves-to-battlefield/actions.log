@@ -1,0 +1,11 @@
+# A non-Aura Enchantment ({1}{W}{W}, Story Circle) is castableAsPermanent the
+# same as a creature or artifact -- only Aura is excluded (castspell.go's own
+# comment on why: it needs a cast-time target this port cannot ask for).
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+queue paygeneric W
+castspell human 1
+resolvestack

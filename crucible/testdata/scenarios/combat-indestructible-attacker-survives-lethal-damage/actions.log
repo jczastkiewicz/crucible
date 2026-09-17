@@ -1,0 +1,17 @@
+# CR 702.12b/704.5g: Indestructible skips destroyDamagedCreatures entirely
+# (action.go's own !c.HasKeyword("Indestructible") guard), so Spearbreaker
+# Behemoth (5/5, Indestructible) survives Craw Giant's 6 power -- well past
+# its own 5 toughness -- with the damage still marked. Behemoth's own 5
+# power is exactly lethal to the Giant's 4 toughness, no indestructibility
+# to save it.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

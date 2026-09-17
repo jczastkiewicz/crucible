@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Highland Giant
+ailife=20
+aibattlefield=Hollowhenge Beast|Damage:3

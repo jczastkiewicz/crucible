@@ -625,8 +625,8 @@ printed form.
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin, but with real
     content for one shape now** — `stack.go` is still push/resolve only, no simultaneous-trigger ordering, no
     replacement-effect system, but `Game.CastSpell` (`castspell.go`) is a real (non-test) `PushAbility`/`ResolveStack`
-    caller: CR 601 trimmed to a permanent spell that is not an Aura (no targeting or modes to ask for), paying its
-    cost via `PayManaCost` and firing `SpellCast`. `permanentEffect` resolves it — CR 608.2m/608.3g's own
+    caller: CR 601 trimmed to a permanent spell that is not an Aura (no targeting or modes to ask for), paying its cost
+    via `PayManaCost` and firing `SpellCast`. `permanentEffect` resolves it — CR 608.2m/608.3g's own
     `PermanentEffect.java`, stripped of Dash/Blitz/Warp/Sneak and trigger-firing this port cannot support — registered
     for both `APIPermanentCreature` and `APIPermanentNoncreature` since this port has no stack-description system to
     need Java's own subclass split for.
@@ -655,9 +655,15 @@ printed form.
     `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by `cleanupStep`. The first card
     this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
     directly.
-29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 37 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
-    reached.**
+29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
+    harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
+    mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
+    against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each non-Aura
+    permanent type), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario suite
+    green (met) on ≥300 fixtures covering every step transition, every layer, every SBA (Plan Section 3.2). The count
+    and the step-transition/SBA breadth are met; "every layer" is not, since there is no layer system past
+    power/toughness folding for a fixture to exercise, and no trigger/replacement-effect content either. **Partially
+    reached** — blocked on the rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

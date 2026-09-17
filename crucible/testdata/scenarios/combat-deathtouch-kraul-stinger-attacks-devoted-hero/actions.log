@@ -1,0 +1,18 @@
+# CR 702.2b: Kraul Stinger (2/2, Deathtouch) attacks; Devoted
+# Hero (1/2, no keywords) blocks. Any nonzero deathtouch damage is
+# lethal regardless of toughness (destroyDamagedCreatures,
+# action.go), so Hero always dies here even though its 2 toughness
+# would survive Kraul Stinger's own 2 power without the keyword.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged creature(s) to the graveyard.
+advance

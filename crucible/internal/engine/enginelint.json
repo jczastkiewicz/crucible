@@ -52,6 +52,6 @@
     "manapay": ["id", "game", "player", "control", "event"],
     "manaability": ["id", "zone", "card", "game", "player"],
     "land": ["id", "zone", "card", "game", "player", "phase"],
-    "castspell": ["id", "zone", "card", "game", "phase", "ability", "effect", "manapay", "control"]
+    "castspell": ["id", "zone", "card", "game", "phase", "ability", "effect", "manapay", "control", "event"]
   }
 }

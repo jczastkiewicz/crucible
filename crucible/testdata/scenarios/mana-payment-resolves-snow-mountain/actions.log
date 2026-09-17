@@ -1,0 +1,6 @@
+# CR 106.3a: Snow-Covered Mountain produces snow R, not plain R --
+# mana-payment-resolves-snow already proves this for Snow-Covered Plains;
+# here for Snow-Covered Mountain, a snow requirement (queue paysnow) rather than a plain one.
+tapformana human 1 R
+queue paysnow R
+paymanacost human S

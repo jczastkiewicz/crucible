@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Jwari Scuttler
+ailife=20
+aibattlefield=Kalonian Tusker|Damage:2

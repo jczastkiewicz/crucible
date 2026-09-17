@@ -1,0 +1,17 @@
+# Corpus-diversity single-block combat: Horned Turtle (1/4) attacks,
+# Hulking Devil (5/2) blocks -- vanilla stats, no keywords, the attacker dies (5 >= 4 toughness), the blocker survives.
+# CR 510.1b: a single live blocker exchanges full power for full power
+# automatically, no decision needed (dealAttackerDamage, combatdamage.go).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged creature(s) to the graveyard.
+advance

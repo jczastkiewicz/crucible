@@ -267,13 +267,15 @@ func destroyDamagedCreatures(g *Game) {
 // Card.Counters.Count(Loyalty) directly rather than calling a "current
 // loyalty" accessor that would just be that same call one level removed.
 //
-// Nothing yet puts a starting loyalty counter on a planeswalker when it
-// enters the battlefield (CR 121.5): Move has no ETB hook for any
-// permanent's starting counters today, the same gap "Move carries what
-// Java gets for free" already documents for triggers and replacement
-// effects. A fixture or a test sets Loyalty counters directly until that
-// lands -- this SBA is real and correct against whatever count is there,
-// however it got there.
+// Move itself puts a starting loyalty counter on a planeswalker that enters
+// the battlefield through real play (CR 121.5, Game.Move's own doc
+// comment) -- CastSpell/PlayLand-driven entries get it for free. A
+// permanent placed directly by setup.state (Game.NewCard) does not, the
+// same "exactly what the fixture says" contract NewCard's own doc comment
+// gives every other battlefield-entry field -- a fixture naming a
+// planeswalker there still sets Counters:LOYALTY= itself if it wants one.
+// Either way, this SBA is real and correct against whatever count is on
+// the card, however it got there.
 //
 // Candidates are collected before Move runs, the same reason
 // destroyLethalToughness and cleanupDanglingAttachments do.
@@ -308,8 +310,10 @@ func destroyZeroLoyalty(g *Game) {
 //
 // Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
 // doc comment): entering the battlefield with printed-defense-many Defense
-// counters is CR 704.5v's own prerequisite, and this port has no ETB hook
-// for that yet either (destroyZeroLoyalty's own doc comment, same gap).
+// counters is CR 704.5v's own prerequisite, and Move sets exactly that on
+// real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
+// comment) -- a setup.state-placed Battle still needs its own explicit
+// Counters:DEFENSE= if it wants one.
 //
 // assignBattleProtector is CR 704.5w/704.5x, checked (and, per Java's own
 // combined stateBasedAction_Battle, applied) before destroyZeroDefense
@@ -385,8 +389,10 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 //
 // Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
 // doc comment): entering the battlefield with printed-defense-many Defense
-// counters is CR 704.5v's own prerequisite, and this port has no ETB hook
-// for that yet either (destroyZeroLoyalty's own doc comment, same gap).
+// counters is CR 704.5v's own prerequisite, and Move sets exactly that on
+// real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
+// comment) -- a setup.state-placed Battle still needs its own explicit
+// Counters:DEFENSE= if it wants one.
 func destroyZeroDefense(g *Game) {
 	var dead []CardID
 	for _, pid := range g.Players() {

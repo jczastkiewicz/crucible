@@ -1,0 +1,18 @@
+# Two attackers in the same combat, only one of them blocked: Grizzly Bears
+# (2/2) and Silvercoat Lion (2/2) both attack ai, whose lone Hill Giant
+# (3/3) blocks only the Bears -- the Lion goes through unblocked. Each
+# attacker's own exchange in dealCombatDamageStep is independent (keyed by
+# attacker, combatdamage.go's own per-attacker loop), so the Lion hitting ai
+# directly and the Bears trading with the Giant are two separate outcomes in
+# the same damage step, not a single combined one.
+startturn human
+advance 5
+queue attackers 1,2
+declareattackers
+advance
+queue blocks 3=1
+declareblockers
+advance
+advance
+combatdamage
+advance

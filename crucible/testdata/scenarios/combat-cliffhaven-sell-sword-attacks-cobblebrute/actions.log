@@ -1,0 +1,17 @@
+# Corpus-diversity single-block combat: Cliffhaven Sell-Sword (3/1) attacks,
+# Cobblebrute (5/2) blocks -- vanilla stats, no keywords, both die (a mutual trade).
+# CR 510.1b: a single live blocker exchanges full power for full power
+# automatically, no decision needed (dealAttackerDamage, combatdamage.go).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged creature(s) to the graveyard.
+advance

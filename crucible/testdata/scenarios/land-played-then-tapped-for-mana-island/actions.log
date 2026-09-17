@@ -1,0 +1,9 @@
+# CR 305: playing a Island the same shape land-played-then-tapped-for-mana
+# already proves for Plains -- one per turn, immediately usable for its own
+# intrinsic mana ability the same turn (CR 302.6 does not restrict a land's
+# own mana ability, only a creature's tap ability).
+startturn human
+advance 3
+playland human 1
+tapformana human 1 U
+paymanacost human U

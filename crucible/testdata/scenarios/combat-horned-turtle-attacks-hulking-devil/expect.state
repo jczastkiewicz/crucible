@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Horned Turtle
+ailife=20
+aibattlefield=Hulking Devil|Damage:1

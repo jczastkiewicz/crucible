@@ -1,0 +1,16 @@
+# The blocker's own Indestructible instead of the attacker's: Spearbreaker
+# Behemoth (5/5) blocks Craw Wurm (6/4) and takes 6 damage -- past its 5
+# toughness, ordinary-lethal without the keyword -- and survives anyway.
+# The Behemoth's own 5 power is still exactly lethal to the Wurm's 4
+# toughness back.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

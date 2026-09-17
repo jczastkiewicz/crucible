@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Curio Vendor
+ailife=20
+aigraveyard=Cyclops of One-Eyed Pass

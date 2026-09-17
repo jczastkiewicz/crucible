@@ -1,0 +1,15 @@
+# CR 510.4: Viashino Spearhunter (2/1, First Strike) attacks; Devoted
+# Hero (1/2, no keywords) blocks -- the same shape
+# combat-first-strike-prevents-return-damage already proves, run again
+# against a different corpus attacker.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

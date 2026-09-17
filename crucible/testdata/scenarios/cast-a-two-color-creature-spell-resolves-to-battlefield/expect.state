@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Forest|Tapped;Forest|Tapped;Forest|Tapped;Plains|Tapped;Plains|Tapped;Armored Wolf-Rider|SummonSick
+ailife=20

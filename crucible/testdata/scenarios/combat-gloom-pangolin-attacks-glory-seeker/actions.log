@@ -1,0 +1,14 @@
+# Corpus-diversity single-block combat: Gloom Pangolin (1/5) attacks,
+# Glory Seeker (2/2) blocks -- vanilla stats, no keywords, neither dies.
+# CR 510.1b: a single live blocker exchanges full power for full power
+# automatically, no decision needed (dealAttackerDamage, combatdamage.go).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage

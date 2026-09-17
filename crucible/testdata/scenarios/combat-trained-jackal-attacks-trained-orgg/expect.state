@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Trained Jackal
+ailife=20
+aibattlefield=Trained Orgg|Damage:1

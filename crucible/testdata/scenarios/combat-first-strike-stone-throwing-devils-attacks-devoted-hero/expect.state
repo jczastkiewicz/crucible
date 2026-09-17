@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Stone-Throwing Devils
+ailife=20
+aibattlefield=Devoted Hero|Damage:1

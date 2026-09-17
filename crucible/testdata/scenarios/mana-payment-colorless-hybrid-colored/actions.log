@@ -1,0 +1,5 @@
+# CR 601.2h: a colourless hybrid shard ({C/W}) paid on its coloured side --
+# ChoosePayColorlessHybrid true, manapay.go -- spends a white mana from the
+# pool rather than a colourless one.
+queue paycolorlesshybrid true
+paymanacost human C/W

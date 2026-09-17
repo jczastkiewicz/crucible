@@ -1,0 +1,13 @@
+# A Planeswalker ({1}{U}{U}, Narset, Parter of Veils, 5 loyalty) resolves the
+# same way a creature does: permanentEffect's Move to Battlefield already
+# grants the entering loyalty counters (Game.Move's own ETB handling,
+# game-state.md) regardless of what pushed the card there -- CastSpell is
+# just its first caller that is not setup.state placing it directly.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+castspell human 1
+resolvestack

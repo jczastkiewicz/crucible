@@ -1,0 +1,12 @@
+# CR 601 on a noncreature permanent: Millstone ({2}, Artifact) routes through
+# APIPermanentNoncreature rather than APIPermanentCreature (CastSpell picks
+# the API off Card.Type, castspell.go) -- permanentEffect does not care which
+# one named it, so the resolution is identical either way.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack

@@ -2,8 +2,11 @@
 # soon as any state-based-action check runs -- CR 704.5w, assignBattleProtector
 # -- and StartTurn's own Untap-step beginPhase is the first one, so no
 # advance is needed to reach it. Defense is set directly in setup.state:
-# nothing puts a Battle's printed starting defense on it yet (CR 704.5v's
-# own ETB gap, game-state.md), so without it the Battle would die to zero
-# defense before this scenario ever got to observe its protector.
+# Move grants a Battle's printed starting defense on a real zone change
+# (cast-a-battle-spell-resolves-to-battlefield is that case), but placing a
+# card directly via setup.state (Game.NewCard) is exactly what the fixture
+# says and nothing more, so without an explicit Counters:DEFENSE= here the
+# Battle would die to zero defense before this scenario ever got to observe
+# its protector.
 queue battleprotector ai
 startturn human

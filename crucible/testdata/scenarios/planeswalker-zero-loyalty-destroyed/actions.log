@@ -1,0 +1,8 @@
+# CR 704.5: destroyZeroLoyalty is battle-zero-defense-destroyed's own
+# counterpart for a planeswalker -- a planeswalker at zero or less loyalty
+# goes to its owner's graveyard, checked at every state-based-action pass.
+# StartTurn's own Untap-step beginPhase is the first one, so no advance is
+# needed to reach it. LOYALTY=0 is set directly here since this places the
+# card by setup.state (Game.NewCard), not through a real cast that would
+# have given it its printed 5 loyalty via Move.
+startturn human

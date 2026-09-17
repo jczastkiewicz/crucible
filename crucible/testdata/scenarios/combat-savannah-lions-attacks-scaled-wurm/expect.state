@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Savannah Lions
+ailife=20
+aibattlefield=Scaled Wurm|Damage:2

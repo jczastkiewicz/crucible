@@ -1,0 +1,6 @@
+# The same {B/G/P} shard paid with its other colour instead --
+# ChoosePayHybridPhyrexian answering green -- proving the choice is not
+# fixed to the first-named colour the way a careless implementation reading
+# only s.Colors()'s first bit might get away with against color1 alone.
+queue payhybridphyrexian G
+paymanacost human B/G/P

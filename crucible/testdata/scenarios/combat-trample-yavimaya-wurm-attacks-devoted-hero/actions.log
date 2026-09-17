@@ -1,0 +1,18 @@
+# CR 702.19: Yavimaya Wurm (6/4, Trample) attacks; Devoted Hero
+# (1/2, no keywords) blocks. lethalDamage caps what has to reach the
+# blocker at 2 (its own toughness, no deathtouch here), and the
+# remaining 4 tramples over to the defending player -- CR 702.19b
+# (combatdamage.go's own dealAttackerDamage).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged creature(s) to the graveyard.
+advance

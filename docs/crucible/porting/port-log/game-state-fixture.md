@@ -134,6 +134,8 @@ queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated 
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID
 playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID
+castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID
+resolvestack                  Game.ResolveStack(NewRegistry(), controller), no arguments
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -228,6 +230,18 @@ card between zones at all before this. `land-played-then-tapped-for-mana` is the
 `playland` puts it on the battlefield, and `tapformana` taps it for mana the same turn — proving `TapLandForMana` has no
 summoning-sickness check to get in the way, since CR 302.6 restricts a creature's own tap ability, not a land's mana
 ability.
+
+`castspell` and `resolvestack` are `Game.CastSpell`/`Game.ResolveStack` (CR 601, `game-state.md`'s "Casting a spell
+needed the stack for real, for the first time"), the first verbs to drive the stack at all. `castspell <player> <id>`
+takes the same `<id>`-resolved-through-`Loaded.CardByFixtureID` shape as `playland`; its `bool` return is not asserted,
+the same "declined by the rules" convention every other bool-returning verb already carries. `resolvestack` is the one
+exception to that convention in the whole file: it takes no arguments, and `RunActions` does not discard its `error` the
+way it discards every bool — `Registry.Resolve`'s `ErrUnimplemented` is a real gap (GO-7), not a declined decision, so a
+fixture that pops an API this port cannot yet resolve fails loudly instead of silently doing nothing.
+`cast-a-creature-spell-resolves-to-battlefield` is the fixture: a real Grizzly Bears cast with mana tapped from two real
+Forests (`manapool=` cannot be used here either, the same CR 500.4 reason `tapformana`'s own fixtures already worked
+around — `emptyManaPools` wipes any preloaded pool the moment the first `startturn`/`advance` call runs `beginPhase`, so
+the lands are tapped mid-scenario, after reaching `Main1`, not preloaded at `setup.state` time).
 
 `queue payx` is a bare `strconv.Atoi`, the plainest parser of the whole file — `ChoosePayX`'s own answer is just an
 `int`, no shard or color vocabulary involved. It is asked once per cost, not once per `{X}` symbol, so a cost with two
@@ -370,6 +384,44 @@ not the `Loyalty` branch a planeswalker target already exercises; needs `queue b
 protector leaves `assignBattleProtector`'s `selfProtector` case true, asking again on every later state-based-action
 check instead of staying answered).
 
+**Closing the P4 fixture-count floor (Plan Section 3.2's ≥300) added 305 more, all against real corpus cards, none
+synthetic.** Every mechanic exercised was already proven by an existing fixture or Go unit test — this pass is corpus
+_breadth_, the same reasoning `TestScenarios` runs against the real 33,697-card corpus at all rather than a synthetic
+three-card `compile.DB`: a differential harness meant to run against the Java oracle needs real cards moving through it,
+not just one representative example per rule. By category: single-block combat trades across ~140 distinct vanilla
+creatures (`combat-<attacker>-attacks-<blocker>`, outcome — kills-attacker, kills-blocker, mutual trade, or neither —
+computed from each pair's own printed power/toughness, no keyword involved); the same shape again for every creature
+carrying a solo Vigilance, First Strike or Deathtouch keyword, each against a fresh corpus attacker or a fixed Devoted
+Hero blocker (`combat-vigilance-*`, `combat-first-strike-*-attacks-devoted-hero`,
+`combat-deathtouch-*-attacks-devoted-hero`); every solo-Trample creature in the corpus against that same Devoted Hero,
+proving `lethalDamage`'s own toughness cap and trample-excess split across a real spread of power values
+(`combat-trample-*-attacks-devoted-hero`); every mana-payment branch this port resolves but a fixture had not yet
+reached — both sides of colourless hybrid, monocoloured hybrid, single-colour Phyrexian, and both named colours of a
+hybrid Phyrexian shard (`mana-payment-colorless-hybrid-*`, `mana-payment-monocolored-hybrid-colored`,
+`mana-payment-phyrexian-*`, `mana-payment-hybrid-phyrexian-color*`); `TapLandForMana` and `PlayLand` against every basic
+land color and its snow-covered printing, not just Plains (`mana-payment-tap-<color>-for-mana`,
+`mana-payment-resolves-snow-<color>`, `land-played-then-tapped-for-mana-<color>`); `CastSpell` against a non-Aura
+permanent of every type this port can cast — artifact, enchantment, planeswalker, Battle, and a two-colour-cost creature
+— not only the one creature example that landed with `castspell.go` itself
+(`cast-an-artifact-spell-resolves-to-battlefield`, `cast-an-enchantment-spell-resolves-to-battlefield`,
+`cast-a-planeswalker-spell-resolves-to-battlefield`, `cast-a-battle-spell-resolves-to-battlefield`,
+`cast-a-two-color-creature-spell-resolves-to-battlefield`); a handful of state-based-action and win-condition corners
+with no fixture yet — a planeswalker at zero loyalty (`planeswalker-zero-loyalty-destroyed`, `destroyZeroLoyalty`'s own
+counterpart to `battle-zero-defense-destroyed`), three Worlds instead of two (`world-rule-three-copies-keeps-newest`), a
+-1/-1-counter-only kill with no damage involved (`counters-minus-one-reduces-toughness-to-zero-destroyed`), an Aura
+whose host dies mid-game rather than being illegal from the start (`aura-falls-off-when-host-dies-sent-to-graveyard`),
+life below (not just at) zero, nine poison counters surviving where ten would not, and one player's elimination not
+ending a three-player game (`life-loss-below-zero-also-loses`, `poison-nine-survives`,
+`life-loss-eliminates-one-player-game-continues`); a second consecutive London mulligan, proving `londonTuckCount`'s
+cost escalates rather than repeating (`mulligan-twice-tucks-cumulative`); and `PlayLand`'s own one-per-turn limit and
+`cleanupStep`'s roll-forward, at the scenario level rather than only `land_test.go`'s unit level
+(`land-play-limit-one-per-turn`, `cleanup-resets-lands-played-for-next-turn`). Two long-stale doc comments came out of
+writing these: `destroyZeroLoyalty`/`destroyZeroDefense` (`action.go`) and two existing fixtures'
+(`battle-protector-assigned-to-opponent`, `battle-zero-defense-destroyed`) own comments still said nothing granted a
+planeswalker or Battle its starting counters, which stopped being true once `Move` gained that ETB handling
+(`game-state.md`'s "Loyalty is not a layer" section) — fixed in place rather than left to mislead the next reader
+(DOC-16).
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |
@@ -402,5 +454,5 @@ check instead of staying answered).
 | Player-level `PersistentMana:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:`/`LandsPlayedLastTurn:` (`Player.LandsPlayed`/`LandsPlayedLastTurn`, since `PlayLand`) are all applied now                                                                                                                                                                                              | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
-| `actions.log` verbs for casting or targeting — nothing downstream of `ScriptedController` can answer those decisions yet either. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`) and playing a land (`playland` — not casting a spell at all, CR 305.1) have verbs                                                                                                                                                                                                                                   | M5-M6                                  |
+| `actions.log` verbs for targeting, or for casting anything an Aura/instant/sorcery needs — nothing downstream of `ScriptedController` can answer a targeting decision yet. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`), playing a land (`playland` — not casting a spell at all, CR 305.1) and casting/resolving a non-Aura permanent spell (`castspell`/`resolvestack`) have verbs                                                                                                              | M5-M6                                  |
 | `expect.events` — the Plan's own fixture shape names it (Section 3.5) alongside `setup.state`/`actions.log`/`expect.state`, but `TestScenarios` (`internal/engine/scenario_test.go`) never reads a fourth file: `runScenario` loads only `setup.state` and `expect.state` and calls `compareGames`, which does not touch `Game`'s event sink at all. A fixture proving `LifeChanged`/`CounterChanged` actually fired (not just that life or a counter ended up at the right number) has nowhere to assert that yet                                                                        | M5-M6                                  |

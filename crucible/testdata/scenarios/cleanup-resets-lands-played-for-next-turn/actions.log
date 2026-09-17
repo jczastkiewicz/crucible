@@ -1,0 +1,10 @@
+# CR 500.4's own "every player" scope, land.go's cleanupStep extension: once
+# Cleanup actually runs (Main1 -> ... -> Cleanup, 9 more advances), this
+# turn's LandsPlayed rolls into LandsPlayedLastTurn and resets to zero,
+# ready for a land to be played again once a future turn reaches Main1 --
+# TestCleanupResetsLandsPlayedForEveryPlayer (land_test.go) is the unit-level
+# version of the same rule; this is its scenario-level counterpart.
+startturn human
+advance 3
+playland human 1
+advance 9

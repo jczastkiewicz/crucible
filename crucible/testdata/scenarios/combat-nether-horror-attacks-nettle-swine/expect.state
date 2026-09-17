@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Nether Horror
+ailife=20
+aigraveyard=Nettle Swine

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Wild Ceratok
+ailife=20
+aigraveyard=Wild Jhovall

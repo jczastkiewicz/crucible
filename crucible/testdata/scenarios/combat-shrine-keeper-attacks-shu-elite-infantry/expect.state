@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Shrine Keeper
+ailife=20
+aibattlefield=Shu Elite Infantry|Damage:2

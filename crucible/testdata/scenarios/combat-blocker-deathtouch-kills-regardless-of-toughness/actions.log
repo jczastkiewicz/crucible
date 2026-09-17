@@ -1,0 +1,19 @@
+# The mirror of combat-deathtouch-kills-regardless-of-toughness: there the
+# ATTACKER had deathtouch; here the BLOCKER does. Craw Wurm (6/4, no
+# keywords) attacks; Typhoid Rats (1/1, Deathtouch) blocks. dealPermanentDamage
+# marks the deathtouch flag off whichever side dealt the damage, not off
+# being the attacker specifically (combatdamage.go's own
+# blk.HasKeyword("Deathtouch") check), so the Rats' single point of damage
+# is lethal to the Wurm's 4 toughness regardless. The Wurm's 6 damage back
+# is ordinary-lethal to the Rats' own 1 toughness regardless.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

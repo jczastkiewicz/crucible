@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Kyoshi Warrior Guard
+ailife=20
+aibattlefield=Lagac Lizard|Damage:2

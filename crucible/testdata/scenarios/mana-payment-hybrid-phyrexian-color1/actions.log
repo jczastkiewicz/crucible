@@ -1,0 +1,6 @@
+# CR 118.4/601.2h: a hybrid Phyrexian shard ({B/G/P}) paid with its first
+# colour -- ChoosePayHybridPhyrexian answering a nonzero mana.Colors instead
+# of the zero one mana-payment-hybrid-phyrexian-life's own "life" answer
+# means -- spends black mana, no life.
+queue payhybridphyrexian B
+paymanacost human B/G/P

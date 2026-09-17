@@ -1,0 +1,5 @@
+# CR 305.6's intrinsic basic land mana ability, the same shape
+# mana-payment-tap-land-for-mana already proves for Plains -- here for
+# Mountain, taken to R instead.
+tapformana human 1 R
+paymanacost human R

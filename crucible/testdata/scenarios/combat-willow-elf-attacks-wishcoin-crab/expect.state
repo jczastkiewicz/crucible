@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Willow Elf
+ailife=20
+aibattlefield=Wishcoin Crab|Damage:1

@@ -1,0 +1,15 @@
+# Neither combat-single-block-kills-attacker nor
+# combat-single-block-kills-blocker covers an even trade: two vanilla
+# Silvercoat Lions (2/2) block each other and both take exactly lethal
+# damage -- both die to the same state-based-action check.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

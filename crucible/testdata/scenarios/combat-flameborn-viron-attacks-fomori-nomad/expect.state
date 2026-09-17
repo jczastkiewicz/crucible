@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Flameborn Viron
+ailife=20
+aigraveyard=Fomori Nomad

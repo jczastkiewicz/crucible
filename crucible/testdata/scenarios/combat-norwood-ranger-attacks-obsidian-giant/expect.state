@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Norwood Ranger
+ailife=20
+aibattlefield=Obsidian Giant|Damage:1

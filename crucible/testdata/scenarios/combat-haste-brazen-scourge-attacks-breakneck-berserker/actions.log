@@ -1,0 +1,18 @@
+# Corpus-diversity single-block combat, both sides carrying Haste (which
+# affects only summoning-sickness eligibility, not the damage exchange
+# itself -- attack.go's own eligibility check, not combatdamage.go):
+# Brazen Scourge (3/3) attacks, Breakneck Berserker (3/2) blocks,
+# both die (a mutual trade).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged creature(s) to the graveyard.
+advance

@@ -1,0 +1,7 @@
+# CR 104.2a/104.3a: eliminating one player in a game with more than two
+# seated does not end it -- CheckStateBasedActions' own switch on how many
+# players are left unLost only sets g.over for exactly one remaining
+# (a winner) or zero (a draw); two or more left standing falls through
+# leaving the game running (action.go). human loses to zero life; ai and p2
+# both continue.
+startturn human

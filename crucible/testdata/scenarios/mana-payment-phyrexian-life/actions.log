@@ -1,0 +1,5 @@
+# CR 118.4/601.2h: the same single-colour Phyrexian shard ({W/P}) declined in
+# favor of life -- ChoosePayPhyrexian false -- costs 2 life and spends no
+# mana at all; no pool is even set up here.
+queue payphyrexian false
+paymanacost human W/P

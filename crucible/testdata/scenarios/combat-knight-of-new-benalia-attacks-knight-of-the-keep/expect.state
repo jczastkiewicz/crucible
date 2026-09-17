@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Knight of New Benalia
+ailife=20
+aigraveyard=Knight of the Keep

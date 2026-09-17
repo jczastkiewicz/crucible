@@ -1,0 +1,6 @@
+# CR 601.2h: a monocoloured hybrid shard ({2/W}) paid on its coloured side --
+# ChoosePayMonocoloredHybrid true -- spends exactly one white mana, not the
+# two generic mana-payment-monocolored-hybrid-generic's own false branch asks
+# for instead.
+queue paymonocoloredhybrid true
+paymanacost human 2/W

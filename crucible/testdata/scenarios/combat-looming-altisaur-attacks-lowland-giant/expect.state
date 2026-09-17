@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=20
+humanbattlefield=Looming Altisaur|Tapped|Damage:4
+ailife=20
+aibattlefield=Lowland Giant|Damage:1

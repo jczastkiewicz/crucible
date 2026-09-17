@@ -1,0 +1,4 @@
+# The complement of poison-loss: CR 704.5c's threshold is ten poison
+# counters, not nine or more in general -- p.Counters.Count(Poison) >= 10
+# (action.go) leaves a player at nine untouched, the game continues.
+startturn human

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Forest|Tapped;Forest|Tapped;Invasion of Belenon|SummonSick|Protector:ai|Counters:DEFENSE=5
+ailife=20

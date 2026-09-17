@@ -1,0 +1,6 @@
+# CR 106.3a: Snow-Covered Forest produces snow G, not plain G --
+# mana-payment-resolves-snow already proves this for Snow-Covered Plains;
+# here for Snow-Covered Forest, a snow requirement (queue paysnow) rather than a plain one.
+tapformana human 1 G
+queue paysnow G
+paymanacost human S

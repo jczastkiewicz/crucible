@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Warship Scout
+ailife=20
+aibattlefield=Watchwolf|Damage:2

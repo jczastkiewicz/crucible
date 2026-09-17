@@ -1,0 +1,18 @@
+# Indestructible skips destroyDamagedCreatures' deathtouch branch exactly
+# the same way it skips the toughness one (action.go's guard runs before
+# either check) -- CR 702.2c's "any nonzero deathtouch damage is lethal"
+# never gets the chance to apply. Spearbreaker Behemoth (5/5, Indestructible)
+# blocks Typhoid Rats (1/1, Deathtouch) and survives its single point of
+# deathtouch damage; the Behemoth's own 5 power is ordinary-lethal to the
+# Rats' 1 toughness regardless.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

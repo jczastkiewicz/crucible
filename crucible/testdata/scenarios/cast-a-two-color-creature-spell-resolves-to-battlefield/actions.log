@@ -1,0 +1,18 @@
+# CastSpell's own PayManaCost call handles a two-colour cost the same as
+# paymanacost always has -- Armored Wolf-Rider ({3}{G}{W}) auto-pays its one
+# green and one white pip straight from the pool (Pool.Pay's own colour
+# matching), leaving three mana (2 green, 1 white) to answer the generic
+# amount through queue paygeneric, same as every other CastSpell fixture's
+# single-colour cost.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 W
+tapformana human 6 W
+queue paygeneric G
+queue paygeneric G
+queue paygeneric W
+castspell human 1
+resolvestack

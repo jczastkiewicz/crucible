@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Garruk's Gorehorn
+ailife=20
+aigraveyard=Giant Cockroach

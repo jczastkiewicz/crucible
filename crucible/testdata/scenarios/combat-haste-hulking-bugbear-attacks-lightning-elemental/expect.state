@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Hulking Bugbear
+ailife=20
+aigraveyard=Lightning Elemental

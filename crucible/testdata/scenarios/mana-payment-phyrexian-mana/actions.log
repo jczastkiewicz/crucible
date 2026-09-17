@@ -1,0 +1,5 @@
+# CR 118.4/601.2h: a single-colour Phyrexian shard ({W/P}) paid with the
+# mana itself -- ChoosePayPhyrexian true -- costs no life at all, unlike
+# mana-payment-phyrexian-life's own false branch.
+queue payphyrexian true
+paymanacost human W/P

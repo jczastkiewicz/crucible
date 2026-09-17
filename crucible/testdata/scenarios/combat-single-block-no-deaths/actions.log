@@ -1,0 +1,15 @@
+# Every other single-block fixture kills at least one side; this is the
+# plain case where neither creature's damage reaches the other's toughness
+# at all. Two vanilla Devoted Heroes (1/2) block each other: each deals 1,
+# short of the other's 2 toughness -- both survive, damage marked but no
+# state-based action moves either to the graveyard.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage

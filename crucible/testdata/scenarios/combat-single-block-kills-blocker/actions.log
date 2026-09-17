@@ -1,0 +1,15 @@
+# The complement of combat-single-block-kills-attacker (attacker bigger,
+# not blocker bigger): Hill Giant (3/3) attacks; Silvercoat Lion (2/2)
+# blocks. The Giant's 3 damage is lethal to the Lion's 2 toughness; the
+# Lion's 2 damage back is short of the Giant's 3, which survives.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

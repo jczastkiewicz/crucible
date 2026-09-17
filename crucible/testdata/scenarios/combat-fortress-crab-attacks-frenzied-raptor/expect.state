@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=20
+humanbattlefield=Fortress Crab|Tapped|Damage:4
+ailife=20
+aibattlefield=Frenzied Raptor|Damage:1

@@ -1,0 +1,8 @@
+# CR 704.5f, destroyLethalToughness -- distinct from destroyDamagedCreatures
+# (combat-single-block-kills-attacker and friends): Grizzly Bears (2/2) with
+# two -1/-1 counters folds to 0/0 through Layer 7 (Card.Toughness, pt.go),
+# no damage marked at all, and dies to the zero-toughness check rather than
+# the lethal-damage one. counters-annihilate-plus-minus already proves the
+# counter arithmetic; this proves what happens when nothing is left to
+# annihilate against.
+startturn human

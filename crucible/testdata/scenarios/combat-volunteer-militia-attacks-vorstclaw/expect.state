@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Volunteer Militia
+ailife=20
+aibattlefield=Vorstclaw|Damage:1

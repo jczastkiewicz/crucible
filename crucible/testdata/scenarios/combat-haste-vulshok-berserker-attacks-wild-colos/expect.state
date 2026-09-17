@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Vulshok Berserker
+ailife=20
+aigraveyard=Wild Colos

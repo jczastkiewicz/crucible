@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Gray Ogre
+ailife=20
+aibattlefield=Great Hart|Damage:2

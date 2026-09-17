@@ -168,9 +168,9 @@ allowlist empty, golden AST diff clean.
 
 M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerController` (eleven decision methods) with
 `ScriptedController`; `GameState` fixture load/dump, byte-identical round-trip (`internal/fixture`); event schema v1
-(ADR-0013). Effect dispatch scaffolding (`Effect`/`Registry`, ADR-0011, ADR-0003 puts them in `internal/engine`)
-landed holding zero implementations — M5's own `permanentEffect` (below) is the first two, but the 203 script-driven
-APIs in corpus-frequency order are still M6's job, not M4's or M5's.
+(ADR-0013). Effect dispatch scaffolding (`Effect`/`Registry`, ADR-0011, ADR-0003 puts them in `internal/engine`) landed
+holding zero implementations — M5's own `permanentEffect` (below) is the first two, but the 203 script-driven APIs in
+corpus-frequency order are still M6's job, not M4's or M5's.
 
 M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`), including CR 511.3's end
 of combat cleanup (`endCombat`, wired as `CombatEnd`'s step body — real bookkeeping, needs none of the stack/triggers
@@ -200,13 +200,17 @@ supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-t
 (`land.go`), CR 305 — playing a land is not casting a spell, no cost and no stack, sorcery-speed timing collapsed to
 active player, a main phase and an empty stack, one per turn via the new `Player.LandsPlayed`/`LandsPlayedLastTurn`
 fields (`cleanupStep` rolls them forward for every player each turn, CR 500.4's own "every player" scope);
-`Game.CastSpell` (`castspell.go`), CR 601 trimmed to a permanent spell that is not an Aura — the one shape with
-nothing left to decide at cast time (no targeting, no modes) — paying its cost via `PayManaCost`, pushing it onto the
-stack (CR 405.2), and firing `SpellCast`; `permanentEffect`, the first two real `Registry` entries
+`Game.CastSpell` (`castspell.go`), CR 601 trimmed to a permanent spell that is not an Aura — the one shape with nothing
+left to decide at cast time (no targeting, no modes) — paying its cost via `PayManaCost`, pushing it onto the stack (CR
+405.2), and firing `SpellCast`; `permanentEffect`, the first two real `Registry` entries
 (`APIPermanentCreature`/`APIPermanentNoncreature`), resolving a cast permanent onto the battlefield the same fixed-CR-
-rule way `TapLandForMana` resolves a land's own mana ability, not a corpus-frequency M6 implementation. Thin or
-missing: the stack holds real content for this one shape only — no simultaneous-trigger ordering, no replacement
-effects, nothing else pushes onto it yet; the layer system is the CR 613 layer _numbers_ plus power/toughness folding
-only, not types/colors/abilities; `CounterDetail` has no case for a script-written counter name, unreachable until a
-`SpellAbility` can create one (M6). **P4 exit gate (scenario-parity harness, ≥300 fixtures) not met:** 37 fixtures
-exist today (`testdata/scenarios/`).
+rule way `TapLandForMana` resolves a land's own mana ability, not a corpus-frequency M6 implementation. Thin or missing:
+the stack holds real content for this one shape only — no simultaneous-trigger ordering, no replacement effects, nothing
+else pushes onto it yet; the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not
+types/colors/abilities; `CounterDetail` has no case for a script-written counter name, unreachable until a
+`SpellAbility` can create one (M6). **P4 exit gate's fixture-count half met:** 342 scenarios exist today
+(`testdata/scenarios/`), past the ≥300 floor — mostly combat and mana-payment breadth across the real corpus
+(single-block trades, Vigilance/Haste/First Strike/Deathtouch/Trample against fresh cards, every mana-payment hybrid and
+Phyrexian branch, every basic land color, casting each non-Aura permanent type). The gate's other half is qualitative —
+"covering every step transition, every layer, every SBA" (Plan Section 3.2) — and is not: there is no layer system to
+cover past power/toughness, and no trigger/replacement-effect content for a fixture to exercise yet.

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=0
+humanlost=true
+ailife=20
+p2life=20

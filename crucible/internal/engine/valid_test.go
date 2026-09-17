@@ -121,6 +121,37 @@ func TestMatchesMultiColor(t *testing.T) {
 	}
 }
 
+// TestMatchesSharesColorWith proves the bare SharesColorWith property
+// (staticability.go's Intimidate synthesis is its real caller): source's own
+// color, not sourceController's, is what c is compared against, and a
+// colorless c never shares a color with anything.
+func TestMatchesSharesColorWith(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	source := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+	sameColor := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+	offColor := g.NewCard(creatureDefManaCost(t, "U"), p, engine.Battlefield)
+	colorless := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Battlefield)
+
+	if !engine.Matches(g, g.Card(sameColor), valid.Parse("Creature.SharesColorWith"), p, source) {
+		t.Error("a same-color creature did not match Creature.SharesColorWith")
+	}
+	if engine.Matches(g, g.Card(offColor), valid.Parse("Creature.SharesColorWith"), p, source) {
+		t.Error("an off-color creature matched Creature.SharesColorWith")
+	}
+	if engine.Matches(g, g.Card(colorless), valid.Parse("Creature.SharesColorWith"), p, source) {
+		t.Error("a colorless creature matched Creature.SharesColorWith")
+	}
+	if engine.Matches(g, g.Card(sameColor), valid.Parse("Creature.!SharesColorWith"), p, source) {
+		t.Error("a same-color creature matched Creature.!SharesColorWith")
+	}
+	if !engine.Matches(g, g.Card(offColor), valid.Parse("Creature.!SharesColorWith"), p, source) {
+		t.Error("an off-color creature did not match Creature.!SharesColorWith")
+	}
+}
+
 // YouDontCtrl is YouCtrl's simple negation.
 func TestMatchesYouDontCtrl(t *testing.T) {
 	t.Parallel()

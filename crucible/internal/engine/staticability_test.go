@@ -8,6 +8,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // TestCanBlockFlyingAttackerNeedsFlyingOrReach proves the Flying keyword's
@@ -82,6 +83,58 @@ func TestCanBlockFearAttacker(t *testing.T) {
 	}
 	if g.CanBlock(attacker, plainBlocker) {
 		t.Error("CanBlock(fear attacker, plain nonartifact blocker) = true, want false")
+	}
+}
+
+// TestCanBlockIntimidateAttacker proves the Intimidate keyword's own
+// CantBlockBy synthesis ("ValidBlocker$ Creature.nonArtifact+!SharesColorWith",
+// CardFactoryUtil.java:3940) end to end: an artifact creature can still block
+// (nonArtifact fails, same as Fear), a nonartifact creature sharing the
+// attacker's own color can still block (!SharesColorWith fails), and a
+// nonartifact creature of a different color cannot -- the new SharesColorWith
+// property (valid.go) exercised by a real caller for the first time.
+func TestCanBlockIntimidateAttacker(t *testing.T) {
+	t.Parallel()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\nGolem\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+
+	attackerDef := &compile.Card{Name: "Test Intimidate Attacker"}
+	attackerDef.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	attackerDef.Faces[0].Power, attackerDef.Faces[0].Toughness = "2", "2"
+	attackerDef.Faces[0].Keywords = []string{"Intimidate"}
+	attackerDef.Faces[0].ManaCost = mana.MustParse("R")
+	attacker := g.NewCard(attackerDef, a, engine.Battlefield)
+
+	artifactDef := &compile.Card{Name: "Test Artifact Blocker"}
+	artifactDef.Faces[0].Type = cardtype.Parse(reg, "Artifact Creature Golem")
+	artifactDef.Faces[0].Power, artifactDef.Faces[0].Toughness = "2", "2"
+	artifactBlocker := g.NewCard(artifactDef, b, engine.Battlefield)
+
+	sameColorDef := &compile.Card{Name: "Test Same Color Blocker"}
+	sameColorDef.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	sameColorDef.Faces[0].Power, sameColorDef.Faces[0].Toughness = "2", "2"
+	sameColorDef.Faces[0].ManaCost = mana.MustParse("R")
+	sameColorBlocker := g.NewCard(sameColorDef, b, engine.Battlefield)
+
+	offColorDef := &compile.Card{Name: "Test Off Color Blocker"}
+	offColorDef.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	offColorDef.Faces[0].Power, offColorDef.Faces[0].Toughness = "2", "2"
+	offColorDef.Faces[0].ManaCost = mana.MustParse("U")
+	offColorBlocker := g.NewCard(offColorDef, b, engine.Battlefield)
+
+	if !g.CanBlock(attacker, artifactBlocker) {
+		t.Error("CanBlock(intimidate attacker, artifact blocker) = false, want true (nonArtifact fails, so Intimidate does not restrict it)")
+	}
+	if !g.CanBlock(attacker, sameColorBlocker) {
+		t.Error("CanBlock(intimidate attacker, same-color blocker) = false, want true (SharesColorWith holds, so !SharesColorWith fails)")
+	}
+	if g.CanBlock(attacker, offColorBlocker) {
+		t.Error("CanBlock(intimidate attacker, off-color blocker) = true, want false")
 	}
 }
 

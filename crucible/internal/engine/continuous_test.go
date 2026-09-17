@@ -163,3 +163,141 @@ func TestApplyContinuousPTSkipsNonNumericValue(t *testing.T) {
 		t.Errorf("Power() = (%d, %v), want (2, true) -- a non-numeric AddPower$ must not apply", pw, ok)
 	}
 }
+
+// TestApplyContinuousTypeAddsTypeToMatchingCreatures proves Layer 4's own
+// AddType$, the type-line counterpart to TestApplyContinuousPTAppliesAnthemToMatchingCreatures:
+// a blanket "creatures you control are also Zombies" effect adds Zombie
+// without displacing the creature's own printed Elf.
+func TestApplyContinuousTypeAddsTypeToMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Type Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Zombie"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	typ := g.Card(creature).Type()
+	if !typ.HasSubtype("Zombie") {
+		t.Errorf("Type() = %q, want it to carry the added Zombie subtype", typ)
+	}
+	if !typ.HasSubtype("Elf") {
+		t.Errorf("Type() = %q, want it to still carry its own printed Elf subtype", typ)
+	}
+}
+
+// TestApplyContinuousTypeDoesNotAffectNonMatchingCreatures mirrors
+// TestApplyContinuousPTDoesNotAffectNonMatchingCreatures: an opponent's
+// creature is untouched by a "creatures you control" type-granting anthem.
+func TestApplyContinuousTypeDoesNotAffectNonMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Type Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Zombie"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if typ := g.Card(theirs).Type(); typ.HasSubtype("Zombie") {
+		t.Errorf("Type() = %q, an opponent's anthem must not add Zombie to it", typ)
+	}
+}
+
+// TestApplyContinuousTypeRecomputesWhenSourceLeaves mirrors
+// TestApplyContinuousPTRecomputesWhenSourceLeaves: once the type-granting
+// source itself leaves the battlefield, the added type is gone on the very
+// next check.
+func TestApplyContinuousTypeRecomputesWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	anthem := g.NewCard(continuousDef(t, "Test Type Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Zombie"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if typ := g.Card(creature).Type(); !typ.HasSubtype("Zombie") {
+		t.Fatalf("setup: Type() = %q, want it to carry Zombie", typ)
+	}
+
+	g.Move(anthem, engine.Graveyard, p)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if typ := g.Card(creature).Type(); typ.HasSubtype("Zombie") {
+		t.Errorf("Type() after the anthem left = %q, want Zombie gone", typ)
+	}
+}
+
+// TestApplyContinuousTypeRemovesNamedType proves RemoveType$'s own plain
+// literal-token shape: a real corpus "loses all creature types" line spelled
+// as a single named RemoveType$ (not the bulk RemoveCreatureTypes$ flag)
+// clears exactly that subtype and nothing else.
+func TestApplyContinuousTypeRemovesNamedType(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Type Remover", "Mode$ Continuous | Affected$ Creature.YouCtrl | RemoveType$ Elf"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	typ := g.Card(creature).Type()
+	if typ.HasSubtype("Elf") {
+		t.Errorf("Type() = %q, want Elf removed", typ)
+	}
+	if !typ.Has(cardtype.Creature) {
+		t.Errorf("Type() = %q, want the Creature core type left untouched", typ)
+	}
+}
+
+// TestApplyContinuousTypeSkipsDynamicValue proves an AddType$ token this
+// port cannot resolve at runtime (ChosenType, a chosen-type reference) skips
+// the whole line rather than adding a literal subtype named "ChosenType".
+func TestApplyContinuousTypeSkipsDynamicValue(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Chosen Type Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ ChosenType"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if typ := g.Card(creature).Type(); typ.HasSubtype("ChosenType") {
+		t.Errorf("Type() = %q, an unresolvable ChosenType token must not be added as a literal subtype", typ)
+	}
+}
+
+// TestApplyContinuousTypeSkipsBulkRemovalFlag proves a line pairing AddType$
+// with a bulk RemoveCreatureTypes$ flag (the real "becomes a Turtle" shape,
+// StaticAbilityContinuous.java:425-448) is skipped whole: applying AddType$
+// alone, without the wipe RemoveCreatureTypes$ asks for, would leave the
+// creature with both its old and new creature types -- an actively wrong
+// answer this port refuses to give rather than shipping half of a line.
+func TestApplyContinuousTypeSkipsBulkRemovalFlag(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Turtle Aura", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Turtle | RemoveCreatureTypes$ True"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	typ := g.Card(creature).Type()
+	if typ.HasSubtype("Turtle") {
+		t.Errorf("Type() = %q, want the whole line skipped (RemoveCreatureTypes$ is not evaluated), not just partially applied", typ)
+	}
+	if !typ.HasSubtype("Elf") {
+		t.Errorf("Type() = %q, want the creature's own printed Elf left untouched by the skipped line", typ)
+	}
+}

@@ -275,6 +275,60 @@ func (l Line) Equal(other Line) bool {
 	return true
 }
 
+// ParseToken classifies one already-separated type word into a one-token
+// Line -- Parse's own per-word classification (core type, then supertype,
+// then subtype fallthrough), pulled out for a caller that already has a
+// single word in hand and needs no multiword lookahead, so no Registry.
+//
+// CR 613.4's own AddType$/RemoveType$ (a Mode$ Continuous static ability,
+// StaticAbilityContinuous.java) is exactly that caller: its own value is
+// already split on " & " into individual type names by the time it reaches
+// here, and the engine that folds those into a card's current type line has
+// no *Registry to give Parse (game-state.md's "Not ported yet" -- this port
+// injects no carddb.DB into the engine yet). A word Parse would have needed
+// Registry to tell apart from a multiword subtype's own first word (rare in
+// this exact position -- AddType$/RemoveType$ values are single type names,
+// not printed type lines) is treated as one whole subtype, the same
+// fallthrough Parse itself would give an unrecognized word.
+func ParseToken(word string) Line {
+	if core, ok := CoreTypeFromName(word); ok {
+		return Line{coreTypes: 1 << uint(core)}
+	}
+	if super, ok := SupertypeFromName(word); ok {
+		return Line{supertypes: 1 << uint(super)}
+	}
+	return Line{subtypes: []string{word}}
+}
+
+// Union returns a Line carrying every supertype, core type and subtype in l
+// or other -- CR 613.4's own "add" direction. Subtypes are deduplicated (a
+// type already on l is not appended again) but otherwise order-stable: l's
+// own subtypes first, printed order preserved, then any of other's l did
+// not already have.
+func (l Line) Union(other Line) Line {
+	out := Line{supertypes: l.supertypes | other.supertypes, coreTypes: l.coreTypes | other.coreTypes}
+	out.subtypes = append(out.subtypes, l.subtypes...)
+	for _, s := range other.subtypes {
+		if !l.HasSubtype(s) {
+			out.subtypes = append(out.subtypes, s)
+		}
+	}
+	return out
+}
+
+// Without returns l with every supertype, core type and subtype in other
+// cleared -- CR 613.4's own "remove" direction. A supertype/core type/
+// subtype other does not carry is left exactly as l had it.
+func (l Line) Without(other Line) Line {
+	out := Line{supertypes: l.supertypes &^ other.supertypes, coreTypes: l.coreTypes &^ other.coreTypes}
+	for _, s := range l.subtypes {
+		if !other.HasSubtype(s) {
+			out.subtypes = append(out.subtypes, s)
+		}
+	}
+	return out
+}
+
 // String prints the line the way a card does: supertypes, then core types, then
 // the separator and the subtypes.
 func (l Line) String() string {

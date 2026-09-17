@@ -237,6 +237,71 @@ func TestLineQueries(t *testing.T) {
 	}
 }
 
+// TestParseToken proves ParseToken's own per-word classification against a
+// core type, a supertype and a subtype, with no Registry -- the shape a
+// continuous Layer 4 effect's own AddType$/RemoveType$ value (already split
+// on " & ") hands it, engine-side.
+func TestParseToken(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		word     string
+		wantCore cardtype.CoreType
+		hasCore  bool
+		wantSub  string
+		hasSub   bool
+	}{
+		{word: "Creature", wantCore: cardtype.Creature, hasCore: true},
+		{word: "Turtle", hasSub: true, wantSub: "Turtle"},
+	} {
+		got := cardtype.ParseToken(tc.word)
+		if tc.hasCore && !got.Has(tc.wantCore) {
+			t.Errorf("ParseToken(%q).Has(%v) = false, want true", tc.word, tc.wantCore)
+		}
+		if tc.hasSub && !got.HasSubtype(tc.wantSub) {
+			t.Errorf("ParseToken(%q).HasSubtype(%q) = false, want true", tc.word, tc.wantSub)
+		}
+	}
+	if !cardtype.ParseToken("Legendary").HasSupertype(cardtype.Legendary) {
+		t.Error(`ParseToken("Legendary") does not carry the Legendary supertype`)
+	}
+}
+
+// TestLineUnionAndWithout proves CR 613.4's own add/remove directions:
+// Union adds a core type, a supertype and a new subtype without disturbing
+// what was already there or duplicating a subtype l already has; Without
+// clears exactly what the other side names and nothing else.
+func TestLineUnionAndWithout(t *testing.T) {
+	t.Parallel()
+
+	reg := testRegistry(t)
+	base := cardtype.Parse(reg, "Creature Elf")
+
+	add := cardtype.ParseToken("Legendary").Union(cardtype.ParseToken("Artifact")).Union(cardtype.ParseToken("Warrior")).Union(cardtype.ParseToken("Elf"))
+	union := base.Union(add)
+	if !union.Has(cardtype.Creature) || !union.Has(cardtype.Artifact) {
+		t.Errorf("Union: Has(Creature) = %v, Has(Artifact) = %v, want true and true", union.Has(cardtype.Creature), union.Has(cardtype.Artifact))
+	}
+	if !union.HasSupertype(cardtype.Legendary) {
+		t.Error("Union did not carry over the added Legendary supertype")
+	}
+	if diff := diffSlices(union.Subtypes(), []string{"Elf", "Warrior"}); diff != "" {
+		t.Errorf("Union subtypes: %s (Elf must not be duplicated)", diff)
+	}
+
+	remove := cardtype.ParseToken("Creature")
+	without := union.Without(remove)
+	if without.Has(cardtype.Creature) {
+		t.Error("Without(Creature) still carries the Creature core type")
+	}
+	if !without.Has(cardtype.Artifact) || !without.HasSupertype(cardtype.Legendary) {
+		t.Error("Without(Creature) removed something other than Creature")
+	}
+	if diff := diffSlices(without.Subtypes(), []string{"Elf", "Warrior"}); diff != "" {
+		t.Errorf("Without subtypes changed unexpectedly: %s", diff)
+	}
+}
+
 // HasStringType is CardType.hasStringType: one lookup that answers "is this
 // word a core type, a supertype, or a subtype" without the caller knowing
 // which.

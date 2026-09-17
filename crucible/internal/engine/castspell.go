@@ -42,7 +42,10 @@ func castableAsPermanent(c *Card) bool {
 // guarantees, and the card never leaves hand.
 //
 // A successful cast fires SpellCast (ADR-0013's own schema has named this
-// kind since M4, with nothing to emit it until now).
+// kind since M4, with nothing to emit it until now), then checks CR 603's
+// own "whenever a player casts a spell" trigger (checkSpellCastTriggers,
+// trigger.go) -- fired at cast time, not on resolution, the same place
+// Java's own checkTriggerEffects call sits.
 func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController) bool {
 	if pid != g.activePlayer {
 		return false
@@ -74,6 +77,7 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 	}
 	g.PushAbility(Ability{API: api, Source: card, Controller: pid})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.checkSpellCastTriggers(card, pid)
 	return true
 }
 
@@ -111,6 +115,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.Move(card, Stack, pid)
 	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.checkSpellCastTriggers(card, pid)
 	return true
 }
 

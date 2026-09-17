@@ -295,6 +295,23 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Tapped
 	case name == "untapped":
 		return !c.Tapped
+	case name == "SharesColorWith":
+		// CardProperty.java's bare form (card.sharesColorWith(source)) --
+		// the colorless check Java does explicitly on c falls out for free
+		// here, since HasAny(0) is always false whichever side is
+		// colorless. A suffixed form (SharesColorWith MostProminentColor,
+		// SharesColorWithOther <restriction>, ...) reads a game-wide or
+		// remembered-list comparison this port has no evaluator for and is
+		// not matched by this exact-equality case, so it falls through to
+		// the same "false for every card" answer any other unimplemented
+		// property gets -- 5 of 26 literal corpus occurrences are the bare
+		// form. Every one of Intimidate's own 23 real K:Intimidate cards
+		// hard-codes the bare form too (CardFactoryUtil.java's own keyword
+		// expansion, not literal script text, so it never shows up in that
+		// count), the actual reason this case exists (staticability.go's
+		// own cantBlockByKeywords).
+		sc, ok := sourceCard(g, source)
+		return ok && c.Colors().HasAny(sc.Colors())
 	}
 	if rest, ok := strings.CutPrefix(name, "without"); ok {
 		return !c.HasKeyword(rest)

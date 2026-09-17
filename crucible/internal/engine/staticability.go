@@ -33,13 +33,6 @@ import (
 // Not every keyword CardFactoryUtil expands this way is here -- each
 // omission is a specific missing dependency, not an oversight:
 //
-//   - Intimidate's own ValidBlocker ("nonArtifact+!SharesColorWith") needs a
-//     SharesColorWith property valid.go does not evaluate. Leaving it
-//     unimplemented is not just "absent": propertyMatches' own generic
-//     non<Type> fallthrough would read "SharesColorWith" as a nonexistent
-//     type (false), and the leading "!" negates that to true -- an actively
-//     wrong "always matches," not a missing one, so Intimidate is left out
-//     rather than shipped wrong.
 //   - Landwalk's CantBlockBy carries no ValidBlocker at all, only
 //     ValidDefender$ Player.controls<Type> -- Matches (valid.go) evaluates a
 //     *Card, not a *Player, so nothing here can check it yet.
@@ -66,6 +59,7 @@ var cantBlockByKeywords = []struct {
 	{"Flying", "Creature.withoutFlying+withoutReach"},
 	{"Fear", "Creature.nonArtifact+nonBlack"},
 	{"Horsemanship", "Creature.withoutHorsemanship"},
+	{"Intimidate", "Creature.nonArtifact+!SharesColorWith"},
 }
 
 // cantBlockBy reports whether attacker cannot legally be blocked by blocker,

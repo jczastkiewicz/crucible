@@ -265,6 +265,112 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 	}
 }
 
+// checkSpellCastTriggers is CR 603's own "whenever a player casts a spell"
+// trigger, ported from TriggerSpellAbilityCastOrCopy.performTest -- fired
+// once a spell is cast (put on the stack, cost paid), not on resolution,
+// since that is what "cast" means in Java's own cast-time
+// checkTriggerEffects call (castspell.go's two call sites, right where the
+// SpellCast event itself already fires). Like checkAttacksTriggers, a single
+// walk covers both a card's own "whenever you cast a creature spell" and
+// another permanent's "whenever a player casts an instant" -- Java's own
+// performTest never special-cases the caster's own trigger, just ValidCard
+// and ValidActivatingPlayer both being ordinary matchesValidParam checks.
+//
+// ValidCard is optional in Java (matchesValidParam returns true when the
+// param is absent, CardTraitBase.matchesValidParam) -- 100 of 1,435 real
+// corpus lines have none at all ("whenever you cast a spell", no
+// restriction on which one) -- so a missing ValidCard is a pass, not a
+// skip, unlike checkETBTriggers/checkDiesTriggers/checkAttacksTriggers,
+// where the corpus shape this port covers always carries one.
+//
+// ValidActivatingPlayer is the corpus's dominant param here (1,216 of 1,435
+// lines -- more common than ValidCard itself), matched by
+// matchesActivatingPlayer below against three bare values covering 1,191 of
+// those 1,216 (You/Opponent/Player); a qualified form (Player.Opponent,
+// Player.EnchantedBy, Player.NonActive, Player.Active, Player.Other,
+// Player.Chosen -- 25 lines) has no player-valid evaluator this port
+// builds, so it is skipped the same way hasAnyParam skips a trigger with an
+// unresolved card-valid param: never fires, rather than fires unconditionally
+// (GO-7).
+//
+// Not resolved, skipped via hasAnyParam below: ValidSA/ValidSAonCard (a
+// SpellAbility, not a Card, Matches (valid.go) only evaluates one of
+// those), TargetsValid/CanTargetOtherCondition (this port's targeting has
+// no per-trigger target-inspection hook), HasXManaCost/NoColoredMana/
+// SnowSpentForCardsColor (no mana-payment-detail tracking past whether the
+// cost was paid), IsSingleTarget (no generic target-count reader),
+// TriggersWhenSpent (a mana-ability-specific remembered-list this port has
+// no mana-ability ChosenPlayer/Remembered plumbing for) and
+// ActivatorThisTurnCast/ActivatorThisTurnCastEach (a per-turn cast-history
+// count this port tracks nothing for). 1,163 of 1,435 real lines carry none
+// of these.
+func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
+	c := g.Card(cast)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isSpellCastTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
+						"HasXManaCost", "IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
+						"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+						continue
+					}
+					if !matchesActivatingPlayer(t, activator, h.Controller) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
+// matchesValidParam("ValidActivatingPlayer", activator) -- a Player, not a
+// Card, so Matches (valid.go) cannot evaluate it. Missing entirely is a
+// pass, the same CardTraitBase.matchesValidParam contract ValidCard's own
+// absence gets above. "You" and "Opponent" reuse the same no-team
+// simplification OppCtrl/OppOwn already carry (valid.go's own doc comment):
+// "controlled by anyone other than sourceController" stands in for
+// getOpponents().contains(...). "Player" is an unrestricted bare type, a
+// pass for anyone. Any qualified form (a dot in the value) falls to the
+// default, never matching -- checkSpellCastTriggers' own doc comment names
+// the six real ones this cannot evaluate.
+func matchesActivatingPlayer(t *compile.Ability, activator, hostController PlayerID) bool {
+	v, ok := t.Param("ValidActivatingPlayer")
+	if !ok {
+		return true
+	}
+	switch v {
+	case "You":
+		return activator == hostController
+	case "Opponent":
+		return activator != hostController
+	case "Player":
+		return true
+	default:
+		return false
+	}
+}
+
+// isSpellCastTrigger reports whether t is CR 603's "a player casts a spell"
+// shape: Mode$ SpellCast.
+func isSpellCastTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "SpellCast")
+}
+
 // hasAnyParam reports whether t carries any of keys, regardless of value --
 // checkAttacksTriggers' own way of skipping a trigger this port cannot fully
 // evaluate rather than firing it as if the extra condition were not there.

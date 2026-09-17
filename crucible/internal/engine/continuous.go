@@ -1,8 +1,10 @@
-// Continuous effects: CR 613, trimmed to Layer 7b/7c's own power/toughness
-// keys (SetPower$/SetToughness$/AddPower$/AddToughness$) evaluated against
-// a blanket Affected$ valid-string -- the single most common real corpus
-// shape (2,192 of 2,426 real S:Mode$ Continuous lines carrying one of these
-// four keys, port-log/game-state.md's "Continuous effects" section).
+// Continuous effects: CR 613, two layers deep so far. Layer 7b/7c's own
+// power/toughness keys (SetPower$/SetToughness$/AddPower$/AddToughness$) are
+// the single most common real corpus shape (2,192 of 2,426 real S:Mode$
+// Continuous lines carrying one of these four keys, port-log/game-state.md's
+// "Continuous effects" section); Layer 4's own type-changing keys (AddType$/
+// RemoveType$, applyContinuousType below) are the next slice, both evaluated
+// against the same blanket Affected$ valid-string.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/staticability/StaticAbilityContinuous.java's
@@ -15,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -126,6 +129,129 @@ func applyOneContinuousPT(g *Game, host *Card, s *compile.Ability) {
 			}
 		}
 	}
+}
+
+// applyContinuousType recomputes every battlefield permanent's own Layer 4
+// TypeMod effects from scratch, from every real Mode$ Continuous S: line
+// currently in play -- applyContinuousPT's own reasoning applies identically
+// here: Java's own applyContinuousAbility runs fresh from
+// GameAction.checkStateEffects every state-based-action pass, not stored and
+// incrementally updated, so a type-granting effect (an anthem-shaped
+// "creatures you control are Zombies") has to reach a creature that enters
+// after it and stop the instant it itself leaves.
+func applyContinuousType(g *Game) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			g.Card(id).TypeMod.Clear()
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousType(g, h, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousType is applyOneContinuousPT's own Layer 4 counterpart:
+// s applies to every battlefield permanent its own Affected$ valid-string
+// matches, if s is a Mode$ Continuous line naming AddType$ and/or RemoveType$
+// in the one shape this slice can resolve -- a plain, space-and-ampersand
+// (" & ") separated list of literal type words, no dynamic value and no
+// bulk-removal flag.
+//
+// A whole line is skipped, not applied partially, the instant it carries
+// anything past that shape (game-state.md's "Continuous effects" section has
+// the corpus counts):
+//   - Condition$/AffectedDefined$/AffectedZone$/CharacteristicDefining$ --
+//     applyOneContinuousPT's own four skip reasons, identical here since all
+//     four are properties of the static ability itself, not of which layer
+//     it happens to write to.
+//   - ChosenType$/ChosenType2$/ImprintedCreatureType$/AllBasicLandType$/
+//     AllNonBasicLandType$ as an AddType$ or RemoveType$ token (29 of 256
+//     real AddType$ lines) -- each needs a runtime value (a chosen type, an
+//     imprinted card's own creature types, the basic-land-type enum) this
+//     port has no evaluator for.
+//   - RemoveSuperTypes$/RemoveCardTypes$/RemoveSubTypes$/RemoveLandTypes$/
+//     RemoveCreatureTypes$/RemoveArtifactTypes$/RemoveEnchantmentTypes$ (62
+//     of 284 real AddType$/RemoveType$ lines) -- a bulk "wipe this whole
+//     category first" flag most often paired with AddType$ in a real "becomes
+//     a Turtle" shape (StaticAbilityContinuous.java:425-448); applying AddType$
+//     alone without the wipe would leave the card BOTH its old and new
+//     creature types, an actively wrong answer worse than the coverage gap of
+//     skipping the whole line (the same reasoning Intimidate's own doc
+//     comment, staticability.go, already gives for a property this port would
+//     otherwise get backwards).
+//   - AddAllCreatureTypes$ (8) -- every creature type in the game, an enum
+//     this port's cardtype.Registry is not plumbed into the engine to read
+//     from a static-ability effect yet (ParseToken's own doc comment,
+//     cardtype.go).
+//
+// 173 of 256 real AddType$ lines and all 28 real RemoveType$ lines (173+28 of
+// 284, game-state.md) carry none of the above and resolve here.
+func applyOneContinuousType(g *Game, host *Card, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	for _, key := range [...]string{
+		"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining",
+		"AddAllCreatureTypes",
+		"RemoveSuperTypes", "RemoveCardTypes", "RemoveSubTypes", "RemoveLandTypes",
+		"RemoveCreatureTypes", "RemoveArtifactTypes", "RemoveEnchantmentTypes",
+	} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+	addTypes, hasAdd := typeTokens(s, "AddType")
+	removeTypes, hasRemove := typeTokens(s, "RemoveType")
+	if !hasAdd && !hasRemove {
+		return
+	}
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+
+	spec := valid.Parse(affected)
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+				continue
+			}
+			g.Card(id).TypeMod.Add(TypeEffect{Timestamp: host.Timestamp, AddTypes: addTypes, RemoveTypes: removeTypes})
+		}
+	}
+}
+
+// typeTokens reads key (AddType$ or RemoveType$) as its own " & "-separated
+// list of literal type words, each classified by cardtype.ParseToken and
+// unioned together -- the fragment TypeEffect carries. false, along with a
+// dynamic value (ChosenType and the rest, applyOneContinuousType's own list)
+// mixed anywhere into the list, since a token this cannot resolve makes the
+// whole line's own Add/Remove set wrong, not just incomplete (the same
+// whole-line skip its own doc comment explains).
+func typeTokens(s *compile.Ability, key string) (cardtype.Line, bool) {
+	v, ok := s.Param(key)
+	if !ok {
+		return cardtype.Line{}, false
+	}
+	var out cardtype.Line
+	for _, word := range strings.Split(v, " & ") {
+		switch word {
+		case "ChosenType", "ChosenType2", "ImprintedCreatureType", "AllBasicLandType", "AllNonBasicLandType":
+			return cardtype.Line{}, false
+		}
+		out = out.Union(cardtype.ParseToken(word))
+	}
+	return out, true
 }
 
 // ptParam reads key as a plain base-10 integer (optionally negative) --

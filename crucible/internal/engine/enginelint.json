@@ -4,7 +4,7 @@
     "id": ["id.go"],
     "zone": ["zone.go"],
     "layer": ["layer.go"],
-    "parts": ["counters.go", "damage.go", "memory.go", "pt.go"],
+    "parts": ["counters.go", "damage.go", "memory.go", "pt.go", "typemod.go"],
     "card": ["card.go"],
     "player": ["player.go"],
     "game": ["game.go"],

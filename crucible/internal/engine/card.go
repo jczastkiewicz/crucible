@@ -48,6 +48,7 @@ type Card struct {
 	Damage   Damage
 	Memory   Memory
 	PT       PT
+	TypeMod  TypeMod
 
 	// Tapped and SummonSick are the two pieces of battlefield state every
 	// permanent carries that are not "how much of something" -- everything
@@ -71,17 +72,20 @@ type Card struct {
 	attachments *collect.OrderedSet[CardID]
 }
 
-// Type is the card's printed type line: its own primary face's, since
-// CardState -- which face is current for a transformed, flipped or melded
-// card -- is not modeled yet (game-state.md's "Not ported yet"), so every
-// card reports the one it entered the game with. A synthetic card built
-// with a nil Def (most engine tests) reports the zero Line, which matches
-// nothing -- consistent with "no Def" already meaning "no name" elsewhere.
+// Type is the card's current type line: its own primary face's printed type
+// (CardState -- which face is current for a transformed, flipped or melded
+// card -- is not modeled yet, game-state.md's "Not ported yet") with Layer
+// 4's own continuous type-changing effects (TypeMod, typemod.go) folded in --
+// Power/Toughness's own Layer 7 counterpart (card.go's own doc comment on
+// foldPT). A synthetic card built with a nil Def (most engine tests) reports
+// the zero Line, which matches nothing -- consistent with "no Def" already
+// meaning "no name" elsewhere, and skips the fold entirely: TypeMod on a
+// nil-Def card is never populated by anything real.
 func (c *Card) Type() cardtype.Line {
 	if c.Def == nil {
 		return cardtype.Line{}
 	}
-	return c.Def.Faces[0].Type
+	return foldType(c.Def.Faces[0].Type, c.TypeMod.effects)
 }
 
 // HasKeyword reports whether the card's primary face carries the named

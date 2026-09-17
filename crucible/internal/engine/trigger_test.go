@@ -537,3 +537,172 @@ func TestDestroyLethalToughnessFiresOtherPermanentsWatchingDiesTrigger(t *testin
 		t.Errorf("pushed ability Controller = %v, want %v", top.Controller, p)
 	}
 }
+
+// spellCastWatcherDef builds a *compile.Card for a non-creature permanent
+// carrying a real "whenever a player casts a spell" trigger restricted by
+// ValidActivatingPlayer to activatingPlayer ("You" or "Opponent") --
+// checkSpellCastTriggers' own dominant corpus param (1,216 of 1,435 real
+// lines), matched by matchesActivatingPlayer rather than Matches (valid.go),
+// since a Player is not a Card.
+func spellCastWatcherDef(t *testing.T, name, activatingPlayer string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ SpellCast | ValidActivatingPlayer$ " + activatingPlayer + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestCastSpellFiresSpellCastTriggerForControllerActivatingPlayer proves
+// checkSpellCastTriggers (trigger.go) is wired into CastSpell: a battlefield
+// permanent watching "whenever YOU cast a spell" (ValidActivatingPlayer$
+// You) fires the instant its own controller casts one, no ValidCard
+// restriction needed (absent is a pass, matchesValidParam's own contract).
+func TestCastSpellFiresSpellCastTriggerForControllerActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	g.NewCard(spellCastWatcherDef(t, "Test You Watcher", "You"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "G"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the watcher's own SpellCast trigger should have resolved", g.Card(top).Zone)
+	}
+}
+
+// TestCastSpellSkipsSpellCastTriggerForNonControllerActivatingPlayer proves
+// the "You" restriction actually excludes another player: a watcher
+// controlled by other, restricted to ValidActivatingPlayer$ You, does not
+// fire when p (not other) casts the spell.
+func TestCastSpellSkipsSpellCastTriggerForNonControllerActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	g.NewCard(spellCastWatcherDef(t, "Test You Watcher", "You"), other, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "G"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- other's own ValidActivatingPlayer$ You must not match p casting", g.Card(top).Zone)
+	}
+}
+
+// TestCastSpellFiresSpellCastTriggerForOpponentActivatingPlayer proves the
+// "Opponent" value: other's watcher fires when p, not other, casts --
+// valid.go's own OppCtrl/OppOwn no-team simplification carried over to a
+// Player rather than a Card.
+func TestCastSpellFiresSpellCastTriggerForOpponentActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	g.NewCard(spellCastWatcherDef(t, "Test Opponent Watcher", "Opponent"), other, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "G"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- other's own ValidActivatingPlayer$ Opponent should match p casting", g.Card(top).Zone)
+	}
+}
+
+// spellCastWatcherWithTargetsValidDef builds a *compile.Card carrying
+// TargetsValid$, a param checkSpellCastTriggers does not evaluate (no
+// per-trigger target-inspection hook this port has), alongside an otherwise
+// matching ValidActivatingPlayer$ You.
+func spellCastWatcherWithTargetsValidDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test TargetsValid Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test TargetsValid Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Creature.YouCtrl | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestCastSpellSkipsSpellCastTriggerWithUnresolvedParam proves a trigger
+// carrying a param this port cannot evaluate (TargetsValid$) is skipped
+// entirely -- never fired unconditionally, which would be silently wrong
+// (GO-7) -- even though ValidActivatingPlayer$ You would otherwise match.
+func TestCastSpellSkipsSpellCastTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	g.NewCard(spellCastWatcherWithTargetsValidDef(t), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefManaCost(t, "G"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- TargetsValid$ is not evaluated, so this must not fire", g.Card(top).Zone)
+	}
+}

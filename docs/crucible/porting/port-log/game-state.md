@@ -906,6 +906,61 @@ comparisons — a field `Load` now applies has to be a field the scenario harnes
 would silently assert nothing (the exact gap the fixture-level `Dump` audit that found `ManaPool`'s own missing
 write-back caught, `game-state-fixture.md`'s own section on it).
 
+## Casting a spell needed the stack for real, for the first time
+
+`Game.CastSpell` (`castspell.go`) is CR 601, trimmed to the one shape with nothing else to decide at cast time: a
+permanent spell that is not an Aura. `PlayLand`'s own precedent — a fixed CR rule needs none of the M6 effect-dispatch
+machinery its neighbors in this file keep deferring to — turned out to reach further than land-playing alone: casting
+a permanent and resolving it into a battlefield permanent is _also_ a fixed rule, not a card-script effect, once
+`APIPermanentCreature`/`APIPermanentNoncreature` (`ability.go`'s generated constants) and `effect.go`'s own
+`Effect`/`Registry` dispatch (built at M4, holding zero implementations since — `CLAUDE.md`'s own M4 status line) are
+read together: Java's `SpellPermanent` constructs one or the other API depending on `cardstate.getType().isCreature()`,
+but never through `AbilityFactory.getAbility`'s script-string dispatch the way a real effect implementation would —
+the same "hardcoded, not corpus-script-driven" shape `TapLandForMana`'s own `CardState.java` precedent already
+established for a different API entirely.
+
+`castableAsPermanent` is `CardState.java`'s own `getBasicSpells` routing, read directly: a creature, artifact,
+enchantment, planeswalker or Battle, and not an Aura. An Aura routes to `getAuraSpell()` in Java because it needs a
+target to attach to at cast time (CR 601.2c) — this port has no targeting, so an Aura is declined rather than cast
+with nothing to attach to. A land is never a spell at all (CR 305.1) and needs no special case: it is simply absent
+from the list `castableAsPermanent` checks, the same "excluded by not appearing" shape `PlayLand`'s own doc comment
+already uses for the reverse case (a non-land declined by `PlayLand`). Instant and sorcery route to a `SpellAbility`
+this port does not build yet (they resolve into a script effect, not "become a permanent") and are excluded the same
+way.
+
+Timing is `PlayLand`'s own CR 305.3 check, copied rather than shared: active player, a main phase, an empty stack.
+CR 601.3a gives permanent spells the identical sorcery-speed default lands have (CR 307.5), so the two checks read
+identically today — they diverge the moment a real Flash-granting effect exists, which is exactly why `CastSpell`
+keeps its own copy instead of factoring out a helper for a coincidence that will not stay one.
+
+**`permanentEffect` is the first `Effect` implementation with a real (non-test) caller.** `effect.go`'s own doc
+comment already predicted its shape — "Implementations are stateless shared values" — and `PermanentEffect.java`'s own
+`resolve` confirms it: strip `Dash`/`Blitz`/`Warp`/`Sneak` (alternate-cast-mode keywords this port cannot grant a
+spell) and `table.triggerChangesZoneAll` (CR 603 firing, not built), and what is left is `game.getAction().moveToPlay`
+— `Game.Move(a.Source, Battlefield, a.Controller)` here. Java gives `PermanentCreatureEffect` its own subclass only to
+override `getStackDescription` (display text for the stack, showing power/toughness); this port has no
+stack-description system at all, so one value answers for both `APIPermanentCreature` and `APIPermanentNoncreature` —
+`NewRegistry()` registers it twice. `Move`'s own ETB logic (loyalty/defense grants, `SummonSick = true`) already
+existed and needed no change: a permanent entering the battlefield by resolving off the stack is not a special case of
+entering, so casting a planeswalker or Battle spell (once one can be cast — nothing exercises this yet, only
+creatures and artifacts) would already grant loyalty/defense correctly for free.
+
+`ResolveStack` (`stack.go`) had zero non-test callers before this — its own doc comment said as much
+("casting has no cost-payment or targeting to drive it"). `CastSpell` pushing a real `Ability` and `NewRegistry`
+giving `ResolveStack` something to dispatch to is what makes that sentence no longer true, for the one shape it can
+reach. `resolvestack` (`game-state-fixture.md`) is the fixture verb, and — unlike every bool-returning verb in this
+file — it does not swallow its error: `Registry.Resolve`'s own `ErrUnimplemented` is a real gap (GO-7's "a bad card
+fails its game"), not a declined decision, so a fixture naming an API this port cannot resolve yet fails loud instead
+of silently doing nothing.
+
+`castspell <player> <id>` is the verb for `CastSpell` itself, `id` from `Loaded.CardByFixtureID` the same as every
+other card-naming verb; its `bool` return is not asserted, the same convention `paymanacost`/`tapformana`/`playland`
+already established. `cast-a-creature-spell-resolves-to-battlefield` is the fixture: two Forests tapped for a real
+Grizzly Bears' `{1}{G}` cost, cast, then resolved onto the battlefield — the mana comes from real lands tapped after
+reaching Main1, not `setup.state`'s own `manapool=`, because `emptyManaPools` (CR 500.4) clears any preloaded pool on
+the very first `startturn`/`advance` a scenario runs, the same trap `mana-payment-tap-land-for-mana`'s own fixtures
+already route around by tapping mid-scenario rather than preloading.
+
 ## Events, wired
 
 ADR-0013's schema (`event.go`) landed with the turn structure it names but with nothing behind it: no `Game` field held
@@ -920,6 +975,7 @@ a `Sink`, and nothing called `Emit`. Every mechanism this port has built now doe
 | `CheckStateBasedActions` (once, on end)                                         | `GameEnded`                                         |
 | `PushAbility`                                                                   | `AbilityActivated`                                  |
 | `ResolveStack` (per item)                                                       | `AbilityResolved`                                   |
+| `CastSpell` (on a successful cast)                                              | `SpellCast`                                         |
 | `dealCombatDamageStep` (per exchange, both damage steps)                        | `DamageDealt`, plus `LifeChanged` for player damage |
 | `annihilateCounters`, `dealPermanentDamage`, `Move`'s ETB loyalty/defense grant | `CounterChanged`                                    |
 | `PayManaCost` (a Phyrexian or hybrid Phyrexian shard resolved to life)          | `LifeChanged`                                       |
@@ -947,13 +1003,14 @@ reachable. Extending the switch, or replacing it with a per-`Game` interning tab
 shape as `CardID`) if the corpus turns out to need more than a closed set, is whichever shape M6 needs when a real
 caller forces the choice — not a decision worth making before one exists.
 
-Not wired, and each is a real gap rather than an oversight: `SpellCast` (nothing that would fire it exists yet —
-casting, unlike combat damage, counters changing, or stack resolution, is still unbuilt), and anything from
-`PerformMulligans` itself — a mulligan is fully visible as the `ZoneChanged` cascade `Move` already produces, and no
-`MulliganTaken`-shaped kind exists in the schema to add without also bumping `SchemaVersion`, a more deliberate act than
-this pass earned. `AbilityActivated`/`AbilityResolved` are wired now (`## Stack`), even though nothing yet calls
-`PushAbility` or `ResolveStack` outside a test — the same "mechanism now, content later" the effect registry already
-established. `DamageDealt`/`LifeChanged` are wired for real content now too (`## Combat`, above) — every combat exchange
+Not wired, and it is a real gap rather than an oversight: anything from `PerformMulligans` itself — a mulligan is
+fully visible as the `ZoneChanged` cascade `Move` already produces, and no `MulliganTaken`-shaped kind exists in the
+schema to add without also bumping `SchemaVersion`, a more deliberate act than this pass earned. `SpellCast` fires
+for real now too (`## Casting a spell needed the stack for real, for the first time`, above) — `CastSpell` is its
+first caller, once `PushAbility`/`ResolveStack` had one worth pointing it at. `AbilityActivated`/`AbilityResolved` are
+wired the same way (`## Stack`) — the same "mechanism now, content later" the effect registry already established,
+now with `CastSpell`/`ResolveStack` as the first real (non-test) callers of either. `DamageDealt`/`LifeChanged` are
+wired for real content too (`## Combat`, above) — every combat exchange
 fires `DamageDealt`, and player damage also fires `LifeChanged` with `Amount` as the signed change (negative for the
 ordinary case, a loss), a sign convention this port chose freely since nothing wired either kind before combat damage
 did. `LifeChanged` fires a second way now too, from `PayManaCost` (`## Mana pool and payment`, above) when a Phyrexian

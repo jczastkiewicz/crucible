@@ -53,6 +53,8 @@ import (
 //	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
 //	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
 //	playland <player> <id>               Game.PlayLand(player, id), id from CardByFixtureID
+//	castspell <player> <id>              Game.CastSpell(player, id, controller), id from CardByFixtureID
+//	resolvestack                         Game.ResolveStack(engine.NewRegistry(), controller)
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
 //	queue paysnow <shard>                 ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -62,15 +64,20 @@ import (
 //	queue payphyrexian <bool>            ScriptedController.QueuePayPhyrexian
 //	queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
 //
-// A scenario that needs a decision point no verb here reaches -- casting
-// anything -- cannot be written yet, because nothing downstream of
-// ScriptedController can answer it either (M5, later). PayManaCost and
-// TapLandForMana are each not "casting anything": PayManaCost is CR
-// 106/601.2h's own self-contained payment step, and TapLandForMana is CR
-// 305.6/605.3's mana ability, which resolves immediately with no stack and so
-// never needed a casting or activation framework to be reachable -- both are
-// callable directly the same way Game.DeclareCombatAttackers is before a full
-// turn glues combat together (manapay.go's own doc comment).
+// A scenario that needs a decision point no verb here reaches -- targeting,
+// choosing modes, anything an instant or sorcery resolves into -- cannot be
+// written yet, because nothing downstream of ScriptedController can answer
+// it either (M5-M6, later). `castspell` reaches the one shape that needed
+// none of that: a permanent spell, not an Aura (CR 601.2c's own target
+// choice), which resolves into nothing but "become a permanent"
+// (castspell.go's own doc comment). PayManaCost, TapLandForMana and
+// CastSpell are each callable directly the same way
+// Game.DeclareCombatAttackers is before a full turn glues combat together
+// (manapay.go's own doc comment) -- PayManaCost is CR 106/601.2h's own
+// self-contained payment step, TapLandForMana is CR 305.6/605.3's mana
+// ability, which resolves immediately with no stack, and CastSpell/
+// `resolvestack` are the payment step plus the one stack shape this port
+// can push and resolve.
 func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) error {
 	sc := bufio.NewScanner(r)
 	for line := 1; sc.Scan(); line++ {
@@ -184,6 +191,28 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
 		}
 		l.Game.PlayLand(pid, ids[0])
+
+	case "castspell":
+		if len(args) < 2 {
+			return fmt.Errorf("castspell: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("castspell: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("castspell: want exactly one card id, got %q", args[1])
+		}
+		l.Game.CastSpell(pid, ids[0], c)
+
+	case "resolvestack":
+		if err := l.Game.ResolveStack(engine.NewRegistry(), c); err != nil {
+			return fmt.Errorf("resolvestack: %w", err)
+		}
 
 	case "queue":
 		return runQueue(args, l, c)

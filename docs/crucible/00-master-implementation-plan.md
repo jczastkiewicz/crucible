@@ -590,8 +590,9 @@ printed form.
 17. `internal/carddb/compile`: param maps, SVar resolution + `SubAbility$` recursion, cost strings, valid strings,
     count/X expressions, keyword strings. **Done**: all 33,697 cards compile with no exemption.
 18. `go:generate` pipeline for typed param structs + the effect registry (ADR-0008). **Done**: `compile/params_gen.go`
-    generates the typed param structs; `internal/engine`'s `Effect`/`Registry` (ADR-0011) is the effect-registry half,
-    scaffolded and holding zero implementations — corpus-first implementation is M6.
+    generates the typed param structs; `internal/engine`'s `Effect`/`Registry` (ADR-0011) is the effect-registry half.
+    `permanentEffect` (M5's `castspell.go`, item 26) is its first two entries, a fixed CR rule, not a corpus-frequency
+    implementation — the 203 script-driven APIs in that order are still M6's job.
 19. Vocabulary-completeness scanner (hard-fails on unknown keys/props/cost parts). **Done**: `tools/apiscan` gates the
     param vocabulary at zero unknowns; `internal/valid`'s `TestEveryPropertyIsAccountedFor` gates the property
     vocabulary the same way.
@@ -621,8 +622,14 @@ printed form.
     protector, dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present
     host); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not (`porting/port-log/game-state.md`'s
     "Not ported yet").
-26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin** — `stack.go` is
-    push/resolve only; no simultaneous-trigger ordering, no replacement-effect system.
+26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin, but with real
+    content for one shape now** — `stack.go` is still push/resolve only, no simultaneous-trigger ordering, no
+    replacement-effect system, but `Game.CastSpell` (`castspell.go`) is a real (non-test) `PushAbility`/`ResolveStack`
+    caller: CR 601 trimmed to a permanent spell that is not an Aura (no targeting or modes to ask for), paying its
+    cost via `PayManaCost` and firing `SpellCast`. `permanentEffect` resolves it — CR 608.2m/608.3g's own
+    `PermanentEffect.java`, stripped of Dash/Blitz/Warp/Sneak and trigger-firing this port cannot support — registered
+    for both `APIPermanentCreature` and `APIPermanentNoncreature` since this port has no stack-description system to
+    need Java's own subclass split for.
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Thin** — `layer.go` has the CR 613 layer
     _numbers_; `pt.go` folds power/toughness through them. Types, colors, abilities and the rest of the layer stack are
     not built.
@@ -649,7 +656,7 @@ printed form.
     this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
     directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Not met** — the harness runs (`TestScenarios`,
-    `testdata/scenarios/`), but 36 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
+    `testdata/scenarios/`), but 37 fixtures exist today, not ≥300. **Exit gate:** P4 gate — scenario suite green. **Not
     reached.**
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_

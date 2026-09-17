@@ -40,6 +40,52 @@ func landDB(t *testing.T, name, typeLine string) *compile.DB {
 	return compile.NewDB(map[string]*compile.Card{name: c})
 }
 
+// permanentDB is landDB's own shape, plus a real mana cost -- castspell
+// needs both Card.Type() (castableAsPermanent) and Def.Faces[0].ManaCost
+// (PayManaCost), neither of which testDB's vanilla cards carry.
+func permanentDB(t *testing.T, name, typeLine, cost string) *compile.DB {
+	t.Helper()
+	return castTestDB(t, permanentCard{name, typeLine, cost})
+}
+
+// permanentCard is one castTestDB entry: a type line and a mana cost, the
+// two fields castspell reads off a card that landDB's own one-field shape
+// (type line only) does not carry.
+type permanentCard struct {
+	name, typeLine, cost string
+}
+
+// castTestDB builds a database of real-type-line, real-mana-cost cards --
+// landDB's own shape, extended to more than one card at once, since a
+// castspell scenario needs the spell and the land(s) paying for it in the
+// same database.
+func castTestDB(t *testing.T, cards ...permanentCard) *compile.DB {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	db := make(map[string]*compile.Card, len(cards))
+	for _, card := range cards {
+		raw := &carddb.Card{
+			Filename: card.name,
+			Faces: [carddb.NumFaces]carddb.Face{{
+				Present:  true,
+				Name:     card.name,
+				Type:     cardtype.Parse(reg, card.typeLine),
+				ManaCost: mana.MustParse(card.cost),
+			}},
+		}
+		c, err := compile.Compile(raw)
+		if err != nil {
+			t.Fatalf("compile %q: %v", card.name, err)
+		}
+		db[card.name] = c
+	}
+	return compile.NewDB(db)
+}
+
 func TestRunActionsStartTurnAndAdvance(t *testing.T) {
 	t.Parallel()
 
@@ -1234,5 +1280,92 @@ func TestRunActionsPlayLandTooFewArgsErrors(t *testing.T) {
 
 	if err := runActions(t, l, c, "playland human\n"); err == nil {
 		t.Error("playland with no card id did not error")
+	}
+}
+
+// castspell resolves a player and a setup.state Id: number the same way
+// playland does, and hands them straight to Game.CastSpell; resolvestack
+// then resolves it through Game.ResolveStack(engine.NewRegistry(), controller).
+// The mana comes from a real Forest tapped after reaching Main1, not
+// setup.state's own manapool= -- emptyManaPools (CR 500.4) clears any
+// preloaded pool on the very first startturn/advance, the same trap a
+// scenario would hit, so the fixture-level test exercises the same path a
+// scenario needs to.
+func TestRunActionsCastSpellAndResolveStackMovesCardToBattlefield(t *testing.T) {
+	t.Parallel()
+
+	db := castTestDB(t,
+		permanentCard{"Grizzly Bears", "Creature Bear", "G"},
+		permanentCard{"Forest", "Basic Land Forest", "no cost"},
+	)
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Grizzly Bears|Id:1\nhumanbattlefield=Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	err := runActions(t, l, c, "startturn human\nadvance 3\ntapformana human 2 G\ncastspell human 1\nresolvestack\n")
+	if err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Battlefield {
+		t.Error("Grizzly Bears not on the battlefield after castspell/resolvestack")
+	}
+}
+
+// A declined cast -- here, no mana at all -- is not a fixture error: the
+// verb does not assert success, the same as playland.
+func TestRunActionsCastSpellFailureLeavesCardInHand(t *testing.T) {
+	t.Parallel()
+
+	db := permanentDB(t, "Grizzly Bears", "Creature Bear", "G")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Grizzly Bears|Id:1\n")
+	c := engine.NewScriptedController()
+
+	err := runActions(t, l, c, "startturn human\nadvance 3\ncastspell human 1\n")
+	if err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Hand {
+		t.Error("Grizzly Bears left hand despite the declined cast")
+	}
+}
+
+func TestRunActionsCastSpellUnknownCardIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := permanentDB(t, "Grizzly Bears", "Creature Bear", "1 G")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Grizzly Bears|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "castspell human 99\n"); err == nil {
+		t.Error("an id absent from setup.state did not error")
+	}
+}
+
+func TestRunActionsCastSpellTooFewArgsErrors(t *testing.T) {
+	t.Parallel()
+
+	db := permanentDB(t, "Grizzly Bears", "Creature Bear", "1 G")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Grizzly Bears|Id:1\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "castspell human\n"); err == nil {
+		t.Error("castspell with no card id did not error")
+	}
+}
+
+// resolvestack surfaces ResolveStack's own error rather than swallowing it
+// -- an unimplemented API is a real gap, not a declined decision, the same
+// GO-7 "a bad card fails its game" reasoning the registry itself documents.
+func TestRunActionsResolveStackSurfacesAnUnimplementedAPI(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+	l.Game.PushAbility(engine.Ability{})
+
+	if err := runActions(t, l, c, "resolvestack\n"); err == nil {
+		t.Error("resolvestack with an unregistered API did not error")
 	}
 }

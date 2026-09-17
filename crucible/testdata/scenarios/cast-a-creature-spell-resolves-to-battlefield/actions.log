@@ -1,0 +1,15 @@
+# CR 601: cast a creature spell. Two Forests pay {1}{G} -- one for the
+# green pip, one for the generic -- and Grizzly Bears becomes an object on
+# the stack (CR 405.2, 601.2i). resolvestack resolves it through
+# APIPermanentCreature (CastSpell picks that API because the card is a
+# creature); permanentEffect just moves it to the battlefield
+# (CR 608.2m/608.3g) -- the same zone-change ETB that already grants
+# SummonSick, since nothing about a cast spell's resolution is special-cased
+# there.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 1
+resolvestack

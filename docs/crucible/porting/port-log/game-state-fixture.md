@@ -125,6 +125,7 @@ queue tuck <id>[,<id>...]     ScriptedController.QueueTuck, ids from Loaded.Card
 queue startingplayer <p>      ScriptedController.QueueStartingPlayer
 queue startinghand <n>        ScriptedController.QueueStartingHand
 queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from Loaded.CardByFixtureID
+queue enchanttarget <id>      ScriptedController.QueueEnchantTarget, id from Loaded.CardByFixtureID
 queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
 queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's Loaded.CardByFixtureID
 queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
@@ -242,6 +243,18 @@ fixture that pops an API this port cannot yet resolve fails loudly instead of si
 Forests (`manapool=` cannot be used here either, the same CR 500.4 reason `tapformana`'s own fixtures already worked
 around — `emptyManaPools` wipes any preloaded pool the moment the first `startturn`/`advance` call runs `beginPhase`, so
 the lands are tapped mid-scenario, after reaching `Main1`, not preloaded at `setup.state` time).
+
+`queue enchanttarget` answers `ChooseEnchantTarget` (`castspell.go`'s own Aura branch, CR 601.2c) the same
+`queue legendarykeep` shape — a bare id, no color or bool vocabulary — needed only when an Aura's own `Enchant`
+restriction matches more than one battlefield permanent; a lone match is assigned automatically, the same "nothing
+meaningful to decide" convention `attacktarget`'s own lone-target case already has, so most Aura fixtures never queue
+one at all. `cast-an-aura-spell-attaches-to-chosen-target` is the fixture: a real Pacifism cast at a lone Grizzly Bears
+on the battlefield, `resolvestack` moving it there and attaching it in the same call. Casting a Battle cannot go all the
+way through `resolvestack` the way the other four permanent types do: every Battle in the corpus carries its own ETB
+trigger (`checkETBTriggers`, `trigger.go`, `game-state.md`'s own section on it), which `resolvestack` correctly surfaces
+as `ErrUnimplemented` once the Battle itself has resolved — `TestScenarios` has no way to assert an expected
+`RunActions` failure, so `cast-a-battle-spell-reaches-the-stack` stops one step earlier than its four siblings, at
+`castspell` alone.
 
 `queue payx` is a bare `strconv.Atoi`, the plainest parser of the whole file — `ChoosePayX`'s own answer is just an
 `int`, no shard or color vocabulary involved. It is asked once per cost, not once per `{X}` symbol, so a cost with two
@@ -454,5 +467,5 @@ planeswalker or Battle its starting counters, which stopped being true once `Mov
 | Player-level `PersistentMana:`, `NumRingTemptedYou:`, `Speed:` — `engine.Player` has none of these fields yet. `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:`/`LandsPlayedLastTurn:` (`Player.LandsPlayed`/`LandsPlayedLastTurn`, since `PlayLand`) are all applied now                                                                                                                                                                                              | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Puzzle mode, if ever                   |
 | `[metadata]` section (puzzle-mode name/description)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Puzzle mode, if ever                   |
-| `actions.log` verbs for targeting, or for casting anything an Aura/instant/sorcery needs — nothing downstream of `ScriptedController` can answer a targeting decision yet. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`), playing a land (`playland` — not casting a spell at all, CR 305.1) and casting/resolving a non-Aura permanent spell (`castspell`/`resolvestack`) have verbs                                                                                                              | M5-M6                                  |
+| `actions.log` verbs for casting anything an instant or sorcery needs — nothing downstream of `ScriptedController` can answer what one resolves into yet. Combat, mana payment (`paymanacost` and every `queue` kind `PayManaCost` can ask), the one mana ability this port has (`tapformana`), playing a land (`playland` — not casting a spell at all, CR 305.1) and casting/resolving a permanent spell including an Aura's own cast-time target (`castspell`/`resolvestack`/`queue enchanttarget`) all have verbs                                                                      | M5-M6                                  |
 | `expect.events` — the Plan's own fixture shape names it (Section 3.5) alongside `setup.state`/`actions.log`/`expect.state`, but `TestScenarios` (`internal/engine/scenario_test.go`) never reads a fourth file: `runScenario` loads only `setup.state` and `expect.state` and calls `compareGames`, which does not touch `Game`'s event sink at all. A fixture proving `LifeChanged`/`CounterChanged` actually fired (not just that life or a counter ended up at the right number) has nowhere to assert that yet                                                                        | M5-M6                                  |

@@ -1,0 +1,23 @@
+# A Battle ({2}{W}, Invasion of Belenon) is castableAsPermanent too
+# (castspell.go lists Battle alongside creature/artifact/enchantment/
+# planeswalker). This one stops at the stack rather than resolving all the
+# way to the battlefield the way the other four permanent-type fixtures do:
+# every Battle in the corpus carries its own "when this enters, create a
+# token" trigger (CR 603.2), and checkETBTriggers (trigger.go) now correctly
+# detects and pushes it the moment permanentEffect moves the Battle onto the
+# battlefield -- but Token is one of the 203 corpus-frequency effects M6
+# still owns, so resolvestack would surface ErrUnimplemented rather than
+# leaving a clean state for expect.state to describe. TestScenarios has no
+# way to assert an expected RunActions failure, so that half of the picture
+# is proven at the engine level instead (TestCastSpellFiresETBTrigger,
+# trigger_test.go, using a synthetic card of the same shape). This fixture
+# stays at what it can show cleanly: the cast itself succeeds and the Battle
+# reaches the stack.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 G
+tapformana human 4 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1

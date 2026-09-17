@@ -35,10 +35,12 @@ func APIByName(name string) (APIType, bool) {
 	return 0, false
 }
 
-// Ability is one resolvable ability on the stack. Targets, the cost already
-// paid, and everything else CR 601-609 tracks per stack object land here
-// once casting or targeting exists to fill them; today it carries just
-// enough for dispatch and for the stack to know whose it is.
+// Ability is one resolvable ability on the stack. The cost already paid and
+// everything else CR 601-609 tracks per stack object beyond API/Source/
+// Controller/Target land here once casting grows enough to fill them; today
+// it carries just enough for dispatch, for the stack to know whose it is,
+// and for the one target CastSpell's own Aura branch chooses at cast time
+// (CR 601.2c).
 type Ability struct {
 	// API decides which Effect resolves this.
 	API APIType
@@ -47,4 +49,12 @@ type Ability struct {
 	// Controller is who is resolving it, which is not always the source's
 	// controller once control-changing effects are involved.
 	Controller PlayerID
+	// Target is the single card this ability was announced against at cast
+	// time (CR 601.2c) -- NoCard when the ability has none. An Aura's own
+	// APIAttach entry is the only thing that sets it today; this port has no
+	// representation for a target that is a player (enchantSpec's own doc
+	// comment) or for more than one target (no ability needing that shape
+	// exists yet), so a single CardID is enough rather than a slice or an
+	// EntityID.
+	Target CardID
 }

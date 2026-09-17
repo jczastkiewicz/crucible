@@ -44,6 +44,7 @@ import (
 //	queue startingplayer <p>      ScriptedController.QueueStartingPlayer
 //	queue startinghand <n>        ScriptedController.QueueStartingHand
 //	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
+//	queue enchanttarget <id>      ScriptedController.QueueEnchantTarget, id from CardByFixtureID
 //	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
 //	queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's CardByFixtureID
 //	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
@@ -64,12 +65,14 @@ import (
 //	queue payphyrexian <bool>            ScriptedController.QueuePayPhyrexian
 //	queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
 //
-// A scenario that needs a decision point no verb here reaches -- targeting,
-// choosing modes, anything an instant or sorcery resolves into -- cannot be
-// written yet, because nothing downstream of ScriptedController can answer
-// it either (M5-M6, later). `castspell` reaches the one shape that needed
-// none of that: a permanent spell, not an Aura (CR 601.2c's own target
-// choice), which resolves into nothing but "become a permanent"
+// A scenario that needs a decision point no verb here reaches -- choosing
+// modes, anything an instant or sorcery resolves into -- cannot be written
+// yet, because nothing downstream of ScriptedController can answer it either
+// (M5-M6, later). `castspell` now reaches two shapes: a non-Aura permanent,
+// which resolves into nothing but "become a permanent," and an Aura, whose
+// one target is chosen at cast time via `queue enchanttarget` (or assigned
+// automatically when only one legal host exists, CastSpell's own "nothing
+// meaningful to decide" reasoning) and attached at resolution
 // (castspell.go's own doc comment). PayManaCost, TapLandForMana and
 // CastSpell are each callable directly the same way
 // Game.DeclareCombatAttackers is before a full turn glues combat together
@@ -267,6 +270,16 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue legendarykeep: want exactly one id, got %q", value)
 		}
 		c.QueueLegendaryToKeep(ids[0])
+
+	case "enchanttarget":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue enchanttarget: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("queue enchanttarget: want exactly one id, got %q", value)
+		}
+		c.QueueEnchantTarget(ids[0])
 
 	case "attackers":
 		// "none" is written explicitly, not an empty value, because every

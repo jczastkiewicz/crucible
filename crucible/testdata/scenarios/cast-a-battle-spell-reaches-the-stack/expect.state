@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Forest|Tapped;Forest|Tapped
+ailife=20

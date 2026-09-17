@@ -136,7 +136,7 @@ npx markdownlint-cli2 "CLAUDE.md" "docs/crucible/**/*.md"   # semantic lint
 # Go
 cd crucible && go test -race ./...
 cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/covergate -profile cover.out   # TEST-12 floors
-cd crucible && go test -run TestScenarios ./internal/engine/game -update   # regen goldens, review the diff
+cd crucible && go test ./internal/carddb/compile -run TestCorpusAST -update   # regen the golden AST fingerprints, review the diff
 cd crucible && golangci-lint run
 
 # Java oracle
@@ -172,45 +172,20 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 holding zero implementations — M5's own `permanentEffect` (below) is the first two, but the 203 script-driven APIs in
 corpus-frequency order are still M6's job, not M4's or M5's.
 
-M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`), including CR 511.3's end
-of combat cleanup (`endCombat`, wired as `CombatEnd`'s step body — real bookkeeping, needs none of the stack/triggers
-the other bookkeeping-only steps wait on); zone changes + state-based actions (`action.go`), including an Aura's own
-`Enchant` restriction against its still-present host, not just the host's presence (`enchantSpec`, CR 303.4a), and the
-World rule (CR 704.5m, `resolveWorldRule`, no `PlayerController` needed — newest `Card.Timestamp` wins automatically);
-combat (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`), including a combat split across more than one
-defending player at once (CR 506.4, `DeclareCombatBlockers` groups attackers by `defenderOf` and asks each defender in
-turn); mulligans (`mulligan.go`); the `engine.Matches` valid-string evaluator (`valid.go`) that SBAs and future
-targeting read, built corpus-frequency-first (`port-log/valid-strings.md`); a mana pool and payment for the plain
-colored-and-generic case (`mana.go`) — CR 500.4's emptying between every phase/step, not just casting a spell; the
-`CounterChanged` event, wired at every counter change this port can cause (`annihilateCounters`, `dealPermanentDamage`,
-`Move`'s ETB grant) with a closed `CounterDetail` encoding (`event.go`) over the eight named `CounterType` constants;
-`Game.PayManaCost` (`manapay.go`), which resolves `{X}` (CR 601.2b) via `ChoosePayX` — asked once per cost regardless of
-how many `{X}` symbols it carries (CR 107.3f), folded into `Generic` as `x * CountX()` before anything else — snow
-(`{S}`, CR 106.3a) via `ChoosePaySnow`, asked once per `{S}` symbol independently (unlike `{X}`, two can take two
-different colors' snow mana) and spent through `Pool.PayWithSnow`'s own snow-only bucket, never the plain one, a
-two-color hybrid shard (`{W/U}`) via `ChooseHybridManaColor`, a monocolored hybrid shard (`{2/W}`) via
-`ChoosePayMonocoloredHybrid`, a colorless hybrid shard (`{C/W}`) via `ChoosePayColorlessHybrid`, a single-color
-Phyrexian shard (`{W/P}`) via `ChoosePayPhyrexian`, a hybrid Phyrexian shard (`{B/G/P}`) via `ChoosePayHybridPhyrexian`
-(either kind's paid life fires `LifeChanged`, `Source: NoCard`), and each unit of a cost's generic amount via
-`ChoosePayGeneric` before handing the rest to `Pay`/`PayWithSnow` unchanged — mana payment's own eight harder shapes are
-now all resolved; `TapLandForMana` (`manaability.go`), CR 305.6's intrinsic basic-land mana ability (Forge synthesizes
-it from the type line rather than script text — `CardState.java`'s `getLandTraitChanges`/`getLandManaForColor` — so this
-port keys off `cardtype.Line`'s subtypes the same way `enchantSpec`/`resolveWorldRule` do, and off the land's own Snow
-supertype for whether the mana produced is snow), `Pool.Add`'s first real (non-test) caller; `Game.PlayLand`
-(`land.go`), CR 305 — playing a land is not casting a spell, no cost and no stack, sorcery-speed timing collapsed to
-active player, a main phase and an empty stack, one per turn via the new `Player.LandsPlayed`/`LandsPlayedLastTurn`
-fields (`cleanupStep` rolls them forward for every player each turn, CR 500.4's own "every player" scope);
-`Game.CastSpell` (`castspell.go`), CR 601 trimmed to a permanent spell that is not an Aura — the one shape with nothing
-left to decide at cast time (no targeting, no modes) — paying its cost via `PayManaCost`, pushing it onto the stack (CR
-405.2), and firing `SpellCast`; `permanentEffect`, the first two real `Registry` entries
-(`APIPermanentCreature`/`APIPermanentNoncreature`), resolving a cast permanent onto the battlefield the same fixed-CR-
-rule way `TapLandForMana` resolves a land's own mana ability, not a corpus-frequency M6 implementation. Thin or missing:
-the stack holds real content for this one shape only — no simultaneous-trigger ordering, no replacement effects, nothing
-else pushes onto it yet; the layer system is the CR 613 layer _numbers_ plus power/toughness folding only, not
-types/colors/abilities; `CounterDetail` has no case for a script-written counter name, unreachable until a
-`SpellAbility` can create one (M6). **P4 exit gate's fixture-count half met:** 342 scenarios exist today
-(`testdata/scenarios/`), past the ≥300 floor — mostly combat and mana-payment breadth across the real corpus
-(single-block trades, Vigilance/Haste/First Strike/Deathtouch/Trample against fresh cards, every mana-payment hybrid and
-Phyrexian branch, every basic land color, casting each non-Aura permanent type). The gate's other half is qualitative —
-"covering every step transition, every layer, every SBA" (Plan Section 3.2) — and is not: there is no layer system to
-cover past power/toughness, and no trigger/replacement-effect content for a fixture to exercise yet.
+M5 in progress (rules kernel). Done: turn/phase/step loop + priority (`turn.go`, `phase.go`); zone changes + state-based
+actions (`action.go`) — legend rule, World rule, lethal damage, Battle protector, dangling-attachment cleanup; combat
+(`combat.go`, `attack.go`, `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, a combat split across
+more than one defending player; mulligans (`mulligan.go`); the valid-string evaluator (`valid.go`, `engine.Matches`)
+SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-strings.md`); a mana pool and payment
+covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's intrinsic mana ability
+(`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an Aura, through the stack
+— (`castspell.go`), the first two real `Effect` implementations (`permanentEffect`/`attachEffect`); a permanent's own
+"enters the battlefield" trigger (`trigger.go`), the first trigger-firing mode — detects and queues a trigger, does not
+resolve it (M6's 203 corpus-frequency effects still own that). Full detail:
+`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
+missing: the layer system is CR 613's layer _numbers_ plus a power/toughness folding mechanism with zero real callers;
+block legality beyond "untapped" and the legend rule's `ignoreLegendRule` corner case wait on the same missing general
+static-ability engine that folding does (`StaticAbilityContinuous.java`, PORT-8 — none of the three is buildable in
+isolation without inventing what Forge itself uses for all three). **P4 exit gate's fixture-count half met:** 342
+scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2)
+is not.

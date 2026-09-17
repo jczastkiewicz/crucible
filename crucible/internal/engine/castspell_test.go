@@ -229,3 +229,120 @@ func TestCastSpellFailsWhenCardIsNotInHand(t *testing.T) {
 		t.Fatal("CastSpell succeeded on a card already on the battlefield")
 	}
 }
+
+// A lone eligible target is assigned automatically -- CastSpell's own
+// "nothing meaningful to decide" reasoning, the same convention
+// assignAttackTargets (attack.go) already applies to a single attack target.
+func TestCastSpellAuraSingleEligibleTargetAutoAssigns(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	target := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura with exactly one legal target")
+	}
+	if g.Card(aura).Zone != engine.Stack {
+		t.Fatalf("aura zone after casting = %v, want Stack", g.Card(aura).Zone)
+	}
+
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(aura).Zone != engine.Battlefield {
+		t.Errorf("aura zone after resolving = %v, want Battlefield", g.Card(aura).Zone)
+	}
+	if host, ok := g.Card(aura).AttachedTo(); !ok || host != target {
+		t.Errorf("aura attached to %v, %v, want %v, true", host, ok, target)
+	}
+}
+
+// More than one eligible target asks the controller (CR 601.2c) --
+// ChooseEnchantTarget's own answer, not the first one found.
+func TestCastSpellAuraMultipleEligibleTargetsAsksController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	_ = g.NewCard(creatureDef(t), p, engine.Battlefield)
+	chosen := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueEnchantTarget(chosen)
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura with two legal targets")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if host, ok := g.Card(aura).AttachedTo(); !ok || host != chosen {
+		t.Errorf("aura attached to %v, %v, want %v, true", host, ok, chosen)
+	}
+}
+
+// CR 601.2c: a spell requiring a target with no legal one is illegal to
+// cast, not cast with nothing to point at.
+func TestCastSpellAuraFailsWithNoLegalTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting an Aura with no creature on the battlefield")
+	}
+	if g.Card(aura).Zone != engine.Hand {
+		t.Errorf("aura zone after a failed cast = %v, want Hand", g.Card(aura).Zone)
+	}
+}
+
+// "Enchant Player"/"Enchant Opponent" has no checkable valid.Spec
+// (enchantSpec's own doc comment) -- this port cannot tell a legal host from
+// an illegal one, so it declines rather than guessing.
+func TestCastSpellAuraFailsForEnchantPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	aura := g.NewCard(auraDefWithEnchant(t, "Player"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting an Enchant Player Aura")
+	}
+}
+
+// An unaffordable cost declines the cast even after a target was already
+// chosen (CR 601.2c precedes 601.2i) -- the card never leaves hand, and the
+// target it would have enchanted is untouched.
+func TestCastSpellAuraFailsWhenCostCannotBePaid(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	target := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	g.Card(aura).Def.Faces[0].ManaCost = mana.MustParse("W")
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded with no mana in the pool")
+	}
+	if g.Card(aura).Zone != engine.Hand {
+		t.Errorf("aura zone after a failed cast = %v, want Hand", g.Card(aura).Zone)
+	}
+	if atts := g.Card(target).Attachments(); len(atts) != 0 {
+		t.Errorf("target's attachments = %v, want none", atts)
+	}
+}

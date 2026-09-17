@@ -26,7 +26,8 @@
     "manapay": ["manapay.go"],
     "manaability": ["manaability.go"],
     "land": ["land.go"],
-    "castspell": ["castspell.go"]
+    "castspell": ["castspell.go"],
+    "trigger": ["trigger.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -51,7 +52,22 @@
     "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack"],
     "manapay": ["id", "game", "player", "control", "event"],
     "manaability": ["id", "zone", "card", "game", "player"],
-    "land": ["id", "zone", "card", "game", "player", "phase"],
-    "castspell": ["id", "zone", "card", "game", "phase", "ability", "effect", "manapay", "control", "event"]
+    "land": ["id", "zone", "card", "game", "player", "phase", "trigger"],
+    "castspell": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "phase",
+      "ability",
+      "effect",
+      "manapay",
+      "control",
+      "event",
+      "action",
+      "valid",
+      "trigger"
+    ],
+    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack"]
   }
 }

@@ -591,8 +591,8 @@ printed form.
     count/X expressions, keyword strings. **Done**: all 33,697 cards compile with no exemption.
 18. `go:generate` pipeline for typed param structs + the effect registry (ADR-0008). **Done**: `compile/params_gen.go`
     generates the typed param structs; `internal/engine`'s `Effect`/`Registry` (ADR-0011) is the effect-registry half.
-    `permanentEffect` (M5's `castspell.go`, item 26) is its first two entries, a fixed CR rule, not a corpus-frequency
-    implementation — the 203 script-driven APIs in that order are still M6's job.
+    `permanentEffect`/`attachEffect` (M5's `castspell.go`, item 26) are its first three entries, fixed CR rules, not
+    corpus-frequency implementations — the 203 script-driven APIs in that order are still M6's job.
 19. Vocabulary-completeness scanner (hard-fails on unknown keys/props/cost parts). **Done**: `tools/apiscan` gates the
     param vocabulary at zero unknowns; `internal/valid`'s `TestEveryPropertyIsAccountedFor` gates the property
     vocabulary the same way.
@@ -621,28 +621,44 @@ printed form.
     SBAs reached so far (`action.go`: legend rule, World rule, zero toughness/loyalty/defense, lethal damage, Battle
     protector, dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present
     host); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not (`porting/port-log/game-state.md`'s
-    "Not ported yet").
+    "Not ported yet"). The legend rule's own `ignoreLegendRule` corner case is not reached either — it needs the same
+    general static-ability engine item 27 is blocked on, not more work in `resolveLegendRule` itself.
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Thin, but with real
-    content for one shape now** — `stack.go` is still push/resolve only, no simultaneous-trigger ordering, no
-    replacement-effect system, but `Game.CastSpell` (`castspell.go`) is a real (non-test) `PushAbility`/`ResolveStack`
-    caller: CR 601 trimmed to a permanent spell that is not an Aura (no targeting or modes to ask for), paying its cost
-    via `PayManaCost` and firing `SpellCast`. `permanentEffect` resolves it — CR 608.2m/608.3g's own
-    `PermanentEffect.java`, stripped of Dash/Blitz/Warp/Sneak and trigger-firing this port cannot support — registered
-    for both `APIPermanentCreature` and `APIPermanentNoncreature` since this port has no stack-description system to
-    need Java's own subclass split for.
-27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Thin** — `layer.go` has the CR 613 layer
-    _numbers_; `pt.go` folds power/toughness through them. Types, colors, abilities and the rest of the layer stack are
-    not built.
-28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done** (`combat.go`, `attack.go`,
-    `block.go`, `combatdamage.go`) — first strike, trample, gang blocking, attacking a planeswalker/Battle, and a combat
-    split across more than one defending player at once (CR 506.4). **Mulligans done** (`mulligan.go`) — London, free
-    mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
-    colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
-    same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a snow ({S})
-    symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and `PayManaCost`
-    resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f),
-    snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two different
-    colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
+    content for two shapes and one trigger mode now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
+    `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to decide,
+    `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s parsed
+    `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
+    `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers` (`trigger.go`)
+    is CR 603 at its narrowest — a permanent's own "when this enters" trigger only, keyed off `compile.Face.Triggers`
+    (typed since M3, never read by the engine before now) — pushing its `Execute$` sub-ability's own API onto the stack
+    the way `CastSpell` pushes a cast spell; resolving what it pushes is still M6's job (a trigger's own effect is
+    always one of the 203 corpus-frequency APIs, never one of the three `NewRegistry` implements), so `ResolveStack`
+    correctly reports `ErrUnimplemented` for every real trigger fired today. Still missing: every trigger mode but a
+    permanent's own ETB, a permanent watching some OTHER permanent enter, simultaneous-trigger ordering
+    (`addSimultaneousStackEntry` — nothing yet fires more than one ETB trigger off the same event) and the whole
+    replacement-effect system.
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Thin, and now known why** — `layer.go` has the
+    CR 613 layer _numbers_; `pt.go` folds power/toughness through them, but that folding mechanism has zero real
+    (non-test) callers, the identical position a types/colors/abilities equivalent would start in. Producing a real
+    continuous effect of any kind needs `StaticAbilityContinuous.java`'s own general engine — reading a card's `S:`
+    lines and applying whichever layer they name — which is the same missing dependency block legality beyond "untapped"
+    (`StaticAbilityCantAttackBlock.java`, item 28's own combat note) and the legend rule's `ignoreLegendRule` corner
+    case (`StaticAbilityIgnoreLegendRule.java`, item 25) are blocked on: none of the three is buildable in isolation
+    without inventing the mechanism Forge itself uses for all of them (PORT-8). Building that engine, not any one of its
+    three callers, is the actual next step here.
+28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat done for what does not need a
+    static-ability engine** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`) — first strike, trample, gang
+    blocking, attacking a planeswalker/Battle, and a combat split across more than one defending player at once (CR
+    506.4). Block legality stays "untapped creature the defending player controls" only: flying/reach, menace,
+    protection and "must be blocked by" all run through Forge's own `CantBlockBy` static-ability engine
+    (`StaticAbilityCantAttackBlock.java`), the same missing dependency item 27 names. **Mulligans done** (`mulligan.go`)
+    — London, free mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve
+    buckets — six colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case
+    plus snow (a same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a
+    snow ({S}) symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and
+    `PayManaCost` resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries,
+    CR 107.3f), snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two
+    different colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
     `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a single-color Phyrexian
     shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and each unit of a cost's
     generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve are resolved. A basic
@@ -658,12 +674,12 @@ printed form.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
     harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
-    against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each non-Aura
-    permanent type), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario suite
-    green (met) on ≥300 fixtures covering every step transition, every layer, every SBA (Plan Section 3.2). The count
-    and the step-transition/SBA breadth are met; "every layer" is not, since there is no layer system past
-    power/toughness folding for a fixture to exercise, and no trigger/replacement-effect content either. **Partially
-    reached** — blocked on the rest of M5 landing, not on writing more fixtures.
+    against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each permanent
+    type including an Aura), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario
+    suite green (met) on ≥300 fixtures covering every step transition, every layer, every SBA (Plan Section 3.2). The
+    count and the step-transition/SBA breadth are met; "every layer" is not, since there is no layer system past
+    power/toughness folding for a fixture to exercise, and replacement effects and every non-ETB trigger mode remain
+    gaps too. **Partially reached** — blocked on the rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

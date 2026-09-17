@@ -45,7 +45,7 @@ func landDB(t *testing.T, name, typeLine string) *compile.DB {
 // (PayManaCost), neither of which testDB's vanilla cards carry.
 func permanentDB(t *testing.T, name, typeLine, cost string) *compile.DB {
 	t.Helper()
-	return castTestDB(t, permanentCard{name, typeLine, cost})
+	return castTestDB(t, permanentCard{name: name, typeLine: typeLine, cost: cost})
 }
 
 // permanentCard is one castTestDB entry: a type line and a mana cost, the
@@ -53,6 +53,7 @@ func permanentDB(t *testing.T, name, typeLine, cost string) *compile.DB {
 // (type line only) does not carry.
 type permanentCard struct {
 	name, typeLine, cost string
+	keywords             []string
 }
 
 // castTestDB builds a database of real-type-line, real-mana-cost cards --
@@ -75,6 +76,7 @@ func castTestDB(t *testing.T, cards ...permanentCard) *compile.DB {
 				Name:     card.name,
 				Type:     cardtype.Parse(reg, card.typeLine),
 				ManaCost: mana.MustParse(card.cost),
+				Keywords: card.keywords,
 			}},
 		}
 		c, err := compile.Compile(raw)
@@ -1295,8 +1297,8 @@ func TestRunActionsCastSpellAndResolveStackMovesCardToBattlefield(t *testing.T) 
 	t.Parallel()
 
 	db := castTestDB(t,
-		permanentCard{"Grizzly Bears", "Creature Bear", "G"},
-		permanentCard{"Forest", "Basic Land Forest", "no cost"},
+		permanentCard{name: "Grizzly Bears", typeLine: "Creature Bear", cost: "G"},
+		permanentCard{name: "Forest", typeLine: "Basic Land Forest", cost: "no cost"},
 	)
 	l := load(t, db, "humanlife=20\nailife=20\nhumanhand=Grizzly Bears|Id:1\nhumanbattlefield=Forest|Id:2\n")
 	c := engine.NewScriptedController()
@@ -1308,6 +1310,37 @@ func TestRunActionsCastSpellAndResolveStackMovesCardToBattlefield(t *testing.T) 
 
 	if l.Game.Card(l.CardByFixtureID[1]).Zone != engine.Battlefield {
 		t.Error("Grizzly Bears not on the battlefield after castspell/resolvestack")
+	}
+}
+
+// castspell's own Aura branch: a lone eligible target needs no
+// `queue enchanttarget` at all (CastSpell's own "nothing meaningful to
+// decide" reasoning), and resolvestack attaches it through attachEffect.
+func TestRunActionsCastSpellAuraAttachesToChosenTarget(t *testing.T) {
+	t.Parallel()
+
+	db := castTestDB(t,
+		permanentCard{name: "Test Ward", typeLine: "Enchantment Aura", cost: "W", keywords: []string{"Enchant:Creature"}},
+		permanentCard{name: "Plains", typeLine: "Basic Land Plains", cost: "no cost"},
+		permanentCard{name: "Silvercoat Lion", typeLine: "Creature Cat", cost: "1 W"},
+	)
+	l := load(t, db,
+		"humanlife=20\nailife=20\nhumanhand=Test Ward|Id:1\n"+
+			"humanbattlefield=Plains|Id:2;Silvercoat Lion|Id:3\n")
+	c := engine.NewScriptedController()
+
+	err := runActions(t, l, c, "startturn human\nadvance 3\ntapformana human 2 W\ncastspell human 1\nresolvestack\n")
+	if err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	aura := l.Game.Card(l.CardByFixtureID[1])
+	if aura.Zone != engine.Battlefield {
+		t.Fatal("Test Ward not on the battlefield after castspell/resolvestack")
+	}
+	host, ok := aura.AttachedTo()
+	if !ok || host != l.CardByFixtureID[3] {
+		t.Errorf("Test Ward attached to %v, %v, want %v, true", host, ok, l.CardByFixtureID[3])
 	}
 }
 

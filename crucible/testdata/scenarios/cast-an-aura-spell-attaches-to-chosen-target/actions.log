@@ -1,0 +1,15 @@
+# CR 601.2c: casting an Aura chooses its target before paying the cost --
+# castAura (castspell.go), CastSpell's own Aura branch. Grizzly Bears is the
+# only creature on the battlefield, so it is assigned automatically with no
+# `queue enchanttarget` needed (the same "nothing meaningful to decide"
+# reasoning a lone attack target already gets). Two Plains pay Pacifism's
+# {1}{W}: the white pip auto-pays from the pool, the generic unit through
+# queue paygeneric. resolvestack moves Pacifism to the battlefield and
+# attaches it through attachEffect -- APIAttach's own Registry entry.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+castspell human 1
+resolvestack

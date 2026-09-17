@@ -182,29 +182,21 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 // matchesValidDefender is ValidDefender's own check
 // (StaticAbilityCantAttackBlock.applyCantBlockByAbility:
 // `stAb.matchesValidParam("ValidDefender", blocker.getController())`) -- a
-// Player, not a Card, so Matches (valid.go) cannot evaluate it, the same
-// reason matchesActivatingPlayer (trigger.go) exists for SpellCast's own
-// ValidActivatingPlayer. "You"/"Opponent"/"Player" are the identical three
-// bare values matchesActivatingPlayer resolves (4, 1 and 1 of the 8 real
-// literal ValidDefender$ lines), checked here against defender vs
-// host.Controller instead of a trigger's activator. A "Player.controls<Type>"
-// value -- Landwalk's own entire restriction, landwalkType's own doc comment
-// has the reason it is built per card rather than looked up -- asks whether
-// defender controls at least one battlefield permanent valid.Parse(type)
-// matches (PlayerProperty.java's own "controls" branch,
-// `property.substring(8)`, no comparator suffix: every real corpus use of
-// this shape is the bare "at least one" default). Any other value
-// (Player.Condition, Card.Self -- 2 of the 8 real literal lines) never
-// matches, the same skip-rather-than-fire contract every other unresolved
-// param in this port gets.
+// Player, not a Card, so Matches (valid.go) cannot evaluate it.
+// matchesPlayerBase's own three bare values (valid.go) cover 6 of the 8 real
+// literal ValidDefender$ lines, checked here against defender vs
+// host.Controller. A "Player.controls<Type>" value -- Landwalk's own entire
+// restriction, landwalkType's own doc comment has the reason it is built
+// per card rather than looked up -- asks whether defender controls at least
+// one battlefield permanent valid.Parse(type) matches (PlayerProperty.java's
+// own "controls" branch, `property.substring(8)`, no comparator suffix:
+// every real corpus use of this shape is the bare "at least one" default).
+// Any other value (Player.Condition, Card.Self -- 2 of the 8 real literal
+// lines) never matches, the same skip-rather-than-fire contract every other
+// unresolved param in this port gets.
 func matchesValidDefender(g *Game, defender PlayerID, spec string, host *Card) bool {
-	switch spec {
-	case "You":
-		return defender == host.Controller
-	case "Opponent":
-		return defender != host.Controller
-	case "Player":
-		return true
+	if matched, ok := matchesPlayerBase(defender, host.Controller, spec); ok {
+		return matched
 	}
 	if typ, ok := strings.CutPrefix(spec, "Player.controls"); ok {
 		return controllerControlsType(g, defender, typ, host)

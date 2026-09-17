@@ -389,6 +389,33 @@ func colorFromName(name string) (mana.Colors, bool) {
 	return 0, false
 }
 
+// matchesPlayerBase is CardTraitBase's own bare "You"/"Opponent"/"Player"
+// dispatch against a Player rather than a Card, shared by every
+// ValidXPlayer-shaped check this port has needed so far: SpellCast's own
+// ValidActivatingPlayer (matchesActivatingPlayer, trigger.go), CantBlockBy's
+// own ValidDefender (matchesValidDefender, staticability.go) and
+// DamageDone's own ValidSource/ValidTarget when the damaged object is a
+// player rather than a card (checkDamageDoneTriggers, trigger.go). None of
+// the three is a *Card, so Matches itself cannot answer any of them.
+// "Opponent"/"You" reuse the same no-team simplification OppCtrl/OppOwn
+// already carry (this file's own doc comment on propertyMatches):
+// "controlled by anyone other than host" stands in for
+// getOpponents().contains(candidate). ok is false for spec anything else,
+// so a caller with its own additional dispatch (matchesValidDefender's own
+// "Player.controls<Type>") knows to keep looking rather than treat an
+// unrecognized spec as a plain non-match.
+func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool) {
+	switch spec {
+	case "You":
+		return candidate == host, true
+	case "Opponent":
+		return candidate != host, true
+	case "Player":
+		return true, true
+	}
+	return false, false
+}
+
 // sourceCard resolves source to its own *Card, for the properties that read
 // something off the card the spec is written on rather than the candidate c
 // -- ChosenCard, IsRemembered, IsImprinted. Game.Card panics on NoCard

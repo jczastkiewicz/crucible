@@ -627,42 +627,55 @@ printed form.
     (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
     Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup).
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes and five trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
+    cast shapes and seven trigger modes now** — `Game.CastSpell` (`castspell.go`) is a real (non-test)
     `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to decide,
     `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s parsed
     `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
     `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers`/
-    `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkSpellCastTriggers` (`trigger.go`) cover the
-    corpus's five most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
-    `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR
-    700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2, `TriggerBlocks.performTest`) and
-    "a player casts a spell" (`Mode$ SpellCast`, CR 603, `TriggerSpellAbilityCastOrCopy.performTest`) — the first two
-    also checked against every OTHER battlefield permanent's own matching trigger
-    (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks` and `SpellCast` need no separate "other"
-    loop at all, since none of the three Java trigger classes special-cases its own host's trigger to begin with — one
-    walk over the battlefield covers both "this creature attacks/blocks"/"you cast a spell" and "a creature you control
-    attacks/blocks"/"a player casts a spell" alike. `Blocks` needs only `ValidCard` (matched against the declared
-    blocker); its own `ValidBlocked$` (8 of 127 real lines) matches against the FULL collection of attackers one blocker
-    blocks, which this port's `Block` (combat.go) never groups back into a per-blocker set, so a trigger carrying it is
-    skipped rather than checked against only the one attacker in the current `Block` — called once per declared `Block`,
-    after `CanBlock` and `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go).
-    `SpellCast` is also the first trigger mode matched against something other than a `*Card`: `ValidActivatingPlayer`
-    (1,216 of 1,435 real lines, more common than `ValidCard` itself) is a `Player`, so a new `matchesActivatingPlayer`
-    (not `Matches`, `valid.go`) checks its three bare values (`You`/`Opponent`/`Player`, 1,191 of those 1,216) directly.
-    All five modes are keyed off `compile.Face.Triggers` (typed since M3, never read by the engine before now). A
-    trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too
-    (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw`
-    (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself;
-    `ResolveStack` still reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/"casts a spell" (`Tapped`, ...); `Attacks`'s own `Attacked$`/`Alone$`/
-    `FirstAttack$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` params; `SpellCast`'s own qualified
-    `ValidActivatingPlayer$` forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines) and nine other unresolved
-    params (`ValidSA`, `TargetsValid`, `HasXManaCost`, ... — `porting/port-log/game-state.md`'s trigger-firing section
-    has the full list); simultaneous-trigger ordering (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP
-    order) is a real gap now rather than a hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can
-    genuinely push more than one trigger off a single event, in a fixed order rather than a chosen one — and the whole
-    replacement-effect system.
-27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Three real slices of `Mode$ Continuous` now,
+    `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkDamageDoneTriggersToCard`/
+    `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkSpellCastTriggers` (`trigger.go`, eleven functions
+    in all once each mode's own "other" half is counted) cover the corpus's seven most frequent trigger shapes — a
+    permanent's own "enters" (`Mode$ ChangesZone`, `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`,
+    `Origin$ Battlefield`, `Destination$ Graveyard`, CR 700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks"
+    (`Mode$ Blocks`, CR 509.2), "deals damage" (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is
+    discarded" (`Mode$ Discarded`, CR 603, `TriggerDiscarded.performTest`) and "a player casts a spell"
+    (`Mode$ SpellCast`, CR 603) — the first two also checked against every OTHER battlefield permanent's own matching
+    trigger (`checkOtherETBTriggers`/`checkOtherDiesTriggers`); `Attacks`, `Blocks`, `DamageDone` and `SpellCast` need
+    no separate "other" loop at all, since none of those Java trigger classes special-cases its own host's trigger to
+    begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals damage"/"you cast a
+    spell" and "a creature you control attacks/blocks/deals damage"/"a player casts a spell" alike. `Discarded` is the
+    one exception: a "Card.Self" shaped line (14 of 105 real lines, the Madness-adjacent "when this card is discarded,
+    you may cast it" shape) lives on a card that is never on the battlefield when it fires — discarded FROM HAND — so
+    `checkDiscardedTriggers` needed its own explicit "own" half checking the discarded card directly, on top of
+    `checkOtherDiscardedTriggers`' battlefield walk (caught by `TestCleanupFiresDiscardedTrigger` failing on the first,
+    battlefield-only attempt — a self-caught gap, not a hypothetical one). `Blocks` needs only `ValidCard` (matched
+    against the declared blocker); its own `ValidBlocked$` (8 of 127 real lines) matches against the FULL collection of
+    attackers one blocker blocks, which this port's `Block` (combat.go) never groups back into a per-blocker set, so a
+    trigger carrying it is skipped rather than checked against only the one attacker in the current `Block` — called
+    once per declared `Block`, after `CanBlock` and `menaceLegal` have both already filtered it legal
+    (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two functions because the actual damaged object is
+    either a `*Card` or a `*Player` (Java's own `DamageTarget` is a `GameEntity`), each needing a different
+    `ValidTarget` evaluator — fired from `dealPermanentDamage`/ `dealPlayerDamage` (combatdamage.go), `CombatDamage$`
+    checked against a hardcoded `true` since nothing outside combat deals damage in this port yet.
+    `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded` all match something other than a `*Card` at some point
+    (`ValidActivatingPlayer`, `ValidDefender`, `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`) — a new
+    `matchesPlayerBase` (`valid.go`) is the shared three-bare-value (`You`/`Opponent`/`Player`) dispatch all four now
+    reuse, factored out once a third caller needed the identical switch two callers had already written separately. All
+    seven modes are keyed off `compile.Face.Triggers` (typed since M3, never read by the engine before now). A trigger's
+    `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`,
+    `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became
+    the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still
+    reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
+    "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is discarded"/"casts a spell" (`Tapped`, ...); `Attacks`'s own
+    `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` params; `DamageDone`'s own
+    `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$`; `Discarded`'s own `ValidCause$`;
+    `SpellCast`'s own qualified `ValidActivatingPlayer$` forms (`Player.Opponent`, `Player.EnchantedBy`, ... — 25 lines)
+    and nine other unresolved params (`ValidSA`, `TargetsValid`, `HasXManaCost`, ... —
+    `porting/port-log/game-state.md`'s trigger-firing section has the full list); simultaneous-trigger ordering
+    (`addSimultaneousStackEntry`, CR 603.3b's controller-chosen/APNAP order) is a real gap now rather than a
+    hypothetical one — `checkOtherETBTriggers`/`checkOtherDiesTriggers` can genuinely push more than one trigger off a
+    single event, in a fixed order rather than a chosen one — and the whole replacement-effect system.
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Four real slices of `Mode$ Continuous` now,
     alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_; `pt.go` folds
     power/toughness through them, and that folding mechanism has a real (non-test) caller for the first time:
     `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c (`SetPower$`/`SetToughness$`/`AddPower$`/`AddToughness$`)
@@ -686,18 +699,29 @@ printed form.
     real lines), folded through a new `ColorMod`/`ColorEffect` (`colormod.go`, `TypeMod`'s own structure copied again,
     with one `Overwrite bool` standing in for `SetColor$`'s own "replace outright" vs `AddColor$`'s own "union in") — a
     `"ChosenColor"` token (7 of 61) skips the whole line, `AddType$`'s own dynamic-value reasoning applied identically.
-    `colorFromName` (`valid.go`'s own `colorMatches`, pulled out so both share the five-color mapping) backs both. Not
-    resolved for any of the three: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24),
-    `CharacteristicDefining$` (265, Layer 7a — almost always an SVar-driven value), and a non-numeric
-    `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` (`X`, `Y`, `Z`, `AffectedX`, a named SVar) — each its own
-    specific missing piece (`porting/port-log/game-state.md`'s "Layer 7, Layer 4 and Layer 5" section has the full
-    account), not a reason to have skipped the slices that do resolve. The legend rule's own `ignoreLegendRule`
-    exemption (item 25) and `CantBlockBy` (item 28's own combat note) already showed a static-ability mode can be
-    independently buildable when it needs no layer-folding of its own — `Mode$ Continuous` was always going to be the
-    one mode that could not skip that machinery entirely, and now three of its layers partly haven't had to: all three
-    subsets needed only the valid-string evaluator (`valid.go`) every other slice already reused, plus (for Layers 4/5)
-    small additions to `cardtype.Line`/`valid.go` themselves. The rest of Layer 7 (7a), the rest of Layers 4/5, and
-    Layers 1-3/6/8 are still the real remaining size of this item.
+    `colorFromName` (`valid.go`'s own `colorMatches`, pulled out so both share the five-color mapping) backs both. A new
+    `applyContinuousKeyword` is Layer 6's own counterpart, and the single largest real slice of all four: `AddKeyword$`
+    lines naming only literal keyword lines (1,556 of 1,857 real lines — more than Layer 7's own 2,192 of 2,426), folded
+    through a new `KeywordMod`/`KeywordEffect` (`keywordmod.go`) `Card.HasKeyword` now reads back the identical way it
+    already reads a printed keyword line, reaching `cantBlockByKeywords` and combat's own First Strike/Trample/
+    Deathtouch reads for free without changing either. Unlike `TypeMod`/`ColorMod`, `KeywordEffect` needs no fold order
+    at all: `HasKeyword` only ever asks membership, never "what is the current value," so two continuous effects both
+    granting a keyword never disagree about anything. Skipped whole: `RemoveKeyword$`/`RemoveAllAbilities$` (5 of 1,561)
+    — the identical "gains X, loses Y" reasoning `AddType$`'s own bulk-removal skip already gives;
+    `SharedKeywords$`/`FromDraftNotes$` — a game-wide/remembered-list/draft-note keyword source rather than a fixed
+    token list; a dynamic-value marker anywhere inside any one token (42 of 1,857), checked by substring
+    (`strings.Contains`) since a marker is often a qualifier embedded in a larger token
+    (`"Protection:Card.ChosenColor:chosenColor"`) rather than the whole token itself. Not resolved for any of the four
+    layers: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24), `CharacteristicDefining$` (265, Layer 7a
+    — almost always an SVar-driven value), and a non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$`
+    (`X`, `Y`, `Z`, `AffectedX`, a named SVar) — each its own specific missing piece (`porting/port-log/game-state.md`'s
+    "Layer 7, Layer 4, Layer 5 and Layer 6" section has the full account), not a reason to have skipped the slices that
+    do resolve. The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat
+    note) already showed a static-ability mode can be independently buildable when it needs no layer-folding of its own
+    — `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now four
+    of its layers partly haven't had to: all four subsets needed only the valid-string evaluator (`valid.go`) every
+    other slice already reused, plus (for Layers 4/5) small additions to `cardtype.Line`/`valid.go` themselves. The rest
+    of Layer 7 (7a), the rest of Layers 4/5/6, and Layers 1-3/8 are still the real remaining size of this item.
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,
     trample, gang blocking, attacking a planeswalker/Battle, a combat split across more than one defending player at
@@ -745,10 +769,11 @@ printed form.
     count and the step-transition/SBA breadth are met; "every layer" is not — only Layer 7b/7c's own plain-integer
     subset (`applyContinuousPT`, item 27) has a scenario fixture exercising it
     (`equipment-falls-off-without-destroying`, via Sword of Body and Mind's real `AddPower$`/`AddToughness$`); Layer 4's
-    own literal-token subset and Layer 5's own (`applyContinuousType`/`applyContinuousColor`, item 27) are proven only
-    at the Go module level (`continuous_test.go`), not yet by a scenario fixture, and replacement effects and every
-    trigger mode but "enters"/"dies"/"attacks"/"blocks"/"casts a spell" remain gaps too. **Partially reached** — blocked
-    on the rest of M5 landing, not on writing more fixtures.
+    own literal-token subset, Layer 5's own and Layer 6's own (`applyContinuousType`/`applyContinuousColor`/
+    `applyContinuousKeyword`, item 27) are proven only at the Go module level (`continuous_test.go`), not yet by a
+    scenario fixture, and replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals
+    damage"/"is discarded"/"casts a spell" remain gaps too. **Partially reached** — blocked on the rest of M5 landing,
+    not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

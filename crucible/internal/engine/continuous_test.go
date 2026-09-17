@@ -448,3 +448,156 @@ func TestApplyContinuousColorSkipsChosenColor(t *testing.T) {
 		t.Errorf("Colors() = %v, want unchanged Red -- an unresolvable ChosenColor token must not apply", colors)
 	}
 }
+
+// TestApplyContinuousKeywordGrantsKeywordToMatchingCreatures proves Layer
+// 6's own AddKeyword$: a blanket "creatures you control have flying" effect
+// grants it, read back through HasKeyword the same way a printed keyword
+// already is.
+func TestApplyContinuousKeywordGrantsKeywordToMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Keyword Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if !g.Card(creature).HasKeyword("Flying") {
+		t.Error("HasKeyword(\"Flying\") = false, want true -- the anthem's own AddKeyword$ should have granted it")
+	}
+}
+
+// TestApplyContinuousKeywordGrantsBothTokens proves the " & "-separated
+// multi-keyword shape (5 of 256 real AddKeyword$ lines carry more than one
+// core-type token for AddType$; AddKeyword$'s own corpus carries the
+// identical separator, "Flying & Haste" among the real samples) grants
+// every token, not just the first.
+func TestApplyContinuousKeywordGrantsBothTokens(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Keyword Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying & Haste"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	c := g.Card(creature)
+	if !c.HasKeyword("Flying") || !c.HasKeyword("Haste") {
+		t.Errorf("HasKeyword: Flying = %v, Haste = %v, want true and true", c.HasKeyword("Flying"), c.HasKeyword("Haste"))
+	}
+}
+
+// TestApplyContinuousKeywordDoesNotAffectNonMatchingCreatures mirrors the
+// Layer 7/4/5 non-matching tests: an opponent's creature is untouched by a
+// "creatures you control" keyword-granting anthem.
+func TestApplyContinuousKeywordDoesNotAffectNonMatchingCreatures(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Keyword Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(theirs).HasKeyword("Flying") {
+		t.Error("HasKeyword(\"Flying\") = true, an opponent's anthem must not grant it")
+	}
+}
+
+// TestApplyContinuousKeywordRecomputesWhenSourceLeaves mirrors the Layer
+// 7/4/5 leave tests: once the keyword-granting source itself leaves the
+// battlefield, the granted keyword is gone on the very next check.
+func TestApplyContinuousKeywordRecomputesWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	anthem := g.NewCard(continuousDef(t, "Test Keyword Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if !g.Card(creature).HasKeyword("Flying") {
+		t.Fatal("setup: HasKeyword(\"Flying\") = false, want true")
+	}
+
+	g.Move(anthem, engine.Graveyard, p)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(creature).HasKeyword("Flying") {
+		t.Error("HasKeyword(\"Flying\") after the anthem left = true, want false")
+	}
+}
+
+// TestApplyContinuousKeywordSkipsDynamicValue proves an AddKeyword$ token
+// this port cannot resolve at runtime (a ChosenColor-qualified Protection
+// grant) skips the whole line rather than granting a literal, wrong keyword.
+func TestApplyContinuousKeywordSkipsDynamicValue(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Chosen Protection", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Protection:Card.ChosenColor:chosenColor"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(creature).HasKeyword("Protection") {
+		t.Error("HasKeyword(\"Protection\") = true, an unresolvable ChosenColor token must not apply")
+	}
+}
+
+// TestApplyContinuousKeywordSkipsRemoveKeywordCombo proves a line pairing
+// AddKeyword$ with RemoveKeyword$ (a real "gains X, loses Y" shape) is
+// skipped whole: applying AddKeyword$ alone would leave the creature with
+// both the old and new keyword, an actively wrong answer this port refuses
+// to give rather than shipping half of a line.
+func TestApplyContinuousKeywordSkipsRemoveKeywordCombo(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Swap Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Reach | RemoveKeyword$ Flying"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Flying"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	c := g.Card(creature)
+	if c.HasKeyword("Reach") {
+		t.Error("HasKeyword(\"Reach\") = true, want the whole line skipped (RemoveKeyword$ is not evaluated), not just partially applied")
+	}
+	if !c.HasKeyword("Flying") {
+		t.Error("HasKeyword(\"Flying\") = false, want the creature's own printed Flying left untouched by the skipped line")
+	}
+}
+
+// TestApplyContinuousKeywordGrantedFlyingAffectsCanBlock proves the fold
+// reaches further than HasKeyword alone: a continuously-granted Flying
+// makes a creature unblockable by a grounded creature the identical way a
+// printed Flying keyword already does (cantBlockByKeywords, staticability.go)
+// -- Layer 6's own first real caller reaching all the way into block
+// legality, not just a bare HasKeyword check.
+func TestApplyContinuousKeywordGrantedFlyingAffectsCanBlock(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Flying Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying"), a, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	ground := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.CanBlock(attacker, ground) {
+		t.Error("CanBlock(continuously-flying attacker, grounded blocker) = true, want false")
+	}
+}

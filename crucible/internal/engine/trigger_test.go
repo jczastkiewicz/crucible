@@ -877,3 +877,374 @@ func TestDeclareCombatBlockersSkipsBlocksTriggerWithUnresolvedParam(t *testing.T
 		t.Errorf("library card zone = %v, want Library -- nothing should have drawn it", g.Card(top).Zone)
 	}
 }
+
+// damageDoneTriggerCreatureDefPT builds a *compile.Card for a creature with
+// a real "whenever this deals damage" trigger -- Mode$ DamageDone,
+// ValidSource$ Card.Self, no ValidTarget (absent is a pass, matchesValidParam's
+// own contract).
+func damageDoneTriggerCreatureDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ DamageDone | ValidSource$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDealCombatDamageFiresDamageDoneTriggerToPlayer proves
+// checkDamageDoneTriggersToPlayer (trigger.go) is wired into dealPlayerDamage
+// (combatdamage.go): an unblocked attacker's own "when this deals damage"
+// trigger fires the instant it hits the defending player, and its Execute$
+// sub-ability (Draw) actually resolves.
+func TestDealCombatDamageFiresDamageDoneTriggerToPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerCreatureDefPT(t, "Test Attacker", "3", "3"), a, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the DamageDone trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// TestDealCombatDamageFiresDamageDoneTriggerToCard proves the same trigger
+// fires against a *Card target (a blocker) too, ValidTarget matched by
+// Matches (valid.go) rather than matchesPlayerBase.
+func TestDealCombatDamageFiresDamageDoneTriggerToCard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerCreatureDefPT(t, "Test Attacker", "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "3", "3"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the DamageDone trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// damageDoneWatcherDef builds a *compile.Card for a non-creature permanent
+// watching for ANY creature its controller controls to deal damage to a
+// player (ValidSource$ Creature.YouCtrl, ValidTarget$ Player) -- neither
+// checkDamageDoneTriggersToCard nor ToPlayer needs a separate "own"/"other"
+// loop, the same single-walk shape checkAttacksTriggers/checkBlocksTriggers
+// already established.
+func damageDoneWatcherDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test DamageDone Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test DamageDone Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ DamageDone | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDealCombatDamageFiresOtherPermanentsWatchingDamageDoneTrigger proves
+// checkDamageDoneTriggersToPlayer fires a watcher's own trigger off a
+// DIFFERENT creature's damage: the attacker itself carries no trigger, so
+// the pushed Draw can only have come from the watcher.
+func TestDealCombatDamageFiresOtherPermanentsWatchingDamageDoneTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(damageDoneWatcherDef(t), a, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the watcher's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// damageDoneTriggerWithDamageAmountParamDefPT builds a creature whose own
+// DamageDone trigger carries DamageAmount$, a param checkDamageDoneTriggersToPlayer/
+// ToCard does not evaluate.
+func damageDoneTriggerWithDamageAmountParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ DamageDone | ValidSource$ Card.Self | DamageAmount$ GE4 | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDealCombatDamageSkipsDamageDoneTriggerWithUnresolvedParam proves a
+// trigger carrying a param this port cannot evaluate (DamageAmount$) is
+// skipped entirely -- never fired unconditionally, which would be silently
+// wrong (GO-7).
+func TestDealCombatDamageSkipsDamageDoneTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerWithDamageAmountParamDefPT(t, "Test Attacker", "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- DamageAmount$ is not evaluated, so the trigger must not fire", got)
+	}
+}
+
+// discardedTriggerCreatureDefPT builds a *compile.Card for a creature with a
+// real "when CARDNAME is discarded" trigger -- Mode$ Discarded, ValidCard$
+// Card.Self.
+func discardedTriggerCreatureDefPT(t *testing.T, name string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Discarded | ValidCard$ Card.Self | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestCleanupFiresDiscardedTrigger proves checkDiscardedTriggers (trigger.go)
+// is wired into cleanupStep (turn.go): a discarded card's own "when this is
+// discarded" trigger is detected and its Execute$ sub-ability (Draw)
+// actually resolves.
+func TestCleanupFiresDiscardedTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	discarded := g.NewCard(discardedTriggerCreatureDefPT(t, "Test Discarded Creature"), a, engine.Hand)
+	var hand []engine.CardID
+	for i := 0; i < engine.MaxHandSize; i++ {
+		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+	}
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	c := engine.NewScriptedController()
+	c.QueueDiscard([]engine.CardID{discarded})
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(c) // -> Cleanup
+
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the Discarded trigger's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// discardedWatcherDef builds a *compile.Card for a non-creature permanent
+// watching for ANY card its controller discards (ValidCard$ Card.YouCtrl),
+// not tied to being discarded itself -- checkDiscardedTriggers needs no
+// separate "own" and "other" loop, the same as checkAttacksTriggers/
+// checkBlocksTriggers.
+func discardedWatcherDef(t *testing.T) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Discarded Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Discarded Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Discarded | ValidCard$ Card.YouCtrl | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestCleanupFiresOtherPermanentsWatchingDiscardedTrigger proves
+// checkDiscardedTriggers fires a watcher's own trigger off a DIFFERENT card
+// being discarded: the discarded card itself carries no trigger, so the
+// pushed Draw can only have come from the watcher.
+func TestCleanupFiresOtherPermanentsWatchingDiscardedTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.NewCard(discardedWatcherDef(t), a, engine.Battlefield)
+	discarded := g.NewCard(nil, a, engine.Hand)
+	var hand []engine.CardID
+	for i := 0; i < engine.MaxHandSize; i++ {
+		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+	}
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	c := engine.NewScriptedController()
+	c.QueueDiscard([]engine.CardID{discarded})
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(c) // -> Cleanup
+
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the watcher's own Draw should have resolved", g.Card(top).Zone)
+	}
+}
+
+// discardedTriggerWithValidCauseParamDefPT builds a creature whose own
+// Discarded trigger carries ValidCause$, a param checkDiscardedTriggers does
+// not evaluate.
+func discardedTriggerWithValidCauseParamDefPT(t *testing.T, name string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Discarded | ValidCard$ Card.Self | ValidCause$ SpellAbility.Madness | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestCleanupSkipsDiscardedTriggerWithUnresolvedParam proves a trigger
+// carrying a param this port cannot evaluate (ValidCause$) is skipped
+// entirely -- never fired unconditionally, which would be silently wrong
+// (GO-7).
+func TestCleanupSkipsDiscardedTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	discarded := g.NewCard(discardedTriggerWithValidCauseParamDefPT(t, "Test Discarded Creature"), a, engine.Hand)
+	var hand []engine.CardID
+	for i := 0; i < engine.MaxHandSize; i++ {
+		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+	}
+
+	c := engine.NewScriptedController()
+	c.QueueDiscard([]engine.CardID{discarded})
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.AdvancePhase(c) // -> Cleanup
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- ValidCause$ is not evaluated, so the trigger must not fire", got)
+	}
+}

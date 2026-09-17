@@ -232,6 +232,11 @@ func (g *Game) endCombat() {
 // decide" reasoning every other combat/mulligan decision point in this port
 // uses for an empty or already-satisfied set.
 //
+// Each discard checks CR 603's own "whenever ~ is discarded" trigger
+// (checkDiscardedTriggers, trigger.go) right after Move, the same
+// after-the-fact timing checkDiesTriggers already uses for a card that just
+// left the battlefield.
+//
 // Not here: "until end of turn"/"this turn" effects ending (CR 514.2's
 // other half, needs duration tracking this port does not have -- PT's own
 // effects, for one, have no timestamp-scoped-to-a-turn concept yet,
@@ -249,6 +254,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-MaxHandSize)
 		for _, id := range discard {
 			g.Move(id, Graveyard, g.Card(id).Owner)
+			g.checkDiscardedTriggers(id, g.activePlayer)
 		}
 	}
 

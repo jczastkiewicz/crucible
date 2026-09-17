@@ -338,31 +338,19 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 }
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
-// matchesValidParam("ValidActivatingPlayer", activator) -- a Player, not a
-// Card, so Matches (valid.go) cannot evaluate it. Missing entirely is a
-// pass, the same CardTraitBase.matchesValidParam contract ValidCard's own
-// absence gets above. "You" and "Opponent" reuse the same no-team
-// simplification OppCtrl/OppOwn already carry (valid.go's own doc comment):
-// "controlled by anyone other than sourceController" stands in for
-// getOpponents().contains(...). "Player" is an unrestricted bare type, a
-// pass for anyone. Any qualified form (a dot in the value) falls to the
-// default, never matching -- checkSpellCastTriggers' own doc comment names
-// the six real ones this cannot evaluate.
+// matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerBase
+// (valid.go)'s own three bare values. Missing entirely is a pass, the same
+// CardTraitBase.matchesValidParam contract ValidCard's own absence gets
+// above. Any qualified form (a dot in the value) is unrecognized and never
+// matches -- checkSpellCastTriggers' own doc comment names the six real
+// ones this cannot evaluate.
 func matchesActivatingPlayer(t *compile.Ability, activator, hostController PlayerID) bool {
 	v, ok := t.Param("ValidActivatingPlayer")
 	if !ok {
 		return true
 	}
-	switch v {
-	case "You":
-		return activator == hostController
-	case "Opponent":
-		return activator != hostController
-	case "Player":
-		return true
-	default:
-		return false
-	}
+	matched, recognized := matchesPlayerBase(activator, hostController, v)
+	return recognized && matched
 }
 
 // isSpellCastTrigger reports whether t is CR 603's "a player casts a spell"
@@ -427,6 +415,213 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 // Blocks.
 func isBlocksTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Blocks")
+}
+
+// checkDamageDoneTriggersToCard and checkDamageDoneTriggersToPlayer are CR
+// 603's own "whenever ~ deals damage" mode, Mode$ DamageDone, ported from
+// TriggerDamageDone.performTest -- split in two because the actual damaged
+// object is either a *Card (a creature, planeswalker or battle) or a
+// *Player, and ValidTarget needs a different evaluator for each: Matches
+// (valid.go) for the first, matchesPlayerBase (valid.go, the same one
+// matchesActivatingPlayer/matchesValidDefender already use) for the second.
+// damageDoneMatches (below) is everything the two calls share -- one walk
+// over the battlefield, ValidSource, and CombatDamage$ -- everything but
+// that one different check.
+//
+// isCombat is always true at both real call sites (dealPermanentDamage/
+// dealPlayerDamage, combatdamage.go): nothing outside combat deals damage
+// in this port yet (game-state.md's "Not ported yet"), so a
+// CombatDamage$ False line (a rare "whenever ~ deals noncombat damage"
+// shape) never fires and a CombatDamage$ True line or one carrying neither
+// always passes that part of the check.
+func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat bool) {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !damageDoneMatches(g, t, source, h, host, isCombat) {
+						continue
+					}
+					if validTarget, ok := t.Param("ValidTarget"); ok &&
+						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller, host) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, isCombat bool) {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !damageDoneMatches(g, t, source, h, host, isCombat) {
+						continue
+					}
+					if validTarget, ok := t.Param("ValidTarget"); ok {
+						matched, recognized := matchesPlayerBase(target, h.Controller, validTarget)
+						if !recognized || !matched {
+							continue
+						}
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// damageDoneMatches is checkDamageDoneTriggersToCard/ToPlayer's own shared
+// half: is t a Mode$ DamageDone trigger this port can evaluate at all
+// (isDamageDoneTrigger, no unresolved param), does ValidSource match (absent
+// is a pass, matchesValidParam's own contract, the same as ValidCard's own
+// absence in checkSpellCastTriggers), and does CombatDamage$ agree with
+// isCombat -- everything but ValidTarget, which the two callers each check
+// their own way.
+//
+// Not resolved, skipped via hasAnyParam: DamageAmount$ (8 of 1,080 real
+// lines) -- a plain integer or TargetToughness both need
+// AbilityUtils.calculateAmount, the same gap ptParam (continuous.go) and
+// Draw's own NumCards$ already have; ValidCause$ (1) -- a SpellAbility, not
+// a Card, Matches cannot evaluate one; TargetRelativeToCause$/
+// TargetRelativeToSource$ (0 real lines alongside the shapes above) -- a
+// GameEntity-vs-GameEntity relative match this port has no evaluator for. A
+// trigger carrying any of these is skipped entirely, not fired
+// unconditionally (GO-7). 1,071 of 1,080 real lines carry none of them.
+func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host CardID, isCombat bool) bool {
+	if !isDamageDoneTrigger(t) {
+		return false
+	}
+	if hasAnyParam(t, "DamageAmount", "ValidCause", "TargetRelativeToCause", "TargetRelativeToSource") {
+		return false
+	}
+	if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller, host) {
+		return false
+	}
+	if combatDamage, ok := t.Param("CombatDamage"); ok {
+		if strings.EqualFold(combatDamage, "True") != isCombat {
+			return false
+		}
+	}
+	return true
+}
+
+// isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:
+// Mode$ DamageDone.
+func isDamageDoneTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "DamageDone")
+}
+
+// checkDiscardedTriggers is CR 603's own "whenever ~ is discarded" mode,
+// Mode$ Discarded, ported from TriggerDiscarded.performTest -- but unlike
+// every other mode this port checks, a "Card.Self" shaped Discarded trigger
+// (14 of 105 real lines, the Madness-adjacent "when this card is discarded,
+// you may cast it" shape) lives on a card that is never on the battlefield
+// at the moment it fires: it is discarded FROM HAND. Java's own
+// TriggerReplacementBase.zonesCheck is unrestricted by default
+// (validHostZones == null passes regardless of the host's current zone) --
+// a Discarded line with no explicit TriggerZones$ (the corpus norm) is
+// checked wherever its host card currently sits, not only on the
+// battlefield the way an ETB/Dies/Attacks/Blocks/DamageDone/SpellCast
+// trigger's own CardFactoryUtil-synthesized TriggerZones$ Battlefield/Stack
+// always is. So this needs its own explicit "own" half, checked against the
+// discarded card directly (card's own Move-preserved Controller as source,
+// checkDiesTriggers' own precedent for reading a card no longer on the
+// battlefield), on top of checkOtherDiscardedTriggers' battlefield walk for
+// a watcher.
+func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
+	c := g.Card(card)
+	if c.Def != nil {
+		for _, face := range c.Def.Faces {
+			for _, t := range face.Triggers {
+				if !discardedTriggerMatches(g, t, c, c.Controller, card, player) {
+					continue
+				}
+				if sub, api, ok := triggerEffectAPI(t); ok {
+					g.PushAbility(Ability{API: api, Source: card, Controller: c.Controller, Params: sub})
+				}
+			}
+		}
+	}
+	g.checkOtherDiscardedTriggers(card, player)
+}
+
+// checkOtherDiscardedTriggers is checkDiscardedTriggers' wider half: every
+// permanent on the battlefield gets its own Triggers walked against the
+// discarded card and the player who discarded it ("Whenever you discard a
+// card, ..."), checkOtherETBTriggers'/checkOtherDiesTriggers' own shape.
+func (g *Game) checkOtherDiscardedTriggers(card CardID, player PlayerID) {
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !discardedTriggerMatches(g, t, c, h.Controller, host, player) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						g.PushAbility(Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+					}
+				}
+			}
+		}
+	}
+}
+
+// discardedTriggerMatches is checkDiscardedTriggers'/checkOtherDiscardedTriggers'
+// own shared check: ValidCard against the discarded card, matched with
+// sourceController/source the caller's own pairing (the discarded card
+// itself for the "own" half, the watching host for the "other" half) --
+// Matches's own "source is the card the spec is written on" contract
+// (valid.go). ValidPlayer -- a Player, not a Card, matchesPlayerBase's own
+// job -- matches player, who discarded it.
+//
+// Not resolved: ValidCause$ (11 of 105 real lines) -- a SpellAbility, not a
+// Card, Matches cannot evaluate one. A trigger carrying it is skipped
+// entirely, not fired unconditionally (GO-7). 94 of 105 real lines carry
+// none of it.
+func discardedTriggerMatches(g *Game, t *compile.Ability, discarded *Card, sourceController PlayerID, source CardID, player PlayerID) bool {
+	if !isDiscardedTrigger(t) {
+		return false
+	}
+	if hasAnyParam(t, "ValidCause") {
+		return false
+	}
+	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, discarded, valid.Parse(validCard), sourceController, source) {
+		return false
+	}
+	if validPlayer, ok := t.Param("ValidPlayer"); ok {
+		matched, recognized := matchesPlayerBase(player, sourceController, validPlayer)
+		if !recognized || !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// isDiscardedTrigger reports whether t is CR 603's "is discarded" shape:
+// Mode$ Discarded.
+func isDiscardedTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Discarded")
 }
 
 // hasAnyParam reports whether t carries any of keys, regardless of value --

@@ -1,11 +1,14 @@
-// Continuous effects: CR 613, three layers deep so far. Layer 7b/7c's own
+// Continuous effects: CR 613, four layers deep so far. Layer 7b/7c's own
 // power/toughness keys (SetPower$/SetToughness$/AddPower$/AddToughness$) are
 // the single most common real corpus shape (2,192 of 2,426 real S:Mode$
 // Continuous lines carrying one of these four keys, port-log/game-state.md's
 // "Continuous effects" section); Layer 4's own type-changing keys (AddType$/
-// RemoveType$, applyContinuousType) and Layer 5's own color-changing keys
-// (AddColor$/SetColor$, applyContinuousColor below) are the next two slices,
-// all three evaluated against the same blanket Affected$ valid-string.
+// RemoveType$, applyContinuousType), Layer 5's own color-changing keys
+// (AddColor$/SetColor$, applyContinuousColor) and Layer 6's own
+// ability-granting key (AddKeyword$, applyContinuousKeyword below -- the
+// single largest real slice of all four, 1,556 of 1,857 real lines) are the
+// next three, all four evaluated against the same blanket Affected$
+// valid-string.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/staticability/StaticAbilityContinuous.java's
@@ -365,6 +368,123 @@ func colorTokens(s *compile.Ability, key string) (mana.Colors, bool) {
 		}
 	}
 	return out, true
+}
+
+// applyContinuousKeyword recomputes every battlefield permanent's own Layer
+// 6 KeywordMod effects from scratch, from every real Mode$ Continuous S:
+// line currently in play -- applyContinuousPT's/applyContinuousType's own
+// reasoning applies identically here.
+func applyContinuousKeyword(g *Game) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			g.Card(id).KeywordMod.Clear()
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousKeyword(g, h, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousKeyword is applyOneContinuousPT's/Type's/Color's own
+// Layer 6 counterpart: s applies to every battlefield permanent its own
+// Affected$ valid-string matches, if s is a Mode$ Continuous line naming
+// AddKeyword$ in the one shape this slice can resolve -- a plain, " & "-
+// separated list of literal keyword lines, already written exactly the way
+// a real K: line would be ("Ward:2", "First Strike", "Protection:...") --
+// keywordTokens (below) hands each one to KeywordEffect verbatim, and
+// HasKeyword (card.go) reads them back with keyword.Parse the identical way
+// it already reads a printed keyword.
+//
+// A whole line is skipped, not applied partially, the instant it carries:
+//   - RemoveKeyword$/RemoveAllAbilities$ (5 of 1,561 real AddKeyword$
+//     lines) -- this slice does not resolve either removal direction yet
+//     (KeywordMod's own doc comment), and applying the add half of a "gains
+//     X, loses Y" line without the remove half would leave the card with
+//     both, an answer worse than the coverage gap of skipping the whole
+//     line -- applyOneContinuousType's own "becomes a Turtle" paragraph
+//     gives the identical reasoning.
+//   - SharedKeywords$/FromDraftNotes$ -- a game-wide, remembered-list or
+//     draft-note source for the keyword list rather than a fixed token list
+//     (StaticAbilityContinuous.java's own alternate addKeywords-building
+//     branches).
+//   - a dynamic-value marker anywhere inside any one token (keywordTokens'
+//     own doc comment has the full list, StaticAbilityContinuous.java's own
+//     removeIf lambda) -- 42 of 1,857 real AddKeyword$ lines.
+//
+// 1,556 of 1,857 real AddKeyword$ lines carry none of the above and
+// resolve.
+func applyOneContinuousKeyword(g *Game, host *Card, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	for _, key := range [...]string{
+		"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining",
+		"RemoveKeyword", "RemoveAllAbilities", "SharedKeywords", "FromDraftNotes",
+	} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+	keywords, ok := keywordTokens(s, "AddKeyword")
+	if !ok {
+		return
+	}
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+
+	spec := valid.Parse(affected)
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+				continue
+			}
+			g.Card(id).KeywordMod.Add(KeywordEffect{Timestamp: host.Timestamp, AddKeywords: keywords})
+		}
+	}
+}
+
+// keywordTokens reads key (AddKeyword$) as its own " & "-separated list of
+// literal keyword lines, returned verbatim -- each token is exactly what a
+// K: line would carry, HasKeyword's own job to parse further at query time,
+// not this function's. false, for the whole line, the moment a
+// dynamic-value marker (StaticAbilityContinuous.java's own removeIf lambda:
+// ChosenColor, ChosenType, ChosenNumber, ChosenPlayer, ChosenName,
+// ChosenEvenOdd, AllColors/allColors, CommanderColorID,
+// ColorsYouCtrl/colorsYouCtrl, YourBasic) appears anywhere within any one
+// token -- checked by substring, matching Java's own `input.contains(...)`,
+// since a marker is often a qualifier embedded in a larger token
+// ("Protection:Card.ChosenColor:chosenColor") rather than the whole token
+// itself.
+func keywordTokens(s *compile.Ability, key string) ([]string, bool) {
+	v, ok := s.Param(key)
+	if !ok {
+		return nil, false
+	}
+	tokens := strings.Split(v, " & ")
+	for _, tok := range tokens {
+		for _, marker := range [...]string{
+			"ChosenColor", "ChosenType", "ChosenNumber", "ChosenPlayer", "ChosenName",
+			"ChosenEvenOdd", "chosenEvenOdd", "AllColors", "allColors", "CommanderColorID",
+			"ColorsYouCtrl", "colorsYouCtrl", "YourBasic",
+		} {
+			if strings.Contains(tok, marker) {
+				return nil, false
+			}
+		}
+	}
+	return tokens, true
 }
 
 // ptParam reads key as a plain base-10 integer (optionally negative) --

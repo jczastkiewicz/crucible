@@ -44,12 +44,13 @@ type Card struct {
 	// The mutable detail, split by concern rather than flattened onto Card:
 	// 8,105 lines of Java's Card has to land somewhere, and these are the
 	// parts with their own invariants (ADR-0009).
-	Counters Counters
-	Damage   Damage
-	Memory   Memory
-	PT       PT
-	TypeMod  TypeMod
-	ColorMod ColorMod
+	Counters   Counters
+	Damage     Damage
+	Memory     Memory
+	PT         PT
+	TypeMod    TypeMod
+	ColorMod   ColorMod
+	KeywordMod KeywordMod
 
 	// Tapped and SummonSick are the two pieces of battlefield state every
 	// permanent carries that are not "how much of something" -- everything
@@ -89,21 +90,32 @@ func (c *Card) Type() cardtype.Line {
 	return foldType(c.Def.Faces[0].Type, c.TypeMod.effects)
 }
 
-// HasKeyword reports whether the card's primary face carries the named
-// keyword, exact match against keyword.Parse's own Name (the head as
-// written -- "Indestructible" for a bare line, "Ward" for "Ward:2"), so a
-// keyword written with arguments is still found by its bare name. Every
-// keyword this grants from a script that has not been read is invisible
-// here the same way BasePower is blind to "*": a card whose keywords a
-// continuous effect currently changes reports the printed set, not the
-// one in play (game-state.md's "Not ported yet").
+// HasKeyword reports whether the card currently carries the named keyword:
+// its own printed face, exact match against keyword.Parse's own Name (the
+// head as written -- "Indestructible" for a bare line, "Ward" for
+// "Ward:2"), so a keyword written with arguments is still found by its bare
+// name, folded with Layer 6's own continuous keyword grants (KeywordMod,
+// keywordmod.go) -- Type()'s/Colors()'s own Layer 4/5 counterpart. Every
+// keyword line a continuous effect adds is checked the identical way a
+// printed one is (keyword.Parse(line).Name), so a granted "Ward:2" or
+// "Protection:..." is found by its own bare name exactly as a printed one
+// would be. Removing a keyword continuously is not folded in yet
+// (KeywordMod's own doc comment has the reason), so a card a continuous
+// effect currently strips still reports the printed one
+// (game-state.md's "Not ported yet").
 func (c *Card) HasKeyword(name string) bool {
-	if c.Def == nil {
-		return false
+	if c.Def != nil {
+		for _, line := range c.Def.Faces[0].Keywords {
+			if keyword.Parse(line).Name == name {
+				return true
+			}
+		}
 	}
-	for _, line := range c.Def.Faces[0].Keywords {
-		if keyword.Parse(line).Name == name {
-			return true
+	for _, e := range c.KeywordMod.effects {
+		for _, line := range e.AddKeywords {
+			if keyword.Parse(line).Name == name {
+				return true
+			}
 		}
 	}
 	return false

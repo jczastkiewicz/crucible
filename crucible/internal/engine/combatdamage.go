@@ -33,11 +33,13 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // (`firstStrike` selects which). A creature deals damage in a step per
 // `dealsInStep`'s doc comment.
 //
-// All of a step's damage is simultaneous (CR 510.2), but nothing yet
-// triggers off damage being dealt (no lifelink, no "whenever this deals
-// damage" ability) or cares about the order two life totals change in, so
+// All of a step's damage is simultaneous (CR 510.2), but no lifelink exists
+// yet and nothing cares about the order two life totals change in, so
 // applying one attacker's exchange at a time produces the same result as
-// computing every amount first and applying them together.
+// computing every amount first and applying them together --
+// checkDamageDoneTriggersToCard/ToPlayer (trigger.go), dealt with below,
+// fire per exchange rather than once for the whole step for the identical
+// reason: nothing here can tell the difference yet.
 //
 // An unblocked attacker deals its power to whatever it's attacking (CR
 // 508.1d) -- a player, planeswalker or battle, via dealAttackTargetDamage.
@@ -209,9 +211,11 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 
 // dealPermanentDamage marks amount on target -- Damage if it's a creature,
 // loyalty or defense counters removed if it's a planeswalker or battle (CR
-// 120.3c, 121.5) -- sourced from source, and emits the DamageDealt event. A
-// permanent can be more than one of these (a creature planeswalker); each
-// check runs independently rather than picking one, the same as Forge's own
+// 120.3c, 121.5) -- sourced from source, emits the DamageDealt event, and
+// checks CR 603's own "whenever ~ deals damage" trigger
+// (checkDamageDoneTriggersToCard, trigger.go). A permanent can be more than
+// one of these (a creature planeswalker); each check runs independently
+// rather than picking one, the same as Forge's own
 // Card.addDamageAfterPrevention does.
 func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch bool) {
 	if amount <= 0 {
@@ -235,16 +239,21 @@ func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch
 		flags |= FlagDeathtouch
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: CardEntity(target), Amount: int32(amount), Flags: flags})
+	g.checkDamageDoneTriggersToCard(source, target, true)
 }
 
-// dealPlayerDamage reduces target's life by amount and emits DamageDealt and
+// dealPlayerDamage reduces target's life by amount, emits DamageDealt and
 // LifeChanged -- both, because Java's own combat damage step fires the
 // equivalent of each separately and nothing downstream should have to derive
-// one from the other. Every call site already guards amount > 0 itself
-// (unlike dealCreatureDamage, whose amount can come straight from an
-// untrusted AssignCombatDamage answer), so there's nothing to re-check here.
+// one from the other -- and checks CR 603's own "whenever ~ deals damage"
+// trigger (checkDamageDoneTriggersToPlayer, trigger.go), ValidTarget matched
+// against a Player rather than a Card this time. Every call site already
+// guards amount > 0 itself (unlike dealCreatureDamage, whose amount can come
+// straight from an untrusted AssignCombatDamage answer), so there's nothing
+// to re-check here.
 func (g *Game) dealPlayerDamage(source CardID, target PlayerID, amount int) {
 	g.Player(target).Life -= amount
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: FlagCombat})
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: FlagCombat})
+	g.checkDamageDoneTriggersToPlayer(source, target, true)
 }

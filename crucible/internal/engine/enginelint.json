@@ -85,7 +85,8 @@
       "action",
       "valid",
       "trigger",
-      "draweffect"
+      "draweffect",
+      "staticability"
     ],
     "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack", "combat"],
     "draweffect": ["id", "game", "player", "ability", "turn"],

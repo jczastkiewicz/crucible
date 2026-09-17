@@ -322,6 +322,73 @@ func TestCastSpellAuraFailsForEnchantPlayer(t *testing.T) {
 	}
 }
 
+// TestCastSpellAuraFailsWhenOnlyTargetHasProtectionFromAuraColor proves
+// hostRefusesEnchant (staticability.go): a red Aura has no legal target
+// when the only Creature on the battlefield has Protection from red (CR
+// 702.11h) -- protectionValid's own ValidBlocker string, reused here
+// against the aura itself rather than a candidate blocker.
+func TestCastSpellAuraFailsWhenOnlyTargetHasProtectionFromAuraColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPTKeywords(t, "2", "2", "Protection from red"), p, engine.Battlefield)
+	auraCard := auraDefWithEnchant(t, "Creature")
+	auraCard.Faces[0].ManaCost = mana.MustParse("R")
+	aura := g.NewCard(auraCard, p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting a red Aura at a protection-from-red creature, want no legal target")
+	}
+}
+
+// TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromOpponent proves
+// hostRefusesEnchant's bare-Hexproof branch: an opponent's Aura has no
+// legal target when the only Creature on the battlefield has Hexproof (CR
+// 702.11i, "can't be the target of spells or abilities your opponents
+// control").
+func TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromOpponent(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof"), other, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting an opponent's Aura at a Hexproof creature, want no legal target")
+	}
+}
+
+// TestCastSpellAuraSucceedsEnchantingOwnHexproofCreature proves Hexproof
+// only refuses an OPPONENT's Aura: a controller can still enchant their own
+// Hexproof creature.
+func TestCastSpellAuraSucceedsEnchantingOwnHexproofCreature(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	target := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof"), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura at its own controller's Hexproof creature, want success")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if host, ok := g.Card(aura).AttachedTo(); !ok || host != target {
+		t.Errorf("aura attached to %v, %v, want %v, true", host, ok, target)
+	}
+}
+
 // An unaffordable cost declines the cast even after a target was already
 // chosen (CR 601.2c precedes 601.2i) -- the card never leaves hand, and the
 // target it would have enchanted is untouched.

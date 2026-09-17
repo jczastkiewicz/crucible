@@ -120,16 +120,19 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 }
 
 // enchantTargets is every battlefield permanent, across every player, that
-// spec (self's own Enchant restriction, enchantSpec) matches -- CR 601.2c's
-// legal-target set for casting self as an Aura. Matches' own source
-// parameter is self, the same "the enchantment's own id, not the host's"
-// convention cleanupDanglingAttachments (action.go) already uses when
-// re-checking an attached Aura's own restriction after the fact.
+// spec (self's own Enchant restriction, enchantSpec) matches, and that does
+// not refuse self outright (hostRefusesEnchant, staticability.go -- CR
+// 702.16e/702.11h's own Protection/Hexproof gate, a separate question from
+// the card-type restriction spec itself checks) -- CR 601.2c's legal-target
+// set for casting self as an Aura. Matches' own source parameter is self,
+// the same "the enchantment's own id, not the host's" convention
+// cleanupDanglingAttachments (action.go) already uses when re-checking an
+// attached Aura's own restriction after the fact.
 func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID) []CardID {
 	var eligible []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(id), spec, controller, self) {
+			if Matches(g, g.Card(id), spec, controller, self) && !hostRefusesEnchant(g, g.Card(self), id) {
 				eligible = append(eligible, id)
 			}
 		}

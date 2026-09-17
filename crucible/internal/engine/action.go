@@ -56,12 +56,11 @@ import (
 // in Java's loop -- indestructible aside (destroyDamagedCreatures checks
 // it; nothing else here needs to), the rest of 704.5f's own toughness (a
 // "*" with no characteristic-defining effect to replace it, or a Count$
-// reference -- `internal/expr` has no evaluator yet), the rest of 704.5v's
+// reference on the printed Toughness field itself -- resolveAmount
+// (amount.go) is wired into Mode$ Continuous's own PT params, `ptParam`,
+// continuous.go, not this text field yet), the rest of 704.5v's
 // own exception (a Battle whose own trigger is still on the stack -- always
-// false today, destroyZeroDefense's own doc comment), protection and
-// hexproof preventing an attachment in the first place (CR
-// 702.11h/702.16e -- a distinct check from the Enchant restriction itself,
-// which cleanupDanglingAttachments below does resolve), and the legend
+// false today, destroyZeroDefense's own doc comment), and the legend
 // rule's own remaining corner case, Partner-with-a-non-legendary-creature-name
 // pairs sharing a "true name" (resolveLegendRule's doc comment) -- needs
 // `StaticData`'s own card-name lookup, which this port's `carddb`/`compile`
@@ -557,12 +556,14 @@ func resolveWorldRule(g *Game) {
 // an Aura, and neither carries an `Enchant` restriction to re-check --
 // `enchantSpec` only ever fires for an Aura.
 //
-// What is still not checked: protection and hexproof preventing the
-// attachment in the first place (CR 702.11h/702.16e, a static-ability
-// "can't be enchanted/equipped" question, not the Enchant string itself) --
-// game-state.md's "Not ported yet" has the reason, a quality-matching
-// static-ability engine this port does not have, distinct from the
-// valid-string evaluator the Enchant restriction itself needed.
+// Protection and Hexproof preventing the attachment in the first place (CR
+// 702.11h/702.16e, a static-ability "can't be enchanted" question, not the
+// Enchant string itself) are checked too, via `hostRefusesEnchant`
+// (staticability.go) -- Protection for both real corpus shapes
+// (`protectionValid` already built for CantBlockBy) and bare Hexproof's own
+// unconditional "any opponent" form; a qualified Hexproof (`Hexproof from
+// red`) still is not, needing its own ValidSource$ evaluation this does not
+// attempt (`hostRefusesEnchant`'s own doc comment).
 //
 // Candidates are collected before either Move or Unattach runs, because
 // both mutate the battlefield zone or a card's own attachment list -- the
@@ -579,6 +580,7 @@ func cleanupDanglingAttachments(g *Game) {
 				if spec, ok := enchantSpec(c); ok {
 					legal = Matches(g, g.Card(host), spec, c.Controller, id)
 				}
+				legal = legal && !hostRefusesEnchant(g, c, host)
 			}
 			switch {
 			case legal:

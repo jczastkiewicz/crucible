@@ -625,7 +625,22 @@ printed form.
     `staticability.go`, ported from `StaticAbilityIgnoreLegendRule`) — a plain `ValidCard` match against every
     battlefield permanent, needing none of item 27's own layer-folding machinery, the same reason `CantBlockBy`
     (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
-    Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup).
+    Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup,
+    which injecting into the engine would violate GO-2).
+
+    The "cleanup aura" rule's own Protection/Hexproof gap (CR 702.11h/702.16e — a static-ability "can't be enchanted"
+    question, distinct from the `Enchant` restriction itself) is closed too, for both real corpus shapes: a new
+    `hostRefusesEnchant` (`staticability.go`) reuses `protectionValid` (item 28) against the aura card itself rather
+    than a candidate blocker — Java's own Protection branch synthesizes a `Mode$ CantAttach | ValidCard$ <valid>` line
+    alongside CantBlockBy's `ValidBlocker$ <valid>`, the identical string — and reads bare Hexproof's own unconditional
+    "any opponent" form directly (80 of ~110 real `K:Hexproof` lines), the same hardcoded-keyword shape Menace/Skulk
+    already have rather than a general `Mode$ CantTarget` engine this port does not build. Checked both when an Aura is
+    cast (`enchantTargets`, castspell.go, CR 601.2c's own legal-target set) and on every ongoing SBA pass
+    (`cleanupDanglingAttachments`, above). Writing this surfaced a real, separate gap: `protectionValid`/`landwalkType`
+    (item 28) read only a card's PRINTED keyword lines, missing one a Layer 6 continuous effect grants — closed by a new
+    `Card.KeywordLines` (card.go) both now share with `HasKeyword`. A qualified Hexproof (`Hexproof from red`) still is
+    not resolved, needing its own `ValidSource$`/`ValidSA$` evaluation.
+
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
     cast shapes, nine trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
     real (non-test) `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to
@@ -795,27 +810,30 @@ printed form.
     new property at all: both real corpus shapes — the natural-language "Protection from red" and the colon-structured
     "Protection:Artifact" — resolve through `Matches`/`baseMatches` exactly as written once
     `Protection.getProtectionValid`'s own two branches are reproduced, `keyword.Parse`'s existing space-vs-colon split
-    telling them apart. Skulk remains the one gap, blocked on its own specific missing piece (an SVar-driven `X` —
-    `porting/port-log/game-state.md`'s "Block legality" section). **Mulligans done** (`mulligan.go`) — London, free
-    mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
-    colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
-    same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a snow ({S})
-    symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and `PayManaCost`
-    resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f),
-    snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two different
-    colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
-    `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a single-color Phyrexian
-    shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and each unit of a cost's
-    generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve are resolved. A basic
-    land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real
-    (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR 106.3a) — any other mana
-    ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch machinery this one
-    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text. **Playing
-    a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no stack; sorcery-speed
-    timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's one-per-turn limit via new
-    `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by `cleanupStep`. The first card
-    this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
-    directly.
+    telling them apart. Skulk (`ValidBlocker$ Creature.powerGTX`) closes block legality's last gap: Java's own hardcoded
+    `X` (`Count$CardPower` against the ability's own host, always the attacker since `ValidAttacker$` is fixed to
+    `Creature.Self`) turns out to be a constant "the attacker's own power" question once read precisely, not a
+    `Compare`/SVar one at all — `skulkBlocks` (staticability.go) is a direct `Power()` comparison, the same hardcoded
+    shape `menaceLegal` already has for Menace. **Block legality's `CantBlockBy` has no remaining gap.** **Mulligans
+    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool`
+    per player (twelve buckets — six colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain
+    colored-and-generic case plus snow (a same-color pip or generic unit falls back to the snow bucket once the plain
+    one is empty, CR 106.3a; a snow ({S}) symbol spends only the snow bucket, never the plain one), CR 500.4's emptying
+    every phase/step, and `PayManaCost` resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many
+    `{X}` symbols it carries, CR 107.3f), snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike
+    `{X}`, two can take two different colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored
+    hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a
+    single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and
+    each unit of a cost's generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve
+    are resolved. A basic land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`),
+    `Pool.Add`'s first real (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR
+    106.3a) — any other mana ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch
+    machinery this one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not
+    script text. **Playing a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no
+    stack; sorcery-speed timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's
+    one-per-turn limit via new `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by
+    `cleanupStep`. The first card this port moves from hand to the battlefield through a real game action rather than
+    `setup.state` placing it there directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
     harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample

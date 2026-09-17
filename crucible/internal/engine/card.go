@@ -104,21 +104,31 @@ func (c *Card) Type() cardtype.Line {
 // effect currently strips still reports the printed one
 // (game-state.md's "Not ported yet").
 func (c *Card) HasKeyword(name string) bool {
-	if c.Def != nil {
-		for _, line := range c.Def.Faces[0].Keywords {
-			if keyword.Parse(line).Name == name {
-				return true
-			}
-		}
-	}
-	for _, e := range c.KeywordMod.effects {
-		for _, line := range e.AddKeywords {
-			if keyword.Parse(line).Name == name {
-				return true
-			}
+	for _, line := range c.KeywordLines() {
+		if keyword.Parse(line).Name == name {
+			return true
 		}
 	}
 	return false
+}
+
+// KeywordLines is every keyword line c currently carries, printed and
+// continuously granted alike (Layer 6, KeywordMod) -- HasKeyword's own
+// enumeration, factored out once a caller needed a keyword's own
+// Details/Args rather than just whether c carries it by name
+// (landwalkType/protectionValid, staticability.go): a keyword Layer 6
+// grants continuously is exactly as real a source for either as a printed
+// one is, the identical reasoning HasKeyword's own doc comment already
+// gives for name-only membership.
+func (c *Card) KeywordLines() []string {
+	var lines []string
+	if c.Def != nil {
+		lines = append(lines, c.Def.Faces[0].Keywords...)
+	}
+	for _, e := range c.KeywordMod.effects {
+		lines = append(lines, e.AddKeywords...)
+	}
+	return lines
 }
 
 // BasePower and BaseToughness are the card's printed power and toughness --

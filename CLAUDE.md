@@ -219,18 +219,27 @@ this port's own `Matches` already can, `Count$Valid[<Zone>...] <spec>` — 2,804
 expressions — closing `ptParam`'s own dynamic-`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` gap for that shape
 and, with it, Layer 7a itself: `applyOneCharacteristicDefiningPT` (`continuous.go`) resolves a
 `CharacteristicDefining$ True` line's own `SetPower$`/`SetToughness$` and applies the result to its host alone, at
-`LayerCharacteristic` — a layer `PTEffect`'s own folding already carried, unused until now. M6 in progress alongside it:
-`Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
+`LayerCharacteristic` — a layer `PTEffect`'s own folding already carried, unused until now. Skulk's own
+`ValidBlocker$ Creature.powerGTX` closes block legality's last `CantBlockBy` gap: `skulkBlocks` (`staticability.go`)
+reads Java's own hardcoded `X` (`Count$CardPower` against the ability's own host, always the attacker) as a direct
+`Power()` comparison rather than a `Compare`/SVar question at all, the same hardcoded-comparison shape `menaceLegal`
+already has for Menace. `hostRefusesEnchant` (`staticability.go`) closes the "cleanup aura" rule's own Protection/bare
+Hexproof gap — reusing `protectionValid` against the aura itself rather than a candidate blocker, plus bare Hexproof's
+own unconditional "any opponent" form — checked both when an Aura is cast (`enchantTargets`, `castspell.go`) and on
+every ongoing SBA pass (`cleanupDanglingAttachments`, `action.go`); building it surfaced a real, separate gap
+(`protectionValid`/`landwalkType` read only a card's PRINTED keywords, missing one a continuous effect grants), closed
+by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. M6 in progress alongside it: `Draw`
+(`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
 `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
 onto the stack to make that possible. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
 `docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layers 1-3 and 8 in full, plus the rest of Layers 4/5/6
 past a literal token list and Layer 7a's own SVar shapes outside the Valid family (`xPaid`, `CardCounters`, `Devotion`,
 ...) — a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line
-rather than applying it wrong; the legend rule's Partner-non-legendary-name corner case; Skulk is the one remaining
-`CantBlockBy` gap (`game-state.md`'s "Block legality" section has the reason); `Attacks`'s own five unresolved params,
-`DamageDone`'s own `DamageAmount$`/`ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
-`FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
-qualified `ValidActivatingPlayer$` forms, and every trigger mode past
+rather than applying it wrong; the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup
+injecting into the engine would violate GO-2); a qualified Hexproof (`Hexproof from red`) still does not stop an Aura
+from enchanting its host; `Attacks`'s own five unresolved params, `DamageDone`'s own `DamageAmount$`/`ValidCause$`,
+`Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s
+own `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/ becomes-tapped/taps-for-mana/casts; 202 script-driven effects past
 `Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`)
 past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

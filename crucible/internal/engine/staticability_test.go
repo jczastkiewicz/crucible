@@ -246,6 +246,53 @@ func TestCanBlockProtectionFromEverythingAttacker(t *testing.T) {
 	}
 }
 
+// TestCanBlockSkulkAttacker proves K:Skulk (CR 702.118a, "can't be blocked
+// by creatures with greater power"): skulkBlocks (staticability.go) reads
+// both cards' own Power() -- already the full continuous-effect-folded
+// value, not the printed one -- so a strictly-greater-power blocker cannot
+// block, but an equal or lesser power one can.
+func TestCanBlockSkulkAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Skulk"), a, engine.Battlefield)
+	strongerBlocker := g.NewCard(creatureDefPT(t, "3", "3"), b, engine.Battlefield)
+	equalBlocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	weakerBlocker := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+
+	if g.CanBlock(attacker, strongerBlocker) {
+		t.Error("CanBlock(skulk attacker, power-3 blocker) = true, want false -- greater power")
+	}
+	if !g.CanBlock(attacker, equalBlocker) {
+		t.Error("CanBlock(skulk attacker, power-2 blocker) = false, want true -- equal power, not greater")
+	}
+	if !g.CanBlock(attacker, weakerBlocker) {
+		t.Error("CanBlock(skulk attacker, power-1 blocker) = false, want true -- lesser power")
+	}
+}
+
+// TestCanBlockSkulkAppliesContinuousPowerBoost proves skulkBlocks reads
+// Power() (card.go), the layer-folded value, not a printed one: an anthem
+// boosting the blocker's own power past the attacker's makes it unable to
+// block, even though its printed power alone would not be.
+func TestCanBlockSkulkAppliesContinuousPowerBoost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	attacker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Skulk"), a, engine.Battlefield)
+	g.NewCard(continuousDef(t, "Test Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 2"), b, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.CanBlock(attacker, blocker) {
+		t.Error("CanBlock(skulk attacker, anthem-boosted power-3 blocker) = true, want false")
+	}
+}
+
 // cantBlockByAuraDef builds a *compile.Card for an Aura carrying a real,
 // literal S:Mode$ CantBlockBy line written on the Aura itself rather than
 // synthesized from a keyword -- ValidAttacker$ Creature.EnchantedBy, the

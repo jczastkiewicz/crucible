@@ -616,6 +616,32 @@ func TestCheckStateBasedActionsAuraSurvivesWhenHostMatchesEnchant(t *testing.T) 
 	}
 }
 
+// TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostGainsProtection proves
+// hostRefusesEnchant (staticability.go) is checked on every SBA pass, not
+// only when the Aura is first cast: a legally attached red Aura falls off
+// (CR 704.5m) the instant its host gains Protection from red, here from a
+// continuous effect (applyContinuousKeyword, continuous.go) rather than a
+// printed keyword.
+func TestCheckStateBasedActionsAuraGoesToGraveyardWhenHostGainsProtection(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	host := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	auraCard := auraDefWithEnchant(t, "Creature")
+	auraCard.Faces[0].ManaCost = mana.MustParse("R")
+	aura := g.NewCard(auraCard, p, engine.Battlefield)
+	g.Attach(aura, host)
+	g.NewCard(continuousDef(t, "Test Protection Grant", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Protection from red"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(aura).Zone; z != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard -- host gained Protection from red, no longer a legal host for a red Aura", z)
+	}
+}
+
 // A property on the Enchant restriction is checked too, not just the base
 // type -- CR 303.4a's restriction is the whole valid string, and
 // Enchant:Creature.YouCtrl is violated the moment the host changes

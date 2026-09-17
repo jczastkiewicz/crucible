@@ -44,13 +44,18 @@ import (
 // (Protection.getProtectionValid), a different value per card, not a fixed
 // string every carrier shares. protectionValid (below) reads it directly.
 //
-// Not every keyword CardFactoryUtil expands this way is here -- one
-// remaining omission is a specific missing dependency, not an oversight:
-//
-//   - Skulk's ValidBlocker$ Creature.powerGTX needs an SVar-driven X;
-//     compareMatches (valid.go) already documents a non-numeric Compare
-//     operand as unresolvable, so a Skulk entry here would just never match,
-//     silently wrong for its one real job.
+// Skulk is not here either, but for a third reason: its own
+// ValidBlocker$ Creature.powerGTX names a Compare property whose operand
+// (X) is not a fixed string OR a per-card script value -- CardFactoryUtil's
+// own Skulk branch hardcodes `st.setSVar("X", "Count$CardPower")` on the
+// synthesized StaticAbility itself, always measuring the ability's own
+// host (the attacker, since ValidAttacker$ is always Creature.Self). A
+// non-numeric Compare operand is otherwise unresolvable (compareMatches'
+// own doc comment, valid.go), but X here is not a compareMatches question
+// at all once that hardcoding is known: skulkBlocks (below) is a direct
+// power comparison, cantBlockBy's own call site (below) checked against
+// h.ID == attacker directly rather than through this table's fixed-string
+// shape.
 //
 // Menace is not here either, but for a different reason: Forge itself does
 // not run Menace through the static-ability engine at all --
@@ -119,24 +124,62 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 				applyCantBlockBy(g, h, "Creature.Self", vb, hasVB, "", false, attacker, blocker) {
 				return true
 			}
+			if h.ID == attacker && h.HasKeyword("Skulk") && skulkBlocks(g, h, blocker) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// skulkBlocks is CR 702.118a's own "can't be blocked by creatures with
+// greater power" (K:Skulk), ported from CardFactoryUtil.java's own
+// synthesis: `Mode$ CantBlockBy | ValidAttacker$ Creature.Self |
+// ValidBlocker$ Creature.powerGTX`, with `st.setSVar("X", "Count$CardPower")`
+// hardcoded on the very StaticAbility Java builds -- unlike Landwalk's
+// type argument or Protection's restriction, X here is not a per-card
+// script value at all, so it needs no expr/Count$ evaluator
+// (compareMatches' own doc comment, valid.go, already names this as the
+// unresolvable-operand case): CardProperty.java's own "power" branch always
+// measures `x = AbilityUtils.calculateAmount(source, "X", ...)` against
+// `source`, the static ability's own host -- and ValidAttacker$ Creature.Self
+// means that host is always the attacker itself. So X is always the
+// attacker's own power, and this reads it the same way `Card.Power()`
+// (card.go) already resolves anyone else's -- through every Layer 7 effect
+// currently applied, not a printed value.
+//
+// h == attacker is the caller's own job (cantBlockBy's own call site) --
+// ValidAttacker$ Creature.Self is not re-evaluated through Matches here
+// since h.ID == attacker already says the identical thing more directly.
+// blocker is not re-checked for being a Creature either: CanBlock's own
+// precondition (block.go) already guarantees it before cantBlockBy is ever
+// called. false when either card's own power is unresolvable ("*/*" with no
+// resolving continuous effect, Card.Power's own ok=false) -- skip rather
+// than guess (GO-7), the same contract every other unresolved comparison in
+// this port already has.
+func skulkBlocks(g *Game, host *Card, blocker CardID) bool {
+	attackerPower, ok := host.Power()
+	if !ok {
+		return false
+	}
+	blockerPower, ok := g.Card(blocker).Power()
+	if !ok {
+		return false
+	}
+	return blockerPower > attackerPower
 }
 
 // landwalkType reports h's own Landwalk keyword argument (K:Landwalk:Island
 // -> "Island", K:Landwalk:Forest.Snow:snow Forest -> "Forest.Snow" -- the
 // keyword's own first Args() element, exactly Landwalk.java's own
 // getValidType/KeywordWithType.type), and whether h carries the keyword at
-// all. Read directly off the keyword line rather than through
-// cantBlockByKeywords' fixed-string table, since this value is the one part
-// of Landwalk's own CantBlockBy synthesis
-// (CardFactoryUtil.java's `Landwalk landwalk` branch) that differs per card.
+// all. Read directly off the keyword line (KeywordLines, card.go -- printed
+// and continuously granted alike) rather than through cantBlockByKeywords'
+// fixed-string table, since this value is the one part of Landwalk's own
+// CantBlockBy synthesis (CardFactoryUtil.java's `Landwalk landwalk` branch)
+// that differs per card.
 func landwalkType(h *Card) (string, bool) {
-	if h.Def == nil {
-		return "", false
-	}
-	for _, line := range h.Def.Faces[0].Keywords {
+	for _, line := range h.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Landwalk" {
 			continue
@@ -169,12 +212,11 @@ func landwalkType(h *Card) (string, bool) {
 // everything" (1 real line): Java's own getProtectionValid returns an empty
 // string there, which CardFactoryUtil reads as "omit ValidBlocker$
 // entirely," an unconditional CantBlockBy -- applyCantBlockBy's own
-// contract for hasValidBlocker=false already gives this for free.
+// contract for hasValidBlocker=false already gives this for free. Read off
+// KeywordLines (card.go), printed and continuously granted alike, the same
+// as landwalkType.
 func protectionValid(h *Card) (validBlocker string, hasValidBlocker, ok bool) {
-	if h.Def == nil {
-		return "", false, false
-	}
-	for _, line := range h.Def.Faces[0].Keywords {
+	for _, line := range h.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Protection" {
 			continue
@@ -221,6 +263,54 @@ func protectionColorValid(protectType string) (valid string, hasValidBlocker, re
 		return "", false, true
 	}
 	return "", false, false
+}
+
+// hostRefusesEnchant reports whether host's own Protection or bare Hexproof
+// keyword makes it illegal for aura to enchant it -- CR 702.16e/702.11h,
+// the "cleanup aura" gap game-state.md's own "State-based actions" section
+// names: an Aura's own Enchant-restriction check (enchantSpec/Matches,
+// action.go/castspell.go) is a card-TYPE question ("enchant a creature"),
+// this is a completely separate one (does the specific host refuse THIS
+// specific aura), so both callers -- enchantTargets (castspell.go, CR
+// 601.2c's own legal-target set at cast time) and
+// cleanupDanglingAttachments (action.go, CR 704.5m's own ongoing legality
+// re-check) -- call this in addition to, not instead of, their own Matches
+// call.
+//
+// Protection is ported from CardFactoryUtil.java's own Protection branch,
+// which synthesizes a `Mode$ CantAttach | Target$ Card.Self | ValidCard$
+// <valid>` line alongside CantBlockBy's `ValidBlocker$ <valid>` -- the
+// identical `valid` string protectionValid (above) already extracts, just
+// matched against aura itself here (StaticAbilityCantAttach's own `card`
+// parameter) rather than a candidate blocker. "Protection from everything"
+// (hasValidBlocker false) refuses unconditionally, the same contract
+// protectionValid's own doc comment already gives applyCantBlockBy.
+//
+// Hexproof is ported for its one dominant real corpus shape only: bare
+// `K:Hexproof` (80 of roughly 110 real lines) synthesizes `Mode$ CantTarget
+// | ValidTarget$ Card.Self | Activator$ Opponent`, unconditional against
+// any opponent source -- checked here directly (aura's controller vs
+// host's) rather than through a general CantTarget mode this port does not
+// build, the same "keyword's own fixed check, not the general engine"
+// shape Menace's own hardcoding already has (block.go). A qualified form
+// ("Hexproof from red," "Hexproof:Artifact") needs its own ValidSource$/
+// ValidSA$ evaluation this does not attempt -- skipped, not misapplied, the
+// same GO-7 contract every other partial-corpus-shape gap in this port
+// already has.
+func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
+	h := g.Card(host)
+	if vb, hasVB, ok := protectionValid(h); ok {
+		if !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller, h.ID) {
+			return true
+		}
+	}
+	for _, line := range h.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name == "Hexproof" && k.Details == "" && aura.Controller != h.Controller {
+			return true
+		}
+	}
+	return false
 }
 
 // applyCantBlockBy is applyCantBlockByAbility's ValidAttacker/ValidBlocker

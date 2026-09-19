@@ -16,6 +16,16 @@ import (
 // same reason cantBlockByAuraDef (staticability_test.go) is. applyContinuousPT
 // is unexported, so every case here is driven through CheckStateBasedActions,
 // its only caller (TEST-1).
+// artifactDefT is Metalcraft's own test fixture: a bare artifact permanent,
+// creatureDefPT's own struct-literal shape (action_test.go) rather than
+// continuousDef's raw-text pipeline, since it carries no Statics of its own.
+func artifactDefT(t *testing.T) *compile.Card {
+	t.Helper()
+	def := &compile.Card{Name: "Test Artifact"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Artifact")
+	return def
+}
+
 func continuousDef(t *testing.T, name, static string) *compile.Card {
 	t.Helper()
 
@@ -128,10 +138,32 @@ func TestApplyContinuousPTSetPowerToughnessPartial(t *testing.T) {
 	}
 }
 
-// TestApplyContinuousPTSkipsConditionParam proves a line carrying Condition$
-// -- a runtime gate this port cannot evaluate for any static-ability mode --
-// is skipped entirely rather than treated as always active.
+// TestApplyContinuousPTSkipsConditionParam proves a Condition$ value this
+// port has no player-state for (MaxSpeed -- Alchemy's own speed counter,
+// tracked nowhere in this port) is skipped entirely rather than treated as
+// always active -- continuousConditionMet's own default case.
 func TestApplyContinuousPTSkipsConditionParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Conditional Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ MaxSpeed"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- Condition$ MaxSpeed cannot resolve, so this must not apply", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenPlayerTurnConditionMet proves the
+// resolvable Condition$ values now gate a Layer 7b/7c line rather than
+// blanket-skip it: PlayerTurn (141 of the corpus's 317 real Mode$ Continuous
+// | Condition$ lines, the single most common value) lets the anthem through
+// once it is host's own controller's turn.
+func TestApplyContinuousPTAppliesWhenPlayerTurnConditionMet(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -139,11 +171,235 @@ func TestApplyContinuousPTSkipsConditionParam(t *testing.T) {
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	g.NewCard(continuousDef(t, "Test Conditional Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ PlayerTurn"), p, engine.Battlefield)
 	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.StartTurn(p, engine.NewScriptedController())
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- Condition$ PlayerTurn is met, so the anthem must apply", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenPlayerTurnConditionNotMet proves the other
+// direction: the same anthem does not apply on the opponent's turn.
+func TestApplyContinuousPTSkipsWhenPlayerTurnConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Conditional Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ PlayerTurn"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.StartTurn(other, engine.NewScriptedController())
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
-		t.Errorf("Power() = (%d, %v), want (2, true) -- Condition$ is not evaluated, so this must not apply", pw, ok)
+		t.Errorf("Power() = (%d, %v), want (2, true) -- Condition$ PlayerTurn is not met on the opponent's turn", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenThresholdConditionMet proves Threshold (61
+// real lines): seven or more cards in host's own controller's graveyard.
+func TestApplyContinuousPTAppliesWhenThresholdConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for i := 0; i < 7; i++ {
+		g.NewCard(nil, p, engine.Graveyard)
+	}
+	g.NewCard(continuousDef(t, "Test Threshold Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Threshold"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- seven graveyard cards meets Threshold", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenThresholdConditionNotMet proves the other
+// direction: six graveyard cards does not meet Threshold.
+func TestApplyContinuousPTSkipsWhenThresholdConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for i := 0; i < 6; i++ {
+		g.NewCard(nil, p, engine.Graveyard)
+	}
+	g.NewCard(continuousDef(t, "Test Threshold Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Threshold"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- six graveyard cards does not meet Threshold", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenHellbentConditionMet proves Hellbent (8
+// real lines): host's own controller has an empty hand.
+func TestApplyContinuousPTAppliesWhenHellbentConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Hellbent Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Hellbent"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- an empty hand meets Hellbent", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenHellbentConditionNotMet proves the other
+// direction: a nonempty hand does not meet Hellbent.
+func TestApplyContinuousPTSkipsWhenHellbentConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Hand)
+	g.NewCard(continuousDef(t, "Test Hellbent Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Hellbent"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- a nonempty hand does not meet Hellbent", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenFatefulHourConditionMet proves FatefulHour
+// (3 real lines): host's own controller is at 5 life or less.
+func TestApplyContinuousPTAppliesWhenFatefulHourConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 5, 20
+	g.NewCard(continuousDef(t, "Test Fateful Hour Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ FatefulHour"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- 5 life meets FatefulHour", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenFatefulHourConditionNotMet proves the other
+// direction: 6 life does not meet FatefulHour.
+func TestApplyContinuousPTSkipsWhenFatefulHourConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 6, 20
+	g.NewCard(continuousDef(t, "Test Fateful Hour Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ FatefulHour"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- 6 life does not meet FatefulHour", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenMetalcraftConditionMet proves Metalcraft
+// (18 real lines): three or more artifacts host's own controller controls.
+func TestApplyContinuousPTAppliesWhenMetalcraftConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for i := 0; i < 3; i++ {
+		g.NewCard(artifactDefT(t), p, engine.Battlefield)
+	}
+	g.NewCard(continuousDef(t, "Test Metalcraft Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Metalcraft"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- three artifacts meets Metalcraft", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenMetalcraftConditionNotMet proves the other
+// direction: two artifacts does not meet Metalcraft.
+func TestApplyContinuousPTSkipsWhenMetalcraftConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for i := 0; i < 2; i++ {
+		g.NewCard(artifactDefT(t), p, engine.Battlefield)
+	}
+	g.NewCard(continuousDef(t, "Test Metalcraft Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Metalcraft"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- two artifacts does not meet Metalcraft", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTAppliesWhenDeliriumConditionMet proves Delirium (23
+// real lines): four or more distinct core types among cards in host's own
+// controller's graveyard -- Creature, Instant, Sorcery and Land here.
+func TestApplyContinuousPTAppliesWhenDeliriumConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for _, typeLine := range []string{"Creature", "Instant", "Sorcery", "Land"} {
+		def := &compile.Card{Name: "Test Graveyard Card"}
+		def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), typeLine)
+		g.NewCard(def, p, engine.Graveyard)
+	}
+	g.NewCard(continuousDef(t, "Test Delirium Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Delirium"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 3 {
+		t.Errorf("Power() = (%d, %v), want (3, true) -- four distinct graveyard core types meets Delirium", pw, ok)
+	}
+}
+
+// TestApplyContinuousPTSkipsWhenDeliriumConditionNotMet proves the other
+// direction: three distinct core types does not meet Delirium.
+func TestApplyContinuousPTSkipsWhenDeliriumConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	for _, typeLine := range []string{"Creature", "Instant", "Sorcery"} {
+		def := &compile.Card{Name: "Test Graveyard Card"}
+		def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), typeLine)
+		g.NewCard(def, p, engine.Graveyard)
+	}
+	g.NewCard(continuousDef(t, "Test Delirium Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1 | Condition$ Delirium"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(creature).Power(); !ok || pw != 2 {
+		t.Errorf("Power() = (%d, %v), want (2, true) -- three distinct graveyard core types does not meet Delirium", pw, ok)
 	}
 }
 
@@ -964,21 +1220,22 @@ func TestApplyContinuousRulesAffectedOpponentSkipsTheHostsOwnController(t *testi
 	}
 }
 
-// TestApplyContinuousRulesSkipsLineWithCondition proves a Condition$-gated
-// SetMaxHandSize$ line (Delirium's own real shape) is skipped entirely --
-// this port has no Condition$ evaluator for any static-ability mode (GO-7).
+// TestApplyContinuousRulesSkipsLineWithCondition proves a Condition$ value
+// this port has no player-state for (MaxSpeed) gates a SetMaxHandSize$ line
+// the same way it gates PT (continuousConditionMet's own default case,
+// shared by every applier).
 func TestApplyContinuousRulesSkipsLineWithCondition(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p, other := g.Players()[0], g.Players()[1]
 	g.Player(p).Life, g.Player(other).Life = 20, 20
-	g.NewCard(continuousDef(t, "Test Conditional Hand", "Mode$ Continuous | Condition$ Delirium | Affected$ Opponent | SetMaxHandSize$ 3"), p, engine.Battlefield)
+	g.NewCard(continuousDef(t, "Test Conditional Hand", "Mode$ Continuous | Condition$ MaxSpeed | Affected$ Opponent | SetMaxHandSize$ 3"), p, engine.Battlefield)
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if limit, hasLimit := g.Player(other).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != engine.MaxHandSize {
-		t.Errorf("HandSizeLimit() = (%d, %v), want (%d, true) -- Condition$ is not evaluated, so the line must not apply", limit, hasLimit, engine.MaxHandSize)
+		t.Errorf("HandSizeLimit() = (%d, %v), want (%d, true) -- Condition$ MaxSpeed cannot resolve, so the line must not apply", limit, hasLimit, engine.MaxHandSize)
 	}
 }
 
@@ -1049,9 +1306,10 @@ func TestApplyContinuousControlSkipsUnresolvedGainControlValue(t *testing.T) {
 	}
 }
 
-// TestApplyContinuousControlSkipsLineWithCondition proves a Condition$-gated
-// GainControl$ line is skipped entirely -- applyOneContinuousPT's own
-// Condition$ skip reason, ported here for Layer 2.
+// TestApplyContinuousControlSkipsLineWithCondition proves a Condition$ value
+// this port has no player-state for (MaxSpeed) gates a GainControl$ line the
+// same way it gates PT -- continuousConditionMet's own default case, shared
+// by every applier, ported here for Layer 2.
 func TestApplyContinuousControlSkipsLineWithCondition(t *testing.T) {
 	t.Parallel()
 
@@ -1059,13 +1317,13 @@ func TestApplyContinuousControlSkipsLineWithCondition(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	creature := g.NewCard(creatureDef(t), b, engine.Battlefield)
-	host := g.NewCard(continuousDef(t, "Test Conditional Steal", "Mode$ Continuous | Condition$ Threshold | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Conditional Steal", "Mode$ Continuous | Condition$ MaxSpeed | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
 	g.Attach(host, creature)
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
 	if got := g.Card(creature).Controller(); got != b {
-		t.Errorf("Controller() = %v, want %v -- Condition$ is not evaluated, so the line must not apply", got, b)
+		t.Errorf("Controller() = %v, want %v -- Condition$ MaxSpeed cannot resolve, so the line must not apply", got, b)
 	}
 }
 

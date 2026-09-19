@@ -27,6 +27,79 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
+// continuousConditionMet is StaticAbility.checkConditions' own Condition$
+// switch (StaticAbility.java), the one general runtime gate every
+// Mode$ Continuous line's six appliers below can carry -- CR 613 folding
+// happens every CheckStateBasedActions pass regardless of Condition$, so
+// this is evaluated fresh alongside them rather than latched once. A line
+// naming no Condition$ passes unconditionally. Ported for the real corpus's
+// own values on a Mode$ Continuous line (317 total, port-log/game-state.md's
+// "Continuous effects" section): PlayerTurn/NotPlayerTurn (141, 8 -- the
+// active player compared against host's own controller, Java's own
+// PhaseHandler.isPlayerTurn collapsed to that one comparison), Threshold (61
+// -- Player.hasThreshold, seven-plus cards in the controller's own
+// graveyard), Metalcraft (18 -- Player.hasMetalcraft, three-plus artifacts
+// the controller controls), Delirium (23 -- Player.hasDelirium, four-plus
+// distinct core types among cards in the controller's own graveyard,
+// AbilityUtils.countCardTypesFromList's own permanentTypes=false form) and
+// FatefulHour (3 -- the controller's own life at 5 or below). Not resolved:
+// MaxSpeed (40), Blessing (9), EnduringStory (4) and Monarch (2) -- each its
+// own mechanic (Alchemy's speed counter, City's Blessing, Saga chapters,
+// the monarch) this port tracks no state for anywhere yet, so (like an
+// unrecognized Affected$ value already does) the line is skipped rather
+// than treated as met (GO-7); an unrecognized value not in the real corpus
+// today falls to the same case.
+func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
+	condition, ok := s.Param("Condition")
+	if !ok {
+		return true
+	}
+	controller := host.Controller()
+	switch condition {
+	case "PlayerTurn":
+		return g.ActivePlayer() == controller
+	case "NotPlayerTurn":
+		return g.ActivePlayer() != controller
+	case "Threshold":
+		return len(g.Zone(Graveyard, controller).Cards()) >= 7
+	case "Hellbent":
+		return len(g.Zone(Hand, controller).Cards()) == 0
+	case "Metalcraft":
+		return battlefieldArtifactCount(g, controller) >= 3
+	case "Delirium":
+		return graveyardCoreTypeCount(g, controller) >= 4
+	case "FatefulHour":
+		return g.Player(controller).Life <= 5
+	default:
+		return false
+	}
+}
+
+// battlefieldArtifactCount is Metalcraft's own CardLists.count(..., ARTIFACTS)
+// -- every battlefield permanent controller controls whose current (Layer
+// 4-folded) type line carries Artifact.
+func battlefieldArtifactCount(g *Game, controller PlayerID) int {
+	n := 0
+	for _, id := range g.Zone(Battlefield, controller).Cards() {
+		if g.Card(id).Type().Has(cardtype.Artifact) {
+			n++
+		}
+	}
+	return n
+}
+
+// graveyardCoreTypeCount is Delirium's own countCardTypesFromList(graveyard,
+// false) -- the count of distinct core types (not supertypes, not subtypes)
+// across every card in controller's own graveyard, each card's current type
+// line unioned into one running Line rather than counted per card.
+func graveyardCoreTypeCount(g *Game, controller PlayerID) int {
+	var seen cardtype.Line
+	for _, id := range g.Zone(Graveyard, controller).Cards() {
+		seen = seen.Union(g.Card(id).Type())
+	}
+	return len(seen.CoreTypes())
+}
+
 // applyContinuousPT recomputes every battlefield permanent's own Layer
 // 7b/7c PTEffects from scratch, from every real Mode$ Continuous S: line
 // currently in play. CR 613's own continuous effects are not stored and
@@ -75,11 +148,11 @@ func applyContinuousPT(g *Game) {
 //
 // Not resolved, each for a specific reason (game-state.md's "Continuous
 // effects" section has the corpus counts behind every number below):
-//   - Condition$ (116 of 2,426) -- a generic runtime gate ("during your
-//     turn," and the like) StaticAbility.java's own checkConditions
-//     evaluates for every static-ability mode; this port has no equivalent
-//     for any mode yet, so a line carrying it is skipped rather than
-//     treated as always-true.
+//   - A Condition$ value this port has no player-state for (MaxSpeed,
+//     Blessing, EnduringStory, Monarch -- continuousConditionMet's own doc
+//     comment has the full account); the resolvable values (PlayerTurn,
+//     Threshold, Metalcraft, Delirium, Hellbent, FatefulHour) no longer skip
+//     the line here.
 //   - AffectedDefined$/AffectedZone$ (0 and 24) -- a targeted or
 //     Remembered-driven affected set (AbilityUtils.getDefinedCards) rather
 //     than a blanket valid-string match against the whole battlefield.
@@ -95,7 +168,10 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone"} {
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
+	for _, key := range [...]string{"AffectedDefined", "AffectedZone"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
@@ -214,10 +290,10 @@ func applyContinuousType(g *Game) {
 // A whole line is skipped, not applied partially, the instant it carries
 // anything past that shape (game-state.md's "Continuous effects" section has
 // the corpus counts):
-//   - Condition$/AffectedDefined$/AffectedZone$/CharacteristicDefining$ --
-//     applyOneContinuousPT's own four skip reasons, identical here since all
-//     four are properties of the static ability itself, not of which layer
-//     it happens to write to.
+//   - AffectedDefined$/AffectedZone$/CharacteristicDefining$/an unresolved
+//     Condition$ value -- applyOneContinuousPT's own skip reasons, identical
+//     here since all are properties of the static ability itself, not of
+//     which layer it happens to write to.
 //   - ChosenType$/ChosenType2$/ImprintedCreatureType$/AllBasicLandType$/
 //     AllNonBasicLandType$ as an AddType$ or RemoveType$ token (29 of 256
 //     real AddType$ lines) -- each needs a runtime value (a chosen type, an
@@ -244,8 +320,11 @@ func applyOneContinuousType(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
 	for _, key := range [...]string{
-		"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining",
+		"AffectedDefined", "AffectedZone", "CharacteristicDefining",
 		"AddAllCreatureTypes",
 		"RemoveSuperTypes", "RemoveCardTypes", "RemoveSubTypes", "RemoveLandTypes",
 		"RemoveCreatureTypes", "RemoveArtifactTypes", "RemoveEnchantmentTypes",
@@ -332,17 +411,21 @@ func applyContinuousColor(g *Game) {
 // color at all, `SetColor$ Colorless`'s own real corpus shape).
 //
 // Skipped, the same reasons applyOneContinuousPT/applyOneContinuousType
-// already give for their own params: Condition$/AffectedDefined$/
-// AffectedZone$/CharacteristicDefining$. A "ChosenColor" token (7 of 61 real
-// AddColor$/SetColor$ lines) skips the whole line -- a runtime value
-// (Card.getChosenColors()) this port has no evaluator for, the identical
-// "whole line, not partial" choice typeTokens already makes for ChosenType.
+// already give for their own params: AffectedDefined$/AffectedZone$/
+// CharacteristicDefining$/an unresolved Condition$ value. A "ChosenColor"
+// token (7 of 61 real AddColor$/SetColor$ lines) skips the whole line -- a
+// runtime value (Card.getChosenColors()) this port has no evaluator for, the
+// identical "whole line, not partial" choice typeTokens already makes for
+// ChosenType.
 // 54 of 61 real lines carry none of it.
 func applyOneContinuousColor(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
+	for _, key := range [...]string{"AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
@@ -466,8 +549,11 @@ func applyOneContinuousKeyword(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
 	for _, key := range [...]string{
-		"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining",
+		"AffectedDefined", "AffectedZone", "CharacteristicDefining",
 		"RemoveKeyword", "RemoveAllAbilities", "SharedKeywords", "FromDraftNotes",
 	} {
 		if _, ok := s.Param(key); ok {
@@ -582,12 +668,18 @@ func applyContinuousRules(g *Game) {
 // and/or AdjustLandPlays$ in a shape rulesEffect (below) can resolve.
 //
 // Not resolved, each for a specific reason:
-//   - Condition$/AffectedDefined$/AffectedZone$/CharacteristicDefining$ --
-//     applyOneContinuousPT's own four skip reasons (a CharacteristicDefining
-//     line makes no sense for a player-facing effect anyway; the one real
-//     line carrying Condition$ alongside these three params, Delirium's own
-//     "each opponent's maximum hand size is seven minus...", is skipped
-//     here for that reason alone).
+//   - AffectedDefined$/AffectedZone$/CharacteristicDefining$/an unresolved
+//     Condition$ value -- applyOneContinuousPT's own skip reasons (a
+//     CharacteristicDefining line makes no sense for a player-facing effect
+//     anyway). The one real line pairing Condition$ Delirium with
+//     SetMaxHandSize$ (Winter, Misanthropic Guide) resolves its Condition$
+//     now but still does not apply: its own SetMaxHandSize$ names an SVar
+//     built from a Count$ValidGraveyard ...$CardTypes distinct-value count
+//     (amount.go's own resolveAmount skips a DistinctProperty expression,
+//     item 27's own Tarmogoyf-shaped gap) feeding a Number$.../Minus.X
+//     arithmetic SVar rulesEffect's own amount resolution has no head for
+//     either way -- rulesEffect itself still returns not-ok, for a reason
+//     unrelated to Condition$.
 //   - MayLookAt$/MayPlay$ (88, 181 real lines corpus-wide) -- a cast-time
 //     zone-eligibility permission CastSpell's own hand-only check
 //     (castspell.go) has nowhere to consult yet.
@@ -612,7 +704,10 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
+	for _, key := range [...]string{"AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
@@ -748,7 +843,10 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
+	for _, key := range [...]string{"AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}

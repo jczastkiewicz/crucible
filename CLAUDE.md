@@ -267,10 +267,14 @@ this port's first controller-change mechanism. `Card.Controller`, a plain field 
 already use; `applyContinuousControl` runs first among the six appliers, ahead of Layers 4/5/6/7/8, since CR 613.1 puts
 the control layer before every one of them and their own `Affected$` specs can themselves read `Controller()` (a
 `YouCtrl` property) — a stale value there would evaluate against last pass's controller, not this one's. The qualified
-`GainControl$ Player.isMonarch` (1 of 44) stays unresolved: no monarch mechanic to filter by (PORT-8/GO-7). M6 in
-progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather
-than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own
-`Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+`GainControl$ Player.isMonarch` (1 of 44) stays unresolved: no monarch mechanic to filter by (PORT-8/GO-7). `Condition$`
+— the one gate all six appliers share, `StaticAbility.checkConditions`'s own switch — is real too now:
+`continuousConditionMet` (continuous.go) resolves `PlayerTurn`/`NotPlayerTurn`/`Threshold`/`Metalcraft`/`Delirium`/
+`Hellbent`/`FatefulHour` (262 of the corpus's 317 real `Mode$ Continuous | Condition$` lines) in place of the blanket
+"any `Condition$` present, skip the line" every applier had; `MaxSpeed`/`Blessing`/`EnduringStory`/`Monarch` (55) stay
+unresolved, each its own untracked mechanic. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the
+203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
+(`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: Layer 1 (copy effects — not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real
 references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at

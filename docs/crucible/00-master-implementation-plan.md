@@ -811,9 +811,9 @@ printed form.
     a game-wide/remembered-list/draft-note keyword source rather than a fixed token list; a dynamic-value marker
     anywhere inside any one token (42 of 1,857), checked by substring (`strings.Contains`) since a marker is often a
     qualifier embedded in a larger token (`"Protection:Card.ChosenColor:chosenColor"`) rather than the whole token
-    itself. Not resolved for any of the four layers: `Condition$` (116), `AffectedDefined$`/`AffectedZone$` (0 and 24) —
-    each its own specific missing piece (`porting/port-log/game-state.md`'s "Layer 7, Layer 4, Layer 5 and Layer 6"
-    section has the full account), not a reason to have skipped the slices that do resolve.
+    itself. Not resolved for any of the four layers: `AffectedDefined$`/`AffectedZone$` (0 and 24) — its own specific
+    missing piece (`porting/port-log/game-state.md`'s "Layer 7, Layer 4, Layer 5 and Layer 6" section has the full
+    account), not a reason to have skipped the slices that do resolve. `Condition$` is resolved now (below).
 
     `CharacteristicDefining$` (265 real lines, Layer 7a) and a non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/
     `SetToughness$` naming a named SVar are resolved now, for the one shape both actually need most:
@@ -899,6 +899,25 @@ printed form.
     `internal/fixture`) became a `Controller()` call the same pass, so a stolen creature is controlled by its new
     controller everywhere the engine asks, not just where `applyContinuousControl` itself looks. Not resolved: the
     qualified `GainControl$ Player.isMonarch` (1 of 44) — no monarch mechanic to filter by (PORT-8/GO-7).
+
+    **`Condition$` — the one gate shared by every layer above — is real now too.** A new `continuousConditionMet`
+    (continuous.go) ports `StaticAbility.checkConditions`'s own `Condition$` switch, called from all six appliers in
+    place of the blanket "any `Condition$` present, skip the line" rule each one had (Layer 4/5/6/7b/7c/8's own doc
+    comments each named this the same missing piece). `PlayerTurn`/`NotPlayerTurn` (141, 8 of the corpus's 317 real
+    `S:Mode$ Continuous | Condition$` lines) compare `Game.ActivePlayer()` against host's own controller;
+    `Threshold`/`Hellbent` (61, 8) are graveyard/hand zone-size checks (`Player.hasThreshold`/`hasHellbent`);
+    `Metalcraft` (18) counts battlefield permanents controller controls whose current, Layer-4-folded `Type()` carries
+    Artifact (`battlefieldArtifactCount`); `Delirium` (23) unions every graveyard card's own current `Type()` into one
+    `cardtype.Line` and counts its distinct core types (`graveyardCoreTypeCount`,
+    `AbilityUtils.countCardTypesFromList`'s own `permanentTypes=false` form); `FatefulHour` (3) compares `Player.Life`
+    against 5 — 262 of 317 real lines. Not resolved: `MaxSpeed` (40, Alchemy's own speed counter), `Blessing` (9, City's
+    Blessing), `EnduringStory` (4, a Saga's own chapter count) and `Monarch` (2) — each its own mechanic this port
+    tracks no state for anywhere yet, so (like an unrecognized `Affected$` value already does) the line is skipped
+    rather than treated as met (GO-7). Winter, Misanthropic Guide's own `Condition$ Delirium | SetMaxHandSize$ Y` (the
+    sole real line pairing a now-resolvable `Condition$` with Layer 8) still does not apply, for an unrelated reason:
+    `Y` is `Number$7/Minus.X` and `X` is `Count$ValidGraveyard Card.YouOwn$CardTypes`, a `DistinctProperty` expression
+    `resolveAmount` already skips (item 27's own Tarmogoyf-shaped gap, above) feeding an arithmetic SVar shape this
+    port's amount resolution has no head for either way.
 
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,

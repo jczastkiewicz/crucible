@@ -644,6 +644,61 @@ prove a real caller reads it.
 Not resolved: the qualified `GainControl$ Player.isMonarch` (1 of 44, above). Layer 1 (copy effects) and Layer 3
 (`GainTextOf$`) stay untouched -- `## Not ported yet`, below, has the reasons.
 
+### `Condition$`: the one gate all six appliers share
+
+Every one of the six appliers above (`applyOneContinuousPT`/`Type`/`Color`/`Keyword`/`Rules`/`Control`) used to skip a
+line outright the instant it carried a `Condition$` param at all, each one's own doc comment naming this the same
+missing piece. `continuousConditionMet` (continuous.go) closes most of it: `StaticAbility.checkConditions`'s own
+`Condition$` switch (StaticAbility.java), called from all six in place of the blanket skip, evaluated fresh every
+`CheckStateBasedActions` pass the same as everything else Layer 4-8/2 fold, since CR 613 gives a continuous effect no
+memory of its own last evaluation.
+
+The corpus's own 317 real `S:Mode$ Continuous | Condition$` lines, tallied directly off `S:` lines carrying
+`Mode$ Continuous` (a plain corpus grep for bare `Condition$` also catches values on `T:`/`A:` lines Trigger.java's own
+`meetsRequirementsOnTriggeredObjects` and SpellAbilityCondition.java handle separately -- a different switch on the same
+param name, not this port's problem here):
+
+| Value           | Real lines | Resolved | Player state read                                                             |
+| --------------- | ---------: | :------: | ----------------------------------------------------------------------------- |
+| `PlayerTurn`    |        141 |   yes    | `Game.ActivePlayer() == host.Controller()`                                    |
+| `Threshold`     |         61 |   yes    | `len(Zone(Graveyard, controller).Cards()) >= 7` (`Player.hasThreshold`)       |
+| `MaxSpeed`      |         40 |    no    | Alchemy's own speed counter -- tracked nowhere in this port                   |
+| `Delirium`      |         23 |   yes    | four-plus distinct core types unioned across the graveyard (below)            |
+| `Metalcraft`    |         18 |   yes    | three-plus battlefield permanents whose `Type()` carries Artifact             |
+| `Blessing`      |          9 |    no    | City's Blessing (ten-plus permanents, sticky) -- no such flag on `Player` yet |
+| `NotPlayerTurn` |          8 |   yes    | the inverse of `PlayerTurn`                                                   |
+| `Hellbent`      |          8 |   yes    | `len(Zone(Hand, controller).Cards()) == 0` (`Player.hasHellbent`)             |
+| `EnduringStory` |          4 |    no    | a Saga's own lore-counter/chapter state -- Sagas are not ported               |
+| `FatefulHour`   |          3 |   yes    | `Player.Life <= 5`                                                            |
+| `Monarch`       |          2 |    no    | no monarch mechanic (same gap Layer 2's own qualified value has, above)       |
+
+262 of 317 resolve. The four that do not (55 lines) are each its own untracked mechanic, so (the identical "cannot
+evaluate, so do not apply" rule an unresolved `Affected$` value already has, GO-7) the whole line is skipped, same as
+before this slice existed -- `continuousConditionMet`'s own `default` case, which also catches any value the real corpus
+does not carry today.
+
+`Delirium` is `AbilityUtils.countCardTypesFromList(graveyard, false)` (`graveyardCoreTypeCount`): every graveyard card's
+own _current_ (Layer-4-folded) `Type()` unioned into one running `cardtype.Line` via `Union` -- reusing item 27's own
+type-folding machinery rather than re-deriving a card's type from its printed face -- then `len(.CoreTypes())` against
+4, core types only (not supertypes, not subtypes), matching `CardType.CoreType`'s own enum exactly. `Metalcraft` is
+`battlefieldArtifactCount`: the same `Type()` read, `.Has(cardtype.Artifact)`, over the controller's own battlefield.
+
+One real line resolves its `Condition$` but still does not apply for an unrelated reason: Winter, Misanthropic Guide's
+`Condition$ Delirium | Affected$ Opponent | SetMaxHandSize$ Y` (Layer 8) now passes its own `Condition$` check, but `Y`
+is `Number$7/Minus.X` and `X` is `Count$ValidGraveyard Card.YouOwn$CardTypes` -- a `DistinctProperty` expression
+`resolveAmount` (amount.go, item 27's own Tarmogoyf-shaped gap) already skips, feeding an arithmetic
+`Number$.../Minus.X` SVar shape this port's amount resolution has no head for either way -- `rulesEffect` itself still
+returns not-ok, so the line still does not apply, correctly, just no longer for the reason its own name once suggested.
+
+`TestApplyContinuousPTSkipsConditionParam` moved from `Condition$ PlayerTurn` (now resolvable, and coincidentally false
+in a fresh test game with no active player set -- `NoPlayer` matches no real `PlayerID`) to `Condition$ MaxSpeed` to
+keep proving what its name claims: an unresolvable value skips the line regardless of game state.
+`TestApplyContinuousRulesSkipsLineWithCondition`/`TestApplyContinuousControlSkipsLineWithCondition` moved the same way.
+Ten new tests (`TestApplyContinuousPTAppliesWhen*ConditionMet`/`SkipsWhen*ConditionNotMet`, continuous_test.go) prove
+each resolvable value both ways, driven through `g.StartTurn` (`PlayerTurn`) or a matching zone/type/life setup
+(`Threshold`/`Hellbent`/`Metalcraft`/`Delirium`/`FatefulHour`) -- `Rules`/`Control` reuse the identical shared function,
+so are not re-proven per value there.
+
 ## Loyalty is not a layer
 
 `Card.BaseLoyalty` mirrors `BasePower`/`BaseToughness` — `compile.Face.Loyalty` carried through from `carddb.Face`'s

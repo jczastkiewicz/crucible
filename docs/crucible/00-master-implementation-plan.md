@@ -773,7 +773,37 @@ printed form.
     in APNAP order rather than a fixed one, every trigger-check function's own "own" and "other" halves collecting into
     one `[]Ability` first; a single player's own multiple matches still stay in the deterministic order they were found,
     since this port has no `PlayerController` hook for a real player choice among them (`orderAndPlaySimultaneousSa`,
-    `MagicStack.java`) — the whole replacement-effect system remains a gap.
+    `MagicStack.java`).
+
+    **CR 614's own replacement-effect system has its first real content now**, the corpus's single largest real shape:
+    `checkMovedReplacement` (`replacement.go`) ports `ReplacementHandler`/`ReplaceMoved`/`ReplacementEffect.java`,
+    trimmed to CR 614.1's "enters the battlefield already tapped" — `Event$ Moved` naming `ReplaceWith$` pointing at a
+    bare `DB$ Tap` (`Defined$ Self` or `Defined$ ReplacedCard`, Java's own distinction between the replacement's host
+    and the card actually moving, identical here since this file only ever reaches the moving card either way), 618 of
+    the corpus's 969 real `Event$ Moved` lines (587 `Card.Self`-shaped, 31 watching another permanent enter — a static
+    "creatures your opponents control enter tapped" effect) and 618 of 2,210 real replacement lines corpus-wide (28%).
+    Checked against two sets of `Face.Replacements` (M3's own compiled field, never read by the engine before now,
+    compiled the identical way `Face.Triggers`/`Face.Statics` already are — `ReplaceWith$` is one of `subAbilityKeys`,
+    so it resolves to `Ability.Subs` for free, no new compiler work needed): the moved card's own, and every OTHER
+    battlefield permanent's, the identical own/other split `checkETBTriggers`/`otherETBTriggerMatches` already
+    established. `Destination$`/`Origin$`, present on 624 and 2 of the real ETBTapped-named lines respectively, are
+    optional restrictions (absence means unrestricted, `ReplaceMoved.java`'s own `hasParam` guard), checked against the
+    actual move — `origin` threaded in from each of the three real "enters the battlefield" call sites
+    (`permanentEffect`/`attachEffect`, castspell.go; `Game.PlayLand`, land.go), read off the card's own `Zone` field
+    before `Game.Move` changes it. Called before `checkETBTriggers`: a replacement changes the event itself, so a
+    tapped-on-entry permanent must already be tapped by the time a "when this enters" trigger looks at it, CR 614.1's
+    own ordering over CR 603. Unlike a trigger match, no APNAP ordering or collect-then-push step is needed: the one
+    outcome this file produces, `Tapped = true`, is idempotent, so CR 616's own "more than one replacement effect could
+    apply, the affected player chooses" procedure — needing a `PlayerController` hook this port does not have, the
+    identical gap a single player's own multiple simultaneous triggers already has (above) — has no observable answer to
+    get wrong here: the first match found in either loop is applied and the search stops. Not resolved:
+    `ETBTapped`/`LandTapped` naming anything past a bare `DB$ Tap`/`Defined$`/`ETB$` — a `SubAbility$` chain (5 of 624
+    real lines, a chained counter grant) or `ConditionPresent$`/`ConditionCheckSVar$` (135 real `LandTapped` lines,
+    "enters tapped unless you control a Mountain or a Forest" — a checkland/slowland) both skip the whole line rather
+    than tapping unconditionally and guessing wrong (PORT-8/GO-7); every other `Event$` value (`DamageDone`, `Untap`,
+    `Counter`, `Draw`, ... — 1,241 of 2,210 real replacement lines) and every other `Moved` shape (`Exile`, a chained
+    `DBTap`/`DBExile` reference) remain gaps.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

@@ -197,23 +197,28 @@ trigger, pushed through a new `pushTriggeredAbilities` (`trigger.go`) that ports
 first time (`playersInAPNAPOrder` — `Game.ActivePlayer()`, then turn order — walking each player's own group in turn, so
 the non-active player's own trigger resolves before the active player's when more than one fires off the same event, the
 stack's own LIFO order applied to `MagicStack`'s own player-iteration sequence); every trigger-check function now
-collects its own matches first and calls it once, rather than calling `PushAbility` the instant each match is found.
-`matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player` dispatch several of those modes now reuse;
-block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection,
-Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption
-(`staticability.go`) — three slices of the general static-ability engine PORT-8 requires reading Java's own mechanism
-for rather than hardcoding a keyword check; and four layers of the engine's biggest piece, `Mode$ Continuous` itself
-(`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness
-lines (anthem effects, equipment bonuses); `applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines
-naming only literal type words; `applyContinuousColor` resolves Layer 5's own `AddColor$`/`SetColor$` lines naming a
-literal color, `All` or `Colorless`; `applyContinuousKeyword` resolves Layer 6's own `AddKeyword$` lines naming only
-literal keyword lines (no dynamic value, no `RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$`
-combo) — the single largest real slice of the four (1,556 of 1,857 real lines), folded through a new `KeywordMod`
-(`keywordmod.go`) `Card.HasKeyword` now reads, reaching every existing keyword-driven check (`cantBlockByKeywords`,
-combat's own first-strike/trample reads) for free — all four layers recomputed fresh every `CheckStateBasedActions` pass
-rather than pushed once, `pt.go`'s own folding mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go`
-counterparts' first real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without
-a `*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s own doc comment); Landwalk's own
+collects its own matches first and calls it once, rather than calling `PushAbility` the instant each match is found. CR
+614.1's own replacement-effect system has its first real content too: `checkMovedReplacement` (`replacement.go`)
+resolves the corpus's single largest real `Event$ Moved` shape — a permanent entering the battlefield already tapped,
+`ReplaceWith$` naming a bare `DB$ Tap` (618 of 969 real `Moved` lines, 618 of 2,210 real replacement lines corpus-wide)
+— called from every real "enters the battlefield" site (`permanentEffect`/`attachEffect`, castspell.go; `Game.PlayLand`,
+land.go) before `checkETBTriggers` runs, CR 614.1's own ordering over CR 603. `matchesPlayerBase` (`valid.go`) is the
+shared `You`/`Opponent`/`Player` dispatch several of those modes now reuse; block legality (`staticability.go`,
+`CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection, Menace and every literal
+`S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption (`staticability.go`) — three slices of
+the general static-ability engine PORT-8 requires reading Java's own mechanism for rather than hardcoding a keyword
+check; and four layers of the engine's biggest piece, `Mode$ Continuous` itself (`continuous.go`) — `applyContinuousPT`
+resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness lines (anthem effects, equipment bonuses);
+`applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines naming only literal type words;
+`applyContinuousColor` resolves Layer 5's own `AddColor$`/`SetColor$` lines naming a literal color, `All` or
+`Colorless`; `applyContinuousKeyword` resolves Layer 6's own `AddKeyword$` lines naming only literal keyword lines (no
+dynamic value, no `RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$` combo) — the single largest
+real slice of the four (1,556 of 1,857 real lines), folded through a new `KeywordMod` (`keywordmod.go`)
+`Card.HasKeyword` now reads, reaching every existing keyword-driven check (`cantBlockByKeywords`, combat's own
+first-strike/trample reads) for free — all four layers recomputed fresh every `CheckStateBasedActions` pass rather than
+pushed once, `pt.go`'s own folding mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go` counterparts' first
+real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without a
+`*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s own doc comment); Landwalk's own
 `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`), a `Player`, not a
 `Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is; Protection's own CantBlockBy restriction
 (`protectionValid`, `staticability.go`) is built per card from the keyword's own argument the identical way Landwalk's

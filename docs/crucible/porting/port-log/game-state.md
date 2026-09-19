@@ -1860,6 +1860,73 @@ out to carry its own "create a token" ETB trigger — `Invasion of Belenon` amon
 assert an expected `RunActions` failure the way an internal test can with `errors.Is`. The other four permanent-type
 fixtures (creature, artifact, enchantment, planeswalker) are unaffected: none of those four cards carries a `T:` line.
 
+## Replacement effects: entering the battlefield tapped
+
+CR 614's own replacement-effect system (`forge-game/src/main/java/forge/game/replacement/`, 3,742 LOC across
+`ReplacementHandler`/`ReplacementEffect`/44 per-event `ReplaceXxx` subclasses, `ReplaceMoved` among them) had zero real
+content until now: item 26's own closing line named it "the whole replacement-effect system remains a gap." A corpus
+tally (44 files, `Event$` on `R:` lines) puts it at 2,210 real lines across 1,646 cards -- comparable in size to the
+trigger vocabulary above, and led by `Event$ Moved` (969, CR 614.1's own "replace a zone-change event") ahead of
+`DamageDone` (218), `Untap` (158) and `Counter` (118).
+
+`ReplaceWith$`'s own value distribution on `Event$ Moved` lines turned up the single largest atomic real shape in the
+entire replacement-effect corpus: `ETBTapped` (617) and `LandTapped` (135) together are 752 of 969 Moved lines --
+"enters the battlefield tapped," MTG's own most common rules text, unimplemented in this port until now. Reading each
+named SVar's own body (`grep SVar:ETBTapped:`, six distinct bodies corpus-wide) found the real shape underneath the
+name: `DB$ Tap | Defined$ Self | ETB$ True` (587 of 618 real ETBTapped lines) or the identical shape naming
+`Defined$ ReplacedCard` instead (31, the "another permanent enters tapped" shape -- `ReplacedCard` is Java's own way of
+naming "the card actually moving" when the replacement's own host is a different permanent). Six lines chain a
+`SubAbility$` (a counter grant) and stay unresolved; `LandTapped`'s own 135 real lines almost all carry
+`ConditionPresent$`/`ConditionCompare$` (a checkland, "unless you control a Mountain or a Forest") or
+`ConditionCheckSVar$`/`ConditionSVarCompare$` (a numeric SVar gate) alongside the identical `DB$ Tap`, and stay
+unresolved too -- PORT-8/GO-7: a conditional tap is not a shape this slice tries to guess at by tapping unconditionally.
+
+`checkMovedReplacement` (`replacement.go`, new) resolves the 618 unconditional lines. It reads `Face.Replacements`
+(`compile.go`) -- M3's own compiled field, typed identically to `Face.Triggers`/`Face.Statics` since `R:` lines share
+the exact `Key$ Value` grammar, compiled the same way, and never read by the engine before now. `ReplaceWith` is already
+one of `subAbilityKeys` (compile.go), so `ReplaceWith$ ETBTapped` resolves to `Ability.Subs` for free -- zero new
+compiler work, the SVar it names already sitting there the identical way a trigger's own `Execute$` sub-ability does.
+
+Checked against two sets of Replacements, the identical own/other split `checkETBTriggers`/`otherETBTriggerMatches`
+(above) already established: the moved card's own (`ValidCard$ Card.Self`, 587 of 618) and every OTHER battlefield
+permanent's (`ValidCard$ Creature.OppCtrl`/`Land.OppCtrl`/..., 31 of 618 -- a static "creatures your opponents control
+enter tapped" effect). `Destination$`/`Origin$`, present on 624 and 2 of the real ETBTapped-named lines respectively,
+are checked only when present (`replacementZoneMatches` -- unlike `trigger.go`'s own `hasZone`, which a trigger's
+`isETBTrigger`/`isDiesTrigger` always require, `ReplaceMoved.java`'s own `hasParam` guard around each check means an
+absent one is unrestricted, not a non-match). `origin` is threaded in from each of the three real "enters the
+battlefield" call sites -- `permanentEffect`/`attachEffect` (castspell.go), `Game.PlayLand` (land.go) -- read off the
+card's own `Zone` field before `Game.Move` changes it, the one piece of state `checkETBTriggers` never needed since no
+trigger mode this port resolves reads a moved card's own `Origin$`.
+
+Called right after `Game.Move`, before `checkETBTriggers`: CR 614.1 puts a replacement before CR 603's own triggers, so
+a tapped-on-entry permanent must already be tapped by the time a "when this enters" trigger looks at it -- the identical
+ordering concern `applyContinuousControl` running first among the six continuous appliers already proved matters (item
+27, above), applied here between two different mechanisms instead of within one. Unlike a trigger match, no APNAP
+ordering or collect-then-push step is needed: the one outcome this file produces, `Card.Tapped = true`, is idempotent,
+so CR 616's own "more than one replacement effect could apply, the affected player chooses" procedure -- needing a
+`PlayerController` hook this port does not have, the identical gap a single player's own multiple simultaneous triggers
+already has (above) -- has no observable answer to get wrong here: the first match found in either loop is applied and
+the search stops immediately.
+
+`TestPlayLandEntersTappedViaReplacement`/`TestCastSpellCreatureEntersTappedViaReplacement` (replacement_test.go) prove
+the two real call sites; `TestCheckMovedReplacementAppliesToOtherPermanentsEntering` proves the "other" half;
+`TestPlayLandDoesNotEnterTappedWhenDestinationDoesNotMatch`, `TestCheckMovedReplacementSkipsSubAbilityChain` and
+`TestCheckMovedReplacementSkipsConditionalTap` prove each of the three ways a line does not resolve.
+
+Not resolved: `ETBTapped`/`LandTapped` naming a `SubAbility$` or a `ConditionPresent$`/`ConditionCheckSVar$` pair
+(above); `ReplaceWith$ Exile`/`DBTap`/`DBExile`/`DoDay`/`PayBeforeETB`/... (352 of the remaining 969 Moved lines); every
+other `Event$` value (`DamageDone`, `Untap`, `Counter`, `Draw`, `AddCounter`, `CreateToken`, `GainLife`, `BeginPhase`,
+`GameLoss`, `ProduceMana`, ... -- 1,241 of 2,210 real replacement lines corpus-wide); and CR 616's own general
+layering/ordering procedure entirely, moot for this slice's one idempotent outcome but real the moment a second
+resolvable replacement effect produces a different one.
+
+`enginelint.json` gained a `"replacement"` group (`replacement.go`), added to `"land"`'s and `"castspell"`'s own allow
+lists (both now call `checkMovedReplacement`) and, like `"trigger"`/`"continuous"` before it, to its own allow list an
+`"ability"` entry it does not actually depend on: `compile.Ability` collides textually with the top-level `Ability`
+declared in `ability.go` the identical way `ControlEffect.Player` once collided with the `Player` type (item 27's own
+`ControlMod` paragraph) -- `enginelint`'s own identifier scan cannot tell a qualified external reference apart from an
+unqualified same-package one.
+
 ## Block legality: CantBlockBy
 
 `block.go`'s own doc comment had named the gap precisely: in Forge, CR 509.1b's restrictions — flying/reach, Fear,

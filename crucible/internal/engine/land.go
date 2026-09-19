@@ -47,8 +47,10 @@ func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 	if limit, unlimited := g.Player(pid).LandPlayLimit(maxLandPlays); !unlimited && g.Player(pid).LandsPlayed >= limit {
 		return false
 	}
+	origin := c.Zone
 	g.Move(card, Battlefield, pid)
 	g.Player(pid).LandsPlayed++
+	g.checkMovedReplacement(card, origin)
 	g.checkETBTriggers(card)
 	return true
 }

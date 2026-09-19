@@ -216,8 +216,8 @@ func TestLoadOwnerDiffersFromController(t *testing.T) {
 	human, ai := l.Game.Players()[0], l.Game.Players()[1]
 	id := l.Game.Zone(engine.Battlefield, human).Cards()[0]
 	c := l.Game.Card(id)
-	if c.Controller != human {
-		t.Errorf("controller %v, want human -- Owner: must not change control", c.Controller)
+	if c.Controller() != human {
+		t.Errorf("controller %v, want human -- Owner: must not change control", c.Controller())
 	}
 	if c.Owner != ai {
 		t.Errorf("owner %v, want ai", c.Owner)

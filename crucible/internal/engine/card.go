@@ -27,10 +27,10 @@ type Card struct {
 	// Def is the compiled script, shared and immutable across every game in
 	// the process (ADR-0007). Never nil for a real card.
 	Def *compile.Card
-	// Owner never changes. Controller does, and the two differ whenever
-	// something has taken control of the card.
+	// Owner never changes. Controller (the method below) does, and the two
+	// differ whenever something has taken control of the card.
 	Owner      PlayerID
-	Controller PlayerID
+	controller PlayerID
 	// Zone is where the card is. The zone's own list is the ordering
 	// authority; this is the reverse index, kept in step by the move
 	// operations.
@@ -51,6 +51,7 @@ type Card struct {
 	TypeMod    TypeMod
 	ColorMod   ColorMod
 	KeywordMod KeywordMod
+	ControlMod ControlMod
 
 	// Tapped and SummonSick are the two pieces of battlefield state every
 	// permanent carries that are not "how much of something" -- everything
@@ -72,6 +73,26 @@ type Card struct {
 	// fact and only Game.Attach and Game.Unattach may write either.
 	attachedTo  CardID
 	attachments *collect.OrderedSet[CardID]
+}
+
+// Controller is this card's current controller: Layer 2's own GainControl$
+// effects (ControlMod, controlmod.go) folded onto the card's own base
+// controller -- Type()'s/HasKeyword()'s own Layer 4/6 counterpart. The fold
+// picks the highest-Timestamp ControlEffect if any exist, else falls back to
+// the base -- Java's own Card.getController() (Card.java) reading its
+// tempControllers NavigableMap the identical way, ControlEffect's own doc
+// comment has the reason Java's extra base-timestamp guard collapses away
+// here.
+func (c *Card) Controller() PlayerID {
+	best := c.controller
+	var bestTS uint64
+	found := false
+	for _, e := range c.ControlMod.effects {
+		if !found || e.Timestamp > bestTS {
+			best, bestTS, found = e.Controller, e.Timestamp, true
+		}
+	}
+	return best
 }
 
 // Type is the card's current type line: its own primary face's printed type

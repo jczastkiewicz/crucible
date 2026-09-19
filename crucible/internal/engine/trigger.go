@@ -78,11 +78,11 @@ func (g *Game) checkETBTriggers(entered CardID) {
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller, entered) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub})
 				}
 			}
 		}
@@ -136,11 +136,11 @@ func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller, watcher) {
+					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
 					}
 				}
 			}
@@ -159,7 +159,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
 // Card.Def is fixed at compile time and unaffected by the zone a card now
 // sits in, so nothing here actually needs to look anything up as it "was":
 // Def.Faces[i].Triggers reads the same list whether left is still on the
-// battlefield or not, and c.Controller (game.go's own Move does not clear
+// battlefield or not, and c.Controller() (game.go's own Move does not clear
 // it on leaving) still reads the last real controller, exactly the
 // last-known-information Java's own layer system gives a leaving card.
 func (g *Game) checkDiesTriggers(left CardID) {
@@ -175,11 +175,11 @@ func (g *Game) checkDiesTriggers(left CardID) {
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller, left) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub})
 				}
 			}
 		}
@@ -224,11 +224,11 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(left), valid.Parse(validCard), w.Controller, watcher) {
+					if !Matches(g, g.Card(left), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
 					}
 				}
 			}
@@ -289,7 +289,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller, host) {
+					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
 					if alone, ok := t.Param("Alone"); ok {
@@ -308,7 +308,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -413,14 +413,14 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 						"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
 						continue
 					}
-					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
-					if !matchesActivatingPlayer(g, t, activator, h.Controller) {
+					if !matchesActivatingPlayer(g, t, activator, h.Controller()) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -500,15 +500,15 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(blk.Blocker), valid.Parse(validCard), h.Controller, host) {
+					if !Matches(g, g.Card(blk.Blocker), valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
 					if validBlocked, ok := t.Param("ValidBlocked"); ok &&
-						!Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller, host) {
+						!Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller(), host) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -557,11 +557,11 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, 
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok &&
-						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller, host) {
+						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller(), host) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -584,13 +584,13 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, a
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok {
-						matched, recognized := matchesPlayerSpec(g, target, h.Controller, validTarget)
+						matched, recognized := matchesPlayerSpec(g, target, h.Controller(), validTarget)
 						if !recognized || !matched {
 							continue
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -626,7 +626,7 @@ func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host
 	if hasAnyParam(t, "ValidCause", "TargetRelativeToCause", "TargetRelativeToSource") {
 		return false
 	}
-	if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller, host) {
+	if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller(), host) {
 		return false
 	}
 	if combatDamage, ok := t.Param("CombatDamage"); ok {
@@ -702,11 +702,11 @@ func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
 			for _, t := range face.Triggers {
-				if !discardedTriggerMatches(g, t, c, c.Controller, card, player) {
+				if !discardedTriggerMatches(g, t, c, c.Controller(), card, player) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(t); ok {
-					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller, Params: sub})
+					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub})
 				}
 			}
 		}
@@ -732,11 +732,11 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 			}
 			for _, face := range h.Def.Faces {
 				for _, t := range face.Triggers {
-					if !discardedTriggerMatches(g, t, c, h.Controller, host, player) {
+					if !discardedTriggerMatches(g, t, c, h.Controller(), host, player) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -820,11 +820,11 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 					if hasAnyParam(t, "FirstTime", "Teamwork", "ValidCause") {
 						continue
 					}
-					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
 					if validPlayer, ok := t.Param("ValidPlayer"); ok {
-						matched, recognized := matchesPlayerBase(player, h.Controller, validPlayer)
+						matched, recognized := matchesPlayerBase(player, h.Controller(), validPlayer)
 						if !recognized || !matched {
 							continue
 						}
@@ -835,7 +835,7 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -885,17 +885,17 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 					if hasAnyParam(t, "Produced") {
 						continue
 					}
-					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller, host) {
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
 					if activator, ok := t.Param("Activator"); ok {
-						matched, recognized := matchesPlayerSpec(g, player, h.Controller, activator)
+						matched, recognized := matchesPlayerSpec(g, player, h.Controller(), activator)
 						if !recognized || !matched {
 							continue
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
 			}
@@ -976,13 +976,13 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 							continue
 						}
 						if validPlayer, ok := t.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller, validPlayer)
+							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), validPlayer)
 							if !recognized || !matched {
 								continue
 							}
 						}
 						if sub, api, ok := triggerEffectAPI(t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 						}
 					}
 				}

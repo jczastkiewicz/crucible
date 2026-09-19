@@ -187,7 +187,7 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		ID:         id,
 		Def:        def,
 		Owner:      owner,
-		Controller: owner,
+		controller: owner,
 	})
 	g.put(id, zone, owner)
 	return id
@@ -395,6 +395,7 @@ func (g *Game) Clone() *Game {
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()
 		c.KeywordMod = g.cards[i].KeywordMod.clone()
+		c.ControlMod = g.cards[i].ControlMod.clone()
 		if g.cards[i].attachments != nil {
 			c.attachments = g.cards[i].attachments.Clone()
 		}

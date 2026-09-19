@@ -49,7 +49,7 @@ import (
 // Matches decides whether c satisfies spec, from sourceController's
 // perspective, with source as the card the spec is written on -- a card's
 // own `Enchant`/`ValidCard`, an ability's `ValidTgts`. Both PlayerID/CardID
-// parameters are exactly `Ability.Controller`/`Ability.Source` where the spec
+// parameters are exactly `Ability.Controller()`/`Ability.Source` where the spec
 // comes from a resolving ability, but Matches does not require one:
 // `cleanupDanglingAttachments` (action.go)'s eventual `Enchant`-restriction
 // check would call this with the Aura's own controller and the Aura itself,
@@ -142,7 +142,7 @@ func baseMatches(c *Card, name string) bool {
 // `card.getController()`/`card.getOwner()` directly -- last-known
 // information for a card whose own zone change is mid-resolution. This
 // port has no LKI tracking (game-state.md's "Not ported yet"), so these
-// read `c.Controller`/`c.Owner` as of now, which agrees with Java's LKI
+// read `c.Controller()`/`c.Owner` as of now, which agrees with Java's LKI
 // everywhere except the one moment a card's own leaving is what a property
 // is trying to describe. `Self`/`Other`/`StrictlyOther` carry the same
 // simplification one step further: Java's "Strictly" forms are
@@ -250,7 +250,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// suffix at all. Both fall through to a coverage gap here instead.
 	case name == "RememberedPlayerCtrl":
 		sc, ok := sourceCard(g, source)
-		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Controller))
+		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Controller()))
 	case name == "RememberedPlayerOwn":
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Owner))
@@ -258,7 +258,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// relative to sourceController -- Game.ActivePlayer already exists
 	// (turn.go); nothing new to build.
 	case name == "ActivePlayerCtrl":
-		return c.Controller == g.ActivePlayer()
+		return c.Controller() == g.ActivePlayer()
 	// Historic, Outlaw and Party are all CardType's own methods
 	// (forge-core/src/main/java/forge/card/CardType.java) -- pure type
 	// checks, nothing that needed a Def this port didn't already read for
@@ -270,11 +270,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "Party":
 		return isTribalMember(c.Type(), partyTypes)
 	case strings.HasPrefix(name, "YouCtrl"):
-		return c.Controller == sourceController
+		return c.Controller() == sourceController
 	case strings.HasPrefix(name, "YouDontCtrl"):
-		return c.Controller != sourceController
+		return c.Controller() != sourceController
 	case strings.HasPrefix(name, "OppCtrl"):
-		return c.Controller != sourceController
+		return c.Controller() != sourceController
 	case strings.HasPrefix(name, "YouDontOwn"):
 		return c.Owner != sourceController
 	case strings.HasPrefix(name, "YouOwn"):
@@ -596,7 +596,7 @@ func isModified(g *Game, c *Card) bool {
 	}
 	for _, id := range c.Attachments() {
 		aura := g.Card(id)
-		if aura.Type().HasSubtype("Aura") && aura.Controller == c.Controller {
+		if aura.Type().HasSubtype("Aura") && aura.Controller() == c.Controller() {
 			return true
 		}
 	}

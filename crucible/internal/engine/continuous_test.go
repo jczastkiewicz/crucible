@@ -981,3 +981,113 @@ func TestApplyContinuousRulesSkipsLineWithCondition(t *testing.T) {
 		t.Errorf("HandSizeLimit() = (%d, %v), want (%d, true) -- Condition$ is not evaluated, so the line must not apply", limit, hasLimit, engine.MaxHandSize)
 	}
 }
+
+// TestApplyContinuousControlGrantsControlOfEnchantedCreature proves the
+// corpus's own dominant real shape, Control Magic's own line: an Aura-like
+// permanent (host) enchants a creature and hands its own controller control
+// of it -- Affected$ Card.EnchantedBy | GainControl$ You (43 of the
+// corpus's 44 real S:Mode$ Continuous lines naming GainControl$).
+func TestApplyContinuousControlGrantsControlOfEnchantedCreature(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Control Magic", "Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
+	g.Attach(host, creature)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(creature).Controller(); got != a {
+		t.Errorf("Controller() = %v, want %v (host's own controller, via GainControl$ You)", got, a)
+	}
+	if got := g.Card(creature).Owner; got != b {
+		t.Errorf("Owner = %v, want %v -- Owner must not change control", got, b)
+	}
+}
+
+// TestApplyContinuousControlLeavesUnenchantedCreaturesAlone proves
+// Affected$ Card.EnchantedBy only reaches the one creature host actually
+// enchants, not every creature on the battlefield.
+func TestApplyContinuousControlLeavesUnenchantedCreaturesAlone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	enchanted := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	bystander := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Control Magic", "Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
+	g.Attach(host, enchanted)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(bystander).Controller(); got != b {
+		t.Errorf("bystander Controller() = %v, want %v -- unenchanted, must keep its own controller", got, b)
+	}
+}
+
+// TestApplyContinuousControlSkipsUnresolvedGainControlValue proves a
+// qualified GainControl$ value (Player.isMonarch, 1 of the corpus's 44 real
+// lines) is skipped rather than guessed at -- this port has no monarch
+// mechanic to resolve it against (PORT-8/GO-7).
+func TestApplyContinuousControlSkipsUnresolvedGainControlValue(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Monarch Steal", "Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ Player.isMonarch"), a, engine.Battlefield)
+	g.Attach(host, creature)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(creature).Controller(); got != b {
+		t.Errorf("Controller() = %v, want %v -- GainControl$ Player.isMonarch cannot resolve, so control must not change", got, b)
+	}
+}
+
+// TestApplyContinuousControlSkipsLineWithCondition proves a Condition$-gated
+// GainControl$ line is skipped entirely -- applyOneContinuousPT's own
+// Condition$ skip reason, ported here for Layer 2.
+func TestApplyContinuousControlSkipsLineWithCondition(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Conditional Steal", "Mode$ Continuous | Condition$ Threshold | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
+	g.Attach(host, creature)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.Card(creature).Controller(); got != b {
+		t.Errorf("Controller() = %v, want %v -- Condition$ is not evaluated, so the line must not apply", got, b)
+	}
+}
+
+// TestApplyContinuousControlRunsBeforeKeywordSoYouCtrlSeesTheNewController
+// proves Layer 2 applies before Layer 6: an anthem-style keyword grant whose
+// own Affected$ reads Creature.YouCtrl must see THIS pass's new controller,
+// not the previous pass's -- applyContinuousControl's own doc comment
+// (continuous.go) has the CR 613.1 ordering reason.
+func TestApplyContinuousControlRunsBeforeKeywordSoYouCtrlSeesTheNewController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), b, engine.Battlefield)
+	host := g.NewCard(continuousDef(t, "Test Control Magic", "Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You"), a, engine.Battlefield)
+	g.Attach(host, creature)
+	g.NewCard(continuousDef(t, "Test Anthem", "Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying"), a, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if !g.Card(creature).HasKeyword("Flying") {
+		t.Error("HasKeyword(Flying) = false, want true -- the anthem's own Creature.YouCtrl must see this pass's new controller (a), not the stale one (b)")
+	}
+}

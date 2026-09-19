@@ -300,11 +300,11 @@ func protectionColorValid(protectType string) (valid string, hasValidBlocker, re
 func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
 	h := g.Card(host)
 	if vb, hasVB, ok := protectionValid(h); ok {
-		if !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller, h.ID) {
+		if !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller(), h.ID) {
 			return true
 		}
 	}
-	if aura.Controller == h.Controller {
+	if aura.Controller() == h.Controller() {
 		return false
 	}
 	for _, line := range h.KeywordLines() {
@@ -316,7 +316,7 @@ func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
 			return true
 		}
 		if vs, ok := hexproofValidSource(k.Details); ok {
-			if vs == "" || Matches(g, aura, valid.Parse(vs), h.Controller, h.ID) {
+			if vs == "" || Matches(g, aura, valid.Parse(vs), h.Controller(), h.ID) {
 				return true
 			}
 		}
@@ -388,13 +388,13 @@ func hexproofValidSource(details string) (validSource string, ok bool) {
 // ever need to consult it.
 func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, hasValidBlocker bool,
 	validDefender string, hasValidDefender bool, attacker, blocker CardID) bool {
-	if !Matches(g, g.Card(attacker), valid.Parse(validAttacker), host.Controller, host.ID) {
+	if !Matches(g, g.Card(attacker), valid.Parse(validAttacker), host.Controller(), host.ID) {
 		return false
 	}
-	if hasValidBlocker && !Matches(g, g.Card(blocker), valid.Parse(validBlocker), host.Controller, host.ID) {
+	if hasValidBlocker && !Matches(g, g.Card(blocker), valid.Parse(validBlocker), host.Controller(), host.ID) {
 		return false
 	}
-	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller, validDefender, host) {
+	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller(), validDefender, host) {
 		return false
 	}
 	return true
@@ -406,7 +406,7 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 // Player, not a Card, so Matches (valid.go) cannot evaluate it.
 // matchesPlayerBase's own three bare values (valid.go) cover 6 of the 8 real
 // literal ValidDefender$ lines, checked here against defender vs
-// host.Controller. A "Player.controls<Type>" value -- Landwalk's own entire
+// host.Controller(). A "Player.controls<Type>" value -- Landwalk's own entire
 // restriction, landwalkType's own doc comment has the reason it is built
 // per card rather than looked up -- asks whether defender controls at least
 // one battlefield permanent valid.Parse(type) matches (PlayerProperty.java's
@@ -416,7 +416,7 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 // lines) never matches, the same skip-rather-than-fire contract every other
 // unresolved param in this port gets.
 func matchesValidDefender(g *Game, defender PlayerID, spec string, host *Card) bool {
-	if matched, ok := matchesPlayerBase(defender, host.Controller, spec); ok {
+	if matched, ok := matchesPlayerBase(defender, host.Controller(), spec); ok {
 		return matched
 	}
 	if typ, ok := strings.CutPrefix(spec, "Player.controls"); ok {
@@ -433,7 +433,7 @@ func matchesValidDefender(g *Game, defender PlayerID, spec string, host *Card) b
 func controllerControlsType(g *Game, pid PlayerID, typeSpec string, host *Card) bool {
 	spec := valid.Parse(typeSpec)
 	for _, id := range g.Zone(Battlefield, pid).Cards() {
-		if Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+		if Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
 			return true
 		}
 	}
@@ -479,7 +479,7 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 					if !ok {
 						return true
 					}
-					if Matches(g, g.Card(id), valid.Parse(validCard), h.Controller, h.ID) {
+					if Matches(g, g.Card(id), valid.Parse(validCard), h.Controller(), h.ID) {
 						return true
 					}
 				}

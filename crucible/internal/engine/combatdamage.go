@@ -162,7 +162,7 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 
 	default:
 		assigned := 0
-		for _, a := range controller.AssignCombatDamage(g, atk.Controller, attacker, liveBlockers) {
+		for _, a := range controller.AssignCombatDamage(g, atk.Controller(), attacker, liveBlockers) {
 			g.dealPermanentDamage(attacker, a.Blocker, a.Amount, deathtouch)
 			assigned += a.Amount
 		}

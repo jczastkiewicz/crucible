@@ -749,7 +749,7 @@ printed form.
     one `[]Ability` first; a single player's own multiple matches still stay in the deterministic order they were found,
     since this port has no `PlayerController` hook for a real player choice among them (`orderAndPlaySimultaneousSa`,
     `MagicStack.java`) — the whole replacement-effect system remains a gap.
-27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Five real slices of `Mode$ Continuous` now,
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first
     time: `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c
@@ -839,22 +839,41 @@ printed form.
 
     The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already
     showed a static-ability mode can be independently buildable when it needs no layer-folding of its own —
-    `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now five of
-    its layers partly haven't had to: all five subsets needed only the valid-string evaluator (`valid.go`) every other
+    `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now six of
+    its layers partly haven't had to: all six subsets needed only the valid-string evaluator (`valid.go`) every other
     slice already reused, plus (for Layers 4/5) small additions to `cardtype.Line`/`valid.go` themselves. The rest of
     Layers 4/5/6 past a literal token list, Layer 7a's own SVar shapes outside the Valid family, and Layer 8's own
-    remainder above are the real remaining size of this item, alongside three layers this port has not touched at all:
+    remainder above are the real remaining size of this item, alongside two layers this port has not touched at all:
     Layer 1 (copy effects) is not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself — zero real
     references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at
     resolution time, not a recomputed-each-pass continuous effect at all, so it is not this item's job even in
-    principle. Layer 2 (`GainControl$`, 42 real lines) is tractable in the SAME sense Layer 8 turned out to be — Java's
-    own `Card.tempControllers` (a `NavigableMap<Long, Player>`, `getController()` returning the highest-timestamp entry)
-    is the identical "latest Timestamp wins" pattern `RulesMod`/`PTEffect` already use — but `Card.Controller` is a
-    plain field this port mutates nowhere today (a repo-wide grep for an assignment to it outside `NewCard` finds none),
-    so building this would be this port's first real controller-change mechanism, not a fold bolted onto an existing
-    accessor the way `Power()`/`Type()`/`Colors()`/`HasKeyword()` all already are — a real next slice, just a bigger one
-    than Layer 8 was, not attempted this pass. Layer 3 (`GainTextOf$`, 1 real line) needs its own single-card
-    text-copying mechanism for one real corpus card, not a slice worth building for that alone.
+    principle. Layer 3 (`GainTextOf$`, 1 real line) needs its own single-card text-copying mechanism for one real corpus
+    card, not a slice worth building for that alone.
+
+    **Layer 2 (`CONTROL`) is real now too — this port's first controller-change mechanism.** A new
+    `ControlMod`/`ControlEffect` (`controlmod.go`) folds onto `Card.Controller`, which stops being a plain field and
+    becomes `Card.Controller()` (card.go): the identical "latest Timestamp wins" pattern `RulesMod`/`PTEffect` already
+    use, Java's own `Card.tempControllers` (a `NavigableMap<Long, Player>`, `getController()` returning the
+    highest-timestamp entry) collapsed to the one case this port needs, since it builds no equivalent of Java's own
+    `setController` (an explicit "gain control permanently" one-shot effect — M6's own remaining territory, not this
+    layer). `applyContinuousControl`/`applyOneContinuousControl` (continuous.go) resolve `GainControl$ You` — 43 of the
+    corpus's 44 real `S:Mode$ Continuous` lines naming `GainControl$` (distinct from an unrelated
+    `DB$ ChangeZone`/`DB$ Dig`'s own one-shot `GainControl$ True`, which shares the param name but is a wholly separate
+    effect, M6's own "put onto the battlefield under your control" territory — a naive corpus grep for `GainControl$`
+    conflates the two unless `Mode$ Continuous` is checked first) — resolved via `host.Controller()` the same way
+    `RulesEffect`'s own player lookup reads the host's controller, against `Affected$`, overwhelmingly
+    `Card.EnchantedBy`/`Permanent.EnchantedBy`/`Creature.EnchantedBy` (42 of 44, Control Magic's own shape — the Aura's
+    host), needing nothing new: the identical valid-string match `applyOneContinuousPT` already does.
+    `applyContinuousControl` runs FIRST among the six appliers (`CheckStateBasedActions`, action.go), ahead of Layers
+    4/5/6/7/8, since CR 613.1 puts the control layer before every one of them and their own `Affected$` specs can
+    themselves read `Controller()` (a `YouCtrl` property) — a stale value there would evaluate against last pass's
+    controller, not this one's, a real ordering bug a dedicated regression test
+    (`TestApplyContinuousControlRunsBeforeKeywordSoYouCtrlSeesTheNewController`) proves against. Every other read of
+    `Card.Controller` across the engine (roughly eighty call sites, `combatdamage.go`/`staticability.go`/`trigger.go`/
+    `valid.go`/`attack.go`/`castspell.go`/`manaability.go`/`land.go`/`action.go`/`continuous.go`, plus
+    `internal/fixture`) became a `Controller()` call the same pass, so a stolen creature is controlled by its new
+    controller everywhere the engine asks, not just where `applyContinuousControl` itself looks. Not resolved: the
+    qualified `GainControl$ Player.isMonarch` (1 of 44) — no monarch mechanic to filter by (PORT-8/GO-7).
 
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,

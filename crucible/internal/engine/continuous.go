@@ -119,7 +119,7 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	spec := valid.Parse(affected)
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
 				continue
 			}
 			c := g.Card(id)
@@ -267,7 +267,7 @@ func applyOneContinuousType(g *Game, host *Card, s *compile.Ability) {
 	spec := valid.Parse(affected)
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
 				continue
 			}
 			g.Card(id).TypeMod.Add(TypeEffect{Timestamp: host.Timestamp, AddTypes: addTypes, RemoveTypes: removeTypes})
@@ -360,7 +360,7 @@ func applyOneContinuousColor(g *Game, host *Card, s *compile.Ability) {
 	spec := valid.Parse(affected)
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
 				continue
 			}
 			c := g.Card(id)
@@ -486,7 +486,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, s *compile.Ability) {
 	spec := valid.Parse(affected)
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller, host.ID) {
+			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
 				continue
 			}
 			g.Card(id).KeywordMod.Add(KeywordEffect{Timestamp: host.Timestamp, AddKeywords: keywords})
@@ -547,7 +547,7 @@ func ptParam(g *Game, amounts map[string]expr.Amount, host *Card, s *compile.Abi
 	if !ok {
 		return 0, false
 	}
-	return resolveAmount(g, amounts, host.Controller, host.ID, amt)
+	return resolveAmount(g, amounts, host.Controller(), host.ID, amt)
 }
 
 // applyContinuousRules recomputes every player's own Layer 8 RulesEffects
@@ -626,7 +626,7 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 		return
 	}
 	for _, pid := range g.Players() {
-		matched, recognized := matchesPlayerSpec(g, pid, host.Controller, affected)
+		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), affected)
 		if !recognized || !matched {
 			continue
 		}
@@ -676,4 +676,99 @@ func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile
 		}
 	}
 	return e, any
+}
+
+// applyContinuousControl recomputes every battlefield card's own Layer 2
+// ControlMod from scratch, the identical "clear every card first, then walk
+// every Mode$ Continuous static and rebuild" shape applyContinuousPT's own
+// doc comment gives -- called FIRST among the six appliers
+// (CheckStateBasedActions, action.go), ahead of Layers 4/5/6/7/8, since CR
+// 613.1 puts the control layer before every one of them and, concretely,
+// applyOneContinuousType/Color/Keyword/PT/Rules all read Affected$ specs
+// that can themselves name "YouCtrl" -- a stale Controller() at that point
+// would be evaluating those specs against last pass's controller, not this
+// one's.
+func applyContinuousControl(g *Game) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			g.Card(id).ControlMod.Clear()
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousControl(g, h, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousControl is Layer 2: s hands control of every battlefield
+// card its own Affected$ valid-string matches to whatever player its own
+// GainControl$ names, if s is a Mode$ Continuous line naming GainControl$ in
+// a shape this resolves.
+//
+// Ported from StaticAbilityContinuous.java's own CONTROL branch
+// (applyContinuousAbility): `AbilityUtils.getDefinedPlayers(hostCard,
+// params.get("GainControl"), stAb).get(0)` -- a "defined player" lookup, not
+// a valid-string membership test the way Rules'/PT's own Affected$-for-
+// players dispatch (matchesPlayerSpec) is, since GainControl$ names WHO
+// gains control rather than describing a set to test candidates against.
+//
+// Of the corpus's 44 real S:Mode$ Continuous lines naming GainControl$ (a
+// separate, unrelated `DB$ ChangeZone | GainControl$ True`/`DB$ Dig | ... |
+// GainControl$ True` one-shot "put onto the battlefield under your control"
+// effect -- ChangeZoneEffect.java, M6's own remaining script-effect gap, not
+// this layer at all -- shares the same param name and inflates a naive
+// corpus grep for "GainControl$" past 44 unless the two are told apart by
+// Mode$ first):
+//   - GainControl$ You (43 of 44) resolves: getDefinedPlayers' own "You"
+//     case is `players.add(player)`, and `player` is `card.getController()`
+//     whenever sa is not a SpellAbility (every real Continuous static
+//     ability here), i.e. the effect's own host -- host.Controller() below.
+//   - GainControl$ Player.isMonarch (1 of 44) does not: a qualified
+//     getDefinedPlayers form (the "else" branch's own
+//     `game.getPlayersInTurnOrder()` filtered by `PlayerPredicates
+//     .restriction`) this port has no monarch mechanic to filter by, so the
+//     whole line is skipped (PORT-8/GO-7) rather than guessing "the
+//     controller" and being wrong for every game that ever changes hands.
+//
+// Affected$ on these 44 lines is overwhelmingly Card.EnchantedBy/
+// Permanent.EnchantedBy/Creature.EnchantedBy (42 of 44, Control Magic's own
+// shape -- the Aura's host) -- already the identical valid-string
+// evaluation applyOneContinuousPT's own Matches call uses, needing nothing
+// new here.
+func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+	gain, ok := s.Param("GainControl")
+	if !ok || !strings.EqualFold(gain, "You") {
+		return
+	}
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+	gainer := host.Controller()
+	spec := valid.Parse(affected)
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
+				continue
+			}
+			g.Card(id).ControlMod.Add(ControlEffect{Timestamp: host.Timestamp, Controller: gainer})
+		}
+	}
 }

@@ -543,7 +543,13 @@ func TestCheckStateBasedActionsAuraGoesToOwnersGraveyard(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
-	g.Card(aura).Controller = b // controlled by b, still owned by a
+	// A real Layer 2 GainControl$ effect, controlled by b, targeting the
+	// Aura specifically via Affected$ Card.IsRemembered -- Controller() is
+	// recomputed fresh every CheckStateBasedActions pass (applyContinuousControl,
+	// continuous.go), so a direct field write would just be overwritten the
+	// instant the call below runs.
+	stealer := g.NewCard(continuousDef(t, "Test Steal Aura", "Mode$ Continuous | Affected$ Card.IsRemembered | GainControl$ You"), b, engine.Battlefield)
+	g.Card(stealer).Memory.Remember(engine.CardEntity(aura))
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
@@ -655,7 +661,12 @@ func TestCheckStateBasedActionsAuraGoesToGraveyardWhenEnchantPropertyStopsMatchi
 	host := g.NewCard(creatureDef(t), a, engine.Battlefield)
 	aura := g.NewCard(auraDefWithEnchant(t, "Creature.YouCtrl"), a, engine.Battlefield)
 	g.Attach(aura, host)
-	g.Card(host).Controller = b // no longer the Aura controller's own creature
+	// A real Layer 2 GainControl$ effect moves host to b -- no longer the
+	// Aura controller's own creature. See
+	// TestCheckStateBasedActionsAuraGoesToOwnersGraveyard's own comment on
+	// why a direct field write cannot stand in for this any more.
+	stealer := g.NewCard(continuousDef(t, "Test Steal Host", "Mode$ Continuous | Affected$ Card.IsRemembered | GainControl$ You"), b, engine.Battlefield)
+	g.Card(stealer).Memory.Remember(engine.CardEntity(host))
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 

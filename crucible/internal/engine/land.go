@@ -38,7 +38,7 @@ func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 		return false
 	}
 	c := g.Card(card)
-	if c.Controller != pid || c.Zone != Hand {
+	if c.Controller() != pid || c.Zone != Hand {
 		return false
 	}
 	if !c.Type().Has(cardtype.Land) {

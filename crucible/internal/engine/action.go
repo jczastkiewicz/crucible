@@ -144,6 +144,12 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// CR 613: recomputed fresh every pass, before anything below reads
 	// Power()/Toughness() or Type() -- applyContinuousPT's own doc comment
 	// (continuous.go) has the reason this cannot be a one-time push instead.
+	// applyContinuousControl runs first: CR 613.1 puts Layer 2 (control)
+	// before every layer that follows, and several of them evaluate
+	// Affected$ specs that can themselves read Controller() (a "YouCtrl"
+	// property), which must already reflect this pass's own control changes
+	// (applyContinuousControl's own doc comment).
+	applyContinuousControl(g)
 	applyContinuousPT(g)
 	applyContinuousType(g)
 	applyContinuousColor(g)
@@ -360,7 +366,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 			}
 			protector := c.ProtectingPlayer
 			noProtector := protector == NoPlayer || g.Player(protector).Lost
-			selfProtector := protector == c.Controller
+			selfProtector := protector == c.Controller()
 			if (noProtector && len(g.attackersOf(CardEntity(id))) == 0) || selfProtector {
 				needsProtector = append(needsProtector, id)
 			}
@@ -371,7 +377,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 		c := g.Card(id)
 		var eligible []PlayerID
 		for _, pid := range g.Players() {
-			if pid != c.Controller && !g.Player(pid).Lost {
+			if pid != c.Controller() && !g.Player(pid).Lost {
 				eligible = append(eligible, pid)
 			}
 		}
@@ -380,7 +386,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 			g.checkDiesTriggers(id)
 			continue
 		}
-		c.ProtectingPlayer = controller.ChooseBattleProtector(g, c.Controller, id, eligible)
+		c.ProtectingPlayer = controller.ChooseBattleProtector(g, c.Controller(), id, eligible)
 	}
 }
 
@@ -579,7 +585,7 @@ func cleanupDanglingAttachments(g *Game) {
 			legal := attached && g.Card(host).Zone == Battlefield
 			if legal && c.Type().HasSubtype("Aura") {
 				if spec, ok := enchantSpec(c); ok {
-					legal = Matches(g, g.Card(host), spec, c.Controller, id)
+					legal = Matches(g, g.Card(host), spec, c.Controller(), id)
 				}
 				legal = legal && !hostRefusesEnchant(g, c, host)
 			}

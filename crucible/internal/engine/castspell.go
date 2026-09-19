@@ -57,7 +57,7 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 		return false
 	}
 	c := g.Card(card)
-	if c.Controller != pid || c.Zone != Hand {
+	if c.Controller() != pid || c.Zone != Hand {
 		return false
 	}
 

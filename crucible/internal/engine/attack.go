@@ -55,7 +55,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	for _, id := range attackers {
 		if !g.Card(id).HasKeyword("Vigilance") {
 			g.Card(id).Tapped = true
-			g.checkTapsTriggers(id, g.Card(id).Controller, true)
+			g.checkTapsTriggers(id, g.Card(id).Controller(), true)
 		}
 	}
 	g.combat.Attackers = attackers
@@ -127,7 +127,7 @@ func (g *Game) defenderOf(attacker CardID) PlayerID {
 		return pid
 	}
 	cid, _ := target.AsCard()
-	return g.Card(cid).Controller
+	return g.Card(cid).Controller()
 }
 
 // attackersOf is every creature currently attacking target directly -- a

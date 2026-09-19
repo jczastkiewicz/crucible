@@ -251,22 +251,28 @@ through. Layer 8 has real content too now — `applyContinuousRules`/`applyOneCo
 `SetMaxHandSize$`/`RaiseMaxHandSize$`/`AdjustLandPlays$` (75 of 78 real lines), a new `RulesMod`/`RulesEffect`
 (rulesmod.go) on `Player` rather than `Card` — this port's first player-facing continuous effect — folded by two new
 `Player` methods, `HandSizeLimit`/`LandPlayLimit`, that `cleanupStep`/`PlayLand` (turn.go/land.go) now read instead of
-the bare `MaxHandSize`/`maxLandPlays` constants those two files already had waiting for exactly this. M6 in progress
-alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than
-report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own
+the bare `MaxHandSize`/`maxLandPlays` constants those two files already had waiting for exactly this. Layer 2 has real
+content now too — `applyContinuousControl`/`applyOneContinuousControl` (continuous.go) resolve `GainControl$ You` (43 of
+the corpus's 44 real `S:Mode$ Continuous` lines naming `GainControl$` — distinct from an unrelated
+`DB$ ChangeZone`/`DB$ Dig`'s own one-shot `GainControl$ True`, "put onto the battlefield under your control," M6's own
+remaining script-effect territory, not this layer at all) through a new `ControlMod`/`ControlEffect` (controlmod.go) —
+this port's first controller-change mechanism. `Card.Controller`, a plain field until now, is `Card.Controller()`
+(card.go), a folding method reading `ControlMod` the identical highest-Timestamp-wins pattern `RulesMod`/`PTEffect`
+already use; `applyContinuousControl` runs first among the six appliers, ahead of Layers 4/5/6/7/8, since CR 613.1 puts
+the control layer before every one of them and their own `Affected$` specs can themselves read `Controller()` (a
+`YouCtrl` property) — a stale value there would evaluate against last pass's controller, not this one's. The qualified
+`GainControl$ Player.isMonarch` (1 of 44) stays unresolved: no monarch mechanic to filter by (PORT-8/GO-7). M6 in
+progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather
+than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own
 `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: Layer 1 (copy effects — not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real
 references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at
-resolution time, not a recomputed-each-pass continuous effect at all); Layer 2 (`GainControl$`, 42 real lines —
-tractable in principle, Java's own `Card.tempControllers` is the identical "latest Timestamp wins" pattern
-`RulesMod`/`PTEffect` already use, but `Card.Controller` is a plain field this port mutates nowhere today, so this would
-be the first real controller-change mechanism it needs, not a fold-on-top-of-an-existing-accessor the way
-`Power()`/`Type()`/`Colors()`/`HasKeyword()` all are); Layer 3 (`GainTextOf$`, 1 real line, needs its own
-card-text-copying mechanism for a single card); Layer 8's own remainder (`MayLookAt$`/`MayPlay$`, 88/181 real lines — a
-cast-time zone-eligibility permission `CastSpell`'s hand-only check has nowhere to consult yet; `AddHiddenKeyword$`, 19,
-each of its 8 real distinct values its own separate block/attack/untap-step mechanic; vote/villainous-choice params, 0-3
-real lines each); plus the rest of Layers 4/5/6 past a literal token list and Layer 7a's own SVar shapes outside the
+resolution time, not a recomputed-each-pass continuous effect at all); Layer 3 (`GainTextOf$`, 1 real line, needs its
+own card-text-copying mechanism for a single card); Layer 8's own remainder (`MayLookAt$`/`MayPlay$`, 88/181 real lines
+— a cast-time zone-eligibility permission `CastSpell`'s hand-only check has nowhere to consult yet; `AddHiddenKeyword$`,
+19, each of its 8 real distinct values its own separate block/attack/untap-step mechanic; vote/villainous-choice params,
+0-3 real lines each); plus the rest of Layers 4/5/6 past a literal token list and Layer 7a's own SVar shapes outside the
 Valid family (`xPaid`, `CardCounters`, `Devotion`, ...), plus a dozen more where the Valid argument itself carries a
 `$`-suffixed distinct-value operator (Tarmogoyf's own `Card$CardTypes` — a new `expr.Count.DistinctProperty` field now
 catches this rather than silently misparsing it, a real bug caught and fixed after the fact, not a hypothetical one) — a

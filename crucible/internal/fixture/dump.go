@@ -104,7 +104,7 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
 
 	if c.Zone == engine.Battlefield {
-		if c.Owner != c.Controller {
+		if c.Owner != c.Controller() {
 			b.WriteString("|Owner:")
 			b.WriteString(g.Player(c.Owner).Name)
 		}

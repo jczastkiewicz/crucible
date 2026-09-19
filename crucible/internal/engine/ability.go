@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
 //go:generate go run ../../tools/genapitype -apitype ../../../forge-game/src/main/java/forge/game/ability/ApiType.java
@@ -69,4 +70,12 @@ type Ability struct {
 	// sub-ability -- a trigger's Execute$ (triggerEffectAPI, trigger.go)
 	// today, an activated ability's own cost-paid effect once that exists.
 	Params *compile.Ability
+	// Amounts is the compile.Face's own SVar-defined amounts (compile.go)
+	// Params' own host face carries -- resolveNamedAmount (amount.go) needs
+	// it to resolve a named-SVar param value (dealDamageEffect's own
+	// NumDmg$, dealdamageeffect.go, the first Effect to need one) the
+	// identical way a trigger's own numeric params already do
+	// (triggerCommonRequirementsMet, trigger.go). Nil wherever Params is,
+	// for the identical reason.
+	Amounts map[string]expr.Amount
 }

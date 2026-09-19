@@ -2274,18 +2274,22 @@ sub-ability along now; `triggerEffectAPI` returns it alongside the `APIType`, an
 `trigger.go` sets it.
 
 Two of Java's params are handled, the corpus-frequent shapes among a bigger vocabulary
-(`AbilityUtils.calculateAmount`/`getDefinedPlayers`, both far larger than what this slice needed): `NumCards$`, only
-when it is a plain base-10 integer (absent means 1, Java's own default) — a `*`-shaped or SVar-driven amount needs an
-ability-context evaluator `internal/expr` does not have, the identical gap `valid.go`'s `compareMatches` already
-documents for a valid-string's own numeric compare, so it errors by name rather than guessing; and `Defined$ You` (896
-of 2,576 real `DB$ Draw` lines) or `Defined$ Opponent`/`Player.Opponent` (11) — every opponent still in the game,
-`p.isInGame()`'s own check reproduced as `!g.Player(pid).Lost`. Everything else Java's `getTargetPlayersWithDuplicates`
-can resolve (`Targeted`, `Remembered`, `TriggeredPlayer`, `TriggeredController`, plain spell targeting when `Defined$`
-is absent entirely — 1,312 of the 2,576) is not: each is a named reference-resolution vocabulary this port has no
-representation for yet (Memory lists exist for `IsRemembered`/`IsImprinted`, valid.go, but nothing populates one from a
-trigger's own firing yet), so `drawEffect` errors by name instead of drawing for the wrong player. `Upto`,
-`OptionalDecider`, `Reveal` and `RememberDrawn` are the same kind of gap — none of `PlayerController`'s methods this
-port has yet covers a numeric or reveal choice — checked and rejected explicitly rather than silently ignored.
+(`AbilityUtils.calculateAmount`/`getDefinedPlayers`, both far larger than what this slice needed): `NumCards$` (absent
+means 1, Java's own default), through `resolveNamedAmount` (amount.go) — a plain integer or a named SVar this face
+defines, upgraded from a bare `strconv.Atoi` once `dealDamageEffect`'s own `NumDmg$` needed the identical resolution and
+`Ability` grew an `Amounts` field to carry it (`## M6's second effect: DealDamage`, below); a `*`-shaped amount or one
+outside `resolveAmount`'s own Valid family still errors by name rather than guessing (the identical gap `valid.go`'s
+`compareMatches` already documents for a valid-string's own numeric compare); and `Defined$ You` (896 of 2,576 real
+`DB$ Draw` lines) or `Defined$ Opponent`/`Player.Opponent` (11) — every opponent still in the game, `p.isInGame()`'s own
+check reproduced as `!g.Player(pid).Lost`, through a new `definedPlayers` (`defined.go`) once `dealDamageEffect` needed
+the identical resolution too (below) — this file's own version, `drawDefinedPlayers`, relocated and renamed since
+neither effect owns it outright. Everything else Java's `getTargetPlayersWithDuplicates` can resolve (`Targeted`,
+`Remembered`, `TriggeredPlayer`, `TriggeredController`, plain spell targeting when `Defined$` is absent entirely — 1,312
+of the 2,576) is not: each is a named reference-resolution vocabulary this port has no representation for yet (Memory
+lists exist for `IsRemembered`/`IsImprinted`, valid.go, but nothing populates one from a trigger's own firing yet), so
+`drawEffect` errors by name instead of drawing for the wrong player. `Upto`, `OptionalDecider`, `Reveal` and
+`RememberDrawn` are the same kind of gap — none of `PlayerController`'s methods this port has yet covers a numeric or
+reveal choice — checked and rejected explicitly rather than silently ignored.
 
 The actual draw mechanism was already built and correct: `drawStep` (`turn.go`) already drew one card for the active
 player, library-empty case included. `DrawCards(pid, n)` is that same body, generalized to n cards for any player and
@@ -2297,6 +2301,87 @@ exported so `drawEffect` can call it — `drawStep` becomes a one-line `g.DrawCa
 a real library card actually reaches hand — the same fixture, testing what is now really there instead of the gap that
 used to be. Six new tests (`draweffect_test.go`) drive every resolvable and every rejected shape through the real
 cast-and-resolve pipeline, `drawEffect` itself being unexported (TEST-1).
+
+## M6's second effect: DealDamage
+
+`DealDamage` (CR 119/120.1, `DamageDealEffect.java`) is the corpus's single most frequent `AB$`/`DB$` API after
+`ChangeZone` -- 2,219 real `(AB|DB)$ DealDamage` lines. Java's own `resolve` batches every target's damage into a
+`CardDamageTable` and applies the whole table at once through `GameAction.dealDamage`; this port's own damage machinery,
+`dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go), already applies one target's damage immediately -- marking,
+the `DamageDealt` event, CR 614's own prevention and CR 603's own trigger, all in one call -- the identical
+simplification `dealCombatDamageStep`'s own doc comment already gives for combat's own multi-target exchanges: nothing
+between two sequential applications can observe or react differently yet (no interactive priority pass exists), so
+sequential produces the identical final state "simultaneous" would.
+
+Scoped to the corpus's single largest resolvable slice: a plain-or-named-SVar `NumDmg$` dealt to a `Defined$` player
+(`You`/`Opponent`/`Player.Opponent`) or the ability's own host (`Self`), sourced from that same host -- 62 of the 822
+real lines naming any `Defined$` value at all (2,219 total). `DamageSource$` (17 of 822) names a source other than the
+host and is not resolved, no reference vocabulary for it existing yet; every other real line either carries no
+`Defined$` at all (`ValidTgts$`-driven targeting, this port's own "90 of `PlayerController`'s 110 methods" gap,
+`## Not ported yet` below) or one of the ~15 other `Defined$` shapes real corpus lines use (`TriggeredPlayer`,
+`Remembered`, `Targeted`, ...), none of which this port has a reference-resolution vocabulary for yet -- the identical
+gap `drawEffect`'s own doc comment already names for `Draw`.
+
+`dealDamageEffect` (`dealdamageeffect.go`, new) reads `NumDmg$` through `resolveNamedAmount` (amount.go), and `Defined$`
+two ways: `"Self"` resolves directly to `a.Source` (the ability's own host, `dealPermanentDamage`); anything else goes
+through `definedPlayers` (`defined.go`, new -- `drawEffect`'s own `drawDefinedPlayers` renamed and relocated, below).
+`HasKeyword("Deathtouch")` read off the source card supplies `dealPermanentDamage`'s own deathtouch flag the identical
+way combat's own attacker/blocker already do -- CR 702.2b's own "any nonzero deathtouch damage is lethal" then applies
+through the ordinary lethal-damage state-based action, no special case needed for a script source versus a creature.
+
+Reusing `dealPermanentDamage`/`dealPlayerDamage` directly (rather than a parallel script-only damage path) needed one
+real generalization: both were combat-only until now, each hardcoding `true` for `isCombat` at their own
+`damagePrevented`/`checkDamageDoneTriggersToCard`-style calls and their own emitted event's `FlagCombat`. Both gained an
+explicit `isCombat bool` parameter -- every existing call site in `combatdamage.go` now passes `true` literally,
+`dealDamageEffect` the first to pass `false` -- and `FlagCombat`'s own doc comment ("marks damage dealt in combat rather
+than by an effect") finally has a second case to distinguish,
+`var flags EventFlags; if isCombat { flags |= FlagCombat }` in place of the bare literal each function used to emit
+unconditionally.
+
+`resolveNamedAmount` needed a way to reach a card that isn't a trigger's own host: `Ability` (`ability.go`) gained an
+`Amounts map[string]expr.Amount` field, alongside `Params`, so a script-driven effect's own `Resolve` can read the
+compiling face's SVar table the identical way `triggerCommonRequirementsMet`/`ptParam` already do. Every one of the
+eighteen `Ability{API: api, Source: ..., Controller: ..., Params: sub}` constructions across `trigger.go`'s own
+check-triggers functions gained `Amounts: face.Amounts` -- `face` already in scope at each, `triggerEffectAPI` itself
+already taking it as a parameter (`## CardTraitBase.meetsCommonRequirements`, above) -- confirmed mechanical by a
+one-line `sed` substitution matched against the exact count of eighteen. `drawEffect`'s own `NumCards$` was upgraded to
+`resolveNamedAmount` too once the field existed, closing a named-SVar shape it used to reject outright for free (above).
+
+`definedPlayers` is `drawDefinedPlayers` (draweffect.go) verbatim, moved to a new `defined.go` and renamed once
+`dealDamageEffect` needed the identical `You`/`Opponent`/`Player.Opponent` resolution its own `Defined$` already has --
+neither effect owns it outright, the same "shared, so neither" reason `amount.go`'s own `resolveAmount` sits apart from
+its callers.
+
+Not resolved, each skipped whole via an allow-list of the params real corpus lines pair with this shape rather than a
+reject-list of the ones found (`tapAbilityIsPlainTap`'s own style, replacement.go) -- a param neither list has seen
+skips by construction instead of silently applying (PORT-8/GO-7): `SubAbility$` (80 of 822) -- no ability-chaining
+mechanism exists at the stack level yet, `ResolveStack` resolves one top-level `AB$`/`DB$` record and stops, never its
+own `SubAbility$` in turn; `Condition$`/`ConditionPresent$`/`ConditionCompare$`/`ConditionDefined$`/
+`ConditionSVarCompare$`/`ConditionCheckSVar$` (83) -- `SpellAbilityCondition`'s own gate on the ability itself, distinct
+from `CardTraitBase.meetsCommonRequirements` a trigger already has; `Planeswalker$`/`UnlessPayer$`/
+`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/
+`TgtPrompt$` (each its own further mechanic, no real line among the 822 combining more than one); `NoPrevention$` (1) --
+this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own
+`AbilityKey.NoPreventDamage` says the damage cannot be prevented at all.
+
+`NewRegistry` (`castspell.go`) registers `APIDealDamage`; new `enginelint` groups `defined` (above `game`/`player`) and
+`dealdamageeffect` (above `card`/`game`/`player`/`ability`/`combatdamage`/`defined`/`amount`), `castspell` gaining
+`dealdamageeffect` as a dependency to register into, `draweffect` gaining `card`/`defined`/`amount` for its own upgraded
+`NumCards$` and shared `definedPlayers`. `TestCastSpellFiresOtherPermanentsWatchingTrigger` (Impact Tremors, item 26's
+own "checking the mechanism, not the content" trigger fixture) changed from checking `ResolveStack` reports
+`ErrUnimplemented` naming `DealDamage` to checking both opponents' life actually drops -- the same fixture, testing what
+is now really there. Ten new tests (`dealdamageeffect_test.go`) drive every resolvable and every rejected shape through
+the real cast-and-resolve pipeline, `dealDamageEffect` itself being unexported (TEST-1); one of them (a Deathtouch
+source damaging itself) is split into two -- a Deathtouch-free case proving `Damage.Marked`/`Deathtouch` directly, and a
+separate Deathtouch case proving the creature destroys itself instead, since any nonzero deathtouch damage is lethal (CR
+702.2b) and a dead creature no longer meaningfully has the fields the first case checks. A genuinely single-player
+`newGame` combined with a multi-ability `ResolveStack` pass surfaced a real, separate, pre-existing engine property
+while debugging this: `CheckStateBasedActions`' own CR 104.2a check ("one player left standing wins") ends the game the
+moment exactly one player remains un-lost, which is _every_ single-player game from its very first check onward -- fine
+for every earlier test, which either never needed a second `ResolveStack` loop iteration or completed its own
+assertion-relevant work before that first check ran, but fatal to a test relying on `ResolveStack` to loop back around
+for a trigger a first resolution pushes. Not a bug to fix, since a real game is never single-player; the fix was the
+test's own player count, not the engine.
 
 ## Events, wired
 

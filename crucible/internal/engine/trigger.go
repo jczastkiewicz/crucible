@@ -83,7 +83,7 @@ func (g *Game) checkETBTriggers(entered CardID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
 				}
 			}
 		}
@@ -141,7 +141,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -180,7 +180,7 @@ func (g *Game) checkDiesTriggers(left CardID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub})
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
 				}
 			}
 		}
@@ -229,7 +229,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -309,7 +309,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -421,7 +421,7 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -509,7 +509,7 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -589,7 +589,7 @@ func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) 
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -644,7 +644,7 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(blk Block) {
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -714,7 +714,7 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, 
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -743,7 +743,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, a
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -859,7 +859,7 @@ func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
 					continue
 				}
 				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub})
+					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
 				}
 			}
 		}
@@ -889,7 +889,7 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -988,7 +988,7 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -1048,7 +1048,7 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 						}
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 					}
 				}
 			}
@@ -1135,7 +1135,7 @@ func (g *Game) checkPhaseTriggers() {
 							}
 						}
 						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 						}
 					}
 				}
@@ -1666,7 +1666,7 @@ func (g *Game) checkAttackersDeclaredTrigger() {
 							}
 						}
 						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 						}
 					}
 				}
@@ -1846,7 +1846,7 @@ func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
 							}
 						}
 						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
 						}
 					}
 				}

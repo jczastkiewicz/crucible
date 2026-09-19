@@ -5,18 +5,16 @@
 
 package engine
 
-import (
-	"fmt"
-	"strconv"
-)
+import "fmt"
 
 // drawEffect resolves Mode$/DB$ Draw. Two of Java's params are handled:
-// NumCards$ (default 1, Java's own `sa.hasParam("NumCards") ? ... : 1`), only
-// when it is a plain base-10 integer -- a "*"-shaped or SVar-driven amount
-// needs AbilityUtils.calculateAmount, which needs an ability-context
-// evaluator internal/expr does not have yet (valid.go's compareMatches doc
-// comment already carries the identical gap for a valid-string's own numeric
-// compare) -- and Defined$ (drawDefinedPlayers, below).
+// NumCards$ (default 1, Java's own `sa.hasParam("NumCards") ? ... : 1`),
+// through resolveNamedAmount (amount.go) -- a plain integer or a named SVar
+// this face defines, the identical literal-or-reference resolution a
+// continuous effect's own numeric params already get (ptParam,
+// continuous.go); a "*"-shaped amount or one outside the Valid family still
+// fails, resolveAmount's own contract -- and Defined$ (definedPlayers,
+// defined.go).
 //
 // Not ported: Upto (a player chooses how many, 0 to NumCards$), the optional
 // draw's own confirmation prompt (OptionalDecider$), Reveal, and
@@ -29,9 +27,9 @@ type drawEffect struct{}
 func (drawEffect) Resolve(g *Game, a *Ability) error {
 	n := 1
 	if v, ok := a.Params.Param("NumCards"); ok {
-		parsed, err := strconv.Atoi(v)
-		if err != nil {
-			return fmt.Errorf("engine: Draw: NumCards$ %q is not a plain integer", v)
+		parsed, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), v)
+		if !ok {
+			return fmt.Errorf("engine: Draw: NumCards$ %q is not resolvable", v)
 		}
 		n = parsed
 	}
@@ -41,7 +39,7 @@ func (drawEffect) Resolve(g *Game, a *Ability) error {
 		}
 	}
 	defined, _ := a.Params.Param("Defined")
-	players, err := drawDefinedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined)
 	if err != nil {
 		return err
 	}
@@ -49,34 +47,4 @@ func (drawEffect) Resolve(g *Game, a *Ability) error {
 		g.DrawCards(pid, n)
 	}
 	return nil
-}
-
-// drawDefinedPlayers resolves Defined$ to the players it names -- the two
-// corpus-frequent shapes this port can resolve without Java's full
-// AbilityUtils.getDefinedPlayers reference vocabulary (Targeted, Remembered,
-// TriggeredPlayer, TriggeredController, ...; game-state.md's "Not ported
-// yet"): "You" (the ability's own controller) and "Opponent"/"Player.Opponent"
-// (every opponent). A player no longer in the game is skipped, matching
-// Java's own `if (!p.isInGame()) continue`.
-func drawDefinedPlayers(g *Game, controller PlayerID, defined string) ([]PlayerID, error) {
-	var candidates []PlayerID
-	switch defined {
-	case "You":
-		candidates = []PlayerID{controller}
-	case "Opponent", "Player.Opponent":
-		for _, pid := range g.Players() {
-			if pid != controller {
-				candidates = append(candidates, pid)
-			}
-		}
-	default:
-		return nil, fmt.Errorf("engine: Draw: Defined$ %q not resolvable yet", defined)
-	}
-	var players []PlayerID
-	for _, pid := range candidates {
-		if !g.Player(pid).Lost {
-			players = append(players, pid)
-		}
-	}
-	return players, nil
 }

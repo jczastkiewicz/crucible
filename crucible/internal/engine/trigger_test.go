@@ -1,7 +1,6 @@
 package engine_test
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -552,14 +551,9 @@ func impactTremorsDef(t *testing.T) *compile.Card {
 // trigger of its own tied to itself entering -- its trigger watches for some
 // OTHER creature to enter under its controller. Casting one that carries no
 // ETB trigger of its own still reaches Impact Tremors' own Execute$
-// sub-ability (DealDamage): the only source that error can possibly name,
-// since nothing else on the board could have produced it. Same
-// "mechanism now, content later" shape as TestCastSpellFiresETBTrigger --
-// checking the resolution reached the right unimplemented effect, not
-// resolving it (M6's job), and the same reason that test does not inspect
-// StackTop either: ResolveStack pops an ability before resolving it (its own
-// doc comment), so nothing is left on the stack to inspect once the error
-// naming it comes back.
+// sub-ability (DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 1),
+// dealDamageEffect's own real content now (dealdamageeffect.go) rather than
+// the unimplemented-effect placeholder this test used to check for.
 func TestCastSpellFiresOtherPermanentsWatchingTrigger(t *testing.T) {
 	t.Parallel()
 
@@ -576,18 +570,20 @@ func TestCastSpellFiresOtherPermanentsWatchingTrigger(t *testing.T) {
 		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
 	}
 
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if !errors.Is(err, engine.ErrUnimplemented) {
-		t.Fatalf("ResolveStack error = %v, want ErrUnimplemented (DealDamage)", err)
-	}
-	if !strings.Contains(err.Error(), "DealDamage") {
-		t.Errorf("ResolveStack error = %q, want it to name DealDamage", err.Error())
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if g.Card(creature).Zone != engine.Battlefield {
-		t.Errorf("creature zone = %v, want Battlefield -- the permanent spell itself should still have resolved", g.Card(creature).Zone)
+		t.Errorf("creature zone = %v, want Battlefield", g.Card(creature).Zone)
+	}
+	if g.Player(other).Life != 19 {
+		t.Errorf("other's life = %d, want 19 -- Impact Tremors deals 1 damage to each opponent", g.Player(other).Life)
+	}
+	if g.Player(p).Life != 20 {
+		t.Errorf("p's life = %d, want 20 -- Defined$ Player.Opponent must not hit p's own life", g.Player(p).Life)
 	}
 	if g.StackLen() != 0 {
-		t.Errorf("StackLen() = %d, want 0 -- the failed trigger was popped before its own Resolve ran", g.StackLen())
+		t.Errorf("StackLen() = %d, want 0", g.StackLen())
 	}
 }
 

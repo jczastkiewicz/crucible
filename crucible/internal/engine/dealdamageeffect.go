@@ -1,0 +1,81 @@
+// DealDamage: CR 119/120.1, M6's second script-driven effect. Trimmed to the
+// corpus's single largest resolvable shape: a plain-or-named-SVar NumDmg$
+// dealt to a Defined$ player or the ability's own host, sourced from that
+// same host -- 62 of the corpus's 2,219 real (AB|DB)$ DealDamage lines that
+// also name Defined$ You/Player.Opponent/Opponent/Self and carry no other
+// unresolved param, out of 822 total naming any Defined$ value at all.
+//
+// Ported from
+// forge-game/src/main/java/forge/game/ability/effects/DamageDealEffect.java's
+// resolve.
+
+package engine
+
+import "fmt"
+
+// dealDamageEffect resolves Mode$/DB$/AB$ DealDamage. Reuses the exact
+// damage machinery combat already built: dealPermanentDamage/
+// dealPlayerDamage (combatdamage.go) mark the damage, check CR 614's own
+// "prevent all of this damage" replacement effects and CR 603's own "deals
+// damage" trigger identically whether the source is a blocker or a script --
+// isCombat threaded through as false is the one thing that tells the two
+// apart (FlagCombat's own doc comment, event.go).
+//
+// Not ported (every one fails loudly rather than dealing the wrong amount to
+// the wrong thing, PORT-8/GO-7): DamageSource$ (17 of 822 real Defined$
+// lines -- a source other than the ability's own host, needing a reference
+// vocabulary this file does not have); SubAbility$ (80 -- no ability chains
+// past its own top-level DB$/AB$ record yet, this port's own stack has
+// nothing that resolves one sub-ability and then its own SubAbility$ in
+// turn); Condition$/ConditionPresent$/ConditionCompare$/ConditionDefined$/
+// ConditionSVarCompare$/ConditionCheckSVar$ (83 -- SpellAbilityCondition's
+// own gate on the ability itself, distinct from CardTraitBase's own
+// meetsCommonRequirements a trigger already has, trigger.go); Planeswalker$/
+// UnlessPayer$/UnlessCost$/UnlessResolveSubs$/ValidTgts$/
+// TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each
+// its own further mechanic); NoPrevention$ (1 -- this port's own
+// damagePrevented/damagePreventedPlayer would otherwise apply where Java's
+// own AbilityKey.NoPreventDamage says not to, a wrong answer rather than a
+// missing one).
+type dealDamageEffect struct{}
+
+var dealDamageUnresolvedParams = [...]string{
+	"DamageSource", "SubAbility",
+	"Condition", "ConditionPresent", "ConditionCompare", "ConditionDefined",
+	"ConditionSVarCompare", "ConditionCheckSVar",
+	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessResolveSubs",
+	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
+	"NoPrevention", "Optional", "TgtPrompt",
+}
+
+func (dealDamageEffect) Resolve(g *Game, a *Ability) error {
+	for _, key := range dealDamageUnresolvedParams {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: DealDamage: %s$ not resolvable yet", key)
+		}
+	}
+	numDmg, ok := a.Params.Param("NumDmg")
+	if !ok {
+		return fmt.Errorf("engine: DealDamage: NumDmg$ missing")
+	}
+	source := g.Card(a.Source)
+	dmg, ok := resolveNamedAmount(g, a.Amounts, source, numDmg)
+	if !ok {
+		return fmt.Errorf("engine: DealDamage: NumDmg$ %q is not resolvable", numDmg)
+	}
+	deathtouch := source.HasKeyword("Deathtouch")
+
+	defined, _ := a.Params.Param("Defined")
+	if defined == "Self" {
+		g.dealPermanentDamage(a.Source, a.Source, dmg, deathtouch, false)
+		return nil
+	}
+	players, err := definedPlayers(g, a.Controller, defined)
+	if err != nil {
+		return fmt.Errorf("engine: DealDamage: %w", err)
+	}
+	for _, pid := range players {
+		g.dealPlayerDamage(a.Source, pid, dmg, false)
+	}
+	return nil
+}

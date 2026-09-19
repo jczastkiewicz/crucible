@@ -313,7 +313,27 @@ generalizing `ActiveZones$` past Battlefield alone to the 2 real Command-zone li
 comma-list `checkPhaseTriggers`'s own `TriggerZones$` already has, for a replacement's own zone restriction instead of a
 trigger's. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to
 actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a
-trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the
+second — 62 of the corpus's 2,219 real `(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/
+`Opponent`/`Self` (out of 822 naming any `Defined$` at all) and carry no other unresolved param — reusing combat's own
+damage machinery directly: `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) gained an `isCombat bool`
+parameter (every prior call site combat's own, now passing `true` explicitly; `DealDamage` is the first to pass
+`false`), threading through to `damagePrevented`/`damagePreventedPlayer` (CR 614's own "prevent all of this damage,"
+item 26) and to a conditional `FlagCombat` (event.go's own doc comment: "marks damage dealt in combat rather than by an
+effect," dormant until now). `Ability` also gained an `Amounts` field, threaded through all eighteen check-triggers call
+sites (`face.Amounts`, already in scope at each) — `NumDmg$`'s own named-SVar shape resolves through
+`resolveNamedAmount` (amount.go) the identical way a continuous effect's own numeric params already do, and `Draw`'s own
+`NumCards$` was upgraded to the same resolver for free. `definedPlayers` (new `defined.go`) is `drawDefinedPlayers`
+renamed and relocated once `DealDamage` needed the identical `You`/`Opponent`/`Player.Opponent` resolution — neither
+effect owns it outright. `Defined$ Self` resolves against the ability's own host card directly, `HasKeyword` reading its
+own `Deathtouch` for `dealPermanentDamage`'s own flag exactly as combat already does. Not resolved: `DamageSource$` (17
+of 822 real `Defined$` lines — a source other than the ability's own host); `SubAbility$` (80 — no ability-chaining
+mechanism exists yet, this port's own stack resolves one top-level record and stops);
+`Condition$`/`ConditionPresent$`/`ConditionCompare$`/`ConditionDefined$`/`ConditionSVarCompare$`/`ConditionCheckSVar$`
+(83 — `SpellAbilityCondition`'s own gate on the ability itself, distinct from a trigger's own
+`meetsCommonRequirements`); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
+`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own mechanic); `NoPrevention$` (1
+— this port's own prevention would otherwise wrongly apply). Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: Layer 1 (copy effects — not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real
 references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at
@@ -333,6 +353,6 @@ own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `P
 `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/
 `TurnCount$` and its own qualified `ValidPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase;
-202 script-driven effects past `Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342
-scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2)
-is not.
+201 script-driven effects past `Draw`/`DealDamage` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half
+met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan
+Section 3.2) is not.

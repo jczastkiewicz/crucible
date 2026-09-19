@@ -728,15 +728,41 @@ printed form.
     match the instant it found one, correct only when a single card's own trigger fires alone. A trigger's `Execute$`
     sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`,
     `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became
-    the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still
-    reports `ErrUnimplemented` for the other 202. `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting
-    `Combat.Attackers` other than the declared one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each,
-    `defenderOf`'s own `Counters.Count(Poison)` and a new `attacksMultiplePlayers`) and `DamageDone`'s own
-    `DamageAmount$` (8, a new `damageAmountMatches` reusing `compareOp` (`valid.go`), never
-    `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal `TargetToughness`) are all
-    resolved now too. `Phase` itself is real now: `checkPhaseTriggers` resolves `Phase$` (every real corpus value bar an
-    unrecognized token, which does not occur), the `Main`/`PhaseCount$ 2` alias for "second main phase" (29 real lines),
-    and `ValidPlayer$` through `matchesPlayerSpec` (2,001 of 2,065 real lines). `AttackersDeclared` is real now too:
+    the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself, and `DealDamage`
+    (`dealdamageeffect.go`) the second — 62 of the corpus's 2,219 real `(AB|DB)$ DealDamage` lines naming
+    `Defined$ You`/`Player.Opponent`/`Opponent`/`Self` and no other unresolved param (822 name any `Defined$` value at
+    all), reusing combat's own damage machinery directly rather than a parallel copy: `dealPermanentDamage`/
+    `dealPlayerDamage` (combatdamage.go) gained an `isCombat bool` parameter, every prior call site combat's own and now
+    passing `true` explicitly, `DealDamage` the first to pass `false` — threading through to `damagePrevented`/
+    `damagePreventedPlayer` (CR 614's own "prevent all of this damage," this item's own replacement-effects paragraph
+    below) and to a conditional `FlagCombat` (event.go's own doc comment, "marks damage dealt in combat rather than by
+    an effect," dormant until now). `Ability` also gained an `Amounts` field, threaded through all eighteen
+    check-triggers call sites' own `Ability{...}` construction (`face.Amounts`, already in scope at each) so
+    `resolveNamedAmount` (amount.go) can resolve a named-SVar param value off the stack the identical way a continuous
+    effect's own numeric params already do — `NumDmg$`'s own shape for `DealDamage`, and `Draw`'s own `NumCards$`
+    upgraded to the same resolver for free once it existed. `definedPlayers` (new `defined.go`) is `drawDefinedPlayers`
+    renamed and relocated once `DealDamage` needed the identical `You`/`Opponent`/ `Player.Opponent` resolution its own
+    `Defined$` already has — neither effect owns it outright, the same "shared, so neither" reason `resolveAmount`
+    (amount.go) sits apart from `ptParam`/`triggerCommonRequirementsMet`. `Defined$ Self` resolves against the ability's
+    own host card directly (`a.Source`), `HasKeyword` reading its own `Deathtouch` for `dealPermanentDamage`'s own flag
+    the identical way combat's own attacker/blocker already do. Not resolved: `DamageSource$` (17 of 822 real `Defined$`
+    lines — a source other than the ability's own host, needing a reference vocabulary this port does not have);
+    `SubAbility$` (80 — no ability-chaining mechanism exists yet, this port's own stack resolves one top-level
+    `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn);
+    `Condition$`/`ConditionPresent$`/`ConditionCompare$`/`ConditionDefined$`/`ConditionSVarCompare$`/
+    `ConditionCheckSVar$` (83 — `SpellAbilityCondition`'s own gate on the ability itself, distinct from a trigger's own
+    `meetsCommonRequirements`); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
+    `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own further mechanic);
+    `NoPrevention$` (1 — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where
+    Java's own `AbilityKey.NoPreventDamage` says not to). `ResolveStack` still reports `ErrUnimplemented` for the
+    other 201. `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting `Combat.Attackers` other than the
+    declared one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own
+    `Counters.Count(Poison)` and a new `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new
+    `damageAmountMatches` reusing `compareOp` (`valid.go`), never `AbilityUtils.calculateAmount` — every real line is a
+    plain integer or the literal `TargetToughness`) are all resolved now too. `Phase` itself is real now:
+    `checkPhaseTriggers` resolves `Phase$` (every real corpus value bar an unrecognized token, which does not occur),
+    the `Main`/`PhaseCount$ 2` alias for "second main phase" (29 real lines), and `ValidPlayer$` through
+    `matchesPlayerSpec` (2,001 of 2,065 real lines). `AttackersDeclared` is real now too:
     `checkAttackersDeclaredTrigger` resolves `AttackingPlayer$` (`matchesPlayerSpec` against the active player, CR
     508.1's own attacking player — 175 of 286 real lines), `AttackedTarget$` (a new `attackedTargetMatches`, trying both
     `matchesPlayerSpec` and `Matches` against every entity actually attacked this combat, since a real spec mixes

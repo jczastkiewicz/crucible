@@ -55,9 +55,13 @@ func (g *Game) Blocks() []Block { return g.combat.Blocks }
 // active player with nothing to attack with. The combined result is nil,
 // not an empty non-nil slice, when every defender is skipped this way.
 //
-// checkBlocksTriggers (trigger.go) runs once per final Block, after every
-// filter above -- CR 509.2's own "whenever ~ blocks" fires only for a
-// legally declared block, not one CanBlock or menaceLegal already dropped.
+// checkBlocksTriggers/checkAttackerBlockedByCreatureTriggers (trigger.go)
+// each run once per final Block, after every filter above -- CR 509.2's own
+// "whenever ~ blocks"/"whenever ~ becomes blocked by a creature" fire only
+// for a legally declared block, not one CanBlock or menaceLegal already
+// dropped. checkAttackerBlockedTriggers (CR 509.2's own "becomes blocked,"
+// the whole blocker group rather than one at a time) runs once per distinct
+// attacker afterward, once every Block naming it is known.
 func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 	attackers := g.combat.Attackers
 	if len(attackers) == 0 {
@@ -95,8 +99,18 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 		blocks = append(blocks, menaceLegal(g, accepted)...)
 	}
 	g.combat.Blocks = blocks
+	blockersByAttacker := map[CardID][]CardID{}
+	var blockedAttackers []CardID
 	for _, blk := range blocks {
 		g.checkBlocksTriggers(blk)
+		g.checkAttackerBlockedByCreatureTriggers(blk)
+		if _, ok := blockersByAttacker[blk.Attacker]; !ok {
+			blockedAttackers = append(blockedAttackers, blk.Attacker)
+		}
+		blockersByAttacker[blk.Attacker] = append(blockersByAttacker[blk.Attacker], blk.Blocker)
+	}
+	for _, attacker := range blockedAttackers {
+		g.checkAttackerBlockedTriggers(attacker, blockersByAttacker[attacker])
 	}
 	return blocks
 }

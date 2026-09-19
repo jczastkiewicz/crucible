@@ -523,6 +523,158 @@ func isBlocksTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Blocks")
 }
 
+// checkAttackerBlockedTriggers is CR 509.2's own "becomes blocked" shape --
+// TriggerAttackerBlocked.performTest, ported from PlayerController's own
+// declareBlockers, fired once per attacker that ended up with at least one
+// legal blocker (not once per blocker the way checkBlocksTriggers/
+// checkAttackerBlockedByCreatureTriggers, below, both are), with the whole
+// blocker group gathered before this runs -- ValidBlocker$/
+// ValidBlockerAmount$ (74 of 127 real lines carry neither, an unqualified
+// "becomes blocked") counts how many of them a spec matches, the identical
+// GE1-defaulted compare-against-an-amount shape validAttackersCountMatches
+// (below) already has for AttackersDeclared's own ValidAttackers$/
+// ValidAttackersAmount$, generalized to any []CardID rather than
+// g.combat.Attackers specifically (validCardsCountMatches, below) since the
+// group here is one attacker's own blockers, not the whole combat's
+// attackers.
+//
+// Called from DeclareCombatBlockers (block.go) once per distinct attacker,
+// after every Block for it has been filtered by CanBlock/menaceLegal and
+// checkBlocksTriggers/checkAttackerBlockedByCreatureTriggers have both
+// already run for each -- CR 509.2 groups every "blocks"/"becomes blocked"
+// trigger as one simultaneous event, but this port fires each shape as its
+// own separate APNAP pass the same way checkAttacksTriggers and
+// checkAttackersDeclaredTrigger already are for the declare-attackers step,
+// rather than collecting every shape at once. No own/other split is
+// needed: TriggerAttackerBlocked itself never special-cases the attacker's
+// own trigger, the identical reason checkBlocksTriggers needs none.
+//
+// Not resolved: ValidCard$ LessPowerThanBlocker (1 real line) -- a hardcoded
+// power comparison against the blocker group rather than a valid-string,
+// the same shape Skulk's own hardcoded X already is (skulkBlocks,
+// staticability.go) but for a different pairing; explicitly refused rather
+// than left to a bare-word valid-string parse that would silently match no
+// card and never fire, a wrong reason not the right one to never fire for.
+func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) {
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !strings.EqualFold(t.Name, "AttackerBlocked") {
+						continue
+					}
+					validCard, ok := t.Param("ValidCard")
+					if !ok {
+						continue
+					}
+					if strings.EqualFold(validCard, "LessPowerThanBlocker") {
+						continue
+					}
+					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller(), host) {
+						continue
+					}
+					if validBlocker, ok := t.Param("ValidBlocker"); ok {
+						amount, ok := t.Param("ValidBlockerAmount")
+						if !ok {
+							amount = "GE1"
+						}
+						if !validCardsCountMatches(g, h, blockers, validBlocker, amount) {
+							continue
+						}
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+// checkAttackerBlockedByCreatureTriggers is CR 509.2's own per-pair
+// "becomes blocked by a creature" shape -- TriggerAttackerBlockedByCreature.
+// performTest, checkBlocksTriggers' own exact mirror image: ValidCard$
+// matched against blk.Attacker (blocks' own ValidBlocked$), ValidBlocker$
+// matched against blk.Blocker (blocks' own ValidCard$), both single-card
+// matches rather than a counted group -- this mode has no ValidBlockerAmount$
+// of its own, one blocker at a time being the whole point of "by a
+// creature." Called once per declared Block, the identical per-pair
+// granularity checkBlocksTriggers already has, and for the identical
+// reason: DeclareCombatBlockers (block.go) has no wider grouping at the
+// point either already runs.
+//
+// Not resolved: ValidCard$/ValidBlocker$ LessPowerThanBlocker/
+// LessPowerThanAttacker (1 real line each) -- checkAttackerBlockedTriggers'
+// own doc comment has the identical reason this refuses rather than lets a
+// bare-word valid-string parse silently never match.
+func (g *Game) checkAttackerBlockedByCreatureTriggers(blk Block) {
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !strings.EqualFold(t.Name, "AttackerBlockedByCreature") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok {
+						if strings.EqualFold(validCard, "LessPowerThanBlocker") {
+							continue
+						}
+						if !Matches(g, g.Card(blk.Attacker), valid.Parse(validCard), h.Controller(), host) {
+							continue
+						}
+					}
+					if validBlocker, ok := t.Param("ValidBlocker"); ok {
+						if strings.EqualFold(validBlocker, "LessPowerThanAttacker") {
+							continue
+						}
+						if !Matches(g, g.Card(blk.Blocker), valid.Parse(validBlocker), h.Controller(), host) {
+							continue
+						}
+					}
+					if sub, api, ok := triggerEffectAPI(t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+// validCardsCountMatches is validAttackersCountMatches' own generalization:
+// how many of cards spec matches, compared against amount (a "GE1"-shaped
+// operator+operand, Expressions.compare's own vocabulary via compareOp) --
+// factored out once checkAttackerBlockedTriggers needed the identical count
+// over one attacker's own blocker group rather than g.combat.Attackers.
+func validCardsCountMatches(g *Game, host *Card, cards []CardID, spec, amount string) bool {
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, id := range cards {
+		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			n++
+		}
+	}
+	if len(amount) < 3 {
+		return false
+	}
+	operand, err := strconv.Atoi(amount[2:])
+	if err != nil {
+		return false
+	}
+	return compareOp(n, amount[:2], operand)
+}
+
 // checkDamageDoneTriggersToCard and checkDamageDoneTriggersToPlayer are CR
 // 603's own "whenever ~ deals damage" mode, Mode$ DamageDone, ported from
 // TriggerDamageDone.performTest -- split in two because the actual damaged

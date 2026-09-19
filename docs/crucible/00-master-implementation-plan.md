@@ -804,6 +804,29 @@ printed form.
     `Counter`, `Draw`, ... — 1,241 of 2,210 real replacement lines) and every other `Moved` shape (`Exile`, a chained
     `DBTap`/`DBExile` reference) remain gaps.
 
+    **CR 509.2's own "becomes blocked" family is real now too**, the natural extension of `checkBlocksTriggers` (above)
+    to the attacker's own side of the same declare-blockers step. `checkAttackerBlockedTriggers` ports
+    `TriggerAttackerBlocked.performTest` — `Mode$ AttackerBlocked`, 127 real lines, fires once per attacker that ended
+    up with at least one legal blocker, the whole blocker group gathered first (`DeclareCombatBlockers`, block.go, once
+    every `Block` for it has cleared `CanBlock`/`menaceLegal`) rather than once per blocker; `ValidCard$` (74 of 127
+    real lines carry neither `ValidBlocker$` nor `ValidBlockerAmount$`, an unqualified "becomes blocked") matches
+    against the attacker directly, and a new `validCardsCountMatches` — `validAttackersCountMatches`'s own shape (item
+    26's own earlier `AttackersDeclared` paragraph) generalized past `g.combat.Attackers` to any `[]CardID` — counts how
+    many of the blocker group `ValidBlocker$` matches, compared against `ValidBlockerAmount$`'s own `"GE1"`-defaulted
+    operator+operand. `checkAttackerBlockedByCreatureTriggers` ports `TriggerAttackerBlockedByCreature.performTest` —
+    `Mode$ AttackerBlockedByCreature`, 102 real lines, `checkBlocksTriggers`'s own exact mirror image: `ValidCard$`
+    against the attacker, `ValidBlocker$` against one blocker, both single-card `Matches` calls rather than a counted
+    group, fired once per declared `Block` the identical per-pair granularity `checkBlocksTriggers` already has, for the
+    identical reason (`DeclareCombatBlockers` has no wider grouping at the point either already runs). Neither mode
+    needs a separate own/other loop: like every other trigger class this port has read so far but `Discarded`,
+    `TriggerAttackerBlocked`/`TriggerAttackerBlockedByCreature` never special-case the attacker's own trigger, so one
+    walk over the battlefield already covers "this creature becomes blocked" and "a creature you control becomes
+    blocked" alike. Not resolved: `ValidCard$`/`ValidBlocker$` naming `LessPowerThanBlocker`/`LessPowerThanAttacker` (1
+    real line each) — a hardcoded power comparison rather than a valid-string, Skulk's own hardcoded-`X` shape
+    (`skulkBlocks`, staticability.go) for a different pairing; explicitly refused rather than left to a bare-word
+    valid-string parse that would silently match no card and never fire, for a reason unrelated to the actual gap.
+    `Mode$ AttackerBlockedOnce` (3 real lines, a once-per-turn variant neither Java class above is) is not built at all.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

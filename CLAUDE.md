@@ -180,45 +180,52 @@ SBAs and targeting both read, built corpus-frequency-first (`port-log/valid-stri
 own bare form; a mana pool and payment covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's
 intrinsic mana ability (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an
 Aura, through the stack — (`castspell.go`), the first two real `Effect` implementations
-(`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks," "blocks," "deals
-damage," "is discarded," "becomes tapped," "taps for mana," "a player casts a spell," "the beginning of a step or
-phase," "a player attacks" and "a player draws a card" (`checkPhaseTriggers` — CR 500, `Mode$ Phase`, the corpus's own
-SECOND most frequent trigger mode at 2,362 real lines, ahead of `Attacks` itself, resolved once corpus-frequency
-research found it well after the first nine modes had already landed; unlike every other mode, it walks four zones —
-`Battlefield`/`Command`/`Graveyard`/`Exile` (`phaseTriggerZones`) — not `Battlefield` alone, and matches `ValidPlayer$`
-against the active player, not the trigger's own host controller; `checkAttackersDeclaredTrigger` — CR 508.1,
-`Mode$ AttackersDeclared`, 286 real lines, fires once per combat rather than once per attacker the way `Attacks` itself
-does, reusing `phaseTriggerZones`'s own four-zone walk and a new `attackedTargetMatches`/`validAttackersCountMatches`
-pair for `AttackedTarget$`/`ValidAttackers$`; `checkDrawnTriggers` — CR 120.3, `Mode$ Drawn`, 161 real lines, called
-from `DrawCards`' own per-card loop (turn.go, already written that way before this mode existed to consume it) with a
-new `Player.CardsDrawnThisTurn` counter — `LandsPlayed`'s own per-turn-counter shape — for `Number$`'s own "the Nth card
-you draw each turn" real corpus shape), plus another permanent watching one do any of those — detects and queues a
-trigger, pushed through a new `pushTriggeredAbilities` (`trigger.go`) that ports CR 603.3b's own APNAP ordering for the
-first time (`playersInAPNAPOrder` — `Game.ActivePlayer()`, then turn order — walking each player's own group in turn, so
-the non-active player's own trigger resolves before the active player's when more than one fires off the same event, the
-stack's own LIFO order applied to `MagicStack`'s own player-iteration sequence); every trigger-check function now
-collects its own matches first and calls it once, rather than calling `PushAbility` the instant each match is found. CR
-614.1's own replacement-effect system has its first real content too: `checkMovedReplacement` (`replacement.go`)
-resolves the corpus's single largest real `Event$ Moved` shape — a permanent entering the battlefield already tapped,
-`ReplaceWith$` naming a bare `DB$ Tap` (618 of 969 real `Moved` lines, 618 of 2,210 real replacement lines corpus-wide)
-— called from every real "enters the battlefield" site (`permanentEffect`/`attachEffect`, castspell.go; `Game.PlayLand`,
-land.go) before `checkETBTriggers` runs, CR 614.1's own ordering over CR 603. `matchesPlayerBase` (`valid.go`) is the
-shared `You`/`Opponent`/`Player` dispatch several of those modes now reuse; block legality (`staticability.go`,
-`CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection, Menace and every literal
-`S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption (`staticability.go`) — three slices of
-the general static-ability engine PORT-8 requires reading Java's own mechanism for rather than hardcoding a keyword
-check; and four layers of the engine's biggest piece, `Mode$ Continuous` itself (`continuous.go`) — `applyContinuousPT`
-resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness lines (anthem effects, equipment bonuses);
-`applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines naming only literal type words;
-`applyContinuousColor` resolves Layer 5's own `AddColor$`/`SetColor$` lines naming a literal color, `All` or
-`Colorless`; `applyContinuousKeyword` resolves Layer 6's own `AddKeyword$` lines naming only literal keyword lines (no
-dynamic value, no `RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$` combo) — the single largest
-real slice of the four (1,556 of 1,857 real lines), folded through a new `KeywordMod` (`keywordmod.go`)
-`Card.HasKeyword` now reads, reaching every existing keyword-driven check (`cantBlockByKeywords`, combat's own
-first-strike/trample reads) for free — all four layers recomputed fresh every `CheckStateBasedActions` pass rather than
-pushed once, `pt.go`'s own folding mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go` counterparts' first
-real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without a
-`*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s own doc comment); Landwalk's own
+(`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks," "blocks," "becomes
+blocked," "becomes blocked by a creature," "deals damage," "is discarded," "becomes tapped," "taps for mana," "a player
+casts a spell," "the beginning of a step or phase," "a player attacks" and "a player draws a card" (`checkPhaseTriggers`
+— CR 500, `Mode$ Phase`, the corpus's own SECOND most frequent trigger mode at 2,362 real lines, ahead of `Attacks`
+itself, resolved once corpus-frequency research found it well after the first nine modes had already landed; unlike
+every other mode, it walks four zones — `Battlefield`/`Command`/`Graveyard`/`Exile` (`phaseTriggerZones`) — not
+`Battlefield` alone, and matches `ValidPlayer$` against the active player, not the trigger's own host controller;
+`checkAttackersDeclaredTrigger` — CR 508.1, `Mode$ AttackersDeclared`, 286 real lines, fires once per combat rather than
+once per attacker the way `Attacks` itself does, reusing `phaseTriggerZones`'s own four-zone walk and a new
+`attackedTargetMatches`/`validAttackersCountMatches` pair for `AttackedTarget$`/`ValidAttackers$`; `checkDrawnTriggers`
+— CR 120.3, `Mode$ Drawn`, 161 real lines, called from `DrawCards`' own per-card loop (turn.go, already written that way
+before this mode existed to consume it) with a new `Player.CardsDrawnThisTurn` counter — `LandsPlayed`'s own
+per-turn-counter shape — for `Number$`'s own "the Nth card you draw each turn" real corpus shape), plus another
+permanent watching one do any of those — detects and queues a trigger, pushed through a new `pushTriggeredAbilities`
+(`trigger.go`) that ports CR 603.3b's own APNAP ordering for the first time (`playersInAPNAPOrder` —
+`Game.ActivePlayer()`, then turn order — walking each player's own group in turn, so the non-active player's own trigger
+resolves before the active player's when more than one fires off the same event, the stack's own LIFO order applied to
+`MagicStack`'s own player-iteration sequence); every trigger-check function now collects its own matches first and calls
+it once, rather than calling `PushAbility` the instant each match is found. CR 614.1's own replacement-effect system has
+its first real content too: `checkMovedReplacement` (`replacement.go`) resolves the corpus's single largest real
+`Event$ Moved` shape — a permanent entering the battlefield already tapped, `ReplaceWith$` naming a bare `DB$ Tap` (618
+of 969 real `Moved` lines, 618 of 2,210 real replacement lines corpus-wide) — called from every real "enters the
+battlefield" site (`permanentEffect`/`attachEffect`, castspell.go; `Game.PlayLand`, land.go) before `checkETBTriggers`
+runs, CR 614.1's own ordering over CR 603. CR 509.2's own "becomes blocked" family is real now too —
+`checkAttackerBlockedTriggers` (`Mode$ AttackerBlocked`, 127 real lines, fires once per attacker with its whole blocker
+group gathered, `ValidBlocker$`/`ValidBlockerAmount$` counted via a new `validCardsCountMatches` —
+`validAttackersCountMatches`'s own shape generalized past `g.combat.Attackers`) and
+`checkAttackerBlockedByCreatureTriggers` (`Mode$ AttackerBlockedByCreature`, 102 real lines, `checkBlocksTriggers`'s own
+exact mirror image — `ValidCard$` against the attacker, `ValidBlocker$` against one blocker, fired per Block the
+identical per-pair granularity `checkBlocksTriggers` already has), both called from `DeclareCombatBlockers` (block.go)
+alongside it. `matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player` dispatch several of those modes
+now reuse; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk,
+Protection, Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption
+(`staticability.go`) — three slices of the general static-ability engine PORT-8 requires reading Java's own mechanism
+for rather than hardcoding a keyword check; and four layers of the engine's biggest piece, `Mode$ Continuous` itself
+(`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness
+lines (anthem effects, equipment bonuses); `applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines
+naming only literal type words; `applyContinuousColor` resolves Layer 5's own `AddColor$`/`SetColor$` lines naming a
+literal color, `All` or `Colorless`; `applyContinuousKeyword` resolves Layer 6's own `AddKeyword$` lines naming only
+literal keyword lines (no dynamic value, no `RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$`
+combo) — the single largest real slice of the four (1,556 of 1,857 real lines), folded through a new `KeywordMod`
+(`keywordmod.go`) `Card.HasKeyword` now reads, reaching every existing keyword-driven check (`cantBlockByKeywords`,
+combat's own first-strike/trample reads) for free — all four layers recomputed fresh every `CheckStateBasedActions` pass
+rather than pushed once, `pt.go`'s own folding mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go`
+counterparts' first real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without
+a `*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s own doc comment); Landwalk's own
 `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`), a `Player`, not a
 `Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is; Protection's own CantBlockBy restriction
 (`protectionValid`, `staticability.go`) is built per card from the keyword's own argument the identical way Landwalk's

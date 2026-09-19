@@ -23,14 +23,12 @@ Reason: every line touched outside `crucible/` and `docs/crucible/` is a future 
 
 ## REV-2 — Branches
 
-`master` tracks upstream. Never commit directly.
+Everything lands directly on `master`. No branch-per-unit workflow (`port/<unit>`, `feat/<thing>`, ...) — there is no
+separate reviewer gating each change through its own PR right now, so a branch buys nothing but ceremony. `master` still
+tracks upstream (REV-7's own merge-only sync stays PR-based, the one exception).
 
-```text
-port/<unit>        port/game-action, port/card-rules-reader
-feat/<thing>       feat/telemetry-recorder
-docs/<topic>       docs/adr-0009-state-model
-fix/<issue>        fix/layer-timestamp-order
-```
+Every commit stays local until the maintainer pushes it. Commit after each unit of work; never `git push` unless asked —
+that decision is the maintainer's alone, every time.
 
 ---
 
@@ -106,8 +104,9 @@ Follows [00-documentation-style](00-documentation-style.md).
 
 ## REV-7 — Upstream sync
 
-A sync is a **merge**, never a rebase, and it lands through a pull request like every other change (REV-2). You start it
-when you want the new cards; CI decides whether it is safe; you merge it, **with a merge commit and never a squash**.
+A sync is a **merge**, never a rebase, and — unlike Crucible's own day-to-day work (REV-2) — it lands through a pull
+request every time. You start it when you want the new cards; CI decides whether it is safe; you merge it, **with a
+merge commit and never a squash**.
 
 Procedure and what to do when a gate goes red: [`../runbooks/upstream-sync.md`](../runbooks/upstream-sync.md). Decision
 and alternatives: [ADR-0015](../adr/0015-upstream-sync-procedure.md).

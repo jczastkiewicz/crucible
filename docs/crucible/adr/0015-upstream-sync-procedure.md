@@ -63,7 +63,7 @@ branch.
 | Trigger     | A person, when new cards are wanted or a milestone is about to start                                         |
 | Branch      | `sync/<yyyy-mm-dd>-<upstream-short-sha>`, cut from `master`                                                  |
 | Merge       | `git merge upstream/master`, never a rebase (ADR-0001)                                                       |
-| Landing     | A pull request against `master`, like every other change (REV-2)                                             |
+| Landing     | A pull request against `master` — the one exception to REV-2's direct-to-master default                      |
 | Merge style | **A merge commit. Never squash**                                                                             |
 | No-op       | `git log master..upstream/master` empty means there is nothing to do                                         |
 | Conflict    | Resolved by hand: it means upstream edited one of the six files Crucible owns outside its two reserved paths |
@@ -92,9 +92,10 @@ new corpus, and a cycle count may not.
 ## Consequences
 
 **Good.** The corpus gate finally fires when the corpus changes, which is what ADR-0001 promised and what a `paths:`
-filter scoped to `crucible/**` prevented. A sync is reviewed before it lands, like every other change, and it needs no
-stored credential: a pull request opened by a person triggers CI the way an automated one does not. Syncing before a
-milestone starts, rather than into the middle of one, is the natural rhythm and this makes it the easy one.
+filter scoped to `crucible/**` prevented. A sync stays reviewed before it lands even though day-to-day work no longer is
+(REV-2), and it needs no stored credential: a pull request opened by a person triggers CI the way an automated one does
+not. Syncing before a milestone starts, rather than into the middle of one, is the natural rhythm and this makes it the
+easy one.
 
 **Bad.** It happens only when someone remembers. Upstream lands about 10 commits a day, so a month of forgetting is a
 300-commit diff and a lump of new cards arriving at once — reviewable, but not pleasantly. Nothing warns that a sync is

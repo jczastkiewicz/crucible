@@ -406,11 +406,17 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         this(id0, paperCard0, game0, game0 == null ? null : game0.getTracker());
     }
     public Card(final int id0, final IPaperCard paperCard0, final Game game0, final Tracker tracker0) {
+        this(id0, paperCard0, game0, tracker0, false);
+    }
+    // textFromSource: the caller sets the view's ability text itself, so there is no point computing it
+    public Card(final int id0, final IPaperCard paperCard0, final Game game0, final Tracker tracker0,
+            final boolean textFromSource) {
         super(id0);
 
         game = game0;
         paperCard = paperCard0;
-        view = game0 != null && game0.isNoGUIUser() ? new DummyCardView(id0, tracker0) : new CardView(id0, tracker0);
+        view = textFromSource || (game0 != null && game0.isNoGUIUser())
+                ? new DummyCardView(id0, tracker0) : new CardView(id0, tracker0);
         currentState = new CardState(view.getCurrentState(), this);
         states.put(CardStateName.Original, currentState);
         view.updateChangedColorWords(this);
@@ -3335,19 +3341,27 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return false;
     }
 
-    public final boolean canProduceSameManaTypeWith(final Card c) {
-        if (getManaAbilities().isEmpty()) {
-            return false;
-        }
+    /** Every color this card could produce, walking its mana abilities once. */
+    public final Set<String> getProducibleColors() {
         Set<String> colors = new HashSet<>();
-        for (final SpellAbility ab : c.getManaAbilities()) {
+        for (final SpellAbility ab : getManaAbilities()) {
             if (ab.getApi() == ApiType.ManaReflected) {
                 colors.addAll(CardUtil.getReflectableManaColors(ab));
             } else {
                 colors = CardUtil.canProduce(6, ab, colors);
             }
+            if (colors.size() == MagicColor.Constant.COLORS_AND_COLORLESS.size()) {
+                break; // nothing left for a further ability to add
+            }
         }
-        return canProduceColorMana(colors);
+        return colors;
+    }
+
+    public final boolean canProduceSameManaTypeWith(final Card c) {
+        if (getManaAbilities().isEmpty()) {
+            return false;
+        }
+        return canProduceColorMana(c.getProducibleColors());
     }
 
     public final int getMaxManaProduced() {
@@ -3405,7 +3419,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         if (changedCardTypes.isEmpty()) {
             return false;
         }
-        // only Layer 4 are affected, and it's never intrinsic
+        // CR 305.7 only Layer 4 are affected, and it's never intrinsic
         return changedCardTypes.values().stream().anyMatch(ICardChangedType::isRemoveLandTypes);
     }
 

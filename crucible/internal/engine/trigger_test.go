@@ -96,6 +96,281 @@ func TestCastSpellFiresETBTrigger(t *testing.T) {
 	}
 }
 
+// commonReqTriggerLandDef builds a *compile.Card for a land with a real
+// "when CARDNAME enters" trigger carrying extraParams -- a real
+// CardTraitBase.meetsCommonRequirements param on top of the mode-specific
+// ones every other ETB test already exercises. A land rather than a
+// creature: Game.PlayLand needs no mana cost, so the setup stays about the
+// common-requirements param under test, not about paying for the trigger's
+// own host.
+func commonReqTriggerLandDef(t *testing.T, name, extraParams string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Land")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | " + extraParams + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	raw.Faces[0].SVars.Set("X", "Count$ValidBattlefield Creature.YouCtrl")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestPlayLandFiresETBTriggerWhenIsPresentConditionMet proves
+// triggerCommonRequirementsMet's own IsPresent$/PresentCompare$ block: two
+// creatures already on the battlefield meets IsPresent$ Creature.YouCtrl |
+// PresentCompare$ GE2 (PresentZone$/PresentPlayer$ both absent, so Battlefield
+// and "Any" -- the corpus's own overwhelming default).
+func TestPlayLandFiresETBTriggerWhenIsPresentConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature.YouCtrl | PresentCompare$ GE2"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- two creatures meets IsPresent$ Creature.YouCtrl | PresentCompare$ GE2", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenIsPresentConditionNotMet proves the other
+// direction: one creature does not meet GE2.
+func TestPlayLandSkipsETBTriggerWhenIsPresentConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature.YouCtrl | PresentCompare$ GE2"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- one creature does not meet PresentCompare$ GE2", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandFiresETBTriggerWhenIsPresentMatchesGraveyardZone proves
+// PresentZone$ is read: a card in the graveyard, not the battlefield,
+// still meets IsPresent$ against PresentZone$ Graveyard.
+func TestPlayLandFiresETBTriggerWhenIsPresentMatchesGraveyardZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature | PresentZone$ Graveyard"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- PresentZone$ Graveyard must scan the graveyard, not the battlefield", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenIsPresentNamesPresentDefined proves
+// PresentDefined$ skips the whole line: no Defined$-to-cards resolver
+// exists yet.
+func TestPlayLandSkipsETBTriggerWhenIsPresentNamesPresentDefined(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature | PresentDefined$ Remembered"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- PresentDefined$ is not resolvable, so the whole line must be skipped", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandFiresETBTriggerWhenCheckSVarConditionMet proves
+// triggerCommonRequirementsMet's own CheckSVar$/SVarCompare$ block,
+// resolved through resolveNamedAmount against the land's own SVar:X
+// (Count$ValidBattlefield Creature.YouCtrl, commonReqTriggerLandDef's own
+// SVar): two creatures meets CheckSVar$ X | SVarCompare$ GE2.
+func TestPlayLandFiresETBTriggerWhenCheckSVarConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "CheckSVar$ X | SVarCompare$ GE2"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- two creatures meets CheckSVar$ X | SVarCompare$ GE2", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenCheckSVarConditionNotMet proves the other
+// direction: zero creatures does not meet GE2.
+func TestPlayLandSkipsETBTriggerWhenCheckSVarConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "CheckSVar$ X | SVarCompare$ GE2"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- zero creatures does not meet CheckSVar$ X | SVarCompare$ GE2", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandFiresETBTriggerWhenThresholdFlagMet proves
+// triggerCommonRequirementsMet's own boolean-flag block (boolFlagMatches),
+// reusing continuousConditionMet's own hasThreshold predicate: seven
+// graveyard cards meets Threshold$ True.
+func TestPlayLandFiresETBTriggerWhenThresholdFlagMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	for i := 0; i < 7; i++ {
+		g.NewCard(nil, p, engine.Graveyard)
+	}
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Threshold$ True"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- seven graveyard cards meets Threshold$ True", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenThresholdFlagNotMet proves the other
+// direction: six graveyard cards does not meet Threshold$ True.
+func TestPlayLandSkipsETBTriggerWhenThresholdFlagNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	for i := 0; i < 6; i++ {
+		g.NewCard(nil, p, engine.Graveyard)
+	}
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Threshold$ True"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- six graveyard cards does not meet Threshold$ True", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandFiresETBTriggerWhenLifeTotalConditionMet proves
+// triggerCommonRequirementsMet's own LifeTotal$/LifeAmount$ block: 5 life
+// meets LifeTotal$ You | LifeAmount$ LE5.
+func TestPlayLandFiresETBTriggerWhenLifeTotalConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).Life = 5
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "LifeTotal$ You | LifeAmount$ LE5"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- 5 life meets LifeTotal$ You | LifeAmount$ LE5", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenLifeTotalConditionNotMet proves the other
+// direction: 6 life does not meet LE5.
+func TestPlayLandSkipsETBTriggerWhenLifeTotalConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.Player(p).Life = 6
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "LifeTotal$ You | LifeAmount$ LE5"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- 6 life does not meet LifeTotal$ You | LifeAmount$ LE5", g.Card(top).Zone)
+	}
+}
+
+// TestPlayLandSkipsETBTriggerWhenRevoltIsPresent proves an unresolved
+// common-requirements param (Revolt$ -- no leftBattlefieldThisTurn tracking)
+// skips the whole line rather than treating it as met (GO-7).
+func TestPlayLandSkipsETBTriggerWhenRevoltIsPresent(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Revolt$ True"), p, engine.Hand)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	g.PlayLand(p, land)
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- Revolt$ is not resolvable, so the line must not fire", g.Card(top).Zone)
+	}
+}
+
 // A trigger whose ValidCard does not match the card that entered never
 // pushes anything -- Matches (valid.go) doing its job, the same evaluator
 // every other trigger-adjacent check (state-based actions, enchantSpec)

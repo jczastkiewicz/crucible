@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -81,7 +82,7 @@ func (g *Game) checkETBTriggers(entered CardID) {
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(t); ok {
+				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
 					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub})
 				}
 			}
@@ -139,7 +140,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
 					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
 					}
 				}
@@ -178,7 +179,7 @@ func (g *Game) checkDiesTriggers(left CardID) {
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(t); ok {
+				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
 					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub})
 				}
 			}
@@ -227,7 +228,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !Matches(g, g.Card(left), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub})
 					}
 				}
@@ -307,7 +308,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -419,7 +420,7 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 					if !matchesActivatingPlayer(g, t, activator, h.Controller()) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -507,7 +508,7 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 						!Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -587,7 +588,7 @@ func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) 
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -642,7 +643,7 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(blk Block) {
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -712,7 +713,7 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, 
 						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -741,7 +742,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, a
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -857,7 +858,7 @@ func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
 				if !discardedTriggerMatches(g, t, c, c.Controller(), card, player) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(t); ok {
+				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
 					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub})
 				}
 			}
@@ -887,7 +888,7 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 					if !discardedTriggerMatches(g, t, c, h.Controller(), host, player) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -986,7 +987,7 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -1046,7 +1047,7 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(t); ok {
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 					}
 				}
@@ -1133,7 +1134,7 @@ func (g *Game) checkPhaseTriggers() {
 								continue
 							}
 						}
-						if sub, api, ok := triggerEffectAPI(t); ok {
+						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 						}
 					}
@@ -1340,17 +1341,248 @@ func hasZone(t *compile.Ability, key, zone string) bool {
 	return false
 }
 
+// triggerCommonRequirementsMet is CardTraitBase.meetsCommonRequirements'
+// own general gate, checked before ANY trigger mode's own performTest runs
+// in Java -- every check*Triggers function in this file calls it, through
+// triggerEffectAPI below, the same way every one of them already shares
+// that one choke point for turning a match into a pushed Ability.
+//
+// Resolved (1,148 of the corpus's own ~1,271 real T: lines carrying at
+// least one of these params, tallied directly against T: lines specifically
+// since S:/A: lines carry some of the identical param names for a different
+// switch -- StaticAbility.checkConditions' own Condition$, SpellAbilityCondition's
+// own Condition$/ConditionPresent$, neither this function's concern):
+//   - IsPresent$/PresentCompare$/PresentZone$/PresentPlayer$ and the
+//     identical IsPresent2$/PresentCompare2$/PresentZone2$/PresentPlayer2$
+//     pair (624) -- isPresentMatches, below, ports the zone-scan branch of
+//     CardTraitBase's own block (a PresentDefined$ line, 40 of 624, skips:
+//     no Defined$-to-cards resolver for an arbitrary reference exists in
+//     this port yet, drawDefinedPlayers' own narrow You/Opponent form being
+//     the only Defined$ evaluator built so far, and it resolves players, not
+//     cards).
+//   - CheckSVar$/SVarCompare$ (474) -- checkSVarMatches, below, resolving
+//     both sides through resolveAmount the identical way ptParam already
+//     does for a continuous effect's own numeric params; a line also naming
+//     CheckSecondSVar$ (0 real T: lines today) skips, since Java ORs a
+//     second check against the first and this file has no need to guess at
+//     that shape blind.
+//   - Metalcraft$/Delirium$/Threshold$/Hellbent$/FatefulHour$ as a
+//     True/False flag (38) -- boolFlagMatches, below, reusing
+//     continuousConditionMet's own underlying predicates (item 27's own
+//     Condition$ paragraph): the identical player-state question, asked as
+//     a flag here rather than as the whole condition.
+//   - LifeTotal$ You/ActivePlayer with LifeAmount$ (12) -- lifeTotalMatches,
+//     below; OpponentSmallest/OpponentGreatest (0 real T: lines) skip, no
+//     multi-opponent life-total query built for triggers.
+//
+// Not resolved, each skipped whole rather than treated as met (GO-7):
+// Revolt$ (25, Game.leftBattlefieldThisTurn tracks nothing for triggers to
+// read); WerewolfTransformCondition$/WerewolfUntransformCondition$ (65,
+// Innistrad's own day/night mechanic, a "spells cast last turn" list this
+// port tracks nowhere); CheckDefinedPlayer$ (20, every real line qualifies
+// it with isMonarch/hasInitiative/withMostLife/withMostType -- a mechanic
+// this port has no state for, not a shape a general Defined$-to-players
+// resolver could close on its own); ManaSpent$/ManaNotSpent$ (8, no
+// paying-colors-by-cast tracked); Adamant$ (1); Bloodthirst$/Monarch$/
+// EnduringStory$/DayTime$/ClassLevel$ (0 real T: lines each, dormant).
+func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
+	for _, key := range [...]string{
+		"Revolt", "WerewolfTransformCondition", "WerewolfUntransformCondition",
+		"CheckDefinedPlayer", "ManaSpent", "ManaNotSpent", "Adamant",
+		"Bloodthirst", "Monarch", "EnduringStory", "DayTime", "ClassLevel",
+	} {
+		if _, ok := t.Param(key); ok {
+			return false
+		}
+	}
+	if !isPresentMatches(g, host, amounts, t, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "PresentPlayer") {
+		return false
+	}
+	if !isPresentMatches(g, host, amounts, t, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2", "PresentPlayer2") {
+		return false
+	}
+	if !checkSVarMatches(g, host, amounts, t) {
+		return false
+	}
+	if !boolFlagMatches(t, "Metalcraft", func() bool { return battlefieldArtifactCount(g, host.Controller()) >= 3 }) {
+		return false
+	}
+	if !boolFlagMatches(t, "Delirium", func() bool { return graveyardCoreTypeCount(g, host.Controller()) >= 4 }) {
+		return false
+	}
+	if !boolFlagMatches(t, "Threshold", func() bool { return len(g.Zone(Graveyard, host.Controller()).Cards()) >= 7 }) {
+		return false
+	}
+	if !boolFlagMatches(t, "Hellbent", func() bool { return len(g.Zone(Hand, host.Controller()).Cards()) == 0 }) {
+		return false
+	}
+	if !boolFlagMatches(t, "FatefulHour", func() bool { return g.Player(host.Controller()).Life <= 5 }) {
+		return false
+	}
+	if !lifeTotalMatches(g, host, amounts, t) {
+		return false
+	}
+	return true
+}
+
+// isPresentMatches is CardTraitBase's own IsPresent$/PresentCompare$/
+// PresentDefined$/PresentZone$/PresentPlayer$ block (isKey absent from t
+// entirely is a pass, the identical "no restriction" contract every other
+// optional gate in this port already has). PresentZone$ defaults to
+// Battlefield, a comma list otherwise (ZoneByName per entry, an
+// unrecognized name skips rather than guesses); PresentPlayer$ is "You"
+// (host's own controller only), anything else -- "Any", the corpus's own
+// overwhelming default, or absent -- every player, Java's own three
+// additive You/Opponent/Allies blocks collapsed to the one partition they
+// produce for a single-valued param. PresentDefined$ skips the whole line:
+// no Defined$-to-cards resolver exists for an arbitrary reference yet.
+func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, isKey, compareKey, definedKey, zoneKey, playerKey string) bool {
+	spec, ok := t.Param(isKey)
+	if !ok {
+		return true
+	}
+	if _, ok := t.Param(definedKey); ok {
+		return false
+	}
+	var zones []ZoneType
+	if zoneList, ok := t.Param(zoneKey); ok {
+		for _, name := range strings.Split(zoneList, ",") {
+			z, ok := ZoneByName(name)
+			if !ok {
+				return false
+			}
+			zones = append(zones, z)
+		}
+	} else {
+		zones = []ZoneType{Battlefield}
+	}
+	onlyYou := false
+	if player, ok := t.Param(playerKey); ok {
+		onlyYou = strings.EqualFold(player, "You")
+	}
+	var candidates []CardID
+	for _, pid := range g.Players() {
+		if onlyYou && pid != host.Controller() {
+			continue
+		}
+		for _, z := range zones {
+			candidates = append(candidates, g.Zone(z, pid).Cards()...)
+		}
+	}
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, id := range candidates {
+		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			n++
+		}
+	}
+	compare, ok := t.Param(compareKey)
+	if !ok {
+		compare = "GE1"
+	}
+	if len(compare) < 3 {
+		return false
+	}
+	right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
+	if !ok {
+		return false
+	}
+	return compareOp(n, compare[:2], right)
+}
+
+// checkSVarMatches is CardTraitBase's own CheckSVar$/SVarCompare$ block,
+// both sides resolved through resolveNamedAmount (ptParam's own shape,
+// continuous.go, factored out once this needed the identical
+// literal-or-named-SVar resolution against a *Card rather than a
+// *compile.Ability's own param).
+func checkSVarMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
+	checkSVar, ok := t.Param("CheckSVar")
+	if !ok {
+		return true
+	}
+	if _, ok := t.Param("CheckSecondSVar"); ok {
+		return false
+	}
+	left, ok := resolveNamedAmount(g, amounts, host, checkSVar)
+	if !ok {
+		return false
+	}
+	compare, ok := t.Param("SVarCompare")
+	if !ok {
+		compare = "GE1"
+	}
+	if len(compare) < 3 {
+		return false
+	}
+	right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
+	if !ok {
+		return false
+	}
+	return compareOp(left, compare[:2], right)
+}
+
+// boolFlagMatches is CardTraitBase's own repeated
+// `"True".equalsIgnoreCase(params.get(key)) != predicate()` shape: key
+// absent is a pass, key present compares its True/False value against
+// has(), Threshold$ False meaning "must NOT have threshold" as much a real
+// line as Threshold$ True.
+func boolFlagMatches(t *compile.Ability, key string, has func() bool) bool {
+	v, ok := t.Param(key)
+	if !ok {
+		return true
+	}
+	return strings.EqualFold(v, "True") == has()
+}
+
+// lifeTotalMatches is CardTraitBase's own LifeTotal$/LifeAmount$ block, the
+// two real corpus values on a T: line: "You" (host's own controller) and
+// "ActivePlayer" (Game.ActivePlayer()) -- OpponentSmallest/OpponentGreatest
+// carry no real T: line and are not resolved.
+func lifeTotalMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
+	player, ok := t.Param("LifeTotal")
+	if !ok {
+		return true
+	}
+	var life int
+	switch player {
+	case "You":
+		life = g.Player(host.Controller()).Life
+	case "ActivePlayer":
+		life = g.Player(g.ActivePlayer()).Life
+	default:
+		return false
+	}
+	compare, ok := t.Param("LifeAmount")
+	if !ok {
+		compare = "GE1"
+	}
+	if len(compare) < 3 {
+		return false
+	}
+	right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
+	if !ok {
+		return false
+	}
+	return compareOp(life, compare[:2], right)
+}
+
 // triggerEffectAPI is a trigger's own Execute$ sub-ability -- the "DB$ <API>"
 // record its SVar compiled into -- and the APIType that record's own Name
 // names (compile.Ability's own Name field, the API for a Spell/DB record).
 // The returned *compile.Ability is what Ability.Params carries onto the
 // stack: an Effect's own Resolve reads Defined$/NumCards$/whatever else it
-// needs straight off it (drawEffect, draweffect.go, is the first). Reports
-// false for a trigger with no Execute key at all, or one naming an API
-// string ApiType.java does not have (APIByName's own exact-match contract)
-// -- neither is reachable against the real corpus today, but a card cannot
-// be trusted not to be the first (PORT-8).
-func triggerEffectAPI(t *compile.Ability) (*compile.Ability, APIType, bool) {
+// needs straight off it (drawEffect, draweffect.go, is the first). Also
+// checks triggerCommonRequirementsMet (above) -- the one gate every trigger
+// mode shares, Java's own check before any mode-specific performTest runs at
+// all, folded in here rather than duplicated at all eighteen call sites.
+// Reports false for a trigger with no Execute key at all, or one naming an
+// API string ApiType.java does not have (APIByName's own exact-match
+// contract) -- neither is reachable against the real corpus today, but a
+// card cannot be trusted not to be the first (PORT-8).
+func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) (*compile.Ability, APIType, bool) {
+	if !triggerCommonRequirementsMet(g, host, amounts, t) {
+		return nil, 0, false
+	}
 	for _, sub := range t.Subs {
 		if !strings.EqualFold(sub.Key, "Execute") {
 			continue
@@ -1433,7 +1665,7 @@ func (g *Game) checkAttackersDeclaredTrigger() {
 								continue
 							}
 						}
-						if sub, api, ok := triggerEffectAPI(t); ok {
+						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 						}
 					}
@@ -1613,7 +1845,7 @@ func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
 								continue
 							}
 						}
-						if sub, api, ok := triggerEffectAPI(t); ok {
+						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
 						}
 					}

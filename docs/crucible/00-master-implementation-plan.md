@@ -827,6 +827,53 @@ printed form.
     valid-string parse that would silently match no card and never fire, for a reason unrelated to the actual gap.
     `Mode$ AttackerBlockedOnce` (3 real lines, a once-per-turn variant neither Java class above is) is not built at all.
 
+    **`CardTraitBase.meetsCommonRequirements` — the one gate Java checks before ANY trigger mode's own `performTest`
+    runs — is real now too.** Every check-triggers function in this file used to ignore it entirely: a real card naming
+    `IsPresent$`/`CheckSVar$`/etc alongside an already-resolved mode (`Mode$ ChangesZone`, `Attacks`, whatever) fired
+    unconditionally, the gate silently never checked. A corpus tally directly against `T:` lines (some of these param
+    names are shared with a different switch on `S:`/`A:` lines — `StaticAbility.checkConditions`'s own `Condition$`,
+    item 27's own paragraph; `SpellAbilityCondition`'s own `Condition$`/`ConditionPresent$` — neither this gate's
+    concern) puts it at ~1,271 real lines. `triggerCommonRequirementsMet` (trigger.go) is called from inside
+    `triggerEffectAPI` itself rather than duplicated at each of the eighteen check-triggers call sites, since every one
+    of them already funnels through that one function to turn a match into a pushed `Ability` — `triggerEffectAPI`
+    gained `g`/`host`/`amounts` params for it, threading `face.Amounts` through from the identical loop every caller
+    already has it in.
+
+    Resolved (1,148 of ~1,271): `IsPresent$`/`PresentCompare$`/`PresentZone$`/`PresentPlayer$` and the identical
+    `IsPresent2$` pair (624) — `isPresentMatches` ports the zone-scan branch (`PresentZone$` a comma list defaulting to
+    Battlefield, `ZoneByName` per entry; `PresentPlayer$` "You" — host's own controller only — or the corpus's own
+    default "Any" — every player, Java's own three additive You/Opponent/Allies blocks collapsed to the one partition a
+    single-valued param actually produces); `PresentDefined$` (40 of 624) skips, no Defined$-to-cards resolver for an
+    arbitrary reference existing yet.
+
+    `CheckSVar$`/`SVarCompare$` (474) — `checkSVarMatches`, both sides resolved through a new `resolveNamedAmount`
+    (amount.go) — `ptParam`'s own literal-or-named-SVar shape (continuous.go), factored out once this needed the
+    identical resolution against a `*Card` rather than one specific `*compile.Ability` param; `ptParam` itself is now a
+    two-line wrapper over it. A line also naming `CheckSecondSVar$` (0 real `T:` lines today) skips: Java ORs a second
+    check against the first and nothing forces guessing at that shape blind.
+
+    `Metalcraft$`/`Delirium$`/`Threshold$`/`Hellbent$`/`FatefulHour$` as a `True`/`False` flag (38) — `boolFlagMatches`,
+    reusing `continuousConditionMet`'s own underlying predicates (item 27's own `Condition$` paragraph) — the identical
+    player-state question, asked as a flag rather than as the whole condition.
+    `battlefieldArtifactCount`/`graveyardCoreTypeCount` moved out of continuous.go into a new `playerstate.go`: once
+    trigger.go needed them too, leaving them in continuous.go would have made `continuous`→`trigger` (for
+    `resolveNamedAmount`) and `trigger`→`continuous` (for these two) a real dependency cycle, `tools/enginelint`'s own
+    acyclic-parts rule catching it immediately.
+
+    `LifeTotal$`/`LifeAmount$` (12) — `lifeTotalMatches`, `"You"` (host's own controller) and `"ActivePlayer"`
+    (`Game.ActivePlayer()`), the only two real `T:` values; `OpponentSmallest`/`OpponentGreatest` carry none and are not
+    resolved.
+
+    Not resolved, each skipped whole rather than treated as met (GO-7): `Revolt$` (25, no
+    `Game.leftBattlefieldThisTurn`-equivalent tracked); `WerewolfTransformCondition$`/`WerewolfUntransformCondition$`
+    (65, Innistrad's own day/night mechanic, a "spells cast last turn" list this port tracks nowhere);
+    `CheckDefinedPlayer$` (20, every real line qualifies it with `isMonarch`, `hasInitiative`, `withMostLife` or
+    `withMostType` — mechanics this port has none of, not a shape a general Defined$-to-players resolver could close on
+    its own).
+
+    `ManaSpent$`/`ManaNotSpent$` (8, no paying-colors-by-cast tracked); `Adamant$` (1); `Bloodthirst$`, `Monarch$`,
+    `EnduringStory$`, `DayTime$` and `ClassLevel$` (0 real `T:` lines each, dormant).
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

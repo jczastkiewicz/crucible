@@ -17,7 +17,6 @@
 package engine
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -73,31 +72,6 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 	default:
 		return false
 	}
-}
-
-// battlefieldArtifactCount is Metalcraft's own CardLists.count(..., ARTIFACTS)
-// -- every battlefield permanent controller controls whose current (Layer
-// 4-folded) type line carries Artifact.
-func battlefieldArtifactCount(g *Game, controller PlayerID) int {
-	n := 0
-	for _, id := range g.Zone(Battlefield, controller).Cards() {
-		if g.Card(id).Type().Has(cardtype.Artifact) {
-			n++
-		}
-	}
-	return n
-}
-
-// graveyardCoreTypeCount is Delirium's own countCardTypesFromList(graveyard,
-// false) -- the count of distinct core types (not supertypes, not subtypes)
-// across every card in controller's own graveyard, each card's current type
-// line unioned into one running Line rather than counted per card.
-func graveyardCoreTypeCount(g *Game, controller PlayerID) int {
-	var seen cardtype.Line
-	for _, id := range g.Zone(Graveyard, controller).Cards() {
-		seen = seen.Union(g.Card(id).Type())
-	}
-	return len(seen.CoreTypes())
 }
 
 // applyContinuousPT recomputes every battlefield permanent's own Layer
@@ -612,12 +586,13 @@ func keywordTokens(s *compile.Ability, key string) ([]string, bool) {
 	return tokens, true
 }
 
-// ptParam reads key as a plain base-10 integer (optionally negative) --
+// ptParam reads key, then resolves it the same way resolveNamedAmount
+// (trigger.go) does: a plain base-10 integer (optionally negative) --
 // AddPower$/AddToughness$/SetPower$/SetToughness$'s own corpus-frequent
-// shape -- or, failing that, as the name of an SVar amounts defines (Java's
-// own `ctb.getSVar(n)` lookup, xCount), resolved via resolveAmount
-// (amount.go). Reports false for a missing key, or a value that is neither
-// a plain integer nor a name amounts resolves (a genuinely dynamic value --
+// shape -- or, failing that, the name of an SVar amounts defines (Java's own
+// `ctb.getSVar(n)` lookup, xCount), resolved via resolveAmount (amount.go).
+// Reports false for a missing key, or a value that is neither a plain
+// integer nor a name amounts resolves (a genuinely dynamic value --
 // AffectedX, ChosenNumber, xPaid, ... -- resolveAmount's own doc comment has
 // the full account) -- the same "not resolvable, coverage gap rather than a
 // wrong answer" contract compareMatches (valid.go) already documents.
@@ -626,14 +601,7 @@ func ptParam(g *Game, amounts map[string]expr.Amount, host *Card, s *compile.Abi
 	if !ok {
 		return 0, false
 	}
-	if n, err := strconv.Atoi(v); err == nil {
-		return n, true
-	}
-	amt, ok := amounts[strings.ToLower(v)]
-	if !ok {
-		return 0, false
-	}
-	return resolveAmount(g, amounts, host.Controller(), host.ID, amt)
+	return resolveNamedAmount(g, amounts, host, v)
 }
 
 // applyContinuousRules recomputes every player's own Layer 8 RulesEffects

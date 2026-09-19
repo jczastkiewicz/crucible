@@ -42,7 +42,8 @@
     "draweffect": ["draweffect.go"],
     "continuous": ["continuous.go"],
     "amount": ["amount.go"],
-    "replacement": ["replacement.go"]
+    "replacement": ["replacement.go"],
+    "playerstate": ["playerstate.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -100,10 +101,26 @@
       "staticability",
       "replacement"
     ],
-    "trigger": ["id", "zone", "card", "game", "player", "parts", "ability", "valid", "stack", "combat", "phase", "control"],
+    "trigger": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "player",
+      "parts",
+      "ability",
+      "valid",
+      "stack",
+      "combat",
+      "phase",
+      "control",
+      "amount",
+      "playerstate"
+    ],
     "draweffect": ["id", "game", "player", "ability", "turn"],
-    "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount"],
+    "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount", "playerstate"],
     "amount": ["id", "zone", "card", "game", "valid"],
-    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability"]
+    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability"],
+    "playerstate": ["id", "zone", "card", "game"]
   }
 }

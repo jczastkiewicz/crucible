@@ -12,6 +12,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -166,4 +167,22 @@ func countValid(g *Game, zones []ZoneType, spec valid.Spec, sourceController Pla
 		}
 	}
 	return n
+}
+
+// resolveNamedAmount is AbilityUtils.calculateAmount's own two cases: a
+// plain base-10 integer, or the name of an SVar amounts defines, resolved
+// via resolveAmount above. Shared by ptParam (continuous.go, a continuous
+// effect's own numeric params) and trigger.go's own
+// triggerCommonRequirementsMet (CheckSVar$'s own value, and both halves of
+// every *Compare$ operand there) -- neither owns this outright, so it lives
+// here alongside resolveAmount itself rather than in either.
+func resolveNamedAmount(g *Game, amounts map[string]expr.Amount, host *Card, value string) (int, bool) {
+	if n, err := strconv.Atoi(value); err == nil {
+		return n, true
+	}
+	amt, ok := amounts[strings.ToLower(value)]
+	if !ok {
+		return 0, false
+	}
+	return resolveAmount(g, amounts, host.Controller(), host.ID, amt)
 }

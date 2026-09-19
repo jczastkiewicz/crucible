@@ -210,53 +210,63 @@ group gathered, `ValidBlocker$`/`ValidBlockerAmount$` counted via a new `validCa
 `checkAttackerBlockedByCreatureTriggers` (`Mode$ AttackerBlockedByCreature`, 102 real lines, `checkBlocksTriggers`'s own
 exact mirror image — `ValidCard$` against the attacker, `ValidBlocker$` against one blocker, fired per Block the
 identical per-pair granularity `checkBlocksTriggers` already has), both called from `DeclareCombatBlockers` (block.go)
-alongside it. `matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player` dispatch several of those modes
-now reuse; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk,
-Protection, Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption
-(`staticability.go`) — three slices of the general static-ability engine PORT-8 requires reading Java's own mechanism
-for rather than hardcoding a keyword check; and four layers of the engine's biggest piece, `Mode$ Continuous` itself
-(`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own `Affected$`-matched, plain-integer power/toughness
-lines (anthem effects, equipment bonuses); `applyContinuousType` resolves Layer 4's own `AddType$`/`RemoveType$` lines
-naming only literal type words; `applyContinuousColor` resolves Layer 5's own `AddColor$`/`SetColor$` lines naming a
-literal color, `All` or `Colorless`; `applyContinuousKeyword` resolves Layer 6's own `AddKeyword$` lines naming only
-literal keyword lines (no dynamic value, no `RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$`
-combo) — the single largest real slice of the four (1,556 of 1,857 real lines), folded through a new `KeywordMod`
-(`keywordmod.go`) `Card.HasKeyword` now reads, reaching every existing keyword-driven check (`cantBlockByKeywords`,
-combat's own first-strike/trample reads) for free — all four layers recomputed fresh every `CheckStateBasedActions` pass
-rather than pushed once, `pt.go`'s own folding mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go`
-counterparts' first real callers. `cardtype.Line` gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without
-a `*cardtype.Registry` this port still does not inject into the engine (`ParseToken`'s own doc comment); Landwalk's own
-`ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`), a `Player`, not a
-`Card`, matched the same way `SpellCast`'s own `ValidActivatingPlayer` is; Protection's own CantBlockBy restriction
-(`protectionValid`, `staticability.go`) is built per card from the keyword's own argument the identical way Landwalk's
-is, both real corpus shapes (the natural-language "Protection from red" and the colon-structured "Protection:Artifact")
-resolving through the existing valid-string evaluator with no new property needed; `Blocks`'s own `ValidBlocked$` is
-checked against the declared attacker directly, the per-pair granularity `checkBlocksTriggers` already has standing in
-for Java's own full-attacker-collection match; and `matchesPlayerSpec`/`matchesPlayerProperty` (`valid.go`) extend
-`matchesPlayerBase` with the one dotted-property layer (`Active`/`NonActive`/`Other`, `Game.ActivePlayer()`) real corpus
-lines put on top of it, closing 19 of `SpellCast`'s own 25 qualified `ValidActivatingPlayer$` lines plus `DamageDone`'s
-own qualified `ValidTarget$` and `TapsForMana`'s own qualified `Activator$`. A new `compile.Face.Amounts` (compile.go)
-parses every non-ability SVar a face defines (`internal/expr`) at compile time, and a new `resolveAmount` (`amount.go`)
-evaluates the one family of it this port's own `Matches` already can, `Count$Valid[<Zone>...] <spec>` — 2,804 of the
-corpus's 6,186 real `Count$` expressions — closing `ptParam`'s own
-dynamic-`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` gap for that shape and, with it, Layer 7a itself:
-`applyOneCharacteristicDefiningPT` (`continuous.go`) resolves a `CharacteristicDefining$ True` line's own
-`SetPower$`/`SetToughness$` and applies the result to its host alone, at `LayerCharacteristic` — a layer `PTEffect`'s
-own folding already carried, unused until now. Skulk's own `ValidBlocker$ Creature.powerGTX` closes block legality's
-last `CantBlockBy` gap: `skulkBlocks` (`staticability.go`) reads Java's own hardcoded `X` (`Count$CardPower` against the
-ability's own host, always the attacker) as a direct `Power()` comparison rather than a `Compare`/SVar question at all,
-the same hardcoded-comparison shape `menaceLegal` already has for Menace. `hostRefusesEnchant` (`staticability.go`)
-closes the "cleanup aura" rule's own Protection/bare Hexproof gap — reusing `protectionValid` against the aura itself
-rather than a candidate blocker, plus bare Hexproof's own unconditional "any opponent" form — checked both when an Aura
-is cast (`enchantTargets`, `castspell.go`) and on every ongoing SBA pass (`cleanupDanglingAttachments`, `action.go`);
-building it surfaced a real, separate gap (`protectionValid`/`landwalkType` read only a card's PRINTED keywords, missing
-one a continuous effect grants), closed by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. A
-qualified Hexproof (`Hexproof:Black`, `Hexproof:Enchantment`, ...) resolves too now — `hexproofValidSource`
-(`staticability.go`) ports `KeywordWithType.parse`'s own bare-color-word case (`Black` becomes `Card.Black` before it
-ever reaches `Matches`, since a bare color name is not itself a recognized valid-string base) alongside its bare-type
-fallthrough (`Enchantment` stays as-is, an ordinary type check); the ability-source shape (`Hexproof:Triggered`,
-`Hexproof:Activated`, `ValidSA$` in Java) still refuses rather than resolves, since `Matches` never evaluates a
-`SpellAbility`. `Attacks`'s own `Alone$`, `DefendingPlayerPoisoned$` and `AttackDifferentPlayers$` all resolve now too —
+alongside it. `CardTraitBase.meetsCommonRequirements` — Java's own general gate checked before ANY trigger mode's own
+`performTest` runs — is real now too, closing 1,148 of ~1,271 real T: lines carrying at least one of its params, folded
+into `triggerEffectAPI` itself (`trigger.go`) rather than duplicated at all eighteen check-triggers call sites:
+`IsPresent$`/`PresentCompare$`/`PresentZone$`/`PresentPlayer$` and the identical `IsPresent2$` pair (624, a zone-scan
+`Matches` count, `PresentDefined$` unresolved); `CheckSVar$`/`SVarCompare$` (474, both sides through a new
+`resolveNamedAmount`, `amount.go`, `ptParam`'s own shape now shared); `Metalcraft$`/`Delirium$`/`Threshold$`/
+`Hellbent$`/`FatefulHour$` as a True/False flag (38, reusing `continuousConditionMet`'s own predicates, moved to a new
+`playerstate.go` so neither file owns them); `LifeTotal$`/`LifeAmount$` (12). `Revolt$`/`WerewolfTransformCondition$`/
+`WerewolfUntransformCondition$`/`CheckDefinedPlayer$`/`ManaSpent$`/`ManaNotSpent$` (118) stay unresolved, each its own
+untracked mechanic. `matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player` dispatch several of those
+modes now reuse; block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate,
+Landwalk, Protection, Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule`
+exemption (`staticability.go`) — three slices of the general static-ability engine PORT-8 requires reading Java's own
+mechanism for rather than hardcoding a keyword check; and four layers of the engine's biggest piece, `Mode$ Continuous`
+itself (`continuous.go`) — `applyContinuousPT` resolves Layer 7b/7c's own `Affected$`-matched, plain-integer
+power/toughness lines (anthem effects, equipment bonuses); `applyContinuousType` resolves Layer 4's own
+`AddType$`/`RemoveType$` lines naming only literal type words; `applyContinuousColor` resolves Layer 5's own
+`AddColor$`/`SetColor$` lines naming a literal color, `All` or `Colorless`; `applyContinuousKeyword` resolves Layer 6's
+own `AddKeyword$` lines naming only literal keyword lines (no dynamic value, no
+`RemoveKeyword$`/`RemoveAllAbilities$`/`SharedKeywords$`/`FromDraftNotes$` combo) — the single largest real slice of the
+four (1,556 of 1,857 real lines), folded through a new `KeywordMod` (`keywordmod.go`) `Card.HasKeyword` now reads,
+reaching every existing keyword-driven check (`cantBlockByKeywords`, combat's own first-strike/trample reads) for free —
+all four layers recomputed fresh every `CheckStateBasedActions` pass rather than pushed once, `pt.go`'s own folding
+mechanism and its new `typemod.go`/`colormod.go`/`keywordmod.go` counterparts' first real callers. `cardtype.Line`
+gained `ParseToken`/`Union`/`Without` to make Layer 4 possible without a `*cardtype.Registry` this port still does not
+inject into the engine (`ParseToken`'s own doc comment); Landwalk's own `ValidDefender$ Player.controls<Type>` needed a
+new `matchesValidDefender` (`staticability.go`), a `Player`, not a `Card`, matched the same way `SpellCast`'s own
+`ValidActivatingPlayer` is; Protection's own CantBlockBy restriction (`protectionValid`, `staticability.go`) is built
+per card from the keyword's own argument the identical way Landwalk's is, both real corpus shapes (the natural-language
+"Protection from red" and the colon-structured "Protection:Artifact") resolving through the existing valid-string
+evaluator with no new property needed; `Blocks`'s own `ValidBlocked$` is checked against the declared attacker directly,
+the per-pair granularity `checkBlocksTriggers` already has standing in for Java's own full-attacker-collection match;
+and `matchesPlayerSpec`/`matchesPlayerProperty` (`valid.go`) extend `matchesPlayerBase` with the one dotted-property
+layer (`Active`/`NonActive`/`Other`, `Game.ActivePlayer()`) real corpus lines put on top of it, closing 19 of
+`SpellCast`'s own 25 qualified `ValidActivatingPlayer$` lines plus `DamageDone`'s own qualified `ValidTarget$` and
+`TapsForMana`'s own qualified `Activator$`. A new `compile.Face.Amounts` (compile.go) parses every non-ability SVar a
+face defines (`internal/expr`) at compile time, and a new `resolveAmount` (`amount.go`) evaluates the one family of it
+this port's own `Matches` already can, `Count$Valid[<Zone>...] <spec>` — 2,804 of the corpus's 6,186 real `Count$`
+expressions — closing `ptParam`'s own dynamic-`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` gap for that shape
+and, with it, Layer 7a itself: `applyOneCharacteristicDefiningPT` (`continuous.go`) resolves a
+`CharacteristicDefining$ True` line's own `SetPower$`/`SetToughness$` and applies the result to its host alone, at
+`LayerCharacteristic` — a layer `PTEffect`'s own folding already carried, unused until now. Skulk's own
+`ValidBlocker$ Creature.powerGTX` closes block legality's last `CantBlockBy` gap: `skulkBlocks` (`staticability.go`)
+reads Java's own hardcoded `X` (`Count$CardPower` against the ability's own host, always the attacker) as a direct
+`Power()` comparison rather than a `Compare`/SVar question at all, the same hardcoded-comparison shape `menaceLegal`
+already has for Menace. `hostRefusesEnchant` (`staticability.go`) closes the "cleanup aura" rule's own Protection/bare
+Hexproof gap — reusing `protectionValid` against the aura itself rather than a candidate blocker, plus bare Hexproof's
+own unconditional "any opponent" form — checked both when an Aura is cast (`enchantTargets`, `castspell.go`) and on
+every ongoing SBA pass (`cleanupDanglingAttachments`, `action.go`); building it surfaced a real, separate gap
+(`protectionValid`/`landwalkType` read only a card's PRINTED keywords, missing one a continuous effect grants), closed
+by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. A qualified Hexproof (`Hexproof:Black`,
+`Hexproof:Enchantment`, ...) resolves too now — `hexproofValidSource` (`staticability.go`) ports
+`KeywordWithType.parse`'s own bare-color-word case (`Black` becomes `Card.Black` before it ever reaches `Matches`, since
+a bare color name is not itself a recognized valid-string base) alongside its bare-type fallthrough (`Enchantment` stays
+as-is, an ordinary type check); the ability-source shape (`Hexproof:Triggered`, `Hexproof:Activated`, `ValidSA$` in
+Java) still refuses rather than resolves, since `Matches` never evaluates a `SpellAbility`. `Attacks`'s own `Alone$`,
+`DefendingPlayerPoisoned$` and `AttackDifferentPlayers$` all resolve now too —
 `attacksOtherCount`/`attacksMultiplePlayers` (`trigger.go`) read `Combat.Attackers`/`Combat.AttackTargets` (combat.go,
 attack.go) the same way `CombatUtil.checkDeclaredAttacker`'s own `AbilityKey.OtherAttackers`/`Defenders` do, and
 `DefendingPlayerPoisoned$` reads `defenderOf(attacker)`'s own `Counters.Count(Poison)` directly. `DamageDone`'s own

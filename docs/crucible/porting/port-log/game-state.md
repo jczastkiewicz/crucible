@@ -1907,6 +1907,81 @@ two via a real two-blocker gang block;
 `TestDeclareCombatBlockersFiresAttackerBlockedByCreatureTriggerOncePerBlocker` prove `AttackerBlockedByCreature`, the
 last proving the per-pair granularity directly: two matching blockers draw two cards, not one.
 
+### `CardTraitBase.meetsCommonRequirements`: the one gate every trigger mode shares
+
+Every check-triggers function above shares one blind spot: `Trigger.java`'s own `performTest` never runs at all unless
+`meetsCommonRequirements` passes first (CardTraitBase.java, `## Layer 7, Layer 4...` above already ports its
+`IsPresent$`/`Condition$` cousins for static abilities), and until now this port checked none of it for a trigger -- a
+real card naming `IsPresent$`/`CheckSVar$`/`Threshold$`/whatever alongside an already-resolved mode fired
+unconditionally, the gate silently never consulted. A corpus tally directly against `T:` lines (grepping the bare param
+name catches some `S:`/`A:` lines too, a different switch on the identical name -- `StaticAbility. checkConditions`'s
+own `Condition$`, `SpellAbilityCondition`'s own `Condition$`/`ConditionPresent$`, neither this gate's problem) puts
+every param `meetsCommonRequirements` reads at ~1,271 real `T:` lines.
+
+`triggerCommonRequirementsMet` (trigger.go, new) closes 1,148 of them. It is called from inside `triggerEffectAPI`
+itself, not duplicated at each of the eighteen check-triggers call sites: every one of them already funnels its own
+match through that one function to turn it into a pushed `Ability`, so `triggerEffectAPI` gaining `g`/`host`/`amounts`
+parameters (threaded from the identical `for _, face := range h.Def.Faces { for _, t := range face.Triggers {` loop
+every caller already has `face.Amounts` inside) reaches every mode for free. The eighteen call sites themselves needed
+only their own argument list updated -- `triggerEffectAPI(t)` to `triggerEffectAPI(g, h, face.Amounts, t)` (or `c`/`w`
+in the two own/other split functions still walking a bare `*Card` rather than a `host` id) -- nothing about their own
+matching logic changed.
+
+`isPresentMatches` ports `IsPresent$`/`PresentCompare$`/`PresentZone$`/`PresentPlayer$` (624 of ~1,271, and the
+identical `IsPresent2$` pair counted with it) -- `PresentZone$` a comma list defaulting to `Battlefield`, `ZoneByName`
+per entry; `PresentPlayer$` `"You"` (host's own controller only) or the corpus's own default `"Any"` (every player --
+Java's own three additive You/Opponent/Allies blocks collapsed to the one partition a single-valued param actually
+produces, since a real line is never all three sources at once); the counted set run through `Matches` the identical way
+every other valid-string check in this port already is. `PresentDefined$` (40 of 624) skips: no
+Defined$-to-cards resolver for an arbitrary reference exists yet, `drawDefinedPlayers`' own narrow You/Opponent form
+(draweffect.go) being the only `Defined$`
+evaluator built so far, and it resolves players, not cards.
+
+`checkSVarMatches` ports `CheckSVar$`/`SVarCompare$` (474) -- both sides resolved through a new `resolveNamedAmount`
+(amount.go): `ptParam`'s own literal-or-named-SVar shape (continuous.go), factored out once this needed the identical
+resolution against a `*Card` rather than reading one specific `*compile.Ability` param directly; `ptParam` itself is now
+a two-line wrapper calling it. A line also naming `CheckSecondSVar$` (0 real `T:` lines today) skips outright -- Java
+ORs a second check against the first (the identical "secondCheck" shape `SpellAbilityCondition.areMet` already has for
+its own `ConditionCheckSVar$`/`OrOtherConditionSVarCompare$` pair), and nothing forces guessing at that shape blind when
+the real corpus does not exercise it.
+
+`boolFlagMatches` ports the six-times-repeated `"True".equalsIgnoreCase(params.get(key)) != predicate()` shape for
+`Metalcraft$`/`Delirium$`/`Threshold$`/`Hellbent$`/ `FatefulHour$` (38 combined) -- reusing `continuousConditionMet`'s
+own underlying predicates (`## Condition$: the one gate all six appliers share`, above): the identical player-state
+question, asked here as an explicit flag (`Threshold$ False` meaning "must NOT have threshold" is as real a line as
+`Threshold$ True`) rather than as the whole condition the way a static ability's own `Condition$ Threshold` is. Moving
+them mattered structurally, not just for reuse: `battlefieldArtifactCount`/`graveyardCoreTypeCount` lived in
+continuous.go, and leaving them there while `resolveNamedAmount` needed to serve both `ptParam` (continuous.go) and
+`triggerCommonRequirementsMet` (trigger.go) would have made `continuous`→`trigger` and `trigger`→`continuous` both real
+edges -- a dependency cycle `tools/enginelint`'s own acyclic-parts rule (ADR-0003's own premise, `javacycles` at the
+Java-package level, this tool's own equivalent inside `internal/engine`) catches immediately, not a false positive the
+way `ControlEffect`'s own `Player`-named field or `compile.Ability`'s own textual collision with `ability.go`'s
+`Ability` were (`## Layer 7...`/`## Replacement effects` above, both). Both functions moved to a new `playerstate.go`
+(its own `enginelint.json` group, depending on nothing either `continuous` or `trigger` themselves provide), and
+`resolveNamedAmount` moved to amount.go, next to `resolveAmount` itself -- neither shared function belongs to just one
+caller, so neither stayed in either caller's own file.
+
+`lifeTotalMatches` ports `LifeTotal$`/`LifeAmount$` (12) -- `"You"` (`g.Player(host.Controller()).Life`) and
+`"ActivePlayer"` (`g.Player(g.ActivePlayer()).Life`), the corpus's own two real `T:` values;
+`OpponentSmallest`/`OpponentGreatest` carry none and stay unresolved.
+
+Not resolved, each skipped whole rather than treated as met (GO-7, the identical "cannot evaluate, so do not fire" rule
+an unresolved `Affected$`/`Condition$` value already has elsewhere in this port): `Revolt$` (25) -- no
+`Game.leftBattlefieldThisTurn`-equivalent tracked anywhere; `WerewolfTransformCondition$`/
+`WerewolfUntransformCondition$` (65) -- Innistrad's own day/night mechanic, keyed off a "spells cast last turn" list
+this port tracks nowhere; `CheckDefinedPlayer$` (20) -- every real line qualifies it with `isMonarch`, `hasInitiative`,
+`withMostLife` or `withMostType`, mechanics this port has none of, not a shape a general Defined$-to-players resolver
+could close on its own even if one existed.
+
+`ManaSpent$`/`ManaNotSpent$` (8) -- no paying-colors-by-cast tracked; `Adamant$` (1); `Bloodthirst$`, `Monarch$`,
+`EnduringStory$`, `DayTime$` and `ClassLevel$` (0 real `T:` lines each, dormant rather than actively skipped).
+
+Eleven new tests (`TestPlayLandFiresETBTriggerWhen*`/`SkipsETBTriggerWhen*`, trigger_test.go) prove `IsPresent$` both
+ways plus its `PresentZone$`/`PresentDefined$` variants, `CheckSVar$` both ways, `Threshold$` both ways, `LifeTotal$`
+both ways, and `Revolt$`'s own unresolved skip -- each driven through a real `Game.PlayLand` rather than a synthetic
+call, `commonReqTriggerLandDef`'s own new helper mirroring `continuousDef`'s reasoning (a land needs no mana cost to
+move, so the setup stays about the common-requirements param under test).
+
 ## Replacement effects: entering the battlefield tapped
 
 CR 614's own replacement-effect system (`forge-game/src/main/java/forge/game/replacement/`, 3,742 LOC across

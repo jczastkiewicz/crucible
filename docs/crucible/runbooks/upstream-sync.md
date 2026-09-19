@@ -37,14 +37,27 @@ gh pr create --repo jczastkiewicz/crucible --base master --fill
 Open the pull request as yourself rather than from a script: GitHub raises no workflow runs for events from the default
 `GITHUB_TOKEN`, so an automated PR would arrive with no checks on it at all.
 
-The pull request runs the same checks as any other. Four of them can be broken by upstream:
+The pull request runs the same checks as any other. Seven of them can be broken by upstream:
 
-| Check                             | What it means when it goes red                                       |
-| --------------------------------- | -------------------------------------------------------------------- |
-| `internal/mana` corpus golden     | A new mana symbol, or a changed cost on a card already in the golden |
-| `internal/cardtype` corpus golden | A new subtype, or an edit to `TypeLists.txt`                         |
-| `javacycles -expect 82`           | The coupling in `forge-game` moved — ADR-0003's premise              |
-| `tools/metrics`                   | A measured figure in the documents no longer matches the tree        |
+| Check                             | What it means when it goes red                                        |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `internal/mana` corpus golden     | A new mana symbol, or a changed cost on a card already in the golden  |
+| `internal/cardtype` corpus golden | A new subtype, or an edit to `TypeLists.txt`                          |
+| `internal/valid` corpus golden    | `TestCorpusValidStrings` — more cards using a field/operator it knows |
+| `internal/keyword` corpus golden  | `TestCorpusKeywords` — more cards using a keyword kind it knows       |
+| `tools/apiscan` corpus golden     | `TestParamKinds` — a new or more-used (API, key) pair                 |
+| `javacycles -expect 82`           | The coupling in `forge-game` moved — ADR-0003's premise               |
+| `tools/metrics`                   | A measured figure in the documents no longer matches the tree         |
+
+The three corpus goldens added after ADR-0015 was written follow the identical procedure as `internal/mana`/
+`internal/cardtype` below — read the failure, decide whether the new value is data or a vocabulary gap, then regenerate:
+
+```bash
+cd crucible
+go test ./internal/valid -run TestCorpusValidStrings -update
+go test ./internal/keyword -run TestCorpusKeywords -update
+go test ./tools/apiscan -run TestParamKinds -update
+```
 
 ---
 
@@ -52,7 +65,7 @@ The pull request runs the same checks as any other. Four of them can be broken b
 
 1. Read the commit list. It is upstream's, so you are looking for the shape of the change rather than the detail: a new
    set of card scripts, a rules change, a refactor of something Crucible has already ported.
-2. Check the four gates above. Green means the port is unaffected and the PR can merge.
+2. Check the seven gates above. Green means the port is unaffected and the PR can merge.
 3. Skim the diff for `forge-core/src/main/java` and `forge-gui/res/lists`. Those are the files Crucible ports and reads
    directly, and a change there usually deserves a line in the PR description even when every check is green.
 4. **Merge with a merge commit.** Do not squash. Squashing replaces upstream's commits with one unrelated commit, so the

@@ -706,11 +706,15 @@ printed form.
     trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too
     (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw`
     (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself;
-    `ResolveStack` still reports `ErrUnimplemented` for the other 202. Still missing: every trigger mode but
+    `ResolveStack` still reports `ErrUnimplemented` for the other 202. `Attacks`'s own `Alone$` (60 real lines,
+    `attacksOtherCount` counting `Combat.Attackers` other than the declared one),
+    `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own `Counters.Count(Poison)` and a new
+    `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new `damageAmountMatches` reusing `compareOp`
+    (`valid.go`), never `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal
+    `TargetToughness`) are all resolved now too. Still missing: every trigger mode but
     "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell"
-    (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own
-    `Attacked$`/`Alone$`/`FirstAttack$`/`DefendingPlayerPoisoned$`/ `AttackDifferentPlayers$` params; `DamageDone`'s own
-    `DamageAmount$`/`ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params; `DamageDone`'s own
+    `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
     `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
     `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified

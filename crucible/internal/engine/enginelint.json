@@ -88,7 +88,7 @@
       "draweffect",
       "staticability"
     ],
-    "trigger": ["id", "zone", "card", "game", "ability", "valid", "stack", "combat"],
+    "trigger": ["id", "zone", "card", "game", "player", "parts", "ability", "valid", "stack", "combat"],
     "draweffect": ["id", "game", "player", "ability", "turn"],
     "continuous": ["id", "zone", "card", "game", "valid", "parts", "layer", "ability", "amount"],
     "amount": ["id", "zone", "card", "game", "valid"]

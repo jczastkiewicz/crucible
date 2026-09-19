@@ -14,6 +14,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -247,14 +248,26 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 //
 // Not resolved: Attacked$ (47 real lines) -- TriggerAttacks.performTest
 // matches it against a GameEntity (a player, planeswalker or Battle), and
-// Matches (valid.go) only evaluates a *Card; Alone$ (57), FirstAttack$ (4),
-// DefendingPlayerPoisoned$ (1) and AttackDifferentPlayers$ (1) -- each its
-// own runtime condition (how many other attackers, a creature's own
-// attack-count history, a player's poison count, attacking more than one
-// player at once) this port tracks nothing for. A trigger carrying any of
-// these five is skipped entirely, not fired unconditionally -- GO-7: better
-// to miss a real trigger than fire one whose own restriction this port
-// silently ignored. 1,496 of 1,606 real lines carry none of them.
+// Matches (valid.go) only evaluates a *Card; FirstAttack$ (4) -- a
+// creature's own per-turn attack-count history (Java's own
+// CardDamageHistory.getCreatureAttacksThisTurn), which this port tracks
+// nothing for. A trigger carrying either is skipped entirely, not fired
+// unconditionally -- GO-7: better to miss a real trigger than fire one whose
+// own restriction this port silently ignored. 1,555 of 1,606 real lines
+// carry neither.
+//
+// Resolved: Alone$ (57) -- Combat.Attackers minus attacker itself is
+// TriggerAttacks.performTest's own AbilityKey.OtherAttackers (CombatUtil's
+// own checkDeclaredAttacker, "otherAttackers = combat.getAttackers();
+// otherAttackers.remove(c)"), so len(g.combat.Attackers)-1 stands in
+// directly -- attacksOtherCount, below; DefendingPlayerPoisoned$ (1) --
+// defenderOf(attacker) (attack.go) is AbilityKey.DefendingPlayer, and
+// Counters.Count(Poison) is Player.getPoisonCounters(); AttackDifferentPlayers$
+// (1) -- attacksMultiplePlayers, below, walks g.combat.Attackers the same
+// way TriggerAttacks.performTest walks AbilityKey.Defenders, since this port
+// has no separate "defenders actually attacked" list of its own to build
+// (attackersOf, attack.go, already answers the same "did anyone attack this
+// one" question the corresponding Java field precomputes).
 func (g *Game) checkAttacksTriggers(attacker CardID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
@@ -268,7 +281,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 					if !isAttacksTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "Attacked", "Alone", "FirstAttack", "DefendingPlayerPoisoned", "AttackDifferentPlayers") {
+					if hasAnyParam(t, "Attacked", "FirstAttack") {
 						continue
 					}
 					validCard, ok := t.Param("ValidCard")
@@ -278,6 +291,21 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller, host) {
 						continue
 					}
+					if alone, ok := t.Param("Alone"); ok {
+						if strings.EqualFold(alone, "True") != (attacksOtherCount(g, attacker) == 0) {
+							continue
+						}
+					}
+					if _, ok := t.Param("DefendingPlayerPoisoned"); ok {
+						if g.Player(g.defenderOf(attacker)).Counters.Count(Poison) == 0 {
+							continue
+						}
+					}
+					if _, ok := t.Param("AttackDifferentPlayers"); ok {
+						if !attacksMultiplePlayers(g, g.combat.AttackTargets[attacker]) {
+							continue
+						}
+					}
 					if sub, api, ok := triggerEffectAPI(t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
 					}
@@ -286,6 +314,43 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 		}
 	}
 	g.pushTriggeredAbilities(matches)
+}
+
+// attacksOtherCount is how many creatures other than attacker are also
+// declared attacking this combat -- CombatUtil.checkDeclaredAttacker's own
+// AbilityKey.OtherAttackers, "all of combat's own declared attackers, minus
+// this one." Combat.Attackers holds every declared attacker for the whole
+// combat, not just the ones sharing attacker's own defender, matching
+// TriggerAttacks' own Alone$'s corpus meaning ("attacks alone" means no
+// other creature attacks at all this combat, not just no other creature
+// attacking the same thing).
+func attacksOtherCount(g *Game, attacker CardID) int {
+	n := 0
+	for _, id := range g.combat.Attackers {
+		if id != attacker {
+			n++
+		}
+	}
+	return n
+}
+
+// attacksMultiplePlayers reports whether attacked is a player and at least
+// one other declared attacker this combat is attacking a different player --
+// TriggerAttacks.performTest's own AttackDifferentPlayers$ branch, which
+// only ever fires true when the entity attacked is itself a Player (a
+// planeswalker/Battle attacker never satisfies it, matching Java's own
+// "attacked instanceof Player" guard).
+func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
+	pid, ok := attacked.AsPlayer()
+	if !ok {
+		return false
+	}
+	for _, other := range g.combat.Attackers {
+		if otherPid, ok := g.combat.AttackTargets[other].AsPlayer(); ok && otherPid != pid {
+			return true
+		}
+	}
+	return false
 }
 
 // checkSpellCastTriggers is CR 603's own "whenever a player casts a spell"
@@ -476,8 +541,9 @@ func isBlocksTrigger(t *compile.Ability) bool {
 // CombatDamage$ False line (a rare "whenever ~ deals noncombat damage"
 // shape) never fires and a CombatDamage$ True line or one carrying neither
 // always passes that part of the check.
-func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat bool) {
+func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, isCombat bool) {
 	var matches []Ability
+	toughness, hasToughness := g.Card(target).Toughness()
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
 			h := g.Card(host)
@@ -486,7 +552,7 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat boo
 			}
 			for _, face := range h.Def.Faces {
 				for _, t := range face.Triggers {
-					if !damageDoneMatches(g, t, source, h, host, isCombat) {
+					if !damageDoneMatches(g, t, source, h, host, isCombat, amount, toughness, hasToughness) {
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok &&
@@ -503,7 +569,7 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, isCombat boo
 	g.pushTriggeredAbilities(matches)
 }
 
-func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, isCombat bool) {
+func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, amount int, isCombat bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -513,7 +579,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, i
 			}
 			for _, face := range h.Def.Faces {
 				for _, t := range face.Triggers {
-					if !damageDoneMatches(g, t, source, h, host, isCombat) {
+					if !damageDoneMatches(g, t, source, h, host, isCombat, amount, 0, false) {
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok {
@@ -540,20 +606,23 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, i
 // isCombat -- everything but ValidTarget, which the two callers each check
 // their own way.
 //
-// Not resolved, skipped via hasAnyParam: DamageAmount$ (8 of 1,080 real
-// lines) -- a plain integer or TargetToughness both need
-// AbilityUtils.calculateAmount, the same gap ptParam (continuous.go) and
-// Draw's own NumCards$ already have; ValidCause$ (1) -- a SpellAbility, not
-// a Card, Matches cannot evaluate one; TargetRelativeToCause$/
+// Resolved: DamageAmount$ (8 of 1,080 real lines) -- damageAmountMatches,
+// below, ports TriggerDamageDone.performTest's own inline parse directly
+// (its own hand-rolled substring(0,2)/substring(2) split, not
+// AbilityUtils.calculateAmount -- every real line is a plain integer or the
+// literal "TargetToughness", never an SVar reference).
+//
+// Not resolved, skipped via hasAnyParam: ValidCause$ (1) -- a SpellAbility,
+// not a Card, Matches cannot evaluate one; TargetRelativeToCause$/
 // TargetRelativeToSource$ (0 real lines alongside the shapes above) -- a
 // GameEntity-vs-GameEntity relative match this port has no evaluator for. A
-// trigger carrying any of these is skipped entirely, not fired
-// unconditionally (GO-7). 1,071 of 1,080 real lines carry none of them.
-func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host CardID, isCombat bool) bool {
+// trigger carrying either is skipped entirely, not fired unconditionally
+// (GO-7). 1,079 of 1,080 real lines carry neither.
+func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host CardID, isCombat bool, amount, toughness int, hasToughness bool) bool {
 	if !isDamageDoneTrigger(t) {
 		return false
 	}
-	if hasAnyParam(t, "DamageAmount", "ValidCause", "TargetRelativeToCause", "TargetRelativeToSource") {
+	if hasAnyParam(t, "ValidCause", "TargetRelativeToCause", "TargetRelativeToSource") {
 		return false
 	}
 	if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller, host) {
@@ -564,7 +633,43 @@ func damageDoneMatches(g *Game, t *compile.Ability, source CardID, h *Card, host
 			return false
 		}
 	}
+	if da, ok := t.Param("DamageAmount"); ok && !damageAmountMatches(da, amount, toughness, hasToughness) {
+		return false
+	}
 	return true
+}
+
+// damageAmountMatches ports TriggerDamageDone.performTest's own DamageAmount$
+// branch: the first two characters are the operator (Expressions.compare's
+// own vocabulary -- compareOp, valid.go, already has it), the rest is either
+// a base-10 operand or the literal "TargetToughness", the damaged card's own
+// net toughness at the moment of damage (Card.getNetToughness, read before
+// this port's own lethal-damage SBA can move it, so folded Toughness() still
+// answers correctly). hasToughness is false for player damage (there is no
+// target card to measure) -- a line naming TargetToughness there is a
+// shape that cannot arise for real (Java would itself throw
+// ClassCastException casting the player to a Card), so it is skipped rather
+// than guessed at (GO-7), not a real corpus case either way.
+func damageAmountMatches(param string, amount, toughness int, hasToughness bool) bool {
+	if len(param) < 3 {
+		return false
+	}
+	operator := param[:2]
+	rest := param[2:]
+	operand := 0
+	if rest == "TargetToughness" {
+		if !hasToughness {
+			return false
+		}
+		operand = toughness
+	} else {
+		n, err := strconv.Atoi(rest)
+		if err != nil {
+			return false
+		}
+		operand = n
+	}
+	return compareOp(amount, operator, operand)
 }
 
 // isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:

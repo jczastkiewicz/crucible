@@ -550,6 +550,236 @@ func TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam(t *testing.T) {
 	}
 }
 
+// attacksTriggerAloneDefPT builds a creature whose own Attacks trigger
+// carries Alone$ True -- attacksOtherCount's own corpus shape (60 of 1,606
+// real lines, every one this exact value; trigger.go's own doc comment).
+func attacksTriggerAloneDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Attacks | ValidCard$ Card.Self | Alone$ True | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresAloneTriggerWhenAttackingAlone proves
+// attacksOtherCount (trigger.go) resolves Alone$ True: a lone declared
+// attacker satisfies it.
+func TestDeclareCombatAttackersFiresAloneTriggerWhenAttackingAlone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerAloneDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- a lone attacker satisfies Alone$ True", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAloneTriggerWithAnotherAttacker proves the
+// same trigger does not fire when a second creature also attacks this
+// combat, even though it shares no defender and carries no trigger of its
+// own -- Alone$ True means no other declared attacker at all
+// (CombatUtil.checkDeclaredAttacker's own AbilityKey.OtherAttackers is every
+// other attacker in the whole combat, not just ones sharing this one's
+// target).
+func TestDeclareCombatAttackersSkipsAloneTriggerWithAnotherAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerAloneDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker, second})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- a second declared attacker fails Alone$ True", got)
+	}
+}
+
+// attacksTriggerDefendingPlayerPoisonedDefPT builds a creature whose own
+// Attacks trigger carries DefendingPlayerPoisoned$ True.
+func attacksTriggerDefendingPlayerPoisonedDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Attacks | ValidCard$ Card.Self | DefendingPlayerPoisoned$ True | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresDefendingPlayerPoisonedTrigger proves
+// DefendingPlayerPoisoned$ resolves against defenderOf(attacker)'s own
+// poison counters (attack.go's defenderOf, counters.go's Counters.Count).
+func TestDeclareCombatAttackersFiresDefendingPlayerPoisonedTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(other).Counters.Add(engine.Poison, 3)
+	attacker := g.NewCard(attacksTriggerDefendingPlayerPoisonedDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the defending player has poison counters", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsDefendingPlayerPoisonedTriggerWithNoPoison
+// proves the same trigger does not fire against a defending player with no
+// poison counters at all.
+func TestDeclareCombatAttackersSkipsDefendingPlayerPoisonedTriggerWithNoPoison(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerDefendingPlayerPoisonedDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- the defending player has no poison counters", got)
+	}
+}
+
+// attacksTriggerDifferentPlayersDefPT builds a creature whose own Attacks
+// trigger carries AttackDifferentPlayers$ True.
+func attacksTriggerDifferentPlayersDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Attacks | ValidCard$ Card.Self | AttackDifferentPlayers$ True | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresAttackDifferentPlayersTrigger proves
+// attacksMultiplePlayers (trigger.go) resolves AttackDifferentPlayers$: in a
+// three-player game, one attacker sent at each of the two opponents
+// satisfies it for both.
+func TestDeclareCombatAttackersFiresAttackDifferentPlayersTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	p, b, c2 := g.Players()[0], g.Players()[1], g.Players()[2]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(b).Life, g.Player(c2).Life = 20, 20, 20
+	attacker := g.NewCard(attacksTriggerDifferentPlayersDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker, second})
+	ac.QueueAttackTarget(engine.PlayerEntity(b))
+	ac.QueueAttackTarget(engine.PlayerEntity(c2))
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the two attackers hit different players", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackDifferentPlayersTriggerAgainstOnePlayer
+// proves the same trigger does not fire when every attacker this combat
+// hits the same single defending player.
+func TestDeclareCombatAttackersSkipsAttackDifferentPlayersTriggerAgainstOnePlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	p, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(b).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerDifferentPlayersDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker, second})
+	ac.QueueAttackTarget(engine.PlayerEntity(b))
+	ac.QueueAttackTarget(engine.PlayerEntity(b))
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- both attackers hit the same player b", got)
+	}
+}
+
 // dyingWatcherDef builds a *compile.Card for a real "whenever a creature you
 // control dies" trigger (Blood Artist/Zulaport Cutthroat's own corpus shape,
 // 205 real cards) -- ValidCard$ Creature.YouCtrl, watching for some OTHER
@@ -1220,9 +1450,10 @@ func TestDealCombatDamageFiresOtherPermanentsWatchingDamageDoneTrigger(t *testin
 }
 
 // damageDoneTriggerWithDamageAmountParamDefPT builds a creature whose own
-// DamageDone trigger carries DamageAmount$, a param checkDamageDoneTriggersToPlayer/
-// ToCard does not evaluate.
-func damageDoneTriggerWithDamageAmountParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+// DamageDone trigger carries DamageAmount$ damageAmount -- damageAmountMatches's
+// own (trigger.go) TriggerDamageDone.performTest port, evaluated for real
+// now rather than skipped.
+func damageDoneTriggerWithDamageAmountParamDefPT(t *testing.T, name, power, toughness, damageAmount string) *compile.Card {
 	t.Helper()
 
 	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
@@ -1235,7 +1466,7 @@ func damageDoneTriggerWithDamageAmountParamDefPT(t *testing.T, name, power, toug
 	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
 	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
 	raw.Faces[0].Triggers = []string{
-		"Mode$ DamageDone | ValidSource$ Card.Self | DamageAmount$ GE4 | Execute$ TrigDraw",
+		"Mode$ DamageDone | ValidSource$ Card.Self | DamageAmount$ " + damageAmount + " | Execute$ TrigDraw",
 	}
 	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
 
@@ -1246,18 +1477,47 @@ func damageDoneTriggerWithDamageAmountParamDefPT(t *testing.T, name, power, toug
 	return c
 }
 
-// TestDealCombatDamageSkipsDamageDoneTriggerWithUnresolvedParam proves a
-// trigger carrying a param this port cannot evaluate (DamageAmount$) is
-// skipped entirely -- never fired unconditionally, which would be silently
-// wrong (GO-7).
-func TestDealCombatDamageSkipsDamageDoneTriggerWithUnresolvedParam(t *testing.T) {
+// TestDealCombatDamageFiresDamageDoneTriggerWithMatchingDamageAmount proves
+// damageAmountMatches (trigger.go) resolves a plain-integer DamageAmount$
+// for real: a 4/4 attacker's unblocked hit deals exactly 4, satisfying
+// GE4.
+func TestDealCombatDamageFiresDamageDoneTriggerWithMatchingDamageAmount(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	g.SetTurnState(1, a, engine.Main1)
-	attacker := g.NewCard(damageDoneTriggerWithDamageAmountParamDefPT(t, "Test Attacker", "3", "3"), a, engine.Battlefield)
+	attacker := g.NewCard(damageDoneTriggerWithDamageAmountParamDefPT(t, "Test Attacker", "4", "4", "GE4"), a, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- 4 damage satisfies DamageAmount$ GE4", g.Card(top).Zone)
+	}
+}
+
+// TestDealCombatDamageSkipsDamageDoneTriggerWithNonMatchingDamageAmount
+// proves the same comparison correctly fails to fire when the amount dealt
+// does not satisfy it: a 3/3 attacker's hit deals only 3, which fails GE4.
+func TestDealCombatDamageSkipsDamageDoneTriggerWithNonMatchingDamageAmount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerWithDamageAmountParamDefPT(t, "Test Attacker", "3", "3", "GE4"), a, engine.Battlefield)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
@@ -1268,7 +1528,38 @@ func TestDealCombatDamageSkipsDamageDoneTriggerWithUnresolvedParam(t *testing.T)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
-		t.Fatalf("StackLen() = %d, want 0 -- DamageAmount$ is not evaluated, so the trigger must not fire", got)
+		t.Fatalf("StackLen() = %d, want 0 -- 3 damage does not satisfy DamageAmount$ GE4", got)
+	}
+}
+
+// TestDealCombatDamageFiresDamageDoneTriggerWithMatchingTargetToughness
+// proves the "TargetToughness" operand -- the damaged card's own folded
+// Toughness(), not a literal integer -- resolves against a blocked
+// attacker's own damage to its blocker.
+func TestDealCombatDamageFiresDamageDoneTriggerWithMatchingTargetToughness(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(damageDoneTriggerWithDamageAmountParamDefPT(t, "Test Attacker", "3", "3", "EQTargetToughness"), a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "0", "3"), b, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- 3 damage to a 3-toughness blocker satisfies DamageAmount$ EQTargetToughness", g.Card(top).Zone)
 	}
 }
 

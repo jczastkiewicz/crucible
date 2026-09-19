@@ -239,7 +239,7 @@ func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch
 		flags |= FlagDeathtouch
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: CardEntity(target), Amount: int32(amount), Flags: flags})
-	g.checkDamageDoneTriggersToCard(source, target, true)
+	g.checkDamageDoneTriggersToCard(source, target, amount, true)
 }
 
 // dealPlayerDamage reduces target's life by amount, emits DamageDealt and
@@ -255,5 +255,5 @@ func (g *Game) dealPlayerDamage(source CardID, target PlayerID, amount int) {
 	g.Player(target).Life -= amount
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: FlagCombat})
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: FlagCombat})
-	g.checkDamageDoneTriggersToPlayer(source, target, true)
+	g.checkDamageDoneTriggersToPlayer(source, target, amount, true)
 }

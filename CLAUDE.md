@@ -228,18 +228,28 @@ Hexproof gap — reusing `protectionValid` against the aura itself rather than a
 own unconditional "any opponent" form — checked both when an Aura is cast (`enchantTargets`, `castspell.go`) and on
 every ongoing SBA pass (`cleanupDanglingAttachments`, `action.go`); building it surfaced a real, separate gap
 (`protectionValid`/`landwalkType` read only a card's PRINTED keywords, missing one a continuous effect grants), closed
-by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. M6 in progress alongside it: `Draw`
-(`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
-`ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
-onto the stack to make that possible. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
-`docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layers 1-3 and 8 in full, plus the rest of Layers 4/5/6
-past a literal token list and Layer 7a's own SVar shapes outside the Valid family (`xPaid`, `CardCounters`, `Devotion`,
-...) — a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line
-rather than applying it wrong; the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup
-injecting into the engine would violate GO-2); a qualified Hexproof (`Hexproof from red`) still does not stop an Aura
-from enchanting its host; `Attacks`'s own five unresolved params, `DamageDone`'s own `DamageAmount$`/`ValidCause$`,
-`Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s
-own `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, and every trigger mode past
+by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. `Attacks`'s own `Alone$`,
+`DefendingPlayerPoisoned$` and `AttackDifferentPlayers$` all resolve now too —
+`attacksOtherCount`/`attacksMultiplePlayers` (`trigger.go`) read `Combat.Attackers`/`Combat.AttackTargets` (combat.go,
+attack.go) the same way `CombatUtil.checkDeclaredAttacker`'s own `AbilityKey.OtherAttackers`/`Defenders` do, and
+`DefendingPlayerPoisoned$` reads `defenderOf(attacker)`'s own `Counters.Count(Poison)` directly. `DamageDone`'s own
+`DamageAmount$` resolves too — `damageAmountMatches` (`trigger.go`) ports `TriggerDamageDone.performTest`'s own
+hand-rolled operator/operand split (never `AbilityUtils.calculateAmount`, since every real line is a plain integer or
+the literal `TargetToughness`) onto the existing `compareOp` (`valid.go`), reusing `Expressions.compare`'s own
+vocabulary rather than adding a second one; both `checkDamageDoneTriggersToCard`/`ToPlayer` (trigger.go) and their two
+real call sites (`dealPermanentDamage`/ `dealPlayerDamage`, combatdamage.go) now thread the actual damage amount
+through. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually
+resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's
+own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
+missing: Layers 1-3 and 8 in full, plus the rest of Layers 4/5/6 past a literal token list and Layer 7a's own SVar
+shapes outside the Valid family (`xPaid`, `CardCounters`, `Devotion`, ...) — a dynamic value or a
+bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line rather than applying it wrong;
+the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the engine would
+violate GO-2); a qualified Hexproof (`Hexproof from red`) still does not stop an Aura from enchanting its host;
+`Attacks`'s own `Attacked$`/`FirstAttack$`, `DamageDone`'s own `ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s
+own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
+qualified `ValidActivatingPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/ becomes-tapped/taps-for-mana/casts; 202 script-driven effects past
 `Draw` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`)
 past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

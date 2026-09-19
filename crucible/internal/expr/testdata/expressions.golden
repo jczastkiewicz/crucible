@@ -77,6 +77,7 @@ head	TriggerCountMax
 head	TriggerObjectsAttackers
 head	TriggerObjectsCards
 head	TriggerObjectsCurrentCastSpells
+head	TriggerObjectsSources
 head	TriggerObjectsSpellAbilityTargets
 head	TriggerRemembered
 head	TriggeredActivator
@@ -102,21 +103,21 @@ context	CastSA>	5
 context	Spawner>	6
 context	TriggeredSpellAbility>	1
 operator	Abs	6
-operator	DivideEvenlyDown	5
+operator	DivideEvenlyDown	6
 operator	DivideEvenlyUp	1
 operator	HalfDown	44
 operator	HalfUp	59
 operator	LimitMax	84
 operator	LimitMin	10
-operator	Minus	117
+operator	Minus	118
 operator	Mod	3
 operator	NMinus	14
 operator	Negative	1
-operator	Plus	311
+operator	Plus	316
 operator	Pow	1
 operator	ThirdUp	5
 operator	Thrice	9
-operator	Times	182
+operator	Times	183
 operator	Twice	163
 countHead	AbilityYouCtrl
 countHead	Adamant
@@ -280,6 +281,7 @@ countHead	ThisTurnEntered_Graveyard_from_Battlefield_Permanent
 countHead	ThisTurnEntered_Graveyard_from_Battlefield_Phyrexian
 countHead	ThisTurnEntered_Graveyard_from_Hand_Card
 countHead	ThisTurnEntered_Graveyard_from_Library_Card
+countHead	ThisTurnEntered_Graveyard_from_Library_Card.OwnedBy
 countHead	ThisTurnEntered_Hand_from_Battlefield_Permanent
 countHead	Threshold
 countHead	TimesKicked
@@ -328,6 +330,7 @@ countHead	YouDrewThisTurn
 countHead	YouFlipThisTurn
 countHead	YouRollThisTurn
 countHead	YouRolledThisTurn6
+countHead	YouScryThisTurn
 countHead	YouSurveilThisTurn
 countHead	YourCountersEnergy
 countHead	YourCountersExperience

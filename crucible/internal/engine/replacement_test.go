@@ -55,6 +55,57 @@ func creatureReplacementDef(t *testing.T, name, cost, replacement, svarName, sva
 	return def
 }
 
+// replacementCreatureDefPT builds a Creature *compile.Card carrying zero or
+// more real R: lines and no SVar -- untapReplacementMatches/
+// damagePreventionMatches resolve a Layer$ CantHappen/Prevent$ True line
+// directly, unlike checkMovedReplacement's own ETBTapped shape
+// (replacementHostDef, above), which always names a ReplaceWith$ SVar.
+func replacementCreatureDefPT(t *testing.T, name, power, toughness string, replacements ...string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Replacements = replacements
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// replacementEnchantmentDef is replacementCreatureDefPT's own noncreature
+// twin, for a watcher that carries the replacement without itself being the
+// affected permanent -- Test Untap Lock/Test Damage Shield below, the
+// identical role Test Tap Enforcer already has in
+// TestCheckMovedReplacementAppliesToOtherPermanentsEntering.
+func replacementEnchantmentDef(t *testing.T, name string, replacements ...string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Replacements = replacements
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
 // TestCastSpellCreatureEntersTappedViaReplacement proves checkMovedReplacement
 // is wired at castspell.go's own permanentEffect.Resolve too, not just
 // Game.PlayLand -- a creature carrying the identical ETBTapped shape a real
@@ -194,5 +245,280 @@ func TestCheckMovedReplacementAppliesToOtherPermanentsEntering(t *testing.T) {
 	}
 	if !g.Card(land).Tapped {
 		t.Error("Tapped = false, want true -- Test Tap Enforcer's own ValidCard$ Land.OppCtrl must reach a's opponent's land")
+	}
+}
+
+// TestUntapBlockedBySelfCantHappenReplacement proves untapBlocked's own
+// simplest real shape (CR 502.3/614.17): a permanent naming
+// Event$ Untap | Layer$ CantHappen against itself stays tapped through its
+// own controller's untap step, while summoning sickness still clears --
+// untapStep's own doc comment on why the two are independent.
+func TestUntapBlockedBySelfCantHappenReplacement(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	c := g.NewCard(replacementCreatureDefPT(t, "Test Locked Creature", "2", "2",
+		"Event$ Untap | ValidCard$ Card.Self | Layer$ CantHappen | Description$ CARDNAME doesn't untap during your untap step."), p, engine.Battlefield)
+	g.Card(c).Tapped, g.Card(c).SummonSick = true, true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
+	if !g.Card(c).Tapped {
+		t.Error("Tapped = false, want true -- Layer$ CantHappen must block the untap")
+	}
+	if g.Card(c).SummonSick {
+		t.Error("SummonSick = true, want false -- a doesn't-untap effect must not block summoning sickness clearing")
+	}
+}
+
+// TestUntapNotBlockedWhenValidCardDoesNotMatch proves ValidCard$ is checked,
+// not assumed: a line naming Land must not stop a Creature from untapping.
+func TestUntapNotBlockedWhenValidCardDoesNotMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	c := g.NewCard(replacementCreatureDefPT(t, "Test Unlocked Creature", "2", "2",
+		"Event$ Untap | ValidCard$ Land | Layer$ CantHappen | Description$ Lands don't untap during their controller's untap step."), p, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
+	if g.Card(c).Tapped {
+		t.Error("Tapped = true, want false -- ValidCard$ Land must not match a Creature")
+	}
+}
+
+// TestUntapBlockedByOpponentsCantHappenReplacement proves the "other" half
+// untapBlocked shares with checkMovedReplacement/checkETBTriggers: a
+// permanent on one player's own battlefield can lock an OPPONENT's creature
+// out of untapping, ValidCard$ Creature.OppCtrl evaluated relative to the
+// lock's own controller.
+func TestUntapBlockedByOpponentsCantHappenReplacement(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.NewCard(replacementEnchantmentDef(t, "Test Untap Lock",
+		"Event$ Untap | ValidCard$ Creature.OppCtrl | Layer$ CantHappen | Description$ Creatures your opponents control don't untap during their controllers' untap steps."), a, engine.Battlefield)
+	c := g.NewCard(replacementCreatureDefPT(t, "Test Opponent Creature", "2", "2"), b, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(b, engine.NewScriptedController())
+
+	if !g.Card(c).Tapped {
+		t.Error("Tapped = false, want true -- Test Untap Lock's own ValidCard$ Creature.OppCtrl must reach a's opponent's creature")
+	}
+}
+
+// TestUntapNotBlockedByReplaceWithShape proves a ReplaceWith$-bearing
+// Event$ Untap line (2 of the corpus's 158 real lines) is skipped as
+// unresolved rather than treated as Layer$ CantHappen: the whole line does
+// not apply, so the plain untap happens (PORT-8/GO-7) -- the identical
+// "skip means the un-replaced event proceeds" contract
+// replacementTapsOnMove already has for an unresolved Moved shape.
+func TestUntapNotBlockedByReplaceWithShape(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Replace Creature"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Replace Creature"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Replacements = []string{"Event$ Untap | ValidCard$ Card.Self | ReplaceWith$ DBUntapTwo | Description$ untaps two things instead."}
+	raw.Faces[0].SVars.Set("DBUntapTwo", "DB$ Cleanup")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	c := g.NewCard(def, p, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
+	if g.Card(c).Tapped {
+		t.Error("Tapped = true, want false -- a ReplaceWith$ shape is not Layer$ CantHappen, so the plain untap must proceed")
+	}
+}
+
+// TestUntapBlockedWhenHostInCommandZone proves ActiveZones$ Command (2 of
+// the corpus's 156 real Untap|CantHappen lines) is honored: a lock living in
+// the Command zone, not Battlefield, still reaches a creature it names.
+func TestUntapBlockedWhenHostInCommandZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.NewCard(replacementEnchantmentDef(t, "Test Command Lock",
+		"Event$ Untap | ValidCard$ Card | ActiveZones$ Command | Layer$ CantHappen | Description$ Nothing untaps."), p, engine.Command)
+	c := g.NewCard(replacementCreatureDefPT(t, "Test Creature Under Lock", "2", "2"), p, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
+	if !g.Card(c).Tapped {
+		t.Error("Tapped = false, want true -- ActiveZones$ Command must still let a Command-zone host's replacement apply")
+	}
+}
+
+// TestUntapNotBlockedByUnresolvedExtraParam proves an IsPresent$-qualified
+// Event$ Untap|Layer$ CantHappen line (4 of the corpus's 156 real lines)
+// skips the whole line rather than blocking unconditionally (PORT-8/GO-7).
+func TestUntapNotBlockedByUnresolvedExtraParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	c := g.NewCard(replacementCreatureDefPT(t, "Test Conditional Lock Creature", "2", "2",
+		"Event$ Untap | ValidCard$ Card.Self | Layer$ CantHappen | IsPresent$ Creature.YouCtrl | Description$ conditional lock."), p, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
+	if g.Card(c).Tapped {
+		t.Error("Tapped = true, want false -- IsPresent$ is not resolvable here, so the whole line must be skipped")
+	}
+}
+
+// TestDamageToPlayerPreventedByReplacement proves damagePreventedPlayer's
+// own simplest real shape: Event$ DamageDone | ValidTarget$ You |
+// Prevent$ True stops combat damage from reaching its controller entirely.
+func TestDamageToPlayerPreventedByReplacement(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDef(t, "Test Damage Shield",
+		"Event$ DamageDone | ValidTarget$ You | Prevent$ True | Description$ Prevent all damage that would be dealt to you."), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 20 {
+		t.Errorf("defender life = %d, want 20 -- Prevent$ True must stop the damage entirely", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerNotPreventedWhenValidTargetDoesNotMatch proves
+// ValidTarget$ is checked, not assumed: a shield naming Opponent (relative
+// to its own controller) must not stop damage dealt to its own controller.
+func TestDamageToPlayerNotPreventedWhenValidTargetDoesNotMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDef(t, "Test Wrong Shield",
+		"Event$ DamageDone | ValidTarget$ Opponent | Prevent$ True | Description$ Prevent all damage that would be dealt to your opponents."), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 17 {
+		t.Errorf("defender life = %d, want 17 -- ValidTarget$ Opponent must not match b's own damage", g.Player(b).Life)
+	}
+}
+
+// TestDamageToCreaturePreventedByReplacement proves damagePrevented's own
+// Card-target half: a blocker shielding itself with
+// Event$ DamageDone | ValidTarget$ Card.Self | Prevent$ True takes no
+// combat damage, while the attacker it damages is unaffected.
+func TestDamageToCreaturePreventedByReplacement(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPT(t, "Test Shielded Blocker", "2", "2",
+		"Event$ DamageDone | ValidTarget$ Card.Self | Prevent$ True | Description$ Prevent all damage that would be dealt to CARDNAME."), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 0 {
+		t.Errorf("blocker damage marked = %d, want 0 -- Prevent$ True must stop damage to the blocker", g.Card(blocker).Damage.Marked)
+	}
+	if g.Card(attacker).Damage.Marked != 2 {
+		t.Errorf("attacker damage marked = %d, want 2 -- the blocker's own shield must not stop the attacker from taking damage", g.Card(attacker).Damage.Marked)
+	}
+}
+
+// TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch proves
+// ValidSource$ is checked, not assumed: a shield naming Dragon must not stop
+// damage from a non-Dragon attacker.
+func TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPT(t, "Test Wrongly Shielded Blocker", "2", "2",
+		"Event$ DamageDone | ValidTarget$ Card.Self | ValidSource$ Dragon | Prevent$ True | Description$ Prevent all damage that would be dealt to CARDNAME by Dragons."), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 3 {
+		t.Errorf("blocker damage marked = %d, want 3 -- ValidSource$ Dragon must not match a non-Dragon attacker", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToCreatureNotPreventedByUnresolvedExtraParam proves a
+// CheckSVar$-qualified Event$ DamageDone|Prevent$ True line skips the whole
+// line rather than preventing unconditionally (PORT-8/GO-7).
+func TestDamageToCreatureNotPreventedByUnresolvedExtraParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPT(t, "Test Conditionally Shielded Blocker", "2", "2",
+		"Event$ DamageDone | ValidTarget$ Card.Self | CheckSVar$ X | Prevent$ True | Description$ conditional shield."), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 3 {
+		t.Errorf("blocker damage marked = %d, want 3 -- CheckSVar$ is not resolvable here, so the whole line must be skipped", g.Card(blocker).Damage.Marked)
 	}
 }

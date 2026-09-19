@@ -874,6 +874,43 @@ printed form.
     `ManaSpent$`/`ManaNotSpent$` (8, no paying-colors-by-cast tracked); `Adamant$` (1); `Bloodthirst$`, `Monarch$`,
     `EnduringStory$`, `DayTime$` and `ClassLevel$` (0 real `T:` lines each, dormant).
 
+    **CR 614's replacement-effect system has two more real slices now: "doesn't untap" and "prevent all of this damage,"
+    both a `Layer$`/`Prevent$` flag rather than a `ReplaceWith$` sub-ability, so neither needed CR 616's own "more than
+    one applies" choice built at all — the outcome either produces (blocked, prevented) is idempotent the identical
+    reason `checkMovedReplacement`'s own doc comment already gives.** `untapBlocked` (`replacement.go`) ports
+    `Card.canUntap`'s own `cantHappenCheck`/`ReplaceUntap.canReplace` — CR 502.3/614.17, `Event$ Untap` naming
+    `Layer$ CantHappen` — 149 of the corpus's 158 real `Event$ Untap` lines (156 name `Layer$ CantHappen` at all),
+    called from `untapStep` (turn.go) before clearing `Tapped`, summoning sickness clearing regardless since a
+    doesn't-untap effect restricts only the untapping action, not CR 302.6's own continuous-control question.
+    `ValidStepTurnToController$` (154 of 156, always `"You"`) is not checked at all: `untapStep`'s own loop only ever
+    considers cards `g.activePlayer` already controls, so "the untapping player is this card's own controller" already
+    holds by construction for every real value the param carries — Java's own `Untap.doUntap` has the identical
+    invariant for its own "self" untap pass, the only one this port models (its own "untap a card you don't control"
+    branch, `StaticAbilityUntapOtherPlayer`, is not built, no card grants that permission yet).
+    `IsPresent$`/`SVarCompare$`/`CheckSVar$`/`EnduringStory$`/`AddSVar$` (7 of 156) skip the whole line rather than
+    blocking unconditionally (PORT-8/GO-7); the other 2 of 158 name `ReplaceWith$` instead, a genuine substitution not
+    built — skipped the identical way an unresolved `ReplaceWith$` shape already is in `checkMovedReplacement`, the
+    plain untap proceeding rather than being blocked defensively.
+
+    `damagePrevented`/`damagePreventedPlayer` (`replacement.go`) port `ReplaceDamage.canReplace`'s own resolvable half
+    plus `ReplacementHandler`'s own `Prevent$ True` dispatch (`ReplacementResult.Prevented`, nothing replaces the event,
+    it simply does not happen) — CR 614, `Event$ DamageDone` naming `Prevent$ True` — 62 of the corpus's 218 real
+    `Event$ DamageDone` lines (72 name `Prevent$ True` at all), called from `dealPermanentDamage`/ `dealPlayerDamage`
+    (combatdamage.go) before marking any damage, emitting `DamageDealt`, or checking CR 603's own trigger — a prevented
+    instance never happened, the identical "look at the event before it happens" ordering CR 614.1 already has over CR
+    603 for `checkMovedReplacement`. `ValidTarget$`/`ValidSource$` are checked the identical way `damageDoneMatches`'s
+    own pair already is (item 26), split into a `*Card`/`*Player` pair for the reason
+    `checkDamageDoneTriggersToCard`/`ToPlayer` already are. `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/
+    `ValidCause$`/`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10 of 72) skip the whole line; the other 146 of
+    218 name `ReplaceWith$` naming `DB$ ReplaceEffect`/`ReplaceDamage`/`RemoveCounter`/`PutCounter`/... — no single
+    shape anywhere near `Moved`'s own 618-line concentration, so no one sub-ability was worth building on its own — not
+    built.
+
+    Both families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
+    `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each of the two shapes carries — the
+    identical comma-list zone restriction `checkPhaseTriggers`'s own `TriggerZones$` (item 26) already has, for a
+    replacement's own host zone instead of a trigger's.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

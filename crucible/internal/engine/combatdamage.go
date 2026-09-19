@@ -217,8 +217,17 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 // one of these (a creature planeswalker); each check runs independently
 // rather than picking one, the same as Forge's own
 // Card.addDamageAfterPrevention does.
+//
+// CR 614's own "prevent all of this damage" replacement effects are checked
+// first (damagePrevented, replacement.go): a prevented instance never
+// happened, so nothing below it -- marking, the event, the trigger check --
+// runs at all, the identical short-circuit Java's own
+// ReplacementResult.Prevented gives it.
 func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch bool) {
 	if amount <= 0 {
+		return
+	}
+	if g.damagePrevented(source, target, true) {
 		return
 	}
 	c := g.Card(target)
@@ -251,7 +260,14 @@ func (g *Game) dealPermanentDamage(source, target CardID, amount int, deathtouch
 // guards amount > 0 itself (unlike dealCreatureDamage, whose amount can come
 // straight from an untrusted AssignCombatDamage answer), so there's nothing
 // to re-check here.
+//
+// CR 614's own "prevent all of this damage" replacement effects are checked
+// first (damagePreventedPlayer, replacement.go), the identical short-circuit
+// dealPermanentDamage's own doc comment gives its own card-target twin.
 func (g *Game) dealPlayerDamage(source CardID, target PlayerID, amount int) {
+	if g.damagePreventedPlayer(source, target, true) {
+		return
+	}
 	g.Player(target).Life -= amount
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: FlagCombat})
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: FlagCombat})

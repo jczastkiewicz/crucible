@@ -294,9 +294,26 @@ the control layer before every one of them and their own `Affected$` specs can t
 `continuousConditionMet` (continuous.go) resolves `PlayerTurn`/`NotPlayerTurn`/`Threshold`/`Metalcraft`/`Delirium`/
 `Hellbent`/`FatefulHour` (262 of the corpus's 317 real `Mode$ Continuous | Condition$` lines) in place of the blanket
 "any `Condition$` present, skip the line" every applier had; `MaxSpeed`/`Blessing`/`EnduringStory`/`Monarch` (55) stay
-unresolved, each its own untracked mechanic. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the
-203 script-driven effects to actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field
-(`ability.go`) carrying a trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
+unresolved, each its own untracked mechanic. CR 502.3/614.17's own "doesn't untap" replacement effects are real now too
+— `untapBlocked` (`replacement.go`) resolves 149 of the corpus's 158 real `Event$ Untap` lines (`Layer$ CantHappen`,
+`ReplaceUntap.canReplace` ported directly), called from `untapStep` (turn.go) before clearing `Tapped`;
+`IsPresent$`/`SVarCompare$`/`CheckSVar$`/`EnduringStory$`/`AddSVar$` (7) skip the line, and the other 2 name
+`ReplaceWith$` instead, a genuine substitution not built. `ValidStepTurnToController$` (154 of 156 real
+`Layer$ CantHappen` lines, always "You") is not checked at all: `untapStep`'s own loop only ever considers cards
+`g.activePlayer` already controls, so "the untapping player is this card's own controller" already holds by construction
+for every real value that param carries. CR 614's own "prevent all of this damage" family is real too —
+`damagePrevented`/`damagePreventedPlayer` (`replacement.go`) resolve 62 of the corpus's 218 real `Event$ DamageDone`
+lines (`Prevent$ True`, `ReplaceDamage.canReplace`'s own resolvable half plus `ReplacementHandler`'s own unconditional-
+void dispatch for that value), called from `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) before marking any
+damage or emitting `DamageDealt`; `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/`ValidCause$`/
+`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10) skip the line, and the other 146 name `ReplaceWith$` naming
+`DB$ ReplaceEffect`/`ReplaceDamage`/`RemoveCounter`/`PutCounter`/... — no shape anywhere near Moved's own 618-line
+concentration — not built. Both families share a new `replacementActiveZones`/`hostInActiveZones` (replacement.go),
+generalizing `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each carries — the identical
+comma-list `checkPhaseTriggers`'s own `TriggerZones$` already has, for a replacement's own zone restriction instead of a
+trigger's. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to
+actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a
+trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. Full detail:
 `docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
 missing: Layer 1 (copy effects — not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real
 references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at

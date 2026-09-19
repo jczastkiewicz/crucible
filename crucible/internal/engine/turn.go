@@ -140,13 +140,17 @@ func (g *Game) emptyManaPools() {
 // at its controller's own untap step has, by definition, been controlled
 // continuously since their most recent turn began.
 //
-// Effects that skip a permanent's untap (CR 502.3) are not modeled -- no
-// card can grant that yet -- so every permanent the active player controls
-// untaps unconditionally.
+// CR 502.3/614.17's own "doesn't untap" replacement effects are checked
+// per permanent (untapBlocked, replacement.go) before Tapped is cleared --
+// summoning sickness clears regardless, since a "doesn't untap" effect
+// restricts only the untapping action, not CR 302.6's own continuous-control
+// question.
 func (g *Game) untapStep() {
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
-		c.Tapped = false
+		if !g.untapBlocked(c) {
+			c.Tapped = false
+		}
 		c.SummonSick = false
 	}
 }

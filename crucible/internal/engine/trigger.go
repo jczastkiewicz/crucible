@@ -950,7 +950,7 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
 // unresolved for the identical reason SpellCast's own
 // Player.EnchantedBy/Player.Chosen do (matchesPlayerSpec's own doc comment).
-func (g *Game) checkPhaseTriggers(controller PlayerController) {
+func (g *Game) checkPhaseTriggers() {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {

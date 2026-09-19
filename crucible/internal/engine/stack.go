@@ -12,6 +12,7 @@
 // cost-payment or targeting to drive that (control.go's four
 // PlayerController methods are the same shape of gap) -- "mechanism now,
 // content later," the shape effect.go's Registry already landed in.
+
 package engine
 
 // PushAbility puts an ability on the stack (CR 405.1, 601.2i, 603.3b) and

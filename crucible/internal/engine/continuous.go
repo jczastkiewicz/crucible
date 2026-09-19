@@ -648,13 +648,13 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 // line currently names more than one of the three at once.
 func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) (RulesEffect, bool) {
 	e := RulesEffect{Timestamp: host.Timestamp}
-	any := false
+	hasEffect := false
 
 	if v, ok := s.Param("SetMaxHandSize"); ok {
 		if strings.EqualFold(v, "Unlimited") {
-			e.HasSetHandSize, e.SetHandSizeUnlimited, any = true, true, true
+			e.HasSetHandSize, e.SetHandSizeUnlimited, hasEffect = true, true, true
 		} else if n, ok := ptParam(g, amounts, host, s, "SetMaxHandSize"); ok {
-			e.HasSetHandSize, e.SetHandSize, any = true, n, true
+			e.HasSetHandSize, e.SetHandSize, hasEffect = true, n, true
 		} else {
 			return RulesEffect{}, false
 		}
@@ -664,18 +664,18 @@ func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile
 		if !ok {
 			return RulesEffect{}, false
 		}
-		e.HasRaiseHandSize, e.RaiseHandSize, any = true, n, true
+		e.HasRaiseHandSize, e.RaiseHandSize, hasEffect = true, n, true
 	}
 	if v, ok := s.Param("AdjustLandPlays"); ok {
 		if strings.EqualFold(v, "Unlimited") {
-			e.HasAdjustLandPlays, e.AdjustLandPlaysUnlimited, any = true, true, true
+			e.HasAdjustLandPlays, e.AdjustLandPlaysUnlimited, hasEffect = true, true, true
 		} else if n, ok := ptParam(g, amounts, host, s, "AdjustLandPlays"); ok {
-			e.HasAdjustLandPlays, e.AdjustLandPlays, any = true, n, true
+			e.HasAdjustLandPlays, e.AdjustLandPlays, hasEffect = true, n, true
 		} else {
 			return RulesEffect{}, false
 		}
 	}
-	return e, any
+	return e, hasEffect
 }
 
 // applyContinuousControl recomputes every battlefield card's own Layer 2

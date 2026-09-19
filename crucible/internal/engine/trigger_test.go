@@ -1601,9 +1601,8 @@ func TestCleanupFiresDiscardedTrigger(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	discarded := g.NewCard(discardedTriggerCreatureDefPT(t, "Test Discarded Creature"), a, engine.Hand)
-	var hand []engine.CardID
 	for i := 0; i < engine.MaxHandSize; i++ {
-		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+		g.NewCard(nil, a, engine.Hand)
 	}
 	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
 
@@ -1660,9 +1659,8 @@ func TestCleanupFiresOtherPermanentsWatchingDiscardedTrigger(t *testing.T) {
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	g.NewCard(discardedWatcherDef(t), a, engine.Battlefield)
 	discarded := g.NewCard(nil, a, engine.Hand)
-	var hand []engine.CardID
 	for i := 0; i < engine.MaxHandSize; i++ {
-		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+		g.NewCard(nil, a, engine.Hand)
 	}
 	top := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Library)
 
@@ -1717,9 +1715,8 @@ func TestCleanupSkipsDiscardedTriggerWithUnresolvedParam(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	discarded := g.NewCard(discardedTriggerWithValidCauseParamDefPT(t, "Test Discarded Creature"), a, engine.Hand)
-	var hand []engine.CardID
 	for i := 0; i < engine.MaxHandSize; i++ {
-		hand = append(hand, g.NewCard(nil, a, engine.Hand))
+		g.NewCard(nil, a, engine.Hand)
 	}
 
 	c := engine.NewScriptedController()

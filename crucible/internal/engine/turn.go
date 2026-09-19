@@ -112,7 +112,7 @@ func (g *Game) beginPhase(controller PlayerController) {
 	case Cleanup:
 		g.cleanupStep(controller)
 	}
-	g.checkPhaseTriggers(controller)
+	g.checkPhaseTriggers()
 	CheckStateBasedActions(g, controller)
 }
 

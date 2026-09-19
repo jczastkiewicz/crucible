@@ -2343,3 +2343,249 @@ func TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam(t *testing.T) {
 		t.Errorf("library card zone = %v, want Library -- IsPresent$ is not evaluated, so the trigger must not fire", g.Card(top).Zone)
 	}
 }
+
+// attackersDeclaredTriggerDef builds a permanent whose own AttackersDeclared
+// trigger carries extra beyond the bare Mode$/Execute$ shape -- CR 508.1's
+// own "whenever a player attacks" trigger, checkAttackersDeclaredTrigger's
+// own doc comment (trigger.go).
+func attackersDeclaredTriggerDef(t *testing.T, name, extra string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	line := "Mode$ AttackersDeclared"
+	if extra != "" {
+		line += " | " + extra
+	}
+	line += " | Execute$ TrigDraw"
+	raw.Faces[0].Triggers = []string{line}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresAttackersDeclaredTrigger proves the bare
+// shape -- no AttackingPlayer$/AttackedTarget$/ValidAttackers$ at all --
+// fires once any attacker at all is declared, regardless of whose
+// battlefield the trigger sits on.
+func TestDeclareCombatAttackersFiresAttackersDeclaredTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", ""), other, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the bare trigger must fire whenever any attacker is declared", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithNoAttackers
+// proves the guard on an empty Combat.Attackers: an eligible creature the
+// controller declines to attack with never reaches the trigger at all --
+// PhaseHandler.java's own "if (!combat.getAttackers().isEmpty())".
+func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithNoAttackers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", ""), other, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- no attacker was declared, so the trigger must not fire", got)
+	}
+}
+
+// TestDeclareCombatAttackersFiresAttackingPlayerYouTrigger proves
+// AttackingPlayer$ You: the trigger's own host is controlled by the
+// attacking player.
+func TestDeclareCombatAttackersFiresAttackingPlayerYouTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "AttackingPlayer$ You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- AttackingPlayer$ You matches the host's own controller declaring attackers", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackingPlayerYouTriggerForDefender proves
+// the same trigger does not fire when the host's own controller is the
+// DEFENDING player instead.
+func TestDeclareCombatAttackersSkipsAttackingPlayerYouTriggerForDefender(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "AttackingPlayer$ You"), other, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- AttackingPlayer$ You must not match a host controlled by the defending player", got)
+	}
+}
+
+// TestDeclareCombatAttackersFiresAttackedTargetYouTrigger proves
+// AttackedTarget$ You: the host's own controller is the player actually
+// being attacked this combat.
+func TestDeclareCombatAttackersFiresAttackedTargetYouTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "AttackedTarget$ You"), other, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- AttackedTarget$ You matches the host's own controller being attacked", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackedTargetYouTriggerForAttacker proves
+// the same trigger does not fire when the host's own controller is the
+// ATTACKING player instead of the one being attacked.
+func TestDeclareCombatAttackersSkipsAttackedTargetYouTriggerForAttacker(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "AttackedTarget$ You"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- AttackedTarget$ You must not match a host controlled by the attacking player", got)
+	}
+}
+
+// TestDeclareCombatAttackersFiresValidAttackersAmountTrigger proves
+// ValidAttackers$/ValidAttackersAmount$: two attacking creatures the host's
+// own controller controls satisfies ValidAttackersAmount$ GE2.
+func TestDeclareCombatAttackersFiresValidAttackersAmountTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	first := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "ValidAttackers$ Creature.YouCtrl | ValidAttackersAmount$ GE2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{first, second})
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- two attacking Creature.YouCtrl satisfies ValidAttackersAmount$ GE2", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsValidAttackersAmountTriggerBelowThreshold
+// proves the same trigger does not fire with only one qualifying attacker.
+func TestDeclareCombatAttackersSkipsValidAttackersAmountTriggerBelowThreshold(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "ValidAttackers$ Creature.YouCtrl | ValidAttackersAmount$ GE2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- one attacker fails ValidAttackersAmount$ GE2", got)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam
+// proves CheckSVar$ (13 real lines) is skipped entirely, GO-7's usual
+// "whole line, not a guess" contract.
+func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "CheckSVar$ X | SVarCompare$ GE1"), other, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- CheckSVar$ is not evaluated, so the trigger must not fire", got)
+	}
+}

@@ -34,7 +34,10 @@ func (g *Game) Attackers() []CardID { return g.combat.Attackers }
 // checkAttacksTriggers (trigger.go) runs once per declared attacker, after
 // tapping and target assignment both landed -- CR 508.3's own "whenever ~
 // attacks" trigger fires off the attack as declared, not off a
-// still-provisional one.
+// still-provisional one. checkAttackersDeclaredTrigger (trigger.go) runs
+// once after that loop, for CR 508.1's own "whenever a player attacks"
+// trigger -- its own guard on an empty attackers slice is exactly why this
+// method's own early return (below) never needs to call it at all.
 func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	var eligible []CardID
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
@@ -63,6 +66,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	for _, id := range attackers {
 		g.checkAttacksTriggers(id)
 	}
+	g.checkAttackersDeclaredTrigger()
 	return attackers
 }
 

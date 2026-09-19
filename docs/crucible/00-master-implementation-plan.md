@@ -649,54 +649,58 @@ printed form.
     resolving it correctly would.
 
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes, ten trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
+    cast shapes, eleven trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
     real (non-test) `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to
     decide, `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s
     parsed `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
     `Ability.Target` field and read back by `attachEffect` at resolution, CR 601.2c). `checkETBTriggers`/
     `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkDamageDoneTriggersToCard`/
     `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkTapsTriggers`/`checkTapsForManaTriggers`/
-    `checkSpellCastTriggers` (`trigger.go`, thirteen functions in all once each mode's own "other" half is counted)
-    cover the corpus's ten most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
-    `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR
-    700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2), "deals damage"
-    (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is discarded" (`Mode$ Discarded`, CR 603,
-    `TriggerDiscarded.performTest`), "becomes tapped" (`Mode$ Taps`, CR 603, `TriggerTaps.performTest`), "taps for mana"
-    (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`), "a player casts a spell" (`Mode$ SpellCast`, CR 603) and
-    "the beginning of a step or phase" (`Mode$ Phase`, CR 500, `checkPhaseTriggers`, added later once corpus-frequency
-    research found it the corpus's SECOND most frequent mode after `ChangesZone` — 2,362 real lines, ahead of `Attacks`
-    itself) — the first two also checked against every OTHER battlefield permanent's own matching trigger
-    (`otherETBTriggerMatches`/`otherDiesTriggerMatches`); `Attacks`, `Blocks`, `DamageDone`, `Taps`, `TapsForMana` and
-    `SpellCast` need no separate "other" loop at all, since none of those Java trigger classes special-cases its own
-    host's trigger to begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals
-    damage/becomes tapped"/"you cast a spell" and "a creature you control attacks/blocks/deals damage/becomes tapped"/"a
-    player casts a spell" alike. `Discarded` is the one exception: a "Card.Self" shaped line (14 of 105 real lines, the
-    Madness-adjacent "when this card is discarded, you may cast it" shape) lives on a card that is never on the
-    battlefield when it fires — discarded FROM HAND — so `checkDiscardedTriggers` needed its own explicit "own" half
-    checking the discarded card directly, on top of `checkOtherDiscardedTriggers`' battlefield walk (caught by
-    `TestCleanupFiresDiscardedTrigger` failing on the first, battlefield-only attempt — a self-caught gap, not a
-    hypothetical one). `Blocks` needs `ValidCard` (matched against the declared blocker) and `ValidBlocked$` (8 of 127
-    real lines, every one an "or blocks/becomes blocked by one or more X creatures" description), checked against
-    `blk.Attacker` directly: Java's own `performTest` matches it against the FULL collection of attackers one blocker
-    blocks, ANY of which satisfying it fires the trigger once, but `checkBlocksTriggers` is already called once per
-    declared `Block` rather than once per blocker with every attacker gathered, so checking the one attacker each call
-    already has stands in for "any member of the collection" correctly for the overwhelming single-attacker case — after
-    `CanBlock` and `menaceLegal` have both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone`
-    splits into two functions because the actual damaged object is either a `*Card` or a `*Player` (Java's own
-    `DamageTarget` is a `GameEntity`), each needing a different `ValidTarget` evaluator — fired from
-    `dealPermanentDamage`/ `dealPlayerDamage` (combatdamage.go), `CombatDamage$` checked against a hardcoded `true`
-    since nothing outside combat deals damage in this port yet. `Taps` fires from this port's only two real tap sites
-    (`DeclareCombatAttackers`, attack.go; `TapLandForMana`, manaability.go), `Attacker$` resolved as the boolean that
-    tells them apart; `TapsForMana` is `Taps`'s own narrower sibling, its own separate Java `Trigger` subclass, firing
-    only from the mana-ability site. `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded`/`Taps`/`TapsForMana` all match
-    something other than a `*Card` at some point (`ValidActivatingPlayer`, `ValidDefender`,
-    `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`, `Activator`) — a new `matchesPlayerBase` (`valid.go`) is the
-    shared three-bare-value (`You`/`Opponent`/`Player`) dispatch all of them now reuse, factored out once a third caller
-    needed the identical switch two callers had already written separately. `matchesPlayerSpec`/`matchesPlayerProperty`
-    (`valid.go`) sit on top of it, the identical `Base.Property` split `Player.isValid` (Player.java) itself does,
-    adding `Active`/`NonActive` (`Game.ActivePlayer()`) and `Other` (not `sourceController`) — `SpellCast`'s own
-    `matchesActivatingPlayer`, `DamageDone`'s own `ValidTarget`-as-a-player and `TapsForMana`'s own `Activator` call it,
-    closing 19 of `SpellCast`'s 25 real qualified `ValidActivatingPlayer$` lines, `DamageDone`'s own qualified
+    `checkSpellCastTriggers`/`checkAttackersDeclaredTrigger` (`trigger.go`, fourteen functions in all once each mode's
+    own "other" half is counted) cover the corpus's eleven most frequent trigger shapes — a permanent's own "enters"
+    (`Mode$ ChangesZone`, `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`,
+    `Destination$ Graveyard`, CR 700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2),
+    "deals damage" (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is discarded" (`Mode$ Discarded`, CR
+    603, `TriggerDiscarded.performTest`), "becomes tapped" (`Mode$ Taps`, CR 603, `TriggerTaps.performTest`), "taps for
+    mana" (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`), "a player casts a spell" (`Mode$ SpellCast`, CR 603)
+    and "the beginning of a step or phase" (`Mode$ Phase`, CR 500, `checkPhaseTriggers`, added later once
+    corpus-frequency research found it the corpus's SECOND most frequent mode after `ChangesZone` — 2,362 real lines,
+    ahead of `Attacks` itself) and "a player attacks" (`Mode$ AttackersDeclared`, CR 508.1,
+    `checkAttackersDeclaredTrigger`, added once corpus-frequency research turned up 286 real lines, more than
+    `SpellCast`'s own unresolved remainder was worth chasing further) — the first two also checked against every OTHER
+    battlefield permanent's own matching trigger (`otherETBTriggerMatches`/`otherDiesTriggerMatches`); `Attacks`,
+    `Blocks`, `DamageDone`, `Taps`, `TapsForMana`, `SpellCast` and `AttackersDeclared` need no separate "other" loop at
+    all, since none of those Java trigger classes special-cases its own host's trigger to begin with — one walk over the
+    battlefield covers both "this creature attacks/blocks/deals damage/becomes tapped"/"you cast a spell" and "a
+    creature you control attacks/blocks/deals damage/becomes tapped"/"a player casts a spell" alike, and
+    `AttackersDeclared` fires at most once per combat regardless of whose battlefield its host sits on to begin with.
+    `Discarded` is the one exception: a "Card.Self" shaped line (14 of 105 real lines, the Madness-adjacent "when this
+    card is discarded, you may cast it" shape) lives on a card that is never on the battlefield when it fires —
+    discarded FROM HAND — so `checkDiscardedTriggers` needed its own explicit "own" half checking the discarded card
+    directly, on top of `checkOtherDiscardedTriggers`' battlefield walk (caught by `TestCleanupFiresDiscardedTrigger`
+    failing on the first, battlefield-only attempt — a self-caught gap, not a hypothetical one). `Blocks` needs
+    `ValidCard` (matched against the declared blocker) and `ValidBlocked$` (8 of 127 real lines, every one an "or
+    blocks/becomes blocked by one or more X creatures" description), checked against `blk.Attacker` directly: Java's own
+    `performTest` matches it against the FULL collection of attackers one blocker blocks, ANY of which satisfying it
+    fires the trigger once, but `checkBlocksTriggers` is already called once per declared `Block` rather than once per
+    blocker with every attacker gathered, so checking the one attacker each call already has stands in for "any member
+    of the collection" correctly for the overwhelming single-attacker case — after `CanBlock` and `menaceLegal` have
+    both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two functions because
+    the actual damaged object is either a `*Card` or a `*Player` (Java's own `DamageTarget` is a `GameEntity`), each
+    needing a different `ValidTarget` evaluator — fired from `dealPermanentDamage`/ `dealPlayerDamage`
+    (combatdamage.go), `CombatDamage$` checked against a hardcoded `true` since nothing outside combat deals damage in
+    this port yet. `Taps` fires from this port's only two real tap sites (`DeclareCombatAttackers`, attack.go;
+    `TapLandForMana`, manaability.go), `Attacker$` resolved as the boolean that tells them apart; `TapsForMana` is
+    `Taps`'s own narrower sibling, its own separate Java `Trigger` subclass, firing only from the mana-ability site.
+    `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded`/`Taps`/`TapsForMana` all match something other than a `*Card` at
+    some point (`ValidActivatingPlayer`, `ValidDefender`, `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`,
+    `Activator`) — a new `matchesPlayerBase` (`valid.go`) is the shared three-bare-value (`You`/`Opponent`/`Player`)
+    dispatch all of them now reuse, factored out once a third caller needed the identical switch two callers had already
+    written separately. `matchesPlayerSpec`/`matchesPlayerProperty` (`valid.go`) sit on top of it, the identical
+    `Base.Property` split `Player.isValid` (Player.java) itself does, adding `Active`/`NonActive`
+    (`Game.ActivePlayer()`) and `Other` (not `sourceController`) — `SpellCast`'s own `matchesActivatingPlayer`,
+    `DamageDone`'s own `ValidTarget`-as-a-player and `TapsForMana`'s own `Activator` call it, closing 19 of
+    `SpellCast`'s 25 real qualified `ValidActivatingPlayer$` lines, `DamageDone`'s own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` and `TapsForMana`'s own `Activator$ Player.NonActive`; `CantBlockBy`'s
     `ValidDefender`, `Discarded`'s `ValidPlayer` and `Taps`'s `ValidPlayer` keep calling `matchesPlayerBase` directly,
     verified against the real corpus to carry zero qualified lines for those exact params. `Phase` needs no `ValidCard`
@@ -707,17 +711,17 @@ printed form.
     mode this port checks, an explicit `TriggerZones$` walk rather than an implicit battlefield-only one: `Phase` is
     real from the graveyard, exile and command zone too (a suspend/exiled-with-triggers shape), so `checkPhaseTriggers`
     walks all four real zones (`phaseTriggerZones`, `trigger.go`) rather than assuming battlefield the way every earlier
-    mode's own single walk safely could. All ten modes are keyed off `compile.Face.Triggers` (typed since M3, never read
-    by the engine before now), and all ten now push what they find through `pushTriggeredAbilities` (`trigger.go`)
-    rather than `PushAbility` directly — CR 603.3b's own APNAP ordering: each trigger-check function collects its own
-    matches (its "own" and "other" halves, where it has both, feeding one `[]Ability`) and calls it once at the end.
-    `pushTriggeredAbilities` walks `playersInAPNAPOrder` (`Game.ActivePlayer()` first, then `nextPlayerAfter`,
-    `turn.go`'s own seating order) and pushes each player's whole group in that order; since the stack is LIFO and
-    `MagicStack.addAllTriggeredAbilitiesToStack` itself pushes the active player's group first, the LAST player in APNAP
-    order ends up on top, resolving FIRST — the active player's own group resolves last, ported faithfully from
-    `MagicStack.chooseOrderOfSimultaneousStackEntry`'s own player-iteration order. A single player's own multiple
-    matches stay in the order they were found rather than a real player choice (`Player.orderAndPlaySimultaneousSa`),
-    since no `PlayerController` hook for that exists yet. Caught and proven by
+    mode's own single walk safely could. All eleven modes are keyed off `compile.Face.Triggers` (typed since M3, never
+    read by the engine before now), and all eleven now push what they find through `pushTriggeredAbilities`
+    (`trigger.go`) rather than `PushAbility` directly — CR 603.3b's own APNAP ordering: each trigger-check function
+    collects its own matches (its "own" and "other" halves, where it has both, feeding one `[]Ability`) and calls it
+    once at the end. `pushTriggeredAbilities` walks `playersInAPNAPOrder` (`Game.ActivePlayer()` first, then
+    `nextPlayerAfter`, `turn.go`'s own seating order) and pushes each player's whole group in that order; since the
+    stack is LIFO and `MagicStack.addAllTriggeredAbilitiesToStack` itself pushes the active player's group first, the
+    LAST player in APNAP order ends up on top, resolving FIRST — the active player's own group resolves last, ported
+    faithfully from `MagicStack.chooseOrderOfSimultaneousStackEntry`'s own player-iteration order. A single player's own
+    multiple matches stay in the order they were found rather than a real player choice
+    (`Player.orderAndPlaySimultaneousSa`), since no `PlayerController` hook for that exists yet. Caught and proven by
     `TestPlayLandPushesETBTriggersInAPNAPOrder` (trigger_test.go): before this, every trigger-check function pushed each
     match the instant it found one, correct only when a single card's own trigger fires alone. A trigger's `Execute$`
     sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`,
@@ -730,9 +734,20 @@ printed form.
     `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal `TargetToughness`) are all
     resolved now too. `Phase` itself is real now: `checkPhaseTriggers` resolves `Phase$` (every real corpus value bar an
     unrecognized token, which does not occur), the `Main`/`PhaseCount$ 2` alias for "second main phase" (29 real lines),
-    and `ValidPlayer$` through `matchesPlayerSpec` (2,001 of 2,065 real lines). Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
-    spell"/"beginning of a step or phase" (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own
+    and `ValidPlayer$` through `matchesPlayerSpec` (2,001 of 2,065 real lines). `AttackersDeclared` is real now too:
+    `checkAttackersDeclaredTrigger` resolves `AttackingPlayer$` (`matchesPlayerSpec` against the active player, CR
+    508.1's own attacking player — 175 of 286 real lines), `AttackedTarget$` (a new `attackedTargetMatches`, trying both
+    `matchesPlayerSpec` and `Matches` against every entity actually attacked this combat, since a real spec mixes
+    player-shaped and card-shaped tokens in the same comma list, `You,Planeswalker.YouCtrl` among them — 63 of 286) and
+    `ValidAttackers$`/`ValidAttackersAmount$` (a new `validAttackersCountMatches`, counting how many of
+    `Combat.Attackers` `Matches` the spec and comparing via the existing `compareOp` — 123 of 286), reusing
+    `phaseTriggerZones`'s own four-zone walk (273 real lines carry `TriggerZones$ Battlefield`, but 7 carry `Command`
+    and 5 carry `Graveyard`, the identical minority-but-real split `Phase` already needed the walk for). Not resolved:
+    `IsPresent$`/`PresentCompare$` (14, 4 — the same general conditional-trigger gap `Phase`'s own `Condition$` has);
+    `CheckSVar$` (13); a qualified `AttackedTarget$` `matchesPlayerSpec` cannot resolve (`Player.EnchantedBy`,
+    `Player.hasInitiative`, `Player.IsPoisoned`, `Opponent.lifeGTX` — 12 of 286 combined). Still missing: every trigger
+    mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
+    spell"/"beginning of a step or phase"/"a player attacks" (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own
     `Attacked$`/`FirstAttack$` params; `Phase`'s own `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$` (a general
     conditional-trigger evaluator no mode has), `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and
     the two whole-table comparisons (a dozen-some real lines total), plus its own qualified `ValidPlayer$` forms

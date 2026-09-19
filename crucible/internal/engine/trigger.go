@@ -1208,3 +1208,188 @@ func triggerEffectAPI(t *compile.Ability) (*compile.Ability, APIType, bool) {
 	}
 	return nil, 0, false
 }
+
+// checkAttackersDeclaredTrigger is CR 508.1's own "whenever a player
+// attacks" trigger -- TriggerAttackersDeclared.performTest, ported from
+// PhaseHandler.java's own declareAttackersStep, the exact call site that
+// fires it: once per combat, right after every attacker is tapped and
+// assigned a target, and only "if (!combat.getAttackers().isEmpty())" --
+// unlike checkAttacksTriggers (above), which fires once per declared
+// attacker, this fires at most once per combat regardless of how many
+// creatures attacked, so a combat with zero attackers never reaches this at
+// all (DeclareCombatAttackers, attack.go, guards the call the identical way).
+//
+// 286 real S:T:Mode$ AttackersDeclared lines corpus-wide (vocabscan). Walks
+// the same four zones Mode$ Phase does (phaseTriggerZones, above) rather
+// than Battlefield alone: 273 real lines carry TriggerZones$ Battlefield,
+// but 7 carry Command and 5 carry Graveyard (grep against a corpus dump of
+// every real line), the identical minority-but-real split that made Phase's
+// own zone walk necessary rather than a battlefield-only shortcut.
+//
+// Skipped via hasAnyParam, the same "whole line, not a guess" contract every
+// other trigger mode's own skip-list already has: IsPresent$/PresentCompare$
+// (14, 4) -- a general "is some other object true right now" gate no static-
+// ability mode this port checks has an evaluator for either (checkPhaseTriggers'
+// own doc comment carries the identical gap); CheckSVar$ (13) -- an SVar
+// comparison this port's own `resolveAmount` (amount.go) does not cover for
+// every real shape; Condition$ (1) -- StaticAbility.java's own runtime gate,
+// no equivalent for any trigger mode yet.
+//
+// Resolved: AttackingPlayer$ (matchesPlayerSpec, valid.go, against
+// g.activePlayer -- Combat.getAttackingPlayer() is always the active player
+// in this port's own combat model, DeclareCombatAttackers' own doc comment)
+// -- 175 of 286 real lines; AttackedTarget$ (attackedTargetMatches, below) --
+// 63 of 286; ValidAttackers$/ValidAttackersAmount$ (validAttackersCountMatches,
+// below) -- 123 of 286.
+func (g *Game) checkAttackersDeclaredTrigger() {
+	if len(g.combat.Attackers) == 0 {
+		return
+	}
+	targets := attackedTargetsOf(g)
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, z := range phaseTriggerZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isAttackersDeclaredTrigger(t) {
+							continue
+						}
+						if !phaseTriggerZoneMatches(t, z) {
+							continue
+						}
+						if hasAnyParam(t, "IsPresent", "PresentCompare", "CheckSVar", "Condition") {
+							continue
+						}
+						if attackingPlayer, ok := t.Param("AttackingPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), attackingPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						if attackedTarget, ok := t.Param("AttackedTarget"); ok {
+							if !attackedTargetMatches(g, h, targets, attackedTarget) {
+								continue
+							}
+						}
+						if validAttackers, ok := t.Param("ValidAttackers"); ok {
+							if !validAttackersCountMatches(g, h, t, validAttackers) {
+								continue
+							}
+						}
+						if sub, api, ok := triggerEffectAPI(t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+// attackedTargetsOf is every distinct entity actually attacked this combat
+// -- PhaseHandler.java's own "for (GameEntity ge : combat.getDefenders()) if
+// (!combat.getAttackersOf(ge).isEmpty()) attackedTarget.add(ge)", only the
+// defenders someone is actually attacking, not every legal defender in the
+// game. Order follows Combat.Attackers' own declaration order (first
+// attacker's target first), a plain membership map used only to skip a
+// repeat, never to iterate -- GO-12's own ordering concern does not reach a
+// lookup that never walks the map itself.
+func attackedTargetsOf(g *Game) []EntityID {
+	seen := map[EntityID]bool{}
+	var out []EntityID
+	for _, attacker := range g.combat.Attackers {
+		target := g.combat.AttackTargets[attacker]
+		if seen[target] {
+			continue
+		}
+		seen[target] = true
+		out = append(out, target)
+	}
+	return out
+}
+
+// attackedTargetMatches is TriggerAttackersDeclared's own AttackedTarget$
+// check: CardTraitBase.matchesValid's own Iterable branch tries every
+// attacked entity against the whole comma-split spec and reports true the
+// instant any one of them matches any one token (matchesValid, CardTraitBase
+// .java) -- ported here as two nested loops over the identical "any target,
+// any token" combination, rather than one loop that assumes which type a
+// given token means: real corpus specs mix player-shaped tokens ("You",
+// "Player,Planeswalker") and card-shaped tokens ("Planeswalker.YouCtrl") in
+// the same comma list (You,Planeswalker.YouCtrl, 4 real lines), and Java's
+// own dispatch is by the CANDIDATE's type (Player.isValid vs Card.isValid),
+// not the token's syntax, so both matchers are tried against both kinds of
+// target and the wrong-kind attempt just reports "not recognized" and moves
+// on (matchesPlayerSpec's own ok=false for an unrecognized base, valid.go;
+// valid.Parse building a Spec no real card or player ever has the base type
+// of, for the reverse mismatch).
+//
+// A qualified player token matchesPlayerSpec cannot resolve (Player
+// .EnchantedBy, 9 of 63 real AttackedTarget$ lines; Player.hasInitiative,
+// Player.IsPoisoned, Opponent.lifeGTX, 1 each) never matches through either
+// branch, so a trigger naming one of these never fires -- GO-7's usual
+// "skip rather than guess" outcome, reached here by simply never matching
+// rather than a separate hasAnyParam skip, since the two are observably
+// identical (this trigger firing) and Java's own dispatch has no
+// "unresolvable, abort" case of its own to mirror.
+func attackedTargetMatches(g *Game, host *Card, targets []EntityID, spec string) bool {
+	for _, token := range strings.Split(spec, ",") {
+		for _, target := range targets {
+			if pid, ok := target.AsPlayer(); ok {
+				if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), token); recognized && matched {
+					return true
+				}
+				continue
+			}
+			if cid, ok := target.AsCard(); ok {
+				if Matches(g, g.Card(cid), valid.Parse(token), host.Controller(), host.ID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// validAttackersCountMatches is TriggerAttackersDeclared's own
+// ValidAttackers$/ValidAttackersAmount$ pair: how many of this combat's
+// declared attackers ValidAttackers$ matches, compared against
+// ValidAttackersAmount$ (default "GE1", Java's own
+// `getParamOrDefault("ValidAttackersAmount", "GE1")` -- "one or more,"
+// matching TriggerDescription's own real corpus phrasing, "whenever one or
+// more Knights you control attack"). Every real ValidAttackersAmount$ value
+// is a plain two-letter-operator-plus-digit shape (GE2, GE3, EQ1, ...,
+// vocabscan), never an SVar or "X" needing `AbilityUtils.calculateAmount`
+// the way Java's own code path technically allows for, so this reads the
+// digits directly rather than resolving an amount.
+func validAttackersCountMatches(g *Game, host *Card, t *compile.Ability, spec string) bool {
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, id := range g.combat.Attackers {
+		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			n++
+		}
+	}
+	amount, ok := t.Param("ValidAttackersAmount")
+	if !ok {
+		amount = "GE1"
+	}
+	if len(amount) < 3 {
+		return false
+	}
+	operand, err := strconv.Atoi(amount[2:])
+	if err != nil {
+		return false
+	}
+	return compareOp(n, amount[:2], operand)
+}
+
+func isAttackersDeclaredTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "AttackersDeclared")
+}

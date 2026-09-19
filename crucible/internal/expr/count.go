@@ -22,6 +22,29 @@ type Count struct {
 	// Argument is a space-separated argument that is not a valid string:
 	// `Compare Y GE1`, `xColorPaid B`.
 	Argument string
+	// DistinctProperty is set when a Valid family argument itself carries a
+	// `$`-suffixed operator -- `Count$ValidGraveyard Card$CardTypes`
+	// (Tarmogoyf's own toughness SVar), where `Card$CardTypes` is not itself
+	// a valid string at all: `xCount`'s own `paidparts = l[0].split("\\$", 2)`
+	// cuts the whole "head argument" string on the FIRST `$`, so the actual
+	// valid string is only the part before it (`Card`, which matches every
+	// object -- Forge's own universal base) and the part after
+	// (`CardTypes`) names a distinct-value count over whatever that valid
+	// string matched (`handlePaid`, AbilityUtils.java:3719 --
+	// `countCardTypesFromList`, counting DISTINCT card types among the
+	// matches, not the matches themselves). Valid, above, is still set from
+	// the part before the `$` -- parsing it as a normal valid string is
+	// correct, just not sufficient on its own -- so a caller that ignores
+	// DistinctProperty and evaluates Valid alone gets a real but wrong
+	// answer (Tarmogoyf's own graveyard-card COUNT, not its distinct-type
+	// count) rather than a skip. A dozen real corpus lines carry one of five
+	// distinct DistinctProperty operators (`CardTypes`, `CreatureType`,
+	// `DifferentCardPower`, `GreatestCardPower`, `GreatestCardManaCost`),
+	// each its own separate Java function -- too little value for five new
+	// evaluators, so nothing in this port resolves DistinctProperty; every
+	// caller must check it and skip (GO-7) rather than silently measuring
+	// Valid's own match count instead.
+	DistinctProperty string
 }
 
 // ParseCount reads the body of a `Count$` expression, which is what is left
@@ -39,7 +62,12 @@ func ParseCount(body string) Count {
 
 	if head, argument, ok := strings.Cut(body, " "); ok {
 		if IsValidHead(head) {
-			return Count{Head: head, Valid: valid.Parse(argument)}
+			spec, distinct, hasDistinct := strings.Cut(argument, "$")
+			c := Count{Head: head, Valid: valid.Parse(spec)}
+			if hasDistinct {
+				c.DistinctProperty = distinct
+			}
+			return c
 		}
 		return Count{Head: head, Argument: argument}
 	}

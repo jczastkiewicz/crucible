@@ -2069,3 +2069,277 @@ func TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator(t *testing.T
 		t.Fatalf("StackLen() = %d, want 0 -- Activator$ Player.NonActive must reject the active player p", got)
 	}
 }
+
+// phaseTriggerDefPT builds a *compile.Card for a real "at the beginning of
+// a step or phase" trigger, Mode$ Phase -- Phase$ phase, ValidPlayer$
+// validPlayer, TriggerZones$ Battlefield, its own Execute$ a Draw the same
+// way every other trigger mode's own test proves firing.
+func phaseTriggerDefPT(t *testing.T, name, phase, validPlayer string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Phase | Phase$ " + phase + " | ValidPlayer$ " + validPlayer + " | TriggerZones$ Battlefield | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestAdvancePhaseFiresPhaseTriggerAtCorrectStep proves checkPhaseTriggers
+// (trigger.go) is wired into beginPhase (turn.go): a real "at the beginning
+// of your upkeep" trigger fires the moment AdvancePhase reaches Upkeep, with
+// no other step's own automatic action (Upkeep's own beginPhase switch case
+// is empty) to confuse the signal.
+func TestAdvancePhaseFiresPhaseTriggerAtCorrectStep(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerDefPT(t, "Test Upkeep Watcher", "Upkeep", "You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- Phase$ Upkeep should fire the instant Upkeep begins", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseSkipsPhaseTriggerAtWrongStep proves the same trigger does
+// NOT fire during a step it does not name: Phase$ Upkeep must not fire when
+// Main1 begins.
+func TestAdvancePhaseSkipsPhaseTriggerAtWrongStep(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerDefPT(t, "Test Upkeep Watcher", "Upkeep", "You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Draw)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- Phase$ Upkeep must not fire when Main1 begins", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseSkipsPhaseTriggerForNonActivePlayer proves ValidPlayer$
+// You resolves against the ACTIVE player, not unconditionally: p's own
+// upkeep watcher must not fire during the OTHER player's upkeep.
+func TestAdvancePhaseSkipsPhaseTriggerForNonActivePlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerDefPT(t, "Test Upkeep Watcher", "Upkeep", "You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, other, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- ValidPlayer$ You must not fire during other's own upkeep", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseFiresPhaseTriggerForOpponentValidPlayer proves
+// ValidPlayer$ Opponent -- matchesPlayerSpec's own bare-value dispatch --
+// fires during the OTHER player's phase rather than the host's own
+// controller's.
+func TestAdvancePhaseFiresPhaseTriggerForOpponentValidPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerDefPT(t, "Test Upkeep Watcher", "Upkeep", "Opponent"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, other, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- ValidPlayer$ Opponent should fire during other's own upkeep", g.Card(top).Zone)
+	}
+}
+
+// phaseTriggerMainSecondDefPT builds the real `Phase$ Main | PhaseCount$ 2`
+// shape -- Survival's own cards, 29 real lines, every one paired this way --
+// "at the beginning of your second main phase."
+func phaseTriggerMainSecondDefPT(t *testing.T, name, validPlayer string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Phase | Phase$ Main | PhaseCount$ 2 | ValidPlayer$ " + validPlayer + " | TriggerZones$ Battlefield | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestAdvancePhaseFiresMainSecondTriggerOnMain2 proves the `Main`/
+// `PhaseCount$ 2` alias resolves to Main2 specifically, not Main1.
+func TestAdvancePhaseFiresMainSecondTriggerOnMain2(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerMainSecondDefPT(t, "Test Second Main Watcher", "You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.CombatEnd)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- Phase$ Main/PhaseCount$ 2 should fire entering Main2", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseSkipsMainSecondTriggerOnMain1 proves the same trigger does
+// NOT fire entering Main1, the turn's FIRST main phase.
+func TestAdvancePhaseSkipsMainSecondTriggerOnMain1(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerMainSecondDefPT(t, "Test Second Main Watcher", "You"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Draw)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- Phase$ Main/PhaseCount$ 2 must not fire entering Main1", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseFiresPhaseTriggerFromGraveyard proves phaseTriggerZones
+// (trigger.go) walks past the battlefield: a card sitting in the graveyard
+// with TriggerZones$ Graveyard still fires its own Phase$ Upkeep trigger,
+// unlike every other trigger mode this port checks, which only ever walks
+// the battlefield.
+func TestAdvancePhaseFiresPhaseTriggerFromGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Graveyard Upkeep Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Graveyard Upkeep Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Graveyard | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	g.NewCard(def, p, engine.Graveyard)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- TriggerZones$ Graveyard should still fire from the graveyard", g.Card(top).Zone)
+	}
+}
+
+// phaseTriggerWithIsPresentParamDefPT builds a creature whose own Phase
+// trigger carries IsPresent$, a param checkPhaseTriggers does not evaluate.
+func phaseTriggerWithIsPresentParamDefPT(t *testing.T, name string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Card.tapped | TriggerZones$ Battlefield | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam proves a trigger
+// carrying a param this port cannot evaluate (IsPresent$) is skipped
+// entirely -- never fired unconditionally, which would be silently wrong
+// (GO-7).
+func TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(phaseTriggerWithIsPresentParamDefPT(t, "Test Conditional Watcher"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- IsPresent$ is not evaluated, so the trigger must not fire", g.Card(top).Zone)
+	}
+}

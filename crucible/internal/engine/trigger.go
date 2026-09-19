@@ -1,15 +1,16 @@
-// Trigger firing: CR 603, trimmed to the corpus's nine most frequent modes
-// -- a permanent entering the battlefield (Mode$ ChangesZone, Destination$
+// Trigger firing: CR 603, trimmed to the corpus's ten most frequent modes --
+// a permanent entering the battlefield (Mode$ ChangesZone, Destination$
 // Battlefield), one leaving it to a graveyard (Mode$ ChangesZone, Origin$
 // Battlefield, Destination$ Graveyard, CR 700.4's "dies"), a creature
 // attacking (Mode$ Attacks, CR 508.3), blocking (Mode$ Blocks, CR 509.2),
 // dealing damage (Mode$ DamageDone), a card being discarded (Mode$
 // Discarded), a permanent becoming tapped (Mode$ Taps) or tapping for mana
-// (Mode$ TapsForMana), and a player casting a spell (Mode$ SpellCast) --
-// plus, for every one of those nine, CR 603.3b's own APNAP ordering when
-// more than one triggers off a single event (pushTriggeredAbilities, below).
-// game-state.md's own trigger-firing section has every mode's own
-// corpus-frequency count and unresolved params.
+// (Mode$ TapsForMana), a player casting a spell (Mode$ SpellCast), and the
+// beginning of a step or phase (Mode$ Phase, CR 500) -- plus, for every one
+// of those ten, CR 603.3b's own APNAP ordering when more than one triggers
+// off a single event (pushTriggeredAbilities, below). game-state.md's own
+// trigger-firing section has every mode's own corpus-frequency count and
+// unresolved params.
 
 package engine
 
@@ -907,6 +908,177 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 // Mode$ TapsForMana.
 func isTapsForManaTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "TapsForMana")
+}
+
+// checkPhaseTriggers is CR 500's own "at the beginning of a step or phase"
+// mode, Mode$ Phase, ported from TriggerPhase.performTest plus the base
+// Trigger class's own phasesCheck (Trigger.java) -- the corpus's SECOND most
+// frequent trigger mode after ChangesZone (2,362 real lines, ahead of
+// Attacks/SpellCast/DamageDone), left unbuilt until now even though
+// phase.go's own PhaseByName/PhaseType.String were built with this in mind
+// from the start (their own doc comments: "the name a script writes").
+//
+// Unlike every other mode this port checks, TriggerPhase.performTest itself
+// has no ValidCard at all -- there is no "object" a phase change happens
+// TO, only a step or phase happening, so this is a single condition-only
+// walk: is the trigger's own host in one of the zones TriggerZones$ names
+// (phaseTriggerZoneMatches, below), is the CURRENT phase one Phase$ names
+// (phaseTriggerMatches, below), and does ValidPlayer$ match the active
+// player (matchesPlayerSpec, valid.go -- the same one checkSpellCastTriggers'
+// own matchesActivatingPlayer and checkDamageDoneTriggersToPlayer/
+// checkTapsForManaTriggers already use, since ValidPlayer here is checked
+// against AbilityKey.Player, which PhaseHandler.onPhaseBegin sets to
+// getPlayerTurn() -- the active player, not the trigger's own host
+// controller). 2,001 of 2,065 real ValidPlayer$ lines resolve this way (You,
+// 1,832; Player, 113; Opponent, 47; the qualified Player.Opponent, 7, and
+// Player.Other, 2, through matchesPlayerSpec's own dotted-property layer);
+// missing entirely is a pass, the same absent-is-a-pass contract every
+// other mode's optional param already has.
+//
+// Not resolved, skipped via hasAnyParam: IsPresent$/PresentCompare$ (a
+// general "is some other object true right now" condition no trigger mode
+// this port checks has an evaluator for), CheckSVar$/Condition$ (an
+// arbitrary SVar-shaped boolean condition), FirstUpkeep$/
+// FirstUpkeepThisGame$/FirstCombat$ (a per-turn/per-game step-count this
+// port tracks nothing for), TurnCount$ (an exact turn number), and
+// APlayerHasMoreLifeThanEachOther$/APlayerHasMostCardsInHand$ (a
+// whole-table comparison no other trigger mode needs) -- together 3 real
+// lines or fewer each, a dozen-some total. A trigger carrying any of these
+// is skipped entirely, not fired unconditionally (GO-7). The qualified
+// ValidPlayer$ forms matchesPlayerSpec cannot resolve
+// (Player.EnchantedController, 34; Player.EnchantedBy, 14; You.descended,
+// 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
+// unresolved for the identical reason SpellCast's own
+// Player.EnchantedBy/Player.Chosen do (matchesPlayerSpec's own doc comment).
+func (g *Game) checkPhaseTriggers(controller PlayerController) {
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, z := range phaseTriggerZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isPhaseTrigger(t) {
+							continue
+						}
+						if hasAnyParam(t, "IsPresent", "PresentCompare", "CheckSVar", "Condition",
+							"FirstUpkeep", "FirstUpkeepThisGame", "FirstCombat", "TurnCount",
+							"APlayerHasMoreLifeThanEachOther", "APlayerHasMostCardsInHand") {
+							continue
+						}
+						if !phaseTriggerZoneMatches(t, z) {
+							continue
+						}
+						if !phaseTriggerMatches(t, g.activePhase) {
+							continue
+						}
+						if validPlayer, ok := t.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller, validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						if sub, api, ok := triggerEffectAPI(t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller, Params: sub})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+// phaseTriggerZones is every zone this port walks looking for a Mode$ Phase
+// trigger's host -- the four the real corpus's own TriggerZones$ actually
+// names (Battlefield, 2,219 of 2,336 real lines that carry one; Command, 84;
+// Graveyard, 28; Exile, 3). Hand/Library/Stack/Sideboard/every other
+// ZoneType carry zero real Mode$ Phase lines, so walking them would find
+// nothing a real card needs; a future card that puts one there is a
+// coverage gap this port would need to widen this list for, not a wrong
+// answer today.
+var phaseTriggerZones = []ZoneType{Battlefield, Command, Graveyard, Exile}
+
+// phaseTriggerZoneMatches is TriggerReplacementBase.zonesCheck's own
+// contract applied to Mode$ Phase: TriggerZones$ absent or empty passes
+// regardless of zone (26 of 2,362 real lines carry none), a comma-list
+// (`Command,Battlefield`, 1 real line) matches if zone is any one of them.
+func phaseTriggerZoneMatches(t *compile.Ability, zone ZoneType) bool {
+	v, ok := t.Param("TriggerZones")
+	if !ok {
+		return true
+	}
+	for _, name := range strings.Split(v, ",") {
+		if z, ok := ZoneByName(name); ok && z == zone {
+			return true
+		}
+	}
+	return false
+}
+
+// phaseTriggerMatches is Phase$ itself: does the trigger fire during
+// current, the phase that was just entered. `Main` (29 real lines, every one
+// paired with `PhaseCount$ 2` -- "your second main phase," Survival's own
+// cards among them) is the one token PhaseByName deliberately does not
+// resolve (TestPhaseNamesRoundTrip's own assertion, event_test.go) --
+// PhaseType.parseRange's own special case for it (PhaseType.java) expands to
+// both Main1 and Main2 when no PhaseCount$ narrows it to the second one
+// alone. A PhaseCount$ value other than "2" (0 real lines) has no known
+// meaning here and is refused rather than guessed at (GO-7). Every other
+// token resolves through phaseNameFold, below -- a single comma-list entry
+// (`Main1,Main2`, 1 real line) or, far more often, one bare name.
+func phaseTriggerMatches(t *compile.Ability, current PhaseType) bool {
+	spec, ok := t.Param("Phase")
+	if !ok {
+		return false
+	}
+	for _, token := range strings.Split(spec, ",") {
+		if strings.EqualFold(token, "Main") {
+			if count, hasCount := t.Param("PhaseCount"); hasCount {
+				if count != "2" {
+					return false
+				}
+				if current == Main2 {
+					return true
+				}
+				continue
+			}
+			if current == Main1 || current == Main2 {
+				return true
+			}
+			continue
+		}
+		if p, ok := phaseNameFold(token); ok && p == current {
+			return true
+		}
+	}
+	return false
+}
+
+// phaseNameFold is PhaseByName's own case-insensitive twin, needed only
+// here: the corpus itself is inconsistent about one phase's own case
+// (`Phase$ End of Turn`, 677 real lines; `Phase$ End Of Turn`, 3 more, a
+// capital `O`) the way ZoneByName's own doc comment says zone names never
+// are, so an exact match would silently drop those 3 real lines rather than
+// fire their trigger. PhaseByName itself stays exact -- fixture.go's own
+// GameState text format is this port's own, not the corpus's, and has no
+// such inconsistency to tolerate.
+func phaseNameFold(name string) (PhaseType, bool) {
+	for i, n := range phaseNames {
+		if strings.EqualFold(n, name) {
+			return PhaseType(i), true
+		}
+	}
+	return Untap, false
+}
+
+// isPhaseTrigger reports whether t is CR 500's "beginning of a step or
+// phase" shape: Mode$ Phase.
+func isPhaseTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Phase")
 }
 
 // pushTriggeredAbilities is CR 603.3b: when more than one ability triggers

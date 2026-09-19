@@ -39,10 +39,17 @@ const maxAmountDepth = 4
 // Every other shape -- an operator suffix, a non-Count expression head
 // (SVar$, PlayerCountOpponents, the eighty-some others
 // AbilityUtils.calculateAmount itself dispatches on), a Count head outside
-// the Valid family (xPaid, CardCounters, Devotion, ...) -- reports false
-// rather than a wrong number (GO-7): every real corpus caller of this
-// (ptParam, continuous.go) already treats an unresolved amount as "skip this
-// dimension," not "apply zero."
+// the Valid family (xPaid, CardCounters, Devotion, ...), or a Valid family
+// argument itself carrying a `$`-suffixed distinct-value operator
+// (Tarmogoyf's own `Count$ValidGraveyard Card$CardTypes`,
+// [expr.Count.DistinctProperty]'s own doc comment) -- reports false rather
+// than a wrong number (GO-7): every real corpus caller of this (ptParam,
+// continuous.go) already treats an unresolved amount as "skip this
+// dimension," not "apply zero." The DistinctProperty case matters
+// specifically because count.Valid itself still parses to something that
+// looks usable (`Card`, matching every object) -- without the explicit
+// check below, this would silently measure the wrong thing (a plain match
+// count) rather than skip.
 //
 // sourceController/source are the pairing Matches itself always takes: for
 // a static ability, host's own controller and id (AbilityUtils.xCount's own
@@ -80,6 +87,9 @@ func resolveAmountDepth(g *Game, amounts map[string]expr.Amount, sourceControlle
 		}
 		count := expr.ParseCount(amt.Body)
 		if !expr.IsValidHead(count.Head) {
+			return 0, false
+		}
+		if count.DistinctProperty != "" {
 			return 0, false
 		}
 		zones, ok := validCountZones(count.Head)

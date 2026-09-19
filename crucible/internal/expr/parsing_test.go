@@ -173,6 +173,34 @@ func TestParseCount(t *testing.T) {
 	}
 }
 
+// TestParseCountDistinctProperty proves a Valid family argument carrying a
+// `$`-suffixed distinct-value operator (Tarmogoyf's own
+// `ValidGraveyard Card$CardTypes`) splits Valid and DistinctProperty apart
+// rather than feeding the whole `Card$CardTypes` string into valid.Parse as
+// one base name -- xCount's own `paidparts = l[0].split("\\$", 2)` cuts on
+// the first `$`, so the valid string is only `Card` (matches every object)
+// and `CardTypes` is a separate operator (Count.DistinctProperty's own doc
+// comment).
+func TestParseCountDistinctProperty(t *testing.T) {
+	t.Parallel()
+
+	goyf := expr.ParseCount("ValidGraveyard Card$CardTypes")
+	if goyf.Head != "ValidGraveyard" {
+		t.Errorf("head = %q, want ValidGraveyard", goyf.Head)
+	}
+	if goyf.DistinctProperty != "CardTypes" {
+		t.Errorf("DistinctProperty = %q, want CardTypes", goyf.DistinctProperty)
+	}
+	if got := len(goyf.Valid.Alternatives); got != 1 || goyf.Valid.Alternatives[0].Base.Name != "Card" {
+		t.Errorf("Valid = %+v, want a single Card alternative -- the part of the argument before the $", goyf.Valid)
+	}
+
+	plain := expr.ParseCount("ValidGraveyard Creature.YouOwn")
+	if plain.DistinctProperty != "" {
+		t.Errorf("DistinctProperty = %q, want empty -- no $ in this argument", plain.DistinctProperty)
+	}
+}
+
 func TestEmpty(t *testing.T) {
 	t.Parallel()
 

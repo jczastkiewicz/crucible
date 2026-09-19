@@ -7,11 +7,13 @@
 // port already has everything it needs for, unlike the rest of Combat) and
 // Cleanup (CR 514.1's discard to hand size and CR 514.2's damage clear --
 // 514.2's other half, ending "until end of turn" effects, still needs
-// machinery this port has not reached, below). Every other step in
-// PhaseHandler.onPhaseBegin needs the stack, triggers, SpellAbility or the
-// rest of Combat to do anything -- upkeep triggers, casting in a main
-// phase, declaring attackers -- so AdvancePhase walks through them as
-// bookkeeping only, changing ActivePhase and nothing else, until each one's
+// machinery this port has not reached, below). Every step, not only those
+// four, now checks CR 500's own "at the beginning of a step or phase"
+// trigger (checkPhaseTriggers, trigger.go) right after its own body, if any
+// -- casting in a main phase and declaring attackers still wait on the rest
+// of Combat/the stack's real priority loop, so AdvancePhase still walks
+// through the steps that need those as bookkeeping only, changing
+// ActivePhase and nothing else beyond the trigger check, until each one's
 // turn comes (porting/port-log/game-state.md).
 //
 // PhaseHandler's priority loop (mainLoopStep) is still not wired in here,
@@ -110,6 +112,7 @@ func (g *Game) beginPhase(controller PlayerController) {
 	case Cleanup:
 		g.cleanupStep(controller)
 	}
+	g.checkPhaseTriggers(controller)
 	CheckStateBasedActions(g, controller)
 }
 

@@ -381,6 +381,45 @@ func TestApplyContinuousCharacteristicDefiningSkipsUnresolvableSVar(t *testing.T
 	}
 }
 
+// TestApplyContinuousCharacteristicDefiningSkipsDistinctPropertyCount proves
+// a Valid family argument itself carrying a `$`-suffixed distinct-value
+// operator (Tarmogoyf's own real `Count$ValidGraveyard Card$CardTypes`) is
+// skipped, not silently resolved as a plain match count against `Card`
+// (which would wrongly compute 0 every time, since every card matches
+// `Card` -- expr.Count.DistinctProperty's own doc comment; this is a
+// regression test for a real bug caught after the fact, not a hypothetical
+// one).
+func TestApplyContinuousCharacteristicDefiningSkipsDistinctPropertyCount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nLhurgoyf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Tarmogoyf"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Tarmogoyf"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Lhurgoyf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "*", "*"
+	raw.Faces[0].Statics = []string{"Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X"}
+	raw.Faces[0].SVars.Set("X", "Count$ValidGraveyard Card$CardTypes")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	goyf := g.NewCard(def, p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if pw, ok := g.Card(goyf).Power(); ok {
+		t.Errorf("Power() = (%d, true), want unresolvable -- Card$CardTypes is a distinct-value count this port does not evaluate, and must not silently resolve to a plain match count against \"Card\"", pw)
+	}
+}
+
 // TestApplyContinuousTypeAddsTypeToMatchingCreatures proves Layer 4's own
 // AddType$, the type-line counterpart to TestApplyContinuousPTAppliesAnthemToMatchingCreatures:
 // a blanket "creatures you control are also Zombies" effect adds Zombie

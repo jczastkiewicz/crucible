@@ -642,7 +642,7 @@ printed form.
     not resolved, needing its own `ValidSource$`/`ValidSA$` evaluation.
 
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
-    cast shapes, nine trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
+    cast shapes, ten trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a
     real (non-test) `PushAbility`/`ResolveStack` caller for both a non-Aura permanent (CR 601 trimmed to nothing left to
     decide, `permanentEffect`) and an Aura (`castAura`: a target chosen from every battlefield permanent `enchantSpec`'s
     parsed `Enchant` restriction matches, `ChooseEnchantTarget` asked only when more than one does, carried on a new
@@ -650,13 +650,15 @@ printed form.
     `checkDiesTriggers`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkDamageDoneTriggersToCard`/
     `checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`checkTapsTriggers`/`checkTapsForManaTriggers`/
     `checkSpellCastTriggers` (`trigger.go`, thirteen functions in all once each mode's own "other" half is counted)
-    cover the corpus's nine most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
+    cover the corpus's ten most frequent trigger shapes — a permanent's own "enters" (`Mode$ ChangesZone`,
     `Destination$ Battlefield`), "dies" (`Mode$ ChangesZone`, `Origin$ Battlefield`, `Destination$ Graveyard`, CR
     700.4), "attacks" (`Mode$ Attacks`, CR 508.3), "blocks" (`Mode$ Blocks`, CR 509.2), "deals damage"
     (`Mode$ DamageDone`, CR 603, `TriggerDamageDone.performTest`), "is discarded" (`Mode$ Discarded`, CR 603,
     `TriggerDiscarded.performTest`), "becomes tapped" (`Mode$ Taps`, CR 603, `TriggerTaps.performTest`), "taps for mana"
-    (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`) and "a player casts a spell" (`Mode$ SpellCast`, CR 603) —
-    the first two also checked against every OTHER battlefield permanent's own matching trigger
+    (`Mode$ TapsForMana`, `TriggerTapsForMana.performTest`), "a player casts a spell" (`Mode$ SpellCast`, CR 603) and
+    "the beginning of a step or phase" (`Mode$ Phase`, CR 500, `checkPhaseTriggers`, added later once corpus-frequency
+    research found it the corpus's SECOND most frequent mode after `ChangesZone` — 2,362 real lines, ahead of `Attacks`
+    itself) — the first two also checked against every OTHER battlefield permanent's own matching trigger
     (`otherETBTriggerMatches`/`otherDiesTriggerMatches`); `Attacks`, `Blocks`, `DamageDone`, `Taps`, `TapsForMana` and
     `SpellCast` need no separate "other" loop at all, since none of those Java trigger classes special-cases its own
     host's trigger to begin with — one walk over the battlefield covers both "this creature attacks/blocks/deals
@@ -690,31 +692,45 @@ printed form.
     closing 19 of `SpellCast`'s 25 real qualified `ValidActivatingPlayer$` lines, `DamageDone`'s own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` and `TapsForMana`'s own `Activator$ Player.NonActive`; `CantBlockBy`'s
     `ValidDefender`, `Discarded`'s `ValidPlayer` and `Taps`'s `ValidPlayer` keep calling `matchesPlayerBase` directly,
-    verified against the real corpus to carry zero qualified lines for those exact params. All nine modes are keyed off
-    `compile.Face.Triggers` (typed since M3, never read by the engine before now), and all nine now push what they find
-    through `pushTriggeredAbilities` (`trigger.go`) rather than `PushAbility` directly — CR 603.3b's own APNAP ordering:
-    each trigger-check function collects its own matches (its "own" and "other" halves, where it has both, feeding one
-    `[]Ability`) and calls it once at the end. `pushTriggeredAbilities` walks `playersInAPNAPOrder`
-    (`Game.ActivePlayer()` first, then `nextPlayerAfter`, `turn.go`'s own seating order) and pushes each player's whole
-    group in that order; since the stack is LIFO and `MagicStack.addAllTriggeredAbilitiesToStack` itself pushes the
-    active player's group first, the LAST player in APNAP order ends up on top, resolving FIRST — the active player's
-    own group resolves last, ported faithfully from `MagicStack.chooseOrderOfSimultaneousStackEntry`'s own
-    player-iteration order. A single player's own multiple matches stay in the order they were found rather than a real
-    player choice (`Player.orderAndPlaySimultaneousSa`), since no `PlayerController` hook for that exists yet. Caught
-    and proven by `TestPlayLandPushesETBTriggersInAPNAPOrder` (trigger_test.go): before this, every trigger-check
-    function pushed each match the instant it found one, correct only when a single card's own trigger fires alone. A
-    trigger's `Execute$` sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too
-    (`Ability.Params`, `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw`
-    (`draweffect.go`) became the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself;
-    `ResolveStack` still reports `ErrUnimplemented` for the other 202. `Attacks`'s own `Alone$` (60 real lines,
-    `attacksOtherCount` counting `Combat.Attackers` other than the declared one),
-    `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own `Counters.Count(Poison)` and a new
-    `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new `damageAmountMatches` reusing `compareOp`
-    (`valid.go`), never `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal
-    `TargetToughness`) are all resolved now too. Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell"
-    (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params; `DamageDone`'s own
-    `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    verified against the real corpus to carry zero qualified lines for those exact params. `Phase` needs no `ValidCard`
+    at all -- there is no object a step or phase change happens TO, only `Phase$` itself (the step/phase name(s),
+    resolved against `phase.go`'s own `PhaseType`/`PhaseByName`, built with this mode in mind from the start) and
+    `ValidPlayer$` (matched against the ACTIVE player, `AbilityKey.Player` in Java's own `PhaseHandler.onPhaseBegin`,
+    not the trigger's own host controller the way every other mode's player-shaped param is) -- and, unique among every
+    mode this port checks, an explicit `TriggerZones$` walk rather than an implicit battlefield-only one: `Phase` is
+    real from the graveyard, exile and command zone too (a suspend/exiled-with-triggers shape), so `checkPhaseTriggers`
+    walks all four real zones (`phaseTriggerZones`, `trigger.go`) rather than assuming battlefield the way every earlier
+    mode's own single walk safely could. All ten modes are keyed off `compile.Face.Triggers` (typed since M3, never read
+    by the engine before now), and all ten now push what they find through `pushTriggeredAbilities` (`trigger.go`)
+    rather than `PushAbility` directly — CR 603.3b's own APNAP ordering: each trigger-check function collects its own
+    matches (its "own" and "other" halves, where it has both, feeding one `[]Ability`) and calls it once at the end.
+    `pushTriggeredAbilities` walks `playersInAPNAPOrder` (`Game.ActivePlayer()` first, then `nextPlayerAfter`,
+    `turn.go`'s own seating order) and pushes each player's whole group in that order; since the stack is LIFO and
+    `MagicStack.addAllTriggeredAbilitiesToStack` itself pushes the active player's group first, the LAST player in APNAP
+    order ends up on top, resolving FIRST — the active player's own group resolves last, ported faithfully from
+    `MagicStack.chooseOrderOfSimultaneousStackEntry`'s own player-iteration order. A single player's own multiple
+    matches stay in the order they were found rather than a real player choice (`Player.orderAndPlaySimultaneousSa`),
+    since no `PlayerController` hook for that exists yet. Caught and proven by
+    `TestPlayLandPushesETBTriggersInAPNAPOrder` (trigger_test.go): before this, every trigger-check function pushed each
+    match the instant it found one, correct only when a single card's own trigger fires alone. A trigger's `Execute$`
+    sub-ability's own params (`Defined$`, `NumCards$`, ...) travel onto the stack now too (`Ability.Params`,
+    `ability.go`) — the gap that blocked resolving anything a real trigger pushed until `Draw` (`draweffect.go`) became
+    the first of the 203 corpus-frequency APIs `NewRegistry` implements beyond casting itself; `ResolveStack` still
+    reports `ErrUnimplemented` for the other 202. `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting
+    `Combat.Attackers` other than the declared one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each,
+    `defenderOf`'s own `Counters.Count(Poison)` and a new `attacksMultiplePlayers`) and `DamageDone`'s own
+    `DamageAmount$` (8, a new `damageAmountMatches` reusing `compareOp` (`valid.go`), never
+    `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal `TargetToughness`) are all
+    resolved now too. `Phase` itself is real now: `checkPhaseTriggers` resolves `Phase$` (every real corpus value bar an
+    unrecognized token, which does not occur), the `Main`/`PhaseCount$ 2` alias for "second main phase" (29 real lines),
+    and `ValidPlayer$` through `matchesPlayerSpec` (2,001 of 2,065 real lines). Still missing: every trigger mode but
+    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
+    spell"/"beginning of a step or phase" (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own
+    `Attacked$`/`FirstAttack$` params; `Phase`'s own `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$` (a general
+    conditional-trigger evaluator no mode has), `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and
+    the two whole-table comparisons (a dozen-some real lines total), plus its own qualified `ValidPlayer$` forms
+    (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
+    lines); `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
     `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
     `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified
@@ -782,9 +798,13 @@ printed form.
     host card regardless of any `Affected$` a real corpus line also carries) at `LayerCharacteristic` — a layer
     `PTEffect`'s own folding already carried since Layer 7b/7c first landed, unused as a real caller until now. Still
     not resolved: every other `Count$` head (`xPaid`, `CardCounters`, `Devotion`, and eighty-some more
-    `AbilityUtils.calculateAmount` itself dispatches on) and any `Count$Valid...` expression carrying an operator suffix
-    (Roiling Horror's own `Y -> Z` chain, 267 of the 2,804) — a full `AbilityUtils.calculateAmount` port, not this
-    slice's job.
+    `AbilityUtils.calculateAmount` itself dispatches on), any `Count$Valid...` expression carrying an operator suffix
+    (Roiling Horror's own `Y -> Z` chain, 267 of the 2,804), and a dozen more where the Valid argument itself carries a
+    `$`-suffixed distinct-value operator (Tarmogoyf's own `Count$ValidGraveyard Card$CardTypes` — a new
+    `expr.Count.DistinctProperty` field now catches this rather than silently misparsing `Card$CardTypes` as one base
+    name and resolving a plain match count against `Card`, which matches every object; caught by
+    `TestApplyContinuousCharacteristicDefiningSkipsDistinctPropertyCount` after this slice had already shipped, a real
+    bug, not a hypothetical one) — a full `AbilityUtils.calculateAmount` port, not this slice's job.
 
     The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already
     showed a static-ability mode can be independently buildable when it needs no layer-folding of its own —

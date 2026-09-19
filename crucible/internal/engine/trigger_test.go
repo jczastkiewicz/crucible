@@ -2589,3 +2589,173 @@ func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam(
 		t.Fatalf("StackLen() = %d, want 0 -- CheckSVar$ is not evaluated, so the trigger must not fire", got)
 	}
 }
+
+// drawnTriggerDef builds a permanent whose own Drawn trigger carries extra
+// beyond the bare Mode$/Execute$ shape -- CR 120.3's own "whenever you draw
+// a card" mode, checkDrawnTriggers' own doc comment (trigger.go).
+func drawnTriggerDef(t *testing.T, name, extra string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	line := "Mode$ Drawn"
+	if extra != "" {
+		line += " | " + extra
+	}
+	line += " | Execute$ TrigDraw"
+	raw.Faces[0].Triggers = []string{line}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDrawCardsFiresDrawnTriggerForCardYouCtrl proves ValidCard$ Card.YouCtrl:
+// the drawn card's own controller (its owner, absent any control-changing
+// effect) equals the host's own controller.
+func TestDrawCardsFiresDrawnTriggerForCardYouCtrl(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidCard$ Card.YouCtrl"), p, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 2 {
+		t.Errorf("p's hand size = %d, want 2 -- the drawn card and the one the trigger's own Draw effect drew", got)
+	}
+}
+
+// TestDrawCardsSkipsDrawnTriggerForCardYouCtrlWhenHostControlledByOther
+// proves the same trigger does not fire when the host is controlled by
+// someone other than the player who drew.
+func TestDrawCardsSkipsDrawnTriggerForCardYouCtrlWhenHostControlledByOther(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidCard$ Card.YouCtrl"), other, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- the drawn card is controlled by p, not other, so Card.YouCtrl fails against a host other controls", got)
+	}
+}
+
+// TestDrawCardsFiresDrawnTriggerForValidPlayerOpponent proves ValidPlayer$
+// Opponent: the host's own controller is not the player who drew.
+func TestDrawCardsFiresDrawnTriggerForValidPlayerOpponent(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(nil, other, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidPlayer$ Opponent"), other, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, other).Cards()); got != 1 {
+		t.Errorf("other's hand size = %d, want 1 -- ValidPlayer$ Opponent must fire when p (not other) draws", got)
+	}
+}
+
+// TestDrawCardsSkipsDrawnTriggerForValidPlayerOpponentWhenHostIsDrawer
+// proves the same trigger does not fire when the host's own controller IS
+// the player who drew.
+func TestDrawCardsSkipsDrawnTriggerForValidPlayerOpponentWhenHostIsDrawer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidPlayer$ Opponent"), p, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- ValidPlayer$ Opponent must not fire when the host's own controller is the one who drew", got)
+	}
+}
+
+// TestDrawCardsFiresDrawnTriggerForMatchingNumber proves Number$ 2: drawing
+// two cards in one DrawCards call fires the trigger only on the second,
+// CardsDrawnThisTurn incrementing per card the identical way Java's own
+// numDrawnThisTurn does.
+func TestDrawCardsFiresDrawnTriggerForMatchingNumber(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "Number$ 2"), p, engine.Battlefield)
+
+	g.DrawCards(p, 2)
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 -- Number$ 2 must fire exactly once, on the second card drawn", got)
+	}
+}
+
+// TestDrawCardsSkipsDrawnTriggerForNonMatchingNumber proves Number$ 2 does
+// not fire on a single draw (CardsDrawnThisTurn reaches only 1).
+func TestDrawCardsSkipsDrawnTriggerForNonMatchingNumber(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "Number$ 2"), p, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- a single draw never reaches CardsDrawnThisTurn == 2", got)
+	}
+}
+
+// TestDrawCardsSkipsDrawnTriggerWithUnresolvedParam proves
+// FirstCardInDrawStep$ is skipped entirely, GO-7's usual "whole line, not a
+// guess" contract.
+func TestDrawCardsSkipsDrawnTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	g.NewCard(drawnTriggerDef(t, "Test Watcher", "FirstCardInDrawStep$ True"), p, engine.Battlefield)
+
+	g.DrawCards(p, 1)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- FirstCardInDrawStep$ is not evaluated, so the trigger must not fire", got)
+	}
+}

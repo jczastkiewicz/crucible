@@ -1393,3 +1393,85 @@ func validAttackersCountMatches(g *Game, host *Card, t *compile.Ability, spec st
 func isAttackersDeclaredTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "AttackersDeclared")
 }
+
+// checkDrawnTriggers is CR 120.3's own "whenever you draw a card" mode,
+// `Mode$ Drawn` -- TriggerDrawn.performTest, called from DrawCards' own
+// per-card loop (turn.go) the identical way checkTapsTriggers is called from
+// its own two real tap sites: one call per card actually drawn, not once per
+// DrawCards invocation, so "draw two cards" checks this twice with a
+// different `number` each time -- the reason DrawCards' own doc comment
+// (turn.go) already draws one card at a time rather than moving n at once.
+//
+// 161 real S:T:Mode$ Drawn lines corpus-wide (vocabscan). Walks
+// phaseTriggerZones (above) rather than Battlefield alone: 150 real lines
+// carry TriggerZones$ Battlefield, but 6 carry Command and 3 carry Graveyard,
+// the identical minority-but-real split Phase's own zone walk exists for.
+//
+// Resolved: ValidCard$ (156 of 161) against drawn -- every real value
+// (Card.YouCtrl, Card.OppOwn, Card.YouOwn, Card.OwnedBy, bare Card, ...) is
+// an ordinary valid-string Matches (valid.go) already evaluates, needing
+// nothing new; ValidPlayer$ (13) through the existing matchesPlayerSpec,
+// against the player who drew rather than the trigger's own host controller
+// (TriggerDrawn.performTest's own AbilityKey.Player, set to the drawing
+// player in Player.java's own drawCard, not a qualified restriction on the
+// host); Number$ (79) against CardsDrawnThisTurn (player.go), Java's own
+// numDrawnThisTurn incremented once per card BEFORE the trigger check runs
+// (Player.java's own drawCard: "numDrawnThisTurn++ ... runParams.put
+// (AbilityKey.Number, numDrawnThisTurn)"), so this port's own increment
+// (DrawCards, turn.go) happens in the identical order.
+//
+// Not resolved, skipped via hasAnyParam: FirstCardInDrawStep$ (5) --
+// Java's own numDrawnThisDrawStep, a second, narrower per-draw-step counter
+// this port tracks nothing for (only the per-TURN counter, CardsDrawnThisTurn,
+// exists); ForReveal$ (5) -- Java's own AbilityKey.CanReveal, a
+// reveal-while-drawing flag (Sensei's Divining Top-adjacent shapes) this
+// port's own DrawCards has no equivalent state for.
+func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, z := range phaseTriggerZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isDrawnTrigger(t) {
+							continue
+						}
+						if !phaseTriggerZoneMatches(t, z) {
+							continue
+						}
+						if hasAnyParam(t, "FirstCardInDrawStep", "ForReveal") {
+							continue
+						}
+						if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, g.Card(drawn), valid.Parse(validCard), h.Controller(), host) {
+							continue
+						}
+						if validPlayer, ok := t.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, drawer, h.Controller(), validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						if numberParam, ok := t.Param("Number"); ok {
+							n, err := strconv.Atoi(numberParam)
+							if err != nil || n != number {
+								continue
+							}
+						}
+						if sub, api, ok := triggerEffectAPI(t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+func isDrawnTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Drawn")
+}

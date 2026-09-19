@@ -165,9 +165,10 @@ func (g *Game) drawStep() {
 // DrawCards draws n cards for pid, one at a time (Player.drawCards' own
 // per-card loop in Java, not a single Move of n cards at once) -- CR 120.3's
 // "draw a card," repeated, matters once something reacts to an individual
-// draw rather than the batch (nothing does yet, game-state.md's "Not ported
-// yet"), so this port matches the granularity rather than guessing it never
-// matters. A library that runs out partway through records the attempt
+// draw rather than the batch: checkDrawnTriggers (trigger.go) now does,
+// firing once per card with that card's own running CardsDrawnThisTurn
+// count, the reason this port matches the granularity rather than guessing
+// it never matters. A library that runs out partway through records the attempt
 // (CheckStateBasedActions' own CR 704.5b) and stops -- the remaining draws
 // never happened, the same as a real player who cannot pay to keep drawing
 // past empty.
@@ -191,6 +192,8 @@ func (g *Game) DrawCards(pid PlayerID, n int) {
 		// countable without inspecting every zone change for the ones that
 		// happen to be library-to-hand.
 		g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
+		g.Player(pid).CardsDrawnThisTurn++
+		g.checkDrawnTriggers(pid, id, g.Player(pid).CardsDrawnThisTurn)
 	}
 }
 
@@ -264,5 +267,6 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p := g.Player(pid)
 		p.LandsPlayedLastTurn = p.LandsPlayed
 		p.LandsPlayed = 0
+		p.CardsDrawnThisTurn = 0
 	}
 }

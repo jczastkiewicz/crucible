@@ -53,6 +53,13 @@ type Player struct {
 	// every registered player).
 	LandsPlayed         int
 	LandsPlayedLastTurn int
+	// CardsDrawnThisTurn is how many cards this player has drawn this turn
+	// (Java's own numDrawnThisTurn, Player.java), read by checkDrawnTriggers
+	// (trigger.go) for Mode$ Drawn's own Number$ param -- "whenever you draw
+	// your Nth card each turn." Incremented per card in DrawCards (below),
+	// the identical per-turn-counter shape LandsPlayed already has, reset for
+	// every player at cleanup (cleanupStep, turn.go) the same way.
+	CardsDrawnThisTurn int
 	// Rules is Layer 8's own continuous effects currently affecting this
 	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/

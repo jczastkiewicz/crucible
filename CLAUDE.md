@@ -181,20 +181,23 @@ own bare form; a mana pool and payment covering all eight harder cost shapes (`m
 intrinsic mana ability (`manaability.go`) and playing a land (`land.go`); casting a spell — a non-Aura permanent or an
 Aura, through the stack — (`castspell.go`), the first two real `Effect` implementations
 (`permanentEffect`/`attachEffect`); trigger firing (`trigger.go`) — "enters," "dies," "attacks," "blocks," "deals
-damage," "is discarded," "becomes tapped," "taps for mana," "a player casts a spell," "the beginning of a step or phase"
-and "a player attacks" (`checkPhaseTriggers` — CR 500, `Mode$ Phase`, the corpus's own SECOND most frequent trigger mode
-at 2,362 real lines, ahead of `Attacks` itself, resolved once corpus-frequency research found it well after the first
-nine modes had already landed; unlike every other mode, it walks four zones —
+damage," "is discarded," "becomes tapped," "taps for mana," "a player casts a spell," "the beginning of a step or
+phase," "a player attacks" and "a player draws a card" (`checkPhaseTriggers` — CR 500, `Mode$ Phase`, the corpus's own
+SECOND most frequent trigger mode at 2,362 real lines, ahead of `Attacks` itself, resolved once corpus-frequency
+research found it well after the first nine modes had already landed; unlike every other mode, it walks four zones —
 `Battlefield`/`Command`/`Graveyard`/`Exile` (`phaseTriggerZones`) — not `Battlefield` alone, and matches `ValidPlayer$`
 against the active player, not the trigger's own host controller; `checkAttackersDeclaredTrigger` — CR 508.1,
 `Mode$ AttackersDeclared`, 286 real lines, fires once per combat rather than once per attacker the way `Attacks` itself
 does, reusing `phaseTriggerZones`'s own four-zone walk and a new `attackedTargetMatches`/`validAttackersCountMatches`
-pair for `AttackedTarget$`/`ValidAttackers$`), plus another permanent watching one do any of those — detects and queues
-a trigger, pushed through a new `pushTriggeredAbilities` (`trigger.go`) that ports CR 603.3b's own APNAP ordering for
-the first time (`playersInAPNAPOrder` — `Game.ActivePlayer()`, then turn order — walking each player's own group in
-turn, so the non-active player's own trigger resolves before the active player's when more than one fires off the same
-event, the stack's own LIFO order applied to `MagicStack`'s own player-iteration sequence); every trigger-check function
-now collects its own matches first and calls it once, rather than calling `PushAbility` the instant each match is found.
+pair for `AttackedTarget$`/`ValidAttackers$`; `checkDrawnTriggers` — CR 120.3, `Mode$ Drawn`, 161 real lines, called
+from `DrawCards`' own per-card loop (turn.go, already written that way before this mode existed to consume it) with a
+new `Player.CardsDrawnThisTurn` counter — `LandsPlayed`'s own per-turn-counter shape — for `Number$`'s own "the Nth card
+you draw each turn" real corpus shape), plus another permanent watching one do any of those — detects and queues a
+trigger, pushed through a new `pushTriggeredAbilities` (`trigger.go`) that ports CR 603.3b's own APNAP ordering for the
+first time (`playersInAPNAPOrder` — `Game.ActivePlayer()`, then turn order — walking each player's own group in turn, so
+the non-active player's own trigger resolves before the active player's when more than one fires off the same event, the
+stack's own LIFO order applied to `MagicStack`'s own player-iteration sequence); every trigger-check function now
+collects its own matches first and calls it once, rather than calling `PushAbility` the instant each match is found.
 `matchesPlayerBase` (`valid.go`) is the shared `You`/`Opponent`/`Player` dispatch several of those modes now reuse;
 block legality (`staticability.go`, `CanBlock`) — flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection,
 Menace and every literal `S:Mode$ CantBlockBy` line; the legend rule's own `ignoreLegendRule` exemption

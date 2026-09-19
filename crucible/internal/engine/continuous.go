@@ -549,3 +549,131 @@ func ptParam(g *Game, amounts map[string]expr.Amount, host *Card, s *compile.Abi
 	}
 	return resolveAmount(g, amounts, host.Controller, host.ID, amt)
 }
+
+// applyContinuousRules recomputes every player's own Layer 8 RulesEffects
+// from scratch, applyContinuousPT's own reasoning (above) applied to a
+// player rather than a card: SetMaxHandSize$/RaiseMaxHandSize$/
+// AdjustLandPlays$ Read Player.HandSizeLimit/LandPlayLimit (player.go).
+func applyContinuousRules(g *Game) {
+	for _, pid := range g.Players() {
+		g.Player(pid).Rules.Clear()
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousRules(g, h, face.Amounts, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousRules is Layer 8: s applies to every player its own
+// Affected$ spec matches (matchesPlayerSpec, valid.go -- the identical
+// dispatch every other player-shaped Affected/ValidPlayer/ValidActivatingPlayer
+// check in this port already reuses, applied here against a static
+// ability's Affected$ rather than a trigger's own player-shaped param), if
+// s is a Mode$ Continuous line naming SetMaxHandSize$, RaiseMaxHandSize$
+// and/or AdjustLandPlays$ in a shape rulesEffect (below) can resolve.
+//
+// Not resolved, each for a specific reason:
+//   - Condition$/AffectedDefined$/AffectedZone$/CharacteristicDefining$ --
+//     applyOneContinuousPT's own four skip reasons (a CharacteristicDefining
+//     line makes no sense for a player-facing effect anyway; the one real
+//     line carrying Condition$ alongside these three params, Delirium's own
+//     "each opponent's maximum hand size is seven minus...", is skipped
+//     here for that reason alone).
+//   - MayLookAt$/MayPlay$ (88, 181 real lines corpus-wide) -- a cast-time
+//     zone-eligibility permission CastSpell's own hand-only check
+//     (castspell.go) has nowhere to consult yet.
+//   - ControlOpponentsSearchingLibrary$/ControlVote$/AdditionalVote$/
+//     AdditionalOptionalVote$/AdditionalVillainousChoice$/
+//     DeclaresAttackers$/DeclaresBlockers$ (0-3 real lines each) --
+//     multiplayer/vote mechanics this port has no concept of at all.
+//   - IgnoreEffectCost$/AddHiddenKeyword$ (4, 19) -- each its own separate
+//     mechanic (a cost-ignoring ability grant; a hidden functional keyword
+//     whose own real values -- "must be blocked if able," "can't attack
+//     alone," "doesn't untap," ... -- are each a distinct
+//     block/attack/untap-step rule this port's own combat/turn model has no
+//     hook for, none of them sharing enough machinery to be worth building
+//     as one slice the way SetMaxHandSize/AdjustLandPlays do).
+//   - A qualified Affected$ matchesPlayerSpec cannot resolve
+//     (Player.NotedForGreenAnchor, Player.Chosen -- 1 real line each,
+//     matchesPlayerSpec's own doc comment has the general reason).
+//
+// 75 of the corpus's 78 real SetMaxHandSize$/RaiseMaxHandSize$/
+// AdjustLandPlays$ lines resolve here.
+func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	for _, key := range [...]string{"Condition", "AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+	effect, ok := rulesEffect(g, host, amounts, s)
+	if !ok {
+		return
+	}
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+	for _, pid := range g.Players() {
+		matched, recognized := matchesPlayerSpec(g, pid, host.Controller, affected)
+		if !recognized || !matched {
+			continue
+		}
+		g.Player(pid).Rules.Add(effect)
+	}
+}
+
+// rulesEffect reads s's own SetMaxHandSize$/RaiseMaxHandSize$/
+// AdjustLandPlays$ params into one RulesEffect. "Unlimited" (Java's own
+// literal sentinel for `p.setUnlimitedHandSize(true)`/
+// `p.addMaxLandPlaysInfinite`) is checked before falling to ptParam (above)
+// for the numeric case, since ptParam itself would just report it
+// unresolvable (neither a plain integer nor a name amounts defines) --
+// correctly, on its own terms, but the caller here needs to tell "no
+// maximum" apart from "genuinely could not resolve this." ok is false the
+// moment ANY dimension s names cannot be resolved, not just the ones that
+// can -- applyOneContinuousType's own "skip the whole line rather than
+// apply it partially" contract, ported here even though no real corpus
+// line currently names more than one of the three at once.
+func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) (RulesEffect, bool) {
+	e := RulesEffect{Timestamp: host.Timestamp}
+	any := false
+
+	if v, ok := s.Param("SetMaxHandSize"); ok {
+		if strings.EqualFold(v, "Unlimited") {
+			e.HasSetHandSize, e.SetHandSizeUnlimited, any = true, true, true
+		} else if n, ok := ptParam(g, amounts, host, s, "SetMaxHandSize"); ok {
+			e.HasSetHandSize, e.SetHandSize, any = true, n, true
+		} else {
+			return RulesEffect{}, false
+		}
+	}
+	if _, ok := s.Param("RaiseMaxHandSize"); ok {
+		n, ok := ptParam(g, amounts, host, s, "RaiseMaxHandSize")
+		if !ok {
+			return RulesEffect{}, false
+		}
+		e.HasRaiseHandSize, e.RaiseHandSize, any = true, n, true
+	}
+	if v, ok := s.Param("AdjustLandPlays"); ok {
+		if strings.EqualFold(v, "Unlimited") {
+			e.HasAdjustLandPlays, e.AdjustLandPlaysUnlimited, any = true, true, true
+		} else if n, ok := ptParam(g, amounts, host, s, "AdjustLandPlays"); ok {
+			e.HasAdjustLandPlays, e.AdjustLandPlays, any = true, n, true
+		} else {
+			return RulesEffect{}, false
+		}
+	}
+	return e, any
+}

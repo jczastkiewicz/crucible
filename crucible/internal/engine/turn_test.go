@@ -592,6 +592,32 @@ func TestCleanupDiscardOnlyAppliesToTheActivePlayer(t *testing.T) {
 	}
 }
 
+// TestCleanupDoesNotDiscardWithUnlimitedHandSize proves cleanupStep reads
+// Player.HandSizeLimit, not the bare MaxHandSize default: a continuous
+// SetMaxHandSize$ Unlimited effect (Thought Vessel's own real shape) keeps
+// every card in an oversized hand, with no discard ever asked for -- an
+// empty discard queue would panic if the controller were asked.
+func TestCleanupDoesNotDiscardWithUnlimitedHandSize(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Unlimited Hand", "Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited"), a, engine.Battlefield)
+	for i := 0; i < engine.MaxHandSize+2; i++ {
+		g.NewCard(nil, a, engine.Hand)
+	}
+
+	c := engine.NewScriptedController()
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	engine.CheckStateBasedActions(g, c)
+	g.AdvancePhase(c) // -> Cleanup
+
+	if got := g.Zone(engine.Hand, a).Len(); got != engine.MaxHandSize+2 {
+		t.Errorf("hand size = %d, want unchanged at %d -- SetMaxHandSize$ Unlimited must skip the discard entirely", got, engine.MaxHandSize+2)
+	}
+}
+
 func TestCloneCopiesTurnState(t *testing.T) {
 	t.Parallel()
 

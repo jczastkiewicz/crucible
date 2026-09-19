@@ -383,6 +383,7 @@ func (g *Game) Clone() *Game {
 
 	for i := range out.players {
 		out.players[i].Counters = g.players[i].Counters.clone()
+		out.players[i].Rules = g.players[i].Rules.clone()
 	}
 
 	copy(out.cards, g.cards)

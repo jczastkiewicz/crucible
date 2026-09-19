@@ -749,7 +749,7 @@ printed form.
     one `[]Ability` first; a single player's own multiple matches still stay in the deterministic order they were found,
     since this port has no `PlayerController` hook for a real player choice among them (`orderAndPlaySimultaneousSa`,
     `MagicStack.java`) — the whole replacement-effect system remains a gap.
-27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Four real slices of `Mode$ Continuous` now,
+27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Five real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first
     time: `applyContinuousPT` (`continuous.go`) resolves Layer 7b/7c
@@ -813,13 +813,48 @@ printed form.
     `TestApplyContinuousCharacteristicDefiningSkipsDistinctPropertyCount` after this slice had already shipped, a real
     bug, not a hypothetical one) — a full `AbilityUtils.calculateAmount` port, not this slice's job.
 
+    **Layer 8 (`RULES`) has real content now too, this port's first player-facing continuous effect.** A new
+    `RulesMod`/`RulesEffect` (`rulesmod.go`) lives on `Player`, not `Card` —
+    `Card.PT`/`TypeMod`/`ColorMod`/`KeywordMod`'s own shape, just attached to the other side of `Affected$`'s own two
+    real targets (`getAffectedPlayers`, `StaticAbilityContinuous.java`, alongside `getAffectedCards`).
+    `applyContinuousRules`/`applyOneContinuousRules` (continuous.go) resolve
+    `SetMaxHandSize$`/`RaiseMaxHandSize$`/`AdjustLandPlays$` (75 of 78 real lines) — `Affected$` matched through
+    `matchesPlayerSpec` (valid.go, the identical dispatch `SpellCast`'s own `ValidActivatingPlayer$` already reuses,
+    here against a static ability rather than a trigger), the numeric case through the existing `ptParam` (no new
+    amount-resolution code needed), and `"Unlimited"` checked as its own sentinel before falling to `ptParam`
+    (`p.setUnlimitedHandSize`/`addMaxLandPlaysInfinite`'s own literal, ported). Two new `Player` methods fold the
+    effects against the printed defaults `turn.go`'s `MaxHandSize` and `land.go`'s `maxLandPlays` were already waiting
+    for: `HandSizeLimit` (`SetMaxHandSize$` REPLACES the running limit and the unlimited flag with it,
+    `RaiseMaxHandSize$` ADDS to it, both folded in Timestamp order — `foldPT`'s own combine convention, port-log's
+    reason this port picked it over rediscovering Java's own iteration order for the rare case of two conflicting
+    effects) and `LandPlayLimit` (`AdjustLandPlays$` sums unconditionally, `Player.getMaxLandPlays`'s own contract, no
+    order-dependence at all). Both take the printed default as a parameter rather than reading `turn.go`/`land.go`'s own
+    constants directly, keeping `player`'s own `enginelint` group acyclic. `cleanupStep`/`PlayLand` (turn.go/land.go)
+    now call them instead of comparing against the bare constants. Not resolved: `MayLookAt$`/`MayPlay$` (88/181 real
+    lines) — a cast-time zone-eligibility permission `CastSpell`'s own hand-only check has nowhere to consult yet;
+    `AddHiddenKeyword$` (19) — each of its 8 real distinct values its own separate block/attack/untap-step mechanic, not
+    one shape worth building as a slice; vote/villainous-choice params (0-3 real lines each) — multiplayer mechanics
+    this port has no concept of; a qualified `Affected$` `matchesPlayerSpec` cannot resolve
+    (`Player.NotedForGreenAnchor`/`Player.Chosen`, 1 real line each).
+
     The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already
     showed a static-ability mode can be independently buildable when it needs no layer-folding of its own —
-    `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now four of
-    its layers partly haven't had to: all four subsets needed only the valid-string evaluator (`valid.go`) every other
+    `Mode$ Continuous` was always going to be the one mode that could not skip that machinery entirely, and now five of
+    its layers partly haven't had to: all five subsets needed only the valid-string evaluator (`valid.go`) every other
     slice already reused, plus (for Layers 4/5) small additions to `cardtype.Line`/`valid.go` themselves. The rest of
-    Layers 4/5/6 past a literal token list, Layer 7a's own SVar shapes outside the Valid family, and Layers 1-3/8 in
-    full are still the real remaining size of this item.
+    Layers 4/5/6 past a literal token list, Layer 7a's own SVar shapes outside the Valid family, and Layer 8's own
+    remainder above are the real remaining size of this item, alongside three layers this port has not touched at all:
+    Layer 1 (copy effects) is not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself — zero real
+    references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at
+    resolution time, not a recomputed-each-pass continuous effect at all, so it is not this item's job even in
+    principle. Layer 2 (`GainControl$`, 42 real lines) is tractable in the SAME sense Layer 8 turned out to be — Java's
+    own `Card.tempControllers` (a `NavigableMap<Long, Player>`, `getController()` returning the highest-timestamp entry)
+    is the identical "latest Timestamp wins" pattern `RulesMod`/`PTEffect` already use — but `Card.Controller` is a
+    plain field this port mutates nowhere today (a repo-wide grep for an assignment to it outside `NewCard` finds none),
+    so building this would be this port's first real controller-change mechanism, not a fold bolted onto an existing
+    accessor the way `Power()`/`Type()`/`Colors()`/`HasKeyword()` all already are — a real next slice, just a bigger one
+    than Layer 8 was, not attempted this pass. Layer 3 (`GainTextOf$`, 1 real line) needs its own single-card
+    text-copying mechanism for one real corpus card, not a slice worth building for that alone.
 
 28. Combat (`combat/`), mana payment (`mana/`), mulligans (`mulligan/`). **Combat further along than "everything but
     static abilities"** (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`, `staticability.go`) — first strike,

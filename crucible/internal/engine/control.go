@@ -110,10 +110,11 @@ type PlayerController interface {
 
 	// DiscardToHandSize decides which of decider's hand to discard at
 	// cleanup (CR 514.1, Game.cleanupStep, turn.go). Only called when hand
-	// has more than MaxHandSize cards; count is exactly how many the
-	// returned slice must have (hand.Len() - MaxHandSize), a constraint not
-	// re-checked here -- trust the controller's answer, the same as
-	// ChooseLegendaryToKeep.
+	// has more than decider's own HandSizeLimit (player.go, Layer 8's own
+	// SetMaxHandSize$/RaiseMaxHandSize$ folded on top of MaxHandSize's own
+	// default); count is exactly how many the returned slice must have
+	// (hand.Len() - limit), a constraint not re-checked here -- trust the
+	// controller's answer, the same as ChooseLegendaryToKeep.
 	DiscardToHandSize(g *Game, decider PlayerID, hand []CardID, count int) []CardID
 
 	// ChooseBattleProtector decides which opponent defends decider's Battle

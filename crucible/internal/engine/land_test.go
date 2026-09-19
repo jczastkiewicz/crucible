@@ -150,3 +150,47 @@ func TestCleanupResetsLandsPlayedForEveryPlayer(t *testing.T) {
 		t.Errorf("other player's LandsPlayedLastTurn after cleanup = %d, want 1", got)
 	}
 }
+
+// TestPlayLandSucceedsPastTheDefaultLimitWithAdjustLandPlays proves PlayLand
+// reads Player.LandPlayLimit, not the bare one-per-turn default: a
+// continuous AdjustLandPlays$ 1 effect lets a second land the same turn
+// succeed.
+func TestPlayLandSucceedsPastTheDefaultLimitWithAdjustLandPlays(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Extra Land", "Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1"), p, engine.Battlefield)
+	g.SetTurnState(1, p, engine.Main1)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	first := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+	second := g.NewCard(landDef(t, "Island", "Basic Land Island"), p, engine.Hand)
+
+	if !g.PlayLand(p, first) {
+		t.Fatal("PlayLand failed on the first land this turn")
+	}
+	if !g.PlayLand(p, second) {
+		t.Fatal("PlayLand failed on the second land this turn, want success -- AdjustLandPlays$ 1")
+	}
+}
+
+// TestPlayLandSucceedsRepeatedlyWithUnlimitedLandPlays proves
+// AdjustLandPlays$ Unlimited removes the per-turn limit entirely.
+func TestPlayLandSucceedsRepeatedlyWithUnlimitedLandPlays(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Unlimited Lands", "Mode$ Continuous | Affected$ You | AdjustLandPlays$ Unlimited"), p, engine.Battlefield)
+	g.SetTurnState(1, p, engine.Main1)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	for i := 0; i < 3; i++ {
+		land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+		if !g.PlayLand(p, land) {
+			t.Fatalf("PlayLand failed on land #%d this turn, want success -- AdjustLandPlays$ Unlimited", i+1)
+		}
+	}
+}

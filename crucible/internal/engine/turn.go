@@ -194,15 +194,11 @@ func (g *Game) DrawCards(pid PlayerID, n int) {
 	}
 }
 
-// MaxHandSize is CR 103.4's default maximum hand size, used unconditionally
-// (CR 514.1): nothing this port can grant "no maximum hand size" or a
-// modified one yet (StaticAbilityMaxHandSize.java, effects like Spellbook's
-// static ability or Thought Vessel's), since that needs the continuous-effect
-// layer system reading a card's own static abilities, which layers 1-6/8
-// aren't (game-state.md's "Not ported yet"). A future effect that changes it
-// is a coverage gap the same way any other unimplemented continuous effect
-// is, not a wrong answer -- every hand this port cleans up caps at 7 exactly
-// as if nothing on the battlefield said otherwise.
+// MaxHandSize is CR 103.4's default maximum hand size, the base
+// HandSizeLimit (player.go) folds Layer 8's own SetMaxHandSize$/
+// RaiseMaxHandSize$ continuous effects on top of (Spellbook's/Thought
+// Vessel's own static abilities among the corpus's 43 real
+// SetMaxHandSize$ lines).
 const MaxHandSize = 7
 
 // endCombat is CR 511.3: at the beginning of the end of combat step, every
@@ -253,8 +249,8 @@ func (g *Game) endCombat() {
 // check for the first time in this same phase.
 func (g *Game) cleanupStep(controller PlayerController) {
 	hand := g.Zone(Hand, g.activePlayer).Cards()
-	if len(hand) > MaxHandSize {
-		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-MaxHandSize)
+	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(MaxHandSize); hasLimit && len(hand) > limit {
+		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
 			g.Move(id, Graveyard, g.Card(id).Owner)
 			g.checkDiscardedTriggers(id, g.activePlayer)

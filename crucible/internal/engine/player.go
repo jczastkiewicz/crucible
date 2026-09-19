@@ -2,6 +2,8 @@
 
 package engine
 
+import "sort"
+
 // Player is one player in one game.
 //
 // Like Card it holds no back-reference. Its library, hand and graveyard live
@@ -51,4 +53,72 @@ type Player struct {
 	// every registered player).
 	LandsPlayed         int
 	LandsPlayedLastTurn int
+	// Rules is Layer 8's own continuous effects currently affecting this
+	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
+	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/
+	// LandPlayLimit, below, are what folds it against the printed defaults.
+	Rules RulesMod
+}
+
+// HandSizeLimit folds Layer 8's own SetMaxHandSize$/RaiseMaxHandSize$
+// effects on top of base (CR 103.4's default maximum hand size, MaxHandSize,
+// turn.go -- passed in rather than read directly so this file need not
+// depend on turn.go's own group, `player`'s allow-list staying acyclic) --
+// Player.setMaxHandSize/setUnlimitedHandSize ported: a SetMaxHandSize$
+// effect REPLACES the running limit (and the unlimited flag with it), a
+// RaiseMaxHandSize$ effect ADDS to whatever the running limit already is --
+// both applied in Timestamp order, foldPT's own combine convention (card.go)
+// reused here for the one other layer this port's own effects can conflict
+// within. Order matters only for the rare case of two SetMaxHandSize$
+// effects active on the same player at once; Java's own iteration order for
+// that case is not itself pinned down anywhere doc.go can cite, so
+// Timestamp is this port's own deliberate, documented choice, not a
+// rediscovery of Java's.
+//
+// hasLimit is false once the LAST effect touching hand size at all set
+// `Unlimited` (`SetMaxHandSize$ Unlimited`, 33 of the corpus's 43 real
+// SetMaxHandSize$ lines) -- cleanupStep's own hand-size check (turn.go)
+// skips the discard entirely when this is false, CR 103.4a's "no maximum
+// hand size."
+func (p *Player) HandSizeLimit(base int) (limit int, hasLimit bool) {
+	sorted := append([]RulesEffect(nil), p.Rules.effects...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Timestamp < sorted[j].Timestamp })
+	limit, hasLimit = base, true
+	for _, e := range sorted {
+		if e.HasSetHandSize {
+			hasLimit = !e.SetHandSizeUnlimited
+			if hasLimit {
+				limit = e.SetHandSize
+			}
+		}
+		if e.HasRaiseHandSize {
+			limit += e.RaiseHandSize
+		}
+	}
+	return limit, hasLimit
+}
+
+// LandPlayLimit folds Layer 8's own AdjustLandPlays$ effects on top of base
+// (CR 305.2's default one land per turn, land.go's own maxLandPlays --
+// passed in for the identical acyclic-dependency reason HandSizeLimit's own
+// base parameter is) -- Player.getMaxLandPlays's own unconditional sum
+// ported: every AdjustLandPlays$ effect adds to the running limit
+// regardless of order (unlike HandSizeLimit's own Set/Raise interaction,
+// there is no "replace" form here to make order matter), and
+// Player.getMaxLandPlaysInfinite's own "any one active effect makes it
+// unlimited" OR -- an `Unlimited` effect does not need to be the last one
+// applied, or the only one, to win.
+func (p *Player) LandPlayLimit(base int) (limit int, unlimited bool) {
+	limit = base
+	for _, e := range p.Rules.effects {
+		if !e.HasAdjustLandPlays {
+			continue
+		}
+		if e.AdjustLandPlaysUnlimited {
+			unlimited = true
+			continue
+		}
+		limit += e.AdjustLandPlays
+	}
+	return limit, unlimited
 }

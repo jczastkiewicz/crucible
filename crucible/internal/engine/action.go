@@ -148,6 +148,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	applyContinuousType(g)
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
+	applyContinuousRules(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {

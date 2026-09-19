@@ -4,11 +4,9 @@ package engine
 
 import "github.com/jczastkiewicz/crucible/internal/cardtype"
 
-// maxLandPlays is CR 305.2's default one land per turn. Java's own
-// Player.getMaxLandPlays sums adjustLandPlays on top of this fixed 1; nothing
-// in this port grants an extra land play yet, so there is no adjustment to
-// add, the same "constant until a real caller needs otherwise" reasoning
-// startingHandSize (mulligan.go) already carries.
+// maxLandPlays is CR 305.2's default one land per turn, the base
+// LandPlayLimit (player.go) folds Layer 8's own AdjustLandPlays$ continuous
+// effects on top of.
 const maxLandPlays = 1
 
 // PlayLand is CR 305: playing a land is not casting a spell, so it has no
@@ -27,8 +25,8 @@ const maxLandPlays = 1
 // Reports whether the land was played. false covers every legal-but-declined
 // case: not pid's turn, not a main phase, something on the stack, the card
 // is not in pid's hand, the card is not a land, or the per-turn limit
-// (maxLandPlays) is already spent -- the same "declined by the rules, not a
-// bug" contract PayManaCost and TapLandForMana already carry.
+// (LandPlayLimit, player.go) is already spent -- the same "declined by the
+// rules, not a bug" contract PayManaCost and TapLandForMana already carry.
 func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 	if pid != g.activePlayer {
 		return false
@@ -46,7 +44,7 @@ func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 	if !c.Type().Has(cardtype.Land) {
 		return false
 	}
-	if g.Player(pid).LandsPlayed >= maxLandPlays {
+	if limit, unlimited := g.Player(pid).LandPlayLimit(maxLandPlays); !unlimited && g.Player(pid).LandsPlayed >= limit {
 		return false
 	}
 	g.Move(card, Battlefield, pid)

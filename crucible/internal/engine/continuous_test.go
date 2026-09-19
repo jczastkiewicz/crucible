@@ -856,3 +856,128 @@ func TestApplyContinuousKeywordGrantedFlyingAffectsCanBlock(t *testing.T) {
 		t.Error("CanBlock(continuously-flying attacker, grounded blocker) = true, want false")
 	}
 }
+
+// TestApplyContinuousRulesSetsUnlimitedHandSize proves Layer 8's own
+// SetMaxHandSize$ Unlimited: Thought Vessel's own real shape.
+func TestApplyContinuousRulesSetsUnlimitedHandSize(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Unlimited Hand", "Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, hasLimit := g.Player(p).HandSizeLimit(engine.MaxHandSize); hasLimit {
+		t.Errorf("HandSizeLimit() = (%d, true), want (_, false) -- SetMaxHandSize$ Unlimited grants no maximum", limit)
+	}
+}
+
+// TestApplyContinuousRulesSetsFixedHandSize proves the plain-integer case:
+// SetMaxHandSize$ 10 replaces the printed default of 7 outright.
+func TestApplyContinuousRulesSetsFixedHandSize(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Fixed Hand", "Mode$ Continuous | Affected$ You | SetMaxHandSize$ 10"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, hasLimit := g.Player(p).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != 10 {
+		t.Errorf("HandSizeLimit() = (%d, %v), want (10, true)", limit, hasLimit)
+	}
+}
+
+// TestApplyContinuousRulesRaisesHandSize proves RaiseMaxHandSize$ ADDS to
+// the running limit rather than replacing it.
+func TestApplyContinuousRulesRaisesHandSize(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Raised Hand", "Mode$ Continuous | Affected$ You | RaiseMaxHandSize$ 2"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, hasLimit := g.Player(p).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != 9 {
+		t.Errorf("HandSizeLimit() = (%d, %v), want (9, true) -- 7 plus RaiseMaxHandSize$ 2", limit, hasLimit)
+	}
+}
+
+// TestApplyContinuousRulesAdjustsLandPlays proves AdjustLandPlays$ adds to
+// the printed default of one land per turn.
+func TestApplyContinuousRulesAdjustsLandPlays(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Extra Land", "Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, unlimited := g.Player(p).LandPlayLimit(1); unlimited || limit != 2 {
+		t.Errorf("LandPlayLimit() = (%d, %v), want (2, false) -- 1 plus AdjustLandPlays$ 1", limit, unlimited)
+	}
+}
+
+// TestApplyContinuousRulesGrantsUnlimitedLandPlays proves AdjustLandPlays$
+// Unlimited (Exploration-adjacent shapes' own dominant "Unlimited" form).
+func TestApplyContinuousRulesGrantsUnlimitedLandPlays(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Unlimited Lands", "Mode$ Continuous | Affected$ You | AdjustLandPlays$ Unlimited"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if _, unlimited := g.Player(p).LandPlayLimit(1); !unlimited {
+		t.Error("LandPlayLimit() unlimited = false, want true -- AdjustLandPlays$ Unlimited")
+	}
+}
+
+// TestApplyContinuousRulesAffectedOpponentSkipsTheHostsOwnController proves
+// Affected$ Opponent (matchesPlayerSpec, valid.go) applies to the OTHER
+// player, not the host's own controller -- a "each opponent's maximum hand
+// size is reduced" shape.
+func TestApplyContinuousRulesAffectedOpponentSkipsTheHostsOwnController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Opponent Hand", "Mode$ Continuous | Affected$ Opponent | SetMaxHandSize$ 3"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, hasLimit := g.Player(other).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != 3 {
+		t.Errorf("other's HandSizeLimit() = (%d, %v), want (3, true)", limit, hasLimit)
+	}
+	if limit, hasLimit := g.Player(p).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != engine.MaxHandSize {
+		t.Errorf("host's own HandSizeLimit() = (%d, %v), want (%d, true) -- Affected$ Opponent must not affect the host's own controller", limit, hasLimit, engine.MaxHandSize)
+	}
+}
+
+// TestApplyContinuousRulesSkipsLineWithCondition proves a Condition$-gated
+// SetMaxHandSize$ line (Delirium's own real shape) is skipped entirely --
+// this port has no Condition$ evaluator for any static-ability mode (GO-7).
+func TestApplyContinuousRulesSkipsLineWithCondition(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Conditional Hand", "Mode$ Continuous | Condition$ Delirium | Affected$ Opponent | SetMaxHandSize$ 3"), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if limit, hasLimit := g.Player(other).HandSizeLimit(engine.MaxHandSize); !hasLimit || limit != engine.MaxHandSize {
+		t.Errorf("HandSizeLimit() = (%d, %v), want (%d, true) -- Condition$ is not evaluated, so the line must not apply", limit, hasLimit, engine.MaxHandSize)
+	}
+}

@@ -307,7 +307,7 @@ runs (CR 704.5v's ETB gap means a Battle placed directly on the battlefield star
 `expect.state` naming the result with `Protector:`.
 
 `TestScenarios` loads the real corpus once per test binary run (`sync.Once`), not once per scenario — synthetic cards
-would defeat the point of a format meant to run against the Java oracle too, and 33,697 cards is too much to pay for per
+would defeat the point of a format meant to run against the Java oracle too, and 33,913 cards is too much to pay for per
 case. That first load costs real time (order a minute, cold); TEST-13 already prices L3 at "every commit," same as L1,
 so this is the cost that entry was always going to have once scenarios existed to pay it.
 
@@ -399,7 +399,7 @@ check instead of staying answered).
 
 **Closing the P4 fixture-count floor (Plan Section 3.2's ≥300) added 305 more, all against real corpus cards, none
 synthetic.** Every mechanic exercised was already proven by an existing fixture or Go unit test — this pass is corpus
-_breadth_, the same reasoning `TestScenarios` runs against the real 33,697-card corpus at all rather than a synthetic
+_breadth_, the same reasoning `TestScenarios` runs against the real 33,913-card corpus at all rather than a synthetic
 three-card `compile.DB`: a differential harness meant to run against the Java oracle needs real cards moving through it,
 not just one representative example per rule. By category: single-block combat trades across ~140 distinct vanilla
 creatures (`combat-<attacker>-attacks-<blocker>`, outcome — kills-attacker, kills-blocker, mutual trade, or neither —

@@ -25,6 +25,7 @@ Artifact Creature Bird Construct	Artifact Creature - Bird Construct
 Artifact Creature Boar	Artifact Creature - Boar
 Artifact Creature Boar Beast	Artifact Creature - Boar Beast
 Artifact Creature Boar Toy	Artifact Creature - Boar Toy
+Artifact Creature Book Illusion	Artifact Creature - Book Illusion
 Artifact Creature Borg	Artifact Creature - Borg
 Artifact Creature Borg Rebel	Artifact Creature - Borg Rebel
 Artifact Creature Camel	Artifact Creature - Camel
@@ -142,6 +143,7 @@ Artifact Creature Kree Robot Villain	Artifact Creature - Kree Robot Villain
 Artifact Creature Leviathan	Artifact Creature - Leviathan
 Artifact Creature Licid	Artifact Creature - Licid
 Artifact Creature Lizard	Artifact Creature - Lizard
+Artifact Creature Lizard Construct	Artifact Creature - Lizard Construct
 Artifact Creature Lizard Warrior	Artifact Creature - Lizard Warrior
 Artifact Creature Lobster	Artifact Creature - Lobster
 Artifact Creature Masticore	Artifact Creature - Masticore
@@ -646,9 +648,11 @@ Creature Drix Wizard	Creature - Drix Wizard
 Creature Drone	Creature - Drone
 Creature Druid	Creature - Druid
 Creature Dryad	Creature - Dryad
+Creature Dryad Cleric	Creature - Dryad Cleric
 Creature Dryad Druid	Creature - Dryad Druid
 Creature Dryad Horror	Creature - Dryad Horror
 Creature Dryad Knight	Creature - Dryad Knight
+Creature Dryad Scout	Creature - Dryad Scout
 Creature Dryad Shaman	Creature - Dryad Shaman
 Creature Dryad Soldier	Creature - Dryad Soldier
 Creature Dryad Spellshaper	Creature - Dryad Spellshaper
@@ -1029,6 +1033,7 @@ Creature Gorgon Wizard	Creature - Gorgon Wizard
 Creature Gorn Soldier	Creature - Gorn Soldier
 Creature Gorn Warrior	Creature - Gorn Warrior
 Creature Gremlin	Creature - Gremlin
+Creature Gremlin Elemental	Creature - Gremlin Elemental
 Creature Griffin	Creature - Griffin
 Creature Griffin Skeleton	Creature - Griffin Skeleton
 Creature Hag	Creature - Hag
@@ -1400,6 +1405,7 @@ Creature Lizard Advisor	Creature - Lizard Advisor
 Creature Lizard Archer	Creature - Lizard Archer
 Creature Lizard Artificer	Creature - Lizard Artificer
 Creature Lizard Assassin	Creature - Lizard Assassin
+Creature Lizard Bard	Creature - Lizard Bard
 Creature Lizard Beast	Creature - Lizard Beast
 Creature Lizard Berserker	Creature - Lizard Berserker
 Creature Lizard Bird Pirate	Creature - Lizard Bird Pirate
@@ -1462,6 +1468,7 @@ Creature Metathran Zombie	Creature - Metathran Zombie
 Creature Minion	Creature - Minion
 Creature Minotaur	Creature - Minotaur
 Creature Minotaur Archer	Creature - Minotaur Archer
+Creature Minotaur Artificer	Creature - Minotaur Artificer
 Creature Minotaur Barbarian	Creature - Minotaur Barbarian
 Creature Minotaur Berserker	Creature - Minotaur Berserker
 Creature Minotaur Berserker Wizard	Creature - Minotaur Berserker Wizard
@@ -1743,6 +1750,7 @@ Creature Plant Elephant	Creature - Plant Elephant
 Creature Plant Fungus	Creature - Plant Fungus
 Creature Plant Horror	Creature - Plant Horror
 Creature Plant Hydra	Creature - Plant Hydra
+Creature Plant Kraken	Creature - Plant Kraken
 Creature Plant Mercenary	Creature - Plant Mercenary
 Creature Plant Mutant	Creature - Plant Mutant
 Creature Plant Rhino	Creature - Plant Rhino
@@ -1859,6 +1867,7 @@ Creature Sheep	Creature - Sheep
 Creature Sheep Mount	Creature - Sheep Mount
 Creature Shi'ar Soldier	Creature - Shi'ar Soldier
 Creature Siren	Creature - Siren
+Creature Siren Bard	Creature - Siren Bard
 Creature Siren Pirate	Creature - Siren Pirate
 Creature Siren Pirate Wizard	Creature - Siren Pirate Wizard
 Creature Siren Soldier	Creature - Siren Soldier
@@ -1929,6 +1938,7 @@ Creature Specter Rogue	Creature - Specter Rogue
 Creature Specter Spirit	Creature - Specter Spirit
 Creature Sphinx	Creature - Sphinx
 Creature Sphinx Detective	Creature - Sphinx Detective
+Creature Sphinx Illusion	Creature - Sphinx Illusion
 Creature Sphinx Rogue	Creature - Sphinx Rogue
 Creature Sphinx Wizard	Creature - Sphinx Wizard
 Creature Spider	Creature - Spider
@@ -2093,6 +2103,7 @@ Creature Vampire Shaman Ally	Creature - Vampire Shaman Ally
 Creature Vampire Shapeshifter	Creature - Vampire Shapeshifter
 Creature Vampire Skeleton	Creature - Vampire Skeleton
 Creature Vampire Soldier	Creature - Vampire Soldier
+Creature Vampire Sorcerer	Creature - Vampire Sorcerer
 Creature Vampire Spirit	Creature - Vampire Spirit
 Creature Vampire Villain	Creature - Vampire Villain
 Creature Vampire Warlock	Creature - Vampire Warlock
@@ -2514,6 +2525,7 @@ Legendary Artifact Creature Construct	Legendary Artifact Creature - Construct
 Legendary Artifact Creature Cyberman	Legendary Artifact Creature - Cyberman
 Legendary Artifact Creature Dalek	Legendary Artifact Creature - Dalek
 Legendary Artifact Creature Dragon	Legendary Artifact Creature - Dragon
+Legendary Artifact Creature Dragon Construct	Legendary Artifact Creature - Dragon Construct
 Legendary Artifact Creature Dragon Robot	Legendary Artifact Creature - Dragon Robot
 Legendary Artifact Creature Elemental	Legendary Artifact Creature - Elemental
 Legendary Artifact Creature Elemental Soldier	Legendary Artifact Creature - Elemental Soldier
@@ -2595,6 +2607,7 @@ Legendary Creature Angel Cleric	Legendary Creature - Angel Cleric
 Legendary Creature Angel Demon	Legendary Creature - Angel Demon
 Legendary Creature Angel Elf	Legendary Creature - Angel Elf
 Legendary Creature Angel Horror	Legendary Creature - Angel Horror
+Legendary Creature Angel Knight	Legendary Creature - Angel Knight
 Legendary Creature Angel Nightmare Avatar	Legendary Creature - Angel Nightmare Avatar
 Legendary Creature Angel Warrior	Legendary Creature - Angel Warrior
 Legendary Creature Angel Wizard	Legendary Creature - Angel Wizard
@@ -2979,6 +2992,7 @@ Legendary Creature Hellion Hydra	Legendary Creature - Hellion Hydra
 Legendary Creature Homarid Warrior	Legendary Creature - Homarid Warrior
 Legendary Creature Homunculus	Legendary Creature - Homunculus
 Legendary Creature Homunculus Illusion	Legendary Creature - Homunculus Illusion
+Legendary Creature Homunculus Scout	Legendary Creature - Homunculus Scout
 Legendary Creature Horror	Legendary Creature - Horror
 Legendary Creature Horror Pirate	Legendary Creature - Horror Pirate
 Legendary Creature Horror Spellshaper	Legendary Creature - Horror Spellshaper
@@ -3149,6 +3163,7 @@ Legendary Creature Human Soldier Mercenary	Legendary Creature - Human Soldier Me
 Legendary Creature Human Soldier Scientist	Legendary Creature - Human Soldier Scientist
 Legendary Creature Human Soldier Villain	Legendary Creature - Human Soldier Villain
 Legendary Creature Human Soldier Warrior	Legendary Creature - Human Soldier Warrior
+Legendary Creature Human Sorcerer	Legendary Creature - Human Sorcerer
 Legendary Creature Human Sorcerer Villain	Legendary Creature - Human Sorcerer Villain
 Legendary Creature Human Spellshaper	Legendary Creature - Human Spellshaper
 Legendary Creature Human Spirit Dragon	Legendary Creature - Human Spirit Dragon
@@ -3274,6 +3289,7 @@ Legendary Creature Moonfolk Pilot	Legendary Creature - Moonfolk Pilot
 Legendary Creature Moonfolk Wizard	Legendary Creature - Moonfolk Wizard
 Legendary Creature Mouse Knight	Legendary Creature - Mouse Knight
 Legendary Creature Mouse Soldier	Legendary Creature - Mouse Soldier
+Legendary Creature Mouse Warlock	Legendary Creature - Mouse Warlock
 Legendary Creature Mutant Advisor	Legendary Creature - Mutant Advisor
 Legendary Creature Mutant Berserker	Legendary Creature - Mutant Berserker
 Legendary Creature Mutant Berserker Hero	Legendary Creature - Mutant Berserker Hero
@@ -3314,6 +3330,7 @@ Legendary Creature Octopus	Legendary Creature - Octopus
 Legendary Creature Octopus Advisor	Legendary Creature - Octopus Advisor
 Legendary Creature Octopus Noble	Legendary Creature - Octopus Noble
 Legendary Creature Octopus Rogue	Legendary Creature - Octopus Rogue
+Legendary Creature Ogre Crab Wizard	Legendary Creature - Ogre Crab Wizard
 Legendary Creature Ogre Demon	Legendary Creature - Ogre Demon
 Legendary Creature Ogre Demon Dragon	Legendary Creature - Ogre Demon Dragon
 Legendary Creature Ogre Devil Warrior	Legendary Creature - Ogre Devil Warrior
@@ -3582,6 +3599,7 @@ Legendary Creature Weird Detective	Legendary Creature - Weird Detective
 Legendary Creature Weird Wizard	Legendary Creature - Weird Wizard
 Legendary Creature Werewolf	Legendary Creature - Werewolf
 Legendary Creature Werewolf Beast	Legendary Creature - Werewolf Beast
+Legendary Creature Werewolf Noble	Legendary Creature - Werewolf Noble
 Legendary Creature Whale Wolf	Legendary Creature - Whale Wolf
 Legendary Creature Wizard	Legendary Creature - Wizard
 Legendary Creature Wolf	Legendary Creature - Wolf
@@ -3610,6 +3628,7 @@ Legendary Creature Zombie Minotaur Warrior	Legendary Creature - Zombie Minotaur 
 Legendary Creature Zombie Mutant Advisor	Legendary Creature - Zombie Mutant Advisor
 Legendary Creature Zombie Mutant Rogue	Legendary Creature - Zombie Mutant Rogue
 Legendary Creature Zombie Noble	Legendary Creature - Zombie Noble
+Legendary Creature Zombie Satyr	Legendary Creature - Zombie Satyr
 Legendary Creature Zombie Snake	Legendary Creature - Zombie Snake
 Legendary Creature Zombie Snake Warlock	Legendary Creature - Zombie Snake Warlock
 Legendary Creature Zombie Soldier	Legendary Creature - Zombie Soldier
@@ -3757,6 +3776,7 @@ Phenomenon	Phenomenon
 Plane Alara	Plane - Alara
 Plane Alfava Metraxis	Plane - Alfava Metraxis
 Plane Amonkhet	Plane - Amonkhet
+Plane Amsterdam	Plane - Amsterdam
 Plane Androzani Minor	Plane - Androzani Minor
 Plane Antausia	Plane - Antausia
 Plane Apalapucia	Plane - Apalapucia
@@ -3767,9 +3787,11 @@ Plane Azgol	Plane - Azgol
 Plane Belenon	Plane - Belenon
 Plane Bolas's Meditation Realm	Plane - Bolas's Meditation Realm
 Plane Capenna	Plane - Capenna
+Plane Chicago	Plane - Chicago
 Plane Cridhe	Plane - Cridhe
 Plane Darillium	Plane - Darillium
 Plane Dominaria	Plane - Dominaria
+Plane Duskmourn	Plane - Duskmourn
 Plane Earth	Plane - Earth
 Plane Echoir	Plane - Echoir
 Plane Eldraine	Plane - Eldraine
@@ -3780,6 +3802,7 @@ Plane Fiora	Plane - Fiora
 Plane Gallifrey	Plane - Gallifrey
 Plane Gargantikar	Plane - Gargantikar
 Plane Gobakhan	Plane - Gobakhan
+Plane Hell	Plane - Hell
 Plane Horsehead Nebula	Plane - Horsehead Nebula
 Plane Ikoria	Plane - Ikoria
 Plane Innistrad	Plane - Innistrad
@@ -3795,8 +3818,10 @@ Plane Kinshala	Plane - Kinshala
 Plane Kolbahan	Plane - Kolbahan
 Plane Kylem	Plane - Kylem
 Plane Kyneth	Plane - Kyneth
+Plane Las Vegas	Plane - Las Vegas
 Plane Lorwyn	Plane - Lorwyn
 Plane Luvion	Plane - Luvion
+Plane MagicCon	Plane - MagicCon
 Plane Mars	Plane - Mars
 Plane Mercadia	Plane - Mercadia
 Plane Mirrodin	Plane - Mirrodin
@@ -3826,6 +3851,7 @@ Plane The Abyss	Plane - The Abyss
 Plane The Dalek Asylum	Plane - The Dalek Asylum
 Plane The Library	Plane - The Library
 Plane Theros	Plane - Theros
+Plane Thunder Junction	Plane - Thunder Junction
 Plane Time	Plane - Time
 Plane Trenzalore	Plane - Trenzalore
 Plane Ulgrotha	Plane - Ulgrotha

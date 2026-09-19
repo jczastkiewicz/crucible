@@ -92,8 +92,10 @@
 1 W B G	{1}{W}{B}{G}	4	WBG
 1 W U	{1}{W}{U}	3	WU
 1 W U B	{1}{W}{U}{B}	4	WUB
+1 W U B R	{1}{W}{U}{B}{R}	5	WUBR
 1 W U B R G	{1}{W}{U}{B}{R}{G}	6	WUBRG
 1 W U R G	{1}{W}{U}{R}{G}	5	WURG
+1 W U U	{1}{W}{U}{U}	4	WU
 1 W W	{1}{W}{W}	3	W
 1 W W B	{1}{W}{W}{B}	4	WB
 1 W W B B	{1}{W}{W}{B}{B}	5	WB
@@ -278,6 +280,7 @@
 3 BG BG	{3}{B/G}{B/G}	5	BG
 3 BG BG BG	{3}{B/G}{B/G}{B/G}	6	BG
 3 BG R	{3}{B/G}{R}	5	BRG
+3 BR	{3}{B/R}	4	BR
 3 BR BR	{3}{B/R}{B/R}	5	BR
 3 C	{3}{C}	4	C
 3 C C	{3}{C}{C}	5	C
@@ -352,6 +355,7 @@
 3 W R	{3}{W}{R}	5	WR
 3 W U	{3}{W}{U}	5	WU
 3 W U B	{3}{W}{U}{B}	6	WUB
+3 W U B R	{3}{W}{U}{B}{R}	7	WUBR
 3 W U B R G	{3}{W}{U}{B}{R}{G}	8	WUBRG
 3 W U U	{3}{W}{U}{U}	6	WU
 3 W W	{3}{W}{W}	5	W

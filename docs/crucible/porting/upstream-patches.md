@@ -58,12 +58,22 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date | Path | Change | Upstream |
-| ---- | ---- | ------ | -------- |
-| —    | —    | none   | —        |
+| Date       | Path                                                              | Change                                                                                                                                                        | Upstream |
+| ---------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/clash_of_elements.txt`        | `SVar:DBDealDamage` renamed `DBDamage` — `SubAbility$` on the line above already named `DBDamage`; the SVar it pointed at did not exist                       | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/dack_fayden_helping_hand.txt` | `SubAbility$ DBRepeatEach` renamed `SubAbility$ DBRepeat` — the defined SVar is `DBRepeat`, the corpus's own convention for `DB$ RepeatEach` (78 other cards) | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/n/nascent_metamorph.txt`               | `SVar:DBCleanupOne` renamed `DBCleanup` — matches the `SubAbility$ DBCleanup` reference above it and the corpus's own convention (2,771 cards)                | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/living_library.txt`           | `ValidOrigin$` renamed `Origin$` — `ChangeZoneEffect.java` reads `Origin`, never `ValidOrigin`; the param reached no code                                     | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/venser_fervent_forger.txt`    | `ValidTgtDesc$` renamed `ValidTgtsDesc$` — the corpus's own convention (344 cards) for `CopyPermanent`'s target description                                   | pending  |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
+
+All five above were found the same way: the 2026-09-19 sync to `db4304cc40d` moved `internal/carddb/compile`'s
+`TestCorpusCompiles` from 33,913 of 33,913 to 33,910 (three cards with a `SubAbility$`/`SVar:` name that does not
+match), and `tools/apiscan -check` from zero unread param keys to two (`ValidOrigin$`, `ValidTgtDesc$`). All five cards
+are new, under `cardsfolder/upcoming/` or freshly added elsewhere — PORT-8: a param that never reaches its effect, or a
+sub-ability chain broken by name, is a Forge bug, reported and fixed here rather than exempted from either gate.
 
 Seven rows have retired this way — #11846, #11848, #11850, #11851, #11852, #11854 and #11859 merged, and a sync brought
 the identical content back, which is exactly the condition each row named. None has ever graduated into a permanent

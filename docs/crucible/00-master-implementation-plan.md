@@ -638,8 +638,15 @@ printed form.
     cast (`enchantTargets`, castspell.go, CR 601.2c's own legal-target set) and on every ongoing SBA pass
     (`cleanupDanglingAttachments`, above). Writing this surfaced a real, separate gap: `protectionValid`/`landwalkType`
     (item 28) read only a card's PRINTED keyword lines, missing one a Layer 6 continuous effect grants — closed by a new
-    `Card.KeywordLines` (card.go) both now share with `HasKeyword`. A qualified Hexproof (`Hexproof from red`) still is
-    not resolved, needing its own `ValidSource$`/`ValidSA$` evaluation.
+    `Card.KeywordLines` (card.go) both now share with `HasKeyword`. A qualified Hexproof (`Hexproof:Black`,
+    `Hexproof:Enchantment`, ...) resolves too now: `hexproofValidSource` (staticability.go) ports
+    `KeywordWithType.parse`'s own bare-color-word case (a color name is prefixed `Card.` before it reaches `Matches`,
+    since it is not itself a recognized valid-string base — `colorFromName`, valid.go, already has the exact name set)
+    and its bare-type fallthrough (a type word stays as-is, `baseMatches`'s own ordinary type check). The ability-source
+    shape (`Hexproof:Triggered`/`Hexproof:Activated`, `ValidSA$` in Java, 2 real lines) still refuses rather than
+    resolves — `Matches` never evaluates a `SpellAbility`, and an Aura's own cast-time targeting is not itself a
+    triggered or activated ability doing the targeting anyway, so refusing produces the same observable result here as
+    resolving it correctly would.
 
 26. Stack, simultaneous trigger ordering, replacement effects (`MagicStack`, `replacement/`). **Real content for two
     cast shapes, ten trigger modes, and CR 603.3b's own APNAP ordering now** — `Game.CastSpell` (`castspell.go`) is a

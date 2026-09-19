@@ -286,17 +286,17 @@ func protectionColorValid(protectType string) (valid string, hasValidBlocker, re
 // (hasValidBlocker false) refuses unconditionally, the same contract
 // protectionValid's own doc comment already gives applyCantBlockBy.
 //
-// Hexproof is ported for its one dominant real corpus shape only: bare
-// `K:Hexproof` (80 of roughly 110 real lines) synthesizes `Mode$ CantTarget
-// | ValidTarget$ Card.Self | Activator$ Opponent`, unconditional against
-// any opponent source -- checked here directly (aura's controller vs
-// host's) rather than through a general CantTarget mode this port does not
-// build, the same "keyword's own fixed check, not the general engine"
-// shape Menace's own hardcoding already has (block.go). A qualified form
-// ("Hexproof from red," "Hexproof:Artifact") needs its own ValidSource$/
-// ValidSA$ evaluation this does not attempt -- skipped, not misapplied, the
-// same GO-7 contract every other partial-corpus-shape gap in this port
-// already has.
+// Hexproof is ported from CardFactoryUtil.java's own Hexproof branch, which
+// synthesizes `Mode$ CantTarget | ValidTarget$ Card.Self | Activator$
+// Opponent` plus, when the keyword names a type (hexproofValidSource,
+// below), a `ValidSource$ <type>` on top -- checked here directly (aura's
+// controller vs host's for Activator$ Opponent, aura itself against
+// ValidSource$ when there is one) rather than through a general CantTarget
+// mode this port does not build, Protection's own precedent just above and
+// Menace's own hardcoded-check precedent (block.go). Bare `K:Hexproof` (80
+// of 110 real lines) carries no type at all and refuses unconditionally,
+// the identical "no ValidSource$ line at all" contract protectionValid's
+// own `hasVB` gives Protection from everything.
 func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
 	h := g.Card(host)
 	if vb, hasVB, ok := protectionValid(h); ok {
@@ -304,13 +304,64 @@ func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
 			return true
 		}
 	}
+	if aura.Controller == h.Controller {
+		return false
+	}
 	for _, line := range h.KeywordLines() {
 		k := keyword.Parse(line)
-		if k.Name == "Hexproof" && k.Details == "" && aura.Controller != h.Controller {
+		if k.Name != "Hexproof" {
+			continue
+		}
+		if k.Details == "" {
 			return true
+		}
+		if vs, ok := hexproofValidSource(k.Details); ok {
+			if vs == "" || Matches(g, aura, valid.Parse(vs), h.Controller, h.ID) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// hexproofValidSource is KeywordWithType.parse's own Hexproof branch
+// (`type = k[0]` for a `Hexproof:<type>:<description>` line, or
+// `"Card." + Capitalize(color)` for a bare color word with no second colon
+// at all -- 7 of the corpus's 30 real qualified lines: `Black`/`White`/
+// `Blue`, capitalized exactly as `colorFromName`, valid.go, already expects)
+// -- turned into the `ValidSource$` string CardFactoryUtil.java's own
+// Hexproof branch synthesizes. A bare card-type word (`Enchantment`,
+// `Artifact`, `Planeswalker`, `Instant`, `Creature` -- 11 real lines) is
+// NOT prepended with `Card.`: KeywordWithType.parse only does that for a
+// recognized color name, leaving a type word bare, which `baseMatches`
+// (valid.go) already resolves correctly as a plain type check, the
+// identical fallthrough `Card.isValid` itself uses. A compound
+// `Card.<Property>` value (`Card.MonoColor`, `Card.MultiColor`,
+// `Card.nonColorless`, 5 real lines) is already qualified in the corpus
+// text itself and needs no transformation either.
+//
+// Not resolved: `Triggered`/`Activated` (2 real lines, "Hexproof from
+// triggered/activated abilities") -- Java's own branch would synthesize
+// `ValidSA$`, not `ValidSource$`, for these (`getTypeDescription().
+// contains("abilities")`), and Matches (valid.go) only ever evaluates a
+// *Card, never a SpellAbility -- refused rather than passed through
+// unchanged, which would silently mean "never blocks" for these two real
+// cards specifically (GO-7): an Aura's own cast-time targeting is not
+// itself a triggered or activated ability doing the targeting, so treating
+// these as "no restriction" would have produced the same observable
+// behavior here regardless, but explicit refusal is the correct reason,
+// not an accident of what Matches happens to never match.
+func hexproofValidSource(details string) (validSource string, ok bool) {
+	validType, _, hasColon := strings.Cut(details, ":")
+	if validType == "" || validType == "Triggered" || validType == "Activated" {
+		return "", false
+	}
+	if !hasColon {
+		if _, isColor := colorFromName(validType); isColor {
+			return "Card." + validType, true
+		}
+	}
+	return validType, true
 }
 
 // applyCantBlockBy is applyCantBlockByAbility's ValidAttacker/ValidBlocker

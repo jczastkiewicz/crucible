@@ -232,8 +232,13 @@ closes the "cleanup aura" rule's own Protection/bare Hexproof gap — reusing `p
 rather than a candidate blocker, plus bare Hexproof's own unconditional "any opponent" form — checked both when an Aura
 is cast (`enchantTargets`, `castspell.go`) and on every ongoing SBA pass (`cleanupDanglingAttachments`, `action.go`);
 building it surfaced a real, separate gap (`protectionValid`/`landwalkType` read only a card's PRINTED keywords, missing
-one a continuous effect grants), closed by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`.
-`Attacks`'s own `Alone$`, `DefendingPlayerPoisoned$` and `AttackDifferentPlayers$` all resolve now too —
+one a continuous effect grants), closed by a new `Card.KeywordLines` (`card.go`) both now share with `HasKeyword`. A
+qualified Hexproof (`Hexproof:Black`, `Hexproof:Enchantment`, ...) resolves too now — `hexproofValidSource`
+(`staticability.go`) ports `KeywordWithType.parse`'s own bare-color-word case (`Black` becomes `Card.Black` before it
+ever reaches `Matches`, since a bare color name is not itself a recognized valid-string base) alongside its bare-type
+fallthrough (`Enchantment` stays as-is, an ordinary type check); the ability-source shape (`Hexproof:Triggered`,
+`Hexproof:Activated`, `ValidSA$` in Java) still refuses rather than resolves, since `Matches` never evaluates a
+`SpellAbility`. `Attacks`'s own `Alone$`, `DefendingPlayerPoisoned$` and `AttackDifferentPlayers$` all resolve now too —
 `attacksOtherCount`/`attacksMultiplePlayers` (`trigger.go`) read `Combat.Attackers`/`Combat.AttackTargets` (combat.go,
 attack.go) the same way `CombatUtil.checkDeclaredAttacker`'s own `AbilityKey.OtherAttackers`/`Defenders` do, and
 `DefendingPlayerPoisoned$` reads `defenderOf(attacker)`'s own `Counters.Count(Poison)` directly. `DamageDone`'s own
@@ -252,10 +257,10 @@ itself carries a `$`-suffixed distinct-value operator (Tarmogoyf's own `Card$Car
 `expr.Count.DistinctProperty` field now catches this rather than silently misparsing it, a real bug caught and fixed
 after the fact, not a hypothetical one) — a dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$`
 combo still skips the whole line rather than applying it wrong; the legend rule's Partner-non-legendary-name corner case
-(needs a card-name lookup injecting into the engine would violate GO-2); a qualified Hexproof (`Hexproof from red`)
-still does not stop an Aura from enchanting its host; `Attacks`'s own `Attacked$`/`FirstAttack$`, `DamageDone`'s own
-`ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`,
-`SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, `Phase`'s own
+(needs a card-name lookup injecting into the engine would violate GO-2); `Attacks`'s own `Attacked$`/`FirstAttack$`,
+`DamageDone`'s own `ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`,
+`TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen` qualified
+`ValidActivatingPlayer$` forms, `Phase`'s own
 `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/
 `TurnCount$` and its own qualified `ValidPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase;

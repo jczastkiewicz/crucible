@@ -389,6 +389,102 @@ func TestCastSpellAuraSucceedsEnchantingOwnHexproofCreature(t *testing.T) {
 	}
 }
 
+// TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromAuraColor proves
+// hexproofValidSource's own color branch (staticability.go): a black Aura
+// has no legal target when the only Creature on the battlefield has
+// `Hexproof:Black` -- KeywordWithType.parse's own bare-color-word case,
+// which prepends `Card.` before this ever reaches Matches.
+func TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromAuraColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof:Black"), other, engine.Battlefield)
+	auraCard := auraDefWithEnchant(t, "Creature")
+	auraCard.Faces[0].ManaCost = mana.MustParse("B")
+	aura := g.NewCard(auraCard, p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting a black Aura at a Hexproof:Black creature, want no legal target")
+	}
+}
+
+// TestCastSpellAuraSucceedsWhenTargetHasHexproofFromDifferentColor proves
+// the same restriction does NOT block an Aura of a different color: red
+// does not satisfy `Hexproof:Black`.
+func TestCastSpellAuraSucceedsWhenTargetHasHexproofFromDifferentColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	target := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof:Black"), other, engine.Battlefield)
+	auraCard := auraDefWithEnchant(t, "Creature")
+	auraCard.Faces[0].ManaCost = mana.MustParse("R")
+	aura := g.NewCard(auraCard, p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting a red Aura at a Hexproof:Black creature, want success")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if host, ok := g.Card(aura).AttachedTo(); !ok || host != target {
+		t.Errorf("aura attached to %v, %v, want %v, true", host, ok, target)
+	}
+}
+
+// TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromEnchantments proves
+// hexproofValidSource's own bare-type-word branch (`Enchantment`, no `Card.`
+// prefix): every real Aura is itself an Enchantment, so `Hexproof:
+// Enchantment` refuses every Aura unconditionally.
+func TestCastSpellAuraFailsWhenOnlyTargetHasHexproofFromEnchantments(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof:Enchantment"), other, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell succeeded casting an Aura (itself an Enchantment) at a Hexproof:Enchantment creature, want no legal target")
+	}
+}
+
+// TestCastSpellAuraSucceedsWhenTargetHasHexproofFromTriggeredAbilities
+// proves hexproofValidSource's own refusal of the ability-source shape
+// (`Triggered`/`Activated`, `ValidSA$` in Java, no evaluator here, GO-7):
+// the restriction is skipped entirely, not misapplied, so an ordinary
+// Aura still attaches.
+func TestCastSpellAuraSucceedsWhenTargetHasHexproofFromTriggeredAbilities(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	target := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof:Triggered:triggered"), other, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura at a Hexproof:Triggered creature, want success -- the restriction is skipped, not misapplied")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if host, ok := g.Card(aura).AttachedTo(); !ok || host != target {
+		t.Errorf("aura attached to %v, %v, want %v, true", host, ok, target)
+	}
+}
+
 // An unaffordable cost declines the cast even after a target was already
 // chosen (CR 601.2c precedes 601.2i) -- the card never leaves hand, and the
 // target it would have enchanted is untouched.

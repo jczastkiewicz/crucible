@@ -243,16 +243,15 @@ func (g *Game) endCombat() {
 // after-the-fact timing checkDiesTriggers already uses for a card that just
 // left the battlefield.
 //
-// Not here: "until end of turn"/"this turn" effects ending (CR 514.2's
-// other half, needs duration tracking this port does not have -- PT's own
-// effects, for one, have no timestamp-scoped-to-a-turn concept yet,
-// game-state.md's "Not ported yet"). Cleanup normally does not check
-// state-based actions or allow priority at all (CR 514.3) unless a discard
-// or an ending effect triggered something; since triggers aren't built and
-// ending effects aren't tracked, that exception cannot fire either, so
-// beginPhase's own CheckStateBasedActions call after this is technically
-// one PhaseHandler does not make here -- harmless today, since nothing this
-// port can do inside cleanupStep creates a new state-based condition to
+// CR 514.2's other half, "until end of turn"/"this turn" effects ending, is
+// here too now: every non-Permanent Pump effect (Game.pumps, game.go) is
+// dropped, the way a resolved Giant Growth stops applying once its own turn
+// ends. Cleanup normally does not check state-based actions or allow
+// priority at all (CR 514.3) unless a discard or an ending effect triggered
+// something; a Pump wearing off triggers nothing this port has any
+// Mode$ for, so beginPhase's own CheckStateBasedActions call after this is
+// technically one PhaseHandler does not make here -- harmless, since nothing
+// this port can do inside cleanupStep creates a new state-based condition to
 // check for the first time in this same phase.
 func (g *Game) cleanupStep(controller PlayerController) {
 	hand := g.Zone(Hand, g.activePlayer).Cards()
@@ -274,4 +273,12 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.LandsPlayed = 0
 		p.CardsDrawnThisTurn = 0
 	}
+
+	kept := g.pumps[:0]
+	for _, p := range g.pumps {
+		if p.Permanent {
+			kept = append(kept, p)
+		}
+	}
+	g.pumps = kept
 }

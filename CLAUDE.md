@@ -386,7 +386,17 @@ against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s ow
 resolve, `OptionalDecider$`/`FirstTime$`/`ValidSource$`/`Spell$`/`ResolvedLimit$` unresolved). `gainLifeEffect`
 (`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
 (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape, no prevention machinery since none exists for life
-yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. 200 script-driven
-effects past `Draw`/`DealDamage`/`GainLife` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:**
-342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
-3.2) is not.
+yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect`
+(`pumpeffect.go`) is M6's fourth script-driven effect, the corpus's own single largest by real line count after
+`ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the first whose own contribution outlives its `Resolve` call:
+`Duration$`'s default, "until end of turn," is a continuous effect this port never needed a duration for before, closed
+by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's own `PT`/`KeywordMod` every
+`CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go) and dropped at `cleanupStep` (`turn.go`) unless
+`Duration$ Permanent` names it durable — CR 514.2's own "until end of turn" effects wearing off, closing the gap
+`applyContinuousPT`'s own doc comment used to name. `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go)
+— no target — cover 1,147 of 4,103 real `Pump` lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$`
+(a literal keyword list), gated by `PumpZone$`'s own zone restriction (default Battlefield alone) and
+`subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are. 199
+script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump` still report `ErrUnimplemented`. **P4 exit gate's
+fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer,
+every SBA," Plan Section 3.2) is not.

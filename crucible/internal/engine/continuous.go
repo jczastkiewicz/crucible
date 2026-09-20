@@ -87,12 +87,12 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 // entry could give it.
 //
 // Every battlefield card's own PT.effects is cleared first, then rebuilt --
-// safe today because nothing else this port can build yet ever adds a
-// PTEffect: a real "+3/+3 until end of turn" pump spell would need its own
-// duration-scoped bucket this clear would not touch (game-state.md's "Not
-// ported yet"), so recomputing everything from Mode$ Continuous statics
-// alone is exactly correct until one exists, not an approximation that
-// happens to work today.
+// safe because the one other source of a PTEffect, a resolved Pump effect
+// (pumpeffect.go), is not rebuilt from a card script here at all: it re-adds
+// its own duration-scoped record fresh every pass too, from Game.pumps
+// rather than from a card's own Statics, via applyPumpEffects (below),
+// called from the identical CheckStateBasedActions sequence right after this
+// function and applyContinuousKeyword.
 func applyContinuousPT(g *Game) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -550,6 +550,41 @@ func applyOneContinuousKeyword(g *Game, host *Card, s *compile.Ability) {
 				continue
 			}
 			g.Card(id).KeywordMod.Add(KeywordEffect{Timestamp: host.Timestamp, AddKeywords: keywords})
+		}
+	}
+}
+
+// applyPumpEffects re-adds every resolved Pump effect's own contribution
+// (pumpeffect.go) into its target's Layer 7b/7c PT and Layer 6 KeywordMod --
+// the one-shot counterpart to applyContinuousPT's/applyContinuousKeyword's
+// own Mode$ Continuous statics loop, called from CheckStateBasedActions
+// (action.go) right after both so it runs after their own Clear() has
+// already emptied every battlefield card's effects for this pass. A Pump
+// record has no S: line behind it to re-derive from, so it is kept in
+// Game.pumps (game.go) directly instead and applied fresh every pass the
+// identical way a static ability's own line is -- cleanupStep (turn.go)
+// drops every non-Permanent record at end of turn, CR 514.2's own "until
+// end of turn" effects wearing off, closing the gap applyContinuousPT's own
+// doc comment used to name.
+//
+// A record whose card has left the battlefield since it was recorded (or
+// was never there -- Enchanted$/Equipped$ resolving to a non-permanent) is
+// skipped rather than applied: Card.PT/KeywordMod are only ever read for a
+// battlefield permanent (Card.Power/Toughness/HasKeyword), so adding to
+// either for a card nowhere reads them from would be inert, not wrong, but
+// skipping is also what keeps a since-departed card's own entry from
+// silently piling up in Game.pumps until this turn's cleanup removes it.
+func applyPumpEffects(g *Game) {
+	for _, p := range g.pumps {
+		c := g.Card(p.Card)
+		if c.Zone != Battlefield {
+			continue
+		}
+		if p.Power != 0 || p.Toughness != 0 {
+			c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: p.Timestamp, Power: p.Power, Toughness: p.Toughness})
+		}
+		if len(p.Keywords) > 0 {
+			c.KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
 		}
 	}
 }

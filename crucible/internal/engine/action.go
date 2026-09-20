@@ -155,6 +155,13 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
 	applyContinuousRules(g)
+	// applyPumpEffects runs after applyContinuousPT/applyContinuousKeyword,
+	// once their own Clear() has already emptied every battlefield card's PT
+	// and KeywordMod for this pass, so a resolved Pump effect's own
+	// contribution (Game.pumps, game.go) is what re-adds it back rather than
+	// a Mode$ Continuous S: line (applyPumpEffects's own doc comment,
+	// continuous.go).
+	applyPumpEffects(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {

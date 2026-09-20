@@ -79,6 +79,49 @@ type Game struct {
 	// attackers (combat.go, attack.go). Zero-valued when no combat is in
 	// progress.
 	combat Combat
+
+	// pumps is every Pump effect (pumpeffect.go) currently in force --
+	// cleanupStep's own former "duration tracking this port does not have"
+	// gap. Unlike Card.PT/Card.KeywordMod's own static-ability contributions,
+	// a Pump's own contribution is not rederivable from a card script each
+	// pass (there is no S: line behind it to re-read), so it is kept here and
+	// re-added into its target's own PT/KeywordMod every
+	// CheckStateBasedActions pass by applyPumpEffects (continuous.go) instead
+	// -- cleared down to its own Permanent-only remainder every cleanupStep
+	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
+	pumps []pumpRecord
+}
+
+// pumpRecord is one resolved Pump effect's own contribution -- Defined$'s
+// card, the amount and/or keywords it grants, and whether Duration$ named
+// the literal value "Permanent" rather than the default "until end of turn."
+type pumpRecord struct {
+	Card             CardID
+	Timestamp        uint64
+	Power, Toughness int
+	Keywords         []string
+	Permanent        bool
+}
+
+// clearPumps drops every pumpRecord naming id, called from Move (above)
+// alongside c.PT.Clear()/c.KeywordMod.Clear() the moment a card leaves the
+// battlefield, for the identical reason: CardID is stable across zone
+// changes here (ADR-0009, Move's own doc comment), so without this a
+// Permanent Pump (or one recorded earlier this turn) would silently survive
+// a trip to the graveyard and reapply the moment a Raise Dead-style effect
+// returns the same CardID to the battlefield -- Java's own applyPump avoids
+// this by checking the target's game timestamp at apply time
+// (`applyTo.equalsWithGameTimestamp(gameCard)`), a per-instance identity
+// check this port has no equivalent of; dropping the record on exit gets
+// the same real-world answer without one.
+func (g *Game) clearPumps(id CardID) {
+	kept := g.pumps[:0]
+	for _, p := range g.pumps {
+		if p.Card != id {
+			kept = append(kept, p)
+		}
+	}
+	g.pumps = kept
 }
 
 // SetSink replaces the game's event sink. The zero Game has a DiscardSink,
@@ -259,6 +302,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.SummonSick = false
 		c.ProtectingPlayer = NoPlayer
 		g.Unattach(id)
+		g.clearPumps(id)
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
@@ -375,6 +419,7 @@ func (g *Game) Clone() *Game {
 		sink:   DiscardSink{},
 		stack:  append([]Ability(nil), g.stack...),
 		combat: g.combat.clone(),
+		pumps:  append([]pumpRecord(nil), g.pumps...),
 	}
 	if g.rand != nil {
 		r := *g.rand

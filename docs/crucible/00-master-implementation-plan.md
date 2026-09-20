@@ -763,7 +763,8 @@ printed form.
     - `NoPrevention$` (1) — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply
       where Java's own `AbilityKey.NoPreventDamage` says not to.
 
-    `ResolveStack` still reports `ErrUnimplemented` for the other 200 once `GainLife` (below) is counted alongside it.
+    `ResolveStack` still reports `ErrUnimplemented` for the other 199 once `GainLife`/`Pump` (below) are counted
+    alongside it.
 
     **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
     slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
@@ -777,6 +778,44 @@ printed form.
     the identical real-gap-not-a-wrong-answer every other unbuilt replacement remainder already is. `Player.Life` gains
     directly; the identical `LifeChanged` event `dealPlayerDamage` already emits for a life LOSS (combatdamage.go) is
     emitted with a positive `Amount` for the gain, reused rather than duplicated.
+
+    **`Pump` (`pumpeffect.go`) is M6's fourth script-driven effect, and the corpus's own single largest by real line
+    count after `ChangeZone`/`Draw`** — 4,103 real `(AB|DB)$ Pump` lines, 1,147 of them resolved here:
+    `Defined$ Self`/`Enchanted`/`Equipped` (a new `definedCards`, defined.go — `Self` resolves to the ability's own host
+    directly, `Enchanted`/`Equipped` to what the host is attached to, `Card.AttachedTo`) rather than a real target, plus
+    `NumAtt$`/`NumDef$` (a plain integer or a named SVar, through `resolveNamedAmount`) and/or `KW$` (a literal,
+    `" & "`-separated keyword list, through `keywordTokens`, continuous.go — reused rather than duplicated, the
+    identical token split and dynamic-marker rejection `AddKeyword$` already needed), gated by `PumpZone$`'s own zone
+    restriction (absent means Battlefield alone, `ZoneType.listValueOf`'s own Java default) and
+    `subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are.
+
+    This is the first script-driven effect whose own contribution outlives its `Resolve` call: `Duration$`'s default,
+    "until end of turn," is a continuous effect this port never needed a duration for before (`applyContinuousPT`'s own
+    doc comment used to name this as the one gap keeping its own blanket per-pass `PT.Clear()` correct only by
+    accident). A new `Game.pumps` ledger (`pumpRecord`, game.go) records each resolved Pump's own contribution instead
+    of a `Mode$ Continuous` static line, re-added into its target's own `PT`/`KeywordMod` every `CheckStateBasedActions`
+    pass by a new `applyPumpEffects` (continuous.go, called right after `applyContinuousPT`/`applyContinuousKeyword` so
+    their own per-pass `Clear()` has already run) rather than derived from a card script at all. `cleanupStep` (turn.go)
+    drops every non-`Permanent` record at end of turn — CR 514.2's own "until end of turn" effects wearing off, the gap
+    its own doc comment used to name too. `Game.Move` also drops every record naming a card the moment it leaves the
+    battlefield (`clearPumps`, game.go): `CardID` is stable across zone changes here (ADR-0009), so without this a
+    record would silently survive a trip to the graveyard and reapply the moment a Raise Dead-style effect returned the
+    same `CardID` to the battlefield — Java's own `applyPump` avoids this with a per-instance game-timestamp check this
+    port has no equivalent of, so dropping the record on exit gets the same real-world answer without one.
+
+    Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (119 of 1,335 real
+    `Defined$ Self`/`Enchanted`/`Equipped` lines) — no ability-chaining mechanism exists yet; `Condition$` itself and
+    `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionActivationLimit$` (0/19/0/4) —
+    `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `DealDamage`/`GainLife`
+    -shaped gap; `NumAtt$`/`NumDef$` naming the literal `Double`/`Triple` (1 combined) — the target's own power or
+    toughness doubled or tripled, a special case rather than a named SVar; a `KW$` token starting with `HIDDEN` (22) — a
+    hidden-keyword phrase, its own separate mechanic; `UnlessCost$`/`UnlessPayer$`/`UnlessSwitched$` (6/6/4) — CR
+    601.2i's own "unless a cost is paid" branch; `ValidTgts$` (1) — a real target past the `Defined$` card this effect
+    already resolves; `AtEOT$` (9) — `registerDelayedTrigger`, a new trigger this effect would silently fail to create;
+    `CanBlockAmount$`/`CanBlockAny$`, `DefinedKW$`/`KWChoice$`/`RandomKeyword$`,
+    `SharedKeywordsZone$`/`SharedRestrictions$`, `DefinedLandwalk$`, `ImprintCards$`, `NoteCards$`/`NoteCardsFor$`
+    /`ClearNotedCardsFor$`/`NoteNumber$`, `IsPresent$`, `Optional$`/`OptionQuestion$`, `Radiance$` (34 combined) — each
+    its own further mechanic or an unclear shape not worth guessing at from a handful of real lines.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**

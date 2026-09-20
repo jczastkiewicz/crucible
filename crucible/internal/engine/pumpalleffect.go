@@ -1,0 +1,147 @@
+// PumpAll: PumpEffect's own blanket sibling -- CR 611 applied to a
+// valid-string-matched set rather than a single Defined$/targeted card, the
+// corpus's own real "anthem spell" shape (Overrun, ...). 833 real
+// (AB|DB)$ PumpAll lines, 818 of them naming no Defined$ and no ValidTgts$ at
+// all -- Java's own `!sa.usesTargeting() && !sa.hasParam("Defined")` branch,
+// this port's entire real scope since neither targeting nor most Defined$
+// shapes exist -- and within that (plus the 3 real Defined$ You/Opponent
+// lines resolveDefinedPlayers already covers), 642 of 833 resolve.
+//
+// Ported from
+// forge-game/src/main/java/forge/game/ability/effects/PumpAllEffect.java's
+// resolve/applyPumpAll.
+
+package engine
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
+
+// pumpAllUnresolvedParams names PumpAllEffect.resolve's own params past
+// NumAtt$/NumDef$/KW$/Duration$/PumpZone$/ValidCards$/Defined$ this port
+// does not evaluate. Every one fails the whole line loudly rather than
+// applying half of it and guessing at the rest (PORT-8/GO-7): SubAbility$
+// (90 of 833 real lines) -- no ability-chaining mechanism exists yet;
+// Condition$/ConditionDefined$/ConditionZone$/ConditionPlayerTurn$/
+// ConditionManaSpent$/ConditionManaNotSpent$ (4/5/3/1/4/0) --
+// SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
+// the identical Pump-shaped gap; ValidTgts$ (12) -- a real target past a
+// blanket ValidCards$ match, this port's own targeting gap; Planeswalker$
+// (26) and Ultimate$ (13) -- unclear semantics on a PumpAll line, not worth
+// guessing at; RememberPumped$ (8) -- Card.Memory has no writer wired to a
+// blanket multi-card grant; SharedKeywordsZone$/SharedRestrictions$ (4/4) --
+// CardFactoryUtil.sharedKeywords' own zone scan, a further mechanic;
+// UnlessCost$/UnlessPayer$ (3/3) -- CR 601.2i's own "unless a cost is paid"
+// branch; ModeCost$ (3) and Exhaust$ (4) -- each its own further activation
+// mechanic; AtEOT$ (0 real PumpAll lines, kept for symmetry with Pump's own
+// list and in case a future corpus update adds one) --
+// registerDelayedTrigger, a new trigger this effect would silently fail to
+// create.
+var pumpAllUnresolvedParams = [...]string{
+	"SubAbility", "Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
+	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts", "Planeswalker", "Ultimate",
+	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions", "UnlessCost", "UnlessPayer",
+	"ModeCost", "Exhaust", "AtEOT",
+}
+
+// pumpAllEffect resolves Mode$/DB$/AB$ PumpAll for the blanket shape --
+// every card ValidCards$ matches across PumpZone$'s own zones (default
+// Battlefield alone), every player's own unless Defined$ narrows it to
+// specific players (definedPlayers, defined.go). ConditionPresent$/
+// ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
+// through subAbilityConditionMet (condition.go), the identical way Pump's
+// own do.
+type pumpAllEffect struct{}
+
+func (pumpAllEffect) Resolve(g *Game, a *Ability) error {
+	for _, key := range pumpAllUnresolvedParams {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: PumpAll: %s$ not resolvable yet", key)
+		}
+	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+
+	permanent := false
+	if d, ok := a.Params.Param("Duration"); ok {
+		if d != "Permanent" {
+			return fmt.Errorf("engine: PumpAll: Duration$ %q not resolvable yet", d)
+		}
+		permanent = true
+	}
+
+	power, err := pumpAmount(g, "PumpAll", a, source, "NumAtt")
+	if err != nil {
+		return err
+	}
+	toughness, err := pumpAmount(g, "PumpAll", a, source, "NumDef")
+	if err != nil {
+		return err
+	}
+	keywords, err := pumpKeywords("PumpAll", a.Params)
+	if err != nil {
+		return err
+	}
+	if power == 0 && toughness == 0 && len(keywords) == 0 {
+		return nil
+	}
+
+	validCards, ok := a.Params.Param("ValidCards")
+	if !ok {
+		return fmt.Errorf("engine: PumpAll: ValidCards$ missing")
+	}
+	spec := valid.Parse(validCards)
+
+	var players []PlayerID
+	if defined, ok := a.Params.Param("Defined"); ok {
+		players, err = definedPlayers(g, a.Controller, defined)
+		if err != nil {
+			return fmt.Errorf("engine: PumpAll: %w", err)
+		}
+	} else {
+		players = g.Players()
+	}
+
+	g.timestamp++
+	timestamp := g.timestamp
+	for _, pid := range players {
+		for _, z := range pumpAllZones(a.Params) {
+			for _, cid := range g.Zone(z, pid).Cards() {
+				if !Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
+					continue
+				}
+				g.pumps = append(g.pumps, pumpRecord{
+					Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
+					Keywords: keywords, Permanent: permanent,
+				})
+			}
+		}
+	}
+	return nil
+}
+
+// pumpAllZones reads PumpZone$ as the comma list of zones to scan --
+// Battlefield alone when absent, ZoneType.listValueOf's own Java default.
+// An unrecognized zone name is skipped rather than failing the whole line:
+// the same looseness hasZone (trigger.go) already has for a zone list, and
+// every real PumpZone$ value in the corpus is already one of ZoneType's own
+// names.
+func pumpAllZones(a *compile.Ability) []ZoneType {
+	v, ok := a.Param("PumpZone")
+	if !ok {
+		return []ZoneType{Battlefield}
+	}
+	var zones []ZoneType
+	for _, name := range strings.Split(v, ",") {
+		if z, ok := ZoneByName(name); ok {
+			zones = append(zones, z)
+		}
+	}
+	return zones
+}

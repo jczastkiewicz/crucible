@@ -763,8 +763,8 @@ printed form.
     - `NoPrevention$` (1) — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply
       where Java's own `AbilityKey.NoPreventDamage` says not to.
 
-    `ResolveStack` still reports `ErrUnimplemented` for the other 199 once `GainLife`/`Pump` (below) are counted
-    alongside it.
+    `ResolveStack` still reports `ErrUnimplemented` for the other 198 once `GainLife`/`Pump`/`PumpAll` (below) are
+    counted alongside it.
 
     **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
     slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
@@ -816,6 +816,26 @@ printed form.
     `SharedKeywordsZone$`/`SharedRestrictions$`, `DefinedLandwalk$`, `ImprintCards$`, `NoteCards$`/`NoteCardsFor$`
     /`ClearNotedCardsFor$`/`NoteNumber$`, `IsPresent$`, `Optional$`/`OptionQuestion$`, `Radiance$` (34 combined) — each
     its own further mechanic or an unclear shape not worth guessing at from a handful of real lines.
+
+    **`PumpAll` (`pumpalleffect.go`) is M6's fifth script-driven effect, `Pump`'s own blanket sibling** — a
+    `ValidCards$`-matched set across every player's own battlefield (or, with `Defined$ You`/`Player.Opponent`, only the
+    named players', through `definedPlayers`) rather than a single `Defined$` card or a real target — 642 of the
+    corpus's 833 real `(AB|DB)$ PumpAll` lines resolve, 818 of them the real corpus's own dominant shape: no `Defined$`
+    and no target at all, CR 611 applied blanket, the "every creature you control gets +X/+X" anthem-spell reading
+    (Overrun, ...). `NumAtt$`/`NumDef$`/`KW$`/`Duration$`/`PumpZone$`/`subAbilityConditionMet`'s own Condition-family
+    pair are `Pump`'s own identical machinery reused outright (`pumpAmount`/`pumpKeywords`, pumpeffect.go, generalized
+    to take an effect name for their own error text once `PumpAll` became a second caller); `Game.pumps`/
+    `applyPumpEffects`/`cleanupStep`'s own duration tracking (`Pump`'s own paragraph, above) needs no changes at all,
+    since a `pumpRecord` never itself distinguishes which effect created it. `PumpZone$`'s own meaning shifts from a
+    single-target zone check to the list of zones actually scanned (`pumpAllZones`, new) — `ZoneType.listValueOf`'s own
+    default, Battlefield alone, when absent. Not resolved, each failing loudly by name rather than guessing
+    (PORT-8/GO-7): `SubAbility$` (90 of 833) — no ability-chaining mechanism exists yet; `Condition$` itself and
+    `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionManaSpent$`/`ConditionManaNotSpent$`
+    (4/5/3/1/4/0) — `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `Pump`
+    -shaped gap; `ValidTgts$` (12) — a real target past the blanket `ValidCards$` match, this port's own targeting gap;
+    `Planeswalker$`/`Ultimate$` (26/13) — unclear semantics on a `PumpAll` line, not worth guessing at;
+    `RememberPumped$`/`SharedKeywordsZone$`/`SharedRestrictions$`/`UnlessCost$`/`UnlessPayer$`/`ModeCost$`/`Exhaust$`
+    (8/4/4/3/3/3/4) — each its own further mechanic.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**

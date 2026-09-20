@@ -87,25 +87,18 @@ func (pumpEffect) Resolve(g *Game, a *Ability) error {
 		permanent = true
 	}
 
-	power, err := pumpAmount(g, a, source, "NumAtt")
+	power, err := pumpAmount(g, "Pump", a, source, "NumAtt")
 	if err != nil {
 		return err
 	}
-	toughness, err := pumpAmount(g, a, source, "NumDef")
+	toughness, err := pumpAmount(g, "Pump", a, source, "NumDef")
 	if err != nil {
 		return err
 	}
 
-	var keywords []string
-	if raw, ok := a.Params.Param("KW"); ok {
-		if strings.Contains(raw, "HIDDEN") {
-			return fmt.Errorf("engine: Pump: KW$ %q not resolvable yet", raw)
-		}
-		tokens, ok := keywordTokens(a.Params, "KW")
-		if !ok {
-			return fmt.Errorf("engine: Pump: KW$ %q not resolvable yet", raw)
-		}
-		keywords = tokens
+	keywords, err := pumpKeywords("Pump", a.Params)
+	if err != nil {
+		return err
 	}
 
 	if power == 0 && toughness == 0 && len(keywords) == 0 {
@@ -134,21 +127,25 @@ func (pumpEffect) Resolve(g *Game, a *Ability) error {
 }
 
 // pumpAmount reads NumAtt$/NumDef$, defaulting to 0 when the key is absent
-// (a KW$-only Pump line, granting no stat change at all). "Double"/"Triple"
-// (1 real line combined) -- the target's own power or toughness doubled or
-// tripled, PumpEffect.resolve's own special-cased literal strings rather
-// than an SVar name resolveNamedAmount would resolve -- are not built.
-func pumpAmount(g *Game, a *Ability, host *Card, key string) (int, error) {
+// (a KW$-only Pump/PumpAll line, granting no stat change at all). effect
+// names the caller (Pump/PumpAll) for the error message. "Double"/"Triple"
+// (1 real Pump line, 0 real PumpAll lines -- PumpAllEffect.java's own
+// resolve computes NumAtt$/NumDef$ once against the ability's own host, with
+// no per-target special case at all) -- the target's own power or toughness
+// doubled or tripled, PumpEffect.resolve's own special-cased literal strings
+// rather than an SVar name resolveNamedAmount would resolve -- are not
+// built.
+func pumpAmount(g *Game, effect string, a *Ability, host *Card, key string) (int, error) {
 	v, ok := a.Params.Param(key)
 	if !ok {
 		return 0, nil
 	}
 	if v == "Double" || v == "Triple" {
-		return 0, fmt.Errorf("engine: Pump: %s$ %q not resolvable yet", key, v)
+		return 0, fmt.Errorf("engine: %s: %s$ %q not resolvable yet", effect, key, v)
 	}
 	amount, ok := resolveNamedAmount(g, a.Amounts, host, v)
 	if !ok {
-		return 0, fmt.Errorf("engine: Pump: %s$ %q is not resolvable", key, v)
+		return 0, fmt.Errorf("engine: %s: %s$ %q is not resolvable", effect, key, v)
 	}
 	return amount, nil
 }
@@ -163,4 +160,27 @@ func pumpZoneMatches(a *compile.Ability, zone ZoneType) bool {
 		return zone == Battlefield
 	}
 	return hasZone(a, "PumpZone", zone.String())
+}
+
+// pumpKeywords reads KW$ -- shared between pumpEffect and pumpAllEffect,
+// PumpEffect.java/PumpAllEffect.java's own identical two-line KW$ handling
+// (split on " & ", reject a HIDDEN-prefixed token). effect names the caller
+// (Pump/PumpAll) for the error message. A KW$ token starting with "HIDDEN"
+// (a hidden-keyword phrase, gameCard.addHiddenExtrinsicKeywords -- its own
+// separate mechanic) fails loudly rather than granting a normal keyword
+// named literally "HIDDEN ...". Absent KW$ (a NumAtt$/NumDef$-only line)
+// returns nil, nil -- no keywords granted, not an error.
+func pumpKeywords(effect string, a *compile.Ability) ([]string, error) {
+	raw, ok := a.Param("KW")
+	if !ok {
+		return nil, nil
+	}
+	if strings.Contains(raw, "HIDDEN") {
+		return nil, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+	}
+	tokens, ok := keywordTokens(a, "KW")
+	if !ok {
+		return nil, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+	}
+	return tokens, nil
 }

@@ -396,7 +396,11 @@ by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's 
 `applyContinuousPT`'s own doc comment used to name. `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go)
 — no target — cover 1,147 of 4,103 real `Pump` lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$`
 (a literal keyword list), gated by `PumpZone$`'s own zone restriction (default Battlefield alone) and
-`subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are. 199
-script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump` still report `ErrUnimplemented`. **P4 exit gate's
-fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer,
-every SBA," Plan Section 3.2) is not.
+`subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are.
+`pumpAllEffect` (`pumpalleffect.go`) is M6's fifth, `pumpEffect`'s own blanket sibling — a `ValidCards$`-matched set
+across every player (or, with `Defined$`, only the named players' own battlefield) rather than a single `Defined$` card,
+sharing its duration tracking (`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real
+`(AB|DB)$ PumpAll` lines resolve, 818 of them the real corpus's own dominant no-target, no-`Defined$` "anthem spell"
+shape (Overrun, ...). 198 script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll` still report
+`ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
+floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

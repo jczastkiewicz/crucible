@@ -2047,16 +2047,36 @@ named SVar's own body (`grep SVar:ETBTapped:`, six distinct bodies corpus-wide) 
 name: `DB$ Tap | Defined$ Self | ETB$ True` (587 of 618 real ETBTapped lines) or the identical shape naming
 `Defined$ ReplacedCard` instead (31, the "another permanent enters tapped" shape -- `ReplacedCard` is Java's own way of
 naming "the card actually moving" when the replacement's own host is a different permanent). Six lines chain a
-`SubAbility$` (a counter grant) and stay unresolved; `LandTapped`'s own 135 real lines almost all carry
-`ConditionPresent$`/`ConditionCompare$` (a checkland, "unless you control a Mountain or a Forest") or
-`ConditionCheckSVar$`/`ConditionSVarCompare$` (a numeric SVar gate) alongside the identical `DB$ Tap`, and stay
-unresolved too -- PORT-8/GO-7: a conditional tap is not a shape this slice tries to guess at by tapping unconditionally.
+`SubAbility$` (a counter grant) and stay unresolved.
 
-`checkMovedReplacement` (`replacement.go`, new) resolves the 618 unconditional lines. It reads `Face.Replacements`
-(`compile.go`) -- M3's own compiled field, typed identically to `Face.Triggers`/`Face.Statics` since `R:` lines share
-the exact `Key$ Value` grammar, compiled the same way, and never read by the engine before now. `ReplaceWith` is already
-one of `subAbilityKeys` (compile.go), so `ReplaceWith$ ETBTapped` resolves to `Ability.Subs` for free -- zero new
-compiler work, the SVar it names already sitting there the identical way a trigger's own `Execute$` sub-ability does.
+`LandTapped`'s own 140 real `DB$ Tap` lines carry a Condition-family param too -- Rootbound Crag's own checkland text,
+"enters tapped unless you control a Mountain or a Forest" -- and are resolved now: `subAbilityConditionMet`
+(`condition.go`, new) ports `SpellAbilityCondition.areMet`'s own gate, trimmed to the two shapes these lines actually
+use (`ConditionPresent$`/`ConditionCompare$`, a zone-presence count, 106/103 of the 140; `ConditionCheckSVar$`/
+`ConditionSVarCompare$`, a named-SVar comparison, 34/33) -- SpellAbilityCondition is a wholly different Java class from
+`CardTraitBase.meetsCommonRequirements` a trigger already checks (`triggerCommonRequirementsMet`, above), gating an
+_ability's own resolution_ rather than whether a trigger fires at all, but the two families share the identical param
+shapes under different key names: `isPresentMatches`/`checkSVarMatches` (trigger.go) were both already parameterized, or
+made so, by the exact key names each caller needs (`checkSVarMatches` gained `checkKey`/`compareKey`/`secondKey`
+parameters once this became its second caller), so `subAbilityConditionMet` is a thin wrapper passing
+`"ConditionPresent"`/`"ConditionCompare"`/`"ConditionDefined"`/`"ConditionZone"` and
+`"ConditionCheckSVar"`/`"ConditionSVarCompare"`/`"OrOtherConditionSVarCompare"` rather than new logic. 15 of the 140
+also carry `SubAbility$` (a chained counter grant, no ability-chaining mechanism exists), 7 carry `ConditionDefined$`
+(an arbitrary reference, no Defined$-to-objects resolver exists), and 2 carry
+`ConditionPlayerTurn$`/`ConditionPhases$` (each its own mechanic). All five skip the whole line via
+`subAbilityUnresolvedParams` (condition.go) and `tapAbilityResolvesTap`'s own allow-list (below) rather than tapping
+unconditionally and guessing wrong (PORT-8/GO-7): applying half of "enters tapped unless you control a Mountain"
+would be a wrong answer, not a partial one.
+
+A third Condition-family shape, the plain `Condition$` flag (SpellAbilityCondition's own separate
+Threshold/Metalcraft/... switch), carries zero real `DB$ Tap` lines and stays unresolved for the identical reason.
+
+`checkMovedReplacement` (`replacement.go`, new) resolves the 618 unconditional and 116 of the 140 conditional lines. It
+reads `Face.Replacements` (`compile.go`) -- M3's own compiled field, typed identically to `Face.Triggers`/`Face.Statics`
+since `R:` lines share the exact `Key$ Value` grammar, compiled the same way, and never read by the engine before now.
+`ReplaceWith` is already one of `subAbilityKeys` (compile.go), so `ReplaceWith$ ETBTapped` resolves to `Ability.Subs`
+for free -- zero new compiler work, the SVar it names already sitting there the identical way a trigger's own `Execute$`
+sub-ability does.
 
 Checked against two sets of Replacements, the identical own/other split `checkETBTriggers`/`otherETBTriggerMatches`
 (above) already established: the moved card's own (`ValidCard$ Card.Self`, 587 of 618) and every OTHER battlefield
@@ -2081,23 +2101,30 @@ the search stops immediately.
 
 `TestPlayLandEntersTappedViaReplacement`/`TestCastSpellCreatureEntersTappedViaReplacement` (replacement_test.go) prove
 the two real call sites; `TestCheckMovedReplacementAppliesToOtherPermanentsEntering` proves the "other" half;
-`TestPlayLandDoesNotEnterTappedWhenDestinationDoesNotMatch`, `TestCheckMovedReplacementSkipsSubAbilityChain` and
-`TestCheckMovedReplacementSkipsConditionalTap` prove each of the three ways a line does not resolve.
+`TestPlayLandDoesNotEnterTappedWhenDestinationDoesNotMatch` and `TestCheckMovedReplacementSkipsSubAbilityChain` prove
+two of the ways a line does not resolve at all; `TestCheckMovedReplacementTapsCheckland`/
+`TestCheckMovedReplacementDoesNotTapChecklandWhenConditionUnmet` and
+`TestCheckMovedReplacementTapsWhenConditionCheckSVarIsMet`/`TestCheckMovedReplacementDoesNotTapWhenConditionCheckSVarIsNotMet`
+each prove a met/unmet pair for the two now-resolved Condition-family shapes.
 
-Not resolved: `ETBTapped`/`LandTapped` naming a `SubAbility$` or a `ConditionPresent$`/`ConditionCheckSVar$` pair
-(above); `ReplaceWith$ Exile`/`DBTap`/`DBExile`/`DoDay`/`PayBeforeETB`/... (352 of the remaining 969 Moved lines);
-`Untap`'s and `DamageDone`'s own `ReplaceWith$`-driven remainders (below); every `Event$` value past `Moved`/`Untap`/
-`DamageDone` (`Counter`, `Draw`, `AddCounter`, `CreateToken`, `GainLife`, `BeginPhase`, `GameLoss`, `ProduceMana`, ...
--- a majority of the corpus's own real replacement lines); and CR 616's own general layering/ordering procedure
-entirely, moot for this slice's one idempotent outcome but real the moment a second resolvable replacement effect
-produces a different one.
+Not resolved: `ETBTapped`/`LandTapped` naming a `SubAbility$`, `ConditionDefined$`, `ConditionPlayerTurn$`,
+`ConditionPhases$` or `Condition$` itself (above); `ReplaceWith$ Exile`/`DBTap`/`DBExile`/`DoDay`/`PayBeforeETB`/...
+(352 of the remaining 969 Moved lines); `Untap`'s and `DamageDone`'s own `ReplaceWith$`-driven remainders (below); every
+`Event$` value past `Moved`/`Untap`/ `DamageDone` (`Counter`, `Draw`, `AddCounter`, `CreateToken`, `GainLife`,
+`BeginPhase`, `GameLoss`, `ProduceMana`, ... -- a majority of the corpus's own real replacement lines); and CR 616's own
+general layering/ordering procedure entirely, moot for this slice's one idempotent outcome but real the moment a second
+resolvable replacement effect produces a different one.
 
 `enginelint.json` gained a `"replacement"` group (`replacement.go`), added to `"land"`'s and `"castspell"`'s own allow
 lists (both now call `checkMovedReplacement`) and, like `"trigger"`/`"continuous"` before it, to its own allow list an
 `"ability"` entry it does not actually depend on: `compile.Ability` collides textually with the top-level `Ability`
 declared in `ability.go` the identical way `ControlEffect.Player` once collided with the `Player` type (item 27's own
 `ControlMod` paragraph) -- `enginelint`'s own identifier scan cannot tell a qualified external reference apart from an
-unqualified same-package one.
+unqualified same-package one. A new `"condition"` group (`condition.go`) sits between it and `"trigger"`:
+`"replacement"` and `"dealdamageeffect"` both gained `"condition"` (`subAbilityConditionMet`'s two real callers), and
+`"condition"` itself gained `"trigger"` (`isPresentMatches`/`checkSVarMatches`, both parameterized by key name once this
+became their second caller) and the identical `"ability"` collision entry `compile.Ability` forces everywhere it
+appears.
 
 ### `Event$ Untap`: CR 502.3/614.17's own "doesn't untap"
 
@@ -2402,24 +2429,37 @@ neither effect owns it outright, the same "shared, so neither" reason `amount.go
 its callers.
 
 Not resolved, each skipped whole via an allow-list of the params real corpus lines pair with this shape rather than a
-reject-list of the ones found (`tapAbilityIsPlainTap`'s own style, replacement.go) -- a param neither list has seen
-skips by construction instead of silently applying (PORT-8/GO-7): `SubAbility$` (80 of 822) -- no ability-chaining
-mechanism exists at the stack level yet, `ResolveStack` resolves one top-level `AB$`/`DB$` record and stops, never its
-own `SubAbility$` in turn; `Condition$`/`ConditionPresent$`/`ConditionCompare$`/`ConditionDefined$`/
-`ConditionSVarCompare$`/`ConditionCheckSVar$` (83) -- `SpellAbilityCondition`'s own gate on the ability itself, distinct
-from `CardTraitBase.meetsCommonRequirements` a trigger already has; `Planeswalker$`/`UnlessPayer$`/
-`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/
-`TgtPrompt$` (each its own further mechanic, no real line among the 822 combining more than one); `NoPrevention$` (1) --
-this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own
-`AbilityKey.NoPreventDamage` says the damage cannot be prevented at all.
+reject-list of the ones found (`tapAbilityResolvesTap`'s own identical style, replacement.go) -- a param neither list
+has seen skips by construction instead of silently applying (PORT-8/GO-7): `SubAbility$` (80 of 822) -- no
+ability-chaining mechanism exists at the stack level yet, `ResolveStack` resolves one top-level `AB$`/`DB$` record and
+stops, never its own `SubAbility$` in turn; `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/
+`ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own further
+mechanic, no real line among the 822 combining more than one); `NoPrevention$` (1) -- this port's own
+`damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own `AbilityKey.NoPreventDamage`
+says the damage cannot be prevented at all.
 
-`NewRegistry` (`castspell.go`) registers `APIDealDamage`; new `enginelint` groups `defined` (above `game`/`player`) and
-`dealdamageeffect` (above `card`/`game`/`player`/`ability`/`combatdamage`/`defined`/`amount`), `castspell` gaining
+`ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of the 822, once
+`SubAbility$`/`DamageSource$`/every other still-unresolved param above is excluded) are resolved now too, the exact same
+fix `LandTapped`'s own checkland shape needed (`## Replacement effects`, above): `subAbilityConditionMet`
+(`condition.go`, new) is `SpellAbilityCondition.areMet`'s own gate, shared because both a replacement's `DB$ Tap` and a
+script effect's own top-level ability need the identical two shapes. A met condition lets `dealDamageEffect.Resolve` run
+as normal; an unmet one returns `nil` rather than an error -- `SpellAbilityCondition.areMet`'s own contract is "the
+ability does nothing," the identical "declined by the rules" outcome `PlayLand`/`PayManaCost` already report as a plain
+`false`/`nil`. Two params stay in `dealDamageUnresolvedParams`, failing loudly by name the identical way
+`DamageSource$`/`SubAbility$` already do: `Condition$` itself (SpellAbilityCondition's own separate
+Threshold/Metalcraft/... flag switch) and `ConditionDefined$` (an arbitrary reference this port has no
+Defined$-to-objects resolver for). `condition.go`'s own generic unresolved-param guard would otherwise silently no-op
+these two specifically, which this file's own established contract (every unresolvable param fails loudly, never
+silently) does not allow.
+
+`NewRegistry` (`castspell.go`) registers `APIDealDamage`; new `enginelint` groups `defined` (above `game`/`player`),
+`dealdamageeffect` (above `card`/`game`/`player`/`ability`/`combatdamage`/`defined`/`amount`/`condition`) and
+`condition` (above `id`/`card`/`game`/`ability`/`trigger`, shared with `replacement`), `castspell` gaining
 `dealdamageeffect` as a dependency to register into, `draweffect` gaining `card`/`defined`/`amount` for its own upgraded
 `NumCards$` and shared `definedPlayers`. `TestCastSpellFiresOtherPermanentsWatchingTrigger` (Impact Tremors, item 26's
 own "checking the mechanism, not the content" trigger fixture) changed from checking `ResolveStack` reports
 `ErrUnimplemented` naming `DealDamage` to checking both opponents' life actually drops -- the same fixture, testing what
-is now really there. Ten new tests (`dealdamageeffect_test.go`) drive every resolvable and every rejected shape through
+is now really there. Thirteen tests (`dealdamageeffect_test.go`) drive every resolvable and every rejected shape through
 the real cast-and-resolve pipeline, `dealDamageEffect` itself being unexported (TEST-1); one of them (a Deathtouch
 source damaging itself) is split into two -- a Deathtouch-free case proving `Damage.Marked`/`Deathtouch` directly, and a
 separate Deathtouch case proving the creature destroys itself instead, since any nonzero deathtouch damage is lethal (CR
@@ -2431,6 +2471,11 @@ for every earlier test, which either never needed a second `ResolveStack` loop i
 assertion-relevant work before that first check ran, but fatal to a test relying on `ResolveStack` to loop back around
 for a trigger a first resolution pushes. Not a bug to fix, since a real game is never single-player; the fix was the
 test's own player count, not the engine.
+
+Three of those thirteen are the Condition-family additions: a met/unmet pair,
+`TestDealDamageEffectFiresWhenConditionCheckSVarIsMet`/`TestDealDamageEffectNoOpsWhenConditionCheckSVarIsNotMet`, and
+`TestDealDamageEffectRejectsConditionItself` (proving `Condition$` itself still fails loudly, distinct from the resolved
+`ConditionCheckSVar$`/`ConditionPresent$` pair).
 
 ## Events, wired
 

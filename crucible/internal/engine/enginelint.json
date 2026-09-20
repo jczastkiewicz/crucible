@@ -45,7 +45,8 @@
     "replacement": ["replacement.go"],
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],
-    "dealdamageeffect": ["dealdamageeffect.go"]
+    "dealdamageeffect": ["dealdamageeffect.go"],
+    "condition": ["condition.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -123,9 +124,10 @@
     "draweffect": ["id", "card", "game", "player", "ability", "turn", "defined", "amount"],
     "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount", "playerstate"],
     "amount": ["id", "zone", "card", "game", "valid"],
-    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability"],
+    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability", "condition"],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player"],
-    "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount"]
+    "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition"],
+    "condition": ["id", "card", "game", "ability", "trigger"]
   }
 }

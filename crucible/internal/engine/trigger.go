@@ -1493,7 +1493,7 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 	if !isPresentMatches(g, host, amounts, t, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2", "PresentPlayer2") {
 		return false
 	}
-	if !checkSVarMatches(g, host, amounts, t) {
+	if !checkSVarMatches(g, host, amounts, t, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
 		return false
 	}
 	if !boolFlagMatches(t, "Metalcraft", func() bool { return battlefieldArtifactCount(g, host.Controller()) >= 3 }) {
@@ -1586,20 +1586,26 @@ func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // both sides resolved through resolveNamedAmount (ptParam's own shape,
 // continuous.go, factored out once this needed the identical
 // literal-or-named-SVar resolution against a *Card rather than a
-// *compile.Ability's own param).
-func checkSVarMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
-	checkSVar, ok := t.Param("CheckSVar")
+// *compile.Ability's own param). checkKey/compareKey/secondKey are the three
+// param names this exact shape uses under two different names in the real
+// corpus -- CardTraitBase's own CheckSVar$/SVarCompare$/CheckSecondSVar$
+// (triggerCommonRequirementsMet, below) and SpellAbilityCondition's own
+// ConditionCheckSVar$/ConditionSVarCompare$/OrOtherConditionSVarCompare$
+// (subAbilityConditionMet, condition.go) -- generalized once the second
+// caller needed the identical logic under its own param names.
+func checkSVarMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, checkKey, compareKey, secondKey string) bool {
+	checkSVar, ok := t.Param(checkKey)
 	if !ok {
 		return true
 	}
-	if _, ok := t.Param("CheckSecondSVar"); ok {
+	if _, ok := t.Param(secondKey); ok {
 		return false
 	}
 	left, ok := resolveNamedAmount(g, amounts, host, checkSVar)
 	if !ok {
 		return false
 	}
-	compare, ok := t.Param("SVarCompare")
+	compare, ok := t.Param(compareKey)
 	if !ok {
 		compare = "GE1"
 	}

@@ -745,17 +745,22 @@ printed form.
     `Defined$` already has — neither effect owns it outright, the same "shared, so neither" reason `resolveAmount`
     (amount.go) sits apart from `ptParam`/`triggerCommonRequirementsMet`. `Defined$ Self` resolves against the ability's
     own host card directly (`a.Source`), `HasKeyword` reading its own `Deathtouch` for `dealPermanentDamage`'s own flag
-    the identical way combat's own attacker/blocker already do. Not resolved: `DamageSource$` (17 of 822 real `Defined$`
-    lines — a source other than the ability's own host, needing a reference vocabulary this port does not have);
-    `SubAbility$` (80 — no ability-chaining mechanism exists yet, this port's own stack resolves one top-level
-    `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn);
-    `Condition$`/`ConditionPresent$`/`ConditionCompare$`/`ConditionDefined$`/`ConditionSVarCompare$`/
-    `ConditionCheckSVar$` (83 — `SpellAbilityCondition`'s own gate on the ability itself, distinct from a trigger's own
-    `meetsCommonRequirements`); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
-    `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own further mechanic);
-    `NoPrevention$` (1 — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where
-    Java's own `AbilityKey.NoPreventDamage` says not to). `ResolveStack` still reports `ErrUnimplemented` for the
-    other 201.
+    the identical way combat's own attacker/blocker already do. `ConditionPresent$`/`ConditionCompare$`/
+    `ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of 822, once every other still-unresolved param below is excluded)
+    are resolved too, through a new shared `subAbilityConditionMet` (`condition.go`) — `SpellAbilityCondition.areMet`'s
+    own gate, the exact same fix a checkland's `DB$ Tap` needed (below); a met condition runs as normal, an unmet one
+    returns `nil` rather than an error, `SpellAbilityCondition.areMet`'s own "the ability does nothing" contract. Not
+    resolved: `DamageSource$` (17 of 822 real `Defined$` lines — a source other than the ability's own host, needing a
+    reference vocabulary this port does not have); `SubAbility$` (80 — no ability-chaining mechanism exists yet, this
+    port's own stack resolves one top-level `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn);
+    `Condition$` itself (`SpellAbilityCondition`'s own separate Threshold/Metalcraft/... flag switch) and
+    `ConditionDefined$` (an arbitrary reference this port has no
+    Defined$-to-objects resolver for) still fail loudly by
+    name, the identical way `DamageSource$`/`SubAbility$` already do. `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/
+    `UnlessResolveSubs$`/`ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` are
+    each their own further mechanic. `NoPrevention$` (1) is the last: this port's own
+    `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own
+    `AbilityKey.NoPreventDamage` says not to. `ResolveStack` still reports `ErrUnimplemented` for the other 201.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
@@ -863,13 +868,28 @@ printed form.
     outcome this file produces, `Tapped = true`, is idempotent, so CR 616's own "more than one replacement effect could
     apply, the affected player chooses" procedure — needing a `PlayerController` hook this port does not have, the
     identical gap a single player's own multiple simultaneous triggers already has (above) — has no observable answer to
-    get wrong here: the first match found in either loop is applied and the search stops. Not resolved:
-    `ETBTapped`/`LandTapped` naming anything past a bare `DB$ Tap`/`Defined$`/`ETB$` — a `SubAbility$` chain (5 of 624
-    real lines, a chained counter grant) or `ConditionPresent$`/`ConditionCheckSVar$` (135 real `LandTapped` lines,
-    "enters tapped unless you control a Mountain or a Forest" — a checkland/slowland) both skip the whole line rather
-    than tapping unconditionally and guessing wrong (PORT-8/GO-7); every other `Event$` value (`DamageDone`, `Untap`,
-    `Counter`, `Draw`, ... — 1,241 of 2,210 real replacement lines) and every other `Moved` shape (`Exile`, a chained
-    `DBTap`/`DBExile` reference) remain gaps.
+    get wrong here: the first match found in either loop is applied and the search stops.
+
+    **`LandTapped`'s own 140 real `DB$ Tap` lines carrying a Condition-family param are resolved now too** — Rootbound
+    Crag's own checkland text, "enters tapped unless you control a Mountain or a Forest." A new `subAbilityConditionMet`
+    (`condition.go`) ports `SpellAbilityCondition.areMet`'s own gate, trimmed to the two shapes these lines actually
+    use: `ConditionPresent$`/`ConditionCompare$` (106/103 of the 140, a zone-presence count) and `ConditionCheckSVar$`/
+    `ConditionSVarCompare$` (34/33, a named-SVar comparison) — the identical shapes
+    `CardTraitBase.meetsCommonRequirements` already resolves for a trigger (`isPresentMatches`/`checkSVarMatches`, item
+    26's own paragraph above), reused here under `SpellAbilityCondition`'s own different key names rather than
+    reimplemented (`checkSVarMatches` gained `checkKey`/`compareKey`/`secondKey` parameters once this became its second
+    caller). `tapAbilityResolvesTap` (replacement.go, renamed from `tapAbilityIsPlainTap`) now reports whether a
+    `ReplaceWith$` shape is recognized AND whether it actually taps, rather than one collapsed bool. Not resolved:
+    `ETBTapped`/`LandTapped` naming a `SubAbility$` chain (15 of 624 real `ETBTapped` lines — a chained counter grant,
+    no ability-chaining mechanism exists), `ConditionDefined$` (7 — an arbitrary reference, no
+    Defined$-to-objects
+    resolver exists), or `ConditionPlayerTurn$`/`ConditionPhases$` (2, each its own mechanic) — each skips the whole
+    line rather than tapping unconditionally and guessing wrong (PORT-8/GO-7).
+
+    A third Condition-family shape stays unresolved for the identical reason: the plain `Condition$` flag
+    (SpellAbilityCondition's own separate Threshold/Metalcraft/... switch) carries zero real `DB$ Tap` lines. Every
+    other `Event$` value (`DamageDone`, `Untap`, `Counter`, `Draw`, ... — 1,241 of 2,210 real replacement lines) and
+    every other `Moved` shape (`Exile`, a chained `DBTap`/`DBExile` reference) remain gaps.
 
     **CR 509.2's own "becomes blocked" family is real now too**, the natural extension of `checkBlocksTriggers` (above)
     to the attacker's own side of the same declare-blockers step. `checkAttackerBlockedTriggers` ports

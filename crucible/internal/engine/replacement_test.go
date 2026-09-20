@@ -201,11 +201,14 @@ func TestCheckMovedReplacementSkipsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestCheckMovedReplacementSkipsConditionalTap proves LandTapped's own real
-// shape (135 real lines, "enters tapped unless you control a Mountain or a
-// Forest") is skipped too: a ConditionPresent$/ConditionCompare$-qualified
-// DB$ Tap is not the unconditional shape this file resolves.
-func TestCheckMovedReplacementSkipsConditionalTap(t *testing.T) {
+// TestCheckMovedReplacementTapsCheckland proves LandTapped's own real shape
+// (140 real DB$ Tap lines, "enters tapped unless you control a Mountain or a
+// Forest," Rootbound Crag's own text) resolves now:
+// tapAbilityResolvesTap/subAbilityConditionMet (replacement.go, condition.go)
+// evaluate ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0 against
+// the actual battlefield -- p controls no Mountain, so the count is 0, EQ0
+// holds, and the checkland enters tapped.
+func TestCheckMovedReplacementTapsCheckland(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -217,9 +220,97 @@ func TestCheckMovedReplacementSkipsConditionalTap(t *testing.T) {
 
 	g.PlayLand(p, land)
 
-	if g.Card(land).Tapped {
-		t.Error("Tapped = true, want false -- a ConditionPresent$-qualified DB$ Tap is not resolvable yet")
+	if !g.Card(land).Tapped {
+		t.Error("Tapped = false, want true -- p controls no Mountain, so ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0 holds")
 	}
+}
+
+// TestCheckMovedReplacementDoesNotTapChecklandWhenConditionUnmet proves the
+// negative control: with a Mountain already on the battlefield, the count is
+// 1, EQ0 fails, and the checkland enters untapped -- the same real card,
+// genuinely evaluated both ways rather than one fixed outcome.
+func TestCheckMovedReplacementDoesNotTapChecklandWhenConditionUnmet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landDef(t, "Mountain", "Basic Land Mountain"), p, engine.Battlefield)
+	land := g.NewCard(replacementHostDef(t, "Test Checkland", "Land",
+		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped",
+		"LandTapped", "DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0"), p, engine.Hand)
+
+	g.PlayLand(p, land)
+
+	if g.Card(land).Tapped {
+		t.Error("Tapped = true, want false -- p already controls a Mountain, so ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0 fails")
+	}
+}
+
+// TestCheckMovedReplacementTapsWhenConditionCheckSVarIsMet proves the other
+// resolvable Condition-family shape: ConditionCheckSVar$/ConditionSVarCompare$,
+// resolveNamedAmount's own literal-SVar path (amount.go), the identical
+// mechanism CardTraitBase's own CheckSVar$/SVarCompare$ already uses.
+func TestCheckMovedReplacementTapsWhenConditionCheckSVarIsMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(checklandCheckSVarDef(t, "1"), p, engine.Hand)
+
+	g.PlayLand(p, land)
+
+	if !g.Card(land).Tapped {
+		t.Error("Tapped = false, want true -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 holds (X is 1)")
+	}
+}
+
+// TestCheckMovedReplacementDoesNotTapWhenConditionCheckSVarIsNotMet proves
+// the negative control for the identical shape.
+func TestCheckMovedReplacementDoesNotTapWhenConditionCheckSVarIsNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	land := g.NewCard(checklandCheckSVarDef(t, "0"), p, engine.Hand)
+
+	g.PlayLand(p, land)
+
+	if g.Card(land).Tapped {
+		t.Error("Tapped = true, want false -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 fails (X is 0)")
+	}
+}
+
+// checklandCheckSVarDef builds a *compile.Card for a land whose own
+// LandTapped SVar carries ConditionCheckSVar$ X | ConditionSVarCompare$ GE1,
+// X a literal integer set before compiling (compile.Face.Amounts is parsed
+// once at compile time, so a *compile.Card's own SVars cannot be edited
+// afterward the way replacementHostDef's own single-SVar shape might
+// suggest).
+func checklandCheckSVarDef(t *testing.T, xValue string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test SVar Checkland"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test SVar Checkland"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Land")
+	raw.Faces[0].Replacements = []string{
+		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped",
+	}
+	raw.Faces[0].SVars.Set("LandTapped", "DB$ Tap | Defined$ Self | ETB$ True | ConditionCheckSVar$ X | ConditionSVarCompare$ GE1")
+	raw.Faces[0].SVars.Set("X", xValue)
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
 }
 
 // TestCheckMovedReplacementAppliesToOtherPermanentsEntering proves the

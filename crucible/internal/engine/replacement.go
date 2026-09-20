@@ -41,6 +41,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -72,8 +73,8 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 	if movedCard.Def != nil {
 		for _, face := range movedCard.Def.Faces {
 			for _, r := range face.Replacements {
-				if replacementTapsOnMove(g, r, movedCard, origin, movedCard.Controller(), moved) {
-					movedCard.Tapped = true
+				if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, movedCard.Controller(), moved, face.Amounts); matched {
+					movedCard.Tapped = shouldTap
 					return
 				}
 			}
@@ -90,8 +91,8 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 			}
 			for _, face := range w.Def.Faces {
 				for _, r := range face.Replacements {
-					if replacementTapsOnMove(g, r, movedCard, origin, w.Controller(), watcher) {
-						movedCard.Tapped = true
+					if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, w.Controller(), watcher, face.Amounts); matched {
+						movedCard.Tapped = shouldTap
 						return
 					}
 				}
@@ -101,36 +102,40 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 }
 
 // replacementTapsOnMove reports whether r is a resolvable "enters tapped"
-// replacement matching moved's own zone change: Event$ Moved, an optional
-// Origin$/Destination$ restriction (present on 2 and 624 of the real
-// ETBTapped-named lines respectively -- absence of either means
+// replacement matching moved's own zone change (matched, the second return
+// value) and, if so, whether it actually taps (shouldTap, the first): Event$
+// Moved, an optional Origin$/Destination$ restriction (present on 2 and 624
+// of the real ETBTapped-named lines respectively -- absence of either means
 // unrestricted, ReplaceMoved.java's own hasParam guard), ValidCard$ matched
 // against moved the identical way a trigger's own ValidCard$ is (Matches,
-// valid.go), and a ReplaceWith$ sub-ability tapAbilityIsPlainTap (below)
-// recognizes.
-func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID) bool {
+// valid.go), and a ReplaceWith$ sub-ability tapAbilityResolvesTap (below)
+// recognizes -- matched true whether or not the checkland-style condition
+// inside that sub-ability actually holds, since CR 616's own "which
+// replacement applies" choice is decided by ReplaceWith$ naming a resolvable
+// shape at all, not by what that shape's own resolution produces.
+func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (shouldTap, matched bool) {
 	if !strings.EqualFold(r.Name, "Moved") {
-		return false
+		return false, false
 	}
 	if !replacementZoneMatches(r, "Destination", Battlefield) {
-		return false
+		return false, false
 	}
 	if !replacementZoneMatches(r, "Origin", origin) {
-		return false
+		return false, false
 	}
 	validCard, ok := r.Param("ValidCard")
 	if !ok {
-		return false
+		return false, false
 	}
 	if !Matches(g, movedCard, valid.Parse(validCard), hostController, host) {
-		return false
+		return false, false
 	}
 	for _, sub := range r.Subs {
 		if strings.EqualFold(sub.Key, "ReplaceWith") {
-			return tapAbilityIsPlainTap(sub.Ability)
+			return tapAbilityResolvesTap(g, sub.Ability, g.Card(host), amounts)
 		}
 	}
-	return false
+	return false, false
 }
 
 // replacementZoneMatches reports whether r's key names zone among its
@@ -151,22 +156,33 @@ func replacementZoneMatches(r *compile.Ability, key string, zone ZoneType) bool 
 	return false
 }
 
-// tapAbilityIsPlainTap reports whether a is the one ReplaceWith$ shape this
-// port resolves: a bare `DB$ Tap` naming Defined$ Self or Defined$
+// tapAbilityResolvesTap reports whether a is a resolvable ReplaceWith$ shape
+// (recognized, the second return value) and, if so, whether it actually taps
+// (shouldTap, the first): a bare `DB$ Tap` naming Defined$ Self or Defined$
 // ReplacedCard -- Java's own distinction between "the card carrying this
 // replacement" and "the card the replacement is actually about," identical
-// here since this file only ever reaches a's own host through the card
-// that is moving (never through a separate targeted/remembered reference) --
-// and nothing else. ETB$ True, present on every real line, is read as part
-// of a's own params but never checked: it exists in Java to mark the tap as
-// happening as part of entering rather than a later, ordinary tap (relevant
-// to a first-strike-of-untap-step check no card in this shape needs), not to
-// gate whether the tap itself happens. Any other param -- SubAbility$ (5 of
-// 624 real ETBTapped lines, a chained counter grant), ConditionPresent$/
-// ConditionCheckSVar$ (LandTapped's own "unless" shapes, a checkland/
-// slowland) -- skips the whole line rather than tapping unconditionally and
-// guessing wrong (PORT-8/GO-7): applying half of "enters tapped unless you
-// control a Mountain" is not a partial answer, it is the wrong one.
+// here since this file only ever reaches a's own host through the card that
+// is moving (never through a separate targeted/remembered reference) --
+// optionally gated by SpellAbilityCondition's own ConditionPresent$/
+// ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$
+// (subAbilityConditionMet, condition.go) and nothing else. ETB$ True,
+// present on every real line, is read as part of a's own params but never
+// checked: it exists in Java to mark the tap as happening as part of
+// entering rather than a later, ordinary tap (relevant to a
+// first-strike-of-untap-step check no card in this shape needs), not to gate
+// whether the tap itself happens. 618 of the corpus's 624 real ETBTapped
+// lines carry no Condition-family param at all (shouldTap always true once
+// recognized); 140 more real DB$ Tap lines do -- LandTapped's own checkland/
+// slowland "unless" shape (Rootbound Crag: "enters tapped unless you control
+// a Mountain or a Forest") -- 116 of those resolving through
+// subAbilityConditionMet, the rest (SubAbility$, ConditionDefined$,
+// ConditionPlayerTurn$, ConditionPhases$) still recognized false: applying
+// half of "enters tapped unless you control a Mountain" would be a wrong
+// answer, not a partial one, so a's own unresolved-param guard
+// (subAbilityUnresolvedParams, condition.go) refuses the whole ability
+// rather than tapping unconditionally and guessing wrong (PORT-8/GO-7). Any
+// param past db/defined/etb/the four Condition keys, this function's own
+// separate switch -- skips (recognized false) for the identical reason.
 // replacementActiveZones parses r's own ActiveZones$ -- the zone(s) its host
 // itself must occupy for r to apply at all (ReplacementEffect's own
 // zonesCheck, distinct from a trigger's TriggerZones$, though both are the
@@ -395,20 +411,21 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 	return true
 }
 
-func tapAbilityIsPlainTap(a *compile.Ability) bool {
+func tapAbilityResolvesTap(g *Game, a *compile.Ability, host *Card, amounts map[string]expr.Amount) (shouldTap, recognized bool) {
 	if !strings.EqualFold(a.Name, "Tap") {
-		return false
+		return false, false
 	}
 	defined, ok := a.Param("Defined")
 	if !ok || (!strings.EqualFold(defined, "Self") && !strings.EqualFold(defined, "ReplacedCard")) {
-		return false
+		return false, false
 	}
 	for _, p := range a.Params {
 		switch strings.ToLower(p.Key) {
-		case "db", "defined", "etb":
+		case "db", "defined", "etb",
+			"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare":
 		default:
-			return false
+			return false, false
 		}
 	}
-	return true
+	return subAbilityConditionMet(g, host, amounts, a), true
 }

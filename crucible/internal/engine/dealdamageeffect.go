@@ -27,22 +27,33 @@ import "fmt"
 // vocabulary this file does not have); SubAbility$ (80 -- no ability chains
 // past its own top-level DB$/AB$ record yet, this port's own stack has
 // nothing that resolves one sub-ability and then its own SubAbility$ in
-// turn); Condition$/ConditionPresent$/ConditionCompare$/ConditionDefined$/
-// ConditionSVarCompare$/ConditionCheckSVar$ (83 -- SpellAbilityCondition's
-// own gate on the ability itself, distinct from CardTraitBase's own
-// meetsCommonRequirements a trigger already has, trigger.go); Planeswalker$/
-// UnlessPayer$/UnlessCost$/UnlessResolveSubs$/ValidTgts$/
-// TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each
-// its own further mechanic); NoPrevention$ (1 -- this port's own
-// damagePrevented/damagePreventedPlayer would otherwise apply where Java's
-// own AbilityKey.NoPreventDamage says not to, a wrong answer rather than a
-// missing one).
+// turn); Planeswalker$/UnlessPayer$/UnlessCost$/UnlessResolveSubs$/
+// ValidTgts$/TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/
+// TgtPrompt$ (each its own further mechanic); NoPrevention$ (1 -- this
+// port's own damagePrevented/damagePreventedPlayer would otherwise apply
+// where Java's own AbilityKey.NoPreventDamage says not to, a wrong answer
+// rather than a missing one).
+//
+// ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
+// ConditionSVarCompare$ -- SpellAbilityCondition's own gate on the ability
+// itself, distinct from CardTraitBase's own meetsCommonRequirements a
+// trigger already has -- are resolved now too (subAbilityConditionMet,
+// condition.go), 5 more of the 822 real Defined$ lines: a met condition lets
+// this run as normal, an unmet one is not an error, the ability simply does
+// nothing (SpellAbilityCondition.areMet's own contract), the identical
+// "declined by the rules" outcome PlayLand/PayManaCost already report as a
+// plain false/nil rather than an error. Condition$ itself (SpellAbilityCondition's
+// own separate Threshold/Metalcraft/... flag switch) and ConditionDefined$
+// (an arbitrary reference this port has no Defined$-to-objects resolver for)
+// stay in dealDamageUnresolvedParams below, failing loudly the identical way
+// DamageSource$/SubAbility$ already do -- condition.go's own generic
+// subAbilityConditionMet would otherwise silently no-op a card naming either,
+// which this file's own established contract (every unresolvable param fails
+// loudly by name, never silently) does not allow.
 type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
-	"DamageSource", "SubAbility",
-	"Condition", "ConditionPresent", "ConditionCompare", "ConditionDefined",
-	"ConditionSVarCompare", "ConditionCheckSVar",
+	"DamageSource", "SubAbility", "Condition", "ConditionDefined",
 	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessResolveSubs",
 	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
 	"NoPrevention", "Optional", "TgtPrompt",
@@ -54,11 +65,14 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability) error {
 			return fmt.Errorf("engine: DealDamage: %s$ not resolvable yet", key)
 		}
 	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
 	numDmg, ok := a.Params.Param("NumDmg")
 	if !ok {
 		return fmt.Errorf("engine: DealDamage: NumDmg$ missing")
 	}
-	source := g.Card(a.Source)
 	dmg, ok := resolveNamedAmount(g, a.Amounts, source, numDmg)
 	if !ok {
 		return fmt.Errorf("engine: DealDamage: NumDmg$ %q is not resolvable", numDmg)

@@ -292,6 +292,74 @@ func TestDealDamageEffectRejectsDamageSource(t *testing.T) {
 	}
 }
 
+// TestDealDamageEffectFiresWhenConditionCheckSVarIsMet proves
+// subAbilityConditionMet (condition.go) now gates DealDamage's own
+// resolution the same way it gates a checkland's DB$ Tap: X GE1 holds (X is
+// 1), so the damage happens as normal.
+func TestDealDamageEffectFiresWhenConditionCheckSVarIsMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	def := etbDealDamageTriggerDefParams(t, "Test Condition Met",
+		"Defined$ You | NumDmg$ 3 | ConditionCheckSVar$ X | ConditionSVarCompare$ GE1", map[string]string{"X": "1"})
+	if err := castETBDealDamage(t, g, p, def); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Player(p).Life != 17 {
+		t.Errorf("p's life = %d, want 17 -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 holds (X is 1)", g.Player(p).Life)
+	}
+}
+
+// TestDealDamageEffectNoOpsWhenConditionCheckSVarIsNotMet proves the negative
+// control: X GE1 fails (X is 0), so the ability does nothing -- not an error,
+// SpellAbilityCondition.areMet's own "declined by the rules" contract.
+func TestDealDamageEffectNoOpsWhenConditionCheckSVarIsNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	def := etbDealDamageTriggerDefParams(t, "Test Condition Unmet",
+		"Defined$ You | NumDmg$ 3 | ConditionCheckSVar$ X | ConditionSVarCompare$ GE1", map[string]string{"X": "0"})
+	if err := castETBDealDamage(t, g, p, def); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Player(p).Life != 20 {
+		t.Errorf("p's life = %d, want 20 -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 fails (X is 0), no damage", g.Player(p).Life)
+	}
+}
+
+// TestDealDamageEffectRejectsConditionItself proves Condition$ (the flag
+// switch, distinct from the resolved ConditionCheckSVar$/ConditionPresent$
+// pair) still fails loudly -- SpellAbilityCondition's own Threshold/
+// Metalcraft/... family, no evaluator built for it.
+func TestDealDamageEffectRejectsConditionItself(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	def := etbDealDamageTriggerDefParams(t, "Test Condition Flag", "Defined$ You | NumDmg$ 1 | Condition$ Threshold", nil)
+	err := castETBDealDamage(t, g, p, def)
+	if err == nil {
+		t.Fatal("ResolveStack: got nil error, want one naming Condition")
+	}
+	if !strings.Contains(err.Error(), "Condition") {
+		t.Errorf("ResolveStack error = %q, want it to name Condition$", err.Error())
+	}
+	if g.Player(p).Life != 20 {
+		t.Errorf("p's life = %d, want 20 -- a rejected line must not deal partial damage", g.Player(p).Life)
+	}
+}
+
 // TestDealDamageEffectDamageIsPreventedByReplacement proves
 // dealDamageEffect's own damage reaches damagePrevented/damagePreventedPlayer
 // (replacement.go) the identical way combat damage already does -- CR 614's

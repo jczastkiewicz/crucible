@@ -422,7 +422,14 @@ out of the same hand. `NumCards$` is clamped to the discarding player's actual h
 `Math.min(numCards, numCardsInHand)`, and an already-empty hand skips the controller call entirely rather than asking
 for zero cards. `definedPlayers` (`defined.go`) gained a `"Player"` case alongside `You`/`Opponent`/`Player.Opponent` —
 `AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch, every player in the game unfiltered, closing
-`rotting_rats.txt`'s own "each player discards a card" shape and any other effect's bare `Defined$ Player` for free. 195
-script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard` still
-report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the
-≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+`rotting_rats.txt`'s own "each player discards a card" shape and any other effect's bare `Defined$ Player` for free.
+`scryEffect` (`scryeffect.go`) is M6's ninth — 332 of 415 real `(AB|DB)$ Scry` lines resolve, the first effect where an
+absent `Defined$` itself means `You` (`AbilityUtils.getDefinedPlayers`'s own `changedDef = (def == null) ? "You" : ...`
+default) rather than a rejected line, and the first to ask the player to reorder cards rather than choose a subset of
+them: `PlayerController` gained a twenty-second method, `ArrangeForScry`, and a new `Game.MoveToLibraryTop` (`game.go`)
+puts a card on top of a library — `Game.Move` only ever appends to a zone's own end, the library's own bottom.
+`ScryNum$` cards come off the top, the controller's own answer splits them between a chosen top order and a chosen
+bottom order, and a scry of `0` (`CR 701.22b`) never reaches the controller at all. 194 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry` still report
+`ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
+floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

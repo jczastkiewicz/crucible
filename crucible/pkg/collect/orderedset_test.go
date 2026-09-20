@@ -56,6 +56,56 @@ func TestOrderedSet(t *testing.T) {
 	}
 }
 
+// Prepend is Add's mirror: it inserts at the front rather than the end, and
+// a re-add of an existing element still does not move it.
+func TestOrderedSetPrepend(t *testing.T) {
+	t.Parallel()
+	s := collect.NewOrderedSet[int](0)
+	if !s.Prepend(1) {
+		t.Error("Prepend(1) on empty set = false, want true")
+	}
+	if !s.Prepend(2) {
+		t.Error("Prepend(2) = false, want true")
+	}
+	if !s.Prepend(3) {
+		t.Error("Prepend(3) = false, want true")
+	}
+	if got, want := s.All(), []int{3, 2, 1}; !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v", got, want)
+	}
+	if s.Prepend(2) {
+		t.Error("Prepend(2) when present = true, want false")
+	}
+	if got, want := s.All(), []int{3, 2, 1}; !slices.Equal(got, want) {
+		t.Errorf("order after re-Prepend = %v, want %v (unchanged)", got, want)
+	}
+}
+
+// Prepend has to keep Contains/Remove agreeing with All the identical way
+// Add's own index maintenance does -- every element's index shifts by one
+// on a Prepend, not just the new element's own.
+func TestOrderedSetPrependKeepsIndexInStep(t *testing.T) {
+	t.Parallel()
+	s := collect.NewOrderedSet[int](0)
+	for _, v := range []int{1, 2, 3} {
+		s.Add(v)
+	}
+	s.Prepend(4)
+
+	if got, want := s.All(), []int{4, 1, 2, 3}; !slices.Equal(got, want) {
+		t.Fatalf("order after Prepend = %v, want %v", got, want)
+	}
+	for _, v := range s.All() {
+		if !s.Contains(v) {
+			t.Errorf("element %d present in All but Contains says no", v)
+		}
+		if !s.Remove(v) {
+			t.Errorf("element %d present in All but Remove says absent", v)
+		}
+		s.Add(v)
+	}
+}
+
 func TestOrderedSetAddRemoveReport(t *testing.T) {
 	t.Parallel()
 	s := collect.NewOrderedSet[string](0)

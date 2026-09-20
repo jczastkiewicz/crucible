@@ -51,7 +51,8 @@
     "pumpeffect": ["pumpeffect.go", "pumpalleffect.go"],
     "loselifeeffect": ["loselifeeffect.go"],
     "putcountereffect": ["putcountereffect.go"],
-    "discardeffect": ["discardeffect.go"]
+    "discardeffect": ["discardeffect.go"],
+    "scryeffect": ["scryeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -113,7 +114,8 @@
       "pumpeffect",
       "loselifeeffect",
       "putcountereffect",
-      "discardeffect"
+      "discardeffect",
+      "scryeffect"
     ],
     "trigger": [
       "id",
@@ -180,6 +182,7 @@
       "parts",
       "control"
     ],
-    "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
+    "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
+    "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
   }
 }

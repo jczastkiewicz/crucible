@@ -327,6 +327,51 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	})
 }
 
+// MoveToLibraryTop moves id to the top of owner's library -- library index
+// 0, the position [Game.DrawCards] reads from and the one CR 701.19's own
+// scry action needs for the cards it puts back rather than to the bottom
+// (scryeffect.go, its first real caller). [Game.Move] always appends to a
+// zone's own end, which for the library is the bottom (mulligan.go's own
+// tuck already relies on exactly that); this is Move's mirror for the one
+// case a card needs the opposite end instead, sharing its every other
+// behavior -- including the Battlefield-transition cleanup below, so a
+// future caller that moves a card onto the top of a library from anywhere
+// other than the library itself (a tutor effect's own
+// "Destination$ Library | LibraryPosition$ 0" shape, not built yet) gets
+// that cleanup for free rather than a scry-only shortcut that silently
+// skips it.
+func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
+	c := g.Card(id)
+	from := c.Zone
+	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
+	g.putFront(id, owner)
+
+	if from == Battlefield {
+		c.Counters = Counters{}
+		c.Damage.Clear()
+		c.PT.Clear()
+		c.TypeMod.Clear()
+		c.ColorMod.Clear()
+		c.KeywordMod.Clear()
+		c.Tapped = false
+		c.SummonSick = false
+		c.ProtectingPlayer = NoPlayer
+		g.Unattach(id)
+		g.clearPumps(id)
+	}
+
+	g.sink.Emit(Event{
+		Kind:   ZoneChanged,
+		Phase:  g.activePhase,
+		Active: g.activePlayer,
+		Actor:  owner,
+		Turn:   uint16(g.turn),
+		Source: id,
+		From:   from,
+		To:     Library,
+	})
+}
+
 // Shuffle randomises one zone's order, in place, using the game's own random
 // stream. Ported from Player.shuffle (Collections.shuffle(list,
 // MyRandom.getRandom())): javarand.Rand.Shuffle reproduces that algorithm
@@ -350,6 +395,17 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	g.timestamp++
 	c.Timestamp = g.timestamp
 	g.Zone(kind, owner).cards.Add(id)
+}
+
+// putFront is put's mirror for the library's own top instead of a zone's
+// end: it does not remove the card from wherever it was, so only
+// [Game.MoveToLibraryTop] may call it.
+func (g *Game) putFront(id CardID, owner PlayerID) {
+	c := &g.cards[id]
+	c.Zone, c.ZoneOwner = Library, owner
+	g.timestamp++
+	c.Timestamp = g.timestamp
+	g.Zone(Library, owner).cards.Prepend(id)
 }
 
 // Attach attaches one card to another, moving it off whatever it was attached

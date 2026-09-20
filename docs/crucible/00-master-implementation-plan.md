@@ -921,6 +921,33 @@ printed form.
     combined) — no `SubAbility` chain exists to ever read a `Remembered$` value back, the identical "blocked outright
     rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made.
 
+    **`scryEffect` (`scryeffect.go`) is M6's ninth script-driven effect, and the first that asks the resolving player to
+    reorder a set of cards rather than choose a subset of them.** 332 of the corpus's 415 real `(AB|DB)$ Scry` lines
+    resolve — every one naming `Defined$ You`/`Opponent`/`Player`/`Player.Opponent`, or naming no `Defined$` at all: CR
+    701.19's own line is the first in M6 where an absent `Defined$` is itself a real, resolvable answer rather than a
+    missing param, matching `AbilityUtils.getDefinedPlayers`'s own `changedDef = (def == null) ? "You" : ...` default
+    exactly (every other effect so far treats a missing `Defined$` as `definedPlayers`'s own unresolvable-value error).
+    `ScryEffect.java` itself is thin (51 lines); the real work is `GameAction.scry`'s own — look at the top `ScryNum$`
+    cards of the deciding player's own library, then split them between a chosen top order and a chosen bottom order.
+    That split is a genuinely new kind of decision this port had no hook for: `PlayerController` gained a twenty-second
+    method, `ArrangeForScry` (control.go), returning the two piles' own orders directly rather than a single chosen
+    subset the way `ChooseCardsToDiscard` (M6's eighth, above) does. Applying the "put back on top" half needed a new
+    primitive too — `Game.MoveToLibraryTop` (game.go), `Game.Move`'s own mirror for the one end `Move` can never reach:
+    `Move` always appends to a zone's own end (the library's own bottom, `mulligan.go`'s own tuck already relies on
+    exactly that), so putting a card on top needed `collect.OrderedSet`'s own new `Prepend` (mirror of `Add`) underneath
+    it. `MoveToLibraryTop` shares every other part of `Move`'s own behavior, including the Battlefield-transition
+    cleanup, so a later tutor-to-top effect (`Destination$ Library | LibraryPosition$ 0`, not built) gets that cleanup
+    for free rather than a scry-only shortcut. CR 614's own `Scry` replacement type and `Mode$ Scry` trigger are both
+    skipped outright, not merely unresolved: 0 real corpus lines name either, so there is nothing to wire either
+    mechanism into yet. Not resolved, each failing loudly by name (PORT-8/GO-7): `SubAbility$` (72 of 415) — no
+    ability-chaining mechanism exists yet; `ValidTgts$` (2) — this port's own targeting gap; `Optional$` (4) — an
+    interactive confirm this port's own `PlayerController` has no hook for; `Planeswalker$` (8) — its own further
+    mechanic. `Condition$` itself and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` (5) skip the whole
+    line via `subAbilityConditionMet`'s own unresolved-param list rather than a loud error, the identical silent-skip
+    every other effect using it already gets; `ConditionPresent$`/`ConditionCompare$`/
+    `ConditionCheckSVar$`/`ConditionSVarCompare$` are resolved through it exactly as `Discard`'s/`PutCounter`'s own
+    already are.
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at

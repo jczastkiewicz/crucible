@@ -40,6 +40,28 @@ func (s *OrderedSet[T]) Add(v T) bool {
 	return true
 }
 
+// Prepend inserts v at the front if absent, and reports whether it was
+// added. Re-adding an existing element does NOT move it, the same
+// first-insertion-order contract Add already has -- this exists for a
+// caller that puts a card back on top of a library (CR 701.19's own scry
+// action, Game.MoveToLibraryTop, engine/game.go), where Add's own
+// append-at-the-end would put it on the bottom instead.
+func (s *OrderedSet[T]) Prepend(v T) bool {
+	if s.index == nil {
+		s.index = make(map[T]int)
+	}
+	if _, ok := s.index[v]; ok {
+		return false
+	}
+	s.items = append(s.items, v)
+	copy(s.items[1:], s.items[:len(s.items)-1])
+	s.items[0] = v
+	for i, item := range s.items {
+		s.index[item] = i
+	}
+	return true
+}
+
 // Remove deletes v and reports whether it was present. Order of the remaining
 // elements is preserved, so this is O(n) — the alternative, swapping the last
 // element into the hole, is O(1) and would reorder.

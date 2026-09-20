@@ -12,13 +12,13 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-one answerable with today's
+// which has 110 abstract methods; only the twenty-two answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// twenty-one: mulligans and the starting-player choice have callers in
+// twenty-two: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
@@ -35,6 +35,8 @@ import (
 // own caller (discardEffect.Resolve, discardeffect.go) is the first
 // Effect implementation to need one at all -- Effect.Resolve gained a
 // PlayerController parameter for it (effect.go's own doc comment).
+// ArrangeForScry's own caller (scryEffect.Resolve, scryeffect.go) is the
+// second.
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -133,6 +135,21 @@ type PlayerController interface {
 	// already has. hand is decider's whole hand; count is exactly how many
 	// the returned slice must have (min(NumCards$, len(hand))).
 	ChooseCardsToDiscard(g *Game, decider PlayerID, hand []CardID, count int) []CardID
+
+	// ArrangeForScry decides how decider scries (CR 701.19, Discard's own
+	// interactive-decision shape reused for a second one, scryeffect.go) --
+	// Forge's own arrangeForScry. topN is the top ScryNum$ cards of
+	// decider's own library, in their current top-to-bottom order (topN[0]
+	// on top); the two returned slices partition topN between them (every
+	// element of topN in exactly one, none invented), not re-checked here --
+	// trust the controller's answer, the same as ChooseLegendaryToKeep. toTop
+	// is the order those cards go back on top in, top-to-bottom (toTop[0]
+	// ends up the new top card); toBottom is the order the rest go to the
+	// bottom in (toBottom's own last element ends up the new bottom card,
+	// matching Java's own moveToBottomOfLibrary called once per element in
+	// list order). Either may be nil -- an empty scry decision (everything to
+	// the other pile) is a legal answer.
+	ArrangeForScry(g *Game, decider PlayerID, topN []CardID) (toTop, toBottom []CardID)
 
 	// ChooseBattleProtector decides which opponent defends decider's Battle
 	// (CR 704.5w/704.5x, assignBattleProtector, action.go). eligible is
@@ -278,6 +295,14 @@ type ScriptedController struct {
 	xValues         []int
 	snowMana        []mana.Shard
 	enchantTargets  []CardID
+	scryDecisions   []scryDecision
+}
+
+// scryDecision is one queued answer to ArrangeForScry -- a pair, so
+// QueueScry takes both halves together rather than as two separately
+// queued slices that could desync under a partial scenario edit.
+type scryDecision struct {
+	toTop, toBottom []CardID
 }
 
 // NewScriptedController builds a controller with no decisions queued yet.
@@ -347,6 +372,13 @@ func (c *ScriptedController) QueueDiscard(cards []CardID) {
 // happens to script the identical cards for both.
 func (c *ScriptedController) QueueDiscardChoice(cards []CardID) {
 	c.discardChoices = append(c.discardChoices, cards)
+}
+
+// QueueScry appends the answer to the next ArrangeForScry call: toTop and
+// toBottom together, ArrangeForScry's own doc comment has their order
+// conventions.
+func (c *ScriptedController) QueueScry(toTop, toBottom []CardID) {
+	c.scryDecisions = append(c.scryDecisions, scryDecision{toTop: toTop, toBottom: toBottom})
 }
 
 // QueueBattleProtector appends the answer to the next ChooseBattleProtector
@@ -463,6 +495,16 @@ func (c *ScriptedController) ChooseCardsToDiscard(_ *Game, _ PlayerID, _ []CardI
 	v := c.discardChoices[0]
 	c.discardChoices = c.discardChoices[1:]
 	return v
+}
+
+// ArrangeForScry returns the next answer QueueScry queued.
+func (c *ScriptedController) ArrangeForScry(_ *Game, _ PlayerID, _ []CardID) (toTop, toBottom []CardID) {
+	if len(c.scryDecisions) == 0 {
+		panic(scriptExhausted("scry"))
+	}
+	v := c.scryDecisions[0]
+	c.scryDecisions = c.scryDecisions[1:]
+	return v.toTop, v.toBottom
 }
 
 // ChooseBattleProtector returns the next answer QueueBattleProtector queued.

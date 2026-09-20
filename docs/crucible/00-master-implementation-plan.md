@@ -1186,14 +1186,33 @@ printed form.
     no hook for; `Valiant$` (10) — a separate per-activator "have you not targeted this before" set `FirstTime$`'s own
     plain bool cannot answer; `ActivationLimit$` (3) and `Static$` (1) — each its own further mechanic.
 
+    **`Trigger.phasesCheck` itself is real now too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger
+    mode carries regardless of what it fires on, checked before any mode-specific dispatch runs at all
+    (`TriggerHandler.isTriggerActive`, called before `canRunTrigger`/`performTest`), kept as its own function rather
+    than folded into `triggerCommonRequirementsMet` since the two port genuinely different Java methods on different
+    classes. `Phase$` (19 real lines outside `Mode$ Phase`'s own dispatch) restricts a trigger of any mode to firing
+    only during named step(s)/phase(s), reusing `phaseTriggerMatches` (`Mode$ Phase`'s own dispatch function)
+    generically — confusingly the identical param key `Mode$ Phase` itself reads for a different reason
+    (`TriggerPhase.performTest` checks only `ValidPlayer$`; `Phase$` there is this same general gate applied to that one
+    mode). `PlayerTurn$` (61) / `NotPlayerTurn$` (0, ported for symmetry) restrict to (or away from) the host's own
+    controller's turn; `OpponentTurn$` (23) collapses to `NotPlayerTurn$`'s own check in this port's no-team model
+    (`matchesPlayerBase`'s own doc comment). `FirstCombat$` (6, `Attacks`/`AttackersDeclared`, both already built)
+    resolves to a hardcoded `true` — this port has no extra-combat mechanism to ever reach a second combat phase in the
+    same turn, the identical reasoning `combatdamage.go`'s own `CombatDamage$` check already uses. Closes 43 real lines
+    across six already-built modes (`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1,
+    `Drawn` 1) that fired **unconditionally** until now — a wrong answer this port had never checked for, not a coverage
+    gap (PORT-8/GO-7; sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus the 6 real
+    `FirstCombat$` lines above. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase` only, a per-game
+    upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant).
+
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a
     card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`, ...); `Phase`'s
-    own `Condition$` (a general conditional-trigger evaluator no mode has),
-    `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a dozen-some
-    real lines total), plus its own qualified `ValidPlayer$` forms
-    (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
-    lines); `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    own `Condition$` (a general conditional-trigger evaluator no mode has, 65 real lines) and the two whole-table
+    comparisons (`APlayerHasMoreLifeThanEachOther$`/`APlayerHasMostCardsInHand$`, 3 real lines or fewer), plus its own
+    qualified `ValidPlayer$` forms (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/
+    `Player.isMonarch`, 64 real lines); `DamageDone`'s own
+    `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
     `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
     `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified

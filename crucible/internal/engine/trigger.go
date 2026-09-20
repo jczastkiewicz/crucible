@@ -1124,16 +1124,23 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // landed -- 686 real lines combined never fired regardless of whether their
 // own condition actually held, not a hypothetical gap.
 //
+// FirstUpkeep$/FirstUpkeepThisGame$/FirstCombat$/TurnCount$ resolve now too
+// (or skip correctly rather than firing unconditionally) through
+// triggerPhasesCheck (below, Trigger.phasesCheck's own port) -- reached
+// through triggerEffectAPI the identical way IsPresent$/CheckSVar$ already
+// are, so the pre-filter naming all four here is gone the same way the
+// pre-filter naming IsPresent$/CheckSVar$ already was (this function's own
+// doc comment, above): a leftover from before that general mechanism
+// existed would otherwise keep them silently skipped even after it landed.
+//
 // Not resolved, skipped via hasAnyParam: Condition$ (65, an arbitrary
 // SVar-shaped boolean condition distinct from CheckSVar$/SVarCompare$'s own
 // resolved shape -- SpellAbilityCondition's own separate switch, not
-// CardTraitBase's), FirstUpkeep$/FirstUpkeepThisGame$/FirstCombat$ (a
-// per-turn/per-game step-count this port tracks nothing for), TurnCount$ (an
-// exact turn number), and APlayerHasMoreLifeThanEachOther$/
+// CardTraitBase's), and APlayerHasMoreLifeThanEachOther$/
 // APlayerHasMostCardsInHand$ (a whole-table comparison no other trigger mode
-// needs) -- together 3 real lines or fewer each past Condition$'s own 65. A
-// trigger carrying any of these is skipped entirely, not fired
-// unconditionally (GO-7). The qualified
+// needs) -- 3 real lines or fewer past Condition$'s own 65. A trigger
+// carrying either of these is skipped entirely, not fired unconditionally
+// (GO-7). The qualified
 // ValidPlayer$ forms matchesPlayerSpec cannot resolve
 // (Player.EnchantedController, 34; Player.EnchantedBy, 14; You.descended,
 // 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
@@ -1154,7 +1161,6 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 							continue
 						}
 						if hasAnyParam(t, "Condition",
-							"FirstUpkeep", "FirstUpkeepThisGame", "FirstCombat", "TurnCount",
 							"APlayerHasMoreLifeThanEachOther", "APlayerHasMostCardsInHand") {
 							continue
 						}
@@ -1689,20 +1695,116 @@ func lifeTotalMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	return compareOp(life, compare[:2], right)
 }
 
+// triggerPhasesCheck ports Trigger.phasesCheck (Trigger.java) -- a general
+// gate every trigger mode carries regardless of what it fires on, checked by
+// TriggerHandler.isTriggerActive BEFORE a trigger's own mode-specific
+// performTest ever runs at all. Kept as its own function rather than folded
+// into triggerCommonRequirementsMet (below): the two port genuinely
+// different Java methods on different classes (Trigger itself, vs.
+// CardTraitBase.meetsCommonRequirements, called from inside performTest),
+// not two overlapping views of the same one.
+//
+// Phase$ (19 real T: lines outside Mode$ Phase's own dispatch) restricts a
+// trigger of ANY mode to firing only during the named step(s)/phase(s) --
+// reusing phaseTriggerMatches outright, the identical "does Phase$ name the
+// current phase" question Mode$ Phase's own dispatch (checkPhaseTriggers,
+// above) already answers with it, just asked generically here for every
+// OTHER mode too. Confusingly, this is the same literal param key Mode$
+// Phase reads for a wholly different reason (TriggerPhase.performTest itself
+// checks only ValidPlayer$; Phase$ there is exactly this same general gate
+// applied to that one mode, not a separate mode-specific dispatch --
+// phaseTriggerMatches's own doc comment). A Mode$ Phase line reaching this
+// function too (through triggerEffectAPI, below) re-asks the identical
+// question against the identical inputs and gets the identical answer --
+// redundant with checkPhaseTriggers' own explicit call, but harmless.
+//
+// PlayerTurn$ (61) / NotPlayerTurn$ (0 real lines, ported anyway for
+// symmetry with Java's own hasParam-not-value-checked contract) restrict to
+// the trigger's own host controller's turn, or explicitly not it --
+// Trigger.java's own isPlayerTurn(hostController) check, ported directly.
+// sentinel_tower.txt's own real "Whenever an instant or sorcery spell is
+// cast during your turn, CARDNAME deals 1 damage to each opponent" is
+// PlayerTurn$ True on a Mode$ SpellCast line -- one of 43 real lines across
+// six already-built modes (SpellCast 12, ChangesZone 9, LifeGained 5, Taps
+// 2, Discarded 1, Drawn 1, plus Phase$'s own ChangesZone 11/SpellCast 2)
+// that were firing UNCONDITIONALLY until this landed, a wrong answer rather
+// than a coverage gap (PORT-8/GO-7) -- this port had never checked either
+// key at all before now. OpponentTurn$ (23, SpellCast/Drawn) is
+// Player.isOpponentOf's own question, which collapses to the identical
+// check NotPlayerTurn$ already makes in this port's own no-team model
+// (matchesPlayerBase's own doc comment: with no teams, "not my turn" and
+// "my opponent's turn" are the same fact).
+//
+// FirstCombat$ (6, Attacks/AttackersDeclared, both already built) is
+// PhaseHandler.isFirstCombat's own nCombatsThisTurn==1 -- always true here:
+// this port has no extra-combat mechanism (an AddCombat effect is not
+// built, turn.go's own doc comment: "extra turns/phases... not here"), so
+// no real game this port can play ever reaches a second combat phase in the
+// same turn, making a hardcoded true the CORRECT answer today rather than a
+// guess -- the identical reasoning combatdamage.go's own CombatDamage$
+// check already uses for the identical "no mechanism makes this false yet"
+// shape. 0 real lines write FirstCombat$ False, so the reverse case needs
+// no answer here.
+//
+// Not resolved, each skipping the whole line rather than guessing (GO-7):
+// FirstUpkeep$ (1) / FirstUpkeepThisGame$ (2, both Mode$ Phase only) --
+// PhaseHandler.isFirstUpkeep/isFirstUpkeepThisGame's own per-turn/per-game
+// upkeep-step counters, unlike FirstCombat$ genuinely reachable as false on
+// any turn after the first even without a new mechanism, and this port
+// tracks neither; TurnCount$ (0 real lines, dormant).
+func triggerPhasesCheck(g *Game, host *Card, t *compile.Ability) bool {
+	for _, key := range [...]string{"FirstUpkeep", "FirstUpkeepThisGame", "TurnCount"} {
+		if _, ok := t.Param(key); ok {
+			return false
+		}
+	}
+	if _, ok := t.Param("Phase"); ok {
+		if !phaseTriggerMatches(t, g.ActivePhase()) {
+			return false
+		}
+	}
+	if _, ok := t.Param("PlayerTurn"); ok {
+		if g.ActivePlayer() != host.Controller() {
+			return false
+		}
+	}
+	if _, ok := t.Param("NotPlayerTurn"); ok {
+		if g.ActivePlayer() == host.Controller() {
+			return false
+		}
+	}
+	if _, ok := t.Param("OpponentTurn"); ok {
+		if g.ActivePlayer() == host.Controller() {
+			return false
+		}
+	}
+	if v, ok := t.Param("FirstCombat"); ok {
+		if !strings.EqualFold(v, "True") {
+			return false
+		}
+	}
+	return true
+}
+
 // triggerEffectAPI is a trigger's own Execute$ sub-ability -- the "DB$ <API>"
 // record its SVar compiled into -- and the APIType that record's own Name
 // names (compile.Ability's own Name field, the API for a Spell/DB record).
 // The returned *compile.Ability is what Ability.Params carries onto the
 // stack: an Effect's own Resolve reads Defined$/NumCards$/whatever else it
 // needs straight off it (drawEffect, draweffect.go, is the first). Also
-// checks triggerCommonRequirementsMet (above) -- the one gate every trigger
-// mode shares, Java's own check before any mode-specific performTest runs at
-// all, folded in here rather than duplicated at all eighteen call sites.
+// checks triggerPhasesCheck (above, Trigger.phasesCheck's own port) and
+// triggerCommonRequirementsMet (below, CardTraitBase.meetsCommonRequirements's
+// own port) -- the two gates every trigger mode shares, Java's own checks
+// before any mode-specific performTest runs at all, folded in here rather
+// than duplicated at all eighteen call sites.
 // Reports false for a trigger with no Execute key at all, or one naming an
 // API string ApiType.java does not have (APIByName's own exact-match
 // contract) -- neither is reachable against the real corpus today, but a
 // card cannot be trusted not to be the first (PORT-8).
 func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) (*compile.Ability, APIType, bool) {
+	if !triggerPhasesCheck(g, host, t) {
+		return nil, 0, false
+	}
 	if !triggerCommonRequirementsMet(g, host, amounts, t) {
 		return nil, 0, false
 	}

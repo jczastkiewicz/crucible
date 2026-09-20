@@ -377,9 +377,8 @@ dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo s
 applying it wrong; the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the
 engine would violate GO-2); `DamageDone`'s own `ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
 `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
-qualified `ValidActivatingPlayer$` forms, `Phase`'s own
-`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/`TurnCount$` and its own qualified `ValidPlayer$`
-forms, and every trigger mode past
+qualified `ValidActivatingPlayer$` forms, `Phase`'s own `Condition$` and its own qualified `ValidPlayer$` forms, and
+every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase/
 a-player-attacks/a-player-draws-a-card/gains-life (`Mode$ LifeGained`, `checkLifeGainedTriggers`, `ValidPlayer$` matched
 against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s own four-zone walk — 82 of 98 real lines
@@ -389,7 +388,19 @@ spell-or-ability (`Mode$ BecomesTarget`, `checkBecomesTargetTriggers` — CR 115
 places this port ever finishes choosing a target for something — `ValidTarget$` matched with `attackedTargetMatches`
 (`AttackersDeclared`'s own dispatch, reused), a new `Card.BecameTargetThisTurn` closing `FirstTime$` the identical way
 `Card.AttacksThisTurn` already closes `Attacks`'s own — 40 of 118 real lines resolve,
-`ValidSource$`/`OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$` unresolved). `gainLifeEffect`
+`ValidSource$`/`OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$` unresolved). **`Trigger.phasesCheck` itself
+lands too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger mode carries regardless of what it fires
+on, checked before any mode-specific dispatch runs at all: `Phase$` restricts a trigger of any mode to firing only
+during named step(s)/phase(s) (reusing `phaseTriggerMatches`, `Mode$ Phase`'s own dispatch, generically); `PlayerTurn$`/
+`NotPlayerTurn$`/`OpponentTurn$` restrict to (or away from) the host's own controller's turn — `OpponentTurn$`
+collapsing to `NotPlayerTurn$`'s own check in this port's no-team model; `FirstCombat$` resolves to a hardcoded `true`
+(this port has no extra-combat mechanism to ever make a second combat phase reachable, the identical reasoning
+`combatdamage.go`'s own `CombatDamage$` check already uses). Closes 43 real lines across six already-built modes
+(`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1, `Drawn` 1) that were firing
+**unconditionally** until now — a wrong answer, not a coverage gap, since this port had never checked either key before
+(sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6 real `Attacks`/
+`AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase`
+only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant). `gainLifeEffect`
 (`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
 (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape, no prevention machinery since none exists for life
 yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect`

@@ -779,6 +779,18 @@ printed form.
     (PORT-8/GO-7) — `TriggerChangesZone.performTest`'s own remaining params, needing a reference vocabulary or a
     per-turn-cast-count tracker this port has neither of.
 
+    **`checkPhaseTriggers`/`checkAttackersDeclaredTrigger` (trigger.go) each carried their own `hasAnyParam` pre-filter
+    naming `IsPresent$`/`PresentCompare$`/`CheckSVar$` alongside their own genuinely-unresolved params -- a leftover
+    from before `triggerCommonRequirementsMet`'s general resolution of exactly those params (item 26's own
+    `meetsCommonRequirements` paragraph, above) existed, never revisited once it landed and started resolving them for
+    every other trigger mode through the identical `triggerEffectAPI` choke point both of these functions already call
+    last.** Removing the three keys from each pre-filter was the whole fix, since nothing else needed to change: 686 of
+    `Phase`'s own real lines (272 `IsPresent$`, 104 `PresentCompare$`, 310 `CheckSVar$`/`SVarCompare$`) and 31 of
+    `AttackersDeclared`'s (14, 4, 13) went from unconditionally skipped, regardless of whether their own condition
+    actually held, to correctly evaluated. `Condition$` stays in both pre-filters (65 real `Phase` lines, 1
+    `AttackersDeclared` line) -- `SpellAbilityCondition`'s own separate gate on the ability itself, distinct from
+    `CheckSVar$`/`SVarCompare$`'s own now-resolved `CardTraitBase` shape, still genuinely unresolved.
+
     `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting `Combat.Attackers` other than the declared
     one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own `Counters.Count(Poison)` and
     a new `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new `damageAmountMatches` reusing
@@ -794,23 +806,23 @@ printed form.
     `validAttackersCountMatches`, counting how many of `Combat.Attackers` `Matches` the spec and comparing via the
     existing `compareOp` — 123 of 286), reusing `phaseTriggerZones`'s own four-zone walk (273 real lines carry
     `TriggerZones$ Battlefield`, but 7 carry `Command` and 5 carry `Graveyard`, the identical minority-but-real split
-    `Phase` already needed the walk for). Not resolved: `IsPresent$`/`PresentCompare$` (14, 4 — the same general
-    conditional-trigger gap `Phase`'s own `Condition$` has); `CheckSVar$` (13); a qualified `AttackedTarget$`
-    `matchesPlayerSpec` cannot resolve (`Player.EnchantedBy`, `Player.hasInitiative`, `Player.IsPoisoned`,
-    `Opponent.lifeGTX` — 12 of 286 combined). `Drawn` is real now too: `checkDrawnTriggers` resolves `ValidCard$`
-    against the drawn card (an ordinary `Matches`, needing nothing new — 156 of 161 real lines), `ValidPlayer$` against
-    the drawing player through the existing `matchesPlayerSpec` (13), and `Number$` against a new
-    `Player.CardsDrawnThisTurn` (player.go) — `LandsPlayed`'s own per-turn-counter shape, incremented once per card in
-    `DrawCards` (turn.go) the same order Java's own `numDrawnThisTurn++` runs before the trigger check, reset every
-    cleanup alongside `LandsPlayed` (79 of 161). Not resolved: `FirstCardInDrawStep$` (5) — Java's own separate
-    `numDrawnThisDrawStep`, a narrower per-step counter this port tracks nothing for; `ForReveal$` (5) — a
-    reveal-while-drawing flag this port's own `DrawCards` has no equivalent state for. Still missing: every trigger mode
-    but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
-    spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`, `Exiled`,
-    `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params; `Phase`'s own
-    `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$` (a general conditional-trigger evaluator no mode has),
-    `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a dozen-some
-    real lines total), plus its own qualified `ValidPlayer$` forms
+    `Phase` already needed the walk for). `IsPresent$`/`PresentCompare$` (14, 4) and `CheckSVar$` (13) are resolved now
+    too (above, the `hasAnyParam` pre-filter fix); Not resolved: `Condition$` (1 — `StaticAbility.java`'s own runtime
+    gate, no equivalent for any trigger mode yet); a qualified `AttackedTarget$` `matchesPlayerSpec` cannot resolve
+    (`Player.EnchantedBy`, `Player.hasInitiative`, `Player.IsPoisoned`, `Opponent.lifeGTX` — 12 of 286 combined).
+    `Drawn` is real now too: `checkDrawnTriggers` resolves `ValidCard$` against the drawn card (an ordinary `Matches`,
+    needing nothing new — 156 of 161 real lines), `ValidPlayer$` against the drawing player through the existing
+    `matchesPlayerSpec` (13), and `Number$` against a new `Player.CardsDrawnThisTurn` (player.go) — `LandsPlayed`'s own
+    per-turn-counter shape, incremented once per card in `DrawCards` (turn.go) the same order Java's own
+    `numDrawnThisTurn++` runs before the trigger check, reset every cleanup alongside `LandsPlayed` (79 of 161). Not
+    resolved: `FirstCardInDrawStep$` (5) — Java's own separate `numDrawnThisDrawStep`, a narrower per-step counter this
+    port tracks nothing for; `ForReveal$` (5) — a reveal-while-drawing flag this port's own `DrawCards` has no
+    equivalent state for. Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is
+    discarded"/"becomes tapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
+    player draws a card" (`Countered`, `Exiled`, `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params;
+    `Phase`'s own `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$` (a general conditional-trigger evaluator no
+    mode has), `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a
+    dozen-some real lines total), plus its own qualified `ValidPlayer$` forms
     (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
     lines); `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own

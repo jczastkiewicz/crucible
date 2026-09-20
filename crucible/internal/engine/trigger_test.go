@@ -3123,7 +3123,10 @@ func TestAdvancePhaseFiresPhaseTriggerFromGraveyard(t *testing.T) {
 }
 
 // phaseTriggerWithIsPresentParamDefPT builds a creature whose own Phase
-// trigger carries IsPresent$, a param checkPhaseTriggers does not evaluate.
+// trigger carries IsPresent$ Card.tapped -- checkPhaseTriggers no longer
+// blocks this via its own hasAnyParam pre-filter, so it now reaches
+// triggerCommonRequirementsMet's own isPresentMatches (trigger.go) the same
+// way every other trigger mode's IsPresent$ already does.
 func phaseTriggerWithIsPresentParamDefPT(t *testing.T, name string) *compile.Card {
 	t.Helper()
 
@@ -3148,11 +3151,39 @@ func phaseTriggerWithIsPresentParamDefPT(t *testing.T, name string) *compile.Car
 	return c
 }
 
-// TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam proves a trigger
-// carrying a param this port cannot evaluate (IsPresent$) is skipped
-// entirely -- never fired unconditionally, which would be silently wrong
-// (GO-7).
-func TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam(t *testing.T) {
+// TestAdvancePhaseFiresPhaseTriggerWhenIsPresentConditionMet proves
+// checkPhaseTriggers' own hasAnyParam pre-filter no longer blocks IsPresent$
+// from reaching triggerCommonRequirementsMet: a tapped permanent on the
+// battlefield satisfies IsPresent$ Card.tapped (isPresentMatches' own
+// default PresentZone$ Battlefield/PresentPlayer$ Any), so the trigger's own
+// Execute$ Draw fires and resolves.
+func TestAdvancePhaseFiresPhaseTriggerWhenIsPresentConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	watcher := g.NewCard(phaseTriggerWithIsPresentParamDefPT(t, "Test Conditional Watcher"), p, engine.Battlefield)
+	g.Card(watcher).Tapped = true
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- IsPresent$ Card.tapped is met, so the trigger must fire", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseSkipsPhaseTriggerWhenIsPresentConditionNotMet proves the
+// negative control: with no tapped permanent anywhere, IsPresent$
+// Card.tapped is correctly evaluated as false rather than skipped
+// unconditionally -- the trigger still does not fire, but now for the real
+// reason its own condition is unmet, not because IsPresent$ went unchecked.
+func TestAdvancePhaseSkipsPhaseTriggerWhenIsPresentConditionNotMet(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -3165,7 +3196,46 @@ func TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam(t *testing.T) {
 	g.AdvancePhase(engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
-		t.Errorf("library card zone = %v, want Library -- IsPresent$ is not evaluated, so the trigger must not fire", g.Card(top).Zone)
+		t.Errorf("library card zone = %v, want Library -- no permanent is tapped, so IsPresent$ Card.tapped is false", g.Card(top).Zone)
+	}
+}
+
+// TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam proves a trigger
+// carrying a param this port genuinely cannot evaluate (Condition$, distinct
+// from IsPresent$/CheckSVar$'s own now-resolved shape) is skipped entirely
+// -- never fired unconditionally, which would be silently wrong (GO-7).
+func TestAdvancePhaseSkipsPhaseTriggerWithUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Conditional Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Conditional Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Condition$ Metalcraft | TriggerZones$ Battlefield | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(def, p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.SetTurnState(2, p, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- Condition$ is not evaluated, so the trigger must not fire", g.Card(top).Zone)
 	}
 }
 
@@ -3393,9 +3463,91 @@ func TestDeclareCombatAttackersSkipsValidAttackersAmountTriggerBelowThreshold(t 
 	}
 }
 
+// attackersDeclaredCheckSVarTriggerDef builds a permanent whose own
+// AttackersDeclared trigger carries CheckSVar$ X | SVarCompare$ compare, X a
+// literal integer -- checkSVarMatches' own resolveNamedAmount-backed shape
+// (amount.go), the identical mechanism triggerCommonRequirementsMet already
+// resolves for every other trigger mode, no longer blocked by
+// checkAttackersDeclaredTrigger's own hasAnyParam pre-filter.
+func attackersDeclaredCheckSVarTriggerDef(t *testing.T, name, compare, xValue string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ AttackersDeclared | CheckSVar$ X | SVarCompare$ " + compare + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	raw.Faces[0].SVars.Set("X", xValue)
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresAttackersDeclaredTriggerWhenCheckSVarConditionMet
+// proves checkAttackersDeclaredTrigger's own hasAnyParam pre-filter no longer
+// blocks CheckSVar$ from reaching triggerCommonRequirementsMet: X$ 2 with
+// SVarCompare$ GE1 is met, so the trigger fires and its own Execute$ Draw
+// resolves.
+func TestDeclareCombatAttackersFiresAttackersDeclaredTriggerWhenCheckSVarConditionMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredCheckSVarTriggerDef(t, "Test Watcher", "GE1", "2"), other, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- CheckSVar$ X | SVarCompare$ GE1 is met (X is 2)", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWhenCheckSVarConditionNotMet
+// proves the negative control: X$ 0 with SVarCompare$ GE1 is not met, so the
+// trigger correctly does not fire -- CheckSVar$ is genuinely evaluated now,
+// not silently skipped the way it used to be regardless of X's own value.
+func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWhenCheckSVarConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(attackersDeclaredCheckSVarTriggerDef(t, "Test Watcher", "GE1", "0"), other, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- CheckSVar$ X | SVarCompare$ GE1 is not met (X is 0)", got)
+	}
+}
+
 // TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam
-// proves CheckSVar$ (13 real lines) is skipped entirely, GO-7's usual
-// "whole line, not a guess" contract.
+// proves Condition$ (1 real line, StaticAbility.java's own runtime gate, no
+// equivalent for any trigger mode) is skipped entirely, GO-7's usual "whole
+// line, not a guess" contract.
 func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
@@ -3404,14 +3556,14 @@ func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam(
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "CheckSVar$ X | SVarCompare$ GE1"), other, engine.Battlefield)
+	g.NewCard(attackersDeclaredTriggerDef(t, "Test Watcher", "Condition$ Metalcraft"), other, engine.Battlefield)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	g.DeclareCombatAttackers(ac)
 
 	if got := g.StackLen(); got != 0 {
-		t.Fatalf("StackLen() = %d, want 0 -- CheckSVar$ is not evaluated, so the trigger must not fire", got)
+		t.Fatalf("StackLen() = %d, want 0 -- Condition$ is not evaluated, so the trigger must not fire", got)
 	}
 }
 

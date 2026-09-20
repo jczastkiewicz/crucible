@@ -344,8 +344,14 @@ site already computes for `checkMovedReplacement`) to close the matching over-fi
 real lines, mostly `Origin$ Graveyard`, used to fire regardless of where the card actually came from. A
 `Mode$ ChangesZone` line naming `ValidCause$`/`NotThisAbility$`/`ConditionYouCastThisTurn$`/
 `CheckOnTriggeredCard$`/`ExcludedOrigins$`/`ExcludedDestinations$` (12 of 7,609 real lines combined) now skips rather
-than firing unconditionally (`changesZoneResolvable`). Full detail: `docs/crucible/00-master-implementation-plan.md`
-items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layer 1 (copy effects — not even part of
+than firing unconditionally (`changesZoneResolvable`). `checkPhaseTriggers`/`checkAttackersDeclaredTrigger` each carried
+their own `hasAnyParam` pre-filter still naming `IsPresent$`/`PresentCompare$`/`CheckSVar$` after
+`triggerCommonRequirementsMet` (item 26's own `meetsCommonRequirements` paragraph) already resolved exactly those params
+generically — a leftover never revisited once that mechanism landed, silently keeping 686 real `Phase` lines and 31 real
+`AttackersDeclared` lines skipped regardless of whether their own condition held. Removing the three keys from each
+pre-filter was the whole fix; `Condition$` stays skipped in both (a separate, still-unresolved `SpellAbilityCondition`
+gate). Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
+`docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layer 1 (copy effects — not even part of
 `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real references to `StaticAbilityLayer.COPY` anywhere
 in it, a wholly separate "become a copy of a card" mechanism at resolution time, not a recomputed-each-pass continuous
 effect at all); Layer 3 (`GainTextOf$`, 1 real line, needs its own card-text-copying mechanism for a single card); Layer

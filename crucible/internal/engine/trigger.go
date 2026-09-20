@@ -1088,16 +1088,26 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // missing entirely is a pass, the same absent-is-a-pass contract every
 // other mode's optional param already has.
 //
-// Not resolved, skipped via hasAnyParam: IsPresent$/PresentCompare$ (a
-// general "is some other object true right now" condition no trigger mode
-// this port checks has an evaluator for), CheckSVar$/Condition$ (an
-// arbitrary SVar-shaped boolean condition), FirstUpkeep$/
-// FirstUpkeepThisGame$/FirstCombat$ (a per-turn/per-game step-count this
-// port tracks nothing for), TurnCount$ (an exact turn number), and
-// APlayerHasMoreLifeThanEachOther$/APlayerHasMostCardsInHand$ (a
-// whole-table comparison no other trigger mode needs) -- together 3 real
-// lines or fewer each, a dozen-some total. A trigger carrying any of these
-// is skipped entirely, not fired unconditionally (GO-7). The qualified
+// IsPresent$/PresentCompare$/PresentZone$/PresentPlayer$ (272, 104 real
+// Mode$ Phase lines) and CheckSVar$/SVarCompare$ (310) are resolved now too
+// -- triggerCommonRequirementsMet (below) already evaluates both generically
+// for every trigger mode's own Execute$ gate, through triggerEffectAPI, the
+// identical choke point this function already calls; the hasAnyParam
+// pre-filter used to name both here anyway, a leftover from before that
+// general mechanism existed that silently kept them skipped even after it
+// landed -- 686 real lines combined never fired regardless of whether their
+// own condition actually held, not a hypothetical gap.
+//
+// Not resolved, skipped via hasAnyParam: Condition$ (65, an arbitrary
+// SVar-shaped boolean condition distinct from CheckSVar$/SVarCompare$'s own
+// resolved shape -- SpellAbilityCondition's own separate switch, not
+// CardTraitBase's), FirstUpkeep$/FirstUpkeepThisGame$/FirstCombat$ (a
+// per-turn/per-game step-count this port tracks nothing for), TurnCount$ (an
+// exact turn number), and APlayerHasMoreLifeThanEachOther$/
+// APlayerHasMostCardsInHand$ (a whole-table comparison no other trigger mode
+// needs) -- together 3 real lines or fewer each past Condition$'s own 65. A
+// trigger carrying any of these is skipped entirely, not fired
+// unconditionally (GO-7). The qualified
 // ValidPlayer$ forms matchesPlayerSpec cannot resolve
 // (Player.EnchantedController, 34; Player.EnchantedBy, 14; You.descended,
 // 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
@@ -1117,7 +1127,7 @@ func (g *Game) checkPhaseTriggers() {
 						if !isPhaseTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "IsPresent", "PresentCompare", "CheckSVar", "Condition",
+						if hasAnyParam(t, "Condition",
 							"FirstUpkeep", "FirstUpkeepThisGame", "FirstCombat", "TurnCount",
 							"APlayerHasMoreLifeThanEachOther", "APlayerHasMostCardsInHand") {
 							continue
@@ -1680,14 +1690,17 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // every real line), the identical minority-but-real split that made Phase's
 // own zone walk necessary rather than a battlefield-only shortcut.
 //
+// IsPresent$/PresentCompare$ (14, 4) and CheckSVar$ (13) are resolved now
+// too, the identical fix checkPhaseTriggers' own doc comment describes:
+// triggerCommonRequirementsMet (below) already evaluates both generically
+// through triggerEffectAPI, and this function's own hasAnyParam pre-filter
+// used to name them anyway, silently keeping them skipped even after that
+// general mechanism landed.
+//
 // Skipped via hasAnyParam, the same "whole line, not a guess" contract every
-// other trigger mode's own skip-list already has: IsPresent$/PresentCompare$
-// (14, 4) -- a general "is some other object true right now" gate no static-
-// ability mode this port checks has an evaluator for either (checkPhaseTriggers'
-// own doc comment carries the identical gap); CheckSVar$ (13) -- an SVar
-// comparison this port's own `resolveAmount` (amount.go) does not cover for
-// every real shape; Condition$ (1) -- StaticAbility.java's own runtime gate,
-// no equivalent for any trigger mode yet.
+// other trigger mode's own skip-list already has: Condition$ (1) --
+// StaticAbility.java's own runtime gate, no equivalent for any trigger mode
+// yet.
 //
 // Resolved: AttackingPlayer$ (matchesPlayerSpec, valid.go, against
 // g.activePlayer -- Combat.getAttackingPlayer() is always the active player
@@ -1716,7 +1729,7 @@ func (g *Game) checkAttackersDeclaredTrigger() {
 						if !phaseTriggerZoneMatches(t, z) {
 							continue
 						}
-						if hasAnyParam(t, "IsPresent", "PresentCompare", "CheckSVar", "Condition") {
+						if hasAnyParam(t, "Condition") {
 							continue
 						}
 						if attackingPlayer, ok := t.Param("AttackingPlayer"); ok {

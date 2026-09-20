@@ -380,7 +380,13 @@ engine would violate GO-2); `DamageDone`'s own `ValidCause$`, `Discarded`'s own 
 qualified `ValidActivatingPlayer$` forms, `Phase`'s own
 `Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/`TurnCount$` and its own qualified `ValidPlayer$`
 forms, and every trigger mode past
-enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase;
-201 script-driven effects past `Draw`/`DealDamage` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half
-met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan
-Section 3.2) is not.
+enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase/
+a-player-attacks/a-player-draws-a-card/gains-life (`Mode$ LifeGained`, `checkLifeGainedTriggers`, `ValidPlayer$` matched
+against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s own four-zone walk — 82 of 98 real lines
+resolve, `OptionalDecider$`/`FirstTime$`/`ValidSource$`/`Spell$`/`ResolvedLimit$` unresolved). `gainLifeEffect`
+(`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
+(`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape, no prevention machinery since none exists for life
+yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. 200 script-driven
+effects past `Draw`/`DealDamage`/`GainLife` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:**
+342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
+3.2) is not.

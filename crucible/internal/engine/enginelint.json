@@ -46,7 +46,8 @@
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],
     "dealdamageeffect": ["dealdamageeffect.go"],
-    "condition": ["condition.go"]
+    "condition": ["condition.go"],
+    "gainlifeeffect": ["gainlifeeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -103,7 +104,8 @@
       "draweffect",
       "staticability",
       "replacement",
-      "dealdamageeffect"
+      "dealdamageeffect",
+      "gainlifeeffect"
     ],
     "trigger": [
       "id",
@@ -128,6 +130,7 @@
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player"],
     "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition"],
-    "condition": ["id", "card", "game", "ability", "trigger"]
+    "condition": ["id", "card", "game", "ability", "trigger"],
+    "gainlifeeffect": ["id", "card", "game", "player", "ability", "event", "trigger", "defined", "amount", "condition"]
   }
 }

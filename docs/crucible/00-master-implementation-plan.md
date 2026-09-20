@@ -749,18 +749,34 @@ printed form.
     `ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of 822, once every other still-unresolved param below is excluded)
     are resolved too, through a new shared `subAbilityConditionMet` (`condition.go`) — `SpellAbilityCondition.areMet`'s
     own gate, the exact same fix a checkland's `DB$ Tap` needed (below); a met condition runs as normal, an unmet one
-    returns `nil` rather than an error, `SpellAbilityCondition.areMet`'s own "the ability does nothing" contract. Not
-    resolved: `DamageSource$` (17 of 822 real `Defined$` lines — a source other than the ability's own host, needing a
-    reference vocabulary this port does not have); `SubAbility$` (80 — no ability-chaining mechanism exists yet, this
-    port's own stack resolves one top-level `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn);
-    `Condition$` itself (`SpellAbilityCondition`'s own separate Threshold/Metalcraft/... flag switch) and
-    `ConditionDefined$` (an arbitrary reference this port has no
-    Defined$-to-objects resolver for) still fail loudly by
-    name, the identical way `DamageSource$`/`SubAbility$` already do. `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/
-    `UnlessResolveSubs$`/`ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` are
-    each their own further mechanic. `NoPrevention$` (1) is the last: this port's own
-    `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own
-    `AbilityKey.NoPreventDamage` says not to. `ResolveStack` still reports `ErrUnimplemented` for the other 201.
+    returns `nil` rather than an error, `SpellAbilityCondition.areMet`'s own "the ability does nothing" contract.
+
+    Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7):
+    - `DamageSource$` (17 of 822 real `Defined$` lines) — a source other than the ability's own host, needing a
+      reference vocabulary this port does not have.
+    - `SubAbility$` (80) — no ability-chaining mechanism exists yet; this port's own stack resolves one top-level
+      `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn.
+    - `Condition$` itself — `SpellAbilityCondition`'s own separate Threshold/Metalcraft/... flag switch.
+    - `ConditionDefined$` — an arbitrary reference this port has no Defined$-to-objects resolver for.
+    - `Planeswalker$`, `UnlessPayer$`, `UnlessCost$`, `UnlessResolveSubs$`, `ValidTgts$`, `TriggeredSpellAbility$`,
+      `DamageMap$`, `CounterNum$`, `Optional$`, `TgtPrompt$` — each its own further mechanic.
+    - `NoPrevention$` (1) — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply
+      where Java's own `AbilityKey.NoPreventDamage` says not to.
+
+    `ResolveStack` still reports `ErrUnimplemented` for the other 200 once `GainLife` (below) is counted alongside it.
+
+    **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
+    slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
+    `Defined$ You`/`Player.Opponent` and carry no other unresolved param. `dealDamageEffect`'s own shape reused
+    directly: `LifeAmount$` through `resolveNamedAmount` (amount.go), `Defined$` through `definedPlayers` (defined.go),
+    `subAbilityConditionMet` (condition.go) gating resolution the identical way it gates `DealDamage`'s and a
+    checkland's `DB$ Tap` — `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$`
+    resolve, `Condition$` itself and `ConditionDefined$`/`ConditionZone$`/`ConditionOptionalPaid$` still fail loudly by
+    name. No `Self` shape (a player gains life, never a card) and no prevention machinery reused, since none exists for
+    life yet: CR 119's own "life gain replacement" family (`Event$ GainLife`, 22 real replacement lines) is not built,
+    the identical real-gap-not-a-wrong-answer every other unbuilt replacement remainder already is. `Player.Life` gains
+    directly; the identical `LifeChanged` event `dealPlayerDamage` already emits for a life LOSS (combatdamage.go) is
+    emitted with a positive `Amount` for the gain, reused rather than duplicated.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
@@ -827,10 +843,21 @@ printed form.
     incremented once per card in `DrawCards` (turn.go) the same order Java's own `numDrawnThisTurn++` runs before the
     trigger check, reset every cleanup alongside `LandsPlayed` (79 of 161). Not resolved: `FirstCardInDrawStep$` (5) —
     Java's own separate `numDrawnThisDrawStep`, a narrower per-step counter this port tracks nothing for; `ForReveal$`
-    (5) — a reveal-while-drawing flag this port's own `DrawCards` has no equivalent state for. Still missing: every
-    trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for
-    mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`,
-    `Exiled`, `Sacrificed`, ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has),
+    (5) — a reveal-while-drawing flag this port's own `DrawCards` has no equivalent state for.
+
+    **`Mode$ LifeGained` is real now too** (CR 119.1's own "whenever you gain life" trigger,
+    `TriggerLifeGained.performTest`) — `checkLifeGainedTriggers` (trigger.go), `gainLifeEffect`'s own real caller
+    (below), needs no `ValidCard$` at all (the identical no-object shape `Phase`/`Drawn` already have) so it reuses
+    `phaseTriggerZones`'s own four-zone walk outright (95 of 98 real lines name `TriggerZones$ Battlefield`, 2
+    `Graveyard`, 1 `Command`) and `matchesPlayerSpec` for `ValidPlayer$` (present on every real line — `You`, 95;
+    `Opponent`, 2), matched against the gaining player. `ValidPlayer$`'s absence is treated as no match rather than
+    unrestricted, since it is this mode's only dispatch key and 0 real lines omit it. Not resolved: `OptionalDecider$`
+    (7 — a "you may" choice needing a `PlayerController` hook this port does not have); `FirstTime$` (6 — Java's own
+    per-turn "first life gain" flag, distinct from `Card.AttacksThisTurn`'s own per-card shape);
+    `ValidSource$`/`Spell$`/`ResolvedLimit$` (1 each). Still missing: every trigger mode but
+    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
+    spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`, `Exiled`,
+    `Sacrificed`, ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has),
     `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a dozen-some
     real lines total), plus its own qualified `ValidPlayer$` forms
     (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
@@ -883,8 +910,8 @@ printed form.
     `ETBTapped`/`LandTapped` naming a `SubAbility$` chain (15 of 624 real `ETBTapped` lines — a chained counter grant,
     no ability-chaining mechanism exists), `ConditionDefined$` (7 — an arbitrary reference, no
     Defined$-to-objects
-    resolver exists), or `ConditionPlayerTurn$`/`ConditionPhases$` (2, each its own mechanic) — each skips the whole
-    line rather than tapping unconditionally and guessing wrong (PORT-8/GO-7).
+    resolver exists), or `ConditionPlayerTurn$`/`ConditionPhases$` (2, each its own mechanic) —
+    each skips the whole line rather than tapping unconditionally and guessing wrong (PORT-8/GO-7).
 
     A third Condition-family shape stays unresolved for the identical reason: the plain `Condition$` flag
     (SpellAbilityCondition's own separate Threshold/Metalcraft/... switch) carries zero real `DB$ Tap` lines. Every

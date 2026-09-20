@@ -1960,3 +1960,66 @@ func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
 func isDrawnTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Drawn")
 }
+
+// checkLifeGainedTriggers is CR 119.1's own "whenever you gain life" mode,
+// Mode$ LifeGained, ported from TriggerLifeGained.performTest -- the
+// identical shape checkDrawnTriggers is (above), no ValidCard at all (there
+// is no card the event happens to, only a player gaining life), keyed
+// against gainer through ValidPlayer$'s own matchesPlayerSpec dispatch, and
+// walking the identical four zones phaseTriggerZones already covers: 95 of
+// 98 real Mode$ LifeGained lines name TriggerZones$ Battlefield, 2 Graveyard,
+// 1 Command -- the identical minority-but-real split every earlier mode that
+// reuses phaseTriggerZones already has. ValidPlayer$ is present on every
+// real line (You, 95; Opponent, 2; a qualified Player.Opponent, 1), so
+// absence is treated as no match rather than unrestricted, the same
+// contract checkAttacksTriggers' own primary-dispatch ValidCard$ has.
+//
+// Not resolved, skipped via hasAnyParam: OptionalDecider$ (7) -- a "you may"
+// choice needing a PlayerController hook this port does not have;
+// FirstTime$ (6) -- Java's own AbilityKey.FirstTime, a per-turn
+// "first life gain this turn" flag distinct from any per-card counter this
+// port tracks (Card.AttacksThisTurn's own shape does not apply to a
+// player-keyed event); ValidSource$/Spell$/ResolvedLimit$ (1 each, no shape
+// worth guessing at from a single real line).
+func (g *Game) checkLifeGainedTriggers(gainer PlayerID) {
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, z := range phaseTriggerZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isLifeGainedTrigger(t) {
+							continue
+						}
+						if hasAnyParam(t, "OptionalDecider", "FirstTime", "ValidSource", "Spell", "ResolvedLimit") {
+							continue
+						}
+						if !phaseTriggerZoneMatches(t, z) {
+							continue
+						}
+						validPlayer, ok := t.Param("ValidPlayer")
+						if !ok {
+							continue
+						}
+						matched, recognized := matchesPlayerSpec(g, gainer, h.Controller(), validPlayer)
+						if !recognized || !matched {
+							continue
+						}
+						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(matches)
+}
+
+func isLifeGainedTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "LifeGained")
+}

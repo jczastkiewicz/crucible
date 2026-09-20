@@ -145,10 +145,13 @@ func TestGainLifeEffectMissingLifeAmountErrors(t *testing.T) {
 	}
 }
 
-// TestGainLifeEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
-// mechanism exists yet) is a real error rather than silently dropping the
-// chained ability (PORT-8/GO-7).
-func TestGainLifeEffectRejectsSubAbilityChain(t *testing.T) {
+// TestGainLifeEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks GainLife's own resolution now that resolveSubAbility
+// (subability.go) exists: the chained DB$ LoseLife runs too, not just
+// GainLife's own body -- geyadrone_dihada.txt's own real shape (LoseLife
+// chaining into GainLife) with the two effects swapped, since GainLife is
+// this file's own subject.
+func TestGainLifeEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -157,16 +160,16 @@ func TestGainLifeEffectRejectsSubAbilityChain(t *testing.T) {
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 
 	def := etbGainLifeTriggerDefParams(t, "Test SubAbility",
-		"Defined$ You | LifeAmount$ 1 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
-	err := castETBGainLife(t, g, p, def)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
+		"Defined$ You | LifeAmount$ 1 | SubAbility$ DBLoseLifeOpp",
+		map[string]string{"DBLoseLifeOpp": "DB$ LoseLife | Defined$ Opponent | LifeAmount$ 2"})
+	if err := castETBGainLife(t, g, p, def); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
+	if g.Player(p).Life != 21 {
+		t.Errorf("p's life = %d, want 21 -- GainLife's own body must still run", g.Player(p).Life)
 	}
-	if g.Player(p).Life != 20 {
-		t.Errorf("p's life = %d, want 20 -- a rejected line must not grant partial life", g.Player(p).Life)
+	if g.Player(other).Life != 18 {
+		t.Errorf("other's life = %d, want 18 -- the chained LoseLife must run too", g.Player(other).Life)
 	}
 }
 

@@ -22,6 +22,15 @@ import "fmt"
 // covers a numeric or reveal choice (control.go's own "90 of 110 methods"
 // gap), so a script needing one of these fails loudly (below) rather than
 // drawing the wrong number silently.
+//
+// SubAbility$ was never in this list -- Draw never blocked it -- but had
+// nowhere to go until resolveSubAbility (subability.go, effect.go's own
+// Registry.Resolve) landed: Rousing Read's own "draw two cards, then
+// discard a card" (DB$ Draw | ... | SubAbility$ DBDiscard, chaining into
+// DB$ Discard) is the shape that made this real rather than theoretical.
+// 170 of the corpus's own 747 real SVar-defined Draw lines naming
+// SubAbility$ chain to an already-built leaf ability (no further
+// SubAbility$ of its own) and resolve end to end.
 type drawEffect struct{}
 
 func (drawEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

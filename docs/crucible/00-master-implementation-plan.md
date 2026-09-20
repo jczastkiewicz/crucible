@@ -754,8 +754,8 @@ printed form.
     Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7):
     - `DamageSource$` (17 of 822 real `Defined$` lines) — a source other than the ability's own host, needing a
       reference vocabulary this port does not have.
-    - `SubAbility$` (80) — no ability-chaining mechanism exists yet; this port's own stack resolves one top-level
-      `AB$`/`DB$` record and stops, never its own `SubAbility$` in turn.
+    - `SubAbility$` (80) — chaining itself now exists (`subability.go`, this item's own paragraph below, "SubAbility
+      chaining itself landed"); `DealDamage` just has not been extended to unblock it yet.
     - `Condition$` itself — `SpellAbilityCondition`'s own separate Threshold/Metalcraft/... flag switch.
     - `ConditionDefined$` — an arbitrary reference this port has no Defined$-to-objects resolver for.
     - `Planeswalker$`, `UnlessPayer$`, `UnlessCost$`, `UnlessResolveSubs$`, `ValidTgts$`, `TriggeredSpellAbility$`,
@@ -764,7 +764,11 @@ printed form.
       where Java's own `AbilityKey.NoPreventDamage` says not to.
 
     `ResolveStack` still reports `ErrUnimplemented` for the other 196 once
-    `GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter` (below) are counted alongside it.
+    `GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter` (below) are counted alongside it. `Draw` never named
+    `SubAbility$` among its own unresolved params, so once `resolveSubAbility` (subability.go, "SubAbility chaining
+    itself landed," below) landed it started chaining for free: 170 of the corpus's own 747 real SVar-defined `Draw`
+    lines naming `SubAbility$` chain to an already-built leaf ability and resolve end to end — Rousing Read's own real
+    "draw two cards, then discard a card" (`DB$ Draw`, chaining into `DB$ Discard`) among them.
 
     **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
     slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
@@ -777,7 +781,10 @@ printed form.
     life yet: CR 119's own "life gain replacement" family (`Event$ GainLife`, 22 real replacement lines) is not built,
     the identical real-gap-not-a-wrong-answer every other unbuilt replacement remainder already is. `Player.Life` gains
     directly; the identical `LifeChanged` event `dealPlayerDamage` already emits for a life LOSS (combatdamage.go) is
-    emitted with a positive `Amount` for the gain, reused rather than duplicated.
+    emitted with a positive `Amount` for the gain, reused rather than duplicated. `SubAbility$` no longer blocks
+    `GainLife`'s own resolution — removed from its own unresolved-param list once `resolveSubAbility` (subability.go,
+    "SubAbility chaining itself landed," below) landed: 18 of the corpus's own 253 real SVar-defined `GainLife` lines
+    naming `SubAbility$` chain to an already-built leaf ability and resolve end to end.
 
     **`Pump` (`pumpeffect.go`) is M6's fourth script-driven effect, and the corpus's own single largest by real line
     count after `ChangeZone`/`Draw`** — 4,103 real `(AB|DB)$ Pump` lines, 1,147 of them resolved here:
@@ -804,7 +811,8 @@ printed form.
     port has no equivalent of, so dropping the record on exit gets the same real-world answer without one.
 
     Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (119 of 1,335 real
-    `Defined$ Self`/`Enchanted`/`Equipped` lines) — no ability-chaining mechanism exists yet; `Condition$` itself and
+    `Defined$ Self`/`Enchanted`/`Equipped` lines) — chaining itself now exists ("SubAbility chaining itself landed,"
+    below), `Pump` just has not been extended to unblock it yet; `Condition$` itself and
     `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionActivationLimit$` (0/19/0/4) —
     `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `DealDamage`/`GainLife`
     -shaped gap; `NumAtt$`/`NumDef$` naming the literal `Double`/`Triple` (1 combined) — the target's own power or
@@ -829,7 +837,8 @@ printed form.
     since a `pumpRecord` never itself distinguishes which effect created it. `PumpZone$`'s own meaning shifts from a
     single-target zone check to the list of zones actually scanned (`pumpAllZones`, new) — `ZoneType.listValueOf`'s own
     default, Battlefield alone, when absent. Not resolved, each failing loudly by name rather than guessing
-    (PORT-8/GO-7): `SubAbility$` (90 of 833) — no ability-chaining mechanism exists yet; `Condition$` itself and
+    (PORT-8/GO-7): `SubAbility$` (90 of 833) — chaining itself now exists ("SubAbility chaining itself landed," below),
+    `PumpAll` just has not been extended to unblock it yet; `Condition$` itself and
     `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionManaSpent$`/`ConditionManaNotSpent$`
     (4/5/3/1/4/0) — `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `Pump`
     -shaped gap; `ValidTgts$` (12) — a real target past the blanket `ValidCards$` match; targeting itself now exists
@@ -851,13 +860,18 @@ printed form.
     "can't gain life" gate) and no CR 119 "life reduced" replacement family (`ReplacementType.LifeReduced`) built, the
     identical real-gap-not-a-wrong-answer `GainLife`'s own unbuilt "life gain replacement" remainder already is. The
     identical `LifeChanged` event `dealPlayerDamage`/`gainLifeEffect` already emit is reused with a negative `Amount`.
-    Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (210 of 445) — no
-    ability-chaining mechanism exists yet; `Condition$` itself and `ConditionDefined$`/`ConditionZone$` (0/14/1) —
-    `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `GainLife`-shaped gap;
-    `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$` (6/4/4/2 combined across the wider 823-line
-    `Defined$` set) — each its own further mechanic; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/ `ModeCost$`
-    (1/2/2/2/1) — unclear semantics on a `LoseLife` line, not worth guessing at from a handful of real lines.
-    `ValidTgts$` itself no longer blocks — targeting's own paragraph, next, is why.
+    Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `Condition$` itself and
+    `ConditionDefined$`/`ConditionZone$` (0/14/1) — `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does
+    not cover, the identical `GainLife`-shaped gap; `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$`
+    (6/4/4/2 combined across the wider 823-line `Defined$` set) — each its own further mechanic;
+    `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/ `ModeCost$` (1/2/2/2/1) — unclear semantics on a `LoseLife`
+    line, not worth guessing at from a handful of real lines. `ValidTgts$` itself no longer blocks — targeting's own
+    paragraph, next, is why. `SubAbility$` (210 of 445) no longer blocks either, removed from its own unresolved-param
+    list once `resolveSubAbility` (subability.go, "SubAbility chaining itself landed," below) landed — Sphinx
+    Sovereign's own real "gain 3 life if untapped, otherwise each opponent loses 3" (one `DB$ LoseLife` with a
+    `SubAbility$ DB$ GainLife`, the negated condition split across the two) is exactly why that chain runs regardless of
+    whether `subAbilityConditionMet` let this effect's own body run. 144 of the corpus's own 382 real SVar-defined
+    `LoseLife` lines naming `SubAbility$` chain to an already-built leaf ability and resolve end to end.
 
     **Targeting itself landed** (`targeting.go`) — CR 601.2c (a spell)/603.3b (a triggered ability)'s own "choose
     targets," this port's own most-cited gap across every M6 effect built before now (`ValidTgts$` sits in every one of
@@ -902,6 +916,41 @@ printed form.
     outright in their own `Resolve` — the mechanism now exists for any of them to consume, extending each one to
     actually read `Targeted` back is not yet done.
 
+    **SubAbility chaining itself landed** (`subability.go`) — `AbilityUtils.resolveApiAbility`'s own
+    `resolveSubAbilities` call, this port's own second-most-cited gap after targeting: `SubAbility$` sits in every M6
+    effect's own "not resolved" list above, 16,022 real corpus lines total (12% of the whole corpus), the compiler
+    already resolving every reference into a tree at load time (`compile.Ability.Subs`, ADR-0007) with nothing at the
+    engine layer ever walking it until now. `Registry.Resolve` (`effect.go`) chains an ability's own `SubAbility$`
+    reference, if it names one, right after its own `Effect.Resolve` call succeeds — recursive through that same method
+    for a chain more than one hop deep (`compile.Ability.Subs` already holds the whole tree, so no caller needs a loop
+    of its own; 1,172 real lines chain exactly two hops past the first, up to 13 deep once) — and runs whether or not
+    `subAbilityConditionMet` let the parent's own body run at all: `AbilityUtils.resolveApiAbility`'s own
+    `if (sa.metConditions()) { sa.resolve(); } resolveSubAbilities(sa, game);` is unconditional on the second call, the
+    exact shape Sphinx Sovereign's own real "you gain 3 life if untapped, otherwise each opponent loses 3" needs — one
+    `DB$ LoseLife` (`Condition$ Card.tapped`) with a `SubAbility$ DB$ GainLife` (the identical condition, negated). Only
+    the literal `SubAbility$` key auto-chains this way; `PreventionSubAbility$` and every "additional ability" key
+    (`WinSubAbility$`, `ChooseSubAbility$`, `Choices$`, ...) name a sub-ability an effect fetches and resolves
+    explicitly through its own Go code once that effect exists (`FlipCoinEffect.java`, `ChoosePlayerEffect.java`, ...) —
+    none built yet, so this is the only chaining shape with a caller today. The child `Ability` built for the chain
+    carries the parent's own `Source`/`Controller`/`Target`/`Targets`/`Amounts` unchanged — a sub-ability naming its own
+    `ValidTgts$` (891 of 16,022 real referenced lines, 5.6%) is not targeted separately (`resolveTargets` runs once, on
+    the pushed ability, before any of this), so it inherits whatever the parent had and an effect gating on `ValidTgts$`
+    presence finds nothing to act on — the identical "unsupported shape observably folds into no legal targets" fold
+    targeting's own paragraph above already committed to, not a new wrong-guess category. Chaining into an API this port
+    has not built an `Effect` for yet still fails with `ErrUnimplemented` naming it, `Registry.Resolve`'s own existing
+    contract for a top-level ability extended for free by the recursion — and the parts of the chain that already
+    resolved stay resolved (CR's own sequential "this already happened," not an all-or-nothing rollback):
+    riverwise_augur.txt's own real `DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBChangeZone` still draws its
+    three cards before the chain reaches `DB$ ChangeZone` (the single most-referenced `SubAbility$` target in the whole
+    corpus, 203 script-driven APIs away from built) and fails naming it. `SubAbility$` itself no longer blocks
+    `GainLife`'s or `LoseLife`'s own resolution (their own paragraphs, above) — `Draw` never blocked it either (its own
+    paragraph, above); `DealDamage`/`Pump`/`PumpAll`/`PutCounter`/`Discard`/`Scry`/`Surveil` still do, each its own
+    paragraph naming the count once unblocked. An `APIByName` miss (a `SubAbility$` SVar body whose own leading value
+    `ApiType.java` has no constant for) is not reachable against the real corpus today — `ApiType.java`'s own generated
+    vocabulary and the apiscan/vocabscan gates (M3) already require every real API string to resolve — but errors naming
+    it rather than silently dropping the chain, the identical PORT-8 "a card cannot be trusted not to be the first"
+    reasoning `triggerEffectAPI`'s own identical defensive check already used for a trigger's `Execute$`.
+
     **`PutCounter` (`putcountereffect.go`) is M6's seventh script-driven effect, and the corpus's own second-largest
     resolvable slice after `Pump`** — 992 of the corpus's 3,165 real `(AB|DB)$ PutCounter` lines that name a single
     literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You`, carrying no other unresolved param.
@@ -923,13 +972,14 @@ printed form.
     and its own documented gap fires for real for the first time too — a script-written `CounterType$` past the eight
     named constants (`ENERGY`, ...) still gets the counter but emits no `CounterChanged` event, `counterDetail`'s own
     closed set unable to encode it. Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7):
-    `SubAbility$` (769 of 3,165) — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$`
-    (807/162/162) — a real target; targeting itself now exists (targeting's own paragraph, above), `PutCounter` just has
-    not been extended to read `Targeted` back yet; `ETB$` (154) — CR 614's own counters-added-simultaneously replacement
-    table (`GameEntityCounterTable`), the identical batching risk `ChangesZoneAll`'s own gap already documents;
-    `Choices$` and its own six further params (46 combined) — an interactive multi-card choice this port's own
-    `PlayerController` has no hook for; `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen
-    more per-target params — each its own further mechanic.
+    `SubAbility$` (769 of 3,165) — chaining itself now exists ("SubAbility chaining itself landed," above), `PutCounter`
+    just has not been extended to unblock it yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (807/162/162) — a real target;
+    targeting itself now exists (targeting's own paragraph, above), `PutCounter` just has not been extended to read
+    `Targeted` back yet; `ETB$` (154) — CR 614's own counters-added-simultaneously replacement table
+    (`GameEntityCounterTable`), the identical batching risk `ChangesZoneAll`'s own gap already documents; `Choices$` and
+    its own six further params (46 combined) — an interactive multi-card choice this port's own `PlayerController` has
+    no hook for; `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen more per-target params
+    — each its own further mechanic.
 
     **`discardEffect` (`discardeffect.go`) is M6's eighth script-driven effect, and the first that has to ask the
     resolving player anything mid-resolution rather than reading game state outright** — 285 of the corpus's 942 real
@@ -955,17 +1005,20 @@ printed form.
     opponents-only result `"Opponent"` gets directly (so both are one case here, as they already were before this
     chunk). Not resolved, each failing loudly by name rather than discarding the wrong cards from the wrong player
     (PORT-8/GO-7): every `Mode$` other than `TgtChoose` (each its own further shape, above); `SubAbility$` (196 of 728)
-    — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3) — a real target;
-    targeting itself now exists (targeting's own paragraph, below), `Discard` just has not been extended to read
-    `Targeted` back yet; `Optional$` (38) — an interactive confirm this port's own `PlayerController` has no hook for;
-    `AnyNumber$` (16) — a variable count, a different shape from `ChooseCardsToDiscard`'s own exact-count contract;
-    `DiscardValid$`/`DiscardValidDesc$` (18) — a filtered choice set, the identical gap `PutCounter`'s own `Choices$`
-    family already documents; `UnlessType$` (14) — a different sub-flow (`chooseCardsToDiscardUnlessType`, Java's own
-    separate controller method); `RevealNumber$` — a reveal-then-choose-a-subset step ahead of the discard itself;
+    — chaining itself now exists ("SubAbility chaining itself landed," below), `Discard` just has not been extended to
+    unblock it yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3) — a real target; targeting itself now exists
+    (targeting's own paragraph, below), `Discard` just has not been extended to read `Targeted` back yet; `Optional$`
+    (38) — an interactive confirm this port's own `PlayerController` has no hook for; `AnyNumber$` (16) — a variable
+    count, a different shape from `ChooseCardsToDiscard`'s own exact-count contract; `DiscardValid$`/`DiscardValidDesc$`
+    (18) — a filtered choice set, the identical gap `PutCounter`'s own `Choices$` family already documents;
+    `UnlessType$` (14) — a different sub-flow (`chooseCardsToDiscardUnlessType`, Java's own separate controller method);
+    `RevealNumber$` — a reveal-then-choose-a-subset step ahead of the discard itself;
     `UnlessCost$`/`UnlessPayer$`/`UnlessSwitched$`/`UnlessResolveSubs$` (10/10/5/0) — "discard unless you pay a cost,"
     each its own further mechanic; `RememberDiscarded$`/`RememberDiscardingPlayers$`/`RememberDiscardingPlayer$` (88
-    combined) — no `SubAbility` chain exists to ever read a `Remembered$` value back, the identical "blocked outright
-    rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made.
+    combined) — no `Defined$ Remembered` resolver exists to ever read the value back (chaining itself existing does not
+    help here: `Discard` still blocks `SubAbility$` outright, and even unblocked, `defined.go` has no `"Remembered"`
+    case), the identical "blocked outright rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$`
+    already made.
 
     **`scryEffect` (`scryeffect.go`) is M6's ninth script-driven effect, and the first that asks the resolving player to
     reorder a set of cards rather than choose a subset of them.** 332 of the corpus's 415 real `(AB|DB)$ Scry` lines
@@ -985,14 +1038,15 @@ printed form.
     cleanup, so a later tutor-to-top effect (`Destination$ Library | LibraryPosition$ 0`, not built) gets that cleanup
     for free rather than a scry-only shortcut. CR 614's own `Scry` replacement type and `Mode$ Scry` trigger are both
     skipped outright, not merely unresolved: 0 real corpus lines name either, so there is nothing to wire either
-    mechanism into yet. Not resolved, each failing loudly by name (PORT-8/GO-7): `SubAbility$` (72 of 415) — no
-    ability-chaining mechanism exists yet; `ValidTgts$` (2) — targeting itself now exists (targeting's own paragraph,
-    above), `Scry` just has not been extended to read `Targeted` back yet; `Optional$` (4) — an interactive confirm this
-    port's own `PlayerController` has no hook for; `Planeswalker$` (8) — its own further mechanic. `Condition$` itself
-    and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` (5) skip the whole line via
-    `subAbilityConditionMet`'s own unresolved-param list rather than a loud error, the identical silent-skip every other
-    effect using it already gets; `ConditionPresent$`/`ConditionCompare$`/ `ConditionCheckSVar$`/`ConditionSVarCompare$`
-    are resolved through it exactly as `Discard`'s/`PutCounter`'s own already are.
+    mechanism into yet. Not resolved, each failing loudly by name (PORT-8/GO-7): `SubAbility$` (72 of 415) — chaining
+    itself now exists ("SubAbility chaining itself landed," above), `Scry` just has not been extended to unblock it yet;
+    `ValidTgts$` (2) — targeting itself now exists (targeting's own paragraph, above), `Scry` just has not been extended
+    to read `Targeted` back yet; `Optional$` (4) — an interactive confirm this port's own `PlayerController` has no hook
+    for; `Planeswalker$` (8) — its own further mechanic. `Condition$` itself and
+    `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` (5) skip the whole line via `subAbilityConditionMet`'s
+    own unresolved-param list rather than a loud error, the identical silent-skip every other effect using it already
+    gets; `ConditionPresent$`/`ConditionCompare$`/ `ConditionCheckSVar$`/`ConditionSVarCompare$` are resolved through it
+    exactly as `Discard`'s/`PutCounter`'s own already are.
 
     **`surveilEffect` (`surveileffect.go`) is M6's tenth script-driven effect, and `scryEffect`'s own sibling decision
     reused wholesale rather than rebuilt.** CR 701.42's own shape is nearly identical to CR 701.19's: look at the top
@@ -1010,14 +1064,15 @@ printed form.
     702's own Surveil-number static modifier (`StaticAbilitySurveilNum`) is not ported — 0 real lines carry the
     qualifying keyword to trigger it — and CR 603's own `Mode$ Surveil` trigger is, the identical reason `Mode$ Scry`
     is, 0 real corpus lines, so nothing here checks a trigger at all. Not resolved, each failing loudly by name
-    (PORT-8/GO-7): `SubAbility$` (23 of 208) — no ability-chaining mechanism exists yet; `ValidTgts$` — targeting itself
-    now exists (targeting's own paragraph, above), `Surveil` just has not been extended to read `Targeted` back yet;
-    `Planeswalker$` (5) — its own further mechanic; `RememberMoved$`/`RememberKept$` (2/1) — no `SubAbility` chain
-    exists to ever read a `Remembered$` value back, the identical "blocked outright rather than silently no-op'd" choice
-    `PutCounter`'s own `RememberCards$` already made; `Optional$`, present on 0 real `Surveil` lines today, is still
-    blocked outright for symmetry with `Scry`'s own identical param, in case a future card adds it. `Condition$` itself
-    and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` skip the whole line via `subAbilityConditionMet`,
-    the identical silent-skip `Scry`'s own already gets;
+    (PORT-8/GO-7): `SubAbility$` (23 of 208) — chaining itself now exists ("SubAbility chaining itself landed," above),
+    `Surveil` just has not been extended to unblock it yet; `ValidTgts$` — targeting itself now exists (targeting's own
+    paragraph, above), `Surveil` just has not been extended to read `Targeted` back yet; `Planeswalker$` (5) — its own
+    further mechanic; `RememberMoved$`/`RememberKept$` (2/1) — no `Defined$ Remembered` resolver exists to ever read the
+    value back, the identical "blocked outright rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$`
+    already made; `Optional$`, present on 0 real `Surveil` lines today, is still blocked outright for symmetry with
+    `Scry`'s own identical param, in case a future card adds it. `Condition$` itself and
+    `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` skip the whole line via `subAbilityConditionMet`, the
+    identical silent-skip `Scry`'s own already gets;
     `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through it exactly as
     `Scry`'s/`Discard`'s/`PutCounter`'s own already do.
 
@@ -1150,11 +1205,13 @@ printed form.
     reimplemented (`checkSVarMatches` gained `checkKey`/`compareKey`/`secondKey` parameters once this became its second
     caller). `tapAbilityResolvesTap` (replacement.go, renamed from `tapAbilityIsPlainTap`) now reports whether a
     `ReplaceWith$` shape is recognized AND whether it actually taps, rather than one collapsed bool. Not resolved:
-    `ETBTapped`/`LandTapped` naming a `SubAbility$` chain (15 of 624 real `ETBTapped` lines — a chained counter grant,
-    no ability-chaining mechanism exists), `ConditionDefined$` (7 — an arbitrary reference, no
-    Defined$-to-objects
-    resolver exists), or `ConditionPlayerTurn$`/`ConditionPhases$` (2, each its own mechanic) —
-    each skips the whole line rather than tapping unconditionally and guessing wrong (PORT-8/GO-7).
+    `ETBTapped`/`LandTapped` naming a `SubAbility$` chain (15 of 624 real `ETBTapped` lines — a chained counter grant;
+    `resolveSubAbility`'s own chaining mechanism, "SubAbility chaining itself landed," item 26's own paragraph above, is
+    specific to a stack-resolving `Ability` — a replacement effect applies inline, outside `Registry.Resolve` entirely,
+    so it would need its own separate integration this port does not have), `ConditionDefined$` (7 — an arbitrary
+    reference, no Defined$-to-objects
+    resolver exists), or `ConditionPlayerTurn$`/`ConditionPhases$` (2, each its own
+    mechanic) — each skips the whole line rather than tapping unconditionally and guessing wrong (PORT-8/GO-7).
 
     A third Condition-family shape stays unresolved for the identical reason: the plain `Condition$` flag
     (SpellAbilityCondition's own separate Threshold/Metalcraft/... switch) carries zero real `DB$ Tap` lines. Every

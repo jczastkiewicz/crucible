@@ -36,11 +36,18 @@ type Registry [numAPITypes]Effect
 // the API rather than a nil dereference.
 var ErrUnimplemented = errors.New("engine: no effect registered for API")
 
-// Resolve dispatches an ability to its effect.
+// Resolve dispatches an ability to its effect, then chains its own
+// SubAbility$ if it names one (resolveSubAbility, subability.go) --
+// AbilityUtils.resolveApiAbility's own "sa.resolve(); resolveSubAbilities(sa,
+// game)" pairing, recursive through this same method for a chain more than
+// one deep.
 //
 // A missing effect is an error and not a panic: it is a gap in the port, which
 // the corpus coverage gate tracks, not an invariant breach (GO-7, ADR-0011).
-// One unimplemented API must fail its game and no more.
+// One unimplemented API must fail its game and no more -- including one
+// reached only by chaining into a SubAbility$ this port has not implemented
+// yet, the identical error a card naming it as its own top-level ability
+// would already get.
 func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if int(a.API) >= numAPITypes {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
@@ -49,7 +56,10 @@ func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if e == nil {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
-	return e.Resolve(g, a, controller)
+	if err := e.Resolve(g, a, controller); err != nil {
+		return err
+	}
+	return r.resolveSubAbility(g, a, controller)
 }
 
 // Implemented is how many APIs have an effect. The corpus coverage report

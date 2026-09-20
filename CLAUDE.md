@@ -329,10 +329,10 @@ effect owns it outright. `Defined$ Self` resolves against the ability's own host
 own `Deathtouch` for `dealPermanentDamage`'s own flag exactly as combat already does.
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of 822) are resolved too
 (`subAbilityConditionMet`, below). Not resolved: `DamageSource$` (17 of 822 real `Defined$` lines — a source other than
-the ability's own host); `SubAbility$` (80 — no ability-chaining mechanism exists yet, this port's own stack resolves
-one top-level record and stops); `Condition$` itself and `ConditionDefined$` (`SpellAbilityCondition`'s own separate
-flag switch and an arbitrary reference this port has no resolver for, distinct from the two resolved shapes above);
-`Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
+the ability's own host); `SubAbility$` (80 — chaining itself now exists, `subability.go`, below; `DealDamage` just has
+not been extended to unblock it yet); `Condition$` itself and `ConditionDefined$` (`SpellAbilityCondition`'s own
+separate flag switch and an arbitrary reference this port has no resolver for, distinct from the two resolved shapes
+above); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
 `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own mechanic); `NoPrevention$` (1
 — this port's own prevention would otherwise wrongly apply). `isETBTrigger`/`isDiesTrigger` (trigger.go) now port
 `TriggerChangesZone.performTest`'s own `Origin$`/`Destination$` semantics exactly — absent or the literal value `"Any"`
@@ -451,7 +451,25 @@ sub-ability that names it explicitly; `loseLifeEffect`'s own dispatch instead mi
 `getTargetPlayers(sa)` directly — `ValidTgts$` present means read `a.Targets`, bypassing `Defined$` outright, since 0
 real `LoseLife` lines combine the two. `LoseLife` is targeting's first real consumer; `PutCounter`/`Discard`/`Scry`/
 `PumpAll`/`Surveil` still block `ValidTgts$` outright in their own `Resolve` — the mechanism exists, extending each
-effect to read `Targeted` back through it is not yet done. 193 script-driven effects past
+effect to read `Targeted` back through it is not yet done. **SubAbility chaining itself landed too** (`subability.go`) —
+`AbilityUtils.resolveApiAbility`'s own `resolveSubAbilities` call, this port's own second-most-cited gap after targeting
+(`SubAbility$` named in every effect's own "not resolved" list above, 16,022 real corpus lines, 12% of the whole
+corpus). `Registry.Resolve` (`effect.go`) chains an ability's own `SubAbility$` reference, if it names one, right after
+its own `Effect.Resolve` call — recursive through that same method for a chain more than one deep (1,172 real lines
+chain exactly two hops past the first, up to 13 deep once) — and runs whether or not `subAbilityConditionMet` let the
+parent's own body run at all: Sphinx Sovereign's own "gain 3 life if untapped, otherwise each opponent loses 3" is one
+`DB$ LoseLife` with a `SubAbility$ DB$ GainLife`, the negated condition split across the two, the exact reason Java's
+own pairing is unconditional. Chaining into an API this port has not built an `Effect` for yet still fails with
+`ErrUnimplemented` naming it, the identical contract a top-level ability already had, extended for free by the
+recursion; the parts of a chain that already resolved stay resolved, CR's own sequential "this already happened" rather
+than an all-or-nothing rollback. `SubAbility$` itself no longer blocks `GainLife`'s or `LoseLife`'s own resolution
+(removed from both effects' own unresolved-param lists) — `Draw` never blocked it, so `Rousing Read`'s own real "draw
+two cards, then discard a card" (`DB$ Draw`, chaining into `DB$ Discard`) is the first chain to actually run both
+halves. 170/253, 18/253, and 144/382 of the corpus's own real SVar-defined `Draw`/`GainLife`/`LoseLife` lines naming
+`SubAbility$` now chain to an already-built leaf ability and resolve end to end (a chain more than one hop deep, or one
+whose target is not built yet, is not counted). `DealDamage`/`Pump`/`PumpAll`/`PutCounter`/`Discard`/`Scry`/`Surveil`
+still block `SubAbility$` outright in their own `Resolve` — the mechanism exists, unblocking each is not yet done. 193
+script-driven effects past
 `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still report
 `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

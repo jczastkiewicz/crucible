@@ -22,21 +22,30 @@ import "fmt"
 // replacement remainders already are (game-state.md's "Not ported yet").
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
-// to the wrong player, PORT-8/GO-7): SubAbility$ -- no ability-chaining
-// mechanism exists yet; Planeswalker$/UnlessPayer$/UnlessCost$/ValidTgts$
-// (each its own further mechanic, and this port's own targeting gap for the
-// non-Defined$ shape); Condition$ itself and ConditionDefined$/
+// to the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/UnlessCost$/
+// ValidTgts$ (each its own further mechanic, and this port's own targeting
+// gap for the non-Defined$ shape); Condition$ itself and ConditionDefined$/
 // ConditionZone$/ConditionOptionalPaid$ (SpellAbilityCondition's own
 // separate flag switch and shapes subAbilityConditionMet does not cover,
 // the identical DealDamage-shaped gap).
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$
 // are resolved through subAbilityConditionMet (condition.go) the identical
-// way DealDamage's own do.
+// way DealDamage's own do. SubAbility$ chains through resolveSubAbility
+// (subability.go, effect.go's own Registry.Resolve) once this effect's own
+// body finishes -- CR's own "then" (Sphinx Sovereign, Rogue Refiner, ...)
+// -- and runs whether or not subAbilityConditionMet above let this effect's
+// own body run at all, resolveApiAbility's own unconditional
+// resolveSubAbilities pairing (subability.go's own doc comment). 18 of the
+// corpus's own 253 real SVar-defined GainLife lines naming SubAbility$
+// chain to an already-built leaf ability (no further SubAbility$ of its
+// own) and resolve end to end; a chain more than one deep, or one whose
+// target is not built yet, is not counted here -- each of those effects'
+// own count already tracks that half of the question.
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"SubAbility", "Planeswalker", "UnlessPayer", "UnlessCost", "ValidTgts",
+	"Planeswalker", "UnlessPayer", "UnlessCost", "ValidTgts",
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 

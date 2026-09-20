@@ -37,9 +37,8 @@ import "fmt"
 // checks a trigger at all.
 //
 // Not ported (every one fails loudly rather than draining the wrong amount
-// from the wrong player, PORT-8/GO-7): SubAbility$ -- no ability-chaining
-// mechanism exists yet; Planeswalker$/UnlessPayer$/UnlessCost$/
-// UnlessSwitched$ (each its own further mechanic); Ultimate$/
+// from the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/
+// UnlessCost$/UnlessSwitched$ (each its own further mechanic); Ultimate$/
 // IsPresent$/PresentCompare$/NumCards$/ModeCost$ (unclear semantics or
 // each its own further mechanic, not worth guessing at from a handful of
 // real lines); Condition$ itself and ConditionDefined$/ConditionZone$
@@ -54,11 +53,21 @@ import "fmt"
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$
 // are resolved through subAbilityConditionMet (condition.go) the identical
-// way GainLife's own do.
+// way GainLife's own do. SubAbility$ chains through resolveSubAbility
+// (subability.go, effect.go's own Registry.Resolve) once this effect's own
+// body finishes, whether or not subAbilityConditionMet above let this
+// effect's own body run at all -- Sphinx Sovereign's own real shape ("you
+// gain 3 life if untapped. Otherwise, each opponent loses 3 life" is one
+// DB$ LoseLife with a SubAbility$ DB$ GainLife, the negated condition split
+// across the two) is exactly why resolveApiAbility's own
+// resolveSubAbilities call in Java is unconditional. 144 of the corpus's
+// own 382 real SVar-defined LoseLife lines naming SubAbility$ chain to an
+// already-built leaf ability and resolve end to end; a chain more than one
+// deep, or one whose target is not built yet, is not counted here.
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"SubAbility", "Planeswalker", "UnlessPayer", "UnlessCost", "UnlessSwitched",
+	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessSwitched",
 	"Ultimate", "IsPresent", "PresentCompare", "NumCards", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionZone",
 }

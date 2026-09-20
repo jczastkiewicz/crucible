@@ -54,7 +54,8 @@
     "discardeffect": ["discardeffect.go"],
     "scryeffect": ["scryeffect.go"],
     "surveileffect": ["surveileffect.go"],
-    "targeting": ["targeting.go"]
+    "targeting": ["targeting.go"],
+    "subability": ["subability.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -65,7 +66,7 @@
     "ability": ["id"],
     "combat": ["id"],
     "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],
-    "effect": ["id", "zone", "parts", "card", "player", "game", "ability", "control"],
+    "effect": ["id", "zone", "parts", "card", "player", "game", "ability", "control", "subability"],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
     "control": ["id", "game", "combat"],
@@ -189,6 +190,7 @@
     "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
     "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
     "surveileffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
-    "targeting": ["id", "card", "game", "player", "ability", "control", "valid", "amount", "zone"]
+    "targeting": ["id", "card", "game", "player", "ability", "control", "valid", "amount", "zone"],
+    "subability": ["id", "game", "ability", "control", "effect"]
   }
 }

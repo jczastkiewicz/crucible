@@ -72,6 +72,17 @@ type Card struct {
 	// after the increment.
 	AttacksThisTurn int
 
+	// BecameTargetThisTurn is Card.hasBecomeTargetThisTurn's own flag --
+	// AttacksThisTurn's own boolean sibling, since Mode$ BecomesTarget's own
+	// FirstTime$ (trigger.go's checkBecomesTargetTriggers) only ever asks
+	// "has anyone targeted this card yet this turn," never how many times or
+	// by whom (Java's own targetedFromThisTurn is a Player set, but nothing
+	// this port resolves reads which players are in it, only whether it is
+	// empty). Set the moment this card is first targeted
+	// (checkBecomesTargetTriggers), reset every cleanup (cleanupStep,
+	// turn.go) alongside AttacksThisTurn.
+	BecameTargetThisTurn bool
+
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a
 	// Battle that has not been assigned one yet (assignBattleProtector,

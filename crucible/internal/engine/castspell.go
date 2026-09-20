@@ -96,6 +96,16 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 // without a card-type spec to check), or the battlefield has no legal host
 // at all (CR 601.2c: a spell requiring a target that has none is illegal to
 // cast, not one cast with nothing to point at).
+//
+// checkBecomesTargetTriggers (trigger.go) runs after the push too: an Aura's
+// own attach target is CR 115's "becomes the target of a spell" exactly as
+// much as a triggered ability's chosen target is (pushTriggeredAbilities's
+// own identical call, trigger.go) -- Illusionary Servant's real "when
+// CARDNAME becomes the target of a spell or ability, sacrifice it" fires
+// off an opponent Auraing it exactly as much as off a triggered ability
+// targeting it, and this is the only cast-time path this port has today
+// that could ever reach it (a targeted Instant/Sorcery is not built yet,
+// checkBecomesTargetTriggers' own doc comment).
 func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController) bool {
 	spec, ok := enchantSpec(c)
 	if !ok {
@@ -116,6 +126,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.checkSpellCastTriggers(controller, card, pid)
+	g.checkBecomesTargetTriggers(controller, []EntityID{CardEntity(target)})
 	return true
 }
 

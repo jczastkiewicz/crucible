@@ -1296,6 +1296,12 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // Every check function collects its own matches into a []Ability first (its
 // own "own" and "other" halves both feed the same slice when it has both)
 // and calls this once at the end, instead of pushing inline.
+//
+// checkBecomesTargetTriggers (below) runs right after each PushAbility,
+// matching MagicStack.add's own order for the identical event (cast/copy
+// trigger checks, then "Run BecomesTarget triggers") -- a triggered
+// ability's own chosen targets are exactly as real a "becomes the target of
+// a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
 	for _, pid := range g.playersInAPNAPOrder() {
 		for i := range matches {
@@ -1306,6 +1312,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 				continue
 			}
 			g.PushAbility(matches[i])
+			g.checkBecomesTargetTriggers(controller, matches[i].Targets)
 		}
 	}
 }
@@ -2040,4 +2047,118 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 
 func isLifeGainedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "LifeGained")
+}
+
+// checkBecomesTargetTriggers is CR 115/603.3's own "whenever ~ becomes the
+// target of a spell or ability" -- Mode$ BecomesTarget, ported from
+// TriggerBecomesTarget.performTest at the shape this port can reach:
+// targets carries every distinct object a.Targets (targeting.go) just chose
+// for one ability, deduplicated the identical way MagicStack.add's own
+// distinctObjects set is ("Track distinct objects so Becomes targets don't
+// trigger for things like Seeds of Strength"). Called from
+// pushTriggeredAbilities (below) right after PushAbility, matching
+// MagicStack.add's own order (SpellCastOrCopy/cast-trigger checks, then
+// "Run BecomesTarget triggers"), and from castAura (castspell.go) for an
+// Aura's own single cast-time target -- the two places this port ever
+// finishes choosing a target for something. A targeted Instant/Sorcery would
+// be a third (not built -- CastSpell only casts a permanent or an Aura
+// today, castspell.go's own doc comment), so this only sees a
+// triggered-ability's own targets or an Aura's own attach target, not yet a
+// removal spell's, the identical "mechanism now, content later" gap
+// targeting.go's own doc comment already names for a future cast path.
+//
+// ValidTarget$ is matched with attackedTargetMatches (below,
+// AttackersDeclared's own AttackedTarget$ dispatch): the identical
+// one-entity-of-either-kind problem, since a real ValidTarget$ can be a
+// player spec, a card spec, or (rarely) a comma list mixing both.
+// Card.AttachedBy/EnchantedBy ("enchanted creature becomes the target of a
+// spell or ability," Ice Cage's own real shape) needs no new code at all:
+// Matches (valid.go) already reads its own source argument as "the object
+// c is checked for being attached to," and host.ID -- the watcher itself --
+// is exactly that for a trigger living on the Aura in question.
+//
+// FirstTime$ (Glyph Keeper's own "for the first time each turn, counter
+// it") reads a new Card.BecameTargetThisTurn (card.go): Java's own
+// hasBecomeTargetThisTurn()/addTargetFromThisTurn is a per-target Player
+// set, but every real FirstTime$ line just asks whether the set was empty,
+// never which players are in it, so a bool suffices. Computed once per
+// distinct target (not once per watcher) the same "check, then mark"
+// order Java's own MagicStack.add loop has, so two watchers checking the
+// same targeting event see identical first-time-ness.
+//
+// 40 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
+// Illusionary Servant's own real "When CARDNAME becomes the target of a
+// spell or ability, sacrifice it" among them (Sacrifice itself is still
+// ErrUnimplemented, M6's own remaining scope; TestDestroyLethalToughnessFiresDiesTrigger's
+// own "prove the trigger reached the stack, not that its effect ran"
+// precedent applies here identically). Not resolved, each failing loudly by
+// name rather than firing unconditionally (PORT-8/GO-7): ValidSource$ (77)
+// -- matched against the triggering ability itself (AbilityKey.SourceSA in
+// Java, a SpellAbility, not a Card), needing a Spell/Activated/Triggered
+// ability-kind classifier this port's own Ability struct does not carry;
+// OptionalDecider$ (12) -- an interactive "may" confirm this port's own
+// PlayerController has no hook for, the identical gap Discard's own
+// Optional$ already documents; Valiant$ (10) -- Card.isValiant's own
+// per-activator "have you not targeted this before" set, a separate
+// mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
+// and Static$ (1) -- each its own further mechanic.
+func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets []EntityID) {
+	var matches []Ability
+	seen := make(map[EntityID]bool, len(targets))
+	for _, tgt := range targets {
+		if seen[tgt] {
+			continue
+		}
+		seen[tgt] = true
+
+		firstTime := false
+		if cid, ok := tgt.AsCard(); ok {
+			c := g.Card(cid)
+			firstTime = !c.BecameTargetThisTurn
+			c.BecameTargetThisTurn = true
+		}
+
+		for _, pid := range g.Players() {
+			for _, watcher := range g.Zone(Battlefield, pid).Cards() {
+				w := g.Card(watcher)
+				if w.Def == nil {
+					continue
+				}
+				for _, face := range w.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isBecomesTargetTrigger(t) {
+							continue
+						}
+						validTarget, ok := t.Param("ValidTarget")
+						if !ok {
+							continue
+						}
+						if !attackedTargetMatches(g, w, []EntityID{tgt}, validTarget) {
+							continue
+						}
+						if _, ok := t.Param("FirstTime"); ok && !firstTime {
+							continue
+						}
+						if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// isBecomesTargetTrigger reports whether t is a Mode$ BecomesTarget line
+// this port resolves -- ValidTarget$ present, and none of
+// checkBecomesTargetTriggers' own doc-commented unresolved params named.
+func isBecomesTargetTrigger(t *compile.Ability) bool {
+	if !strings.EqualFold(t.Name, "BecomesTarget") {
+		return false
+	}
+	if _, ok := t.Param("ValidTarget"); !ok {
+		return false
+	}
+	return !hasAnyParam(t, "ValidSource", "OptionalDecider", "Valiant", "ActivationLimit", "Static")
 }

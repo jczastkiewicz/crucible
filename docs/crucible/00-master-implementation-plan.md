@@ -1164,10 +1164,32 @@ printed form.
     unrestricted, since it is this mode's only dispatch key and 0 real lines omit it. Not resolved: `OptionalDecider$`
     (7 — a "you may" choice needing a `PlayerController` hook this port does not have); `FirstTime$` (6 — Java's own
     per-turn "first life gain" flag, distinct from `Card.AttacksThisTurn`'s own per-card shape);
-    `ValidSource$`/`Spell$`/`ResolvedLimit$` (1 each). Still missing: every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
-    spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`, `Exiled`,
-    `Sacrificed`, ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has),
+    `ValidSource$`/`Spell$`/`ResolvedLimit$` (1 each).
+
+    **`Mode$ BecomesTarget` is real now too** (CR 115/603.3's own "whenever ~ becomes the target of a spell or ability,"
+    `TriggerBecomesTarget.performTest`) — `checkBecomesTargetTriggers` (trigger.go), called from
+    `pushTriggeredAbilities` (trigger.go) right after every `PushAbility` and from `castAura` (castspell.go) for an
+    Aura's own cast-time attach target, the two places this port ever finishes choosing a target for something today (a
+    targeted Instant/Sorcery is not built yet — `CastSpell` only casts a permanent or an Aura, castspell.go's own doc
+    comment). `ValidTarget$` is matched with `attackedTargetMatches` (`AttackersDeclared`'s own dispatch, reused — the
+    identical one-entity-of-either-kind problem, since a real target can be a player or a card), and
+    `Card.AttachedBy`/`EnchantedBy` (Ice Cage's own "enchanted creature becomes the target of a spell or ability") needs
+    no new code at all: `Matches` already reads its own source argument as "the object being checked for being attached
+    to." `FirstTime$` (Glyph Keeper's own "for the first time each turn") reads a new `Card.BecameTargetThisTurn`
+    (card.go) — a plain bool, since every real `FirstTime$` line only ever asks whether the card has been targeted at
+    all this turn, never by whom, unlike Java's own per-player `targetedFromThisTurn` set — set the moment the card is
+    targeted regardless of whether any trigger's own `ValidTarget$` matches (Java's own `addTargetFromThisTurn` runs
+    before any trigger check), reset every cleanup alongside `Card.AttacksThisTurn` (turn.go). 40 of the corpus's own
+    118 real `Mode$ BecomesTarget` lines resolve. Not resolved: `ValidSource$` (77) — matched against the triggering
+    ability itself, not a `Card`, needing a Spell/Activated/Triggered ability-kind classifier this port's `Ability`
+    struct does not carry; `OptionalDecider$` (12) — an interactive "may" confirm this port's own `PlayerController` has
+    no hook for; `Valiant$` (10) — a separate per-activator "have you not targeted this before" set `FirstTime$`'s own
+    plain bool cannot answer; `ActivationLimit$` (3) and `Static$` (1) — each its own further mechanic.
+
+    Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
+    tapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a
+    card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`, ...); `Phase`'s
+    own `Condition$` (a general conditional-trigger evaluator no mode has),
     `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a dozen-some
     real lines total), plus its own qualified `ValidPlayer$` forms
     (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real

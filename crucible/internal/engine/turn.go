@@ -104,7 +104,7 @@ func (g *Game) beginPhase(controller PlayerController) {
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	switch g.activePhase {
 	case Untap:
-		g.untapStep()
+		g.untapStep(controller)
 	case Draw:
 		g.drawStep(controller)
 	case CombatEnd:
@@ -145,11 +145,21 @@ func (g *Game) emptyManaPools() {
 // summoning sickness clears regardless, since a "doesn't untap" effect
 // restricts only the untapping action, not CR 302.6's own continuous-control
 // question.
-func (g *Game) untapStep() {
+//
+// checkUntapsTriggers (trigger.go) fires once per card that actually
+// untaps -- Card.untap()'s own early "if (!tapped) return false", ported as
+// the wasTapped check below rather than inside checkUntapsTriggers itself,
+// since a card already untapped is not an event to check triggers against
+// at all.
+func (g *Game) untapStep(controller PlayerController) {
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
+		wasTapped := c.Tapped
 		if !g.untapBlocked(c) {
 			c.Tapped = false
+			if wasTapped {
+				g.checkUntapsTriggers(controller, id)
+			}
 		}
 		c.SummonSick = false
 	}

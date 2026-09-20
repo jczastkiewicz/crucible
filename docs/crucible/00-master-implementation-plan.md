@@ -1205,14 +1205,27 @@ printed form.
     `FirstCombat$` lines above. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase` only, a per-game
     upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant).
 
+    **`Mode$ Untaps` is real now too** (CR 502.3/603's own "becomes untapped," `TriggerUntaps.performTest`) —
+    `checkUntapsTriggers` (trigger.go), `Taps`'s own mirror image, called once per card from `untapStep` (turn.go) for
+    every card that actually untaps that step — a card already untapped generates no event at all, `Card.untap()`'s own
+    early `if (!tapped) return false` ported as a `wasTapped` guard in `untapStep` itself rather than duplicated inside
+    the check function. `TriggerUntaps` never special-cases its own host's trigger, so one battlefield walk covers both
+    a card's own "Inspired" trigger (`ValidCard$ Card.Self`, the corpus's own dominant real shape) and
+    mesmeric_orb.txt's own bare "whenever a permanent becomes untapped" (`ValidCard$ Card`) alike, the identical
+    single-walk shape `checkTapsTriggers` already has for its own mirror event. 27 of the corpus's own 30 real
+    `Mode$ Untaps` lines resolve (`Phase$`/`CheckSVar$` fold in through `triggerPhasesCheck`/
+    `triggerCommonRequirementsMet` for free, `Secondary$` is a pure display flag no check ever gates on). Not resolved:
+    `OptionalDecider$` (3) — an interactive "may" confirm this port's own `PlayerController` has no hook for, the
+    identical gap `Discard`'s own `Optional$`/`BecomesTarget`'s own `OptionalDecider$` already document.
+
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
-    tapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a
-    card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`, ...); `Phase`'s
-    own `Condition$` (a general conditional-trigger evaluator no mode has, 65 real lines) and the two whole-table
-    comparisons (`APlayerHasMoreLifeThanEachOther$`/`APlayerHasMostCardsInHand$`, 3 real lines or fewer), plus its own
-    qualified `ValidPlayer$` forms (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/
-    `Player.isMonarch`, 64 real lines); `DamageDone`'s own
-    `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
+    player draws a card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`,
+    ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has, 65 real lines) and the two
+    whole-table comparisons (`APlayerHasMoreLifeThanEachOther$`/`APlayerHasMostCardsInHand$`, 3 real lines or fewer),
+    plus its own qualified `ValidPlayer$` forms
+    (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
+    lines); `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
     `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
     `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified

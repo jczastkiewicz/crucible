@@ -379,7 +379,7 @@ engine would violate GO-2); `DamageDone`'s own `ValidCause$`, `Discarded`'s own 
 `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
 qualified `ValidActivatingPlayer$` forms, `Phase`'s own `Condition$` and its own qualified `ValidPlayer$` forms, and
 every trigger mode past
-enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase/
+enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/becomes-untapped/taps-for-mana/casts/beginning-of-a-step-or-phase/
 a-player-attacks/a-player-draws-a-card/gains-life (`Mode$ LifeGained`, `checkLifeGainedTriggers`, `ValidPlayer$` matched
 against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s own four-zone walk — 82 of 98 real lines
 resolve, `OptionalDecider$`/`FirstTime$`/`ValidSource$`/`Spell$`/`ResolvedLimit$` unresolved)/becomes-the-target-of-a-
@@ -400,14 +400,19 @@ collapsing to `NotPlayerTurn$`'s own check in this port's no-team model; `FirstC
 **unconditionally** until now — a wrong answer, not a coverage gap, since this port had never checked either key before
 (sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6 real `Attacks`/
 `AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase`
-only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant). `gainLifeEffect`
-(`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
-(`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape, no prevention machinery since none exists for life
-yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect`
-(`pumpeffect.go`) is M6's fourth script-driven effect, the corpus's own single largest by real line count after
-`ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the first whose own contribution outlives its `Resolve` call:
-`Duration$`'s default, "until end of turn," is a continuous effect this port never needed a duration for before, closed
-by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's own `PT`/`KeywordMod` every
+only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant). **`Mode$ Untaps`
+lands too** (`checkUntapsTriggers`, trigger.go) — CR 502.3/603's own "becomes untapped," `Taps`'s own mirror image,
+called once per card from `untapStep` (turn.go) for every card that actually untaps that step (a card already untapped
+generates no event, `Card.untap()`'s own early return ported as a `wasTapped` guard). One battlefield walk covers both a
+card's own "Inspired" trigger and mesmeric_orb.txt's own bare "whenever a permanent becomes untapped," the identical
+single-walk shape `checkTapsTriggers` already has — 27 of 30 real lines resolve, `OptionalDecider$` (3) unresolved.
+`gainLifeEffect` (`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a
+player-only gain (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape, no prevention machinery since none
+exists for life yet) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`.
+`pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven effect, the corpus's own single largest by real line count
+after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the first whose own contribution outlives its `Resolve`
+call: `Duration$`'s default, "until end of turn," is a continuous effect this port never needed a duration for before,
+closed by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's own `PT`/`KeywordMod` every
 `CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go) and dropped at `cleanupStep` (`turn.go`) unless
 `Duration$ Permanent` names it durable — CR 514.2's own "until end of turn" effects wearing off, closing the gap
 `applyContinuousPT`'s own doc comment used to name. `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go)

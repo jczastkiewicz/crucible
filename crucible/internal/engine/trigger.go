@@ -1083,6 +1083,63 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+// checkUntapsTriggers is CR 502.3/603's own "whenever ~ becomes untapped"
+// mode, Mode$ Untaps, ported from TriggerUntaps.performTest -- Taps's own
+// mirror image at the opposite end of the identical event (a card's own
+// Tapped field flipping), and structurally its exact twin: TriggerUntaps
+// never special-cases its own host's trigger either, so one battlefield walk
+// covers both "whenever CARDNAME becomes untapped" (Inspired, the corpus's
+// own dominant real shape) and "whenever a permanent becomes untapped"
+// (mesmeric_orb.txt's own real Card-bare form) alike, the identical
+// checkTapsTriggers' own reasoning for its own mirror event.
+//
+// Called from untapStep (turn.go) once per card that actually untaps this
+// step -- Card.untap()'s own early "if (!tapped) return false" before the
+// trigger even fires, ported as untapStep's own wasTapped check rather than
+// duplicated here: a card already untapped generates no event to check
+// triggers against at all, the identical "nothing happened" skip every real
+// zone-change/tap call site already gives a no-op.
+//
+// 30 real T: Mode$ Untaps lines corpus-wide (vocabscan). Not resolved:
+// OptionalDecider$ (3) -- an interactive "may" confirm this port's own
+// PlayerController has no hook for, the identical gap Discard's own
+// Optional$/BecomesTarget's own OptionalDecider$ already document.
+func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
+	var matches []Ability
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isUntapsTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "OptionalDecider") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+						continue
+					}
+					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// isUntapsTrigger reports whether t is CR 603's "becomes untapped" shape:
+// Mode$ Untaps.
+func isUntapsTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Untaps")
+}
+
 // isTapsForManaTrigger reports whether t is CR 603's "taps for mana" shape:
 // Mode$ TapsForMana.
 func isTapsForManaTrigger(t *compile.Ability) bool {

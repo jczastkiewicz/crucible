@@ -99,6 +99,7 @@ func TestScriptedControllerEachQueuePanicsWhenExhausted(t *testing.T) {
 		"discard":        func(c *engine.ScriptedController) { c.DiscardToHandSize(g, p0, nil, 0) },
 		"discard choice": func(c *engine.ScriptedController) { c.ChooseCardsToDiscard(g, p0, nil, 0) },
 		"scry":           func(c *engine.ScriptedController) { c.ArrangeForScry(g, p0, nil) },
+		"surveil":        func(c *engine.ScriptedController) { c.ArrangeForSurveil(g, p0, nil) },
 		"battle protector": func(c *engine.ScriptedController) {
 			c.ChooseBattleProtector(g, p0, 0, nil)
 		},

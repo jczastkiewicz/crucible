@@ -12,13 +12,13 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-two answerable with today's
-// engine are here.
+// which has 110 abstract methods; only the twenty-three answerable with
+// today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// twenty-two: mulligans and the starting-player choice have callers in
+// twenty-three: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
@@ -36,7 +36,8 @@ import (
 // Effect implementation to need one at all -- Effect.Resolve gained a
 // PlayerController parameter for it (effect.go's own doc comment).
 // ArrangeForScry's own caller (scryEffect.Resolve, scryeffect.go) is the
-// second.
+// second, and ArrangeForSurveil's own caller (surveilEffect.Resolve,
+// surveileffect.go) is the third.
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -150,6 +151,19 @@ type PlayerController interface {
 	// list order). Either may be nil -- an empty scry decision (everything to
 	// the other pile) is a legal answer.
 	ArrangeForScry(g *Game, decider PlayerID, topN []CardID) (toTop, toBottom []CardID)
+
+	// ArrangeForSurveil decides how decider surveils (CR 701.42,
+	// ArrangeForScry's own sibling, scryeffect.go's shape reused for a
+	// second reordering decision, surveileffect.go) -- Forge's own
+	// arrangeForSurveil. topN is the top Amount$ cards of decider's own
+	// library, in their current top-to-bottom order; the two returned
+	// slices partition topN between them, not re-checked here -- trust the
+	// controller's answer, the same as ArrangeForScry. toTop is the order
+	// those cards go back on top in, top-to-bottom (toTop[0] ends up the
+	// new top card, the identical convention ArrangeForScry's own toTop
+	// has); toGraveyard is the order the rest go to their owner's graveyard
+	// in. Either may be nil.
+	ArrangeForSurveil(g *Game, decider PlayerID, topN []CardID) (toTop, toGraveyard []CardID)
 
 	// ChooseBattleProtector decides which opponent defends decider's Battle
 	// (CR 704.5w/704.5x, assignBattleProtector, action.go). eligible is
@@ -274,33 +288,37 @@ type PlayerController interface {
 // zero value that would silently pass the scenario for the wrong reason
 // (GO-7).
 type ScriptedController struct {
-	startingPlayers []PlayerID
-	startingHands   []int
-	keepHand        []bool
-	tucked          [][]CardID
-	legendaryKeep   []CardID
-	attackers       [][]CardID
-	attackTargets   []EntityID
-	blocks          [][]Block
-	damage          [][]DamageAssignment
-	discards        [][]CardID
-	discardChoices  [][]CardID
-	battleProtector []PlayerID
-	hybridMana      []mana.Colors
-	monoHybrid      []bool
-	colorlessHybrid []bool
-	phyrexian       []bool
-	hybridPhyrexian []mana.Colors
-	genericMana     []mana.Shard
-	xValues         []int
-	snowMana        []mana.Shard
-	enchantTargets  []CardID
-	scryDecisions   []scryDecision
+	startingPlayers  []PlayerID
+	startingHands    []int
+	keepHand         []bool
+	tucked           [][]CardID
+	legendaryKeep    []CardID
+	attackers        [][]CardID
+	attackTargets    []EntityID
+	blocks           [][]Block
+	damage           [][]DamageAssignment
+	discards         [][]CardID
+	discardChoices   [][]CardID
+	battleProtector  []PlayerID
+	hybridMana       []mana.Colors
+	monoHybrid       []bool
+	colorlessHybrid  []bool
+	phyrexian        []bool
+	hybridPhyrexian  []mana.Colors
+	genericMana      []mana.Shard
+	xValues          []int
+	snowMana         []mana.Shard
+	enchantTargets   []CardID
+	scryDecisions    []scryDecision
+	surveilDecisions []scryDecision
 }
 
-// scryDecision is one queued answer to ArrangeForScry -- a pair, so
-// QueueScry takes both halves together rather than as two separately
-// queued slices that could desync under a partial scenario edit.
+// scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
+// -- a pair, so QueueScry/QueueSurveil each take both halves together rather
+// than as two separately queued slices that could desync under a partial
+// scenario edit. The two decisions share this one type (toBottom and
+// toGraveyard are the identical shape, a card-order slice) rather than each
+// declaring its own trivial struct.
 type scryDecision struct {
 	toTop, toBottom []CardID
 }
@@ -379,6 +397,15 @@ func (c *ScriptedController) QueueDiscardChoice(cards []CardID) {
 // conventions.
 func (c *ScriptedController) QueueScry(toTop, toBottom []CardID) {
 	c.scryDecisions = append(c.scryDecisions, scryDecision{toTop: toTop, toBottom: toBottom})
+}
+
+// QueueSurveil appends the answer to the next ArrangeForSurveil call: toTop
+// and toGraveyard together, a separate queue from QueueScry's own even
+// though both share scryDecision's own shape -- the two are different
+// decisions (ArrangeForSurveil's own doc comment) even when a scenario
+// happens to script the identical cards for both.
+func (c *ScriptedController) QueueSurveil(toTop, toGraveyard []CardID) {
+	c.surveilDecisions = append(c.surveilDecisions, scryDecision{toTop: toTop, toBottom: toGraveyard})
 }
 
 // QueueBattleProtector appends the answer to the next ChooseBattleProtector
@@ -504,6 +531,16 @@ func (c *ScriptedController) ArrangeForScry(_ *Game, _ PlayerID, _ []CardID) (to
 	}
 	v := c.scryDecisions[0]
 	c.scryDecisions = c.scryDecisions[1:]
+	return v.toTop, v.toBottom
+}
+
+// ArrangeForSurveil returns the next answer QueueSurveil queued.
+func (c *ScriptedController) ArrangeForSurveil(_ *Game, _ PlayerID, _ []CardID) (toTop, toGraveyard []CardID) {
+	if len(c.surveilDecisions) == 0 {
+		panic(scriptExhausted("surveil"))
+	}
+	v := c.surveilDecisions[0]
+	c.surveilDecisions = c.surveilDecisions[1:]
 	return v.toTop, v.toBottom
 }
 

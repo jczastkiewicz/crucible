@@ -221,7 +221,11 @@ func (attachEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 // player to reorder cards rather than choose a subset of them --
 // PlayerController's own second new decision, ArrangeForScry, and a new
 // Game.MoveToLibraryTop (game.go) for the half of it Move's own
-// append-at-the-end could not reach. Explicit construction here, not an
+// append-at-the-end could not reach; APISurveil is surveilEffect
+// (surveileffect.go), M6's tenth and ArrangeForScry's own sibling decision
+// reused wholesale -- the only difference from Scry is that the cards not
+// kept on top go to the graveyard rather than the bottom of the library.
+// Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
 // wiring... so the direction stays visible and test binaries can register a
 // subset" -- a caller that wants fewer registered APIs builds its own
@@ -240,5 +244,6 @@ func NewRegistry() *Registry {
 	r[APIPutCounter] = putCounterEffect{}
 	r[APIDiscard] = discardEffect{}
 	r[APIScry] = scryEffect{}
+	r[APISurveil] = surveilEffect{}
 	return &r
 }

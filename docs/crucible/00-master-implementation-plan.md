@@ -948,6 +948,32 @@ printed form.
     `ConditionCheckSVar$`/`ConditionSVarCompare$` are resolved through it exactly as `Discard`'s/`PutCounter`'s own
     already are.
 
+    **`surveilEffect` (`surveileffect.go`) is M6's tenth script-driven effect, and `scryEffect`'s own sibling decision
+    reused wholesale rather than rebuilt.** CR 701.42's own shape is nearly identical to CR 701.19's: look at the top
+    `Amount$` cards of the deciding player's own library, then split them between a chosen top order and a chosen "leave
+    the top" pile — except Surveil's second pile goes to the graveyard, not the bottom of the library.
+    `PlayerController` gained a twenty-third method, `ArrangeForSurveil` (control.go), the identical
+    `(toTop, toSecondPile []CardID)` shape `ArrangeForScry` already has, and `ScriptedController`'s own `scryDecision`
+    struct (a `toTop`/`toBottom` pair) is shared between the two rather than each declaring its own trivial copy —
+    `toBottom` simply means "the graveyard" for `QueueSurveil`'s own answers. Applying `toTop` reuses
+    `Game.MoveToLibraryTop` (game.go, `Scry`'s own new primitive) outright, in the identical reverse-then-prepend order;
+    applying the graveyard half needs nothing new at all, since `Game.Move` already goes wherever its `kind` argument
+    names. 183 of the corpus's 208 real `(AB|DB)$ Scry`-shaped `(AB|DB)$ Surveil` lines resolve — every one naming
+    `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` or no `Defined$` at all, the identical "absent `Defined$` means
+    `You`" default `Scry`'s own paragraph above already covers, since `SurveilEffect.java` defaults the same way. CR
+    702's own Surveil-number static modifier (`StaticAbilitySurveilNum`) is not ported — 0 real lines carry the
+    qualifying keyword to trigger it — and CR 603's own `Mode$ Surveil` trigger is, the identical reason `Mode$ Scry`
+    is, 0 real corpus lines, so nothing here checks a trigger at all. Not resolved, each failing loudly by name
+    (PORT-8/GO-7): `SubAbility$` (23 of 208) — no ability-chaining mechanism exists yet; `ValidTgts$` — this port's own
+    targeting gap; `Planeswalker$` (5) — its own further mechanic; `RememberMoved$`/`RememberKept$` (2/1) — no
+    `SubAbility` chain exists to ever read a `Remembered$` value back, the identical "blocked outright rather than
+    silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made; `Optional$`, present on 0 real `Surveil`
+    lines today, is still blocked outright for symmetry with `Scry`'s own identical param, in case a future card adds
+    it. `Condition$` itself and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` skip the whole line via
+    `subAbilityConditionMet`, the identical silent-skip `Scry`'s own already gets;
+    `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through it exactly as
+    `Scry`'s/`Discard`'s/`PutCounter`'s own already do.
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at

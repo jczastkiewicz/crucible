@@ -52,7 +52,8 @@
     "loselifeeffect": ["loselifeeffect.go"],
     "putcountereffect": ["putcountereffect.go"],
     "discardeffect": ["discardeffect.go"],
-    "scryeffect": ["scryeffect.go"]
+    "scryeffect": ["scryeffect.go"],
+    "surveileffect": ["surveileffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -115,7 +116,8 @@
       "loselifeeffect",
       "putcountereffect",
       "discardeffect",
-      "scryeffect"
+      "scryeffect",
+      "surveileffect"
     ],
     "trigger": [
       "id",
@@ -183,6 +185,7 @@
       "control"
     ],
     "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
-    "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
+    "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
+    "surveileffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
   }
 }

@@ -401,6 +401,11 @@ by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's 
 across every player (or, with `Defined$`, only the named players' own battlefield) rather than a single `Defined$` card,
 sharing its duration tracking (`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real
 `(AB|DB)$ PumpAll` lines resolve, 818 of them the real corpus's own dominant no-target, no-`Defined$` "anthem spell"
-shape (Overrun, ...). 198 script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll` still report
-`ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
-floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+shape (Overrun, ...). `loseLifeEffect` (`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image —
+`LifeAmount$` subtracted from `Defined$`'s players instead of added, the identical `LifeChanged` event with a negative
+`Amount` — but calls no trigger check at all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike
+`Mode$ LifeGained`'s own 98. 226 of 445 real `(AB|DB)$ LoseLife` lines naming
+`Defined$ You`/`Opponent`/`Player.Opponent` resolve. 197 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife` still report `ErrUnimplemented`. **P4 exit gate's
+fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer,
+every SBA," Plan Section 3.2) is not.

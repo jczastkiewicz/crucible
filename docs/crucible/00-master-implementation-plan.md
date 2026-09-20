@@ -763,8 +763,8 @@ printed form.
     - `NoPrevention$` (1) — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply
       where Java's own `AbilityKey.NoPreventDamage` says not to.
 
-    `ResolveStack` still reports `ErrUnimplemented` for the other 198 once `GainLife`/`Pump`/`PumpAll` (below) are
-    counted alongside it.
+    `ResolveStack` still reports `ErrUnimplemented` for the other 197 once `GainLife`/`Pump`/`PumpAll`/`LoseLife`
+    (below) are counted alongside it.
 
     **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
     slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
@@ -836,6 +836,26 @@ printed form.
     `Planeswalker$`/`Ultimate$` (26/13) — unclear semantics on a `PumpAll` line, not worth guessing at;
     `RememberPumped$`/`SharedKeywordsZone$`/`SharedRestrictions$`/`UnlessCost$`/`UnlessPayer$`/`ModeCost$`/`Exhaust$`
     (8/4/4/3/3/3/4) — each its own further mechanic.
+
+    **`LoseLife` (`loselifeeffect.go`) is M6's sixth script-driven effect, `GainLife`'s own mirror image** — a
+    plain-or-named-SVar `LifeAmount$` subtracted from a `Defined$` player rather than added, `resolveNamedAmount`/
+    `definedPlayers`/`subAbilityConditionMet` all reused outright. 226 of the corpus's 445 real `(AB|DB)$ LoseLife`
+    lines naming `Defined$ You`/`Opponent`/`Player.Opponent` and carrying no other unresolved param resolve. Unlike
+    `GainLife`, this calls no trigger check at all: Java's own `Player.loseLife` fires `TriggerType.LifeLost`, and
+    `LifeLoseEffect.resolve` itself fires `TriggerType.LifeLostAll` again on top of that, but `Mode$ LifeLost`/
+    `LifeLostAll` both carry 0 real `T:` lines corpus-wide (`Mode$ LifeGained`'s own 98, by contrast, is why
+    `checkLifeGainedTriggers` exists) — nothing to check, so nothing is built. `Player.Life` decrements directly, no
+    "can't lose life" gate (`StaticAbilityCantGainLosePayLife`, symmetric to `GainLife`'s own missing "can't gain life"
+    gate) and no CR 119 "life reduced" replacement family (`ReplacementType.LifeReduced`) built, the identical
+    real-gap-not-a-wrong-answer `GainLife`'s own unbuilt "life gain replacement" remainder already is. The identical
+    `LifeChanged` event `dealPlayerDamage`/`gainLifeEffect` already emit is reused with a negative `Amount`. Not
+    resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (210 of 445) — no
+    ability-chaining mechanism exists yet; `Condition$` itself and `ConditionDefined$`/`ConditionZone$` (0/14/1) —
+    `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `GainLife`-shaped gap;
+    `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$`/`ValidTgts$` (6/4/4/2/163 combined across the wider
+    823-line `Defined$` set) — each its own further mechanic, and this port's own targeting gap for the non-`Defined$`
+    shape; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/`ModeCost$` (1/2/2/2/1) — unclear semantics on a
+    `LoseLife` line, not worth guessing at from a handful of real lines.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**

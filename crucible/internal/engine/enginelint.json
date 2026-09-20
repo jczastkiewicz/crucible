@@ -48,7 +48,8 @@
     "dealdamageeffect": ["dealdamageeffect.go"],
     "condition": ["condition.go"],
     "gainlifeeffect": ["gainlifeeffect.go"],
-    "pumpeffect": ["pumpeffect.go", "pumpalleffect.go"]
+    "pumpeffect": ["pumpeffect.go", "pumpalleffect.go"],
+    "loselifeeffect": ["loselifeeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -107,7 +108,8 @@
       "replacement",
       "dealdamageeffect",
       "gainlifeeffect",
-      "pumpeffect"
+      "pumpeffect",
+      "loselifeeffect"
     ],
     "trigger": [
       "id",
@@ -134,6 +136,7 @@
     "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition"],
     "condition": ["id", "card", "game", "ability", "trigger"],
     "gainlifeeffect": ["id", "card", "game", "player", "ability", "event", "trigger", "defined", "amount", "condition"],
-    "pumpeffect": ["id", "card", "game", "ability", "defined", "amount", "condition", "trigger", "continuous", "zone", "valid"]
+    "pumpeffect": ["id", "card", "game", "ability", "defined", "amount", "condition", "trigger", "continuous", "zone", "valid"],
+    "loselifeeffect": ["id", "card", "game", "player", "ability", "event", "defined", "amount", "condition"]
   }
 }

@@ -40,7 +40,7 @@ var gainLifeUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 
-func (gainLifeEffect) Resolve(g *Game, a *Ability) error {
+func (gainLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range gainLifeUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: GainLife: %s$ not resolvable yet", key)

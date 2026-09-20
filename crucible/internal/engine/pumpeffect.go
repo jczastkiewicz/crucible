@@ -68,7 +68,7 @@ var pumpUnresolvedParams = [...]string{
 // (condition.go), the identical way DealDamage's/GainLife's own do.
 type pumpEffect struct{}
 
-func (pumpEffect) Resolve(g *Game, a *Ability) error {
+func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range pumpUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Pump: %s$ not resolvable yet", key)

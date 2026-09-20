@@ -15,7 +15,7 @@ type order struct {
 	err error
 }
 
-func (o *order) Resolve(_ *engine.Game, a *engine.Ability) error {
+func (o *order) Resolve(_ *engine.Game, a *engine.Ability, _ engine.PlayerController) error {
 	o.got = append(o.got, a.Source)
 	return o.err
 }
@@ -249,7 +249,7 @@ func TestResolveStackStopsWhenGameEnds(t *testing.T) {
 // unconditionally.
 type endsGame struct{ loser engine.PlayerID }
 
-func (e *endsGame) Resolve(g *engine.Game, _ *engine.Ability) error {
+func (e *endsGame) Resolve(g *engine.Game, _ *engine.Ability, _ engine.PlayerController) error {
 	g.Player(e.loser).Life = 0
 	return nil
 }

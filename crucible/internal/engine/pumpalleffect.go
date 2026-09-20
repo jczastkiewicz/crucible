@@ -57,7 +57,7 @@ var pumpAllUnresolvedParams = [...]string{
 // own do.
 type pumpAllEffect struct{}
 
-func (pumpAllEffect) Resolve(g *Game, a *Ability) error {
+func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range pumpAllUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: PumpAll: %s$ not resolvable yet", key)

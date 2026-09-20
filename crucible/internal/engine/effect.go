@@ -14,8 +14,14 @@ import (
 // to true and the count of constants passing false is zero. Everything an
 // effect needs comes from the game and the ability it is handed, so there is
 // no per-resolution allocation and no instance per card.
+//
+// Resolve takes the resolving player's controller too, threaded from
+// ResolveStack's own parameter of the same name -- discardEffect's own
+// Mode$ TgtChoose (discardeffect.go) is the first implementation that needs
+// to ask a player anything mid-resolution rather than reading the game state
+// outright; every effect before it ignores the parameter.
 type Effect interface {
-	Resolve(g *Game, a *Ability) error
+	Resolve(g *Game, a *Ability, controller PlayerController) error
 }
 
 // Registry maps an API to the code that resolves it.
@@ -35,7 +41,7 @@ var ErrUnimplemented = errors.New("engine: no effect registered for API")
 // A missing effect is an error and not a panic: it is a gap in the port, which
 // the corpus coverage gate tracks, not an invariant breach (GO-7, ADR-0011).
 // One unimplemented API must fail its game and no more.
-func (r *Registry) Resolve(g *Game, a *Ability) error {
+func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if int(a.API) >= numAPITypes {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
@@ -43,7 +49,7 @@ func (r *Registry) Resolve(g *Game, a *Ability) error {
 	if e == nil {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
-	return e.Resolve(g, a)
+	return e.Resolve(g, a, controller)
 }
 
 // Implemented is how many APIs have an effect. The corpus coverage report

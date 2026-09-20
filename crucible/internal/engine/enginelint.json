@@ -50,7 +50,8 @@
     "gainlifeeffect": ["gainlifeeffect.go"],
     "pumpeffect": ["pumpeffect.go", "pumpalleffect.go"],
     "loselifeeffect": ["loselifeeffect.go"],
-    "putcountereffect": ["putcountereffect.go"]
+    "putcountereffect": ["putcountereffect.go"],
+    "discardeffect": ["discardeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -61,7 +62,7 @@
     "ability": ["id"],
     "combat": ["id"],
     "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],
-    "effect": ["id", "zone", "parts", "card", "player", "game", "ability"],
+    "effect": ["id", "zone", "parts", "card", "player", "game", "ability", "control"],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
     "control": ["id", "game", "combat"],
@@ -111,7 +112,8 @@
       "gainlifeeffect",
       "pumpeffect",
       "loselifeeffect",
-      "putcountereffect"
+      "putcountereffect",
+      "discardeffect"
     ],
     "trigger": [
       "id",
@@ -129,17 +131,55 @@
       "amount",
       "playerstate"
     ],
-    "draweffect": ["id", "card", "game", "player", "ability", "turn", "defined", "amount"],
+    "draweffect": ["id", "card", "game", "player", "ability", "turn", "defined", "amount", "control"],
     "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount", "playerstate"],
     "amount": ["id", "zone", "card", "game", "valid"],
     "replacement": ["id", "zone", "card", "game", "player", "valid", "ability", "condition"],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card"],
-    "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition"],
+    "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition", "control"],
     "condition": ["id", "card", "game", "ability", "trigger"],
-    "gainlifeeffect": ["id", "card", "game", "player", "ability", "event", "trigger", "defined", "amount", "condition"],
-    "pumpeffect": ["id", "card", "game", "ability", "defined", "amount", "condition", "trigger", "continuous", "zone", "valid"],
-    "loselifeeffect": ["id", "card", "game", "player", "ability", "event", "defined", "amount", "condition"],
-    "putcountereffect": ["id", "card", "game", "player", "ability", "event", "defined", "amount", "condition", "parts"]
+    "gainlifeeffect": [
+      "id",
+      "card",
+      "game",
+      "player",
+      "ability",
+      "event",
+      "trigger",
+      "defined",
+      "amount",
+      "condition",
+      "control"
+    ],
+    "pumpeffect": [
+      "id",
+      "card",
+      "game",
+      "ability",
+      "defined",
+      "amount",
+      "condition",
+      "trigger",
+      "continuous",
+      "zone",
+      "valid",
+      "control"
+    ],
+    "loselifeeffect": ["id", "card", "game", "player", "ability", "event", "defined", "amount", "condition", "control"],
+    "putcountereffect": [
+      "id",
+      "card",
+      "game",
+      "player",
+      "ability",
+      "event",
+      "defined",
+      "amount",
+      "condition",
+      "parts",
+      "control"
+    ],
+    "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
   }
 }

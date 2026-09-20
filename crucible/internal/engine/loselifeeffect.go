@@ -46,7 +46,7 @@ var loseLifeUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone",
 }
 
-func (loseLifeEffect) Resolve(g *Game, a *Ability) error {
+func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range loseLifeUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: LoseLife: %s$ not resolvable yet", key)

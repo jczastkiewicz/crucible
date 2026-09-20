@@ -156,7 +156,7 @@ func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID)
 // stack-description system, so one stateless value answers for both.
 type permanentEffect struct{}
 
-func (permanentEffect) Resolve(g *Game, a *Ability) error {
+func (permanentEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	origin := g.Card(a.Source).Zone
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.checkMovedReplacement(a.Source, origin)
@@ -180,7 +180,7 @@ func (permanentEffect) Resolve(g *Game, a *Ability) error {
 // it got there, on the very next check.
 type attachEffect struct{}
 
-func (attachEffect) Resolve(g *Game, a *Ability) error {
+func (attachEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	origin := g.Card(a.Source).Zone
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
@@ -213,7 +213,11 @@ func (attachEffect) Resolve(g *Game, a *Ability) error {
 // putCounterEffect (putcountereffect.go), M6's seventh and the corpus's own
 // second-largest resolvable slice after Pump, the first to write
 // Card.Counters/Player.Counters from a script rather than combat's own
-// hardcoded loyalty-on-entry path. Explicit construction here, not an
+// hardcoded loyalty-on-entry path; APIDiscard is discardEffect
+// (discardeffect.go), M6's eighth and the first Effect implementation that
+// asks the player anything mid-resolution -- Effect.Resolve gained a
+// PlayerController parameter for it (effect.go's own doc comment). Explicit
+// construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
 // wiring... so the direction stays visible and test binaries can register a
 // subset" -- a caller that wants fewer registered APIs builds its own
@@ -230,5 +234,6 @@ func NewRegistry() *Registry {
 	r[APIPumpAll] = pumpAllEffect{}
 	r[APILoseLife] = loseLifeEffect{}
 	r[APIPutCounter] = putCounterEffect{}
+	r[APIDiscard] = discardEffect{}
 	return &r
 }

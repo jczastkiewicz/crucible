@@ -24,7 +24,7 @@ import "fmt"
 // drawing the wrong number silently.
 type drawEffect struct{}
 
-func (drawEffect) Resolve(g *Game, a *Ability) error {
+func (drawEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	n := 1
 	if v, ok := a.Params.Param("NumCards"); ok {
 		parsed, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), v)

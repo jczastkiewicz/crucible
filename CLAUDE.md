@@ -412,7 +412,17 @@ single literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You` r
 `CounterType$` itself, the identical dispatch `CountersPutEffect.resolvePerType`'s own `instanceof` check makes.
 `CounterType$` is uppercased before it becomes a `Counters` key (`CounterEnumType.getType`'s own canonicalization), so a
 corpus line writing `Stun` and another writing `STUN` land on the identical kind rather than two. `CounterNum$` defaults
-to `1`, matching Java's own `getParamOrDefault`. 196 script-driven effects past
-`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter` still report `ErrUnimplemented`. **P4 exit
-gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every
-layer, every SBA," Plan Section 3.2) is not.
+to `1`, matching Java's own `getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real
+`(AB|DB)$ Discard` lines naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the
+first script-driven effect that asks the resolving player anything mid-resolution rather than reading game state
+outright: `Effect.Resolve` gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and
+`PlayerController` gained a twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a
+different decision from `DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards
+out of the same hand. `NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
+`Math.min(numCards, numCardsInHand)`, and an already-empty hand skips the controller call entirely rather than asking
+for zero cards. `definedPlayers` (`defined.go`) gained a `"Player"` case alongside `You`/`Opponent`/`Player.Opponent` —
+`AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch, every player in the game unfiltered, closing
+`rotting_rats.txt`'s own "each player discards a card" shape and any other effect's bare `Defined$ Player` for free. 195
+script-driven effects past `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard` still
+report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the
+≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

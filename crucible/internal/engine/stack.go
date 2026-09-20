@@ -66,7 +66,7 @@ func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
 		g.stack[n] = Ability{}
 		g.stack = g.stack[:n]
 
-		if err := reg.Resolve(g, &a); err != nil {
+		if err := reg.Resolve(g, &a, controller); err != nil {
 			return err
 		}
 		g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})

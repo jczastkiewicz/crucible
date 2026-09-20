@@ -12,13 +12,13 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty answerable with today's
+// which has 110 abstract methods; only the twenty-one answerable with today's
 // engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// twenty: mulligans and the starting-player choice have callers in
+// twenty-one: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
@@ -31,7 +31,10 @@ import (
 // Game.DealCombatDamage, combatdamage.go; Game.cleanupStep, turn.go;
 // assignBattleProtector, action.go; Game.PayManaCost, manapay.go, eight
 // times over; Game.CastSpell, castspell.go) are fully built, so the decision
-// point can be built ahead of them (Plan Section 1.3).
+// point can be built ahead of them (Plan Section 1.3). ChooseCardsToDiscard's
+// own caller (discardEffect.Resolve, discardeffect.go) is the first
+// Effect implementation to need one at all -- Effect.Resolve gained a
+// PlayerController parameter for it (effect.go's own doc comment).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -116,6 +119,20 @@ type PlayerController interface {
 	// (hand.Len() - limit), a constraint not re-checked here -- trust the
 	// controller's answer, the same as ChooseLegendaryToKeep.
 	DiscardToHandSize(g *Game, decider PlayerID, hand []CardID, count int) []CardID
+
+	// ChooseCardsToDiscard decides which of decider's own hand decider
+	// discards when a card effect asks them to pick (Discard's own
+	// Mode$ TgtChoose, discardeffect.go) -- Forge's own
+	// chooseCardsToDiscardFrom, a different decision from
+	// DiscardToHandSize's own CR 514.1 cleanup discard even though both end
+	// up asking for exactly N cards out of the same hand:
+	// chooseCardsToDiscardFrom additionally supports a DiscardValid$-filtered
+	// choice set and a count that need not be exact, neither modeled here
+	// (discardeffect.go's own doc comment) -- so count is always exact, the
+	// same "trust the controller's answer" contract DiscardToHandSize
+	// already has. hand is decider's whole hand; count is exactly how many
+	// the returned slice must have (min(NumCards$, len(hand))).
+	ChooseCardsToDiscard(g *Game, decider PlayerID, hand []CardID, count int) []CardID
 
 	// ChooseBattleProtector decides which opponent defends decider's Battle
 	// (CR 704.5w/704.5x, assignBattleProtector, action.go). eligible is
@@ -250,6 +267,7 @@ type ScriptedController struct {
 	blocks          [][]Block
 	damage          [][]DamageAssignment
 	discards        [][]CardID
+	discardChoices  [][]CardID
 	battleProtector []PlayerID
 	hybridMana      []mana.Colors
 	monoHybrid      []bool
@@ -321,6 +339,14 @@ func (c *ScriptedController) QueueDamageAssignment(assignment []DamageAssignment
 // QueueDiscard appends the answer to the next DiscardToHandSize call.
 func (c *ScriptedController) QueueDiscard(cards []CardID) {
 	c.discards = append(c.discards, cards)
+}
+
+// QueueDiscardChoice appends the answer to the next ChooseCardsToDiscard
+// call. A separate queue from QueueDiscard's: the two are different
+// decisions (ChooseCardsToDiscard's own doc comment) even when a scenario
+// happens to script the identical cards for both.
+func (c *ScriptedController) QueueDiscardChoice(cards []CardID) {
+	c.discardChoices = append(c.discardChoices, cards)
 }
 
 // QueueBattleProtector appends the answer to the next ChooseBattleProtector
@@ -426,6 +452,16 @@ func (c *ScriptedController) DiscardToHandSize(_ *Game, _ PlayerID, _ []CardID, 
 	}
 	v := c.discards[0]
 	c.discards = c.discards[1:]
+	return v
+}
+
+// ChooseCardsToDiscard returns the next answer QueueDiscardChoice queued.
+func (c *ScriptedController) ChooseCardsToDiscard(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
+	if len(c.discardChoices) == 0 {
+		panic(scriptExhausted("discard choice"))
+	}
+	v := c.discardChoices[0]
+	c.discardChoices = c.discardChoices[1:]
 	return v
 }
 

@@ -886,6 +886,41 @@ printed form.
     `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen more per-target params — each its
     own further mechanic.
 
+    **`discardEffect` (`discardeffect.go`) is M6's eighth script-driven effect, and the first that has to ask the
+    resolving player anything mid-resolution rather than reading game state outright** — 285 of the corpus's 942 real
+    `(AB|DB)$ Discard` lines that name `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent`,
+    carrying no other unresolved param. `DiscardEffect.java` itself has eight further `Mode$` values (`Hand`, `Random`,
+    `YouChoose`, `LookYouChoose`, `RevealYouChoose`, `RevealTgtChoose`, `RevealDiscardAll`, `Defined`) each its own
+    further shape; this port keeps only `TgtChoose`, the corpus's largest at 728 of 942 real lines on its own.
+    `TgtChoose`'s own resolution — the discarding player picks their own count of cards out of their own hand — is the
+    identical decision shape `DiscardToHandSize` (control.go, CR 514.1's own cleanup discard) already has, but Java
+    itself keeps the two as separate `PlayerController` methods (`chooseCardsToDiscardFrom` vs.
+    `chooseCardsToDiscardToMaximumHandSize`) because `chooseCardsToDiscardFrom` additionally supports a
+    `DiscardValid$`-filtered choice set and a count that need not be exact — neither modeled here, so this port adds a
+    new, separately-queued `ChooseCardsToDiscard` (control.go) rather than reusing `DiscardToHandSize` outright.
+    `Effect.Resolve` gained a `PlayerController` parameter for it (`effect.go`'s own doc comment) — every effect before
+    `discardEffect` reads game state only and ignores the new parameter; `ResolveStack` already threaded one through to
+    `CheckStateBasedActions`, so only the dispatch call itself needed the extra argument. `NumCards$` is clamped to the
+    discarding player's actual hand size (`Math.min(numCards, numCardsInHand)`, Java's own), and a hand that is already
+    empty skips the controller call entirely rather than asking for zero cards — the identical "nothing meaningful to
+    decide" reasoning `cleanupStep`'s own doc comment already gives for `DiscardToHandSize`. `definedPlayers`
+    (`defined.go`) gained a `"Player"` case: `AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch (a
+    `defined` string matching none of its named cases resolves to every player in the game, unfiltered) — distinct from
+    `"Player.Opponent"`, which is Java's dotted-suffix filter applied to that same fallthrough set, the identical
+    opponents-only result `"Opponent"` gets directly (so both are one case here, as they already were before this
+    chunk). Not resolved, each failing loudly by name rather than discarding the wrong cards from the wrong player
+    (PORT-8/GO-7): every `Mode$` other than `TgtChoose` (each its own further shape, above); `SubAbility$` (196 of 728)
+    — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3) — a real target, this
+    port's own targeting gap; `Optional$` (38) — an interactive confirm this port's own `PlayerController` has no hook
+    for; `AnyNumber$` (16) — a variable count, a different shape from `ChooseCardsToDiscard`'s own exact-count contract;
+    `DiscardValid$`/`DiscardValidDesc$` (18) — a filtered choice set, the identical gap `PutCounter`'s own `Choices$`
+    family already documents; `UnlessType$` (14) — a different sub-flow (`chooseCardsToDiscardUnlessType`, Java's own
+    separate controller method); `RevealNumber$` — a reveal-then-choose-a-subset step ahead of the discard itself;
+    `UnlessCost$`/`UnlessPayer$`/`UnlessSwitched$`/`UnlessResolveSubs$` (10/10/5/0) — "discard unless you pay a cost,"
+    each its own further mechanic; `RememberDiscarded$`/`RememberDiscardingPlayers$`/`RememberDiscardingPlayer$` (88
+    combined) — no `SubAbility` chain exists to ever read a `Remembered$` value back, the identical "blocked outright
+    rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made.
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at

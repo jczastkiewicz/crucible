@@ -59,7 +59,7 @@ var dealDamageUnresolvedParams = [...]string{
 	"NoPrevention", "Optional", "TgtPrompt",
 }
 
-func (dealDamageEffect) Resolve(g *Game, a *Ability) error {
+func (dealDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range dealDamageUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: DealDamage: %s$ not resolvable yet", key)

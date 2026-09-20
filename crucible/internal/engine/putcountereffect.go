@@ -71,7 +71,7 @@ var putCounterUnresolvedParams = [...]string{
 // DealDamage's/GainLife's/Pump's own do.
 type putCounterEffect struct{}
 
-func (putCounterEffect) Resolve(g *Game, a *Ability) error {
+func (putCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	for _, key := range putCounterUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: PutCounter: %s$ not resolvable yet", key)

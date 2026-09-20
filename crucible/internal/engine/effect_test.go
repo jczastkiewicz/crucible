@@ -14,7 +14,7 @@ type countingEffect struct {
 	err   error
 }
 
-func (e *countingEffect) Resolve(*engine.Game, *engine.Ability) error {
+func (e *countingEffect) Resolve(*engine.Game, *engine.Ability, engine.PlayerController) error {
 	e.calls++
 	return e.err
 }
@@ -61,14 +61,14 @@ func TestRegistryDispatch(t *testing.T) {
 	stub := &countingEffect{}
 	reg[draw] = stub
 
-	if err := reg.Resolve(nil, &engine.Ability{API: draw}); err != nil {
+	if err := reg.Resolve(nil, &engine.Ability{API: draw}, nil); err != nil {
 		t.Errorf("resolving a registered API: %v", err)
 	}
 	if stub.calls != 1 {
 		t.Errorf("effect called %d times, want 1", stub.calls)
 	}
 
-	err := reg.Resolve(nil, &engine.Ability{API: mill})
+	err := reg.Resolve(nil, &engine.Ability{API: mill}, nil)
 	if !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("unregistered API gave %v, want ErrUnimplemented", err)
 	}
@@ -90,7 +90,7 @@ func TestRegistryRejectsUnknownAPI(t *testing.T) {
 
 	var reg engine.Registry
 	bad := engine.APIType(engine.NumAPIs() + 5)
-	if err := reg.Resolve(nil, &engine.Ability{API: bad}); !errors.Is(err, engine.ErrUnimplemented) {
+	if err := reg.Resolve(nil, &engine.Ability{API: bad}, nil); !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("out-of-range API gave %v, want ErrUnimplemented", err)
 	}
 	if got := bad.String(); got == "" {
@@ -108,7 +108,7 @@ func TestEffectErrorPropagates(t *testing.T) {
 	var reg engine.Registry
 	reg[api] = &countingEffect{err: sentinel}
 
-	if err := reg.Resolve(nil, &engine.Ability{API: api}); !errors.Is(err, sentinel) {
+	if err := reg.Resolve(nil, &engine.Ability{API: api}, nil); !errors.Is(err, sentinel) {
 		t.Errorf("got %v, want the effect's own error", err)
 	}
 }

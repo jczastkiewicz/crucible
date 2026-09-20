@@ -11,14 +11,22 @@ package engine
 import "fmt"
 
 // definedPlayers resolves Defined$ to the players it names: "You" (the
-// ability's own controller) and "Opponent"/"Player.Opponent" (every
-// opponent). A player no longer in the game is skipped, matching Java's own
-// `if (!p.isInGame()) continue`.
+// ability's own controller), "Opponent"/"Player.Opponent" (every opponent)
+// and "Player" (every player in the game, unfiltered -- AbilityUtils.
+// getDefinedPlayers's own fallthrough `else` branch, `game.
+// getPlayersInTurnOrder()`, reached because a bare "Player" matches none of
+// its named cases; "Player.Opponent" does not fall into this branch at all,
+// since it is Java's dotted-suffix filter applied to that same fallthrough
+// set -- the identical opponents-only result "Opponent" gets directly,
+// which is why both are one case here). A player no longer in the game is
+// skipped, matching Java's own `if (!p.isInGame()) continue`.
 func definedPlayers(g *Game, controller PlayerID, defined string) ([]PlayerID, error) {
 	var candidates []PlayerID
 	switch defined {
 	case "You":
 		candidates = []PlayerID{controller}
+	case "Player":
+		candidates = g.Players()
 	case "Opponent", "Player.Opponent":
 		for _, pid := range g.Players() {
 			if pid != controller {

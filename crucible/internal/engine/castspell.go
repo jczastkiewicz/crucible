@@ -160,7 +160,7 @@ func (permanentEffect) Resolve(g *Game, a *Ability) error {
 	origin := g.Card(a.Source).Zone
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.checkMovedReplacement(a.Source, origin)
-	g.checkETBTriggers(a.Source)
+	g.checkETBTriggers(a.Source, origin)
 	return nil
 }
 
@@ -185,7 +185,7 @@ func (attachEffect) Resolve(g *Game, a *Ability) error {
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
 	g.checkMovedReplacement(a.Source, origin)
-	g.checkETBTriggers(a.Source)
+	g.checkETBTriggers(a.Source, origin)
 	return nil
 }
 

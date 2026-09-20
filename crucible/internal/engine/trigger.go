@@ -66,13 +66,13 @@ import (
 // (Registry.Resolve's own contract, effect.go) -- detecting and queuing a
 // trigger correctly, regardless of whether its own Execute$ API happens to
 // be implemented yet, is this port's whole job here.
-func (g *Game) checkETBTriggers(entered CardID) {
+func (g *Game) checkETBTriggers(entered CardID, origin ZoneType) {
 	var matches []Ability
 	c := g.Card(entered)
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
 			for _, t := range face.Triggers {
-				if !isETBTrigger(t) {
+				if !isETBTrigger(t, origin) {
 					continue
 				}
 				validCard, ok := t.Param("ValidCard")
@@ -88,7 +88,7 @@ func (g *Game) checkETBTriggers(entered CardID) {
 			}
 		}
 	}
-	matches = append(matches, g.otherETBTriggerMatches(entered)...)
+	matches = append(matches, g.otherETBTriggerMatches(entered, origin)...)
 	g.pushTriggeredAbilities(matches)
 }
 
@@ -117,7 +117,7 @@ func (g *Game) checkETBTriggers(entered CardID) {
 // Returns matches rather than pushing them directly -- checkETBTriggers
 // pushes its own plus these together, in one CR 603.3b APNAP pass
 // (pushTriggeredAbilities, below).
-func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
+func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
@@ -130,7 +130,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID) []Ability {
 			}
 			for _, face := range w.Def.Faces {
 				for _, t := range face.Triggers {
-					if !isETBTrigger(t) {
+					if !isETBTrigger(t, origin) {
 						continue
 					}
 					validCard, ok := t.Param("ValidCard")
@@ -1310,24 +1310,50 @@ func isAttacksTrigger(t *compile.Ability) bool {
 }
 
 // isETBTrigger reports whether t is CR 603.2's "enters the battlefield"
-// shape: Mode$ ChangesZone with Destination$ Battlefield. Origin is
-// unchecked -- entering from hand, library, graveyard or anywhere else all
-// count, the corpus's own broad "enters" wording.
-func isETBTrigger(t *compile.Ability) bool {
-	return strings.EqualFold(t.Name, "ChangesZone") && hasZone(t, "Destination", "Battlefield")
+// shape: Mode$ ChangesZone with Destination$ naming Battlefield (or
+// unrestricted) and Origin$ permitting origin (TriggerChangesZone.java's own
+// performTest, ported exactly: Origin$ absent or "Any" is not itself a
+// restriction, present-and-specific narrows to that zone list -- 5,846 of
+// 5,858 real ETB-shaped lines carry Origin$ Any or no Origin$ at all,
+// matching regardless of origin the way this predicate's own zero-arg
+// history already assumed; the other 21 name Origin$ Graveyard/Hand/Stack/
+// Exile/AttractionDeck, restrictions this predicate silently ignored until
+// origin became a real parameter here -- a reanimation-flavored "enters from
+// a graveyard" trigger firing on an ordinary cast from hand was a real
+// over-firing bug this port had, not a hypothetical one).
+func isETBTrigger(t *compile.Ability, origin ZoneType) bool {
+	return strings.EqualFold(t.Name, "ChangesZone") &&
+		hasZoneOrAny(t, "Destination", Battlefield) &&
+		hasZoneOrAny(t, "Origin", origin) &&
+		changesZoneResolvable(t)
 }
 
-// isDiesTrigger reports whether t is CR 700.4's "dies" shape: Mode$
-// ChangesZone with Origin$ Battlefield and Destination$ Graveyard, both
-// required -- unlike isETBTrigger, a bare Destination$ Graveyard alone would
-// also match a discard or a mill, neither of which is a death.
+// isDiesTrigger reports whether t is CR 603.6d's "leaves the battlefield"
+// shape restricted to the one destination this port's own checkDiesTriggers
+// call sites ever reach, a graveyard (CR 700.4's "dies") --
+// TriggerChangesZone.java's own performTest again: Origin$ must permit
+// Battlefield (absent/"Any"/a list containing it) and Destination$ must
+// permit Graveyard the identical way. A bare Destination$ Graveyard with no
+// Origin$ restriction at all (31 real lines, "put into a graveyard from
+// anywhere") now matches too, since an unrestricted origin already covers
+// the battlefield-origin instance this predicate is only ever asked about;
+// Destination$ Any or no Destination$ at all (253+11 real lines, CR
+// 603.6c's own unqualified "leaves the battlefield") now matches for the
+// identical reason on the other side -- both previously required an exact
+// literal match this predicate never had a wildcard for, so these 295 real
+// lines never fired even on an ordinary death.
 func isDiesTrigger(t *compile.Ability) bool {
-	return strings.EqualFold(t.Name, "ChangesZone") && hasZone(t, "Origin", "Battlefield") && hasZone(t, "Destination", "Graveyard")
+	return strings.EqualFold(t.Name, "ChangesZone") &&
+		hasZoneOrAny(t, "Origin", Battlefield) &&
+		hasZoneOrAny(t, "Destination", Graveyard) &&
+		changesZoneResolvable(t)
 }
 
 // hasZone reports whether t's param key names zone among its comma-separated
 // list of zones -- Destination$ Battlefield,Command among them, a real shape
-// the corpus writes (a trigger that fires entering either zone).
+// the corpus writes (a trigger that fires entering either zone). An absent
+// param never matches: hasZoneOrAny, below, is the wildcard-aware sibling
+// isETBTrigger/isDiesTrigger actually need.
 func hasZone(t *compile.Ability, key, zone string) bool {
 	v, ok := t.Param(key)
 	if !ok {
@@ -1339,6 +1365,50 @@ func hasZone(t *compile.Ability, key, zone string) bool {
 		}
 	}
 	return false
+}
+
+// hasZoneOrAny reports whether t's key param permits zone:
+// TriggerChangesZone.performTest's own two ways of saying "no restriction"
+// -- key absent entirely, or present naming the literal value "Any" (not one
+// token among several; Java's own check is a full-string
+// getParam(key).equals("Any")) -- match unconditionally; otherwise zone's own
+// name must appear in the param's comma-separated zone list (hasZone,
+// above).
+func hasZoneOrAny(t *compile.Ability, key string, zone ZoneType) bool {
+	v, ok := t.Param(key)
+	if !ok || v == "Any" {
+		return true
+	}
+	return hasZone(t, key, zone.String())
+}
+
+// changesZoneUnresolvedParams names Mode$ ChangesZone's own performTest
+// params past Origin$/Destination$/ValidCard$ this port does not evaluate.
+// Each is vanishingly rare in the real corpus (12 of 7,609 real
+// T:Mode$ ChangesZone lines combined) but a line naming one skips rather
+// than firing unconditionally and guessing wrong (PORT-8/GO-7):
+// ValidCause$/NotThisAbility$/ConditionYouCastThisTurn$ (1 each --
+// AbilityKey.Cause tracking, a "did I cause my own trigger" self-reference,
+// and a per-turn cast-count condition, none of which this port tracks
+// anywhere a trigger could read); CheckOnTriggeredCard$ (6 -- a second
+// AbilityUtils.calculateAmount comparison against the moved card itself,
+// needing a reference vocabulary this predicate does not have);
+// ExcludedOrigins$/ExcludedDestinations$ (2, 1 -- 0 real lines combine one
+// with an Origin$/Destination$ this predicate already resolves, so skipping
+// the line outright costs nothing today). Fizzle$ carries 0 real lines,
+// dormant.
+var changesZoneUnresolvedParams = [...]string{
+	"ValidCause", "NotThisAbility", "ConditionYouCastThisTurn",
+	"CheckOnTriggeredCard", "ExcludedOrigins", "ExcludedDestinations", "Fizzle",
+}
+
+func changesZoneResolvable(t *compile.Ability) bool {
+	for _, key := range changesZoneUnresolvedParams {
+		if _, ok := t.Param(key); ok {
+			return false
+		}
+	}
+	return true
 }
 
 // triggerCommonRequirementsMet is CardTraitBase.meetsCommonRequirements'

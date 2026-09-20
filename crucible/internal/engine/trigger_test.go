@@ -519,6 +519,245 @@ func TestDestroyLethalToughnessSkipsNonMatchingDiesTrigger(t *testing.T) {
 	}
 }
 
+// diesTriggerCreatureDefWithLine builds a *compile.Card for a creature
+// carrying triggerLine verbatim -- diesTriggerCreatureDefPT's own shape,
+// parameterized once isDiesTrigger's own Origin$/Destination$ wildcard
+// generalization (trigger.go) needed exercising more shapes than that one
+// fixed line.
+func diesTriggerCreatureDefWithLine(t *testing.T, power, toughness, triggerLine string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Dies Creature"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Dies Creature"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{triggerLine}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDestroyLethalToughnessFiresDiesTriggerWithUnrestrictedDestination
+// proves isDiesTrigger's own Destination$ wildcard (trigger.go): CR 603.6c's
+// unqualified "leaves the battlefield" (Destination$ Any, 253 real corpus
+// lines) now fires on an ordinary death, not just a line naming the
+// graveyard explicitly -- a real miss this predicate had until Destination$
+// Any/absent got a wildcard, not a hypothetical one.
+func TestDestroyLethalToughnessFiresDiesTriggerWithUnrestrictedDestination(t *testing.T) {
+	t.Parallel()
+
+	def := diesTriggerCreatureDefWithLine(t, "2", "0",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigDraw")
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	dead := g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Fatalf("creature zone = %v, want Graveyard", z)
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 -- Destination$ Any covers dying to a graveyard too", got)
+	}
+}
+
+// TestDestroyLethalToughnessFiresDiesTriggerWithNoDestinationParam proves the
+// identical wildcard for a Destination$ param missing entirely, not just
+// spelled "Any" -- TriggerChangesZone.performTest's own two distinct ways of
+// saying "no restriction" (hasParam false, and hasParam true with value
+// "Any"), both ported (hasZoneOrAny, trigger.go).
+func TestDestroyLethalToughnessFiresDiesTriggerWithNoDestinationParam(t *testing.T) {
+	t.Parallel()
+
+	def := diesTriggerCreatureDefWithLine(t, "2", "0",
+		"Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw")
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1", got)
+	}
+}
+
+// TestDestroyLethalToughnessFiresDiesTriggerWithNoOriginParam proves the
+// Origin$ side of the identical wildcard: a card naming Destination$
+// Graveyard with no Origin$ restriction at all ("put into a graveyard from
+// anywhere," 31 real corpus lines) fires on an ordinary battlefield death
+// too, since an unrestricted origin already covers the battlefield-origin
+// instance isDiesTrigger is only ever asked about.
+func TestDestroyLethalToughnessFiresDiesTriggerWithNoOriginParam(t *testing.T) {
+	t.Parallel()
+
+	def := diesTriggerCreatureDefWithLine(t, "2", "0",
+		"Mode$ ChangesZone | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigDraw")
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1", got)
+	}
+}
+
+// TestDestroyLethalToughnessSkipsDiesTriggerWithMismatchedOriginRestriction
+// proves the wildcard cuts both ways: an explicit, non-Battlefield Origin$
+// restriction still refuses to fire on an ordinary battlefield death --
+// isDiesTrigger's own wildcard only lifts the check when Origin$ is absent or
+// "Any," never when it names a real, different zone.
+func TestDestroyLethalToughnessSkipsDiesTriggerWithMismatchedOriginRestriction(t *testing.T) {
+	t.Parallel()
+
+	def := diesTriggerCreatureDefWithLine(t, "2", "0",
+		"Mode$ ChangesZone | Origin$ Graveyard | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigDraw")
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("StackLen() = %d, want 0 -- Origin$ Graveyard never matches a battlefield death", got)
+	}
+}
+
+// TestDestroyLethalToughnessSkipsDiesTriggerNamingUnresolvedParam proves
+// changesZoneResolvable (trigger.go): a Dies-shaped trigger naming one of
+// TriggerChangesZone.performTest's own params this port cannot evaluate
+// (ValidCause$, here) skips the whole line rather than firing unconditionally
+// and guessing wrong (PORT-8/GO-7).
+func TestDestroyLethalToughnessSkipsDiesTriggerNamingUnresolvedParam(t *testing.T) {
+	t.Parallel()
+
+	def := diesTriggerCreatureDefWithLine(t, "2", "0",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | ValidCause$ Spell | Execute$ TrigDraw")
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(def, p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("StackLen() = %d, want 0 -- ValidCause$ is not evaluated, so the line skips", got)
+	}
+}
+
+// etbTriggerCreatureDefWithLine builds a *compile.Card for a castable 1/1
+// creature carrying triggerLine verbatim -- etbTriggerCreatureDef's own
+// shape, parameterized once isETBTrigger's own new origin parameter
+// (trigger.go) needed exercising an Origin$ restriction that one fixed line
+// never carried.
+func etbTriggerCreatureDefWithLine(t *testing.T, cost, triggerLine string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test ETB Creature"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test ETB Creature"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].ManaCost = mana.MustParse(cost)
+	raw.Faces[0].Triggers = []string{triggerLine}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestCastSpellSkipsETBTriggerWithMismatchedOriginRestriction proves
+// isETBTrigger's own new origin parameter (trigger.go): a reanimation-
+// flavored "enters the battlefield from a graveyard" trigger (Origin$
+// Graveyard, 12 real corpus lines) no longer fires on an ordinary cast from
+// hand -- an over-firing bug this port had before origin became a real
+// parameter here, not a hypothetical one.
+func TestCastSpellSkipsETBTriggerWithMismatchedOriginRestriction(t *testing.T) {
+	t.Parallel()
+
+	def := etbTriggerCreatureDefWithLine(t, "G",
+		"Mode$ ChangesZone | Origin$ Graveyard | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw")
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("StackLen() = %d, want 0 -- Origin$ Graveyard never matches casting from hand", got)
+	}
+}
+
+// TestCastSpellFiresETBTriggerWithNoOriginParam proves the wildcard's other
+// side: an ETB trigger naming no Origin$ at all still fires casting from
+// hand -- entering from hand is one of the unrestricted origins this
+// predicate is not supposed to start refusing now that origin is a real
+// parameter. Two players with Life set explicitly and a library card to
+// draw, TestCastSpellFiresETBTrigger's own reasoning: a one-player game ends
+// the instant the permanent's own cast resolves (CR 104.2a, action.go),
+// before ResolveStack's loop ever comes back around to the pushed Draw --
+// this test would then pass for the wrong reason, an ended game rather than
+// a resolved trigger.
+func TestCastSpellFiresETBTriggerWithNoOriginParam(t *testing.T) {
+	t.Parallel()
+
+	def := etbTriggerCreatureDefWithLine(t, "G",
+		"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw")
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	topOfLibrary := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(topOfLibrary).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- the ETB trigger's own Draw should have resolved", g.Card(topOfLibrary).Zone)
+	}
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("StackLen() = %d, want 0", got)
+	}
+}
+
 // impactTremorsDef builds a *compile.Card for Impact Tremors' own real
 // "whenever a creature you control enters, deal 1 damage to each opponent"
 // trigger -- compiled through the real pipeline, watching for another

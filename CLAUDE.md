@@ -333,22 +333,33 @@ mechanism exists yet, this port's own stack resolves one top-level record and st
 (83 — `SpellAbilityCondition`'s own gate on the ability itself, distinct from a trigger's own
 `meetsCommonRequirements`); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
 `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own mechanic); `NoPrevention$` (1
-— this port's own prevention would otherwise wrongly apply). Full detail:
-`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or
-missing: Layer 1 (copy effects — not even part of `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real
-references to `StaticAbilityLayer.COPY` anywhere in it, a wholly separate "become a copy of a card" mechanism at
-resolution time, not a recomputed-each-pass continuous effect at all); Layer 3 (`GainTextOf$`, 1 real line, needs its
-own card-text-copying mechanism for a single card); Layer 8's own remainder (`MayLookAt$`/`MayPlay$`, 88/181 real lines
-— a cast-time zone-eligibility permission `CastSpell`'s hand-only check has nowhere to consult yet; `AddHiddenKeyword$`,
-19, each of its 8 real distinct values its own separate block/attack/untap-step mechanic; vote/villainous-choice params,
-0-3 real lines each); plus the rest of Layers 4/5/6 past a literal token list and Layer 7a's own SVar shapes outside the
-Valid family (`xPaid`, `CardCounters`, `Devotion`, ...), plus a dozen more where the Valid argument itself carries a
-`$`-suffixed distinct-value operator (Tarmogoyf's own `Card$CardTypes` — a new `expr.Count.DistinctProperty` field now
-catches this rather than silently misparsing it, a real bug caught and fixed after the fact, not a hypothetical one) — a
-dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line rather than
-applying it wrong; the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the
-engine would violate GO-2); `Attacks`'s own `Attacked$`/`FirstAttack$`, `DamageDone`'s own `ValidCause$`, `Discarded`'s
-own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own
+— this port's own prevention would otherwise wrongly apply). `isETBTrigger`/`isDiesTrigger` (trigger.go) now port
+`TriggerChangesZone.performTest`'s own `Origin$`/`Destination$` semantics exactly — absent or the literal value `"Any"`
+means unrestricted, ported as a new `hasZoneOrAny` — rather than the literal-only match they started with, closing two
+real gaps: `isDiesTrigger`'s own `Destination$` used to require the literal `"Graveyard"`, missing 264 real lines naming
+`Destination$ Any`/no `Destination$` at all (CR 603.6c's own unqualified "leaves the battlefield") even on an ordinary
+death; its `Origin$` used to require the literal `"Battlefield"`, missing 31 more naming only `Destination$ Graveyard`.
+`isETBTrigger` gained a real `origin ZoneType` parameter (threaded from the `origin := c.Zone` local every real ETB call
+site already computes for `checkMovedReplacement`) to close the matching over-firing bug on its own `Origin$` side — 21
+real lines, mostly `Origin$ Graveyard`, used to fire regardless of where the card actually came from. A
+`Mode$ ChangesZone` line naming `ValidCause$`/`NotThisAbility$`/`ConditionYouCastThisTurn$`/
+`CheckOnTriggeredCard$`/`ExcludedOrigins$`/`ExcludedDestinations$` (12 of 7,609 real lines combined) now skips rather
+than firing unconditionally (`changesZoneResolvable`). Full detail: `docs/crucible/00-master-implementation-plan.md`
+items 24-29, `docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layer 1 (copy effects — not even part of
+`StaticAbilityContinuous.java`'s own switch in Forge itself; zero real references to `StaticAbilityLayer.COPY` anywhere
+in it, a wholly separate "become a copy of a card" mechanism at resolution time, not a recomputed-each-pass continuous
+effect at all); Layer 3 (`GainTextOf$`, 1 real line, needs its own card-text-copying mechanism for a single card); Layer
+8's own remainder (`MayLookAt$`/`MayPlay$`, 88/181 real lines — a cast-time zone-eligibility permission `CastSpell`'s
+hand-only check has nowhere to consult yet; `AddHiddenKeyword$`, 19, each of its 8 real distinct values its own separate
+block/attack/untap-step mechanic; vote/villainous-choice params, 0-3 real lines each); plus the rest of Layers 4/5/6
+past a literal token list and Layer 7a's own SVar shapes outside the Valid family (`xPaid`, `CardCounters`, `Devotion`,
+...), plus a dozen more where the Valid argument itself carries a `$`-suffixed distinct-value operator (Tarmogoyf's own
+`Card$CardTypes` — a new `expr.Count.DistinctProperty` field now catches this rather than silently misparsing it, a real
+bug caught and fixed after the fact, not a hypothetical one) — a dynamic value or a
+bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line rather than applying it wrong;
+the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the engine would
+violate GO-2); `Attacks`'s own `Attacked$`/`FirstAttack$`, `DamageDone`'s own `ValidCause$`, `Discarded`'s own
+`ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own
 `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, `Phase`'s own
 `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/
 `TurnCount$` and its own qualified `ValidPlayer$` forms, and every trigger mode past

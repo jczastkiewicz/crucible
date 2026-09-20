@@ -755,35 +755,59 @@ printed form.
     `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own further mechanic);
     `NoPrevention$` (1 — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where
     Java's own `AbilityKey.NoPreventDamage` says not to). `ResolveStack` still reports `ErrUnimplemented` for the
-    other 201. `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting `Combat.Attackers` other than the
-    declared one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own
-    `Counters.Count(Poison)` and a new `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new
-    `damageAmountMatches` reusing `compareOp` (`valid.go`), never `AbilityUtils.calculateAmount` — every real line is a
-    plain integer or the literal `TargetToughness`) are all resolved now too. `Phase` itself is real now:
-    `checkPhaseTriggers` resolves `Phase$` (every real corpus value bar an unrecognized token, which does not occur),
-    the `Main`/`PhaseCount$ 2` alias for "second main phase" (29 real lines), and `ValidPlayer$` through
-    `matchesPlayerSpec` (2,001 of 2,065 real lines). `AttackersDeclared` is real now too:
-    `checkAttackersDeclaredTrigger` resolves `AttackingPlayer$` (`matchesPlayerSpec` against the active player, CR
-    508.1's own attacking player — 175 of 286 real lines), `AttackedTarget$` (a new `attackedTargetMatches`, trying both
-    `matchesPlayerSpec` and `Matches` against every entity actually attacked this combat, since a real spec mixes
-    player-shaped and card-shaped tokens in the same comma list, `You,Planeswalker.YouCtrl` among them — 63 of 286) and
-    `ValidAttackers$`/`ValidAttackersAmount$` (a new `validAttackersCountMatches`, counting how many of
-    `Combat.Attackers` `Matches` the spec and comparing via the existing `compareOp` — 123 of 286), reusing
-    `phaseTriggerZones`'s own four-zone walk (273 real lines carry `TriggerZones$ Battlefield`, but 7 carry `Command`
-    and 5 carry `Graveyard`, the identical minority-but-real split `Phase` already needed the walk for). Not resolved:
-    `IsPresent$`/`PresentCompare$` (14, 4 — the same general conditional-trigger gap `Phase`'s own `Condition$` has);
-    `CheckSVar$` (13); a qualified `AttackedTarget$` `matchesPlayerSpec` cannot resolve (`Player.EnchantedBy`,
-    `Player.hasInitiative`, `Player.IsPoisoned`, `Opponent.lifeGTX` — 12 of 286 combined). `Drawn` is real now too:
-    `checkDrawnTriggers` resolves `ValidCard$` against the drawn card (an ordinary `Matches`, needing nothing new — 156
-    of 161 real lines), `ValidPlayer$` against the drawing player through the existing `matchesPlayerSpec` (13), and
-    `Number$` against a new `Player.CardsDrawnThisTurn` (player.go) — `LandsPlayed`'s own per-turn-counter shape,
-    incremented once per card in `DrawCards` (turn.go) the same order Java's own `numDrawnThisTurn++` runs before the
-    trigger check, reset every cleanup alongside `LandsPlayed` (79 of 161). Not resolved: `FirstCardInDrawStep$` (5) —
-    Java's own separate `numDrawnThisDrawStep`, a narrower per-step counter this port tracks nothing for; `ForReveal$`
-    (5) — a reveal-while-drawing flag this port's own `DrawCards` has no equivalent state for. Still missing: every
-    trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for
-    mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`,
-    `Exiled`, `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params; `Phase`'s own
+    other 201.
+
+    **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
+    `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
+    A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at
+    all (Java's own `!hasParam(key)` and `getParam(key).equals("Any")`), falling back to `hasZone`'s own comma-list
+    membership check only when the param names something else. `isDiesTrigger`'s own `Destination$` used to require the
+    literal value `"Graveyard"`, so 253 real `Destination$ Any` lines and 11 more with no `Destination$` at all — CR
+    603.6c's own unqualified "leaves the battlefield" — never fired even on an ordinary death; its `Origin$` used to
+    require the literal value `"Battlefield"`, so 31 real lines naming only `Destination$ Graveyard` ("put into a
+    graveyard from anywhere") missed the battlefield-origin instance of themselves too — 295 real lines combined, all
+    now correctly resolved by the same eight `checkDiesTriggers` call sites (`action.go`) that already existed, no new
+    call site needed. `isETBTrigger` gained a real `origin ZoneType` parameter for the identical reason on its own
+    `Origin$` side: 21 real lines (12 `Origin$ Graveyard` — a reanimation-flavored "enters from a graveyard" — plus a
+    handful of `Hand`/`Stack`/`Exile`/`AttractionDeck`) used to fire unconditionally regardless of where the card
+    actually came from, an over-firing bug this port had until `checkETBTriggers`/`otherETBTriggerMatches` threaded
+    `origin` through from the `origin := c.Zone` local already computed at each of the three real call sites
+    (`permanentEffect`/`attachEffect`, castspell.go; `Game.PlayLand`, land.go) for `checkMovedReplacement`, read before
+    `Game.Move` overwrites it. A new `changesZoneResolvable` skips a `Mode$ ChangesZone` line naming
+    `ValidCause$`/`NotThisAbility$`/`ConditionYouCastThisTurn$`/`CheckOnTriggeredCard$`/`ExcludedOrigins$`/
+    `ExcludedDestinations$` (12 of 7,609 real lines combined) rather than firing unconditionally and guessing wrong
+    (PORT-8/GO-7) — `TriggerChangesZone.performTest`'s own remaining params, needing a reference vocabulary or a
+    per-turn-cast-count tracker this port has neither of.
+
+    `Attacks`'s own `Alone$` (60 real lines, `attacksOtherCount` counting `Combat.Attackers` other than the declared
+    one), `DefendingPlayerPoisoned$`/`AttackDifferentPlayers$` (1 each, `defenderOf`'s own `Counters.Count(Poison)` and
+    a new `attacksMultiplePlayers`) and `DamageDone`'s own `DamageAmount$` (8, a new `damageAmountMatches` reusing
+    `compareOp` (`valid.go`), never `AbilityUtils.calculateAmount` — every real line is a plain integer or the literal
+    `TargetToughness`) are all resolved now too. `Phase` itself is real now: `checkPhaseTriggers` resolves `Phase$`
+    (every real corpus value bar an unrecognized token, which does not occur), the `Main`/`PhaseCount$ 2` alias for
+    "second main phase" (29 real lines), and `ValidPlayer$` through `matchesPlayerSpec` (2,001 of 2,065 real lines).
+    `AttackersDeclared` is real now too: `checkAttackersDeclaredTrigger` resolves `AttackingPlayer$`
+    (`matchesPlayerSpec` against the active player, CR 508.1's own attacking player — 175 of 286 real lines),
+    `AttackedTarget$` (a new `attackedTargetMatches`, trying both `matchesPlayerSpec` and `Matches` against every entity
+    actually attacked this combat, since a real spec mixes player-shaped and card-shaped tokens in the same comma list,
+    `You,Planeswalker.YouCtrl` among them — 63 of 286) and `ValidAttackers$`/`ValidAttackersAmount$` (a new
+    `validAttackersCountMatches`, counting how many of `Combat.Attackers` `Matches` the spec and comparing via the
+    existing `compareOp` — 123 of 286), reusing `phaseTriggerZones`'s own four-zone walk (273 real lines carry
+    `TriggerZones$ Battlefield`, but 7 carry `Command` and 5 carry `Graveyard`, the identical minority-but-real split
+    `Phase` already needed the walk for). Not resolved: `IsPresent$`/`PresentCompare$` (14, 4 — the same general
+    conditional-trigger gap `Phase`'s own `Condition$` has); `CheckSVar$` (13); a qualified `AttackedTarget$`
+    `matchesPlayerSpec` cannot resolve (`Player.EnchantedBy`, `Player.hasInitiative`, `Player.IsPoisoned`,
+    `Opponent.lifeGTX` — 12 of 286 combined). `Drawn` is real now too: `checkDrawnTriggers` resolves `ValidCard$`
+    against the drawn card (an ordinary `Matches`, needing nothing new — 156 of 161 real lines), `ValidPlayer$` against
+    the drawing player through the existing `matchesPlayerSpec` (13), and `Number$` against a new
+    `Player.CardsDrawnThisTurn` (player.go) — `LandsPlayed`'s own per-turn-counter shape, incremented once per card in
+    `DrawCards` (turn.go) the same order Java's own `numDrawnThisTurn++` runs before the trigger check, reset every
+    cleanup alongside `LandsPlayed` (79 of 161). Not resolved: `FirstCardInDrawStep$` (5) — Java's own separate
+    `numDrawnThisDrawStep`, a narrower per-step counter this port tracks nothing for; `ForReveal$` (5) — a
+    reveal-while-drawing flag this port's own `DrawCards` has no equivalent state for. Still missing: every trigger mode
+    but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a
+    spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card" (`Countered`, `Exiled`,
+    `Sacrificed`, ...); `Attacks`'s own `Attacked$`/`FirstAttack$` params; `Phase`'s own
     `IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$` (a general conditional-trigger evaluator no mode has),
     `FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/ `TurnCount$` and the two whole-table comparisons (a dozen-some
     real lines total), plus its own qualified `ValidPlayer$` forms

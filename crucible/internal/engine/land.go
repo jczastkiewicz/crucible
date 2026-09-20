@@ -51,6 +51,6 @@ func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 	g.Move(card, Battlefield, pid)
 	g.Player(pid).LandsPlayed++
 	g.checkMovedReplacement(card, origin)
-	g.checkETBTriggers(card)
+	g.checkETBTriggers(card, origin)
 	return true
 }

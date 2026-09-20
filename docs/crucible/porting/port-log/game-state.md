@@ -1446,7 +1446,26 @@ a lone Grizzly Bears on the battlefield, assigned automatically, attached at res
 fires — a permanent's own "when this enters" trigger. `checkDiesTriggers` is the identical narrowness applied to the
 corpus's other frequent `ChangesZone` shape — `Origin$ Battlefield`, `Destination$ Graveyard`, CR 700.4's "dies" —
 checked only against the dying card's own `Card.Self` triggers. `isETBTrigger`/`isDiesTrigger` factor the shared
-`Mode$ ChangesZone` + zone-key check both need, on top of `hasZone`.
+`Mode$ ChangesZone` + zone-key check both need, on top of `hasZone`, and both port `TriggerChangesZone.performTest`'s
+own `Origin$`/`Destination$` semantics exactly rather than the narrower literal-only match they started with:
+`hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at all
+(Java's own `!hasParam(key)` and `getParam(key).equals("Any")`), falling back to `hasZone`'s membership check only when
+the param names something else. This closed two real gaps at once, not a hypothetical cleanup: `isDiesTrigger`'s own
+`Destination$` used to require the literal value `"Graveyard"`, so 253 real `Destination$ Any` lines and 11 more with no
+`Destination$` at all — CR 603.6c's own unqualified "leaves the battlefield" — never fired even on an ordinary death;
+its `Origin$` used to require the literal value `"Battlefield"`, so 31 real lines naming only `Destination$ Graveyard`
+("put into a graveyard from anywhere") missed the battlefield-origin instance of themselves too. `isETBTrigger` gained a
+real `origin ZoneType` parameter for the identical reason on its own `Origin$` side — 21 real lines (12
+`Origin$ Graveyard`, a reanimation-flavored "enters from a graveyard," plus a handful of
+`Hand`/`Stack`/`Exile`/`AttractionDeck`) used to fire unconditionally regardless of where the card actually came from,
+an over-firing bug this port had until `checkETBTriggers`/`otherETBTriggerMatches` threaded `origin` through from the
+`origin := c.Zone` local already computed at each of the three real call sites (`permanentEffect`/`attachEffect`,
+castspell.go; `Game.PlayLand`, land.go — read for `checkMovedReplacement` before `Game.Move` overwrites it).
+`changesZoneResolvable` skips a `Mode$ ChangesZone` line naming
+`ValidCause$`/`NotThisAbility$`/`ConditionYouCastThisTurn$`/`CheckOnTriggeredCard$`/`ExcludedOrigins$`/
+`ExcludedDestinations$` (12 of 7,609 real lines combined) rather than firing unconditionally and guessing wrong
+(PORT-8/GO-7) — `TriggerChangesZone.performTest`'s own remaining params this port has no reference vocabulary or
+per-turn-cast-count tracking for.
 
 `checkAttacksTriggers` is CR 508.3's own mode, `Mode$ Attacks`, entirely — not a `ChangesZone` shape at all, so it needs
 no zone-key check, only `ValidCard` matched against the declared attacker. Ported from `TriggerAttacks.performTest`.

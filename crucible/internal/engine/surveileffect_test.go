@@ -289,23 +289,28 @@ func TestSurveilEffectSkipsControllerWhenLibraryEmpty(t *testing.T) {
 // TestSurveilEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
 // mechanism exists yet) is a real error rather than silently dropping the
 // chained ability (PORT-8/GO-7).
-func TestSurveilEffectRejectsSubAbilityChain(t *testing.T) {
+// TestSurveilEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks Surveil's own resolution now that resolveSubAbility (subability.go)
+// exists: the chained GainLife runs too, not just Surveil's own body.
+func TestSurveilEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	top := g.NewCard(nil, p, engine.Library)
 
 	def := etbSurveilTriggerDefParams(t, "Test SubAbility",
-		"Amount$ 1 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
+		"Amount$ 1 | SubAbility$ DBGainLife",
+		map[string]string{"DBGainLife": "DB$ GainLife | Defined$ You | LifeAmount$ 2"})
 	c := engine.NewScriptedController()
-	err := castETBSurveil(t, g, p, def, c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
+	c.QueueSurveil([]engine.CardID{top}, nil)
+	if err := castETBSurveil(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
+	if g.Player(p).Life != 22 {
+		t.Errorf("p's life = %d, want 22 -- the chained GainLife must run", g.Player(p).Life)
 	}
 }
 

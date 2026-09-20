@@ -23,8 +23,7 @@ import (
 
 // putCounterUnresolvedParams names CountersPutEffect's own params past
 // CounterType$/CounterNum$/Defined$ this port does not evaluate. Every one
-// fails the whole line loudly: SubAbility$ (769 of 3,165) -- no
-// ability-chaining mechanism exists yet; ValidTgts$/TargetMin$/TargetMax$
+// fails the whole line loudly: ValidTgts$/TargetMin$/TargetMax$
 // (807/162/162) -- a real target, this port's own targeting gap; ETB$
 // (154) -- CR 614's own counters-added-simultaneously replacement table
 // (GameEntityCounterTable), the identical batching risk ChangesZoneAll's
@@ -50,8 +49,16 @@ import (
 // ConditionCompare2$ -- SpellAbilityCondition's own shapes
 // subAbilityConditionMet does not cover, the identical Pump/GainLife-shaped
 // gap.
+//
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all --
+// well_rested.txt's own real PutCounter-chaining-into-GainLife shape is
+// why. 56 of the corpus's own 623 real SVar-defined PutCounter lines
+// naming SubAbility$ chain to an already-built leaf ability and resolve
+// end to end.
 var putCounterUnresolvedParams = [...]string{
-	"SubAbility", "ValidTgts", "TargetMin", "TargetMax", "ETB",
+	"ValidTgts", "TargetMin", "TargetMax", "ETB",
 	"Choices", "ChoiceTitle", "ChoiceAmount", "MinChoiceAmount", "ChoicesDesc", "ChoiceZone", "ChoiceOptional",
 	"DividedAsYouChoose", "DividedRandomly", "SplitAmount",
 	"Monstrosity", "Adapt", "Bolster", "Support", "PowerUp", "Exhaust",

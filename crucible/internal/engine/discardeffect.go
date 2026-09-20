@@ -22,24 +22,31 @@ import (
 //
 // Not ported (every one fails loudly rather than discarding the wrong cards
 // from the wrong player, PORT-8/GO-7): every Mode$ other than TgtChoose
-// (each its own further shape, above); SubAbility$ -- no ability-chaining
-// mechanism exists yet; ValidTgts$/TargetMin$/TargetMax$ -- a real target,
-// this port's own targeting gap; Optional$ -- an interactive confirm this
-// port's own PlayerController has no hook for; AnyNumber$ -- a variable
-// (0..hand size) count, a different shape from ChooseCardsToDiscard's own
-// exact-count contract; DiscardValid$/DiscardValidDesc$ -- a filtered choice
-// set, the identical gap PutCounter's own Choices$ family already
-// documents; UnlessType$ -- a different sub-flow (chooseCardsToDiscardUnlessType,
-// Java's own separate controller method); RevealNumber$ -- a reveal-then-
-// choose-a-subset step ahead of the discard itself; UnlessCost$/
-// UnlessPayer$/UnlessSwitched$/UnlessResolveSubs$ -- "discard unless you pay
-// a cost," each its own further mechanic; RememberDiscarded$/
-// RememberDiscardingPlayers$/RememberDiscardingPlayer$ -- no SubAbility
-// chain exists to ever read a Remembered$ value back, the identical
-// "blocked outright rather than silently no-op'd" choice PutCounter's own
-// RememberCards$ already made.
+// (each its own further shape, above); ValidTgts$/TargetMin$/TargetMax$ --
+// a real target, this port's own targeting gap; Optional$ -- an interactive
+// confirm this port's own PlayerController has no hook for; AnyNumber$ -- a
+// variable (0..hand size) count, a different shape from
+// ChooseCardsToDiscard's own exact-count contract; DiscardValid$/
+// DiscardValidDesc$ -- a filtered choice set, the identical gap PutCounter's
+// own Choices$ family already documents; UnlessType$ -- a different
+// sub-flow (chooseCardsToDiscardUnlessType, Java's own separate controller
+// method); RevealNumber$ -- a reveal-then-choose-a-subset step ahead of the
+// discard itself; UnlessCost$/UnlessPayer$/UnlessSwitched$/
+// UnlessResolveSubs$ -- "discard unless you pay a cost," each its own
+// further mechanic; RememberDiscarded$/RememberDiscardingPlayers$/
+// RememberDiscardingPlayer$ -- no Defined$ Remembered resolver exists to
+// ever read the value back (chaining itself existing does not help here:
+// defined.go has no "Remembered" case), the identical "blocked outright
+// rather than silently no-op'd" choice PutCounter's own RememberCards$
+// already made.
+//
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all. 11 of
+// the corpus's own 254 real SVar-defined Discard lines naming SubAbility$
+// chain to an already-built leaf ability and resolve end to end.
 var discardUnresolvedParams = [...]string{
-	"SubAbility", "ValidTgts", "TargetMin", "TargetMax", "Optional", "AnyNumber",
+	"ValidTgts", "TargetMin", "TargetMax", "Optional", "AnyNumber",
 	"DiscardValid", "DiscardValidDesc", "UnlessType", "RevealNumber",
 	"UnlessCost", "UnlessPayer", "UnlessSwitched", "UnlessResolveSubs",
 	"RememberDiscarded", "RememberDiscardingPlayers", "RememberDiscardingPlayer",

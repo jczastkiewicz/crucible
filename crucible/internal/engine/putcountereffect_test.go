@@ -209,7 +209,15 @@ func TestPutCounterEffectRejectsCommaListCounterType(t *testing.T) {
 // TestPutCounterEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
 // mechanism exists yet) is a real error rather than silently dropping the
 // chained ability (PORT-8/GO-7).
-func TestPutCounterEffectRejectsSubAbilityChain(t *testing.T) {
+// TestPutCounterEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks PutCounter's own resolution now that resolveSubAbility
+// (subability.go) exists -- well_rested.txt's own real shape (PutCounter
+// chaining into GainLife), Defined$ Self named explicitly on both this
+// port's own line and the real card's (Defined$ absent on the real card's
+// own GainLife half defaults to You in Java, a gap this port's own
+// definedPlayers does not close yet -- naming it explicitly here sidesteps
+// that separate, unrelated issue).
+func TestPutCounterEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -218,16 +226,17 @@ func TestPutCounterEffectRejectsSubAbilityChain(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	def := etbPutCounterTriggerDefParams(t, "Test SubAbility",
-		"CounterType$ P1P1 | CounterNum$ 2 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
+		"Defined$ Self | CounterType$ P1P1 | CounterNum$ 2 | SubAbility$ DBGainLife",
+		map[string]string{"DBGainLife": "DB$ GainLife | Defined$ You | LifeAmount$ 3"})
 	creature, err := castETBPutCounter(t, g, p, def)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
+	if n := g.Card(creature).Counters.Count("P1P1"); n != 2 {
+		t.Errorf("P1P1 counters = %d, want 2 -- PutCounter's own body must still run", n)
 	}
-	if g.Card(creature).Counters.Any() {
-		t.Error("creature has a counter, want none -- a rejected line must not grant a partial counter")
+	if g.Player(p).Life != 23 {
+		t.Errorf("p's life = %d, want 23 -- the chained GainLife must run too", g.Player(p).Life)
 	}
 }
 

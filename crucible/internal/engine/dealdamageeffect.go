@@ -24,15 +24,19 @@ import "fmt"
 // Not ported (every one fails loudly rather than dealing the wrong amount to
 // the wrong thing, PORT-8/GO-7): DamageSource$ (17 of 822 real Defined$
 // lines -- a source other than the ability's own host, needing a reference
-// vocabulary this file does not have); SubAbility$ (80 -- no ability chains
-// past its own top-level DB$/AB$ record yet, this port's own stack has
-// nothing that resolves one sub-ability and then its own SubAbility$ in
-// turn); Planeswalker$/UnlessPayer$/UnlessCost$/UnlessResolveSubs$/
-// ValidTgts$/TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/
-// TgtPrompt$ (each its own further mechanic); NoPrevention$ (1 -- this
-// port's own damagePrevented/damagePreventedPlayer would otherwise apply
-// where Java's own AbilityKey.NoPreventDamage says not to, a wrong answer
-// rather than a missing one).
+// vocabulary this file does not have); Planeswalker$/UnlessPayer$/
+// UnlessCost$/UnlessResolveSubs$/ValidTgts$/TriggeredSpellAbility$/
+// DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each its own further
+// mechanic); NoPrevention$ (1 -- this port's own damagePrevented/
+// damagePreventedPlayer would otherwise apply where Java's own
+// AbilityKey.NoPreventDamage says not to, a wrong answer rather than a
+// missing one). SubAbility$ no longer blocks: resolveSubAbility
+// (subability.go) chains it through Registry.Resolve (effect.go) once this
+// effect's own body finishes, whether or not subAbilityConditionMet below
+// let it run at all -- sword_of_fire_and_ice_and_war_and_peace.txt's own
+// real DealDamage-chaining-into-GainLife shape is why. 9 of the corpus's
+// own 316 real SVar-defined DealDamage lines naming SubAbility$ chain to an
+// already-built leaf ability and resolve end to end.
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
 // ConditionSVarCompare$ -- SpellAbilityCondition's own gate on the ability
@@ -46,14 +50,14 @@ import "fmt"
 // own separate Threshold/Metalcraft/... flag switch) and ConditionDefined$
 // (an arbitrary reference this port has no Defined$-to-objects resolver for)
 // stay in dealDamageUnresolvedParams below, failing loudly the identical way
-// DamageSource$/SubAbility$ already do -- condition.go's own generic
+// DamageSource$ already does -- condition.go's own generic
 // subAbilityConditionMet would otherwise silently no-op a card naming either,
 // which this file's own established contract (every unresolvable param fails
 // loudly by name, never silently) does not allow.
 type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
-	"DamageSource", "SubAbility", "Condition", "ConditionDefined",
+	"DamageSource", "Condition", "ConditionDefined",
 	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessResolveSubs",
 	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
 	"NoPrevention", "Optional", "TgtPrompt",

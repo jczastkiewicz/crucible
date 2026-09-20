@@ -23,8 +23,13 @@ import (
 	"fmt"
 )
 
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all. 2 of
+// the corpus's own 15 real SVar-defined Surveil lines naming SubAbility$
+// chain to an already-built leaf ability and resolve end to end.
 var surveilUnresolvedParams = [...]string{
-	"SubAbility", "ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
+	"ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
 	"RememberMoved", "RememberKept",
 }
 

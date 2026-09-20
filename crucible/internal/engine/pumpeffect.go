@@ -24,9 +24,7 @@ import (
 // pumpUnresolvedParams names PumpEffect.resolve's own params past
 // NumAtt$/NumDef$/KW$/Duration$/PumpZone$/Defined$ this port does not
 // evaluate. Every one fails the whole line loudly rather than applying half
-// of it and guessing at the rest (PORT-8/GO-7): SubAbility$ (119 of 1,335
-// real Defined$ Self/Enchanted/Equipped lines) -- no ability-chaining
-// mechanism exists yet; Condition$/ConditionDefined$/ConditionZone$/
+// of it and guessing at the rest (PORT-8/GO-7): Condition$/ConditionDefined$/ConditionZone$/
 // ConditionPlayerTurn$/ConditionActivationLimit$ (0/19/0/0/4) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
 // the identical DealDamage/GainLife-shaped gap; PlayerTurn$ (2) -- unclear
@@ -51,8 +49,15 @@ import (
 // Optional$/OptionQuestion$ (0/0) -- a "may" confirmation this port's own
 // PlayerController has no hook for; Radiance$ (0) -- CardUtil.getRadiance's
 // own "and everything else that shares a color" fan-out.
+//
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all --
+// rabaroo_troop.txt's own real Pump-chaining-into-GainLife shape is why. 17
+// of the corpus's own 571 real SVar-defined Pump lines naming SubAbility$
+// chain to an already-built leaf ability and resolve end to end.
 var pumpUnresolvedParams = [...]string{
-	"SubAbility", "Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
+	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionActivationLimit", "PlayerTurn", "UnlessCost", "UnlessPayer", "UnlessSwitched",
 	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "ValidTgts", "AtEOT",

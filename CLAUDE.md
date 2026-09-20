@@ -329,10 +329,10 @@ effect owns it outright. `Defined$ Self` resolves against the ability's own host
 own `Deathtouch` for `dealPermanentDamage`'s own flag exactly as combat already does.
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of 822) are resolved too
 (`subAbilityConditionMet`, below). Not resolved: `DamageSource$` (17 of 822 real `Defined$` lines — a source other than
-the ability's own host); `SubAbility$` (80 — chaining itself now exists, `subability.go`, below; `DealDamage` just has
-not been extended to unblock it yet); `Condition$` itself and `ConditionDefined$` (`SpellAbilityCondition`'s own
-separate flag switch and an arbitrary reference this port has no resolver for, distinct from the two resolved shapes
-above); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
+the ability's own host); `SubAbility$` no longer blocks (9 of 316 real SVar-defined lines naming it chain to an
+already-built leaf ability and resolve end to end, `subability.go`); `Condition$` itself and `ConditionDefined$`
+(`SpellAbilityCondition`'s own separate flag switch and an arbitrary reference this port has no resolver for, distinct
+from the two resolved shapes above); `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`ValidTgts$`/
 `TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own mechanic); `NoPrevention$` (1
 — this port's own prevention would otherwise wrongly apply). `isETBTrigger`/`isDiesTrigger` (trigger.go) now port
 `TriggerChangesZone.performTest`'s own `Origin$`/`Destination$` semantics exactly — absent or the literal value `"Any"`
@@ -465,11 +465,13 @@ recursion; the parts of a chain that already resolved stay resolved, CR's own se
 than an all-or-nothing rollback. `SubAbility$` itself no longer blocks `GainLife`'s or `LoseLife`'s own resolution
 (removed from both effects' own unresolved-param lists) — `Draw` never blocked it, so `Rousing Read`'s own real "draw
 two cards, then discard a card" (`DB$ Draw`, chaining into `DB$ Discard`) is the first chain to actually run both
-halves. 170/253, 18/253, and 144/382 of the corpus's own real SVar-defined `Draw`/`GainLife`/`LoseLife` lines naming
-`SubAbility$` now chain to an already-built leaf ability and resolve end to end (a chain more than one hop deep, or one
-whose target is not built yet, is not counted). `DealDamage`/`Pump`/`PumpAll`/`PutCounter`/`Discard`/`Scry`/`Surveil`
-still block `SubAbility$` outright in their own `Resolve` — the mechanism exists, unblocking each is not yet done. 193
-script-driven effects past
+halves. `SubAbility$` no longer blocks any of the ten script-driven effects built so far —
+`DealDamage`/`Pump`/`PumpAll`/`PutCounter`/`Discard`/`Scry`/`Surveil` had it removed from their own unresolved-param
+lists too, the identical change `GainLife`/`LoseLife` already got. 170/253 (`Draw`), 18/253 (`GainLife`), 144/382
+(`LoseLife`), 9/316 (`DealDamage`), 17/571 (`Pump`), 6/75 (`PumpAll`), 56/623 (`PutCounter`), 11/254 (`Discard`), 31/57
+(`Scry`), and 2/15 (`Surveil`) of the corpus's own real SVar-defined lines naming `SubAbility$` now chain to an
+already-built leaf ability and resolve end to end (a chain more than one hop deep, or one whose target is one of the 193
+effects still unbuilt, is not counted). 193 script-driven effects past
 `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still report
 `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

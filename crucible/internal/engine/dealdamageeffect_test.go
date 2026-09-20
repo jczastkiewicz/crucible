@@ -249,7 +249,12 @@ func TestDealDamageEffectMissingNumDmgErrors(t *testing.T) {
 // TestDealDamageEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
 // mechanism exists yet) is a real error rather than silently dropping the
 // chained ability (PORT-8/GO-7).
-func TestDealDamageEffectRejectsSubAbilityChain(t *testing.T) {
+// TestDealDamageEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks DealDamage's own resolution now that resolveSubAbility
+// (subability.go) exists -- sword_of_fire_and_ice_and_war_and_peace.txt's
+// own real shape (DealDamage chaining into GainLife) with a plain integer
+// standing in for its own X/Y SVar amounts.
+func TestDealDamageEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -258,16 +263,13 @@ func TestDealDamageEffectRejectsSubAbilityChain(t *testing.T) {
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 
 	def := etbDealDamageTriggerDefParams(t, "Test SubAbility",
-		"Defined$ You | NumDmg$ 1 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
-	err := castETBDealDamage(t, g, p, def)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
+		"Defined$ You | NumDmg$ 1 | SubAbility$ DBGainLife",
+		map[string]string{"DBGainLife": "DB$ GainLife | Defined$ You | LifeAmount$ 3"})
+	if err := castETBDealDamage(t, g, p, def); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
-	}
-	if g.Player(p).Life != 20 {
-		t.Errorf("p's life = %d, want 20 -- a rejected line must not deal partial damage", g.Player(p).Life)
+	if g.Player(p).Life != 22 {
+		t.Errorf("p's life = %d, want 22 -- DealDamage's own body (20-1=19) and the chained GainLife (19+3=22) must both run", g.Player(p).Life)
 	}
 }
 

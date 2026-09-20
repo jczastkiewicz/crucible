@@ -285,23 +285,31 @@ func TestDiscardEffectRejectsUnsupportedMode(t *testing.T) {
 // TestDiscardEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
 // mechanism exists yet) is a real error rather than silently dropping the
 // chained ability (PORT-8/GO-7).
-func TestDiscardEffectRejectsSubAbilityChain(t *testing.T) {
+// TestDiscardEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks Discard's own resolution now that resolveSubAbility (subability.go)
+// exists: the chained GainLife runs too, not just Discard's own body.
+func TestDiscardEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	toss := g.NewCard(nil, p, engine.Hand)
 
 	def := etbDiscardTriggerDefParams(t, "Test SubAbility",
-		"Mode$ TgtChoose | Defined$ You | NumCards$ 1 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
+		"Mode$ TgtChoose | Defined$ You | NumCards$ 1 | SubAbility$ DBGainLife",
+		map[string]string{"DBGainLife": "DB$ GainLife | Defined$ You | LifeAmount$ 2"})
 	c := engine.NewScriptedController()
-	_, err := castETBDiscard(t, g, p, def, c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
+	c.QueueDiscardChoice([]engine.CardID{toss})
+	if _, err := castETBDiscard(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
+	if g.Card(toss).Zone != engine.Graveyard {
+		t.Errorf("toss zone = %v, want Graveyard -- Discard's own body must still run", g.Card(toss).Zone)
+	}
+	if g.Player(p).Life != 22 {
+		t.Errorf("p's life = %d, want 22 -- the chained GainLife must run too", g.Player(p).Life)
 	}
 }
 

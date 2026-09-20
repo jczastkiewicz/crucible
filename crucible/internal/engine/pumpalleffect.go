@@ -24,8 +24,7 @@ import (
 // pumpAllUnresolvedParams names PumpAllEffect.resolve's own params past
 // NumAtt$/NumDef$/KW$/Duration$/PumpZone$/ValidCards$/Defined$ this port
 // does not evaluate. Every one fails the whole line loudly rather than
-// applying half of it and guessing at the rest (PORT-8/GO-7): SubAbility$
-// (90 of 833 real lines) -- no ability-chaining mechanism exists yet;
+// applying half of it and guessing at the rest (PORT-8/GO-7):
 // Condition$/ConditionDefined$/ConditionZone$/ConditionPlayerTurn$/
 // ConditionManaSpent$/ConditionManaNotSpent$ (4/5/3/1/4/0) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
@@ -41,8 +40,14 @@ import (
 // list and in case a future corpus update adds one) --
 // registerDelayedTrigger, a new trigger this effect would silently fail to
 // create.
+//
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all. 6 of
+// the corpus's own 75 real SVar-defined PumpAll lines naming SubAbility$
+// chain to an already-built leaf ability and resolve end to end.
 var pumpAllUnresolvedParams = [...]string{
-	"SubAbility", "Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
+	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts", "Planeswalker", "Ultimate",
 	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions", "UnlessCost", "UnlessPayer",
 	"ModeCost", "Exhaust", "AtEOT",

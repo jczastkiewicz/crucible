@@ -179,7 +179,10 @@ func TestPumpAllEffectPermanentDurationSurvivesCleanup(t *testing.T) {
 // TestPumpAllEffectRejectsSubAbilityChain proves SubAbility$ (no chaining
 // mechanism exists yet) is a real error rather than silently dropping the
 // chained ability (PORT-8/GO-7).
-func TestPumpAllEffectRejectsSubAbilityChain(t *testing.T) {
+// TestPumpAllEffectChainsIntoSubAbility proves SubAbility$ no longer
+// blocks PumpAll's own resolution now that resolveSubAbility (subability.go)
+// exists: the chained GainLife runs too, not just PumpAll's own body.
+func TestPumpAllEffectChainsIntoSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -189,14 +192,16 @@ func TestPumpAllEffectRejectsSubAbilityChain(t *testing.T) {
 	existing := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 
 	def := etbPumpAllTriggerDefParams(t, "Test PumpAll SubAbility",
-		"ValidCards$ Creature.YouCtrl | NumAtt$ 2 | NumDef$ 2 | SubAbility$ DBCleanup", map[string]string{"DBCleanup": "DB$ Cleanup"})
-	if _, err := castETBPumpAll(t, g, p, def); err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SubAbility")
-	} else if !strings.Contains(err.Error(), "SubAbility") {
-		t.Errorf("ResolveStack error = %q, want it to name SubAbility$", err.Error())
+		"ValidCards$ Creature.YouCtrl | NumAtt$ 2 | NumDef$ 2 | SubAbility$ DBGainLife",
+		map[string]string{"DBGainLife": "DB$ GainLife | Defined$ You | LifeAmount$ 3"})
+	if _, err := castETBPumpAll(t, g, p, def); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if pw, _ := g.Card(existing).Power(); pw != 1 {
-		t.Errorf("power = %d, want 1 -- a rejected line must not grant a partial pump", pw)
+	if pw, _ := g.Card(existing).Power(); pw != 3 {
+		t.Errorf("power = %d, want 3 -- PumpAll's own body must still run", pw)
+	}
+	if g.Player(p).Life != 23 {
+		t.Errorf("p's life = %d, want 23 -- the chained GainLife must run too", g.Player(p).Life)
 	}
 }
 

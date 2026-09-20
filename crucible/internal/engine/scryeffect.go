@@ -22,8 +22,13 @@ import (
 	"fmt"
 )
 
+// SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
+// through Registry.Resolve (effect.go) once this effect's own body
+// finishes, whether or not subAbilityConditionMet let it run at all. 31 of
+// the corpus's own 57 real SVar-defined Scry lines naming SubAbility$
+// chain to an already-built leaf ability and resolve end to end.
 var scryUnresolvedParams = [...]string{
-	"SubAbility", "ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
+	"ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
 }
 
 type scryEffect struct{}

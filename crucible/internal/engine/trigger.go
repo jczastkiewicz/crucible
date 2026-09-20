@@ -248,15 +248,20 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 // control attacks") both fall out of the identical check below, just with
 // different ValidCard strings and a different host.
 //
-// Not resolved: Attacked$ (47 real lines) -- TriggerAttacks.performTest
-// matches it against a GameEntity (a player, planeswalker or Battle), and
-// Matches (valid.go) only evaluates a *Card; FirstAttack$ (4) -- a
-// creature's own per-turn attack-count history (Java's own
-// CardDamageHistory.getCreatureAttacksThisTurn), which this port tracks
-// nothing for. A trigger carrying either is skipped entirely, not fired
-// unconditionally -- GO-7: better to miss a real trigger than fire one whose
-// own restriction this port silently ignored. 1,555 of 1,606 real lines
-// carry neither.
+// Attacked$ (47 real lines) and FirstAttack$ (4) are resolved now too.
+// Attacked$ matches AbilityKey.Attacked, a single GameEntity (a player,
+// planeswalker or Battle) rather than a *Card -- attackedTargetMatches
+// (below, built for AttackersDeclared's own AttackedTarget$, which faces the
+// identical player-shaped/card-shaped mixed-token problem for a whole
+// collection of attacked entities) already handles one entity as the
+// trivial one-element case, no new dispatch needed. FirstAttack$ reads a new
+// Card.AttacksThisTurn (card.go), CardDamageHistory.getCreatureAttacksThisTurn's
+// own per-card counter, incremented for each declared attacker right before
+// this function runs (DeclareCombatAttackers, attack.go) and reset every
+// cleanup (cleanupStep, turn.go) -- true exactly when the just-incremented
+// count is 1, "this is the first time this creature has attacked this
+// turn," ported directly from Java's own `> 1` skip rather than a `== 1`
+// require, since a trigger carrying neither param is unaffected either way.
 //
 // Resolved: Alone$ (57) -- Combat.Attackers minus attacker itself is
 // TriggerAttacks.performTest's own AbilityKey.OtherAttackers (CombatUtil's
@@ -283,15 +288,22 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 					if !isAttacksTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "Attacked", "FirstAttack") {
-						continue
-					}
 					validCard, ok := t.Param("ValidCard")
 					if !ok {
 						continue
 					}
 					if !Matches(g, g.Card(attacker), valid.Parse(validCard), h.Controller(), host) {
 						continue
+					}
+					if attacked, ok := t.Param("Attacked"); ok {
+						if !attackedTargetMatches(g, h, []EntityID{g.combat.AttackTargets[attacker]}, attacked) {
+							continue
+						}
+					}
+					if _, ok := t.Param("FirstAttack"); ok {
+						if g.Card(attacker).AttacksThisTurn > 1 {
+							continue
+						}
 					}
 					if alone, ok := t.Param("Alone"); ok {
 						if strings.EqualFold(alone, "True") != (attacksOtherCount(g, attacker) == 0) {

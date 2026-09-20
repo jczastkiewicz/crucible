@@ -350,7 +350,10 @@ their own `hasAnyParam` pre-filter still naming `IsPresent$`/`PresentCompare$`/`
 generically — a leftover never revisited once that mechanism landed, silently keeping 686 real `Phase` lines and 31 real
 `AttackersDeclared` lines skipped regardless of whether their own condition held. Removing the three keys from each
 pre-filter was the whole fix; `Condition$` stays skipped in both (a separate, still-unresolved `SpellAbilityCondition`
-gate). Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
+gate). `checkAttacksTriggers` resolves `Attacked$` (47 real lines, `attackedTargetMatches` — built for
+`AttackersDeclared`'s own `AttackedTarget$`, reused here at its one-element case against `AbilityKey.Attacked`'s own
+single `GameEntity`) and `FirstAttack$` (4, a new `Card.AttacksThisTurn` per-card counter, incremented per declared
+attacker and reset every cleanup) now too. Full detail: `docs/crucible/00-master-implementation-plan.md` items 24-29,
 `docs/crucible/porting/port-log/game-state.md`. Thin or missing: Layer 1 (copy effects — not even part of
 `StaticAbilityContinuous.java`'s own switch in Forge itself; zero real references to `StaticAbilityLayer.COPY` anywhere
 in it, a wholly separate "become a copy of a card" mechanism at resolution time, not a recomputed-each-pass continuous
@@ -364,11 +367,11 @@ past a literal token list and Layer 7a's own SVar shapes outside the Valid famil
 bug caught and fixed after the fact, not a hypothetical one) — a dynamic value or a
 bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line rather than applying it wrong;
 the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the engine would
-violate GO-2); `Attacks`'s own `Attacked$`/`FirstAttack$`, `DamageDone`'s own `ValidCause$`, `Discarded`'s own
-`ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own
-`Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, `Phase`'s own
-`IsPresent$`/`PresentCompare$`/`CheckSVar$`/`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/
-`TurnCount$` and its own qualified `ValidPlayer$` forms, and every trigger mode past
+violate GO-2); `DamageDone`'s own `ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`,
+`TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen` qualified
+`ValidActivatingPlayer$` forms, `Phase`'s own
+`Condition$`/`FirstUpkeep$`/`FirstUpkeepThisGame$`/`FirstCombat$`/`TurnCount$` and its own qualified `ValidPlayer$`
+forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/taps-for-mana/casts/beginning-of-a-step-or-phase;
 201 script-driven effects past `Draw`/`DealDamage` still report `ErrUnimplemented`. **P4 exit gate's fixture-count half
 met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan

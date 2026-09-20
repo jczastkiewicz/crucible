@@ -64,6 +64,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	g.combat.Attackers = attackers
 	g.assignAttackTargets(controller, attackers)
 	for _, id := range attackers {
+		g.Card(id).AttacksThisTurn++
 		g.checkAttacksTriggers(id)
 	}
 	g.checkAttackersDeclaredTrigger()

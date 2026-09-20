@@ -267,6 +267,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).Damage.Clear()
+			g.Card(id).AttacksThisTurn = 0
 		}
 		p := g.Player(pid)
 		p.LandsPlayedLastTurn = p.LandsPlayed

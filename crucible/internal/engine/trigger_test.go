@@ -1010,8 +1010,10 @@ func TestDeclareCombatAttackersFiresOtherPermanentsWatchingAttackTrigger(t *test
 }
 
 // attacksTriggerWithAttackedParamDefPT builds a creature whose own Attacks
-// trigger carries Attacked$, a param checkAttacksTriggers does not evaluate.
-func attacksTriggerWithAttackedParamDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+// trigger carries Attacked$ attacked -- attackedTargetMatches' own
+// single-entity case (trigger.go), matched against AbilityKey.Attacked, the
+// GameEntity this attacker is actually attacking.
+func attacksTriggerWithAttackedParamDefPT(t *testing.T, name, power, toughness, attacked string) *compile.Card {
 	t.Helper()
 
 	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
@@ -1024,7 +1026,7 @@ func attacksTriggerWithAttackedParamDefPT(t *testing.T, name, power, toughness s
 	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
 	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
 	raw.Faces[0].Triggers = []string{
-		"Mode$ Attacks | ValidCard$ Card.Self | Attacked$ You | Execute$ TrigDraw",
+		"Mode$ Attacks | ValidCard$ Card.Self | Attacked$ " + attacked + " | Execute$ TrigDraw",
 	}
 	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
 
@@ -1035,17 +1037,45 @@ func attacksTriggerWithAttackedParamDefPT(t *testing.T, name, power, toughness s
 	return c
 }
 
-// TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam proves a trigger
-// carrying a param this port cannot evaluate (Attacked$) is skipped entirely
-// -- never fired unconditionally, which would be silently wrong (GO-7).
-func TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam(t *testing.T) {
+// TestDeclareCombatAttackersFiresAttacksTriggerWhenAttackedConditionMet
+// proves checkAttacksTriggers now resolves Attacked$ (47 real lines) through
+// attackedTargetMatches: attacking the lone opponent satisfies
+// Attacked$ Opponent, so the trigger's own Execute$ Draw fires and resolves.
+func TestDeclareCombatAttackersFiresAttacksTriggerWhenAttackedConditionMet(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p, other := g.Players()[0], g.Players()[1]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(other).Life = 20, 20
-	attacker := g.NewCard(attacksTriggerWithAttackedParamDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	attacker := g.NewCard(attacksTriggerWithAttackedParamDefPT(t, "Test Attacker", "2", "2", "Opponent"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- Attacked$ Opponent is met, attacking the lone opponent", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsAttacksTriggerWhenAttackedConditionNotMet
+// proves the negative control: Attacked$ You never matches an attacker's own
+// controller (a creature cannot attack its own controller), so the trigger
+// correctly does not fire -- Attacked$ is genuinely evaluated now, not
+// silently skipped regardless of who is actually attacked.
+func TestDeclareCombatAttackersSkipsAttacksTriggerWhenAttackedConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerWithAttackedParamDefPT(t, "Test Attacker", "2", "2", "You"), p, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
 	ac := engine.NewScriptedController()
@@ -1053,7 +1083,88 @@ func TestDeclareCombatAttackersSkipsTriggerWithUnresolvedParam(t *testing.T) {
 	g.DeclareCombatAttackers(ac)
 
 	if got := g.StackLen(); got != 0 {
-		t.Fatalf("StackLen() = %d, want 0 -- Attacked$ is not evaluated, so the trigger must not fire", got)
+		t.Fatalf("StackLen() = %d, want 0 -- Attacked$ You never matches attacking the lone opponent", got)
+	}
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want Library -- nothing should have drawn it", g.Card(top).Zone)
+	}
+}
+
+// attacksTriggerFirstAttackDefPT builds a creature whose own Attacks trigger
+// carries FirstAttack$ -- Card.AttacksThisTurn's own reader (trigger.go).
+func attacksTriggerFirstAttackDefPT(t *testing.T, name, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ Attacks | ValidCard$ Card.Self | FirstAttack$ True | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresFirstAttackTriggerOnFirstAttackThisTurn
+// proves FirstAttack$ fires the ordinary way: a creature's first declared
+// attack this turn leaves Card.AttacksThisTurn at 1 immediately after the
+// increment (DeclareCombatAttackers, attack.go), so the trigger's own
+// Execute$ Draw fires and resolves.
+func TestDeclareCombatAttackersFiresFirstAttackTriggerOnFirstAttackThisTurn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerFirstAttackDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- this is the attacker's first attack this turn", g.Card(top).Zone)
+	}
+}
+
+// TestDeclareCombatAttackersSkipsFirstAttackTriggerWhenAlreadyAttackedThisTurn
+// proves the negative control: with Card.AttacksThisTurn already at 1 before
+// this declare-attackers call (simulating an earlier combat this same turn,
+// an extra-combat effect this port does not itself grant), the increment
+// leaves it at 2, so FirstAttack$ correctly does not fire.
+func TestDeclareCombatAttackersSkipsFirstAttackTriggerWhenAlreadyAttackedThisTurn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	attacker := g.NewCard(attacksTriggerFirstAttackDefPT(t, "Test Attacker", "2", "2"), p, engine.Battlefield)
+	g.Card(attacker).AttacksThisTurn = 1
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- this creature already attacked once this turn", got)
 	}
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- nothing should have drawn it", g.Card(top).Zone)

@@ -62,6 +62,16 @@ type Card struct {
 	Tapped     bool
 	SummonSick bool
 
+	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
+	// per-card counter -- incremented once per combat this card is declared
+	// an attacker in (DeclareCombatAttackers, attack.go), reset every cleanup
+	// (cleanupStep, turn.go) alongside Damage/LandsPlayed/CardsDrawnThisTurn.
+	// TriggerAttacks' own FirstAttack$ (trigger.go) is the one reader: "this
+	// is the first time this creature has attacked this turn," true exactly
+	// when this reads 1 at the moment its own trigger fires, immediately
+	// after the increment.
+	AttacksThisTurn int
+
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a
 	// Battle that has not been assigned one yet (assignBattleProtector,

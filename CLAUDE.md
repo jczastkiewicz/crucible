@@ -473,5 +473,18 @@ lists too, the identical change `GainLife`/`LoseLife` already got. 170/253 (`Dra
 already-built leaf ability and resolve end to end (a chain more than one hop deep, or one whose target is one of the 193
 effects still unbuilt, is not counted). 193 script-driven effects past
 `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still report
-`ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
-floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+`ErrUnimplemented`. **Last-known-information landed too** (`Game.LKI`, `game.go`) — CR 603.6d's own "look back in time":
+`Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its own
+`Counters`/`PT`/`TypeMod`/`ColorMod`/`KeywordMod`, so `checkDiesTriggers`/`otherDiesTriggerMatches` (`trigger.go`) still
+match a `ValidCard$` naming the dying card's own power, toughness, type, color, a keyword or a counter against what it
+had the instant before it died, not the printed-only state `Move` has already reset it to by the time either function
+runs — 116 of the corpus's own 7,574 real `Mode$ ChangesZone` lines whose `Destination$` permits Graveyard name exactly
+that shape (Retched Wretch's own real "when CARDNAME dies, if it had a -1/-1 counter on it..."). `Card.Def`/
+`Card.Controller()` never needed the lookup (`Move`'s own doc comment already covers why), so this is a plain struct
+copy rather than Java's own `CardCopyService.getLKICopy()`'s field-by-field reconstruction — overwritten whole, never
+merged, on every subsequent trip off the battlefield. `Game.Clone` (M7's own AI lookahead) gives its own copy an
+independent snapshot, the identical "shares nothing writable" contract it already holds for every other per-card ledger.
+The legend rule's own remaining Partner-non-legendary-name corner case (needs a card-name lookup injecting into the
+engine would violate GO-2) is the only other item-25 gap, and stays unbuilt. **P4 exit gate's fixture-count half met:**
+342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
+3.2) is not.

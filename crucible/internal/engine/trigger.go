@@ -158,14 +158,22 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 // ("when CARDNAME dies"); checkOtherDiesTriggers, below, is the wider half.
 //
 // Card.Def is fixed at compile time and unaffected by the zone a card now
-// sits in, so nothing here actually needs to look anything up as it "was":
-// Def.Faces[i].Triggers reads the same list whether left is still on the
-// battlefield or not, and c.Controller() (game.go's own Move does not clear
-// it on leaving) still reads the last real controller, exactly the
-// last-known-information Java's own layer system gives a leaving card.
+// sits in, and c.Controller() (game.go's own Move does not clear it on
+// leaving) still reads the last real controller -- neither needs a lookup.
+// A ValidCard$ testing power, toughness, type, color, a keyword or a counter
+// does: Move's own battlefield-leaving branch clears exactly those before
+// this function ever runs, so reading g.Card(left) directly would test the
+// dying card's printed-only state, not the state it died in (Reyhan, Last of
+// the Abzan's own "whenever a creature you control with a +1/+1 counter on
+// it dies" among 116 real corpus lines this would silently under-fire for).
+// g.LKI (game.go) is exactly the frozen copy CR 603.6d asks for, taken the
+// instant before Move reset any of it.
 func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 	var matches []Ability
 	c := g.Card(left)
+	if snap := g.LKI(left); snap != nil {
+		c = snap
+	}
 	if c.Def != nil {
 		for _, face := range c.Def.Faces {
 			for _, t := range face.Triggers {
@@ -204,12 +212,18 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 // dying object, not the watcher's own zone -- the watcher itself is
 // unaffected by left leaving and is exactly as reachable by a battlefield
 // walk as any ETB watcher is, so nothing about "look back in time" actually
-// blocks this the way an earlier version of this comment assumed.
+// blocks this the way an earlier version of this comment assumed. left's own
+// state is the one side that does need the lookback -- g.LKI, exactly as
+// checkDiesTriggers's own doc comment above now explains.
 //
 // Returns matches rather than pushing them directly, checkDiesTriggers's own
 // reason (otherETBTriggerMatches's own doc comment).
 func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 	var matches []Ability
+	dying := g.Card(left)
+	if snap := g.LKI(left); snap != nil {
+		dying = snap
+	}
 	for _, pid := range g.Players() {
 		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
 			w := g.Card(watcher)
@@ -225,7 +239,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, g.Card(left), valid.Parse(validCard), w.Controller(), watcher) {
+					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {

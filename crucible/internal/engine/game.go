@@ -90,6 +90,27 @@ type Game struct {
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord
+
+	// lki is CR 603.6d's "look back in time": each CardID's own frozen copy
+	// of itself from the instant before Move's own battlefield-leaving branch
+	// (below) reset its Counters/PT/TypeMod/ColorMod/KeywordMod, so
+	// checkDiesTriggers/otherDiesTriggerMatches (trigger.go) still see the
+	// dying card's own power, toughness, type, color, keyword and counter
+	// state as it stood on the battlefield an instant earlier, not the
+	// printed-only state Move has already reset it to by the time either
+	// function runs. Ported from CardCopyService.getLKICopy() at the one
+	// subset of its several dozen copied fields the real corpus's own dies
+	// triggers actually read: 116 of 7,574 real Mode$ ChangesZone lines whose
+	// Destination$ permits Graveyard also name a ValidCard$ checking a
+	// power/toughness/counter/keyword property of the dying card itself
+	// (port-log/game-state.md's "Last-known-information" section) --
+	// Card.Def/Card.Controller() need no such lookup (Move's own doc comment
+	// already established why), so the LKI copy is a plain struct copy rather
+	// than Java's own field-by-field reconstruction. Overwritten whole, never
+	// merged, on every subsequent trip off the battlefield -- the identical
+	// "one frozen copy, replaced whole" contract getLKICopy() itself has, one
+	// CardID absent here simply never having left the battlefield yet.
+	lki map[CardID]*Card
 }
 
 // pumpRecord is one resolved Pump effect's own contribution -- Defined$'s
@@ -170,6 +191,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 		db:      db,
 		rand:    rng,
 		sink:    DiscardSink{},
+		lki:     make(map[CardID]*Card),
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
@@ -248,6 +270,14 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 	return z
 }
 
+// LKI returns id's frozen last-known-information snapshot -- Move's own
+// battlefield-leaving branch, below -- or nil if id has never left the
+// battlefield. checkDiesTriggers/otherDiesTriggerMatches (trigger.go) are its
+// only callers today.
+func (g *Game) LKI(id CardID) *Card {
+	return g.lki[id]
+}
+
 // Move takes a card out of the zone it is in and appends it to another,
 // stamping it on the way.
 //
@@ -255,7 +285,8 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 // order by and what makes a card that left and came back a different object to
 // the layer system.
 //
-// Leaving the battlefield clears Counters, Damage, Tapped and any
+// Leaving the battlefield freezes a copy of the card into [Game.lki] before
+// clearing Counters, Damage, Tapped, PT/TypeMod/ColorMod/KeywordMod and any
 // attachment; entering it sets SummonSick and, for a planeswalker or a
 // Battle, its printed starting loyalty/defense as counters (CR 121.5,
 // 704.5v). Java gets all three for free: GameAction.changeZone builds a new
@@ -292,6 +323,8 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 
 	switch {
 	case from == Battlefield && kind != Battlefield:
+		snap := *c
+		g.lki[id] = &snap
 		c.Counters = Counters{}
 		c.Damage.Clear()
 		c.PT.Clear()
@@ -453,7 +486,10 @@ func (g *Game) Unattach(attachment CardID) {
 // behind pointers -- its counters, its three memory lists, its attachments --
 // and copying the slice alone would leave the clone and the original writing
 // to the same ones. Each is copied when it exists and left nil when it does
-// not, which is most cards most of the time.
+// not, which is most cards most of the time. lki gets the identical
+// treatment, one frozen snapshot at a time -- a card that already left the
+// battlefield needs its own independent copy exactly as much as one still on
+// it does.
 //
 // The database is shared, because it is immutable (ADR-0005). The random
 // stream is copied by value, so the clone continues from where the original
@@ -476,6 +512,7 @@ func (g *Game) Clone() *Game {
 		stack:  append([]Ability(nil), g.stack...),
 		combat: g.combat.clone(),
 		pumps:  append([]pumpRecord(nil), g.pumps...),
+		lki:    make(map[CardID]*Card, len(g.lki)),
 	}
 	if g.rand != nil {
 		r := *g.rand
@@ -503,6 +540,20 @@ func (g *Game) Clone() *Game {
 	}
 	for k, z := range g.zones {
 		out.zones[k] = &Zone{Type: z.Type, Owner: z.Owner, cards: z.cards.Clone()}
+	}
+	for id, snap := range g.lki {
+		s := *snap
+		s.Counters = snap.Counters.clone()
+		s.Memory = snap.Memory.clone()
+		s.PT = snap.PT.clone()
+		s.TypeMod = snap.TypeMod.clone()
+		s.ColorMod = snap.ColorMod.clone()
+		s.KeywordMod = snap.KeywordMod.clone()
+		s.ControlMod = snap.ControlMod.clone()
+		if snap.attachments != nil {
+			s.attachments = snap.attachments.Clone()
+		}
+		out.lki[id] = &s
 	}
 	return out
 }

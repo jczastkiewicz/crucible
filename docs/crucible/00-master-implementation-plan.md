@@ -620,13 +620,23 @@ printed form.
 25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here). **Done** for the
     SBAs reached so far (`action.go`: legend rule, World rule, zero toughness/loyalty/defense, lethal damage, Battle
     protector, dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present
-    host); zone-change machinery itself (`Game.Move`) exists, LKI tracking does not (`porting/port-log/game-state.md`'s
-    "Not ported yet"). The legend rule's own `ignoreLegendRule` exemption is ported too (`ignoreLegendRule`,
-    `staticability.go`, ported from `StaticAbilityIgnoreLegendRule`) — a plain `ValidCard` match against every
-    battlefield permanent, needing none of item 27's own layer-folding machinery, the same reason `CantBlockBy`
-    (item 28) turned out independently buildable. Not reached: the legend rule's other corner case,
-    Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup,
-    which injecting into the engine would violate GO-2).
+    host); zone-change machinery itself (`Game.Move`) exists, and now so does LKI tracking (`Game.LKI`, CR 603.6d's own
+    "look back in time" -- `Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its own
+    `Counters`/`PT`/`TypeMod`/`ColorMod`/`KeywordMod`, so `checkDiesTriggers`/`otherDiesTriggerMatches` (trigger.go,
+    item 26) can still match a `ValidCard$` naming the dying card's own power, toughness, type, color, a keyword or a
+    counter against what it had the instant before it died rather than the printed-only state `Move` has already reset
+    it to by the time either function runs -- 116 of the corpus's own 7,574 real `Mode$ ChangesZone` lines whose
+    `Destination$` permits Graveyard name exactly that shape, Retched Wretch's own real "when CARDNAME dies, if it had a
+    -1/-1 counter on it..." among them. `Card.Def`/`Card.Controller()` never needed the lookup (`Move`'s own doc comment
+    already covers why), so this is a plain struct copy rather than Java's own `CardCopyService.getLKICopy()`'s
+    field-by-field reconstruction, overwritten whole -- never merged -- on every subsequent trip off the battlefield;
+    `Game.Clone` (M7's own AI lookahead) gives its own copy an independent snapshot, the identical "shares nothing
+    writable" contract it already holds for every other per-card ledger. The legend rule's own `ignoreLegendRule`
+    exemption is ported too (`ignoreLegendRule`, `staticability.go`, ported from `StaticAbilityIgnoreLegendRule`) — a
+    plain `ValidCard` match against every battlefield permanent, needing none of item 27's own layer-folding machinery,
+    the same reason `CantBlockBy` (item 28) turned out independently buildable. Not reached: the legend rule's other
+    corner case, Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own
+    card-name lookup, which injecting into the engine would violate GO-2).
 
     The "cleanup aura" rule's own Protection/Hexproof gap (CR 702.11h/702.16e — a static-ability "can't be enchanted"
     question, distinct from the `Enchant` restriction itself) is closed too, for both real corpus shapes: a new

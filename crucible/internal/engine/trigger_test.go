@@ -1401,6 +1401,142 @@ func TestDeclareCombatAttackersSkipsAttackDifferentPlayersTriggerAgainstOnePlaye
 	}
 }
 
+// diesTriggerCreatureDefValidCard is diesTriggerCreatureDefPT with an
+// explicit ValidCard$ instead of a hardcoded Card.Self, so a test can name a
+// counter/power/toughness/keyword-dependent shape (Retched Wretch's own real
+// "when CARDNAME dies, if it had a -1/-1 counter on it..." --
+// Card.Self+counters_GE1_M1M1, one of 116 real corpus dies-trigger lines
+// whose ValidCard$ needs the dying card's state as it stood on the
+// battlefield, not the printed-only state Move already reset by the time
+// checkDiesTriggers reads it -- game.go's own Game.LKI doc comment).
+func diesTriggerCreatureDefValidCard(t *testing.T, validCard, power, toughness string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Dies Creature"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Dies Creature"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ " + validCard + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDestroyDamagedCreaturesDiesTriggerSeesCounterAtTimeOfDeath proves
+// checkDiesTriggers reads Game.LKI (game.go), not the live, already-reset
+// card: Move's own battlefield-leaving branch clears Counters before
+// checkDiesTriggers ever runs (action.go's destroyDamagedCreatures calls
+// Move then checkDiesTriggers back to back), so a ValidCard$ naming
+// counters_GE1_P1P1 -- Retched Wretch's own real shape, just for the
+// opposite counter kind -- would silently never match without the LKI
+// lookup, the exact "look back in time" CR 603.6d requires and Move's own
+// clearing would otherwise defeat.
+func TestDestroyDamagedCreaturesDiesTriggerSeesCounterAtTimeOfDeath(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	dead := g.NewCard(diesTriggerCreatureDefValidCard(t, "Card.Self+counters_GE1_P1P1", "2", "2"), p, engine.Battlefield)
+	g.Card(dead).Counters.Add(engine.P1P1, 1)
+	g.Card(dead).Damage.Mark(3, false)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Fatalf("creature zone = %v, want Graveyard", z)
+	}
+	if got := g.Card(dead).Counters.Count(engine.P1P1); got != 0 {
+		t.Fatalf("live card still has %d P1P1 counters after leaving the battlefield, want 0 (Move's own clear) -- "+
+			"the trigger below must have matched the LKI copy, not this", got)
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 (the Dies trigger's own Execute$ sub-ability) -- "+
+			"ValidCard$ Card.Self+counters_GE1_P1P1 should have matched the card's LKI state", got)
+	}
+	top, ok := g.StackTop()
+	if !ok {
+		t.Fatal("StackTop() = false, want an ability on top")
+	}
+	if top.Source != dead {
+		t.Errorf("pushed ability Source = %v, want %v (the dead creature itself)", top.Source, dead)
+	}
+}
+
+// dyingWatcherDefValidCard is dyingWatcherDef with an explicit ValidCard$
+// instead of a hardcoded Creature.YouCtrl, for a watcher whose own dies
+// trigger depends on the DYING card's counters/power/toughness/keywords
+// (Reyhan, Last of the Abzan's own real "whenever a creature you control
+// with a +1/+1 counter on it dies" -- Creature.YouCtrl+counters_GE1_P1P1).
+func dyingWatcherDefValidCard(t *testing.T, validCard string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Dies Watcher"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Dies Watcher"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ " + validCard + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return c
+}
+
+// TestDestroyDamagedCreaturesOtherDiesTriggerSeesCounterAtTimeOfDeath is
+// TestDestroyDamagedCreaturesDiesTriggerSeesCounterAtTimeOfDeath's own
+// otherDiesTriggerMatches counterpart: a separate watcher's own dies trigger,
+// not the dying creature's, needs the identical LKI lookup for the SAME
+// reason -- otherDiesTriggerMatches (trigger.go) matches against the dying
+// card too, just from a different permanent's own Triggers list.
+func TestDestroyDamagedCreaturesOtherDiesTriggerSeesCounterAtTimeOfDeath(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	watcher := g.NewCard(dyingWatcherDefValidCard(t, "Creature.YouCtrl+counters_GE1_P1P1"), p, engine.Battlefield)
+	dead := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(dead).Counters.Add(engine.P1P1, 1)
+	g.Card(dead).Damage.Mark(3, false)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(dead).Zone; z != engine.Graveyard {
+		t.Fatalf("creature zone = %v, want Graveyard", z)
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 (the watcher's own Execute$ sub-ability) -- "+
+			"ValidCard$ Creature.YouCtrl+counters_GE1_P1P1 should have matched the dying card's LKI state", got)
+	}
+	top, ok := g.StackTop()
+	if !ok {
+		t.Fatal("StackTop() = false, want an ability on top")
+	}
+	if top.Source != watcher {
+		t.Errorf("pushed ability Source = %v, want %v (the watcher, not the dying creature)", top.Source, watcher)
+	}
+}
+
 // dyingWatcherDef builds a *compile.Card for a real "whenever a creature you
 // control dies" trigger (Blood Artist/Zulaport Cutthroat's own corpus shape,
 // 205 real cards) -- ValidCard$ Creature.YouCtrl, watching for some OTHER

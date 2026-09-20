@@ -13,13 +13,17 @@ package engine
 import "fmt"
 
 // gainLifeEffect resolves Mode$/DB$/AB$ GainLife. Player.Life is a plain
-// field with no combat-style prevention machinery built for it yet
-// (LifeChanged, below, is the identical event dealPlayerDamage already
-// emits for a life LOSS, reused here for a gain): CR 119's own "life gain
-// replacement" family (Event$ GainLife, 22 real replacement lines, 2
-// Prevent$ True and 20 ReplaceWith$-driven) is not ported, the identical
-// "real gap, not a wrong answer" this port's own untapped/unresolved
-// replacement remainders already are (game-state.md's "Not ported yet").
+// field; CR 119's own "life gain replacement" family (Event$ GainLife, 21
+// real replacement lines) has its one directly resolvable real shape now --
+// gainLifePrevented (replacement.go), checked per player before Life is
+// touched at all, resolves sulfuric_vortex.txt's own bare Prevent$ True (the
+// only one of the 21 naming Prevent$ at all; the other 20 name ReplaceWith$
+// instead -- GainDouble/RLoseLife/Draw among them, each needing "the amount
+// of life that would have been gained" as a runtime value this port's
+// resolveAmount has no way to read back, replacement.go's own doc comment
+// has the full reason, not ported). LifeChanged, below, is the identical
+// event dealPlayerDamage already emits for a life LOSS, reused here for a
+// gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
 // to the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/UnlessCost$/
@@ -73,6 +77,9 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return fmt.Errorf("engine: GainLife: %w", err)
 	}
 	for _, pid := range players {
+		if g.gainLifePrevented(pid) {
+			continue
+		}
 		g.Player(pid).Life += amount
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(amount)})
 		g.checkLifeGainedTriggers(controller, pid)

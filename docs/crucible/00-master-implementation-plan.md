@@ -1218,6 +1218,37 @@ printed form.
     `OptionalDecider$` (3) — an interactive "may" confirm this port's own `PlayerController` has no hook for, the
     identical gap `Discard`'s own `Optional$`/`BecomesTarget`'s own `OptionalDecider$` already document.
 
+    **`ReplacementEffect.requirementsCheck` is real now too** (`replacementRequirementsCheck`, replacement.go) — a
+    general gate every replacement carries regardless of its own `Event$`, checked before its own shape-specific
+    `canReplace`, mirroring `triggerPhasesCheck`'s own role for triggers: `PlayerTurn$` (8 real lines combined across
+    `DamageDone`/`Draw`/`CreateToken`/`LifeReduced`/`TurnFaceUp`, every one the literal value `True`) checks
+    `isPlayerTurn(hostController)` directly; `ActivePhases$` (1, island_sanctuary.txt's own `Draw` shape) reuses
+    `phaseTriggerMatches` (trigger.go) at its own key rather than `Phase$`'s, now that function takes a `key` parameter
+    instead of hardcoding `"Phase"`; `triggerCommonRequirementsMet` is then called outright, since Java's own
+    `ReplacementEffect.requirementsCheck` ends by calling the identical `meetsCommonRequirements` a `Trigger`'s own
+    `performTest` already does. Folded into `damagePreventionMatches`/`untapReplacementMatches`/ `replacementTapsOnMove`
+    (each widening its own allow-list to admit the newly-resolved keys), closing 7 of 10 previously-skipped real
+    `DamageDone`|`Prevent$` lines (`PlayerTurn$` 4, `CheckSVar$`/`SVarCompare$` 2, `IsPresent$` 1 —
+    guardian_naga_banishing_coils.txt's own real "can't be dealt damage during your turn" among them) and 5 of 7
+    previously-skipped `Untap`|`CantHappen` lines (`IsPresent$` 4, `CheckSVar$`/`SVarCompare$` 1) for free, plus fixing
+    a real, if narrow, wrong-firing bug: archelos_lagoon_mystic.txt's own "enters tapped" toggle names
+    `IsPresent$ Card.Self+tapped`/`+untapped` restricting its own two replacement lines to only apply while Archelos
+    itself is tapped/untapped — unchecked before this, `replacementTapsOnMove` carried no allow-list at all to skip on
+    instead of guessing, so the "enters tapped" half matched regardless of Archelos's own state.
+
+    Two new consumers reuse the same general gate directly: **`drawPrevented`/`gainLifePrevented`** (replacement.go)
+    resolve CR 120.3's/119's own `Prevent$ True` shape for `Draw`/`GainLife` — 2 of the corpus's own 39 real `Draw`
+    lines (possessed_portal.txt's own bare `ValidPlayer$ Player | Prevent$ True`; living_conundrum.txt's own
+    `IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0`-qualified "while your library has no cards")
+    and 1 of 21 real `GainLife` lines (sulfuric_vortex.txt's own bare form) resolve end to end. `drawPrevented` is
+    checked from `DrawCards` (turn.go) before the empty-library check runs at all — Java's own `Player.doDraw` checks
+    its `Event$ Draw` replacement before ever looking at whether the library is empty, so a prevented draw cannot also
+    trigger CR 704.5b's own "attempted to draw from an empty library" loss. `gainLifePrevented` is checked from
+    `gainLifeEffect` (gainlifeeffect.go) per player before `Player.Life` is touched at all. The other 36 real `Draw`
+    lines and 20 real `GainLife` lines name `ReplaceWith$` instead — a real substitution needing "the amount that would
+    have been drawn/gained" as a runtime value this port's `resolveAmount` has no way to read back (Java's own
+    `AbilityKey.ReplacedAmount` threading, not built), not resolved.
+
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
     player draws a card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`,

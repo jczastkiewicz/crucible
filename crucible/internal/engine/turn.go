@@ -187,6 +187,13 @@ func (g *Game) drawStep(controller PlayerController) {
 // never happened, the same as a real player who cannot pay to keep drawing
 // past empty.
 //
+// drawPrevented (replacement.go) is checked first, one card at a time --
+// Player.doDraw's own Event$ Draw replacement check running before it ever
+// looks at whether the library is empty, ported directly: a card this
+// checks true for never reaches the empty-library check below at all, so a
+// draw CR 614 prevents cannot also be the "attempted to draw from an empty
+// library" 704.5b loses to.
+//
 // The top of the library is index 0 of the zone's order: a fixture author
 // who writes `humanlibrary=TopCard;NextCard;...` names it left to right, top
 // to bottom, and Load builds cards in that same order (game-state-fixture.md).
@@ -194,6 +201,9 @@ func (g *Game) drawStep(controller PlayerController) {
 // effect) are this port's two callers.
 func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
 	for i := 0; i < n; i++ {
+		if g.drawPrevented(pid) {
+			continue
+		}
 		lib := g.Zone(Library, pid)
 		if lib.Len() == 0 {
 			g.Player(pid).DrewFromEmptyLibrary = true

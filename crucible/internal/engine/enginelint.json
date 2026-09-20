@@ -141,7 +141,7 @@
     "draweffect": ["id", "card", "game", "player", "ability", "turn", "defined", "amount", "control"],
     "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount", "playerstate"],
     "amount": ["id", "zone", "card", "game", "valid"],
-    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability", "condition"],
+    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability", "condition", "trigger"],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card"],
     "dealdamageeffect": ["id", "card", "game", "player", "ability", "combatdamage", "defined", "amount", "condition", "control"],

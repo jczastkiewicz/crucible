@@ -101,6 +101,62 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 	}
 }
 
+// replacementRequirementsCheck ports ReplacementEffect.requirementsCheck --
+// a general gate every replacement carries regardless of what Event$ it
+// names, checked before its own shape-specific canReplace, mirroring
+// triggerPhasesCheck's own role for triggers (trigger.go): the two are
+// genuinely parallel Java methods (Trigger.phasesCheck /
+// ReplacementEffect.requirementsCheck), not the same one reused, since
+// Trigger and ReplacementEffect are sibling subclasses of TriggerReplacementBase
+// rather than one inheriting from the other. Every consumer in this file
+// (damagePreventionMatches, untapReplacementMatches, replacementTapsOnMove,
+// below) had its own separate, narrower allow-list of extra params it
+// tolerated before this landed; each now includes this call and widens its
+// own allow-list to admit the keys this function itself reads (below),
+// closing 7 of 10 previously-skipped real DamageDone|Prevent$ lines and 5 of
+// 7 previously-skipped Untap|CantHappen lines for free, plus fixing a real,
+// if narrow, wrong-firing bug on `replacementTapsOnMove`'s own side:
+// archelos_lagoon_mystic.txt's own real "enters tapped" toggle names
+// IsPresent$ Card.Self+tapped/+untapped restricting Archelos's own two
+// replacement lines to only apply while ARCHELOS ITSELF is tapped/untapped
+// respectively -- unchecked before this, both lines were reachable
+// regardless of Archelos's own state (a genuine wrong answer, not a gap,
+// since replacementTapsOnMove carried no allow-list at all to skip on
+// instead of guessing).
+//
+// PlayerTurn$ (8 real R: lines combined across DamageDone/Draw/CreateToken/
+// LifeReduced/TurnFaceUp, every one the literal value "True" -- 0 real lines
+// use the Defined$-reference else-branch Java's own requirementsCheck also
+// has, so only the literal-True branch is ported) checks
+// game.getPhaseHandler().isPlayerTurn(hostController) directly.
+// ActivePhases$ (1 real line, island_sanctuary.txt's own Draw shape) reuses
+// phaseTriggerMatches (trigger.go, Mode$ Phase's own dispatch function) at
+// its own key rather than Phase$'s, the identical general-purpose phase-list
+// parser either way. triggerCommonRequirementsMet (trigger.go,
+// CardTraitBase.meetsCommonRequirements's own port) is then called outright
+// -- ReplacementEffect.requirementsCheck's own final line calls the
+// identical Java method a Trigger's own performTest already does, so this
+// port's identical shared function serves both for the same reason.
+func replacementRequirementsCheck(g *Game, host *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
+	if v, ok := r.Param("PlayerTurn"); ok {
+		if !strings.EqualFold(v, "True") {
+			// Java's own else-branch (a Defined$ player reference rather than
+			// the literal "True") -- 0 real lines use it, so skipping rather
+			// than resolving it is the honest answer, not a guess (GO-7).
+			return false
+		}
+		if g.ActivePlayer() != host.Controller() {
+			return false
+		}
+	}
+	if _, ok := r.Param("ActivePhases"); ok {
+		if !phaseTriggerMatches(r, "ActivePhases", g.ActivePhase()) {
+			return false
+		}
+	}
+	return triggerCommonRequirementsMet(g, host, amounts, r)
+}
+
 // replacementTapsOnMove reports whether r is a resolvable "enters tapped"
 // replacement matching moved's own zone change (matched, the second return
 // value) and, if so, whether it actually taps (shouldTap, the first): Event$
@@ -108,11 +164,12 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 // of the real ETBTapped-named lines respectively -- absence of either means
 // unrestricted, ReplaceMoved.java's own hasParam guard), ValidCard$ matched
 // against moved the identical way a trigger's own ValidCard$ is (Matches,
-// valid.go), and a ReplaceWith$ sub-ability tapAbilityResolvesTap (below)
-// recognizes -- matched true whether or not the checkland-style condition
-// inside that sub-ability actually holds, since CR 616's own "which
-// replacement applies" choice is decided by ReplaceWith$ naming a resolvable
-// shape at all, not by what that shape's own resolution produces.
+// valid.go), replacementRequirementsCheck (above), and a ReplaceWith$
+// sub-ability tapAbilityResolvesTap (below) recognizes -- matched true
+// whether or not the checkland-style condition inside that sub-ability
+// actually holds, since CR 616's own "which replacement applies" choice is
+// decided by ReplaceWith$ naming a resolvable shape at all, not by what that
+// shape's own resolution produces.
 func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (shouldTap, matched bool) {
 	if !strings.EqualFold(r.Name, "Moved") {
 		return false, false
@@ -128,6 +185,9 @@ func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin 
 		return false, false
 	}
 	if !Matches(g, movedCard, valid.Parse(validCard), hostController, host) {
+		return false, false
+	}
+	if !replacementRequirementsCheck(g, g.Card(host), amounts, r) {
 		return false, false
 	}
 	for _, sub := range r.Subs {
@@ -257,7 +317,7 @@ func (g *Game) untapBlocked(card *Card) bool {
 				}
 				for _, face := range h.Def.Faces {
 					for _, r := range face.Replacements {
-						if untapReplacementMatches(g, r, card, h.Controller(), host, z) {
+						if untapReplacementMatches(g, r, card, h.Controller(), host, z, face.Amounts) {
 							return true
 						}
 					}
@@ -272,15 +332,17 @@ func (g *Game) untapBlocked(card *Card) bool {
 // Event$ Untap, Layer$ CantHappen (156 of 158 real lines; the other 2 name
 // ReplaceWith$ instead -- a genuine substitution, not a "can't happen," a
 // different shape this file does not resolve), r's own host in one of its
-// own ActiveZones$ (replacementActiveZones/hostInActiveZones, above), and
+// own ActiveZones$ (replacementActiveZones/hostInActiveZones, above),
 // ValidCard$ matched against card the identical way checkMovedReplacement's
-// own ValidCard$ already is. Any param besides the ones real corpus lines
-// pair with this shape (Secondary$, purely descriptive) skips the whole
-// line rather than guessing (GO-7): IsPresent$/SVarCompare$/CheckSVar$/
-// EnduringStory$/AddSVar$ together carry a handful of the 156 real lines
-// this shape would otherwise match, each its own further restriction this
-// file cannot evaluate.
-func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostController PlayerID, host CardID, hostZone ZoneType) bool {
+// own ValidCard$ already is, and replacementRequirementsCheck (above), which
+// now folds in IsPresent$/CheckSVar$/SVarCompare$ generically -- closing 5 of
+// the 7 real lines this shape used to skip for naming one of those three.
+// Any param besides the ones real corpus lines pair with this shape
+// (Secondary$, purely descriptive, plus whatever replacementRequirementsCheck
+// itself reads) still skips the whole line rather than guessing (GO-7):
+// EnduringStory$/AddSVar$ carry the remaining 2 of 156, each its own further
+// restriction this file cannot evaluate.
+func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostController PlayerID, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
 	if !strings.EqualFold(r.Name, "Untap") {
 		return false
 	}
@@ -290,7 +352,8 @@ func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostContro
 	}
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
-		case "event", "layer", "description", "validcard", "validstepturntocontroller", "activezones", "secondary":
+		case "event", "layer", "description", "validcard", "validstepturntocontroller", "activezones", "secondary",
+			"ispresent", "checksvar", "svarcompare":
 		default:
 			return false
 		}
@@ -302,7 +365,10 @@ func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostContro
 	if !ok {
 		return false
 	}
-	return Matches(g, card, valid.Parse(validCard), hostController, host)
+	if !Matches(g, card, valid.Parse(validCard), hostController, host) {
+		return false
+	}
+	return replacementRequirementsCheck(g, g.Card(host), amounts, r)
 }
 
 // damagePrevented is CR 614's own "prevent all of this damage" shape
@@ -326,7 +392,7 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool) bool {
 				}
 				for _, face := range h.Def.Faces {
 					for _, r := range face.Replacements {
-						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat) {
+						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts) {
 							continue
 						}
 						if validTarget, ok := r.Param("ValidTarget"); ok &&
@@ -356,7 +422,7 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 				}
 				for _, face := range h.Def.Faces {
 					for _, r := range face.Replacements {
-						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat) {
+						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts) {
 							continue
 						}
 						if validTarget, ok := r.Param("ValidTarget"); ok {
@@ -377,14 +443,19 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 // damagePreventionMatches is damagePrevented/damagePreventedPlayer's own
 // shared half: Event$ DamageDone, Prevent$ True, r's own host in one of its
 // own ActiveZones$, ValidSource$ matched against source the identical way
-// damageDoneMatches' own ValidSource$ already is (trigger.go), and IsCombat$
-// agreeing with isCombat. Any param besides the ones real corpus lines pair
-// with this shape (Secondary$, purely descriptive) skips the whole line:
-// PlayerTurn$/SVarCompare$/IsPresent$/CheckSVar$/ValidCause$/
-// RelativeToSource$/DamageAmount$/CauseIsSource$ together carry 8 of the 72
-// real lines this shape would otherwise match, each its own further
-// restriction this file cannot evaluate (GO-7).
-func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostController PlayerID, host CardID, hostZone ZoneType, isCombat bool) bool {
+// damageDoneMatches' own ValidSource$ already is (trigger.go), IsCombat$
+// agreeing with isCombat, and replacementRequirementsCheck (above), which
+// now folds in PlayerTurn$/CheckSVar$/SVarCompare$/IsPresent$ generically --
+// closing 7 of the 10 real lines this shape used to skip for naming one of
+// those four (guardian_naga_banishing_coils.txt's own real "can't be dealt
+// damage during your turn," PlayerTurn$ True, among them). Any param besides
+// the ones real corpus lines pair with this shape (Secondary$, purely
+// descriptive, plus whatever replacementRequirementsCheck itself reads)
+// still skips the whole line: ValidCause$/RelativeToSource$/DamageAmount$/
+// CauseIsSource$ together carry the remaining 3 of 72 real lines this shape
+// would otherwise match, each its own further restriction this file cannot
+// evaluate (GO-7).
+func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostController PlayerID, host CardID, hostZone ZoneType, isCombat bool, amounts map[string]expr.Amount) bool {
 	if !strings.EqualFold(r.Name, "DamageDone") {
 		return false
 	}
@@ -394,7 +465,8 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 	}
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
-		case "event", "prevent", "description", "validtarget", "activezones", "validsource", "iscombat", "secondary":
+		case "event", "prevent", "description", "validtarget", "activezones", "validsource", "iscombat", "secondary",
+			"playerturn", "checksvar", "svarcompare", "ispresent":
 		default:
 			return false
 		}
@@ -408,7 +480,166 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 	if combat, ok := r.Param("IsCombat"); ok && strings.EqualFold(combat, "True") != isCombat {
 		return false
 	}
-	return true
+	return replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// drawPrevented is CR 121.4/614's own "prevent this draw" shape (Prevent$
+// True) applied to CR 120.3's own "draw a card" event -- ReplaceDraw's own
+// resolvable half plus ReplacementHandler's own Prevent$ True dispatch, the
+// identical contract damagePreventedPlayer already has for a different
+// Event$. DrawCards (turn.go) checks this before drawing each individual
+// card -- Java's own Player.doDraw runs the identical Event$ Draw
+// replacement check before ever looking at whether the library is empty, so
+// a prevented draw does not count as CR 704.5b's own "attempted to draw from
+// an empty library" either: this port's own DrawCards checks drawPrevented
+// first and, when it reports true, never reaches the empty-library check at
+// all for that card -- possessed_portal.txt's own real "if a player would
+// draw a card, that player skips that draw instead" would otherwise still
+// lose a player to state-based action 704.5b even though the draw it never
+// got to attempt was the one thing keeping the library from mattering.
+//
+// 2 of the corpus's own 39 real Event$ Draw lines naming Prevent$ True
+// resolve end to end (possessed_portal.txt's own bare form, ValidPlayer$
+// Player with no further restriction; living_conundrum.txt's own
+// IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0,
+// "if you would draw while your library has no cards," resolved through
+// replacementRequirementsCheck's own triggerCommonRequirementsMet fold-in
+// with no code of its own needed). Not resolved: Optional$ (1 of 3 real
+// Prevent$ lines) -- an interactive "may" confirm this port's own
+// PlayerController has no hook for, the identical gap Discard's own
+// Optional$/BecomesTarget's own OptionalDecider$ already document. The
+// other 36 real Draw lines name ReplaceWith$ instead of Prevent$ -- a real
+// substitution (DrawTwo/Dig/ExileTop/...), no single shape anywhere near
+// Moved's own 618-line concentration, not resolved.
+func (g *Game) drawPrevented(player PlayerID) bool {
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !drawPreventionMatches(g, r, host, z, face.Amounts) {
+							continue
+						}
+						if validPlayer, ok := r.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// drawPreventionMatches is drawPrevented's own shared half: Event$ Draw,
+// Prevent$ True, r's own host in one of its own ActiveZones$, and
+// replacementRequirementsCheck (above). Any param besides the ones real
+// corpus lines pair with this shape skips the whole line rather than
+// guessing (GO-7): Optional$/NotFirstCardInDrawStep$/
+// FirstExtraCardDrawnThisTurn$/ValidCause$ together carry the 1 of 3 real
+// Prevent$ Draw lines this shape would otherwise match but cannot resolve.
+func drawPreventionMatches(g *Game, r *compile.Ability, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
+	if !strings.EqualFold(r.Name, "Draw") {
+		return false
+	}
+	prevent, ok := r.Param("Prevent")
+	if !ok || !strings.EqualFold(prevent, "True") {
+		return false
+	}
+	for _, p := range r.Params {
+		switch strings.ToLower(p.Key) {
+		case "event", "prevent", "description", "validplayer", "activezones", "secondary",
+			"playerturn", "activephases", "checksvar", "svarcompare",
+			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
+		default:
+			return false
+		}
+	}
+	return hostInActiveZones(r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// gainLifePrevented is CR 119/614's own "prevent this life gain" shape
+// (Prevent$ True) applied to CR 119.3's own "gain life" event -- the
+// identical contract drawPrevented has for a different Event$.
+// gainLifeEffect (gainlifeeffect.go) checks this before applying each
+// player's own LifeAmount$, per player named by Defined$/ValidTgts$ -- CR
+// 119's own life-gain replacement family game-state.md's own "M6's fourth
+// effect: GainLife" section already flagged as entirely unbuilt is real now
+// for its one directly resolvable real shape.
+//
+// 1 of the corpus's own 21 real Event$ GainLife lines resolves end to end,
+// and it is also the ONLY one naming Prevent$ at all: sulfuric_vortex.txt's
+// own bare "if a player would gain life, that player gains no life instead"
+// (Prevent$ True, no ValidPlayer$ at all -- every player's own life gain is
+// prevented, not just the caster's). The other 20 real lines all name
+// ReplaceWith$ instead -- GainDouble/RLoseLife/Draw among them, each
+// referencing an SVar whose own LifeAmount$/NumCards$ needs "the amount of
+// life that would have been gained" as a runtime X/Y value this port's
+// resolveAmount has no way to read back (a real mechanism gap distinct from
+// an unresolved param -- Java's own AbilityKey.ReplacedAmount threading, not
+// built), not resolved.
+func (g *Game) gainLifePrevented(player PlayerID) bool {
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !gainLifePreventionMatches(g, r, host, z, face.Amounts) {
+							continue
+						}
+						if validPlayer, ok := r.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// gainLifePreventionMatches is gainLifePrevented's own shared half: Event$
+// GainLife, Prevent$ True, r's own host in one of its own ActiveZones$, and
+// replacementRequirementsCheck (above). No real corpus line combines
+// Prevent$ True with any param outside this shape's own allow-list --
+// sulfuric_vortex.txt's own line is the entire real GainLife|Prevent$
+// population, so this allow-list is wider than the corpus strictly needs
+// today, kept symmetric with drawPreventionMatches' own identical shape
+// rather than pared down to one card's exact param set.
+func gainLifePreventionMatches(g *Game, r *compile.Ability, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
+	if !strings.EqualFold(r.Name, "GainLife") {
+		return false
+	}
+	prevent, ok := r.Param("Prevent")
+	if !ok || !strings.EqualFold(prevent, "True") {
+		return false
+	}
+	for _, p := range r.Params {
+		switch strings.ToLower(p.Key) {
+		case "event", "prevent", "description", "validplayer", "activezones", "secondary",
+			"playerturn", "activephases", "checksvar", "svarcompare",
+			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
+		default:
+			return false
+		}
+	}
+	return hostInActiveZones(r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
 }
 
 func tapAbilityResolvesTap(g *Game, a *compile.Ability, host *Card, amounts map[string]expr.Amount) (shouldTap, recognized bool) {

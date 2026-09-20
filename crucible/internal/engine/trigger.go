@@ -1224,7 +1224,7 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 						if !phaseTriggerZoneMatches(t, z) {
 							continue
 						}
-						if !phaseTriggerMatches(t, g.activePhase) {
+						if !phaseTriggerMatches(t, "Phase", g.activePhase) {
 							continue
 						}
 						if validPlayer, ok := t.Param("ValidPlayer"); ok {
@@ -1271,19 +1271,21 @@ func phaseTriggerZoneMatches(t *compile.Ability, zone ZoneType) bool {
 	return false
 }
 
-// phaseTriggerMatches is Phase$ itself: does the trigger fire during
-// current, the phase that was just entered. `Main` (29 real lines, every one
-// paired with `PhaseCount$ 2` -- "your second main phase," Survival's own
-// cards among them) is the one token PhaseByName deliberately does not
-// resolve (TestPhaseNamesRoundTrip's own assertion, event_test.go) --
-// PhaseType.parseRange's own special case for it (PhaseType.java) expands to
-// both Main1 and Main2 when no PhaseCount$ narrows it to the second one
+// phaseTriggerMatches is Phase$ itself (or, at a caller's own key, an
+// equivalently-shaped param under a different name -- ActivePhases$,
+// replacementRequirementsCheck's own use below): does the trigger fire
+// during current, the phase that was just entered. `Main` (29 real lines,
+// every one paired with `PhaseCount$ 2` -- "your second main phase,"
+// Survival's own cards among them) is the one token PhaseByName deliberately
+// does not resolve (TestPhaseNamesRoundTrip's own assertion, event_test.go)
+// -- PhaseType.parseRange's own special case for it (PhaseType.java) expands
+// to both Main1 and Main2 when no PhaseCount$ narrows it to the second one
 // alone. A PhaseCount$ value other than "2" (0 real lines) has no known
 // meaning here and is refused rather than guessed at (GO-7). Every other
 // token resolves through phaseNameFold, below -- a single comma-list entry
 // (`Main1,Main2`, 1 real line) or, far more often, one bare name.
-func phaseTriggerMatches(t *compile.Ability, current PhaseType) bool {
-	spec, ok := t.Param("Phase")
+func phaseTriggerMatches(t *compile.Ability, key string, current PhaseType) bool {
+	spec, ok := t.Param(key)
 	if !ok {
 		return false
 	}
@@ -1816,7 +1818,7 @@ func triggerPhasesCheck(g *Game, host *Card, t *compile.Ability) bool {
 		}
 	}
 	if _, ok := t.Param("Phase"); ok {
-		if !phaseTriggerMatches(t, g.ActivePhase()) {
+		if !phaseTriggerMatches(t, "Phase", g.ActivePhase()) {
 			return false
 		}
 	}

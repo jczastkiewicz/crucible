@@ -459,10 +459,14 @@ func TestUntapBlockedWhenHostInCommandZone(t *testing.T) {
 	}
 }
 
-// TestUntapNotBlockedByUnresolvedExtraParam proves an IsPresent$-qualified
-// Event$ Untap|Layer$ CantHappen line (4 of the corpus's 156 real lines)
-// skips the whole line rather than blocking unconditionally (PORT-8/GO-7).
-func TestUntapNotBlockedByUnresolvedExtraParam(t *testing.T) {
+// TestUntapBlockedWhenIsPresentConditionMet proves untapReplacementMatches'
+// own general-gate fold-in (replacementRequirementsCheck, replacement.go):
+// IsPresent$ Creature.YouCtrl is genuinely met here (the card carrying the
+// lock is itself the only creature this player controls), so the
+// "doesn't untap" line applies and Tapped stays true -- alirios_enraptured.txt's
+// own real "doesn't untap ... if you control a Reflection" shape, just
+// checked against a real, present creature rather than an absent one.
+func TestUntapBlockedWhenIsPresentConditionMet(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -473,8 +477,27 @@ func TestUntapNotBlockedByUnresolvedExtraParam(t *testing.T) {
 
 	g.StartTurn(p, engine.NewScriptedController())
 
+	if !g.Card(c).Tapped {
+		t.Error("Tapped = false, want true -- IsPresent$ Creature.YouCtrl is met (the card itself is a creature you control), so the lock must apply")
+	}
+}
+
+// TestUntapNotBlockedWhenIsPresentConditionNotMet is the same lock's own
+// mirror: with no matching creature present at all, IsPresent$ is not met,
+// so the "doesn't untap" line does not apply and the card untaps normally.
+func TestUntapNotBlockedWhenIsPresentConditionNotMet(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	c := g.NewCard(replacementEnchantmentDef(t, "Test Conditional Lock Enchantment",
+		"Event$ Untap | ValidCard$ Card.Self | Layer$ CantHappen | IsPresent$ Creature.YouCtrl | Description$ conditional lock."), p, engine.Battlefield)
+	g.Card(c).Tapped = true
+
+	g.StartTurn(p, engine.NewScriptedController())
+
 	if g.Card(c).Tapped {
-		t.Error("Tapped = true, want false -- IsPresent$ is not resolvable here, so the whole line must be skipped")
+		t.Error("Tapped = true, want false -- IsPresent$ Creature.YouCtrl is not met (an Enchantment is not a Creature), so the lock must not apply")
 	}
 }
 
@@ -588,10 +611,16 @@ func TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch(t *testing.T) {
 	}
 }
 
-// TestDamageToCreatureNotPreventedByUnresolvedExtraParam proves a
-// CheckSVar$-qualified Event$ DamageDone|Prevent$ True line skips the whole
-// line rather than preventing unconditionally (PORT-8/GO-7).
-func TestDamageToCreatureNotPreventedByUnresolvedExtraParam(t *testing.T) {
+// TestDamageToCreatureNotPreventedByUndefinedCheckSVar proves
+// CheckSVar$/SVarCompare$ now resolve generically through
+// replacementRequirementsCheck (triggerCommonRequirementsMet's own
+// checkSVarMatches) rather than being an outright-rejected extra param --
+// but a card naming CheckSVar$ X with no SVar:X of its own still fails
+// closed (checkSVarMatches' own resolveNamedAmount failure returns false,
+// "condition not met," not "guess the shape and reject the line"): the
+// shield still does not apply, for the honest reason of an unresolvable
+// reference rather than an unrecognized param name.
+func TestDamageToCreatureNotPreventedByUndefinedCheckSVar(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -610,6 +639,61 @@ func TestDamageToCreatureNotPreventedByUnresolvedExtraParam(t *testing.T) {
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {
-		t.Errorf("blocker damage marked = %d, want 3 -- CheckSVar$ is not resolvable here, so the whole line must be skipped", g.Card(blocker).Damage.Marked)
+		t.Errorf("blocker damage marked = %d, want 3 -- CheckSVar$ X has no SVar:X on this card, so it cannot resolve and the shield must not apply", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToPlayerPreventedWhenPlayerTurnMatches proves PlayerTurn$ True
+// resolving through replacementRequirementsCheck (guardian_naga_banishing_coils.txt's
+// own real "can't be dealt damage during your turn" shape): a shield naming
+// PlayerTurn$ True stops damage to its own controller during ITS OWN turn.
+func TestDamageToPlayerPreventedWhenPlayerTurnMatches(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDef(t, "Test Turn-Locked Shield",
+		"Event$ DamageDone | ValidTarget$ You | PlayerTurn$ True | Prevent$ True | Description$ Prevent all damage that would be dealt to you during your turn."), a, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(a).Life != 20 {
+		t.Errorf("a life = %d, want 20 -- PlayerTurn$ True is met on a's own turn, so the shield must stop the damage", g.Player(a).Life)
+	}
+}
+
+// TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch is the same
+// shield's own mirror: on b's turn (not a's own), PlayerTurn$ True is not
+// met and the shield does not apply.
+func TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life = 20
+	g.SetTurnState(1, b, engine.Main1)
+	g.NewCard(replacementEnchantmentDef(t, "Test Turn-Locked Shield",
+		"Event$ DamageDone | ValidTarget$ You | PlayerTurn$ True | Prevent$ True | Description$ Prevent all damage that would be dealt to you during your turn."), a, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(a).Life != 17 {
+		t.Errorf("a life = %d, want 17 -- PlayerTurn$ True must not apply on b's turn (not a's own)", g.Player(a).Life)
 	}
 }

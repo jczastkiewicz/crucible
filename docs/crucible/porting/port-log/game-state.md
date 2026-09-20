@@ -2218,6 +2218,109 @@ again once restored -- the first attempt at this same test omitted the `ResolveS
 passed for the wrong reason (nothing had ever resolved the pushed ability either way), caught by that exact regression
 check before being fixed.
 
+## `ReplacementEffect.requirementsCheck` lands
+
+A general gate every replacement carries regardless of its own `Event$`, checked before its own shape-specific
+`canReplace` -- `Trigger.phasesCheck`'s own exact sibling ("`Trigger.phasesCheck` lands," above), a different Java
+method on a different class, not the same one reused twice: `Trigger` and `ReplacementEffect` are sibling subclasses of
+`TriggerReplacementBase` rather than one inheriting from the other.
+
+`replacementRequirementsCheck` (`replacement.go`, new) ports it at the shape this port can reach.
+
+`PlayerTurn$` (8 real `R:` lines combined across `DamageDone`/`Draw`/`CreateToken`/`LifeReduced`/`TurnFaceUp`, every one
+the literal value `True` -- 0 real lines use Java's own Defined$-reference else-branch, so only the literal-`True`
+branch is ported) checks `isPlayerTurn(hostController)` directly.
+
+`ActivePhases$` (1 real line, island_sanctuary.txt's own `Draw` shape) reuses `phaseTriggerMatches` (trigger.go,
+`Mode$ Phase`'s own dispatch function) at its own key rather than `Phase$`'s. `phaseTriggerMatches` gained a `key`
+parameter for this; its two existing call sites (`checkPhaseTriggers`, `triggerPhasesCheck`) both updated to pass the
+literal `"Phase"` explicitly, so the identical phase-list parser now serves three callers under three different param
+names for the identical underlying question.
+
+`triggerCommonRequirementsMet` (`CardTraitBase.meetsCommonRequirements`'s own port, trigger firing above) is called
+outright last -- `ReplacementEffect.requirementsCheck`'s own final line calls the identical Java method a `Trigger`'s
+own `performTest` already does, so this port's identical shared function serves both for the same reason.
+
+Every existing consumer in `replacement.go` (`damagePreventionMatches`, `untapReplacementMatches`,
+`replacementTapsOnMove`) had its own separate, narrower allow-list of extra params it tolerated before this landed; each
+now calls `replacementRequirementsCheck` and widens its own allow-list to admit the keys it reads, closing 7 of the 10
+previously-skipped real `DamageDone`|`Prevent$` lines (`PlayerTurn$` 4 -- guardian_naga_banishing_coils.txt's own real
+"can't be dealt damage during your turn" among them; `CheckSVar$`/`SVarCompare$` 2; `IsPresent$` 1) and 5 of the 7
+previously-skipped `Untap`|`CantHappen` lines (`IsPresent$` 4; `CheckSVar$`/`SVarCompare$` 1) for free -- neither
+function needed a single line of its own new logic for either, just a wider switch and one extra call. The exact counts
+are below, in each shape's own section.
+
+Folding the general gate into `replacementTapsOnMove` also fixed a real, if narrow, wrong-firing bug that predates this
+chunk: `replacementTapsOnMove` carried no allow-list at all before now (unlike its two siblings), so ANY extra param on
+an "enters tapped" `R:` line was silently ignored rather than gating anything. archelos_lagoon_mystic.txt's own real
+toggle -- "As long as CARDNAME is tapped, other permanents you control enter tapped. As long as CARDNAME is untapped,
+other permanents enter untapped" -- writes exactly this as two
+`Event$ Moved | ... | IsPresent$ Card.Self+tapped/+untapped | ReplaceWith$ ETBTapped/ETBUntapped` lines, restricting
+each half to fire only while Archelos ITSELF is tapped or untapped respectively. Before this chunk, `IsPresent$` was
+never checked at all, so the `ETBTapped` half (`ReplaceWith$` resolving to a plain `DB$ Tap`, `tapAbilityResolvesTap`'s
+own recognized shape) would apply regardless of whether Archelos was actually tapped -- the `ETBUntapped` half never
+mattered either way, since `tapAbilityResolvesTap` only recognizes `Tap`-named sub-abilities, not `Untap`. A corpus
+check confirmed this is the ONLY real line among all 618 `ETBTapped`/`LandTapped`-shaped `Moved` lines carrying any of
+`triggerCommonRequirementsMet`'s own hard-skip keys or the general gate's own `PlayerTurn$`/`ActivePhases$`, so folding
+the check in here changes no other real card's behavior, confirmed and not merely assumed.
+
+Two new consumers reuse the same general gate directly for a shape neither `checkMovedReplacement` nor
+`damagePrevented`/`untapBlocked` cover: **`drawPrevented`/`gainLifePrevented`** (`replacement.go`, new) resolve CR
+120.3's/119's own `Prevent$ True` shape for `Event$ Draw`/`GainLife` -- CR 119's own "life gain replacement" family this
+port's own `gainLifeEffect` doc comment already flagged as entirely unbuilt has its one directly resolvable real shape
+now. 2 of the corpus's own 39 real `Draw` lines resolve end to end: possessed_portal.txt's own bare
+`ValidPlayer$ Player | Prevent$ True` ("if a player would draw a card, that player skips that draw instead") and
+living_conundrum.txt's own `IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0`-qualified form ("if you
+would draw a card while your library has no cards in it") -- resolved through `replacementRequirementsCheck`'s own
+`triggerCommonRequirementsMet` fold-in with no code of its own needed, the identical zone-presence check `LandTapped`'s
+own checkland condition already exercises. obstinate_familiar.txt's own third real `Prevent$` line (`Optional$ True`)
+stays unresolved: an interactive "may" confirm this port's own `PlayerController` has no hook for, the identical gap
+`Discard`'s own `Optional$`/`BecomesTarget`'s own `OptionalDecider$` already document. 1 of the corpus's own 21 real
+`GainLife` lines resolves end to end -- sulfuric_vortex.txt's own bare "if a player would gain life, that player gains
+no life instead," and the ONLY one of the 21 naming `Prevent$` at all.
+
+`drawPrevented` is checked from `DrawCards` (turn.go) one card at a time, BEFORE the empty-library check runs at all --
+Java's own `Player.doDraw` checks its `Event$ Draw` replacement before it ever looks at whether the library is empty,
+ported directly: a card `drawPrevented` reports true for never reaches the empty-library branch below it, so a draw CR
+614 prevents cannot also be CR 704.5b's own "attempted to draw from an empty library" loss -- possessed_portal.txt's own
+real shield would otherwise still lose its own controller to state-based action 704.5b even though the draw it prevented
+was the only thing that could have exposed the empty library to begin with. `gainLifePrevented` is checked from
+`gainLifeEffect` (gainlifeeffect.go) per player, before `Player.Life` is touched at all.
+
+The other 36 real `Draw` lines and 20 real `GainLife` lines all name `ReplaceWith$` instead of `Prevent$` --
+`DrawTwo`/`Dig`/`ExileTop`/... for `Draw`, `GainDouble`/`RLoseLife`/`Draw` for `GainLife` -- each referencing an SVar
+whose own `LifeAmount$`/`NumCards$` needs "the amount that would have been drawn/gained" as a runtime `X`/`Y` value
+(Java's own `AbilityKey.ReplacedAmount` threading into a fresh `calculateAmount` call) this port's `resolveAmount` has
+no way to read back -- a real mechanism gap distinct from an unresolved param, not built. `nefarious_lich.txt`'s own
+`GainLife`-into-`Draw` (`ReplaceWith$ Draw | Defined$ You | NumCards$ Y`) and `rain_of_gore.txt`'s own
+`GainLife`-into-`LoseLife` (`ReplaceWith$ RLoseLife | Defined$ ReplacedPlayer | LifeAmount$ X`) are both real corpus
+examples of this exact gap: even though `Draw`/`LoseLife` are both already-built leaf effects (the identical
+already-built-leaf condition `resolveSubAbility`'s own SubAbility$ chaining already checks for), the `X`/`Y`/
+`ReplacedPlayer` values these two need are not something any of `resolveNamedAmount`/`definedPlayers` can supply, so
+neither line is counted among the resolvable slice above.
+
+Fourteen new tests total: five in `replacement_test.go`
+(`TestUntapBlockedWhenIsPresentConditionMet`/`TestUntapNotBlockedWhenIsPresentConditionNotMet` replace the old
+`TestUntapNotBlockedByUnresolvedExtraParam`, since `IsPresent$` no longer means "skip" -- the OLD test's own real shape,
+`IsPresent$ Creature.YouCtrl` checked against a lock creature that IS itself the only creature its controller controls,
+now genuinely blocks, the opposite of what the old test asserted; `TestDamageToCreatureNotPreventedByUndefinedCheckSVar`
+replaces `TestDamageToCreatureNotPreventedByUnresolvedExtraParam` for the identical reason, its own numeric assertion
+unchanged since `CheckSVar$ X` with no `SVar:X` on the card still fails closed through `resolveNamedAmount`'s own
+unresolvable-reference return, just for the honest reason of an undefined reference rather than an unrecognized param
+name now; `TestDamageToPlayerPreventedWhenPlayerTurnMatches`/`TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch`
+prove the new `PlayerTurn$` fold-in both ways) and six in a new `drawgainlifeprevented_test.go`
+(`TestDrawPreventedByBareReplacement`, `TestDrawPreventedDoesNotCauseEmptyLibraryLoss` -- the CR-faithful ordering proof
+above, `TestDrawPreventedWhenIsPresentConditionMet`/`TestDrawNotPreventedWhenIsPresentConditionNotMet`,
+`TestDrawNotPreventedByUnresolvedOptional`, `TestGainLifePreventedByBareReplacement`). All five renamed/new
+`replacement_test.go` cases and the four `drawPrevented`/`gainLifePrevented`-proving cases were each regression-checked
+by temporarily removing the corresponding code path and confirming the suite fails exactly as expected before restoring
+it.
+
+`enginelint.json`'s own `"replacement"` group gained `"trigger"` in its allow-list -- `replacementRequirementsCheck`
+calls `phaseTriggerMatches`/`triggerCommonRequirementsMet` directly now, and `"condition"` (already in `"replacement"`'s
+allow-list) already reached into `"trigger"` itself, so this adds no new cycle, just a direct edge alongside an existing
+indirect one the tool's own per-file check does not treat as equivalent.
+
 ## Replacement effects: entering the battlefield tapped
 
 CR 614's own replacement-effect system (`forge-game/src/main/java/forge/game/replacement/`, 3,742 LOC across
@@ -2301,11 +2404,15 @@ each prove a met/unmet pair for the two now-resolved Condition-family shapes.
 
 Not resolved: `ETBTapped`/`LandTapped` naming a `SubAbility$`, `ConditionDefined$`, `ConditionPlayerTurn$`,
 `ConditionPhases$` or `Condition$` itself (above); `ReplaceWith$ Exile`/`DBTap`/`DBExile`/`DoDay`/`PayBeforeETB`/...
-(352 of the remaining 969 Moved lines); `Untap`'s and `DamageDone`'s own `ReplaceWith$`-driven remainders (below); every
-`Event$` value past `Moved`/`Untap`/ `DamageDone` (`Counter`, `Draw`, `AddCounter`, `CreateToken`, `GainLife`,
-`BeginPhase`, `GameLoss`, `ProduceMana`, ... -- a majority of the corpus's own real replacement lines); and CR 616's own
-general layering/ordering procedure entirely, moot for this slice's one idempotent outcome but real the moment a second
-resolvable replacement effect produces a different one.
+(352 of the remaining 969 Moved lines); `Untap`'s and `DamageDone`'s own `ReplaceWith$`-driven remainders (above);
+`Draw`'s and `GainLife`'s own `ReplaceWith$`-driven remainders (36 and 20 real lines respectively,
+"`ReplacementEffect.requirementsCheck` lands," above); every `Event$` value past
+`Moved`/`Untap`/`DamageDone`/`Draw`/`GainLife` (`Counter` -- CR 701.5's own "can't be countered," not the +1/+1-counter
+mechanic, moot until this port builds a spell-countering effect to protect against; `AddCounter`, `CreateToken`,
+`BeginPhase`, `GameLoss`, `ProduceMana`, ... -- most naming a `DB$ ReplaceCounter`/`ReplaceEffect`-shaped special
+replacement-modifying ability this port does not have a general mechanism for, distinct from an ordinary script effect);
+and CR 616's own general layering/ordering procedure entirely, moot for every resolved shape's own idempotent outcome
+but real the moment a second resolvable replacement effect produces a different one.
 
 `enginelint.json` gained a `"replacement"` group (`replacement.go`), added to `"land"`'s and `"castspell"`'s own allow
 lists (both now call `checkMovedReplacement`) and, like `"trigger"`/`"continuous"` before it, to its own allow list an
@@ -2350,12 +2457,21 @@ host rather than a permanent) looking for a match against the card about to unta
 replacement and trigger check in this port already has, collapsed here into one loop since a lock's own host is never
 the card it locks. The first match found blocks the untap outright and the search stops -- CR 616's own "more than one
 could apply" choice producing the identical outcome (blocked) no matter which is picked, `checkMovedReplacement`'s own
-reasoning applied to a different outcome. `IsPresent$`/`SVarCompare$`/`CheckSVar$`/ `EnduringStory$`/`AddSVar$` (7 of
-156, each its own further restriction this file cannot evaluate) skip the whole line rather than blocking
-unconditionally (PORT-8/GO-7) -- an allow-list of exactly the params real corpus lines pair with this shape
-(`Event$`/`Layer$`/`Description$`/`ValidCard$`/`ValidStepTurnToController$`/`ActiveZones$`/ `Secondary$`), the identical
-style `tapAbilityIsPlainTap` already has, rather than a reject-list of the ones found: a param neither list has seen yet
-skips by construction instead of silently passing.
+reasoning applied to a different outcome. `IsPresent$` (4) now resolves too, folded in through
+`replacementRequirementsCheck` ("`ReplacementEffect.requirementsCheck` lands," above) --
+alirios_enraptured.txt's/merseine.txt's/cocoon.txt's/winters_rest.txt's own real zone-scan conditions among them.
+`CheckSVar$`/`SVarCompare$` (1, walking_dream.txt's own "if an opponent controls two or more creatures") also reaches
+the general gate now rather than being skip-listed, but does not actually produce the CR-correct answer: its own `X`
+SVar is `PlayerCountOpponents$HighestValid Creature.YouCtrl`, a distinct SVar family `resolveNamedAmount` does not
+evaluate (the `Count$Valid` family `resolveAmount` resolves is a different one), so `checkSVarMatches` fails closed
+(condition never met) and this one card's own lock never actually blocks anything -- the identical observable behavior
+it had before this chunk (skip-listed then, unresolvable-and-thus-unmet now), just reached through the honest general
+mechanism instead of an ad-hoc allow-list rejection. `EnduringStory$`/`AddSVar$` (2 of 156, each its own further
+restriction this file cannot evaluate) still skip the whole line rather than blocking unconditionally (PORT-8/GO-7) --
+an allow-list of exactly the params real corpus lines pair with this shape
+(`Event$`/`Layer$`/`Description$`/`ValidCard$`/`ValidStepTurnToController$`/`ActiveZones$`/`Secondary$`, plus the keys
+`replacementRequirementsCheck` itself reads), the identical style `tapAbilityIsPlainTap` already has, rather than a
+reject-list of the ones found: a param neither list has seen yet skips by construction instead of silently passing.
 
 `untapStep` (turn.go) calls `untapBlocked` per permanent before clearing `Tapped`, leaving `SummonSick`'s own clearing
 unconditional: CR 502.3's own "doesn't untap" restricts only the untapping action, not CR 302.6's own continuous-control
@@ -2363,9 +2479,10 @@ question a doesn't-untap lock has nothing to do with.
 
 `TestUntapBlockedBySelfCantHappenReplacement` proves the simplest real shape and the SummonSick independence;
 `TestUntapBlockedByOpponentsCantHappenReplacement` proves the "other" half; `TestUntapBlockedWhenHostInCommandZone`
-proves the `ActiveZones$` generalization; `TestUntapNotBlockedWhenValidCardDoesNotMatch`,
-`TestUntapNotBlockedByReplaceWithShape` and `TestUntapNotBlockedByUnresolvedExtraParam` (replacement_test.go) prove each
-of the three ways a line does not block.
+proves the `ActiveZones$` generalization; `TestUntapNotBlockedWhenValidCardDoesNotMatch` and
+`TestUntapNotBlockedByReplaceWithShape` (replacement_test.go) prove two of the ways a line does not block;
+`TestUntapBlockedWhenIsPresentConditionMet`/`TestUntapNotBlockedWhenIsPresentConditionNotMet` prove the new `IsPresent$`
+fold-in both ways ("`ReplacementEffect.requirementsCheck` lands," above, has the full account).
 
 ### `Event$ DamageDone`: CR 614's own "prevent all of this damage"
 
@@ -2383,11 +2500,14 @@ read for its own `canReplace` gate -- `ValidSource$`/`ValidTarget$` matched the 
 pair already is (trigger firing, above), split into a `*Card`/ `*Player` pair for the reason
 `checkDamageDoneTriggersToCard`/`ToPlayer` already are (`damagePrevented`/ `damagePreventedPlayer`, `replacement.go`,
 new), and `IsCombat$` compared against a hardcoded `true` the identical way every real `DamageDone` trigger check
-already does, since nothing outside combat deals damage in this port yet.
-`PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/`ValidCause$`/`RelativeToSource$`/`DamageAmount$`/
-`CauseIsSource$` (10 of 72, each carrying its own further restriction `ReplaceDamage.canReplace` itself reads but this
-file cannot) skip the whole line via the identical allow-list style `untapReplacementMatches` above has, rather than
-preventing unconditionally.
+already does, since nothing outside combat deals damage in this port yet. `PlayerTurn$` (4), `CheckSVar$`/`SVarCompare$`
+(2) and `IsPresent$` (1) now resolve too, the identical `replacementRequirementsCheck` fold-in `untapReplacementMatches`
+above just got --
+guardian_naga_banishing_coils.txt's/gideon_blackblade.txt's/frodo_determined_hero.txt's/personal_sanctuary.txt's own
+real "can't be dealt damage during your turn" lines among the `PlayerTurn$` four.
+`ValidCause$`/`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (3 of 72, each carrying its own further restriction
+`ReplaceDamage.canReplace` itself reads but this file cannot) still skip the whole line via the identical allow-list
+style `untapReplacementMatches` above has, rather than preventing unconditionally.
 
 `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) call `damagePrevented`/`damagePreventedPlayer` first, before
 marking any damage, emitting `DamageDealt`, or checking CR 603's own "deals damage" trigger -- a prevented damage
@@ -2398,8 +2518,9 @@ than `Tapped = true`).
 `TestDamageToPlayerPreventedByReplacement`/`TestDamageToCreaturePreventedByReplacement` (replacement_test.go) prove the
 `*Player`/`*Card` split; `TestDamageToPlayerNotPreventedWhenValidTargetDoesNotMatch`/
 `TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch` prove `ValidTarget$`/`ValidSource$` are checked, not
-assumed; `TestDamageToCreatureNotPreventedByUnresolvedExtraParam` proves the tenth unresolved param skips rather than
-prevents.
+assumed; `TestDamageToCreatureNotPreventedByUndefinedCheckSVar` proves an unresolvable `CheckSVar$` reference fails
+closed rather than preventing; `TestDamageToPlayerPreventedWhenPlayerTurnMatches`/
+`TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch` prove the new `PlayerTurn$` fold-in both ways.
 
 Both new shapes share `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing `ActiveZones$` past
 Battlefield alone -- absent means Battlefield, a comma list otherwise, an unrecognized zone name skipping the whole line
@@ -2686,14 +2807,16 @@ through `definedPlayers` (defined.go, shared with `DealDamage`/`Draw`), and `sub
 gating resolution the identical way it now gates `DealDamage`'s and a checkland's `DB$ Tap` --
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve, `Condition$` itself and
 `ConditionDefined$`/`ConditionZone$`/`ConditionOptionalPaid$` still fail loudly by name. Unlike `DealDamage`, `GainLife`
-has no `Self` shape at all (a player gains life, never a card) and no combat-style prevention machinery reused, since
-none existed to reuse: CR 119's own "life gain replacement" family (`Event$ GainLife`, 22 real replacement lines -- 2
-`Prevent$ True`, 20 `ReplaceWith$`-driven) is not built, the identical "real gap, not a wrong answer" every other
-unbuilt replacement remainder already is. `Player.Life` gains directly; `LifeChanged` (`dealPlayerDamage`'s own event
-for a life LOSS, combatdamage.go) is emitted with a positive `Amount` for the gain, reused rather than duplicated.
-`SubAbility$` no longer blocks this effect's own resolution either -- removed from its own unresolved-param list once
-`resolveSubAbility` ("SubAbility chaining itself lands," further below) landed: 18 of the corpus's own 253 real
-SVar-defined `GainLife` lines naming `SubAbility$` chain to an already-built leaf ability and resolve end to end.
+has no `Self` shape at all (a player gains life, never a card). CR 119's own "life gain replacement" family
+(`Event$ GainLife`, 21 real replacement lines) has its one directly resolvable real shape now: `gainLifePrevented`
+(replacement.go, "`ReplacementEffect.requirementsCheck` lands," above) resolves sulfuric_vortex.txt's own bare
+`Prevent$ True` -- the only one of the 21 naming `Prevent$` at all -- checked per player before `Player.Life` is
+touched; the other 20 name `ReplaceWith$` instead, a real substitution needing a runtime value this port cannot read
+back, not built. `Player.Life` gains directly; `LifeChanged` (`dealPlayerDamage`'s own event for a life LOSS,
+combatdamage.go) is emitted with a positive `Amount` for the gain, reused rather than duplicated. `SubAbility$` no
+longer blocks this effect's own resolution either -- removed from its own unresolved-param list once `resolveSubAbility`
+("SubAbility chaining itself lands," further below) landed: 18 of the corpus's own 253 real SVar-defined `GainLife`
+lines naming `SubAbility$` chain to an already-built leaf ability and resolve end to end.
 
 **`Mode$ LifeGained` (CR 119.1's own "whenever you gain life" trigger, `TriggerLifeGained.performTest`) is real now
 too** -- `checkLifeGainedTriggers` (trigger.go, new), `gainLifeEffect`'s own real (non-test) caller, once per player who
@@ -3629,6 +3752,6 @@ compared were never going to agree on those by number.
 | `CounterChanged` for a script-written (non-named-constant) `CounterType` — `counterDetail` (`event.go`) is closed over the eight named constants; a `SpellAbility` creating an arbitrary keyword counter needs the encoding extended or replaced first (`## Events, wired`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | M5-M6 |
 | `MagicStack`'s `undoStack` (needs an interactive priority pass to undo mid-pass); `freezeStack`/`unfreezeStack` is no longer a gap: `checkETBTriggers`/`checkDiesTriggers` pushing during another ability's own resolution needs no freezing since nothing can respond in between either way. `addSimultaneousStackEntry` itself is resolved (`pushTriggeredAbilities`, `## Stack`, above)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | M5-M6 |
 | Trigger firing (CR 603) beyond "enters"/"dies"/"attacks"/"blocks"/"becomes blocked"/"becomes blocked by a creature"/"deals damage"/"is discarded"/"becomes tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a player draws a card"/"gains life"/"becomes the target of a spell or ability" and watching another permanent do one of those — `checkETBTriggers`/`otherETBTriggerMatches`/`checkDiesTriggers`/`otherDiesTriggerMatches`/`checkAttacksTriggers`/`checkBlocksTriggers`/`checkAttackerBlockedTriggers`/`checkAttackerBlockedByCreatureTriggers`/`checkDamageDoneTriggersToCard`/`checkDamageDoneTriggersToPlayer`/`checkDiscardedTriggers`/`otherDiscardedTriggerMatches`/`checkTapsTriggers`/`checkUntapsTriggers`/`checkTapsForManaTriggers`/`checkSpellCastTriggers`/`checkPhaseTriggers`/`checkAttackersDeclaredTrigger`/`checkDrawnTriggers`/`checkLifeGainedTriggers`/`checkBecomesTargetTriggers` (trigger.go) cover those twenty-one, each now pushed through `pushTriggeredAbilities`' own CR 603.3b APNAP ordering rather than a fixed order (`## Stack`, above), and each now also passing through the general `Trigger.phasesCheck` gate (`triggerPhasesCheck`, `## Trigger.phasesCheck lands`, above — `Phase$`/`PlayerTurn$`/`NotPlayerTurn$`/`OpponentTurn$`/`FirstCombat$` resolved, `FirstUpkeep$`/`FirstUpkeepThisGame$`/`TurnCount$` still skip); every other mode (`Countered`, `Exiled`, `Sacrificed`, ...), `Untaps`'s own `OptionalDecider$`, `Phase`'s own `Condition$` and its own qualified `ValidPlayer$` forms, `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$`, `Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, `AttackersDeclared`'s own `Condition$` and its own qualified `AttackedTarget$` forms (`Player.EnchantedBy`, ...), `Drawn`'s own `FirstCardInDrawStep$`/`ForReveal$`, `LifeGained`'s own `OptionalDecider$`/`FirstTime$`/`ValidSource$`/`Spell$`/`ResolvedLimit$`, `BecomesTarget`'s own `ValidSource$`/`OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$`, and nine other unresolved params all remain gaps (`Blocks`'s own `ValidBlocked$`, `Attacks`'s own `Alone$`/`DefendingPlayerPoisoned$`/`AttackDifferentPlayers$`/`Attacked$`/`FirstAttack$`, `DamageDone`'s own `DamageAmount$`, `Phase`, `AttackersDeclared` and `Drawn` itself are all resolved now, and `matchesPlayerSpec`'s own Active/NonActive/Other property closed most of `SpellCast`'s/`DamageDone`'s/`TapsForMana`'s/`Phase`'s own qualified player specs); resolving what fires beyond `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` is M6's 193 remaining corpus-frequency effects, not this | M5-M6 |
-| CR 616's own general "more than one replacement effect could apply, the affected player chooses" ordering procedure — needs a `PlayerController` hook this port does not have; moot for every outcome the three resolved shapes produce (`Tapped = true`, blocked, prevented — each idempotent) but real the moment a second resolvable replacement effect on the same event can disagree. Most `Event$` values past `Moved`/`Untap`/`DamageDone` (`Counter`, `Draw`, `AddCounter`, `CreateToken`, `GainLife`, ...), and each shape's own `ReplaceWith$`-driven remainder, stay unresolved too (`## Replacement effects`, above)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | M5-M6 |
+| CR 616's own general "more than one replacement effect could apply, the affected player chooses" ordering procedure — needs a `PlayerController` hook this port does not have; moot for every outcome the five resolved shapes produce (`Tapped = true`, blocked, prevented — each idempotent) but real the moment a second resolvable replacement effect on the same event can disagree. Most `Event$` values past `Moved`/`Untap`/`DamageDone`/`Draw`/`GainLife` (`Counter`, `AddCounter`, `CreateToken`, `BeginPhase`, `GameLoss`, `ProduceMana`, ...), and each shape's own `ReplaceWith$`-driven remainder, stay unresolved too (`## Replacement effects`, `## ReplacementEffect.requirementsCheck lands`, above)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | M5-M6 |
 | The legend rule's own remaining corner case — Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own card-name lookup, which this port's `carddb`/`compile` layer has no equivalent of, and injecting one into the engine would violate GO-2); `ignoreLegendRule` itself is ported (`## The legend rule needed CheckStateBasedActions to take a controller`, above). Block legality's own `CantBlockBy` has no remaining gap: flying/reach, Fear, Horsemanship, Intimidate, Landwalk, Protection, Skulk, Menace and every literal `S:Mode$ CantBlockBy` line are all ported (`## Block legality: CantBlockBy`, above)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | M5-M6 |
 | Any mana ability besides a basic land's own intrinsic one (`TapLandForMana`, CR 305.6, `## Mana pool and payment`, above) — a nonbasic land, a creature, an artifact all need the M6 effect-dispatch machinery that one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | M6    |

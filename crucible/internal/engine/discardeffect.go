@@ -67,7 +67,7 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 
 	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Discard: %w", err)
 	}
@@ -93,7 +93,7 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, count)
 		for _, id := range chosen {
 			g.Move(id, Graveyard, g.Card(id).Owner)
-			g.checkDiscardedTriggers(id, pid)
+			g.checkDiscardedTriggers(controller, id, pid)
 		}
 	}
 	return nil

@@ -305,8 +305,12 @@ func TestScryEffectRejectsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestScryEffectRejectsValidTgts proves a real target (this port's own
-// targeting gap) fails loudly.
+// TestScryEffectRejectsValidTgts proves scryEffect itself still rejects a
+// real target: resolveTargets (targeting.go) now resolves ValidTgts$
+// generically before this ability is even pushed, so the target is chosen
+// without issue, but scryEffect has not been extended to consume Targeted
+// (defined.go) yet -- its own blocked-param list still names ValidTgts$,
+// and this proves that check still fires.
 func TestScryEffectRejectsValidTgts(t *testing.T) {
 	t.Parallel()
 
@@ -317,6 +321,7 @@ func TestScryEffectRejectsValidTgts(t *testing.T) {
 
 	def := etbScryTriggerDefParams(t, "Test ValidTgts", "ScryNum$ 1 | ValidTgts$ Player", nil)
 	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
 	err := castETBScry(t, g, p, def, c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")

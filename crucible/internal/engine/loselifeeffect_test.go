@@ -265,3 +265,182 @@ func TestLoseLifeEffectEmitsLifeChangedEvent(t *testing.T) {
 		t.Error("no LifeChanged event seen")
 	}
 }
+
+// castETBLoseLifeOnController is castETBLoseLife's own variant taking an
+// external controller, needed once a scenario has to queue an answer
+// (QueueTargets) before casting.
+func castETBLoseLifeOnController(t *testing.T, g *engine.Game, p engine.PlayerID, def *compile.Card, c *engine.ScriptedController) error {
+	t.Helper()
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	return g.ResolveStack(engine.NewRegistry(), c)
+}
+
+// TestLoseLifeEffectValidTgtsOpponentDrainsChosenTarget proves the first
+// real ValidTgts$ shape this port resolves for LoseLife: resolveTargets
+// (targeting.go) picks a legal target from ValidTgts$ Opponent, and
+// loseLifeEffect reads it from a.Targets directly -- bypassing Defined$
+// entirely, the identical dispatch LifeLoseEffect.java's own
+// getTargetPlayers(sa) makes.
+func TestLoseLifeEffectValidTgtsOpponentDrainsChosenTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+	def := etbLoseLifeTriggerDefParams(t, "Test ValidTgts Opponent", "ValidTgts$ Opponent | LifeAmount$ 3", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(opp).Life; got != 17 {
+		t.Errorf("opponent life = %d, want 17", got)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("caster life = %d, want unchanged 20 -- ValidTgts$ Opponent must not drain the caster", got)
+	}
+}
+
+// TestLoseLifeEffectValidTgtsPlayerCanTargetCaster proves ValidTgts$ Player
+// (the corpus's own other real base, alongside Opponent) can legally choose
+// the caster themselves -- Player's own candidate set is every player, not
+// only opponents.
+func TestLoseLifeEffectValidTgtsPlayerCanTargetCaster(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	def := etbLoseLifeTriggerDefParams(t, "Test ValidTgts Player", "ValidTgts$ Player | LifeAmount$ 5", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 15 {
+		t.Errorf("caster life = %d, want 15", got)
+	}
+	if got := g.Player(opp).Life; got != 20 {
+		t.Errorf("opponent life = %d, want unchanged 20", got)
+	}
+}
+
+// TestLoseLifeEffectValidTgtsIgnoresDefinedWhenBothPresent proves the two
+// are mutually exclusive the way LifeLoseEffect.java's own getTargetPlayers
+// makes them: a line naming both ValidTgts$ and Defined$ (0 real corpus
+// lines do, but the dispatch itself should not silently prefer the wrong
+// one if it ever happened) reads the targeted player, never Defined$'s own
+// value.
+func TestLoseLifeEffectValidTgtsIgnoresDefinedWhenBothPresent(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+	def := etbLoseLifeTriggerDefParams(t, "Test Both Present", "ValidTgts$ Player | Defined$ You | LifeAmount$ 4", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(opp).Life; got != 16 {
+		t.Errorf("targeted opponent life = %d, want 16 -- ValidTgts$ must win over Defined$ You", got)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("caster life = %d, want unchanged 20 -- Defined$ You must be ignored when ValidTgts$ is present", got)
+	}
+}
+
+// TestLoseLifeEffectValidTgtsUnrecognizedPropertySkipsSilently proves a
+// qualified ValidTgts$ this port's matchesPlayerProperty does not recognize
+// (Player.wasDealtDamageThisTurnBySource, 1 real line) resolves to zero
+// legal targets rather than a wrong one -- CR 603.3c's own "no legal
+// targets" outcome, the ability doing nothing, no error and no controller
+// call (an unconsumed queue slot proves it).
+func TestLoseLifeEffectValidTgtsUnrecognizedPropertySkipsSilently(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	// No QueueTargets call: an unrecognized property must never reach the
+	// controller, or this panics on an exhausted queue.
+	def := etbLoseLifeTriggerDefParams(t, "Test Unrecognized Property",
+		"ValidTgts$ Player.wasDealtDamageThisTurnBySource | LifeAmount$ 3", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("caster life = %d, want unchanged 20", got)
+	}
+	if got := g.Player(opp).Life; got != 20 {
+		t.Errorf("opponent life = %d, want unchanged 20", got)
+	}
+}
+
+// TestLoseLifeEffectValidTgtsRadianceSkipsSilently proves resolveTargets'
+// own structural blocklist (targeting.go): Radiance$ (0 real LoseLife
+// lines combine it, a constructed case proving the general mechanism
+// rather than a real corpus shape) is folded into the identical
+// "no legal targets" outcome a genuinely empty candidate set already gets,
+// rather than an error -- no controller call at all (an unconsumed queue
+// slot proves it).
+func TestLoseLifeEffectValidTgtsRadianceSkipsSilently(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, opp := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	// No QueueTargets call: Radiance$ must never reach the controller, or
+	// this panics on an exhausted queue.
+	def := etbLoseLifeTriggerDefParams(t, "Test Radiance", "ValidTgts$ Opponent | Radiance$ True | LifeAmount$ 3", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(opp).Life; got != 20 {
+		t.Errorf("opponent life = %d, want unchanged 20", got)
+	}
+}
+
+// TestLoseLifeEffectValidTgtsMaxTwoAsksForBothOpponentsAtOnce proves
+// TargetMax$ (2, past the 1/1 default) reaches ChooseTargets: with two
+// opponents both matching ValidTgts$ Opponent, the controller is asked
+// once for up to two targets, and both chosen ones lose life.
+func TestLoseLifeEffectValidTgtsMaxTwoAsksForBothOpponentsAtOnce(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b", "c")
+	p, opp1, opp2 := g.Players()[0], g.Players()[1], g.Players()[2]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(opp1).Life, g.Player(opp2).Life = 20, 20, 20
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp1), engine.PlayerEntity(opp2)})
+	def := etbLoseLifeTriggerDefParams(t, "Test Max Two",
+		"ValidTgts$ Opponent | TargetMin$ 1 | TargetMax$ 2 | LifeAmount$ 3", nil)
+	if err := castETBLoseLifeOnController(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(opp1).Life; got != 17 {
+		t.Errorf("opp1 life = %d, want 17", got)
+	}
+	if got := g.Player(opp2).Life; got != 17 {
+		t.Errorf("opp2 life = %d, want 17", got)
+	}
+}

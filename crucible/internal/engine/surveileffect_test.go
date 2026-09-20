@@ -309,8 +309,12 @@ func TestSurveilEffectRejectsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestSurveilEffectRejectsValidTgts proves a real target (this port's own
-// targeting gap) fails loudly.
+// TestSurveilEffectRejectsValidTgts proves surveilEffect itself still
+// rejects a real target: resolveTargets (targeting.go) now resolves
+// ValidTgts$ generically before this ability is even pushed, so the target
+// is chosen without issue, but surveilEffect has not been extended to
+// consume Targeted (defined.go) yet -- its own blocked-param list still
+// names ValidTgts$, and this proves that check still fires.
 func TestSurveilEffectRejectsValidTgts(t *testing.T) {
 	t.Parallel()
 
@@ -321,6 +325,7 @@ func TestSurveilEffectRejectsValidTgts(t *testing.T) {
 
 	def := etbSurveilTriggerDefParams(t, "Test ValidTgts", "Amount$ 1 | ValidTgts$ Player", nil)
 	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
 	err := castETBSurveil(t, g, p, def, c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")

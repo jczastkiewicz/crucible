@@ -106,7 +106,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	defined, _ := a.Params.Param("Defined")
-	cards, err := definedCards(source, defined)
+	cards, err := definedCards(source, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Pump: %w", err)
 	}

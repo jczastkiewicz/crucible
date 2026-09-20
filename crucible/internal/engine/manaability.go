@@ -57,7 +57,7 @@ var basicLandType = map[mana.Colors]string{
 // triggers (checkTapsTriggers/checkTapsForManaTriggers, trigger.go) --
 // this port's only other tap site (DeclareCombatAttackers, attack.go) checks
 // the first but not the second, since attacking is not a mana ability.
-func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors) bool {
+func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, controller PlayerController) bool {
 	basic, ok := basicLandType[color]
 	if !ok {
 		panic("engine: TapLandForMana wants exactly one basic land color")
@@ -75,7 +75,7 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors) bool
 	} else {
 		g.Player(pid).ManaPool.Add(color, 1)
 	}
-	g.checkTapsTriggers(land, pid, false)
-	g.checkTapsForManaTriggers(land, pid)
+	g.checkTapsTriggers(controller, land, pid, false)
+	g.checkTapsForManaTriggers(controller, land, pid)
 	return true
 }

@@ -1,11 +1,24 @@
 // LoseLife: CR 119.3, GainLife's own mirror image -- a plain-or-named-SVar
-// LifeAmount$ taken from a Defined$ player, no target -- 226 of the corpus's
-// 445 real (AB|DB)$ LoseLife lines that also name Defined$
-// You/Opponent/Player.Opponent and carry no other unresolved param.
+// LifeAmount$ taken from a Defined$ or targeted player -- 300 of the
+// corpus's 445 real (AB|DB)$ LoseLife lines that name Defined$
+// You/Opponent/Player.Opponent or a resolvable ValidTgts$ and carry no
+// other unresolved param.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/LifeLoseEffect.java's
-// resolve.
+// resolve, whose own `getTargetPlayers(sa)` (SpellAbilityEffect.java) is
+// the reason ValidTgts$ and Defined$ are mutually exclusive here rather
+// than both consulted: getTargetPlayers reads sa.getTargets() directly when
+// the ability uses targeting at all, never falling through to
+// AbilityUtils.getDefinedPlayers's own Defined$ switch in that case -- and
+// 0 real LoseLife lines combine ValidTgts$ with a Defined$ of their own,
+// confirming the corpus never relies on the fallback coexisting.
+// resolveTargets (targeting.go) already resolved ValidTgts$'s own
+// candidates and stored the answer on a.Targets by the time this runs
+// (pushTriggeredAbilities, trigger.go), so this reads that directly rather
+// than routing it through definedPlayers's own "Targeted"/"TargetedPlayer"
+// cases (defined.go) -- those exist for a literal `Defined$ Targeted` a
+// different real corpus line writes explicitly, not for this shape.
 
 package engine
 
@@ -26,14 +39,18 @@ import "fmt"
 // Not ported (every one fails loudly rather than draining the wrong amount
 // from the wrong player, PORT-8/GO-7): SubAbility$ -- no ability-chaining
 // mechanism exists yet; Planeswalker$/UnlessPayer$/UnlessCost$/
-// UnlessSwitched$/ValidTgts$ (each its own further mechanic, and this
-// port's own targeting gap for the non-Defined$ shape); Ultimate$/
+// UnlessSwitched$ (each its own further mechanic); Ultimate$/
 // IsPresent$/PresentCompare$/NumCards$/ModeCost$ (unclear semantics or
 // each its own further mechanic, not worth guessing at from a handful of
 // real lines); Condition$ itself and ConditionDefined$/ConditionZone$
 // (SpellAbilityCondition's own separate flag switch and shapes
 // subAbilityConditionMet does not cover, the identical GainLife-shaped
-// gap).
+// gap). ValidTgts$ itself no longer blocks: resolveTargets (targeting.go)
+// resolves the two real player-shaped bases (Opponent/Player, 74 of 76
+// real ValidTgts$ lines) -- the other 2, qualified
+// Player.wasDealtDamageThisTurnBySource/Player.LostLifeThisTurn, still do
+// not resolve, matchesPlayerProperty's own unrecognized-property contract
+// (valid.go) leaving them with zero legal targets rather than a wrong one.
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$
 // are resolved through subAbilityConditionMet (condition.go) the identical
@@ -41,7 +58,7 @@ import "fmt"
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"SubAbility", "Planeswalker", "UnlessPayer", "UnlessCost", "UnlessSwitched", "ValidTgts",
+	"SubAbility", "Planeswalker", "UnlessPayer", "UnlessCost", "UnlessSwitched",
 	"Ultimate", "IsPresent", "PresentCompare", "NumCards", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionZone",
 }
@@ -64,10 +81,21 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if !ok {
 		return fmt.Errorf("engine: LoseLife: LifeAmount$ %q is not resolvable", lifeAmount)
 	}
-	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, defined)
-	if err != nil {
-		return fmt.Errorf("engine: LoseLife: %w", err)
+
+	var players []PlayerID
+	if _, hasValidTgts := a.Params.Param("ValidTgts"); hasValidTgts {
+		for _, e := range a.Targets {
+			if pid, ok := e.AsPlayer(); ok {
+				players = append(players, pid)
+			}
+		}
+	} else {
+		defined, _ := a.Params.Param("Defined")
+		var err error
+		players, err = definedPlayers(g, a.Controller, defined, a.Targets)
+		if err != nil {
+			return fmt.Errorf("engine: LoseLife: %w", err)
+		}
 	}
 	for _, pid := range players {
 		g.Player(pid).Life -= amount

@@ -151,7 +151,7 @@ func TestPlayLandEntersTappedViaReplacement(t *testing.T) {
 		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ ETBTapped",
 		"ETBTapped", "DB$ Tap | Defined$ Self | ETB$ True"), p, engine.Hand)
 
-	if !g.PlayLand(p, land) {
+	if !g.PlayLand(p, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed")
 	}
 	if !g.Card(land).Tapped {
@@ -172,7 +172,7 @@ func TestPlayLandDoesNotEnterTappedWhenDestinationDoesNotMatch(t *testing.T) {
 		"Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ETBTapped",
 		"ETBTapped", "DB$ Tap | Defined$ Self | ETB$ True"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(land).Tapped {
 		t.Error("Tapped = true, want false -- Destination$ Graveyard must not match a move to Battlefield")
@@ -194,7 +194,7 @@ func TestCheckMovedReplacementSkipsSubAbilityChain(t *testing.T) {
 		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ ETBTapped",
 		"ETBTapped", "DB$ Tap | Defined$ Self | ETB$ True | SubAbility$ DBAddCounter"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(land).Tapped {
 		t.Error("Tapped = true, want false -- a chained SubAbility$ is not resolvable, so the whole line must be skipped")
@@ -218,7 +218,7 @@ func TestCheckMovedReplacementTapsCheckland(t *testing.T) {
 		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped",
 		"LandTapped", "DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if !g.Card(land).Tapped {
 		t.Error("Tapped = false, want true -- p controls no Mountain, so ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0 holds")
@@ -240,7 +240,7 @@ func TestCheckMovedReplacementDoesNotTapChecklandWhenConditionUnmet(t *testing.T
 		"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped",
 		"LandTapped", "DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(land).Tapped {
 		t.Error("Tapped = true, want false -- p already controls a Mountain, so ConditionPresent$ Mountain.YouCtrl | ConditionCompare$ EQ0 fails")
@@ -259,7 +259,7 @@ func TestCheckMovedReplacementTapsWhenConditionCheckSVarIsMet(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	land := g.NewCard(checklandCheckSVarDef(t, "1"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if !g.Card(land).Tapped {
 		t.Error("Tapped = false, want true -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 holds (X is 1)")
@@ -276,7 +276,7 @@ func TestCheckMovedReplacementDoesNotTapWhenConditionCheckSVarIsNotMet(t *testin
 	g.SetTurnState(1, p, engine.Main1)
 	land := g.NewCard(checklandCheckSVarDef(t, "0"), p, engine.Hand)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(land).Tapped {
 		t.Error("Tapped = true, want false -- ConditionCheckSVar$ X | ConditionSVarCompare$ GE1 fails (X is 0)")
@@ -331,7 +331,7 @@ func TestCheckMovedReplacementAppliesToOtherPermanentsEntering(t *testing.T) {
 		"Event$ Moved | ValidCard$ Card.NonLegendary | Destination$ Graveyard | ReplaceWith$ ETBTapped",
 		"ETBTapped", "DB$ Tap | Defined$ Self | ETB$ True"), b, engine.Hand)
 
-	if !g.PlayLand(b, land) {
+	if !g.PlayLand(b, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed")
 	}
 	if !g.Card(land).Tapped {

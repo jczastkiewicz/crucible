@@ -57,7 +57,7 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if !ok {
 		defined = "You"
 	}
-	players, err := definedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Surveil: %w", err)
 	}

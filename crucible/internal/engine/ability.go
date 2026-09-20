@@ -62,6 +62,20 @@ type Ability struct {
 	// exists yet), so a single CardID is enough rather than a slice or an
 	// EntityID.
 	Target CardID
+	// Targets is the general CR 601.2c/603.3b "choose targets" answer --
+	// resolveTargets (targeting.go) fills it from a ValidTgts$/TargetMin$/
+	// TargetMax$ triple right before this ability is pushed onto the stack
+	// (pushTriggeredAbilities, trigger.go, the only pusher this port has),
+	// asking the controller once via ChooseTargets. Nil for an ability
+	// naming no ValidTgts$ at all -- the overwhelming majority -- and for
+	// Target's own Aura shape above, which predates this field and is not
+	// migrated onto it: two callers, two shapes, no single caller needing
+	// both. A card or a player target is carried the same way here
+	// (EntityID, unlike Target's own CardID-only shape), matching
+	// AbilityUtils.getTargetCards/getTargetPlayers' own split -- an effect
+	// reads either half back through definedCards's/definedPlayers's own
+	// new "Targeted" case (defined.go), never this field directly.
+	Targets []EntityID
 	// Params is the compiled sub-ability record backing this API call --
 	// Defined$, NumCards$, and every other key an Effect's own Resolve reads
 	// (compile.Ability.Param). Nil for a cast ability

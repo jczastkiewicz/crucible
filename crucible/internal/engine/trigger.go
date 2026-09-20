@@ -66,7 +66,7 @@ import (
 // (Registry.Resolve's own contract, effect.go) -- detecting and queuing a
 // trigger correctly, regardless of whether its own Execute$ API happens to
 // be implemented yet, is this port's whole job here.
-func (g *Game) checkETBTriggers(entered CardID, origin ZoneType) {
+func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, origin ZoneType) {
 	var matches []Ability
 	c := g.Card(entered)
 	if c.Def != nil {
@@ -89,7 +89,7 @@ func (g *Game) checkETBTriggers(entered CardID, origin ZoneType) {
 		}
 	}
 	matches = append(matches, g.otherETBTriggerMatches(entered, origin)...)
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // otherETBTriggerMatches is checkETBTriggers's wider half: every permanent
@@ -163,7 +163,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 // battlefield or not, and c.Controller() (game.go's own Move does not clear
 // it on leaving) still reads the last real controller, exactly the
 // last-known-information Java's own layer system gives a leaving card.
-func (g *Game) checkDiesTriggers(left CardID) {
+func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 	var matches []Ability
 	c := g.Card(left)
 	if c.Def != nil {
@@ -186,7 +186,7 @@ func (g *Game) checkDiesTriggers(left CardID) {
 		}
 	}
 	matches = append(matches, g.otherDiesTriggerMatches(left)...)
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // otherDiesTriggerMatches is checkDiesTriggers's wider half, the identical
@@ -275,7 +275,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 // has no separate "defenders actually attacked" list of its own to build
 // (attackersOf, attack.go, already answers the same "did anyone attack this
 // one" question the corresponding Java field precomputes).
-func (g *Game) checkAttacksTriggers(attacker CardID) {
+func (g *Game) checkAttacksTriggers(controller PlayerController, attacker CardID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -327,7 +327,7 @@ func (g *Game) checkAttacksTriggers(attacker CardID) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // attacksOtherCount is how many creatures other than attacker are also
@@ -407,7 +407,7 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // ActivatorThisTurnCast/ActivatorThisTurnCastEach (a per-turn cast-history
 // count this port tracks nothing for). 1,163 of 1,435 real lines carry none
 // of these.
-func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
+func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, activator PlayerID) {
 	var matches []Ability
 	c := g.Card(cast)
 	for _, pid := range g.Players() {
@@ -439,7 +439,7 @@ func (g *Game) checkSpellCastTriggers(cast CardID, activator PlayerID) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
@@ -496,7 +496,7 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 // restrict) fires once per Block entry rather than once with every attacker
 // gathered, the same per-pair granularity every other Block-consuming caller
 // already uses.
-func (g *Game) checkBlocksTriggers(blk Block) {
+func (g *Game) checkBlocksTriggers(controller PlayerController, blk Block) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -527,7 +527,7 @@ func (g *Game) checkBlocksTriggers(blk Block) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // isBlocksTrigger reports whether t is CR 509.2's "blocks" shape: Mode$
@@ -568,7 +568,7 @@ func isBlocksTrigger(t *compile.Ability) bool {
 // staticability.go) but for a different pairing; explicitly refused rather
 // than left to a bare-word valid-string parse that would silently match no
 // card and never fire, a wrong reason not the right one to never fire for.
-func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) {
+func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacker CardID, blockers []CardID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -607,7 +607,7 @@ func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) 
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // checkAttackerBlockedByCreatureTriggers is CR 509.2's own per-pair
@@ -626,7 +626,7 @@ func (g *Game) checkAttackerBlockedTriggers(attacker CardID, blockers []CardID) 
 // LessPowerThanAttacker (1 real line each) -- checkAttackerBlockedTriggers'
 // own doc comment has the identical reason this refuses rather than lets a
 // bare-word valid-string parse silently never match.
-func (g *Game) checkAttackerBlockedByCreatureTriggers(blk Block) {
+func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerController, blk Block) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -662,7 +662,7 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(blk Block) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // validCardsCountMatches is validAttackersCountMatches' own generalization:
@@ -707,7 +707,7 @@ func validCardsCountMatches(g *Game, host *Card, cards []CardID, spec, amount st
 // CombatDamage$ False line (a rare "whenever ~ deals noncombat damage"
 // shape) never fires and a CombatDamage$ True line or one carrying neither
 // always passes that part of the check.
-func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, isCombat bool) {
+func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source, target CardID, amount int, isCombat bool) {
 	var matches []Ability
 	toughness, hasToughness := g.Card(target).Toughness()
 	for _, pid := range g.Players() {
@@ -732,10 +732,10 @@ func (g *Game) checkDamageDoneTriggersToCard(source, target CardID, amount int, 
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
-func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, amount int, isCombat bool) {
+func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.Zone(Battlefield, pid).Cards() {
@@ -761,7 +761,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(source CardID, target PlayerID, a
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // damageDoneMatches is checkDamageDoneTriggersToCard/ToPlayer's own shared
@@ -861,7 +861,7 @@ func isDamageDoneTrigger(t *compile.Ability) bool {
 // checkDiesTriggers' own precedent for reading a card no longer on the
 // battlefield), on top of checkOtherDiscardedTriggers' battlefield walk for
 // a watcher.
-func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
+func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, player PlayerID) {
 	var matches []Ability
 	c := g.Card(card)
 	if c.Def != nil {
@@ -877,7 +877,7 @@ func (g *Game) checkDiscardedTriggers(card CardID, player PlayerID) {
 		}
 	}
 	matches = append(matches, g.otherDiscardedTriggerMatches(card, player)...)
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // otherDiscardedTriggerMatches is checkDiscardedTriggers' wider half: every
@@ -968,7 +968,7 @@ func isDiscardedTrigger(t *compile.Ability) bool {
 // boolean TriggerTaps.performTest itself compares against
 // AbilityKey.Attacker. 173 of 177 real lines carry none of the three
 // skipped params.
-func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) {
+func (g *Game) checkTapsTriggers(controller PlayerController, card CardID, player PlayerID, isAttacker bool) {
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
@@ -1006,7 +1006,7 @@ func (g *Game) checkTapsTriggers(card CardID, player PlayerID, isAttacker bool) 
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // isTapsTrigger reports whether t is CR 603's "becomes tapped" shape: Mode$
@@ -1033,7 +1033,7 @@ func isTapsTrigger(t *compile.Ability) bool {
 // never colorless, and "ChosenColor" (1) needs a runtime value this port
 // has no evaluator for; skipped together rather than trying to resolve one
 // and not the other. 62 of 65 real lines carry none of it.
-func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
+func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID, player PlayerID) {
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
@@ -1066,7 +1066,7 @@ func (g *Game) checkTapsForManaTriggers(card CardID, player PlayerID) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // isTapsForManaTrigger reports whether t is CR 603's "taps for mana" shape:
@@ -1125,7 +1125,7 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
 // unresolved for the identical reason SpellCast's own
 // Player.EnchantedBy/Player.Chosen do (matchesPlayerSpec's own doc comment).
-func (g *Game) checkPhaseTriggers() {
+func (g *Game) checkPhaseTriggers(controller PlayerController) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -1164,7 +1164,7 @@ func (g *Game) checkPhaseTriggers() {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // phaseTriggerZones is every zone this port walks looking for a Mode$ Phase
@@ -1282,12 +1282,16 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // Every check function collects its own matches into a []Ability first (its
 // own "own" and "other" halves both feed the same slice when it has both)
 // and calls this once at the end, instead of pushing inline.
-func (g *Game) pushTriggeredAbilities(matches []Ability) {
+func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
 	for _, pid := range g.playersInAPNAPOrder() {
-		for _, a := range matches {
-			if a.Controller == pid {
-				g.PushAbility(a)
+		for i := range matches {
+			if matches[i].Controller != pid {
+				continue
 			}
+			if !g.resolveTargets(controller, &matches[i]) {
+				continue
+			}
+			g.PushAbility(matches[i])
 		}
 	}
 }
@@ -1726,7 +1730,7 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // -- 175 of 286 real lines; AttackedTarget$ (attackedTargetMatches, below) --
 // 63 of 286; ValidAttackers$/ValidAttackersAmount$ (validAttackersCountMatches,
 // below) -- 123 of 286.
-func (g *Game) checkAttackersDeclaredTrigger() {
+func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 	if len(g.combat.Attackers) == 0 {
 		return
 	}
@@ -1774,7 +1778,7 @@ func (g *Game) checkAttackersDeclaredTrigger() {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // attackedTargetsOf is every distinct entity actually attacked this combat
@@ -1911,7 +1915,7 @@ func isAttackersDeclaredTrigger(t *compile.Ability) bool {
 // exists); ForReveal$ (5) -- Java's own AbilityKey.CanReveal, a
 // reveal-while-drawing flag (Sensei's Divining Top-adjacent shapes) this
 // port's own DrawCards has no equivalent state for.
-func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
+func (g *Game) checkDrawnTriggers(controller PlayerController, drawer PlayerID, drawn CardID, number int) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -1954,7 +1958,7 @@ func (g *Game) checkDrawnTriggers(drawer PlayerID, drawn CardID, number int) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 func isDrawnTrigger(t *compile.Ability) bool {
@@ -1981,7 +1985,7 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // port tracks (Card.AttacksThisTurn's own shape does not apply to a
 // player-keyed event); ValidSource$/Spell$/ResolvedLimit$ (1 each, no shape
 // worth guessing at from a single real line).
-func (g *Game) checkLifeGainedTriggers(gainer PlayerID) {
+func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -2017,7 +2021,7 @@ func (g *Game) checkLifeGainedTriggers(gainer PlayerID) {
 			}
 		}
 	}
-	g.pushTriggeredAbilities(matches)
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 func isLifeGainedTrigger(t *compile.Ability) bool {

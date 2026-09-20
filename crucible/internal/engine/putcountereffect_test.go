@@ -231,8 +231,13 @@ func TestPutCounterEffectRejectsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestPutCounterEffectRejectsValidTgts proves a real target (this port's
-// own targeting gap) fails loudly.
+// TestPutCounterEffectRejectsValidTgts proves putCounterEffect itself still
+// rejects a real target: resolveTargets (targeting.go) now resolves
+// ValidTgts$ generically before this ability is even pushed, so the target
+// (the casting creature itself, the only "Creature" on the battlefield at
+// push time) is chosen without issue, but putCounterEffect has not been
+// extended to consume Targeted (defined.go) yet -- its own blocked-param
+// list still names ValidTgts$, and this proves that check still fires.
 func TestPutCounterEffectRejectsValidTgts(t *testing.T) {
 	t.Parallel()
 
@@ -242,7 +247,14 @@ func TestPutCounterEffectRejectsValidTgts(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	def := etbPutCounterTriggerDefParams(t, "Test ValidTgts", "CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature", nil)
-	_, err := castETBPutCounter(t, g, p, def)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(creature)})
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	err := g.ResolveStack(engine.NewRegistry(), c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")
 	}

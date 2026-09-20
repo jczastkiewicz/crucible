@@ -40,7 +40,7 @@ var gainLifeUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 
-func (gainLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range gainLifeUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: GainLife: %s$ not resolvable yet", key)
@@ -59,14 +59,14 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return fmt.Errorf("engine: GainLife: LifeAmount$ %q is not resolvable", lifeAmount)
 	}
 	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: GainLife: %w", err)
 	}
 	for _, pid := range players {
 		g.Player(pid).Life += amount
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(amount)})
-		g.checkLifeGainedTriggers(pid)
+		g.checkLifeGainedTriggers(controller, pid)
 	}
 	return nil
 }

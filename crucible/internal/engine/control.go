@@ -12,13 +12,13 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-three answerable with
+// which has 110 abstract methods; only the twenty-four answerable with
 // today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
 // fully land in M5. Each is added when its own caller is, the same as these
-// twenty-three: mulligans and the starting-player choice have callers in
+// twenty-four: mulligans and the starting-player choice have callers in
 // GameAction and mulligan/, even though neither is ported yet, and
 // ChooseLegendaryToKeep's, DeclareCombatAttackers's, ChooseAttackTarget's,
 // DeclareCombatBlockers's, AssignCombatDamage's, DiscardToHandSize's,
@@ -38,6 +38,8 @@ import (
 // ArrangeForScry's own caller (scryEffect.Resolve, scryeffect.go) is the
 // second, and ArrangeForSurveil's own caller (surveilEffect.Resolve,
 // surveileffect.go) is the third.
+// ChooseTargets's own caller (resolveTargets, targeting.go) is not another
+// Effect at all -- it runs before an ability is even pushed.
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -164,6 +166,17 @@ type PlayerController interface {
 	// has); toGraveyard is the order the rest go to their owner's graveyard
 	// in. Either may be nil.
 	ArrangeForSurveil(g *Game, decider PlayerID, topN []CardID) (toTop, toGraveyard []CardID)
+
+	// ChooseTargets decides which of valid an ability's own controller
+	// targets it with (CR 601.2c/603.3b, targeting.go's own resolveTargets,
+	// the sole caller). valid is every legal candidate a ValidTgts$ line
+	// names -- every EntityID a CardEntity, or every one a PlayerEntity,
+	// never a mix (targeting.go's own doc comment has the reason);
+	// targetMin/targetMax are TargetMin$/TargetMax$ (1/1 when neither is
+	// named). The
+	// returned slice's own length and membership are not re-checked here --
+	// trust the controller's answer, the same as ChooseLegendaryToKeep.
+	ChooseTargets(g *Game, decider PlayerID, valid []EntityID, targetMin, targetMax int) []EntityID
 
 	// ChooseBattleProtector decides which opponent defends decider's Battle
 	// (CR 704.5w/704.5x, assignBattleProtector, action.go). eligible is
@@ -311,6 +324,7 @@ type ScriptedController struct {
 	enchantTargets   []CardID
 	scryDecisions    []scryDecision
 	surveilDecisions []scryDecision
+	targets          [][]EntityID
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -406,6 +420,11 @@ func (c *ScriptedController) QueueScry(toTop, toBottom []CardID) {
 // happens to script the identical cards for both.
 func (c *ScriptedController) QueueSurveil(toTop, toGraveyard []CardID) {
 	c.surveilDecisions = append(c.surveilDecisions, scryDecision{toTop: toTop, toBottom: toGraveyard})
+}
+
+// QueueTargets appends the answer to the next ChooseTargets call.
+func (c *ScriptedController) QueueTargets(chosen []EntityID) {
+	c.targets = append(c.targets, chosen)
 }
 
 // QueueBattleProtector appends the answer to the next ChooseBattleProtector
@@ -542,6 +561,16 @@ func (c *ScriptedController) ArrangeForSurveil(_ *Game, _ PlayerID, _ []CardID) 
 	v := c.surveilDecisions[0]
 	c.surveilDecisions = c.surveilDecisions[1:]
 	return v.toTop, v.toBottom
+}
+
+// ChooseTargets returns the next answer QueueTargets queued.
+func (c *ScriptedController) ChooseTargets(_ *Game, _ PlayerID, _ []EntityID, _, _ int) []EntityID {
+	if len(c.targets) == 0 {
+		panic(scriptExhausted("targets"))
+	}
+	v := c.targets[0]
+	c.targets = c.targets[1:]
+	return v
 }
 
 // ChooseBattleProtector returns the next answer QueueBattleProtector queued.

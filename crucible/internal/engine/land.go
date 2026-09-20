@@ -27,7 +27,7 @@ const maxLandPlays = 1
 // is not in pid's hand, the card is not a land, or the per-turn limit
 // (LandPlayLimit, player.go) is already spent -- the same "declined by the
 // rules, not a bug" contract PayManaCost and TapLandForMana already carry.
-func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
+func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) bool {
 	if pid != g.activePlayer {
 		return false
 	}
@@ -51,6 +51,6 @@ func (g *Game) PlayLand(pid PlayerID, card CardID) bool {
 	g.Move(card, Battlefield, pid)
 	g.Player(pid).LandsPlayed++
 	g.checkMovedReplacement(card, origin)
-	g.checkETBTriggers(card, origin)
+	g.checkETBTriggers(controller, card, origin)
 	return true
 }

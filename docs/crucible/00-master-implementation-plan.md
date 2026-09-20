@@ -832,30 +832,75 @@ printed form.
     (PORT-8/GO-7): `SubAbility$` (90 of 833) — no ability-chaining mechanism exists yet; `Condition$` itself and
     `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionManaSpent$`/`ConditionManaNotSpent$`
     (4/5/3/1/4/0) — `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `Pump`
-    -shaped gap; `ValidTgts$` (12) — a real target past the blanket `ValidCards$` match, this port's own targeting gap;
+    -shaped gap; `ValidTgts$` (12) — a real target past the blanket `ValidCards$` match; targeting itself now exists
+    (targeting's own paragraph, below), `PumpAll` just has not been extended to read `Targeted` back yet;
     `Planeswalker$`/`Ultimate$` (26/13) — unclear semantics on a `PumpAll` line, not worth guessing at;
     `RememberPumped$`/`SharedKeywordsZone$`/`SharedRestrictions$`/`UnlessCost$`/`UnlessPayer$`/`ModeCost$`/`Exhaust$`
     (8/4/4/3/3/3/4) — each its own further mechanic.
 
     **`LoseLife` (`loselifeeffect.go`) is M6's sixth script-driven effect, `GainLife`'s own mirror image** — a
-    plain-or-named-SVar `LifeAmount$` subtracted from a `Defined$` player rather than added, `resolveNamedAmount`/
-    `definedPlayers`/`subAbilityConditionMet` all reused outright. 226 of the corpus's 445 real `(AB|DB)$ LoseLife`
-    lines naming `Defined$ You`/`Opponent`/`Player.Opponent` and carrying no other unresolved param resolve. Unlike
-    `GainLife`, this calls no trigger check at all: Java's own `Player.loseLife` fires `TriggerType.LifeLost`, and
-    `LifeLoseEffect.resolve` itself fires `TriggerType.LifeLostAll` again on top of that, but `Mode$ LifeLost`/
-    `LifeLostAll` both carry 0 real `T:` lines corpus-wide (`Mode$ LifeGained`'s own 98, by contrast, is why
-    `checkLifeGainedTriggers` exists) — nothing to check, so nothing is built. `Player.Life` decrements directly, no
-    "can't lose life" gate (`StaticAbilityCantGainLosePayLife`, symmetric to `GainLife`'s own missing "can't gain life"
-    gate) and no CR 119 "life reduced" replacement family (`ReplacementType.LifeReduced`) built, the identical
-    real-gap-not-a-wrong-answer `GainLife`'s own unbuilt "life gain replacement" remainder already is. The identical
-    `LifeChanged` event `dealPlayerDamage`/`gainLifeEffect` already emit is reused with a negative `Amount`. Not
-    resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (210 of 445) — no
+    plain-or-named-SVar `LifeAmount$` subtracted from a `Defined$` or targeted player rather than added,
+    `resolveNamedAmount`/`definedPlayers`/`subAbilityConditionMet` all reused outright. 300 of the corpus's 445 real
+    `(AB|DB)$ LoseLife` lines naming `Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$`, and
+    carrying no other unresolved param, resolve (226 by `Defined$` alone; targeting's own paragraph below closes 74
+    more). Unlike `GainLife`, this calls no trigger check at all: Java's own `Player.loseLife` fires
+    `TriggerType.LifeLost`, and `LifeLoseEffect.resolve` itself fires `TriggerType.LifeLostAll` again on top of that,
+    but `Mode$ LifeLost`/ `LifeLostAll` both carry 0 real `T:` lines corpus-wide (`Mode$ LifeGained`'s own 98, by
+    contrast, is why `checkLifeGainedTriggers` exists) — nothing to check, so nothing is built. `Player.Life` decrements
+    directly, no "can't lose life" gate (`StaticAbilityCantGainLosePayLife`, symmetric to `GainLife`'s own missing
+    "can't gain life" gate) and no CR 119 "life reduced" replacement family (`ReplacementType.LifeReduced`) built, the
+    identical real-gap-not-a-wrong-answer `GainLife`'s own unbuilt "life gain replacement" remainder already is. The
+    identical `LifeChanged` event `dealPlayerDamage`/`gainLifeEffect` already emit is reused with a negative `Amount`.
+    Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `SubAbility$` (210 of 445) — no
     ability-chaining mechanism exists yet; `Condition$` itself and `ConditionDefined$`/`ConditionZone$` (0/14/1) —
     `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `GainLife`-shaped gap;
-    `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$`/`ValidTgts$` (6/4/4/2/163 combined across the wider
-    823-line `Defined$` set) — each its own further mechanic, and this port's own targeting gap for the non-`Defined$`
-    shape; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/`ModeCost$` (1/2/2/2/1) — unclear semantics on a
-    `LoseLife` line, not worth guessing at from a handful of real lines.
+    `Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$` (6/4/4/2 combined across the wider 823-line
+    `Defined$` set) — each its own further mechanic; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/ `ModeCost$`
+    (1/2/2/2/1) — unclear semantics on a `LoseLife` line, not worth guessing at from a handful of real lines.
+    `ValidTgts$` itself no longer blocks — targeting's own paragraph, next, is why.
+
+    **Targeting itself landed** (`targeting.go`) — CR 601.2c (a spell)/603.3b (a triggered ability)'s own "choose
+    targets," this port's own most-cited gap across every M6 effect built before now (`ValidTgts$` sits in every one of
+    their own "not resolved" lists). `resolveTargets` runs the moment an ability is about to be pushed onto the stack —
+    `pushTriggeredAbilities` (trigger.go), this port's only pusher today, since `CastSpell` (castspell.go) only casts a
+    permanent or an Aura, neither of which carries `ValidTgts$` on its own top-level record. It computes `ValidTgts$`'s
+    own legal candidates two ways: every player still in the game (`matchesPlayerSpec`, valid.go, reused outright — its
+    own `ok` return, "is this spec player-shaped at all," decides which of the two paths runs, tried once rather than
+    per candidate since the answer never depends on which player is asked) or every card on any player's battlefield
+    (`Matches`, valid.go, reused outright) — never both, since no real corpus line this port has read mixes card and
+    player candidates in one `ValidTgts$` string. `TargetMin$`/`TargetMax$` (1/1 when neither is named,
+    `TargetRestrictions.java`'s own default) resolve through `resolveNamedAmount` exactly as every other numeric param
+    already does, then a new `PlayerController` method, `ChooseTargets` (its twenty-fourth), gets asked for that many. A
+    structural shape this port does not parse — `Radiance$` (4 real lines, "and each other permanent that shares a color
+    with it," a second, derived candidate set no single `ValidTgts$` evaluation produces),
+    `TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$` (0 each) — folds into CR 603.3c's own "no
+    legal targets, doesn't go on the stack" outcome rather than an error: the two are observationally identical from
+    outside (the ability does nothing), and GO-7's "fail one game, not the batch" reasoning does not distinguish a card
+    the game declined to put on the stack from one this port cannot parse the targeting for.
+
+    Threading a `PlayerController` down to `pushTriggeredAbilities` touched all sixteen of its own callers across
+    `trigger.go`, and each of those touched its own external caller in turn — `action.go`'s five state-based-action
+    functions (`destroyLethalToughness`/`destroyDamagedCreatures`/`destroyZeroLoyalty`/`destroyZeroDefense`/
+    `cleanupDanglingAttachments`, plus `resolveWorldRule`), `attack.go`/`block.go`'s combat-declaration functions,
+    `combatdamage.go`'s damage-dealing chain, `manaability.go`'s `TapLandForMana`, `turn.go`'s `drawStep`/`DrawCards`,
+    `land.go`'s `PlayLand`, and `castspell.go`'s cast/permanent/Aura effects. Every path bottomed out at a function an
+    earlier chunk had already given a controller to (`CheckStateBasedActions`, `DeclareCombatAttackers`,
+    `DeclareCombatBlockers`, `DealCombatDamage`, `beginPhase`, `CastSpell`, or `Effect.Resolve`'s own parameter), so the
+    cascade stayed contained rather than reaching arbitrarily far up the call graph; `PlayLand`/`TapLandForMana` had no
+    internal caller at all (only tests), so gaining the parameter was a clean addition, not a threading exercise.
+    `internal/fixture`'s own `actions.go` (the `testdata/scenarios/` walker) picked up the same two calls.
+
+    `definedPlayers`/`definedCards` (defined.go) both gained a `targets []EntityID` parameter and a
+    `"Targeted"`/`"TargetedPlayer"`/`"ThisTargetedCard"` case reading it — `AbilityUtils.getDefinedPlayers`'s/
+    `getDefinedCards`'s own literal cases for a `Defined$` value that explicitly names what a parent ability (or, for
+    cards, `Ability.Target`'s own Aura shape's sibling) targeted, distinct from the effect-level dispatch below.
+    `loseLifeEffect` is targeting's first real consumer, and does not route through those new `defined.go` cases at all:
+    its own dispatch mirrors `LifeLoseEffect.java`'s `getTargetPlayers(sa)` directly (`SpellAbilityEffect.java`'s own
+    base helper) — when `ValidTgts$` is present, read `a.Targets` outright, bypassing `Defined$` entirely, since 0 real
+    `LoseLife` lines combine the two (matching `getTargetPlayers`'s own behavior: it never falls through to `Defined$`
+    once the ability uses targeting at all). `PutCounter`/`Discard`/`Scry`/`PumpAll`/`Surveil` still block `ValidTgts$`
+    outright in their own `Resolve` — the mechanism now exists for any of them to consume, extending each one to
+    actually read `Targeted` back is not yet done.
 
     **`PutCounter` (`putcountereffect.go`) is M6's seventh script-driven effect, and the corpus's own second-largest
     resolvable slice after `Pump`** — 992 of the corpus's 3,165 real `(AB|DB)$ PutCounter` lines that name a single
@@ -879,12 +924,12 @@ printed form.
     named constants (`ENERGY`, ...) still gets the counter but emits no `CounterChanged` event, `counterDetail`'s own
     closed set unable to encode it. Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7):
     `SubAbility$` (769 of 3,165) — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$`
-    (807/162/162) — a real target, this port's own targeting gap; `ETB$` (154) — CR 614's own
-    counters-added-simultaneously replacement table (`GameEntityCounterTable`), the identical batching risk
-    `ChangesZoneAll`'s own gap already documents; `Choices$` and its own six further params (46 combined) — an
-    interactive multi-card choice this port's own `PlayerController` has no hook for;
-    `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen more per-target params — each its
-    own further mechanic.
+    (807/162/162) — a real target; targeting itself now exists (targeting's own paragraph, above), `PutCounter` just has
+    not been extended to read `Targeted` back yet; `ETB$` (154) — CR 614's own counters-added-simultaneously replacement
+    table (`GameEntityCounterTable`), the identical batching risk `ChangesZoneAll`'s own gap already documents;
+    `Choices$` and its own six further params (46 combined) — an interactive multi-card choice this port's own
+    `PlayerController` has no hook for; `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen
+    more per-target params — each its own further mechanic.
 
     **`discardEffect` (`discardeffect.go`) is M6's eighth script-driven effect, and the first that has to ask the
     resolving player anything mid-resolution rather than reading game state outright** — 285 of the corpus's 942 real
@@ -910,9 +955,10 @@ printed form.
     opponents-only result `"Opponent"` gets directly (so both are one case here, as they already were before this
     chunk). Not resolved, each failing loudly by name rather than discarding the wrong cards from the wrong player
     (PORT-8/GO-7): every `Mode$` other than `TgtChoose` (each its own further shape, above); `SubAbility$` (196 of 728)
-    — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3) — a real target, this
-    port's own targeting gap; `Optional$` (38) — an interactive confirm this port's own `PlayerController` has no hook
-    for; `AnyNumber$` (16) — a variable count, a different shape from `ChooseCardsToDiscard`'s own exact-count contract;
+    — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3) — a real target;
+    targeting itself now exists (targeting's own paragraph, below), `Discard` just has not been extended to read
+    `Targeted` back yet; `Optional$` (38) — an interactive confirm this port's own `PlayerController` has no hook for;
+    `AnyNumber$` (16) — a variable count, a different shape from `ChooseCardsToDiscard`'s own exact-count contract;
     `DiscardValid$`/`DiscardValidDesc$` (18) — a filtered choice set, the identical gap `PutCounter`'s own `Choices$`
     family already documents; `UnlessType$` (14) — a different sub-flow (`chooseCardsToDiscardUnlessType`, Java's own
     separate controller method); `RevealNumber$` — a reveal-then-choose-a-subset step ahead of the discard itself;
@@ -940,13 +986,13 @@ printed form.
     for free rather than a scry-only shortcut. CR 614's own `Scry` replacement type and `Mode$ Scry` trigger are both
     skipped outright, not merely unresolved: 0 real corpus lines name either, so there is nothing to wire either
     mechanism into yet. Not resolved, each failing loudly by name (PORT-8/GO-7): `SubAbility$` (72 of 415) — no
-    ability-chaining mechanism exists yet; `ValidTgts$` (2) — this port's own targeting gap; `Optional$` (4) — an
-    interactive confirm this port's own `PlayerController` has no hook for; `Planeswalker$` (8) — its own further
-    mechanic. `Condition$` itself and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` (5) skip the whole
-    line via `subAbilityConditionMet`'s own unresolved-param list rather than a loud error, the identical silent-skip
-    every other effect using it already gets; `ConditionPresent$`/`ConditionCompare$`/
-    `ConditionCheckSVar$`/`ConditionSVarCompare$` are resolved through it exactly as `Discard`'s/`PutCounter`'s own
-    already are.
+    ability-chaining mechanism exists yet; `ValidTgts$` (2) — targeting itself now exists (targeting's own paragraph,
+    above), `Scry` just has not been extended to read `Targeted` back yet; `Optional$` (4) — an interactive confirm this
+    port's own `PlayerController` has no hook for; `Planeswalker$` (8) — its own further mechanic. `Condition$` itself
+    and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` (5) skip the whole line via
+    `subAbilityConditionMet`'s own unresolved-param list rather than a loud error, the identical silent-skip every other
+    effect using it already gets; `ConditionPresent$`/`ConditionCompare$`/ `ConditionCheckSVar$`/`ConditionSVarCompare$`
+    are resolved through it exactly as `Discard`'s/`PutCounter`'s own already are.
 
     **`surveilEffect` (`surveileffect.go`) is M6's tenth script-driven effect, and `scryEffect`'s own sibling decision
     reused wholesale rather than rebuilt.** CR 701.42's own shape is nearly identical to CR 701.19's: look at the top
@@ -964,13 +1010,14 @@ printed form.
     702's own Surveil-number static modifier (`StaticAbilitySurveilNum`) is not ported — 0 real lines carry the
     qualifying keyword to trigger it — and CR 603's own `Mode$ Surveil` trigger is, the identical reason `Mode$ Scry`
     is, 0 real corpus lines, so nothing here checks a trigger at all. Not resolved, each failing loudly by name
-    (PORT-8/GO-7): `SubAbility$` (23 of 208) — no ability-chaining mechanism exists yet; `ValidTgts$` — this port's own
-    targeting gap; `Planeswalker$` (5) — its own further mechanic; `RememberMoved$`/`RememberKept$` (2/1) — no
-    `SubAbility` chain exists to ever read a `Remembered$` value back, the identical "blocked outright rather than
-    silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made; `Optional$`, present on 0 real `Surveil`
-    lines today, is still blocked outright for symmetry with `Scry`'s own identical param, in case a future card adds
-    it. `Condition$` itself and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` skip the whole line via
-    `subAbilityConditionMet`, the identical silent-skip `Scry`'s own already gets;
+    (PORT-8/GO-7): `SubAbility$` (23 of 208) — no ability-chaining mechanism exists yet; `ValidTgts$` — targeting itself
+    now exists (targeting's own paragraph, above), `Surveil` just has not been extended to read `Targeted` back yet;
+    `Planeswalker$` (5) — its own further mechanic; `RememberMoved$`/`RememberKept$` (2/1) — no `SubAbility` chain
+    exists to ever read a `Remembered$` value back, the identical "blocked outright rather than silently no-op'd" choice
+    `PutCounter`'s own `RememberCards$` already made; `Optional$`, present on 0 real `Surveil` lines today, is still
+    blocked outright for symmetry with `Scry`'s own identical param, in case a future card adds it. `Condition$` itself
+    and `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$` skip the whole line via `subAbilityConditionMet`,
+    the identical silent-skip `Scry`'s own already gets;
     `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through it exactly as
     `Scry`'s/`Discard`'s/`PutCounter`'s own already do.
 

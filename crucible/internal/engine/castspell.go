@@ -77,7 +77,7 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 	}
 	g.PushAbility(Ability{API: api, Source: card, Controller: pid})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.checkSpellCastTriggers(card, pid)
+	g.checkSpellCastTriggers(controller, card, pid)
 	return true
 }
 
@@ -115,7 +115,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.Move(card, Stack, pid)
 	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.checkSpellCastTriggers(card, pid)
+	g.checkSpellCastTriggers(controller, card, pid)
 	return true
 }
 
@@ -156,11 +156,11 @@ func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID)
 // stack-description system, so one stateless value answers for both.
 type permanentEffect struct{}
 
-func (permanentEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	origin := g.Card(a.Source).Zone
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.checkMovedReplacement(a.Source, origin)
-	g.checkETBTriggers(a.Source, origin)
+	g.checkETBTriggers(controller, a.Source, origin)
 	return nil
 }
 
@@ -180,12 +180,12 @@ func (permanentEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 // it got there, on the very next check.
 type attachEffect struct{}
 
-func (attachEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	origin := g.Card(a.Source).Zone
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
 	g.checkMovedReplacement(a.Source, origin)
-	g.checkETBTriggers(a.Source, origin)
+	g.checkETBTriggers(controller, a.Source, origin)
 	return nil
 }
 

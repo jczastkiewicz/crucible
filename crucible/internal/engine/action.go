@@ -169,14 +169,14 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 			annihilateCounters(g, id)
 		}
 	}
-	destroyLethalToughness(g)
-	destroyDamagedCreatures(g)
-	destroyZeroLoyalty(g)
+	destroyLethalToughness(g, controller)
+	destroyDamagedCreatures(g, controller)
+	destroyZeroLoyalty(g, controller)
 	assignBattleProtector(g, controller)
-	destroyZeroDefense(g)
+	destroyZeroDefense(g, controller)
 	resolveLegendRule(g, controller)
-	resolveWorldRule(g)
-	cleanupDanglingAttachments(g)
+	resolveWorldRule(g, controller)
+	cleanupDanglingAttachments(g, controller)
 	return false
 }
 
@@ -216,7 +216,7 @@ func annihilateCounters(g *Game, id CardID) {
 // Candidates are collected before Move runs, the same reason
 // cleanupDanglingAttachments collects first: Move mutates the battlefield
 // zone this ranges over.
-func destroyLethalToughness(g *Game) {
+func destroyLethalToughness(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -231,7 +231,7 @@ func destroyLethalToughness(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 
@@ -256,7 +256,7 @@ func destroyLethalToughness(g *Game) {
 //
 // Candidates are collected before Move runs, the same reason every other
 // SBA in this file does.
-func destroyDamagedCreatures(g *Game) {
+func destroyDamagedCreatures(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -275,7 +275,7 @@ func destroyDamagedCreatures(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 
@@ -301,7 +301,7 @@ func destroyDamagedCreatures(g *Game) {
 //
 // Candidates are collected before Move runs, the same reason
 // destroyLethalToughness and cleanupDanglingAttachments do.
-func destroyZeroLoyalty(g *Game) {
+func destroyZeroLoyalty(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -313,7 +313,7 @@ func destroyZeroLoyalty(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 
@@ -390,7 +390,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 		}
 		if len(eligible) == 0 {
 			g.Move(id, Graveyard, c.Owner)
-			g.checkDiesTriggers(id)
+			g.checkDiesTriggers(controller, id)
 			continue
 		}
 		c.ProtectingPlayer = controller.ChooseBattleProtector(g, c.Controller(), id, eligible)
@@ -417,7 +417,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 // real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
 // comment) -- a setup.state-placed Battle still needs its own explicit
 // Counters:DEFENSE= if it wants one.
-func destroyZeroDefense(g *Game) {
+func destroyZeroDefense(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -429,7 +429,7 @@ func destroyZeroDefense(g *Game) {
 	}
 	for _, id := range dead {
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 
@@ -481,7 +481,7 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 			for _, id := range dup {
 				if id != keep {
 					g.Move(id, Graveyard, g.Card(id).Owner)
-					g.checkDiesTriggers(id)
+					g.checkDiesTriggers(controller, id)
 				}
 			}
 		}
@@ -512,7 +512,7 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 // reachable" position destroyZeroDefense's own stack-trigger exception is
 // in -- and is exercised here only by a test that sets Card.Timestamp
 // directly.
-func resolveWorldRule(g *Game) {
+func resolveWorldRule(g *Game, controller PlayerController) {
 	var worlds []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -542,7 +542,7 @@ func resolveWorldRule(g *Game) {
 			continue
 		}
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 
@@ -583,7 +583,7 @@ func resolveWorldRule(g *Game) {
 // both mutate the battlefield zone or a card's own attachment list -- the
 // same hazard the zone-snapshot every zone read hands out already carries,
 // just reachable here for the first time.
-func cleanupDanglingAttachments(g *Game) {
+func cleanupDanglingAttachments(g *Game, controller PlayerController) {
 	var toGraveyard, toUnattach []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -613,7 +613,7 @@ func cleanupDanglingAttachments(g *Game) {
 		// Move unattaches id itself as a side effect of leaving the
 		// battlefield (game.go), so there is nothing left to do here.
 		g.Move(id, Graveyard, g.Card(id).Owner)
-		g.checkDiesTriggers(id)
+		g.checkDiesTriggers(controller, id)
 	}
 }
 

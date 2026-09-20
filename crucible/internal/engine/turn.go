@@ -106,13 +106,13 @@ func (g *Game) beginPhase(controller PlayerController) {
 	case Untap:
 		g.untapStep()
 	case Draw:
-		g.drawStep()
+		g.drawStep(controller)
 	case CombatEnd:
 		g.endCombat()
 	case Cleanup:
 		g.cleanupStep(controller)
 	}
-	g.checkPhaseTriggers()
+	g.checkPhaseTriggers(controller)
 	CheckStateBasedActions(g, controller)
 }
 
@@ -159,11 +159,11 @@ func (g *Game) untapStep() {
 // PhaseHandler.onPhaseBegin's DRAW case and PhaseHandler.isSkippingPhase's
 // DRAW rule (CR 103.7a): the first player skips the draw step of their own
 // first turn in a two-player game.
-func (g *Game) drawStep() {
+func (g *Game) drawStep(controller PlayerController) {
 	if g.turn == 1 && len(g.Players()) == 2 {
 		return
 	}
-	g.DrawCards(g.activePlayer, 1)
+	g.DrawCards(g.activePlayer, 1, controller)
 }
 
 // DrawCards draws n cards for pid, one at a time (Player.drawCards' own
@@ -182,7 +182,7 @@ func (g *Game) drawStep() {
 // to bottom, and Load builds cards in that same order (game-state-fixture.md).
 // drawStep (above) and drawEffect (draweffect.go, CR 120.3/M6's own Draw
 // effect) are this port's two callers.
-func (g *Game) DrawCards(pid PlayerID, n int) {
+func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
 	for i := 0; i < n; i++ {
 		lib := g.Zone(Library, pid)
 		if lib.Len() == 0 {
@@ -197,7 +197,7 @@ func (g *Game) DrawCards(pid PlayerID, n int) {
 		// happen to be library-to-hand.
 		g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 		g.Player(pid).CardsDrawnThisTurn++
-		g.checkDrawnTriggers(pid, id, g.Player(pid).CardsDrawnThisTurn)
+		g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
 	}
 }
 
@@ -259,7 +259,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
 			g.Move(id, Graveyard, g.Card(id).Owner)
-			g.checkDiscardedTriggers(id, g.activePlayer)
+			g.checkDiscardedTriggers(controller, id, g.activePlayer)
 		}
 	}
 

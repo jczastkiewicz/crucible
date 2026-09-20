@@ -53,7 +53,8 @@
     "putcountereffect": ["putcountereffect.go"],
     "discardeffect": ["discardeffect.go"],
     "scryeffect": ["scryeffect.go"],
-    "surveileffect": ["surveileffect.go"]
+    "surveileffect": ["surveileffect.go"],
+    "targeting": ["targeting.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -91,8 +92,8 @@
     "block": ["id", "zone", "card", "game", "control", "combat", "attack", "staticability", "trigger"],
     "combatdamage": ["id", "zone", "parts", "card", "player", "game", "event", "control", "combat", "attack", "trigger"],
     "manapay": ["id", "game", "player", "control", "event"],
-    "manaability": ["id", "zone", "card", "game", "player"],
-    "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement"],
+    "manaability": ["id", "zone", "card", "game", "player", "control", "trigger"],
+    "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
       "id",
       "zone",
@@ -133,7 +134,8 @@
       "phase",
       "control",
       "amount",
-      "playerstate"
+      "playerstate",
+      "targeting"
     ],
     "draweffect": ["id", "card", "game", "player", "ability", "turn", "defined", "amount", "control"],
     "continuous": ["id", "zone", "card", "game", "player", "valid", "parts", "layer", "ability", "amount", "playerstate"],
@@ -186,6 +188,7 @@
     ],
     "discardeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
     "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
-    "surveileffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"]
+    "surveileffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
+    "targeting": ["id", "card", "game", "player", "ability", "control", "valid", "amount", "zone"]
   }
 }

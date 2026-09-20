@@ -404,21 +404,22 @@ sharing its duration tracking (`Game.pumps`/`applyPumpEffects`/`cleanupStep`) ou
 shape (Overrun, ...). `loseLifeEffect` (`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image —
 `LifeAmount$` subtracted from `Defined$`'s players instead of added, the identical `LifeChanged` event with a negative
 `Amount` — but calls no trigger check at all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike
-`Mode$ LifeGained`'s own 98. 226 of 445 real `(AB|DB)$ LoseLife` lines naming
-`Defined$ You`/`Opponent`/`Player.Opponent` resolve. `putCounterEffect` (`putcountereffect.go`) is M6's seventh, the
-corpus's own second-largest resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines naming a
-single literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to
-`Card.Counters`/`Player.Counters` by which one `Defined$` names (`definedCounterTargets`, new) rather than by
-`CounterType$` itself, the identical dispatch `CountersPutEffect.resolvePerType`'s own `instanceof` check makes.
-`CounterType$` is uppercased before it becomes a `Counters` key (`CounterEnumType.getType`'s own canonicalization), so a
-corpus line writing `Stun` and another writing `STUN` land on the identical kind rather than two. `CounterNum$` defaults
-to `1`, matching Java's own `getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real
-`(AB|DB)$ Discard` lines naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the
-first script-driven effect that asks the resolving player anything mid-resolution rather than reading game state
-outright: `Effect.Resolve` gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and
-`PlayerController` gained a twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a
-different decision from `DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards
-out of the same hand. `NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
+`Mode$ LifeGained`'s own 98. 300 of 445 real `(AB|DB)$ LoseLife` lines naming
+`Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$` resolve (226 by `Defined$` alone, 74 more once
+targeting landed, below). `putCounterEffect` (`putcountereffect.go`) is M6's seventh, the corpus's own second-largest
+resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines naming a single literal `CounterType$` and
+`Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to `Card.Counters`/`Player.Counters` by which one
+`Defined$` names (`definedCounterTargets`, new) rather than by `CounterType$` itself, the identical dispatch
+`CountersPutEffect.resolvePerType`'s own `instanceof` check makes. `CounterType$` is uppercased before it becomes a
+`Counters` key (`CounterEnumType.getType`'s own canonicalization), so a corpus line writing `Stun` and another writing
+`STUN` land on the identical kind rather than two. `CounterNum$` defaults to `1`, matching Java's own
+`getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real `(AB|DB)$ Discard` lines
+naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the first script-driven
+effect that asks the resolving player anything mid-resolution rather than reading game state outright: `Effect.Resolve`
+gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and `PlayerController` gained a
+twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a different decision from
+`DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards out of the same hand.
+`NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
 `Math.min(numCards, numCardsInHand)`, and an already-empty hand skips the controller call entirely rather than asking
 for zero cards. `definedPlayers` (`defined.go`) gained a `"Player"` case alongside `You`/`Opponent`/`Player.Opponent` —
 `AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch, every player in the game unfiltered, closing
@@ -432,7 +433,25 @@ puts a card on top of a library — `Game.Move` only ever appends to a zone's ow
 bottom order, and a scry of `0` (`CR 701.22b`) never reaches the controller at all. `surveilEffect` (`surveileffect.go`)
 is M6's tenth — `ArrangeForScry`'s own sibling decision (`ArrangeForSurveil`, `PlayerController`'s twenty-third method)
 reused wholesale for CR 701.42: 183 of 208 real `(AB|DB)$ Surveil` lines resolve, the only real difference from `Scry`
-being that the cards not kept on top go to the graveyard rather than to the bottom of the library. 193 script-driven
-effects past `Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still
-report `ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the
-≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+being that the cards not kept on top go to the graveyard rather than to the bottom of the library. **Targeting itself
+landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this port's own most-cited gap across every effect
+built so far (`ValidTgts$` in every one of their own "not resolved" lists above). `resolveTargets` runs the moment an
+ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`, this port's only pusher today), computing
+`ValidTgts$`'s own legal candidates — every player still in the game (`matchesPlayerSpec`, reused) or every card on any
+battlefield (`Matches`, reused) — and asking a new `PlayerController` method, `ChooseTargets` (its twenty-fourth), for
+`TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A structural shape this port does not parse
+(`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real lines)
+folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
+indistinguishable from outside, and both mean the ability does nothing. Threading a `PlayerController` down to
+`pushTriggeredAbilities` touched every one of its sixteen callers across `action.go`/`attack.go`/`block.go`/
+`combatdamage.go`/`manaability.go`/`turn.go`/`land.go`/`castspell.go` — mechanical, and every path already bottomed out
+at a function some earlier chunk had already given a controller to, so the cascade stayed contained. `definedPlayers`/
+`definedCards` (`defined.go`) gained `"Targeted"`/`"TargetedPlayer"` cases reading `Ability.Targets` (new field) for a
+sub-ability that names it explicitly; `loseLifeEffect`'s own dispatch instead mirrors `LifeLoseEffect.java`'s own
+`getTargetPlayers(sa)` directly — `ValidTgts$` present means read `a.Targets`, bypassing `Defined$` outright, since 0
+real `LoseLife` lines combine the two. `LoseLife` is targeting's first real consumer; `PutCounter`/`Discard`/`Scry`/
+`PumpAll`/`Surveil` still block `ValidTgts$` outright in their own `Resolve` — the mechanism exists, extending each
+effect to read `Targeted` back through it is not yet done. 193 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still report
+`ErrUnimplemented`. **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300
+floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

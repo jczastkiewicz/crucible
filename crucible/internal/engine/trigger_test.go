@@ -142,7 +142,7 @@ func TestPlayLandFiresETBTriggerWhenIsPresentConditionMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature.YouCtrl | PresentCompare$ GE2"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -165,7 +165,7 @@ func TestPlayLandSkipsETBTriggerWhenIsPresentConditionNotMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature.YouCtrl | PresentCompare$ GE2"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- one creature does not meet PresentCompare$ GE2", g.Card(top).Zone)
@@ -185,7 +185,7 @@ func TestPlayLandFiresETBTriggerWhenIsPresentMatchesGraveyardZone(t *testing.T) 
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature | PresentZone$ Graveyard"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -208,7 +208,7 @@ func TestPlayLandSkipsETBTriggerWhenIsPresentNamesPresentDefined(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "IsPresent$ Creature | PresentDefined$ Remembered"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- PresentDefined$ is not resolvable, so the whole line must be skipped", g.Card(top).Zone)
@@ -231,7 +231,7 @@ func TestPlayLandFiresETBTriggerWhenCheckSVarConditionMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "CheckSVar$ X | SVarCompare$ GE2"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -253,7 +253,7 @@ func TestPlayLandSkipsETBTriggerWhenCheckSVarConditionNotMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "CheckSVar$ X | SVarCompare$ GE2"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- zero creatures does not meet CheckSVar$ X | SVarCompare$ GE2", g.Card(top).Zone)
@@ -276,7 +276,7 @@ func TestPlayLandFiresETBTriggerWhenThresholdFlagMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Threshold$ True"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -301,7 +301,7 @@ func TestPlayLandSkipsETBTriggerWhenThresholdFlagNotMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Threshold$ True"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- six graveyard cards does not meet Threshold$ True", g.Card(top).Zone)
@@ -321,7 +321,7 @@ func TestPlayLandFiresETBTriggerWhenLifeTotalConditionMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "LifeTotal$ You | LifeAmount$ LE5"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -344,7 +344,7 @@ func TestPlayLandSkipsETBTriggerWhenLifeTotalConditionNotMet(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "LifeTotal$ You | LifeAmount$ LE5"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- 6 life does not meet LifeTotal$ You | LifeAmount$ LE5", g.Card(top).Zone)
@@ -363,7 +363,7 @@ func TestPlayLandSkipsETBTriggerWhenRevoltIsPresent(t *testing.T) {
 	land := g.NewCard(commonReqTriggerLandDef(t, "Test Land", "Revolt$ True"), p, engine.Hand)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	g.PlayLand(p, land)
+	g.PlayLand(p, land, engine.NewScriptedController())
 
 	if g.Card(top).Zone != engine.Library {
 		t.Errorf("library card zone = %v, want Library -- Revolt$ is not resolvable, so the line must not fire", g.Card(top).Zone)
@@ -878,7 +878,7 @@ func TestPlayLandPushesETBTriggersInAPNAPOrder(t *testing.T) {
 	pTop := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 	otherTop := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
 
-	if !g.PlayLand(p, plains) {
+	if !g.PlayLand(p, plains, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed playing a Plains from hand")
 	}
 
@@ -2784,7 +2784,7 @@ func TestTapLandForManaFiresOtherPermanentsWatchingTapsTrigger(t *testing.T) {
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	if !g.TapLandForMana(p, plains, mana.White) {
+	if !g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2882,7 +2882,7 @@ func TestTapLandForManaFiresTapsForManaTrigger(t *testing.T) {
 	plains := g.NewCard(tapsForManaTriggerLandDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
-	if !g.TapLandForMana(p, plains, mana.White) {
+	if !g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2974,7 +2974,7 @@ func TestTapLandForManaFiresTapsForManaTriggerForNonActiveActivator(t *testing.T
 	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), other, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
 
-	if !g.TapLandForMana(other, plains, mana.White) {
+	if !g.TapLandForMana(other, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2997,7 +2997,7 @@ func TestTapLandForManaSkipsTapsForManaTriggerForNonActiveActivator(t *testing.T
 	g.SetTurnState(1, p, engine.Main1)
 	plains := g.NewCard(tapsForManaTriggerLandDefActivator(t, "Plains", "Basic Land Plains", "Player.NonActive"), p, engine.Battlefield)
 
-	if !g.TapLandForMana(p, plains, mana.White) {
+	if !g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 
@@ -3720,7 +3720,7 @@ func TestDrawCardsFiresDrawnTriggerForCardYouCtrl(t *testing.T) {
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidCard$ Card.YouCtrl"), p, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3742,7 +3742,7 @@ func TestDrawCardsSkipsDrawnTriggerForCardYouCtrlWhenHostControlledByOther(t *te
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidCard$ Card.YouCtrl"), other, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- the drawn card is controlled by p, not other, so Card.YouCtrl fails against a host other controls", got)
@@ -3761,7 +3761,7 @@ func TestDrawCardsFiresDrawnTriggerForValidPlayerOpponent(t *testing.T) {
 	g.NewCard(nil, other, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidPlayer$ Opponent"), other, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3783,7 +3783,7 @@ func TestDrawCardsSkipsDrawnTriggerForValidPlayerOpponentWhenHostIsDrawer(t *tes
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "ValidPlayer$ Opponent"), p, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- ValidPlayer$ Opponent must not fire when the host's own controller is the one who drew", got)
@@ -3804,7 +3804,7 @@ func TestDrawCardsFiresDrawnTriggerForMatchingNumber(t *testing.T) {
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "Number$ 2"), p, engine.Battlefield)
 
-	g.DrawCards(p, 2)
+	g.DrawCards(p, 2, engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 1 {
 		t.Fatalf("StackLen() = %d, want 1 -- Number$ 2 must fire exactly once, on the second card drawn", got)
@@ -3822,7 +3822,7 @@ func TestDrawCardsSkipsDrawnTriggerForNonMatchingNumber(t *testing.T) {
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "Number$ 2"), p, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- a single draw never reaches CardsDrawnThisTurn == 2", got)
@@ -3841,7 +3841,7 @@ func TestDrawCardsSkipsDrawnTriggerWithUnresolvedParam(t *testing.T) {
 	g.NewCard(nil, p, engine.Library)
 	g.NewCard(drawnTriggerDef(t, "Test Watcher", "FirstCardInDrawStep$ True"), p, engine.Battlefield)
 
-	g.DrawCards(p, 1)
+	g.DrawCards(p, 1, engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- FirstCardInDrawStep$ is not evaluated, so the trigger must not fire", got)

@@ -200,8 +200,13 @@ func TestPumpAllEffectRejectsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestPumpAllEffectRejectsValidTgts proves a real target past the blanket
-// ValidCards$ match (this port's own targeting gap) fails loudly.
+// TestPumpAllEffectRejectsValidTgts proves pumpAllEffect itself still
+// rejects a real target past the blanket ValidCards$ match:
+// resolveTargets (targeting.go) now resolves ValidTgts$ generically before
+// this ability is even pushed, so the target is chosen without issue, but
+// pumpAllEffect has not been extended to consume Targeted (defined.go) yet
+// -- its own blocked-param list still names ValidTgts$, and this proves
+// that check still fires.
 func TestPumpAllEffectRejectsValidTgts(t *testing.T) {
 	t.Parallel()
 
@@ -211,7 +216,15 @@ func TestPumpAllEffectRejectsValidTgts(t *testing.T) {
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 
 	def := etbPumpAllTriggerDefParams(t, "Test PumpAll ValidTgts", "ValidCards$ Creature | NumAtt$ 1 | NumDef$ 1 | ValidTgts$ Player", nil)
-	if _, err := castETBPumpAll(t, g, p, def); err == nil {
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	err := g.ResolveStack(engine.NewRegistry(), c)
+	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")
 	} else if !strings.Contains(err.Error(), "ValidTgts") {
 		t.Errorf("ResolveStack error = %q, want it to name ValidTgts$", err.Error())

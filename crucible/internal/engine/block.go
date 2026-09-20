@@ -102,15 +102,15 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) []Block {
 	blockersByAttacker := map[CardID][]CardID{}
 	var blockedAttackers []CardID
 	for _, blk := range blocks {
-		g.checkBlocksTriggers(blk)
-		g.checkAttackerBlockedByCreatureTriggers(blk)
+		g.checkBlocksTriggers(controller, blk)
+		g.checkAttackerBlockedByCreatureTriggers(controller, blk)
 		if _, ok := blockersByAttacker[blk.Attacker]; !ok {
 			blockedAttackers = append(blockedAttackers, blk.Attacker)
 		}
 		blockersByAttacker[blk.Attacker] = append(blockersByAttacker[blk.Attacker], blk.Blocker)
 	}
 	for _, attacker := range blockedAttackers {
-		g.checkAttackerBlockedTriggers(attacker, blockersByAttacker[attacker])
+		g.checkAttackerBlockedTriggers(controller, attacker, blockersByAttacker[attacker])
 	}
 	return blocks
 }

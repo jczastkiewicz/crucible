@@ -16,7 +16,7 @@ func TestPlayLandMovesCardToBattlefieldAndCountsIt(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 
-	if !g.PlayLand(p, plains) {
+	if !g.PlayLand(p, plains, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed on a plain land in hand during the active player's Main1")
 	}
 	if g.Card(plains).Zone != engine.Battlefield {
@@ -38,10 +38,10 @@ func TestPlayLandFailsAfterTheTurnsLimitIsSpent(t *testing.T) {
 	first := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 	second := g.NewCard(landDef(t, "Island", "Basic Land Island"), p, engine.Hand)
 
-	if !g.PlayLand(p, first) {
+	if !g.PlayLand(p, first, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed on the first land this turn")
 	}
-	if g.PlayLand(p, second) {
+	if g.PlayLand(p, second, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded on a second land the same turn")
 	}
 	if g.Card(second).Zone != engine.Hand {
@@ -58,7 +58,7 @@ func TestPlayLandFailsWhenNotActivePlayer(t *testing.T) {
 	g.SetTurnState(1, active, engine.Main1)
 	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), other, engine.Hand)
 
-	if g.PlayLand(other, land) {
+	if g.PlayLand(other, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded for a player who is not the active player")
 	}
 }
@@ -73,7 +73,7 @@ func TestPlayLandFailsOutsideAMainPhase(t *testing.T) {
 	g.SetTurnState(1, p, engine.CombatDamage)
 	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 
-	if g.PlayLand(p, land) {
+	if g.PlayLand(p, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded outside a main phase")
 	}
 }
@@ -89,7 +89,7 @@ func TestPlayLandFailsWhenStackIsNotEmpty(t *testing.T) {
 	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 	g.PushAbility(engine.Ability{})
 
-	if g.PlayLand(p, land) {
+	if g.PlayLand(p, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded with something already on the stack")
 	}
 }
@@ -103,7 +103,7 @@ func TestPlayLandFailsWhenCardIsNotInHand(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
 
-	if g.PlayLand(p, land) {
+	if g.PlayLand(p, land, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded on a card already on the battlefield")
 	}
 }
@@ -117,7 +117,7 @@ func TestPlayLandFailsWhenCardIsNotALand(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Hand)
 
-	if g.PlayLand(p, bear) {
+	if g.PlayLand(p, bear, engine.NewScriptedController()) {
 		t.Fatal("PlayLand succeeded on a creature card")
 	}
 }
@@ -167,10 +167,10 @@ func TestPlayLandSucceedsPastTheDefaultLimitWithAdjustLandPlays(t *testing.T) {
 	first := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 	second := g.NewCard(landDef(t, "Island", "Basic Land Island"), p, engine.Hand)
 
-	if !g.PlayLand(p, first) {
+	if !g.PlayLand(p, first, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed on the first land this turn")
 	}
-	if !g.PlayLand(p, second) {
+	if !g.PlayLand(p, second, engine.NewScriptedController()) {
 		t.Fatal("PlayLand failed on the second land this turn, want success -- AdjustLandPlays$ 1")
 	}
 }
@@ -189,7 +189,7 @@ func TestPlayLandSucceedsRepeatedlyWithUnlimitedLandPlays(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
-		if !g.PlayLand(p, land) {
+		if !g.PlayLand(p, land, engine.NewScriptedController()) {
 			t.Fatalf("PlayLand failed on land #%d this turn, want success -- AdjustLandPlays$ Unlimited", i+1)
 		}
 	}

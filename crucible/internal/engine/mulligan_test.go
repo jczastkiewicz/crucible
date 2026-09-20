@@ -63,7 +63,7 @@ func (c *scriptedMulliganController) TuckCardsViaMulligan(_ *engine.Game, _ engi
 
 // ChooseLegendaryToKeep, DeclareCombatAttackers, ChooseAttackTarget,
 // DeclareCombatBlockers, AssignCombatDamage, DiscardToHandSize,
-// ChooseCardsToDiscard, ArrangeForScry, ArrangeForSurveil, ChooseBattleProtector,
+// ChooseCardsToDiscard, ArrangeForScry, ArrangeForSurveil, ChooseTargets, ChooseBattleProtector,
 // ChooseHybridManaColor, ChoosePayMonocoloredHybrid,
 // ChoosePayColorlessHybrid, ChoosePayPhyrexian, ChoosePayHybridPhyrexian,
 // ChoosePayGeneric, ChoosePayX and ChoosePaySnow are never exercised by this controller's own tests -- no scenario here
@@ -104,6 +104,10 @@ func (c *scriptedMulliganController) ArrangeForScry(_ *engine.Game, _ engine.Pla
 
 func (c *scriptedMulliganController) ArrangeForSurveil(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) ([]engine.CardID, []engine.CardID) {
 	panic("scriptedMulliganController: ArrangeForSurveil was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseTargets(_ *engine.Game, _ engine.PlayerID, _ []engine.EntityID, _, _ int) []engine.EntityID {
+	panic("scriptedMulliganController: ChooseTargets was not expected to be called")
 }
 
 func (c *scriptedMulliganController) ChooseBattleProtector(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.PlayerID) engine.PlayerID {

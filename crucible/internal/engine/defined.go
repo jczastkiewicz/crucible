@@ -11,16 +11,21 @@ package engine
 import "fmt"
 
 // definedPlayers resolves Defined$ to the players it names: "You" (the
-// ability's own controller), "Opponent"/"Player.Opponent" (every opponent)
-// and "Player" (every player in the game, unfiltered -- AbilityUtils.
+// ability's own controller), "Opponent"/"Player.Opponent" (every opponent),
+// "Player" (every player in the game, unfiltered -- AbilityUtils.
 // getDefinedPlayers's own fallthrough `else` branch, `game.
 // getPlayersInTurnOrder()`, reached because a bare "Player" matches none of
 // its named cases; "Player.Opponent" does not fall into this branch at all,
 // since it is Java's dotted-suffix filter applied to that same fallthrough
 // set -- the identical opponents-only result "Opponent" gets directly,
-// which is why both are one case here). A player no longer in the game is
-// skipped, matching Java's own `if (!p.isInGame()) continue`.
-func definedPlayers(g *Game, controller PlayerID, defined string) ([]PlayerID, error) {
+// which is why both are one case here) and "TargetedPlayer"/"Targeted"
+// (every PlayerEntity in targets -- resolveTargets's own answer,
+// targeting.go -- filtered from a mixed EntityID slice even though no real
+// ValidTgts$ line this port evaluates ever actually mixes cards and players
+// in one target set, since nothing about Defined$'s own reading enforces
+// that). A player no longer in the game is skipped, matching Java's own
+// `if (!p.isInGame()) continue`.
+func definedPlayers(g *Game, controller PlayerID, defined string, targets []EntityID) ([]PlayerID, error) {
 	var candidates []PlayerID
 	switch defined {
 	case "You":
@@ -30,6 +35,12 @@ func definedPlayers(g *Game, controller PlayerID, defined string) ([]PlayerID, e
 	case "Opponent", "Player.Opponent":
 		for _, pid := range g.Players() {
 			if pid != controller {
+				candidates = append(candidates, pid)
+			}
+		}
+	case "TargetedPlayer", "Targeted":
+		for _, e := range targets {
+			if pid, ok := e.AsPlayer(); ok {
 				candidates = append(candidates, pid)
 			}
 		}
@@ -48,12 +59,14 @@ func definedPlayers(g *Game, controller PlayerID, defined string) ([]PlayerID, e
 // definedCards resolves Defined$ to the cards it names, relative to the
 // ability's own host card rather than its controller (pumpEffect's first
 // caller): "Self" (the host itself, 1,094 of pumpEffect's own 1,147 real
-// resolvable lines) and "Enchanted"/"Equipped" (what the host -- an Aura or
+// resolvable lines), "Enchanted"/"Equipped" (what the host -- an Aura or
 // an Equipment -- is currently attached to, Card.AttachedTo, empty rather
 // than an error when nothing is, matching Java's own
 // AbilityUtils.getDefinedCards returning an empty list for an unattached
-// Aura/Equipment rather than failing the ability).
-func definedCards(host *Card, defined string) ([]CardID, error) {
+// Aura/Equipment rather than failing the ability), and "Targeted"/
+// "ThisTargetedCard" (every CardEntity in targets -- resolveTargets's own
+// answer, targeting.go).
+func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, error) {
 	switch defined {
 	case "Self":
 		return []CardID{host.ID}, nil
@@ -62,6 +75,14 @@ func definedCards(host *Card, defined string) ([]CardID, error) {
 			return []CardID{id}, nil
 		}
 		return nil, nil
+	case "Targeted", "ThisTargetedCard":
+		var cards []CardID
+		for _, e := range targets {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		return cards, nil
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}

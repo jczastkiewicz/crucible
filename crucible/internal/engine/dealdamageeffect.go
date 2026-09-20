@@ -59,7 +59,7 @@ var dealDamageUnresolvedParams = [...]string{
 	"NoPrevention", "Optional", "TgtPrompt",
 }
 
-func (dealDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range dealDamageUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: DealDamage: %s$ not resolvable yet", key)
@@ -81,15 +81,15 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 
 	defined, _ := a.Params.Param("Defined")
 	if defined == "Self" {
-		g.dealPermanentDamage(a.Source, a.Source, dmg, deathtouch, false)
+		g.dealPermanentDamage(controller, a.Source, a.Source, dmg, deathtouch, false)
 		return nil
 	}
-	players, err := definedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: DealDamage: %w", err)
 	}
 	for _, pid := range players {
-		g.dealPlayerDamage(a.Source, pid, dmg, false)
+		g.dealPlayerDamage(controller, a.Source, pid, dmg, false)
 	}
 	return nil
 }

@@ -56,7 +56,7 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if !ok {
 		defined = "You"
 	}
-	players, err := definedPlayers(g, a.Controller, defined)
+	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Scry: %w", err)
 	}

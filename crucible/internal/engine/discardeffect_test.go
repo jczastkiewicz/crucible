@@ -305,8 +305,12 @@ func TestDiscardEffectRejectsSubAbilityChain(t *testing.T) {
 	}
 }
 
-// TestDiscardEffectRejectsValidTgts proves a real target (this port's own
-// targeting gap) fails loudly.
+// TestDiscardEffectRejectsValidTgts proves discardEffect itself still
+// rejects a real target: resolveTargets (targeting.go) now resolves
+// ValidTgts$ generically before this ability is even pushed, so the target
+// is chosen without issue, but discardEffect has not been extended to
+// consume Targeted (defined.go) yet -- its own blocked-param list still
+// names ValidTgts$, and this proves that check still fires.
 func TestDiscardEffectRejectsValidTgts(t *testing.T) {
 	t.Parallel()
 
@@ -317,6 +321,7 @@ func TestDiscardEffectRejectsValidTgts(t *testing.T) {
 
 	def := etbDiscardTriggerDefParams(t, "Test ValidTgts", "Mode$ TgtChoose | NumCards$ 1 | ValidTgts$ Player", nil)
 	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
 	_, err := castETBDiscard(t, g, p, def, c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")

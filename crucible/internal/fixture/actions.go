@@ -176,7 +176,7 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if err != nil {
 			return fmt.Errorf("tapformana color %q: %w", args[2], err)
 		}
-		l.Game.TapLandForMana(pid, ids[0], color)
+		l.Game.TapLandForMana(pid, ids[0], color, c)
 
 	case "playland":
 		if len(args) < 2 {
@@ -193,7 +193,7 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("playland: want exactly one card id, got %q", args[1])
 		}
-		l.Game.PlayLand(pid, ids[0])
+		l.Game.PlayLand(pid, ids[0], c)
 
 	case "castspell":
 		if len(args) < 2 {

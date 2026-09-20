@@ -30,7 +30,7 @@ func TestTapLandForManaAddsColorAndTaps(t *testing.T) {
 	p := g.Players()[0]
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
 
-	if !g.TapLandForMana(p, plains, mana.White) {
+	if !g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains for white")
 	}
 	if !g.Card(plains).Tapped {
@@ -51,7 +51,7 @@ func TestTapLandForManaFailsWhenAlreadyTapped(t *testing.T) {
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
 	g.Card(plains).Tapped = true
 
-	if g.TapLandForMana(p, plains, mana.White) {
+	if g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana succeeded on an already-tapped land")
 	}
 	if got := g.Player(p).ManaPool.Total(); got != 0 {
@@ -67,7 +67,7 @@ func TestTapLandForManaFailsWhenNotControlled(t *testing.T) {
 	owner, other := g.Players()[0], g.Players()[1]
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), owner, engine.Battlefield)
 
-	if g.TapLandForMana(other, plains, mana.White) {
+	if g.TapLandForMana(other, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana succeeded for a player who does not control the land")
 	}
 	if got := g.Player(other).ManaPool.Total(); got != 0 {
@@ -84,7 +84,7 @@ func TestTapLandForManaFailsWhenNotOnBattlefield(t *testing.T) {
 	p := g.Players()[0]
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
 
-	if g.TapLandForMana(p, plains, mana.White) {
+	if g.TapLandForMana(p, plains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana succeeded on a land still in hand")
 	}
 }
@@ -98,7 +98,7 @@ func TestTapLandForManaFailsWhenLandLacksThatColor(t *testing.T) {
 	p := g.Players()[0]
 	island := g.NewCard(landDef(t, "Island", "Basic Land Island"), p, engine.Battlefield)
 
-	if g.TapLandForMana(p, island, mana.White) {
+	if g.TapLandForMana(p, island, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana succeeded asking an Island for white")
 	}
 	if g.Card(island).Tapped {
@@ -116,10 +116,10 @@ func TestTapLandForManaSupportsDualBasicLandType(t *testing.T) {
 	p := g.Players()[0]
 	dual := g.NewCard(landDef(t, "Dual", "Basic Land Plains Island"), p, engine.Battlefield)
 
-	if !g.TapLandForMana(p, dual, mana.Blue) {
+	if !g.TapLandForMana(p, dual, mana.Blue, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Plains Island for blue")
 	}
-	if g.TapLandForMana(p, dual, mana.White) {
+	if g.TapLandForMana(p, dual, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana succeeded tapping an already-tapped dual land again")
 	}
 	if got := g.Player(p).ManaPool.Breakdown(); got != [6]int{0, 1, 0, 0, 0, 0} {
@@ -137,7 +137,7 @@ func TestTapLandForManaProducesSnowManaFromASnowLand(t *testing.T) {
 	p := g.Players()[0]
 	snowPlains := g.NewCard(landDef(t, "Snow-Covered Plains", "Basic Snow Land Plains"), p, engine.Battlefield)
 
-	if !g.TapLandForMana(p, snowPlains, mana.White) {
+	if !g.TapLandForMana(p, snowPlains, mana.White, engine.NewScriptedController()) {
 		t.Fatal("TapLandForMana failed tapping a Snow-Covered Plains for white")
 	}
 	if got, want := g.Player(p).ManaPool.SnowBreakdown(), [6]int{1, 0, 0, 0, 0, 0}; got != want {
@@ -164,5 +164,5 @@ func TestTapLandForManaRequiresExactlyOneBasicColor(t *testing.T) {
 	g := newGame(t, "a")
 	p := g.Players()[0]
 	plains := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Battlefield)
-	g.TapLandForMana(p, plains, mana.White|mana.Blue)
+	g.TapLandForMana(p, plains, mana.White|mana.Blue, engine.NewScriptedController())
 }

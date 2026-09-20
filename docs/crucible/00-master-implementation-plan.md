@@ -763,8 +763,8 @@ printed form.
     - `NoPrevention$` (1) — this port's own `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply
       where Java's own `AbilityKey.NoPreventDamage` says not to.
 
-    `ResolveStack` still reports `ErrUnimplemented` for the other 197 once `GainLife`/`Pump`/`PumpAll`/`LoseLife`
-    (below) are counted alongside it.
+    `ResolveStack` still reports `ErrUnimplemented` for the other 196 once
+    `GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter` (below) are counted alongside it.
 
     **`GainLife` (`gainlifeeffect.go`) is M6's third script-driven effect, and the corpus's single largest resolvable
     slice past `DealDamage`** — 857 of the corpus's 1,700 real `(AB|DB)$ GainLife` lines that name
@@ -856,6 +856,35 @@ printed form.
     823-line `Defined$` set) — each its own further mechanic, and this port's own targeting gap for the non-`Defined$`
     shape; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/`ModeCost$` (1/2/2/2/1) — unclear semantics on a
     `LoseLife` line, not worth guessing at from a handful of real lines.
+
+    **`PutCounter` (`putcountereffect.go`) is M6's seventh script-driven effect, and the corpus's own second-largest
+    resolvable slice after `Pump`** — 992 of the corpus's 3,165 real `(AB|DB)$ PutCounter` lines that name a single
+    literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You`, carrying no other unresolved param.
+    `CountersPutEffect.java` itself is 800 lines wide (`Bolster$`/`Monstrosity$`/`Adapt$`/`Support$`/`Choices$`/
+    `DividedRandomly$`/`PutOnEachOther$`/`PutOnDefined$`/`EachFromSource$`/the `ETB$` counter-table replacement path and
+    more, each its own further mechanic this port has nowhere to route through yet); this port keeps only the plain
+    shape. `putCounterType` (new) reads `CounterType$` as a single literal name, uppercased —
+    `CounterEnumType.getType`'s own `toUpperCase(Locale.ROOT)` canonicalization — so a corpus line writing `Stun` and
+    another writing `STUN` (74 and 23 real lines) land on the identical `Counters` key rather than two; a
+    comma-separated list (22, an interactive choice among types), `ExistingCounter` (8) and `Any` (a case-insensitive
+    nil sentinel in Java, "any kind" rather than a concrete kind) all fail loudly instead. `CounterNum$` defaults to `1`
+    (`getParamOrDefault`'s own Java default) and otherwise resolves through `resolveNamedAmount` exactly as
+    `NumDmg$`/`LifeAmount$` already do. A new `definedCounterTargets` dispatches `Defined$` to a card (`definedCards`,
+    unchanged) or a player (`definedPlayers`, unchanged) by which one the value itself names — the identical dispatch
+    `CountersPutEffect.resolvePerType`'s own `obj instanceof Player`/`obj instanceof Card` check makes at the
+    resolved-entity level, not by `CounterType$`: a player-only counter kind (energy, poison, ...) is only ever reached
+    because `Defined$` itself names a player. `Card.Counters`/`Player.Counters` gain their first script-driven writer;
+    `emitCounterChanged` (event.go) gets its first real caller past the hardcoded planeswalker-loyalty-on-entry path,
+    and its own documented gap fires for real for the first time too — a script-written `CounterType$` past the eight
+    named constants (`ENERGY`, ...) still gets the counter but emits no `CounterChanged` event, `counterDetail`'s own
+    closed set unable to encode it. Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7):
+    `SubAbility$` (769 of 3,165) — no ability-chaining mechanism exists yet; `ValidTgts$`/`TargetMin$`/`TargetMax$`
+    (807/162/162) — a real target, this port's own targeting gap; `ETB$` (154) — CR 614's own
+    counters-added-simultaneously replacement table (`GameEntityCounterTable`), the identical batching risk
+    `ChangesZoneAll`'s own gap already documents; `Choices$` and its own six further params (46 combined) — an
+    interactive multi-card choice this port's own `PlayerController` has no hook for;
+    `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` and a dozen more per-target params — each its
+    own further mechanic.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**

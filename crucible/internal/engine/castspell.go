@@ -189,7 +189,7 @@ func (attachEffect) Resolve(g *Game, a *Ability) error {
 	return nil
 }
 
-// NewRegistry builds a Registry carrying every Effect this port has. Nine
+// NewRegistry builds a Registry carrying every Effect this port has. Ten
 // entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
@@ -209,11 +209,15 @@ func (attachEffect) Resolve(g *Game, a *Ability) error {
 // duration tracking outright; APILoseLife is loseLifeEffect
 // (loselifeeffect.go), M6's sixth and gainLifeEffect's own mirror image,
 // unlike which it calls no trigger check at all -- 0 real
-// T:Mode$ LifeLost/LifeLostAll lines corpus-wide. Explicit construction
-// here, not an init() populating a package-level Registry, is ADR-0003's
-// own "explicit wiring... so the direction stays visible and test binaries
-// can register a subset" -- a caller that wants fewer registered APIs
-// builds its own Registry by hand instead of calling this.
+// T:Mode$ LifeLost/LifeLostAll lines corpus-wide; APIPutCounter is
+// putCounterEffect (putcountereffect.go), M6's seventh and the corpus's own
+// second-largest resolvable slice after Pump, the first to write
+// Card.Counters/Player.Counters from a script rather than combat's own
+// hardcoded loyalty-on-entry path. Explicit construction here, not an
+// init() populating a package-level Registry, is ADR-0003's own "explicit
+// wiring... so the direction stays visible and test binaries can register a
+// subset" -- a caller that wants fewer registered APIs builds its own
+// Registry by hand instead of calling this.
 func NewRegistry() *Registry {
 	var r Registry
 	r[APIPermanentCreature] = permanentEffect{}
@@ -225,5 +229,6 @@ func NewRegistry() *Registry {
 	r[APIPump] = pumpEffect{}
 	r[APIPumpAll] = pumpAllEffect{}
 	r[APILoseLife] = loseLifeEffect{}
+	r[APIPutCounter] = putCounterEffect{}
 	return &r
 }

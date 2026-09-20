@@ -405,7 +405,14 @@ shape (Overrun, ...). `loseLifeEffect` (`loselifeeffect.go`) is M6's sixth, `gai
 `LifeAmount$` subtracted from `Defined$`'s players instead of added, the identical `LifeChanged` event with a negative
 `Amount` — but calls no trigger check at all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike
 `Mode$ LifeGained`'s own 98. 226 of 445 real `(AB|DB)$ LoseLife` lines naming
-`Defined$ You`/`Opponent`/`Player.Opponent` resolve. 197 script-driven effects past
-`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife` still report `ErrUnimplemented`. **P4 exit gate's
-fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer,
-every SBA," Plan Section 3.2) is not.
+`Defined$ You`/`Opponent`/`Player.Opponent` resolve. `putCounterEffect` (`putcountereffect.go`) is M6's seventh, the
+corpus's own second-largest resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines naming a
+single literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to
+`Card.Counters`/`Player.Counters` by which one `Defined$` names (`definedCounterTargets`, new) rather than by
+`CounterType$` itself, the identical dispatch `CountersPutEffect.resolvePerType`'s own `instanceof` check makes.
+`CounterType$` is uppercased before it becomes a `Counters` key (`CounterEnumType.getType`'s own canonicalization), so a
+corpus line writing `Stun` and another writing `STUN` land on the identical kind rather than two. `CounterNum$` defaults
+to `1`, matching Java's own `getParamOrDefault`. 196 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter` still report `ErrUnimplemented`. **P4 exit
+gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every
+layer, every SBA," Plan Section 3.2) is not.

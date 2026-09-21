@@ -319,8 +319,8 @@ two-outcome half this dispatch can compute without a `*Registry`) and, through t
 real `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
 default "amount" `VarType$` branch, `AbilityUtils.calculateAmount` — a flat integer, or a named SVar naming
 `ReplaceCount$DamageAmount/<op>` and one of `AbilityUtils.doXMath`'s own `Twice`/`Thrice`/`HalfDown`/`Plus`/`Minus`
-branches, `resolveDamageReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather
-than `ReplaceDamage`'s own flat "prevent N," raphael_the_muscle.txt's/
+branches, `resolveReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather than
+`ReplaceDamage`'s own flat "prevent N," raphael_the_muscle.txt's/
 torbran_thane_of_red_fell.txt's/ghosts_of_the_innocent.txt's own real "double"/"plus 2"/"half, rounded down" damage
 among them, plus forethought_amulet.txt's/divine_presence.txt's own flat "deals N damage instead," gated by the R:
 line's own `DamageAmount$` threshold the identical way `damagePreventionMatches`'s new fold-in now reads it too), both
@@ -355,8 +355,8 @@ resolves too now — `DB$ RemoveCounter`/`DB$ PutCounter` (`applyDamageReplaceCo
 on that creature instead" (`Defined$ ReplacedTarget`, the damaged object itself, threaded straight through from
 `damageReplaced`'s/`damageReplacedPlayer`'s own `target` parameter), and panther_habit.txt's own "put +1/+1 counters on
 equipped creature instead" (`Defined$ Equipped`, `Card.AttachedTo()` reused). `CounterNum$` resolves through
-`resolveDamageReplaceCountAmount` (above), now generalized to accept a bare, operator-less `ReplaceCount$DamageAmount`
-too — `doXMath`'s own `operators == null` identity, the dominant real shape for this dispatch specifically
+`resolveReplaceCountAmount` (above), now generalized to accept a bare, operator-less `ReplaceCount$DamageAmount` too —
+`doXMath`'s own `operators == null` identity, the dominant real shape for this dispatch specifically
 (lichenthrope.txt's/phytohydra.txt's own real `CounterNum$ X`, `X:ReplaceCount$DamageAmount` among them). 25 of the
 corpus's own 31 real lines resolve; `SubAbility$` (5, underdark_beholder.txt's own "remove counters, then sacrifice if
 none left" among them) refuses outright, the identical chained-target refusal every other hand-run dispatch in this file
@@ -549,18 +549,27 @@ to the gate itself); magus_of_the_chains.txt's/chains_of_mephistopheles.txt's/
 breathstealers_crypt.txt's/sea_of_sand.txt's own `Defined$ ReplacedPlayer` (4) and blood_scrivener.txt's own chained
 `SubAbility$` (1) stay unresolved for the reasons already given above; booby_trap.txt's own `Player.Chosen` and
 pursuit_of_knowledge.txt's own `Optional$` (1 each) are the identical already-documented gaps. **`GainLife` gets the
-same `ReplaceWith$` dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling, resolving
-the one runtime value `Draw`'s own dispatch never needed: `ReplaceCount$LifeGained`, "the amount of life that would have
-been gained," read straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope. 4 of the corpus's
-own 20 real `Event$ GainLife | ReplaceWith$` lines resolve end to end: lich.txt's/nefarious_lich.txt's own "draw that
-many cards instead" (`ValidPlayer$ You`, target `DB$ Draw | Defined$ You | NumCards$` naming that SVar) and
+same `ReplaceWith$` dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling, but
+carries both of CR 616's own outcomes rather than just "Replaced," the way `damageReplaced` already does for a different
+`Event$`: a full substitution (`applyGainLifeReplacement`, reporting a gain of 0 the identical way
+`applyDamageReplaceCounter`'s own full substitution already does) or a resized gain (`applyGainLifeReplaceEffect`,
+below, returning the new amount, still granted through the normal path — `gainLifeEffect.Resolve`'s own
+`if gain <= 0 { continue }` folds Java's own pre- and post-replacement `lifeGain <= 0` checks, `Player.gainLife`, into
+the one this port's call ordering needs). `ReplaceCount$LifeGained`, "the amount of life that would have been gained,"
+reads straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope. 19 of the corpus's own 20 real
+`Event$ GainLife | ReplaceWith$` lines resolve end to end now: lich.txt's/nefarious_lich.txt's own "draw that many cards
+instead" (`ValidPlayer$ You`, target `DB$ Draw | Defined$ You | NumCards$` naming that SVar) and
 tainted_remedy.txt's/plague_drone.txt's own "that player loses that much life instead" (`ValidPlayer$ Opponent`, target
 `DB$ LoseLife | LifeAmount$` naming it | `Defined$ ReplacedPlayer` — read as the replaced player directly, the identical
-narrow `Defined$` reading `drawReplaced` already has for its own "You"). Not resolved: rain_of_gore.txt's own real
+narrow `Defined$` reading `drawReplaced` already has for its own "You"), plus 15 more real lines targeting
+`DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ ...` (`applyGainLifeReplaceEffect`) — rhox_faithmender.txt's/
+the_wind_crystal.txt's/... own real "gain twice that much life instead" (`Twice`) and angel_of_vitality.txt's/
+heron_of_hope.txt's/... own real "gain that much life plus 1 instead" (`Plus.1`), through a newly generalized
+`resolveReplaceCountAmount` (renamed from `resolveDamageReplaceCountAmount`, item 26's own `DB$ ReplaceEffect` section
+above) read against `"LifeGained"` instead of `"DamageAmount"`. Not resolved: rain_of_gore.txt's own real
 `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on what
-CAUSED the event, not who it affects, a shape this dispatch's own allow-list has never needed before) and the 15 real
-lines targeting `DB$ ReplaceEffect`, a dedicated API this port does not build. `gainLifeEffect` (`gainlifeeffect.go`) is
-M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
+CAUSED the event, not who it affects, a shape this dispatch's own allow-list has never needed before). `gainLifeEffect`
+(`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
 (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape) — 857 of 1,700 real `GainLife` lines resolve, the
 corpus's largest slice past `DealDamage`. `pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven effect, the
 corpus's own single largest by real line count after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the

@@ -17,14 +17,16 @@ import "fmt"
 // real replacement lines) has real content now too, both checked per player
 // before Life is touched at all: gainLifePrevented (replacement.go) resolves
 // sulfuric_vortex.txt's own bare Prevent$ True, the only one of the 21
-// naming Prevent$ at all; gainLifeReplaced (replacement.go) resolves 4 of
-// the other 20's own ReplaceWith$ lines -- GainDouble/RLoseLife/Draw among
-// them -- once ReplaceCount$LifeGained, "the amount of life that would have
-// been gained" as a runtime value, reads back through a narrow sibling of
-// resolveAmount rather than resolveAmount itself (replacement.go's own doc
-// comment has the full reason and the 16 that stay unresolved). LifeChanged,
-// below, is the identical event dealPlayerDamage already emits for a life
-// LOSS, reused here for a gain.
+// naming Prevent$ at all; gainLifeReplaced (replacement.go) carries CR 616's
+// own two outcomes for the other 20, a full substitution (19 of them --
+// Draw/LoseLife/ReplaceEffect target shapes, gainLifeReplaced's own doc
+// comment has the full corpus accounting and the 1 that stays unresolved) or
+// a resized gain, the same "reduce or replace the amount, keep going through
+// the normal path" contract damagePrevented's/damageReplaced's own split
+// already has for a different Event$ -- gain, below, is the number
+// gainLifeReplaced itself says should actually be granted, already run
+// through both outcomes. LifeChanged, below, is the identical event
+// dealPlayerDamage already emits for a life LOSS, reused here for a gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
 // to the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/UnlessCost$/
@@ -81,13 +83,14 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		if g.gainLifePrevented(pid) {
 			continue
 		}
-		if g.gainLifeReplaced(controller, pid, amount) {
+		gain := g.gainLifeReplaced(controller, pid, amount)
+		if gain <= 0 {
 			continue
 		}
 		firstGain := g.Player(pid).LifeGainedTimesThisTurn == 0
 		g.Player(pid).LifeGainedTimesThisTurn++
-		g.Player(pid).Life += amount
-		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(amount)})
+		g.Player(pid).Life += gain
+		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(gain)})
 		g.checkLifeGainedTriggers(controller, pid, firstGain)
 	}
 	return nil

@@ -797,7 +797,7 @@ func applyDamageReplaceEffect(g *Game, host CardID, a *compile.Ability, amounts 
 	if !ok {
 		return amount, false
 	}
-	replaced, ok := resolveDamageReplaceCountAmount(g, amounts, g.Card(host), varValue, amount)
+	replaced, ok := resolveReplaceCountAmount(g, amounts, g.Card(host), varValue, amount, "DamageAmount")
 	if !ok {
 		return amount, false
 	}
@@ -807,43 +807,46 @@ func applyDamageReplaceEffect(g *Game, host CardID, a *compile.Ability, amounts 
 	return replaced, true
 }
 
-// resolveDamageReplaceCountAmount evaluates a DB$ ReplaceEffect's own
-// VarValue$/CounterNum$ against original -- the pre-replacement damage
-// amount -- AbilityUtils.calculateAmount's own ReplaceCount$ branch
-// (`root.getReplacingObject(AbilityKey.fromString(l[0]))`, the game's own
-// replacing-object map; original stands in for it directly, since it IS the
-// DamageAmount this dispatch's own three callers already have in scope),
-// then AbilityUtils.doXMath for the operator suffix, when there is one. A
-// plain integer is a flat replacement regardless of original
-// (forethought_amulet.txt's/divine_presence.txt's own "deals N damage
-// instead"). A named SVar must itself be a `ReplaceCount$DamageAmount`
-// expression -- Body checked against "DamageAmount" specifically, since
-// ReplaceCount$ names the field being replaced and this dispatch is never
-// reached for any Event$ other than DamageDone -- either bare (no operator
-// at all: doXMath's own `operators == null` identity, `original` unchanged
-// -- lichenthrope.txt's/phytohydra.txt's/most of applyDamageReplaceCounter's
-// own real CounterNum$ X/Y lines, below, the dominant real shape for THAT
-// dispatch specifically) or carrying one of doXMath's own operators:
-// Twice/Thrice/HalfDown (no operand) or Plus/Minus (a literal digit or a
-// further-resolvable SVar operand, resolveNamedAmount reused the identical
-// way applyDamageReplaceDamage's own Amount$ already is) -- the five
-// suffixed branches every real corpus line pairs with this shape. Every
-// other operator doXMath itself has (HalfUp, ThirdUp/Down, Negative, Times,
-// Pow, Divide*, Mod, Abs, LimitMax/Min) carries 0 real lines here and is
-// refused rather than guessed at (GO-7); so do fated_firepower.txt's/
-// hawkeye_young_avenger.txt's own Plus.Y operand (Count$CardCounters.FIRE/
-// Count$CardPower, neither the Valid family resolveAmount evaluates) and
+// resolveReplaceCountAmount evaluates a DB$ ReplaceEffect's own
+// VarValue$/CounterNum$ against original -- the pre-replacement value of
+// whatever field wantBody names -- AbilityUtils.calculateAmount's own
+// ReplaceCount$ branch (`root.getReplacingObject(AbilityKey.fromString(l[0]))`,
+// the game's own replacing-object map; original stands in for it directly,
+// since it IS that field's own pre-replacement value, already in scope at
+// every one of this function's own callers), then AbilityUtils.doXMath for
+// the operator suffix, when there is one. A plain integer is a flat
+// replacement regardless of original (forethought_amulet.txt's/
+// divine_presence.txt's own "deals N damage instead"). A named SVar must
+// itself be a `ReplaceCount$<wantBody>` expression -- DamageAmount for
+// applyDamageReplaceEffect's/applyDamageReplaceCounter's own two callers
+// (this dispatch never reached for any Event$ other than DamageDone there),
+// LifeGained for applyGainLifeReplaceEffect's own (below) -- either bare (no
+// operator at all: doXMath's own `operators == null` identity, `original`
+// unchanged -- lichenthrope.txt's/phytohydra.txt's/most of
+// applyDamageReplaceCounter's own real CounterNum$ X/Y lines, the dominant
+// real shape for THAT dispatch specifically) or carrying one of doXMath's
+// own operators: Twice/Thrice/HalfDown (no operand) or Plus/Minus (a literal
+// digit or a further-resolvable SVar operand, resolveNamedAmount reused the
+// identical way applyDamageReplaceDamage's own Amount$ already is) -- the
+// five suffixed branches every real corpus line pairs with this shape
+// (rhox_faithmender.txt's own real Twice, angel_of_vitality.txt's own real
+// Plus.1 among LifeGained's own). Every other operator doXMath itself has
+// (HalfUp, ThirdUp/Down, Negative, Times, Pow, Divide*, Mod, Abs,
+// LimitMax/Min) carries 0 real lines here and is refused rather than guessed
+// at (GO-7); so do fated_firepower.txt's/hawkeye_young_avenger.txt's own
+// Plus.Y operand (Count$CardCounters.FIRE/Count$CardPower, neither the Valid
+// family resolveAmount evaluates) and
 // ojer_axonil_deepest_might_temple_of_power.txt's own bare Count$CardPower
 // VarValue$ (no ReplaceCount$ at all -- damage set equal to the host's own
 // power, not measured off original at all) -- each needs an amount head
 // this port has no evaluator for, not anything specific to this dispatch.
-func resolveDamageReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Card, value string, original int) (int, bool) {
+func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Card, value string, original int, wantBody string) (int, bool) {
 	if n, err := strconv.Atoi(value); err == nil {
 		return n, true
 	}
 	amt, ok := amounts[strings.ToLower(value)]
 	if !ok || amt.Kind != expr.Expression || !strings.EqualFold(amt.Head, "ReplaceCount") ||
-		!strings.EqualFold(amt.Body, "DamageAmount") {
+		!strings.EqualFold(amt.Body, wantBody) {
 		return 0, false
 	}
 	if amt.Op == nil {
@@ -896,8 +899,8 @@ func resolveDamageReplaceCountAmount(g *Game, amounts map[string]expr.Amount, ho
 // target parameter, soul_scar_mage.txt's own real "put -1/-1 counters on
 // that creature instead" among them). CounterType$ reuses putCounterType
 // (putcountereffect.go) outright -- RemoveCounter and PutCounter share the
-// identical param. CounterNum$ resolves through
-// resolveDamageReplaceCountAmount (above), defaulting to 1 the identical way
+// identical param. CounterNum$ resolves through resolveReplaceCountAmount
+// (above, against "DamageAmount"), defaulting to 1 the identical way
 // putCounterEffect's own CounterNum$ already does. SubAbility$ refuses
 // outright, the identical chained-target refusal every other hand-run
 // dispatch in this file already gives (5 real lines, underdark_beholder.txt's
@@ -924,7 +927,7 @@ func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a 
 	}
 	n := 1
 	if v, ok := a.Param("CounterNum"); ok {
-		parsed, ok := resolveDamageReplaceCountAmount(g, amounts, g.Card(host), v, amount)
+		parsed, ok := resolveReplaceCountAmount(g, amounts, g.Card(host), v, amount, "DamageAmount")
 		if !ok {
 			return false
 		}
@@ -1063,12 +1066,8 @@ func drawPreventionMatches(g *Game, r *compile.Ability, host CardID, hostZone Zo
 // own bare "if a player would gain life, that player gains no life instead"
 // (Prevent$ True, no ValidPlayer$ at all -- every player's own life gain is
 // prevented, not just the caster's). The other 20 real lines all name
-// ReplaceWith$ instead -- GainDouble/RLoseLife/Draw among them, each
-// referencing an SVar whose own LifeAmount$/NumCards$ needs "the amount of
-// life that would have been gained" as a runtime X/Y value this port's
-// resolveAmount has no way to read back (a real mechanism gap distinct from
-// an unresolved param -- Java's own AbilityKey.ReplacedAmount threading, not
-// built), not resolved.
+// ReplaceWith$ instead -- GainDouble/RLoseLife/Draw/GainLife/ReplaceGainLife
+// among them -- gainLifeReplaced's own doc comment, below, has the count.
 func (g *Game) gainLifePrevented(player PlayerID) bool {
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
@@ -1396,16 +1395,27 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 }
 
 // gainLifeReplaced is drawReplaced's own sibling for CR 119's "gain life"
-// event: the same CR 616 "the event is replaced by a different one" outcome,
-// resolving the one runtime value Draw's own dispatch never needed --
-// ReplaceCount$LifeGained, "the amount of life that would have been gained"
-// -- since gainLifeEffect.Resolve (below) already has that raw amount in
-// scope right where it would otherwise apply it, threaded through here as
-// replaced. Checked per player, the identical "before Life is touched at
-// all" ordering gainLifePrevented's own doc comment already gives.
+// event, but carries BOTH of CR 616's own outcomes past Prevented, the way
+// damageReplaced (above) already does for a different Event$, not just
+// Replaced: a full substitution (Draw/LoseLife, applyGainLifeReplacement,
+// below) reports "nothing left to gain" the identical way
+// applyDamageReplaceCounter's own full substitution does, by returning 0;
+// applyGainLifeReplaceEffect's own computed resize (below) returns the new
+// amount instead, still to be gained through the normal path. amount is the
+// pre-replacement LifeAmount$ gainLifeEffect.Resolve (below) already has in
+// scope; the return value is what should actually be gained -- amount
+// itself, unchanged, when no replacement matches at all, matching
+// Player.gainLife's own `switch (... run(...)) { case NotReplaced: break;
+// ...}` fallthrough. gainLifeEffect.Resolve's own `if gain <= 0 { continue }`
+// right after calling this is Player.gainLife's own identical double
+// zero-check (line 440's own pre-replacement guard AND line 463's own
+// post-replacement one folded into the one check this port's own call
+// ordering already needs, since neither guard does anything different here).
+// Checked per player, the identical "before Life is touched at all" ordering
+// gainLifePrevented's own doc comment already gives.
 //
-// 4 of the corpus's own 20 real Event$ GainLife | ReplaceWith$ lines
-// resolve end to end: lich.txt's/nefarious_lich.txt's own real "if you
+// 19 of the corpus's own 20 real Event$ GainLife | ReplaceWith$ lines
+// resolve end to end now: lich.txt's/nefarious_lich.txt's own real "if you
 // would gain life, draw that many cards instead" (ValidPlayer$ You,
 // ReplaceWith$ naming a plain DB$ Draw | Defined$ You | NumCards$ <SVar
 // naming ReplaceCount$LifeGained>); tainted_remedy.txt's/plague_drone.txt's
@@ -1415,18 +1425,24 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 // ReplacedPlayer -- "the player who would have gained," read as the
 // player parameter directly, the identical narrow reading
 // applyDrawReplacementDraw's own doc comment already gives for Defined$
-// You).
+// You); and, through applyGainLifeReplaceEffect (below), 15 more real
+// DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ ... lines --
+// rhox_faithmender.txt's/the_wind_crystal.txt's/selenia_the_cursed_heart.txt's/
+// alhammarrets_archive.txt's/doctor_strange_surgeon.txt's/boon_reflection.txt's/
+// phial_of_galadriel.txt's own real "gain twice that much life instead"
+// (Twice) and angel_of_vitality.txt's/heron_of_hope.txt's/honor_troll.txt's/
+// cleric_class.txt's/bilbo_birthday_celebrant.txt's/knight_of_dawns_light.txt's/
+// leyline_of_hope.txt's/pest_rescuer.txt's own real "gain that much life plus
+// 1 instead" (Plus.1) -- applyDamageReplaceEffect's own identical
+// resolveReplaceCountAmount dispatch (above), read against "LifeGained"
+// instead of "DamageAmount".
 //
 // Not resolved: rain_of_gore.txt's own real "if a SPELL OR ABILITY would
 // cause its controller to gain life" (ValidSource$ SpellAbility |
 // SourceController$ True, no ValidPlayer$ at all -- a restriction on WHAT
 // CAUSED the event rather than who it affects, a shape this file's own
-// allow-lists have never needed to check before); the 15 real
-// ReplaceEffect-targeting lines (angel_of_vitality.txt's/
-// alhammarret's_archive.txt's/... own real "double your life gain"/"gain 1
-// extra life" shapes) -- DB$ ReplaceEffect is its own dedicated API this
-// port does not build, distinct from a plain substitute ability.
-func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, replaced int) bool {
+// allow-lists have never needed to check before).
+func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, amount int) int {
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -1449,8 +1465,11 @@ func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, re
 							if !strings.EqualFold(sub.Key, "ReplaceWith") {
 								continue
 							}
-							if applyGainLifeReplacement(g, controller, h, sub.Ability, face.Amounts, player, replaced) {
-								return true
+							if applyGainLifeReplacement(g, controller, h, sub.Ability, face.Amounts, player, amount) {
+								return 0
+							}
+							if replaced, ok := applyGainLifeReplaceEffect(g, h, sub.Ability, face.Amounts, amount); ok {
+								return replaced
 							}
 						}
 					}
@@ -1458,7 +1477,7 @@ func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, re
 			}
 		}
 	}
-	return false
+	return amount
 }
 
 // gainLifeReplacementMatches is gainLifeReplaced's own shared half:
@@ -1492,10 +1511,16 @@ func gainLifeReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZo
 // applyGainLifeReplacement is applyDrawReplacement's own sibling: recognize
 // a plain DB$ Draw or DB$ LoseLife target ability and run it by hand, the
 // identical *Registry-avoidance reason applyDrawReplacement's own doc
-// comment gives. A target ability naming SubAbility$ is refused outright
-// rather than run with any chained half silently dropped (GO-7) -- no real
-// corpus line among the 4 this dispatch resolves needs it, but neither
-// target function below checks for it on its own.
+// comment gives -- CR 616's own full-substitution outcome, gainLifeReplaced's
+// own doc comment above reporting it as a gain of 0, the same convention
+// applyDamageReplaceCounter's own full substitution already has.
+// applyGainLifeReplaceEffect (below) is this function's own sibling for CR
+// 616's OTHER outcome, a resized gain rather than a substituted one, tried
+// second by gainLifeReplaced itself since real corpus lines never combine
+// the two target shapes on one R: line. A target ability naming SubAbility$
+// is refused outright rather than run with any chained half silently dropped
+// (GO-7) -- no real corpus line among the 4 this dispatch resolves needs it,
+// but neither target function below checks for it on its own.
 func applyGainLifeReplacement(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID, replaced int) bool {
 	if _, ok := a.Param("SubAbility"); ok {
 		return false
@@ -1507,6 +1532,42 @@ func applyGainLifeReplacement(g *Game, controller PlayerController, host *Card, 
 		return applyGainLifeReplacementLoseLife(g, host, a, amounts, player, replaced)
 	}
 	return false
+}
+
+// applyGainLifeReplaceEffect runs a plain "DB$ ReplaceEffect | VarName$
+// LifeGained | VarValue$ ..." ReplaceWith$ target directly --
+// applyDamageReplaceEffect's own sibling for CR 119's "gain life" event
+// rather than CR 614's "deal damage" one, resolving VarValue$ through the
+// identical resolveReplaceCountAmount (above), just read against "LifeGained"
+// instead of "DamageAmount" -- ReplaceEffect.resolve's own default "amount"
+// VarType$ branch is the identical Java method either way, only the
+// replacing-object field it reads differs. A target ability naming
+// SubAbility$ is refused outright, the identical chained-target refusal
+// applyGainLifeReplacement's own doc comment already gives (no real corpus
+// line among the 15 this resolves needs it).
+func applyGainLifeReplaceEffect(g *Game, host *Card, a *compile.Ability, amounts map[string]expr.Amount, amount int) (int, bool) {
+	if !strings.EqualFold(a.Name, "ReplaceEffect") {
+		return amount, false
+	}
+	if _, ok := a.Param("SubAbility"); ok {
+		return amount, false
+	}
+	varName, ok := a.Param("VarName")
+	if !ok || !strings.EqualFold(varName, "LifeGained") {
+		return amount, false
+	}
+	varValue, ok := a.Param("VarValue")
+	if !ok {
+		return amount, false
+	}
+	replaced, ok := resolveReplaceCountAmount(g, amounts, host, varValue, amount, "LifeGained")
+	if !ok {
+		return amount, false
+	}
+	if replaced < 0 {
+		replaced = 0
+	}
+	return replaced, true
 }
 
 // applyGainLifeReplacementDraw runs a plain "DB$ Draw | Defined$ You |

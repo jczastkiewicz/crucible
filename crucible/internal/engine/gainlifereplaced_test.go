@@ -161,6 +161,99 @@ func TestGainLifeNotReplacedByUnrecognizedSourceRestriction(t *testing.T) {
 	}
 }
 
+// TestGainLifeDoubledByReplaceEffect proves applyGainLifeReplaceEffect
+// (replacement.go) resolves rhox_faithmender.txt's/the_wind_crystal.txt's/
+// selenia_the_cursed_heart.txt's/alhammarrets_archive.txt's/
+// doctor_strange_surgeon.txt's/boon_reflection.txt's/phial_of_galadriel.txt's
+// own real "if you would gain life, you gain twice that much life instead"
+// (DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ X,
+// X:ReplaceCount$LifeGained/Twice): a 3-life gain doubles to 6, and the
+// normal gain path still runs (LifeGainedTimesThisTurn/the LifeGained
+// trigger), unlike a full substitution -- CR 616's own "Updated" outcome,
+// not "Replaced".
+func TestGainLifeDoubledByReplaceEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(gainLifeReplacementLockDef(t, "Test Rhox Faithmender",
+		"Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ GainDouble | Description$ Double life gain.",
+		map[string]string{
+			"GainDouble": "DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ X",
+			"X":          "ReplaceCount$LifeGained/Twice",
+		}), p, engine.Battlefield)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 26 {
+		t.Errorf("p life = %d, want 26 -- 3 life doubled to 6 on top of the starting 20", got)
+	}
+	if got := g.Player(p).LifeGainedTimesThisTurn; got != 1 {
+		t.Errorf("LifeGainedTimesThisTurn = %d, want 1 -- a resized gain must still run the normal gain path, unlike a full substitution", got)
+	}
+}
+
+// TestGainLifePlusOneByReplaceEffect proves angel_of_vitality.txt's/
+// heron_of_hope.txt's/honor_troll.txt's/cleric_class.txt's/
+// bilbo_birthday_celebrant.txt's/knight_of_dawns_light.txt's/
+// leyline_of_hope.txt's/pest_rescuer.txt's own real "if you would gain life,
+// you gain that much life plus 1 instead" (VarValue$ X,
+// X:ReplaceCount$LifeGained/Plus.1) -- the Plus operator, not just Twice.
+func TestGainLifePlusOneByReplaceEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(gainLifeReplacementLockDef(t, "Test Angel of Vitality",
+		"Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ GainPlusOne | Description$ Gain 1 extra life.",
+		map[string]string{
+			"GainPlusOne": "DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ X",
+			"X":           "ReplaceCount$LifeGained/Plus.1",
+		}), p, engine.Battlefield)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("p life = %d, want 24 -- 3 life plus 1 on top of the starting 20", got)
+	}
+}
+
+// TestGainLifeNotReplacedByChainedReplaceEffect proves a DB$ ReplaceEffect
+// target naming its own SubAbility$ is refused outright too, the identical
+// GO-7 refusal TestGainLifeNotReplacedByTargetAbilityWithSubAbility already
+// proves for a full-substitution target: the gain proceeds unresized.
+func TestGainLifeNotReplacedByChainedReplaceEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(gainLifeReplacementLockDef(t, "Test Chained Double",
+		"Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ GainDouble | Description$ Double life gain.",
+		map[string]string{
+			"GainDouble": "DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ X | SubAbility$ DBLoseLife",
+			"X":          "ReplaceCount$LifeGained/Twice",
+			"DBLoseLife": "DB$ LoseLife | Defined$ You | LifeAmount$ 1",
+		}), p, engine.Battlefield)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("p life = %d, want 23 -- a chained ReplaceWith$ target must not dispatch, so the gain must proceed unresized", got)
+	}
+}
+
 // TestGainLifeNotReplacedByTargetAbilityWithSubAbility proves a ReplaceWith$
 // target naming its own SubAbility$ is refused outright rather than run
 // with the chained half silently dropped (GO-7): the gain proceeds

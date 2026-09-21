@@ -1318,17 +1318,30 @@ printed form.
     (`Player.Chosen`/`Optional$`).
 
     **`GainLife` gets the same dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling,
-    resolving the one runtime value `Draw`'s own dispatch never needed: `ReplaceCount$LifeGained`, "the amount of life
-    that would have been gained," read straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope
-    via a new `resolveGainLifeReplacementAmount` (`resolveNamedAmount`'s own sibling for the one `Expression` head
-    `resolveAmount` does not evaluate). 4 of the corpus's own 20 real `Event$ GainLife | ReplaceWith$` lines resolve end
-    to end: lich.txt's/nefarious_lich.txt's own "draw that many cards instead" (`ValidPlayer$ You`, target
+    but carries both of CR 616's own outcomes rather than just "Replaced," the way `damageReplaced` already does for a
+    different `Event$`: a full substitution (`applyGainLifeReplacement`, reporting a gain of 0 the identical way
+    `applyDamageReplaceCounter`'s own full substitution already does) or a resized gain (`applyGainLifeReplaceEffect`,
+    below, returning the new amount, still granted through the normal path — `gainLifeEffect.Resolve`'s own
+    `if gain <= 0 { continue }` folds Java's own `Player.gainLife`, pre- and post-replacement `lifeGain <= 0` checks
+    into the one this port's call ordering needs). `ReplaceCount$LifeGained`, "the amount of life that would have been
+    gained," reads straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope via
+    `resolveGainLifeReplacementAmount` (`resolveNamedAmount`'s own sibling for a bare, operator-less `Expression` head)
+    for `Draw`'s own `NumCards$`/`LoseLife`'s own `LifeAmount$`, and through the newly generalized
+    `resolveReplaceCountAmount` (renamed from `resolveDamageReplaceCountAmount`, item 26's own `DB$ ReplaceEffect`
+    paragraph above, read against `"LifeGained"` instead of `"DamageAmount"`) for the operator-carrying
+    `DB$ ReplaceEffect` shape, below. 19 of the corpus's own 20 real `Event$ GainLife | ReplaceWith$` lines resolve end
+    to end now: lich.txt's/nefarious_lich.txt's own "draw that many cards instead" (`ValidPlayer$ You`, target
     `DB$ Draw | Defined$ You | NumCards$` naming that SVar) and tainted_remedy.txt's/plague_drone.txt's own "that player
     loses that much life instead" (`ValidPlayer$ Opponent`, target `DB$ LoseLife | LifeAmount$` naming it |
-    `Defined$ ReplacedPlayer` — read as the replaced player directly). Not resolved: rain_of_gore.txt's own real
-    `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on what
-    caused the event, not who it affects) and the 15 real lines targeting `DB$ ReplaceEffect`, a dedicated API this port
-    does not build.
+    `Defined$ ReplacedPlayer` — read as the replaced player directly), plus 15 more real lines targeting
+    `DB$ ReplaceEffect | VarName$ LifeGained | VarValue$ ...` (`applyGainLifeReplaceEffect`) —
+    rhox_faithmender.txt's/the_wind_crystal.txt's/selenia_the_cursed_heart.txt's/
+    alhammarrets_archive.txt's/doctor_strange_surgeon.txt's/boon_reflection.txt's/phial_of_galadriel.txt's own real
+    "gain twice that much life instead" (`Twice`) and angel_of_vitality.txt's/heron_of_hope.txt's/honor_troll.txt's/
+    cleric_class.txt's/bilbo_birthday_celebrant.txt's/knight_of_dawns_light.txt's/leyline_of_hope.txt's/
+    pest_rescuer.txt's own real "gain that much life plus 1 instead" (`Plus.1`). Not resolved: rain_of_gore.txt's own
+    real `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on
+    what caused the event, not who it affects).
 
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
@@ -1510,7 +1523,7 @@ printed form.
     `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
     default "amount" `VarType$` branch — a flat integer, or a named SVar naming `ReplaceCount$DamageAmount/<op>` and one
     of `AbilityUtils.doXMath`'s own `Twice`/`Thrice`/`HalfDown`/`Plus`/`Minus` branches,
-    `resolveDamageReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather than
+    `resolveReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather than
     `ReplaceDamage`'s own flat "prevent N," plus a flat integer `VarValue$` gated by the R: line's own `DamageAmount$`
     threshold the identical way `damagePreventionMatches`'s own new fold-in reads it too). A named-SVar `Amount$`
     (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines, each its own further mechanic — a depleting shield counter,
@@ -1542,11 +1555,11 @@ printed form.
     `Equipped` (panther_habit.txt's own real line, `Card.AttachedTo()` reused), and `ReplacedTarget` (the damaged object
     itself, threaded straight through from `damageReplaced`'s/`damageReplacedPlayer`'s own `target` parameter —
     soul_scar_mage.txt's own "put -1/-1 counters on that creature instead" among them). `CounterNum$` resolves through
-    `resolveDamageReplaceCountAmount` (above), now generalized to accept a bare, operator-less
-    `ReplaceCount$DamageAmount` too — `doXMath`'s own `operators == null` identity — the dominant real shape for this
-    dispatch specifically. 25 of the corpus's own 31 real lines resolve; `SubAbility$` (5, underdark_beholder.txt's own
-    "remove counters, then sacrifice if none left" among them) refuses outright, and jared_carthalion_true_heir.txt's
-    own real R: line naming `CheckDefinedPlayer$ You.isMonarch` (1, no monarch mechanic this port tracks) is skipped by
+    `resolveReplaceCountAmount` (above), now generalized to accept a bare, operator-less `ReplaceCount$DamageAmount` too
+    — `doXMath`'s own `operators == null` identity — the dominant real shape for this dispatch specifically. 25 of the
+    corpus's own 31 real lines resolve; `SubAbility$` (5, underdark_beholder.txt's own "remove counters, then sacrifice
+    if none left" among them) refuses outright, and jared_carthalion_true_heir.txt's own real R: line naming
+    `CheckDefinedPlayer$ You.isMonarch` (1, no monarch mechanic this port tracks) is skipped by
     `damageReplacementMatches`'s own allow-list before ever reaching this dispatch.
 
     All four families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing

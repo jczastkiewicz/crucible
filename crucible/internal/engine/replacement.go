@@ -574,6 +574,16 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // VarName$ Affected/LifeGained/Number/Ignore instead -- an entirely
 // different substitution, redirecting who is damaged or what else changes,
 // not resizing the damage itself, out of scope for this dispatch).
+//
+// A third real shape resolves here too: `DB$ RemoveCounter`/`DB$ PutCounter`
+// (applyDamageReplaceCounter, below) -- CR 616's own "Replaced" outcome this
+// time, not "Updated": the damage does not happen AT ALL, a counter changes
+// on some object instead (every "Phantom" creature's own "prevent that
+// damage, remove a counter" among them, 25 of 31 real lines). Reported by
+// returning amount 0 -- the identical "nothing left to mark" a full
+// DB$ ReplaceDamage reduction already folds into, since neither caller
+// distinguishes "zero because it was reduced to zero" from "zero because
+// something else happened instead."
 func (g *Game) damageReplaced(source, target CardID, isCombat bool, amount int) int {
 	targetCard := g.Card(target)
 	toughness, hasToughness := targetCard.Toughness()
@@ -602,6 +612,9 @@ func (g *Game) damageReplaced(source, target CardID, isCombat bool, amount int) 
 							}
 							if replaced, ok := applyDamageReplaceEffect(g, host, sub.Ability, face.Amounts, amount); ok {
 								return replaced
+							}
+							if applyDamageReplaceCounter(g, host, CardEntity(target), sub.Ability, face.Amounts, amount) {
+								return 0
 							}
 						}
 					}
@@ -645,6 +658,9 @@ func (g *Game) damageReplacedPlayer(source CardID, target PlayerID, isCombat boo
 							if replaced, ok := applyDamageReplaceEffect(g, host, sub.Ability, face.Amounts, amount); ok {
 								return replaced
 							}
+							if applyDamageReplaceCounter(g, host, PlayerEntity(target), sub.Ability, face.Amounts, amount) {
+								return 0
+							}
 						}
 					}
 				}
@@ -663,7 +679,18 @@ func (g *Game) damageReplacedPlayer(source CardID, target PlayerID, isCombat boo
 // would deal N or more damage..., it deals M damage instead," gating a flat
 // VarValue$ replacement in applyDamageReplaceEffect on the ORIGINAL amount
 // meeting a threshold) reuses damageAmountMatches the identical way
-// damagePreventionMatches' own new check does.
+// damagePreventionMatches' own new check does. AlwaysReplace$/ExecuteMode$
+// (real on applyDamageReplaceCounter's own 25 lines, below) are allow-listed
+// as pure no-ops: ReplacementHandler.java's own dispatch (line ~341) only
+// reads AlwaysReplace$ when NoPreventDamage is set on the runParams -- a
+// "damage can't be prevented" flag this port's own damage pipeline has no
+// equivalent state for at all -- and ExecuteMode$'s own PerSource/PerTarget
+// split only matters when Java batches more than one simultaneous damage
+// instance into one replacement pass, something this port's own
+// dealPermanentDamage/dealPlayerDamage never do (each call is already
+// exactly one source and one target, GO-7's own "moot, not wrong" contract
+// this file's own top-of-file doc comment already applies to Tapped/
+// blocked/prevented).
 func damageReplacementMatches(g *Game, r *compile.Ability, source CardID, hostController PlayerID, host CardID, hostZone ZoneType, isCombat bool, amounts map[string]expr.Amount, amount, toughness int, hasToughness bool) bool {
 	if !strings.EqualFold(r.Name, "DamageDone") {
 		return false
@@ -674,7 +701,8 @@ func damageReplacementMatches(g *Game, r *compile.Ability, source CardID, hostCo
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
 		case "event", "replacewith", "description", "validtarget", "activezones", "validsource", "iscombat", "secondary",
-			"playerturn", "checksvar", "svarcompare", "ispresent", "preventioneffect", "damageamount":
+			"playerturn", "checksvar", "svarcompare", "ispresent", "preventioneffect", "damageamount",
+			"alwaysreplace", "executemode":
 		default:
 			return false
 		}
@@ -780,25 +808,29 @@ func applyDamageReplaceEffect(g *Game, host CardID, a *compile.Ability, amounts 
 }
 
 // resolveDamageReplaceCountAmount evaluates a DB$ ReplaceEffect's own
-// VarValue$ against original -- the pre-replacement damage amount --
-// AbilityUtils.calculateAmount's own ReplaceCount$ branch
+// VarValue$/CounterNum$ against original -- the pre-replacement damage
+// amount -- AbilityUtils.calculateAmount's own ReplaceCount$ branch
 // (`root.getReplacingObject(AbilityKey.fromString(l[0]))`, the game's own
 // replacing-object map; original stands in for it directly, since it IS the
-// DamageAmount this dispatch's own two callers already have in scope), then
-// AbilityUtils.doXMath for the operator suffix. A plain integer is a flat
-// replacement regardless of original (forethought_amulet.txt's/
-// divine_presence.txt's own "deals N damage instead"). A named SVar must
-// itself be an unsuffixed `ReplaceCount$DamageAmount` expression -- Body
-// checked against "DamageAmount" specifically, since ReplaceCount$ names the
-// field being replaced and this dispatch is never reached for any Event$
-// other than DamageDone -- carrying one of doXMath's own operators:
+// DamageAmount this dispatch's own three callers already have in scope),
+// then AbilityUtils.doXMath for the operator suffix, when there is one. A
+// plain integer is a flat replacement regardless of original
+// (forethought_amulet.txt's/divine_presence.txt's own "deals N damage
+// instead"). A named SVar must itself be a `ReplaceCount$DamageAmount`
+// expression -- Body checked against "DamageAmount" specifically, since
+// ReplaceCount$ names the field being replaced and this dispatch is never
+// reached for any Event$ other than DamageDone -- either bare (no operator
+// at all: doXMath's own `operators == null` identity, `original` unchanged
+// -- lichenthrope.txt's/phytohydra.txt's/most of applyDamageReplaceCounter's
+// own real CounterNum$ X/Y lines, below, the dominant real shape for THAT
+// dispatch specifically) or carrying one of doXMath's own operators:
 // Twice/Thrice/HalfDown (no operand) or Plus/Minus (a literal digit or a
 // further-resolvable SVar operand, resolveNamedAmount reused the identical
 // way applyDamageReplaceDamage's own Amount$ already is) -- the five
-// branches every real corpus line pairs with this shape. Every other
-// operator doXMath itself has (HalfUp, ThirdUp/Down, Negative, Times, Pow,
-// Divide*, Mod, Abs, LimitMax/Min) carries 0 real lines here and is refused
-// rather than guessed at (GO-7); so do fated_firepower.txt's/
+// suffixed branches every real corpus line pairs with this shape. Every
+// other operator doXMath itself has (HalfUp, ThirdUp/Down, Negative, Times,
+// Pow, Divide*, Mod, Abs, LimitMax/Min) carries 0 real lines here and is
+// refused rather than guessed at (GO-7); so do fated_firepower.txt's/
 // hawkeye_young_avenger.txt's own Plus.Y operand (Count$CardCounters.FIRE/
 // Count$CardPower, neither the Valid family resolveAmount evaluates) and
 // ojer_axonil_deepest_might_temple_of_power.txt's own bare Count$CardPower
@@ -811,8 +843,11 @@ func resolveDamageReplaceCountAmount(g *Game, amounts map[string]expr.Amount, ho
 	}
 	amt, ok := amounts[strings.ToLower(value)]
 	if !ok || amt.Kind != expr.Expression || !strings.EqualFold(amt.Head, "ReplaceCount") ||
-		!strings.EqualFold(amt.Body, "DamageAmount") || amt.Op == nil {
+		!strings.EqualFold(amt.Body, "DamageAmount") {
 		return 0, false
+	}
+	if amt.Op == nil {
+		return original, true
 	}
 	switch amt.Op.Name {
 	case "Twice":
@@ -835,6 +870,100 @@ func resolveDamageReplaceCountAmount(g *Game, amounts map[string]expr.Amount, ho
 		return original - operand, true
 	}
 	return 0, false
+}
+
+// applyDamageReplaceCounter runs a plain "DB$ RemoveCounter | ..." or
+// "DB$ PutCounter | ..." ReplaceWith$ target directly --
+// applyDamageReplaceDamage's/applyDamageReplaceEffect's own third sibling,
+// but a different CR 616 outcome from either: Java's own
+// ReplacementResult.Replaced (ReplacementHandler.java's own default, every
+// ApiType past ReplaceDamage/ReplaceSplitDamage/ReplaceEffect/ReplaceToken/
+// ReplaceMana) rather than Updated -- the ORIGINAL DamageDone event does not
+// happen at all (no marking, no event, no trigger check), a counter changes
+// on some object INSTEAD, the identical "different thing happens, not a
+// smaller version of the same thing" shape drawReplaced's/gainLifeReplaced's
+// own substitutions already have. Reports whether a recognized shape
+// actually ran; damageReplaced/damageReplacedPlayer (below) return amount 0
+// when it does, the same "nothing left to mark" outcome a full
+// DB$ ReplaceDamage reduction already folds into.
+//
+// Defined$ resolves three ways: Self (the replacement's own host -- the
+// dominant real shape, every "Phantom" creature's own "prevent that damage,
+// remove a counter" among them), Equipped (panther_habit.txt's own real
+// line, Card.AttachedTo() -- applyContinuousNames' own precedent, reused),
+// and ReplacedTarget (the object the damage would have hit -- replacedTarget,
+// threaded straight through from damageReplaced's/damageReplacedPlayer's own
+// target parameter, soul_scar_mage.txt's own real "put -1/-1 counters on
+// that creature instead" among them). CounterType$ reuses putCounterType
+// (putcountereffect.go) outright -- RemoveCounter and PutCounter share the
+// identical param. CounterNum$ resolves through
+// resolveDamageReplaceCountAmount (above), defaulting to 1 the identical way
+// putCounterEffect's own CounterNum$ already does. SubAbility$ refuses
+// outright, the identical chained-target refusal every other hand-run
+// dispatch in this file already gives (5 real lines, underdark_beholder.txt's
+// own "remove counters, then sacrifice if none left" among them).
+//
+// 25 of the corpus's own 31 real DamageDone lines naming DB$ RemoveCounter/
+// PutCounter resolve end to end. 6 stay unresolved: the 5 chaining
+// SubAbility$ above, and jared_carthalion_true_heir.txt's own real R: line
+// naming CheckDefinedPlayer$ You.isMonarch -- no monarch mechanic to check
+// (GainLife's own Player.isMonarch gap, port-log/game-state.md), skipped by
+// damageReplacementMatches' own allow-list before this function is ever
+// reached.
+func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a *compile.Ability, amounts map[string]expr.Amount, amount int) bool {
+	remove := strings.EqualFold(a.Name, "RemoveCounter")
+	if !remove && !strings.EqualFold(a.Name, "PutCounter") {
+		return false
+	}
+	if _, ok := a.Param("SubAbility"); ok {
+		return false
+	}
+	counterType, err := putCounterType(a)
+	if err != nil {
+		return false
+	}
+	n := 1
+	if v, ok := a.Param("CounterNum"); ok {
+		parsed, ok := resolveDamageReplaceCountAmount(g, amounts, g.Card(host), v, amount)
+		if !ok {
+			return false
+		}
+		n = parsed
+	}
+	defined, ok := a.Param("Defined")
+	if !ok {
+		return false
+	}
+	var target EntityID
+	switch defined {
+	case "Self":
+		target = CardEntity(host)
+	case "Equipped":
+		equipped, attached := g.Card(host).AttachedTo()
+		if !attached {
+			return false
+		}
+		target = CardEntity(equipped)
+	case "ReplacedTarget":
+		target = replacedTarget
+	default:
+		return false
+	}
+	delta := n
+	if remove {
+		delta = -n
+	}
+	if cid, ok := target.AsCard(); ok {
+		g.Card(cid).Counters.Add(counterType, delta)
+		emitCounterChanged(g.sink, host, target, counterType, delta)
+		return true
+	}
+	if pid, ok := target.AsPlayer(); ok {
+		g.Player(pid).Counters.Add(counterType, delta)
+		emitCounterChanged(g.sink, host, target, counterType, delta)
+		return true
+	}
+	return false
 }
 
 // drawPrevented is CR 121.4/614's own "prevent this draw" shape (Prevent$

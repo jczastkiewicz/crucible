@@ -1293,3 +1293,251 @@ func TestDamageToCreatureNotPreventedWhenDamageAmountExceedsGate(t *testing.T) {
 		t.Errorf("blocker damage marked = %d, want 4 -- 4 damage exceeds the LE3 gate, so it must apply in full", g.Card(blocker).Damage.Marked)
 	}
 }
+
+// equipmentDefWithReplacementSVars builds an Equipment carrying a real R:
+// line and the SVars its own ReplaceWith$ chain names -- panther_habit.txt's
+// own real "if equipped creature would be dealt damage... put that many
+// +1/+1 counters on it" needs an actual attachment link, unlike every other
+// applyDamageReplaceCounter test in this file.
+func equipmentDefWithReplacementSVars(t *testing.T, name, replacement string, svars map[string]string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Artifact Equipment")
+	raw.Faces[0].Replacements = []string{replacement}
+	for svarName, svarBody := range svars {
+		raw.Faces[0].SVars.Set(svarName, svarBody)
+	}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDamageToCreatureReplacedByRemoveCounter proves applyDamageReplaceCounter
+// (replacement.go) resolves the "Phantom" family's own real shape --
+// unbreathing_horde.txt's/phantom_wurm.txt's/... own "if damage would be
+// dealt to CARDNAME, prevent that damage. Remove a +1/+1 counter" -- CR
+// 616's own "Replaced" outcome: the damage never happens at all (Damage.Marked
+// stays 0), a counter comes off the host instead.
+func TestDamageToCreatureReplacedByRemoveCounter(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPTWithSVar(t, "Test Phantom Wurm", "5", "5",
+		"Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ DBRemoveCounters | PreventionEffect$ True | AlwaysReplace$ True | Description$ Prevent damage, remove a counter.",
+		"DBRemoveCounters", "DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"), b, engine.Battlefield)
+	g.Card(blocker).Counters.Add(engine.P1P1, 1)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 0 {
+		t.Errorf("blocker damage marked = %d, want 0 -- the damage is replaced entirely, not reduced", g.Card(blocker).Damage.Marked)
+	}
+	if got := g.Card(blocker).Counters.Count(engine.P1P1); got != 0 {
+		t.Errorf("blocker P1P1 counters = %d, want 0 -- the phantom shape must remove one", got)
+	}
+}
+
+// TestDamageToPlayerReplacedByPutCounterUsingBareReplaceCount proves the
+// bare (operator-less) ReplaceCount$DamageAmount shape -- force_bubble.txt's
+// own real "if damage would be dealt to you, put that many depletion
+// counters on CARDNAME instead": a 1:1 read of the original amount, distinct
+// from resolveDamageReplaceCountAmount's own suffixed Twice/Plus/Minus/
+// HalfDown branches.
+func TestDamageToPlayerReplacedByPutCounterUsingBareReplaceCount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	host := g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Force Bubble",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ Counters | Description$ Put depletion counters instead.",
+		map[string]string{
+			"Counters": "DB$ PutCounter | Defined$ Self | CounterType$ DEPLETION | CounterNum$ X",
+			"X":        "ReplaceCount$DamageAmount",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 20 {
+		t.Errorf("defender life = %d, want 20 -- the damage is replaced entirely, not just reduced", g.Player(b).Life)
+	}
+	if got := g.Card(host).Counters.Count(engine.CounterType("DEPLETION")); got != 3 {
+		t.Errorf("host DEPLETION counters = %d, want 3 -- the bare ReplaceCount$DamageAmount reads the original 3 damage 1:1", got)
+	}
+}
+
+// TestDamageToCreatureReplacedByPutCounterOnReplacedTarget proves Defined$
+// ReplacedTarget -- soul_scar_mage.txt's own real "put that many -1/-1
+// counters on that creature instead" (simplified past its own real
+// IsCombat$ False restriction, since this port's only easy damage-dealing
+// path in this test file is combat -- the shape under test is Defined$
+// ReplacedTarget, not the IsCombat$ gate, which TestDamageToPlayerNot
+// ReducedWhenValidSourceDoesNotMatch's own siblings already prove
+// elsewhere): the counters land on the DAMAGED creature, not the
+// replacement's own host.
+func TestDamageToCreatureReplacedByPutCounterOnReplacedTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Soul Scar Mage",
+		"Event$ DamageDone | ValidSource$ Creature.YouCtrl | ValidTarget$ Creature.OppCtrl | ReplaceWith$ Counters | Description$ Put -1/-1 counters instead.",
+		map[string]string{
+			"Counters": "DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ M1M1 | CounterNum$ X",
+			"X":        "ReplaceCount$DamageAmount",
+		}), a, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	victim := g.NewCard(creatureDefPT(t, "5", "5"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: victim, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(victim).Damage.Marked != 0 {
+		t.Errorf("victim damage marked = %d, want 0 -- the damage is replaced entirely", g.Card(victim).Damage.Marked)
+	}
+	if got := g.Card(victim).Counters.Count(engine.M1M1); got != 3 {
+		t.Errorf("victim M1M1 counters = %d, want 3 -- Defined$ ReplacedTarget must put counters on the damaged creature, not the host", got)
+	}
+}
+
+// TestDamageToCreatureReplacedByPutCounterOnEquipped proves Defined$
+// Equipped -- panther_habit.txt's own real "if equipped creature would be
+// dealt damage, prevent that damage and put that many +1/+1 counters on it"
+// -- reading Card.AttachedTo() the identical way applyContinuousNames'
+// AffectedDefined$ Equipped already does.
+func TestDamageToCreatureReplacedByPutCounterOnEquipped(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	victim := g.NewCard(creatureDefPT(t, "5", "5"), b, engine.Battlefield)
+	equipment := g.NewCard(equipmentDefWithReplacementSVars(t, "Test Panther Habit",
+		"Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.EquippedBy | ReplaceWith$ DBPutCounter | PreventionEffect$ True | AlwaysReplace$ True | Description$ Prevent damage, put +1/+1 counters instead.",
+		map[string]string{
+			"DBPutCounter": "DB$ PutCounter | Defined$ Equipped | CounterType$ P1P1 | CounterNum$ X",
+			"X":            "ReplaceCount$DamageAmount",
+		}), b, engine.Battlefield)
+	g.Attach(equipment, victim)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: victim, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(victim).Damage.Marked != 0 {
+		t.Errorf("victim damage marked = %d, want 0 -- the damage is replaced entirely", g.Card(victim).Damage.Marked)
+	}
+	if got := g.Card(victim).Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("victim P1P1 counters = %d, want 3 -- Defined$ Equipped must put counters on the equipped creature", got)
+	}
+}
+
+// TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility proves a
+// chained SubAbility$ refuses outright (GO-7), underdark_beholder.txt's own
+// real "remove counters, then sacrifice if none left" shape: the full
+// damage applies rather than running the counter removal alone and silently
+// dropping the chained sacrifice.
+func TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	raw := &carddb.Card{Filename: "Test Underdark Beholder"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Underdark Beholder"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "5", "5"
+	raw.Faces[0].Replacements = []string{
+		"Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Counters | Description$ Remove counters instead, then maybe sacrifice.",
+	}
+	raw.Faces[0].SVars.Set("Counters", "DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ EYESTALK | CounterNum$ X | SubAbility$ DBSac")
+	raw.Faces[0].SVars.Set("X", "ReplaceCount$DamageAmount")
+	raw.Faces[0].SVars.Set("DBSac", "DB$ Sacrifice | SacValid$ Self")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	blocker := g.NewCard(def, b, engine.Battlefield)
+	g.Card(blocker).Counters.Add(engine.CounterType("EYESTALK"), 5)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 3 {
+		t.Errorf("blocker damage marked = %d, want 3 -- a chained SubAbility$ must not dispatch, so the full damage must apply", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToPlayerNotReplacedByPutCounterNamingCheckDefinedPlayer proves
+// jared_carthalion_true_heir.txt's own real R: line, naming
+// CheckDefinedPlayer$ You.isMonarch (no monarch mechanic this port tracks),
+// is refused outright by damageReplacementMatches' own allow-list before
+// applyDamageReplaceCounter is ever reached: the full damage applies.
+func TestDamageToPlayerNotReplacedByPutCounterNamingCheckDefinedPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPTWithSVar(t, "Test Jared Carthalion", "5", "5",
+		"Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | CheckDefinedPlayer$ You.isMonarch | ReplaceWith$ Counters | PreventionEffect$ True | AlwaysReplace$ True | Description$ While you're the monarch, prevent damage and put counters instead.",
+		"Counters", "DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ 1"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 3 {
+		t.Errorf("blocker damage marked = %d, want 3 -- CheckDefinedPlayer$ is not resolved, so the whole line must be skipped and full damage must apply", g.Card(blocker).Damage.Marked)
+	}
+}

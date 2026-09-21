@@ -1481,13 +1481,13 @@ printed form.
     `damageAmountMatches` (item 26) against the original amount about to be dealt; `ValidCause$`/`RelativeToSource$`/
     `CauseIsSource$` (2 of 72, one line naming the first and third together, the other the second alone) still skip the
     whole line. The other 146 of 218 name `ReplaceWith$` instead — most a real sub-ability substitution
-    (`RemoveCounter`/`PutCounter`/... — no single shape anywhere near `Moved`'s own 618-line concentration, not built),
-    but two do: CR 616's own "Updated" outcome (the event still happens, with a different number) is real too, for both
-    a flat reduction and a computed replacement: `damageReplaced`/`damageReplacedPlayer` (`replacement.go`) resolve 16
-    of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own `face.Replacements` walk can even reach
-    ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own two-outcome half this dispatch can compute by hand
-    — `applyDrawReplacement`'s own "recognize the one shape" precedent applied to a third `Event$` — without a
-    `*Registry` neither call site can reach) and, through the identical two callers, 56 of the 59 real
+    (`Mill`/`ChangeZone`/`Dig`/... — no single shape anywhere near `Moved`'s own 618-line concentration, not built), but
+    three do: CR 616's own "Updated" outcome (the event still happens, with a different number) is real too, for both a
+    flat reduction and a computed replacement: `damageReplaced`/`damageReplacedPlayer` (`replacement.go`) resolve 16 of
+    the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own `face.Replacements` walk can even reach ("prevent
+    N of that damage," `ReplaceDamageEffect.resolve`'s own two-outcome half this dispatch can compute by hand —
+    `applyDrawReplacement`'s own "recognize the one shape" precedent applied to a third `Event$` — without a `*Registry`
+    neither call site can reach) and, through the identical two callers, 56 of the 59 real
     `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
     default "amount" `VarType$` branch — a flat integer, or a named SVar naming `ReplaceCount$DamageAmount/<op>` and one
     of `AbilityUtils.doXMath`'s own `Twice`/`Thrice`/`HalfDown`/`Plus`/`Minus` branches,
@@ -1509,7 +1509,22 @@ printed form.
     neither mechanism this port's own script-effect dispatch builds, so `face.Replacements` never discovers them
     regardless of this dispatch's own shape.
 
-    All three families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
+    A third real shape resolves too now — `DB$ RemoveCounter`/`DB$ PutCounter` (`applyDamageReplaceCounter`,
+    `replacement.go`) — CR 616's own "Replaced" outcome this time, not "Updated": the damage does not happen at all, a
+    counter changes on some object instead (`ReplacementHandler.java`'s own default `ReplacementResult.Replaced`, every
+    `ApiType` past `ReplaceDamage`/`ReplaceSplitDamage`/`ReplaceEffect`/`ReplaceToken`/`ReplaceMana`). `Defined$`
+    resolves three ways: `Self` (every "Phantom" creature's own real "prevent that damage, remove a +1/+1 counter"),
+    `Equipped` (panther_habit.txt's own real line, `Card.AttachedTo()` reused), and `ReplacedTarget` (the damaged object
+    itself, threaded straight through from `damageReplaced`'s/`damageReplacedPlayer`'s own `target` parameter —
+    soul_scar_mage.txt's own "put -1/-1 counters on that creature instead" among them). `CounterNum$` resolves through
+    `resolveDamageReplaceCountAmount` (above), now generalized to accept a bare, operator-less
+    `ReplaceCount$DamageAmount` too — `doXMath`'s own `operators == null` identity — the dominant real shape for this
+    dispatch specifically. 25 of the corpus's own 31 real lines resolve; `SubAbility$` (5, underdark_beholder.txt's own
+    "remove counters, then sacrifice if none left" among them) refuses outright, and jared_carthalion_true_heir.txt's
+    own real R: line naming `CheckDefinedPlayer$ You.isMonarch` (1, no monarch mechanic this port tracks) is skipped by
+    `damageReplacementMatches`'s own allow-list before ever reaching this dispatch.
+
+    All four families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
     `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each of the shapes carries — the identical
     comma-list zone restriction `checkPhaseTriggers`'s own `TriggerZones$` (item 26) already has, for a replacement's
     own host zone instead of a trigger's.

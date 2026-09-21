@@ -310,9 +310,9 @@ damage or emitting `DamageDealt`; `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`Che
 firing, above) against the ORIGINAL amount about to be dealt — `ValidCause$`/`RelativeToSource$`/`CauseIsSource$` (2 of
 72, one line naming the first and third together, the other the second alone) still skip the line, each its own further
 restriction this file cannot evaluate. The other 146 name `ReplaceWith$` instead — most a real sub-ability substitution
-(`RemoveCounter`/`PutCounter`/... — no shape anywhere near Moved's own 618-line concentration, not built), but two do:
-CR 616's own "Updated" outcome (the event still happens, with a different number, rather than being skipped or
-substituted outright) is real now too, for both a flat reduction and a computed replacement —
+(`Mill`/`ChangeZone`/`Dig`/... — no shape anywhere near Moved's own 618-line concentration, not built), but three do: CR
+616's own "Updated" outcome (the event still happens, with a different number, rather than being skipped or substituted
+outright) is real now too, for both a flat reduction and a computed replacement —
 `damageReplaced`/`damageReplacedPlayer` (replacement.go) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines
 this file's own `face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own
 two-outcome half this dispatch can compute without a `*Registry`) and, through the identical two callers, 56 of the 59
@@ -343,17 +343,32 @@ literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are refer
 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more
 (`forcefield.txt`'s/`ajani_steadfast.txt`'s/`torrent_of_lava.txt`'s among them) are created dynamically at resolution
 time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) — neither mechanism this port's own script-effect
-dispatch builds, so `face.Replacements` never discovers them regardless of this dispatch's own shape. All three families
-share a new `replacementActiveZones`/`hostInActiveZones` (replacement.go), generalizing `ActiveZones$` past Battlefield
-alone to the 2 real Command-zone lines each carries — the identical comma-list `checkPhaseTriggers`'s own
-`TriggerZones$` already has, for a replacement's own zone restriction instead of a trigger's. M6 in progress alongside
-it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
-`ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
-onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the second — 62 of the corpus's 2,219 real
-`(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/ `Opponent`/`Self` (out of 822 naming any
-`Defined$` at all) and carry no other unresolved param — reusing combat's own damage machinery directly:
-`dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) gained an `isCombat bool` parameter (every prior call site
-combat's own, now passing `true` explicitly; `DealDamage` is the first to pass `false`), threading through to
+dispatch builds, so `face.Replacements` never discovers them regardless of this dispatch's own shape. A third real shape
+resolves too now — `DB$ RemoveCounter`/`DB$ PutCounter` (`applyDamageReplaceCounter`, replacement.go) — CR 616's own
+"Replaced" outcome this time, not "Updated": the damage does not happen at all, a counter changes on some object instead
+(`ReplacementHandler.java`'s own default `ReplacementResult.Replaced`, every `ApiType` past
+`ReplaceDamage`/`ReplaceSplitDamage`/`ReplaceEffect`/`ReplaceToken`/`ReplaceMana`) — every "Phantom" creature's own real
+"prevent that damage, remove a +1/+1 counter" among them (`Defined$ Self`), soul_scar_mage.txt's own "put -1/-1 counters
+on that creature instead" (`Defined$ ReplacedTarget`, the damaged object itself, threaded straight through from
+`damageReplaced`'s/`damageReplacedPlayer`'s own `target` parameter), and panther_habit.txt's own "put +1/+1 counters on
+equipped creature instead" (`Defined$ Equipped`, `Card.AttachedTo()` reused). `CounterNum$` resolves through
+`resolveDamageReplaceCountAmount` (above), now generalized to accept a bare, operator-less `ReplaceCount$DamageAmount`
+too — `doXMath`'s own `operators == null` identity, the dominant real shape for this dispatch specifically
+(lichenthrope.txt's/phytohydra.txt's own real `CounterNum$ X`, `X:ReplaceCount$DamageAmount` among them). 25 of the
+corpus's own 31 real lines resolve; `SubAbility$` (5, underdark_beholder.txt's own "remove counters, then sacrifice if
+none left" among them) refuses outright, the identical chained-target refusal every other hand-run dispatch in this file
+already gives, and jared_carthalion_true_heir.txt's own real R: line naming `CheckDefinedPlayer$ You.isMonarch` (1 — no
+monarch mechanic this port tracks) is skipped by `damageReplacementMatches`'s own allow-list before ever reaching this
+dispatch. All four families share a new `replacementActiveZones`/`hostInActiveZones` (replacement.go), generalizing
+`ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each carries — the identical comma-list
+`checkPhaseTriggers`'s own `TriggerZones$` already has, for a replacement's own zone restriction instead of a trigger's.
+M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve
+rather than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own
+`Defined$`/`NumCards$` onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the second — 62 of
+the corpus's 2,219 real `(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/ `Opponent`/`Self`
+(out of 822 naming any `Defined$` at all) and carry no other unresolved param — reusing combat's own damage machinery
+directly: `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) gained an `isCombat bool` parameter (every prior
+call site combat's own, now passing `true` explicitly; `DealDamage` is the first to pass `false`), threading through to
 `damagePrevented`/`damagePreventedPlayer` (CR 614's own "prevent all of this damage," item 26) and to a conditional
 `FlagCombat` (event.go's own doc comment: "marks damage dealt in combat rather than by an effect," dormant until now).
 `Ability` also gained an `Amounts` field, threaded through all eighteen check-triggers call sites (`face.Amounts`,

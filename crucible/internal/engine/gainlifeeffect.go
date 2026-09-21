@@ -14,16 +14,17 @@ import "fmt"
 
 // gainLifeEffect resolves Mode$/DB$/AB$ GainLife. Player.Life is a plain
 // field; CR 119's own "life gain replacement" family (Event$ GainLife, 21
-// real replacement lines) has its one directly resolvable real shape now --
-// gainLifePrevented (replacement.go), checked per player before Life is
-// touched at all, resolves sulfuric_vortex.txt's own bare Prevent$ True (the
-// only one of the 21 naming Prevent$ at all; the other 20 name ReplaceWith$
-// instead -- GainDouble/RLoseLife/Draw among them, each needing "the amount
-// of life that would have been gained" as a runtime value this port's
-// resolveAmount has no way to read back, replacement.go's own doc comment
-// has the full reason, not ported). LifeChanged, below, is the identical
-// event dealPlayerDamage already emits for a life LOSS, reused here for a
-// gain.
+// real replacement lines) has real content now too, both checked per player
+// before Life is touched at all: gainLifePrevented (replacement.go) resolves
+// sulfuric_vortex.txt's own bare Prevent$ True, the only one of the 21
+// naming Prevent$ at all; gainLifeReplaced (replacement.go) resolves 4 of
+// the other 20's own ReplaceWith$ lines -- GainDouble/RLoseLife/Draw among
+// them -- once ReplaceCount$LifeGained, "the amount of life that would have
+// been gained" as a runtime value, reads back through a narrow sibling of
+// resolveAmount rather than resolveAmount itself (replacement.go's own doc
+// comment has the full reason and the 16 that stay unresolved). LifeChanged,
+// below, is the identical event dealPlayerDamage already emits for a life
+// LOSS, reused here for a gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
 // to the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/UnlessCost$/
@@ -78,6 +79,9 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	for _, pid := range players {
 		if g.gainLifePrevented(pid) {
+			continue
+		}
+		if g.gainLifeReplaced(controller, pid, amount) {
 			continue
 		}
 		g.Player(pid).Life += amount

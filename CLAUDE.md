@@ -458,19 +458,27 @@ notion_thief.txt's/teferis_ageless_insight.txt's/alhammarrets \_archive.txt's/ba
 tracker; magus_of_the_chains.txt's/chains_of_mephistopheles.txt's/breathstealers \_crypt.txt's/sea_of_sand.txt's own
 `Defined$ ReplacedPlayer` (4) and blood_scrivener.txt's own chained `SubAbility$` (1) stay unresolved for the reasons
 already given above; booby_trap.txt's own `Player.Chosen` and pursuit_of_knowledge.txt's own `Optional$` (1 each) are
-the identical already-documented gaps. Every real `Event$ GainLife` `ReplaceWith$` line (20) needs either
-`DB$ ReplaceEffect` (a dedicated API, 15) or "the amount of life that would have been gained" as a runtime value
-(`ReplaceCount$LifeGained`, 5) this port's `resolveAmount` has no way to read back — neither shape this dispatch's own
-"already-built leaf ability, nothing else to resolve" contract covers, so `GainLife` is untouched by this chunk.
-`gainLifeEffect` (`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a
-player-only gain (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape) — 857 of 1,700 real `GainLife`
-lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven
-effect, the corpus's own single largest by real line count after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines)
-and the first whose own contribution outlives its `Resolve` call: `Duration$`'s default, "until end of turn," is a
-continuous effect this port never needed a duration for before, closed by a new `Game.pumps` ledger (`pumpRecord`,
-game.go) re-added into its target's own `PT`/`KeywordMod` every `CheckStateBasedActions` pass (`applyPumpEffects`,
-continuous.go) and dropped at `cleanupStep` (`turn.go`) unless `Duration$ Permanent` names it durable — CR 514.2's own
-"until end of turn" effects wearing off, closing the gap `applyContinuousPT`'s own doc comment used to name.
+the identical already-documented gaps. **`GainLife` gets the same `ReplaceWith$` dispatch too now** — `gainLifeReplaced`
+(replacement.go) is `drawReplaced`'s own sibling, resolving the one runtime value `Draw`'s own dispatch never needed:
+`ReplaceCount$LifeGained`, "the amount of life that would have been gained," read straight off the raw `LifeAmount$`
+`gainLifeEffect.Resolve` already has in scope. 4 of the corpus's own 20 real `Event$ GainLife | ReplaceWith$` lines
+resolve end to end: lich.txt's/nefarious_lich.txt's own "draw that many cards instead" (`ValidPlayer$ You`, target
+`DB$ Draw | Defined$ You | NumCards$` naming that SVar) and tainted_remedy.txt's/plague_drone.txt's own "that player
+loses that much life instead" (`ValidPlayer$ Opponent`, target `DB$ LoseLife | LifeAmount$` naming it |
+`Defined$ ReplacedPlayer` — read as the replaced player directly, the identical narrow `Defined$` reading `drawReplaced`
+already has for its own "You"). Not resolved: rain_of_gore.txt's own real
+`ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on what
+CAUSED the event, not who it affects, a shape this dispatch's own allow-list has never needed before) and the 15 real
+lines targeting `DB$ ReplaceEffect`, a dedicated API this port does not build. `gainLifeEffect` (`gainlifeeffect.go`) is
+M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
+(`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape) — 857 of 1,700 real `GainLife` lines resolve, the
+corpus's largest slice past `DealDamage`. `pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven effect, the
+corpus's own single largest by real line count after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the
+first whose own contribution outlives its `Resolve` call: `Duration$`'s default, "until end of turn," is a continuous
+effect this port never needed a duration for before, closed by a new `Game.pumps` ledger (`pumpRecord`, game.go)
+re-added into its target's own `PT`/`KeywordMod` every `CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go)
+and dropped at `cleanupStep` (`turn.go`) unless `Duration$ Permanent` names it durable — CR 514.2's own "until end of
+turn" effects wearing off, closing the gap `applyContinuousPT`'s own doc comment used to name.
 `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go) — no target — cover 1,147 of 4,103 real `Pump`
 lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$` (a literal keyword list), gated by
 `PumpZone$`'s own zone restriction (default Battlefield alone) and `subAbilityConditionMet`'s own Condition-family pair

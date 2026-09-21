@@ -22,10 +22,11 @@
 //
 // Draw and GainLife (39 and 21 real lines) have their own real content too:
 // drawPrevented/gainLifePrevented resolve Prevent$ True (2 and 1 lines), and
-// drawReplaced resolves ReplaceWith$ naming a plain, already-built leaf
-// ability with no SubAbility$ of its own (3 of Draw's own 36 real
-// ReplaceWith$ lines; GainLife's own 20 all need a deeper mechanism this
-// file does not build, below). Every other Event$ value (Counter, ...) is a
+// drawReplaced/gainLifeReplaced resolve ReplaceWith$ naming a plain,
+// already-built leaf ability with no SubAbility$ of its own (3 of Draw's
+// own 36 real ReplaceWith$ lines; 4 of GainLife's own 20, once
+// ReplaceCount$LifeGained -- "the amount of life that would have been
+// gained" -- resolves too). Every other Event$ value (Counter, ...) is a
 // gap game-state.md's own trigger-firing-style account names, not a reason
 // to have skipped the shapes that do resolve.
 //
@@ -43,6 +44,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -884,4 +886,199 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 	host.Counters.Add(counterType, amount)
 	emitCounterChanged(g.sink, host.ID, CardEntity(host.ID), counterType, amount)
 	return true
+}
+
+// gainLifeReplaced is drawReplaced's own sibling for CR 119's "gain life"
+// event: the same CR 616 "the event is replaced by a different one" outcome,
+// resolving the one runtime value Draw's own dispatch never needed --
+// ReplaceCount$LifeGained, "the amount of life that would have been gained"
+// -- since gainLifeEffect.Resolve (below) already has that raw amount in
+// scope right where it would otherwise apply it, threaded through here as
+// replaced. Checked per player, the identical "before Life is touched at
+// all" ordering gainLifePrevented's own doc comment already gives.
+//
+// 4 of the corpus's own 20 real Event$ GainLife | ReplaceWith$ lines
+// resolve end to end: lich.txt's/nefarious_lich.txt's own real "if you
+// would gain life, draw that many cards instead" (ValidPlayer$ You,
+// ReplaceWith$ naming a plain DB$ Draw | Defined$ You | NumCards$ <SVar
+// naming ReplaceCount$LifeGained>); tainted_remedy.txt's/plague_drone.txt's
+// own real "if an opponent would gain life, that player loses that much
+// life instead" (ValidPlayer$ Opponent, ReplaceWith$ naming a plain
+// DB$ LoseLife | LifeAmount$ <the same SVar shape> | Defined$
+// ReplacedPlayer -- "the player who would have gained," read as the
+// player parameter directly, the identical narrow reading
+// applyDrawReplacementDraw's own doc comment already gives for Defined$
+// You).
+//
+// Not resolved: rain_of_gore.txt's own real "if a SPELL OR ABILITY would
+// cause its controller to gain life" (ValidSource$ SpellAbility |
+// SourceController$ True, no ValidPlayer$ at all -- a restriction on WHAT
+// CAUSED the event rather than who it affects, a shape this file's own
+// allow-lists have never needed to check before); the 15 real
+// ReplaceEffect-targeting lines (angel_of_vitality.txt's/
+// alhammarret's_archive.txt's/... own real "double your life gain"/"gain 1
+// extra life" shapes) -- DB$ ReplaceEffect is its own dedicated API this
+// port does not build, distinct from a plain substitute ability.
+func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, replaced int) bool {
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !gainLifeReplacementMatches(g, r, host, z, face.Amounts) {
+							continue
+						}
+						if validPlayer, ok := r.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						for _, sub := range r.Subs {
+							if !strings.EqualFold(sub.Key, "ReplaceWith") {
+								continue
+							}
+							if applyGainLifeReplacement(g, controller, h, sub.Ability, face.Amounts, player, replaced) {
+								return true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// gainLifeReplacementMatches is gainLifeReplaced's own shared half:
+// Event$ GainLife, ReplaceWith$ present, r's own host in one of its own
+// ActiveZones$, and replacementRequirementsCheck (above) --
+// drawReplacementMatches' own exact shape for a different Event$, plus
+// "ailogic": every one of the 4 real lines this dispatch resolves carries
+// AILogic$, a pure AI hint this port's own resolution never reads. Any
+// param besides the ones real corpus lines pair with this shape skips the
+// whole line rather than guessing (GO-7) -- rain_of_gore.txt's own
+// ValidSource$/SourceController$ shape is exactly what falls through here.
+func gainLifeReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
+	if !strings.EqualFold(r.Name, "GainLife") {
+		return false
+	}
+	if _, ok := r.Param("ReplaceWith"); !ok {
+		return false
+	}
+	for _, p := range r.Params {
+		switch strings.ToLower(p.Key) {
+		case "event", "replacewith", "description", "validplayer", "activezones", "secondary", "ailogic",
+			"playerturn", "activephases", "checksvar", "svarcompare",
+			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
+		default:
+			return false
+		}
+	}
+	return hostInActiveZones(r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// applyGainLifeReplacement is applyDrawReplacement's own sibling: recognize
+// a plain DB$ Draw or DB$ LoseLife target ability and run it by hand, the
+// identical *Registry-avoidance reason applyDrawReplacement's own doc
+// comment gives. A target ability naming SubAbility$ is refused outright
+// rather than run with any chained half silently dropped (GO-7) -- no real
+// corpus line among the 4 this dispatch resolves needs it, but neither
+// target function below checks for it on its own.
+func applyGainLifeReplacement(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID, replaced int) bool {
+	if _, ok := a.Param("SubAbility"); ok {
+		return false
+	}
+	switch {
+	case strings.EqualFold(a.Name, "Draw"):
+		return applyGainLifeReplacementDraw(g, controller, host, a, amounts, player, replaced)
+	case strings.EqualFold(a.Name, "LoseLife"):
+		return applyGainLifeReplacementLoseLife(g, host, a, amounts, player, replaced)
+	}
+	return false
+}
+
+// applyGainLifeReplacementDraw runs a plain "DB$ Draw | Defined$ You |
+// NumCards$ <ReplaceCount$LifeGained>" ReplaceWith$ target directly --
+// applyDrawReplacementDraw's own shape, with resolveGainLifeReplacementAmount
+// (below) in place of resolveNamedAmount so NumCards$'s own named SVar can
+// resolve to replaced rather than failing the way resolveAmount's own
+// Count-only Expression case already does for any other head.
+func applyGainLifeReplacementDraw(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID, replaced int) bool {
+	for _, key := range []string{"Upto", "OptionalDecider", "Reveal", "RememberDrawn"} {
+		if _, ok := a.Param(key); ok {
+			return false
+		}
+	}
+	defined, ok := a.Param("Defined")
+	if !ok || !strings.EqualFold(defined, "You") {
+		return false
+	}
+	n := 1
+	if v, ok := a.Param("NumCards"); ok {
+		parsed, ok := resolveGainLifeReplacementAmount(g, amounts, host, v, replaced)
+		if !ok {
+			return false
+		}
+		n = parsed
+	}
+	for i := 0; i < n; i++ {
+		if !g.drawOneCard(controller, player) {
+			break
+		}
+	}
+	return true
+}
+
+// applyGainLifeReplacementLoseLife runs a plain "DB$ LoseLife | LifeAmount$
+// <ReplaceCount$LifeGained> | Defined$ ReplacedPlayer" ReplaceWith$ target
+// directly -- loseLifeEffect's own resolvable shape, hand-run for the
+// identical *Registry reason applyDrawReplacementDraw's own doc comment
+// gives. Defined$ accepts "ReplacedPlayer" (tainted_remedy.txt's/
+// plague_drone.txt's own real value) alongside "You": both name the same
+// player parameter already threaded through -- the player who would have
+// gained the life this replaces -- the identical narrow reading
+// applyDrawReplacementDraw's own doc comment gives for its own "You" case.
+func applyGainLifeReplacementLoseLife(g *Game, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID, replaced int) bool {
+	defined, ok := a.Param("Defined")
+	if !ok || (!strings.EqualFold(defined, "You") && !strings.EqualFold(defined, "ReplacedPlayer")) {
+		return false
+	}
+	lifeAmount, ok := a.Param("LifeAmount")
+	if !ok {
+		return false
+	}
+	amount, ok := resolveGainLifeReplacementAmount(g, amounts, host, lifeAmount, replaced)
+	if !ok {
+		return false
+	}
+	g.Player(player).Life -= amount
+	g.sink.Emit(Event{Kind: LifeChanged, Source: host.ID, Target: PlayerEntity(player), Amount: -int32(amount)})
+	return true
+}
+
+// resolveGainLifeReplacementAmount is resolveNamedAmount's own sibling for
+// the one Expression head resolveAmount does not evaluate:
+// ReplaceCount$LifeGained -- "the amount of life that would have been
+// gained," a value only meaningful at this dispatch's own two callers
+// above, which already have it in scope as replaced, not a general
+// resolveAmount case (every other caller has no replaced amount in scope
+// at all). A literal integer or any other named reference falls through to
+// resolveNamedAmount unchanged.
+func resolveGainLifeReplacementAmount(g *Game, amounts map[string]expr.Amount, host *Card, value string, replaced int) (int, bool) {
+	if n, err := strconv.Atoi(value); err == nil {
+		return n, true
+	}
+	if amt, ok := amounts[strings.ToLower(value)]; ok && amt.Kind == expr.Expression && amt.Op == nil &&
+		strings.EqualFold(amt.Head, "ReplaceCount") {
+		if amt.Negative {
+			return -replaced, true
+		}
+		return replaced, true
+	}
+	return resolveNamedAmount(g, amounts, host, value)
 }

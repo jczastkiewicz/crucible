@@ -1245,8 +1245,8 @@ printed form.
     its `Event$ Draw` replacement before ever looking at whether the library is empty, so a prevented draw cannot also
     trigger CR 704.5b's own "attempted to draw from an empty library" loss. `gainLifePrevented` is checked from
     `gainLifeEffect` (gainlifeeffect.go) per player before `Player.Life` is touched at all. The other 36 real `Draw`
-    lines and 20 real `GainLife` lines name `ReplaceWith$` instead of `Prevent$` — a real substitution, 3 of the 36
-    resolved by `drawReplaced` below.
+    lines and 20 real `GainLife` lines name `ReplaceWith$` instead of `Prevent$` — a real substitution, 3 of the 36 and
+    4 of the 20 resolved by `drawReplaced`/`gainLifeReplaced` below.
 
     `matchesPlayerProperty` (valid.go) resolves two more real `Phase`-mode qualified `ValidPlayer$` forms now, both
     reused for free by every one of its nine existing callers across `trigger.go`/`continuous.go`/`targeting.go`/
@@ -1278,11 +1278,20 @@ printed form.
     resolved: 5 more real lines targeting the identical plain `DB$ Draw` shape but blocked by a per-draw-step tracker
     this port does not have (`FirstExtraCardDrawnThisTurn$`/ `NotFirstCardInDrawStep$`); 4 naming
     `Defined$ ReplacedPlayer`, a token `definedPlayers` has no case for; 1 whose own target chains a further
-    `SubAbility$`; and the 2 already-documented gaps (`Player.Chosen`/`Optional$`). Every real
-    `Event$ GainLife | ReplaceWith$` line (20) needs either `DB$ ReplaceEffect` (a dedicated API, 15) or "the amount of
-    life that would have been gained" as a runtime value (`ReplaceCount$LifeGained`, 5) `resolveAmount` has no way to
-    read back — neither shape this dispatch's own "already-built leaf ability" contract covers, so `GainLife` is
-    untouched by this chunk.
+    `SubAbility$`; and the 2 already-documented gaps (`Player.Chosen`/`Optional$`).
+
+    **`GainLife` gets the same dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling,
+    resolving the one runtime value `Draw`'s own dispatch never needed: `ReplaceCount$LifeGained`, "the amount of life
+    that would have been gained," read straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope
+    via a new `resolveGainLifeReplacementAmount` (`resolveNamedAmount`'s own sibling for the one `Expression` head
+    `resolveAmount` does not evaluate). 4 of the corpus's own 20 real `Event$ GainLife | ReplaceWith$` lines resolve end
+    to end: lich.txt's/nefarious_lich.txt's own "draw that many cards instead" (`ValidPlayer$ You`, target
+    `DB$ Draw | Defined$ You | NumCards$` naming that SVar) and tainted_remedy.txt's/plague_drone.txt's own "that player
+    loses that much life instead" (`ValidPlayer$ Opponent`, target `DB$ LoseLife | LifeAmount$` naming it |
+    `Defined$ ReplacedPlayer` — read as the replaced player directly). Not resolved: rain_of_gore.txt's own real
+    `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on what
+    caused the event, not who it affects) and the 15 real lines targeting `DB$ ReplaceEffect`, a dedicated API this port
+    does not build.
 
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a

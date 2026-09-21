@@ -724,7 +724,7 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 		return
 	}
 	for _, pid := range g.Players() {
-		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), affected)
+		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, affected)
 		if !recognized || !matched {
 			continue
 		}

@@ -97,13 +97,13 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 // implicit "target creature" scope, and the only zone 0 real corpus
 // TgtZone$ lines ever ask this port to look anywhere else than.
 func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string) []EntityID {
-	if _, ok := matchesPlayerSpec(g, controller, controller, spec); ok {
+	if _, ok := matchesPlayerSpec(g, controller, controller, source, spec); ok {
 		var candidates []EntityID
 		for _, pid := range g.Players() {
 			if g.Player(pid).Lost {
 				continue
 			}
-			if matched, _ := matchesPlayerSpec(g, pid, controller, spec); matched {
+			if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched {
 				candidates = append(candidates, PlayerEntity(pid))
 			}
 		}

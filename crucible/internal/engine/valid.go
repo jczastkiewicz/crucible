@@ -432,7 +432,15 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 // own contract) or the property is -- a caller with its own further dispatch
 // (matchesValidDefender's own "Player.controls<Type>", staticability.go)
 // checks that first and never reaches this function for those specs.
-func matchesPlayerSpec(g *Game, candidate, host PlayerID, spec string) (matched, ok bool) {
+//
+// source is the trigger/ability's own host card, threaded through only for
+// matchesPlayerProperty's own EnchantedController case, below -- every other
+// property this function resolves needs no card at all, so a caller with
+// none in scope (matchesActivatingPlayer's own SpellCast dispatch, at the
+// point this port first built it, before EnchantedController existed) simply
+// passes NoCard the same way Matches' own callers already pass it for a
+// property that never reads source (sourceCard's own doc comment, below).
+func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec string) (matched, ok bool) {
 	base, property, hasProperty := strings.Cut(spec, ".")
 	baseMatched, baseOK := matchesPlayerBase(candidate, host, base)
 	if !baseOK {
@@ -441,7 +449,7 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, spec string) (matched,
 	if !hasProperty {
 		return baseMatched, true
 	}
-	propMatched, propOK := matchesPlayerProperty(g, candidate, host, property)
+	propMatched, propOK := matchesPlayerProperty(g, candidate, host, source, property)
 	if !propOK {
 		return false, false
 	}
@@ -454,19 +462,29 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, spec string) (matched,
 // "Opponent"/"You" property branches reuse the identical base check a
 // property token gets, so this does too, via matchesPlayerBase), Active/
 // NonActive (Game.ActivePlayer(), the same accessor Matches' own
-// ActivePlayerCtrl property already reads for a *Card, valid.go), and Other
+// ActivePlayerCtrl property already reads for a *Card, valid.go), Other
 // (not sourceController -- Java's own distinction from "Opponent," a
 // teammate counts as "Other" but not "Opponent," collapses into the
 // identical check anyway under this port's own no-team simplification,
-// matchesPlayerBase's own doc comment).
+// matchesPlayerBase's own doc comment), EnchantedController (the controller
+// of whatever source -- an Aura -- is attached to, source.AttachedTo(),
+// card.go; a source with no attachment, or none passed at all, recognizes
+// the property but matches no candidate, PlayerProperty.java's own null
+// check ported directly rather than "cannot evaluate," since an unattached
+// Aura is an ordinary, expected state to ask this about, not a shape this
+// port fails to understand), and descended (Player.DescendedThisTurn,
+// player.go -- CR's own "descend" tracker, Java's own getDescended() < 1,
+// this port needing only the boolean "at all" question every real corpus
+// line asks).
 //
-// Every other real property (EnchantedBy, Chosen, IsRemembered, and the
-// rest game-state.md's own trigger sections name) needs state this port
-// does not track per player -- an Aura enchanting a player, a ChosenPlayer
-// memory slot, a remembered-players list -- and is left unrecognized here,
-// ok=false, the same "skip rather than guess" contract every other
-// unresolved param in this port already has (GO-7).
-func matchesPlayerProperty(g *Game, candidate, host PlayerID, property string) (matched, ok bool) {
+// Every other real property (EnchantedBy and Chosen on a *player* -- an
+// Aura enchanting a player directly, CR 303.4h, and a ChosenPlayer memory
+// slot -- distinct from Matches' own *card*-side EnchantedBy, which this
+// port already resolves) needs state this port does not track at all yet,
+// and is left unrecognized here, ok=false, the same "skip rather than
+// guess" contract every other unresolved param in this port already has
+// (GO-7).
+func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, property string) (matched, ok bool) {
 	if matched, ok := matchesPlayerBase(candidate, host, property); ok {
 		return matched, true
 	}
@@ -477,6 +495,18 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, property string) (
 		return candidate != g.ActivePlayer(), true
 	case "Other":
 		return candidate != host, true
+	case "EnchantedController":
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false, true
+		}
+		enchanting, attached := sc.AttachedTo()
+		if !attached {
+			return false, true
+		}
+		return candidate == g.Card(enchanting).Controller(), true
+	case "descended":
+		return g.Player(candidate).DescendedThisTurn, true
 	}
 	return false, false
 }

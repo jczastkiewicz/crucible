@@ -443,7 +443,7 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
-					if !matchesActivatingPlayer(g, t, activator, h.Controller()) {
+					if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
 						continue
 					}
 					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
@@ -466,12 +466,12 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // contract ValidCard's own absence gets above. Player.EnchantedBy (5) and
 // Player.Chosen (1) stay unrecognized -- matchesPlayerSpec's own doc comment
 // has the reason.
-func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostController PlayerID) bool {
+func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostController PlayerID, host CardID) bool {
 	v, ok := t.Param("ValidActivatingPlayer")
 	if !ok {
 		return true
 	}
-	matched, recognized := matchesPlayerSpec(g, activator, hostController, v)
+	matched, recognized := matchesPlayerSpec(g, activator, hostController, host, v)
 	return recognized && matched
 }
 
@@ -763,7 +763,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 						continue
 					}
 					if validTarget, ok := t.Param("ValidTarget"); ok {
-						matched, recognized := matchesPlayerSpec(g, target, h.Controller(), validTarget)
+						matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
 						if !recognized || !matched {
 							continue
 						}
@@ -1068,7 +1068,7 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 						continue
 					}
 					if activator, ok := t.Param("Activator"); ok {
-						matched, recognized := matchesPlayerSpec(g, player, h.Controller(), activator)
+						matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, activator)
 						if !recognized || !matched {
 							continue
 						}
@@ -1190,19 +1190,23 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // doc comment, above): a leftover from before that general mechanism
 // existed would otherwise keep them silently skipped even after it landed.
 //
-// Not resolved, skipped via hasAnyParam: Condition$ (65, an arbitrary
-// SVar-shaped boolean condition distinct from CheckSVar$/SVarCompare$'s own
-// resolved shape -- SpellAbilityCondition's own separate switch, not
-// CardTraitBase's), and APlayerHasMoreLifeThanEachOther$/
-// APlayerHasMostCardsInHand$ (a whole-table comparison no other trigger mode
-// needs) -- 3 real lines or fewer past Condition$'s own 65. A trigger
-// carrying either of these is skipped entirely, not fired unconditionally
-// (GO-7). The qualified
-// ValidPlayer$ forms matchesPlayerSpec cannot resolve
-// (Player.EnchantedController, 34; Player.EnchantedBy, 14; You.descended,
-// 10; Player.Chosen, 3; Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay
-// unresolved for the identical reason SpellCast's own
-// Player.EnchantedBy/Player.Chosen do (matchesPlayerSpec's own doc comment).
+// Not resolved, skipped via hasAnyParam: Condition$ (SpellAbilityCondition's
+// own separate switch, not CardTraitBase's -- an arbitrary SVar-shaped
+// boolean condition distinct from CheckSVar$/SVarCompare$'s own resolved
+// shape; 0 real Mode$ Phase lines carry the bare key today -- this pre-filter
+// never matches WerewolfTransformCondition$/WerewolfUntransformCondition$'s
+// own 65 real lines, an unrelated key it was never meant to catch, day/night
+// staying unresolved for CardTraitBase.meetsCommonRequirements' own reason
+// above), and APlayerHasMoreLifeThanEachOther$/APlayerHasMostCardsInHand$ (a
+// whole-table comparison no other trigger mode needs) -- 2 and 1 real lines.
+// A trigger carrying either of these is skipped entirely, not fired
+// unconditionally (GO-7). The qualified ValidPlayer$ forms matchesPlayerSpec
+// cannot resolve (Player.EnchantedBy, 14; Player.Chosen, 3;
+// Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay unresolved for the
+// identical reason SpellCast's own Player.EnchantedBy/Player.Chosen do
+// (matchesPlayerSpec's own doc comment); Player.EnchantedController (34) and
+// You.descended (10) resolve now too, matchesPlayerProperty's own new cases
+// (valid.go).
 func (g *Game) checkPhaseTriggers(controller PlayerController) {
 	var matches []Ability
 	for _, pid := range g.Players() {
@@ -1228,7 +1232,7 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 							continue
 						}
 						if validPlayer, ok := t.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), validPlayer)
+							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), host, validPlayer)
 							if !recognized || !matched {
 								continue
 							}
@@ -1937,7 +1941,7 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 							continue
 						}
 						if attackingPlayer, ok := t.Param("AttackingPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), attackingPlayer)
+							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), host, attackingPlayer)
 							if !recognized || !matched {
 								continue
 							}
@@ -2013,7 +2017,7 @@ func attackedTargetMatches(g *Game, host *Card, targets []EntityID, spec string)
 	for _, token := range strings.Split(spec, ",") {
 		for _, target := range targets {
 			if pid, ok := target.AsPlayer(); ok {
-				if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), token); recognized && matched {
+				if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, token); recognized && matched {
 					return true
 				}
 				continue
@@ -2121,7 +2125,7 @@ func (g *Game) checkDrawnTriggers(controller PlayerController, drawer PlayerID, 
 							continue
 						}
 						if validPlayer, ok := t.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, drawer, h.Controller(), validPlayer)
+							matched, recognized := matchesPlayerSpec(g, drawer, h.Controller(), host, validPlayer)
 							if !recognized || !matched {
 								continue
 							}
@@ -2191,7 +2195,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if !ok {
 							continue
 						}
-						matched, recognized := matchesPlayerSpec(g, gainer, h.Controller(), validPlayer)
+						matched, recognized := matchesPlayerSpec(g, gainer, h.Controller(), host, validPlayer)
 						if !recognized || !matched {
 							continue
 						}

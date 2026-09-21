@@ -318,6 +318,7 @@ func (g *Game) LKI(id CardID) *Card {
 func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	c := g.Card(id)
 	from := c.Zone
+	isPermanent := c.Type().IsPermanent()
 	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
 	g.put(id, kind, owner)
 
@@ -346,6 +347,20 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 			c.Counters.Add(Defense, defense)
 			emitCounterChanged(g.sink, id, CardEntity(id), Defense, defense)
 		}
+	}
+
+	// CR's own "descend" tracker (Zone.add's own "!rollback" branch, Java):
+	// a permanent card put into a graveyard from anywhere this turn marks its
+	// owner (not its controller -- every real Move-to-Graveyard call site in
+	// this port already passes owner as c.Owner itself) as having descended,
+	// read back by matchesPlayerProperty's own "descended" case (valid.go).
+	// Java's own check also excludes a token; this port has no
+	// token-creation effect yet (M6's own remaining territory), so every card
+	// that can ever reach this line is non-token by construction, the same
+	// "holds by construction" reasoning untapStep's own
+	// ValidStepTurnToController$ skip already documents.
+	if kind == Graveyard && isPermanent {
+		g.Player(owner).DescendedThisTurn = true
 	}
 
 	g.sink.Emit(Event{

@@ -426,7 +426,7 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 							continue
 						}
 						if validTarget, ok := r.Param("ValidTarget"); ok {
-							matched, recognized := matchesPlayerSpec(g, target, h.Controller(), validTarget)
+							matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
 							if !recognized || !matched {
 								continue
 							}
@@ -525,7 +525,7 @@ func (g *Game) drawPrevented(player PlayerID) bool {
 							continue
 						}
 						if validPlayer, ok := r.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), validPlayer)
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
 							if !recognized || !matched {
 								continue
 							}
@@ -600,7 +600,7 @@ func (g *Game) gainLifePrevented(player PlayerID) bool {
 							continue
 						}
 						if validPlayer, ok := r.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), validPlayer)
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
 							if !recognized || !matched {
 								continue
 							}

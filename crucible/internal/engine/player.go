@@ -60,6 +60,17 @@ type Player struct {
 	// the identical per-turn-counter shape LandsPlayed already has, reset for
 	// every player at cleanup (cleanupStep, turn.go) the same way.
 	CardsDrawnThisTurn int
+	// DescendedThisTurn is CR's own "descend" tracker (Java's own
+	// Player.descended, Player.java) -- whether a permanent card has been put
+	// into this player's graveyard from anywhere this turn, read by
+	// matchesPlayerProperty's own "descended" case (valid.go) for
+	// ValidPlayer$ You.descended (Mode$ Phase's own real corpus shape).
+	// Java's own field is an int count (getDescended() < 1); this port only
+	// ever asks whether it happened at all, so a bool is enough. Set in
+	// Game.Move (game.go) whenever a permanent, non-token card is moved into
+	// Graveyard, reset for every player at cleanup (cleanupStep, turn.go) the
+	// identical way LandsPlayed/CardsDrawnThisTurn already are.
+	DescendedThisTurn bool
 	// Rules is Layer 8's own continuous effects currently affecting this
 	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/

@@ -1249,14 +1249,29 @@ printed form.
     have been drawn/gained" as a runtime value this port's `resolveAmount` has no way to read back (Java's own
     `AbilityKey.ReplacedAmount` threading, not built), not resolved.
 
+    `matchesPlayerProperty` (valid.go) resolves two more real `Phase`-mode qualified `ValidPlayer$` forms now, both
+    reused for free by every one of its nine existing callers across `trigger.go`/`continuous.go`/`targeting.go`/
+    `replacement.go` (each now threading the ability's own host card through as a `source CardID` parameter alongside
+    the controller `matchesPlayerSpec` already took): `EnchantedController` (34 lines, righteous_authority.txt's own "at
+    the beginning of the draw step of enchanted creature's controller" shape) reads `source.AttachedTo()` — the same
+    attachment link Layer 2's own `GainControl$` already reads (item 27) — to find the controller of whatever the
+    trigger's own host card enchants; `descended` (10, ruin_lurker_bat.txt's own "if you descended this turn" shape,
+    CR's own descend mechanic) reads a new `Player.DescendedThisTurn` (player.go), set in `Game.Move` (game.go) whenever
+    a permanent, non-token card moves into a graveyard from any zone — this port has no token-creation effect yet (M6),
+    so the token half of Java's own check holds by construction for every card this port can ever move — and reset for
+    every player at `cleanupStep` (turn.go) the identical way `LandsPlayed`/`CardsDrawnThisTurn` already are.
+
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
     player draws a card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`,
-    ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has, 65 real lines) and the two
-    whole-table comparisons (`APlayerHasMoreLifeThanEachOther$`/`APlayerHasMostCardsInHand$`, 3 real lines or fewer),
-    plus its own qualified `ValidPlayer$` forms
-    (`Player.EnchantedController`/`Player.EnchantedBy`/`You.descended`/`Player.Chosen`/ `Player.isMonarch`, 64 real
-    lines); `DamageDone`'s own `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
+    ...); `Phase`'s own `Condition$` (a general conditional-trigger evaluator no mode has — 0 real `Mode$ Phase` lines
+    carry the bare key today, unlike `WerewolfTransformCondition$`/`WerewolfUntransformCondition$`'s own unrelated 65,
+    which this key was never meant to catch) and the two whole-table comparisons
+    (`APlayerHasMoreLifeThanEachOther$`/`APlayerHasMostCardsInHand$`, 2 and 1 real lines), plus its own remaining
+    qualified `ValidPlayer$` forms (`Player.EnchantedBy`/`Player.Chosen`/`Opponent.EnchantedBy`/`Player.isMonarch`, 14,
+    3, 2 and 1 real lines — each needing its own separate mechanic this port does not have: an Aura enchanting a player
+    directly, a chosen-player memory slot, a monarch tracker); `DamageDone`'s own
+    `ValidCause$`/`TargetRelativeToCause$`/`TargetRelativeToSource$` (its own qualified
     `ValidTarget$ Player.Opponent`/`Player.Other` are resolved now, `Player.EnchantedBy` is not); `Discarded`'s own
     `ValidCause$`; `Taps`'s own `FirstTime$`/`Teamwork$`; `TapsForMana`'s own `Produced$` (its own qualified
     `Activator$ Player.NonActive` is resolved now); `SpellCast`'s own `Player.EnchantedBy`/ `Player.Chosen` qualified

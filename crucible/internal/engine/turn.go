@@ -325,6 +325,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.LandsPlayed = 0
 		p.CardsDrawnThisTurn = 0
 		p.DescendedThisTurn = false
+		p.LifeGainedTimesThisTurn = 0
 	}
 
 	kept := g.pumps[:0]

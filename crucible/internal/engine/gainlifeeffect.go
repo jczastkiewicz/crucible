@@ -84,9 +84,11 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		if g.gainLifeReplaced(controller, pid, amount) {
 			continue
 		}
+		firstGain := g.Player(pid).LifeGainedTimesThisTurn == 0
+		g.Player(pid).LifeGainedTimesThisTurn++
 		g.Player(pid).Life += amount
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(amount)})
-		g.checkLifeGainedTriggers(controller, pid)
+		g.checkLifeGainedTriggers(controller, pid, firstGain)
 	}
 	return nil
 }

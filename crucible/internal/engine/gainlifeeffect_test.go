@@ -298,6 +298,109 @@ func lifeGainedTriggerCreatureDefPT(t *testing.T, name string) *compile.Card {
 	return c
 }
 
+// lifeGainedTriggerCreatureDefPTWithExtra is lifeGainedTriggerCreatureDefPT's
+// own sibling, carrying extra trigger params past the bare ValidPlayer$ You
+// shape -- FirstTime$/ActivationLimit$'s own tests need one each.
+func lifeGainedTriggerCreatureDefPTWithExtra(t *testing.T, name, extra string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "1", "1"
+	raw.Faces[0].Triggers = []string{
+		"Mode$ LifeGained | ValidPlayer$ You | TriggerZones$ Battlefield | " + extra + " | Execute$ TrigDraw",
+	}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestGainLifeEffectFiresLifeGainedTriggerFirstTimeOnFirstGain proves
+// FirstTime$ True fires on the first life gain of the turn -- a new
+// pre-increment read of Player.LifeGainedTimesThisTurn.
+func TestGainLifeEffectFiresLifeGainedTriggerFirstTimeOnFirstGain(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(lifeGainedTriggerCreatureDefPTWithExtra(t, "Test First Time Watcher", "FirstTime$ True"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- FirstTime$ True must fire on the first life gain this turn", g.Card(top).Zone)
+	}
+}
+
+// TestGainLifeEffectSkipsLifeGainedTriggerFirstTimeOnSecondGain proves the
+// other direction: a second life gain the same turn does not fire
+// FirstTime$ True again.
+func TestGainLifeEffectSkipsLifeGainedTriggerFirstTimeOnSecondGain(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(lifeGainedTriggerCreatureDefPTWithExtra(t, "Test First Time Watcher", "FirstTime$ True"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test First Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack (first): %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Fatalf("library card zone after first gain = %v, want Hand", g.Card(top).Zone)
+	}
+
+	second := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Second Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack (second): %v", err)
+	}
+
+	if g.Card(second).Zone != engine.Library {
+		t.Errorf("library card zone after second gain = %v, want unchanged Library -- FirstTime$ True must not fire a second time this turn", g.Card(second).Zone)
+	}
+}
+
+// TestGainLifeEffectSkipsLifeGainedTriggerWithActivationLimit proves the
+// ActivationLimit$ correctness fix: a line naming it (4 real corpus lines,
+// this port's own per-trigger resolution counter not built) must skip the
+// whole line rather than firing every single time -- a wrong answer, not a
+// coverage gap, since this port never checked the key at all before.
+func TestGainLifeEffectSkipsLifeGainedTriggerWithActivationLimit(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(lifeGainedTriggerCreatureDefPTWithExtra(t, "Test Activation Limit Watcher", "ActivationLimit$ 1"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if g.Card(top).Zone != engine.Library {
+		t.Errorf("library card zone = %v, want unchanged Library -- ActivationLimit$ is not resolved, so the whole line must skip", g.Card(top).Zone)
+	}
+}
+
 // TestGainLifeEffectFiresLifeGainedTrigger proves gainLifeEffect's own
 // checkLifeGainedTriggers call (trigger.go) fires a real "whenever you gain
 // life" watcher end to end: p gains life from GainLife, a separate

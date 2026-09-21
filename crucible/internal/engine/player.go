@@ -85,6 +85,17 @@ type Player struct {
 	// NotFirstCardInDrawStep$'s own "except the first one they draw in each
 	// of their draw steps" exemption.
 	DrawnThisDrawStep int
+	// LifeGainedTimesThisTurn is how many separate times this player has
+	// gained life this turn (Java's own lifeGainedTimesThisTurn, Player.java)
+	// -- a count of EVENTS, not amount (LifeGainedThisTurn's own shape, not
+	// tracked here since no real corpus line needs it) -- read by
+	// checkLifeGainedTriggers (trigger.go) for Mode$ LifeGained's own
+	// FirstTime$: "whenever you gain life for the first time each turn."
+	// Incremented once per gainLifeEffect resolution (gainlifeeffect.go),
+	// the only life-gain call site this port has, reset for every player at
+	// cleanup (cleanupStep, turn.go) the identical way LandsPlayed/
+	// CardsDrawnThisTurn already are.
+	LifeGainedTimesThisTurn int
 	// Rules is Layer 8's own continuous effects currently affecting this
 	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/

@@ -2171,7 +2171,32 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // port tracks (Card.AttacksThisTurn's own shape does not apply to a
 // player-keyed event); ValidSource$/Spell$/ResolvedLimit$ (1 each, no shape
 // worth guessing at from a single real line).
-func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID) {
+// checkLifeGainedTriggers is CR 119.1's own "whenever you gain life" mode,
+// TriggerLifeGained.performTest -- 86 of the corpus's own 98 real
+// T:Mode$ LifeGained lines resolve. FirstTime$ (6) resolves through
+// firstTime, a new pre-increment read of Player.LifeGainedTimesThisTurn
+// (player.go) -- the identical pre-increment-count contract
+// checkLandPlayedTriggers' own NotFirstLand$ already has, just a bool
+// rather than a >=1 comparison since exactly one real corpus shape ("for
+// the first time each turn") only ever asks whether this is the first.
+// ActivationLimit$ (4) now skips the whole line too, a real correctness fix
+// (PORT-8/GO-7) rather than a new resolution: this port never checked it at
+// all before, so a line naming it was firing every single time it could
+// rather than only up to its own per-turn/per-game cap -- a wrong answer,
+// not a coverage gap, since this port has no per-trigger resolution counter
+// to enforce the limit with (the identical unbuilt mechanic
+// checkBecomesTargetTriggers' own doc comment already names for
+// `ActivationLimit$` there). Not resolved: `OptionalDecider$` (7) -- an
+// interactive "may" confirm this port's own `PlayerController` has no hook
+// for; `ValidSource$`/`Spell$` (1 line, combined on the identical real
+// line) -- matched against the triggering `SpellAbility` itself, needing
+// the identical ability-kind classifier `becomesTargetSourceMatches`
+// (below) has for a different mode, not built here since the one real line
+// naming `ValidSource$` also names `Spell$` and would stay blocked by it
+// regardless; `ResolvedLimit$` (1) -- Trigger.getResolvedThisTurn's own
+// separate per-trigger resolution counter, a different mechanic
+// `ActivationLimit$`'s own per-trigger activation counter is too.
+func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, firstTime bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -2185,7 +2210,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if !isLifeGainedTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "OptionalDecider", "FirstTime", "ValidSource", "Spell", "ResolvedLimit") {
+						if hasAnyParam(t, "OptionalDecider", "ValidSource", "Spell", "ResolvedLimit", "ActivationLimit") {
 							continue
 						}
 						if !phaseTriggerZoneMatches(t, z) {
@@ -2197,6 +2222,9 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						}
 						matched, recognized := matchesPlayerSpec(g, gainer, h.Controller(), host, validPlayer)
 						if !recognized || !matched {
+							continue
+						}
+						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
 						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {

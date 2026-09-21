@@ -1171,10 +1171,17 @@ printed form.
     `phaseTriggerZones`'s own four-zone walk outright (95 of 98 real lines name `TriggerZones$ Battlefield`, 2
     `Graveyard`, 1 `Command`) and `matchesPlayerSpec` for `ValidPlayer$` (present on every real line — `You`, 95;
     `Opponent`, 2), matched against the gaining player. `ValidPlayer$`'s absence is treated as no match rather than
-    unrestricted, since it is this mode's only dispatch key and 0 real lines omit it. Not resolved: `OptionalDecider$`
-    (7 — a "you may" choice needing a `PlayerController` hook this port does not have); `FirstTime$` (6 — Java's own
-    per-turn "first life gain" flag, distinct from `Card.AttacksThisTurn`'s own per-card shape);
-    `ValidSource$`/`Spell$`/`ResolvedLimit$` (1 each).
+    unrestricted, since it is this mode's only dispatch key and 0 real lines omit it. `FirstTime$` (6) resolves too — a
+    new pre-increment read of `Player.LifeGainedTimesThisTurn` (player.go), incremented once per `gainLifeEffect`
+    resolution, the identical pre-increment-count contract `checkLandPlayedTriggers`'s own `NotFirstLand$` already has
+    (item 26). `ActivationLimit$` (4) now skips the whole line too — a real correctness fix, not a new resolution: this
+    port never checked the key at all before, so those 4 real lines were firing every single time rather than up to
+    their own per-turn/per-game cap, a wrong answer rather than a coverage gap (PORT-8/GO-7). 86 of the corpus's own 98
+    real lines resolve now. Not resolved: `OptionalDecider$` (7 — a "you may" choice needing a `PlayerController` hook
+    this port does not have); `ValidSource$`/`Spell$` (1 line, both named together — matched against the triggering
+    `SpellAbility` itself, the identical ability-kind classifier `becomesTargetSourceMatches` has for a different mode,
+    not built here since this one real line stays blocked by `Spell$` regardless); `ResolvedLimit$` (1 —
+    `Trigger.getResolvedThisTurn`'s own separate per-trigger resolution counter).
 
     **`Mode$ BecomesTarget` is real now too** (CR 115/603.3's own "whenever ~ becomes the target of a spell or ability,"
     `TriggerBecomesTarget.performTest`) — `checkBecomesTargetTriggers` (trigger.go), called from

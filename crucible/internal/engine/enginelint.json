@@ -209,7 +209,8 @@
       "defined",
       "amount",
       "condition",
-      "control"
+      "control",
+      "trigger"
     ],
     "condition": ["id", "card", "game", "ability", "trigger"],
     "gainlifeeffect": [

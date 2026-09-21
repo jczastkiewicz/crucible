@@ -19,7 +19,13 @@ import "fmt"
 // "prevent all of this damage" replacement effects and CR 603's own "deals
 // damage" trigger identically whether the source is a blocker or a script --
 // isCombat threaded through as false is the one thing that tells the two
-// apart (FlagCombat's own doc comment, event.go).
+// apart (FlagCombat's own doc comment, event.go). A local damageTable
+// accumulates every dealPlayerDamage call this one resolution makes (more
+// than one when Defined$ names several players at once), consumed by
+// checkDamageDoneOnceTriggers (trigger.go) once the whole resolution's own
+// damage is dealt -- combatdamage.go's own doc comment on damageTable has
+// the reason a single script-driven ability's own damage is one batch too,
+// not just a combat damage step's.
 //
 // Not ported (every one fails loudly rather than dealing the wrong amount to
 // the wrong thing, PORT-8/GO-7): DamageSource$ (17 of 822 real Defined$
@@ -85,15 +91,19 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 
 	defined, _ := a.Params.Param("Defined")
 	if defined == "Self" {
-		g.dealPermanentDamage(controller, a.Source, a.Source, dmg, deathtouch, false)
+		var table damageTable
+		g.dealPermanentDamage(controller, a.Source, a.Source, dmg, deathtouch, false, &table)
+		g.checkDamageDoneOnceTriggers(controller, table, false)
 		return nil
 	}
 	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: DealDamage: %w", err)
 	}
+	var table damageTable
 	for _, pid := range players {
-		g.dealPlayerDamage(controller, a.Source, pid, dmg, false)
+		g.dealPlayerDamage(controller, a.Source, pid, dmg, false, &table)
 	}
+	g.checkDamageDoneOnceTriggers(controller, table, false)
 	return nil
 }

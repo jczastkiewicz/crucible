@@ -858,6 +858,140 @@ func isDamageDoneTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "DamageDone")
 }
 
+// damageEntry is one (source, target, amount) triple actually dealt --
+// after prevention/replacement, never the raw pre-reduction number --
+// within a single damage-dealing action. damageTable is CardDamageTable's
+// own port: combatdamage.go (dealCombatDamageStep) and dealdamageeffect.go
+// accumulate one per damage-dealing action and consume it once, via
+// checkDamageDoneOnceTriggers below, rather than checking that trigger per
+// exchange the way checkDamageDoneTriggersToCard/ToPlayer already do -- CR
+// 510.2's own "all combat damage is dealt simultaneously" is why a
+// gang-blocked attacker's own Mode$ DamageDoneOnce trigger has to see every
+// blocker's damage combined into one firing, not one firing per blocker.
+// Declared here, not in combatdamage.go where it is built: enginelint's own
+// layering would otherwise need "trigger" to depend on "combatdamage" on
+// top of "combatdamage" already depending on "trigger" (to call this very
+// function), a cycle -- every builder of one already reaches this package
+// through its own existing dependency on it.
+type damageEntry struct {
+	Source CardID
+	Target EntityID
+	Amount int
+}
+
+type damageTable []damageEntry
+
+// checkDamageDoneOnceTriggers is Mode$ DamageDone's own batched sibling,
+// Mode$ DamageDoneOnce, ported from TriggerDamageDoneOnce.performTest.
+// Called once per damage-dealing action with the whole damageTable it
+// built (dealCombatDamageStep, dealDamageEffect, combatdamage.go) --
+// CardDamageTable's own role in Java, this port's own doc comment on
+// damageTable has the reason a shared table beats a per-exchange trigger
+// check for this one mode specifically. Every target's own live state is
+// still current when this runs (called before any state-based action can
+// move a lethally damaged creature), so no LKI lookback is needed the way
+// checkSacrificedTriggers'/checkChangesZoneAllTriggers' own damage-adjacent
+// siblings need one.
+//
+// table is grouped by target first (every entry naming the identical
+// EntityID collapses into one group, in first-seen order -- GO-12), then
+// every watching permanent's own Mode$ DamageDoneOnce trigger is checked
+// once per group: ValidTarget$ against the target itself
+// (attackedTargetMatches, AttackersDeclared's own dispatch, reused at its
+// one-element case), CombatDamage$ against isCombat, and the damage amount
+// -- damageDoneOnceAmount, below, TriggerDamageDoneOnce.getDamageAmount's
+// own dispatch -- summed only across entries whose own Source matches
+// ValidSource$ when the line names one, matched against DamageAmount$
+// (damageAmountMatches, DamageDone's own dispatch, reused) exactly as
+// DamageDone's own does.
+func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	if len(table) == 0 {
+		return
+	}
+	var order []EntityID
+	bySource := map[EntityID][]damageEntry{}
+	for _, e := range table {
+		if _, ok := bySource[e.Target]; !ok {
+			order = append(order, e.Target)
+		}
+		bySource[e.Target] = append(bySource[e.Target], e)
+	}
+
+	var matches []Ability
+	for _, target := range order {
+		entries := bySource[target]
+		toughness, hasToughness := 0, false
+		if cid, ok := target.AsCard(); ok {
+			toughness, hasToughness = g.Card(cid).Toughness()
+		}
+		for _, pid := range g.Players() {
+			for _, host := range g.Zone(Battlefield, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isDamageDoneOnceTrigger(t) {
+							continue
+						}
+						if hasAnyParam(t, "ResolvedLimit", "ActiveZones", "DamageSource") {
+							continue
+						}
+						if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
+							continue
+						}
+						validSource, hasValidSource := t.Param("ValidSource")
+						amount := damageDoneOnceAmount(g, validSource, hasValidSource, entries, h.Controller(), host)
+						if hasValidSource && amount <= 0 {
+							continue
+						}
+						if da, ok := t.Param("DamageAmount"); ok && !damageAmountMatches(da, amount, toughness, hasToughness) {
+							continue
+						}
+						if validTarget, ok := t.Param("ValidTarget"); ok && !attackedTargetMatches(g, h, []EntityID{target}, validTarget) {
+							continue
+						}
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// damageDoneOnceAmount sums entries whose own Source matches validSource
+// (every entry, when hasValidSource is false) -- TriggerDamageDoneOnce.
+// getDamageAmount's own dispatch, ported directly.
+//
+// Not resolved: ResolvedLimit$ (2), ActiveZones$ (2) -- neither read by
+// TriggerDamageDoneOnce.performTest at all, real meaning on the handful of
+// lines naming either unclear; DamageSource$ (1) -- an object reference
+// this port has no resolver for; FirstTime$ (1) -- GameEntity.
+// getAssignedDamage, a per-target running total across the whole turn this
+// port tracks nowhere. A trigger carrying any of these four is skipped
+// entirely, not fired unconditionally (GO-7). 200 of the corpus's own 206
+// real lines carry none of them.
+func damageDoneOnceAmount(g *Game, validSource string, hasValidSource bool, entries []damageEntry, sourceController PlayerID, host CardID) int {
+	sum := 0
+	for _, e := range entries {
+		if hasValidSource && !Matches(g, g.Card(e.Source), valid.Parse(validSource), sourceController, host) {
+			continue
+		}
+		sum += e.Amount
+	}
+	return sum
+}
+
+// isDamageDoneOnceTrigger reports whether t is Mode$ DamageDoneOnce's own
+// shape.
+func isDamageDoneOnceTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "DamageDoneOnce")
+}
+
 // checkDiscardedTriggers is CR 603's own "whenever ~ is discarded" mode,
 // Mode$ Discarded, ported from TriggerDiscarded.performTest -- but unlike
 // every other mode this port checks, a "Card.Self" shaped Discarded trigger

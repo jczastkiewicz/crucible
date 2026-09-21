@@ -39,7 +39,14 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // computing every amount first and applying them together --
 // checkDamageDoneTriggersToCard/ToPlayer (trigger.go), dealt with below,
 // fire per exchange rather than once for the whole step for the identical
-// reason: nothing here can tell the difference yet.
+// reason: nothing here can tell the difference yet. Mode$ DamageDoneOnce
+// (checkDamageDoneOnceTriggers, trigger.go) is the one place the
+// simultaneity genuinely does matter: every exchange in this one step
+// records into a shared damageTable, consulted once after the whole step
+// finishes, so a target hit by more than one source in the same step (a
+// gang-blocked attacker, several unblocked attackers hitting the same
+// player) sees the combined total in one trigger firing rather than one per
+// source.
 //
 // An unblocked attacker deals its power to whatever it's attacking (CR
 // 508.1d) -- a player, planeswalker or battle, via dealAttackTargetDamage.
@@ -75,6 +82,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		blockersOf[b.Attacker] = append(blockersOf[b.Attacker], b.Blocker)
 	}
 
+	var table damageTable
 	for _, atkID := range g.combat.Attackers {
 		if !g.alive(atkID) {
 			continue
@@ -90,7 +98,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 
 		if dealsInStep(atk, firstStrike) {
 			if power, ok := atk.Power(); ok && power > 0 {
-				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0)
+				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0, &table)
 			}
 		}
 
@@ -98,11 +106,12 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			blk := g.Card(blkID)
 			if dealsInStep(blk, firstStrike) {
 				if bp, ok := blk.Power(); ok && bp > 0 {
-					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true)
+					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
 				}
 			}
 		}
 	}
+	g.checkDamageDoneOnceTriggers(controller, table, true)
 }
 
 // dealsInStep reports whether c deals damage in the first-strike step
@@ -132,7 +141,7 @@ func (g *Game) alive(id CardID) bool {
 // past every blocker goes to whatever attacker is attacking (CR 508.1d) --
 // a player, a planeswalker, or a battle -- not always the defending player,
 // via dealAttackTargetDamage.
-func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, power int, liveBlockers []CardID, wasUnblocked bool) {
+func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, power int, liveBlockers []CardID, wasUnblocked bool, table *damageTable) {
 	atk := g.Card(attacker)
 	deathtouch := atk.HasKeyword("Deathtouch")
 	trample := atk.HasKeyword("Trample")
@@ -144,7 +153,7 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 		// 702.19e) -- without it, CR 510.1c leaves the attacker dealing
 		// nothing at all, not even to what it's attacking.
 		if wasUnblocked || trample {
-			g.dealAttackTargetDamage(controller, attacker, power, deathtouch)
+			g.dealAttackTargetDamage(controller, attacker, power, deathtouch, table)
 		}
 
 	case 1:
@@ -155,19 +164,19 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 				toBlocker = lethal
 			}
 		}
-		g.dealPermanentDamage(controller, attacker, blocker, toBlocker, deathtouch, true)
+		g.dealPermanentDamage(controller, attacker, blocker, toBlocker, deathtouch, true, table)
 		if trample && power > toBlocker {
-			g.dealAttackTargetDamage(controller, attacker, power-toBlocker, deathtouch)
+			g.dealAttackTargetDamage(controller, attacker, power-toBlocker, deathtouch, table)
 		}
 
 	default:
 		assigned := 0
 		for _, a := range controller.AssignCombatDamage(g, atk.Controller(), attacker, liveBlockers) {
-			g.dealPermanentDamage(controller, attacker, a.Blocker, a.Amount, deathtouch, true)
+			g.dealPermanentDamage(controller, attacker, a.Blocker, a.Amount, deathtouch, true, table)
 			assigned += a.Amount
 		}
 		if trample && power > assigned {
-			g.dealAttackTargetDamage(controller, attacker, power-assigned, deathtouch)
+			g.dealAttackTargetDamage(controller, attacker, power-assigned, deathtouch, table)
 		}
 	}
 }
@@ -177,14 +186,14 @@ func (g *Game) dealAttackerDamage(controller PlayerController, attacker CardID, 
 // (dealPermanentDamage) -- rather than assuming it's always the defending
 // player directly, the way this port's combat did before a target could be
 // anything else.
-func (g *Game) dealAttackTargetDamage(controller PlayerController, attacker CardID, amount int, deathtouch bool) {
+func (g *Game) dealAttackTargetDamage(controller PlayerController, attacker CardID, amount int, deathtouch bool, table *damageTable) {
 	target := g.combat.AttackTargets[attacker]
 	if pid, ok := target.AsPlayer(); ok {
-		g.dealPlayerDamage(controller, attacker, pid, amount, true)
+		g.dealPlayerDamage(controller, attacker, pid, amount, true, table)
 		return
 	}
 	cid, _ := target.AsCard()
-	g.dealPermanentDamage(controller, attacker, cid, amount, deathtouch, true)
+	g.dealPermanentDamage(controller, attacker, cid, amount, deathtouch, true, table)
 }
 
 // lethalDamage is CR 510.1c/702.19c's "lethal damage": 1 from a deathtouch
@@ -235,7 +244,17 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 // needed `false` instead -- FlagCombat's own doc comment already drew the
 // line ("marks damage dealt in combat rather than by an effect") before
 // anything but combat could produce the second case.
-func (g *Game) dealPermanentDamage(controller PlayerController, source, target CardID, amount int, deathtouch, isCombat bool) {
+//
+// table, when non-nil, records the actual (post-prevention, post-
+// replacement) amount dealt -- Mode$ DamageDoneOnce's own batch
+// (checkDamageDoneOnceTriggers, trigger.go, damageTable's own doc comment,
+// above), consumed once by the caller after every exchange in one
+// damage-dealing action has run, not per exchange the way
+// checkDamageDoneTriggersToCard already is. Every real call site this port
+// has today does build one (dealCombatDamageStep, dealDamageEffect); the
+// nil case exists only so a future caller that genuinely has no batch to
+// report to can opt out rather than being forced to build an empty one.
+func (g *Game) dealPermanentDamage(controller PlayerController, source, target CardID, amount int, deathtouch, isCombat bool, table *damageTable) {
 	if amount <= 0 {
 		return
 	}
@@ -268,6 +287,9 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: CardEntity(target), Amount: int32(amount), Flags: flags})
 	g.checkDamageDoneTriggersToCard(controller, source, target, amount, isCombat)
+	if table != nil {
+		*table = append(*table, damageEntry{Source: source, Target: CardEntity(target), Amount: amount})
+	}
 }
 
 // dealPlayerDamage reduces target's life by amount, emits DamageDealt and
@@ -288,8 +310,9 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // reach zero here even though every call site guards the ORIGINAL amount
 // being positive, since a reduction can bring it down after the fact.
 // isCombat is threaded through the identical reason dealPermanentDamage's
-// own doc comment gives.
-func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool) {
+// own doc comment gives. table is dealPermanentDamage's own doc comment,
+// the identical contract for a player-shaped target.
+func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
 	if g.damagePreventedPlayer(source, target, isCombat, amount) {
 		return
 	}
@@ -305,4 +328,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
+	if table != nil {
+		*table = append(*table, damageEntry{Source: source, Target: PlayerEntity(target), Amount: amount})
+	}
 }

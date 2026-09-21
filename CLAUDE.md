@@ -586,7 +586,7 @@ under this mode. 35 of the corpus's own 35 real lines resolve — every real lin
 the shared dispatch, 0 real lines naming `Condition$`/`OptionalDecider$`/`CheckDefinedPlayer$`/`IsPresent$` the way the
 plain `AttackersDeclared` mode's own remainder does. **CR 603.3d's own "may" triggered ability is real now too** --
 `Ability` gained an `Optional bool` field, true only for `OptionalDecider$ You` (`triggerEffectAPI`'s own new
-`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-five of its own call sites already run through)
+`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-six of its own call sites already run through)
 -- `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
 dispatching to the effect OR chaining its own `SubAbility$` at all, `WrappedAbility.resolve()`'s own
 `decider.getController().confirmTrigger(this)` ported directly: a decline skips the whole ability, chain included, the
@@ -700,13 +700,30 @@ gate); `ActivationLimit$`/`ValidCause$`/`ResolvedLimit$`/`NoResolvingCheck$`/`In
 and `destroyDamagedCreatures` in the same `CheckStateBasedActions` call fire two separate batches rather than one shared
 one — this port's own SBA split into one function per CR 704.5 clause rather than Java's single combined pass, narrower
 than CR 704.3's own full simultaneity but not observable against a corpus with no card that cares which SBA clause
-killed which creature. **Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this
-port's own most-cited gap across every effect built so far (`ValidTgts$` in every one of their own "not resolved" lists
-above). `resolveTargets` runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`,
-this port's only pusher today), computing `ValidTgts$`'s own legal candidates — every player still in the game
-(`matchesPlayerSpec`, reused) or every card on any battlefield (`Matches`, reused) — and asking a new `PlayerController`
-method, `ChooseTargets` (its twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A
-structural shape this port does not parse
+killed which creature. CR 603's own `Mode$ DamageDoneOnce` — `Mode$ DamageDone`'s own batched sibling, the corpus's own
+single largest remaining trigger mode (206 real lines) — is real now too (`checkDamageDoneOnceTriggers`, `trigger.go`,
+ported from `TriggerDamageDoneOnce.performTest`). A new `damageTable` (`[]damageEntry`, trigger.go — CardDamageTable's
+own port) accumulates every `(source, target, amount)` triple a single damage-dealing action actually deals (after
+prevention/replacement), consumed once rather than checked per exchange the way the ordinary `DamageDone` trigger
+already is — CR 510.2's own "all combat damage is dealt simultaneously" means a gang-blocked attacker's own trigger has
+to see every blocker's damage combined into one firing. `dealPermanentDamage`/`dealPlayerDamage` (`combatdamage.go`)
+gained a `table *damageTable` parameter, appending to it whenever non-nil rather than every call site being forced to
+build one; `dealCombatDamageStep` builds one per damage sub-step and `dealDamageEffect` (`dealdamageeffect.go`) one per
+resolution, each calling `checkDamageDoneOnceTriggers` once after every exchange it made has run. `ValidTarget$` matches
+the target itself (`attackedTargetMatches`, reused at its one-element case), `CombatDamage$` against `isCombat`, and the
+summed amount — filtered first to only the entries whose own source matches `ValidSource$`, when the line names one
+(`damageDoneOnceAmount`, `TriggerDamageDoneOnce.getDamageAmount`'s own dispatch) — against `DamageAmount$`
+(`damageAmountMatches`, `DamageDone`'s own dispatch, reused). 200 of the corpus's own 206 real lines resolve;
+`ResolvedLimit$`/`ActiveZones$`/`DamageSource$`/`FirstTime$` (2/2/1/1) skip the whole line rather than firing
+unconditionally (GO-7). `DamageDealtOnce`/`DamageDoneOnceByController`/`DamageAll` — the table's three further real
+siblings in Java, each its own further grouping (by source, by a target's every damaging controller, and the whole table
+at once respectively) — are not built. **Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose
+targets," this port's own most-cited gap across every effect built so far (`ValidTgts$` in every one of their own "not
+resolved" lists above). `resolveTargets` runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`,
+`trigger.go`, this port's only pusher today), computing `ValidTgts$`'s own legal candidates — every player still in the
+game (`matchesPlayerSpec`, reused) or every card on any battlefield (`Matches`, reused) — and asking a new
+`PlayerController` method, `ChooseTargets` (its twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1 when neither
+is named). A structural shape this port does not parse
 (`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real lines)
 folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
 indistinguishable from outside, and both mean the ability does nothing. Threading a `PlayerController` down to

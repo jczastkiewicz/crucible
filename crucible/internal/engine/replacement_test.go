@@ -944,10 +944,11 @@ func replacementEnchantmentDefWithSVars(t *testing.T, name, replacement string, 
 // 616's own "Updated" outcome computing a new amount rather than ReplaceDamage's
 // own flat reduction. ValidSource$ dropped and ValidTarget$ simplified to
 // You, the shield hosted on the defender itself rather than the attacker's
-// controller (the real card's own Creature.YouCtrl/Permanent,Player shape
-// hits the already-documented matchesPlayerSpec comma gap, damageReplaced's
-// own doc comment above) so this test isolates the new arithmetic dispatch
-// rather than re-exercising that separate, narrower gap.
+// controller, so this test isolates the new arithmetic dispatch from
+// ValidSource$'s own gate (TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch,
+// below) and from ValidTarget$'s own comma-OR dispatch
+// (TestDamageToPlayerDoubledByReplaceEffectWithCommaValidTarget, gratuitous_violence.txt's
+// own real Permanent,Player shape, below) -- each proven on its own.
 func TestDamageToPlayerDoubledByReplaceEffect(t *testing.T) {
 	t.Parallel()
 
@@ -973,6 +974,78 @@ func TestDamageToPlayerDoubledByReplaceEffect(t *testing.T) {
 
 	if g.Player(b).Life != 14 {
 		t.Errorf("defender life = %d, want 14 -- 3 damage doubled to 6", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerDoubledByReplaceEffectWithCommaValidTarget is
+// TestDamageToPlayerDoubledByReplaceEffect's own sibling, proving
+// matchesPlayerSpec's own comma-OR split (valid.go) against
+// gratuitous_violence.txt's own real, unsimplified ValidTarget$ Permanent,Player:
+// "Permanent" is not a player base at all, so it matches nothing for a
+// *Player* target and contributes nothing to the OR, but "Player" alone
+// (unqualified) matches every player, so the doubling still applies to a
+// player-target hit. Before matchesPlayerSpec split on comma, the whole
+// string "Permanent,Player" failed matchesPlayerBase outright (it is not the
+// literal "You"/"Opponent"/"Player"), so this shield never doubled damage to
+// a player at all.
+func TestDamageToPlayerDoubledByReplaceEffectWithCommaValidTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Gratuitous Violence",
+		"Event$ DamageDone | ValidTarget$ Permanent,Player | ReplaceWith$ DmgTwice | Description$ Double damage.",
+		map[string]string{
+			"DmgTwice": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":        "ReplaceCount$DamageAmount/Twice",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 14 {
+		t.Errorf("defender life = %d, want 14 -- ValidTarget$ Permanent,Player's own Player alternative must still double damage dealt to a player", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReducedByReplaceDamageWithCommaValidTarget proves the
+// identical comma-OR split against reidane_god_of_the_worthy_valkmira_protectors_shield.txt's
+// own real ValidTarget$ You,Permanent.YouCtrl for ReplaceDamage's own flat
+// reduction, not just ReplaceEffect's own computed one, above: "You" (the
+// shield's own controller, b) matches the player-target hit directly, so the
+// shield still prevents 1 of the 3 damage even though the OR's other half
+// (Permanent.YouCtrl) is a card-shaped alternative that can never match a
+// player at all.
+func TestDamageToPlayerReducedByReplaceDamageWithCommaValidTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Reidane's Shield",
+		"Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.OppCtrl | ValidTarget$ You,Permanent.YouCtrl | ReplaceWith$ DBReplace | Description$ Prevent 1 damage to you or a permanent you control.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 1"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 18 {
+		t.Errorf("defender life = %d, want 18 -- ValidTarget$ You,Permanent.YouCtrl's own You alternative must still prevent 1 of the 3 damage dealt to a player", g.Player(b).Life)
 	}
 }
 

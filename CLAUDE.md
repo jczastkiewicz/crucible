@@ -313,7 +313,7 @@ restriction this file cannot evaluate. The other 146 name `ReplaceWith$` instead
 (`Mill`/`ChangeZone`/`Dig`/... — no shape anywhere near Moved's own 618-line concentration, not built), but three do: CR
 616's own "Updated" outcome (the event still happens, with a different number, rather than being skipped or substituted
 outright) is real now too, for both a flat reduction and a computed replacement —
-`damageReplaced`/`damageReplacedPlayer` (replacement.go) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines
+`damageReplaced`/`damageReplacedPlayer` (replacement.go) resolve 18 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines
 this file's own `face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own
 two-outcome half this dispatch can compute without a `*Registry`) and, through the identical two callers, 56 of the 59
 real `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
@@ -329,18 +329,21 @@ or resizing the same `amount` the marking/event/trigger-check below it already r
 `DamageAmount$` sees the final number. Of `ReplaceDamage`'s own 27 reachable lines, a named-SVar `Amount$`
 (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines — a depleting shield counter, an X spent on the spell, mana paid,
 ...), one also chaining its own `SubAbility$` (the identical chained-target refusal `applyDrawReplacement` already
-gives), stay unresolved, and 2 more real lines' `ValidTarget$ You,Permanent.YouCtrl`/`Permanent,Player` only resolve
-their own card-target half — `matchesPlayerSpec`, unlike `valid.Parse`, does not split a `ValidTarget$` on comma, so "or
-dealt to you" itself never fires. Of `ReplaceEffect`'s own 59 reachable `VarName$ DamageAmount` lines, 3 stay
-unresolved: fated_firepower.txt's/hawkeye_young_avenger.txt's own `Plus.Y` operand (`Count$CardCounters.FIRE`/
-`Count$CardPower`, neither the Valid family `resolveAmount` evaluates) and
-ojer_axonil_deepest_might_temple_of_power.txt's own bare `Count$CardPower` `VarValue$` (no `ReplaceCount$` at all) —
-each an amount head this port has no evaluator for. 12 more real `DB$ ReplaceEffect` lines name
-`VarName$ Affected`/`LifeGained`/`Number`/`Ignore` instead of `DamageAmount` — an entirely different substitution,
-redirecting who is damaged or what else changes rather than resizing the damage itself — filtered out, not resolved by
-anything here. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the other 12 are never named by any
-literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are referenced only through a Layer 6
-`AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more
+gives), stay unresolved. `reidane_god_of_the_worthy_valkmira_protectors_shield.txt`'s/`plated_pegasus.txt`'s own real
+`ValidTarget$ You,Permanent.YouCtrl`/`Permanent,Player` resolve too now — `matchesPlayerSpec` (valid.go) splits a spec
+on comma the way `valid.Parse` already does, an alternative whose base is not `You`/`Opponent`/`Player` matching nothing
+rather than aborting the whole spec (`valid.Parse`'s own contract for an unrecognized base), the fix that also makes
+`gratuitous_violence.txt`'s own `Permanent,Player` shape (`ReplaceEffect`, below) double damage dealt to a player, not
+just to a permanent, a real correctness fix since that line was already counted resolved for its card-target half alone.
+Of `ReplaceEffect`'s own 59 reachable `VarName$ DamageAmount` lines, 3 stay unresolved:
+fated_firepower.txt's/hawkeye_young_avenger.txt's own `Plus.Y` operand (`Count$CardCounters.FIRE`/ `Count$CardPower`,
+neither the Valid family `resolveAmount` evaluates) and ojer_axonil_deepest_might_temple_of_power.txt's own bare
+`Count$CardPower` `VarValue$` (no `ReplaceCount$` at all) — each an amount head this port has no evaluator for. 12 more
+real `DB$ ReplaceEffect` lines name `VarName$ Affected`/`LifeGained`/`Number`/`Ignore` instead of `DamageAmount` — an
+entirely different substitution, redirecting who is damaged or what else changes rather than resizing the damage itself
+— filtered out, not resolved by anything here. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the
+other 12 are never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are referenced
+only through a Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more
 (`forcefield.txt`'s/`ajani_steadfast.txt`'s/`torrent_of_lava.txt`'s among them) are created dynamically at resolution
 time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) — neither mechanism this port's own script-effect
 dispatch builds, so `face.Replacements` never discovers them regardless of this dispatch's own shape. A third real shape

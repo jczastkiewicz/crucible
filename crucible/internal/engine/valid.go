@@ -418,20 +418,36 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 }
 
 // matchesPlayerSpec is matchesPlayerBase plus the one dotted-property layer
-// real corpus lines put on top of it -- Player.isValid (Player.java) always
-// splits its restriction string on the first "." the same way Card.isValid
-// does, checks the base clause first (matchesPlayerBase, above), then ANDs
-// every "+"-joined property via hasProperty/PlayerProperty.playerHasProperty.
-// No real corpus line this port's callers pass ever joins more than one
-// property this way (SpellCast's own ValidActivatingPlayer$
-// Opponent.NonActive is the single "+"-free two-clause example,
-// game-state.md's own count), so only Base.Property is split here, not
-// Base.Property1+Property2.
+// real corpus lines put on top of it, plus Player.isValid's own comma-as-OR
+// split (CardTraitBase.java's own restriction-string split, the identical
+// comma valid.Parse already gives Matches' own *Card* side, valid.go's own
+// doc comment) -- Player.isValid splits its restriction string on the first
+// "." within each comma-separated alternative, checks the base clause first
+// (matchesPlayerBase, above), then ANDs every "+"-joined property via
+// hasProperty/PlayerProperty.playerHasProperty. No real corpus line this
+// port's callers pass ever joins more than one property this way (SpellCast's
+// own ValidActivatingPlayer$ Opponent.NonActive is the single "+"-free
+// two-clause example, game-state.md's own count), so only Base.Property is
+// split within an alternative, not Base.Property1+Property2.
 //
-// ok is false whenever the base itself is unrecognized (matchesPlayerBase's
-// own contract) or the property is -- a caller with its own further dispatch
-// (matchesValidDefender's own "Player.controls<Type>", staticability.go)
-// checks that first and never reaches this function for those specs.
+// An alternative whose base is none of You/Opponent/Player -- DamageDone's
+// own ValidTarget$ You,Permanent.YouCtrl, Permanent,Player (reidane_god_of_the_worthy_valkmira_protectors_shield.txt's/
+// plated_pegasus.txt's/gratuitous_violence.txt's own real "or a permanent you
+// control"/"or player" half of an OR that also covers the damaged player
+// directly) -- matches nothing, the identical "an unrecognized base matches
+// nothing" contract valid.Parse's own doc comment already gives the card
+// side, rather than aborting the whole spec: this is what lets a mixed
+// player/card ValidTarget$ resolve its own player-shaped alternative at all
+// (damageReplaced's own doc comment, replacement.go, has the full count).
+//
+// ok is false only once every alternative has been checked and none matched:
+// at least one alternative names a property matchesPlayerProperty does not
+// recognize, and no other alternative matched outright (a caller with its own
+// further dispatch, e.g. matchesValidDefender's own "Player.controls<Type>",
+// checks that first and never reaches this function for those specs). A
+// definite match on any alternative returns true immediately regardless of
+// any other alternative's own property being unrecognized, since
+// Player.isValid's own OR is true the moment one side is.
 //
 // source is the trigger/ability's own host card, threaded through only for
 // matchesPlayerProperty's own EnchantedController case, below -- every other
@@ -441,19 +457,34 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 // passes NoCard the same way Matches' own callers already pass it for a
 // property that never reads source (sourceCard's own doc comment, below).
 func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec string) (matched, ok bool) {
-	base, property, hasProperty := strings.Cut(spec, ".")
-	baseMatched, baseOK := matchesPlayerBase(candidate, host, base)
-	if !baseOK {
+	sawPlayerBase := false
+	sawUnrecognizedProperty := false
+	for _, alt := range strings.Split(spec, ",") {
+		base, property, hasProperty := strings.Cut(alt, ".")
+		baseMatched, baseOK := matchesPlayerBase(candidate, host, base)
+		if !baseOK {
+			continue
+		}
+		sawPlayerBase = true
+		if !hasProperty {
+			if baseMatched {
+				return true, true
+			}
+			continue
+		}
+		propMatched, propOK := matchesPlayerProperty(g, candidate, host, source, property)
+		if !propOK {
+			sawUnrecognizedProperty = true
+			continue
+		}
+		if baseMatched && propMatched {
+			return true, true
+		}
+	}
+	if sawUnrecognizedProperty {
 		return false, false
 	}
-	if !hasProperty {
-		return baseMatched, true
-	}
-	propMatched, propOK := matchesPlayerProperty(g, candidate, host, source, property)
-	if !propOK {
-		return false, false
-	}
-	return baseMatched && propMatched, true
+	return false, sawPlayerBase
 }
 
 // matchesPlayerProperty is matchesPlayerSpec's own property half, ported

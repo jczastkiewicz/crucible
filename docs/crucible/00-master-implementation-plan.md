@@ -1245,9 +1245,8 @@ printed form.
     its `Event$ Draw` replacement before ever looking at whether the library is empty, so a prevented draw cannot also
     trigger CR 704.5b's own "attempted to draw from an empty library" loss. `gainLifePrevented` is checked from
     `gainLifeEffect` (gainlifeeffect.go) per player before `Player.Life` is touched at all. The other 36 real `Draw`
-    lines and 20 real `GainLife` lines name `ReplaceWith$` instead — a real substitution needing "the amount that would
-    have been drawn/gained" as a runtime value this port's `resolveAmount` has no way to read back (Java's own
-    `AbilityKey.ReplacedAmount` threading, not built), not resolved.
+    lines and 20 real `GainLife` lines name `ReplaceWith$` instead of `Prevent$` — a real substitution, 3 of the 36
+    resolved by `drawReplaced` below.
 
     `matchesPlayerProperty` (valid.go) resolves two more real `Phase`-mode qualified `ValidPlayer$` forms now, both
     reused for free by every one of its nine existing callers across `trigger.go`/`continuous.go`/`targeting.go`/
@@ -1260,6 +1259,30 @@ printed form.
     a permanent, non-token card moves into a graveyard from any zone — this port has no token-creation effect yet (M6),
     so the token half of Java's own check holds by construction for every card this port can ever move — and reset for
     every player at `cleanupStep` (turn.go) the identical way `LandsPlayed`/`CardsDrawnThisTurn` already are.
+
+    **CR 616's own "the event is replaced by a different one" is real now too, for `Draw`** — `drawReplaced`
+    (replacement.go) recognizes a `ReplaceWith$` target naming a plain `DB$ Draw | Defined$ You | NumCards$ N` or
+    `DB$ PutCounter | CounterType$ X | CounterNum$ N | Defined$ Self`, run by hand rather than through `drawEffect`/
+    `putCounterEffect` — both need a `*Registry` to chain a `SubAbility$` that `DrawCards`' own call chain has no way to
+    reach, so a target ability naming one is refused outright rather than run with the chained half silently dropped
+    (GO-7). `DrawCards`' own per-card loop body is now a shared primitive, `drawOneCard`, the replacement's own
+    substitute draws call directly rather than recursing back through `DrawCards`/`drawPrevented`/`drawReplaced` itself
+    — Java's own `ReplacementHandler` guards a replacement effect against reapplying to an event its own resolution
+    produced (its `hasRun` set), a per-line recursion guard this port does not build, so reusing the unguarded primitive
+    instead sidesteps needing one, at the cost of a real, narrow simplification: the replacement's own draws are not
+    themselves checked against any other replacement or prevention effect on the battlefield either — not observable
+    against a corpus with no two Draw-replacing permanents on one battlefield today, but not full CR 616 either. 3 of
+    the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to end: thought_reflection.txt's own bare
+    "draw two cards instead," phial_of_galadriel.txt's own `Hellbent$ True`-qualified identical shape, and
+    ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather than `Draw`. Not
+    resolved: 5 more real lines targeting the identical plain `DB$ Draw` shape but blocked by a per-draw-step tracker
+    this port does not have (`FirstExtraCardDrawnThisTurn$`/ `NotFirstCardInDrawStep$`); 4 naming
+    `Defined$ ReplacedPlayer`, a token `definedPlayers` has no case for; 1 whose own target chains a further
+    `SubAbility$`; and the 2 already-documented gaps (`Player.Chosen`/`Optional$`). Every real
+    `Event$ GainLife | ReplaceWith$` line (20) needs either `DB$ ReplaceEffect` (a dedicated API, 15) or "the amount of
+    life that would have been gained" as a runtime value (`ReplaceCount$LifeGained`, 5) `resolveAmount` has no way to
+    read back — neither shape this dispatch's own "already-built leaf ability" contract covers, so `GainLife` is
+    untouched by this chunk.
 
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a

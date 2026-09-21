@@ -178,7 +178,22 @@
       "playerstate"
     ],
     "amount": ["id", "zone", "card", "game", "valid"],
-    "replacement": ["id", "zone", "card", "game", "player", "valid", "ability", "condition", "trigger"],
+    "replacement": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "player",
+      "valid",
+      "ability",
+      "condition",
+      "trigger",
+      "control",
+      "amount",
+      "putcountereffect",
+      "parts",
+      "event"
+    ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card"],
     "dealdamageeffect": [

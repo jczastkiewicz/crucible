@@ -437,42 +437,66 @@ territory), so the token half of Java's own check holds by construction for ever
 reset for every player at `cleanupStep` (turn.go) the identical way `LandsPlayed`/`CardsDrawnThisTurn` already are.
 `Player.EnchantedBy`/`Player.Chosen`/`Opponent.EnchantedBy`/ `Player.isMonarch` (14, 3, 2, 1) stay unresolved, each
 needing its own separate mechanic this port does not have (an Aura enchanting a player directly, a chosen-player memory
-slot, a monarch tracker). `gainLifeEffect` (`gainlifeeffect.go`) is M6's third script-driven effect,
-`dealDamageEffect`'s own shape reused for a player-only gain (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no
-`Self` shape) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect`
-(`pumpeffect.go`) is M6's fourth script-driven effect, the corpus's own single largest by real line count after
-`ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the first whose own contribution outlives its `Resolve` call:
-`Duration$`'s default, "until end of turn," is a continuous effect this port never needed a duration for before, closed
-by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's own `PT`/`KeywordMod` every
-`CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go) and dropped at `cleanupStep` (`turn.go`) unless
-`Duration$ Permanent` names it durable — CR 514.2's own "until end of turn" effects wearing off, closing the gap
-`applyContinuousPT`'s own doc comment used to name. `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go)
-— no target — cover 1,147 of 4,103 real `Pump` lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$`
-(a literal keyword list), gated by `PumpZone$`'s own zone restriction (default Battlefield alone) and
-`subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are.
-`pumpAllEffect` (`pumpalleffect.go`) is M6's fifth, `pumpEffect`'s own blanket sibling — a `ValidCards$`-matched set
-across every player (or, with `Defined$`, only the named players' own battlefield) rather than a single `Defined$` card,
-sharing its duration tracking (`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real
-`(AB|DB)$ PumpAll` lines resolve, 818 of them the real corpus's own dominant no-target, no-`Defined$` "anthem spell"
-shape (Overrun, ...). `loseLifeEffect` (`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image —
-`LifeAmount$` subtracted from `Defined$`'s players instead of added, the identical `LifeChanged` event with a negative
-`Amount` — but calls no trigger check at all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike
-`Mode$ LifeGained`'s own 98. 300 of 445 real `(AB|DB)$ LoseLife` lines naming
-`Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$` resolve (226 by `Defined$` alone, 74 more once
-targeting landed, below). `putCounterEffect` (`putcountereffect.go`) is M6's seventh, the corpus's own second-largest
-resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines naming a single literal `CounterType$` and
-`Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to `Card.Counters`/`Player.Counters` by which one
-`Defined$` names (`definedCounterTargets`, new) rather than by `CounterType$` itself, the identical dispatch
-`CountersPutEffect.resolvePerType`'s own `instanceof` check makes. `CounterType$` is uppercased before it becomes a
-`Counters` key (`CounterEnumType.getType`'s own canonicalization), so a corpus line writing `Stun` and another writing
-`STUN` land on the identical kind rather than two. `CounterNum$` defaults to `1`, matching Java's own
-`getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real `(AB|DB)$ Discard` lines
-naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the first script-driven
-effect that asks the resolving player anything mid-resolution rather than reading game state outright: `Effect.Resolve`
-gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and `PlayerController` gained a
-twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a different decision from
-`DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards out of the same hand.
-`NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
+slot, a monarch tracker). **CR 616's own "the event is replaced by a different one" outcome is real now too**, for
+`Draw` — `drawReplaced` (replacement.go) recognizes a `ReplaceWith$` target naming a plain
+`DB$ Draw | Defined$ You | NumCards$ N` or `DB$ PutCounter | CounterType$ X | CounterNum$ N | Defined$ Self`, run by
+hand (`applyDrawReplacementDraw`/ `applyDrawReplacementPutCounter`) rather than through `drawEffect`/`putCounterEffect`
+— both need a `*Registry` (`effect.go`) to chain a `SubAbility$` that `DrawCards`' own call chain (turn.go) has no way
+to reach, so a target ability naming one is refused outright rather than run with the chained half silently dropped.
+`DrawCards`' own per-card loop gained a new primitive, `drawOneCard`, the replacement's own substitute draws call
+directly rather than recursing back through `DrawCards`/`drawPrevented`/`drawReplaced` itself — Java's own
+`ReplacementHandler` guards a replacement effect against reapplying to an event its own resolution produced (`hasRun`),
+a per-line recursion guard this port does not build, so reusing the unguarded primitive instead sidesteps needing one,
+at the cost of a real, narrow simplification: the replacement's own draws are not themselves checked against any other
+replacement or prevention effect on the battlefield, not observable against a corpus with no two Draw-replacing
+permanents on one battlefield today. 3 of the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to
+end: thought_reflection.txt's own bare "draw two cards instead," phial_of_galadriel.txt's own `Hellbent$ True`-qualified
+identical shape, and ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather
+than `Draw`. 5 more real lines (reed_richards \_smartest_man.txt's own `FirstExtraCardDrawnThisTurn$`;
+notion_thief.txt's/teferis_ageless_insight.txt's/alhammarrets \_archive.txt's/bard_king_of_dale.txt's own
+`NotFirstCardInDrawStep$`) target the identical plain `DB$ Draw` shape but stay unresolved for lack of a per-draw-step
+tracker; magus_of_the_chains.txt's/chains_of_mephistopheles.txt's/breathstealers \_crypt.txt's/sea_of_sand.txt's own
+`Defined$ ReplacedPlayer` (4) and blood_scrivener.txt's own chained `SubAbility$` (1) stay unresolved for the reasons
+already given above; booby_trap.txt's own `Player.Chosen` and pursuit_of_knowledge.txt's own `Optional$` (1 each) are
+the identical already-documented gaps. Every real `Event$ GainLife` `ReplaceWith$` line (20) needs either
+`DB$ ReplaceEffect` (a dedicated API, 15) or "the amount of life that would have been gained" as a runtime value
+(`ReplaceCount$LifeGained`, 5) this port's `resolveAmount` has no way to read back — neither shape this dispatch's own
+"already-built leaf ability, nothing else to resolve" contract covers, so `GainLife` is untouched by this chunk.
+`gainLifeEffect` (`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a
+player-only gain (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape) — 857 of 1,700 real `GainLife`
+lines resolve, the corpus's largest slice past `DealDamage`. `pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven
+effect, the corpus's own single largest by real line count after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines)
+and the first whose own contribution outlives its `Resolve` call: `Duration$`'s default, "until end of turn," is a
+continuous effect this port never needed a duration for before, closed by a new `Game.pumps` ledger (`pumpRecord`,
+game.go) re-added into its target's own `PT`/`KeywordMod` every `CheckStateBasedActions` pass (`applyPumpEffects`,
+continuous.go) and dropped at `cleanupStep` (`turn.go`) unless `Duration$ Permanent` names it durable — CR 514.2's own
+"until end of turn" effects wearing off, closing the gap `applyContinuousPT`'s own doc comment used to name.
+`Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go) — no target — cover 1,147 of 4,103 real `Pump`
+lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$` (a literal keyword list), gated by
+`PumpZone$`'s own zone restriction (default Battlefield alone) and `subAbilityConditionMet`'s own Condition-family pair
+the identical way `DealDamage`'s/`GainLife`'s already are. `pumpAllEffect` (`pumpalleffect.go`) is M6's fifth,
+`pumpEffect`'s own blanket sibling — a `ValidCards$`-matched set across every player (or, with `Defined$`, only the
+named players' own battlefield) rather than a single `Defined$` card, sharing its duration tracking
+(`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real `(AB|DB)$ PumpAll` lines resolve, 818 of them
+the real corpus's own dominant no-target, no-`Defined$` "anthem spell" shape (Overrun, ...). `loseLifeEffect`
+(`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image — `LifeAmount$` subtracted from `Defined$`'s
+players instead of added, the identical `LifeChanged` event with a negative `Amount` — but calls no trigger check at
+all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike `Mode$ LifeGained`'s own 98. 300 of 445
+real `(AB|DB)$ LoseLife` lines naming `Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$` resolve
+(226 by `Defined$` alone, 74 more once targeting landed, below). `putCounterEffect` (`putcountereffect.go`) is M6's
+seventh, the corpus's own second-largest resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines
+naming a single literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to
+`Card.Counters`/`Player.Counters` by which one `Defined$` names (`definedCounterTargets`, new) rather than by
+`CounterType$` itself, the identical dispatch `CountersPutEffect.resolvePerType`'s own `instanceof` check makes.
+`CounterType$` is uppercased before it becomes a `Counters` key (`CounterEnumType.getType`'s own canonicalization), so a
+corpus line writing `Stun` and another writing `STUN` land on the identical kind rather than two. `CounterNum$` defaults
+to `1`, matching Java's own `getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real
+`(AB|DB)$ Discard` lines naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the
+first script-driven effect that asks the resolving player anything mid-resolution rather than reading game state
+outright: `Effect.Resolve` gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and
+`PlayerController` gained a twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a
+different decision from `DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards
+out of the same hand. `NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
 `Math.min(numCards, numCardsInHand)`, and an already-empty hand skips the controller call entirely rather than asking
 for zero cards. `definedPlayers` (`defined.go`) gained a `"Player"` case alongside `You`/`Opponent`/`Player.Opponent` —
 `AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch, every player in the game unfiltered, closing

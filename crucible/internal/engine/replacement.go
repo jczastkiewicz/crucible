@@ -20,9 +20,14 @@
 //     (DB$ ReplaceEffect/ReplaceDamage/RemoveCounter/PutCounter/..., no single
 //     shape anywhere near Moved's own 618-line concentration), not resolved.
 //
-// Every other Event$ value (Counter, Draw, GainLife, ...) is a gap
-// game-state.md's own trigger-firing-style account names, not a reason to
-// have skipped the shapes that do resolve.
+// Draw and GainLife (39 and 21 real lines) have their own real content too:
+// drawPrevented/gainLifePrevented resolve Prevent$ True (2 and 1 lines), and
+// drawReplaced resolves ReplaceWith$ naming a plain, already-built leaf
+// ability with no SubAbility$ of its own (3 of Draw's own 36 real
+// ReplaceWith$ lines; GainLife's own 20 all need a deeper mechanism this
+// file does not build, below). Every other Event$ value (Counter, ...) is a
+// gap game-state.md's own trigger-firing-style account names, not a reason
+// to have skipped the shapes that do resolve.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/replacement/{ReplacementHandler,ReplaceMoved,ReplaceUntap,ReplaceDamage,ReplacementEffect}.java,
@@ -659,4 +664,224 @@ func tapAbilityResolvesTap(g *Game, a *compile.Ability, host *Card, amounts map[
 		}
 	}
 	return subAbilityConditionMet(g, host, amounts, a), true
+}
+
+// drawReplaced is CR 616's own "the event is replaced by a different one"
+// outcome applied to CR 120.3's own "draw a card" event -- ReplaceDraw's own
+// ReplaceWith$ dispatch, ported for the one shape this port can actually run
+// the substitute ability for: a plain DB$ Draw or DB$ PutCounter naming no
+// SubAbility$ of its own and no param past what CardTraitBase's own general
+// requirements already resolve. DrawCards (turn.go) checks this right after
+// drawPrevented, before the empty-library check -- the identical
+// "before the empty-library check" reasoning drawPrevented's own doc comment
+// already gives, since thought_reflection.txt's own real "if you would draw
+// a card, draw two cards instead" must never let CR 704.5b's own
+// empty-library loss see the replaced draw at all.
+//
+// The substitute ability's own draws run through drawOneCard directly
+// (turn.go), not back through DrawCards/drawPrevented/drawReplaced itself:
+// Java's own ReplacementHandler guards a replacement effect against
+// reapplying to an event its own resolution produced (the `hasRun` set,
+// ReplacementHandler.java), a per-line recursion guard this port does not
+// build -- thought_reflection.txt's own replaced draw would otherwise
+// recheck thought_reflection.txt's own line against itself, forever.
+// Reusing the unguarded primitive instead sidesteps the need for one, at the
+// cost of a real, narrow simplification: the replacement's own draws are
+// not themselves checked against any OTHER replacement or prevention effect
+// on the battlefield either, not just the one that produced them. No real
+// corpus line combines two Draw-replacing permanents today, so this is not
+// observable against the corpus, but it is not full CR 616 either.
+//
+// 3 of the corpus's own 36 real Event$ Draw lines naming ReplaceWith$
+// resolve end to end: thought_reflection.txt's own bare "if you would draw
+// a card, draw two cards instead" (ValidPlayer$ You, ReplaceWith$ naming a
+// plain DB$ Draw | Defined$ You | NumCards$ 2); phial_of_galadriel.txt's own
+// Hellbent$ True-qualified identical shape ("while you have no cards in
+// hand," resolved through replacementRequirementsCheck's own
+// triggerCommonRequirementsMet fold-in); ormos_archive_keeper.txt's own
+// IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0
+// qualified line, whose own ReplaceWith$ names a DB$ PutCounter instead of a
+// DB$ Draw ("if your library has no cards in it, instead put five +1/+1
+// counters on CARDNAME").
+//
+// Not resolved: reed_richards_smartest_man.txt's own
+// FirstExtraCardDrawnThisTurn$; notion_thief.txt's/
+// teferis_ageless_insight.txt's/alhammarrets_archive.txt's/
+// bard_king_of_dale.txt's own NotFirstCardInDrawStep$ (5 more real lines
+// whose own ReplaceWith$ target is the identical plain DB$ Draw shape --
+// only the general-gate param blocks them, no per-draw-step "how many cards
+// has this player drawn this specific step" tracker exists yet);
+// magus_of_the_chains.txt's/chains_of_mephistopheles.txt's own
+// Defined$ ReplacedPlayer plus SubAbility$ DBDraw (2);
+// breathstealers_crypt.txt's/sea_of_sand.txt's own Defined$ ReplacedPlayer
+// plus SubAbility$ (2) -- "the player who would have drawn," a Defined$
+// token this port's definedPlayers (defined.go) has no case for, distinct
+// from an ordinary player token; blood_scrivener.txt's own SubAbility$
+// DBLoseLife (1) -- the target ability itself chains further, which this
+// dispatch explicitly refuses rather than silently dropping the chained
+// half (GO-7); booby_trap.txt's own ValidPlayer$ Player.Chosen (1) and
+// pursuit_of_knowledge.txt's own Optional$ True (1) -- both
+// already-documented gaps (matchesPlayerSpec's/Discard's own doc comments).
+// Every real Event$ GainLife ReplaceWith$ line (20) needs either
+// DB$ ReplaceEffect (a dedicated API, 15) or "the amount of life that would
+// have been gained" as a runtime value (ReplaceCount$LifeGained, 5) this
+// port's resolveAmount has no way to read back -- neither shape this
+// dispatch's own "already-built leaf ability, nothing else to resolve"
+// contract covers, so GainLife is untouched by this chunk.
+func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !drawReplacementMatches(g, r, host, z, face.Amounts) {
+							continue
+						}
+						if validPlayer, ok := r.Param("ValidPlayer"); ok {
+							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						for _, sub := range r.Subs {
+							if !strings.EqualFold(sub.Key, "ReplaceWith") {
+								continue
+							}
+							if applyDrawReplacement(g, controller, h, sub.Ability, face.Amounts, player) {
+								return true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// drawReplacementMatches is drawReplaced's own shared half: Event$ Draw,
+// ReplaceWith$ present, r's own host in one of its own ActiveZones$, and
+// replacementRequirementsCheck (above) -- drawPreventionMatches' own exact
+// shape with "replacewith" in place of "prevent" ("hellbent" added,
+// phial_of_galadriel.txt's own real line needing it). Any param besides the
+// ones real corpus lines pair with this shape skips the whole line rather
+// than guessing (GO-7).
+func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
+	if !strings.EqualFold(r.Name, "Draw") {
+		return false
+	}
+	if _, ok := r.Param("ReplaceWith"); !ok {
+		return false
+	}
+	for _, p := range r.Params {
+		switch strings.ToLower(p.Key) {
+		case "event", "replacewith", "description", "validplayer", "activezones", "secondary",
+			"playerturn", "activephases", "checksvar", "svarcompare", "hellbent",
+			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
+		default:
+			return false
+		}
+	}
+	return hostInActiveZones(r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// applyDrawReplacement runs a's own ReplaceWith$ target ability directly --
+// a plain DB$ Draw or DB$ PutCounter naming no SubAbility$ of its own,
+// tapAbilityResolvesTap's own "recognize the one shape, run it by hand"
+// precedent applied to a second Event$. Neither drawEffect nor
+// putCounterEffect is called: both need a *Registry (effect.go) to chain a
+// SubAbility$ once their own body finishes, which drawReplaced's own caller
+// chain (DrawCards, turn.go) has no way to reach -- reusing the underlying
+// primitives (drawOneCard/Card.Counters.Add) directly instead sidesteps
+// that, at the cost of never chaining a SubAbility$ of its own, which is why
+// a is refused outright when it names one rather than run with the chained
+// half silently dropped (GO-7). Reports whether a recognized shape actually
+// ran.
+func applyDrawReplacement(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID) bool {
+	if _, ok := a.Param("SubAbility"); ok {
+		return false
+	}
+	switch {
+	case strings.EqualFold(a.Name, "Draw"):
+		return applyDrawReplacementDraw(g, controller, host, a, amounts, player)
+	case strings.EqualFold(a.Name, "PutCounter"):
+		return applyDrawReplacementPutCounter(g, host, a, amounts)
+	}
+	return false
+}
+
+// applyDrawReplacementDraw runs a plain "DB$ Draw | Defined$ You |
+// NumCards$ N" ReplaceWith$ target directly -- drawEffect's own two
+// resolvable params, hand-run here since drawEffect.Resolve needs a
+// *Registry this call site cannot reach (applyDrawReplacement's own doc
+// comment). Defined$ is read as "the player who would have drawn" rather
+// than through the general definedPlayers (defined.go): every real corpus
+// line needing this shape writes the literal token "You," which Java's own
+// AbilityUtils.getDefinedPlayers resolves to the replacement ability's own
+// activating player -- the host's controller -- but ValidPlayer$
+// (drawReplaced, above) already restricts this dispatch to only the case
+// where player equals that controller, so reading player directly is the
+// identical answer for every real line this covers. A Defined$ value past
+// "You," or one of drawEffect's own remaining unresolved params
+// (Upto$/OptionalDecider$/Reveal$/RememberDrawn$), refuses rather than
+// guesses.
+func applyDrawReplacementDraw(g *Game, controller PlayerController, host *Card, a *compile.Ability, amounts map[string]expr.Amount, player PlayerID) bool {
+	for _, key := range []string{"Upto", "OptionalDecider", "Reveal", "RememberDrawn"} {
+		if _, ok := a.Param(key); ok {
+			return false
+		}
+	}
+	defined, ok := a.Param("Defined")
+	if !ok || !strings.EqualFold(defined, "You") {
+		return false
+	}
+	n := 1
+	if v, ok := a.Param("NumCards"); ok {
+		parsed, ok := resolveNamedAmount(g, amounts, host, v)
+		if !ok {
+			return false
+		}
+		n = parsed
+	}
+	for i := 0; i < n; i++ {
+		if !g.drawOneCard(controller, player) {
+			break
+		}
+	}
+	return true
+}
+
+// applyDrawReplacementPutCounter runs a plain "DB$ PutCounter |
+// CounterType$ X | CounterNum$ N | Defined$ Self" ReplaceWith$ target
+// directly -- putCounterEffect's own resolvable shape, hand-run here for
+// the identical *Registry reason applyDrawReplacementDraw already gives.
+// Defined$ is restricted to "Self" (the host card itself,
+// ormos_archive_keeper.txt's own real shape) rather than the general
+// definedCounterTargets (putcountereffect.go): no real corpus line combines
+// this shape with a player-facing Defined$ value, and "Self" needs no
+// controller or target list to resolve at all.
+func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amounts map[string]expr.Amount) bool {
+	defined, ok := a.Param("Defined")
+	if !ok || !strings.EqualFold(defined, "Self") {
+		return false
+	}
+	counterType, err := putCounterType(a)
+	if err != nil {
+		return false
+	}
+	counterNum, ok := a.Param("CounterNum")
+	if !ok {
+		counterNum = "1"
+	}
+	amount, ok := resolveNamedAmount(g, amounts, host, counterNum)
+	if !ok {
+		return false
+	}
+	host.Counters.Add(counterType, amount)
+	emitCounterChanged(g.sink, host.ID, CardEntity(host.ID), counterType, amount)
+	return true
 }

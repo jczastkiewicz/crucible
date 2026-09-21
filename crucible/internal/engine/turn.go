@@ -192,7 +192,12 @@ func (g *Game) drawStep(controller PlayerController) {
 // looks at whether the library is empty, ported directly: a card this
 // checks true for never reaches the empty-library check below at all, so a
 // draw CR 614 prevents cannot also be the "attempted to draw from an empty
-// library" 704.5b loses to.
+// library" 704.5b loses to. drawReplaced (replacement.go, new) is checked
+// next, the identical "before the empty-library check" ordering -- CR 616's
+// own "the event is replaced by a different one" outcome, distinct from
+// Prevent$'s "the event does not happen at all": possessed_portal.txt's own
+// bare Prevent$ line and thought_reflection.txt's own bare ReplaceWith$ line
+// both skip this card's own normal draw below, for two different reasons.
 //
 // The top of the library is index 0 of the zone's order: a fixture author
 // who writes `humanlibrary=TopCard;NextCard;...` names it left to right, top
@@ -204,21 +209,38 @@ func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
 		if g.drawPrevented(pid) {
 			continue
 		}
-		lib := g.Zone(Library, pid)
-		if lib.Len() == 0 {
-			g.Player(pid).DrewFromEmptyLibrary = true
+		if g.drawReplaced(controller, pid) {
+			continue
+		}
+		if !g.drawOneCard(controller, pid) {
 			return
 		}
-		id := lib.Cards()[0]
-		g.Move(id, Hand, pid)
-		// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
-		// says a card moved, CardDrawn says why, which is what makes a draw
-		// countable without inspecting every zone change for the ones that
-		// happen to be library-to-hand.
-		g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
-		g.Player(pid).CardsDrawnThisTurn++
-		g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
 	}
+}
+
+// drawOneCard is CR 120.3's own primitive: move the top card of pid's
+// library to pid's hand, or record CR 704.5b's own "attempted to draw from
+// an empty library" and report false. DrawCards' own per-card loop and
+// drawReplaced's own ReplaceWith$-to-Draw dispatch (replacement.go) both
+// call this rather than duplicating it -- a replacement's own "draw two
+// cards instead" is CR 120.3's identical primitive run twice, not a
+// different action.
+func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
+	lib := g.Zone(Library, pid)
+	if lib.Len() == 0 {
+		g.Player(pid).DrewFromEmptyLibrary = true
+		return false
+	}
+	id := lib.Cards()[0]
+	g.Move(id, Hand, pid)
+	// CardDrawn alongside the ZoneChanged Move already emitted: ZoneChanged
+	// says a card moved, CardDrawn says why, which is what makes a draw
+	// countable without inspecting every zone change for the ones that
+	// happen to be library-to-hand.
+	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
+	g.Player(pid).CardsDrawnThisTurn++
+	g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
+	return true
 }
 
 // MaxHandSize is CR 103.4's default maximum hand size, the base

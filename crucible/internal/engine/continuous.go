@@ -554,6 +554,96 @@ func applyOneContinuousKeyword(g *Game, host *Card, s *compile.Ability) {
 	}
 }
 
+// applyContinuousNames recomputes every battlefield permanent's own
+// HasNonLegendaryCreatureNames flag (card.go) from scratch, from every real
+// Mode$ Continuous S: line currently in play naming
+// AddNames$ AllNonLegendaryCreatureNames -- applyContinuousPT's own "recompute
+// fresh every pass" reasoning applies identically here, and there is no
+// timestamp fold to do: this is a plain "does any current line grant it"
+// question, not a value more than one source could disagree about.
+//
+// Spy Kit is the corpus's only real line naming AddNames$ at all (1), and its
+// own shape is AffectedDefined$ Equipped -- host's own AttachedTo() (card.go)
+// resolves that directly, since this port already models Equipment
+// attachment the identical way an Aura's is (Attach/AttachedTo). resolveLegendRule
+// (action.go) is the one reader.
+func applyContinuousNames(g *Game) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			g.Card(id).HasNonLegendaryCreatureNames = false
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousNames(g, h, s)
+				}
+			}
+		}
+	}
+}
+
+// applyOneContinuousNames grants s's own target(s) HasNonLegendaryCreatureNames,
+// if s is a Mode$ Continuous line naming AddNames$ AllNonLegendaryCreatureNames
+// -- the only real value this key takes corpus-wide, so any other value skips
+// the line rather than guessing (GO-7). Affected$/AffectedDefined$ resolve the
+// identical way applyOneContinuousPT's own do, except AffectedDefined$ is not
+// refused here: it is the one real corpus line's own shape
+// (AffectedDefined$ Equipped | Affected$ Creature), so skipping on it would
+// make this whole applier dead code against the actual corpus. AffectedZone$/
+// CharacteristicDefining$ (0 real lines paired with AddNames$) are refused,
+// the same as every other layer's own applier.
+func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	if !continuousConditionMet(g, host, s) {
+		return
+	}
+	addNames, ok := s.Param("AddNames")
+	if !ok || !strings.EqualFold(addNames, "AllNonLegendaryCreatureNames") {
+		return
+	}
+	for _, key := range [...]string{"AffectedZone", "CharacteristicDefining"} {
+		if _, ok := s.Param(key); ok {
+			return
+		}
+	}
+
+	var targets []CardID
+	if affectedDefined, ok := s.Param("AffectedDefined"); ok {
+		if !strings.EqualFold(affectedDefined, "Equipped") {
+			return
+		}
+		equipped, attached := host.AttachedTo()
+		if !attached {
+			return
+		}
+		targets = []CardID{equipped}
+	} else {
+		for _, pid := range g.Players() {
+			targets = append(targets, g.Zone(Battlefield, pid).Cards()...)
+		}
+	}
+
+	affected, ok := s.Param("Affected")
+	if !ok {
+		return
+	}
+	spec := valid.Parse(affected)
+	for _, id := range targets {
+		if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
+			continue
+		}
+		g.Card(id).HasNonLegendaryCreatureNames = true
+	}
+}
+
 // applyPumpEffects re-adds every resolved Pump effect's own contribution
 // (pumpeffect.go) into its target's Layer 7b/7c PT and Layer 6 KeywordMod --
 // the one-shot counterpart to applyContinuousPT's/applyContinuousKeyword's

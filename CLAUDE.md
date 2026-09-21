@@ -374,11 +374,12 @@ Valid family (`xPaid`, `CardCounters`, `Devotion`, ...), plus a dozen more where
 `$`-suffixed distinct-value operator (Tarmogoyf's own `Card$CardTypes` — a new `expr.Count.DistinctProperty` field now
 catches this rather than silently misparsing it, a real bug caught and fixed after the fact, not a hypothetical one) — a
 dynamic value or a bulk-removal/`AddAllCreatureTypes$`/`SharedKeywords$` combo still skips the whole line rather than
-applying it wrong; the legend rule's Partner-non-legendary-name corner case (needs a card-name lookup injecting into the
-engine would violate GO-2); `DamageDone`'s own `ValidCause$`, `Discarded`'s own `ValidCause$`, `Taps`'s own
-`FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s own `Player.EnchantedBy`/`Player.Chosen`
-qualified `ValidActivatingPlayer$` forms, `Phase`'s own `Condition$` and its own qualified `ValidPlayer$` forms, and
-every trigger mode past
+applying it wrong; the legend rule's own Corner Case 1 (a Corner-Case-2 permanent's own borrowed names colliding with
+some OTHER legendary's own literal printed name needs a card-name lookup across every creature card this game ever
+printed, which this port's `*Game` holds no `*carddb.DB` reference to ask); `DamageDone`'s own `ValidCause$`,
+`Discarded`'s own `ValidCause$`, `Taps`'s own `FirstTime$`/`Teamwork$`, `TapsForMana`'s own `Produced$`, `SpellCast`'s
+own `Player.EnchantedBy`/`Player.Chosen` qualified `ValidActivatingPlayer$` forms, `Phase`'s own `Condition$` and its
+own qualified `ValidPlayer$` forms, and every trigger mode past
 enters/dies/attacks/blocks/deals-damage/is-discarded/becomes-tapped/becomes-untapped/taps-for-mana/casts/beginning-of-a-step-or-phase/
 a-player-attacks/a-player-draws-a-card/gains-life (`Mode$ LifeGained`, `checkLifeGainedTriggers`, `ValidPlayer$` matched
 against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s own four-zone walk — 82 of 98 real lines
@@ -578,7 +579,15 @@ that shape (Retched Wretch's own real "when CARDNAME dies, if it had a -1/-1 cou
 copy rather than Java's own `CardCopyService.getLKICopy()`'s field-by-field reconstruction — overwritten whole, never
 merged, on every subsequent trip off the battlefield. `Game.Clone` (M7's own AI lookahead) gives its own copy an
 independent snapshot, the identical "shares nothing writable" contract it already holds for every other per-card ledger.
-The legend rule's own remaining Partner-non-legendary-name corner case (needs a card-name lookup injecting into the
-engine would violate GO-2) is the only other item-25 gap, and stays unbuilt. **P4 exit gate's fixture-count half met:**
-342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan Section
-3.2) is not.
+The legend rule's own Corner Case 2 is real now too (`resolveLegendRule`, action.go) — two or more legendary permanents
+that all carry `HasNonLegendaryCreatureNames` (card.go, a new Layer 3 continuous effect, `applyContinuousNames`,
+continuous.go, resolving Spy Kit's own real `AddNames$ AllNonLegendaryCreatureNames` line — the corpus's only one — via
+`Card.AttachedTo()`, this port's existing generic Aura/Equipment/Fortification attachment link, for
+`AffectedDefined$ Equipped`) clash with each other even when their own printed names differ, grouped and asked about the
+identical way an ordinary same-name duplicate already is, skipping any permanent the name-grouping above already sent to
+its owner's graveyard so the controller is never asked about the same pair twice. Corner Case 1 stays unbuilt: whether
+one of those borrowed names collides with some OTHER legendary's own literal printed name needs a lookup across every
+creature card this game ever printed, and this port's `*Game` holds no `*carddb.DB` reference to ask — threading one
+through every `*Game` constructor across the whole test suite is a disproportionately large refactor for the one corpus
+card it would unlock (PORT-8). **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the
+≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.

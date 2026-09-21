@@ -634,9 +634,19 @@ printed form.
     writable" contract it already holds for every other per-card ledger. The legend rule's own `ignoreLegendRule`
     exemption is ported too (`ignoreLegendRule`, `staticability.go`, ported from `StaticAbilityIgnoreLegendRule`) — a
     plain `ValidCard` match against every battlefield permanent, needing none of item 27's own layer-folding machinery,
-    the same reason `CantBlockBy` (item 28) turned out independently buildable. Not reached: the legend rule's other
-    corner case, Partner-with-a-non-legendary-creature-name pairs sharing a "true name" (needs `StaticData`'s own
-    card-name lookup, which injecting into the engine would violate GO-2).
+    the same reason `CantBlockBy` (item 28) turned out independently buildable. The legend rule's own Corner Case 2
+    (`resolveLegendRule`'s own doc comment, action.go, Java's own name for it) is built too: two or more legendary
+    permanents that all carry `HasNonLegendaryCreatureNames` (card.go) -- a new Layer 3 continuous effect,
+    `applyContinuousNames` (continuous.go), resolving Spy Kit's own real, and the corpus's only,
+    `AddNames$ AllNonLegendaryCreatureNames` line via `Card.AttachedTo()`, this port's existing generic Aura/Equipment/
+    Fortification attachment link, for its own `AffectedDefined$ Equipped` shape -- clash with each other even when
+    their own printed names differ, grouped and resolved the identical way an ordinary same-name duplicate already is.
+    Not reached: Corner Case 1, whether a Corner-Case-2 permanent's own borrowed names collide with some OTHER
+    legendary's own literal printed name (`StaticData.instance().getCommonCards().isNonLegendaryCreatureName`,
+    GameAction.java) -- needs a lookup across every creature card this game ever printed, not just what is on this
+    battlefield, and this port's `*Game` holds no `*carddb.DB` reference to ask; threading one through every `*Game`
+    constructor across the whole test suite is a disproportionately large refactor for the one corpus card (Spy Kit) it
+    would unlock (PORT-8).
 
     The "cleanup aura" rule's own Protection/Hexproof gap (CR 702.11h/702.16e — a static-ability "can't be enchanted"
     question, distinct from the `Enchant` restriction itself) is closed too, for both real corpus shapes: a new

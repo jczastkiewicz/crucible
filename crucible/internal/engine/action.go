@@ -60,13 +60,13 @@ import (
 // (amount.go) is wired into Mode$ Continuous's own PT params, `ptParam`,
 // continuous.go, not this text field yet), the rest of 704.5v's
 // own exception (a Battle whose own trigger is still on the stack -- always
-// false today, destroyZeroDefense's own doc comment), and the legend
-// rule's own remaining corner case, Partner-with-a-non-legendary-creature-name
-// pairs sharing a "true name" (resolveLegendRule's doc comment) -- needs
-// `StaticData`'s own card-name lookup, which this port's `carddb`/`compile`
-// layer has no equivalent of. A rule this port has not implemented simply
-// never fires, the same as it would in a real game with no permanent that
-// rule applies to.
+// false today, destroyZeroDefense's own doc comment), and the legend rule's
+// own Corner Case 1, a Corner-Case-2 permanent's own borrowed names colliding
+// with some OTHER legendary's own literal printed name (resolveLegendRule's
+// doc comment) -- needs a card-name lookup across every creature card this
+// game ever printed, which this port's `*Game` holds no reference for. A
+// rule this port has not implemented simply never fires, the same as it
+// would in a real game with no permanent that rule applies to.
 //
 // 704.5b is checked first, matching Java's own order -- its comment cites
 // Lich's Mirror (CR 704.7), a card not ported, so today's checks would give
@@ -155,6 +155,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
 	applyContinuousRules(g)
+	applyContinuousNames(g)
 	// applyPumpEffects runs after applyContinuousPT/applyContinuousKeyword,
 	// once their own Clear() has already emptied every battlefield card's PT
 	// and KeywordMod for this pass, so a resolved Pump effect's own
@@ -448,16 +449,33 @@ func destroyZeroDefense(g *Game, controller PlayerController) {
 // A legendary permanent exempted by some Mode$ IgnoreLegendRule static
 // ability (ignoreLegendRule, staticability.go) never enters the grouping at
 // all, the same as Java's own handleLegendRule filters its own candidate
-// list before grouping by name (GameAction.java). One of Java's own corner
-// cases is still not here: Partner-with-a-non-legendary-creature-name pairs
-// (Spy Kit and similar) sharing a "true name" even though their printed
-// names differ -- a rule specific to a handful of cards, not the general
-// case, and needing `StaticData`'s own card-name lookup this port's
-// `carddb`/`compile` layer has no equivalent of.
+// list before grouping by name (GameAction.java).
+//
+// Corner Case 2, Java's own name for it (handleLegendRule's own comment): two
+// or more legendary permanents that all carry HasNonLegendaryCreatureNames
+// (card.go, applyContinuousNames, continuous.go's own Layer 3 -- Spy Kit's
+// own real "has all names of nonlegendary creature cards in addition to its
+// name") clash with EACH OTHER even when their own printed names differ,
+// since every one of them answers to every non-legendary creature's own
+// name, including each other's. Grouped and resolved the identical way a
+// same-name duplicate is, after the ordinary name-grouping above has already
+// removed its own duplicates -- a permanent already sent to its owner's
+// graveyard by the name-grouping does not also need asking about here.
+//
+// Corner Case 1 is still not here: whether a Corner-Case-2 permanent's own
+// borrowed names collide with some OTHER legendary's own literal printed
+// name (`StaticData.instance().getCommonCards().isNonLegendaryCreatureName`,
+// GameAction.java) needs a lookup across every creature card this game ever
+// printed, not just what is on this battlefield -- this port's `*Game` holds
+// no `*carddb.DB` reference to ask, and adding one now, for the one corpus
+// card (Spy Kit) this would unlock, is a disproportionately large refactor
+// (every `*Game` constructor across the whole test suite would need one
+// threaded through) for what it reaches (PORT-8/GO-7): skipped, not guessed.
 func resolveLegendRule(g *Game, controller PlayerController) {
 	for _, pid := range g.Players() {
 		byName := map[string][]CardID{}
 		var order []string
+		var nonLegendaryNamed []CardID
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
 			if !c.Type().HasSupertype(cardtype.Legendary) {
@@ -466,12 +484,16 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 			if ignoreLegendRule(g, id) {
 				continue
 			}
+			if c.HasNonLegendaryCreatureNames {
+				nonLegendaryNamed = append(nonLegendaryNamed, id)
+			}
 			name := c.Def.Name
 			if _, ok := byName[name]; !ok {
 				order = append(order, name)
 			}
 			byName[name] = append(byName[name], id)
 		}
+		removed := map[CardID]bool{}
 		for _, name := range order {
 			dup := byName[name]
 			if len(dup) < 2 {
@@ -480,9 +502,27 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 			keep := controller.ChooseLegendaryToKeep(g, pid, dup)
 			for _, id := range dup {
 				if id != keep {
+					removed[id] = true
 					g.Move(id, Graveyard, g.Card(id).Owner)
 					g.checkDiesTriggers(controller, id)
 				}
+			}
+		}
+
+		var remaining []CardID
+		for _, id := range nonLegendaryNamed {
+			if !removed[id] {
+				remaining = append(remaining, id)
+			}
+		}
+		if len(remaining) < 2 {
+			continue
+		}
+		keep := controller.ChooseLegendaryToKeep(g, pid, remaining)
+		for _, id := range remaining {
+			if id != keep {
+				g.Move(id, Graveyard, g.Card(id).Owner)
+				g.checkDiesTriggers(controller, id)
 			}
 		}
 	}

@@ -1643,3 +1643,90 @@ func TestMoveClearsProtectingPlayer(t *testing.T) {
 		t.Errorf("ProtectingPlayer = %v after leaving the battlefield, want NoPlayer", got)
 	}
 }
+
+// TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesClash proves
+// Corner Case 2 (resolveLegendRule's own doc comment): two DIFFERENTLY named
+// legendary creatures, each equipped by its own Spy Kit, share every
+// non-legendary creature name with each other -- HasNonLegendaryCreatureNames
+// (card.go, applyContinuousNames) -- and clash even though their own printed
+// names never collide through the ordinary name-grouping above.
+func TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesClash(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(legendaryCreatureDef(t, "Test Legend One"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDef(t, "Test Legend Two"), a, engine.Battlefield)
+	firstKit := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit One", spyKitStatic), a, engine.Battlefield)
+	secondKit := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit Two", spyKitStatic), a, engine.Battlefield)
+	g.Attach(firstKit, first)
+	g.Attach(secondKit, second)
+
+	c := engine.NewScriptedController()
+	c.QueueLegendaryToKeep(first)
+	engine.CheckStateBasedActions(g, c)
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("kept legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Graveyard {
+		t.Errorf("other legend zone = %v, want Graveyard -- both share every non-legendary creature name via Spy Kit", z)
+	}
+}
+
+// TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesNeedsTwo is
+// the regression half: only one legendary carries the flag, so there is
+// nothing for it to clash with -- no QueueLegendaryToKeep is queued, so a
+// wrongly-fired Corner Case 2 panics on the empty queue.
+func TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesNeedsTwo(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(legendaryCreatureDef(t, "Test Legend One"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDef(t, "Test Legend Two"), a, engine.Battlefield)
+	kit := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit", spyKitStatic), a, engine.Battlefield)
+	g.Attach(kit, first)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("first legend zone = %v, want Battlefield -- one flagged legend alone has nothing to clash with", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Battlefield {
+		t.Errorf("second legend zone = %v, want Battlefield", z)
+	}
+}
+
+// TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesNoDoubleAsk
+// proves the two grouping passes do not both ask about the same pair: two
+// SAME-named legendaries that ALSO both carry HasNonLegendaryCreatureNames
+// are resolved once, by the ordinary name-grouping alone -- only one
+// QueueLegendaryToKeep answer is queued, so Corner Case 2 asking again on
+// top would panic on the empty queue.
+func TestCheckStateBasedActionsLegendRuleNonLegendaryCreatureNamesNoDoubleAsk(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	first := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	second := g.NewCard(legendaryCreatureDef(t, "Test Legend"), a, engine.Battlefield)
+	firstKit := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit One", spyKitStatic), a, engine.Battlefield)
+	secondKit := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit Two", spyKitStatic), a, engine.Battlefield)
+	g.Attach(firstKit, first)
+	g.Attach(secondKit, second)
+
+	c := engine.NewScriptedController()
+	c.QueueLegendaryToKeep(first)
+	engine.CheckStateBasedActions(g, c)
+
+	if z := g.Card(first).Zone; z != engine.Battlefield {
+		t.Errorf("kept legend zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(second).Zone; z != engine.Graveyard {
+		t.Errorf("other legend zone = %v, want Graveyard", z)
+	}
+}

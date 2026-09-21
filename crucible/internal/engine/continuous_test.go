@@ -1349,3 +1349,123 @@ func TestApplyContinuousControlRunsBeforeKeywordSoYouCtrlSeesTheNewController(t 
 		t.Error("HasKeyword(Flying) = false, want true -- the anthem's own Creature.YouCtrl must see this pass's new controller (a), not the stale one (b)")
 	}
 }
+
+// equipmentDefWithStatic is continuousDef's own Equipment sibling -- Spy
+// Kit's own real shape needs the Equipment type (an Enchantment can never be
+// equipped) alongside a static line, compiled through the real pipeline so
+// s.Param reads back exactly what a real corpus card would parse to.
+func equipmentDefWithStatic(t *testing.T, name, static string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Artifact Equipment")
+	raw.Faces[0].Statics = []string{static}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// spyKitStatic is spy_kit.txt's own real S: line, minus the AddPower$/
+// AddToughness$ half applyContinuousNames does not read (a separate,
+// pre-existing gap: applyOneContinuousPT refuses on AffectedDefined$
+// outright, so Spy Kit's own +1/+1 does not resolve today either -- out of
+// scope for this test, which is only about the legend-rule flag).
+const spyKitStatic = "Mode$ Continuous | AffectedDefined$ Equipped | Affected$ Creature | AddNames$ AllNonLegendaryCreatureNames"
+
+// TestApplyContinuousNamesGrantsFlagToEquippedCreature proves
+// applyContinuousNames (continuous.go) resolves Spy Kit's own real line:
+// AffectedDefined$ Equipped reads host's own AttachedTo() directly, and the
+// equipped creature ends this pass with HasNonLegendaryCreatureNames true.
+func TestApplyContinuousNamesGrantsFlagToEquippedCreature(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	host := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit", spyKitStatic), p, engine.Battlefield)
+	g.Attach(host, creature)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if !g.Card(creature).HasNonLegendaryCreatureNames {
+		t.Error("HasNonLegendaryCreatureNames = false, want true -- Spy Kit's own AddNames$ must reach the creature it equips")
+	}
+}
+
+// TestApplyContinuousNamesDoesNotGrantFlagWhenUnattached is the regression
+// half: Spy Kit sitting on the battlefield unattached grants nothing to
+// anyone -- AttachedTo() reports false, so the line skips entirely.
+func TestApplyContinuousNamesDoesNotGrantFlagWhenUnattached(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit", spyKitStatic), p, engine.Battlefield)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(creature).HasNonLegendaryCreatureNames {
+		t.Error("HasNonLegendaryCreatureNames = true, want false -- an unattached Spy Kit grants nothing")
+	}
+}
+
+// TestApplyContinuousNamesClearsFlagOnceUnattached proves the flag is
+// recomputed fresh every pass, not stuck once granted: unattaching Spy Kit
+// and rechecking must clear it, the identical "no timestamp fold, no
+// leftover state" contract applyContinuousPT's own doc comment already
+// gives every other layer.
+func TestApplyContinuousNamesClearsFlagOnceUnattached(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	host := g.NewCard(equipmentDefWithStatic(t, "Test Spy Kit", spyKitStatic), p, engine.Battlefield)
+	g.Attach(host, creature)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if !g.Card(creature).HasNonLegendaryCreatureNames {
+		t.Fatal("setup: flag should be true while attached")
+	}
+
+	g.Unattach(host)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(creature).HasNonLegendaryCreatureNames {
+		t.Error("HasNonLegendaryCreatureNames = true, want false -- unattaching Spy Kit must clear the flag on the next pass")
+	}
+}
+
+// TestApplyContinuousNamesIgnoresUnrecognizedAddNamesValue proves
+// AllNonLegendaryCreatureNames is the only AddNames$ value this applier
+// resolves (the only one the corpus carries at all): a different value skips
+// the whole line rather than guessing (GO-7).
+func TestApplyContinuousNamesIgnoresUnrecognizedAddNamesValue(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	creature := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	host := g.NewCard(equipmentDefWithStatic(t, "Test Odd Namer",
+		"Mode$ Continuous | AffectedDefined$ Equipped | Affected$ Creature | AddNames$ ChosenName"), p, engine.Battlefield)
+	g.Attach(host, creature)
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if g.Card(creature).HasNonLegendaryCreatureNames {
+		t.Error("HasNonLegendaryCreatureNames = true, want false -- AddNames$ ChosenName is not the resolved value")
+	}
+}

@@ -89,6 +89,19 @@ type Card struct {
 	// action.go).
 	ProtectingPlayer PlayerID
 
+	// HasNonLegendaryCreatureNames is Card.hasNonLegendaryCreatureNames's own
+	// flag -- Layer 3's own AddNames$ AllNonLegendaryCreatureNames
+	// (applyContinuousNames, continuous.go), recomputed fresh every
+	// CheckStateBasedActions pass the identical way TypeMod/ColorMod/
+	// KeywordMod already are, since it is a plain "does any current line
+	// grant this" question with no timestamp-ordering to fold (unlike those
+	// three, nothing else ever reads more than one source's own contribution
+	// at once). resolveLegendRule (action.go) reads it for CR 704.5j's own
+	// corner case: two legendary permanents that share every non-legendary
+	// creature name -- Spy Kit's own real shape -- clash with each other even
+	// when their printed names differ.
+	HasNonLegendaryCreatureNames bool
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.

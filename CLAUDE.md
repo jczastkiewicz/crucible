@@ -673,14 +673,25 @@ separate own-half walk (`checkDiscardedTriggers`'s own shape) would fire its own
 resolve (`ValidCard$`/`ValidPlayer$` through the usual dispatch, `PlayerTurn$`/`OptionalDecider$`/the whole
 `IsPresent$`/`CheckSVar$`/... family through the shared `triggerEffectAPI` gate); `ActivationLimit$`/`ResolvedLimit$`
 (7/1, the identical per-turn-cap gap `LifeGained`'s own already documents) and `WhileKeyword$` (1) stay unresolved.
-**Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this port's own most-cited gap
-across every effect built so far (`ValidTgts$` in every one of their own "not resolved" lists above). `resolveTargets`
-runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`, this port's only pusher
-today), computing `ValidTgts$`'s own legal candidates — every player still in the game (`matchesPlayerSpec`, reused) or
-every card on any battlefield (`Matches`, reused) — and asking a new `PlayerController` method, `ChooseTargets` (its
-twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A structural shape this port does not
-parse (`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real
-lines) folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
+`sacrificeAllEffect` (`sacrificealleffect.go`) is M6's twelfth script-driven effect, `Sacrifice`'s own blanket sibling
+(`pumpAllEffect`'s own shape, `pumpalleffect.go`, reused for a second blanket effect): an absent `Defined$` scans every
+battlefield in the game, `ValidCards$`-filtered if present — 72 of the corpus's own 140 real `(AB|DB)$ SacrificeAll`
+lines, the corpus's own dominant real shape — and a present `Defined$` names specific cards through `definedCards`
+instead (`Self`/`Enchanted`/`Equipped`/`Targeted`, an unrecognized value failing loudly rather than sacrificing
+nothing). `Controller$`, when present, narrows either set further to one of its own resolved players' own permanents. 91
+of the corpus's own 140 real lines resolve; `UnlessCost$`/`UnlessPayer$` (6/6) — the identical "unless a cost is paid"
+gap `Sacrifice`'s own already documents; `ConditionDefined$` (3), `Planeswalker$`/`Activator$`/`SorcerySpeed$`/
+`ImprintSacrificed$` (1 each) stay unresolved. It shares `sacrificeCards` (sacrificeeffect.go) outright with
+`sacrificeEffect`, so `RememberSacrificed$` and CR 701.20's own `Mode$ Sacrificed` trigger both fire once per card in
+the whole blanket set, not once for the ability as a whole. **Targeting itself landed** (`targeting.go`) — CR
+601.2c/603.3b's own "choose targets," this port's own most-cited gap across every effect built so far (`ValidTgts$` in
+every one of their own "not resolved" lists above). `resolveTargets` runs the moment an ability is pushed onto the stack
+(`pushTriggeredAbilities`, `trigger.go`, this port's only pusher today), computing `ValidTgts$`'s own legal candidates —
+every player still in the game (`matchesPlayerSpec`, reused) or every card on any battlefield (`Matches`, reused) — and
+asking a new `PlayerController` method, `ChooseTargets` (its twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1
+when neither is named). A structural shape this port does not parse
+(`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real lines)
+folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
 indistinguishable from outside, and both mean the ability does nothing. Threading a `PlayerController` down to
 `pushTriggeredAbilities` touched every one of its sixteen callers across `action.go`/`attack.go`/`block.go`/
 `combatdamage.go`/`manaability.go`/`turn.go`/`land.go`/`castspell.go` — mechanical, and every path already bottomed out
@@ -710,15 +721,15 @@ lists too, the identical change `GainLife`/`LoseLife` already got. 170/253 (`Dra
 (`LoseLife`), 9/316 (`DealDamage`), 17/571 (`Pump`), 6/75 (`PumpAll`), 56/623 (`PutCounter`), 11/254 (`Discard`), 31/57
 (`Scry`), and 2/15 (`Surveil`) of the corpus's own real SVar-defined lines naming `SubAbility$` now chain to an
 already-built leaf ability and resolve end to end (a chain more than one hop deep, or one whose target is one of the 193
-effects still unbuilt, is not counted). 192 script-driven effects past
-`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil`/`Sacrifice` still
-report `ErrUnimplemented`. **Last-known-information landed too** (`Game.LKI`, `game.go`) — CR 603.6d's own "look back in
-time": `Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its own
-`Counters`/`PT`/`TypeMod`/`ColorMod`/`KeywordMod`, so `checkDiesTriggers`/`otherDiesTriggerMatches` (`trigger.go`) still
-match a `ValidCard$` naming the dying card's own power, toughness, type, color, a keyword or a counter against what it
-had the instant before it died, not the printed-only state `Move` has already reset it to by the time either function
-runs — 116 of the corpus's own 7,574 real `Mode$ ChangesZone` lines whose `Destination$` permits Graveyard name exactly
-that shape (Retched Wretch's own real "when CARDNAME dies, if it had a -1/-1 counter on it..."). `Card.Def`/
+effects still unbuilt, is not counted). 191 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil`/`Sacrifice`/
+`SacrificeAll` still report `ErrUnimplemented`. **Last-known-information landed too** (`Game.LKI`, `game.go`) — CR
+603.6d's own "look back in time": `Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its
+own `Counters`/`PT`/`TypeMod`/`ColorMod`/`KeywordMod`, so `checkDiesTriggers`/`otherDiesTriggerMatches` (`trigger.go`)
+still match a `ValidCard$` naming the dying card's own power, toughness, type, color, a keyword or a counter against
+what it had the instant before it died, not the printed-only state `Move` has already reset it to by the time either
+function runs — 116 of the corpus's own 7,574 real `Mode$ ChangesZone` lines whose `Destination$` permits Graveyard name
+exactly that shape (Retched Wretch's own real "when CARDNAME dies, if it had a -1/-1 counter on it..."). `Card.Def`/
 `Card.Controller()` never needed the lookup (`Move`'s own doc comment already covers why), so this is a plain struct
 copy rather than Java's own `CardCopyService.getLKICopy()`'s field-by-field reconstruction — overwritten whole, never
 merged, on every subsequent trip off the battlefield. `Game.Clone` (M7's own AI lookahead) gives its own copy an

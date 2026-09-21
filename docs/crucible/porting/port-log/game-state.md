@@ -4262,8 +4262,8 @@ above; `Echo$`/`CumulativeUpkeep$` -- `SacrificeEffect.java`'s own two leading s
 further upkeep-cost mechanic ahead of the ordinary sacrifice this port ports, 0 real lines combining either with
 `SacValid$`/`Defined$`/`Amount$` at all. `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/
 `ConditionSVarCompare$` resolve through `subAbilityConditionMet` exactly as `Scry`'s/`Discard`'s/`PutCounter`'s own
-already do. `SacrificeAll` (140 real lines, `SacrificeAllEffect.java`) is not built: `PumpAll`'s own blanket-sibling
-shape, a natural next chunk.
+already do. `SacrificeAll` (140 real lines, `SacrificeAllEffect.java`) is built too now ("M6's thirteenth effect:
+SacrificeAll," below).
 
 Sacrificing a card also fires CR 701.20's own `Mode$ Sacrificed` trigger, ported from `TriggerSacrificed.performTest`
 into a new `checkSacrificedTriggers` (trigger.go), called from a new shared `sacrificeCards` (sacrificeeffect.go, both
@@ -4303,6 +4303,54 @@ player's own sacrifice a watcher reacts to. `mulligan_test.go`'s own `scriptedMu
 `ChoosePermanentsToSacrifice` stub. `NewRegistry` (`castspell.go`) registers `APISacrifice`; new `enginelint` group
 `sacrificeeffect` (`id`/`card`/`game`/`ability`/`defined`/`amount`/`condition`/`control`/`zone`/ `valid`/`parts`),
 `castspell` gaining it as a dependency to register into.
+
+## M6's thirteenth effect: SacrificeAll, Sacrifice's own blanket sibling
+
+`SacrificeAll` (`SacrificeAllEffect.java`) landed the moment `Sacrifice`'s own chunk (above) closed, `pumpAllEffect`'s
+own shape (pumpalleffect.go, "M6's sixth effect: PumpAll," above) reused for a second blanket effect rather than
+rebuilt: an absent `Defined$` scans every battlefield in the game (Java's own `game.getCardsIn(Battlefield)`),
+`ValidCards$`-filtered if present (`AbilityUtils.filterListByType`) -- 72 of the corpus's own 140 real
+`(AB|DB)$ SacrificeAll` lines name no `Defined$` at all, the corpus's own dominant real shape -- and a present
+`Defined$` names specific cards through `definedCards` (defined.go) instead: `Self`/`Enchanted`/`Equipped`/`Targeted`
+resolve, an unrecognized value (`TriggeredObjectLKICopy`/`ChosenCard`/`Remembered`/`EffectSource`/... -- real corpus
+values with no resolver, `definedCards`'s own existing error return) failing the whole line loudly rather than silently
+sacrificing nothing.
+
+`Controller$`, when present, narrows either set further to cards controlled by one of its own resolved players
+(`definedPlayers`, defined.go) -- Java's own "do the controller check after LKI got updated" step, reordered here since
+this port takes no LKI snapshot until the actual sacrifice happens (`sacrificeCards`, sacrificeeffect.go, below); an
+unrecognized `Controller$` value (`TriggeredPlayer`, the one real corpus line naming it) fails loudly the identical way
+`definedPlayers`'s own existing error return already does for `Sacrifice`.
+
+`sacrificeAllEffect.Resolve` calls `sacrificeCards` (sacrificeeffect.go) directly, the exact same shared helper
+`sacrificeEffect`'s own two branches already call -- no separate sacrifice-and-trigger logic needed for the blanket
+shape at all. This means `RememberSacrificed$` and CR 701.20's own `Mode$ Sacrificed` trigger
+(`checkSacrificedTriggers`, trigger.go, "M6's twelfth effect: Sacrifice," above) both come along for free, firing once
+per card in the whole gathered set rather than once for the ability as a whole: a watching permanent's own life-gain
+trigger fires twice for two sacrificed creatures in one `SacrificeAll` resolution, and `Memory.Remembered()` ends up
+holding every sacrificed card, not just the last one.
+
+91 of the corpus's own 140 real lines resolve. Not resolved, each failing loudly by name rather than sacrificing the
+wrong set (PORT-8/GO-7): `UnlessCost$`/`UnlessPayer$` (6/6, always co-occurring) -- the identical "unless a cost is
+paid" gap `Sacrifice`'s own already documents; `ConditionDefined$` (3) -- `SpellAbilityCondition`'s own shape
+`subAbilityConditionMet` does not cover, the identical `GainLife`/`LoseLife`/`Sacrifice`-shaped gap; `Planeswalker$` (1)
+-- unclear semantics, not worth guessing at; `Activator$` (1) -- a restriction on who activated the ability rather than
+on what it affects, a further mechanic; `SorcerySpeed$` (1) -- a cost-restriction flag with no cost-payment site to
+attach to; `ImprintSacrificed$` (1) -- `Card.Memory` has an `Imprint` writer (memory.go) but no caller yet, not worth
+building for the one real line naming it. `SubAbility$` no longer blocks ("SubAbility chaining itself landed," below):
+chains through `resolveSubAbility` the identical way every other M6 effect already does.
+`ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through
+`subAbilityConditionMet` exactly as `Sacrifice`'s own already do.
+
+8 new tests (`sacrificealleffect_test.go`) drive every resolvable and every rejected shape through the real
+cast-and-resolve pipeline, `sacrificeAllEffect` itself being unexported (TEST-1): a battlefield-wide `ValidCards$` scan
+reaching an opponent's own permanents (not just the caster's), `.Other` excluding the ability's own host, `Controller$`
+narrowing the scan to one player, the `Defined$` branch sacrificing a specific card, an unresolved `Defined$` value
+rejected loudly, `UnlessCost$` rejected loudly, a `SubAbility$` chain running after the sacrifice, `RememberSacrificed$`
+writing every sacrificed card (not just one) onto `Memory.Remembered()`, and `Mode$ Sacrificed` firing once per
+sacrificed card rather than once for the whole ability. `NewRegistry` (`castspell.go`) registers `APISacrificeAll`;
+`enginelint` group `sacrificeeffect` gained a second file (`sacrificealleffect.go`), its own existing allow-list already
+covering everything the new file needs.
 
 ## Targeting itself lands
 

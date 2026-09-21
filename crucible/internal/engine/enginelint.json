@@ -54,7 +54,7 @@
     "discardeffect": ["discardeffect.go"],
     "scryeffect": ["scryeffect.go"],
     "surveileffect": ["surveileffect.go"],
-    "sacrificeeffect": ["sacrificeeffect.go"],
+    "sacrificeeffect": ["sacrificeeffect.go", "sacrificealleffect.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"]
   },

@@ -1128,6 +1128,26 @@ printed form.
     per-turn-cap gap `LifeGained`'s own `ActivationLimit$` already documents) and `WhileKeyword$` (1) skip the whole
     line rather than firing unconditionally (GO-7).
 
+    **`sacrificeAllEffect` (`sacrificealleffect.go`) is M6's twelfth script-driven effect, `Sacrifice`'s own blanket
+    sibling.** `pumpAllEffect`'s own shape (pumpalleffect.go) reused for a second blanket effect: an absent `Defined$`
+    scans every battlefield in the game, `ValidCards$`-filtered if present (Java's own `game.getCardsIn(Battlefield)`
+    then an optional `AbilityUtils.filterListByType`) — 72 of the corpus's own 140 real `(AB|DB)$ SacrificeAll` lines,
+    the corpus's own dominant real shape, name no `Defined$` at all — and a present `Defined$` names specific cards
+    through `definedCards` (defined.go) instead: `Self`/`Enchanted`/`Equipped`/`Targeted`, an unrecognized value
+    (`TriggeredObjectLKICopy`/`ChosenCard`/`Remembered`/... — real corpus values with no resolver) failing loudly rather
+    than silently sacrificing nothing. `Controller$`, when present, narrows either set further to cards controlled by
+    one of its own resolved players (`definedPlayers`, defined.go) — Java's own "do the controller check after LKI got
+    updated" step reordered here since this port takes no LKI snapshot until the actual sacrifice happens
+    (`sacrificeCards`, sacrificeeffect.go). 91 of the corpus's own 140 real lines resolve. Not resolved:
+    `UnlessCost$`/`UnlessPayer$` (6/6, always co-occurring) — the identical "unless a cost is paid" gap `Sacrifice`'s
+    own already documents; `ConditionDefined$` (3) — `SpellAbilityCondition`'s own shape `subAbilityConditionMet` does
+    not cover; `Planeswalker$`/`Activator$`/`SorcerySpeed$`/`ImprintSacrificed$` (1 each) — each unclear semantics or
+    its own further mechanic, not worth guessing at or building for one real line. `sacrificeCards` (sacrificeeffect.go)
+    is shared outright with the plain `Sacrifice` effect, so `RememberSacrificed$` and CR 701.20's own
+    `Mode$ Sacrificed` trigger (checkSacrificedTriggers, trigger.go) both fire once per card in the whole blanket set,
+    not once for the ability as a whole — a watching permanent's own life-gain trigger fires twice for two sacrificed
+    creatures in one `SacrificeAll` resolution.
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at

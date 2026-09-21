@@ -257,5 +257,6 @@ func NewRegistry() *Registry {
 	r[APIScry] = scryEffect{}
 	r[APISurveil] = surveilEffect{}
 	r[APISacrifice] = sacrificeEffect{}
+	r[APISacrificeAll] = sacrificeAllEffect{}
 	return &r
 }

@@ -881,11 +881,27 @@ type damageEntry struct {
 
 type damageTable []damageEntry
 
+// checkDamageTableTriggers checks every Mode$ this port builds on top of
+// one shared damageTable -- DamageDoneOnce (below), DamageDealtOnce and
+// DamageAll (both further below) -- once each, CardDamageTable's own real
+// shape: Java's own `triggerDamageDoneOnce` fires all three (plus
+// DamageDoneOnceByController, 0 real corpus lines, not built) off the
+// identical table, not a separately-built one per mode. Both real callers
+// (dealCombatDamageStep, combatdamage.go; dealDamageEffect,
+// dealdamageeffect.go) call this once, rather than each of the three
+// dispatches separately, so a future fourth table-driven mode has one call
+// site to add, not every damage-dealing action's own caller.
+func (g *Game) checkDamageTableTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
+	g.checkDamageDealtOnceTriggers(controller, table, isCombat)
+	g.checkDamageAllTriggers(controller, table, isCombat)
+}
+
 // checkDamageDoneOnceTriggers is Mode$ DamageDone's own batched sibling,
 // Mode$ DamageDoneOnce, ported from TriggerDamageDoneOnce.performTest.
 // Called once per damage-dealing action with the whole damageTable it
-// built (dealCombatDamageStep, dealDamageEffect, combatdamage.go) --
-// CardDamageTable's own role in Java, this port's own doc comment on
+// built (checkDamageTableTriggers, above, this dispatch's own sole caller)
+// -- CardDamageTable's own role in Java, this port's own doc comment on
 // damageTable has the reason a shared table beats a per-exchange trigger
 // check for this one mode specifically. Every target's own live state is
 // still current when this runs (called before any state-based action can
@@ -990,6 +1006,173 @@ func damageDoneOnceAmount(g *Game, validSource string, hasValidSource bool, entr
 // shape.
 func isDamageDoneOnceTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "DamageDoneOnce")
+}
+
+// checkDamageDealtOnceTriggers is Mode$ DamageDoneOnce's own source-grouped
+// sibling, Mode$ DamageDealtOnce, ported from TriggerDamageDealtOnce.
+// performTest -- the identical damageTable (trigger.go's own doc comment)
+// grouped by Source this time instead of by Target: CardDamageTable's own
+// "Source -> Targets" loop (triggerDamageDoneOnce, CardDamageTable.java)
+// fires this once per source that dealt any damage in the action, summing
+// every target it hit, rather than once per (source, target) pair.
+// ValidSource$ matches the source directly (49 of 49 real lines name it,
+// the dominant real shape being "Card.Self" -- "whenever this creature
+// deals damage"); ValidTarget$, when present, both filters and sums the
+// entries the identical way ValidSource$ does for checkDamageDoneOnceTriggers'
+// own dispatch (damageDealtOnceAmount, below, TriggerDamageDealtOnce.
+// getDamageAmount's own dispatch, ported directly) and gates the whole line
+// on that sum being positive.
+//
+// Called from the identical two call sites checkDamageDoneOnceTriggers
+// already has (dealCombatDamageStep, combatdamage.go; dealDamageEffect,
+// dealdamageeffect.go), with the identical table -- CardDamageTable's own
+// real shape fires every trigger type it carries off the SAME table built
+// for one damage-dealing action, not a separately-built one per mode.
+//
+// Not resolved: AtLeastOneInstance$ (1 of 49 real lines) -- "at least one
+// single damage instance meets this comparison," a per-instance rather than
+// a summed-amount check this dispatch has no evaluator for; ActivationLimit$
+// (1) -- the identical per-turn-cap gap LifeGained's own already documents.
+// A trigger carrying either is skipped entirely, not fired unconditionally
+// (GO-7). 47 of the corpus's own 49 real lines carry neither.
+func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	if len(table) == 0 {
+		return
+	}
+	var order []CardID
+	bySource := map[CardID][]damageEntry{}
+	for _, e := range table {
+		if _, ok := bySource[e.Source]; !ok {
+			order = append(order, e.Source)
+		}
+		bySource[e.Source] = append(bySource[e.Source], e)
+	}
+
+	var matches []Ability
+	for _, source := range order {
+		entries := bySource[source]
+		for _, pid := range g.Players() {
+			for _, host := range g.Zone(Battlefield, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isDamageDealtOnceTrigger(t) {
+							continue
+						}
+						if hasAnyParam(t, "ActivationLimit", "AtLeastOneInstance") {
+							continue
+						}
+						if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
+							continue
+						}
+						if validSource, ok := t.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), h.Controller(), host) {
+							continue
+						}
+						validTarget, hasValidTarget := t.Param("ValidTarget")
+						amount := damageDealtOnceAmount(g, h, validTarget, hasValidTarget, entries)
+						if hasValidTarget && amount <= 0 {
+							continue
+						}
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// damageDealtOnceAmount sums entries whose own Target matches validTarget
+// (every entry, when hasValidTarget is false) -- TriggerDamageDealtOnce.
+// getDamageAmount's own dispatch, attackedTargetMatches (AttackersDeclared's
+// own dispatch) reused at its one-element case since a damage entry's own
+// Target is the identical mixed card-or-player shape.
+func damageDealtOnceAmount(g *Game, host *Card, validTarget string, hasValidTarget bool, entries []damageEntry) int {
+	sum := 0
+	for _, e := range entries {
+		if hasValidTarget && !attackedTargetMatches(g, host, []EntityID{e.Target}, validTarget) {
+			continue
+		}
+		sum += e.Amount
+	}
+	return sum
+}
+
+// isDamageDealtOnceTrigger reports whether t is Mode$ DamageDealtOnce's own
+// shape.
+func isDamageDealtOnceTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "DamageDealtOnce")
+}
+
+// checkDamageAllTriggers is Mode$ DamageDoneOnce's own whole-table sibling,
+// Mode$ DamageAll, ported from TriggerDamageAll.performTest: fires once for
+// the entire damage-dealing action, no grouping at all, whenever the table
+// -- filtered by ValidSource$ and ValidTarget$ together, when either is
+// named -- still has at least one entry left (Java's own
+// `!table.filteredMap(...).isEmpty()`). 9 of the corpus's own 9 real lines
+// resolve: every real param this mode carries (ValidSource$/ValidTarget$/
+// CombatDamage$/PlayerTurn$/OptionalDecider$) already has a resolver.
+func (g *Game) checkDamageAllTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	if len(table) == 0 {
+		return
+	}
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isDamageAllTrigger(t) {
+						continue
+					}
+					if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
+						continue
+					}
+					if !damageAllTableMatches(g, h, t, table) {
+						continue
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// damageAllTableMatches reports whether at least one entry in table matches
+// BOTH ValidSource$ and ValidTarget$ together (either absent is a pass for
+// its own half) -- CardDamageTable.filteredMap's own two-sided filter,
+// ported directly, short-circuiting on the first surviving entry rather
+// than building the filtered table Java's own version returns, since
+// nothing here reads it back past the emptiness check.
+func damageAllTableMatches(g *Game, host *Card, t *compile.Ability, table damageTable) bool {
+	validSource, hasValidSource := t.Param("ValidSource")
+	validTarget, hasValidTarget := t.Param("ValidTarget")
+	for _, e := range table {
+		if hasValidSource && !Matches(g, g.Card(e.Source), valid.Parse(validSource), host.Controller(), host.ID) {
+			continue
+		}
+		if hasValidTarget && !attackedTargetMatches(g, host, []EntityID{e.Target}, validTarget) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// isDamageAllTrigger reports whether t is Mode$ DamageAll's own shape.
+func isDamageAllTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "DamageAll")
 }
 
 // checkDiscardedTriggers is CR 603's own "whenever ~ is discarded" mode,

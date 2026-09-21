@@ -1210,10 +1210,7 @@ printed form.
     `ActiveZones$` (2) — neither read by `TriggerDamageDoneOnce.performTest` at all, real meaning on the handful of
     lines naming either unclear; `DamageSource$` (1) — an object reference this port has no resolver for; `FirstTime$`
     (1) — `GameEntity.getAssignedDamage`, a per-target running total across the whole turn this port tracks nowhere. A
-    trigger carrying any of these four is skipped entirely, not fired unconditionally (GO-7). `DamageDealtOnce`/
-    `DamageDoneOnceByController`/`DamageAll` — the identical table's three further real siblings in Java, grouping by
-    source, by a target's every damaging controller, and the whole table at once respectively — are not built, each its
-    own further mode a future chunk could pick up the identical way this one reused the table.
+    trigger carrying any of these four is skipped entirely, not fired unconditionally (GO-7).
 
     6 new tests (damagedoneonce_test.go) drive the dispatch through the real combat-damage and cast-and-resolve
     pipelines, `checkDamageDoneOnceTriggers` itself being unexported (TEST-1): a double-blocked attacker firing once for
@@ -1223,6 +1220,44 @@ printed form.
     rejecting a non-combat `DealDamage` against a `CombatDamage$ True` line, and `ResolvedLimit$` skipping the whole
     line. Regression-verified by temporarily removing the new call from `dealCombatDamageStep` and confirming the
     double-block test fails exactly as expected, then restoring it.
+
+    **`DamageDealtOnce` and `DamageAll` — two of `DamageDoneOnce`'s own three further real siblings sharing the
+    identical `damageTable` — are real now too.** A new `checkDamageTableTriggers` (trigger.go) is what
+    `dealCombatDamageStep`/`dealDamageEffect` actually call once per damage-dealing action now, running all three
+    dispatches off the one table CardDamageTable's own real Java shape already builds it as (`triggerDamageDoneOnce`,
+    CardDamageTable.java, fires all of these off a single table rather than one built per mode).
+    `checkDamageDealtOnceTriggers` (`Mode$ DamageDealtOnce`, ported from `TriggerDamageDealtOnce.performTest`) is
+    `DamageDoneOnce`'s own mirror image: the table grouped by `Source` instead of `Target` -- a gang-blocked attacker
+    splitting its power between two blockers is one source hitting two targets, firing this mode once for the combined
+    total rather than once per blocker hit. `ValidSource$` matches the source directly (49 of 49 real lines name it, the
+    dominant shape being `Card.Self`); `ValidTarget$`, when present, both filters and sums the group's own entries
+    (`damageDealtOnceAmount`, `TriggerDamageDealtOnce.getDamageAmount`'s own dispatch, ported directly,
+    `attackedTargetMatches` reused at its one-element case for the mixed card-or-player target shape) and gates the
+    whole line on that filtered sum being positive. 47 of the corpus's own 49 real lines resolve; `AtLeastOneInstance$`
+    (1) -- "at least one single damage instance meets this comparison," a per-instance rather than a summed-amount check
+    this dispatch has no evaluator for -- and `ActivationLimit$` (1) skip the whole line rather than firing
+    unconditionally (GO-7).
+
+    `checkDamageAllTriggers` (`Mode$ DamageAll`, ported from `TriggerDamageAll.performTest`) fires once for the whole
+    damage-dealing action with no grouping at all, whenever the table -- filtered by `ValidSource$` and `ValidTarget$`
+    together on the same entry, when either is named -- still has at least one entry left (`damageAllTableMatches`, new,
+    ports `CardDamageTable.filteredMap`'s own emptiness check, short-circuiting on the first surviving entry rather than
+    building the filtered table Java's own version returns). 9 of the corpus's own 9 real lines resolve: every param
+    this mode carries already has a resolver.
+
+    `DamageDoneOnceByController` -- the table's fourth real sibling in Java, grouping by a target's every damaging
+    controller -- is not built: 0 real corpus lines name it, the identical "nothing to wire this into" reasoning
+    `Mode$ Scry`'s/`Mode$ Surveil`'s own untriggered real shapes already have.
+
+    6 new tests (damagetabletriggers_test.go) drive both dispatches through the real combat-damage and cast-and-resolve
+    pipelines, both being unexported (TEST-1): a gang-blocked attacker's own split damage firing `DamageDealtOnce` once
+    for the combined total, `ValidTarget$` filtering the summed amount down to zero for an Elf blocker dealt no damage
+    while a Goblin blocker dealt 5 in the same action (a real negative control: an unfiltered sum of 5 would wrongly
+    fire), `ActivationLimit$` skipping `DamageDealtOnce`, `DamageAll` firing once for a double block's own four separate
+    exchanges rather than once per exchange, `DamageAll` respecting `ValidSource$`/`ValidTarget$` (rejecting
+    `ValidTarget$ Player` against an all-creature combat), and `DamageAll` firing for a non-combat `DealDamage` too.
+    `checkDamageTableTriggers` itself is regression-verified by temporarily narrowing it back to just
+    `checkDamageDoneOnceTriggers` and confirming the new positive tests fail exactly as expected, then restoring it.
 
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
@@ -1493,9 +1528,9 @@ printed form.
 
     **CR 603.3d's own "may" triggered ability is real now too** — `Ability` (ability.go) gained an `Optional bool`
     field, true only for `OptionalDecider$ You`, resolved by a new `triggerIsOptional` (trigger.go) folded into
-    `triggerEffectAPI`'s own shared gate every one of its twenty-six call sites already runs through. `Registry.Resolve`
-    (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before dispatching to the
-    effect or chaining its own `SubAbility$` at all — `WrappedAbility.resolve()`'s own
+    `triggerEffectAPI`'s own shared gate every one of its twenty-eight call sites already runs through.
+    `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
+    dispatching to the effect or chaining its own `SubAbility$` at all — `WrappedAbility.resolve()`'s own
     `decider.getController().confirmTrigger(this)`, checked right before its own `playSpellAbilityNoStack` call, ported
     directly: a decline skips the whole ability, chain included, the identical early return. 1,506 of the corpus's own
     1,584 real `OptionalDecider$` lines (95%) name "You" — the ability's own `Controller`, already in scope everywhere

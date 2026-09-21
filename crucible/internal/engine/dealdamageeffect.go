@@ -93,7 +93,7 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if defined == "Self" {
 		var table damageTable
 		g.dealPermanentDamage(controller, a.Source, a.Source, dmg, deathtouch, false, &table)
-		g.checkDamageDoneOnceTriggers(controller, table, false)
+		g.checkDamageTableTriggers(controller, table, false)
 		return nil
 	}
 	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
@@ -104,6 +104,6 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	for _, pid := range players {
 		g.dealPlayerDamage(controller, a.Source, pid, dmg, false, &table)
 	}
-	g.checkDamageDoneOnceTriggers(controller, table, false)
+	g.checkDamageTableTriggers(controller, table, false)
 	return nil
 }

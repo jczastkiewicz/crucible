@@ -111,7 +111,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			}
 		}
 	}
-	g.checkDamageDoneOnceTriggers(controller, table, true)
+	g.checkDamageTableTriggers(controller, table, true)
 }
 
 // dealsInStep reports whether c deals damage in the first-strike step

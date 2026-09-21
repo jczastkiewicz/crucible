@@ -586,7 +586,7 @@ under this mode. 35 of the corpus's own 35 real lines resolve — every real lin
 the shared dispatch, 0 real lines naming `Condition$`/`OptionalDecider$`/`CheckDefinedPlayer$`/`IsPresent$` the way the
 plain `AttackersDeclared` mode's own remainder does. **CR 603.3d's own "may" triggered ability is real now too** --
 `Ability` gained an `Optional bool` field, true only for `OptionalDecider$ You` (`triggerEffectAPI`'s own new
-`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-six of its own call sites already run through)
+`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-eight of its own call sites already run through)
 -- `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
 dispatching to the effect OR chaining its own `SubAbility$` at all, `WrappedAbility.resolve()`'s own
 `decider.getController().confirmTrigger(this)` ported directly: a decline skips the whole ability, chain included, the
@@ -715,9 +715,17 @@ summed amount — filtered first to only the entries whose own source matches `V
 (`damageDoneOnceAmount`, `TriggerDamageDoneOnce.getDamageAmount`'s own dispatch) — against `DamageAmount$`
 (`damageAmountMatches`, `DamageDone`'s own dispatch, reused). 200 of the corpus's own 206 real lines resolve;
 `ResolvedLimit$`/`ActiveZones$`/`DamageSource$`/`FirstTime$` (2/2/1/1) skip the whole line rather than firing
-unconditionally (GO-7). `DamageDealtOnce`/`DamageDoneOnceByController`/`DamageAll` — the table's three further real
-siblings in Java, each its own further grouping (by source, by a target's every damaging controller, and the whole table
-at once respectively) — are not built. **Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose
+unconditionally (GO-7). `checkDamageTableTriggers` (new, trigger.go) is the shared caller `dealCombatDamageStep`/
+`dealDamageEffect` call once per damage-dealing action instead of calling three separate dispatches — it runs
+`checkDamageDoneOnceTriggers` alongside two of the table's further real siblings in Java, now built too:
+`checkDamageDealtOnceTriggers` (`Mode$ DamageDealtOnce`, the identical table grouped by `Source` instead of `Target` —
+47 of the corpus's own 49 real lines resolve, `ValidSource$` matched directly against the source, `ValidTarget$` both
+filtering and summing the group's own entries the identical role `ValidSource$` plays for `DamageDoneOnce`;
+`AtLeastOneInstance$`/`ActivationLimit$`, 1 each, skip the whole line) and `checkDamageAllTriggers` (`Mode$ DamageAll`,
+no grouping at all — fires once whenever the table, filtered by `ValidSource$`/`ValidTarget$` together, still has any
+entry left; 9 of 9 real lines resolve, every param this mode carries already has a resolver).
+`DamageDoneOnceByController` — the table's fourth real sibling, grouping by a target's every damaging controller — is
+not built: 0 real corpus lines name it. **Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose
 targets," this port's own most-cited gap across every effect built so far (`ValidTgts$` in every one of their own "not
 resolved" lists above). `resolveTargets` runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`,
 `trigger.go`, this port's only pusher today), computing `ValidTgts$`'s own legal candidates — every player still in the

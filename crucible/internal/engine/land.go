@@ -27,6 +27,14 @@ const maxLandPlays = 1
 // is not in pid's hand, the card is not a land, or the per-turn limit
 // (LandPlayLimit, player.go) is already spent -- the same "declined by the
 // rules, not a bug" contract PayManaCost and TapLandForMana already carry.
+//
+// checkLandPlayedTriggers (trigger.go, CR 603.5) runs after checkETBTriggers,
+// Player.playLand's own real ordering (Java's moveTo fires ETB triggers
+// internally before the explicit LandPlayed runTrigger call), and
+// LandsPlayed only increments after both: NotFirstLand$'s own "if it wasn't
+// the first land you played this turn" reads the count of lands played
+// strictly before this one, the same value Java's own performTest sees
+// since it runs before Player.addLandPlayedThisTurn() there too.
 func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) bool {
 	if pid != g.activePlayer {
 		return false
@@ -49,8 +57,9 @@ func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) 
 	}
 	origin := c.Zone
 	g.Move(card, Battlefield, pid)
-	g.Player(pid).LandsPlayed++
 	g.checkMovedReplacement(card, origin)
 	g.checkETBTriggers(controller, card, origin)
+	g.checkLandPlayedTriggers(controller, card, pid, origin)
+	g.Player(pid).LandsPlayed++
 	return true
 }

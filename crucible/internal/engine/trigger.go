@@ -2214,6 +2214,89 @@ func isLifeGainedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "LifeGained")
 }
 
+// checkLandPlayedTriggers is CR 305/603.5's own "whenever a player plays a
+// land" -- Mode$ LandPlayed, TriggerLandPlayed.performTest, called from
+// PlayLand (land.go) right after checkETBTriggers -- both fire off the same
+// game action, Player.playLand's own real Java ordering (moveTo's own
+// internal ETB firing, then the explicit runTrigger(LandPlayed, ...) call,
+// then addLandPlayedThisTurn()), which is why PlayLand's own increment now
+// runs last too: NotFirstLand$ (below) reads the pre-increment count, the
+// same value Java's own performTest sees at the moment it runs.
+//
+// 42 real T:Mode$ LandPlayed lines. ValidCard$ matched the way every other
+// mode's own is (Matches); Origin$ resolved through hasZoneOrAny (ETB
+// triggers' own dispatch, above) against the land's own origin zone -- this
+// port's own PlayLand only ever moves a card out of Hand (no MayPlay$
+// permission to play from elsewhere yet, M6's own remaining territory), so
+// 8 of the 9 real non-Static Origin$ lines (all naming Exile or a
+// Hand-excluding zone list) never actually satisfy it today, the identical
+// "mechanically correct, presently unreachable" gap ReplaceDamage's own
+// hedron_field_purists.txt lines already have; the 9th, Origin$ Hand, fires
+// normally. NotFirstLand$ (1) resolves too: a new pre-increment read of
+// Player.LandsPlayed (player.go), the count of lands played strictly before
+// this one -- CR 305.2's own "if it wasn't the first land you played this
+// turn." ValidActivatingPlayer$ (1, "You") resolves through
+// matchesActivatingPlayer (above) against player, the land-playing player.
+// IsPresent$ (3) resolves generically through triggerEffectAPI's own
+// triggerCommonRequirementsMet fold-in. Static$/ValidSA$ (7 combined --
+// "Once during each of your turns, you may play a historic land..." shapes)
+// skip via hasAnyParam: Static$ marks a trigger ability that resolves
+// without going on the stack, a mechanism this port's own
+// pushTriggeredAbilities does not model, and ValidSA$ matches a
+// SpellAbility, an object Matches cannot evaluate. OptionalDecider$ (3) is
+// not itself a performTest param at all (TriggerLandPlayed.java carries no
+// such check) -- consumed by the resolving ability's own controller-decision
+// step, M6's own remaining script-effect territory, not a gate this
+// dispatch checks.
+func (g *Game) checkLandPlayedTriggers(controller PlayerController, card CardID, player PlayerID, origin ZoneType) {
+	var matches []Ability
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, z := range phaseTriggerZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, t := range face.Triggers {
+						if !isLandPlayedTrigger(t) {
+							continue
+						}
+						if hasAnyParam(t, "ValidSA", "Static") {
+							continue
+						}
+						if !phaseTriggerZoneMatches(t, z) {
+							continue
+						}
+						if !hasZoneOrAny(t, "Origin", origin) {
+							continue
+						}
+						validCard, ok := t.Param("ValidCard")
+						if !ok || !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+							continue
+						}
+						if !matchesActivatingPlayer(g, t, player, h.Controller(), host) {
+							continue
+						}
+						if _, ok := t.Param("NotFirstLand"); ok && g.Player(player).LandsPlayed < 1 {
+							continue
+						}
+						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+func isLandPlayedTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "LandPlayed")
+}
+
 // checkBecomesTargetTriggers is CR 115/603.3's own "whenever ~ becomes the
 // target of a spell or ability" -- Mode$ BecomesTarget, ported from
 // TriggerBecomesTarget.performTest at the shape this port can reach:

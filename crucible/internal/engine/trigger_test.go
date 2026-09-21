@@ -3983,3 +3983,223 @@ func TestDrawCardsSkipsDrawnTriggerWithUnresolvedParam(t *testing.T) {
 		t.Fatalf("StackLen() = %d, want 0 -- FirstCardInDrawStep$ is not evaluated, so the trigger must not fire", got)
 	}
 }
+
+// landPlayedTriggerDef builds a permanent whose own LandPlayed trigger
+// carries extra beyond the bare Mode$/Execute$ shape -- CR 305/603.5's own
+// "whenever a player plays a land" mode, checkLandPlayedTriggers' own doc
+// comment (trigger.go).
+func landPlayedTriggerDef(t *testing.T, name, extra string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	line := "Mode$ LandPlayed"
+	if extra != "" {
+		line += " | " + extra
+	}
+	line += " | Execute$ TrigDraw"
+	raw.Faces[0].Triggers = []string{line}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestPlayLandFiresLandPlayedTrigger proves checkLandPlayedTriggers is wired
+// into PlayLand: a watcher's own ValidCard$ Land.YouCtrl matches the land
+// its own controller just played.
+func TestPlayLandFiresLandPlayedTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.YouCtrl"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 -- ValidCard$ Land.YouCtrl must match the watcher's own controller's land", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerForNonMatchingValidCard proves
+// ValidCard$ is checked, not assumed: Land.OppCtrl must not match a land the
+// watcher's own controller played.
+func TestPlayLandSkipsLandPlayedTriggerForNonMatchingValidCard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.OppCtrl"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- Land.OppCtrl must not match the watcher's own controller's land", got)
+	}
+}
+
+// TestPlayLandFiresLandPlayedTriggerWithMatchingOrigin proves Origin$ Hand
+// resolves through hasZoneOrAny: this port's own PlayLand only ever moves a
+// card out of Hand, so a line explicitly naming it fires normally.
+func TestPlayLandFiresLandPlayedTriggerWithMatchingOrigin(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land | Origin$ Hand"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 -- Origin$ Hand must match a land played from hand", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerWithMismatchedOrigin proves the other
+// direction: Origin$ Exile must not match a land played from hand -- this
+// port's own PlayLand has no "play from exile" mechanism yet (M6's own
+// MayPlay$ gap), so a real card naming this shape never actually fires
+// today, the identical "mechanically correct, presently unreachable" gap
+// checkLandPlayedTriggers' own doc comment names.
+func TestPlayLandSkipsLandPlayedTriggerWithMismatchedOrigin(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land | Origin$ Exile"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- Origin$ Exile must not match a land played from hand", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerOnFirstLandWithNotFirstLand proves
+// NotFirstLand$ True does not fire on the very first land a player plays
+// this turn.
+func TestPlayLandSkipsLandPlayedTriggerOnFirstLandWithNotFirstLand(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.YouCtrl | NotFirstLand$ True"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- NotFirstLand$ True must not fire on the first land played this turn", got)
+	}
+}
+
+// TestPlayLandFiresLandPlayedTriggerOnSecondLandWithNotFirstLand proves the
+// other direction: a second land the same turn (AdjustLandPlays$ Unlimited
+// lifts the per-turn limit) fires NotFirstLand$ True, reading
+// Player.LandsPlayed before PlayLand's own increment -- the same
+// pre-increment value Java's own performTest sees.
+func TestPlayLandFiresLandPlayedTriggerOnSecondLandWithNotFirstLand(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.NewCard(continuousDef(t, "Test Unlimited Lands", "Mode$ Continuous | Affected$ You | AdjustLandPlays$ Unlimited"), p, engine.Battlefield)
+	g.SetTurnState(1, p, engine.Main1)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.YouCtrl | NotFirstLand$ True"), p, engine.Battlefield)
+	first := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+	second := g.NewCard(landDef(t, "Island", "Basic Land Island"), p, engine.Hand)
+
+	g.PlayLand(p, first, engine.NewScriptedController())
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 after the first land -- NotFirstLand$ True must not fire yet", got)
+	}
+
+	g.PlayLand(p, second, engine.NewScriptedController())
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 after the second land -- NotFirstLand$ True must fire now", got)
+	}
+}
+
+// TestPlayLandFiresLandPlayedTriggerForMatchingActivatingPlayer proves
+// ValidActivatingPlayer$ You resolves through matchesActivatingPlayer: a
+// watcher fires when its own controller is the one who played the land.
+func TestPlayLandFiresLandPlayedTriggerForMatchingActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land | ValidActivatingPlayer$ You"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("StackLen() = %d, want 1 -- ValidActivatingPlayer$ You must match the watcher's own controller playing the land", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerForNonMatchingActivatingPlayer proves
+// the other direction: a land played by someone other than the watcher's
+// own controller does not match ValidActivatingPlayer$ You.
+func TestPlayLandSkipsLandPlayedTriggerForNonMatchingActivatingPlayer(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	g.SetTurnState(1, other, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land | ValidActivatingPlayer$ You"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), other, engine.Hand)
+
+	g.PlayLand(other, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- ValidActivatingPlayer$ You must not match a land played by someone else", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerNamingStaticAndValidSA proves the real
+// "Once during each of your turns, you may play a historic land..." shape
+// (Static$ True | ValidSA$ SpellAbility.MayPlaySource combined) refuses
+// outright via hasAnyParam (GO-7) rather than firing unconditionally: Static$
+// marks a trigger ability that resolves without going on the stack, a
+// mechanism this port's own pushTriggeredAbilities does not model, and
+// ValidSA$ matches a SpellAbility, an object Matches cannot evaluate.
+func TestPlayLandSkipsLandPlayedTriggerNamingStaticAndValidSA(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land | Static$ True | ValidSA$ SpellAbility.MayPlaySource"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+
+	g.PlayLand(p, land, engine.NewScriptedController())
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- Static$/ValidSA$ must skip the whole line, not fire unconditionally", got)
+	}
+}

@@ -425,32 +425,45 @@ spell-or-ability (`Mode$ BecomesTarget`, `checkBecomesTargetTriggers` — CR 115
 places this port ever finishes choosing a target for something — `ValidTarget$` matched with `attackedTargetMatches`
 (`AttackersDeclared`'s own dispatch, reused), a new `Card.BecameTargetThisTurn` closing `FirstTime$` the identical way
 `Card.AttacksThisTurn` already closes `Attacks`'s own — 40 of 118 real lines resolve,
-`ValidSource$`/`OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$` unresolved). **`Trigger.phasesCheck` itself
-lands too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger mode carries regardless of what it fires
-on, checked before any mode-specific dispatch runs at all: `Phase$` restricts a trigger of any mode to firing only
-during named step(s)/phase(s) (reusing `phaseTriggerMatches`, `Mode$ Phase`'s own dispatch, generically); `PlayerTurn$`/
-`NotPlayerTurn$`/`OpponentTurn$` restrict to (or away from) the host's own controller's turn — `OpponentTurn$`
-collapsing to `NotPlayerTurn$`'s own check in this port's no-team model; `FirstCombat$` resolves to a hardcoded `true`
-(this port has no extra-combat mechanism to ever make a second combat phase reachable, the identical reasoning
-`combatdamage.go`'s own `CombatDamage$` check already uses). Closes 43 real lines across six already-built modes
-(`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1, `Drawn` 1) that were firing
-**unconditionally** until now — a wrong answer, not a coverage gap, since this port had never checked either key before
-(sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6 real `Attacks`/
-`AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase`
-only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant). **`Mode$ Untaps`
-lands too** (`checkUntapsTriggers`, trigger.go) — CR 502.3/603's own "becomes untapped," `Taps`'s own mirror image,
-called once per card from `untapStep` (turn.go) for every card that actually untaps that step (a card already untapped
-generates no event, `Card.untap()`'s own early return ported as a `wasTapped` guard). One battlefield walk covers both a
-card's own "Inspired" trigger and mesmeric_orb.txt's own bare "whenever a permanent becomes untapped," the identical
-single-walk shape `checkTapsTriggers` already has — 27 of 30 real lines resolve, `OptionalDecider$` (3) unresolved.
-**`ReplacementEffect.requirementsCheck` itself lands too** (`replacementRequirementsCheck`, replacement.go) — a general
-gate every replacement carries regardless of its own `Event$`, mirroring `triggerPhasesCheck`'s own role for triggers:
-`PlayerTurn$` (8 real lines, literal `True` only), `ActivePhases$` (1, reusing `phaseTriggerMatches` — now taking its
-own key as a parameter rather than hardcoding `"Phase"`, so `Mode$ Phase`'s own dispatch and this general gate share the
-identical parser), then `triggerCommonRequirementsMet` outright (the identical Java method a trigger's own `performTest`
-already calls). Folded into `damagePreventionMatches`/`untapReplacementMatches`/`replacementTapsOnMove`, closing 7 of 10
-previously-skipped real `DamageDone`|`Prevent$` lines and 5 of 7 previously-skipped `Untap`|`CantHappen` lines for free,
-plus fixing a real, if narrow, wrong-firing bug: archelos_lagoon_mystic.txt's own "enters tapped" toggle names
+`ValidSource$`/`OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$` unresolved)/plays-a-land (`Mode$ LandPlayed`,
+`checkLandPlayedTriggers` — CR 305/603.5, called from `PlayLand` (land.go) right after `checkETBTriggers`, `Player`'s
+own real Java ordering, `Player.playLand`'s own `moveTo`-then-`runTrigger`-then-`addLandPlayedThisTurn` sequence, which
+is why `PlayLand`'s own `LandsPlayed++` now runs last too — `ValidCard$` matched the usual way, `Origin$` resolved
+through `hasZoneOrAny` (ETB triggers' own dispatch, reused) against the land's own origin zone (always Hand today, no
+`MayPlay$` permission to play from elsewhere yet, so 8 of the corpus's 9 real non-`Static$` `Origin$` lines naming Exile
+or a Hand-excluding zone list never actually fire, the identical "mechanically correct, presently unreachable" gap
+`DB$ ReplaceDamage`'s own `hedron_field_purists.txt` lines already have), `ValidActivatingPlayer$` (1, "You") through
+`matchesActivatingPlayer` (reused), and `NotFirstLand$` (1) through a new pre-increment read of `Player.LandsPlayed`
+(player.go) — 35 of 42 real lines resolve, `Static$`/`ValidSA$` (7 combined, "Once during each of your turns, you may
+play a historic land..." shapes — `Static$` a trigger ability that resolves off the stack, `ValidSA$` a `SpellAbility`
+`Matches` cannot evaluate) skip via `hasAnyParam`; `OptionalDecider$` (3) is not itself a performTest param at all,
+consumed by the resolving ability's own controller-decision step instead, M6's own remaining territory).
+**`Trigger.phasesCheck` itself lands too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger mode
+carries regardless of what it fires on, checked before any mode-specific dispatch runs at all: `Phase$` restricts a
+trigger of any mode to firing only during named step(s)/phase(s) (reusing `phaseTriggerMatches`, `Mode$ Phase`'s own
+dispatch, generically); `PlayerTurn$`/ `NotPlayerTurn$`/`OpponentTurn$` restrict to (or away from) the host's own
+controller's turn — `OpponentTurn$` collapsing to `NotPlayerTurn$`'s own check in this port's no-team model;
+`FirstCombat$` resolves to a hardcoded `true` (this port has no extra-combat mechanism to ever make a second combat
+phase reachable, the identical reasoning `combatdamage.go`'s own `CombatDamage$` check already uses). Closes 43 real
+lines across six already-built modes (`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1,
+`Drawn` 1) that were firing **unconditionally** until now — a wrong answer, not a coverage gap, since this port had
+never checked either key before (sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6
+real `Attacks`/ `AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$`
+(1/2, `Mode$ Phase` only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines,
+dormant). **`Mode$ Untaps` lands too** (`checkUntapsTriggers`, trigger.go) — CR 502.3/603's own "becomes untapped,"
+`Taps`'s own mirror image, called once per card from `untapStep` (turn.go) for every card that actually untaps that step
+(a card already untapped generates no event, `Card.untap()`'s own early return ported as a `wasTapped` guard). One
+battlefield walk covers both a card's own "Inspired" trigger and mesmeric_orb.txt's own bare "whenever a permanent
+becomes untapped," the identical single-walk shape `checkTapsTriggers` already has — 27 of 30 real lines resolve,
+`OptionalDecider$` (3) unresolved. **`ReplacementEffect.requirementsCheck` itself lands too**
+(`replacementRequirementsCheck`, replacement.go) — a general gate every replacement carries regardless of its own
+`Event$`, mirroring `triggerPhasesCheck`'s own role for triggers: `PlayerTurn$` (8 real lines, literal `True` only),
+`ActivePhases$` (1, reusing `phaseTriggerMatches` — now taking its own key as a parameter rather than hardcoding
+`"Phase"`, so `Mode$ Phase`'s own dispatch and this general gate share the identical parser), then
+`triggerCommonRequirementsMet` outright (the identical Java method a trigger's own `performTest` already calls). Folded
+into `damagePreventionMatches`/`untapReplacementMatches`/`replacementTapsOnMove`, closing 7 of 10 previously-skipped
+real `DamageDone`|`Prevent$` lines and 5 of 7 previously-skipped `Untap`|`CantHappen` lines for free, plus fixing a
+real, if narrow, wrong-firing bug: archelos_lagoon_mystic.txt's own "enters tapped" toggle names
 `IsPresent$ Card.Self+tapped/+untapped` restricting its own two replacement lines to only apply while Archelos itself is
 tapped/untapped — unchecked before this, `replacementTapsOnMove` carried no allow-list at all to skip on, so both lines
 matched regardless of Archelos's own state. Two new consumers reuse it outright: `drawPrevented`/`gainLifePrevented`

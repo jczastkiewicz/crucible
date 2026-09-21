@@ -1514,6 +1514,28 @@ printed form.
     comma-list zone restriction `checkPhaseTriggers`'s own `TriggerZones$` (item 26) already has, for a replacement's
     own host zone instead of a trigger's.
 
+    **`Mode$ LandPlayed` is real now too** (CR 305/603.5's own "whenever a player plays a land,"
+    `TriggerLandPlayed.performTest`) — `checkLandPlayedTriggers` (trigger.go), called from `PlayLand` (land.go) right
+    after `checkETBTriggers` — `Player.playLand`'s own real Java ordering (`moveTo`'s own internal ETB firing, then the
+    explicit `runTrigger(LandPlayed, ...)` call, then `addLandPlayedThisTurn()`), which is why `PlayLand`'s own
+    `LandsPlayed++` now runs last too. `ValidCard$` matched the usual way (`Matches`); `Origin$` resolved through
+    `hasZoneOrAny` (ETB triggers' own dispatch, reused) against the land's own origin zone — this port's own `PlayLand`
+    only ever moves a card out of Hand (no `MayPlay$` permission to play from elsewhere yet, M6's own remaining
+    territory), so 8 of the corpus's 9 real non-`Static$` `Origin$` lines (naming Exile or a Hand-excluding zone list)
+    never actually satisfy it today, the identical "mechanically correct, presently unreachable" gap
+    `hedron_field_purists.txt`'s own `DB$ ReplaceDamage` lines already have; the 9th, `Origin$ Hand`, fires normally.
+    `NotFirstLand$` (1) resolves too: a new pre-increment read of `Player.LandsPlayed` (player.go) — the count of lands
+    played strictly before this one, the same value Java's own `performTest` sees since it runs before
+    `addLandPlayedThisTurn()` there too. `ValidActivatingPlayer$` (1, "You") resolves through `matchesActivatingPlayer`
+    (reused) against the land-playing player. `IsPresent$` (3) resolves generically through `triggerEffectAPI`'s own
+    `triggerCommonRequirementsMet` fold-in. 35 of the corpus's own 42 real `T:Mode$ LandPlayed` lines resolve.
+    `Static$`/`ValidSA$` (7 combined — "Once during each of your turns, you may play a historic land..." shapes) skip
+    via `hasAnyParam`: `Static$` marks a trigger ability that resolves without going on the stack, a mechanism this
+    port's own `pushTriggeredAbilities` does not model, and `ValidSA$` matches a `SpellAbility`, an object `Matches`
+    cannot evaluate. `OptionalDecider$` (3) is not itself a `performTest` param at all (`TriggerLandPlayed.java` carries
+    no such check) — consumed by the resolving ability's own controller-decision step, M6's own remaining script-effect
+    territory, not a gate this dispatch checks.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

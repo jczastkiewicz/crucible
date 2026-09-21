@@ -1478,9 +1478,23 @@ printed form.
     own pair already is (item 26), split into a `*Card`/`*Player` pair for the reason
     `checkDamageDoneTriggersToCard`/`ToPlayer` already are. `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/
     `ValidCause$`/`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10 of 72) skip the whole line; the other 146 of
-    218 name `ReplaceWith$` naming `DB$ ReplaceEffect`/`ReplaceDamage`/`RemoveCounter`/`PutCounter`/... — no single
-    shape anywhere near `Moved`'s own 618-line concentration, so no one sub-ability was worth building on its own — not
-    built.
+    218 name `ReplaceWith$` instead — most a real sub-ability substitution (`DB$ ReplaceEffect`/`RemoveCounter`/
+    `PutCounter`/... — no single shape anywhere near `Moved`'s own 618-line concentration, not built), but CR 616's own
+    "Updated" outcome (the event still happens, with a smaller number) is real too: `damageReplaced`/
+    `damageReplacedPlayer` (`replacement.go`) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this
+    file's own `face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own
+    two-outcome half this dispatch can compute by hand — `applyDrawReplacement`'s own "recognize the one shape"
+    precedent applied to a third `Event$` — without a `*Registry` neither call site can reach). A named-SVar `Amount$`
+    (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines, each its own further mechanic — a depleting shield counter,
+    an X spent on the spell, mana paid), one also chaining its own `SubAbility$` (the identical chained-target refusal
+    already given above), stay unresolved; 2 more real lines' own `ValidTarget$ You,Permanent.YouCtrl`/
+    `Permanent,Player` resolve only their card-target half, since `matchesPlayerSpec` does not split a `ValidTarget$` on
+    comma the way `valid.Parse` already does. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the
+    other 12 are never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are
+    referenced only through a Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more are
+    created dynamically at resolution time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) — neither
+    mechanism this port's own script-effect dispatch builds, so `face.Replacements` never discovers them regardless of
+    this dispatch's own shape.
 
     Both families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
     `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each of the two shapes carries — the

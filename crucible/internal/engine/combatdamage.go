@@ -222,7 +222,12 @@ func lethalDamage(target *Card, deathtouch bool) (int, bool) {
 // first (damagePrevented, replacement.go): a prevented instance never
 // happened, so nothing below it -- marking, the event, the trigger check --
 // runs at all, the identical short-circuit Java's own
-// ReplacementResult.Prevented gives it.
+// ReplacementResult.Prevented gives it. damageReplaced (replacement.go, CR
+// 616's own "Updated" outcome) runs next -- "prevent N of that damage"
+// reduces amount rather than skipping the event outright, so the SAME
+// DamageDealt/trigger check below still runs, just against the smaller
+// number, unless the reduction brings it to zero or below, which folds into
+// the identical "nothing happens" return damagePrevented already gives.
 //
 // isCombat is threaded through rather than assumed: every call site until
 // dealDamageEffect (dealdamageeffect.go, M6's own DealDamage) was combat's
@@ -235,6 +240,10 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		return
 	}
 	if g.damagePrevented(source, target, isCombat) {
+		return
+	}
+	amount = g.damageReplaced(source, target, isCombat, amount)
+	if amount <= 0 {
 		return
 	}
 	c := g.Card(target)
@@ -274,10 +283,18 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // CR 614's own "prevent all of this damage" replacement effects are checked
 // first (damagePreventedPlayer, replacement.go), the identical short-circuit
 // dealPermanentDamage's own doc comment gives its own card-target twin.
+// damageReplacedPlayer (replacement.go) runs next, the identical "Updated"
+// outcome dealPermanentDamage's own doc comment already gives -- amount can
+// reach zero here even though every call site guards the ORIGINAL amount
+// being positive, since a reduction can bring it down after the fact.
 // isCombat is threaded through the identical reason dealPermanentDamage's
 // own doc comment gives.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool) {
 	if g.damagePreventedPlayer(source, target, isCombat) {
+		return
+	}
+	amount = g.damageReplacedPlayer(source, target, isCombat, amount)
+	if amount <= 0 {
 		return
 	}
 	var flags EventFlags

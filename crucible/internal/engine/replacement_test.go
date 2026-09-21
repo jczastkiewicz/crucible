@@ -697,3 +697,217 @@ func TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch(t *testing.T) {
 		t.Errorf("a life = %d, want 17 -- PlayerTurn$ True must not apply on b's turn (not a's own)", g.Player(a).Life)
 	}
 }
+
+// TestDamageToPlayerReducedByReplaceDamage proves damageReplaced/
+// damageReplacedPlayer (replacement.go) resolve orbs_of_warding.txt's own
+// real shape: DB$ ReplaceDamage | Amount$ 1 reduces a 3-damage combat hit to
+// 2 rather than skipping the event outright -- CR 616's own "Updated"
+// outcome, distinct from Prevent$ True's "the event does not happen at all".
+func TestDamageToPlayerReducedByReplaceDamage(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Orbs of Warding",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBReplace | Description$ Prevent 1 of that damage.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 1"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 18 {
+		t.Errorf("defender life = %d, want 18 -- 3 damage minus the shield's own Amount$ 1 leaves 2", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReductionClampsAtZero proves a reduction bigger than the
+// incoming damage stops at zero rather than going negative -- CR 616's own
+// "Replaced" outcome once the reduction reaches zero or below, folded into
+// the identical "nothing happens" damagePrevented already gives.
+func TestDamageToPlayerReductionClampsAtZero(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Shield of the Realm",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBReplace | Description$ Prevent 5 of that damage.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 5"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 20 {
+		t.Errorf("defender life = %d, want 20 -- reducing 3 damage by 5 must clamp at 0, not go negative", g.Player(b).Life)
+	}
+}
+
+// replacementCreatureDefPTWithSVar is replacementCreatureDefPT's own
+// SVar-carrying sibling -- damageReplaced's own Card-target tests need both
+// a real R: line and the SVar its own ReplaceWith$ names, the identical
+// pairing replacementEnchantmentDefWithSVar (drawreplaced_test.go) already
+// gives a non-creature host.
+func replacementCreatureDefPTWithSVar(t *testing.T, name, power, toughness, replacement, svarName, svarBody string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Replacements = []string{replacement}
+	raw.Faces[0].SVars.Set(svarName, svarBody)
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDamageToCreatureReducedByReplaceDamage proves damageReplaced's own
+// Card-target half: a blocker reducing incoming damage by 1 (shield_of_the_
+// realm.txt's own "prevent 2 of that damage dealt to equipped creature"
+// shape, simplified to Card.Self the identical way
+// TestDamageToCreaturePreventedByReplacement already does for Prevent$ True)
+// takes 1 less damage than the attacker's own power.
+func TestDamageToCreatureReducedByReplaceDamage(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPTWithSVar(t, "Test Shielded Blocker", "2", "2",
+		"Event$ DamageDone | ValidTarget$ Card.Self | ReplaceWith$ DBReplace | Description$ Prevent 1 of that damage.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 1"), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 2 {
+		t.Errorf("blocker damage marked = %d, want 2 -- 3 damage minus the shield's own Amount$ 1 leaves 2", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToCreatureNotReducedByChainedSubAbility proves a ReplaceWith$
+// target naming its own SubAbility$ is refused outright rather than run with
+// the chained half silently dropped (GO-7): the full 3 damage still applies.
+func TestDamageToCreatureNotReducedByChainedSubAbility(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	raw := &carddb.Card{Filename: "Test Wrongly Shielded Blocker"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Wrongly Shielded Blocker"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Replacements = []string{
+		"Event$ DamageDone | ValidTarget$ Card.Self | ReplaceWith$ DBReplace | Description$ Prevent 1 of that damage, then draw a card.",
+	}
+	raw.Faces[0].SVars.Set("DBReplace", "DB$ ReplaceDamage | Amount$ 1 | SubAbility$ DBDraw")
+	raw.Faces[0].SVars.Set("DBDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	blocker := g.NewCard(def, b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 3 {
+		t.Errorf("blocker damage marked = %d, want 3 -- a chained ReplaceWith$ target must not dispatch, so the full damage must apply", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToPlayerNotReducedByDivideShieldAmount proves DivideShield$ (a
+// shield's own remaining capacity split across more than one simultaneous
+// instance of damage) refuses outright rather than applying the reduction
+// without tracking that split (GO-7): the full 3 damage still applies.
+func TestDamageToPlayerNotReducedByDivideShieldAmount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Divided Shield",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DBReplace | Description$ Prevent damage, divided as you choose.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 3 | DivideShield$ True"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 17 {
+		t.Errorf("defender life = %d, want 17 -- DivideShield$ is not resolved, so the full 3 damage must apply", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch proves
+// ValidSource$ is checked for the ReplaceWith$ shape the identical way
+// TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch already proves
+// it for Prevent$ True: a shield naming Dragon must not reduce damage from a
+// non-Dragon attacker.
+func TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Wrongly Sourced Shield",
+		"Event$ DamageDone | ValidTarget$ You | ValidSource$ Dragon | ReplaceWith$ DBReplace | Description$ Prevent 1 of that damage from Dragons.",
+		"DBReplace", "DB$ ReplaceDamage | Amount$ 1"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 17 {
+		t.Errorf("defender life = %d, want 17 -- ValidSource$ Dragon must not match a non-Dragon attacker", g.Player(b).Life)
+	}
+}

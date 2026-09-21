@@ -16,9 +16,13 @@
 //     (damagePrevented/damagePreventedPlayer, below): 72 name `Prevent$ True`,
 //     ReplacementHandler's own unconditional-void dispatch for that value
 //     (ReplaceDamage.canReplace plus the handler's own Prevent$ branch); the
-//     other 146 name ReplaceWith$ -- a real sub-ability substitution
-//     (DB$ ReplaceEffect/ReplaceDamage/RemoveCounter/PutCounter/..., no single
-//     shape anywhere near Moved's own 618-line concentration), not resolved.
+//     other 146 name ReplaceWith$ -- most a real sub-ability substitution
+//     (DB$ ReplaceEffect/RemoveCounter/PutCounter/..., no single shape
+//     anywhere near Moved's own 618-line concentration, not resolved), but 16
+//     of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own
+//     `face.Replacements` walk can even reach (a partial "prevent N of that
+//     damage" reduction, CR 616's own "Updated" outcome rather than a full
+//     substitution) resolve too (damageReplaced/damageReplacedPlayer, below).
 //
 // Draw and GainLife (39 and 21 real lines) have their own real content too:
 // drawPrevented/gainLifePrevented resolve Prevent$ True (2 and 1 lines), and
@@ -35,11 +39,18 @@
 // trimmed the same way trigger.go's own checkETBTriggers is: CR 616's own
 // "more than one replacement effect could apply, the affected player
 // chooses" procedure needs a PlayerController hook this port does not have,
-// so it is not built at all -- moot for every outcome this file produces
+// so it is not built at all. Moot for most outcomes this file produces
 // (Tapped = true, blocked = true, prevented = true), since applying any of
-// them more than once is a no-op, not a wrong answer: the first real match
-// found is applied (or, for Untap/DamageDone, simply reported) directly and
-// the search stops.
+// those more than once is a no-op, not a wrong answer -- the first real
+// match found is applied (or, for Untap/DamageDone's own Prevent$ half,
+// simply reported) directly and the search stops. Real, if narrow, for
+// damageReplaced's/damageReplacedPlayer's own non-idempotent "prevent N of
+// that damage" reduction (below) and drawReplaced's/gainLifeReplaced's own
+// non-idempotent substitutions: two independent such permanents on one
+// battlefield would only see the first found apply, not both compounding
+// the way a real game lets the affected player choose to stack; not
+// observable against a corpus with no two of any one such shape combined on
+// one battlefield today.
 
 package engine
 
@@ -488,6 +499,200 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 		return false
 	}
 	return replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// damageReplaced is CR 616's own "the event is replaced by a different
+// one" outcome applied to CR 614's own damage family, ReplaceDamageEffect's
+// own third outcome past Prevented/unaffected: DB$ ReplaceDamage | Amount$ N
+// ("prevent N of that damage") REDUCES the incoming amount rather than
+// skipping the event outright (damagePrevented's own bare Prevent$ True,
+// above) -- Java's own ReplacementResult.Updated, the same DamageDealt event
+// still happening with a smaller number, folding into the identical
+// Replaced/"no damage at all" outcome only once the reduction reaches zero
+// or below.
+//
+// Only the first matching line applies: CR 616's own general "more than one
+// replacement effect could apply, the affected player chooses" ordering
+// procedure is not built (the "Not ported yet" table's own row already
+// names this gap), so two independent damage-reducing permanents on one
+// battlefield would only see the first found reduce the hit, not both
+// compounding the way a real game lets the player choose to stack. Not
+// observable against a corpus with no two such permanents combined on one
+// battlefield today.
+//
+// Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, only 27
+// are ever named by a literal top-level `R:Event$ DamageDone` line at all --
+// the same `face.Replacements` walk every other dispatch in this file uses,
+// game-state.md's own "`Event$ DamageDone`" section has the other 12's own
+// accounting (each blocked by an entirely different missing mechanism, not
+// by anything specific to this shape). 16 of those 27 resolve end to end
+// through this and applyDamageReplaceDamage (below): every real line naming
+// a plain integer Amount$, no SubAbility$ of its own and no DivideShield$ (a
+// shield's own remaining capacity split across more than one simultaneous
+// instance of damage in the same resolution, a fold this dispatch has no
+// state for) -- guardian_seraph.txt's/orbs_of_warding.txt's/the five
+// Sphere-of-*.txt's own real "prevent N of that damage" lines among them. 2
+// more of the 27 resolve their own card-target half only
+// (reidane_god_of_the_worthy_valkmira_protectors_shield.txt's/
+// plated_pegasus.txt's own `ValidTarget$ You,Permanent.YouCtrl`/
+// `Permanent,Player` -- valid.Parse's own comma-as-OR already matches the
+// `Permanent...` alternative through Matches below, but matchesPlayerSpec
+// (damageReplacedPlayer, below), unlike valid.Parse, does not split a
+// ValidTarget$ on comma, so "or dealt to you" itself never resolves -- a
+// general ValidTarget$ comma dispatch across both matchers is not built).
+// The remaining 9 name a named-SVar Amount$ this dispatch cannot resolve
+// (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, each its own further
+// mechanic -- a depleting shield counter, an X spent on the spell, mana
+// paid, ...), one (rock_hydra.txt's) also chaining its own `SubAbility$`
+// (the identical chained-target refusal `applyDrawReplacement` already
+// gives, GO-7).
+func (g *Game) damageReplaced(source, target CardID, isCombat bool, amount int) int {
+	targetCard := g.Card(target)
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts) {
+							continue
+						}
+						if validTarget, ok := r.Param("ValidTarget"); ok &&
+							!Matches(g, targetCard, valid.Parse(validTarget), h.Controller(), host) {
+							continue
+						}
+						for _, sub := range r.Subs {
+							if !strings.EqualFold(sub.Key, "ReplaceWith") {
+								continue
+							}
+							if reduced, ok := applyDamageReplaceDamage(g, host, sub.Ability, face.Amounts, amount); ok {
+								return reduced
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return amount
+}
+
+// damageReplacedPlayer is damageReplaced's own player-target twin, the
+// identical split damagePreventedPlayer already has from damagePrevented:
+// ValidTarget$ matched against a Player through matchesPlayerSpec rather
+// than Matches.
+func (g *Game) damageReplacedPlayer(source CardID, target PlayerID, isCombat bool, amount int) int {
+	for _, pid := range g.Players() {
+		for _, z := range replacementZones {
+			for _, host := range g.Zone(z, pid).Cards() {
+				h := g.Card(host)
+				if h.Def == nil {
+					continue
+				}
+				for _, face := range h.Def.Faces {
+					for _, r := range face.Replacements {
+						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts) {
+							continue
+						}
+						if validTarget, ok := r.Param("ValidTarget"); ok {
+							matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
+							if !recognized || !matched {
+								continue
+							}
+						}
+						for _, sub := range r.Subs {
+							if !strings.EqualFold(sub.Key, "ReplaceWith") {
+								continue
+							}
+							if reduced, ok := applyDamageReplaceDamage(g, host, sub.Ability, face.Amounts, amount); ok {
+								return reduced
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return amount
+}
+
+// damageReplacementMatches is damagePreventionMatches' own ReplaceWith$
+// sibling: Event$ DamageDone, ReplaceWith$ present instead of Prevent$ True,
+// otherwise the identical gate (ActiveZones$/ValidSource$/IsCombat$/
+// replacementRequirementsCheck) -- the general params real corpus lines
+// pair with either shape are the same set.
+func damageReplacementMatches(g *Game, r *compile.Ability, source CardID, hostController PlayerID, host CardID, hostZone ZoneType, isCombat bool, amounts map[string]expr.Amount) bool {
+	if !strings.EqualFold(r.Name, "DamageDone") {
+		return false
+	}
+	if _, ok := r.Param("ReplaceWith"); !ok {
+		return false
+	}
+	for _, p := range r.Params {
+		switch strings.ToLower(p.Key) {
+		case "event", "replacewith", "description", "validtarget", "activezones", "validsource", "iscombat", "secondary",
+			"playerturn", "checksvar", "svarcompare", "ispresent", "preventioneffect":
+		default:
+			return false
+		}
+	}
+	if !hostInActiveZones(r, hostZone) {
+		return false
+	}
+	if validSource, ok := r.Param("ValidSource"); ok && !Matches(g, g.Card(source), valid.Parse(validSource), hostController, host) {
+		return false
+	}
+	if combat, ok := r.Param("IsCombat"); ok && strings.EqualFold(combat, "True") != isCombat {
+		return false
+	}
+	return replacementRequirementsCheck(g, g.Card(host), amounts, r)
+}
+
+// applyDamageReplaceDamage runs a plain "DB$ ReplaceDamage | Amount$ N"
+// ReplaceWith$ target directly -- applyDrawReplacement's own "recognize the
+// one shape, run it by hand" precedent (GO-7), ReplaceDamageEffect.resolve's
+// own two-outcome half this dispatch can actually compute without a
+// *Registry (effect.go) neither damageReplaced's nor damageReplacedPlayer's
+// own caller chain (combatdamage.go, dealPermanentDamage/dealPlayerDamage)
+// has a way to reach. SubAbility$ and DivideShield$ of its own both refuse
+// outright rather than run partially: a chained SubAbility$ needs the
+// identical *Registry every other hand-run dispatch in this file already
+// refuses on, and DivideShield$ splits one shield's own remaining capacity
+// across more than one simultaneous instance of damage in the same
+// resolution, a fold this dispatch keeps no state for. Amount$ defaults to
+// 1, matching Java's own getParamOrDefault -- no real corpus line among the
+// 39 omits it, but ReplaceDamageEffect.resolve's own default is real.
+// Reports the reduced amount (clamped at 0, never negative) and whether a
+// recognized shape actually ran.
+func applyDamageReplaceDamage(g *Game, host CardID, a *compile.Ability, amounts map[string]expr.Amount, amount int) (int, bool) {
+	if !strings.EqualFold(a.Name, "ReplaceDamage") {
+		return amount, false
+	}
+	if _, ok := a.Param("SubAbility"); ok {
+		return amount, false
+	}
+	if _, ok := a.Param("DivideShield"); ok {
+		return amount, false
+	}
+	prevent := 1
+	if v, ok := a.Param("Amount"); ok {
+		parsed, ok := resolveNamedAmount(g, amounts, g.Card(host), v)
+		if !ok {
+			return amount, false
+		}
+		prevent = parsed
+	}
+	if prevent <= 0 {
+		return amount, true
+	}
+	reduced := amount - prevent
+	if reduced < 0 {
+		reduced = 0
+	}
+	return reduced, true
 }
 
 // drawPrevented is CR 121.4/614's own "prevent this draw" shape (Prevent$

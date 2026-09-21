@@ -306,27 +306,44 @@ for every real value that param carries. CR 614's own "prevent all of this damag
 lines (`Prevent$ True`, `ReplaceDamage.canReplace`'s own resolvable half plus `ReplacementHandler`'s own unconditional-
 void dispatch for that value), called from `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) before marking any
 damage or emitting `DamageDealt`; `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/`ValidCause$`/
-`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10) skip the line, and the other 146 name `ReplaceWith$` naming
-`DB$ ReplaceEffect`/`ReplaceDamage`/`RemoveCounter`/`PutCounter`/... — no shape anywhere near Moved's own 618-line
-concentration — not built. Both families share a new `replacementActiveZones`/`hostInActiveZones` (replacement.go),
-generalizing `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each carries — the identical
-comma-list `checkPhaseTriggers`'s own `TriggerZones$` already has, for a replacement's own zone restriction instead of a
-trigger's. M6 in progress alongside it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to
-actually resolve rather than report `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a
-trigger's own `Defined$`/`NumCards$` onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the
-second — 62 of the corpus's 2,219 real `(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/
-`Opponent`/`Self` (out of 822 naming any `Defined$` at all) and carry no other unresolved param — reusing combat's own
-damage machinery directly: `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) gained an `isCombat bool`
-parameter (every prior call site combat's own, now passing `true` explicitly; `DealDamage` is the first to pass
-`false`), threading through to `damagePrevented`/`damagePreventedPlayer` (CR 614's own "prevent all of this damage,"
-item 26) and to a conditional `FlagCombat` (event.go's own doc comment: "marks damage dealt in combat rather than by an
-effect," dormant until now). `Ability` also gained an `Amounts` field, threaded through all eighteen check-triggers call
-sites (`face.Amounts`, already in scope at each) — `NumDmg$`'s own named-SVar shape resolves through
-`resolveNamedAmount` (amount.go) the identical way a continuous effect's own numeric params already do, and `Draw`'s own
-`NumCards$` was upgraded to the same resolver for free. `definedPlayers` (new `defined.go`) is `drawDefinedPlayers`
-renamed and relocated once `DealDamage` needed the identical `You`/`Opponent`/`Player.Opponent` resolution — neither
-effect owns it outright. `Defined$ Self` resolves against the ability's own host card directly, `HasKeyword` reading its
-own `Deathtouch` for `dealPermanentDamage`'s own flag exactly as combat already does.
+`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10) skip the line, and the other 146 name `ReplaceWith$` instead —
+most a real sub-ability substitution (`DB$ ReplaceEffect`/`RemoveCounter`/`PutCounter`/... — no shape anywhere near
+Moved's own 618-line concentration, not built), but CR 616's own "Updated" outcome (the event still happens, with a
+smaller number, rather than being skipped or substituted outright) is real now too — `damageReplaced`/
+`damageReplacedPlayer` (replacement.go) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own
+`face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own two-outcome
+half this dispatch can compute without a `*Registry`), called from `dealPermanentDamage`/`dealPlayerDamage` right after
+`damagePrevented`/`damagePreventedPlayer` and reducing the same `amount` the marking/event/trigger-check below it
+already reads, so a trigger checking `DamageAmount$` sees the reduced number. A named-SVar `Amount$`
+(`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines — a depleting shield counter, an X spent on the spell, mana paid,
+...), one also chaining its own `SubAbility$` (the identical chained-target refusal `applyDrawReplacement` already
+gives), stay unresolved, and 2 more real lines' `ValidTarget$ You,Permanent.YouCtrl`/`Permanent,Player` only resolve
+their own card-target half — `matchesPlayerSpec`, unlike `valid.Parse`, does not split a `ValidTarget$` on comma, so "or
+dealt to you" itself never fires. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the other 12 are
+never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are referenced only through a
+Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more (`forcefield.txt`'s/
+`ajani_steadfast.txt`'s/`torrent_of_lava.txt`'s among them) are created dynamically at resolution time by `DB$ Effect`'s
+own `ReplacementEffects$` param (CR 611.2c) — neither mechanism this port's own script-effect dispatch builds, so
+`face.Replacements` never discovers them regardless of this dispatch's own shape. Both families share a new
+`replacementActiveZones`/`hostInActiveZones` (replacement.go), generalizing `ActiveZones$` past Battlefield alone to the
+2 real Command-zone lines each carries — the identical comma-list `checkPhaseTriggers`'s own `TriggerZones$` already
+has, for a replacement's own zone restriction instead of a trigger's. M6 in progress alongside it: `Draw`
+(`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
+`ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
+onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the second — 62 of the corpus's 2,219 real
+`(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/ `Opponent`/`Self` (out of 822 naming any
+`Defined$` at all) and carry no other unresolved param — reusing combat's own damage machinery directly:
+`dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) gained an `isCombat bool` parameter (every prior call site
+combat's own, now passing `true` explicitly; `DealDamage` is the first to pass `false`), threading through to
+`damagePrevented`/`damagePreventedPlayer` (CR 614's own "prevent all of this damage," item 26) and to a conditional
+`FlagCombat` (event.go's own doc comment: "marks damage dealt in combat rather than by an effect," dormant until now).
+`Ability` also gained an `Amounts` field, threaded through all eighteen check-triggers call sites (`face.Amounts`,
+already in scope at each) — `NumDmg$`'s own named-SVar shape resolves through `resolveNamedAmount` (amount.go) the
+identical way a continuous effect's own numeric params already do, and `Draw`'s own `NumCards$` was upgraded to the same
+resolver for free. `definedPlayers` (new `defined.go`) is `drawDefinedPlayers` renamed and relocated once `DealDamage`
+needed the identical `You`/`Opponent`/`Player.Opponent` resolution — neither effect owns it outright. `Defined$ Self`
+resolves against the ability's own host card directly, `HasKeyword` reading its own `Deathtouch` for
+`dealPermanentDamage`'s own flag exactly as combat already does.
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of 822) are resolved too
 (`subAbilityConditionMet`, below). Not resolved: `DamageSource$` (17 of 822 real `Defined$` lines — a source other than
 the ability's own host); `SubAbility$` no longer blocks (9 of 316 real SVar-defined lines naming it chain to an

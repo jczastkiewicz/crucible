@@ -1048,6 +1048,102 @@ func isSacrificedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Sacrificed")
 }
 
+// checkChangesZoneAllTriggers is CR 603.6d's own "one or more permanents
+// change zones together" trigger, Mode$ ChangesZoneAll, ported from
+// TriggerChangesZoneAll.performTest -- Mode$ ChangesZone's own batched
+// sibling (CardZoneTable in Java): a board wipe fires "whenever one or more
+// creatures you control die" ONCE, naming the whole group, rather than once
+// per card the way the ordinary Dies trigger already does.
+//
+// Called once per batch of cards a single game action moved together, all
+// sharing the identical origin and destination: destroyLethalToughness/
+// destroyDamagedCreatures (action.go, CR 704.5g/h's own simultaneous SBA
+// sweep) and sacrificeCards (sacrificeeffect.go, SacrificeEffect.java's/
+// SacrificeAllEffect.java's own `zoneMovements.triggerChangesZoneAll` call,
+// ported directly). This is this port's own simplification of Java's real
+// CardZoneTable, which can hold cards with different origins in the same
+// table: every call site this port has today moves its whole batch the
+// identical way (Battlefield to Graveyard), so cards/origin/destination
+// being one uniform triple rather than a per-card table loses nothing
+// observable yet. A future call site mixing origins within one action
+// would need a richer per-card table, not built.
+//
+// Every card already left the battlefield by the time this runs (every
+// real call site moves first, then calls this), so -- unlike
+// checkSacrificedTriggers, which runs before the move -- there is no
+// own-half/other-half split to get wrong here: a card that was itself part
+// of the batch is no longer on the battlefield to be asked about its own
+// trigger, the identical reason otherDiesTriggerMatches' own doc comment
+// gives for needing no such guard either. ValidCard$ matching reads each
+// card's own g.LKI snapshot when one exists (checkDiesTriggers' own
+// pattern) so a Destination$ Graveyard line still sees the card's own
+// pre-move power/toughness/type/keywords/counters, not the printed-only
+// state Move has already reset it to.
+func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []CardID, origin, destination ZoneType) {
+	if len(cards) == 0 {
+		return
+	}
+	var matches []Ability
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isChangesZoneAllTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "ActivationLimit", "ValidCause", "ResolvedLimit", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
+						continue
+					}
+					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
+						continue
+					}
+					if len(changesZoneAllMatchingCards(g, t, cards, h.Controller(), host)) == 0 {
+						continue
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// changesZoneAllMatchingCards is checkChangesZoneAllTriggers' own ValidCards$
+// filter -- TriggerChangesZoneAll.filterCards' own type half (the
+// zone/origin/destination half already ran before this is called). An
+// absent ValidCards$ matches every card in the batch, Java's own
+// `table.filterCards` called with a null `valid` never narrowing further.
+func changesZoneAllMatchingCards(g *Game, t *compile.Ability, cards []CardID, sourceController PlayerID, source CardID) []CardID {
+	validCards, ok := t.Param("ValidCards")
+	if !ok {
+		return cards
+	}
+	spec := valid.Parse(validCards)
+	var matched []CardID
+	for _, cid := range cards {
+		c := g.Card(cid)
+		if snap := g.LKI(cid); snap != nil {
+			c = snap
+		}
+		if Matches(g, c, spec, sourceController, source) {
+			matched = append(matched, cid)
+		}
+	}
+	return matched
+}
+
+// isChangesZoneAllTrigger reports whether t is CR 603.6d's "changes zones
+// together" shape: Mode$ ChangesZoneAll.
+func isChangesZoneAllTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "ChangesZoneAll")
+}
+
 // checkTapsTriggers is CR 603's own "whenever ~ becomes tapped" mode, Mode$
 // Taps, ported from TriggerTaps.performTest -- the identical single-walk
 // shape checkAttacksTriggers/checkBlocksTriggers/checkDamageDoneTriggersToCard

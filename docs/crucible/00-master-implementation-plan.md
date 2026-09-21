@@ -1148,6 +1148,34 @@ printed form.
     not once for the ability as a whole — a watching permanent's own life-gain trigger fires twice for two sacrificed
     creatures in one `SacrificeAll` resolution.
 
+    **CR 603.6d's own `Mode$ ChangesZoneAll` is real now too** (`checkChangesZoneAllTriggers`, trigger.go, ported from
+    `TriggerChangesZoneAll.performTest`) — `Mode$ ChangesZone`'s own batched sibling, firing once for a whole group of
+    cards that changed zones together (a board wipe's own "whenever one or more creatures you control die") rather than
+    once per card the way the ordinary Dies trigger already does. Called once per batch a single game action moves
+    together, every card in the batch sharing the identical origin and destination: `sacrificeCards`
+    (sacrificeeffect.go, `Sacrifice`'s and `SacrificeAll`'s own shared caller, `SacrificeEffect.java`'s/
+    `SacrificeAllEffect.java`'s own trailing `zoneMovements.triggerChangesZoneAll` call ported directly) and
+    `destroyLethalToughness`/`destroyDamagedCreatures` (action.go, CR 704.5f-h's own simultaneous SBA sweeps). This is a
+    deliberate simplification of Java's own `CardZoneTable`, which can hold cards with different origins in one table:
+    every call site this port has today moves its whole batch the identical way, so a `cards []CardID` triple with one
+    shared `origin`/`destination` loses nothing observable yet — a future call site mixing origins within one action
+    would need a richer per-card table, not built. Every card has already left the battlefield by the time this runs, so
+    unlike `checkSacrificedTriggers` there is no own-half/other-half split to get wrong: a card that was itself part of
+    the batch is no longer on the battlefield to be asked about its own trigger. `Destination$`/`Origin$` resolve
+    through `hasZoneOrAny` (reused from the ETB/Dies dispatch), `ValidCards$` through `Matches` against each card's own
+    `g.LKI` snapshot when one exists (`checkDiesTriggers`'s own pattern, so a `Destination$ Graveyard` line still sees
+    the card's pre-move state), and `PlayerTurn$`/`OptionalDecider$`/the whole `IsPresent$`/`CheckSVar$`/... family
+    through the shared `triggerEffectAPI` gate. 77 of the corpus's own 126 real lines resolve. Not resolved:
+    `ActivationLimit$` (41) — the identical per-turn-cap gap `LifeGained`'s own already documents; `ValidCause$` (4) — a
+    `SpellAbility`, not a `Card`, `Matches` cannot evaluate one; `ResolvedLimit$` (3),
+    `NoResolvingCheck$`/`InvertValidCause$`/`FirstTime$` (1 each) — each its own further mechanic or unclear semantics.
+    A trigger carrying any of these six is skipped entirely, not fired unconditionally (GO-7). Two creatures killed by
+    `destroyLethalToughness` and one killed by `destroyDamagedCreatures` in the identical `CheckStateBasedActions` call
+    fire two separate `ChangesZoneAll` batches rather than one shared one — this port's own SBA split into one function
+    per CR 704.5 clause, rather than Java's single combined pass, is narrower than CR 704.3's own full simultaneity, a
+    real, narrow simplification not observable against a corpus with no card that cares which SBA clause killed which
+    creature.
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at
@@ -1417,7 +1445,7 @@ printed form.
 
     **CR 603.3d's own "may" triggered ability is real now too** — `Ability` (ability.go) gained an `Optional bool`
     field, true only for `OptionalDecider$ You`, resolved by a new `triggerIsOptional` (trigger.go) folded into
-    `triggerEffectAPI`'s own shared gate every one of its twenty-three call sites already runs through.
+    `triggerEffectAPI`'s own shared gate every one of its twenty-five call sites already runs through.
     `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
     dispatching to the effect or chaining its own `SubAbility$` at all — `WrappedAbility.resolve()`'s own
     `decider.getController().confirmTrigger(this)`, checked right before its own `playSpellAbilityNoStack` call, ported

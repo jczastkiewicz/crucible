@@ -216,7 +216,12 @@ func annihilateCounters(g *Game, id CardID) {
 //
 // Candidates are collected before Move runs, the same reason
 // cleanupDanglingAttachments collects first: Move mutates the battlefield
-// zone this ranges over.
+// zone this ranges over. Once every dead creature has actually moved, Mode$
+// ChangesZoneAll fires once for the whole batch (checkChangesZoneAllTriggers,
+// trigger.go) -- CR 704.3's own "all applicable SBAs performed
+// simultaneously," a board wipe's own "whenever one or more creatures you
+// control die" firing once naming every creature this SBA killed together,
+// not once per creature.
 func destroyLethalToughness(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
@@ -234,6 +239,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) {
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	g.checkChangesZoneAllTriggers(controller, dead, Battlefield, Graveyard)
 }
 
 // destroyDamagedCreatures is CR 704.5g and 704.5h together, GameAction.java's
@@ -256,7 +262,16 @@ func destroyLethalToughness(g *Game, controller PlayerController) {
 // reason.
 //
 // Candidates are collected before Move runs, the same reason every other
-// SBA in this file does.
+// SBA in this file does. Mode$ ChangesZoneAll fires once for the whole
+// batch too, destroyLethalToughness's own doc comment has the reason --
+// this port's own SBA split (a separate function per CR 704.5 clause,
+// rather than Java's single combined pass) means a creature killed by
+// destroyLethalToughness and one killed by destroyDamagedCreatures in the
+// identical CheckStateBasedActions call fire two separate
+// ChangesZoneAll batches rather than one shared one: a real, narrow
+// simplification against CR 704.3's own full simultaneity, not observable
+// against a corpus with no card that cares which of the two SBA clauses
+// killed which creature.
 func destroyDamagedCreatures(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
@@ -278,6 +293,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) {
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	g.checkChangesZoneAllTriggers(controller, dead, Battlefield, Graveyard)
 }
 
 // destroyZeroLoyalty is CR 704.5's planeswalker-loyalty rule -- Java's own

@@ -586,7 +586,7 @@ under this mode. 35 of the corpus's own 35 real lines resolve — every real lin
 the shared dispatch, 0 real lines naming `Condition$`/`OptionalDecider$`/`CheckDefinedPlayer$`/`IsPresent$` the way the
 plain `AttackersDeclared` mode's own remainder does. **CR 603.3d's own "may" triggered ability is real now too** --
 `Ability` gained an `Optional bool` field, true only for `OptionalDecider$ You` (`triggerEffectAPI`'s own new
-`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-three of its own call sites already run through)
+`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-five of its own call sites already run through)
 -- `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
 dispatching to the effect OR chaining its own `SubAbility$` at all, `WrappedAbility.resolve()`'s own
 `decider.getController().confirmTrigger(this)` ported directly: a decline skips the whole ability, chain included, the
@@ -683,13 +683,30 @@ of the corpus's own 140 real lines resolve; `UnlessCost$`/`UnlessPayer$` (6/6) �
 gap `Sacrifice`'s own already documents; `ConditionDefined$` (3), `Planeswalker$`/`Activator$`/`SorcerySpeed$`/
 `ImprintSacrificed$` (1 each) stay unresolved. It shares `sacrificeCards` (sacrificeeffect.go) outright with
 `sacrificeEffect`, so `RememberSacrificed$` and CR 701.20's own `Mode$ Sacrificed` trigger both fire once per card in
-the whole blanket set, not once for the ability as a whole. **Targeting itself landed** (`targeting.go`) — CR
-601.2c/603.3b's own "choose targets," this port's own most-cited gap across every effect built so far (`ValidTgts$` in
-every one of their own "not resolved" lists above). `resolveTargets` runs the moment an ability is pushed onto the stack
-(`pushTriggeredAbilities`, `trigger.go`, this port's only pusher today), computing `ValidTgts$`'s own legal candidates —
-every player still in the game (`matchesPlayerSpec`, reused) or every card on any battlefield (`Matches`, reused) — and
-asking a new `PlayerController` method, `ChooseTargets` (its twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1
-when neither is named). A structural shape this port does not parse
+the whole blanket set, not once for the ability as a whole. CR 603.6d's own `Mode$ ChangesZoneAll` — the batched sibling
+of `Mode$ ChangesZone` itself, firing once for a whole group of cards that changed zones together rather than once per
+card — is real now too (`checkChangesZoneAllTriggers`, `trigger.go`, ported from `TriggerChangesZoneAll.performTest`).
+Called once per uniform-origin/uniform-destination batch a single game action moves together — `sacrificeCards`
+(sacrificeeffect.go, both `Sacrifice`'s and `SacrificeAll`'s own shared caller) and
+`destroyLethalToughness`/`destroyDamagedCreatures` (`action.go`, CR 704.5f-h's own simultaneous SBA sweeps) — rather
+than through a general `CardZoneTable`-style architecture threaded through every mover in the engine: every call site
+this port has today moves its own batch through one uniform zone pair, so a `cards []CardID` triple with a shared
+`origin`/`destination` loses nothing observable yet. `ValidCards$` matches each card's `g.LKI` snapshot when one exists,
+`checkDiesTriggers`'s own pattern, so a `Destination$ Graveyard` line still sees pre-move state. 77 of the corpus's own
+126 real lines resolve (`Destination$`/`Origin$` through `hasZoneOrAny`, reused from ETB/Dies;
+`PlayerTurn$`/`OptionalDecider$`/the whole `IsPresent$`/`CheckSVar$`/... family through the shared `triggerEffectAPI`
+gate); `ActivationLimit$`/`ValidCause$`/`ResolvedLimit$`/`NoResolvingCheck$`/`InvertValidCause$`/`FirstTime$` (41/4/3/
+1/1/1) skip the whole line rather than firing unconditionally (GO-7). Two creatures killed by `destroyLethalToughness`
+and `destroyDamagedCreatures` in the same `CheckStateBasedActions` call fire two separate batches rather than one shared
+one — this port's own SBA split into one function per CR 704.5 clause rather than Java's single combined pass, narrower
+than CR 704.3's own full simultaneity but not observable against a corpus with no card that cares which SBA clause
+killed which creature. **Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this
+port's own most-cited gap across every effect built so far (`ValidTgts$` in every one of their own "not resolved" lists
+above). `resolveTargets` runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`,
+this port's only pusher today), computing `ValidTgts$`'s own legal candidates — every player still in the game
+(`matchesPlayerSpec`, reused) or every card on any battlefield (`Matches`, reused) — and asking a new `PlayerController`
+method, `ChooseTargets` (its twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A
+structural shape this port does not parse
 (`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real lines)
 folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
 indistinguishable from outside, and both mean the ability does nothing. Threading a `PlayerController` down to

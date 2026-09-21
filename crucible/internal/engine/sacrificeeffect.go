@@ -150,9 +150,16 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 // battlefield (already sacrificed earlier in the same chosen slice, or
 // moved away by an earlier link in a SubAbility$ chain) is skipped, the
 // identical "already gone" guard checkDiesTriggers' own callers give an
-// SBA-driven death.
+// SBA-driven death. Once every card in ids has actually been sacrificed,
+// Mode$ ChangesZoneAll fires once for the whole batch
+// (checkChangesZoneAllTriggers, trigger.go) -- SacrificeEffect.java's/
+// SacrificeAllEffect.java's own trailing `zoneMovements.
+// triggerChangesZoneAll(game, sa)` call, ported directly, whether the
+// batch held one card (the plain Sacrifice effect) or several
+// (SacrificeAll).
 func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []CardID) {
 	_, remember := a.Params.Param("RememberSacrificed")
+	var sacrificed []CardID
 	for _, id := range ids {
 		c := g.Card(id)
 		if c.Zone != Battlefield {
@@ -165,5 +172,7 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 		}
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
+		sacrificed = append(sacrificed, id)
 	}
+	g.checkChangesZoneAllTriggers(controller, sacrificed, Battlefield, Graveyard)
 }

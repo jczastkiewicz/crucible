@@ -192,7 +192,8 @@
       "amount",
       "putcountereffect",
       "parts",
-      "event"
+      "event",
+      "phase"
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card"],

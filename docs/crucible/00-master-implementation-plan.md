@@ -1245,7 +1245,7 @@ printed form.
     its `Event$ Draw` replacement before ever looking at whether the library is empty, so a prevented draw cannot also
     trigger CR 704.5b's own "attempted to draw from an empty library" loss. `gainLifePrevented` is checked from
     `gainLifeEffect` (gainlifeeffect.go) per player before `Player.Life` is touched at all. The other 36 real `Draw`
-    lines and 20 real `GainLife` lines name `ReplaceWith$` instead of `Prevent$` — a real substitution, 3 of the 36 and
+    lines and 20 real `GainLife` lines name `ReplaceWith$` instead of `Prevent$` — a real substitution, 7 of the 36 and
     4 of the 20 resolved by `drawReplaced`/`gainLifeReplaced` below.
 
     `matchesPlayerProperty` (valid.go) resolves two more real `Phase`-mode qualified `ValidPlayer$` forms now, both
@@ -1271,14 +1271,22 @@ printed form.
     produced (its `hasRun` set), a per-line recursion guard this port does not build, so reusing the unguarded primitive
     instead sidesteps needing one, at the cost of a real, narrow simplification: the replacement's own draws are not
     themselves checked against any other replacement or prevention effect on the battlefield either — not observable
-    against a corpus with no two Draw-replacing permanents on one battlefield today, but not full CR 616 either. 3 of
+    against a corpus with no two Draw-replacing permanents on one battlefield today, but not full CR 616 either. 7 of
     the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to end: thought_reflection.txt's own bare
-    "draw two cards instead," phial_of_galadriel.txt's own `Hellbent$ True`-qualified identical shape, and
-    ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather than `Draw`. Not
-    resolved: 5 more real lines targeting the identical plain `DB$ Draw` shape but blocked by a per-draw-step tracker
-    this port does not have (`FirstExtraCardDrawnThisTurn$`/ `NotFirstCardInDrawStep$`); 4 naming
-    `Defined$ ReplacedPlayer`, a token `definedPlayers` has no case for; 1 whose own target chains a further
-    `SubAbility$`; and the 2 already-documented gaps (`Player.Chosen`/`Optional$`).
+    "draw two cards instead," phial_of_galadriel.txt's own `Hellbent$ True`-qualified identical shape,
+    ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather than `Draw`, and
+    teferis_ageless_insight.txt's/alhammarrets_archive.txt's/bard_king_of_dale.txt's own real "except the first one you
+    draw in each of your draw steps, draw two cards instead" (`NotFirstCardInDrawStep$ True`, resolved through a new
+    `notFirstCardInDrawStepExempts`/`Player.DrawnThisDrawStep` pair — reset every Draw step, incremented per draw while
+    the phase is Draw). notion_thief.txt's own real "except the first one they draw ..., instead you draw a card"
+    (`ValidPlayer$ Opponent`) resolves through the identical gate, needing `applyDrawReplacementDraw`'s own
+    `Defined$ You` reading corrected from the event's own affected player to the replacement's host controller instead —
+    every previously-resolved line's own `ValidPlayer$` happened to be `You` too, so the two had never needed telling
+    apart before. Not resolved: reed_richards_smartest_man.txt's own `FirstExtraCardDrawnThisTurn$`; hullbreacher.txt's
+    own identical `NotFirstCardInDrawStep$` shape, whose own target is `DB$ Token` rather than `Draw`/`PutCounter`
+    (`CreateToken` is not a built `Effect` yet); 4 naming `Defined$ ReplacedPlayer`, a token `definedPlayers` has no
+    case for; 1 whose own target chains a further `SubAbility$`; and the 2 already-documented gaps
+    (`Player.Chosen`/`Optional$`).
 
     **`GainLife` gets the same dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling,
     resolving the one runtime value `Draw`'s own dispatch never needed: `ReplaceCount$LifeGained`, "the amount of life

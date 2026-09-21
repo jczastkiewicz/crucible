@@ -71,6 +71,20 @@ type Player struct {
 	// Graveyard, reset for every player at cleanup (cleanupStep, turn.go) the
 	// identical way LandsPlayed/CardsDrawnThisTurn already are.
 	DescendedThisTurn bool
+	// DrawnThisDrawStep is how many cards this player has drawn while the
+	// game's current phase is Draw (Java's own numDrawnThisDrawStep,
+	// Player.java) -- distinct from CardsDrawnThisTurn's whole-turn count:
+	// reset for every player at the start of each Draw step (drawStep,
+	// turn.go, ReplaceDraw's own PhaseHandler.java:268-271 reset), never at
+	// cleanup, and incremented for whichever player actually draws (drawOneCard,
+	// turn.go) regardless of whose turn it is -- a non-active player who draws
+	// an extra card while the active player's own Draw step is still current
+	// counts too, the identical scope Java's own unconditional
+	// game.getPhaseHandler().is(PhaseType.DRAW) check has. Read by
+	// notFirstCardInDrawStepExempts (replacement.go) for
+	// NotFirstCardInDrawStep$'s own "except the first one they draw in each
+	// of their draw steps" exemption.
+	DrawnThisDrawStep int
 	// Rules is Layer 8's own continuous effects currently affecting this
 	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/

@@ -2439,31 +2439,30 @@ Draw-replacing permanents would see only the first apply, not both compounding t
 `hasRun`-guarded recursion) actually allows. No real corpus deck combines two such permanents today, so this is not
 observable against the corpus, and is flagged rather than silently accepted.
 
-3 of the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to end: thought_reflection.txt's own bare
+7 of the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to end: thought_reflection.txt's own bare
 form (`ValidPlayer$ You`, target `DB$ Draw | Defined$ You | NumCards$ 2`); phial_of_galadriel.txt's own
 `Hellbent$ True`-qualified identical shape ("while you have no cards in hand," resolved through
 `replacementRequirementsCheck`'s own `triggerCommonRequirementsMet` fold-in with no code of its own needed);
 ormos_archive_keeper.txt's own `IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0`-qualified line,
 whose own target is `DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 5 | Defined$ Self` rather than a `Draw` at all
-("if your library has no cards in it, instead put five +1/+1 counters on CARDNAME").
+("if your library has no cards in it, instead put five +1/+1 counters on CARDNAME"); and 4 more resolved through
+`NotFirstCardInDrawStep$`'s own gate, the next section below.
 
 Not resolved, each for its own real reason found while dumping every real `Event$ Draw | ReplaceWith$` line and checking
-what its own target ability actually needs: reed_richards_smartest_man.txt's own `FirstExtraCardDrawnThisTurn$` and
-notion_thief.txt's/teferis_ageless_insight.txt's/alhammarrets_archive.txt's/bard_king_of_dale.txt's own
-`NotFirstCardInDrawStep$` (5 real lines, all targeting the identical plain `DB$ Draw | Defined$ You | NumCards$ N` shape
-`drawReplaced` already resolves -- only the general-gate param blocks them, since this port tracks no per-draw-step "how
-many cards has this player drawn during this specific step" counter, distinct from `CardsDrawnThisTurn`'s own per-turn
-scope); magus_of_the_chains.txt's/chains_of_mephistopheles.txt's own `Defined$ ReplacedPlayer` plus `SubAbility$ DBDraw`
-and breathstealers_crypt.txt's/sea_of_sand.txt's own `Defined$ ReplacedPlayer` plus `SubAbility$` (4 combined -- "the
-player who would have drawn" as a general `Defined$` token, distinct from this dispatch's own narrow `player`-parameter
-reading above, which only ever covers the literal token `You`); blood_scrivener.txt's own `SubAbility$ DBLoseLife` alone
-(1, the chained-target refusal above); booby_trap.txt's own `ValidPlayer$ Player.Chosen` (1, `matchesPlayerSpec`'s own
-doc comment) and pursuit_of_knowledge.txt's own `Optional$ True` (1, `Discard`'s own `Optional$` gap).
-`alms_collector.txt`'s/`quantum_riddler.txt`'s own two real lines name `Event$ DrawCards` rather than `Event$ Draw` --
-Java's own OUTER, once-per-batch-call replacement check (`Player.drawCards`'s own `ReplacementType.DrawCards` dispatch,
-checked before its per-card loop even starts, distinct from `ReplacementType.Draw` inside `doDraw()` that every other
-real line in this file targets) -- a different granularity this port's own per-card `DrawCards` loop has nowhere to
-hook, not attempted.
+what its own target ability actually needs: reed_richards_smartest_man.txt's own `FirstExtraCardDrawnThisTurn$` (1);
+hullbreacher.txt's own `NotFirstCardInDrawStep$` shape, whose own target is `DB$ Token | TokenScript$ c_a_treasure_sac`
+rather than `Draw`/`PutCounter` -- `CreateToken` is not a built `Effect` yet, unrelated to the gate the next section
+resolves (1); magus_of_the_chains.txt's/chains_of_mephistopheles.txt's own `Defined$ ReplacedPlayer` plus
+`SubAbility$ DBDraw` and breathstealers_crypt.txt's/sea_of_sand.txt's own `Defined$ ReplacedPlayer` plus `SubAbility$`
+(4 combined -- "the player who would have drawn" as a general `Defined$` token, distinct from this dispatch's own narrow
+`player`-parameter reading above, which only ever covers the literal token `You`); blood_scrivener.txt's own
+`SubAbility$ DBLoseLife` alone (1, the chained-target refusal above); booby_trap.txt's own `ValidPlayer$ Player.Chosen`
+(1, `matchesPlayerSpec`'s own doc comment) and pursuit_of_knowledge.txt's own `Optional$ True` (1, `Discard`'s own
+`Optional$` gap). `alms_collector.txt`'s/`quantum_riddler.txt`'s own two real lines name `Event$ DrawCards` rather than
+`Event$ Draw` -- Java's own OUTER, once-per-batch-call replacement check (`Player.drawCards`'s own
+`ReplacementType.DrawCards` dispatch, checked before its per-card loop even starts, distinct from `ReplacementType.Draw`
+inside `doDraw()` that every other real line in this file targets) -- a different granularity this port's own per-card
+`DrawCards` loop has nowhere to hook, not attempted.
 
 `GainLife`'s own 20 real `ReplaceWith$` lines split the same way: 15 target `DB$ ReplaceEffect`, a dedicated API this
 port does not build, and the other 5 name `ReplaceCount$LifeGained` -- "the amount of life that would have been gained"
@@ -2488,6 +2487,67 @@ expected before restoring it.
 `"event"` in its allow-list -- `drawReplaced`'s own hand-run dispatch reaches `PlayerController` (a type), and
 `resolveNamedAmount`/`putCounterType`/`Counters`/`emitCounterChanged` (functions and a type), none of which
 replacement.go referenced before.
+
+## `Draw`'s own `NotFirstCardInDrawStep$`: "except the first" and `notion_thief.txt`'s own divert
+
+`ReplaceDraw.canReplace` (Java) carries a second gate past `ValidPlayer$`/`ValidCause$`: `NotFirstCardInDrawStep$ True`
+exempts exactly one draw from the whole line -- the very first card the affected player draws while the game's current
+phase is that player's own Draw step. Java's own two-part check is `p.numDrawnThisDrawStep() == 0 && ownDraw`, where
+`ownDraw` is "the current phase is Draw AND `p` is the active player" -- a later draw in the identical step, or any draw
+of `p`'s outside `p`'s own Draw step entirely (an instant-speed effect during another player's turn, or during `p`'s own
+non-Draw phase), is never exempt.
+
+`Player.DrawnThisDrawStep` (player.go, new) is Java's own `numDrawnThisDrawStep` -- distinct from `CardsDrawnThisTurn`'s
+whole-turn scope. `drawStep` (turn.go) resets it for every player at the start of each Draw step (`PhaseHandler.java`'s
+own per-player reset loop, ported directly), and `drawOneCard` (turn.go) increments it for whichever player actually
+draws, whenever the game's current phase is Draw -- Java's own unconditional `game.getPhaseHandler().is(PhaseType.DRAW)`
+check, with no player comparison, so a non-active player who draws an extra card while the active player's own Draw step
+is still current counts too. A skipped Draw step (CR 103.7a, the first player's own first turn in a two-player game)
+resets nothing, matching Java's own case body never running when the step itself is skipped.
+
+`notFirstCardInDrawStepExempts` (replacement.go, new) reads both fields to answer Java's own two-part question directly:
+`g.activePhase == Draw && g.activePlayer == player` for `ownDraw`, `g.Player(player).DrawnThisDrawStep == 0` for the
+count -- both must hold for the exemption to apply. `drawReplaced` calls it right after the `ValidPlayer$` match,
+skipping the whole replacement line (the draw proceeds normally) when it returns true.
+
+teferis_ageless_insight.txt's/alhammarrets_archive.txt's/bard_king_of_dale.txt's own real "except the first one you draw
+in each of your draw steps, draw two cards instead" (`ValidPlayer$ You`) resolve through this gate onto the
+already-built plain `DB$ Draw | Defined$ You | NumCards$ 2` target `drawReplaced` already knew how to run.
+
+notion_thief.txt's own real "if an opponent would draw a card except the first one they draw in each of their draw
+steps, instead you draw a card" (`ValidPlayer$ Opponent`) resolves through the identical gate but needed one more fix:
+`applyDrawReplacementDraw`'s own `Defined$ You` used to be read as `player` directly -- the event's own affected player
+-- because every real line it had ever covered also carried `ValidPlayer$ You`, making the two the same player by
+construction. notion_thief's own `ValidPlayer$ Opponent` breaks that coincidence: "you" in the replacement's own text is
+Notion Thief's controller, not the opponent whose draw is being replaced. `applyDrawReplacementDraw` now reads
+`Defined$ You` as `host.Controller()` instead -- Java's own `AbilityUtils.getDefinedPlayers` resolves a replacement
+ability's own "You" to its activating player, always the host card's controller, never the event's own affected player
+-- which happens to be an identical answer for every previously-resolved line (their own `ValidPlayer$ You` already
+forced `player == host.Controller()`) and the correct one for notion_thief's. `player` was consequently dropped from
+`applyDrawReplacementDraw`'s and `applyDrawReplacement`'s own signatures -- both had it only for that one now-corrected
+read.
+
+hullbreacher.txt's own identical `NotFirstCardInDrawStep$`/`ValidPlayer$ Opponent` shape stays unresolved: its own
+`ReplaceWith$` targets `DB$ Token | TokenScript$ c_a_treasure_sac`, and `CreateToken` is not a built `Effect` in this
+port -- an unrelated gap the gate itself does nothing to close.
+
+`drawReplacementMatches`'s own allow-list gained `"notfirstcardindrawstep"` -- without it every real line carrying the
+param would be rejected outright (the general "any param besides these skips the whole line" rule, GO-7), never reaching
+`notFirstCardInDrawStepExempts` at all. `enginelint.json`'s own `"replacement"` group gained `"phase"` in its allow-list
+for the new `g.activePhase == Draw` reference (`Draw`, a `PhaseType` constant declared in phase.go).
+
+Eight new tests in `drawreplaced_test.go`: `TestDrawNotReplacedOnFirstDrawOfOwnDrawStep`/
+`TestDrawReplacedOnSecondDrawOfOwnDrawStep` (the exemption's own count half, `DrawnThisDrawStep` set directly to isolate
+it from the increment), `TestDrawnThisDrawStepAdvancesAcrossConsecutiveDraws` (the increment actually runs, proven by
+two real `DrawCards` calls in the same Draw step rather than poking the field),
+`TestDrawnThisDrawStepResetsAtEachDrawStep` (drives a full `AdvancePhase` cycle from turn 2's Draw step to turn 3's,
+proving the counter does not accumulate across turns), `TestDrawReplacedOutsideOwnDrawStepEvenOnFirstDraw` (the
+`ownDraw` half alone: a draw during Main1 is never exempt even at count 0),
+`TestDrawReplacedByNotionThiefShapeDivertsToHostController`/
+`TestDrawNotReplacedByNotionThiefShapeOnOpponentsOwnFirstDraw` (the `Defined$ You` fix, and its own exemption mirror).
+Every new gate -- the exemption function itself, the allow-list entry, the increment, the reset, and the
+`host.Controller()` reading -- was regression-checked by temporarily disabling it and confirming the corresponding test
+failed with the expected wrong count before restoring it.
 
 ## `GainLife`'s own `ReplaceWith$`: the one runtime value `Draw`'s dispatch never needed
 

@@ -422,9 +422,9 @@ matched regardless of Archelos's own state. Two new consumers reuse it outright:
 cards") and 1 of 21 real `GainLife` lines (sulfuric_vortex.txt's own bare form) resolve end to end, wired into
 `DrawCards` (turn.go, checked before the empty-library check so a prevented draw cannot also trigger CR 704.5b's own
 loss condition) and `gainLifeEffect` (gainlifeeffect.go) respectively. The other 36 real `Draw` lines and 20 real
-`GainLife` lines name `ReplaceWith$` instead — a real substitution needing "the amount that would have been
-drawn/gained" as a runtime value this port's `resolveAmount` has no way to read back, not built. `matchesPlayerProperty`
-(valid.go) gains two more real Player properties, both reused for free by every one of its nine existing callers across
+`GainLife` lines name `ReplaceWith$` instead — a real substitution, part of which resolves further down
+(`drawReplaced`/`gainLifeReplaced`, below). `matchesPlayerProperty` (valid.go) gains two more real Player properties,
+both reused for free by every one of its nine existing callers across
 `trigger.go`/`continuous.go`/`targeting.go`/`replacement.go`, now threading the ability's own host card through as a
 `source CardID` parameter (`matchesPlayerSpec`'s own signature, alongside it) rather than only a controller:
 `EnchantedController` (34 of `Mode$ Phase`'s own real qualified `ValidPlayer$` lines, righteous_authority.txt's own "at
@@ -449,24 +449,33 @@ directly rather than recursing back through `DrawCards`/`drawPrevented`/`drawRep
 a per-line recursion guard this port does not build, so reusing the unguarded primitive instead sidesteps needing one,
 at the cost of a real, narrow simplification: the replacement's own draws are not themselves checked against any other
 replacement or prevention effect on the battlefield, not observable against a corpus with no two Draw-replacing
-permanents on one battlefield today. 3 of the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to
+permanents on one battlefield today. 7 of the corpus's own 36 real `Event$ Draw | ReplaceWith$` lines resolve end to
 end: thought_reflection.txt's own bare "draw two cards instead," phial_of_galadriel.txt's own `Hellbent$ True`-qualified
-identical shape, and ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather
-than `Draw`. 5 more real lines (reed_richards \_smartest_man.txt's own `FirstExtraCardDrawnThisTurn$`;
-notion_thief.txt's/teferis_ageless_insight.txt's/alhammarrets \_archive.txt's/bard_king_of_dale.txt's own
-`NotFirstCardInDrawStep$`) target the identical plain `DB$ Draw` shape but stay unresolved for lack of a per-draw-step
-tracker; magus_of_the_chains.txt's/chains_of_mephistopheles.txt's/breathstealers \_crypt.txt's/sea_of_sand.txt's own
-`Defined$ ReplacedPlayer` (4) and blood_scrivener.txt's own chained `SubAbility$` (1) stay unresolved for the reasons
-already given above; booby_trap.txt's own `Player.Chosen` and pursuit_of_knowledge.txt's own `Optional$` (1 each) are
-the identical already-documented gaps. **`GainLife` gets the same `ReplaceWith$` dispatch too now** — `gainLifeReplaced`
-(replacement.go) is `drawReplaced`'s own sibling, resolving the one runtime value `Draw`'s own dispatch never needed:
-`ReplaceCount$LifeGained`, "the amount of life that would have been gained," read straight off the raw `LifeAmount$`
-`gainLifeEffect.Resolve` already has in scope. 4 of the corpus's own 20 real `Event$ GainLife | ReplaceWith$` lines
-resolve end to end: lich.txt's/nefarious_lich.txt's own "draw that many cards instead" (`ValidPlayer$ You`, target
-`DB$ Draw | Defined$ You | NumCards$` naming that SVar) and tainted_remedy.txt's/plague_drone.txt's own "that player
-loses that much life instead" (`ValidPlayer$ Opponent`, target `DB$ LoseLife | LifeAmount$` naming it |
-`Defined$ ReplacedPlayer` — read as the replaced player directly, the identical narrow `Defined$` reading `drawReplaced`
-already has for its own "You"). Not resolved: rain_of_gore.txt's own real
+identical shape, ormos_archive_keeper.txt's own `IsPresent$`-qualified line whose own target is `PutCounter` rather than
+`Draw`, and teferis_ageless_insight.txt's/alhammarrets_archive.txt's/bard_king_of_dale.txt's own real "except the first
+one you draw in each of your draw steps, draw two cards instead" (`NotFirstCardInDrawStep$ True`) — a new
+`Player.DrawnThisDrawStep` (player.go), reset for every player at the start of each Draw step (`drawStep`) and
+incremented in `drawOneCard` (both turn.go) whenever the current phase is Draw, closes `notFirstCardInDrawStepExempts`'s
+own gate (replacement.go): only the very first card a player draws during their own current Draw step is exempt: a later
+draw in the same step, or any draw outside that player's own Draw step entirely, is not. notion_thief.txt's own real
+"except the first one they draw ..., instead you draw a card" (`ValidPlayer$ Opponent`) resolves through the identical
+gate too, needing `applyDrawReplacementDraw`'s own `Defined$ You` reading corrected from the event's own affected player
+to the replacement's host controller instead — every previously-resolved line's own `ValidPlayer$` happened to be `You`
+as well, so the two had never needed telling apart before. Not resolved: reed_richards_smartest_man.txt's own
+`FirstExtraCardDrawnThisTurn$`; hullbreacher.txt's own identical `NotFirstCardInDrawStep$` shape, whose own
+`ReplaceWith$` targets `DB$ Token` rather than `Draw`/`PutCounter` (`CreateToken` is not a built `Effect` yet, unrelated
+to the gate itself); magus_of_the_chains.txt's/chains_of_mephistopheles.txt's/
+breathstealers_crypt.txt's/sea_of_sand.txt's own `Defined$ ReplacedPlayer` (4) and blood_scrivener.txt's own chained
+`SubAbility$` (1) stay unresolved for the reasons already given above; booby_trap.txt's own `Player.Chosen` and
+pursuit_of_knowledge.txt's own `Optional$` (1 each) are the identical already-documented gaps. **`GainLife` gets the
+same `ReplaceWith$` dispatch too now** — `gainLifeReplaced` (replacement.go) is `drawReplaced`'s own sibling, resolving
+the one runtime value `Draw`'s own dispatch never needed: `ReplaceCount$LifeGained`, "the amount of life that would have
+been gained," read straight off the raw `LifeAmount$` `gainLifeEffect.Resolve` already has in scope. 4 of the corpus's
+own 20 real `Event$ GainLife | ReplaceWith$` lines resolve end to end: lich.txt's/nefarious_lich.txt's own "draw that
+many cards instead" (`ValidPlayer$ You`, target `DB$ Draw | Defined$ You | NumCards$` naming that SVar) and
+tainted_remedy.txt's/plague_drone.txt's own "that player loses that much life instead" (`ValidPlayer$ Opponent`, target
+`DB$ LoseLife | LifeAmount$` naming it | `Defined$ ReplacedPlayer` — read as the replaced player directly, the identical
+narrow `Defined$` reading `drawReplaced` already has for its own "You"). Not resolved: rain_of_gore.txt's own real
 `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on what
 CAUSED the event, not who it affects, a shape this dispatch's own allow-list has never needed before) and the 15 real
 lines targeting `DB$ ReplaceEffect`, a dedicated API this port does not build. `gainLifeEffect` (`gainlifeeffect.go`) is

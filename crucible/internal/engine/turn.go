@@ -168,10 +168,16 @@ func (g *Game) untapStep(controller PlayerController) {
 // drawStep draws one card for the active player, ported from
 // PhaseHandler.onPhaseBegin's DRAW case and PhaseHandler.isSkippingPhase's
 // DRAW rule (CR 103.7a): the first player skips the draw step of their own
-// first turn in a two-player game.
+// first turn in a two-player game. Every player's own DrawnThisDrawStep
+// (player.go) resets here first, PhaseHandler.java:268-271's own loop over
+// every player -- a skipped draw step resets nothing, matching Java's own
+// case DRAW body never running at all when the step itself is skipped.
 func (g *Game) drawStep(controller PlayerController) {
 	if g.turn == 1 && len(g.Players()) == 2 {
 		return
+	}
+	for _, pid := range g.Players() {
+		g.Player(pid).DrawnThisDrawStep = 0
 	}
 	g.DrawCards(g.activePlayer, 1, controller)
 }
@@ -239,6 +245,9 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 	// happen to be library-to-hand.
 	g.sink.Emit(Event{Kind: CardDrawn, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: id})
 	g.Player(pid).CardsDrawnThisTurn++
+	if g.activePhase == Draw {
+		g.Player(pid).DrawnThisDrawStep++
+	}
 	g.checkDrawnTriggers(controller, pid, id, g.Player(pid).CardsDrawnThisTurn)
 	return true
 }

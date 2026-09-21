@@ -239,7 +239,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if amount <= 0 {
 		return
 	}
-	if g.damagePrevented(source, target, isCombat) {
+	if g.damagePrevented(source, target, isCombat, amount) {
 		return
 	}
 	amount = g.damageReplaced(source, target, isCombat, amount)
@@ -290,7 +290,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // isCombat is threaded through the identical reason dealPermanentDamage's
 // own doc comment gives.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool) {
-	if g.damagePreventedPlayer(source, target, isCombat) {
+	if g.damagePreventedPlayer(source, target, isCombat, amount) {
 		return
 	}
 	amount = g.damageReplacedPlayer(source, target, isCombat, amount)

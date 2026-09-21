@@ -302,33 +302,52 @@ unresolved, each its own untracked mechanic. CR 502.3/614.17's own "doesn't unta
 `Layer$ CantHappen` lines, always "You") is not checked at all: `untapStep`'s own loop only ever considers cards
 `g.activePlayer` already controls, so "the untapping player is this card's own controller" already holds by construction
 for every real value that param carries. CR 614's own "prevent all of this damage" family is real too —
-`damagePrevented`/`damagePreventedPlayer` (`replacement.go`) resolve 62 of the corpus's 218 real `Event$ DamageDone`
+`damagePrevented`/`damagePreventedPlayer` (`replacement.go`) resolve 63 of the corpus's 218 real `Event$ DamageDone`
 lines (`Prevent$ True`, `ReplaceDamage.canReplace`'s own resolvable half plus `ReplacementHandler`'s own unconditional-
 void dispatch for that value), called from `dealPermanentDamage`/`dealPlayerDamage` (combatdamage.go) before marking any
-damage or emitting `DamageDealt`; `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/`ValidCause$`/
-`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10) skip the line, and the other 146 name `ReplaceWith$` instead —
-most a real sub-ability substitution (`DB$ ReplaceEffect`/`RemoveCounter`/`PutCounter`/... — no shape anywhere near
-Moved's own 618-line concentration, not built), but CR 616's own "Updated" outcome (the event still happens, with a
-smaller number, rather than being skipped or substituted outright) is real now too — `damageReplaced`/
-`damageReplacedPlayer` (replacement.go) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own
-`face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own two-outcome
-half this dispatch can compute without a `*Registry`), called from `dealPermanentDamage`/`dealPlayerDamage` right after
-`damagePrevented`/`damagePreventedPlayer` and reducing the same `amount` the marking/event/trigger-check below it
-already reads, so a trigger checking `DamageAmount$` sees the reduced number. A named-SVar `Amount$`
+damage or emitting `DamageDealt`; `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$` resolve generically through
+`replacementRequirementsCheck` (below) and `DamageAmount$` resolves too now, reusing `damageAmountMatches` (trigger
+firing, above) against the ORIGINAL amount about to be dealt — `ValidCause$`/`RelativeToSource$`/`CauseIsSource$` (2 of
+72, one line naming the first and third together, the other the second alone) still skip the line, each its own further
+restriction this file cannot evaluate. The other 146 name `ReplaceWith$` instead — most a real sub-ability substitution
+(`RemoveCounter`/`PutCounter`/... — no shape anywhere near Moved's own 618-line concentration, not built), but two do:
+CR 616's own "Updated" outcome (the event still happens, with a different number, rather than being skipped or
+substituted outright) is real now too, for both a flat reduction and a computed replacement —
+`damageReplaced`/`damageReplacedPlayer` (replacement.go) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines
+this file's own `face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own
+two-outcome half this dispatch can compute without a `*Registry`) and, through the identical two callers, 56 of the 59
+real `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
+default "amount" `VarType$` branch, `AbilityUtils.calculateAmount` — a flat integer, or a named SVar naming
+`ReplaceCount$DamageAmount/<op>` and one of `AbilityUtils.doXMath`'s own `Twice`/`Thrice`/`HalfDown`/`Plus`/`Minus`
+branches, `resolveDamageReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather
+than `ReplaceDamage`'s own flat "prevent N," raphael_the_muscle.txt's/
+torbran_thane_of_red_fell.txt's/ghosts_of_the_innocent.txt's own real "double"/"plus 2"/"half, rounded down" damage
+among them, plus forethought_amulet.txt's/divine_presence.txt's own flat "deals N damage instead," gated by the R:
+line's own `DamageAmount$` threshold the identical way `damagePreventionMatches`'s new fold-in now reads it too), both
+called from `dealPermanentDamage`/`dealPlayerDamage` right after `damagePrevented`/`damagePreventedPlayer` and reducing
+or resizing the same `amount` the marking/event/trigger-check below it already reads, so a trigger checking
+`DamageAmount$` sees the final number. Of `ReplaceDamage`'s own 27 reachable lines, a named-SVar `Amount$`
 (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines — a depleting shield counter, an X spent on the spell, mana paid,
 ...), one also chaining its own `SubAbility$` (the identical chained-target refusal `applyDrawReplacement` already
 gives), stay unresolved, and 2 more real lines' `ValidTarget$ You,Permanent.YouCtrl`/`Permanent,Player` only resolve
 their own card-target half — `matchesPlayerSpec`, unlike `valid.Parse`, does not split a `ValidTarget$` on comma, so "or
-dealt to you" itself never fires. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the other 12 are
-never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are referenced only through a
-Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more (`forcefield.txt`'s/
-`ajani_steadfast.txt`'s/`torrent_of_lava.txt`'s among them) are created dynamically at resolution time by `DB$ Effect`'s
-own `ReplacementEffects$` param (CR 611.2c) — neither mechanism this port's own script-effect dispatch builds, so
-`face.Replacements` never discovers them regardless of this dispatch's own shape. Both families share a new
-`replacementActiveZones`/`hostInActiveZones` (replacement.go), generalizing `ActiveZones$` past Battlefield alone to the
-2 real Command-zone lines each carries — the identical comma-list `checkPhaseTriggers`'s own `TriggerZones$` already
-has, for a replacement's own zone restriction instead of a trigger's. M6 in progress alongside it: `Draw`
-(`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
+dealt to you" itself never fires. Of `ReplaceEffect`'s own 59 reachable `VarName$ DamageAmount` lines, 3 stay
+unresolved: fated_firepower.txt's/hawkeye_young_avenger.txt's own `Plus.Y` operand (`Count$CardCounters.FIRE`/
+`Count$CardPower`, neither the Valid family `resolveAmount` evaluates) and
+ojer_axonil_deepest_might_temple_of_power.txt's own bare `Count$CardPower` `VarValue$` (no `ReplaceCount$` at all) —
+each an amount head this port has no evaluator for. 12 more real `DB$ ReplaceEffect` lines name
+`VarName$ Affected`/`LifeGained`/`Number`/`Ignore` instead of `DamageAmount` — an entirely different substitution,
+redirecting who is damaged or what else changes rather than resizing the damage itself — filtered out, not resolved by
+anything here. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the other 12 are never named by any
+literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are referenced only through a Layer 6
+`AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more
+(`forcefield.txt`'s/`ajani_steadfast.txt`'s/`torrent_of_lava.txt`'s among them) are created dynamically at resolution
+time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) — neither mechanism this port's own script-effect
+dispatch builds, so `face.Replacements` never discovers them regardless of this dispatch's own shape. All three families
+share a new `replacementActiveZones`/`hostInActiveZones` (replacement.go), generalizing `ActiveZones$` past Battlefield
+alone to the 2 real Command-zone lines each carries — the identical comma-list `checkPhaseTriggers`'s own
+`TriggerZones$` already has, for a replacement's own zone restriction instead of a trigger's. M6 in progress alongside
+it: `Draw` (`draweffect.go`) is the first of the 203 script-driven effects to actually resolve rather than report
 `ErrUnimplemented` — `Ability` gained a `Params` field (`ability.go`) carrying a trigger's own `Defined$`/`NumCards$`
 onto the stack to make that possible. `DealDamage` (`dealdamageeffect.go`) is the second — 62 of the corpus's 2,219 real
 `(AB|DB)$ DealDamage` lines that also name `Defined$ You`/`Player.Opponent`/ `Opponent`/`Self` (out of 822 naming any

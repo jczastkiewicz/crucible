@@ -1470,36 +1470,49 @@ printed form.
 
     `damagePrevented`/`damagePreventedPlayer` (`replacement.go`) port `ReplaceDamage.canReplace`'s own resolvable half
     plus `ReplacementHandler`'s own `Prevent$ True` dispatch (`ReplacementResult.Prevented`, nothing replaces the event,
-    it simply does not happen) — CR 614, `Event$ DamageDone` naming `Prevent$ True` — 62 of the corpus's 218 real
+    it simply does not happen) — CR 614, `Event$ DamageDone` naming `Prevent$ True` — 63 of the corpus's 218 real
     `Event$ DamageDone` lines (72 name `Prevent$ True` at all), called from `dealPermanentDamage`/ `dealPlayerDamage`
     (combatdamage.go) before marking any damage, emitting `DamageDealt`, or checking CR 603's own trigger — a prevented
     instance never happened, the identical "look at the event before it happens" ordering CR 614.1 already has over CR
     603 for `checkMovedReplacement`. `ValidTarget$`/`ValidSource$` are checked the identical way `damageDoneMatches`'s
     own pair already is (item 26), split into a `*Card`/`*Player` pair for the reason
-    `checkDamageDoneTriggersToCard`/`ToPlayer` already are. `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`/
-    `ValidCause$`/`RelativeToSource$`/`DamageAmount$`/`CauseIsSource$` (10 of 72) skip the whole line; the other 146 of
-    218 name `ReplaceWith$` instead — most a real sub-ability substitution (`DB$ ReplaceEffect`/`RemoveCounter`/
-    `PutCounter`/... — no single shape anywhere near `Moved`'s own 618-line concentration, not built), but CR 616's own
-    "Updated" outcome (the event still happens, with a smaller number) is real too: `damageReplaced`/
-    `damageReplacedPlayer` (`replacement.go`) resolve 16 of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this
-    file's own `face.Replacements` walk can even reach ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own
-    two-outcome half this dispatch can compute by hand — `applyDrawReplacement`'s own "recognize the one shape"
-    precedent applied to a third `Event$` — without a `*Registry` neither call site can reach). A named-SVar `Amount$`
+    `checkDamageDoneTriggersToCard`/`ToPlayer` already are. `PlayerTurn$`/`SVarCompare$`/`IsPresent$`/`CheckSVar$`
+    resolve generically through `replacementRequirementsCheck` and `DamageAmount$` resolves too now, reusing
+    `damageAmountMatches` (item 26) against the original amount about to be dealt; `ValidCause$`/`RelativeToSource$`/
+    `CauseIsSource$` (2 of 72, one line naming the first and third together, the other the second alone) still skip the
+    whole line. The other 146 of 218 name `ReplaceWith$` instead — most a real sub-ability substitution
+    (`RemoveCounter`/`PutCounter`/... — no single shape anywhere near `Moved`'s own 618-line concentration, not built),
+    but two do: CR 616's own "Updated" outcome (the event still happens, with a different number) is real too, for both
+    a flat reduction and a computed replacement: `damageReplaced`/`damageReplacedPlayer` (`replacement.go`) resolve 16
+    of the 27 real `DB$ ReplaceDamage | Amount$ N` lines this file's own `face.Replacements` walk can even reach
+    ("prevent N of that damage," `ReplaceDamageEffect.resolve`'s own two-outcome half this dispatch can compute by hand
+    — `applyDrawReplacement`'s own "recognize the one shape" precedent applied to a third `Event$` — without a
+    `*Registry` neither call site can reach) and, through the identical two callers, 56 of the 59 real
+    `DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ...` lines it can reach too (`ReplaceEffect.resolve`'s own
+    default "amount" `VarType$` branch — a flat integer, or a named SVar naming `ReplaceCount$DamageAmount/<op>` and one
+    of `AbilityUtils.doXMath`'s own `Twice`/`Thrice`/`HalfDown`/`Plus`/`Minus` branches,
+    `resolveDamageReplaceCountAmount`/`applyDamageReplaceEffect` — a doubling/tripling/halving/plus/minus rather than
+    `ReplaceDamage`'s own flat "prevent N," plus a flat integer `VarValue$` gated by the R: line's own `DamageAmount$`
+    threshold the identical way `damagePreventionMatches`'s own new fold-in reads it too). A named-SVar `Amount$`
     (`ShieldAmount`/`X`/`PaidAmount`/`AlchemicX`, 9 lines, each its own further mechanic — a depleting shield counter,
     an X spent on the spell, mana paid), one also chaining its own `SubAbility$` (the identical chained-target refusal
     already given above), stay unresolved; 2 more real lines' own `ValidTarget$ You,Permanent.YouCtrl`/
     `Permanent,Player` resolve only their card-target half, since `matchesPlayerSpec` does not split a `ValidTarget$` on
-    comma the way `valid.Parse` already does. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar definitions, the
-    other 12 are never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s own 2 are
-    referenced only through a Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10 more are
-    created dynamically at resolution time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) — neither
-    mechanism this port's own script-effect dispatch builds, so `face.Replacements` never discovers them regardless of
-    this dispatch's own shape.
+    comma the way `valid.Parse` already does. Of `ReplaceEffect`'s own 59 reachable `VarName$ DamageAmount` lines, 3
+    stay unresolved — an unresolvable `Plus` operand (`Count$CardCounters.FIRE`/`Count$CardPower`) or a bare
+    `Count$CardPower` `VarValue$`, each an amount head this port has no evaluator for — and 12 more real
+    `DB$ ReplaceEffect` lines name `VarName$ Affected`/`LifeGained`/`Number`/`Ignore` instead of `DamageAmount` — an
+    entirely different substitution, not resolved by anything here. Of the corpus's own 39 real `DB$ ReplaceDamage` SVar
+    definitions, the other 12 are never named by any literal top-level `R:` line at all: `hedron_field_purists.txt`'s
+    own 2 are referenced only through a Layer 6 `AddReplacementEffect$` on a Level-up `Mode$ Continuous` line, and 10
+    more are created dynamically at resolution time by `DB$ Effect`'s own `ReplacementEffects$` param (CR 611.2c) —
+    neither mechanism this port's own script-effect dispatch builds, so `face.Replacements` never discovers them
+    regardless of this dispatch's own shape.
 
-    Both families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
-    `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each of the two shapes carries — the
-    identical comma-list zone restriction `checkPhaseTriggers`'s own `TriggerZones$` (item 26) already has, for a
-    replacement's own host zone instead of a trigger's.
+    All three families share a new `replacementActiveZones`/`hostInActiveZones` (`replacement.go`), generalizing
+    `ActiveZones$` past Battlefield alone to the 2 real Command-zone lines each of the shapes carries — the identical
+    comma-list zone restriction `checkPhaseTriggers`'s own `TriggerZones$` (item 26) already has, for a replacement's
+    own host zone instead of a trigger's.
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

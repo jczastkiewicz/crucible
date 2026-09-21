@@ -784,6 +784,33 @@ func replacementCreatureDefPTWithSVar(t *testing.T, name, power, toughness, repl
 	return c
 }
 
+// replacementCreatureDefPTWithSVars is replacementCreatureDefPTWithSVar's own
+// multi-SVar sibling, the identical reason replacementEnchantmentDefWithSVars
+// (below) is replacementEnchantmentDefWithSVar's.
+func replacementCreatureDefPTWithSVars(t *testing.T, name, power, toughness, replacement string, svars map[string]string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = power, toughness
+	raw.Faces[0].Replacements = []string{replacement}
+	for svarName, svarBody := range svars {
+		raw.Faces[0].SVars.Set(svarName, svarBody)
+	}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
 // TestDamageToCreatureReducedByReplaceDamage proves damageReplaced's own
 // Card-target half: a blocker reducing incoming damage by 1 (shield_of_the_
 // realm.txt's own "prevent 2 of that damage dealt to equipped creature"
@@ -882,6 +909,104 @@ func TestDamageToPlayerNotReducedByDivideShieldAmount(t *testing.T) {
 	}
 }
 
+// replacementEnchantmentDefWithSVars is replacementEnchantmentDefWithSVar's
+// own multi-SVar sibling (drawreplaced_test.go) -- a DB$ ReplaceEffect line's
+// own VarValue$ names a second SVar (the ReplaceCount$DamageAmount/<op>
+// expression) rather than carrying the amount inline the way DB$
+// ReplaceDamage's own Amount$ does, so these tests need two.
+func replacementEnchantmentDefWithSVars(t *testing.T, name, replacement string, svars map[string]string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	raw.Faces[0].Replacements = []string{replacement}
+	for svarName, svarBody := range svars {
+		raw.Faces[0].SVars.Set(svarName, svarBody)
+	}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDamageToPlayerDoubledByReplaceEffect proves applyDamageReplaceEffect
+// (replacement.go) resolves raphael_the_muscle.txt's/gratuitous_violence.txt's
+// own real shape: DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X,
+// X:ReplaceCount$DamageAmount/Twice doubles a 3-damage combat hit to 6 -- CR
+// 616's own "Updated" outcome computing a new amount rather than ReplaceDamage's
+// own flat reduction. ValidSource$ dropped and ValidTarget$ simplified to
+// You, the shield hosted on the defender itself rather than the attacker's
+// controller (the real card's own Creature.YouCtrl/Permanent,Player shape
+// hits the already-documented matchesPlayerSpec comma gap, damageReplaced's
+// own doc comment above) so this test isolates the new arithmetic dispatch
+// rather than re-exercising that separate, narrower gap.
+func TestDamageToPlayerDoubledByReplaceEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Gratuitous Violence",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DmgTwice | Description$ Double damage.",
+		map[string]string{
+			"DmgTwice": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":        "ReplaceCount$DamageAmount/Twice",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 14 {
+		t.Errorf("defender life = %d, want 14 -- 3 damage doubled to 6", g.Player(b).Life)
+	}
+}
+
+// TestDamageToCreatureTripledByReplaceEffect proves applyDamageReplaceEffect's
+// own card-target half (city_on_fire.txt's own real Thrice shape, applied to
+// a creature the way TestDamageToCreatureReducedByReplaceDamage already
+// proves ReplaceDamage's own card-target half).
+func TestDamageToCreatureTripledByReplaceEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPTWithSVars(t, "Test Tripling Wall", "1", "10",
+		"Event$ DamageDone | ValidTarget$ Card.Self | ReplaceWith$ DmgTriple | Description$ Triple damage to this.",
+		map[string]string{
+			"DmgTriple": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ Z",
+			"Z":         "ReplaceCount$DamageAmount/Thrice",
+		}), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 6 {
+		t.Errorf("blocker damage marked = %d, want 6 -- 2 damage tripled", g.Card(blocker).Damage.Marked)
+	}
+}
+
 // TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch proves
 // ValidSource$ is checked for the ReplaceWith$ shape the identical way
 // TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch already proves
@@ -909,5 +1034,262 @@ func TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch(t *testing.T) {
 
 	if g.Player(b).Life != 17 {
 		t.Errorf("defender life = %d, want 17 -- ValidSource$ Dragon must not match a non-Dragon attacker", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectPlusLiteral proves the Plus operator with a
+// literal operand -- torbran_thane_of_red_fell.txt's own real
+// ReplaceCount$DamageAmount/Plus.2 shape -- adds rather than scales: 3
+// damage becomes 5, not 6. ValidSource$ dropped and the shield hosted on the
+// defender, the identical simplification
+// TestDamageToPlayerDoubledByReplaceEffect's own doc comment gives.
+func TestDamageToPlayerReplaceEffectPlusLiteral(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Torbran",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DmgPlus2 | Description$ Plus 2 damage.",
+		map[string]string{
+			"DmgPlus2": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":        "ReplaceCount$DamageAmount/Plus.2",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 15 {
+		t.Errorf("defender life = %d, want 15 -- 3 damage plus 2 leaves 15", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectMinusClampsAtZero proves the Minus operator
+// -- benevolent_unicorn.txt's/lashknife_barrier.txt's own real
+// ReplaceCount$DamageAmount/Minus.1 shape -- and that a reduction to zero
+// applies no damage at all, the identical clamp applyDamageReplaceDamage's
+// own Amount$ reduction already gives. ValidSource$ Spell dropped (the real
+// card restricts to spell-dealt damage; this test drives the shape through
+// combat instead, the same reason every other test in this file simplifies
+// away a param it is not exercising) and the shield hosted on the defender,
+// the identical simplification TestDamageToPlayerDoubledByReplaceEffect's
+// own doc comment gives.
+func TestDamageToPlayerReplaceEffectMinusClampsAtZero(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Benevolent Unicorn",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DmgMinus1 | Description$ Minus 1 damage.",
+		map[string]string{
+			"DmgMinus1": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":         "ReplaceCount$DamageAmount/Minus.1",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 20 {
+		t.Errorf("defender life = %d, want 20 -- 1 damage minus 1 must clamp at 0, not go negative", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectHalfDown proves the HalfDown operator --
+// ghosts_of_the_innocent.txt's own real ReplaceCount$DamageAmount/HalfDown
+// shape -- rounds down rather than up: 3 damage becomes 1, not 2. The
+// shield hosted on the defender, the identical simplification
+// TestDamageToPlayerDoubledByReplaceEffect's own doc comment gives.
+func TestDamageToPlayerReplaceEffectHalfDown(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Ghosts of the Innocent",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DmgHalf | Description$ Half damage, rounded down.",
+		map[string]string{
+			"DmgHalf": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":       "ReplaceCount$DamageAmount/HalfDown",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 19 {
+		t.Errorf("defender life = %d, want 19 -- 3 damage halved and rounded down leaves 1, so life drops by 1", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectFlatReplacementAboveGate proves a plain
+// integer VarValue$ (forethought_amulet.txt's/divine_presence.txt's own real
+// shape) replaces the amount outright, gated by the R: line's own
+// DamageAmount$ threshold matching the ORIGINAL amount: 3 damage (>= the
+// line's own GE3) becomes 2.
+func TestDamageToPlayerReplaceEffectFlatReplacementAboveGate(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Forethought Amulet",
+		"Event$ DamageDone | ValidTarget$ You | DamageAmount$ GE3 | ReplaceWith$ Dmg2 | Description$ If 3 or more damage, deal 2 instead.",
+		"Dmg2", "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 2"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 18 {
+		t.Errorf("defender life = %d, want 18 -- 3 damage meets the GE3 gate and is replaced with 2", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectFlatReplacementBelowGateNotApplied proves
+// the same DamageAmount$ GE3 gate refuses to apply when the original amount
+// falls short. 1 damage, not 2, so the outcome would be observably different
+// (2 damage instead of 1) if the gate were ignored -- unlike a 2-damage
+// attacker, which coincidentally matches this line's own flat VarValue$ 2
+// either way and could never distinguish "correctly gated" from "always
+// fires".
+func TestDamageToPlayerReplaceEffectFlatReplacementBelowGateNotApplied(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test Forethought Amulet",
+		"Event$ DamageDone | ValidTarget$ You | DamageAmount$ GE3 | ReplaceWith$ Dmg2 | Description$ If 3 or more damage, deal 2 instead.",
+		"Dmg2", "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 2"), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 19 {
+		t.Errorf("defender life = %d, want 19 -- 1 damage does not meet the GE3 gate, so it must apply unchanged", g.Player(b).Life)
+	}
+}
+
+// TestDamageToPlayerReplaceEffectUnresolvedOperandNotApplied proves a Plus
+// operand this port cannot resolve (hawkeye_young_avenger.txt's own real
+// Plus.Y, Y:Count$CardPower -- neither the Valid family resolveAmount
+// evaluates) refuses outright (GO-7) rather than treating the unresolved
+// operand as zero: the full original damage applies. ValidSource$ dropped
+// and the shield hosted on the defender, the identical simplification
+// TestDamageToPlayerDoubledByReplaceEffect's own doc comment gives.
+func TestDamageToPlayerReplaceEffectUnresolvedOperandNotApplied(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(b).Life = 20
+	g.SetTurnState(1, a, engine.Main1)
+	g.NewCard(replacementEnchantmentDefWithSVars(t, "Test Hawkeye",
+		"Event$ DamageDone | ValidTarget$ You | ReplaceWith$ DmgPlusX | Description$ Plus X damage.",
+		map[string]string{
+			"DmgPlusX": "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X",
+			"X":        "ReplaceCount$DamageAmount/Plus.Y",
+			"Y":        "Count$CardPower",
+		}), b, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Player(b).Life != 17 {
+		t.Errorf("defender life = %d, want 17 -- an unresolvable Plus operand must not apply, leaving the plain 3 damage", g.Player(b).Life)
+	}
+}
+
+// TestDamageToCreaturePreventedWhenDamageAmountGateMatches proves
+// damagePreventionMatches' own new DamageAmount$ gate (callous_giant.txt's
+// own real "if a source would deal 3 or less damage to CARDNAME, prevent
+// that damage," Prevent$ True | DamageAmount$ LE3): a 3-damage hit meets the
+// gate and is fully prevented.
+func TestDamageToCreaturePreventedWhenDamageAmountGateMatches(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "3", "3"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPT(t, "Test Callous Giant", "4", "4",
+		"Event$ DamageDone | ValidTarget$ Card.Self | DamageAmount$ LE3 | Prevent$ True | Description$ If 3 or less damage, prevent it."), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 0 {
+		t.Errorf("blocker damage marked = %d, want 0 -- 3 damage meets the LE3 gate and must be fully prevented", g.Card(blocker).Damage.Marked)
+	}
+}
+
+// TestDamageToCreatureNotPreventedWhenDamageAmountExceedsGate proves the
+// same LE3 gate does NOT prevent a bigger hit: 4 damage exceeds it, so the
+// full amount applies.
+func TestDamageToCreatureNotPreventedWhenDamageAmountExceedsGate(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(creatureDefPT(t, "4", "4"), a, engine.Battlefield)
+	blocker := g.NewCard(replacementCreatureDefPT(t, "Test Callous Giant", "5", "5",
+		"Event$ DamageDone | ValidTarget$ Card.Self | DamageAmount$ LE3 | Prevent$ True | Description$ If 3 or less damage, prevent it."), b, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	g.DeclareCombatAttackers(ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+	g.DeclareCombatBlockers(bc)
+	g.DealCombatDamage(engine.NewScriptedController())
+
+	if g.Card(blocker).Damage.Marked != 4 {
+		t.Errorf("blocker damage marked = %d, want 4 -- 4 damage exceeds the LE3 gate, so it must apply in full", g.Card(blocker).Damage.Marked)
 	}
 }

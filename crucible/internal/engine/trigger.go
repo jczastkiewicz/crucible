@@ -961,6 +961,93 @@ func isDiscardedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Discarded")
 }
 
+// checkSacrificedTriggers is CR 701.20's own "is sacrificed" trigger, Mode$
+// Sacrificed, ported from TriggerSacrificed.performTest. Called from
+// sacrificeCards (sacrificeeffect.go) once per card actually sacrificed,
+// before the card leaves the battlefield -- Player.addSacrificedThisTurn's
+// own call site in GameAction.sacrifice runs before sacrificeDestroy's own
+// moveToGraveyard, so ValidCard$ matches the card's live pre-move state
+// (still on the battlefield, PT/counters/keywords all still there); the
+// separate checkDiesTriggers call sacrificeCards also makes, after the
+// move, gives the post-move Graveyard state instead.
+//
+// Unlike checkDiscardedTriggers' own two-part own/other split, this walks
+// every player's battlefield once and once only: the sacrificed card is
+// still physically on the battlefield at this point (this runs before the
+// move), so it is already one of the permanents the single walk below
+// visits, and its own trigger is checked against itself the identical way
+// any other watching permanent's is (host == card, sourceController ==
+// controller, source == card). A card that has already left the
+// battlefield by the time it is discarded (Discard's own real shape,
+// always a hand card) has no such overlap, which is why that dispatch
+// needs a dedicated own-half walk and this one must not duplicate it --
+// walking both here would fire a sacrificed permanent's own trigger twice.
+func (g *Game) checkSacrificedTriggers(controller PlayerController, card CardID, player PlayerID) {
+	var matches []Ability
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !sacrificedTriggerMatches(g, t, c, h.Controller(), host, player) {
+						continue
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// sacrificedTriggerMatches is checkSacrificedTriggers' own per-permanent
+// check: ValidCard against the sacrificed card, ValidPlayer against player
+// -- the card's own controller at the moment it was sacrificed -- through
+// matchesPlayerBase, discardedTriggerMatches' own shape. PlayerTurn$/
+// OptionalDecider$/the whole IsPresent$/CheckSVar$/...
+// family (11/2/0 real lines respectively) all resolve too, but generically,
+// through triggerEffectAPI's own shared gate (triggerPhasesCheck/
+// triggerCommonRequirementsMet/triggerIsOptional) rather than anything
+// special-cased here.
+//
+// Not resolved: ValidCause$ (0 real lines) -- a SpellAbility, not a Card,
+// Matches cannot evaluate one; WhileKeyword$ (1) -- whileKeywordCheck, a
+// further mechanic this port does not have; ActivationLimit$ (7) and
+// ResolvedLimit$ (1) -- the identical per-turn-cap gap LifeGained's own
+// ActivationLimit$ already documents, this port tracking no such counter. A
+// trigger carrying any of these four is skipped entirely, not fired
+// unconditionally (GO-7). 106 of 115 real lines carry none of them.
+func sacrificedTriggerMatches(g *Game, t *compile.Ability, sacrificed *Card, sourceController PlayerID, source CardID, player PlayerID) bool {
+	if !isSacrificedTrigger(t) {
+		return false
+	}
+	if hasAnyParam(t, "ValidCause", "WhileKeyword", "ActivationLimit", "ResolvedLimit") {
+		return false
+	}
+	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, sacrificed, valid.Parse(validCard), sourceController, source) {
+		return false
+	}
+	if validPlayer, ok := t.Param("ValidPlayer"); ok {
+		matched, recognized := matchesPlayerBase(player, sourceController, validPlayer)
+		if !recognized || !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// isSacrificedTrigger reports whether t is CR 701.20's "is sacrificed"
+// shape: Mode$ Sacrificed.
+func isSacrificedTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Sacrificed")
+}
+
 // checkTapsTriggers is CR 603's own "whenever ~ becomes tapped" mode, Mode$
 // Taps, ported from TriggerTaps.performTest -- the identical single-walk
 // shape checkAttacksTriggers/checkBlocksTriggers/checkDamageDoneTriggersToCard

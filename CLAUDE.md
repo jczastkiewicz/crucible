@@ -651,15 +651,36 @@ puts a card on top of a library — `Game.Move` only ever appends to a zone's ow
 bottom order, and a scry of `0` (`CR 701.22b`) never reaches the controller at all. `surveilEffect` (`surveileffect.go`)
 is M6's tenth — `ArrangeForScry`'s own sibling decision (`ArrangeForSurveil`, `PlayerController`'s twenty-third method)
 reused wholesale for CR 701.42: 183 of 208 real `(AB|DB)$ Surveil` lines resolve, the only real difference from `Scry`
-being that the cards not kept on top go to the graveyard rather than to the bottom of the library. **Targeting itself
-landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this port's own most-cited gap across every effect
-built so far (`ValidTgts$` in every one of their own "not resolved" lists above). `resolveTargets` runs the moment an
-ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`, this port's only pusher today), computing
-`ValidTgts$`'s own legal candidates — every player still in the game (`matchesPlayerSpec`, reused) or every card on any
-battlefield (`Matches`, reused) — and asking a new `PlayerController` method, `ChooseTargets` (its twenty-fourth), for
-`TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A structural shape this port does not parse
-(`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real lines)
-folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
+being that the cards not kept on top go to the graveyard rather than to the bottom of the library. `sacrificeEffect`
+(`sacrificeeffect.go`) is M6's eleventh script-driven effect — CR 701.20, 465 of the corpus's 792 real
+`(AB|DB)$ Sacrifice` lines: an absent `SacValid$` or the literal value `Self` sacrifices the ability's own host
+outright, no choice asked (`SacrificeEffect.java`'s own `valid.equals("Self")` branch); any other `SacValid$` value asks
+each of `Defined$`'s players (default `You`, `AbilityUtils.getDefinedPlayers`'s own null default, `Scry`'s own identical
+shape) to choose `Amount$` of their own matching battlefield permanents through a new `PlayerController` method,
+`ChoosePermanentsToSacrifice` (its twenty-sixth) — `ChooseCardsToDiscard`'s own shape reused for a second
+exactly-N-of-a-set decision. `ValidTgts$` resolves too, `LoseLife`'s own bypass-`Defined$` pattern reused (41 real
+player-shaped lines). `RememberSacrificed$` is this port's first real writer of `Memory.Remember` (`memory.go`, dormant
+scaffolding until now). Not resolved: `UnlessPayer$`/`UnlessCost$` (155 combined, always co-occurring) — a further
+"unless a cost is paid" mechanic; `Optional$` (46) — the identical ability-body-level "may" gap `Discard`'s/ `Pump`'s
+own already document, distinct from CR 603.3d's own `OptionalDecider$`; `Planeswalker$`/`ChangeNum$`/
+`ConditionDefined$`/`UnlessResolveSubs$`/`UnlessSwitched$`/`ValidCard$`/`SorcerySpeed$`/`SacEachValid$`/`Random$`/
+`Destroy$`/`StrictAmount$`/`Echo$`/`CumulativeUpkeep$` (each its own further mechanic or unclear semantics). Sacrificing
+a card also fires CR 701.20's own new `Mode$ Sacrificed` trigger (`checkSacrificedTriggers`, `trigger.go`, ported from
+`TriggerSacrificed.performTest`) right before the zone change — `Player.addSacrificedThisTurn`'s own ordering ahead of
+`sacrificeDestroy`'s own `moveToGraveyard`, both ported directly. Unlike every other per-card trigger dispatch this port
+has, this one walks the battlefield only once: the sacrificed card is still physically there at check time, so a
+separate own-half walk (`checkDiscardedTriggers`'s own shape) would fire its own trigger twice. 106 of 115 real lines
+resolve (`ValidCard$`/`ValidPlayer$` through the usual dispatch, `PlayerTurn$`/`OptionalDecider$`/the whole
+`IsPresent$`/`CheckSVar$`/... family through the shared `triggerEffectAPI` gate); `ActivationLimit$`/`ResolvedLimit$`
+(7/1, the identical per-turn-cap gap `LifeGained`'s own already documents) and `WhileKeyword$` (1) stay unresolved.
+**Targeting itself landed** (`targeting.go`) — CR 601.2c/603.3b's own "choose targets," this port's own most-cited gap
+across every effect built so far (`ValidTgts$` in every one of their own "not resolved" lists above). `resolveTargets`
+runs the moment an ability is pushed onto the stack (`pushTriggeredAbilities`, `trigger.go`, this port's only pusher
+today), computing `ValidTgts$`'s own legal candidates — every player still in the game (`matchesPlayerSpec`, reused) or
+every card on any battlefield (`Matches`, reused) — and asking a new `PlayerController` method, `ChooseTargets` (its
+twenty-fourth), for `TargetMin$`/`TargetMax$` of them (1/1 when neither is named). A structural shape this port does not
+parse (`Radiance$`/`TargetsForEachPlayer$`/`TargetsWithDefinedController$`/`TargetUnique$`, each rare-to-zero real
+lines) folds into CR 603.3c's own "no legal targets, doesn't go on the stack" outcome rather than erroring — the two are
 indistinguishable from outside, and both mean the ability does nothing. Threading a `PlayerController` down to
 `pushTriggeredAbilities` touched every one of its sixteen callers across `action.go`/`attack.go`/`block.go`/
 `combatdamage.go`/`manaability.go`/`turn.go`/`land.go`/`castspell.go` — mechanical, and every path already bottomed out
@@ -689,10 +710,10 @@ lists too, the identical change `GainLife`/`LoseLife` already got. 170/253 (`Dra
 (`LoseLife`), 9/316 (`DealDamage`), 17/571 (`Pump`), 6/75 (`PumpAll`), 56/623 (`PutCounter`), 11/254 (`Discard`), 31/57
 (`Scry`), and 2/15 (`Surveil`) of the corpus's own real SVar-defined lines naming `SubAbility$` now chain to an
 already-built leaf ability and resolve end to end (a chain more than one hop deep, or one whose target is one of the 193
-effects still unbuilt, is not counted). 193 script-driven effects past
-`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil` still report
-`ErrUnimplemented`. **Last-known-information landed too** (`Game.LKI`, `game.go`) — CR 603.6d's own "look back in time":
-`Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its own
+effects still unbuilt, is not counted). 192 script-driven effects past
+`Draw`/`DealDamage`/`GainLife`/`Pump`/`PumpAll`/`LoseLife`/`PutCounter`/`Discard`/`Scry`/`Surveil`/`Sacrifice` still
+report `ErrUnimplemented`. **Last-known-information landed too** (`Game.LKI`, `game.go`) — CR 603.6d's own "look back in
+time": `Move`'s own battlefield-leaving branch freezes a copy of the card before clearing its own
 `Counters`/`PT`/`TypeMod`/`ColorMod`/`KeywordMod`, so `checkDiesTriggers`/`otherDiesTriggerMatches` (`trigger.go`) still
 match a `ValidCard$` naming the dying card's own power, toughness, type, color, a keyword or a counter against what it
 had the instant before it died, not the printed-only state `Move` has already reset it to by the time either function

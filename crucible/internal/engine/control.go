@@ -12,7 +12,7 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-five answerable with
+// which has 110 abstract methods; only the twenty-six answerable with
 // today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
@@ -36,8 +36,9 @@ import (
 // Effect implementation to need one at all -- Effect.Resolve gained a
 // PlayerController parameter for it (effect.go's own doc comment).
 // ArrangeForScry's own caller (scryEffect.Resolve, scryeffect.go) is the
-// second, and ArrangeForSurveil's own caller (surveilEffect.Resolve,
-// surveileffect.go) is the third.
+// second, ArrangeForSurveil's own caller (surveilEffect.Resolve,
+// surveileffect.go) is the third, and ChoosePermanentsToSacrifice's own
+// caller (sacrificeEffect.Resolve, sacrificeeffect.go) is the fourth.
 // ChooseTargets's own caller (resolveTargets, targeting.go) is not another
 // Effect at all -- it runs before an ability is even pushed. ConfirmOptionalTrigger's
 // own caller (Registry.Resolve, effect.go) is not an Effect either -- it runs
@@ -169,6 +170,20 @@ type PlayerController interface {
 	// has); toGraveyard is the order the rest go to their owner's graveyard
 	// in. Either may be nil.
 	ArrangeForSurveil(g *Game, decider PlayerID, topN []CardID) (toTop, toGraveyard []CardID)
+
+	// ChoosePermanentsToSacrifice decides which of decider's own battlefield
+	// decider sacrifices when a card effect asks them to pick (SacValid$'s
+	// own choice, sacrificeeffect.go) -- Forge's own
+	// choosePermanentsToSacrifice, ChooseCardsToDiscard's own shape reused
+	// for a second exactly-N-of-a-set decision: candidates is every one of
+	// decider's own battlefield permanents SacValid$ matches; count is
+	// exactly how many the returned slice must have (min(Amount$,
+	// len(candidates)), sacrificeeffect.go's own clamp -- this port never
+	// asks for more than exist, unlike StrictAmount$'s own further "fewer
+	// than asked, sacrifice none of them" rule, not modeled here). Not
+	// re-checked here -- trust the controller's answer, the same as
+	// ChooseCardsToDiscard.
+	ChoosePermanentsToSacrifice(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
 
 	// ChooseTargets decides which of valid an ability's own controller
 	// targets it with (CR 601.2c/603.3b, targeting.go's own resolveTargets,
@@ -343,6 +358,7 @@ type ScriptedController struct {
 	surveilDecisions []scryDecision
 	targets          [][]EntityID
 	optionalTrigger  []bool
+	sacrificeChoices [][]CardID
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -438,6 +454,12 @@ func (c *ScriptedController) QueueScry(toTop, toBottom []CardID) {
 // happens to script the identical cards for both.
 func (c *ScriptedController) QueueSurveil(toTop, toGraveyard []CardID) {
 	c.surveilDecisions = append(c.surveilDecisions, scryDecision{toTop: toTop, toBottom: toGraveyard})
+}
+
+// QueueSacrificeChoice appends the answer to the next
+// ChoosePermanentsToSacrifice call.
+func (c *ScriptedController) QueueSacrificeChoice(cards []CardID) {
+	c.sacrificeChoices = append(c.sacrificeChoices, cards)
 }
 
 // QueueTargets appends the answer to the next ChooseTargets call.
@@ -558,6 +580,17 @@ func (c *ScriptedController) ChooseCardsToDiscard(_ *Game, _ PlayerID, _ []CardI
 	}
 	v := c.discardChoices[0]
 	c.discardChoices = c.discardChoices[1:]
+	return v
+}
+
+// ChoosePermanentsToSacrifice returns the next answer QueueSacrificeChoice
+// queued.
+func (c *ScriptedController) ChoosePermanentsToSacrifice(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
+	if len(c.sacrificeChoices) == 0 {
+		panic(scriptExhausted("sacrifice choice"))
+	}
+	v := c.sacrificeChoices[0]
+	c.sacrificeChoices = c.sacrificeChoices[1:]
 	return v
 }
 

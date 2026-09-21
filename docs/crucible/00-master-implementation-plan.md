@@ -1098,6 +1098,36 @@ printed form.
     `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through it exactly as
     `Scry`'s/`Discard`'s/`PutCounter`'s own already do.
 
+    **`sacrificeEffect` (`sacrificeeffect.go`) is M6's eleventh script-driven effect.** CR 701.20, 465 of the corpus's
+    792 real `(AB|DB)$ Sacrifice` lines: an absent `SacValid$` or the literal value `Self` sacrifices the ability's own
+    host outright, no choice asked (`SacrificeEffect.java`'s own `valid.equals("Self")` branch); any other `SacValid$`
+    value asks each of `Defined$`'s players (default `You`, `AbilityUtils.getDefinedPlayers`'s own null default,
+    `Scry`'s own identical shape) to choose `Amount$` of their own matching battlefield permanents through a new
+    `PlayerController` method, `ChoosePermanentsToSacrifice` (its twenty-sixth) — `ChooseCardsToDiscard`'s own shape
+    reused for a second exactly-N-of-a-set decision. `ValidTgts$` resolves too, `LoseLife`'s own bypass-`Defined$`
+    pattern reused (41 real player-shaped lines). `RememberSacrificed$` is this port's first real writer of
+    `Memory.Remember` (`memory.go`, dormant scaffolding until now). `SubAbility$` no longer blocks ("SubAbility chaining
+    itself landed," above). Not resolved, each failing loudly by name (PORT-8/GO-7): `UnlessPayer$`/ `UnlessCost$` (155
+    combined, always co-occurring) — a further "unless a cost is paid" mechanic; `Optional$` (46) — the identical
+    ability-body-level "may" gap `Discard`'s/`Pump`'s own already document, distinct from CR 603.3d's own
+    `OptionalDecider$`; `Planeswalker$`/`ChangeNum$`/`ConditionDefined$`/`UnlessResolveSubs$`/`UnlessSwitched$`/
+    `ValidCard$`/`SorcerySpeed$`/`SacEachValid$`/`Random$`/`Destroy$`/`StrictAmount$`/`Echo$`/`CumulativeUpkeep$` (each
+    its own further mechanic or unclear semantics). `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/
+    `ConditionSVarCompare$` resolve through `subAbilityConditionMet` exactly as `Scry`'s/`Discard`'s/`PutCounter`'s own
+    already do.
+
+    Sacrificing a card also fires CR 701.20's own new `Mode$ Sacrificed` trigger (`checkSacrificedTriggers`,
+    `trigger.go`, ported from `TriggerSacrificed.performTest`) right before the zone change —
+    `Player. addSacrificedThisTurn`'s own ordering ahead of `sacrificeDestroy`'s own `moveToGraveyard`, both ported
+    directly. Unlike every other per-card trigger dispatch this port has, this one walks the battlefield only once: the
+    sacrificed card is still physically there at check time, so a separate own-half walk (`checkDiscardedTriggers`'s own
+    shape) would fire its own trigger twice — it is already one of the permanents the single walk visits. 106 of 115
+    real lines resolve: `ValidCard$` against the sacrificed card and `ValidPlayer$` against its own controller through
+    the usual `matchesPlayerBase` dispatch, `PlayerTurn$`/`OptionalDecider$`/the whole `IsPresent$`/ `CheckSVar$`/...
+    family through the shared `triggerEffectAPI` gate for free. `ActivationLimit$`/`ResolvedLimit$` (7/1, the identical
+    per-turn-cap gap `LifeGained`'s own `ActivationLimit$` already documents) and `WhileKeyword$` (1) skip the whole
+    line rather than firing unconditionally (GO-7).
+
     **`isETBTrigger`/`isDiesTrigger` (trigger.go) now port `TriggerChangesZone.performTest`'s own
     `Origin$`/`Destination$` semantics exactly, closing two real correctness gaps rather than a hypothetical cleanup.**
     A new `hasZoneOrAny` treats a key that is absent, or present naming the literal value `"Any"`, as no restriction at

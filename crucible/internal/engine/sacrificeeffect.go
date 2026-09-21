@@ -1,0 +1,169 @@
+// Sacrifice: CR 701.20, SacrificeEffect.java's own resolve -- 465 of the
+// corpus's 792 real (AB|DB)$ Sacrifice lines. The dominant real shape is
+// SacValid$ (569 of 792), not the "no SacValid$ at all" default this port's
+// own effects usually resolve first: SacValid$ absent or the literal value
+// "Self" sacrifices the ability's own host card outright, no choice asked
+// (Java's own `valid.equals("Self")` branch); every other SacValid$ value
+// asks each of Defined$'s players (default "You", AbilityUtils.
+// getDefinedPlayers's own null default) to choose Amount$ of their own
+// battlefield permanents matching it -- Java's own
+// `p.getController().choosePermanentsToSacrifice` branch.
+//
+// Ported from
+// forge-game/src/main/java/forge/game/ability/effects/SacrificeEffect.java's
+// resolve; GameAction.sacrifice/sacrificeDestroy for the actual zone
+// change, shared with the "Self" branch through sacrificeCards, below.
+package engine
+
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
+
+// sacrificeUnresolvedParams names SacrificeEffect.resolve's own params this
+// port does not evaluate. Every one fails the whole line loudly rather than
+// sacrificing the wrong permanent, the wrong count, or silently skipping a
+// choice (PORT-8/GO-7): UnlessPayer$/UnlessCost$ (155/155, always
+// co-occurring) -- "sacrifice unless a cost is paid," a further mechanic no
+// effect in this port has; Optional$ (46) -- an interactive "may sacrifice"
+// confirm, the identical ability-body-level gap Discard's own Optional$/
+// Pump's own Optional$ already document, distinct from CR 603.3d's own
+// OptionalDecider$ a trigger carries (Ability.Optional's own doc comment);
+// ConditionDefined$ (19) and ConditionActivationLimit$ (0) --
+// SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
+// the identical GainLife/LoseLife-shaped gap; Planeswalker$ (11) -- unclear
+// semantics on a Sacrifice line, not worth guessing at; ChangeNum$ (5) --
+// SacrificeAll's own param, never read by this ApiType at all, so its
+// presence marks a line this port would misclassify rather than one it can
+// safely ignore; UnlessResolveSubs$/UnlessSwitched$ (4/4) -- the "unless"
+// family's own further branches; ValidCard$ (3) -- SacrificeEffect.java
+// never reads this key at all, so its real meaning on the handful of lines
+// naming it is unclear; SorcerySpeed$ (1) -- a cost-restriction flag with
+// no cost-payment site to attach to; SacEachValid$ (1) -- a comma-list of
+// several SacValid$ specs sacrificed independently, a distribution
+// mechanic; Random$ (1) -- Aggregates.random, a randomized choice this
+// port's own ChoosePermanentsToSacrifice contract does not carry; Destroy$
+// (2) -- CR 701.7's own destroy rather than sacrifice, a different
+// GameAction call and a different Mode$ trigger entirely; StrictAmount$
+// (2) -- "sacrifice nothing rather than fewer than Amount$," the opposite
+// of this port's own "sacrifice as many of the chosen kind as exist"
+// clamp, below; Echo$/CumulativeUpkeep$ -- SacrificeEffect.java's own two
+// leading special-cased branches, each a whole further upkeep-cost
+// mechanic ahead of the ordinary sacrifice this port ports, 0 real
+// (AB|DB)$ Sacrifice lines combining either with SacValid$/Defined$/Amount$
+// at all.
+//
+// SubAbility$ chains through resolveSubAbility (subability.go,
+// Registry.Resolve, effect.go) once this effect's own body finishes,
+// whether or not subAbilityConditionMet let it run at all, the identical
+// shape every other M6 effect already has -- not named here because it
+// never blocks.
+var sacrificeUnresolvedParams = [...]string{
+	"UnlessPayer", "UnlessCost", "Optional", "ConditionDefined", "ConditionActivationLimit",
+	"Planeswalker", "ChangeNum", "UnlessResolveSubs", "UnlessSwitched", "ValidCard",
+	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
+	"Echo", "CumulativeUpkeep",
+}
+
+type sacrificeEffect struct{}
+
+func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	for _, key := range sacrificeUnresolvedParams {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: Sacrifice: %s$ not resolvable yet", key)
+		}
+	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+
+	sacValid, hasSacValid := a.Params.Param("SacValid")
+	if !hasSacValid || sacValid == "Self" {
+		if source.Zone != Battlefield || source.Controller() != a.Controller {
+			return nil
+		}
+		sacrificeCards(g, controller, a, []CardID{source.ID})
+		return nil
+	}
+
+	amountParam, ok := a.Params.Param("Amount")
+	if !ok {
+		amountParam = "1"
+	}
+	amount, ok := resolveNamedAmount(g, a.Amounts, source, amountParam)
+	if !ok {
+		return fmt.Errorf("engine: Sacrifice: Amount$ %q is not resolvable", amountParam)
+	}
+
+	var players []PlayerID
+	var err error
+	if _, hasValidTgts := a.Params.Param("ValidTgts"); hasValidTgts {
+		for _, e := range a.Targets {
+			if pid, ok := e.AsPlayer(); ok {
+				players = append(players, pid)
+			}
+		}
+	} else {
+		defined, ok := a.Params.Param("Defined")
+		if !ok {
+			defined = "You"
+		}
+		players, err = definedPlayers(g, a.Controller, defined, a.Targets)
+		if err != nil {
+			return fmt.Errorf("engine: Sacrifice: %w", err)
+		}
+	}
+
+	spec := valid.Parse(sacValid)
+	for _, pid := range players {
+		var candidates []CardID
+		for _, cid := range g.Zone(Battlefield, pid).Cards() {
+			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
+				candidates = append(candidates, cid)
+			}
+		}
+		n := amount
+		if n > len(candidates) {
+			n = len(candidates)
+		}
+		if n == 0 {
+			continue
+		}
+		chosen := controller.ChoosePermanentsToSacrifice(g, pid, candidates, n)
+		sacrificeCards(g, controller, a, chosen)
+	}
+	return nil
+}
+
+// sacrificeCards actually sacrifices each of ids, GameAction.sacrifice's
+// own per-card loop: fires Mode$ Sacrificed (checkSacrificedTriggers,
+// trigger.go) before the zone change, using the card's still-live
+// battlefield state -- a card being sacrificed cannot itself change
+// controller mid-loop, so this port's live read stands in for Java's own
+// LKI copy without needing one -- remembers it (RememberSacrificed$) if
+// asked, then moves it to its owner's graveyard and fires the "dies" half
+// of Mode$ ChangesZone (checkDiesTriggers, trigger.go),
+// Player.addSacrificedThisTurn's own ordering ahead of sacrificeDestroy's
+// own moveToGraveyard call, both ported directly. A card no longer on the
+// battlefield (already sacrificed earlier in the same chosen slice, or
+// moved away by an earlier link in a SubAbility$ chain) is skipped, the
+// identical "already gone" guard checkDiesTriggers' own callers give an
+// SBA-driven death.
+func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []CardID) {
+	_, remember := a.Params.Param("RememberSacrificed")
+	for _, id := range ids {
+		c := g.Card(id)
+		if c.Zone != Battlefield {
+			continue
+		}
+		pid := c.Controller()
+		g.checkSacrificedTriggers(controller, id, pid)
+		if remember {
+			g.Card(a.Source).Memory.Remember(CardEntity(id))
+		}
+		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiesTriggers(controller, id)
+	}
+}

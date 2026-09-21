@@ -194,11 +194,19 @@ func TestBecomesTargetSkipsWhenValidTargetDoesNotMatch(t *testing.T) {
 	}
 }
 
-// TestBecomesTargetSkipsUnresolvedValidSource proves the PORT-8 skip for
-// ValidSource$ (77 of the corpus's own 118 real Mode$ BecomesTarget lines):
-// a line naming it never fires, rather than matching as if the restriction
-// were not there.
-func TestBecomesTargetSkipsUnresolvedValidSource(t *testing.T) {
+// TestBecomesTargetSkipsWhenSourceKindDoesNotMatch proves Spell.OppCtrl must
+// not match a targeting event caused by a TRIGGERED ability (the creature's
+// own ETB LoseLife, isSpellSource false) -- Java's own
+// SpellAbility.isValid("Spell", ...) checks root.isSpell(), and the
+// triggered ability itself is never a Spell regardless of what spell caused
+// it to exist. Both this test's own kind mismatch and its own OppCtrl
+// controller mismatch (the watcher and the ETB's own caster are the same
+// player) independently refuse the line here;
+// TestBecomesTargetSkipsAuraSpellSourceWhenValidSourceRequiresTriggered
+// isolates the kind check alone, and
+// TestBecomesTargetSkipsForNonMatchingSpellAbilityController isolates the
+// controller check alone.
+func TestBecomesTargetSkipsWhenSourceKindDoesNotMatch(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -221,6 +229,157 @@ func TestBecomesTargetSkipsUnresolvedValidSource(t *testing.T) {
 	}
 
 	if got := g.Player(p).Life; got != 20 {
-		t.Errorf("p life = %d, want unchanged 20 -- ValidSource$ is unresolved and must skip the whole line, not match unconditionally", got)
+		t.Errorf("p life = %d, want unchanged 20 -- ValidSource$ Spell.OppCtrl must not match a triggered ability's own targeting", got)
+	}
+}
+
+// TestBecomesTargetFiresForMatchingSpellAbilityController proves
+// ValidSource$ SpellAbility.YouCtrl resolves: "SpellAbility" matches any
+// ability kind unconditionally (Java's own "match anything" case), and
+// YouCtrl compares the triggered ability's own controller against the
+// watcher's -- both p here.
+func TestBecomesTargetFiresForMatchingSpellAbilityController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	watcher := g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ SpellAbility.YouCtrl"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(watcher)})
+	def := etbLoseLifeTriggerDefParams(t, "Test SpellAbility YouCtrl", "ValidTgts$ Creature.YouCtrl | LifeAmount$ 1", nil)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 25 {
+		t.Errorf("p life = %d, want 25 -- SpellAbility.YouCtrl must match a triggered ability controlled by the watcher's own controller", got)
+	}
+}
+
+// TestBecomesTargetSkipsForNonMatchingSpellAbilityController proves the
+// other direction: SpellAbility.OppCtrl must not match a targeting event
+// caused by an ability controlled by the SAME player as the watcher.
+func TestBecomesTargetSkipsForNonMatchingSpellAbilityController(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	watcher := g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ SpellAbility.OppCtrl"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(watcher)})
+	def := etbLoseLifeTriggerDefParams(t, "Test SpellAbility OppCtrl", "ValidTgts$ Creature.YouCtrl | LifeAmount$ 1", nil)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("p life = %d, want unchanged 20 -- SpellAbility.OppCtrl must not match an ability controlled by the same player as the watcher", got)
+	}
+}
+
+// TestBecomesTargetFiresForAuraSpellSource proves ValidSource$ Spell.Aura
+// resolves for castAura's own real call site: this port's only spell source
+// reaching checkBecomesTargetTriggers is always an Aura being cast, so the
+// Aura qualifier is trivially satisfied once the kind itself is Spell.
+func TestBecomesTargetFiresForAuraSpellSource(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life = 20
+
+	target := g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ Spell.Aura"), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura with exactly one legal target")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if !g.Card(target).BecameTargetThisTurn {
+		t.Error("target.BecameTargetThisTurn = false, want true")
+	}
+	if got := g.Player(p).Life; got != 25 {
+		t.Errorf("p life = %d, want 25 -- Spell.Aura must match castAura's own real Aura-cast source", got)
+	}
+}
+
+// TestBecomesTargetSkipsAuraSpellSourceWhenValidSourceRequiresTriggered
+// proves the other direction: an Aura cast is never a Triggered ability, so
+// ValidSource$ Triggered must not match it.
+func TestBecomesTargetSkipsAuraSpellSourceWhenValidSourceRequiresTriggered(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life = 20
+
+	g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ Triggered"), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("CastSpell failed casting an Aura with exactly one legal target")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("p life = %d, want unchanged 20 -- ValidSource$ Triggered must not match an Aura spell", got)
+	}
+}
+
+// TestBecomesTargetSkipsUnresolvedValidSourceShape proves a ValidSource$
+// shape this dispatch cannot evaluate at all (Instant,Sorcery -- a card-type
+// check neither of this port's two sources, a Trigger or an Aura, can ever
+// satisfy) refuses outright (GO-7) rather than matching unconditionally.
+func TestBecomesTargetSkipsUnresolvedValidSourceShape(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+
+	watcher := g.NewCard(becomesTargetCreatureDef(t, "Test Watcher", "Card.Self", "ValidSource$ Instant,Sorcery"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(watcher)})
+	def := etbLoseLifeTriggerDefParams(t, "Test Unresolved Shape", "ValidTgts$ Creature.YouCtrl | LifeAmount$ 1", nil)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	creature := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, creature, c) {
+		t.Fatal("CastSpell failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("p life = %d, want unchanged 20 -- Instant,Sorcery is not a recognized ValidSource$ head and must skip the whole line", got)
 	}
 }

@@ -126,7 +126,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.checkSpellCastTriggers(controller, card, pid)
-	g.checkBecomesTargetTriggers(controller, []EntityID{CardEntity(target)})
+	g.checkBecomesTargetTriggers(controller, []EntityID{CardEntity(target)}, true, pid)
 	return true
 }
 

@@ -1189,12 +1189,24 @@ printed form.
     (card.go) — a plain bool, since every real `FirstTime$` line only ever asks whether the card has been targeted at
     all this turn, never by whom, unlike Java's own per-player `targetedFromThisTurn` set — set the moment the card is
     targeted regardless of whether any trigger's own `ValidTarget$` matches (Java's own `addTargetFromThisTurn` runs
-    before any trigger check), reset every cleanup alongside `Card.AttacksThisTurn` (turn.go). 40 of the corpus's own
-    118 real `Mode$ BecomesTarget` lines resolve. Not resolved: `ValidSource$` (77) — matched against the triggering
-    ability itself, not a `Card`, needing a Spell/Activated/Triggered ability-kind classifier this port's `Ability`
-    struct does not carry; `OptionalDecider$` (12) — an interactive "may" confirm this port's own `PlayerController` has
-    no hook for; `Valiant$` (10) — a separate per-activator "have you not targeted this before" set `FirstTime$`'s own
-    plain bool cannot answer; `ActivationLimit$` (3) and `Static$` (1) — each its own further mechanic.
+    before any trigger check), reset every cleanup alongside `Card.AttacksThisTurn` (turn.go). `ValidSource$` (71 of 77
+    real lines naming it) resolves too — matched against the triggering ability itself, not a `Card`
+    (`AbilityKey.SourceSA` in Java, `SpellAbility.isValid`'s own restriction split) — through
+    `becomesTargetSourceMatches` (trigger.go, new), a Spell/Triggered ability-kind classifier built from this dispatch's
+    own two real call sites rather than a general kind field on `Ability`: `castAura`'s own Aura is always a Spell, and
+    a triggered ability pushed through `pushTriggeredAbilities` is always Java's own `isTrigger()`/ `isAbility()` pair
+    (this port has no activated-ability targeting built yet, so `Ability`/`Triggered` collapse to the identical "not a
+    Spell" check). `SpellAbility` itself matches unconditionally (Java's own "match anything" case);
+    `.YouCtrl`/`.OppCtrl` compare the ability's own controller against the watching trigger's own host controller, the
+    identical contract every other YouCtrl/OppCtrl property in this port already has; `.Aura` is trivially true once the
+    kind itself is Spell, since this port's only Spell source reaching here IS an Aura being cast. 89 of the corpus's
+    own 118 real `Mode$ BecomesTarget` lines resolve now. Not resolved: `OptionalDecider$` (12) — an interactive "may"
+    confirm this port's own `PlayerController` has no hook for; `Valiant$` (10) — a separate per-activator "have you not
+    targeted this before" set `FirstTime$`'s own plain bool cannot answer; `ActivationLimit$` (3) and `Static$` (1) —
+    each its own further mechanic; and 6 of the 77 real `ValidSource$` lines —
+    silverfur_partisan.txt's/wild_defiance.txt's own real `Instant,Sorcery` (a card-type check neither of this port's
+    two sources can ever satisfy) and four more combining a kind with a property past YouCtrl/OppCtrl/Aura
+    (`namedGoblin Artisans`, `numTargets EQ1`, `Land+named...`, `Backup`), each its own further mechanic.
 
     **`Trigger.phasesCheck` itself is real now too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger
     mode carries regardless of what it fires on, checked before any mode-specific dispatch runs at all

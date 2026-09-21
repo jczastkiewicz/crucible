@@ -1381,7 +1381,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 				continue
 			}
 			g.PushAbility(matches[i])
-			g.checkBecomesTargetTriggers(controller, matches[i].Targets)
+			g.checkBecomesTargetTriggers(controller, matches[i].Targets, false, matches[i].Controller)
 		}
 	}
 }
@@ -2334,23 +2334,43 @@ func isLandPlayedTrigger(t *compile.Ability) bool {
 // order Java's own MagicStack.add loop has, so two watchers checking the
 // same targeting event see identical first-time-ness.
 //
-// 40 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
+// ValidSource$ (71 of 77 real lines) resolves too -- matched against the
+// triggering ability itself (AbilityKey.SourceSA in Java, a SpellAbility,
+// not a Card, SpellAbility.isValid's own dispatch) -- through
+// becomesTargetSourceMatches (below), a Spell/Triggered ability-kind
+// classifier built from this dispatch's own two real call sites rather than
+// a general SpellAbility-kind field on Ability: castAura's own Aura is
+// always a Spell (isSpell()==true, and this port's only spell-casting path
+// today, so "the one spell source reaching here" and "an Aura spell" are the
+// identical set -- Spell.Aura's own qualifier is therefore always true
+// whenever the kind itself is Spell), and a triggered ability pushed through
+// pushTriggeredAbilities is always Java's own isAbility()/isTrigger() pair
+// (this port has no activated-ability targeting built yet, so "Ability" and
+// "Triggered" collapse to the identical "not a Spell" check for now).
+// "SpellAbility" itself matches unconditionally (Java's own "match anything"
+// case), and .YouCtrl/.OppCtrl compare the ability's own controller against
+// the watching trigger's host controller the identical way every other
+// YouCtrl/OppCtrl property in this port already does. 6 stay unresolved:
+// silverfur_partisan.txt's/wild_defiance.txt's own real `Instant,Sorcery`
+// (a card-type check neither of this port's two sources -- a Trigger, an
+// Aura -- can ever satisfy) and four real lines combining a kind with a
+// property past YouCtrl/OppCtrl/Aura (`namedGoblin Artisans`, `numTargets
+// EQ1`, `Land+named...`, `Backup`), each its own further mechanic.
+//
+// 89 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
 // Illusionary Servant's own real "When CARDNAME becomes the target of a
 // spell or ability, sacrifice it" among them (Sacrifice itself is still
 // ErrUnimplemented, M6's own remaining scope; TestDestroyLethalToughnessFiresDiesTrigger's
 // own "prove the trigger reached the stack, not that its effect ran"
 // precedent applies here identically). Not resolved, each failing loudly by
-// name rather than firing unconditionally (PORT-8/GO-7): ValidSource$ (77)
-// -- matched against the triggering ability itself (AbilityKey.SourceSA in
-// Java, a SpellAbility, not a Card), needing a Spell/Activated/Triggered
-// ability-kind classifier this port's own Ability struct does not carry;
-// OptionalDecider$ (12) -- an interactive "may" confirm this port's own
-// PlayerController has no hook for, the identical gap Discard's own
-// Optional$ already documents; Valiant$ (10) -- Card.isValiant's own
-// per-activator "have you not targeted this before" set, a separate
-// mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
-// and Static$ (1) -- each its own further mechanic.
-func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets []EntityID) {
+// name rather than firing unconditionally (PORT-8/GO-7): OptionalDecider$
+// (12) -- an interactive "may" confirm this port's own PlayerController has
+// no hook for, the identical gap Discard's own Optional$ already documents;
+// Valiant$ (10) -- Card.isValiant's own per-activator "have you not targeted
+// this before" set, a separate mechanic FirstTime$'s own plain bool cannot
+// answer; ActivationLimit$ (3) and Static$ (1) -- each its own further
+// mechanic.
+func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets []EntityID, isSpellSource bool, sourceController PlayerID) {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
 	for _, tgt := range targets {
@@ -2384,6 +2404,10 @@ func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets [
 						if !attackedTargetMatches(g, w, []EntityID{tgt}, validTarget) {
 							continue
 						}
+						if validSource, ok := t.Param("ValidSource"); ok &&
+							!becomesTargetSourceMatches(isSpellSource, sourceController, w.Controller(), validSource) {
+							continue
+						}
 						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
@@ -2401,6 +2425,9 @@ func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets [
 // isBecomesTargetTrigger reports whether t is a Mode$ BecomesTarget line
 // this port resolves -- ValidTarget$ present, and none of
 // checkBecomesTargetTriggers' own doc-commented unresolved params named.
+// ValidSource$ is checked separately, in checkBecomesTargetTriggers' own
+// loop, since becomesTargetSourceMatches needs the target-choosing ability's
+// own kind and controller, neither of which this predicate has in scope.
 func isBecomesTargetTrigger(t *compile.Ability) bool {
 	if !strings.EqualFold(t.Name, "BecomesTarget") {
 		return false
@@ -2408,5 +2435,69 @@ func isBecomesTargetTrigger(t *compile.Ability) bool {
 	if _, ok := t.Param("ValidTarget"); !ok {
 		return false
 	}
-	return !hasAnyParam(t, "ValidSource", "OptionalDecider", "Valiant", "ActivationLimit", "Static")
+	return !hasAnyParam(t, "OptionalDecider", "Valiant", "ActivationLimit", "Static")
+}
+
+// becomesTargetSourceMatches is TriggerBecomesTarget.performTest's own
+// ValidSource$ check -- SpellAbility.isValid's own restriction split,
+// ported at the two ability kinds this port's own two real call sites can
+// ever produce (isSpellSource true for castAura's own Aura, false for a
+// triggered ability pushed through pushTriggeredAbilities -- this port has
+// no activated-ability targeting built yet, so Java's own separate
+// isAbility()/isTrigger() checks collapse to the identical "not a Spell"
+// test here). "SpellAbility" matches unconditionally (Java's own "match
+// anything" case); "Spell" requires isSpellSource; "Ability"/"Triggered"
+// require !isSpellSource; every other head (Activated/Instant/Sorcery/
+// Static/LandAbility) refuses outright -- Activated because this port has
+// nothing that ever sets isSpellSource false for an activated ability
+// specifically, Instant/Sorcery because neither of this port's two sources
+// is ever a card of that type. A "."-qualified property afterward is
+// YouCtrl/OppCtrl (the ability's own controller compared against the
+// watching trigger's own host controller, the identical YouCtrl/OppCtrl
+// contract every other property in this port already has) or Aura (always
+// true once the kind itself is Spell, since this port's only spell source
+// reaching here IS an Aura being cast, castAura's own doc comment) --
+// anything else refuses the whole line (GO-7): silverfur_partisan.txt's/
+// wild_defiance.txt's own real `Instant,Sorcery` and four more real lines
+// combining a kind with a property past YouCtrl/OppCtrl/Aura (`namedGoblin
+// Artisans`, `numTargets EQ1`, `Land+named...`, `Backup`), each its own
+// further mechanic.
+func becomesTargetSourceMatches(isSpellSource bool, sourceController, hostController PlayerID, restriction string) bool {
+	head, rest, hasRest := strings.Cut(restriction, ".")
+	var kindMatch bool
+	switch head {
+	case "SpellAbility":
+		kindMatch = true
+	case "Spell":
+		kindMatch = isSpellSource
+	case "Ability", "Triggered":
+		kindMatch = !isSpellSource
+	default:
+		return false
+	}
+	if !kindMatch {
+		return false
+	}
+	if !hasRest {
+		return true
+	}
+	for _, prop := range strings.Split(rest, "+") {
+		switch prop {
+		case "YouCtrl":
+			if sourceController != hostController {
+				return false
+			}
+		case "OppCtrl":
+			if sourceController == hostController {
+				return false
+			}
+		case "Aura":
+			// Always true here: this port's only isSpellSource-true caller
+			// (castAura) never reaches this dispatch for anything but an
+			// Aura spell.
+		default:
+			return false
+		}
+	}
+	return true
 }

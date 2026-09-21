@@ -1937,24 +1937,8 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 						if !phaseTriggerZoneMatches(t, z) {
 							continue
 						}
-						if hasAnyParam(t, "Condition") {
+						if !attackersDeclaredParamsMatch(g, h, t, g.combat.Attackers, targets) {
 							continue
-						}
-						if attackingPlayer, ok := t.Param("AttackingPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), host, attackingPlayer)
-							if !recognized || !matched {
-								continue
-							}
-						}
-						if attackedTarget, ok := t.Param("AttackedTarget"); ok {
-							if !attackedTargetMatches(g, h, targets, attackedTarget) {
-								continue
-							}
-						}
-						if validAttackers, ok := t.Param("ValidAttackers"); ok {
-							if !validAttackersCountMatches(g, h, t, validAttackers) {
-								continue
-							}
 						}
 						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
@@ -1965,6 +1949,108 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 		}
 	}
 	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkAttackersDeclaredOneTargetTrigger is TriggerType.java's own
+// AttackersDeclaredOneTarget -- the identical TriggerAttackersDeclared class
+// checkAttackersDeclaredTrigger (above) already ports, fired at a different
+// granularity: PhaseHandler.java's own declareAttackersStep runs this once
+// per defender that has at least one attacker, Attackers/AttackedTarget
+// narrowed to just that one defender's own attackers/that one defender
+// alone, rather than once per combat with every attacker/every attacked
+// defender gathered -- the two run one after the other for the same combat,
+// this one first, PhaseHandler.java's own call order (every
+// AttackersDeclaredOneTarget fires inside the per-defender loop, the single
+// AttackersDeclared fires once after it), mirrored by DeclareCombatAttackers'
+// own call order (attack.go).
+//
+// 35 of the corpus's own 35 real Mode$ AttackersDeclaredOneTarget lines
+// resolve end to end: every real line's own param vocabulary
+// (TriggerZones$/AttackedTarget$/ValidAttackers$/ValidAttackersAmount$/
+// AttackingPlayer$/Secondary$) is already resolved by
+// attackersDeclaredParamsMatch/phaseTriggerZoneMatches, the identical
+// dispatch checkAttackersDeclaredTrigger already has -- 0 real lines carry
+// Condition$/OptionalDecider$/CheckDefinedPlayer$/IsPresent$ (vocabscan), the
+// params that stay unresolved for the plain AttackersDeclared mode.
+func (g *Game) checkAttackersDeclaredOneTargetTrigger(controller PlayerController) {
+	if len(g.combat.Attackers) == 0 {
+		return
+	}
+	var matches []Ability
+	for _, target := range attackedTargetsOf(g) {
+		attackers := attackersTargeting(g, target)
+		targets := []EntityID{target}
+		for _, pid := range g.Players() {
+			for _, z := range phaseTriggerZones {
+				for _, host := range g.Zone(z, pid).Cards() {
+					h := g.Card(host)
+					if h.Def == nil {
+						continue
+					}
+					for _, face := range h.Def.Faces {
+						for _, t := range face.Triggers {
+							if !isAttackersDeclaredOneTargetTrigger(t) {
+								continue
+							}
+							if !phaseTriggerZoneMatches(t, z) {
+								continue
+							}
+							if !attackersDeclaredParamsMatch(g, h, t, attackers, targets) {
+								continue
+							}
+							if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// attackersDeclaredParamsMatch is TriggerAttackersDeclared.performTest's own
+// shared param dispatch, checkAttackersDeclaredTrigger's/
+// checkAttackersDeclaredOneTargetTrigger's own common half: Condition$ skips
+// whole (StaticAbility.java's own runtime gate, no equivalent for any
+// trigger mode yet), AttackingPlayer$ matches g.activePlayer -- Combat
+// .getAttackingPlayer() is always the active player in this port's own
+// combat model regardless of which caller's own attacker subset is in play
+// -- AttackedTarget$/ValidAttackers$ match against whichever targets/
+// attackers the caller already narrowed things down to.
+func attackersDeclaredParamsMatch(g *Game, h *Card, t *compile.Ability, attackers []CardID, targets []EntityID) bool {
+	if hasAnyParam(t, "Condition") {
+		return false
+	}
+	if attackingPlayer, ok := t.Param("AttackingPlayer"); ok {
+		matched, recognized := matchesPlayerSpec(g, g.activePlayer, h.Controller(), h.ID, attackingPlayer)
+		if !recognized || !matched {
+			return false
+		}
+	}
+	if attackedTarget, ok := t.Param("AttackedTarget"); ok && !attackedTargetMatches(g, h, targets, attackedTarget) {
+		return false
+	}
+	if validAttackers, ok := t.Param("ValidAttackers"); ok && !validAttackersCountMatches(g, h, t, validAttackers, attackers) {
+		return false
+	}
+	return true
+}
+
+// attackersTargeting is combat.getAttackersOf(ge) (PhaseHandler.java): the
+// subset of this combat's own declared attackers whose own AttackTargets
+// entry is target, in Combat.Attackers' own declaration order -- the
+// identical order attackedTargetsOf (above) already walks to find target
+// itself, preserved here for the same GO-12 reason.
+func attackersTargeting(g *Game, target EntityID) []CardID {
+	var out []CardID
+	for _, attacker := range g.combat.Attackers {
+		if g.combat.AttackTargets[attacker] == target {
+			out = append(out, attacker)
+		}
+	}
+	return out
 }
 
 // attackedTargetsOf is every distinct entity actually attacked this combat
@@ -2033,20 +2119,26 @@ func attackedTargetMatches(g *Game, host *Card, targets []EntityID, spec string)
 }
 
 // validAttackersCountMatches is TriggerAttackersDeclared's own
-// ValidAttackers$/ValidAttackersAmount$ pair: how many of this combat's
-// declared attackers ValidAttackers$ matches, compared against
-// ValidAttackersAmount$ (default "GE1", Java's own
-// `getParamOrDefault("ValidAttackersAmount", "GE1")` -- "one or more,"
-// matching TriggerDescription's own real corpus phrasing, "whenever one or
-// more Knights you control attack"). Every real ValidAttackersAmount$ value
-// is a plain two-letter-operator-plus-digit shape (GE2, GE3, EQ1, ...,
-// vocabscan), never an SVar or "X" needing `AbilityUtils.calculateAmount`
-// the way Java's own code path technically allows for, so this reads the
-// digits directly rather than resolving an amount.
-func validAttackersCountMatches(g *Game, host *Card, t *compile.Ability, spec string) bool {
+// ValidAttackers$/ValidAttackersAmount$ pair: how many of attackers
+// ValidAttackers$ matches, compared against ValidAttackersAmount$ (default
+// "GE1", Java's own `getParamOrDefault("ValidAttackersAmount", "GE1")` --
+// "one or more," matching TriggerDescription's own real corpus phrasing,
+// "whenever one or more Knights you control attack"). Every real
+// ValidAttackersAmount$ value is a plain two-letter-operator-plus-digit
+// shape (GE2, GE3, EQ1, ..., vocabscan), never an SVar or "X" needing
+// `AbilityUtils.calculateAmount` the way Java's own code path technically
+// allows for, so this reads the digits directly rather than resolving an
+// amount. attackers is this combat's own declared attackers for
+// checkAttackersDeclaredTrigger's own caller, or just the ones attacking one
+// particular defender for checkAttackersDeclaredOneTargetTrigger's own --
+// AbilityKey.Attackers carries the identical distinction in Java, PhaseHandler
+// .java's own declareAttackersStep passing combat.getAttackers() to one
+// runTrigger call and combat.getAttackersOf(ge) to the other, both consumed
+// by the identical performTest body either way.
+func validAttackersCountMatches(g *Game, host *Card, t *compile.Ability, spec string, attackers []CardID) bool {
 	parsed := valid.Parse(spec)
 	n := 0
-	for _, id := range g.combat.Attackers {
+	for _, id := range attackers {
 		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
 			n++
 		}
@@ -2067,6 +2159,10 @@ func validAttackersCountMatches(g *Game, host *Card, t *compile.Ability, spec st
 
 func isAttackersDeclaredTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "AttackersDeclared")
+}
+
+func isAttackersDeclaredOneTargetTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "AttackersDeclaredOneTarget")
 }
 
 // checkDrawnTriggers is CR 120.3's own "whenever you draw a card" mode,

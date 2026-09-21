@@ -1343,6 +1343,26 @@ printed form.
     real `ValidSource$ SpellAbility | SourceController$ True` restriction (no `ValidPlayer$` at all — a restriction on
     what caused the event, not who it affects).
 
+    **`Mode$ AttackersDeclaredOneTarget` is real now too** — `checkAttackersDeclaredOneTargetTrigger` (trigger.go) is
+    `checkAttackersDeclaredTrigger`'s own sibling: `TriggerType.java`'s own
+    `AttackersDeclaredOneTarget(TriggerAttackersDeclared.class)` names the identical Java `Trigger` subclass the plain
+    `AttackersDeclared` mode already ports, fired at a different granularity by `PhaseHandler.java`'s own
+    `declareAttackersStep` — once per defender that has at least one attacker (`Attackers`/`AttackedTarget` narrowed to
+    just that one defender), rather than once per combat with every attacker/every attacked defender gathered. A new
+    `attackersDeclaredParamsMatch` factors out the shared param dispatch
+    (`Condition$`/`AttackingPlayer$`/`AttackedTarget$`/`ValidAttackers$`) both modes now call, and
+    `validAttackersCountMatches` takes the attacker subset as a parameter instead of always reading
+    `g.combat.Attackers`, so `ValidAttackers$`/`ValidAttackersAmount$` count only the firing's own defender's own
+    attackers under this new mode — `attackersTargeting` (new, `combat.getAttackersOf(ge)`) computes that subset in
+    `Combat.Attackers`' own declaration order, the identical order `attackedTargetsOf` (item 26's own
+    `AttackersDeclared` paragraph above) already walks to find the defender itself. `DeclareCombatAttackers` (attack.go)
+    calls this before the plain `checkAttackersDeclaredTrigger`, `PhaseHandler.java`'s own call order. 35 of the
+    corpus's own 35 real `Mode$ AttackersDeclaredOneTarget` lines resolve end to end: every real line's own param
+    vocabulary (`TriggerZones$`/`AttackedTarget$`/`ValidAttackers$`/`ValidAttackersAmount$`/`AttackingPlayer$`/
+    `Secondary$`) is already resolved by the shared dispatch — 0 real lines name `Condition$`/`OptionalDecider$`/
+    `CheckDefinedPlayer$`/`IsPresent$`, the params that stay unresolved for the plain `AttackersDeclared` mode's own
+    remainder.
+
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
     player draws a card"/"gains life"/"becomes the target of a spell or ability" (`Countered`, `Exiled`, `Sacrificed`,

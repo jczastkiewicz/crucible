@@ -3710,6 +3710,165 @@ func TestDeclareCombatAttackersSkipsValidAttackersAmountTriggerBelowThreshold(t 
 	}
 }
 
+// attackersDeclaredOneTargetTriggerDef is attackersDeclaredTriggerDef's own
+// sibling for Mode$ AttackersDeclaredOneTarget.
+func attackersDeclaredOneTargetTriggerDef(t *testing.T, name, extra string) *compile.Card {
+	t.Helper()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(reg, "Enchantment")
+	line := "Mode$ AttackersDeclaredOneTarget"
+	if extra != "" {
+		line += " | " + extra
+	}
+	line += " | Execute$ TrigDraw"
+	raw.Faces[0].Triggers = []string{line}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestDeclareCombatAttackersFiresAttackersDeclaredOneTargetTriggerOncePerDefender
+// proves checkAttackersDeclaredOneTargetTrigger's own defining difference from
+// checkAttackersDeclaredTrigger: PhaseHandler.java's own declareAttackersStep
+// runs AttackersDeclaredOneTarget once per defender that has at least one
+// attacker, not once per combat -- two attackers split across two different
+// defenders (the defending player directly, and a planeswalker they control)
+// fires the bare trigger twice, drawing two cards, where the plain
+// AttackersDeclared mode (TestDeclareCombatAttackersFiresAttackersDeclaredTrigger,
+// above) fires once regardless of how many defenders got attacked.
+func TestDeclareCombatAttackersFiresAttackersDeclaredOneTargetTriggerOncePerDefender(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	toPlayer := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	toWalker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefLoyalty(t, "3"), other, engine.Battlefield)
+	g.NewCard(attackersDeclaredOneTargetTriggerDef(t, "Test Watcher", ""), other, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+	g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
+	ac.QueueAttackTarget(engine.PlayerEntity(other))
+	ac.QueueAttackTarget(engine.CardEntity(pw))
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, other).Cards()); got != 2 {
+		t.Errorf("hand has %d cards, want 2 -- the bare trigger must fire once for each of the two attacked defenders", got)
+	}
+}
+
+// TestDeclareCombatAttackersOneTargetAttackedTargetMatchesOnlyThatDefender
+// proves AttackedTarget$ is checked against just the one defender each
+// firing carries, not every defender attacked this combat: You matches only
+// the firing for the player-targeted attacker, not the one for the
+// planeswalker-targeted attacker.
+func TestDeclareCombatAttackersOneTargetAttackedTargetMatchesOnlyThatDefender(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	toPlayer := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	toWalker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefLoyalty(t, "3"), other, engine.Battlefield)
+	g.NewCard(attackersDeclaredOneTargetTriggerDef(t, "Test Watcher", "AttackedTarget$ You"), other, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
+	ac.QueueAttackTarget(engine.PlayerEntity(other))
+	ac.QueueAttackTarget(engine.CardEntity(pw))
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, other).Cards()); got != 1 {
+		t.Errorf("hand has %d cards, want 1 -- AttackedTarget$ You must match only the player-targeted defender's own firing", got)
+	}
+}
+
+// TestDeclareCombatAttackersOneTargetValidAttackersCountsOnlyThatDefendersOwnAttackers
+// proves ValidAttackersAmount$ is compared against just the one defender's
+// own attackers, not the whole combat's: two attackers split one-and-one
+// across two defenders fails GE2 for both (neither defender has two
+// attackers of its own), even though Combat.Attackers has two total --
+// checkAttackersDeclaredTrigger's own identical shape
+// (TestDeclareCombatAttackersFiresValidAttackersAmountTrigger, above) would
+// satisfy GE2 from the same two attackers, since it counts across the whole
+// combat.
+func TestDeclareCombatAttackersOneTargetValidAttackersCountsOnlyThatDefendersOwnAttackers(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	toPlayer := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	toWalker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefLoyalty(t, "3"), other, engine.Battlefield)
+	g.NewCard(attackersDeclaredOneTargetTriggerDef(t, "Test Watcher", "ValidAttackers$ Creature.YouCtrl | ValidAttackersAmount$ GE2"), p, engine.Battlefield)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
+	ac.QueueAttackTarget(engine.PlayerEntity(other))
+	ac.QueueAttackTarget(engine.CardEntity(pw))
+	g.DeclareCombatAttackers(ac)
+
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("StackLen() = %d, want 0 -- neither defender has two attackers of its own, so GE2 must fail for both firings", got)
+	}
+}
+
+// TestDeclareCombatAttackersOneTargetValidAttackersCountsBothAttackingOneDefender
+// is the same trigger's own positive twin: both attackers sent at the same
+// defender satisfies GE2 for that one firing.
+func TestDeclareCombatAttackersOneTargetValidAttackersCountsBothAttackingOneDefender(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	first := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(planeswalkerDefLoyalty(t, "3"), other, engine.Battlefield)
+	g.NewCard(attackersDeclaredOneTargetTriggerDef(t, "Test Watcher", "ValidAttackers$ Creature.YouCtrl | ValidAttackersAmount$ GE2"), p, engine.Battlefield)
+	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{first, second})
+	ac.QueueAttackTarget(engine.PlayerEntity(other))
+	ac.QueueAttackTarget(engine.PlayerEntity(other))
+	g.DeclareCombatAttackers(ac)
+
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(top).Zone != engine.Hand {
+		t.Errorf("library card zone = %v, want Hand -- both attackers targeting the same defender satisfies ValidAttackersAmount$ GE2", g.Card(top).Zone)
+	}
+}
+
 // attackersDeclaredCheckSVarTriggerDef builds a permanent whose own
 // AttackersDeclared trigger carries CheckSVar$ X | SVarCompare$ compare, X a
 // literal integer -- checkSVarMatches' own resolveNamedAmount-backed shape

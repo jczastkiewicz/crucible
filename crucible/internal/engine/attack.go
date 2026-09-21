@@ -67,6 +67,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 		g.Card(id).AttacksThisTurn++
 		g.checkAttacksTriggers(controller, id)
 	}
+	g.checkAttackersDeclaredOneTargetTrigger(controller)
 	g.checkAttackersDeclaredTrigger(controller)
 	return attackers
 }

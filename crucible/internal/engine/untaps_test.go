@@ -120,16 +120,68 @@ func TestStartTurnSkipsUntapsTriggerForAlreadyUntappedCard(t *testing.T) {
 	}
 }
 
-// TestStartTurnSkipsUntapsTriggerNamingOptionalDecider proves the
-// PORT-8 skip for OptionalDecider$ (3 of 30 real Mode$ Untaps lines): a line
-// naming it never fires, rather than firing as if the "may" were not there.
-func TestStartTurnSkipsUntapsTriggerNamingOptionalDecider(t *testing.T) {
+// TestStartTurnFiresUntapsTriggerNamingOptionalDeciderWhenConfirmed proves
+// OptionalDecider$ You (3 of 30 real Mode$ Untaps lines) resolves through
+// triggerEffectAPI's own triggerIsOptional (trigger.go): confirmed, the
+// ability runs exactly as if it had not been optional at all.
+func TestStartTurnFiresUntapsTriggerNamingOptionalDeciderWhenConfirmed(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	a, b := g.Players()[0], g.Players()[1]
 	g.Player(a).Life, g.Player(b).Life = 20, 20
 	c := g.NewCard(untapsCreatureDef(t, "Test Inspired", "Card.Self", "OptionalDecider$ You"), a, engine.Battlefield)
+	g.Card(c).Tapped = true
+	sc := engine.NewScriptedController()
+	sc.QueueConfirmOptionalTrigger(true)
+
+	g.StartTurn(a, sc)
+	if err := g.ResolveStack(engine.NewRegistry(), sc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(a).Life; got != 25 {
+		t.Errorf("a life = %d, want 25 -- a confirmed OptionalDecider$ You trigger must run its own body", got)
+	}
+}
+
+// TestStartTurnSkipsUntapsTriggerNamingOptionalDeciderWhenDeclined is the
+// same trigger's own negative twin: declined, the ability does nothing at
+// all, the identical outcome an unmet mandatory restriction already has.
+func TestStartTurnSkipsUntapsTriggerNamingOptionalDeciderWhenDeclined(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	c := g.NewCard(untapsCreatureDef(t, "Test Inspired", "Card.Self", "OptionalDecider$ You"), a, engine.Battlefield)
+	g.Card(c).Tapped = true
+	sc := engine.NewScriptedController()
+	sc.QueueConfirmOptionalTrigger(false)
+
+	g.StartTurn(a, sc)
+	if err := g.ResolveStack(engine.NewRegistry(), sc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(a).Life; got != 20 {
+		t.Errorf("a life = %d, want unchanged 20 -- a declined OptionalDecider$ You trigger must not run its own body", got)
+	}
+}
+
+// TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider proves the
+// PORT-8 skip for an OptionalDecider$ value other than "You": the trigger
+// never even reaches the confirm step, since this port has no resolver for
+// who TriggeredCardController names as the decider (triggerIsOptional's own
+// doc comment) -- the identical "skip the whole line, don't guess" contract
+// every other unresolved trigger restriction in this file already has.
+func TestStartTurnSkipsUntapsTriggerNamingUnresolvedOptionalDecider(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	c := g.NewCard(untapsCreatureDef(t, "Test Inspired", "Card.Self", "OptionalDecider$ TriggeredCardController"), a, engine.Battlefield)
 	g.Card(c).Tapped = true
 	sc := engine.NewScriptedController()
 
@@ -139,6 +191,6 @@ func TestStartTurnSkipsUntapsTriggerNamingOptionalDecider(t *testing.T) {
 	}
 
 	if got := g.Player(a).Life; got != 20 {
-		t.Errorf("a life = %d, want unchanged 20 -- OptionalDecider$ is unresolved and must skip the whole line", got)
+		t.Errorf("a life = %d, want unchanged 20 -- an unresolved OptionalDecider$ value must skip the whole line, never asking", got)
 	}
 }

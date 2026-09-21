@@ -440,61 +440,66 @@ against the gainer through `matchesPlayerSpec`, reusing `phaseTriggerZones`'s ow
 resolves through a new pre-increment read of `Player.LifeGainedTimesThisTurn`, the identical contract
 `checkLandPlayedTriggers`'s own `NotFirstLand$` already has; `ActivationLimit$` (4) now skips the whole line too, a real
 correctness fix rather than a new resolution — this port never checked it before, so those lines were wrongly firing
-every time rather than up to their own per-turn cap — 86 of 98 real lines resolve now, `OptionalDecider$` (7)/
-`ValidSource$`+`Spell$` (1, combined on the identical real line)/`ResolvedLimit$` (1)
-unresolved)/becomes-the-target-of-a- spell-or-ability (`Mode$ BecomesTarget`, `checkBecomesTargetTriggers` — CR
-115/603.3, called from `pushTriggeredAbilities` right after every `PushAbility` and from `castAura` for an Aura's own
-cast-time target, the two places this port ever finishes choosing a target for something — `ValidTarget$` matched with
-`attackedTargetMatches` (`AttackersDeclared`'s own dispatch, reused), a new `Card.BecameTargetThisTurn` closing
-`FirstTime$` the identical way `Card.AttacksThisTurn` already closes `Attacks`'s own, and `ValidSource$` (71 of 77 real
-lines naming it) resolving through `becomesTargetSourceMatches` — SpellAbility.isValid's own restriction split, a
-Spell/Triggered ability-kind classifier built from this dispatch's own two real call sites rather than a general field
-on `Ability`: `castAura`'s own Aura is always a Spell, and a triggered ability pushed through `pushTriggeredAbilities`
-is always Java's own `isTrigger()`/`isAbility()` pair (no activated-ability targeting exists in this port yet, so
-`Ability`/ `Triggered` collapse to the identical "not a Spell" check); `SpellAbility` itself matches unconditionally,
-`.YouCtrl`/ `.OppCtrl` compare the ability's own controller against the watching trigger's host controller, and
-`Spell.Aura`'s own qualifier is trivially true whenever the kind is Spell, since this port's only Spell source reaching
-here IS an Aura — 89 of 118 real lines resolve now, `OptionalDecider$`/`Valiant$`/`ActivationLimit$`/`Static$` (26
-combined) and 6 of the 77 `ValidSource$` lines (an `Instant,Sorcery` card-type check neither real source can ever
-satisfy, or a property past YouCtrl/OppCtrl/Aura) still unresolved)/plays-a-land (`Mode$ LandPlayed`,
-`checkLandPlayedTriggers` — CR 305/603.5, called from `PlayLand` (land.go) right after `checkETBTriggers`, `Player`'s
-own real Java ordering, `Player.playLand`'s own `moveTo`-then-`runTrigger`-then-`addLandPlayedThisTurn` sequence, which
-is why `PlayLand`'s own `LandsPlayed++` now runs last too — `ValidCard$` matched the usual way, `Origin$` resolved
-through `hasZoneOrAny` (ETB triggers' own dispatch, reused) against the land's own origin zone (always Hand today, no
-`MayPlay$` permission to play from elsewhere yet, so 8 of the corpus's 9 real non-`Static$` `Origin$` lines naming Exile
-or a Hand-excluding zone list never actually fire, the identical "mechanically correct, presently unreachable" gap
-`DB$ ReplaceDamage`'s own `hedron_field_purists.txt` lines already have), `ValidActivatingPlayer$` (1, "You") through
-`matchesActivatingPlayer` (reused), and `NotFirstLand$` (1) through a new pre-increment read of `Player.LandsPlayed`
-(player.go) — 35 of 42 real lines resolve, `Static$`/`ValidSA$` (7 combined, "Once during each of your turns, you may
-play a historic land..." shapes — `Static$` a trigger ability that resolves off the stack, `ValidSA$` a `SpellAbility`
-`Matches` cannot evaluate) skip via `hasAnyParam`; `OptionalDecider$` (3) is not itself a performTest param at all,
-consumed by the resolving ability's own controller-decision step instead, M6's own remaining territory).
-**`Trigger.phasesCheck` itself lands too** (`triggerPhasesCheck`, trigger.go) — a general gate every trigger mode
-carries regardless of what it fires on, checked before any mode-specific dispatch runs at all: `Phase$` restricts a
-trigger of any mode to firing only during named step(s)/phase(s) (reusing `phaseTriggerMatches`, `Mode$ Phase`'s own
-dispatch, generically); `PlayerTurn$`/ `NotPlayerTurn$`/`OpponentTurn$` restrict to (or away from) the host's own
-controller's turn — `OpponentTurn$` collapsing to `NotPlayerTurn$`'s own check in this port's no-team model;
-`FirstCombat$` resolves to a hardcoded `true` (this port has no extra-combat mechanism to ever make a second combat
-phase reachable, the identical reasoning `combatdamage.go`'s own `CombatDamage$` check already uses). Closes 43 real
-lines across six already-built modes (`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1,
-`Drawn` 1) that were firing **unconditionally** until now — a wrong answer, not a coverage gap, since this port had
-never checked either key before (sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6
-real `Attacks`/ `AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$`
-(1/2, `Mode$ Phase` only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines,
-dormant). **`Mode$ Untaps` lands too** (`checkUntapsTriggers`, trigger.go) — CR 502.3/603's own "becomes untapped,"
-`Taps`'s own mirror image, called once per card from `untapStep` (turn.go) for every card that actually untaps that step
-(a card already untapped generates no event, `Card.untap()`'s own early return ported as a `wasTapped` guard). One
-battlefield walk covers both a card's own "Inspired" trigger and mesmeric_orb.txt's own bare "whenever a permanent
-becomes untapped," the identical single-walk shape `checkTapsTriggers` already has — 27 of 30 real lines resolve,
-`OptionalDecider$` (3) unresolved. **`ReplacementEffect.requirementsCheck` itself lands too**
-(`replacementRequirementsCheck`, replacement.go) — a general gate every replacement carries regardless of its own
-`Event$`, mirroring `triggerPhasesCheck`'s own role for triggers: `PlayerTurn$` (8 real lines, literal `True` only),
-`ActivePhases$` (1, reusing `phaseTriggerMatches` — now taking its own key as a parameter rather than hardcoding
-`"Phase"`, so `Mode$ Phase`'s own dispatch and this general gate share the identical parser), then
-`triggerCommonRequirementsMet` outright (the identical Java method a trigger's own `performTest` already calls). Folded
-into `damagePreventionMatches`/`untapReplacementMatches`/`replacementTapsOnMove`, closing 7 of 10 previously-skipped
-real `DamageDone`|`Prevent$` lines and 5 of 7 previously-skipped `Untap`|`CantHappen` lines for free, plus fixing a
-real, if narrow, wrong-firing bug: archelos_lagoon_mystic.txt's own "enters tapped" toggle names
+every time rather than up to their own per-turn cap — 93 of 98 real lines resolve now (`OptionalDecider$`, 7, every real
+line "You", resolves too through `triggerEffectAPI`'s own `triggerIsOptional`, below), `ValidSource$`+`Spell$` (1,
+combined on the identical real line)/`ResolvedLimit$` (1) unresolved)/becomes-the-target-of-a- spell-or-ability
+(`Mode$ BecomesTarget`, `checkBecomesTargetTriggers` — CR 115/603.3, called from `pushTriggeredAbilities` right after
+every `PushAbility` and from `castAura` for an Aura's own cast-time target, the two places this port ever finishes
+choosing a target for something — `ValidTarget$` matched with `attackedTargetMatches` (`AttackersDeclared`'s own
+dispatch, reused), a new `Card.BecameTargetThisTurn` closing `FirstTime$` the identical way `Card.AttacksThisTurn`
+already closes `Attacks`'s own, and `ValidSource$` (71 of 77 real lines naming it) resolving through
+`becomesTargetSourceMatches` — SpellAbility.isValid's own restriction split, a Spell/Triggered ability-kind classifier
+built from this dispatch's own two real call sites rather than a general field on `Ability`: `castAura`'s own Aura is
+always a Spell, and a triggered ability pushed through `pushTriggeredAbilities` is always Java's own
+`isTrigger()`/`isAbility()` pair (no activated-ability targeting exists in this port yet, so `Ability`/ `Triggered`
+collapse to the identical "not a Spell" check); `SpellAbility` itself matches unconditionally, `.YouCtrl`/ `.OppCtrl`
+compare the ability's own controller against the watching trigger's host controller, and `Spell.Aura`'s own qualifier is
+trivially true whenever the kind is Spell, since this port's only Spell source reaching here IS an Aura — 101 of 118
+real lines resolve now (`OptionalDecider$`, 12, every real line "You" and none also naming
+`Valiant$`/`ActivationLimit$`/`Static$`, resolves too through `triggerEffectAPI`'s own `triggerIsOptional`, below),
+`Valiant$`/`ActivationLimit$`/`Static$` (14 combined) and 6 of the 77 `ValidSource$` lines (an `Instant,Sorcery`
+card-type check neither real source can ever satisfy, or a property past YouCtrl/OppCtrl/Aura) still
+unresolved)/plays-a-land (`Mode$ LandPlayed`, `checkLandPlayedTriggers` — CR 305/603.5, called from `PlayLand` (land.go)
+right after `checkETBTriggers`, `Player`'s own real Java ordering, `Player.playLand`'s own
+`moveTo`-then-`runTrigger`-then-`addLandPlayedThisTurn` sequence, which is why `PlayLand`'s own `LandsPlayed++` now runs
+last too — `ValidCard$` matched the usual way, `Origin$` resolved through `hasZoneOrAny` (ETB triggers' own dispatch,
+reused) against the land's own origin zone (always Hand today, no `MayPlay$` permission to play from elsewhere yet, so 8
+of the corpus's 9 real non-`Static$` `Origin$` lines naming Exile or a Hand-excluding zone list never actually fire, the
+identical "mechanically correct, presently unreachable" gap `DB$ ReplaceDamage`'s own `hedron_field_purists.txt` lines
+already have), `ValidActivatingPlayer$` (1, "You") through `matchesActivatingPlayer` (reused), and `NotFirstLand$` (1)
+through a new pre-increment read of `Player.LandsPlayed` (player.go) — 38 of 42 real lines resolve, `Static$`/`ValidSA$`
+(7 combined, "Once during each of your turns, you may play a historic land..." shapes — `Static$` a trigger ability that
+resolves off the stack, `ValidSA$` a `SpellAbility` `Matches` cannot evaluate) skip via `hasAnyParam`;
+`OptionalDecider$` (3, every real line "You") resolves too now, through `triggerEffectAPI`'s own `triggerIsOptional`
+(below) -- `checkLandPlayedTriggers`'s own `hasAnyParam` never named it, so these 3 real lines
+(search_the_city.txt's/jokulmorder.txt's/burgeoning.txt's own real "you may...") were firing unconditionally before
+this, a real correctness fix (PORT-8/GO-7) rather than only a new resolution. **`Trigger.phasesCheck` itself lands too**
+(`triggerPhasesCheck`, trigger.go) — a general gate every trigger mode carries regardless of what it fires on, checked
+before any mode-specific dispatch runs at all: `Phase$` restricts a trigger of any mode to firing only during named
+step(s)/phase(s) (reusing `phaseTriggerMatches`, `Mode$ Phase`'s own dispatch, generically); `PlayerTurn$`/
+`NotPlayerTurn$`/`OpponentTurn$` restrict to (or away from) the host's own controller's turn — `OpponentTurn$`
+collapsing to `NotPlayerTurn$`'s own check in this port's no-team model; `FirstCombat$` resolves to a hardcoded `true`
+(this port has no extra-combat mechanism to ever make a second combat phase reachable, the identical reasoning
+`combatdamage.go`'s own `CombatDamage$` check already uses). Closes 43 real lines across six already-built modes
+(`SpellCast` 12+2, `ChangesZone` 9+11, `LifeGained` 5, `Taps` 2, `Discarded` 1, `Drawn` 1) that were firing
+**unconditionally** until now — a wrong answer, not a coverage gap, since this port had never checked either key before
+(sentinel_tower.txt's own real "deals damage... during your turn" among them) — plus 6 real `Attacks`/
+`AttackersDeclared` lines naming `FirstCombat$`. Not resolved: `FirstUpkeep$`/`FirstUpkeepThisGame$` (1/2, `Mode$ Phase`
+only, a per-game upkeep-step counter this port tracks nowhere); `TurnCount$` (0 real lines, dormant). **`Mode$ Untaps`
+lands too** (`checkUntapsTriggers`, trigger.go) — CR 502.3/603's own "becomes untapped," `Taps`'s own mirror image,
+called once per card from `untapStep` (turn.go) for every card that actually untaps that step (a card already untapped
+generates no event, `Card.untap()`'s own early return ported as a `wasTapped` guard). One battlefield walk covers both a
+card's own "Inspired" trigger and mesmeric_orb.txt's own bare "whenever a permanent becomes untapped," the identical
+single-walk shape `checkTapsTriggers` already has — 30 of 30 real lines resolve now (`OptionalDecider$`, 3, every real
+line "You", resolves too through `triggerEffectAPI`'s own `triggerIsOptional`, below).
+**`ReplacementEffect.requirementsCheck` itself lands too** (`replacementRequirementsCheck`, replacement.go) — a general
+gate every replacement carries regardless of its own `Event$`, mirroring `triggerPhasesCheck`'s own role for triggers:
+`PlayerTurn$` (8 real lines, literal `True` only), `ActivePhases$` (1, reusing `phaseTriggerMatches` — now taking its
+own key as a parameter rather than hardcoding `"Phase"`, so `Mode$ Phase`'s own dispatch and this general gate share the
+identical parser), then `triggerCommonRequirementsMet` outright (the identical Java method a trigger's own `performTest`
+already calls). Folded into `damagePreventionMatches`/`untapReplacementMatches`/`replacementTapsOnMove`, closing 7 of 10
+previously-skipped real `DamageDone`|`Prevent$` lines and 5 of 7 previously-skipped `Untap`|`CantHappen` lines for free,
+plus fixing a real, if narrow, wrong-firing bug: archelos_lagoon_mystic.txt's own "enters tapped" toggle names
 `IsPresent$ Card.Self+tapped/+untapped` restricting its own two replacement lines to only apply while Archelos itself is
 tapped/untapped — unchecked before this, `replacementTapsOnMove` carried no allow-list at all to skip on, so both lines
 matched regardless of Archelos's own state. Two new consumers reuse it outright: `drawPrevented`/`gainLifePrevented`
@@ -579,42 +584,60 @@ attacker/every attacked defender gathered) — both share a new `attackersDeclar
 under this mode. 35 of the corpus's own 35 real lines resolve — every real line's own param vocabulary
 (`TriggerZones$`/`AttackedTarget$`/`ValidAttackers$`/`ValidAttackersAmount$`/`AttackingPlayer$`) is already resolved by
 the shared dispatch, 0 real lines naming `Condition$`/`OptionalDecider$`/`CheckDefinedPlayer$`/`IsPresent$` the way the
-plain `AttackersDeclared` mode's own remainder does. `gainLifeEffect` (`gainlifeeffect.go`) is M6's third script-driven
-effect, `dealDamageEffect`'s own shape reused for a player-only gain (`LifeAmount$`/`Defined$`/`subAbilityConditionMet`,
-no `Self` shape) — 857 of 1,700 real `GainLife` lines resolve, the corpus's largest slice past `DealDamage`.
-`pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven effect, the corpus's own single largest by real line count
-after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the first whose own contribution outlives its `Resolve`
-call: `Duration$`'s default, "until end of turn," is a continuous effect this port never needed a duration for before,
-closed by a new `Game.pumps` ledger (`pumpRecord`, game.go) re-added into its target's own `PT`/`KeywordMod` every
-`CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go) and dropped at `cleanupStep` (`turn.go`) unless
-`Duration$ Permanent` names it durable — CR 514.2's own "until end of turn" effects wearing off, closing the gap
-`applyContinuousPT`'s own doc comment used to name. `Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go)
-— no target — cover 1,147 of 4,103 real `Pump` lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$`
-(a literal keyword list), gated by `PumpZone$`'s own zone restriction (default Battlefield alone) and
-`subAbilityConditionMet`'s own Condition-family pair the identical way `DealDamage`'s/`GainLife`'s already are.
-`pumpAllEffect` (`pumpalleffect.go`) is M6's fifth, `pumpEffect`'s own blanket sibling — a `ValidCards$`-matched set
-across every player (or, with `Defined$`, only the named players' own battlefield) rather than a single `Defined$` card,
-sharing its duration tracking (`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real
-`(AB|DB)$ PumpAll` lines resolve, 818 of them the real corpus's own dominant no-target, no-`Defined$` "anthem spell"
-shape (Overrun, ...). `loseLifeEffect` (`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image —
-`LifeAmount$` subtracted from `Defined$`'s players instead of added, the identical `LifeChanged` event with a negative
-`Amount` — but calls no trigger check at all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike
-`Mode$ LifeGained`'s own 98. 300 of 445 real `(AB|DB)$ LoseLife` lines naming
-`Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$` resolve (226 by `Defined$` alone, 74 more once
-targeting landed, below). `putCounterEffect` (`putcountereffect.go`) is M6's seventh, the corpus's own second-largest
-resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines naming a single literal `CounterType$` and
-`Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to `Card.Counters`/`Player.Counters` by which one
-`Defined$` names (`definedCounterTargets`, new) rather than by `CounterType$` itself, the identical dispatch
-`CountersPutEffect.resolvePerType`'s own `instanceof` check makes. `CounterType$` is uppercased before it becomes a
-`Counters` key (`CounterEnumType.getType`'s own canonicalization), so a corpus line writing `Stun` and another writing
-`STUN` land on the identical kind rather than two. `CounterNum$` defaults to `1`, matching Java's own
-`getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real `(AB|DB)$ Discard` lines
-naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the first script-driven
-effect that asks the resolving player anything mid-resolution rather than reading game state outright: `Effect.Resolve`
-gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and `PlayerController` gained a
-twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a different decision from
-`DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards out of the same hand.
-`NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
+plain `AttackersDeclared` mode's own remainder does. **CR 603.3d's own "may" triggered ability is real now too** --
+`Ability` gained an `Optional bool` field, true only for `OptionalDecider$ You` (`triggerEffectAPI`'s own new
+`triggerIsOptional`, trigger.go, folded into the shared gate all twenty-three of its own call sites already run through)
+-- `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
+dispatching to the effect OR chaining its own `SubAbility$` at all, `WrappedAbility.resolve()`'s own
+`decider.getController().confirmTrigger(this)` ported directly: a decline skips the whole ability, chain included, the
+identical early return Java's own version gives before ever reaching `playSpellAbilityNoStack`. 1,506 of the corpus's
+own 1,584 real `OptionalDecider$` lines (95%) name "You" -- the ability's own `Controller`, already in scope everywhere
+this is checked, so no new decider-resolution machinery was needed for the dominant shape; every other real value
+(`TriggeredCardController`, 43; `True`, 11; `TriggeredSourceController`, 5; a dozen more, 1-4 real lines each) skips the
+whole trigger line rather than asking the wrong player or firing unconditionally (GO-7) -- this port's own
+`ConfirmOptionalTrigger` has nobody correct to ask for those yet. Newly resolved for free across three already-built
+modes, each simply reaching this shared gate for the first time: `Mode$ Untaps`'s own remaining 3 real lines (30 of 30
+now), `Mode$ LifeGained`'s own 7 (93 of 98), `Mode$ BecomesTarget`'s own 12 (101 of 118) -- and a real correctness fix
+for `Mode$ LandPlayed`'s own 3 (38 of 42), which `checkLandPlayedTriggers`'s own `hasAnyParam` never named at all, so
+search_the_city.txt's/jokulmorder.txt's/burgeoning.txt's own real "you may..." lines were firing unconditionally before
+this, not merely unresolved. 83 more real lines name `OptionalDecider$` on a sub-ability's own SVar body rather than a
+`T:` line -- a chained `SubAbility$`'s own independent "may" -- a smaller, separate gap this change does not reach,
+since `resolveSubAbility` (subability.go) builds its own child `Ability` with no `Optional` field set. `gainLifeEffect`
+(`gainlifeeffect.go`) is M6's third script-driven effect, `dealDamageEffect`'s own shape reused for a player-only gain
+(`LifeAmount$`/`Defined$`/`subAbilityConditionMet`, no `Self` shape) — 857 of 1,700 real `GainLife` lines resolve, the
+corpus's largest slice past `DealDamage`. `pumpEffect` (`pumpeffect.go`) is M6's fourth script-driven effect, the
+corpus's own single largest by real line count after `ChangeZone`/`Draw` (4,103 real `(AB|DB)$ Pump` lines) and the
+first whose own contribution outlives its `Resolve` call: `Duration$`'s default, "until end of turn," is a continuous
+effect this port never needed a duration for before, closed by a new `Game.pumps` ledger (`pumpRecord`, game.go)
+re-added into its target's own `PT`/`KeywordMod` every `CheckStateBasedActions` pass (`applyPumpEffects`, continuous.go)
+and dropped at `cleanupStep` (`turn.go`) unless `Duration$ Permanent` names it durable — CR 514.2's own "until end of
+turn" effects wearing off, closing the gap `applyContinuousPT`'s own doc comment used to name.
+`Defined$ Self`/`Enchanted`/`Equipped` (`definedCards`, defined.go) — no target — cover 1,147 of 4,103 real `Pump`
+lines: `NumAtt$`/`NumDef$` (a plain integer or a named SVar) and/or `KW$` (a literal keyword list), gated by
+`PumpZone$`'s own zone restriction (default Battlefield alone) and `subAbilityConditionMet`'s own Condition-family pair
+the identical way `DealDamage`'s/`GainLife`'s already are. `pumpAllEffect` (`pumpalleffect.go`) is M6's fifth,
+`pumpEffect`'s own blanket sibling — a `ValidCards$`-matched set across every player (or, with `Defined$`, only the
+named players' own battlefield) rather than a single `Defined$` card, sharing its duration tracking
+(`Game.pumps`/`applyPumpEffects`/`cleanupStep`) outright — 642 of 833 real `(AB|DB)$ PumpAll` lines resolve, 818 of them
+the real corpus's own dominant no-target, no-`Defined$` "anthem spell" shape (Overrun, ...). `loseLifeEffect`
+(`loselifeeffect.go`) is M6's sixth, `gainLifeEffect`'s own mirror image — `LifeAmount$` subtracted from `Defined$`'s
+players instead of added, the identical `LifeChanged` event with a negative `Amount` — but calls no trigger check at
+all: `Mode$ LifeLost`/`LifeLostAll` carry 0 real `T:` lines corpus-wide, unlike `Mode$ LifeGained`'s own 98. 300 of 445
+real `(AB|DB)$ LoseLife` lines naming `Defined$ You`/`Opponent`/`Player.Opponent` or a resolvable `ValidTgts$` resolve
+(226 by `Defined$` alone, 74 more once targeting landed, below). `putCounterEffect` (`putcountereffect.go`) is M6's
+seventh, the corpus's own second-largest resolvable slice after `Pump` — 992 of 3,165 real `(AB|DB)$ PutCounter` lines
+naming a single literal `CounterType$` and `Defined$ Self`/`Enchanted`/`Equipped`/`You` resolve, dispatching to
+`Card.Counters`/`Player.Counters` by which one `Defined$` names (`definedCounterTargets`, new) rather than by
+`CounterType$` itself, the identical dispatch `CountersPutEffect.resolvePerType`'s own `instanceof` check makes.
+`CounterType$` is uppercased before it becomes a `Counters` key (`CounterEnumType.getType`'s own canonicalization), so a
+corpus line writing `Stun` and another writing `STUN` land on the identical kind rather than two. `CounterNum$` defaults
+to `1`, matching Java's own `getParamOrDefault`. `discardEffect` (`discardeffect.go`) is M6's eighth — 285 of 942 real
+`(AB|DB)$ Discard` lines naming `Mode$ TgtChoose` and `Defined$ You`/`Opponent`/`Player`/`Player.Opponent` resolve, the
+first script-driven effect that asks the resolving player anything mid-resolution rather than reading game state
+outright: `Effect.Resolve` gained a `PlayerController` parameter for it (`effect.go`'s own doc comment), and
+`PlayerController` gained a twenty-first method, `ChooseCardsToDiscard` — Forge's own `chooseCardsToDiscardFrom`, a
+different decision from `DiscardToHandSize`'s own CR 514.1 cleanup discard even though both ask for exactly `N` cards
+out of the same hand. `NumCards$` is clamped to the discarding player's actual hand size, matching Java's own
 `Math.min(numCards, numCardsInHand)`, and an already-empty hand skips the controller call entirely rather than asking
 for zero cards. `definedPlayers` (`defined.go`) gained a `"Player"` case alongside `You`/`Opponent`/`Player.Opponent` —
 `AbilityUtils.getDefinedPlayers`'s own fallthrough `else` branch, every player in the game unfiltered, closing

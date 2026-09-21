@@ -12,7 +12,7 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-four answerable with
+// which has 110 abstract methods; only the twenty-five answerable with
 // today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
@@ -39,7 +39,10 @@ import (
 // second, and ArrangeForSurveil's own caller (surveilEffect.Resolve,
 // surveileffect.go) is the third.
 // ChooseTargets's own caller (resolveTargets, targeting.go) is not another
-// Effect at all -- it runs before an ability is even pushed.
+// Effect at all -- it runs before an ability is even pushed. ConfirmOptionalTrigger's
+// own caller (Registry.Resolve, effect.go) is not an Effect either -- it runs
+// before one dispatches at all, CR 603.3d's own "may" triggered ability
+// (Ability.Optional's own doc comment, ability.go).
 //
 // Forge instantiates one controller per player. Go's methods take the
 // deciding player as an explicit PlayerID instead of binding an instance to
@@ -289,6 +292,20 @@ type PlayerController interface {
 	// be one of eligible's elements, and is not re-checked -- trust the
 	// controller's answer, the same as ChooseLegendaryToKeep.
 	ChooseEnchantTarget(g *Game, decider PlayerID, aura CardID, eligible []CardID) CardID
+
+	// ConfirmOptionalTrigger decides whether a "may" triggered ability
+	// actually does anything (CR 603.3d, Registry.Resolve, effect.go) --
+	// WrappedAbility.resolve()'s own `decider.getController().confirmTrigger
+	// (this)`. decider is the ability's own Controller (Ability.Optional's
+	// own doc comment, ability.go: only OptionalDecider$ You is resolved, so
+	// decider is always the trigger's own host controller, never a
+	// different player). source is the ability's own host card, carried so a
+	// real controller could describe what it is confirming; this port's own
+	// answer is not re-checked against anything -- true runs the ability
+	// (and its own SubAbility$ chain) exactly as if it had not been
+	// optional at all, false skips both, the identical two outcomes a
+	// mandatory ability's own success/no-legal-target split already has.
+	ConfirmOptionalTrigger(g *Game, decider PlayerID, source CardID) bool
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -325,6 +342,7 @@ type ScriptedController struct {
 	scryDecisions    []scryDecision
 	surveilDecisions []scryDecision
 	targets          [][]EntityID
+	optionalTrigger  []bool
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -720,6 +738,23 @@ func (c *ScriptedController) ChooseEnchantTarget(_ *Game, _ PlayerID, _ CardID, 
 	}
 	v := c.enchantTargets[0]
 	c.enchantTargets = c.enchantTargets[1:]
+	return v
+}
+
+// QueueConfirmOptionalTrigger appends the answer to the next
+// ConfirmOptionalTrigger call.
+func (c *ScriptedController) QueueConfirmOptionalTrigger(confirm bool) {
+	c.optionalTrigger = append(c.optionalTrigger, confirm)
+}
+
+// ConfirmOptionalTrigger returns the next answer QueueConfirmOptionalTrigger
+// queued.
+func (c *ScriptedController) ConfirmOptionalTrigger(_ *Game, _ PlayerID, _ CardID) bool {
+	if len(c.optionalTrigger) == 0 {
+		panic(scriptExhausted("confirm optional trigger"))
+	}
+	v := c.optionalTrigger[0]
+	c.optionalTrigger = c.optionalTrigger[1:]
 	return v
 }
 

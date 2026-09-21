@@ -150,6 +150,10 @@ func (c *scriptedMulliganController) ChooseEnchantTarget(_ *engine.Game, _ engin
 	panic("scriptedMulliganController: ChooseEnchantTarget was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ConfirmOptionalTrigger(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: ConfirmOptionalTrigger was not expected to be called")
+}
+
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)
 
 // deciderSpyController wraps ScriptedController to record the decider

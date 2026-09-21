@@ -991,9 +991,11 @@ func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a 
 // "if you would draw while your library has no cards," resolved through
 // replacementRequirementsCheck's own triggerCommonRequirementsMet fold-in
 // with no code of its own needed). Not resolved: Optional$ (1 of 3 real
-// Prevent$ lines) -- an interactive "may" confirm this port's own
-// PlayerController has no hook for, the identical gap Discard's own
-// Optional$/BecomesTarget's own OptionalDecider$ already document. The
+// Prevent$ lines) -- a replacement effect's own interactive "may" confirm,
+// Discard's own Optional$ (discardeffect.go) already documents the
+// identical gap -- distinct from a trigger's own OptionalDecider$
+// (Ability.Optional's own doc comment, ability.go), which resolves through
+// Registry.Resolve/PlayerController.ConfirmOptionalTrigger now. The
 // other 36 real Draw lines name ReplaceWith$ instead of Prevent$ -- a real
 // substitution (DrawTwo/Dig/ExileTop/...), no single shape anywhere near
 // Moved's own 618-line concentration, not resolved.

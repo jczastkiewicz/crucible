@@ -4362,3 +4362,56 @@ func TestPlayLandSkipsLandPlayedTriggerNamingStaticAndValidSA(t *testing.T) {
 		t.Fatalf("StackLen() = %d, want 0 -- Static$/ValidSA$ must skip the whole line, not fire unconditionally", got)
 	}
 }
+
+// TestPlayLandFiresLandPlayedTriggerNamingOptionalDeciderWhenConfirmed proves
+// burgeoning.txt's/jokulmorder.txt's/search_the_city.txt's own real
+// OptionalDecider$ You shape resolves through the general mechanism
+// (triggerEffectAPI's own triggerIsOptional, trigger.go): confirmed, the
+// trigger's own body runs. checkLandPlayedTriggers never named OptionalDecider
+// in its own hasAnyParam call, so before this change these 3 real lines fired
+// unconditionally -- a real correctness fix, not just a new resolution
+// (game-state.md's own "CR 603.3d's own may triggered ability" section).
+func TestPlayLandFiresLandPlayedTriggerNamingOptionalDeciderWhenConfirmed(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.YouCtrl | OptionalDecider$ You"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+	sc := engine.NewScriptedController()
+	sc.QueueConfirmOptionalTrigger(true)
+
+	g.PlayLand(p, land, sc)
+	if err := g.ResolveStack(engine.NewRegistry(), sc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand has %d cards, want 1 -- a confirmed OptionalDecider$ You trigger must run its own body", got)
+	}
+}
+
+// TestPlayLandSkipsLandPlayedTriggerNamingOptionalDeciderWhenDeclined is the
+// same trigger's own negative twin: declined, the ability does nothing.
+func TestPlayLandSkipsLandPlayedTriggerNamingOptionalDeciderWhenDeclined(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(landPlayedTriggerDef(t, "Test Watcher", "ValidCard$ Land.YouCtrl | OptionalDecider$ You"), p, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Plains", "Basic Land Plains"), p, engine.Hand)
+	sc := engine.NewScriptedController()
+	sc.QueueConfirmOptionalTrigger(false)
+
+	g.PlayLand(p, land, sc)
+	if err := g.ResolveStack(engine.NewRegistry(), sc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 0 {
+		t.Errorf("hand has %d cards, want 0 -- a declined OptionalDecider$ You trigger must not run its own body", got)
+	}
+}

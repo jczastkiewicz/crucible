@@ -92,4 +92,16 @@ type Ability struct {
 	// (triggerCommonRequirementsMet, trigger.go). Nil wherever Params is,
 	// for the identical reason.
 	Amounts map[string]expr.Amount
+	// Optional is CR 603.3d's own "may" triggered ability -- a trigger's own
+	// OptionalDecider$ (WrappedAbility.java's own decider field), true only
+	// for the "You" case (triggerEffectAPI's own doc comment, trigger.go,
+	// has the corpus accounting). Registry.Resolve (effect.go) asks
+	// PlayerController.ConfirmOptionalTrigger before running this ability's
+	// body OR chaining its own SubAbility$ at all -- WrappedAbility
+	// .resolve()'s own early return on a declined confirmTrigger, ported
+	// directly. False for every ability this port pushes any other way (a
+	// cast spell, a chained SubAbility$'s own child, resolveSubAbility,
+	// subability.go) -- neither is ever optional on its own, a trigger's own
+	// OptionalDecider$ never carrying onto what it chains into.
+	Optional bool
 }

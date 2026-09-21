@@ -82,8 +82,8 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
+				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 				}
 			}
 		}
@@ -140,8 +140,8 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -187,8 +187,8 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
+				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 				}
 			}
 		}
@@ -242,8 +242,8 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -334,8 +334,8 @@ func (g *Game) checkAttacksTriggers(controller PlayerController, attacker CardID
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -446,8 +446,8 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 					if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -534,8 +534,8 @@ func (g *Game) checkBlocksTriggers(controller PlayerController, blk Block) {
 						!Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -614,8 +614,8 @@ func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacke
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -669,8 +669,8 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerControlle
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -739,8 +739,8 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 						!Matches(g, g.Card(target), valid.Parse(validTarget), h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -768,8 +768,8 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -884,8 +884,8 @@ func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, 
 				if !discardedTriggerMatches(g, t, c, c.Controller(), card, player) {
 					continue
 				}
-				if sub, api, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts})
+				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
+					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 				}
 			}
 		}
@@ -914,8 +914,8 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 					if !discardedTriggerMatches(g, t, c, h.Controller(), host, player) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -1013,8 +1013,8 @@ func (g *Game) checkTapsTriggers(controller PlayerController, card CardID, playe
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -1073,8 +1073,8 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 							continue
 						}
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -1100,10 +1100,10 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 // triggers against at all, the identical "nothing happened" skip every real
 // zone-change/tap call site already gives a no-op.
 //
-// 30 real T: Mode$ Untaps lines corpus-wide (vocabscan). Not resolved:
-// OptionalDecider$ (3) -- an interactive "may" confirm this port's own
-// PlayerController has no hook for, the identical gap Discard's own
-// Optional$/BecomesTarget's own OptionalDecider$ already document.
+// 30 real T: Mode$ Untaps lines corpus-wide (vocabscan). OptionalDecider$
+// (3, all "You") resolves too now, through triggerEffectAPI's own
+// triggerIsOptional (below) -- Ability.Optional/Registry.Resolve's own doc
+// comments have the resolution-time confirm this used to have no hook for.
 func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 	var matches []Ability
 	c := g.Card(card)
@@ -1118,14 +1118,11 @@ func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 					if !isUntapsTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "OptionalDecider") {
-						continue
-					}
 					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
 						continue
 					}
-					if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 					}
 				}
 			}
@@ -1237,8 +1234,8 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 								continue
 							}
 						}
-						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -1855,30 +1852,82 @@ func triggerPhasesCheck(g *Game, host *Card, t *compile.Ability) bool {
 // The returned *compile.Ability is what Ability.Params carries onto the
 // stack: an Effect's own Resolve reads Defined$/NumCards$/whatever else it
 // needs straight off it (drawEffect, draweffect.go, is the first). Also
-// checks triggerPhasesCheck (above, Trigger.phasesCheck's own port) and
+// checks triggerPhasesCheck (above, Trigger.phasesCheck's own port),
 // triggerCommonRequirementsMet (below, CardTraitBase.meetsCommonRequirements's
-// own port) -- the two gates every trigger mode shares, Java's own checks
-// before any mode-specific performTest runs at all, folded in here rather
-// than duplicated at all eighteen call sites.
-// Reports false for a trigger with no Execute key at all, or one naming an
-// API string ApiType.java does not have (APIByName's own exact-match
-// contract) -- neither is reachable against the real corpus today, but a
-// card cannot be trusted not to be the first (PORT-8).
-func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) (*compile.Ability, APIType, bool) {
+// own port) and triggerIsOptional (below, WrappedAbility.java's own decider)
+// -- the three gates every trigger mode shares, Java's own checks before any
+// mode-specific performTest runs at all, folded in here rather than
+// duplicated at all twenty-three call sites.
+// Reports false for a trigger with no Execute key at all, one naming an API
+// string ApiType.java does not have (APIByName's own exact-match contract --
+// neither is reachable against the real corpus today, but a card cannot be
+// trusted not to be the first, PORT-8), or one naming an OptionalDecider$
+// this port cannot resolve (triggerIsOptional's own doc comment).
+func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) (*compile.Ability, APIType, bool, bool) {
 	if !triggerPhasesCheck(g, host, t) {
-		return nil, 0, false
+		return nil, 0, false, false
 	}
 	if !triggerCommonRequirementsMet(g, host, amounts, t) {
-		return nil, 0, false
+		return nil, 0, false, false
+	}
+	optional, ok := triggerIsOptional(t)
+	if !ok {
+		return nil, 0, false, false
 	}
 	for _, sub := range t.Subs {
 		if !strings.EqualFold(sub.Key, "Execute") {
 			continue
 		}
 		api, ok := APIByName(sub.Ability.Name)
-		return sub.Ability, api, ok
+		return sub.Ability, api, optional, ok
 	}
-	return nil, 0, false
+	return nil, 0, false, false
+}
+
+// triggerIsOptional is CR 603.3d's own "may" trigger, WrappedAbility.java's
+// own decider: TriggerHandler.java's own registerActiveTrigger sets
+// sa.setOptionalTrigger(true) and reads `decider =
+// AbilityUtils.getDefinedPlayers(host, regtrig.getParam("OptionalDecider"),
+// sa).get(0)` the moment a T: line names OptionalDecider$ at all -- pushed
+// onto the stack unconditionally either way (TriggerHandler.java's own
+// registerActiveTrigger has no "unresolvable, don't push" branch of its
+// own), the confirmation itself happening only once WrappedAbility.resolve()
+// runs, right before the ability's own body would (Ability.Optional's own
+// doc comment, ability.go, and Registry.Resolve, effect.go, carry that half).
+//
+// OptionalDecider$ You -- the ability's own Controller, already in scope at
+// every one of this function's own callers -- is 1,506 of the corpus's own
+// 1,584 real OptionalDecider$ lines corpus-wide (95%), and the ONLY decider
+// this function resolves: ok is false for every other real value
+// (TriggeredCardController, 43; True, 11; TriggeredSourceController, 5;
+// TriggeredPlayer/Opponent, 4 each; EnchantedController, 3;
+// TriggeredAttackingPlayer/TriggeredActivator/TargetedController, 2 each;
+// eleven more distinct values corpus-wide, 1 real line apiece) -- each names
+// a decider this port has no resolver for (a further AbilityUtils
+// .getDefinedPlayers-shaped question, distinct from the "You" case this
+// function answers directly off host.Controller() with none), so the whole
+// trigger line is skipped rather than confirmed against the wrong player or
+// run unconditionally as if it were mandatory (GO-7) -- the identical "skip
+// the line, don't guess" contract every other unresolved trigger param in
+// this file already has, chosen over Java's own "push regardless, ask
+// nobody" fallback because this port's own ConfirmOptionalTrigger has
+// nobody correct to ask yet.
+//
+// 83 more real lines name OptionalDecider$ on a sub-ability's own SVar body
+// rather than a T: line (a chained SubAbility$'s own independent "may," CR
+// 700.2's "then" text sometimes itself optional) -- a smaller, separate gap
+// this function does not reach at all, since resolveSubAbility (subability.go)
+// builds its own child Ability with no Optional field set, matching
+// Ability.Optional's own doc comment.
+func triggerIsOptional(t *compile.Ability) (optional, ok bool) {
+	decider, present := t.Param("OptionalDecider")
+	if !present {
+		return false, true
+	}
+	if !strings.EqualFold(decider, "You") {
+		return false, false
+	}
+	return true, true
 }
 
 // checkAttackersDeclaredTrigger is CR 508.1's own "whenever a player
@@ -1940,8 +1989,8 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 						if !attackersDeclaredParamsMatch(g, h, t, g.combat.Attackers, targets) {
 							continue
 						}
-						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -1998,8 +2047,8 @@ func (g *Game) checkAttackersDeclaredOneTargetTrigger(controller PlayerControlle
 							if !attackersDeclaredParamsMatch(g, h, t, attackers, targets) {
 								continue
 							}
-							if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+							if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 							}
 						}
 					}
@@ -2232,8 +2281,8 @@ func (g *Game) checkDrawnTriggers(controller PlayerController, drawer PlayerID, 
 								continue
 							}
 						}
-						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -2268,7 +2317,7 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // player-keyed event); ValidSource$/Spell$/ResolvedLimit$ (1 each, no shape
 // worth guessing at from a single real line).
 // checkLifeGainedTriggers is CR 119.1's own "whenever you gain life" mode,
-// TriggerLifeGained.performTest -- 86 of the corpus's own 98 real
+// TriggerLifeGained.performTest -- 93 of the corpus's own 98 real
 // T:Mode$ LifeGained lines resolve. FirstTime$ (6) resolves through
 // firstTime, a new pre-increment read of Player.LifeGainedTimesThisTurn
 // (player.go) -- the identical pre-increment-count contract
@@ -2282,16 +2331,17 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // not a coverage gap, since this port has no per-trigger resolution counter
 // to enforce the limit with (the identical unbuilt mechanic
 // checkBecomesTargetTriggers' own doc comment already names for
-// `ActivationLimit$` there). Not resolved: `OptionalDecider$` (7) -- an
-// interactive "may" confirm this port's own `PlayerController` has no hook
-// for; `ValidSource$`/`Spell$` (1 line, combined on the identical real
-// line) -- matched against the triggering `SpellAbility` itself, needing
-// the identical ability-kind classifier `becomesTargetSourceMatches`
-// (below) has for a different mode, not built here since the one real line
-// naming `ValidSource$` also names `Spell$` and would stay blocked by it
-// regardless; `ResolvedLimit$` (1) -- Trigger.getResolvedThisTurn's own
-// separate per-trigger resolution counter, a different mechanic
-// `ActivationLimit$`'s own per-trigger activation counter is too.
+// `ActivationLimit$` there). `OptionalDecider$` (7, every real line "You")
+// resolves too now, through `triggerEffectAPI`'s own `triggerIsOptional`
+// (below). Not resolved: `ValidSource$`/`Spell$` (1 line, combined on the
+// identical real line) -- matched against the triggering `SpellAbility`
+// itself, needing the identical ability-kind classifier
+// `becomesTargetSourceMatches` (below) has for a different mode, not built
+// here since the one real line naming `ValidSource$` also names `Spell$`
+// and would stay blocked by it regardless; `ResolvedLimit$` (1) --
+// Trigger.getResolvedThisTurn's own separate per-trigger resolution
+// counter, a different mechanic `ActivationLimit$`'s own per-trigger
+// activation counter is too.
 func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, firstTime bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
@@ -2306,7 +2356,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if !isLifeGainedTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "OptionalDecider", "ValidSource", "Spell", "ResolvedLimit", "ActivationLimit") {
+						if hasAnyParam(t, "ValidSource", "Spell", "ResolvedLimit", "ActivationLimit") {
 							continue
 						}
 						if !phaseTriggerZoneMatches(t, z) {
@@ -2323,8 +2373,8 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
-						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -2406,8 +2456,8 @@ func (g *Game) checkLandPlayedTriggers(controller PlayerController, card CardID,
 						if _, ok := t.Param("NotFirstLand"); ok && g.Player(player).LandsPlayed < 1 {
 							continue
 						}
-						if sub, api, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -2481,19 +2531,18 @@ func isLandPlayedTrigger(t *compile.Ability) bool {
 // property past YouCtrl/OppCtrl/Aura (`namedGoblin Artisans`, `numTargets
 // EQ1`, `Land+named...`, `Backup`), each its own further mechanic.
 //
-// 89 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
+// 101 of the corpus's own 118 real Mode$ BecomesTarget lines resolve --
 // Illusionary Servant's own real "When CARDNAME becomes the target of a
 // spell or ability, sacrifice it" among them (Sacrifice itself is still
 // ErrUnimplemented, M6's own remaining scope; TestDestroyLethalToughnessFiresDiesTrigger's
 // own "prove the trigger reached the stack, not that its effect ran"
-// precedent applies here identically). Not resolved, each failing loudly by
-// name rather than firing unconditionally (PORT-8/GO-7): OptionalDecider$
-// (12) -- an interactive "may" confirm this port's own PlayerController has
-// no hook for, the identical gap Discard's own Optional$ already documents;
-// Valiant$ (10) -- Card.isValiant's own per-activator "have you not targeted
-// this before" set, a separate mechanic FirstTime$'s own plain bool cannot
-// answer; ActivationLimit$ (3) and Static$ (1) -- each its own further
-// mechanic.
+// precedent applies here identically). OptionalDecider$ (12, every real line
+// "You") resolves too now, through triggerEffectAPI's own triggerIsOptional
+// (below). Not resolved, each failing loudly by name rather than firing
+// unconditionally (PORT-8/GO-7): Valiant$ (10) -- Card.isValiant's own
+// per-activator "have you not targeted this before" set, a separate
+// mechanic FirstTime$'s own plain bool cannot answer; ActivationLimit$ (3)
+// and Static$ (1) -- each its own further mechanic.
 func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets []EntityID, isSpellSource bool, sourceController PlayerID) {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
@@ -2535,8 +2584,8 @@ func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets [
 						if _, ok := t.Param("FirstTime"); ok && !firstTime {
 							continue
 						}
-						if sub, api, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts})
+						if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
+							matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 						}
 					}
 				}
@@ -2552,6 +2601,10 @@ func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets [
 // ValidSource$ is checked separately, in checkBecomesTargetTriggers' own
 // loop, since becomesTargetSourceMatches needs the target-choosing ability's
 // own kind and controller, neither of which this predicate has in scope.
+// OptionalDecider$ is not in this list: triggerEffectAPI's own
+// triggerIsOptional (below) checks it now, resolving all 12 of this mode's
+// own real "You" lines (none of the 12 also names Valiant$/ActivationLimit$/
+// Static$).
 func isBecomesTargetTrigger(t *compile.Ability) bool {
 	if !strings.EqualFold(t.Name, "BecomesTarget") {
 		return false
@@ -2559,7 +2612,7 @@ func isBecomesTargetTrigger(t *compile.Ability) bool {
 	if _, ok := t.Param("ValidTarget"); !ok {
 		return false
 	}
-	return !hasAnyParam(t, "OptionalDecider", "Valiant", "ActivationLimit", "Static")
+	return !hasAnyParam(t, "Valiant", "ActivationLimit", "Static")
 }
 
 // becomesTargetSourceMatches is TriggerBecomesTarget.performTest's own

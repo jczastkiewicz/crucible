@@ -1176,12 +1176,13 @@ printed form.
     resolution, the identical pre-increment-count contract `checkLandPlayedTriggers`'s own `NotFirstLand$` already has
     (item 26). `ActivationLimit$` (4) now skips the whole line too — a real correctness fix, not a new resolution: this
     port never checked the key at all before, so those 4 real lines were firing every single time rather than up to
-    their own per-turn/per-game cap, a wrong answer rather than a coverage gap (PORT-8/GO-7). 86 of the corpus's own 98
-    real lines resolve now. Not resolved: `OptionalDecider$` (7 — a "you may" choice needing a `PlayerController` hook
-    this port does not have); `ValidSource$`/`Spell$` (1 line, both named together — matched against the triggering
-    `SpellAbility` itself, the identical ability-kind classifier `becomesTargetSourceMatches` has for a different mode,
-    not built here since this one real line stays blocked by `Spell$` regardless); `ResolvedLimit$` (1 —
-    `Trigger.getResolvedThisTurn`'s own separate per-trigger resolution counter).
+    their own per-turn/per-game cap, a wrong answer rather than a coverage gap (PORT-8/GO-7). 93 of the corpus's own 98
+    real lines resolve now (`OptionalDecider$`, 7, every real line "You", resolves too through `triggerEffectAPI`'s own
+    `triggerIsOptional`, item 26's own closing paragraph below). Not resolved: `ValidSource$`/`Spell$` (1 line, both
+    named together — matched against the triggering `SpellAbility` itself, the identical ability-kind classifier
+    `becomesTargetSourceMatches` has for a different mode, not built here since this one real line stays blocked by
+    `Spell$` regardless); `ResolvedLimit$` (1 — `Trigger.getResolvedThisTurn`'s own separate per-trigger resolution
+    counter).
 
     **`Mode$ BecomesTarget` is real now too** (CR 115/603.3's own "whenever ~ becomes the target of a spell or ability,"
     `TriggerBecomesTarget.performTest`) — `checkBecomesTargetTriggers` (trigger.go), called from
@@ -1206,9 +1207,10 @@ printed form.
     Spell" check). `SpellAbility` itself matches unconditionally (Java's own "match anything" case);
     `.YouCtrl`/`.OppCtrl` compare the ability's own controller against the watching trigger's own host controller, the
     identical contract every other YouCtrl/OppCtrl property in this port already has; `.Aura` is trivially true once the
-    kind itself is Spell, since this port's only Spell source reaching here IS an Aura being cast. 89 of the corpus's
-    own 118 real `Mode$ BecomesTarget` lines resolve now. Not resolved: `OptionalDecider$` (12) — an interactive "may"
-    confirm this port's own `PlayerController` has no hook for; `Valiant$` (10) — a separate per-activator "have you not
+    kind itself is Spell, since this port's only Spell source reaching here IS an Aura being cast. 101 of the corpus's
+    own 118 real `Mode$ BecomesTarget` lines resolve now (`OptionalDecider$`, 12, every real line "You" and none also
+    naming `Valiant$`/`ActivationLimit$`/`Static$`, resolves too through `triggerEffectAPI`'s own `triggerIsOptional`,
+    item 26's own closing paragraph below). Not resolved: `Valiant$` (10) — a separate per-activator "have you not
     targeted this before" set `FirstTime$`'s own plain bool cannot answer; `ActivationLimit$` (3) and `Static$` (1) —
     each its own further mechanic; and 6 of the 77 real `ValidSource$` lines —
     silverfur_partisan.txt's/wild_defiance.txt's own real `Instant,Sorcery` (a card-type check neither of this port's
@@ -1241,11 +1243,11 @@ printed form.
     the check function. `TriggerUntaps` never special-cases its own host's trigger, so one battlefield walk covers both
     a card's own "Inspired" trigger (`ValidCard$ Card.Self`, the corpus's own dominant real shape) and
     mesmeric_orb.txt's own bare "whenever a permanent becomes untapped" (`ValidCard$ Card`) alike, the identical
-    single-walk shape `checkTapsTriggers` already has for its own mirror event. 27 of the corpus's own 30 real
-    `Mode$ Untaps` lines resolve (`Phase$`/`CheckSVar$` fold in through `triggerPhasesCheck`/
-    `triggerCommonRequirementsMet` for free, `Secondary$` is a pure display flag no check ever gates on). Not resolved:
-    `OptionalDecider$` (3) — an interactive "may" confirm this port's own `PlayerController` has no hook for, the
-    identical gap `Discard`'s own `Optional$`/`BecomesTarget`'s own `OptionalDecider$` already document.
+    single-walk shape `checkTapsTriggers` already has for its own mirror event. 30 of the corpus's own 30 real
+    `Mode$ Untaps` lines resolve now (`Phase$`/`CheckSVar$` fold in through `triggerPhasesCheck`/
+    `triggerCommonRequirementsMet` for free, `Secondary$` is a pure display flag no check ever gates on,
+    `OptionalDecider$`, 3, every real line "You", resolves too through `triggerEffectAPI`'s own `triggerIsOptional`,
+    item 26's own closing paragraph below).
 
     **`ReplacementEffect.requirementsCheck` is real now too** (`replacementRequirementsCheck`, replacement.go) — a
     general gate every replacement carries regardless of its own `Event$`, checked before its own shape-specific
@@ -1362,6 +1364,26 @@ printed form.
     `Secondary$`) is already resolved by the shared dispatch — 0 real lines name `Condition$`/`OptionalDecider$`/
     `CheckDefinedPlayer$`/`IsPresent$`, the params that stay unresolved for the plain `AttackersDeclared` mode's own
     remainder.
+
+    **CR 603.3d's own "may" triggered ability is real now too** — `Ability` (ability.go) gained an `Optional bool`
+    field, true only for `OptionalDecider$ You`, resolved by a new `triggerIsOptional` (trigger.go) folded into
+    `triggerEffectAPI`'s own shared gate every one of its twenty-three call sites already runs through.
+    `Registry.Resolve` (effect.go) asks a new `PlayerController.ConfirmOptionalTrigger` (its twenty-fifth method) before
+    dispatching to the effect or chaining its own `SubAbility$` at all — `WrappedAbility.resolve()`'s own
+    `decider.getController().confirmTrigger(this)`, checked right before its own `playSpellAbilityNoStack` call, ported
+    directly: a decline skips the whole ability, chain included, the identical early return. 1,506 of the corpus's own
+    1,584 real `OptionalDecider$` lines (95%) name "You" — the ability's own `Controller`, already in scope everywhere
+    this is checked, needing no new decider-resolution machinery for the dominant shape; every other real value
+    (`TriggeredCardController`, 43; `True`, 11; `TriggeredSourceController`, 5; a dozen more, 1-4 real lines each) skips
+    the whole trigger line rather than confirming against the wrong player or firing unconditionally (GO-7) — this
+    port's own `ConfirmOptionalTrigger` has nobody correct to ask for those yet. Resolved for free across three
+    already-built modes simply by reaching this shared gate for the first time: `Mode$ Untaps`'s own remaining 3 real
+    lines (30 of 30 now, item 26's own paragraph above), `Mode$ LifeGained`'s own 7 (93 of 98), `Mode$ BecomesTarget`'s
+    own 12 (101 of 118) — and a real correctness fix for `Mode$ LandPlayed`'s own 3 (38 of 42), which
+    `checkLandPlayedTriggers`'s own `hasAnyParam` never named at all, so those 3 real lines were firing unconditionally
+    before this, not merely unresolved. 83 more real lines name `OptionalDecider$` on a sub-ability's own SVar body
+    rather than a `T:` line — a chained `SubAbility$`'s own independent "may" — a smaller, separate gap this change does
+    not reach, since `resolveSubAbility` (subability.go) builds its own child `Ability` with no `Optional` field set.
 
     Still missing: every trigger mode but "enters"/"dies"/"attacks"/"blocks"/ "deals damage"/"is discarded"/"becomes
     tapped"/"becomes untapped"/"taps for mana"/"casts a spell"/"beginning of a step or phase"/"a player attacks"/"a
@@ -1601,13 +1623,14 @@ printed form.
     played strictly before this one, the same value Java's own `performTest` sees since it runs before
     `addLandPlayedThisTurn()` there too. `ValidActivatingPlayer$` (1, "You") resolves through `matchesActivatingPlayer`
     (reused) against the land-playing player. `IsPresent$` (3) resolves generically through `triggerEffectAPI`'s own
-    `triggerCommonRequirementsMet` fold-in. 35 of the corpus's own 42 real `T:Mode$ LandPlayed` lines resolve.
+    `triggerCommonRequirementsMet` fold-in. 38 of the corpus's own 42 real `T:Mode$ LandPlayed` lines resolve now.
     `Static$`/`ValidSA$` (7 combined — "Once during each of your turns, you may play a historic land..." shapes) skip
     via `hasAnyParam`: `Static$` marks a trigger ability that resolves without going on the stack, a mechanism this
     port's own `pushTriggeredAbilities` does not model, and `ValidSA$` matches a `SpellAbility`, an object `Matches`
-    cannot evaluate. `OptionalDecider$` (3) is not itself a `performTest` param at all (`TriggerLandPlayed.java` carries
-    no such check) — consumed by the resolving ability's own controller-decision step, M6's own remaining script-effect
-    territory, not a gate this dispatch checks.
+    cannot evaluate. `OptionalDecider$` (3, every real line "You") resolves too now, through `triggerEffectAPI`'s own
+    `triggerIsOptional` (item 26's own closing paragraph below) — `checkLandPlayedTriggers`'s own `hasAnyParam` never
+    named this key at all, so search_the_city.txt's/jokulmorder.txt's/burgeoning.txt's own real "you may..." lines were
+    firing unconditionally before this, a real correctness fix (PORT-8/GO-7) rather than only a new resolution.
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

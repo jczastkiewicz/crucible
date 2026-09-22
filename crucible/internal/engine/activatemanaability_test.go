@@ -380,7 +380,7 @@ func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForDiscardCost proves a Discard<N/Card>
-// cost component -- one of cost.Cost.ActivationShape's own five primitives,
+// cost component -- one of cost.Cost.ActivationShape's own nine primitives,
 // but 0 real corpus A:AB$ Mana lines ever carry it -- declines outright
 // rather than claiming the cost was paid while never actually discarding
 // anything (ActivateManaAbility's own doc comment has the reason, PORT-8/
@@ -407,7 +407,7 @@ func TestActivateManaAbilityDeclinesForDiscardCost(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForPayLifeCost proves a PayLife<N> cost
-// component -- one of cost.Cost.ActivationShape's own five primitives, but
+// component -- one of cost.Cost.ActivationShape's own nine primitives, but
 // 0 real corpus A:AB$ Mana lines ever carry it -- declines outright rather
 // than claiming the cost was paid while never actually losing any life
 // (ActivateManaAbility's own doc comment has the reason, PORT-8/GO-7).
@@ -428,6 +428,57 @@ func TestActivateManaAbilityDeclinesForPayLifeCost(t *testing.T) {
 	}
 	if got := g.Player(p).Life; got != 20 {
 		t.Errorf("life = %d, want 20 -- a declined activation must not touch life", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesForSelfReturnCost proves a
+// Return<1/CARDNAME> cost component declines outright -- the sole real
+// corpus A:AB$ Mana line naming it is already unreachable for an unrelated
+// reason (SorcerySpeed$, not in manaAbilityAllowedParams), so there is
+// nothing real this shape would unlock (ActivateManaAbility's own doc
+// comment has the reason, PORT-8/GO-7).
+func TestActivateManaAbilityDeclinesForSelfReturnCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Self Return", "AB$ Mana | Cost$ Return<1/CARDNAME> | Produced$ C")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true for a Return<1/CARDNAME> cost, want false")
+	}
+	if zone := g.Card(rock).Zone; zone != engine.Battlefield {
+		t.Errorf("source zone = %v, want Battlefield -- a declined activation must not move it", zone)
+	}
+}
+
+// TestActivateManaAbilityDeclinesForReturnTypeCost proves a Return<N/Type>
+// cost component declines outright -- 0 real corpus A:AB$ Mana lines carry
+// it at all (ActivateManaAbility's own doc comment has the reason,
+// PORT-8/GO-7).
+func TestActivateManaAbilityDeclinesForReturnTypeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Return Type", "AB$ Mana | Cost$ Return<1/Land> | Produced$ C")
+	rock := g.NewCard(def, p, engine.Battlefield)
+	land := g.NewCard(nil, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true for a Return<1/Land> cost, want false")
+	}
+	if zone := g.Card(land).Zone; zone != engine.Battlefield {
+		t.Errorf("candidate land zone = %v, want Battlefield -- a declined activation must not move it", zone)
 	}
 }
 

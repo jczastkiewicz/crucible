@@ -170,6 +170,10 @@ func (c *scriptedMulliganController) ChoosePermanentsToTap(_ *engine.Game, _ eng
 	panic("scriptedMulliganController: ChoosePermanentsToTap was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChoosePermanentsToReturn(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ int) []engine.CardID {
+	panic("scriptedMulliganController: ChoosePermanentsToReturn was not expected to be called")
+}
+
 var _ engine.PlayerController = (*scriptedMulliganController)(nil)
 
 // deciderSpyController wraps ScriptedController to record the decider

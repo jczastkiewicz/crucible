@@ -12,8 +12,8 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-nine answerable with
-// today's engine are here.
+// which has 110 abstract methods; only the thirty answerable with today's
+// engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
 // cost payment -- types that do not exist until the stack and layer system
@@ -204,6 +204,21 @@ type PlayerController interface {
 	// ChoosePermanentsToSacrifice's own identical clamp). Not re-checked here
 	// -- trust the controller's answer, the same as ChoosePermanentsToSacrifice.
 	ChoosePermanentsToTap(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
+
+	// ChoosePermanentsToReturn decides which of decider's own type-matched
+	// battlefield permanents decider returns to their owner's hand when an
+	// activation cost names a Return<N/Type> part past the self-reference
+	// shape (CR 602.2, returncost.go) -- Forge's own CostReturn.doPayment,
+	// ChoosePermanentsToTap's own shape reused for a fourth exactly-N-of-a-set
+	// decision: candidates is every one of decider's own battlefield
+	// permanents the cost's own type spec matches (returnTypeCandidates,
+	// returncost.go -- unlike ChoosePermanentsToTap's own candidates, never
+	// filtered by tapped state, and never excluding the ability's own host);
+	// count is exactly how many the returned slice must have (min(N,
+	// len(candidates)), ChoosePermanentsToTap's own identical clamp). Not
+	// re-checked here -- trust the controller's answer, the same as
+	// ChoosePermanentsToTap.
+	ChoosePermanentsToReturn(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
 
 	// ChooseTargets decides which of valid an ability's own controller
 	// targets it with (CR 601.2c/603.3b, targeting.go's own resolveTargets,
@@ -411,6 +426,7 @@ type ScriptedController struct {
 	payCost          []bool
 	manaColor        []mana.Colors
 	tapChoices       [][]CardID
+	returnChoices    [][]CardID
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -517,6 +533,12 @@ func (c *ScriptedController) QueueSacrificeChoice(cards []CardID) {
 // QueueTapChoice appends the answer to the next ChoosePermanentsToTap call.
 func (c *ScriptedController) QueueTapChoice(cards []CardID) {
 	c.tapChoices = append(c.tapChoices, cards)
+}
+
+// QueueReturnChoice appends the answer to the next ChoosePermanentsToReturn
+// call.
+func (c *ScriptedController) QueueReturnChoice(cards []CardID) {
+	c.returnChoices = append(c.returnChoices, cards)
 }
 
 // QueueTargets appends the answer to the next ChooseTargets call.
@@ -658,6 +680,16 @@ func (c *ScriptedController) ChoosePermanentsToTap(_ *Game, _ PlayerID, _ []Card
 	}
 	v := c.tapChoices[0]
 	c.tapChoices = c.tapChoices[1:]
+	return v
+}
+
+// ChoosePermanentsToReturn returns the next answer QueueReturnChoice queued.
+func (c *ScriptedController) ChoosePermanentsToReturn(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
+	if len(c.returnChoices) == 0 {
+		panic(scriptExhausted("return choice"))
+	}
+	v := c.returnChoices[0]
+	c.returnChoices = c.returnChoices[1:]
 	return v
 }
 

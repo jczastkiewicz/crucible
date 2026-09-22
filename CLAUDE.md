@@ -934,5 +934,19 @@ own fail-safe property dispatch already declines those two suffixes on its own (
 guard is redundant today and kept only as an audit trail against a future change to `Matches`. `Mode$ TapAll` (2 real
 lines) is not built — each tapped card still fires the ordinary "becomes tapped" trigger instead.
 
+`ActivateAbility` gained its ninth and tenth cost primitives too — `Return<1/CARDNAME>` (SelfSac's/SelfExile's own third
+self-reference sibling, "return this permanent to its owner's hand," 16 real lines) and `Return<N/Type>` (tapXType's own
+sibling for "return to hand" rather than "tap," 34 real lines) — `CostReturn.java` never excludes the ability's own
+source from the type-list branch's own candidates the way `CostTapType.java`'s `canTapSource` does, so
+`returnTypeCandidates` (new `returncost.go`) takes no `excludeSelf` parameter at all, unlike `tapTypeCandidates`.
+`Sac<1/CARDNAME>`/`Exile<1/CARDNAME>` also each accept `NICKNAME` as an equally-literal self-reference token now
+(`CostPart.java`'s own `payCostFromSource`, which always accepted both) — a real 11-line gap the two earlier chunks
+missed, caught and fixed in the same pass as building `Return`'s own identical self-reference check. `Return` needed
+genuinely new trigger machinery too, `isExiledTrigger`'s own third sibling (`isReturnedTrigger`/
+`checkReturnedTriggers`/`otherReturnedTriggerMatches`, `Destination$ Hand`) and a new `PlayerController` method,
+`ChoosePermanentsToReturn` (its 30th). `ActivateManaAbility` declines both shapes outright — the sole real `AB$ Mana`
+line naming `Return<1/CARDNAME>` is already unreachable for an unrelated reason (`SorcerySpeed$`), and 0 real lines name
+`Return<N/Type>` at all.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

@@ -54,30 +54,38 @@ func (c Cost) IsPureMana() bool {
 // self-sacrifice (Sac<1/CARDNAME>, "sacrifice this permanent," fetch lands'
 // and sac outlets' own dominant real shape), an optional self-exile
 // (Exile<1/CARDNAME>, the identical self-reference shape for exile rather
-// than sacrifice), an optional "discard N cards of your choice"
-// (Discard<N/Card>), an optional "pay N life" (PayLife<N>), an optional
-// "pay N energy counters" (PayEnergy<N>), and an optional "tap N untapped
-// permanents of a type" (tapXType<N/Type>, unlike every primitive before it
-// a choice among many rather than a self-reference or a hand-wide pick --
-// its own type spec is carried through unparsed, since internal/cost has no
-// dependency on internal/valid to evaluate it with; the engine layer decides
-// whether the spec itself is actually resolvable). Each of the seven started
-// as its own predicate (IsPureManaOrTap, then IsPureManaTapAndSelfSac,
-// SelfSac) before this type replaced all three the first three grew into:
-// Discard's own count could not fit a bool the way Tap and SelfSac could,
-// and three near-identical predicates was already the sign a fourth should
-// not be a fourth. SelfExile, PayLife, PayEnergy and TapTypeN/TapTypeSpec
-// each slotted into the same struct rather than becoming that fourth (then
-// fifth, sixth, seventh) predicate all over again.
+// than sacrifice), an optional self-return (Return<1/CARDNAME>, the
+// identical self-reference shape for "return to hand"), an optional
+// "discard N cards of your choice" (Discard<N/Card>), an optional "pay N
+// life" (PayLife<N>), an optional "pay N energy counters" (PayEnergy<N>),
+// an optional "tap N untapped permanents of a type" (tapXType<N/Type>), and
+// an optional "return N permanents of a type you control to their owner's
+// hand" (Return<N/Type>, tapXType's own sibling: past SelfReturn, "any
+// number greater than one" is always a choice among many, its own type spec
+// carried through unparsed for the identical reason TapTypeSpec's own is).
+// Each of the nine started as its own predicate (IsPureManaOrTap, then
+// IsPureManaTapAndSelfSac, SelfSac) before this type replaced all three the
+// first three grew into: Discard's own count could not fit a bool the way
+// Tap and SelfSac could, and three near-identical predicates was already the
+// sign a fourth should not be a fourth. Every primitive since slotted into
+// the same struct rather than becoming that fourth (then fifth, sixth,
+// seventh, eighth, ninth) predicate all over again.
 type ActivationShape struct {
 	Tap bool
-	// SelfSac is Sac<1/CARDNAME>'s own presence -- the literal
-	// self-reference token, never a chosen count or a chosen valid spec.
+	// SelfSac is Sac<1/CARDNAME>'s (or Sac<1/NICKNAME>'s -- CostPart.java's
+	// own payCostFromSource, which accepts either token as "the ability's
+	// own host card") own presence -- the literal self-reference token,
+	// never a chosen count or a chosen valid spec.
 	SelfSac bool
-	// SelfExile is Exile<1/CARDNAME>'s own presence -- SelfSac's own
-	// sibling, mutually exclusive with it in every real corpus line (a
+	// SelfExile is Exile<1/CARDNAME|NICKNAME>'s own presence -- SelfSac's
+	// own sibling, mutually exclusive with it in every real corpus line (a
 	// permanent is never both sacrificed and exiled by the same cost).
 	SelfExile bool
+	// SelfReturn is Return<1/CARDNAME|NICKNAME>'s own presence -- SelfSac's
+	// own second sibling, "return this permanent to its owner's hand,"
+	// mutually exclusive with both SelfSac and SelfExile in every real
+	// corpus line.
+	SelfReturn bool
 	// DiscardN is Discard<N/Card>'s own N, or 0 when the cost names no
 	// Discard part at all. Never negative -- ActivationShape's own second
 	// result is false for anything that would make it so.
@@ -99,19 +107,39 @@ type ActivationShape struct {
 	// string's own comma-separated OR syntax would collide with), never
 	// itself parsed or validated here. Empty exactly when TapTypeN is 0.
 	TapTypeSpec string
+	// ReturnTypeN is Return<N/Type>'s own N for a Type past CARDNAME/
+	// NICKNAME, or 0 when the cost names no such Return part at all (SelfReturn
+	// covers the self-reference shape separately). Never negative, the
+	// identical guarantee every other N field carries.
+	ReturnTypeN int
+	// ReturnTypeSpec is Return<N/Type>'s own Type field, verbatim --
+	// TapTypeSpec's own identical unparsed-OR-list contract. Empty exactly
+	// when ReturnTypeN is 0.
+	ReturnTypeSpec string
+}
+
+// isSelfReferenceField reports whether field is one of the two literal
+// tokens CostPart.java's own payCostFromSource treats as "the ability's own
+// host card" -- CARDNAME (the dominant real shape) or NICKNAME (an
+// alternate-name reference a card with one carries, 11 real corpus lines
+// across Sac<1/NICKNAME>/Exile<1/NICKNAME> that a CARDNAME-only check
+// missed until this field existed to name it).
+func isSelfReferenceField(field string) bool {
+	return field == "CARDNAME" || field == "NICKNAME"
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the seven primitives [ActivationShape] carries, decomposed
+// zero or more of the nine primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
-// Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>, a
-// Discard<...> past the literal "N/Card" shape (a self-discard, a random
-// discard, a type-restricted choice, ...), a PayLife<...> or PayEnergy<...>
-// past a literal positive integer (PayLife<X>/PayEnergy<X> and their own
-// kin -- an amount this port has no X-value/computed-total resolver to plug
-// in here), a tapXType<...> naming a non-literal or non-positive N, or any
-// other named Part -- PORT-8/GO-7's "skip the whole line" applied at the
-// cost's own shape rather than guessing at a partial payment.
+// Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>/
+// Return<...>, a Discard<...> past the literal "N/Card" shape (a
+// self-discard, a random discard, a type-restricted choice, ...), a
+// PayLife<...> or PayEnergy<...> past a literal positive integer
+// (PayLife<X>/PayEnergy<X> and their own kin -- an amount this port has no
+// X-value/computed-total resolver to plug in here), a tapXType<...> or
+// Return<...> naming a non-literal or non-positive N, or any other named
+// Part -- PORT-8/GO-7's "skip the whole line" applied at the cost's own
+// shape rather than guessing at a partial payment.
 func (c Cost) ActivationShape() (ActivationShape, bool) {
 	if c.Untap || c.Mandatory || c.XMin != "" {
 		return ActivationShape{}, false
@@ -121,10 +149,12 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 		switch {
 		case p.Name == "T":
 			shape.Tap = true
-		case p.Name == "Sac" && !shape.SelfSac && p.Field(0) == "1" && p.Field(1) == "CARDNAME":
+		case p.Name == "Sac" && !shape.SelfSac && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfSac = true
-		case p.Name == "Exile" && !shape.SelfExile && p.Field(0) == "1" && p.Field(1) == "CARDNAME":
+		case p.Name == "Exile" && !shape.SelfExile && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfExile = true
+		case p.Name == "Return" && !shape.SelfReturn && shape.ReturnTypeN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+			shape.SelfReturn = true
 		case p.Name == "Discard" && shape.DiscardN == 0 && p.Field(1) == "Card":
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {
@@ -150,6 +180,13 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			}
 			shape.TapTypeN = n
 			shape.TapTypeSpec = p.Field(1)
+		case p.Name == "Return" && !shape.SelfReturn && shape.ReturnTypeN == 0 && p.Field(1) != "" && !isSelfReferenceField(p.Field(1)):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.ReturnTypeN = n
+			shape.ReturnTypeSpec = p.Field(1)
 		default:
 			return ActivationShape{}, false
 		}

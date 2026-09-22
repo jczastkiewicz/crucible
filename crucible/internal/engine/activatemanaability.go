@@ -125,13 +125,16 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // ActivationShape (internal/cost, ActivateAbility's own identical gate,
 // reused outright -- ActivateAbility itself refuses API "Mana" and this
 // function refuses anything else, so the two never overlap) -- including a
-// Discard or PayLife component, both of which this function declines
-// outright rather than silently skipping (PORT-8/GO-7): 0 real corpus
-// A:AB$ Mana lines name Discard<...> or PayLife<...> at all, so
-// ActivateAbility's own Discard/PayLife payment (activateability.go) has
-// nothing here to reuse, and letting either shape through unhandled would
-// mean claiming the cost was paid in full while never actually discarding
-// anything or losing any life -- a Tap-self cost declined by CR
+// Discard, PayLife or Return component (both self-reference and chosen-
+// type-count shapes), all of which this function declines outright rather
+// than silently skipping (PORT-8/GO-7): 0 real corpus A:AB$ Mana lines name
+// Discard<...> or PayLife<...> at all, and the sole real line naming
+// Return<1/CARDNAME> is already unreachable for an unrelated reason
+// (SorcerySpeed$, not in manaAbilityAllowedParams), so ActivateAbility's own
+// Discard/PayLife/Return payment (activateability.go) has nothing real to
+// reuse here, and letting any of those shapes through unhandled would mean
+// claiming the cost was paid in full while never actually discarding,
+// losing life, or moving any card -- a Tap-self cost declined by CR
 // 602.5b/302.6 (SummonSick/Haste,
 // DeclareCombatAttackers' own gate, reused), a PayEnergy component the
 // activating player's own Energy counter count cannot actually pay (CR
@@ -197,7 +200,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
-	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 {
+	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 {
 		return false
 	}
 	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {

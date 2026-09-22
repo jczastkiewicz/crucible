@@ -958,6 +958,212 @@ func TestActivateAbilityTapTypeMatchesSemicolonSeparatedTypeList(t *testing.T) {
 	}
 }
 
+// TestActivateAbilitySelfReturnCostReturnsSourceAndRunsEffect proves
+// Return<1/CARDNAME> -- SelfSac's/SelfExile's own third sibling shape --
+// actually moves the source to Hand (returnCards, returncost.go) and still
+// lets the ability resolve with its source already gone.
+func TestActivateAbilitySelfReturnCostReturnsSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Self Return", "AB$ GainLife | Cost$ Return<1/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Hand {
+		t.Errorf("source zone = %v, want Hand -- the Return<1/CARDNAME> cost must actually return it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 -- the ability must still resolve with its source already gone", got)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndSelfReturn proves Tap and SelfReturn
+// compose on one line -- the source taps, then it is returned to hand.
+func TestActivateAbilityCombinesTapAndSelfReturn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Return", "AB$ GainLife | Cost$ T Return<1/CARDNAME> | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Hand {
+		t.Errorf("source zone = %v, want Hand", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesForChosenReturnCost proves a Return<...> naming
+// anything but the literal self-reference CARDNAME/NICKNAME -- a chosen
+// count here -- still declines outright rather than silently returning the
+// wrong thing: ActivationShape's own doc comment has the reason
+// (internal/cost).
+func TestActivateAbilityDeclinesForChosenReturnCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Chosen Return", "AB$ GainLife | Cost$ Return<2/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for Return<2/CARDNAME>, want false")
+	}
+}
+
+// TestActivateAbilityReturnCostFiresOwnLeavesBattlefieldTrigger proves
+// checkReturnedTriggers (returncost.go) actually fires CR 603.6d's own
+// "leaves the battlefield" trigger family for a Return<1/CARDNAME> cost --
+// isDiesTrigger's/isExiledTrigger's own third sibling, Destination$ Hand --
+// on the returned card's own trigger, not only on a watcher (below).
+func TestActivateAbilityReturnCostFiresOwnLeavesBattlefieldTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbilityAndTrigger(t, "Test Return Own Trigger",
+		"AB$ GainLife | Cost$ Return<1/CARDNAME> | Defined$ You | LifeAmount$ 1",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Hand | ValidCard$ Card.Self | Execute$ TrigDraw")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the leaves-the-battlefield trigger's own Draw)", got)
+	}
+}
+
+// TestActivateAbilityReturnCostFiresOtherWatcherLeavesBattlefieldTrigger
+// proves otherReturnedTriggerMatches (returncost.go) -- a permanent still on
+// the battlefield watching another card leave for Hand -- fires too, the
+// identical "own" vs. "other" split checkDiesTriggers/checkExiledTriggers
+// already have.
+func TestActivateAbilityReturnCostFiresOtherWatcherLeavesBattlefieldTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	watcher := diesTriggerCreatureDefWithLine(t, "2", "2",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Hand | ValidCard$ Card.Elf | Execute$ TrigDraw")
+	g.NewCard(watcher, p, engine.Battlefield)
+
+	def := creatureDefWithAbility(t, "Test Return Other Watcher", "AB$ GainLife | Cost$ Return<1/CARDNAME> | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the watcher's own leaves-the-battlefield Draw)", got)
+	}
+}
+
+// TestActivateAbilityReturnTypeCostReturnsChosenPermanentsAndRunsEffect
+// proves Return<N/Type> -- tapXType's own sibling for "return to hand"
+// rather than "tap" -- asks ChoosePermanentsToReturn for exactly N
+// candidates and returns them (returnCards, returncost.go).
+func TestActivateAbilityReturnTypeCostReturnsChosenPermanentsAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Return Type", "AB$ GainLife | Cost$ Return<2/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	other1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	other2 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueReturnChoice([]engine.CardID{other1, other2})
+	if !g.ActivateAbility(p, source, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(other1).Zone; zone != engine.Hand {
+		t.Errorf("other1 zone = %v, want Hand", zone)
+	}
+	if zone := g.Card(other2).Zone; zone != engine.Hand {
+		t.Errorf("other2 zone = %v, want Hand", zone)
+	}
+	if zone := g.Card(source).Zone; zone != engine.Battlefield {
+		t.Errorf("source zone = %v, want Battlefield -- this cost did not choose the source", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates proves the
+// feasibility check (returnTypeCandidates, returncost.go) runs before
+// anything is committed: fewer type-matched permanents than ReturnTypeN
+// declines outright rather than asking the controller for more than exist.
+func TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Return Type Short", "AB$ GainLife | Cost$ Return<3/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true with only 2 Creatures for Return<3/Creature>, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesForNonLiteralReturnTypeCost proves a
+// Return<...> naming anything but a literal positive integer -- an X-cost
+// here -- still declines outright: ActivationShape's own doc comment has
+// the reason (internal/cost).
+func TestActivateAbilityDeclinesForNonLiteralReturnTypeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Return Type X", "AB$ GainLife | Cost$ X Return<X/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true for Return<X/Creature>, want false")
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

@@ -190,9 +190,10 @@ func TestIsPureMana(t *testing.T) {
 	}
 }
 
-// TestActivationShape covers Tap, SelfSac, SelfExile, Discard, PayLife,
-// PayEnergy and tapXType both alone and combined -- the shape
-// ActivateAbility/ActivateManaAbility (internal/engine) actually pay.
+// TestActivationShape covers Tap, SelfSac, SelfExile, SelfReturn, Discard,
+// PayLife, PayEnergy, tapXType and Return<N/Type> both alone and combined --
+// the shape ActivateAbility/ActivateManaAbility (internal/engine) actually
+// pay.
 func TestActivationShape(t *testing.T) {
 	t.Parallel()
 
@@ -243,6 +244,21 @@ func TestActivationShape(t *testing.T) {
 		{"tapXType<X/Creature>", cost.ActivationShape{}, false},
 		{"tapXType<0/Creature>", cost.ActivationShape{}, false},
 		{"tapXType<1/Creature> tapXType<1/Artifact>", cost.ActivationShape{}, false},
+		{"Sac<1/NICKNAME>", cost.ActivationShape{SelfSac: true}, true},
+		{"Exile<1/NICKNAME>", cost.ActivationShape{SelfExile: true}, true},
+		{"Return<1/CARDNAME>", cost.ActivationShape{SelfReturn: true}, true},
+		{"Return<1/NICKNAME>", cost.ActivationShape{SelfReturn: true}, true},
+		{"W T Return<1/CARDNAME>", cost.ActivationShape{Tap: true, SelfReturn: true}, true},
+		{"Return<1/Land>", cost.ActivationShape{ReturnTypeN: 1, ReturnTypeSpec: "Land"}, true},
+		{"2 Return<3/Land>", cost.ActivationShape{ReturnTypeN: 3, ReturnTypeSpec: "Land"}, true},
+		{"T Return<1/Land>", cost.ActivationShape{Tap: true, ReturnTypeN: 1, ReturnTypeSpec: "Land"}, true},
+		{"Return<1/Island.untapped> PayLife<1> PayEnergy<1>",
+			cost.ActivationShape{ReturnTypeN: 1, ReturnTypeSpec: "Island.untapped", PayLifeN: 1, PayEnergyN: 1}, true},
+		{"Return<X/Land>", cost.ActivationShape{}, false},
+		{"Return<0/Land>", cost.ActivationShape{}, false},
+		{"Return<1/CARDNAME> Return<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"Return<1/Land> Return<1/Forest>", cost.ActivationShape{}, false},
+		{"Return<1/CARDNAME> Return<1/Land>", cost.ActivationShape{}, false},
 		{"Sac<1/Creature.Other/another creature>", cost.ActivationShape{}, false},
 		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},

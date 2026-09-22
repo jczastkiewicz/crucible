@@ -5195,6 +5195,106 @@ than the board can supply rather than by excluding it). `mulligan_test.go` gaine
 with `tapXType` alone, combined with `T`/`PayLife`/`PayEnergy`, and three reject cases (`tapXType<X/Creature>`,
 `tapXType<0/Creature>`, a duplicate).
 
+## Return<1/CARDNAME> and Return<N/Type> activation costs land; Sac/Exile's own NICKNAME gap closes
+
+`tapXType<N/Type>`'s own landing left one obvious next candidate on the table: `Return<...` (CostReturn.java), the third
+and last real "move this off the battlefield" cost shape past Sac/Exile. A corpus scan split it in two, the identical
+split `Sac`/`Exile` already have between a literal self-reference and a chosen count: 16 real `Return<1/CARDNAME>` lines
+(`SelfSac`/`SelfExile`'s own third sibling) and 34 real `Return<N/Type>` lines (`tapXType`'s own sibling, "return N
+permanents of a type you control to their owner's hand" rather than "tap N"). Both combine cleanly with mana/`T`/the six
+already-built primitives; the only combos this landing still cannot reach are
+`Sac<1/Creature> Return<1/CARDNAME>`/`PayEnergy<X> Sac<1/Creature> Return<1/CARDNAME>` (a chosen `SacValid$` mixed with
+self-return, `ActivationShape`'s existing "only one self-reference primitive per line" contract already refuses
+regardless of which one) and `T SubCounter<1/EON> Return<1/CARDNAME>` (`SubCounter`, still its own undeferred
+mechanism).
+
+Read `CostReturn.java` in full before writing anything, the identical discipline `CostTapType.java` got. The one real
+design question it settled: unlike `CostTapType.java`'s own `canTapSource = !costHasTapSource`, `CostReturn`'s own
+`canPay`/`getMaxAmountX` never exclude the ability's own host from the type-list branch's own candidates at all --
+CostReturn has no tapped-state filter (CAN_TAP) either, since returning a permanent to hand has nothing to do with
+whether it can currently tap. A permanent already tapped by an earlier `T` component of the SAME cost is therefore still
+a legal `Return<N/Type>` candidate: `Cost$ T Return<1/Land>` (1 real line) can return the very land that just got tapped
+for a different reason, no contradiction, since the tap happens first (`CostTap`'s own `paymentOrder()` of -1 runs
+before `CostReturn`'s own 10) and nothing about the return branch cares that it did. So `returnTypeCandidates` (new
+`returncost.go`) takes no `excludeSelf` parameter at all, a genuine, deliberate divergence from `tapTypeCandidates`'s
+own shape rather than an oversight -- verified by reading the Java source rather than assumed to carry over from the
+tapXType landing next door.
+
+Building `Return<1/CARDNAME>`'s own self-reference check surfaced a real gap in the TWO EARLIER landings this session
+already shipped: `CostPart.java`'s own `payCostFromSource()` -- the method `Sac<1/CARDNAME>`'s own check and
+`Exile<1/CARDNAME>`'s own check are both, in effect, hand-inlined copies of -- has always accepted `NICKNAME` as equally
+literal a self-reference token as `CARDNAME`
+(`return this.getType().equals("CARDNAME") || this.getType().equals("NICKNAME")`, an alternate-name reference some real
+cards carry). Neither the `Sac<N/CARDNAME>` landing nor the `Exile<N/CARDNAME>` landing ever checked for it. A corpus
+grep the instant this was noticed: 10 real `Sac<1/NICKNAME>` lines
+(`syr_ginger_the_meal_ender.txt`/`kagemaro_first_to_suffer.txt`/`linvala_shield_of_sea_gate.txt` among them) and 1 real
+`Exile<1/NICKNAME>` line -- 11 real corpus lines that were silently declining every activation attempt rather than
+paying the cost, for both this session's earlier chunks' whole lifetime until now. Not a hypothetical found by
+re-reading old code for its own sake: it was found because writing `Return`'s own check the third time made the missing
+generalization impossible not to notice. Fixed for all three primitives in the identical pass, with one new shared
+`isSelfReferenceField(field string) bool` helper (`internal/cost/cost.go`) replacing three separate `== "CARDNAME"`
+comparisons that would otherwise have needed the identical `|| == "NICKNAME"` tacked onto each independently -- the
+exact "three near-identical predicates" smell `ActivationShape`'s own original landing already named as the reason to
+build one struct instead of separate checks, recurring one level down inside a single field comparison instead of at the
+top-level shape-detection layer this time.
+
+`ActivationShape` gained `SelfReturn bool` (`SelfSac`'s own third sibling) and `ReturnTypeN int`/`ReturnTypeSpec string`
+(`TapTypeN`/`TapTypeSpec`'s own sibling) -- both `Return` cases live in the same switch, disambiguated by
+`isSelfReferenceField(p.Field(1))`/`!isSelfReferenceField(p.Field(1))`: Go permits two `case` arms naming the identical
+`p.Name` as long as their own boolean guards are mutually exclusive, which these are by construction (a `Return` part's
+own type field is either a self-reference or it is not, never both). Both cases also share a guard against EITHER
+already being set (`!shape.SelfReturn && shape.ReturnTypeN == 0`), so a second `Return` part of any shape -- two
+self-returns, two type-choices, or one of each -- falls through to the same `default: return false` a duplicate
+`Sac`/`Discard`/`PayLife` part already does, with no separate duplicate-detection code needed for the
+two-shapes-in-one-Part-name situation this is the first primitive to actually have.
+
+A new `returncost.go` holds `returnCards` (`exileCards`'s own structural sibling, `exile.go` -- Move to Hand instead of
+Exile, the identical no-`*Ability`-parameter simplification for the identical reason: 0 real `Return<...>` cost lines
+carry a Remember-shaped param) and the third sibling of CR 603.6d's own "leaves the battlefield" trigger family this
+session has now built: `isReturnedTrigger`/`checkReturnedTriggers`/`otherReturnedTriggerMatches`, `isExiledTrigger`'s
+own exact structural copy with `Destination$ Hand` in place of `Exile`. `Mode$ Exiled`'s own 3-real-line irrelevance has
+no analogue to check for Return at all -- Forge's own `TriggerType` has no dedicated "returned to hand" mode whatsoever,
+only the generic `Mode$ ChangesZone` family this landing already builds for it.
+
+A new `PlayerController` method, `ChoosePermanentsToReturn` (its 30th -- `control.go`'s own top doc comment corrected
+from "twenty-nine" to "thirty," the identical one-chunk-stale gap `tapXType`'s own landing already found and fixed for
+the count before it), is `ChoosePermanentsToTap`'s own shape reused for a fourth exactly-N-of-a-set decision.
+`scriptedMulliganController` (`mulligan_test.go`) needed the matching stub again, the identical mechanical consequence
+`ChoosePermanentsToTap`'s own landing already had.
+
+`ActivateManaAbility` declines both new shapes outright, `Discard`/`PayLife`'s own "0 real benefit" precedent rather
+than `PayEnergy`/`SelfExile`/`tapXType`'s own "pay it" one: the sole real `AB$ Mana` line naming `Return<1/CARDNAME>`
+(`Cost$ R Return<1/CARDNAME> | Produced$ C C R | Amount$ 1 | SorcerySpeed$ True`) is already unreachable for a reason
+unrelated to this landing (`SorcerySpeed$`, not in `manaAbilityAllowedParams`, an "Activate only as a sorcery"
+restriction this dispatch has never read), and 0 real `AB$ Mana` lines name `Return<N/Type>` at all -- this landing
+checked both counts before deciding, rather than assuming the `tapXType` precedent would automatically repeat.
+
+One regression-toggle pass: disabling the `ReturnTypeN` candidate-count feasibility guard produced the identical panic
+shape `tapXType`'s own guard toggle already found -- `TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates`
+never queues a `ChoosePermanentsToReturn` answer since it expects a decline first, so removing the guard reaches the
+unqueued controller call and crashes the whole test binary (`scripted controller ran out of return choice decisions`)
+rather than failing its own assertion cleanly. The `isReturnedTrigger`/`Destination$ Hand` match itself was not toggled,
+for the identical reason `isExiledTrigger`'s own was not: it was proven directly and positively by two new trigger tests
+instead (below), the same choice `Exile<1/CARDNAME>`'s own landing already made.
+
+13 new tests: `activateability_test.go` gained eight, mirroring the `SelfExile`/`tapXType` sets' own shapes combined --
+`TestActivateAbilitySelfReturnCostReturnsSourceAndRunsEffect`, `TestActivateAbilityCombinesTapAndSelfReturn`,
+`TestActivateAbilityDeclinesForChosenReturnCost` (`Return<2/CARDNAME>`),
+`TestActivateAbilityReturnCostFiresOwnLeavesBattlefieldTrigger` and
+`TestActivateAbilityReturnCostFiresOtherWatcherLeavesBattlefieldTrigger` (`Exile<1/CARDNAME>`'s own two trigger tests,
+mirrored exactly, `Destination$ Hand` in place of `Exile`, reusing `creatureDefWithAbilityAndTrigger`/
+`diesTriggerCreatureDefWithLine` outright), `TestActivateAbilityReturnTypeCostReturnsChosenPermanentsAndRunsEffect`,
+`TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates`, and
+`TestActivateAbilityDeclinesForNonLiteralReturnTypeCost` (`Return<X/Creature>`). `activatemanaability_test.go` gained
+two decline tests (`TestActivateManaAbilityDeclinesForSelfReturnCost`/`...ForReturnTypeCost`), plus corrected two more
+of its own pre-existing doc comments' stale "one of `ActivationShape`'s own five primitives" counts to "nine" in the
+same pass (`DOC-16`, the identical kind of drive-by staleness fix `tapXType`'s own landing already made for a different
+pair of comments). `mulligan_test.go` gained the `ChoosePermanentsToReturn` stub. `internal/cost/parsing_test.go`
+extended `TestActivationShape` with `Return<1/CARDNAME>`/`Return<1/NICKNAME>` alone and combined with `T`,
+`Return<N/Type>` alone and combined, `Sac<1/NICKNAME>`/`Exile<1/NICKNAME>` (the fixed gap, above), and five reject cases
+(`Return<X/Land>`, `Return<0/Land>`, a duplicate self-return, a duplicate type-return, and one self-return plus one
+type-return on the same line).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

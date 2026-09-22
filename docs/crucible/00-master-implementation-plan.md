@@ -2020,6 +2020,30 @@ printed form.
     (`checkTapsTriggers`) individually instead, the identical simplification `Mode$ Exiled`'s own 3-line irrelevance
     already justified for exile.
 
+    **`ActivateAbility` gained its ninth and tenth cost primitives too** -- `Return<1/CARDNAME>` (`SelfSac`'s/
+    `SelfExile`'s own third self-reference sibling, CR 602, "return this permanent to its owner's hand," 16 real lines)
+    and `Return<N/Type>` (`tapXType`'s own sibling for "return to hand" rather than "tap," 34 real lines). Reading
+    `CostReturn.java` directly settled the one real design question: unlike `CostTapType.java`'s own `canTapSource`,
+    `CostReturn`'s `canPay`/`getMaxAmountX` never exclude the ability's own source from the type-list branch's own
+    candidates -- a permanent already tapped by an earlier `T` component of the same cost is still a legal
+    `Return<N/Type>` candidate, since being tapped does not stop it from also being returned. `returnTypeCandidates`
+    (new `returncost.go`) therefore takes no `excludeSelf` parameter at all, unlike `tapTypeCandidates`, and no
+    tapped-state filter either -- `CostReturn` carries none. Building the self-reference check for `Return<1/CARDNAME>`
+    surfaced a real, if narrow, gap in the two earlier self-reference primitives: `CostPart.java`'s own
+    `payCostFromSource` has always accepted `NICKNAME` as equally-literal a self-reference token as `CARDNAME` (an
+    alternate-name reference some cards carry), but `SelfSac`/`SelfExile`'s own original checks only ever tested for
+    `CARDNAME` -- 11 real corpus lines (`Sac<1/NICKNAME>`/`Exile<1/NICKNAME>`) were silently falling through to a
+    decline instead of paying the cost. Fixed in the same pass, for all three primitives at once, with a shared
+    `isSelfReferenceField` helper (`internal/cost/cost.go`) rather than three separate literal comparisons. `Return`
+    needed the identical new trigger machinery `Exile<1/CARDNAME>`'s own landing built (CR 603.6d's "leaves the
+    battlefield" family, since `Return` has no dedicated corpus-relevant trigger mode of its own either): a third
+    sibling, `isReturnedTrigger`/`checkReturnedTriggers`/`otherReturnedTriggerMatches` (new `returncost.go`), with
+    `Destination$ Hand` in place of `Exile`/`Graveyard`. A new `PlayerController` method, `ChoosePermanentsToReturn`
+    (its 30th), reuses `ChoosePermanentsToTap`'s own shape for a fourth exactly-N-of-a-set decision. Both shapes are
+    declined outright by `ActivateManaAbility`, `Discard`/`PayLife`'s own precedent: the sole real `AB$ Mana` line
+    naming `Return<1/CARDNAME>` is already unreachable for an unrelated reason (`SorcerySpeed$`, not in
+    `manaAbilityAllowedParams`), and 0 real lines name `Return<N/Type>` at all.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

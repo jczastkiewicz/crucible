@@ -45,6 +45,28 @@ func (c Cost) IsPureMana() bool {
 	return len(c.Parts) == 0 && !c.Tap && !c.Untap && !c.Mandatory && c.XMin == ""
 }
 
+// IsPureManaOrTap reports whether the cost is nothing but mana symbols and,
+// optionally, a single Tap-self token ("T"/"Tap") -- CR 602's own dominant
+// real activation cost shape. Parts always carries a lone Name "T" entry
+// alongside Tap itself once a script writes "T" (namedParts' own trailing
+// {name: "T", prefix: "T", exact: true} branch, parseCostPart's own
+// redundant-looking second read of the identical token this package's own
+// Tap flag already carries -- Java keeps both because CostPartTap is a real
+// CostPart object, described and iterated like any other, not only a
+// boolean), so this cannot reuse IsPureMana's own flat "no Parts at all"
+// contract: it allows exactly that one entry and rejects any other.
+func (c Cost) IsPureManaOrTap() bool {
+	if c.Untap || c.Mandatory || c.XMin != "" {
+		return false
+	}
+	for _, p := range c.Parts {
+		if p.Name != "T" {
+			return false
+		}
+	}
+	return true
+}
+
 // Part is one named cost part: a name and the fields of its `<...>` body.
 type Part struct {
 	// Name is the part's name, without the body.

@@ -3758,12 +3758,16 @@ same real-world answer without one.
 ("SubAbility chaining itself lands," below) landed: 17 of the corpus's own 571 real SVar-defined `Pump` lines naming
 `SubAbility$` chain to an already-built leaf ability and resolve end to end. `UnlessCost$`/`UnlessPayer$`/
 `UnlessSwitched$` no longer block either, removed once `resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$`
-gate," below) landed: 1 of the corpus's own 15 real `Pump` lines naming `UnlessCost$` resolves past that gate and is
-actually reachable at all (spitting_slug.txt's own real "gains first strike... unless you pay {1}{G}," chaining
-`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid) -- the other 14 name a non-pure-mana cost, an
-unresolvable `UnlessPayer$`, an activated ability's own `Cost$` (general activated-ability casting, not built), or a
-top-level spell on an Instant (`CastSpell` does not cast an instant or sorcery at all), pushing the `Defined$`-shape
-count from 1,147 to 1,148 of 1,335.
+gate," below) landed: 2 of the corpus's own 15 real `Pump` lines naming `UnlessCost$` resolve past that gate and are
+actually reachable at all -- spitting_slug.txt's own real "gains first strike... unless you pay {1}{G}," chaining
+`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid, and, once `ActivateAbility` landed too
+(`## Activating an ability lands`, below), nakaya_shade.txt's own real activated `{B}:` ability itself gated by its own
+nested "unless any player pays {2}" -- the two gates compose with no special-casing needed, since `ActivateAbility`
+threads the ability's own compiled `Params` (`UnlessCost$` included) through unchanged and `Registry.Resolve` reads
+`UnlessCost$` off whatever pushed the ability, activation included. The other 13 name a non-pure-mana cost, an
+unresolvable `UnlessPayer$`, or a top-level spell on an Instant (`CastSpell` does not cast an instant or sorcery at
+all), pushing the `Defined$`-shape count from 1,147 to 1,148 of 1,335 (nakaya_shade.txt's own line already counted in
+that 1,148 once its own outer activation and inner `UnlessCost$` both resolve).
 
 Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `Condition$` itself and
 `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionActivationLimit$` (0/19/0/4) --
@@ -4427,16 +4431,16 @@ A parsed `Mana` cost is then handed to `mana.Parse` directly (space-joined, mana
 rejected if it carries an `X` shard -- deciding an X amount mid-resolution is a further mechanic this gate does not have
 a question for.
 
-55 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and are actually reachable by this port at all,
+56 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and are actually reachable by this port at all,
 spread across three already-built effects: 51 of `Sacrifice`'s own 155 (nicol_bolas.txt's own real "sacrifice CARDNAME
 unless you pay {U}{B}{R}" shape, reached through an already-built `T:Mode$ Phase`/`Mode$ Attacks` trigger in every real
 case, never an activated ability's own `Cost$`), 3 of `DealDamage`'s own 31 (force_of_nature.txt's own real "deals 8
-damage to you unless you pay {G}{G}{G}{G}", `T:Mode$ Phase` again), and 1 of `Pump`'s own 15 (spitting_slug.txt's own
+damage to you unless you pay {G}{G}{G}{G}", `T:Mode$ Phase` again), and 2 of `Pump`'s own 15 (spitting_slug.txt's own
 real "gains first strike... unless you pay {1}{G}", `T:Mode$ AttackerBlocked`/`Mode$ Blocks`, chaining
-`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid). The other 672 real lines fail one hop up the
-call chain rather than at this gate itself -- each already documented against its own effect above -- falling into one
-of six shapes: an activated ability's own `Cost$`-gated line (general activated-ability casting, still not built,
-nakaya_shade.txt's own real `{B}:` ability among them); an instant or sorcery's own top-level line (`CastSpell`'s own
+`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid, and nakaya_shade.txt's own real activated
+`{B}:` ability -- reachable once `ActivateAbility` landed too, `## Activating an ability lands`, below). The other 671
+real lines fail one hop up the call chain rather than at this gate itself -- each already documented against its own
+effect above -- falling into one of five remaining shapes: an instant or sorcery's own top-level line (`CastSpell`'s own
 doc comment: "an instant or sorcery resolves into a script effect this port does not build",
 wild_might.txt's/rhystic_shield.txt's/rhystic_scrying.txt's own real lines among them, the last two also blocked a
 second, independent way -- rhystic_scrying.txt's own `DB$ Discard` is itself reached only by chaining out of that same
@@ -4473,6 +4477,80 @@ short-circuiting `Registry.Resolve`'s own new branch back to the plain `Effect.R
 confirming six of the eight new tests fail exactly as expected (the decline-only and chained-decline cases pass
 trivially either way), then restoring it. `enginelint` group `effect` gained `defined`/`manapay` to its own allow-list
 (`definedPlayers` and `PayManaCost`, both now reached directly from effect.go); no new group.
+
+## Activating an ability lands, CR 602.2
+
+`Player.playSpellAbility` (by way of `PlayerControllerHuman`'s own input loop) is Java's own entry point for CR 602 -- a
+real priority-window action this port has no equivalent window for at all (`## The scenario harness lives partly here`,
+below -- `ResolveStack` plays out only the degenerate case, nobody able to respond). A new `ActivateAbility`
+(activateability.go) ports it anyway, collapsing timing to the identical sorcery-speed shape `CastSpell`'s own CR 601.3a
+simplification already uses (active player, a main phase, an empty stack) -- a real instant-speed activation needs the
+priority window built first, not a special case here.
+
+10,879 real `(A:)AB$` lines exist corpus-wide -- more than any one trigger mode past `Mode$ ChangesZone` itself, and
+this port's own single largest remaining action by real line count. Trimmed to the corpus's own two dominant real
+`Cost$` shapes: pure mana, and pure mana plus a single Tap-self token. 6,246 of the 10,879 carry that shape (2,515 bare
+`T` alone, 1,090 bare mana, 995 two mana symbols, 930 mana-plus-`T`, a long tail past those four); excluding `AB$ Mana`
+itself (1,845 -- CR 605.3a's own no-stack immediate resolution, this port's own `TapLandForMana`, manaability.go,
+covering only a basic land's own intrinsic version of it) leaves 4,401 real non-mana activated abilities reachable at
+the shape level, 1,987 of them already naming one of the twelve already-built effects: `Pump` 993, `PutCounter` 293,
+`DealDamage` 221, `Draw` 196, `PumpAll` 119, `LoseLife` 41, `GainLife` 39, `Scry` 31, `Discard` 27, `Surveil` 27 -- real
+lines none of those effects' own previously-published "N of M resolves" counts include yet, since every one was computed
+against cast/trigger reachability alone; recomputing each against activated-ability reachability too is a further
+chunk's own work, not done here.
+
+`cost.Cost.IsPureManaOrTap` (`internal/cost`) is `IsPureMana`'s own sibling
+(`## Registry.Resolve's own UnlessCost$ gate`, above), needed because `IsPureMana`'s own flat "no `Parts` at all"
+contract cannot simply add `Tap` to its own allowed set: a bare `T` token always also parses as its own named `Part`
+(`namedParts`' own trailing `{name: "T", prefix: "T", exact: true}` entry, `internal/cost/parts.go`) alongside setting
+the `Tap` flag itself -- `parseCostPart`'s own real Java shape, `CostPartTap` a genuine `CostPart` object described and
+iterated like any other rather than only a boolean -- so `IsPureManaOrTap` allows `Parts` to hold nothing but that one
+lone `"T"` entry and rejects any other. This surfaced mid-implementation, not planned: the first draft reused
+`IsPureMana` directly and every `Cost$ T` case failed with `len(parsed.Parts) != 0` even though `Tap` itself parsed
+correctly, caught by a debug trace before any test's own expectations were adjusted around it.
+
+`Cost$`'s own remaining shapes -- a named Part other than `T` (`Sac<.../Discard<.../PayLife<.../...`), `Untap`/`Q`,
+`Mandatory`, `XMin` -- all fail `IsPureManaOrTap` and decline the whole activation outright (PORT-8/GO-7), each its own
+further payment primitive this port does not have. `AB$ Mana` itself declines too, by API name rather than by cost
+shape: CR 605.3a's own no-stack immediate resolution is a different mechanism entirely, and this port's only version of
+it stays land-only.
+
+A Tap-self cost checks CR 602.5b/302.6 first, with no side effect yet: already tapped, or summoning-sick without haste,
+both decline outright -- `DeclareCombatAttackers`'s own identical `SummonSick`/`HasKeyword("Haste")` check (attack.go),
+reused rather than re-derived. The mana half pays through `PayManaCost` exactly as `CastSpell`'s own does; only once
+that succeeds does the tap itself actually happen (`Card.Tapped` set, `checkTapsTriggers` fired) -- CR 602.2g's own
+"costs are paid together" is approximated as "check every cost for feasibility first, then commit each one," so a failed
+mana payment never leaves the permanent tapped for nothing.
+
+A successful activation pushes through `pushTriggeredAbilities` (trigger.go) with the activating player as its own sole
+entry -- resolving `ValidTgts$` (targeting.go) and firing CR 115's own "becomes the target" check the identical way a
+triggered ability's own push already does, APNAP ordering a harmless no-op over the one player activating. This is also
+why no new effect code was needed at all: every activated ability this shape reaches dispatches through the identical
+`Registry.Resolve` (effect.go) a cast spell's own trigger or a triggered ability already does, so
+`UnlessCost$`/`SubAbility$` chaining/`ConditionCheckSVar$`/... all come along for free the moment an ability is pushed
+this way. No "activates an ability" trigger mode is checked afterward: CR 603's own remaining gap, this port has none
+built to fire.
+
+The compile layer needed no new work at all: `compile.Face.Abilities` (compile.go) has carried every `A:` line's own
+compiled `Ability` since M3, `A:AB$` (`Record` `Activated`) and `A:SP$` (`Record` `Spell`, an Instant's/Adventure's own
+spell half) sharing the one slice and told apart by `Record` alone -- `ActivateAbility` is simply this field's first
+real reader, filtering to `Record == compile.Activated` and rejecting anything else (index selects by position within
+the raw, unfiltered slice, the same "caller already knows the card's own script" contract a fixture author already has
+for everything else this port drives by index rather than by name).
+
+9 new tests (`activateability_test.go`) drive `ActivateAbility` through the real cast-and-resolve pipeline via a new
+`creatureDefWithAbility` helper (`carddb.Card`/`compile.Compile`, the real param parser rather than a hand-built
+`compile.Ability`, TEST-1): a bare `Cost$ T` ability tapping the source and running `Pump` through to `ResolveStack`, a
+decline when already tapped, a decline when summoning-sick without haste, a pure-mana `Cost$` paying and leaving
+`Tapped` false, a decline on an unaffordable mana cost, a decline for `API Mana`, a decline for a `Sac<...>` cost, a
+decline for an `A:SP$` line at the same index, and a decline outside the collapsed timing window. `enginelint` group
+`castspell` gained a second file (`activateability.go`), its own existing allow-list already covering everything the new
+file needs (`trigger`, `manapay`, `ability`, `control`, ...). `internal/cost`'s own coverage floor needed a new table
+test too (`TestIsPureManaAndIsPureManaOrTap`, parsing_test.go): `IsPureMana` itself had sat at 0% coverage within the
+package's own test suite since it was added (M5 item 26's own `UnlessCost$` chunk, above) without tripping TEST-12's 90%
+floor only because the package's own total statement count was large enough to absorb one small uncovered function;
+`IsPureManaOrTap`'s own larger branch set (the loop over `Parts`) dropped the package to 85.5%, caught by `covergate`
+before commit, closed by covering both predicates together.
 
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 

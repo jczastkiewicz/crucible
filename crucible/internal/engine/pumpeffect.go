@@ -1,9 +1,8 @@
 // Pump: CR 611's own biggest single script-driven effect by real corpus
 // count after ChangeZone/Draw -- 4,103 real (AB|DB)$ Pump lines, 1,335 of
 // them naming Defined$ Self/Enchanted/Equipped rather than a target, 1,148
-// of THOSE resolvable here (1 of them, spitting_slug.txt's own real
-// UnlessCost$ line, past resolveUnlessCost's own new gate, effect.go,
-// below). This is the first script-driven effect whose own
+// of THOSE resolvable here (2 of them past resolveUnlessCost's own gate,
+// effect.go, below). This is the first script-driven effect whose own
 // contribution outlives its own Resolve call: "until end of turn" is a
 // continuous effect this port never needed a duration for before (Card.PT's
 // own doc comment, PT.Clear -- "an until end of turn pump wearing off on its
@@ -61,18 +60,23 @@ import (
 // UnlessCost$/UnlessPayer$/UnlessSwitched$ no longer block either:
 // resolveUnlessCost (effect.go) gates the whole ability, this effect's own
 // body included, before Registry.Resolve ever reaches it -- CR 601.2i's own
-// "unless a cost is paid." 1 of the corpus's own 15 real Pump lines naming
-// UnlessCost$ resolves past that gate and is actually reachable at all --
+// "unless a cost is paid." 2 of the corpus's own 15 real Pump lines naming
+// UnlessCost$ resolve past that gate and are actually reachable at all --
 // spitting_slug.txt's own real "gains first strike... unless you pay
 // {1}{G}" (Mode$ AttackerBlocked/Blocks, both already built), chaining its
 // own UnlessResolveSubs$ WhenNotPaid into PumpAll (pumpalleffect.go) when
-// the cost goes unpaid. Of the 3 real Pump lines clearing the pure-mana-cost/
-// resolvable-payer filter itself (resolveUnlessCost's own doc comment,
-// effect.go), the other 2 still are not reachable: nakaya_shade.txt's own
-// real activated {B}: ability (general activated-ability casting is not
-// built) and wild_might.txt's own real spell-level ValidTgts$ (this port's
-// own targeting only resolves for a triggered ability, not a cast spell's
-// own target, Ability.Targets's own doc comment).
+// the cost goes unpaid, and nakaya_shade.txt's own real activated {B}:
+// ability itself gated by its own nested "unless any player pays {2}" --
+// reachable once ActivateAbility (activateability.go) landed too, its own
+// outer Cost$ B activation and this file's own inner UnlessCost$ composing
+// with no special-casing, since ActivateAbility threads the ability's own
+// compiled Params (UnlessCost$ included) through unchanged. Of the 3 real
+// Pump lines clearing the pure-mana-cost/resolvable-payer filter itself
+// (resolveUnlessCost's own doc comment, effect.go), the last one still is
+// not reachable: wild_might.txt's own real spell-level ValidTgts$ (this
+// port's own targeting only resolves for a triggered ability or an
+// activated one, not a cast spell's own target, Ability.Targets's own doc
+// comment).
 var pumpUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionActivationLimit", "PlayerTurn",

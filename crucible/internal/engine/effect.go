@@ -114,18 +114,20 @@ func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) err
 // Tap/Untap/Mandatory/XMin token, and no X shard once parsed, each its own
 // further mechanic with nowhere to route a mid-resolution "decide, then
 // pay" question through) and an explicit UnlessPayer$ naming
-// You/Player/Opponent/Player.Opponent (definedPlayers, reused). 55 of the
+// You/Player/Opponent/Player.Opponent (definedPlayers, reused). 56 of the
 // corpus's 727 real UnlessCost$ lines resolve past this gate and are
 // actually reachable by this port at all -- an activated ability's own
-// Cost$-gated UnlessCost$ line (general activated-ability casting, not
-// built), an instant/sorcery's own top-level UnlessCost$ line (CastSpell's
-// own doc comment: "an instant or sorcery resolves into a script effect
-// this port does not build"), and a line reached only through an unbuilt
-// API's own SubAbility$/RepeatSubAbility$/... chain link (DB$ Effect, DB$
-// Repeat, DB$ GenericChoice, DB$ DelayedTrigger, S:...AddTrigger$'s own
-// dynamically granted trigger, none of them built) all fail loudly one hop
-// up the call chain rather than here, PORT-8/GO-7's "skip the whole line"
-// applied at whichever link in the chain the actual gap sits.
+// Cost$-gated UnlessCost$ line composes with ActivateAbility
+// (activateability.go) too, now that general activated-ability casting is
+// built, an instant/sorcery's own top-level UnlessCost$ line still does not
+// (CastSpell's own doc comment: "an instant or sorcery resolves into a
+// script effect this port does not build"), and a line reached only through
+// an unbuilt API's own SubAbility$/RepeatSubAbility$/... chain link (DB$
+// Effect, DB$ Repeat, DB$ GenericChoice, DB$ DelayedTrigger, S:...
+// AddTrigger$'s own dynamically granted trigger, none of them built) all
+// fail loudly one hop up the call chain rather than here, PORT-8/GO-7's
+// "skip the whole line" applied at whichever link in the chain the actual
+// gap sits.
 func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerController, e Effect, unlessCostText string) error {
 	parsed := cost.Parse(unlessCostText)
 	if !parsed.IsPureMana() {

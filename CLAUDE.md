@@ -797,22 +797,46 @@ whether its own chained `SubAbility$` still runs regardless (absent, "Always") o
 ("WhenPaid"/"WhenNotPaid"). Trimmed to the corpus's own one resolvable shape — a pure-mana `UnlessCost$` (a new
 `cost.Cost.IsPureMana`, `internal/cost`, added once a direct `Tap`/`Untap` field read in effect.go collided with
 phase.go's own `Untap` step constant under enginelint's plain-identifier matching) and an explicit `UnlessPayer$` naming
-`You`/`Player`/`Opponent`/`Player.Opponent` — 55 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and
+`You`/`Player`/`Opponent`/`Player.Opponent` — 56 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and
 are actually reachable by this port at all: `nicol_bolas.txt`'s own real "sacrifice CARDNAME unless you pay {U}{B}{R}"
 shape dominates (51 of Sacrifice's own 155 real lines), plus 3 of DealDamage's own 31 (`force_of_nature.txt`'s own real
-"deals 8 damage to you unless you pay {G}{G}{G}{G}") and 1 of Pump's own 15 (`spitting_slug.txt`'s own real "gains first
-strike... unless you pay {1}{G}", chaining `UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid).
-The other 672 real lines fail one hop up the call chain rather than at this gate itself: an activated ability's own
-`Cost$`-gated line (general activated-ability casting, still not built), an instant or sorcery's own top-level line
-(`CastSpell`'s own doc comment: "an instant or sorcery resolves into a script effect this port does not build"), a line
-reached only through an unbuilt API's own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`, `DB$ Repeat`,
-`DB$ GenericChoice`, `DB$ DelayedTrigger`, none built), a `S:...AddTrigger$` line's own dynamically granted trigger (not
-a built continuous-effect param), a non-mana cost part (`Sac<.../Discard<.../PayLife<...`), or an unresolvable
-`UnlessPayer$` value (`TriggeredPlayer`, `EnchantedController`, ...) each account for the remainder.
+"deals 8 damage to you unless you pay {G}{G}{G}{G}") and 2 of Pump's own 15 (`spitting_slug.txt`'s own real "gains first
+strike... unless you pay {1}{G}", chaining `UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid,
+and `nakaya_shade.txt`'s own real activated `{B}:` ability, itself gated by its own nested "unless any player pays {2}"
+— reachable once general activated-ability casting landed too, below). The other 671 real lines fail one hop up the call
+chain rather than at this gate itself: an instant or sorcery's own top-level line (`CastSpell`'s own doc comment: "an
+instant or sorcery resolves into a script effect this port does not build"), a line reached only through an unbuilt
+API's own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`, `DB$ Repeat`, `DB$ GenericChoice`,
+`DB$ DelayedTrigger`, none built), a `S:...AddTrigger$` line's own dynamically granted trigger (not a built
+continuous-effect param), a non-mana cost part (`Sac<.../Discard<.../PayLife<...`), or an unresolvable `UnlessPayer$`
+value (`TriggeredPlayer`, `EnchantedController`, ...) each account for the remainder.
 `UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/ `UnlessSwitched$` no longer block any of the eight already-built
 effects that named them in their own unresolved-param lists
 (`sacrificeEffect`/`sacrificeAllEffect`/`dealDamageEffect`/`pumpEffect`/`pumpAllEffect`/`gainLifeEffect`/
 `loseLifeEffect`/`discardEffect`) — Sacrifice's own real corpus count rises from 465 to 516 of 792, DealDamage's from 62
-to 65 of 2,219, and Pump's own Defined$-shape count from 1,147 to 1,148 of 1,335. **P4 exit gate's fixture-count half
-met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan
-Section 3.2) is not.
+to 65 of 2,219, and Pump's own Defined$-shape count from 1,147 to 1,148 of 1,335.
+
+Activating an ability landed too (`ActivateAbility`, `activateability.go`), CR 602.2, the corpus's own single largest
+still-unbuilt action by real line count: 10,879 real `A:AB$` lines exist, more than any one trigger mode past
+`Mode$ ChangesZone` itself. Trimmed to its own two dominant real `Cost$` shapes, pure mana and pure mana plus a single
+Tap-self token, through a new `cost.Cost.IsPureManaOrTap` (`internal/cost`) — `IsPureMana`'s own sibling, needed because
+a bare `T` always also parses as its own named `Part` alongside setting the `Tap` flag (`namedParts`' own trailing `T`
+entry), so `IsPureMana`'s flat "no `Parts` at all" contract cannot simply add `Tap` to its own allowed set. 6,246 of the
+10,879 real lines carry that shape (2,515 bare `T`, 1,090 bare mana, 995 two mana symbols, 930 mana-plus-`T`, a long
+tail past those four); excluding `AB$ Mana` itself (1,845 lines — CR 605.3a's own no-stack immediate resolution, a
+wholly different mechanism this port only has for a basic land's own intrinsic ability, `TapLandForMana`,
+manaability.go) leaves 4,401 real non-mana activated abilities reachable at the shape level, 1,987 of them already
+naming one of the twelve already-built effects (`Pump` 993, `PutCounter` 293, `DealDamage` 221, `Draw` 196, `PumpAll`
+119, `LoseLife` 41, `GainLife` 39, `Scry` 31, `Discard` 27, `Surveil` 27) — real lines none of those effects' own
+previously-published resolved-line counts include yet, since every one was computed against cast/trigger reachability
+alone; recomputing each against activated-ability reachability too is a further chunk's own work. Timing collapses to
+`CastSpell`'s own CR 601.3a simplification (active player, a main phase, an empty stack), since this port has no real
+priority window at all yet. A Tap-self cost checks CR 602.5b/302.6 first (`Card.SummonSick`/`HasKeyword`,
+`DeclareCombatAttackers`'s own identical gate reused) with no side effect yet; the mana half pays through `PayManaCost`
+exactly as `CastSpell`'s own does, and only once that succeeds does the tap itself actually happen. A successful
+activation pushes through `pushTriggeredAbilities` (trigger.go) with the activating player as its own sole entry,
+reusing every one of the twelve already-built effects and the general `Registry.Resolve` machinery (`UnlessCost$`,
+`SubAbility$` chaining, `ConditionCheckSVar$`) with no new effect code at all.
+
+**P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
+half ("every layer, every SBA," Plan Section 3.2) is not.

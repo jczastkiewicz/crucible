@@ -37,7 +37,7 @@
     "manapay": ["manapay.go"],
     "manaability": ["manaability.go"],
     "land": ["land.go"],
-    "castspell": ["castspell.go"],
+    "castspell": ["castspell.go", "activateability.go"],
     "trigger": ["trigger.go"],
     "draweffect": ["draweffect.go"],
     "continuous": ["continuous.go"],

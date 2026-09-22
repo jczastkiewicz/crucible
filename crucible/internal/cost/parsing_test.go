@@ -159,6 +159,42 @@ func TestEmpty(t *testing.T) {
 	}
 }
 
+// TestIsPureManaAndIsPureManaOrTap covers both predicates together since
+// they differ only in whether a lone Tap token passes -- IsPureManaOrTap's
+// own doc comment has the reason a bare Tap always also parses as one Part
+// (namedParts' own trailing {name: "T", ...} entry, the identical token
+// this package's own Tap flag already carries).
+func TestIsPureManaAndIsPureManaOrTap(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		text          string
+		pureMana      bool
+		pureManaOrTap bool
+	}{
+		{"", true, true},
+		{"1 U", true, true},
+		{"B B", true, true},
+		{"T", false, true},
+		{"1 U T", false, true},
+		{"Q", false, false},
+		{"Untap", false, false},
+		{"Sac<1/Creature>", false, false},
+		{"1 U Sac<1/Creature>", false, false},
+		{"Mandatory PayEnergy<2>", false, false},
+		{"XMin2", false, false},
+	}
+	for _, c := range cases {
+		got := cost.Parse(c.text)
+		if got.IsPureMana() != c.pureMana {
+			t.Errorf("Parse(%q).IsPureMana() = %v, want %v", c.text, got.IsPureMana(), c.pureMana)
+		}
+		if got.IsPureManaOrTap() != c.pureManaOrTap {
+			t.Errorf("Parse(%q).IsPureManaOrTap() = %v, want %v", c.text, got.IsPureManaOrTap(), c.pureManaOrTap)
+		}
+	}
+}
+
 func diffStrings(got, want []string) string {
 	if len(got) == len(want) {
 		same := true

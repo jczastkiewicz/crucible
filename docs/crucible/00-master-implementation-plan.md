@@ -1818,15 +1818,48 @@ printed form.
     among them) — `AddTrigger$` is not a built continuous-effect param, so the trigger it would grant never exists in
     this port's own game at all; the rest name a non-mana cost part (`Sac<.../Discard<.../PayLife<...`), an X shard, an
     unresolvable `UnlessPayer$` value (`TriggeredPlayer`, `EnchantedController`, ...), an activated ability's own
-    `Cost$` (general activated-ability casting, still not built), an instant or sorcery's own top-level line
-    (`CastSpell`'s own doc comment: "an instant or sorcery resolves into a script effect this port does not build"), or
-    a line reached only through an unbuilt API's own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`,
-    `DB$ Repeat`, `DB$ GenericChoice`, `DB$ DelayedTrigger`, none built).
-    `UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/`UnlessSwitched$` no longer block any of the eight already-built
-    effects that named them in their own unresolved-param lists
+    `Cost$` (general activated-ability casting — real now too, below, but not yet threaded back through this gate's own
+    reachability accounting), an instant or sorcery's own top-level line (`CastSpell`'s own doc comment: "an instant or
+    sorcery resolves into a script effect this port does not build"), or a line reached only through an unbuilt API's
+    own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`, `DB$ Repeat`, `DB$ GenericChoice`,
+    `DB$ DelayedTrigger`, none built). `UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/`UnlessSwitched$` no longer
+    block any of the eight already-built effects that named them in their own unresolved-param lists
     (`sacrificeEffect`/`sacrificeAllEffect`/`dealDamageEffect`/`pumpEffect`/`pumpAllEffect`/`gainLifeEffect`/
     `loseLifeEffect`/`discardEffect`) — `Sacrifice`'s own real corpus count rises from 465 to 516 of 792, `DealDamage`'s
     from 62 to 65 of 2,219, and `Pump`'s own `Defined$`-shape count from 1,147 to 1,148 of 1,335.
+
+    **Activating an ability landed too** (`ActivateAbility`, activateability.go) — CR 602.2, the corpus's own single
+    largest still-unbuilt action by real line count (10,879 real `A:AB$` lines, more than any one trigger mode past
+    `Mode$ ChangesZone` itself), trimmed to its own two dominant real `Cost$` shapes: pure mana, and pure mana plus a
+    single Tap-self token (`cost.Cost.IsPureManaOrTap`, `internal/cost` — `IsPureMana`'s own sibling, needed because a
+    bare `T` always also parses as its own named `Part` alongside setting the `Tap` flag, `namedParts`' own trailing
+    `{name: "T", ...}` entry, so `IsPureMana`'s own flat "no `Parts` at all" contract cannot just add `Tap` to its own
+    allowed set). 6,246 of the corpus's 10,879 real `A:AB$` lines carry that shape (2,515 bare `T`, 1,090 bare mana, 995
+    two mana symbols, 930 mana-plus-`T`, a long tail past that); excluding `AB$ Mana` itself (1,845 — CR 605.3a's own
+    no-stack immediate resolution, a wholly different mechanism this port only has for a basic land's own intrinsic
+    ability, `TapLandForMana`, manaability.go) leaves 4,401 real non-mana activated abilities this action can reach at
+    the shape level, 1,987 of them already naming one of the twelve already-built effects (`Pump` 993, `PutCounter` 293,
+    `DealDamage` 221, `Draw` 196, `PumpAll` 119, `LoseLife` 41, `GainLife` 39, `Scry` 31, `Discard` 27, `Surveil` 27) —
+    real lines none of those effects' own previously-published "N of M resolves" counts include yet, since every one was
+    computed against cast/trigger reachability alone; recomputing each against activated-ability reachability too is a
+    further chunk's own work, not done here.
+
+    Timing collapses to `CastSpell`'s own CR 601.3a simplification (active player, a main phase, an empty stack) since
+    this port has no real priority window at all yet (item 29's own "Not ported yet" entry — `ResolveStack` plays out
+    only the degenerate case, nobody able to respond); a real instant-speed activation needs that window built first,
+    not a special case here. A Tap-self cost checks CR 602.5b/302.6 first (`Card.SummonSick`/`HasKeyword("Haste")`,
+    `DeclareCombatAttackers`'s own identical gate, `attack.go`, reused) with no side effect yet — already tapped, or
+    summoning-sick without haste, both decline outright; the mana half pays through `PayManaCost` exactly as
+    `CastSpell`'s own does, and only once that succeeds does the tap itself actually happen (`Card.Tapped` set,
+    `checkTapsTriggers` fired), so a failed mana payment never leaves the source tapped for nothing. A successful
+    activation pushes through `pushTriggeredAbilities` (trigger.go) with the activating player as its own sole entry —
+    resolving `ValidTgts$` (targeting.go) and firing CR 115's own "becomes the target" check the identical way a
+    triggered ability's own push already does, APNAP ordering a harmless no-op over the one player activating — reusing
+    every one of the twelve already-built effects and the general `Registry.Resolve` machinery
+    (`UnlessCost$`/`SubAbility$` chaining/`ConditionCheckSVar$`/...) they already carry, with no new effect code at all.
+    `compile.Face.Abilities` (compile.go) already carried every `A:` line's own compiled `Ability` since M3 -- both
+    `A:AB$` (`Record` `Activated`) and `A:SP$` (`Record` `Spell`) share the one slice, told apart by `Record` alone --
+    so this needed no new compile-layer work at all, only an engine-side consumer for what had sat unread.
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

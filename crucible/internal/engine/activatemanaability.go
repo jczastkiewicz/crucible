@@ -125,12 +125,13 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // ActivationShape (internal/cost, ActivateAbility's own identical gate,
 // reused outright -- ActivateAbility itself refuses API "Mana" and this
 // function refuses anything else, so the two never overlap) -- including a
-// Discard component, which this function declines outright rather than
-// silently skipping (PORT-8/GO-7): 0 real corpus A:AB$ Mana lines name
-// Discard<...> at all, so ActivateAbility's own Discard payment
-// (activateability.go) has nothing here to reuse, and letting the shape
-// through unhandled would mean claiming the cost was paid in full while
-// never actually discarding anything -- a Tap-self cost declined by CR
+// Discard or PayLife component, both of which this function declines
+// outright rather than silently skipping (PORT-8/GO-7): 0 real corpus
+// A:AB$ Mana lines name Discard<...> or PayLife<...> at all, so
+// ActivateAbility's own Discard/PayLife payment (activateability.go) has
+// nothing here to reuse, and letting either shape through unhandled would
+// mean claiming the cost was paid in full while never actually discarding
+// anything or losing any life -- a Tap-self cost declined by CR
 // 602.5b/302.6 (SummonSick/Haste,
 // DeclareCombatAttackers' own gate, reused), a Produced$ past
 // producedManaColor's own literal shape, "Any" or parseComboColors' own
@@ -173,7 +174,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
-	if !ok || shape.DiscardN > 0 {
+	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 {
 		return false
 	}
 	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {

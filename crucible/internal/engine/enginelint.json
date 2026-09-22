@@ -150,6 +150,7 @@
       "zone",
       "card",
       "game",
+      "player",
       "phase",
       "ability",
       "effect",

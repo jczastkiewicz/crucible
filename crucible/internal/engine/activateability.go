@@ -1,9 +1,9 @@
 // Activating an ability: CR 602, trimmed to the corpus's own dominant cost
 // shapes -- mana, an optional Tap-self token, an optional self-sacrifice
-// token (Sac<1/CARDNAME>), and an optional "discard N cards of your choice"
-// (Discard<N/Card>), in any combination (cost.Cost.ActivationShape,
-// internal/cost) -- the only primitives this port has payment machinery
-// for. Java's own entry
+// token (Sac<1/CARDNAME>), an optional "discard N cards of your choice"
+// (Discard<N/Card>), and an optional "pay N life" (PayLife<N>), in any
+// combination (cost.Cost.ActivationShape, internal/cost) -- the only
+// primitives this port has payment machinery for. Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
 // input loop) is a real priority-window action; this port has no priority
 // window at all yet (game-state.md's own "Not ported yet" -- "ResolveStack
@@ -44,19 +44,24 @@ import (
 // arbitrary permanent's own printed mana ability is not this shape), or the
 // line's own Cost$ has no ActivationShape (internal/cost) -- a chosen or
 // SVar-sized Sac<...>, a Discard<...> past the literal "N/Card" shape, a
-// PayLife<.../PayEnergy<.../... part ActivationShape does not carry at all,
-// or an Untap/Mandatory/XMin token, each its own further payment primitive
-// this port does not have, PORT-8/GO-7's "skip the whole line" applied to
-// the cost itself rather than to the ability's own other params, or a
-// Discard component the activating player's own hand cannot actually pay
-// (fewer cards in hand than DiscardN).
+// PayLife<...> past a literal positive integer (PayLife<X> and its own kin,
+// an amount this port has no resolver to plug in here), a
+// PayEnergy<.../SubCounter<.../... part ActivationShape does not carry at
+// all, or an Untap/Mandatory/XMin token, each its own further payment
+// primitive this port does not have, PORT-8/GO-7's "skip the whole line"
+// applied to the cost itself rather than to the ability's own other params,
+// a Discard component the activating player's own hand cannot actually pay
+// (fewer cards in hand than DiscardN), or a PayLife component the activating
+// player's own life cannot actually pay (CR 119.4: a life payment can never
+// bring the payer below 0).
 //
 // Every feasibility check runs before anything is committed: a Tap-self
 // cost checks CR 602.5b/302.6 first (already tapped, or summoning-sick
 // without haste, DeclareCombatAttackers' own identical SummonSick/Haste
-// check, attack.go, reused rather than re-derived), and a Discard component
-// checks the hand actually holds DiscardN cards. The mana half is paid
-// through PayManaCost exactly as CastSpell's own is; only once that
+// check, attack.go, reused rather than re-derived), a Discard component
+// checks the hand actually holds DiscardN cards, and a PayLife component
+// checks the player's own current life is at least PayLifeN. The mana half
+// is paid through PayManaCost exactly as CastSpell's own is; only once that
 // succeeds does the tap itself actually happen (Card.Tapped set,
 // checkTapsTriggers fired), then a self-sac cost actually sacrifices the
 // card (sacrificeCards, sacrificeeffect.go, reused wholesale -- CR 701.20's
@@ -64,11 +69,19 @@ import (
 // Mode$ ChangesZoneAll firing all come free, exactly as they already do for
 // Sacrifice's own "Self" branch), then a Discard component asks
 // ChooseCardsToDiscard for exactly DiscardN cards and discards them
-// (discardCards, discardeffect.go, reused wholesale the identical way) --
-// CR 602.2g's own "costs are paid together" is approximated here as "check
-// every cost for feasibility first, then commit each one, mana first, tap
-// second, sacrifice third, discard last," so a failed mana payment never
-// leaves the permanent tapped, sacrificed, or the player short a card for
+// (discardCards, discardeffect.go, reused wholesale the identical way), then
+// a PayLife component subtracts PayLifeN from Player.Life and emits the
+// identical LifeChanged event loseLifeEffect's own does (Player.payLife
+// routes through the same loseLife machinery Java's own LifeLoseEffect
+// uses, so this port's own single event kind for "life total changed"
+// covers both causes) -- Mode$ LifeLost/LifeLostAll still fires no trigger
+// check here, the identical omission loseLifeEffect's own doc comment
+// already justifies (0 real T:Mode$ LifeLost/LifeLostAll lines corpus-wide)
+// -- CR 602.2g's own "costs are paid together" is approximated here as
+// "check every cost for feasibility first, then commit
+// each one, mana first, tap second, sacrifice third, discard fourth, life
+// last," so a failed mana payment never leaves the permanent tapped,
+// sacrificed, the player short a card, or the player short life for
 // nothing, and a Tap-self cost never taps a permanent that has already left
 // the battlefield. CR 601.2h's own "costs may be paid in any order" makes
 // this ordering a free choice, not an approximation of a specific one
@@ -121,6 +134,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.DiscardN > len(hand) {
 		return false
 	}
+	if shape.PayLifeN > g.Player(pid).Life {
+		return false
+	}
 	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
 	if err != nil {
 		return false
@@ -146,6 +162,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.DiscardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)
 		discardCards(g, controller, chosen, pid)
+	}
+	if shape.PayLifeN > 0 {
+		g.Player(pid).Life -= shape.PayLifeN
+		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
 	}
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true

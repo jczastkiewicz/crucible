@@ -4846,6 +4846,74 @@ replaced its own two predicate-specific table tests (`TestIsPureManaAndIsPureMan
 correctly, under the predicate that existed then -- and which now, under `ActivationShape`, correctly asserts `true`
 instead: not a bug in either test at the time it was written, just the exact shape of question the refactor was for.
 
+## PayLife<N> activation cost lands
+
+`ActivationShape`'s own landing (above) already anticipated this: its own doc comment named `PayLife<.../PayEnergy<...`
+as further payment primitives a fifth predicate would otherwise have been needed for. A fresh corpus scan for the next
+real activation-cost primitive worth building -- `PayLife<...>` as a cost, 114 real non-`AB$ Mana` `A:AB$` lines naming
+it as the only part past mana/Tap/self-sac/discard, dominated by a literal positive integer (52 `PayLife<1>`, 31
+`PayLife<2>`, 10 `PayLife<3>`, 6 `PayLife<4>`, 3 `PayLife<5>`, 2 `PayLife<7>`, 2 `PayLife<8>`, 1 `PayLife<10>`, 1
+`PayLife<50>` -- 108 combined; 6 more name `PayLife<X>`, an amount tied to the spell's own X value this port has no
+resolver to plug in here, `IsPresent$`/`ConditionCheckSVar$`-shaped gap `ActivationShape`'s own doc comment already
+generalizes as "no resolver," not a new omission) -- confirmed `PayLife<N>` was the natural next primitive rather than a
+fresh mechanic needing its own new machinery.
+
+`PayLifeN int` joined `ActivationShape` directly (`internal/cost/cost.go`) -- the fourth field on the struct, not a
+fifth predicate: the struct's own doc comment says so explicitly ("PayLife slotted into the same struct rather than
+becoming that fourth predicate all over again," "fourth" naming the near-identical-predicate count `Discard<N/Card>`'s
+own landing had already stopped at). The parsing case mirrors `Discard`'s own exactly --
+`case p.Name == "PayLife" && shape.PayLifeN == 0:` guards the identical way `shape.DiscardN == 0` already does, so a
+second `PayLife<...>` Part falls through to `default: return ActivationShape{}, false` on its own, no dedicated
+duplicate check needed, the identical "the switch's own zero-value guard already covers it" fact the prior landing's own
+regression-toggle pass confirmed for `Sac`/ `Discard`.
+
+Before writing `ActivateAbility`'s own execution code, `CostPayLife.java` and `Player.payLife` (both real Forge source,
+read directly rather than assumed) settled a real question: does paying life for a cost fire the identical event/
+trigger machinery an ordinary life-losing effect does, or is it its own separate thing (CR 119.3's own distinct "losing
+life" vs. "paying life" language could plausibly mean either)? `Player.payLife` (Player.java:557) answers it directly --
+it calls `loseLife(lifePayment, false, false, cause)` internally, the identical method `LifeLoseEffect`'s own resolve
+calls, and then separately runs `TriggerType.PayLife` (a trigger mode 0 real corpus `T:` lines use, per the identical
+corpus-frequency research this port's own trigger-mode landings already apply) alongside whatever `TriggerType.LifeLost`
+`loseLife` itself would fire. So paying life for a cost IS the identical "life total changed" event this port's own
+`LifeChanged` (event.go) already models for `loseLifeEffect` -- not a distinct, unmodeled event kind. A first draft of
+this section's own doc comment claimed the opposite ("no LifeChanged event... the identical distinction loseLifeEffect's
+own doc comment already draws") before the Java source was actually read -- caught and corrected in place before the
+code was written to match the wrong claim, not after a test failure exposed it: reading `CostPayLife.java` was cheap,
+writing an event-emission bug and finding it later would not have been.
+
+`ActivateAbility`'s own execution (activateability.go) therefore mirrors `loseLifeEffect`'s own exactly: subtract
+`PayLifeN` from `Player.Life`, then
+`g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})` -- the
+identical call shape `loseLifeEffect`'s own last line already has, `card` (the activated ability's own host) standing in
+for `a.Source`. `Mode$ LifeLost`/`LifeLostAll` still fires no trigger check, the identical omission `loseLifeEffect`'s
+own doc comment already justifies (0 real corpus `T:` lines name it, regardless of what caused the loss) -- confirmed
+still true for this cause too, not merely assumed to carry over. Feasibility runs before commitment the same way
+Tap/Discard's own already do: `shape.PayLifeN > g.Player(pid).Life` declines outright, CR 119.4's own "a life payment
+can never bring the payer below 0" (paying down to exactly 0 is legal, the identical boundary `>` rather than `>=`
+already encodes). The regression-toggle pass confirmed this guard is load-bearing: disabling it left every other test
+green and failed only `TestActivateAbilityDeclinesWhenLifeTooLowForPayLifeCost`, a clean assertion failure rather than a
+panic this time (`Player.Life` going negative is not, on its own, an engine invariant this port panics on -- unlike
+`ChooseCardsToDiscard` asking for more cards than a queue holds).
+
+`ActivateManaAbility` declines any `PayLifeN > 0` the identical way it already declines `DiscardN > 0` -- 0 real
+`AB$ Mana` lines carry `PayLife<...>` either, so there is no execution path to reuse and letting the shape through
+unhandled would mean claiming the cost was paid while no life was actually lost (PORT-8/GO-7).
+
+Adding `g.Player(pid).Life` to `activateability.go` surfaced a real `enginelint` gap: the `castspell` group's own
+allow-list had never needed the `player` group before (every prior primitive -- mana, Tap, self-sac, Discard -- reads
+`Card`/`Ability`/`PlayerController` state, never `Player` directly), so `g.Player(pid).Life` failed enginelint outright
+until `player` was added to `castspell`'s own allow-list (enginelint.json) -- the identical kind of real, caught-before-
+commit gap `manaability`'s own group needed the same fix for earlier in this session.
+
+7 new tests (`activateability_test.go`): a `PayLife<2>` cost on a `Draw` ability subtracting life, emitting
+`LifeChanged`, and still resolving the draw (a library card seeded first --
+`TestDiscardEffectSkipsControllerWhenHandEmpty`'s own sibling gap, a fresh `newGame` starts every player's library
+empty); a decline when life is below `PayLifeN` with no side effect; `Tap` and `PayLife` composing on one line; a
+decline for `PayLife<X>` (the non-literal shape); `activatemanaability_test.go` gained
+`TestActivateManaAbilityDeclinesForPayLifeCost`; `internal/cost/parsing_test.go` extended `TestActivationShape`'s own
+table with `PayLife` alone, combined with each of the other three primitives, and three more reject cases (`PayLife<0>`,
+`PayLife<X/...>`, a duplicate `PayLife<1> PayLife<1>`).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

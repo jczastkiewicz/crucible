@@ -417,6 +417,123 @@ func TestActivateAbilityDeclinesForNonLiteralDiscardCost(t *testing.T) {
 	}
 }
 
+// TestActivateAbilityPayLifeCostRunsEffectAndEmitsLifeChanged proves
+// PayLife<N> -- the corpus's own dominant real "pay life" activation-cost
+// shape -- subtracts N from the activating player's own life, emits the
+// identical LifeChanged event loseLifeEffect's own does, and still lets the
+// ability resolve.
+func TestActivateAbilityPayLifeCostRunsEffectAndEmitsLifeChanged(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	def := creatureDefWithAbility(t, "Test Pay Life", "AB$ Draw | Cost$ PayLife<2> | Defined$ You | NumCards$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Player(p).Life; got != 18 {
+		t.Errorf("life = %d, want 18", got)
+	}
+	var saw bool
+	for _, e := range sink.events {
+		if e.Kind == engine.LifeChanged {
+			saw = true
+			if e.Amount != -2 {
+				t.Errorf("LifeChanged Amount = %d, want -2", e.Amount)
+			}
+		}
+	}
+	if !saw {
+		t.Error("no LifeChanged event seen")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand size = %d, want 1 -- Draw must still resolve", got)
+	}
+}
+
+// TestActivateAbilityDeclinesWhenLifeTooLowForPayLifeCost proves CR 119.4:
+// a life payment can never bring the payer below 0, so a PayLife<N> cost
+// declines outright with no side effect when the player's own life is
+// below N.
+func TestActivateAbilityDeclinesWhenLifeTooLowForPayLifeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 1, 20
+
+	def := creatureDefWithAbility(t, "Test Pay Life Too Low", "AB$ GainLife | Cost$ PayLife<2> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true with life 1 for a PayLife<2> cost, want false")
+	}
+	if got := g.Player(p).Life; got != 1 {
+		t.Errorf("life = %d, want 1 -- a declined activation must not touch life", got)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndPayLifeCost proves Tap and PayLife
+// compose on one line -- the source taps, then life is paid, then the
+// ability still resolves.
+func TestActivateAbilityCombinesTapAndPayLifeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Pay Life", "AB$ GainLife | Cost$ T PayLife<1> | Defined$ You | LifeAmount$ 4")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(creature).Tapped {
+		t.Error("creature not tapped after a Cost$ T PayLife<1> activation")
+	}
+	if got := g.Player(p).Life; got != 19 {
+		t.Errorf("life = %d, want 19 (20 - 1 paid)", got)
+	}
+}
+
+// TestActivateAbilityDeclinesForNonLiteralPayLifeCost proves a PayLife<...>
+// naming anything but a literal positive integer -- an X-cost here,
+// PayLife<X> -- still declines outright: ActivationShape's own doc comment
+// has the reason (internal/cost).
+func TestActivateAbilityDeclinesForNonLiteralPayLifeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Pay Life X", "AB$ GainLife | Cost$ X PayLife<X> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for PayLife<X>, want false")
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

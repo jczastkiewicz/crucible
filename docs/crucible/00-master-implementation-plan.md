@@ -1940,6 +1940,19 @@ printed form.
     no execution path to reuse, and letting the shape through unhandled would mean claiming the cost was paid while
     discarding nothing (PORT-8/GO-7).
 
+    **`ActivateAbility` gained a fifth cost primitive too** -- `PayLife<N>`, "pay N life," 108 more real non-`AB$ Mana`
+    `A:AB$` lines. `PayLifeN` slotted straight into `ActivationShape` (internal/cost) rather than becoming a fifth
+    near-identical predicate the way `Discard$` almost did. A feasibility check first confirms `Player.Life >= PayLifeN`
+    (CR 119.4: a life payment can never bring the payer below 0), run before anything else commits the same way the
+    Tap-self and Discard feasibility checks already are; committing subtracts `PayLifeN` from `Player.Life` and emits
+    the identical `LifeChanged` event `loseLifeEffect` already emits for an ordinary life loss -- verified by reading
+    `CostPayLife.java`/`Player.payLife` directly rather than assuming: Java's own life-payment path routes through the
+    identical `loseLife` machinery `LifeLoseEffect` uses, so this port's own single `LifeChanged` event kind correctly
+    covers both causes. No `Mode$ LifeLost`/`LifeLostAll` trigger check runs either way -- the identical omission
+    `loseLifeEffect`'s own doc comment already justifies, since 0 real corpus `T:` lines name that mode regardless of
+    what caused the loss. `ActivateManaAbility` declines any `PayLifeN > 0` the identical way it already declines
+    `DiscardN > 0` (0 real `AB$ Mana` lines carry `PayLife<...>` either).
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

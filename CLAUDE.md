@@ -884,5 +884,15 @@ sign a fourth should not be a fourth. `ActivateManaAbility` explicitly declines 
 ignoring it (0 real `AB$ Mana` lines carry `Discard<...>` at all, so there is nothing to execute, and letting the shape
 through unhandled would claim the cost was paid while discarding nothing).
 
+`ActivateAbility` gained a fifth cost primitive too — `PayLife<N>`, "pay N life," 108 more real non-`AB$ Mana` `A:AB$`
+lines — checking `Player.Life >= N` first (CR 119.4: a life payment can never bring the payer below 0), then subtracting
+`N` and emitting the identical `LifeChanged` event `loseLifeEffect` already emits (`Player.payLife` in Java routes
+through the same `loseLife` machinery `LifeLoseEffect` uses, confirmed by reading `CostPayLife.java`/ `Player.payLife`
+directly before assuming otherwise) — no `Mode$ LifeLost` trigger check either way, the identical omission
+`loseLifeEffect`'s own doc comment already justifies (0 real corpus lines name that mode). `PayLifeN` slotted into the
+same `ActivationShape` struct rather than becoming a fifth near-identical predicate. `ActivateManaAbility` declines any
+`PayLifeN > 0` the identical way it already declines `DiscardN > 0` (0 real `AB$ Mana` lines carry `PayLife<...>`
+either).
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

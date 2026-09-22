@@ -1831,7 +1831,7 @@ printed form.
     **Activating an ability landed too** (`ActivateAbility`, activateability.go) — CR 602.2, the corpus's own single
     largest still-unbuilt action by real line count (10,879 real `A:AB$` lines, more than any one trigger mode past
     `Mode$ ChangesZone` itself), trimmed to its own two dominant real `Cost$` shapes: pure mana, and pure mana plus a
-    single Tap-self token (`cost.Cost.IsPureManaOrTap`, `internal/cost` — `IsPureMana`'s own sibling, needed because a
+    single Tap-self token (`cost.Cost.ActivationShape`, `internal/cost` — `IsPureMana`'s own sibling, needed because a
     bare `T` always also parses as its own named `Part` alongside setting the `Tap` flag, `namedParts`' own trailing
     `{name: "T", ...}` entry, so `IsPureMana`'s own flat "no `Parts` at all" contract cannot just add `Tap` to its own
     allowed set). 6,246 of the corpus's 10,879 real `A:AB$` lines carry that shape (2,515 bare `T`, 1,090 bare mana, 995
@@ -1863,42 +1863,42 @@ printed form.
 
     `ActivateAbility` gained a third cost shape too -- mana and/or a Tap-self token plus a single self-sacrifice token,
     `Sac<1/CARDNAME>` ("sacrifice this permanent," fetch lands' and sac outlets' own dominant real shape), through a new
-    `cost.Cost.IsPureManaTapAndSelfSac`/`SelfSac` (`internal/cost`) -- `IsPureManaOrTap`'s own sibling, admitting
-    exactly one further `Part` naming the literal self-reference `Sac<1/CARDNAME>` and rejecting any chosen count or
-    chosen valid spec the identical way it already rejects any other named `Part`. 947 more of the corpus's own
-    non-`AB$ Mana` real `A:AB$` lines are reachable at the shape level this way (`ChangeZone` 164, `Draw` 145, `Destroy`
-    94, `DealDamage` 91, `Pump` 60, `GainLife` 52, `Token` 44, `PutCounter` 31 among the largest; 441 of the 947 already
-    name one of the twelve already-built effects) -- recomputing each effect's own "N of M resolves" count against this
-    shape too stays the same deferred further-chunk work `IsPureManaOrTap`'s own landing already named, not done here.
-    Paying it reuses `sacrificeCards` (sacrificeeffect.go) wholesale rather than a new sacrifice primitive -- CR
-    701.20's own "dies" trigger, `RememberSacrificed$`, and the batched `Mode$ ChangesZoneAll` firing all come free,
-    exactly as they already do for `Sacrifice`'s own "Self" branch (item 26, above) -- committed last, after the mana
-    and the tap, so a self-sac cost never sacrifices a permanent whose own mana or tap half of the same cost went unpaid
-    (CR 601.2h's own "costs may be paid in any order" makes this ordering a free choice rather than an approximation of
-    Java's own part-by-part, player-cancellable `CostPayment`, which this port does not build). The pushed ability still
-    resolves normally afterward even though its own source has already left the battlefield (CR 112.7a) -- the identical
-    "ability survives its source" contract a `SubAbility$` chain into a just-sacrificed card's own `Defined$ Self`
-    already relies on elsewhere in this port.
+    the same `cost.Cost.ActivationShape` (`internal/cost`), admitting exactly one further `Part` naming the literal
+    self-reference `Sac<1/CARDNAME>` and rejecting any chosen count or chosen valid spec the identical way it already
+    rejects any other named `Part`. 947 more of the corpus's own non-`AB$ Mana` real `A:AB$` lines are reachable at the
+    shape level this way (`ChangeZone` 164, `Draw` 145, `Destroy` 94, `DealDamage` 91, `Pump` 60, `GainLife` 52, `Token`
+    44, `PutCounter` 31 among the largest; 441 of the 947 already name one of the twelve already-built effects) --
+    recomputing each effect's own "N of M resolves" count against this shape too stays the same deferred further-chunk
+    work `ActivationShape`'s own landing already named, not done here. Paying it reuses `sacrificeCards`
+    (sacrificeeffect.go) wholesale rather than a new sacrifice primitive -- CR 701.20's own "dies" trigger,
+    `RememberSacrificed$`, and the batched `Mode$ ChangesZoneAll` firing all come free, exactly as they already do for
+    `Sacrifice`'s own "Self" branch (item 26, above) -- committed last, after the mana and the tap, so a self-sac cost
+    never sacrifices a permanent whose own mana or tap half of the same cost went unpaid (CR 601.2h's own "costs may be
+    paid in any order" makes this ordering a free choice rather than an approximation of Java's own part-by-part,
+    player-cancellable `CostPayment`, which this port does not build). The pushed ability still resolves normally
+    afterward even though its own source has already left the battlefield (CR 112.7a) -- the identical "ability survives
+    its source" contract a `SubAbility$` chain into a just-sacrificed card's own `Defined$ Self` already relies on
+    elsewhere in this port.
 
     **CR 605.3's own general mana ability landed too** (`ActivateManaAbility`, activatemanaability.go) -- every real
     card printing its own `A:AB$ Mana` line (rocks, dorks, Treasures), not only a basic land's synthesized intrinsic one
     (`TapLandForMana`, manaability.go, CR 305.6). 2,156 real lines exist corpus-wide, 1,946 already matching
-    `IsPureManaTapAndSelfSac` (internal/cost) -- the identical predicate `ActivateAbility` already uses, reused outright
-    rather than a second one, since `ActivateAbility` itself refuses API `"Mana"` and `ActivateManaAbility` refuses
-    anything else. `Produced$`'s own dominant real shape within that 1,946 -- a single literal WUBRG letter or `C`
-    (colorless), 1,005 lines -- resolves through a new `producedManaColor`; the remaining 108 (past `Any`/`Combo`/
-    `Chosen`, below) name something else or no `Produced$` at all. A new positive allow-list,
-    `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads or safely ignores
-    (`AB$`/`Cost$`/`SpellDescription$`/`Produced$`/`Amount$`) rather than a growing per-effect blocklist --
-    `compile.Ability.Params` is directly enumerable, so naming what a mana ability's own small real vocabulary needs was
-    shorter than naming the roughly twenty further keys it does not. 850 of the 1,005 clear it and resolve end to end;
-    the rest name `RestrictValid$` (53, a mana-pool spending restriction this port's own `Pool` has no bucket for),
-    `SubAbility$` (28, a further ability this immediate no-stack resolution has nowhere to route through
-    `Registry.Resolve`), a bare "activate only if..." restriction (`IsPresent$`/`ConditionCheckSVar$`/... 26 combined),
-    a mana-tagging effect (`TriggersWhenSpent$`/`AddsKeywords$`/... 16 combined), or AI hinting/a cost-description gate
-    (`AILogic$`/ `PrecostDesc$`/... 13 combined). Payment order matches `ActivateAbility`'s own exactly -- mana, tap,
-    self-sac, reusing `sacrificeCards` wholesale for the last -- and `checkTapsForManaTriggers` (CR 603's own "taps for
-    mana" trigger, `TapLandForMana`'s own pairing) fires only when the cost actually has a Tap component.
+    `ActivationShape` (internal/cost) -- the identical predicate `ActivateAbility` already uses, reused outright rather
+    than a second one, since `ActivateAbility` itself refuses API `"Mana"` and `ActivateManaAbility` refuses anything
+    else. `Produced$`'s own dominant real shape within that 1,946 -- a single literal WUBRG letter or `C` (colorless),
+    1,005 lines -- resolves through a new `producedManaColor`; the remaining 108 (past `Any`/`Combo`/ `Chosen`, below)
+    name something else or no `Produced$` at all. A new positive allow-list, `manaAbilityAllowedParams`, admits only the
+    five real keys this dispatch reads or safely ignores (`AB$`/`Cost$`/`SpellDescription$`/`Produced$`/`Amount$`)
+    rather than a growing per-effect blocklist -- `compile.Ability.Params` is directly enumerable, so naming what a mana
+    ability's own small real vocabulary needs was shorter than naming the roughly twenty further keys it does not. 850
+    of the 1,005 clear it and resolve end to end; the rest name `RestrictValid$` (53, a mana-pool spending restriction
+    this port's own `Pool` has no bucket for), `SubAbility$` (28, a further ability this immediate no-stack resolution
+    has nowhere to route through `Registry.Resolve`), a bare "activate only if..." restriction
+    (`IsPresent$`/`ConditionCheckSVar$`/... 26 combined), a mana-tagging effect
+    (`TriggersWhenSpent$`/`AddsKeywords$`/... 16 combined), or AI hinting/a cost-description gate (`AILogic$`/
+    `PrecostDesc$`/... 13 combined). Payment order matches `ActivateAbility`'s own exactly -- mana, tap, self-sac,
+    reusing `sacrificeCards` wholesale for the last -- and `checkTapsForManaTriggers` (CR 603's own "taps for mana"
+    trigger, `TapLandForMana`'s own pairing) fires only when the cost actually has a Tap component.
 
     **`Produced$ Any` landed too** -- CR 605.3b's own "choose a color," 334 more of the 1,946. A new `PlayerController`
     method, `ChooseManaColor` (its 28th), asks the decider directly, taking an `options mana.Colors` set -- distinct
@@ -1921,6 +1921,24 @@ printed form.
     at `Pool.Add`'s own panic" contract "Any" already has -- confirmed by its own regression-toggle test, disabling just
     the `options.Has` half of the check failed only the one test built to catch a controller naming a color outside the
     offered set.
+
+    **`ActivateAbility` gained a fourth cost primitive too** -- `Discard<N/Card>`, "discard N cards of your choice," 228
+    more real non-`AB$ Mana` `A:AB$` lines -- reusing `PlayerController.ChooseCardsToDiscard` (already built for
+    `discardEffect`) and a new shared `discardCards` (discardeffect.go, `sacrificeCards`'s own identical
+    "shared-execution-helper" shape) rather than a fourth cost payment path each writing its own move-and-trigger loop.
+    This landing also replaced three growing near-identical `cost.Cost` predicates
+    (`IsPureManaOrTap`/`IsPureManaTapAndSelfSac`/`SelfSac`) with one `cost.Cost.ActivationShape` decomposition --
+    `Discard<N/Card>`'s own count could not fit a bare `bool` the way `Tap`/`SelfSac` could, and three near-identical
+    predicates was already the sign a fourth should not be a fourth (Rule of Three). Every feasibility check still runs
+    before anything is committed (mana, tap, self-sac, discard, in that order): a `Discard` component first checks the
+    activating player's own hand actually holds `DiscardN` cards, declining outright rather than asking
+    `ChooseCardsToDiscard` for more cards than the hand has -- a real correctness gap the regression-toggle check itself
+    caught: disabling that hand-size guard turned a clean failed-assertion `FAIL` into an actual
+    `panic: engine: scripted controller ran out of discard choice decisions`, the identical shape `ChooseManaColor`'s
+    own guard's regression-toggle already demonstrated for `Pool.Add`. `ActivateManaAbility` explicitly declines any
+    `DiscardN > 0` rather than silently ignoring it -- 0 real `AB$ Mana` lines carry `Discard<...>` at all, so there is
+    no execution path to reuse, and letting the shape through unhandled would mean claiming the cost was paid while
+    discarding nothing (PORT-8/GO-7).
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

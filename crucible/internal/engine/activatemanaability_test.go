@@ -287,3 +287,30 @@ func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 		t.Error("ActivateManaAbility returned true with RestrictValid$ present, want false")
 	}
 }
+
+// TestActivateManaAbilityDeclinesForDiscardCost proves a Discard<N/Card>
+// cost component -- one of cost.Cost.ActivationShape's own three primitives,
+// but 0 real corpus A:AB$ Mana lines ever carry it -- declines outright
+// rather than claiming the cost was paid while never actually discarding
+// anything (ActivateManaAbility's own doc comment has the reason, PORT-8/
+// GO-7).
+func TestActivateManaAbilityDeclinesForDiscardCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	toss := g.NewCard(nil, p, engine.Hand)
+
+	def := creatureDefWithAbility(t, "Test Mana Discard", "AB$ Mana | Cost$ Discard<1/Card> | Produced$ C")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true for a Discard<1/Card> cost, want false")
+	}
+	if zone := g.Card(toss).Zone; zone != engine.Hand {
+		t.Errorf("hand card zone = %v, want Hand -- a declined activation must not discard anything", zone)
+	}
+}

@@ -222,9 +222,9 @@ func TestActivateAbilityDeclinesForSpellRecordLine(t *testing.T) {
 }
 
 // TestActivateAbilitySelfSacCostSacrificesSourceAndRunsEffect proves the
-// corpus's own second-most-common real activation cost shape past
-// IsPureManaOrTap -- a self-sacrifice token, Sac<1/CARDNAME>, 947 of the
-// corpus's own real non-Mana-API A:AB$ lines -- actually sacrifices the
+// corpus's own second-most-common real activation cost shape past a bare
+// Tap -- a self-sacrifice token, Sac<1/CARDNAME>, 947 of the corpus's own
+// real non-Mana-API A:AB$ lines -- actually sacrifices the
 // source through sacrificeCards (sacrificeeffect.go, reused wholesale) once
 // the rest of the cost is paid, and the ability still resolves off the
 // stack afterward even though its own source has already left the
@@ -286,8 +286,8 @@ func TestActivateAbilityCombinesManaTapAndSelfSac(t *testing.T) {
 // TestActivateAbilityDeclinesForChosenSacCost proves a Sac<...> naming
 // anything but the literal self-reference CARDNAME -- a chosen count, or a
 // chosen valid spec -- still declines outright rather than silently
-// sacrificing the wrong thing: IsPureManaTapAndSelfSac's own doc comment has
-// the reason (internal/cost).
+// sacrificing the wrong thing: ActivationShape's own doc comment has the
+// reason (internal/cost).
 func TestActivateAbilityDeclinesForChosenSacCost(t *testing.T) {
 	t.Parallel()
 
@@ -302,6 +302,118 @@ func TestActivateAbilityDeclinesForChosenSacCost(t *testing.T) {
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
 		t.Error("ActivateAbility returned true for Sac<2/CARDNAME>, want false")
+	}
+}
+
+// TestActivateAbilityDiscardCostDiscardsChosenCardsAndRunsEffect proves
+// Discard<N/Card> -- the corpus's own dominant real Discard-as-cost shape,
+// 244 of the corpus's own real non-Mana-API A:AB$ lines -- asks
+// ChooseCardsToDiscard for exactly N cards and discards them (discardCards,
+// discardeffect.go, reused wholesale) once the rest of the cost is paid, and
+// the ability still resolves.
+func TestActivateAbilityDiscardCostDiscardsChosenCardsAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	keep := g.NewCard(nil, p, engine.Hand)
+	toss := g.NewCard(nil, p, engine.Hand)
+
+	def := creatureDefWithAbility(t, "Test Discard Cost", "AB$ GainLife | Cost$ Discard<1/Card> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueDiscardChoice([]engine.CardID{toss})
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(toss).Zone; zone != engine.Graveyard {
+		t.Errorf("discarded card zone = %v, want Graveyard", zone)
+	}
+	if zone := g.Card(keep).Zone; zone != engine.Hand {
+		t.Errorf("kept card zone = %v, want Hand -- only the chosen card should be discarded", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23", got)
+	}
+}
+
+// TestActivateAbilityDeclinesWhenHandTooSmallForDiscardCost proves a
+// Discard<N/Card> cost the activating player's own hand cannot pay -- fewer
+// than N cards -- declines outright with no side effect, rather than
+// discarding fewer cards than the cost demands.
+func TestActivateAbilityDeclinesWhenHandTooSmallForDiscardCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	only := g.NewCard(nil, p, engine.Hand)
+
+	def := creatureDefWithAbility(t, "Test Discard Too Few", "AB$ GainLife | Cost$ Discard<2/Card> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true with only 1 card in hand for a Discard<2/Card> cost, want false")
+	}
+	if zone := g.Card(only).Zone; zone != engine.Hand {
+		t.Errorf("hand card zone = %v, want Hand -- a declined activation must not discard anything", zone)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndDiscardCost proves Tap and Discard
+// compose on one line -- the source taps, then the chosen card is
+// discarded, then the ability still resolves.
+func TestActivateAbilityCombinesTapAndDiscardCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	toss := g.NewCard(nil, p, engine.Hand)
+
+	def := creatureDefWithAbility(t, "Test Tap Discard", "AB$ GainLife | Cost$ T Discard<1/Card> | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueDiscardChoice([]engine.CardID{toss})
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(creature).Tapped {
+		t.Error("creature not tapped after a Cost$ T Discard<1/Card> activation")
+	}
+	if zone := g.Card(toss).Zone; zone != engine.Graveyard {
+		t.Errorf("discarded card zone = %v, want Graveyard", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesForNonLiteralDiscardCost proves a Discard<...>
+// naming anything but the literal "N/Card" shape -- a self-discard here,
+// Discard<1/CARDNAME> -- still declines outright: ActivationShape's own doc
+// comment has the reason (internal/cost).
+func TestActivateAbilityDeclinesForNonLiteralDiscardCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Discard Self", "AB$ GainLife | Cost$ Discard<1/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for Discard<1/CARDNAME>, want false")
 	}
 }
 

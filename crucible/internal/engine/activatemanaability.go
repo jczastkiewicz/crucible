@@ -122,10 +122,16 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // Reports whether the mana was produced. false covers not pid's own
 // permanent, not on the battlefield, index not naming an Activated API
 // "Mana" line at all, a param past manaAbilityAllowedParams, a Cost$ past
-// IsPureManaTapAndSelfSac (internal/cost, ActivateAbility's own identical
-// gate, reused outright -- ActivateAbility itself refuses API "Mana" and
-// this function refuses anything else, so the two never overlap), a
-// Tap-self cost declined by CR 602.5b/302.6 (SummonSick/Haste,
+// ActivationShape (internal/cost, ActivateAbility's own identical gate,
+// reused outright -- ActivateAbility itself refuses API "Mana" and this
+// function refuses anything else, so the two never overlap) -- including a
+// Discard component, which this function declines outright rather than
+// silently skipping (PORT-8/GO-7): 0 real corpus A:AB$ Mana lines name
+// Discard<...> at all, so ActivateAbility's own Discard payment
+// (activateability.go) has nothing here to reuse, and letting the shape
+// through unhandled would mean claiming the cost was paid in full while
+// never actually discarding anything -- a Tap-self cost declined by CR
+// 602.5b/302.6 (SummonSick/Haste,
 // DeclareCombatAttackers' own gate, reused), a Produced$ past
 // producedManaColor's own literal shape, "Any" or parseComboColors' own
 // literal-letters-only "Combo" shape, ChooseManaColor answering with
@@ -166,10 +172,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		return false
 	}
 	parsed := cost.Parse(costText)
-	if !parsed.IsPureManaTapAndSelfSac() {
+	shape, ok := parsed.ActivationShape()
+	if !ok || shape.DiscardN > 0 {
 		return false
 	}
-	if parsed.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
+	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
 		return false
 	}
 	produced, ok := ability.Param("Produced")
@@ -213,11 +220,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !g.PayManaCost(pid, costMana, controller) {
 		return false
 	}
-	if parsed.Tap {
+	if shape.Tap {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
 	}
-	if parsed.SelfSac() {
+	if shape.SelfSac {
 		sacrificeCards(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card})
 	}
 
@@ -234,7 +241,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		pool.Add(color, amount)
 	}
 
-	if parsed.Tap {
+	if shape.Tap {
 		g.checkTapsForManaTriggers(controller, card, pid)
 	}
 	return true

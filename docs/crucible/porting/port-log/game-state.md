@@ -4773,6 +4773,79 @@ matches it. `ChooseManaColor`'s own interface signature changed to add the `opti
 this exact method inside two commits, both of its real implementers (`ScriptedController`, `scriptedMulliganController`)
 updated the identical way `Any`'s own landing already updated them for the method's first addition.
 
+## cost.Cost.ActivationShape replaces IsPureManaOrTap/IsPureManaTapAndSelfSac/SelfSac; Discard<N/Card> lands
+
+Three chunks in a row (`## Activating an ability lands`, `## ActivateAbility's own self-sacrifice cost`, and this port's
+own general mana ability landing, all above) each added one more near-identical `cost.Cost` predicate for
+`ActivateAbility`/`ActivateManaAbility`'s own shared cost-shape gate: `IsPureManaOrTap`, then `IsPureManaTapAndSelfSac`,
+then `SelfSac` alongside it. A corpus scan for the next real activation-cost primitive worth building -- `Discard<...>`
+as a cost, 387 real non-`AB$ Mana` `A:AB$` lines naming it as the only part past mana/Tap/ self-sac, dominated by the
+literal `Discard<N/Card>` shape (209 `Discard<1/Card>`, 16 `Discard<2/Card>`, 3 `Discard<3/Card>` -- 228 combined;
+`Discard<1/CARDNAME>`, 67 real lines, always paired with `ActivationZone$ Hand` in the samples checked, CR 701.8a's own
+"discard moves a card from hand to graveyard" ruling out a battlefield-only self-discard entirely -- `ActivateAbility`'s
+own battlefield-only entry point can never reach that shape regardless of whether it were built, so it was not; the rest
+-- `Discard<1/Land>`/`Discard<1/Creature>`/`Discard<1/Random>`/... -- each its own further restricted-choice or
+random-choice shape) -- made the pattern impossible to ignore: a `Discard<N/Card>` count could not fit a bare `bool` the
+way `Tap`/`SelfSac` could, forcing a signature change on whichever predicate grew a fourth branch, and three
+near-identical predicates already sitting in the package was already the sign a fourth should not be a fourth (this
+session's own standing anti-overengineering discipline cuts both ways: avoiding premature abstraction does not mean
+repeating an established pattern past the point it stops paying for itself).
+
+`cost.Cost.ActivationShape` (`internal/cost/cost.go`) replaces all three: one method returning a small struct
+(`Tap bool`, `SelfSac bool`, `DiscardN int`) and a second `ok bool` result, false for anything the struct's three fields
+cannot represent -- Untap/Mandatory/XMin, a chosen or SVar-sized `Sac<...>`, a `Discard<...>` past the literal
+`"N/Card"` shape, or any other named `Part`, the identical rejection set the three predicates it replaces already had
+between them, just unified into one walk over `Cost.Parts` instead of three separate ones. `IsPureMana` itself is
+untouched -- `resolveUnlessCost`'s own "unless a cost is paid" gate (effect.go) needs a genuinely different question (no
+Tap/SelfSac/Discard allowed at all, not even optionally), so it stays its own predicate rather than folding into
+`ActivationShape` too.
+
+`ActivationShape`'s own single `switch` over `Cost.Parts` gets a second-`Sac`/second-`Discard` rejection for free,
+without a dedicated duplicate check the way `parseComboColors`' own first draft briefly needed one
+(`## Produced$ Combo lands`, above, where the check turned out to be provably inert and was removed): each `case` guards
+on the matching field still being at its zero value (`!shape.SelfSac`, `shape.DiscardN == 0`), so a second
+`Sac<1/CARDNAME>` or `Discard<1/Card>` Part fails that case's own guard and falls through to
+`default: return ActivationShape{}, false` instead of silently re-triggering the first branch -- `TestActivationShape`'s
+own `"Sac<1/CARDNAME> Sac<1/CARDNAME>"` and `"Discard<1/Card> Discard<1/Card>"` cases both confirm `ok == false` with no
+extra code past the ordinary Part-matching logic itself.
+
+`ActivateAbility` (activateability.go) pays a `Discard<N/Card>` cost by checking the hand's own size against `DiscardN`
+first (a feasibility check, alongside the Tap-self SummonSick/Haste check, both run before any commitment the same way
+they always have), then -- once mana, tap, and self-sac have all committed -- asking `ChooseCardsToDiscard` for exactly
+`DiscardN` cards and discarding them through a new `discardCards` (discardeffect.go), factored out of `discardEffect`'s
+own per-player loop the identical way `sacrificeCards` was already factored out of `sacrificeEffect`'s: a helper two
+real callers share rather than one duplicating the other's move-and-trigger pairing. The hand-size feasibility check is
+load-bearing, not decorative -- the regression-toggle pass proved it directly: disabling it turned
+`TestActivateAbilityDeclinesWhenHandTooSmallForDiscardCost` from a clean failed assertion into an actual
+`panic: engine: scripted controller ran out of discard choice decisions` (`ChooseCardsToDiscard` asked for more cards
+than any queued answer could ever supply), the identical "trust ends at the guard, not at the panic-prone call" shape
+`ChooseManaColor`'s own guard already demonstrated for `Pool.Add` (`## Produced$ Any lands`, above).
+
+`ActivateManaAbility` (activatemanaability.go) declines outright whenever `shape.DiscardN > 0` rather than silently
+ignoring it: 0 real corpus `A:AB$ Mana` lines ever name `Discard<...>` as part of their own cost, so there is no real
+shape to execute and no `discardCards` call site to add here -- letting an unhandled `DiscardN` through would mean
+reporting the cost as fully paid while a real script asking for a discard never actually got one, exactly the "apply
+half a script and guess at the rest" PORT-8/GO-7 forbids, even though no real corpus line can trigger it today.
+
+228 of the corpus's own real non-`AB$ Mana` `A:AB$` lines are reachable at the shape level through `Discard<N/Card>`
+(real examples: `ravenous_bloodseeker.txt`'s own bare `Cost$ Discard<1/Card>` naming `Pump`; `ridged_kusite.txt`'s own
+`Cost$ 1 B T Discard<1/Card>`, mana and Tap and Discard combined on one line; `reverberating_summons.txt`'s own
+`Cost$ 1 R Discard<1/Hand> Sac<1/CARDNAME/this enchantment>`, which does NOT resolve here -- `Discard<1/Hand>` is a
+different shape, "discard your entire hand," not `producedManaColor`'s -- sorry, `ActivationShape`'s -- own
+literal-count `"N/Card"` match). Recomputing each already-built effect's own "N of M resolves" count against this shape
+too stays the identical deferred further-chunk work every prior `ActivationShape` extension has already left undone.
+
+7 new tests: `activateability_test.go` gained `TestActivateAbilityDiscardCostDiscardsChosenCardsAndRunsEffect`,
+`TestActivateAbilityDeclinesWhenHandTooSmallForDiscardCost`, `TestActivateAbilityCombinesTapAndDiscardCost`, and
+`TestActivateAbilityDeclinesForNonLiteralDiscardCost` (a `Discard<1/CARDNAME>` cost, declining outright);
+`activatemanaability_test.go` gained `TestActivateManaAbilityDeclinesForDiscardCost`. `internal/cost/parsing_test.go`
+replaced its own two predicate-specific table tests (`TestIsPureManaAndIsPureManaOrTap`,
+`TestIsPureManaTapAndSelfSacAndSelfSac`) with `TestIsPureMana` (the one predicate that survives untouched) and a new
+`TestActivationShape` covering Tap/SelfSac/Discard alone and in every real combination, including the
+`Sac<1/CARDNAME> Discard<1/Card>` case the old `TestIsPureManaTapAndSelfSacAndSelfSac` had asserted `false` for --
+correctly, under the predicate that existed then -- and which now, under `ActivationShape`, correctly asserts `true`
+instead: not a bug in either test at the time it was written, just the exact shape of question the refactor was for.
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

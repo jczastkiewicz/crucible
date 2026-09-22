@@ -108,10 +108,20 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			continue
 		}
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, count)
-		for _, id := range chosen {
-			g.Move(id, Graveyard, g.Card(id).Owner)
-			g.checkDiscardedTriggers(controller, id, pid)
-		}
+		discardCards(g, controller, chosen, pid)
 	}
 	return nil
+}
+
+// discardCards moves each of ids from its owner's hand to their graveyard
+// and fires Mode$ Discarded (checkDiscardedTriggers), CR 701.8's own "move
+// directly from hand to graveyard" -- shared between this effect's own body
+// and a Discard<N/Card> activation cost (ActivateAbility,
+// activateability.go), which discards the identical way regardless of
+// whether a script effect or a cost triggered it.
+func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID) {
+	for _, id := range ids {
+		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.checkDiscardedTriggers(controller, id, pid)
+	}
 }

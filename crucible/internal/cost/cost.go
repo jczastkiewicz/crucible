@@ -11,7 +11,10 @@
 // Deviations recorded in docs/crucible/porting/port-log/cost-strings.md.
 package cost
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // Cost is a parsed cost string.
 type Cost struct {
@@ -45,72 +48,57 @@ func (c Cost) IsPureMana() bool {
 	return len(c.Parts) == 0 && !c.Tap && !c.Untap && !c.Mandatory && c.XMin == ""
 }
 
-// IsPureManaOrTap reports whether the cost is nothing but mana symbols and,
-// optionally, a single Tap-self token ("T"/"Tap") -- CR 602's own dominant
-// real activation cost shape. Parts always carries a lone Name "T" entry
-// alongside Tap itself once a script writes "T" (namedParts' own trailing
-// {name: "T", prefix: "T", exact: true} branch, parseCostPart's own
-// redundant-looking second read of the identical token this package's own
-// Tap flag already carries -- Java keeps both because CostPartTap is a real
-// CostPart object, described and iterated like any other, not only a
-// boolean), so this cannot reuse IsPureMana's own flat "no Parts at all"
-// contract: it allows exactly that one entry and rejects any other.
-func (c Cost) IsPureManaOrTap() bool {
-	if c.Untap || c.Mandatory || c.XMin != "" {
-		return false
-	}
-	for _, p := range c.Parts {
-		if p.Name != "T" {
-			return false
-		}
-	}
-	return true
+// ActivationShape is a Cost decomposed into the primitives ActivateAbility/
+// ActivateManaAbility (internal/engine) know how to pay, past the plain mana
+// in Cost.Mana itself -- an optional Tap-self token, an optional
+// self-sacrifice (Sac<1/CARDNAME>, "sacrifice this permanent," fetch lands'
+// and sac outlets' own dominant real shape), and an optional
+// "discard N cards of your choice" (Discard<N/Card>). Each of the three
+// started as its own predicate (IsPureManaOrTap, then IsPureManaTapAndSelfSac,
+// SelfSac) before this type replaced all three: Discard's own count could not
+// fit a bool the way Tap and SelfSac could, and three near-identical
+// predicates was already the sign a fourth should not be a fourth.
+type ActivationShape struct {
+	Tap bool
+	// SelfSac is Sac<1/CARDNAME>'s own presence -- the literal
+	// self-reference token, never a chosen count or a chosen valid spec.
+	SelfSac bool
+	// DiscardN is Discard<N/Card>'s own N, or 0 when the cost names no
+	// Discard part at all. Never negative -- ActivationShape's own second
+	// result is false for anything that would make it so.
+	DiscardN int
 }
 
-// IsPureManaTapAndSelfSac reports whether the cost is nothing but mana
-// symbols, an optional Tap-self token, and an optional self-sacrifice Part
-// (Sac<1/CARDNAME>) -- IsPureManaOrTap's own sibling, for CR 602's own
-// second-most-common real activation cost shape past bare mana/Tap: "sac
-// CARDNAME" as part of an activation cost (fetch lands, sac outlets, Treasure
-// tokens' own AB$ Mana line among them, though that API is out of this
-// predicate's own caller's scope). Reuses IsPureManaOrTap's own
-// Untap/Mandatory/XMin rejection, then allows exactly one further Part
-// naming Sac<1/CARDNAME> -- SelfSac's own doc comment has the exact shape --
-// alongside the lone "T" Part IsPureManaOrTap already allows.
-func (c Cost) IsPureManaTapAndSelfSac() bool {
+// ActivationShape reports whether the cost is nothing but mana symbols and
+// zero or more of the three primitives [ActivationShape] carries, decomposed
+// into that value. The second result is false for anything past those --
+// Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>, a Discard<...> past
+// the literal "N/Card" shape (a self-discard, a random discard, a
+// type-restricted choice, ...), or any other named Part -- PORT-8/GO-7's
+// "skip the whole line" applied at the cost's own shape rather than guessing
+// at a partial payment.
+func (c Cost) ActivationShape() (ActivationShape, bool) {
 	if c.Untap || c.Mandatory || c.XMin != "" {
-		return false
+		return ActivationShape{}, false
 	}
-	sacSeen := false
+	var shape ActivationShape
 	for _, p := range c.Parts {
 		switch {
 		case p.Name == "T":
-		case p.Name == "Sac" && !sacSeen && p.Field(0) == "1" && p.Field(1) == "CARDNAME":
-			sacSeen = true
+			shape.Tap = true
+		case p.Name == "Sac" && !shape.SelfSac && p.Field(0) == "1" && p.Field(1) == "CARDNAME":
+			shape.SelfSac = true
+		case p.Name == "Discard" && shape.DiscardN == 0 && p.Field(1) == "Card":
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.DiscardN = n
 		default:
-			return false
+			return ActivationShape{}, false
 		}
 	}
-	return true
-}
-
-// SelfSac reports whether the cost is IsPureManaTapAndSelfSac's own shape
-// AND actually carries the Sac<1/CARDNAME> Part -- "sacrifice this
-// permanent" written with the literal self-reference token CARDNAME, the
-// only Sac<...> shape that predicate ever admits. Answers false on its own
-// for a cost IsPureManaTapAndSelfSac would reject too (an extra Part, a
-// chosen or SVar-sized Sac<...>, ...), rather than only being a safe question
-// once a caller has checked that predicate first.
-func (c Cost) SelfSac() bool {
-	if !c.IsPureManaTapAndSelfSac() {
-		return false
-	}
-	for _, p := range c.Parts {
-		if p.Name == "Sac" {
-			return true
-		}
-	}
-	return false
+	return shape, true
 }
 
 // Part is one named cost part: a name and the fields of its `<...>` body.

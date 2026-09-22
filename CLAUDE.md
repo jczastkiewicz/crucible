@@ -819,7 +819,7 @@ to 65 of 2,219, and Pump's own Defined$-shape count from 1,147 to 1,148 of 1,335
 Activating an ability landed too (`ActivateAbility`, `activateability.go`), CR 602.2, the corpus's own single largest
 still-unbuilt action by real line count: 10,879 real `A:AB$` lines exist, more than any one trigger mode past
 `Mode$ ChangesZone` itself. Trimmed to its own two dominant real `Cost$` shapes, pure mana and pure mana plus a single
-Tap-self token, through a new `cost.Cost.IsPureManaOrTap` (`internal/cost`) — `IsPureMana`'s own sibling, needed because
+Tap-self token, through a new `cost.Cost.ActivationShape` (`internal/cost`) — `IsPureMana`'s own sibling, needed because
 a bare `T` always also parses as its own named `Part` alongside setting the `Tap` flag (`namedParts`' own trailing `T`
 entry), so `IsPureMana`'s flat "no `Parts` at all" contract cannot simply add `Tap` to its own allowed set. 6,246 of the
 10,879 real lines carry that shape (2,515 bare `T`, 1,090 bare mana, 995 two mana symbols, 930 mana-plus-`T`, a long
@@ -839,23 +839,22 @@ reusing every one of the twelve already-built effects and the general `Registry.
 `SubAbility$` chaining, `ConditionCheckSVar$`) with no new effect code at all.
 
 `ActivateAbility` gained a third cost shape too — pure mana and/or a Tap-self token, plus a single self-sacrifice token
-(`Sac<1/CARDNAME>`, "sacrifice this permanent," fetch lands' and sac-outlets' own dominant real shape) — through a new
-`cost.Cost.IsPureManaTapAndSelfSac`/`SelfSac` (`internal/cost`), `IsPureManaOrTap`'s own sibling: 947 more of the
-corpus's own non-`AB$ Mana` real `A:AB$` lines are reachable at the shape level this way (`ChangeZone` 164, `Draw` 145,
-`Destroy` 94, `DealDamage` 91, `Pump` 60, `GainLife` 52 among the largest; 441 of the 947 already name one of the twelve
-already-built effects — recomputing each effect's own resolved-line count against this shape too stays the same deferred
-further-chunk work `IsPureManaOrTap`'s own landing already named). Paying it reuses `sacrificeCards`
-(sacrificeeffect.go) wholesale — CR 701.20's own "dies" trigger, `RememberSacrificed$` and the batched
-`Mode$ ChangesZoneAll` firing all come free, exactly as they already do for `Sacrifice`'s own "Self" branch — committed
-last, after mana and the tap, so a self-sac cost never sacrifices a permanent whose own mana or tap half of the same
-cost went unpaid; the pushed ability then resolves normally even though its own source has already left the battlefield
-(CR 112.7a), the identical "ability survives its source" contract `SubAbility$` chaining into a just-sacrificed card's
-own `Defined$ Self` already relies on elsewhere.
+(`Sac<1/CARDNAME>`, "sacrifice this permanent," fetch lands' and sac-outlets' own dominant real shape) — folded into the
+same `cost.Cost.ActivationShape` (`internal/cost`): 947 more of the corpus's own non-`AB$ Mana` real `A:AB$` lines are
+reachable at the shape level this way (`ChangeZone` 164, `Draw` 145, `Destroy` 94, `DealDamage` 91, `Pump` 60,
+`GainLife` 52 among the largest; 441 of the 947 already name one of the twelve already-built effects — recomputing each
+effect's own resolved-line count against this shape too stays the same deferred further-chunk work `ActivationShape`'s
+own landing already named). Paying it reuses `sacrificeCards` (sacrificeeffect.go) wholesale — CR 701.20's own "dies"
+trigger, `RememberSacrificed$` and the batched `Mode$ ChangesZoneAll` firing all come free, exactly as they already do
+for `Sacrifice`'s own "Self" branch — committed last, after mana and the tap, so a self-sac cost never sacrifices a
+permanent whose own mana or tap half of the same cost went unpaid; the pushed ability then resolves normally even though
+its own source has already left the battlefield (CR 112.7a), the identical "ability survives its source" contract
+`SubAbility$` chaining into a just-sacrificed card's own `Defined$ Self` already relies on elsewhere.
 
 CR 605.3's own general mana ability landed too (`ActivateManaAbility`, activatemanaability.go) — every real card
 printing its own `A:AB$ Mana` line (rocks, dorks, Treasures), not only a basic land's synthesized intrinsic one
-(`TapLandForMana`, manaability.go). 2,156 real lines exist corpus-wide, 1,946 already matching `IsPureManaTapAndSelfSac`
-— the identical predicate `ActivateAbility` uses, reused outright since the two APIs never compete for the same line.
+(`TapLandForMana`, manaability.go). 2,156 real lines exist corpus-wide, 1,946 already matching `ActivationShape` — the
+identical predicate `ActivateAbility` uses, reused outright since the two APIs never compete for the same line.
 `Produced$`'s own literal single-color/colorless shape (1,005 of the 1,946) resolves through a new `producedManaColor`;
 a new positive allow-list, `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads
 (`compile.Ability.Params` is directly enumerable, so naming what it needs was shorter than naming everything it does
@@ -875,6 +874,15 @@ rather than a second interface method: the answer is validated against that narr
 answer is validated against all five. `Combo Any`/`Combo AnyDifferent` (24, "add two mana in any combination of colors,"
 a per-unit independent choice this single-color-per-activation dispatch does not model), `ColorIdentity` (6, Commander's
 own color-identity set, untracked) and `Chosen` (a color picked earlier in the same resolution) still are not built.
+
+`ActivateAbility` gained a fourth cost primitive too — `Discard<N/Card>`, "discard N cards of your choice," 228 more
+real non-`AB$ Mana` `A:AB$` lines — through `PlayerController.ChooseCardsToDiscard` (already built for `discardEffect`)
+and a new shared `discardCards` (discardeffect.go). This landing also collapsed three growing near-identical `cost.Cost`
+predicates (`IsPureManaOrTap`, `IsPureManaTapAndSelfSac`, `SelfSac`) into one `ActivationShape` decomposition — a
+`Discard<N/Card>` count could not fit a bare `bool` the way `Tap`/`SelfSac` could, and three predicates was already the
+sign a fourth should not be a fourth. `ActivateManaAbility` explicitly declines any `DiscardN > 0` rather than silently
+ignoring it (0 real `AB$ Mana` lines carry `Discard<...>` at all, so there is nothing to execute, and letting the shape
+through unhandled would claim the cost was paid while discarding nothing).
 
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

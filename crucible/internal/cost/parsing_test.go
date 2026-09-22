@@ -159,73 +159,77 @@ func TestEmpty(t *testing.T) {
 	}
 }
 
-// TestIsPureManaAndIsPureManaOrTap covers both predicates together since
-// they differ only in whether a lone Tap token passes -- IsPureManaOrTap's
-// own doc comment has the reason a bare Tap always also parses as one Part
-// (namedParts' own trailing {name: "T", ...} entry, the identical token
-// this package's own Tap flag already carries).
-func TestIsPureManaAndIsPureManaOrTap(t *testing.T) {
+// TestIsPureMana covers the one predicate resolveUnlessCost (internal/engine)
+// still uses directly -- a genuinely different question from
+// [cost.Cost.ActivationShape], below: an "unless a cost is paid" cost never
+// allows Tap/SelfSac/Discard the way an activation cost does.
+func TestIsPureMana(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		text          string
-		pureMana      bool
-		pureManaOrTap bool
+		text     string
+		pureMana bool
 	}{
-		{"", true, true},
-		{"1 U", true, true},
-		{"B B", true, true},
-		{"T", false, true},
-		{"1 U T", false, true},
-		{"Q", false, false},
-		{"Untap", false, false},
-		{"Sac<1/Creature>", false, false},
-		{"1 U Sac<1/Creature>", false, false},
-		{"Mandatory PayEnergy<2>", false, false},
-		{"XMin2", false, false},
+		{"", true},
+		{"1 U", true},
+		{"B B", true},
+		{"T", false},
+		{"1 U T", false},
+		{"Q", false},
+		{"Untap", false},
+		{"Sac<1/Creature>", false},
+		{"1 U Sac<1/Creature>", false},
+		{"Mandatory PayEnergy<2>", false},
+		{"XMin2", false},
 	}
 	for _, c := range cases {
 		got := cost.Parse(c.text)
 		if got.IsPureMana() != c.pureMana {
 			t.Errorf("Parse(%q).IsPureMana() = %v, want %v", c.text, got.IsPureMana(), c.pureMana)
 		}
-		if got.IsPureManaOrTap() != c.pureManaOrTap {
-			t.Errorf("Parse(%q).IsPureManaOrTap() = %v, want %v", c.text, got.IsPureManaOrTap(), c.pureManaOrTap)
-		}
 	}
 }
 
-// TestIsPureManaTapAndSelfSacAndSelfSac covers IsPureManaTapAndSelfSac's own
-// wider allowance (a lone self-sac Part past what IsPureManaOrTap admits) and
-// SelfSac's own narrower question (is that Part actually there).
-func TestIsPureManaTapAndSelfSacAndSelfSac(t *testing.T) {
+// TestActivationShape covers Tap, SelfSac and Discard both alone and
+// combined -- the shape ActivateAbility/ActivateManaAbility (internal/engine)
+// actually pay.
+func TestActivationShape(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		text    string
-		shape   bool
-		selfSac bool
+		text   string
+		want   cost.ActivationShape
+		wantOK bool
 	}{
-		{"", true, false},
-		{"1 U", true, false},
-		{"T", true, false},
-		{"Sac<1/CARDNAME>", true, true},
-		{"2 G T Sac<1/CARDNAME>", true, true},
-		{"Sac<1/Creature.Other/another creature>", false, false},
-		{"Sac<2/CARDNAME>", false, false},
-		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", false, false},
-		{"Untap Sac<1/CARDNAME>", false, false},
-		{"Mandatory Sac<1/CARDNAME>", false, false},
-		{"XMin1 Sac<1/CARDNAME>", false, false},
-		{"Sac<1/CARDNAME> Discard<1/Card>", false, false},
+		{"", cost.ActivationShape{}, true},
+		{"1 U", cost.ActivationShape{}, true},
+		{"T", cost.ActivationShape{Tap: true}, true},
+		{"Sac<1/CARDNAME>", cost.ActivationShape{SelfSac: true}, true},
+		{"2 G T Sac<1/CARDNAME>", cost.ActivationShape{Tap: true, SelfSac: true}, true},
+		{"Discard<1/Card>", cost.ActivationShape{DiscardN: 1}, true},
+		{"Discard<2/Card>", cost.ActivationShape{DiscardN: 2}, true},
+		{"T Discard<1/Card>", cost.ActivationShape{Tap: true, DiscardN: 1}, true},
+		{"Sac<1/CARDNAME> Discard<1/Card>", cost.ActivationShape{SelfSac: true, DiscardN: 1}, true},
+		{"1 R T Sac<1/CARDNAME> Discard<2/Card>",
+			cost.ActivationShape{Tap: true, SelfSac: true, DiscardN: 2}, true},
+		{"Sac<1/Creature.Other/another creature>", cost.ActivationShape{}, false},
+		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
+		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"Discard<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"Discard<0/Card>", cost.ActivationShape{}, false},
+		{"Discard<1/Card> Discard<1/Card>", cost.ActivationShape{}, false},
+		{"Untap Sac<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"Mandatory Sac<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"XMin1 Sac<1/CARDNAME>", cost.ActivationShape{}, false},
 	}
 	for _, c := range cases {
-		got := cost.Parse(c.text)
-		if got.IsPureManaTapAndSelfSac() != c.shape {
-			t.Errorf("Parse(%q).IsPureManaTapAndSelfSac() = %v, want %v", c.text, got.IsPureManaTapAndSelfSac(), c.shape)
+		got, ok := cost.Parse(c.text).ActivationShape()
+		if ok != c.wantOK {
+			t.Errorf("Parse(%q).ActivationShape() ok = %v, want %v", c.text, ok, c.wantOK)
+			continue
 		}
-		if got.SelfSac() != c.selfSac {
-			t.Errorf("Parse(%q).SelfSac() = %v, want %v", c.text, got.SelfSac(), c.selfSac)
+		if ok && got != c.want {
+			t.Errorf("Parse(%q).ActivationShape() = %+v, want %+v", c.text, got, c.want)
 		}
 	}
 }

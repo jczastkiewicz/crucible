@@ -1,7 +1,9 @@
-// Activating an ability: CR 602, trimmed to the corpus's own three dominant
-// cost shapes -- pure mana, pure mana plus a single Tap-self token, and
-// either of those plus a single self-sacrifice token (Sac<1/CARDNAME>) --
-// the only ones this port has a payment primitive for. Java's own entry
+// Activating an ability: CR 602, trimmed to the corpus's own dominant cost
+// shapes -- mana, an optional Tap-self token, an optional self-sacrifice
+// token (Sac<1/CARDNAME>), and an optional "discard N cards of your choice"
+// (Discard<N/Card>), in any combination (cost.Cost.ActivationShape,
+// internal/cost) -- the only primitives this port has payment machinery
+// for. Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
 // input loop) is a real priority-window action; this port has no priority
 // window at all yet (game-state.md's own "Not ported yet" -- "ResolveStack
@@ -40,34 +42,38 @@ import (
 // a wholly different mechanism this port only has for a basic land's own
 // intrinsic ability, TapLandForMana, manaability.go -- extending it to an
 // arbitrary permanent's own printed mana ability is not this shape), or the
-// line's own Cost$ is not IsPureManaTapAndSelfSac (internal/cost) -- a named
-// Part past the lone "T" and the lone self-sac Sac<1/CARDNAME> those two
-// tokens themselves always also parse as (a chosen or SVar-sized Sac<...>,
-// Discard<.../PayLife<.../...), or an Untap/Mandatory/XMin token, each its
-// own further payment primitive this port does not have, PORT-8/GO-7's
-// "skip the whole line" applied to the cost itself rather than to the
-// ability's own other params.
+// line's own Cost$ has no ActivationShape (internal/cost) -- a chosen or
+// SVar-sized Sac<...>, a Discard<...> past the literal "N/Card" shape, a
+// PayLife<.../PayEnergy<.../... part ActivationShape does not carry at all,
+// or an Untap/Mandatory/XMin token, each its own further payment primitive
+// this port does not have, PORT-8/GO-7's "skip the whole line" applied to
+// the cost itself rather than to the ability's own other params, or a
+// Discard component the activating player's own hand cannot actually pay
+// (fewer cards in hand than DiscardN).
 //
-// A Tap-self cost checks CR 602.5b/302.6 first, with no side effect yet:
-// already tapped, or summoning-sick without haste, both decline outright --
-// DeclareCombatAttackers' own identical SummonSick/Haste check
-// (attack.go), reused rather than re-derived. The mana half is paid through
-// PayManaCost exactly as CastSpell's own is; only once that succeeds does
-// the tap itself actually happen (Card.Tapped set, checkTapsTriggers
-// fired), and only once the tap itself (if any) has happened does a
-// self-sac cost actually sacrifice the card (sacrificeCards,
-// sacrificeeffect.go, reused wholesale -- CR 701.20's own "dies" trigger,
-// RememberSacrificed$, and the batched Mode$ ChangesZoneAll firing all come
-// free, exactly as they already do for Sacrifice's own "Self" branch) --
+// Every feasibility check runs before anything is committed: a Tap-self
+// cost checks CR 602.5b/302.6 first (already tapped, or summoning-sick
+// without haste, DeclareCombatAttackers' own identical SummonSick/Haste
+// check, attack.go, reused rather than re-derived), and a Discard component
+// checks the hand actually holds DiscardN cards. The mana half is paid
+// through PayManaCost exactly as CastSpell's own is; only once that
+// succeeds does the tap itself actually happen (Card.Tapped set,
+// checkTapsTriggers fired), then a self-sac cost actually sacrifices the
+// card (sacrificeCards, sacrificeeffect.go, reused wholesale -- CR 701.20's
+// own "dies" trigger, RememberSacrificed$, and the batched
+// Mode$ ChangesZoneAll firing all come free, exactly as they already do for
+// Sacrifice's own "Self" branch), then a Discard component asks
+// ChooseCardsToDiscard for exactly DiscardN cards and discards them
+// (discardCards, discardeffect.go, reused wholesale the identical way) --
 // CR 602.2g's own "costs are paid together" is approximated here as "check
 // every cost for feasibility first, then commit each one, mana first, tap
-// second, sacrifice last," so a failed mana payment never leaves the
-// permanent tapped or sacrificed for nothing, and a Tap-self cost never taps
-// a permanent that has already left the battlefield. CR 601.2h's own "costs
-// may be paid in any order" makes this ordering a free choice, not an
-// approximation of a specific one Java's own CostPayment (a part-by-part,
-// player-cancellable payment loop this port does not build) would make
-// instead.
+// second, sacrifice third, discard last," so a failed mana payment never
+// leaves the permanent tapped, sacrificed, or the player short a card for
+// nothing, and a Tap-self cost never taps a permanent that has already left
+// the battlefield. CR 601.2h's own "costs may be paid in any order" makes
+// this ordering a free choice, not an approximation of a specific one
+// Java's own CostPayment (a part-by-part, player-cancellable payment loop
+// this port does not build) would make instead.
 //
 // A successful activation pushes through pushTriggeredAbilities
 // (trigger.go) with card's own controller as the sole entry -- resolving
@@ -104,10 +110,15 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	parsed := cost.Parse(costText)
-	if !parsed.IsPureManaTapAndSelfSac() {
+	shape, ok := parsed.ActivationShape()
+	if !ok {
 		return false
 	}
-	if parsed.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
+	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
+		return false
+	}
+	hand := g.Zone(Hand, pid).Cards()
+	if shape.DiscardN > len(hand) {
 		return false
 	}
 	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
@@ -125,12 +136,16 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if !g.PayManaCost(pid, manaCost, controller) {
 		return false
 	}
-	if parsed.Tap {
+	if shape.Tap {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
 	}
-	if parsed.SelfSac() {
+	if shape.SelfSac {
 		sacrificeCards(g, controller, &activated, []CardID{card})
+	}
+	if shape.DiscardN > 0 {
+		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)
+		discardCards(g, controller, chosen, pid)
 	}
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true

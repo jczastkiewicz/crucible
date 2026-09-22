@@ -1886,10 +1886,9 @@ printed form.
     `IsPureManaTapAndSelfSac` (internal/cost) -- the identical predicate `ActivateAbility` already uses, reused outright
     rather than a second one, since `ActivateAbility` itself refuses API `"Mana"` and `ActivateManaAbility` refuses
     anything else. `Produced$`'s own dominant real shape within that 1,946 -- a single literal WUBRG letter or `C`
-    (colorless), 1,005 lines -- resolves through a new `producedManaColor`; `Any`/`Combo`/`Chosen` (833 combined) ask a
-    player to choose a color or reference one chosen earlier in the same resolution, neither built (CR 605.3b's own
-    chooser, a further chunk's own work); the remaining 108 name something else or no `Produced$` at all. A new positive
-    allow-list, `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads or safely ignores
+    (colorless), 1,005 lines -- resolves through a new `producedManaColor`; the remaining 108 (past `Any`/`Combo`/
+    `Chosen`, below) name something else or no `Produced$` at all. A new positive allow-list,
+    `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads or safely ignores
     (`AB$`/`Cost$`/`SpellDescription$`/`Produced$`/`Amount$`) rather than a growing per-effect blocklist --
     `compile.Ability.Params` is directly enumerable, so naming what a mana ability's own small real vocabulary needs was
     shorter than naming the roughly twenty further keys it does not. 850 of the 1,005 clear it and resolve end to end;
@@ -1900,6 +1899,17 @@ printed form.
     (`AILogic$`/ `PrecostDesc$`/... 13 combined). Payment order matches `ActivateAbility`'s own exactly -- mana, tap,
     self-sac, reusing `sacrificeCards` wholesale for the last -- and `checkTapsForManaTriggers` (CR 603's own "taps for
     mana" trigger, `TapLandForMana`'s own pairing) fires only when the cost actually has a Tap component.
+
+    **`Produced$ Any` landed too** -- CR 605.3b's own "choose a color," 334 more of the 1,946. A new `PlayerController`
+    method, `ChooseManaColor` (its 28th), asks the decider directly -- distinct from `ChooseHybridManaColor`'s own
+    two-colour subset (CR 601.2h's own hybrid-payment decision), since the real corpus's own "Add one mana of any color"
+    always offers all five, never a restricted list. The answer is validated (`mana.Colors.Count() == 1`) before it ever
+    reaches `Pool.Add`, which panics on anything else -- `PlayerController`'s own "not re-checked, trust the
+    controller's answer" contract stops here rather than at that panic, since a bad script answer is a testing bug, not
+    an engine invariant breach (GO-7). The regression-toggle check for this guard demonstrated the point directly:
+    disabling it turned the expected test failure into an actual panic. `Combo` (476, a fixed multi-symbol list) and
+    `Chosen` (23, a color picked earlier in the same resolution) still are not built -- this port has not researched
+    `Combo`'s own real semantics yet, and `Chosen` needs an SVar-like reference this dispatch does not follow.
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

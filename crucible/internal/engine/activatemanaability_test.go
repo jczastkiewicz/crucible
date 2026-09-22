@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // TestActivateManaAbilityAddsLiteralColor proves the corpus's own dominant
@@ -148,11 +149,10 @@ func TestActivateManaAbilityDeclinesForNonManaAPI(t *testing.T) {
 	}
 }
 
-// TestActivateManaAbilityDeclinesForChosenColor proves Produced$ Any -- CR
+// TestActivateManaAbilityAsksForChosenColor proves Produced$ Any -- CR
 // 605.3b's own "choose a color" shape, the corpus's own second-largest
-// Produced$ value -- declines rather than guessing a color, since this port
-// has no PlayerController hook to ask with yet.
-func TestActivateManaAbilityDeclinesForChosenColor(t *testing.T) {
+// Produced$ value -- asks ChooseManaColor and adds exactly that color.
+func TestActivateManaAbilityAsksForChosenColor(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -164,8 +164,35 @@ func TestActivateManaAbilityDeclinesForChosenColor(t *testing.T) {
 	rock := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Red)
+	if !g.ActivateManaAbility(p, rock, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 0, 1, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one red -- the queued ChooseManaColor answer", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesForInvalidChosenColor proves a
+// ChooseManaColor answer that is not exactly one color -- the empty set, or
+// more than one bit -- declines rather than reaching Pool.Add's own panic
+// (ChooseManaColor's own doc comment, control.go: not re-checked by the
+// interface itself, so ActivateManaAbility is where a bad answer is caught).
+func TestActivateManaAbilityDeclinesForInvalidChosenColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Bad Chosen Color", "AB$ Mana | Cost$ T | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Red | mana.Green)
 	if g.ActivateManaAbility(p, rock, 0, c) {
-		t.Error("ActivateManaAbility returned true for Produced$ Any, want false")
+		t.Error("ActivateManaAbility returned true for a two-color ChooseManaColor answer, want false")
 	}
 }
 

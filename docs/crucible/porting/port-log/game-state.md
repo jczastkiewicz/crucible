@@ -4676,13 +4676,50 @@ exactly as general as `TapLandForMana`'s, rather than silently wrong the day a s
 8 new tests (`activatemanaability_test.go`): a literal single-color mana dork (`Cost$ T`) tapping and producing;
 `Produced$ C` adding colorless rather than a sixth color; a plain-integer `Amount$` multiplying the mana produced; a
 self-sacrifice cost composing the identical way it does for `ActivateAbility`; a decline for a summoning-sick,
-haste-less Tap-cost source; a decline for any API but `"Mana"`; a decline for `Produced$ Any`; a decline for a
-`RestrictValid$`-bearing line. `enginelint` group `manaability` gained a second file (`activatemanaability.go`) and its
-own allow-list grew to admit `ability`/`manapay`/`amount`/`sacrificeeffect` -- `manaAbility`'s own runtime `Ability`
-literal, `PayManaCost`, `resolveNamedAmount` and `sacrificeCards` respectively -- alongside the
+haste-less Tap-cost source; a decline for any API but `"Mana"`; a decline for `Produced$ Any` (`ChooseManaColor`'s own
+landing, below, replaced this with a positive test once the chooser existed); a decline for a `RestrictValid$`-bearing
+line. `enginelint` group `manaability` gained a second file (`activatemanaability.go`) and its own allow-list grew to
+admit `ability`/`manapay`/`amount`/`sacrificeeffect` -- `manaAbility`'s own runtime `Ability` literal, `PayManaCost`,
+`resolveNamedAmount` and `sacrificeCards` respectively -- alongside the
 `id`/`zone`/`card`/`game`/`player`/`control`/`trigger` it already had. Regression-toggle: forcing `Amount$` to always
 resolve to 0 failed exactly the three tests that read a nonzero pool afterward (the plain single-color case, the
 colorless case, and the self-sac case) and no others, restored after confirming.
+
+## Produced$ Any lands, CR 605.3b's own "choose a color"
+
+`ActivateManaAbility`'s own landing (above) left `Produced$ Any` -- 334 of the 1,946 real `A:AB$ Mana` lines matching
+`IsPureManaTapAndSelfSac` -- declining outright, "no `PlayerController` hook to ask with yet." Real examples
+(`resonating_lute.txt`, `radiant_lotus.txt`, `rift_sower.txt` among them) confirmed the dominant shape directly: "Add
+one mana of any color" (`Amount$` absent, one unit) or "Add two mana of any one color" (`Amount$` 2) -- a single color
+chosen once, every unit of it the same color, never a mixed combination -- exactly CR 605.3b's own text.
+
+A new `PlayerController` method, `ChooseManaColor` (its 28th, control.go), asks the decider directly. This is not a
+reuse of `ChooseHybridManaColor` (CR 601.2h's own hybrid-payment decision, manapay.go): that method's own doc comment
+says its `options` parameter "is exactly the two colours the symbol offers" -- a real precondition, not a suggestion --
+and every real `Produced$ Any` line offers all five, never a restricted subset (no line in the corpus scan carries any
+narrower shape). Reusing a method documented for a two-color choice to also ask a five-color one would leave that
+method's own contract silently wrong for one of its two callers, so `ChooseManaColor` takes no `options` parameter at
+all and is scoped to CR 605.3b specifically -- one new interface method per distinct real decision kind, the same
+discipline `ConfirmPayCost`/`ChooseTargets`/`ChoosePermanentsToSacrifice` were each added under already.
+
+`ActivateManaAbility` (activatemanaability.go) validates the answer before using it: `mana.Colors.Count() != 1` returns
+`false` (declines the whole activation) rather than passing whatever came back straight to `Pool.Add`, which panics on
+anything but exactly one of White/Blue/Black/Red/Green (`Pool.Add`'s own doc comment). `ChooseHybridManaColor`'s own
+real caller (`Game.PayManaCost`, manapay.go) already has this identical shape -- `mana.PureShard(choice)` returning
+`ok=false` rather than trusting the answer into a panic-prone call -- so this is the established pattern for a "not
+re-checked, trust the controller's answer" method whose answer feeds something that can panic, not a new one invented
+for this landing. The regression-toggle check demonstrated the guard is load-bearing rather than defensive padding: a
+short-circuited `&& false` on the `Count() != 1` condition turned `TestActivateManaAbilityDeclinesForInvalidChosenColor`
+from a clean failed-assertion `FAIL` into an actual `panic: engine: Pool.Add wants exactly one color`, caught and
+confirmed before the guard was restored.
+
+2 new tests (`activatemanaability_test.go`): a queued `ChooseManaColor` answer producing exactly that color (replacing
+the prior chunk's own decline-for-`Any` test, which this landing makes obsolete); a two-color queued answer
+(`mana.Red|mana.Green`) declining rather than panicking. `PlayerController` gaining a 28th method touched both of its
+real implementers the identical way every prior interface addition has: `ScriptedController` (`QueueManaColor`/
+`ChooseManaColor`, control.go, `QueueHybridManaColor`'s own exact shape) and `scriptedMulliganController`
+(mulligan_test.go, a stub panicking "was not expected to be called," the same as every other method that struct never
+actually exercises).
 
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 

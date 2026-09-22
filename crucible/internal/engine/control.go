@@ -338,6 +338,19 @@ type PlayerController interface {
 	// host card, carried so a real controller could describe what it is
 	// paying to prevent.
 	ConfirmPayCost(g *Game, decider PlayerID, cost mana.Cost, source CardID) bool
+
+	// ChooseManaColor decides which of the five colors a Produced$ Any mana
+	// ability adds (CR 605.3b, ActivateManaAbility, activatemanaability.go)
+	// -- distinct from ChooseHybridManaColor's own two-color subset: the
+	// real corpus's own "Add one mana of any color" always offers all five,
+	// never a restricted list, so this takes no options parameter at all.
+	// source is the permanent whose ability is resolving. The return value
+	// should be exactly one of White/Blue/Black/Red/Green -- not re-checked
+	// by the interface itself, but ActivateManaAbility validates it before
+	// ever calling Pool.Add, since Pool.Add panics on anything else
+	// ([Pool.Add]'s own doc comment) and a bad script answer is not an
+	// engine invariant breach (GO-7).
+	ChooseManaColor(g *Game, decider PlayerID, source CardID) mana.Colors
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -377,6 +390,7 @@ type ScriptedController struct {
 	optionalTrigger  []bool
 	sacrificeChoices [][]CardID
 	payCost          []bool
+	manaColor        []mana.Colors
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -821,6 +835,21 @@ func (c *ScriptedController) ConfirmPayCost(_ *Game, _ PlayerID, _ mana.Cost, _ 
 	}
 	v := c.payCost[0]
 	c.payCost = c.payCost[1:]
+	return v
+}
+
+// QueueManaColor appends the answer to the next ChooseManaColor call.
+func (c *ScriptedController) QueueManaColor(color mana.Colors) {
+	c.manaColor = append(c.manaColor, color)
+}
+
+// ChooseManaColor returns the next answer QueueManaColor queued.
+func (c *ScriptedController) ChooseManaColor(_ *Game, _ PlayerID, _ CardID) mana.Colors {
+	if len(c.manaColor) == 0 {
+		panic(scriptExhausted("mana color"))
+	}
+	v := c.manaColor[0]
+	c.manaColor = c.manaColor[1:]
 	return v
 }
 

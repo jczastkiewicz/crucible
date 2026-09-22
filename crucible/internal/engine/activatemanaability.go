@@ -58,9 +58,13 @@ func manaAbilityParamsResolvable(a *compile.Ability) bool {
 
 // producedManaColor reads Produced$'s own literal shape -- one of WUBRG, or
 // C for colorless -- 1,005 of the corpus's own 2,156 real A:AB$ Mana lines,
-// the dominant shape past "Any"/"Chosen"/a fixed multi-symbol "Combo" list,
-// none of which this port asks a player to choose among yet (no
-// PlayerController hook for CR 605.3b's own "choose a color" exists).
+// the dominant shape past "Any" (CR 605.3b's own "choose a color," 334 more
+// real lines, resolved separately in ActivateManaAbility itself through
+// ChooseManaColor since it needs a controller and a source this function
+// does not carry), "Chosen" (a color picked earlier in the same resolution,
+// an SVar-like reference this port does not follow) and a fixed multi-symbol
+// "Combo" list (a further shape this port has not researched the real
+// semantics of).
 func producedManaColor(produced string) (color mana.Colors, colorless bool, ok bool) {
 	switch produced {
 	case "W":
@@ -93,10 +97,13 @@ func producedManaColor(produced string) (color mana.Colors, colorless bool, ok b
 // this function refuses anything else, so the two never overlap), a
 // Tap-self cost declined by CR 602.5b/302.6 (SummonSick/Haste,
 // DeclareCombatAttackers' own gate, reused), a Produced$ past
-// producedManaColor's own literal shape, an Amount$ that does not resolve
-// to a positive integer (resolveNamedAmount, amount.go -- pumpAmount's own
-// identical plain-integer-or-SVar reading), or an unaffordable mana half of
-// the cost.
+// producedManaColor's own literal shape or "Any", ChooseManaColor answering
+// with anything but exactly one color -- not re-checked by the interface
+// itself (ChooseManaColor's own doc comment, control.go), so this is where
+// that trust ends rather than at [Pool.Add]'s own panic -- an Amount$ that
+// does not resolve to a positive integer (resolveNamedAmount, amount.go --
+// pumpAmount's own identical plain-integer-or-SVar reading), or an
+// unaffordable mana half of the cost.
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
 // self-sac last (activateability.go's own doc comment has the CR 601.2h
@@ -138,9 +145,18 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !ok {
 		return false
 	}
-	color, colorless, ok := producedManaColor(produced)
-	if !ok {
-		return false
+	var color mana.Colors
+	var colorless bool
+	if produced == "Any" {
+		color = controller.ChooseManaColor(g, pid, card)
+		if color.Count() != 1 {
+			return false
+		}
+	} else {
+		color, colorless, ok = producedManaColor(produced)
+		if !ok {
+			return false
+		}
 	}
 	amount := 1
 	if amountText, hasAmount := ability.Param("Amount"); hasAmount {

@@ -4991,6 +4991,100 @@ while writing this landing's own doc comment, not a new gap this landing introdu
 extended `TestActivationShape`'s own table with `PayEnergy` alone, combined with each of the other four primitives, and
 three more reject cases (`PayEnergy<0>`, `PayEnergy<X>`, a duplicate `PayEnergy<1> PayEnergy<1>`).
 
+## Exile<1/CARDNAME> activation cost lands
+
+`ActivationShape`'s own updated doc comment (`PayEnergy<N>`'s own landing) flagged `Exile<1/CARDNAME>` as
+`Sac<1/CARDNAME>`'s own unbuilt sibling. A corpus scan: 61 real non-`AB$ Mana` `A:AB$` lines name `Exile<1/CARDNAME>` as
+the only unbuilt cost part (everything else on the same line is mana/`T`/`PayLife`/`PayEnergy`, already carried). Three
+lines stay unreachable regardless of this landing: one names `SubCounter<X/TIME>` alongside it, one names
+`ExileFromGrave<2/Card>` alongside it, one names two MORE `Exile<...>` parts for different things -- each a second part
+`ActivationShape` does not carry, PORT-8/GO-7's "skip the whole line." A fourth, `PayEnergy<8> Exile<1/CARDNAME>`, was
+already counted unreachable in `PayEnergy<N>`'s own landing and becomes reachable in this one instead, both primitives
+now built.
+
+`SelfExile bool` joined `ActivationShape` as a plain field, the identical shape `SelfSac` already has -- unlike
+`DiscardN`/`PayLifeN`/`PayEnergyN`, `Exile<1/CARDNAME>` carries no count of its own to track (the literal token is
+either present or it is not), so this is the second boolean field on the struct, not a numeric one. The parsing case
+sits directly after `Sac`'s own, the identical `Field(0) == "1" && Field(1) == "CARDNAME"` self-reference check.
+
+Unlike every primitive built so far, this one needed genuinely new engine machinery, not just a new `ActivationShape`
+field plus a call into an existing effect's own shared helper. `Sac<1/CARDNAME>` reuses `sacrificeCards`, itself CR
+701.20's own dedicated mechanism (a `Mode$ Sacrificed` trigger already built, `Mode$ ChangesZone`'s own
+Battlefield-to-Graveyard "dies" case already built). `Discard<N/Card>` reuses `discardCards`, CR 701.8's own dedicated
+`Mode$ Discarded` trigger. Exile has no such dedicated corpus-relevant trigger mode: Forge's own `TriggerType.Exiled`
+class exists, but only 3 real corpus `T:` lines name `Mode$ Exiled` at all -- not worth its own fourth "per-cause"
+trigger dispatch alongside `checkSacrificedTriggers`/`checkDiscardedTriggers`/`checkTapsTriggers`. What a card exiled
+via this cost DOES need is the general "leaves the battlefield" trigger family CR 603.6d describes -- and nothing in
+this port had ever fired that family for any destination but the graveyard (`checkDiesTriggers`). Reading
+`GameAction.exile`/`GameAction.moveTo` (`GameAction.java`) directly settled whether that gap mattered: `moveTo` fires
+`TriggerType.ChangesZone` (deferred, `runnable = false`) for **every** zone move, unconditionally -- `checkDiesTriggers`
+is this port's own specialization of that one generic Java firing point for the one destination its own call sites have
+ever needed. Exiling a permanent as a cost is the first call site that needs a different destination, so this landing
+built that specialization's sibling rather than skip the whole rules family:
+`isExiledTrigger`/`checkExiledTriggers`/`otherExiledTriggerMatches` (new `exile.go`) are
+`isDiesTrigger`/`checkDiesTriggers`/`otherDiesTriggerMatches`'s (`trigger.go`) own line-for-line structural copies,
+`hasZoneOrAny(t, "Destination", Exile)` in place of `hasZoneOrAny(t, "Destination", Graveyard)`, everything else -- the
+own-card walk, the other-watcher walk, the `g.LKI` read for the leaving card's own dying-state fields, collecting
+matches before one `pushTriggeredAbilities` call -- identical. A corpus check for how much this actually reaches: 35
+real `T:Mode$ ChangesZone` lines name `Destination$` with `Exile` in its own comma list, most already permitting
+Battlefield as `Origin$` (absent, `Any`, `Battlefield`, or `Battlefield,Graveyard`); every real "whenever ~ leaves the
+battlefield" line with no `Destination$` restriction at all was already counted reachable by `isDiesTrigger`'s own
+wildcard and now correctly fires for an exile-caused departure too, not only a death -- a previously-silent gap this
+landing closes for free everywhere it applies, not only for the one card whose own cost this chunk set out to build.
+
+`g.LKI`'s own dying-state freeze (`game.go`'s `Move`) needed no change at all: its own guard is
+`from == Battlefield && kind != Battlefield`, already general to any destination, not hardcoded to Graveyard --
+confirmed by reading it before assuming a fix would be needed here, the identical "verify before assuming a gap"
+discipline `PayLife<N>`'s own landing already modeled for a different question.
+
+A new `exileCards` (`exile.go`) is `sacrificeCards`'s (`sacrificeeffect.go`) own structural sibling, simplified by one
+real fact: 0 real `Exile<1/CARDNAME>` cost lines combine with anything resembling `RememberSacrificed$`'s own
+`RememberExiled$` equivalent, so `exileCards` takes no `*Ability` parameter at all -- just `ids []CardID` -- rather than
+threading one through purely to read a param that never appears on a real line reaching it. It still calls
+`checkExiledTriggers` per card (after `Move`, so `g.LKI` is already frozen) and `checkChangesZoneAllTriggers` once for
+the whole batch -- CR 603.6d's own batched trigger, reused outright with `Battlefield`/`Exile` as its own
+origin/destination pair, since that function already takes both as parameters and needed no change to serve a third
+destination.
+
+`ActivateAbility`/`ActivateManaAbility` both call `exileCards` the identical way they call `sacrificeCards` -- no
+feasibility check of its own (`SelfSac`'s own precedent: the source is already known to be on the battlefield by the
+time any cost is paid, so there is nothing to check in advance the way `DiscardN`/`PayLifeN`/`PayEnergyN` each need).
+`ActivateManaAbility` pays it rather than declining it, `PayEnergy`'s own precedent rather than `Discard`/`PayLife`'s: 1
+real `AB$ Mana` line needs it (`mirrored_lotus.txt`'s own real `Cost$ T Exile<1/CARDNAME> | Produced$ Any | Amount$ 3`,
+"T, Exile CARDNAME: Add three mana of any one color"). Two more real `AB$ Mana` lines also name `Exile<1/CARDNAME>`
+(`ether.txt`, `black_tulip.txt`) but stay unreachable regardless -- one names `SubAbility$`, the other
+`CheckSVar$`/`SVarCompare$`, both already outside `manaAbilityAllowedParams` for reasons unrelated to this landing.
+
+A new `exile` `enginelint` group (`exile.go`) needed `id`/`zone`/`card`/`game`/`control`/`valid`/`trigger`/`ability` on
+its own allow-list -- `ability` came as a surprise on the first run (`Ability`, the struct `checkExiledTriggers`/
+`otherExiledTriggerMatches` build and return, is declared in `ability.go`, not `trigger.go`, the identical gap every
+other trigger-checking function already crosses via its own group's `ability` entry). `castspell` and `manaability` both
+needed `exile` added to their own allow-lists for the two new `exileCards` call sites.
+
+9 new tests, mirroring `SelfSac`'s own set plus two proving the new trigger machinery directly:
+`activateability_test.go` gained `TestActivateAbilitySelfExileCostExilesSourceAndRunsEffect` (zone becomes `Exile`, the
+ability still resolves with its source gone), `TestActivateAbilityCombinesTapAndSelfExile`,
+`TestActivateAbilityDeclinesForChosenExileCost` (`Exile<2/CARDNAME>`), and two new ones with no `PayLife`/`PayEnergy`
+equivalent: `TestActivateAbilityExileCostFiresOwnLeavesBattlefieldTrigger` (the exiled card's own
+`Mode$ ChangesZone | Destination$ Exile | ValidCard$ Card.Self` trigger fires, `checkExiledTriggers`' own-card half) and
+`TestActivateAbilityExileCostFiresOtherWatcherLeavesBattlefieldTrigger` (a separate permanent watching `Card.Elf` fires
+too, `otherExiledTriggerMatches`), both asserting `StackLen() == 2` right after `ActivateAbility` returns, no
+`ResolveStack` needed -- `pushTriggeredAbilities` commits to the stack synchronously, the identical assertion shape
+`TestDestroyLethalToughnessFiresDiesTrigger`/`...FiresOtherPermanentsWatchingDiesTrigger` (`trigger_test.go`) already
+use for the graveyard-destination case. A new shared `creatureDefWithAbilityAndTrigger` helper
+(`activateability_test.go`) builds a card carrying both an `A:` and a `T:` line at once, reusing the existing
+`diesTriggerCreatureDefWithLine` helper (`trigger_test.go`, same test package) unchanged for the watcher-only card in
+the second new test -- cross-file test-helper reuse the module-level `package engine_test` boundary already permits.
+`activatemanaability_test.go` gained `TestActivateManaAbilitySelfExileCost`, the real `mirrored_lotus.txt` shape end to
+end (tap, exile, three green mana chosen and added). `internal/cost/parsing_test.go` extended `TestActivationShape`'s
+own table with `Exile<1/CARDNAME>` alone and combined, plus three reject cases (a chosen valid spec,
+`Exile<2/CARDNAME>`, a duplicate).
+
+No feasibility guard exists for this primitive (unlike every numeric one before it), so no regression-toggle pass was
+run -- there is no guard to disable. What WOULD have been worth toggling, `isExiledTrigger`'s own `Destination$ Exile`
+match, was instead proven directly and positively by the two new trigger tests above, rather than by disabling anything:
+a wrong wildcard there would show up as `StackLen() == 1` in either test, not a panic or a silent miss.
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

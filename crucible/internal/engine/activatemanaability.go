@@ -145,19 +145,23 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // integer (resolveNamedAmount, amount.go -- pumpAmount's own identical
 // plain-integer-or-SVar reading), or an unaffordable mana half of the cost.
 //
-// PayEnergy is not declined the way Discard/PayLife are: 4 real corpus
-// A:AB$ Mana lines name it (aether_hub.txt's/servant_of_the_conduit.txt's/
-// solar_transformer.txt's own real "T, Pay one energy counter: Add one mana
-// of any color" among them), so unlike Discard/PayLife this function pays
-// it the identical way ActivateAbility does (Player.Counters, counters.go,
-// subtracted and a CounterChanged event emitted) rather than refusing a
+// PayEnergy and SelfExile are not declined the way Discard/PayLife are: 4
+// real corpus A:AB$ Mana lines name PayEnergy<...> (aether_hub.txt's/
+// servant_of_the_conduit.txt's/solar_transformer.txt's own real "T, Pay one
+// energy counter: Add one mana of any color" among them) and 1 names
+// Exile<1/CARDNAME> (mirrored_lotus.txt's own real "T, Exile CARDNAME: Add
+// three mana of any one color"), so unlike Discard/PayLife this function
+// pays both the identical way ActivateAbility does (Player.Counters,
+// counters.go, subtracted and a CounterChanged event emitted for
+// PayEnergy; exileCards, exile.go, for SelfExile) rather than refusing a
 // shape the corpus actually needs.
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
-// self-sac third, energy last (activateability.go's own doc comment has the
-// CR 601.2h reasoning), reusing sacrificeCards (sacrificeeffect.go) the
-// identical way. A Tap-self cost also fires CR 603's own "taps for mana"
-// trigger (checkTapsForManaTriggers, trigger.go) alongside the ordinary
+// self-sac third, exile fourth, energy last (activateability.go's own doc
+// comment has the CR 601.2h reasoning), reusing sacrificeCards
+// (sacrificeeffect.go) and exileCards (exile.go) the identical way. A
+// Tap-self cost also fires CR 603's own "taps for mana" trigger
+// (checkTapsForManaTriggers, trigger.go) alongside the ordinary
 // "becomes tapped" one -- TapLandForMana's own pairing, ported here rather
 // than duplicated, and skipped when the cost has no Tap component at all (a
 // Treasure-style pure self-sac cost taps nothing, so nothing "becomes
@@ -240,6 +244,9 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	if shape.SelfSac {
 		sacrificeCards(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card})
+	}
+	if shape.SelfExile {
+		exileCards(g, controller, []CardID{card})
 	}
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)

@@ -1968,6 +1968,28 @@ printed form.
     counter: Add one mana of any color," `Cost$ T PayEnergy<1> | Produced$ Any`), so this is the first `ActivationShape`
     primitive both dispatch functions actually pay rather than one declining what the other executes.
 
+    **`ActivateAbility` gained a seventh cost primitive too** -- `Exile<1/CARDNAME>`, "exile this permanent,"
+    `Sac<1/CARDNAME>`'s own sibling shape, 61 more real non-`AB$ Mana` `A:AB$` lines. `SelfExile` slotted into
+    `ActivationShape` as a plain bool exactly like `SelfSac`, needing no feasibility check of its own (the source is
+    already known to be on the battlefield by the time any cost is paid). This is the first `ActivationShape` primitive
+    to need genuinely new engine machinery rather than reusing an existing effect wholesale: exile has no dedicated
+    corpus-relevant trigger mode (Forge's own `TriggerType.Exiled` exists, but only 3 real corpus lines name
+    `Mode$ Exiled`), so the real question was whether a permanent leaving the battlefield via exile should fire CR
+    603.6d's own general "leaves the battlefield" trigger family the identical way dying does -- confirmed by reading
+    `GameAction.exile`/`GameAction.moveTo` directly: `moveTo` fires `TriggerType.ChangesZone` for every zone move
+    unconditionally, `checkDiesTriggers` (trigger.go) being this port's own specialization of that generic firing for
+    the one destination its call sites need (Graveyard). A new `exile.go` builds the identical specialization for Exile:
+    `isExiledTrigger`/`checkExiledTriggers`/`otherExiledTriggerMatches` are `isDiesTrigger`/`checkDiesTriggers`/
+    `otherDiesTriggerMatches`'s own exact structural copies, `Destination$ Exile` in place of `Graveyard` -- `g.LKI`'s
+    own dying-state freeze already applies to any battlefield-leaving move, not the graveyard specifically (`game.go`'s
+    own `Move`, `from == Battlefield && kind != Battlefield`), so no change was needed there. A new `exileCards` is
+    `sacrificeCards`'s own sibling too, but simpler: no real `Exile<1/CARDNAME>` cost line combines with a
+    `RememberExiled$`-shaped param, so it takes no `*Ability` parameter at all, just `ids []CardID`; it still fires the
+    individual leaves-the-battlefield check per card and the batched `Mode$ ChangesZoneAll` once for the whole set,
+    reusing that function outright since it already takes an origin/destination pair as parameters.
+    `ActivateManaAbility` pays `SelfExile` rather than declining it, the identical `PayEnergy` precedent: 1 real
+    `AB$ Mana` line needs it (`mirrored_lotus.txt`'s own real "T, Exile CARDNAME: Add three mana of any one color").
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

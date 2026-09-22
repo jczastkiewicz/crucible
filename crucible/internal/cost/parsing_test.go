@@ -190,9 +190,9 @@ func TestIsPureMana(t *testing.T) {
 	}
 }
 
-// TestActivationShape covers Tap, SelfSac, Discard, PayLife and PayEnergy
-// both alone and combined -- the shape ActivateAbility/ActivateManaAbility
-// (internal/engine) actually pay.
+// TestActivationShape covers Tap, SelfSac, SelfExile, Discard, PayLife and
+// PayEnergy both alone and combined -- the shape ActivateAbility/
+// ActivateManaAbility (internal/engine) actually pay.
 func TestActivationShape(t *testing.T) {
 	t.Parallel()
 
@@ -220,6 +220,11 @@ func TestActivationShape(t *testing.T) {
 		{"Discard<1/Card> PayLife<1>", cost.ActivationShape{DiscardN: 1, PayLifeN: 1}, true},
 		{"1 T Sac<1/CARDNAME> Discard<1/Card> PayLife<2>",
 			cost.ActivationShape{Tap: true, SelfSac: true, DiscardN: 1, PayLifeN: 2}, true},
+		{"Exile<1/CARDNAME>", cost.ActivationShape{SelfExile: true}, true},
+		{"T Exile<1/CARDNAME>", cost.ActivationShape{Tap: true, SelfExile: true}, true},
+		{"Discard<1/Card> Exile<1/CARDNAME>", cost.ActivationShape{DiscardN: 1, SelfExile: true}, true},
+		{"Exile<1/CARDNAME> PayLife<1> PayEnergy<1>",
+			cost.ActivationShape{SelfExile: true, PayLifeN: 1, PayEnergyN: 1}, true},
 		{"PayEnergy<1>", cost.ActivationShape{PayEnergyN: 1}, true},
 		{"PayEnergy<3>", cost.ActivationShape{PayEnergyN: 3}, true},
 		{"1 PayEnergy<3>", cost.ActivationShape{PayEnergyN: 3}, true},
@@ -232,6 +237,9 @@ func TestActivationShape(t *testing.T) {
 		{"Sac<1/Creature.Other/another creature>", cost.ActivationShape{}, false},
 		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},
+		{"Exile<1/Artifact.YouCtrl/an artifact you control>", cost.ActivationShape{}, false},
+		{"Exile<2/CARDNAME>", cost.ActivationShape{}, false},
+		{"Exile<1/CARDNAME> Exile<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"Discard<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"Discard<0/Card>", cost.ActivationShape{}, false},
 		{"Discard<1/Card> Discard<1/Card>", cost.ActivationShape{}, false},

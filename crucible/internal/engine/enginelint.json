@@ -55,6 +55,7 @@
     "scryeffect": ["scryeffect.go"],
     "surveileffect": ["surveileffect.go"],
     "sacrificeeffect": ["sacrificeeffect.go", "sacrificealleffect.go"],
+    "exile": ["exile.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"]
   },
@@ -144,7 +145,8 @@
       "manapay",
       "amount",
       "event",
-      "sacrificeeffect"
+      "sacrificeeffect",
+      "exile"
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
@@ -161,6 +163,7 @@
       "control",
       "event",
       "action",
+      "exile",
       "valid",
       "trigger",
       "draweffect",
@@ -286,6 +289,7 @@
     "scryeffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
     "surveileffect": ["id", "card", "game", "player", "ability", "defined", "amount", "condition", "control", "zone"],
     "sacrificeeffect": ["id", "card", "game", "ability", "defined", "amount", "condition", "control", "zone", "valid", "parts"],
+    "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "targeting": ["id", "card", "game", "player", "ability", "control", "valid", "amount", "zone"],
     "subability": ["id", "game", "ability", "control", "effect"]
   }

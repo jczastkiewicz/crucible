@@ -33,6 +33,30 @@ func creatureDefWithAbility(t *testing.T, name, abilityText string) *compile.Car
 	return c
 }
 
+// creatureDefWithAbilityAndTrigger is creatureDefWithAbility's own sibling,
+// additionally carrying one real T: line (triggerLine, no leading "T$ "
+// needed) -- the SelfExile-cost-fires-a-leaves-the-battlefield-trigger tests
+// need a card that both pays an Exile<1/CARDNAME> cost and watches for the
+// identical event, which creatureDefWithAbility alone has no way to build.
+func creatureDefWithAbilityAndTrigger(t *testing.T, name, abilityText, triggerLine string) *compile.Card {
+	t.Helper()
+
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Abilities = []string{abilityText}
+	raw.Faces[0].Triggers = []string{triggerLine}
+	raw.Faces[0].SVars.Set("TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
 // TestActivateAbilityTapCostRunsEffectAndTaps proves the corpus's own
 // dominant real Cost$ shape -- a bare Tap token, 2,515 of the corpus's own
 // 10,879 real A:AB$ lines -- pays through the SummonSick/Haste check
@@ -647,6 +671,137 @@ func TestActivateAbilityDeclinesForNonLiteralPayEnergyCost(t *testing.T) {
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
 		t.Error("ActivateAbility returned true for PayEnergy<X>, want false")
+	}
+}
+
+// TestActivateAbilitySelfExileCostExilesSourceAndRunsEffect proves
+// Exile<1/CARDNAME> -- Sac<1/CARDNAME>'s own sibling shape -- actually moves
+// the source to Exile (exileCards, exile.go) and still lets the ability
+// resolve with its source already gone.
+func TestActivateAbilitySelfExileCostExilesSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Self Exile", "AB$ GainLife | Cost$ Exile<1/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile -- the Exile<1/CARDNAME> cost must actually exile it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 -- the ability must still resolve with its source already gone", got)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndSelfExile proves Tap and SelfExile
+// compose on one line -- the source taps, then it is exiled.
+func TestActivateAbilityCombinesTapAndSelfExile(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Exile", "AB$ GainLife | Cost$ T Exile<1/CARDNAME> | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesForChosenExileCost proves an Exile<...> naming
+// anything but the literal self-reference CARDNAME -- a chosen count here --
+// still declines outright rather than silently exiling the wrong thing:
+// ActivationShape's own doc comment has the reason (internal/cost).
+func TestActivateAbilityDeclinesForChosenExileCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Chosen Exile", "AB$ GainLife | Cost$ Exile<2/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for Exile<2/CARDNAME>, want false")
+	}
+}
+
+// TestActivateAbilityExileCostFiresOwnLeavesBattlefieldTrigger proves
+// checkExiledTriggers (exile.go) actually fires CR 603.6d's own "leaves the
+// battlefield" trigger family for an Exile<1/CARDNAME> cost -- isDiesTrigger's
+// own sibling for the Exile destination -- on the exiled card's own trigger,
+// not only on a watcher (below).
+func TestActivateAbilityExileCostFiresOwnLeavesBattlefieldTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+
+	def := creatureDefWithAbilityAndTrigger(t, "Test Exile Own Trigger",
+		"AB$ GainLife | Cost$ Exile<1/CARDNAME> | Defined$ You | LifeAmount$ 1",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Exile | ValidCard$ Card.Self | Execute$ TrigDraw")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the leaves-the-battlefield trigger's own Draw)", got)
+	}
+}
+
+// TestActivateAbilityExileCostFiresOtherWatcherLeavesBattlefieldTrigger
+// proves otherExiledTriggerMatches (exile.go) -- a permanent still on the
+// battlefield watching another card leave for Exile -- fires too, the
+// identical "own" vs. "other" split checkDiesTriggers/otherDiesTriggerMatches
+// already have for the graveyard-destination case.
+func TestActivateAbilityExileCostFiresOtherWatcherLeavesBattlefieldTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.NewCard(nil, p, engine.Library)
+
+	watcher := diesTriggerCreatureDefWithLine(t, "2", "2",
+		"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Exile | ValidCard$ Card.Elf | Execute$ TrigDraw")
+	g.NewCard(watcher, p, engine.Battlefield)
+
+	def := creatureDefWithAbility(t, "Test Exile Other Watcher", "AB$ GainLife | Cost$ Exile<1/CARDNAME> | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the watcher's own leaves-the-battlefield Draw)", got)
 	}
 }
 

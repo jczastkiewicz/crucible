@@ -905,5 +905,19 @@ decline `PayEnergyN > 0` — 4 real `AB$ Mana` lines actually carry it (`aether_
 counter: Add one mana of any color" among them), so it pays the cost the identical way `ActivateAbility` does instead of
 refusing a shape the corpus needs.
 
+`ActivateAbility` gained a seventh cost primitive too — `Exile<1/CARDNAME>`, "exile this permanent," `Sac<1/CARDNAME>`'s
+own sibling shape — 61 more real non-`AB$ Mana` `A:AB$` lines. `SelfExile` slotted into `ActivationShape` as a plain
+bool exactly like `SelfSac`, no feasibility check needed (the source is already known to be on the battlefield).
+Committing it calls a new `exileCards` (`internal/engine/exile.go`), `sacrificeCards`'s own structural sibling: no
+`RememberExiled$`-equivalent to thread through, so no `*Ability` parameter, but the identical `Move`-then-check-
+trigger-then-batch shape. Exile has no dedicated corpus-relevant trigger mode of its own (Forge's own
+`TriggerType. Exiled` exists but 3 real corpus lines name `Mode$ Exiled`), so this landing instead built CR 603.6d's own
+"leaves the battlefield" trigger family for the Exile destination — `isExiledTrigger`/`checkExiledTriggers`/
+`otherExiledTriggerMatches`, `isDiesTrigger`/`checkDiesTriggers`/`otherDiesTriggerMatches`'s own exact structural
+siblings with `Destination$ Exile` in place of `Graveyard` — since nothing in this port previously fired an individual
+"leaves the battlefield" trigger for any destination but the graveyard. `ActivateManaAbility` pays `SelfExile` too
+rather than declining it: 1 real `AB$ Mana` line needs it (`mirrored_lotus.txt`'s own real "T, Exile CARDNAME: Add three
+mana of any one color").
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

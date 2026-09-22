@@ -107,6 +107,35 @@ func TestActivateManaAbilitySelfSacCost(t *testing.T) {
 	}
 }
 
+// TestActivateManaAbilitySelfExileCost proves a self-exile cost composes
+// here exactly as it does for ActivateAbility (activateability.go):
+// exileCards reused wholesale, committed after the tap -- the real
+// mirrored_lotus.txt shape, "T, Exile CARDNAME: Add three mana of any one
+// color."
+func TestActivateManaAbilitySelfExileCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Exile", "AB$ Mana | Cost$ T Exile<1/CARDNAME> | Produced$ Any | Amount$ 3")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Green)
+	if !g.ActivateManaAbility(p, rock, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if zone := g.Card(rock).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile", zone)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 0, 0, 3, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want three green", got)
+	}
+}
+
 // TestActivateManaAbilityDeclinesWhenSummonSickWithoutHaste proves CR
 // 602.5b/302.6 applies to a mana dork the identical way it applies to any
 // other Tap-cost activated ability.

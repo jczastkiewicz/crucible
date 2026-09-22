@@ -1861,6 +1861,25 @@ printed form.
     `A:AB$` (`Record` `Activated`) and `A:SP$` (`Record` `Spell`) share the one slice, told apart by `Record` alone --
     so this needed no new compile-layer work at all, only an engine-side consumer for what had sat unread.
 
+    `ActivateAbility` gained a third cost shape too -- mana and/or a Tap-self token plus a single self-sacrifice token,
+    `Sac<1/CARDNAME>` ("sacrifice this permanent," fetch lands' and sac outlets' own dominant real shape), through a new
+    `cost.Cost.IsPureManaTapAndSelfSac`/`SelfSac` (`internal/cost`) -- `IsPureManaOrTap`'s own sibling, admitting
+    exactly one further `Part` naming the literal self-reference `Sac<1/CARDNAME>` and rejecting any chosen count or
+    chosen valid spec the identical way it already rejects any other named `Part`. 947 more of the corpus's own
+    non-`AB$ Mana` real `A:AB$` lines are reachable at the shape level this way (`ChangeZone` 164, `Draw` 145, `Destroy`
+    94, `DealDamage` 91, `Pump` 60, `GainLife` 52, `Token` 44, `PutCounter` 31 among the largest; 441 of the 947 already
+    name one of the twelve already-built effects) -- recomputing each effect's own "N of M resolves" count against this
+    shape too stays the same deferred further-chunk work `IsPureManaOrTap`'s own landing already named, not done here.
+    Paying it reuses `sacrificeCards` (sacrificeeffect.go) wholesale rather than a new sacrifice primitive -- CR
+    701.20's own "dies" trigger, `RememberSacrificed$`, and the batched `Mode$ ChangesZoneAll` firing all come free,
+    exactly as they already do for `Sacrifice`'s own "Self" branch (item 26, above) -- committed last, after the mana
+    and the tap, so a self-sac cost never sacrifices a permanent whose own mana or tap half of the same cost went unpaid
+    (CR 601.2h's own "costs may be paid in any order" makes this ordering a free choice rather than an approximation of
+    Java's own part-by-part, player-cancellable `CostPayment`, which this port does not build). The pushed ability still
+    resolves normally afterward even though its own source has already left the battlefield (CR 112.7a) -- the identical
+    "ability survives its source" contract a `SubAbility$` chain into a just-sacrificed card's own `Defined$ Self`
+    already relies on elsewhere in this port.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

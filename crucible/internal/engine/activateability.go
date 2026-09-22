@@ -1,5 +1,6 @@
-// Activating an ability: CR 602, trimmed to the corpus's own two dominant
-// cost shapes -- pure mana, and pure mana plus a single Tap-self token --
+// Activating an ability: CR 602, trimmed to the corpus's own three dominant
+// cost shapes -- pure mana, pure mana plus a single Tap-self token, and
+// either of those plus a single self-sacrifice token (Sac<1/CARDNAME>) --
 // the only ones this port has a payment primitive for. Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
 // input loop) is a real priority-window action; this port has no priority
@@ -39,8 +40,9 @@ import (
 // a wholly different mechanism this port only has for a basic land's own
 // intrinsic ability, TapLandForMana, manaability.go -- extending it to an
 // arbitrary permanent's own printed mana ability is not this shape), or the
-// line's own Cost$ is not IsPureManaOrTap (internal/cost) -- a named Part
-// past the lone "T" that token itself always also parses as (Sac<.../
+// line's own Cost$ is not IsPureManaTapAndSelfSac (internal/cost) -- a named
+// Part past the lone "T" and the lone self-sac Sac<1/CARDNAME> those two
+// tokens themselves always also parse as (a chosen or SVar-sized Sac<...>,
 // Discard<.../PayLife<.../...), or an Untap/Mandatory/XMin token, each its
 // own further payment primitive this port does not have, PORT-8/GO-7's
 // "skip the whole line" applied to the cost itself rather than to the
@@ -51,10 +53,21 @@ import (
 // DeclareCombatAttackers' own identical SummonSick/Haste check
 // (attack.go), reused rather than re-derived. The mana half is paid through
 // PayManaCost exactly as CastSpell's own is; only once that succeeds does
-// the tap itself actually happen (Card.Tapped set, checkTapsTriggers fired)
-// -- CR 602.2g's own "costs are paid together" is approximated here as
-// "check every cost for feasibility first, then commit each one," so a
-// failed mana payment never leaves the permanent tapped for nothing.
+// the tap itself actually happen (Card.Tapped set, checkTapsTriggers
+// fired), and only once the tap itself (if any) has happened does a
+// self-sac cost actually sacrifice the card (sacrificeCards,
+// sacrificeeffect.go, reused wholesale -- CR 701.20's own "dies" trigger,
+// RememberSacrificed$, and the batched Mode$ ChangesZoneAll firing all come
+// free, exactly as they already do for Sacrifice's own "Self" branch) --
+// CR 602.2g's own "costs are paid together" is approximated here as "check
+// every cost for feasibility first, then commit each one, mana first, tap
+// second, sacrifice last," so a failed mana payment never leaves the
+// permanent tapped or sacrificed for nothing, and a Tap-self cost never taps
+// a permanent that has already left the battlefield. CR 601.2h's own "costs
+// may be paid in any order" makes this ordering a free choice, not an
+// approximation of a specific one Java's own CostPayment (a part-by-part,
+// player-cancellable payment loop this port does not build) would make
+// instead.
 //
 // A successful activation pushes through pushTriggeredAbilities
 // (trigger.go) with card's own controller as the sole entry -- resolving
@@ -91,7 +104,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	parsed := cost.Parse(costText)
-	if !parsed.IsPureManaOrTap() {
+	if !parsed.IsPureManaTapAndSelfSac() {
 		return false
 	}
 	if parsed.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
@@ -105,6 +118,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if !ok {
 		return false
 	}
+	activated := Ability{
+		API: apiType, Source: card, Controller: pid,
+		Params: ability, Amounts: c.Def.Faces[0].Amounts,
+	}
 	if !g.PayManaCost(pid, manaCost, controller) {
 		return false
 	}
@@ -112,9 +129,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
 	}
-	g.pushTriggeredAbilities(controller, []Ability{{
-		API: apiType, Source: card, Controller: pid,
-		Params: ability, Amounts: c.Def.Faces[0].Amounts,
-	}})
+	if parsed.SelfSac() {
+		sacrificeCards(g, controller, &activated, []CardID{card})
+	}
+	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true
 }

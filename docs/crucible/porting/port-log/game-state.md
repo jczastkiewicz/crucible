@@ -4552,6 +4552,69 @@ floor only because the package's own total statement count was large enough to a
 `IsPureManaOrTap`'s own larger branch set (the loop over `Parts`) dropped the package to 85.5%, caught by `covergate`
 before commit, closed by covering both predicates together.
 
+## ActivateAbility's own self-sacrifice cost, `Sac<1/CARDNAME>`
+
+`IsPureManaOrTap`'s own doc comment (above) names its remaining rejected shapes as "each its own further payment
+primitive this port does not have." A corpus scan for the single largest of them found `Sac<...>` naming 1,757 of the
+corpus's own 8,745 real non-`AB$ Mana` `A:AB$` lines -- more than every other rejected named Part combined (`SubCounter`
+851, `AddCounter` 401, `Discard` 395, ...) -- and, within that, `Sac<1/CARDNAME>` alone (the literal self-reference
+token, "sacrifice this permanent," rather than a chosen count or a chosen valid spec) naming 1,005 of the 1,757, 954 of
+those with nothing else in the cost but mana and/or a Tap token. This port already has the exact payment primitive that
+shape needs: `sacrificeCards` (sacrificeeffect.go), `Sacrifice`'s own "Self" branch already built for CR 701.20
+(`## The eleventh effect: Sacrifice`, further up this file). Reusing it wholesale, rather than a new sacrifice-as-cost
+mechanism, was the whole implementation.
+
+`cost.Cost.IsPureManaTapAndSelfSac` (`internal/cost`) is `IsPureManaOrTap`'s own sibling, its identical
+`Untap`/`Mandatory`/`XMin` rejection plus a loop over `Parts` admitting a lone `"T"` entry (as before) AND, at most
+once, a `Sac` entry whose own `Field(0)`/`Field(1)` read exactly `"1"`/`"CARDNAME"` -- a chosen count
+(`Sac<2/CARDNAME>`) or a chosen valid spec (`Sac<1/Creature.Other/...>`) both fail the whole predicate rather than being
+silently treated as a self-sac. `Cost.SelfSac` answers whether that Part is actually present, but is not merely "safe to
+call once a caller has already checked `IsPureManaTapAndSelfSac`" -- it re-checks that predicate itself first, so a cost
+`IsPureManaTapAndSelfSac` would reject also answers `false` from `SelfSac` on its own, rather than reporting `true` for
+a stray `Sac<1/CARDNAME>` sitting alongside some other, unrelated, unsupported Part. This was caught by
+`TestIsPureManaTapAndSelfSacAndSelfSac`'s own table test itself: the first draft of `SelfSac` scanned `Parts` for the
+first `Sac` entry and reported its own shape directly, with no regard for the rest of the cost, and five of the table's
+own "reject everything but the bare self-sac shape" cases (two Sac Parts, `Untap`/`Mandatory`/`XMin` alongside one,
+`Sac<1/CARDNAME>` next to an unrelated `Discard<...>`) failed by reporting `true` -- fixed by having `SelfSac` gate on
+`IsPureManaTapAndSelfSac` itself before ever walking `Parts`.
+
+`ActivateAbility` builds its own runtime `Ability` (the one `pushTriggeredAbilities` eventually pushes) before paying
+any part of the cost now, rather than only at the very end -- `sacrificeCards` takes one, reading `RememberSacrificed$`
+off the identical `Params` the pushed ability itself carries (never actually set on a real activation-cost line in the
+corpus today, but the identical `*Ability` value either way, no special-cased second struct). Payment order stays mana
+first, tap second (unchanged from `IsPureManaOrTap`'s own landing), with the self-sacrifice committed last, after both:
+CR 601.2h's own "a cost's components may be paid in any order" makes this a free implementation choice rather than an
+approximation of Java's own `CostPayment` (a part-by-part, player-cancellable payment loop with its own undo-on-cancel
+machinery this port does not build) -- committing the irreversible zone change last means a failed mana payment, or a
+Tap-cost decline, never leaves a permanent sacrificed for nothing, the identical "check every cost for feasibility
+first" reasoning `IsPureManaOrTap`'s own landing already used for tap-after-mana. `sacrificeCards` is called with the
+single activated card as its own one-element `ids` slice -- CR 701.20's own "dies" trigger (`checkSacrificedTriggers`,
+then the ordinary `checkDiesTriggers`) and the batched `Mode$ ChangesZoneAll` firing all come free, exactly as they
+already do for `Sacrifice`'s own "Self" branch, with no new trigger-firing code in this file at all. The pushed ability
+still resolves normally afterward even though `card` is now in its owner's graveyard (CR 112.7a, "an activated ability
+exists independently of its source once it is activated") -- `Ability.Source` is a plain `CardID`, and this port's own
+`Defined$ Self` dispatch (`definedCards`, defined.go) already reads through it with no zone check, the identical
+behavior a `SubAbility$` chain into a just-sacrificed card's own `Defined$ Self` already relies on for `Sacrifice`'s own
+body (`RememberSacrificed$`, CR 701.20, above).
+
+947 more of the corpus's own real non-`AB$ Mana` `A:AB$` lines are reachable at the shape level through this one
+extension (`ChangeZone` 164, `Draw` 145, `Destroy` 94, `DealDamage` 91, `Pump` 60, `GainLife` 52, `Token` 44,
+`PutCounter` 31, `Counter` 24, `PumpAll` 24, a long tail past those); 441 of the 947 already name one of the twelve
+already-built effects (`Draw` 145, `DealDamage` 91, `Pump` 60, `GainLife` 52, `PutCounter` 31, `PumpAll` 24, `Discard`
+16, `LoseLife` 9, `Scry` 7, `Sacrifice` 3, `Surveil` 3). Recomputing each already-built effect's own "N of M resolves"
+count against this shape too -- alongside `IsPureManaOrTap`'s own identical deferred 1,987 -- stays a further chunk's
+own work, not done here.
+
+4 new tests (`activateability_test.go`): a bare `Sac<1/CARDNAME>` cost sacrificing the source and still running
+`GainLife` through to `ResolveStack` with the source already gone; mana, tap and self-sac combined on one line (mana
+charged, source ends in the graveyard); a decline for `Sac<2/CARDNAME>` (a chosen count past the one self-sac shape);
+the existing `TestActivateAbilityDeclinesForNonPureManaCost` (a chosen-target `Sac<1/Creature>`) needed no change at
+all, since `IsPureManaTapAndSelfSac` rejects it the identical way `IsPureManaOrTap` already did. `internal/cost` gained
+its own table test (`TestIsPureManaTapAndSelfSacAndSelfSac`, parsing_test.go) for both new predicates together, the
+identical pairing `IsPureMana`/`IsPureManaOrTap` already share one for. Regression-toggle: short-circuiting the new
+`SelfSac`-gated payment branch failed exactly the two new tests that exercise it and no others, restored after
+confirming.
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

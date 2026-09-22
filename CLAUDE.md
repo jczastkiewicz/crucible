@@ -838,5 +838,19 @@ activation pushes through `pushTriggeredAbilities` (trigger.go) with the activat
 reusing every one of the twelve already-built effects and the general `Registry.Resolve` machinery (`UnlessCost$`,
 `SubAbility$` chaining, `ConditionCheckSVar$`) with no new effect code at all.
 
+`ActivateAbility` gained a third cost shape too — pure mana and/or a Tap-self token, plus a single self-sacrifice token
+(`Sac<1/CARDNAME>`, "sacrifice this permanent," fetch lands' and sac-outlets' own dominant real shape) — through a new
+`cost.Cost.IsPureManaTapAndSelfSac`/`SelfSac` (`internal/cost`), `IsPureManaOrTap`'s own sibling: 947 more of the
+corpus's own non-`AB$ Mana` real `A:AB$` lines are reachable at the shape level this way (`ChangeZone` 164, `Draw` 145,
+`Destroy` 94, `DealDamage` 91, `Pump` 60, `GainLife` 52 among the largest; 441 of the 947 already name one of the twelve
+already-built effects — recomputing each effect's own resolved-line count against this shape too stays the same deferred
+further-chunk work `IsPureManaOrTap`'s own landing already named). Paying it reuses `sacrificeCards`
+(sacrificeeffect.go) wholesale — CR 701.20's own "dies" trigger, `RememberSacrificed$` and the batched
+`Mode$ ChangesZoneAll` firing all come free, exactly as they already do for `Sacrifice`'s own "Self" branch — committed
+last, after mana and the tap, so a self-sac cost never sacrifices a permanent whose own mana or tap half of the same
+cost went unpaid; the pushed ability then resolves normally even though its own source has already left the battlefield
+(CR 112.7a), the identical "ability survives its source" contract `SubAbility$` chaining into a just-sacrificed card's
+own `Defined$ Self` already relies on elsewhere.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

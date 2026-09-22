@@ -221,6 +221,90 @@ func TestActivateAbilityDeclinesForSpellRecordLine(t *testing.T) {
 	}
 }
 
+// TestActivateAbilitySelfSacCostSacrificesSourceAndRunsEffect proves the
+// corpus's own second-most-common real activation cost shape past
+// IsPureManaOrTap -- a self-sacrifice token, Sac<1/CARDNAME>, 947 of the
+// corpus's own real non-Mana-API A:AB$ lines -- actually sacrifices the
+// source through sacrificeCards (sacrificeeffect.go, reused wholesale) once
+// the rest of the cost is paid, and the ability still resolves off the
+// stack afterward even though its own source has already left the
+// battlefield (CR 112.7a).
+func TestActivateAbilitySelfSacCostSacrificesSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Self Sac", "AB$ GainLife | Cost$ Sac<1/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Graveyard {
+		t.Errorf("source zone = %v, want Graveyard -- the Sac<1/CARDNAME> cost must actually sacrifice it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 -- the ability must still resolve with its source already gone", got)
+	}
+}
+
+// TestActivateAbilityCombinesManaTapAndSelfSac proves all three payment
+// primitives compose on one line -- mana charged, the source tapped, then
+// sacrificed, in that order (activateability.go's own doc comment: mana
+// first, tap second, sacrifice last).
+func TestActivateAbilityCombinesManaTapAndSelfSac(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.White, 1)
+
+	def := creatureDefWithAbility(t, "Test Mana Tap Sac", "AB$ GainLife | Cost$ W T Sac<1/CARDNAME> | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("mana pool total = %d, want 0 -- the {W} cost must actually be charged", got)
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Graveyard {
+		t.Errorf("source zone = %v, want Graveyard", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesForChosenSacCost proves a Sac<...> naming
+// anything but the literal self-reference CARDNAME -- a chosen count, or a
+// chosen valid spec -- still declines outright rather than silently
+// sacrificing the wrong thing: IsPureManaTapAndSelfSac's own doc comment has
+// the reason (internal/cost).
+func TestActivateAbilityDeclinesForChosenSacCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Chosen Sac", "AB$ GainLife | Cost$ Sac<2/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for Sac<2/CARDNAME>, want false")
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

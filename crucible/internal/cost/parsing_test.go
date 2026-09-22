@@ -195,6 +195,41 @@ func TestIsPureManaAndIsPureManaOrTap(t *testing.T) {
 	}
 }
 
+// TestIsPureManaTapAndSelfSacAndSelfSac covers IsPureManaTapAndSelfSac's own
+// wider allowance (a lone self-sac Part past what IsPureManaOrTap admits) and
+// SelfSac's own narrower question (is that Part actually there).
+func TestIsPureManaTapAndSelfSacAndSelfSac(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		text    string
+		shape   bool
+		selfSac bool
+	}{
+		{"", true, false},
+		{"1 U", true, false},
+		{"T", true, false},
+		{"Sac<1/CARDNAME>", true, true},
+		{"2 G T Sac<1/CARDNAME>", true, true},
+		{"Sac<1/Creature.Other/another creature>", false, false},
+		{"Sac<2/CARDNAME>", false, false},
+		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", false, false},
+		{"Untap Sac<1/CARDNAME>", false, false},
+		{"Mandatory Sac<1/CARDNAME>", false, false},
+		{"XMin1 Sac<1/CARDNAME>", false, false},
+		{"Sac<1/CARDNAME> Discard<1/Card>", false, false},
+	}
+	for _, c := range cases {
+		got := cost.Parse(c.text)
+		if got.IsPureManaTapAndSelfSac() != c.shape {
+			t.Errorf("Parse(%q).IsPureManaTapAndSelfSac() = %v, want %v", c.text, got.IsPureManaTapAndSelfSac(), c.shape)
+		}
+		if got.SelfSac() != c.selfSac {
+			t.Errorf("Parse(%q).SelfSac() = %v, want %v", c.text, got.SelfSac(), c.selfSac)
+		}
+	}
+}
+
 func diffStrings(got, want []string) string {
 	if len(got) == len(want) {
 		same := true

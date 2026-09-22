@@ -67,6 +67,52 @@ func (c Cost) IsPureManaOrTap() bool {
 	return true
 }
 
+// IsPureManaTapAndSelfSac reports whether the cost is nothing but mana
+// symbols, an optional Tap-self token, and an optional self-sacrifice Part
+// (Sac<1/CARDNAME>) -- IsPureManaOrTap's own sibling, for CR 602's own
+// second-most-common real activation cost shape past bare mana/Tap: "sac
+// CARDNAME" as part of an activation cost (fetch lands, sac outlets, Treasure
+// tokens' own AB$ Mana line among them, though that API is out of this
+// predicate's own caller's scope). Reuses IsPureManaOrTap's own
+// Untap/Mandatory/XMin rejection, then allows exactly one further Part
+// naming Sac<1/CARDNAME> -- SelfSac's own doc comment has the exact shape --
+// alongside the lone "T" Part IsPureManaOrTap already allows.
+func (c Cost) IsPureManaTapAndSelfSac() bool {
+	if c.Untap || c.Mandatory || c.XMin != "" {
+		return false
+	}
+	sacSeen := false
+	for _, p := range c.Parts {
+		switch {
+		case p.Name == "T":
+		case p.Name == "Sac" && !sacSeen && p.Field(0) == "1" && p.Field(1) == "CARDNAME":
+			sacSeen = true
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// SelfSac reports whether the cost is IsPureManaTapAndSelfSac's own shape
+// AND actually carries the Sac<1/CARDNAME> Part -- "sacrifice this
+// permanent" written with the literal self-reference token CARDNAME, the
+// only Sac<...> shape that predicate ever admits. Answers false on its own
+// for a cost IsPureManaTapAndSelfSac would reject too (an extra Part, a
+// chosen or SVar-sized Sac<...>, ...), rather than only being a safe question
+// once a caller has checked that predicate first.
+func (c Cost) SelfSac() bool {
+	if !c.IsPureManaTapAndSelfSac() {
+		return false
+	}
+	for _, p := range c.Parts {
+		if p.Name == "Sac" {
+			return true
+		}
+	}
+	return false
+}
+
 // Part is one named cost part: a name and the fields of its `<...>` body.
 type Part struct {
 	// Name is the part's name, without the body.

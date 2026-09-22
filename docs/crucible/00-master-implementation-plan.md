@@ -1990,6 +1990,36 @@ printed form.
     `ActivateManaAbility` pays `SelfExile` rather than declining it, the identical `PayEnergy` precedent: 1 real
     `AB$ Mana` line needs it (`mirrored_lotus.txt`'s own real "T, Exile CARDNAME: Add three mana of any one color").
 
+    **`ActivateAbility`/`ActivateManaAbility` gained an eighth cost primitive too** -- `tapXType<N/Type>`, CR 602's own
+    "tap N untapped permanents of a type" (`CostTapType.java`), 201 real `A:AB$` lines (22 more real `A:AB$ Mana` lines,
+    `birchlore_rangers.txt`'s own real "Tap two untapped Elves you control: Add one mana of any color" among them).
+    Unlike every primitive before it (Tap/SelfSac/SelfExile/PayLife/PayEnergy), this one is a choice among many rather
+    than a self-reference or a hand-wide pick, so `ActivationShape` carries the count AND the raw, unparsed type field
+    (`TapTypeN`/`TapTypeSpec`) -- `internal/cost` has no dependency on `internal/valid`, so the spec's own semantic
+    resolvability is entirely an engine-layer question, deferred to a new `taptype.go`
+    (`tapTypeResolvable`/`tapTypeCandidates`/`tapChosenPermanents`) and a new `PlayerController` method,
+    `ChoosePermanentsToTap` (its 29th, `ChoosePermanentsToSacrifice`'s own shape reused for a third exactly-N-of-a-set
+    decision). A Cost-syntax `;`-separated type list becomes `valid.Parse`'s own `,`-separated OR (Cost strings use `;`
+    specifically because a literal `,` can appear in the part's own trailing description field); `CAN_TAP` becomes a
+    plain `!Tapped` read, since this port tracks no CantTap-shaped static ability to consult the way Java's own
+    `CardPredicates.CAN_TAP` does. The one real correctness nuance is `CostTapType.java`'s own
+    `canTapSource = !costHasTapSource`: the ability's own source is excluded from its own tapXType candidate pool
+    whenever the same cost ALSO taps it through a separate plain `T` token, even when the type spec itself does not say
+    `.Other` -- verified with a dedicated regression test (a cost naming both `T` and `tapXType<1/Creature>`, with the
+    source as the only Creature on the battlefield, correctly declines rather than double-counting the identical
+    permanent for two different cost components). `withTotalPowerGE`/`sharesCreatureTypeWith` (3 combined real lines,
+    "total power N or greater"/"any two share a creature type" rather than a plain card count) and `OriginalHost` (0
+    real lines) are refused explicitly (`tapTypeResolvable`) rather than reaching `Matches` with a spec it has no
+    property for -- though a regression-toggle check on this guard found it is not, on its own, load-bearing today:
+    `internal/valid`'s own documented fail-safe contract ("a base it does not recognise simply matches nothing") already
+    makes an unrecognized Property fail the same way, so `tapTypeCandidates`' own count naturally falls short of
+    `TapTypeN` and the caller declines regardless of whether `tapTypeResolvable` runs at all. The explicit guard is kept
+    anyway, the same reason every other effect in this port names its own unresolved params rather than trusting an
+    implicit fail-safe three files away. `Mode$ TapAll` (2 real lines, CR 603's own batched "these all became tapped
+    together" trigger) is not built -- each tapped permanent still fires the ordinary "becomes tapped" trigger
+    (`checkTapsTriggers`) individually instead, the identical simplification `Mode$ Exiled`'s own 3-line irrelevance
+    already justified for exile.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

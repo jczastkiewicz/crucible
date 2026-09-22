@@ -145,27 +145,36 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // integer (resolveNamedAmount, amount.go -- pumpAmount's own identical
 // plain-integer-or-SVar reading), or an unaffordable mana half of the cost.
 //
-// PayEnergy and SelfExile are not declined the way Discard/PayLife are: 4
-// real corpus A:AB$ Mana lines name PayEnergy<...> (aether_hub.txt's/
-// servant_of_the_conduit.txt's/solar_transformer.txt's own real "T, Pay one
-// energy counter: Add one mana of any color" among them) and 1 names
-// Exile<1/CARDNAME> (mirrored_lotus.txt's own real "T, Exile CARDNAME: Add
-// three mana of any one color"), so unlike Discard/PayLife this function
-// pays both the identical way ActivateAbility does (Player.Counters,
-// counters.go, subtracted and a CounterChanged event emitted for
-// PayEnergy; exileCards, exile.go, for SelfExile) rather than refusing a
-// shape the corpus actually needs.
+// PayEnergy, SelfExile and tapXType are not declined the way Discard/
+// PayLife are: 4 real corpus A:AB$ Mana lines name PayEnergy<...>
+// (aether_hub.txt's/servant_of_the_conduit.txt's/solar_transformer.txt's own
+// real "T, Pay one energy counter: Add one mana of any color" among them), 1
+// names Exile<1/CARDNAME> (mirrored_lotus.txt's own real "T, Exile CARDNAME:
+// Add three mana of any one color"), and 22 more name tapXType<...>
+// (birchlore_rangers.txt's own real "Tap two untapped Elves you control:
+// Add one mana of any color" among them), so
+// unlike Discard/PayLife this function pays each the identical way
+// ActivateAbility does (Player.Counters, counters.go, subtracted and a
+// CounterChanged event emitted for PayEnergy; exileCards, exile.go, for
+// SelfExile; ChoosePermanentsToTap/tapChosenPermanents, taptype.go, for
+// tapXType) rather than refusing a shape the corpus actually needs. A
+// tapXType component whose own type spec is unresolvable
+// (tapTypeResolvable, taptype.go) or whose own candidate count falls short
+// of TapTypeN declines the identical way ActivateAbility's own does.
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
-// self-sac third, exile fourth, energy last (activateability.go's own doc
-// comment has the CR 601.2h reasoning), reusing sacrificeCards
-// (sacrificeeffect.go) and exileCards (exile.go) the identical way. A
-// Tap-self cost also fires CR 603's own "taps for mana" trigger
-// (checkTapsForManaTriggers, trigger.go) alongside the ordinary
-// "becomes tapped" one -- TapLandForMana's own pairing, ported here rather
-// than duplicated, and skipped when the cost has no Tap component at all (a
-// Treasure-style pure self-sac cost taps nothing, so nothing "becomes
-// tapped to produce mana").
+// self-sac third, exile fourth, energy seventh, tap-by-type last
+// (activateability.go's own doc comment has the CR 601.2h reasoning),
+// reusing sacrificeCards (sacrificeeffect.go), exileCards (exile.go) and
+// tapChosenPermanents (taptype.go) the identical way. A Tap-self cost also
+// fires CR 603's own "taps for mana" trigger (checkTapsForManaTriggers,
+// trigger.go) alongside the ordinary "becomes tapped" one -- TapLandForMana's
+// own pairing, ported here rather than duplicated, and skipped when the cost
+// has no Tap component at all (a Treasure-style pure self-sac cost taps
+// nothing, so nothing "becomes tapped to produce mana"); a tapXType
+// component's own tapped permanents fire only the ordinary "becomes tapped"
+// trigger, never "taps for mana" -- they did not themselves produce the
+// mana, the source card alone did.
 func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
 	c := g.Card(card)
 	if c.Controller() != pid || c.Zone != Battlefield {
@@ -196,6 +205,16 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
 		return false
+	}
+	var tapCandidates []CardID
+	if shape.TapTypeN > 0 {
+		if !tapTypeResolvable(shape.TapTypeSpec) {
+			return false
+		}
+		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		if len(tapCandidates) < shape.TapTypeN {
+			return false
+		}
 	}
 	produced, ok := ability.Param("Produced")
 	if !ok {
@@ -251,6 +270,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
 		emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
+	}
+	if shape.TapTypeN > 0 {
+		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+		tapChosenPermanents(g, controller, chosen)
 	}
 
 	snow := c.Type().HasSupertype(cardtype.Snow)

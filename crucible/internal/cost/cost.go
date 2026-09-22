@@ -55,15 +55,20 @@ func (c Cost) IsPureMana() bool {
 // and sac outlets' own dominant real shape), an optional self-exile
 // (Exile<1/CARDNAME>, the identical self-reference shape for exile rather
 // than sacrifice), an optional "discard N cards of your choice"
-// (Discard<N/Card>), an optional "pay N life" (PayLife<N>), and an optional
-// "pay N energy counters" (PayEnergy<N>). Each of the six started as its own
-// predicate (IsPureManaOrTap, then IsPureManaTapAndSelfSac, SelfSac) before
-// this type replaced all three the first three grew into: Discard's own
-// count could not fit a bool the way Tap and SelfSac could, and three
-// near-identical predicates was already the sign a fourth should not be a
-// fourth. SelfExile, PayLife and PayEnergy each slotted into the same struct
-// rather than becoming that fourth (then fifth, then sixth) predicate all
-// over again.
+// (Discard<N/Card>), an optional "pay N life" (PayLife<N>), an optional
+// "pay N energy counters" (PayEnergy<N>), and an optional "tap N untapped
+// permanents of a type" (tapXType<N/Type>, unlike every primitive before it
+// a choice among many rather than a self-reference or a hand-wide pick --
+// its own type spec is carried through unparsed, since internal/cost has no
+// dependency on internal/valid to evaluate it with; the engine layer decides
+// whether the spec itself is actually resolvable). Each of the seven started
+// as its own predicate (IsPureManaOrTap, then IsPureManaTapAndSelfSac,
+// SelfSac) before this type replaced all three the first three grew into:
+// Discard's own count could not fit a bool the way Tap and SelfSac could,
+// and three near-identical predicates was already the sign a fourth should
+// not be a fourth. SelfExile, PayLife, PayEnergy and TapTypeN/TapTypeSpec
+// each slotted into the same struct rather than becoming that fourth (then
+// fifth, sixth, seventh) predicate all over again.
 type ActivationShape struct {
 	Tap bool
 	// SelfSac is Sac<1/CARDNAME>'s own presence -- the literal
@@ -84,18 +89,29 @@ type ActivationShape struct {
 	// PayEnergy part at all. Never negative, the identical guarantee DiscardN
 	// and PayLifeN both carry.
 	PayEnergyN int
+	// TapTypeN is tapXType<N/Type>'s own N, or 0 when the cost names no
+	// tapXType part at all. Never negative, the identical guarantee every
+	// other N field carries.
+	TapTypeN int
+	// TapTypeSpec is tapXType<N/Type>'s own Type field, verbatim -- a
+	// semicolon-separated OR list in Cost syntax (Cost's own choice, since a
+	// literal comma can appear in the trailing description field a valid
+	// string's own comma-separated OR syntax would collide with), never
+	// itself parsed or validated here. Empty exactly when TapTypeN is 0.
+	TapTypeSpec string
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the six primitives [ActivationShape] carries, decomposed
+// zero or more of the seven primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>, a
 // Discard<...> past the literal "N/Card" shape (a self-discard, a random
 // discard, a type-restricted choice, ...), a PayLife<...> or PayEnergy<...>
 // past a literal positive integer (PayLife<X>/PayEnergy<X> and their own
 // kin -- an amount this port has no X-value/computed-total resolver to plug
-// in here), or any other named Part -- PORT-8/GO-7's "skip the whole line"
-// applied at the cost's own shape rather than guessing at a partial payment.
+// in here), a tapXType<...> naming a non-literal or non-positive N, or any
+// other named Part -- PORT-8/GO-7's "skip the whole line" applied at the
+// cost's own shape rather than guessing at a partial payment.
 func (c Cost) ActivationShape() (ActivationShape, bool) {
 	if c.Untap || c.Mandatory || c.XMin != "" {
 		return ActivationShape{}, false
@@ -127,6 +143,13 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 				return ActivationShape{}, false
 			}
 			shape.PayEnergyN = n
+		case p.Name == "tapXType" && shape.TapTypeN == 0 && p.Field(1) != "":
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.TapTypeN = n
+			shape.TapTypeSpec = p.Field(1)
 		default:
 			return ActivationShape{}, false
 		}

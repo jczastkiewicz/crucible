@@ -5085,6 +5085,116 @@ run -- there is no guard to disable. What WOULD have been worth toggling, `isExi
 match, was instead proven directly and positively by the two new trigger tests above, rather than by disabling anything:
 a wrong wildcard there would show up as `StackLen() == 1` in either test, not a panic or a silent miss.
 
+## tapXType<N/Type> activation cost lands
+
+The obvious next `ActivationShape` primitive by corpus size wasn't a small numeric field this time: `SubCounter<...`
+(655 files, real loyalty-cost territory this port has no Planeswalker mechanic for yet, correctly deferred as its own
+much larger scope item) and `tapXType<...` (191 files, 201 real `A:AB$` lines) were the two real candidates a corpus
+scan turned up, and unlike every primitive built so far in this cluster, `tapXType` is a genuine choice-among-many --
+"tap N untapped permanents of a type you control" -- not a self-reference (`Sac`/`Exile`) or a fixed-spec hand pick
+(`Discard`). Read `CostTapType.java` in full before writing anything: `canPay`/`getMaxAmountX` build a candidate list
+via `CardLists.getValidCards(payer.getCardsIn(Battlefield), type.split(";"), ...)` filtered to `CAN_TAP` (untapped, no
+static restriction this port tracks), optionally removing the ability's own host card when `canTapSource` is false;
+`doListPayment` taps every chosen card and fires `TriggerType.TapAll`.
+
+Corpus accounting: 201 real `A:AB$ tapXType<...>` lines total (191 distinct files -- some cards carry it more than
+once), 22 more real `A:AB$ Mana` lines. 12 name `tapXType<X/...>` (no X-value resolver, the identical gap
+`PayLife<X>`/`PayEnergy<X>` already have). 19 name `.Other` in the type field explicitly. 3 combine
+`withTotalPowerGE`/`sharesCreatureTypeWith` -- CostTapType's own two special-cased shapes, "total power N or greater"
+and "any two share a creature type," each a genuinely different feasibility QUESTION than "N cards matching a spec," not
+merely a different spec to plug into the identical machinery -- excluded outright. The type field itself is otherwise a
+plain literal-type-list grammar this port's own `internal/valid`/`Matches` already handles: `Creature`, `Ally`,
+`Wizard`, `Artifact;Creature` (a semicolon OR), `Creature.Other`, `Creature.Legendary`, `Permanent.token`, and so on --
+nothing here needed a new valid-string property, only a syntax translation (below).
+
+`ActivationShape` gained its first non-boolean, non-count pair: `TapTypeN int` and `TapTypeSpec string`, the type field
+carried through completely raw and unvalidated. This is a deliberate departure from `DiscardN`'s own pattern (which
+hardcodes the literal check `Field(1) == "Card"` right in `cost.go`): `tapXType`'s own type field has no single dominant
+literal the way Discard's does, and validating an arbitrary valid-string shape needs `internal/valid`, a package
+`internal/cost` does not and should not import (GO-14, near-zero dependencies) -- so the cost-layer parse stays purely
+syntactic (a literal positive `N`, a non-empty type field, no second `tapXType` part) and the semantic question -- is
+this spec something `Matches` can actually evaluate -- moves entirely to the engine layer, the identical split
+`SacValid$`'s own dispatch (`sacrificeeffect.go`) already has between "what the cost part says" and "whether the engine
+can act on it."
+
+A new `taptype.go` holds the engine-layer machinery, all of it new: `tapTypeResolvable` refuses the two special-cased
+suffixes and the one meaningless-here literal (`OriginalHost`, "the permanent this ability was originally printed on," a
+card-copy concept this port's own `Card.Def` does not distinguish); `tapTypeCandidates` is `CostTapType.canPay`'s own
+port -- `strings.ReplaceAll(rawSpec, ";", ",")` before `valid.Parse`, since Cost syntax's own OR separator is `;`
+specifically because a literal `,` can appear in a Cost part's own trailing description field (the third body field this
+dispatch never reads), while `valid.Parse`'s own OR separator is `,` (`internal/valid`'s own doc comment: "split on
+`,`... because CardTraitBase splits the param that way"); `CAN_TAP` becomes a plain `!c.Tapped` read, since this port
+tracks no CantTap-shaped static ability the way Java's own `CardPredicates.CAN_TAP` consults; `tapChosenPermanents` is
+`CostTapType.doListPayment`'s own port, minus `TriggerType.TapAll` (2 real corpus `T:` lines, not worth a fourth
+batched-tap trigger mode alongside `Mode$ Sacrificed`/`Mode$ Discarded`/the leaves-the-battlefield family) -- each
+tapped card still fires the ordinary "becomes tapped" trigger (`checkTapsTriggers`) individually, the identical
+simplification `Mode$ Exiled`'s own 3-line irrelevance already justified for the previous landing.
+
+The one real correctness nuance is `CostTapType.java`'s own `canTapSource = !costHasTapSource`: when the SAME cost also
+taps its own source through a separate plain `T` token, the source can never also count toward `tapXType`'s own total,
+even when the type spec itself carries no `.Other` restriction at all -- 12 real corpus lines combine `T` with a bare
+`tapXType<N/Creature>` naming no `.Other` (`Cost$ T tapXType<1/Creature>`, 9 lines; `Cost$ 1 T tapXType<1/Creature>`, 3
+more), every one of which would silently let the source double-count for both cost components without this exclusion.
+`tapTypeCandidates` takes `excludeSelf bool` for exactly this, both call sites passing `shape.Tap` itself rather than
+inspecting the type spec's own text for `.Other` -- the two mechanisms are independent in Java (a spec CAN name `.Other`
+even with no `T` component, `rogue_refiner.txt`'s own `tapXType<1/Rogue.Other>` among the 2 real such lines, and
+`Matches`' own already-built `Other` property handles that half for free) and this landing only had to add the SECOND,
+cost-shape-driven half.
+
+A new `PlayerController` method, `ChoosePermanentsToTap` (its 29th -- `control.go`'s own top doc comment corrected from
+"twenty-seven" to "twenty-nine," stale since `ChooseManaColor`'s own landing two chunks ago already made it wrong and
+nobody had touched that sentence since), is `ChoosePermanentsToSacrifice`'s own shape reused for a third
+exactly-N-of-a-set decision -- `QueueTapChoice`/`ScriptedController.ChoosePermanentsToTap` mirror
+`QueueSacrificeChoice`/`ChoosePermanentsToSacrifice` line for line. A second `PlayerController` implementer this
+package's own tests carry, `scriptedMulliganController` (`mulligan_test.go`), needed the identical new stub method (a
+panic, "was not expected to be called") to keep satisfying the interface -- the one place in this session where adding
+an interface method touched a file outside the immediate primitive's own chunk.
+
+`ActivateAbility`/`ActivateManaAbility` both compute `tapTypeCandidates` once during feasibility (mirroring `hand`'s own
+once-computed-reused pattern for `Discard`, not recomputing the battlefield walk a second time at commit) and decline
+outright when the count falls short of `TapTypeN`, before anything else commits -- the identical feasibility-first
+discipline every primitive since `PayLife<N>` has had. `ActivateManaAbility` pays `tapXType` rather than declining it,
+the identical `PayEnergy`/`SelfExile` precedent: 22 real `AB$ Mana` lines need it, dominated by
+`birchlore_rangers.txt`'s own real `Cost$ tapXType<2/Elf> | Produced$ Any` ("Tap two untapped Elves you control: Add one
+mana of any color," no separate `T` of its own at all) -- a tapXType-tapped permanent fires only the ordinary "becomes
+tapped" trigger, never "taps for mana" (`checkTapsForManaTriggers`), since it did not itself produce the mana the way
+the source card's own `T` component would.
+
+Three regression-toggle passes, one genuinely surprising: disabling the candidate-count feasibility guard turned a clean
+decline into an ACTUAL PANIC in `TestActivateAbilityTapTypeExcludesSourceWhenCostAlsoTapsIt`
+(`scripted controller ran out of tap choice decisions`) -- that test never queues an answer at all, since it expects a
+decline before `ChoosePermanentsToTap` is ever called, so removing the guard reaches an unqueued controller call and
+crashes the whole test binary, the identical shape `Discard<N/Card>`'s own first regression-toggle pass already found.
+Disabling the `excludeSelf` exclusion on that SAME test flips it from a correct decline to the identical panic for a
+different reason -- the source becomes its own eligible candidate (1 of 1 needed), the activation now "succeeds," and
+the very next thing it does is call the unqueued `ChoosePermanentsToTap` -- confirming the exclusion is load-bearing
+without needing a second, differently-shaped test. The third toggle, on `tapTypeResolvable` itself, was the surprising
+one: disabling it left every test green, including `TestActivateAbilityDeclinesForUnresolvableTapTypeSpec`
+(`Creature+withTotalPowerGE3` against a power-5 creature, which would satisfy the described restriction if this port
+implemented it) -- `internal/valid`'s own documented fail-safe contract for an unrecognized base extends, empirically,
+to an unrecognized Property too, so `Matches` already returns false for every candidate against that spec,
+`tapTypeCandidates` already returns zero candidates, and the already-proven candidate-count guard already declines the
+line on its own. `tapTypeResolvable` is, today, provably redundant with that fail-safe rather than the only thing
+standing between a correct decline and a wrong tap -- kept in the code anyway (and its own doc comment rewritten to say
+so explicitly) for the same reason this port already names unresolved params explicitly everywhere else rather than
+trusting an implicit fail-safe three files away: a future change to `Matches`' own property dispatch could silently
+start matching one of these two suffixes, and this guard is what would catch that before it ever reached a real game,
+not after.
+
+11 new tests: `activateability_test.go` gained six -- `TestActivateAbilityTapTypeCostTapsChosenPermanentsAndRunsEffect`
+(two chosen Creatures tapped, the ability still resolves), `TestActivateAbilityDeclinesWhenNotEnoughTapTypeCandidates`,
+`TestActivateAbilityTapTypeExcludesSourceWhenCostAlsoTapsIt` (the `canTapSource` proof, above),
+`TestActivateAbilityDeclinesForNonLiteralTapTypeCost` (`tapXType<X/Creature>`),
+`TestActivateAbilityDeclinesForUnresolvableTapTypeSpec` (`withTotalPowerGE`), and
+`TestActivateAbilityTapTypeMatchesSemicolonSeparatedTypeList` (an Artifact matched by `Artifact;Creature`, proving the
+`;`-to-`,` translation). `activatemanaability_test.go` gained two: `TestActivateManaAbilityTapTypeCost` (the real
+`birchlore_rangers.txt` shape end to end) and `TestActivateManaAbilityDeclinesWhenNotEnoughTapTypeCandidates` (again
+proving the source itself counts as a candidate when the cost carries no separate `T`, this time by requiring one more
+than the board can supply rather than by excluding it). `mulligan_test.go` gained the one-line
+`scriptedMulliganController.ChoosePermanentsToTap` stub. `internal/cost/parsing_test.go` extended `TestActivationShape`
+with `tapXType` alone, combined with `T`/`PayLife`/`PayEnergy`, and three reject cases (`tapXType<X/Creature>`,
+`tapXType<0/Creature>`, a duplicate).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

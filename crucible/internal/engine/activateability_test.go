@@ -805,6 +805,159 @@ func TestActivateAbilityExileCostFiresOtherWatcherLeavesBattlefieldTrigger(t *te
 	}
 }
 
+// TestActivateAbilityTapTypeCostTapsChosenPermanentsAndRunsEffect proves
+// tapXType<N/Type> -- CR 602's own "tap N untapped permanents of a type" --
+// asks ChoosePermanentsToTap for exactly N candidates and taps them
+// (tapChosenPermanents, taptype.go), leaving the source itself untapped
+// since this cost carries no separate T token.
+func TestActivateAbilityTapTypeCostTapsChosenPermanentsAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Type", "AB$ GainLife | Cost$ tapXType<2/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	other1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	other2 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTapChoice([]engine.CardID{other1, other2})
+	if !g.ActivateAbility(p, source, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(other1).Tapped || !g.Card(other2).Tapped {
+		t.Error("chosen tapXType candidates not tapped")
+	}
+	if g.Card(source).Tapped {
+		t.Error("source tapped, want untapped -- this cost has no separate T token")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23", got)
+	}
+}
+
+// TestActivateAbilityDeclinesWhenNotEnoughTapTypeCandidates proves the
+// feasibility check (tapTypeCandidates, taptype.go) runs before anything is
+// committed: fewer untapped, type-matched permanents than TapTypeN declines
+// outright rather than asking the controller for more than exist.
+func TestActivateAbilityDeclinesWhenNotEnoughTapTypeCandidates(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Type Short", "AB$ GainLife | Cost$ tapXType<3/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true with only 2 untapped Creatures for tapXType<3/Creature>, want false")
+	}
+}
+
+// TestActivateAbilityTapTypeExcludesSourceWhenCostAlsoTapsIt proves
+// CostTapType.java's own canTapSource = !costHasTapSource rule
+// (tapTypeCandidates' own doc comment, taptype.go): when the cost also taps
+// its own source through a plain T token, the source itself can never also
+// count toward tapXType's own total, even though it matches the type spec --
+// with the source as the only Creature on the battlefield, this cost
+// declines rather than double-counting it.
+func TestActivateAbilityTapTypeExcludesSourceWhenCostAlsoTapsIt(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Self Excludes", "AB$ GainLife | Cost$ T tapXType<1/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true when the source is the only Creature and T already taps it, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesForNonLiteralTapTypeCost proves a
+// tapXType<...> naming anything but a literal positive integer -- an X-cost
+// here -- still declines outright: ActivationShape's own doc comment has
+// the reason (internal/cost).
+func TestActivateAbilityDeclinesForNonLiteralTapTypeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Type X", "AB$ GainLife | Cost$ X tapXType<X/Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true for tapXType<X/Creature>, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesForUnresolvableTapTypeSpec proves
+// tapTypeResolvable (taptype.go) refuses CostTapType.java's own
+// withTotalPowerGE shape rather than reaching Matches with a spec it cannot
+// evaluate correctly.
+func TestActivateAbilityDeclinesForUnresolvableTapTypeSpec(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Type Power", "AB$ GainLife | Cost$ tapXType<1/Creature+withTotalPowerGE3> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "5", "5"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, source, 0, c) {
+		t.Error("ActivateAbility returned true for a withTotalPowerGE-shaped tapXType spec, want false")
+	}
+}
+
+// TestActivateAbilityTapTypeMatchesSemicolonSeparatedTypeList proves a
+// Cost-syntax ";"-separated type list becomes valid.Parse's own
+// ","-separated OR (tapTypeCandidates' own doc comment, taptype.go): an
+// Artifact permanent matches tapXType<1/Artifact;Creature> even though it is
+// not itself a Creature.
+func TestActivateAbilityTapTypeMatchesSemicolonSeparatedTypeList(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Type OR", "AB$ GainLife | Cost$ tapXType<1/Artifact;Creature> | Defined$ You | LifeAmount$ 3")
+	source := g.NewCard(def, p, engine.Battlefield)
+	art := g.NewCard(artifactDefManaCost(t, "1"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTapChoice([]engine.CardID{art})
+	if !g.ActivateAbility(p, source, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(art).Tapped {
+		t.Error("the Artifact not tapped by tapXType<1/Artifact;Creature>")
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

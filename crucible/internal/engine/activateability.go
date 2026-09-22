@@ -2,8 +2,9 @@
 // shapes -- mana, an optional Tap-self token, an optional self-sacrifice
 // token (Sac<1/CARDNAME>), an optional self-exile token (Exile<1/CARDNAME>),
 // an optional "discard N cards of your choice" (Discard<N/Card>), an
-// optional "pay N life" (PayLife<N>), and an optional "pay N energy
-// counters" (PayEnergy<N>), in any combination (cost.Cost.ActivationShape,
+// optional "pay N life" (PayLife<N>), an optional "pay N energy counters"
+// (PayEnergy<N>), and an optional "tap N untapped permanents of a type"
+// (tapXType<N/Type>), in any combination (cost.Cost.ActivationShape,
 // internal/cost) -- the only primitives this port has payment machinery
 // for. Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
@@ -48,27 +49,34 @@ import (
 // SVar-sized Sac<.../Exile<...>, a Discard<...> past the literal "N/Card"
 // shape, a PayLife<...>/PayEnergy<...> past a literal positive integer
 // (PayLife<X>/PayEnergy<X> and their own kin, an amount this port has no
-// resolver to plug in here), a SubCounter<.../Return<.../... part
-// ActivationShape does not carry at all, or an Untap/Mandatory/XMin token,
-// each its own further payment primitive this port does not have, PORT-8/
-// GO-7's "skip the whole line" applied to the cost itself rather than to
-// the ability's own other params, a Discard component the activating
-// player's own hand cannot actually pay (fewer cards in hand than
-// DiscardN), a PayLife component the activating player's own life cannot
-// actually pay (CR 119.4: a life payment can never bring the payer below
-// 0), or a PayEnergy component the activating player's own energy-counter
-// count cannot actually pay (CR 122.5's identical "never below 0" shape,
-// checked the identical way).
+// resolver to plug in here), a tapXType<...> naming a non-literal or
+// non-positive N, a SubCounter<.../Return<.../... part ActivationShape does
+// not carry at all, or an Untap/Mandatory/XMin token, each its own further
+// payment primitive this port does not have, PORT-8/GO-7's "skip the whole
+// line" applied to the cost itself rather than to the ability's own other
+// params, a Discard component the activating player's own hand cannot
+// actually pay (fewer cards in hand than DiscardN), a PayLife component the
+// activating player's own life cannot actually pay (CR 119.4: a life
+// payment can never bring the payer below 0), a PayEnergy component the
+// activating player's own energy-counter count cannot actually pay (CR
+// 122.5's identical "never below 0" shape, checked the identical way), or a
+// tapXType component whose own type spec this port cannot evaluate
+// (tapTypeResolvable, taptype.go) or whose own candidate count -- the
+// activating player's own untapped, type-matched battlefield permanents,
+// the source itself excluded when the same cost also taps it through a
+// separate plain T token -- falls short of TapTypeN.
 //
 // Every feasibility check runs before anything is committed: a Tap-self
 // cost checks CR 602.5b/302.6 first (already tapped, or summoning-sick
 // without haste, DeclareCombatAttackers' own identical SummonSick/Haste
 // check, attack.go, reused rather than re-derived), a Discard component
 // checks the hand actually holds DiscardN cards, a PayLife component checks
-// the player's own current life is at least PayLifeN, and a PayEnergy
+// the player's own current life is at least PayLifeN, a PayEnergy
 // component checks the player's own current Energy counter count is at
-// least PayEnergyN. The mana half is paid through PayManaCost exactly as
-// CastSpell's own is; only once that succeeds does the tap itself actually
+// least PayEnergyN, and a tapXType component checks its own candidate count
+// (tapTypeCandidates, taptype.go) is at least TapTypeN. The mana half is
+// paid through PayManaCost exactly as CastSpell's own is; only once that
+// succeeds does the tap itself actually
 // happen (Card.Tapped set, checkTapsTriggers fired), then a self-sac cost
 // actually sacrifices the card (sacrificeCards, sacrificeeffect.go, reused
 // wholesale -- CR 701.20's own "dies" trigger, RememberSacrificed$, and the
@@ -91,14 +99,18 @@ import (
 // CounterChanged event putCounterEffect's own does (Player.payEnergy routes
 // through Player.loseEnergy/subtractCounter in Java, an ordinary counter
 // removal with no trigger of its own -- unlike PayLife, Forge's own
-// TriggerType has no PayEnergy mode at all to even skip) -- CR 602.2g's own
-// "costs are paid together" is approximated here as "check every cost for
-// feasibility first, then commit each one, mana first, tap second, sacrifice
-// third, exile fourth, discard fifth, life sixth, energy last," so a failed
-// mana payment never leaves the permanent tapped, sacrificed, exiled, the
-// player short a card, short life, or short energy for nothing, and a
-// Tap-self cost never taps a permanent that has already left the
-// battlefield. CR
+// TriggerType has no PayEnergy mode at all to even skip), then a tapXType
+// component asks ChoosePermanentsToTap for exactly TapTypeN of the
+// candidates already found feasible and taps them (tapChosenPermanents,
+// taptype.go, firing checkTapsTriggers per card the identical way a
+// Tap-self cost's own single tap already does) -- CR 602.2g's own "costs
+// are paid together" is approximated here as "check every cost for
+// feasibility first, then commit each one, mana first, tap second,
+// sacrifice third, exile fourth, discard fifth, life sixth, energy seventh,
+// tap-by-type last," so a failed mana payment never leaves the permanent
+// tapped, sacrificed, exiled, the player short a card, short life, short
+// energy, or another permanent wrongly tapped for nothing, and a Tap-self
+// cost never taps a permanent that has already left the battlefield. CR
 // 601.2h's own "costs may be paid in any order" makes this ordering a free
 // choice, not an approximation of a specific one Java's own CostPayment (a
 // part-by-part, player-cancellable payment loop this port does not build)
@@ -156,6 +168,16 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
 		return false
 	}
+	var tapCandidates []CardID
+	if shape.TapTypeN > 0 {
+		if !tapTypeResolvable(shape.TapTypeSpec) {
+			return false
+		}
+		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
+		if len(tapCandidates) < shape.TapTypeN {
+			return false
+		}
+	}
 	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
 	if err != nil {
 		return false
@@ -192,6 +214,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
 		emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
+	}
+	if shape.TapTypeN > 0 {
+		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
+		tapChosenPermanents(g, controller, chosen)
 	}
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true

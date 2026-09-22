@@ -919,5 +919,20 @@ siblings with `Destination$ Exile` in place of `Graveyard` — since nothing in 
 rather than declining it: 1 real `AB$ Mana` line needs it (`mirrored_lotus.txt`'s own real "T, Exile CARDNAME: Add three
 mana of any one color").
 
+`ActivateAbility`/`ActivateManaAbility` gained an eighth cost primitive too — `tapXType<N/Type>`, "tap N untapped
+permanents of a type" (CostTapType.java), 201 real `A:AB$` lines (22 more real `A:AB$ Mana` lines). Unlike every
+primitive before it, this one is a choice among many rather than a self-reference or a hand-wide pick, so
+`ActivationShape` carries `TapTypeN`/`TapTypeSpec` — the raw, unparsed type field, since `internal/cost` has no
+dependency on `internal/valid` to evaluate it with. A new `PlayerController` method, `ChoosePermanentsToTap` (its 29th),
+and a new `taptype.go` (`tapTypeCandidates`/`tapChosenPermanents`) do the real work: a Cost-syntax `;`-separated type
+list becomes `valid.Parse`'s own `,`-separated OR, `CAN_TAP` becomes a plain `!Tapped` read, and — the one real
+correctness nuance, `CostTapType.java`'s own `canTapSource = !costHasTapSource` — the ability's own source is excluded
+from its own tapXType candidate pool whenever the same cost also taps it through a separate plain `T` token, even when
+the type spec itself does not say `.Other`. `withTotalPowerGE`/`sharesCreatureTypeWith` (3 combined real lines) and
+`OriginalHost` are refused explicitly (`tapTypeResolvable`) — though a regression-toggle check found `internal/valid`'s
+own fail-safe property dispatch already declines those two suffixes on its own (0 matching candidates), so the explicit
+guard is redundant today and kept only as an audit trail against a future change to `Matches`. `Mode$ TapAll` (2 real
+lines) is not built — each tapped card still fires the ordinary "becomes tapped" trigger instead.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

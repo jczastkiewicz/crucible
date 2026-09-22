@@ -12,7 +12,7 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-seven answerable with
+// which has 110 abstract methods; only the twenty-nine answerable with
 // today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
@@ -189,6 +189,21 @@ type PlayerController interface {
 	// re-checked here -- trust the controller's answer, the same as
 	// ChooseCardsToDiscard.
 	ChoosePermanentsToSacrifice(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
+
+	// ChoosePermanentsToTap decides which of decider's own untapped,
+	// type-matched battlefield permanents decider taps when an activation
+	// cost names a tapXType<N/Type> part (CR 602.2, ActivateAbility/
+	// ActivateManaAbility, activateability.go/activatemanaability.go) --
+	// Forge's own CostTapType.doListPayment, ChoosePermanentsToSacrifice's
+	// own shape reused for a third exactly-N-of-a-set decision: candidates is
+	// every one of decider's own untapped battlefield permanents the cost's
+	// own type spec matches (the ability's own host itself already excluded
+	// when the same cost also taps it via a separate plain T token,
+	// tapTypeCandidates's own doc comment, taptype.go); count is exactly how
+	// many the returned slice must have (min(N, len(candidates)),
+	// ChoosePermanentsToSacrifice's own identical clamp). Not re-checked here
+	// -- trust the controller's answer, the same as ChoosePermanentsToSacrifice.
+	ChoosePermanentsToTap(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
 
 	// ChooseTargets decides which of valid an ability's own controller
 	// targets it with (CR 601.2c/603.3b, targeting.go's own resolveTargets,
@@ -395,6 +410,7 @@ type ScriptedController struct {
 	sacrificeChoices [][]CardID
 	payCost          []bool
 	manaColor        []mana.Colors
+	tapChoices       [][]CardID
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -496,6 +512,11 @@ func (c *ScriptedController) QueueSurveil(toTop, toGraveyard []CardID) {
 // ChoosePermanentsToSacrifice call.
 func (c *ScriptedController) QueueSacrificeChoice(cards []CardID) {
 	c.sacrificeChoices = append(c.sacrificeChoices, cards)
+}
+
+// QueueTapChoice appends the answer to the next ChoosePermanentsToTap call.
+func (c *ScriptedController) QueueTapChoice(cards []CardID) {
+	c.tapChoices = append(c.tapChoices, cards)
 }
 
 // QueueTargets appends the answer to the next ChooseTargets call.
@@ -627,6 +648,16 @@ func (c *ScriptedController) ChoosePermanentsToSacrifice(_ *Game, _ PlayerID, _ 
 	}
 	v := c.sacrificeChoices[0]
 	c.sacrificeChoices = c.sacrificeChoices[1:]
+	return v
+}
+
+// ChoosePermanentsToTap returns the next answer QueueTapChoice queued.
+func (c *ScriptedController) ChoosePermanentsToTap(_ *Game, _ PlayerID, _ []CardID, _ int) []CardID {
+	if len(c.tapChoices) == 0 {
+		panic(scriptExhausted("tap choice"))
+	}
+	v := c.tapChoices[0]
+	c.tapChoices = c.tapChoices[1:]
 	return v
 }
 

@@ -136,6 +136,68 @@ func TestActivateManaAbilitySelfExileCost(t *testing.T) {
 	}
 }
 
+// TestActivateManaAbilityTapTypeCost proves a tapXType<N/Type> cost composes
+// here exactly as it does for ActivateAbility (activateability.go):
+// ChoosePermanentsToTap/tapChosenPermanents (taptype.go) reused wholesale --
+// the real birchlore_rangers.txt shape, "Tap two untapped Elves you
+// control: Add one mana of any color," with no separate T of its own.
+func TestActivateManaAbilityTapTypeCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Tap Type", "AB$ Mana | Cost$ tapXType<2/Elf> | Produced$ Any")
+	source := g.NewCard(def, p, engine.Battlefield)
+	elf1 := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	elf2 := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueTapChoice([]engine.CardID{elf1, elf2})
+	c.QueueManaColor(mana.Black)
+	if !g.ActivateManaAbility(p, source, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if !g.Card(elf1).Tapped || !g.Card(elf2).Tapped {
+		t.Error("chosen tapXType candidates not tapped")
+	}
+	if g.Card(source).Tapped {
+		t.Error("source tapped, want untapped -- this cost has no separate T token")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 1, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one black", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesWhenNotEnoughTapTypeCandidates proves the
+// feasibility check runs before any mana is produced -- fewer untapped,
+// type-matched permanents than TapTypeN declines outright. The source
+// itself is an Elf too (creatureDefWithAbility's own doc comment) and this
+// cost has no separate T token, so it counts toward the total: source plus
+// one more Elf is only 2 candidates, short of the 3 this cost asks for.
+func TestActivateManaAbilityDeclinesWhenNotEnoughTapTypeCandidates(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Tap Type Short", "AB$ Mana | Cost$ tapXType<3/Elf> | Produced$ Any")
+	source := g.NewCard(def, p, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, source, 0, c) {
+		t.Error("ActivateManaAbility returned true with only 2 untapped Elves for tapXType<3/Elf>, want false")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("mana pool total = %d, want 0 -- a declined activation must not produce mana", got)
+	}
+}
+
 // TestActivateManaAbilityDeclinesWhenSummonSickWithoutHaste proves CR
 // 602.5b/302.6 applies to a mana dork the identical way it applies to any
 // other Tap-cost activated ability.

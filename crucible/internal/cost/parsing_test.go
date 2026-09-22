@@ -190,9 +190,9 @@ func TestIsPureMana(t *testing.T) {
 	}
 }
 
-// TestActivationShape covers Tap, SelfSac, SelfExile, Discard, PayLife and
-// PayEnergy both alone and combined -- the shape ActivateAbility/
-// ActivateManaAbility (internal/engine) actually pay.
+// TestActivationShape covers Tap, SelfSac, SelfExile, Discard, PayLife,
+// PayEnergy and tapXType both alone and combined -- the shape
+// ActivateAbility/ActivateManaAbility (internal/engine) actually pay.
 func TestActivationShape(t *testing.T) {
 	t.Parallel()
 
@@ -234,6 +234,15 @@ func TestActivationShape(t *testing.T) {
 		{"PayLife<1> PayEnergy<1>", cost.ActivationShape{PayLifeN: 1, PayEnergyN: 1}, true},
 		{"1 T Sac<1/CARDNAME> Discard<1/Card> PayLife<2> PayEnergy<3>",
 			cost.ActivationShape{Tap: true, SelfSac: true, DiscardN: 1, PayLifeN: 2, PayEnergyN: 3}, true},
+		{"tapXType<1/Creature>", cost.ActivationShape{TapTypeN: 1, TapTypeSpec: "Creature"}, true},
+		{"tapXType<3/Wizard>", cost.ActivationShape{TapTypeN: 3, TapTypeSpec: "Wizard"}, true},
+		{"1 tapXType<2/Artifact;Creature>", cost.ActivationShape{TapTypeN: 2, TapTypeSpec: "Artifact;Creature"}, true},
+		{"T tapXType<1/Creature>", cost.ActivationShape{Tap: true, TapTypeN: 1, TapTypeSpec: "Creature"}, true},
+		{"tapXType<1/Creature.Other> PayLife<1> PayEnergy<1>",
+			cost.ActivationShape{TapTypeN: 1, TapTypeSpec: "Creature.Other", PayLifeN: 1, PayEnergyN: 1}, true},
+		{"tapXType<X/Creature>", cost.ActivationShape{}, false},
+		{"tapXType<0/Creature>", cost.ActivationShape{}, false},
+		{"tapXType<1/Creature> tapXType<1/Artifact>", cost.ActivationShape{}, false},
 		{"Sac<1/Creature.Other/another creature>", cost.ActivationShape{}, false},
 		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},

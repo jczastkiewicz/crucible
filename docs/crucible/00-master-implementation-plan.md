@@ -2044,6 +2044,27 @@ printed form.
     naming `Return<1/CARDNAME>` is already unreachable for an unrelated reason (`SorcerySpeed$`, not in
     `manaAbilityAllowedParams`), and 0 real lines name `Return<N/Type>` at all.
 
+    **`ActivateAbility`/`ActivateManaAbility` gained an eleventh cost primitive too** -- `Exert<1/CARDNAME>` (CR
+    701.42a, `SelfSac`'s own fourth self-reference sibling, `Card.exert(Player)` in Java), 36 real lines, every one the
+    literal self-reference shape -- 0 real `Exert<N/Type>` lines exist, so unlike Sac/Exile/Return this primitive has no
+    chosen-type sibling to build at all. What makes Exert different from every self-reference primitive before it: it
+    moves nothing. Paying it sets a new `Card.Exerted bool` (`card.go` -- a single bool rather than Java's own
+    per-player `exertedByPlayer` set, since this port's every real activation-cost caller is the card's own controller
+    and control does not realistically change before that same player's own next untap step) and fires CR 701.42a's own
+    trigger (`checkExertedTriggers`, new `exertcost.go`) -- reusing `checkTapsTriggers`'s own single unified battlefield
+    walk rather than building a fourth own/other-split sibling of `checkDiesTriggers`, since exerting stays on the
+    battlefield throughout and needs no `g.LKI` lookback the way a zone change does. CR 701.42b's own actual cost -- "it
+    doesn't untap during your next untap step" -- is entirely deferred: `untapStep` (`turn.go`) now reads `Card.Exerted`
+    before `untapBlocked`, `Card.untap(Player)`'s own `isExertedBy(phase)` ordering in Java ported directly, and clears
+    the flag unconditionally every untap step regardless of whether untapping was actually skipped for it or any other
+    reason (`Untap.java`'s own separate "remove exerted flags from all things in play" pass, unconditional there too) --
+    verified with a dedicated regression test and a regression-toggle pass (disabling the check turned a clean pass into
+    a clean failed assertion, not a panic). `Move`'s own battlefield-leaving reset (`game.go`) clears `Exerted`
+    alongside `Tapped`/`SummonSick` now too. `ActivateManaAbility` pays this primitive rather than declining it: 1 real
+    `AB$ Mana` line needs it with no other unresolved param (a second real line combining `Exert<1/CARDNAME>` with
+    `AddsKeywords$`/`AddsKeywordsValid$`/`AddsKeywordsUntil$` stays unreachable regardless, already outside
+    `manaAbilityAllowedParams` for a reason unrelated to this landing).
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

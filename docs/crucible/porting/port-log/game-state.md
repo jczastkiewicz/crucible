@@ -5295,6 +5295,86 @@ extended `TestActivationShape` with `Return<1/CARDNAME>`/`Return<1/NICKNAME>` al
 (`Return<X/Land>`, `Return<0/Land>`, a duplicate self-return, a duplicate type-return, and one self-return plus one
 type-return on the same line).
 
+## Exert<1/CARDNAME> activation cost lands
+
+`Return<...>`'s own landing closed the third and last real "move this off the battlefield" cost shape past Sac/Exile.
+The next obvious candidate by the same "self-reference cost primitive" search pattern this whole cluster has followed
+was `Exert<...>` (CostExert.java) -- CR 701.42a's own keyword action, "exert this permanent," most commonly seen as an
+optional choice made while declaring attackers (a wholly separate mechanic this port does not model,
+`DeclareCombatAttackers` has no such choice built into it, and stays out of scope here) but also printed directly as an
+activation-cost part on 36 real corpus `A:AB$` lines -- every one of them the literal self-reference shape,
+`Exert<1/CARDNAME>` (35) or `Exert<1/NICKNAME>` (1). No `Exert<N/Type>` line exists in the corpus at all, unlike
+Sac/Exile/Return's own each having a chosen-type sibling -- confirmed by grepping every real `Exert<[^>]*>` value before
+writing any code, not assumed from the shape of the other three primitives.
+
+`SelfExert bool` joined `ActivationShape` as `ActivationShape`'s own fourth self-reference bool (`SelfSac`'s own sibling
+count: self-sacrifice, self-exile, self-return, self-exert), the parsing case sharing `isSelfReferenceField` outright --
+`Return`'s own landing had already generalized that check past a bare `== "CARDNAME"` comparison, so `Exert` needed no
+separate fix the way `Sac`/`Exile` originally did.
+
+What makes Exert genuinely different from every self-reference primitive built so far: paying it moves nothing at all.
+Reading `Card.exert(Player)` (`Card.java:6372`) directly settled what actually happens: `exertedByPlayer.add(p)` (a
+per-player set -- this port's own simplification collapses it to a single `Card.Exerted bool`, new `card.go`, since
+every real activation-cost caller is the card's own controller and control does not realistically change before that
+same controller's own next untap step for any corpus card) and `TriggerType.Exerted` fires, nothing else -- no zone
+change, no `GameEventCardTapped`-style event either (only `Player.payLife`'s/`Player.loseEnergy`'s own kin fire an
+ordinary state-change event; exert fires none). CR 701.42a's own trigger got a new
+`isExertedTrigger`/`checkExertedTriggers` (new `exertcost.go`) -- but NOT `isDiesTrigger`'s own three-sibling shape
+(`checkExiledTriggers`/`checkReturnedTriggers`'s own pattern, an own-card walk plus an other-watcher walk plus a `g.LKI`
+lookback for the leaving card's own dying-state fields): exerting is not a zone change at all, the card never leaves the
+battlefield, so there is no "dying state" to look back at and no own/other split needed either -- `checkTapsTriggers`'s
+own single unified battlefield walk (`trigger.go`, already covers both "this card's own Taps ability" via
+`ValidCard$ Card.Self` and "another permanent watching a tap" via `ValidCard$ Creature.YouCtrl`, in the identical single
+pass) is the correct shape to reuse here instead, and all 5 real corpus `T:Mode$ Exerted` lines are the
+`ValidCard$ Creature.YouCtrl` watcher shape, confirming the choice rather than merely permitting it.
+
+CR 701.42b's own actual cost -- "it doesn't untap during your next untap step" -- is the part that took real research to
+place correctly, since `CostExert.java`'s own `doPayment` does nothing more than call `exert()`; the deferred
+consequence lives entirely in `Card.untap(Player)` (`Card.java:4703`), read directly:
+`if (phase != null && isExertedBy(phase)) { return false; }`, checked BEFORE the replacement-effect handler even runs,
+and `Untap.java`'s own main loop (`Untap.java:163`) separately, unconditionally clears every permanent's own exerted-by-
+the-active-player flag every untap step regardless of whether untapping itself was skipped, blocked, or succeeded --
+"remove exerted flags from all things in play... even if they are not creatures." `untapStep` (`turn.go`) now mirrors
+both halves directly: `exerted := c.Exerted; c.Exerted = false` runs first (the unconditional clear, matching Java's own
+separate pass), then `if !exerted && !g.untapBlocked(c)` gates the actual untap (Java's own `isExertedBy` check taking
+priority over the replacement-handler check, ordering ported exactly). `Move`'s own battlefield-leaving reset
+(`game.go`, both call sites -- the ordinary `Move` and `MoveToLibraryTop`) now clears `Exerted` alongside
+`Tapped`/`SummonSick` too, the identical "this state means nothing off the battlefield" contract those two already have
+-- Java's own `exertedByPlayer` set does not explicitly clear on a zone change either, but nothing in Java ever consults
+it for a card that has left the battlefield, so the two are observably equivalent; this port's own explicit clear just
+makes that equivalence a real invariant rather than an implicit one.
+
+A regression-toggle pass on `untapStep`'s own new exerted check found the identical clean-failure shape `PayLife<N>`'s
+own guard already established, not `Discard`'s own panic: forcing `exerted` to `false` right before the check turned
+`TestUntapSkipsExertedPermanentAndClearsFlag`'s own first assertion into a clean `FAIL` (the permanent untapped when it
+should have stayed tapped) rather than a crash -- `Card.Tapped` has no floor the way `Player.Life`/`Counters.Add` each
+have one, so there was never a panic risk here to find.
+
+`ActivateAbility` commits `SelfExert` in the same primitive order this session's whole cluster has been building (mana,
+tap, sac, exile, return, exert, discard, life, energy, tap-by-type, return-by-type), needing no feasibility check of its
+own -- `SelfSac`'s own precedent, the source is already known to be on the battlefield. `ActivateManaAbility` pays it
+too rather than declining it -- `PayEnergy`/`SelfExile`/`tapXType`'s own "pay it" precedent, not
+`Discard`/`PayLife`/`Return`'s own "0 real benefit" one: 1 real `AB$ Mana` line needs it with no other unresolved param
+(`Cost$ T Exert<1/CARDNAME> | Produced$ Any | Amount$ 2`, "T, Exert ~: Add two mana of any one color"). A second real
+`AB$ Mana` line combining `Exert<1/CARDNAME>` also names `AddsKeywords$`/`AddsKeywordsValid$`/`AddsKeywordsUntil$` ("if
+that mana is spent on a creature spell, it gains haste") -- already outside `manaAbilityAllowedParams` for a reason
+unrelated to this landing (tagging the mana itself with a further effect this port's own `Pool` cannot carry), so it
+stays unreachable regardless.
+
+10 new tests: `activateability_test.go` gained five, `SelfExile`'s own set shape reused --
+`TestActivateAbilitySelfExertCostExertsSourceAndRunsEffect` (`Card.Exerted` set, the source stays on the battlefield
+unlike every earlier self-reference primitive, the ability still resolves),
+`TestActivateAbilityCombinesTapAndSelfExert`, `TestActivateAbilityDeclinesForChosenExertCost` (`Exert<2/CARDNAME>`),
+`TestActivateAbilityExertCostFiresOwnTrigger` (`Mode$ Exerted | ValidCard$ Card.Self`) and
+`TestActivateAbilityExertCostFiresOtherWatcherTrigger` (`ValidCard$ Creature.YouCtrl`, the real corpus shape, reusing
+`diesTriggerCreatureDefWithLine` outright). `activatemanaability_test.go` gained `TestActivateManaAbilityExertCost` (the
+real two-mana shape end to end), plus corrected its own two pre-existing "one of `ActivationShape`'s own nine
+primitives" doc comments to "ten" (`DOC-16`, the identical drive-by staleness fix every primitive landing in this
+cluster keeps making for the one before it). `turn_test.go` gained `TestUntapSkipsExertedPermanentAndClearsFlag`,
+proving both halves of CR 701.42b at once -- the skip, and the unconditional clear -- against the regression-toggle pass
+above. `internal/cost/parsing_test.go` extended `TestActivationShape` with `Exert<1/CARDNAME>`/`Exert<1/NICKNAME>` alone
+and combined with `T`, and three reject cases (`Exert<2/CARDNAME>`, a chosen valid spec, a duplicate).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

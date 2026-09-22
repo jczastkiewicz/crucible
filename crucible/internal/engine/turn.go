@@ -144,7 +144,14 @@ func (g *Game) emptyManaPools() {
 // per permanent (untapBlocked, replacement.go) before Tapped is cleared --
 // summoning sickness clears regardless, since a "doesn't untap" effect
 // restricts only the untapping action, not CR 302.6's own continuous-control
-// question.
+// question. CR 701.42b's own exert check runs first, Card.untap(phase)'s own
+// "if (phase != null && isExertedBy(phase)) return false" ordering ported
+// directly -- an exerted permanent skips both the replacement-effect check
+// and Mode$ Untaps entirely, the identical early return an already-untapped
+// permanent gets. Exerted itself clears unconditionally every untap step
+// regardless of whether untapping was actually skipped for it or any other
+// reason (Untap.java's own separate "remove exerted flags from all things
+// in play" pass, unconditional there too).
 //
 // checkUntapsTriggers (trigger.go) fires once per card that actually
 // untaps -- Card.untap()'s own early "if (!tapped) return false", ported as
@@ -155,7 +162,9 @@ func (g *Game) untapStep(controller PlayerController) {
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
 		wasTapped := c.Tapped
-		if !g.untapBlocked(c) {
+		exerted := c.Exerted
+		c.Exerted = false
+		if !exerted && !g.untapBlocked(c) {
 			c.Tapped = false
 			if wasTapped {
 				g.checkUntapsTriggers(controller, id)

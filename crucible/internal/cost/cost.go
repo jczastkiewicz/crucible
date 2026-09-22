@@ -56,20 +56,24 @@ func (c Cost) IsPureMana() bool {
 // (Exile<1/CARDNAME>, the identical self-reference shape for exile rather
 // than sacrifice), an optional self-return (Return<1/CARDNAME>, the
 // identical self-reference shape for "return to hand"), an optional
-// "discard N cards of your choice" (Discard<N/Card>), an optional "pay N
-// life" (PayLife<N>), an optional "pay N energy counters" (PayEnergy<N>),
-// an optional "tap N untapped permanents of a type" (tapXType<N/Type>), and
-// an optional "return N permanents of a type you control to their owner's
-// hand" (Return<N/Type>, tapXType's own sibling: past SelfReturn, "any
-// number greater than one" is always a choice among many, its own type spec
+// self-exert (Exert<1/CARDNAME>, CR 701.42a's own identical self-reference
+// shape for "exert this permanent" -- every real corpus Exert<...> cost line
+// names the self-reference shape, no chosen-type sibling exists the way
+// Sac/Exile/Return each have one), an optional "discard N cards of your
+// choice" (Discard<N/Card>), an optional "pay N life" (PayLife<N>), an
+// optional "pay N energy counters" (PayEnergy<N>), an optional "tap N
+// untapped permanents of a type" (tapXType<N/Type>), and an optional
+// "return N permanents of a type you control to their owner's hand"
+// (Return<N/Type>, tapXType's own sibling: past SelfReturn, "any number
+// greater than one" is always a choice among many, its own type spec
 // carried through unparsed for the identical reason TapTypeSpec's own is).
-// Each of the nine started as its own predicate (IsPureManaOrTap, then
+// Each started as its own predicate (IsPureManaOrTap, then
 // IsPureManaTapAndSelfSac, SelfSac) before this type replaced all three the
 // first three grew into: Discard's own count could not fit a bool the way
 // Tap and SelfSac could, and three near-identical predicates was already the
 // sign a fourth should not be a fourth. Every primitive since slotted into
 // the same struct rather than becoming that fourth (then fifth, sixth,
-// seventh, eighth, ninth) predicate all over again.
+// seventh, eighth, ninth, tenth) predicate all over again.
 type ActivationShape struct {
 	Tap bool
 	// SelfSac is Sac<1/CARDNAME>'s (or Sac<1/NICKNAME>'s -- CostPart.java's
@@ -86,6 +90,12 @@ type ActivationShape struct {
 	// mutually exclusive with both SelfSac and SelfExile in every real
 	// corpus line.
 	SelfReturn bool
+	// SelfExert is Exert<1/CARDNAME|NICKNAME>'s own presence -- SelfSac's
+	// own third sibling, "exert this permanent" (CR 701.42a), mutually
+	// exclusive with SelfSac/SelfExile/SelfReturn in every real corpus line
+	// (exerting a permanent that also leaves the battlefield in the same
+	// cost payment would have nothing left to not-untap next turn).
+	SelfExert bool
 	// DiscardN is Discard<N/Card>'s own N, or 0 when the cost names no
 	// Discard part at all. Never negative -- ActivationShape's own second
 	// result is false for anything that would make it so.
@@ -129,10 +139,10 @@ func isSelfReferenceField(field string) bool {
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the nine primitives [ActivationShape] carries, decomposed
+// zero or more of the ten primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>/
-// Return<...>, a Discard<...> past the literal "N/Card" shape (a
+// Return<...>/Exert<...>, a Discard<...> past the literal "N/Card" shape (a
 // self-discard, a random discard, a type-restricted choice, ...), a
 // PayLife<...> or PayEnergy<...> past a literal positive integer
 // (PayLife<X>/PayEnergy<X> and their own kin -- an amount this port has no
@@ -155,6 +165,8 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			shape.SelfExile = true
 		case p.Name == "Return" && !shape.SelfReturn && shape.ReturnTypeN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfReturn = true
+		case p.Name == "Exert" && !shape.SelfExert && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+			shape.SelfExert = true
 		case p.Name == "Discard" && shape.DiscardN == 0 && p.Field(1) == "Card":
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {

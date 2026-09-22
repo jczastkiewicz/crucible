@@ -2,13 +2,14 @@
 // shapes -- mana, an optional Tap-self token, an optional self-sacrifice
 // token (Sac<1/CARDNAME>), an optional self-exile token (Exile<1/CARDNAME>),
 // an optional self-return token (Return<1/CARDNAME>, "return this permanent
-// to its owner's hand"), an optional "discard N cards of your choice"
-// (Discard<N/Card>), an optional "pay N life" (PayLife<N>), an optional
-// "pay N energy counters" (PayEnergy<N>), an optional "tap N untapped
-// permanents of a type" (tapXType<N/Type>), and an optional "return N
-// permanents of a type you control" (Return<N/Type>), in any combination
-// (cost.Cost.ActivationShape, internal/cost) -- the only primitives this
-// port has payment machinery for. Java's own entry
+// to its owner's hand"), an optional self-exert token (Exert<1/CARDNAME>,
+// CR 701.42a), an optional "discard N cards of your choice" (Discard<N/Card>),
+// an optional "pay N life" (PayLife<N>), an optional "pay N energy counters"
+// (PayEnergy<N>), an optional "tap N untapped permanents of a type"
+// (tapXType<N/Type>), and an optional "return N permanents of a type you
+// control" (Return<N/Type>), in any combination (cost.Cost.ActivationShape,
+// internal/cost) -- the only primitives this port has payment machinery
+// for. Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
 // input loop) is a real priority-window action; this port has no priority
 // window at all yet (game-state.md's own "Not ported yet" -- "ResolveStack
@@ -48,7 +49,7 @@ import (
 // intrinsic ability, TapLandForMana, manaability.go -- extending it to an
 // arbitrary permanent's own printed mana ability is not this shape), or the
 // line's own Cost$ has no ActivationShape (internal/cost) -- a chosen or
-// SVar-sized Sac<.../Exile<.../Return<...>, a Discard<...> past the literal
+// SVar-sized Sac<.../Exile<.../Return<.../Exert<...>, a Discard<...> past the literal
 // "N/Card" shape, a PayLife<...>/PayEnergy<...> past a literal positive
 // integer (PayLife<X>/PayEnergy<X> and their own kin, an amount this port
 // has no resolver to plug in here), a tapXType<...>/Return<...> naming a
@@ -96,7 +97,12 @@ import (
 // Mode$ ChangesZoneAll both fire the same way), then a self-return cost
 // actually returns the card to hand (returnCards, returncost.go,
 // exileCards's own sibling at the identical destination-only difference),
-// then a Discard component asks ChooseCardsToDiscard for exactly DiscardN
+// then a self-exert cost marks the card Exerted (Card.Exerted, card.go) and
+// fires CR 701.42a's own trigger (checkExertedTriggers, exertcost.go) --
+// unlike Sac/Exile/Return, exerting moves nothing and pays off nothing here
+// at all: CR 701.42b's own "doesn't untap next turn" cost is entirely
+// deferred to the exerting player's own next untapStep (turn.go), then a
+// Discard component asks ChooseCardsToDiscard for exactly DiscardN
 // cards and discards them
 // (discardCards, discardeffect.go, reused wholesale the identical way), then
 // a PayLife component subtracts PayLifeN from Player.Life and emits the
@@ -122,15 +128,16 @@ import (
 // above already reuses it) -- CR 602.2g's own "costs are paid together" is
 // approximated here as "check every cost for feasibility first, then commit
 // each one, mana first, tap second, sacrifice third, exile fourth, return
-// fifth, discard sixth, life seventh, energy eighth, tap-by-type ninth,
-// return-by-type last," so a failed mana payment never leaves the permanent
-// tapped, sacrificed, exiled, returned, the player short a card, short
-// life, short energy, or another permanent wrongly tapped or returned for
-// nothing, and a Tap-self cost never taps a permanent that has already left
-// the battlefield. CR 601.2h's own "costs may be paid in any order" makes
-// this ordering a free choice, not an approximation of a specific one
-// Java's own CostPayment (a part-by-part, player-cancellable payment loop
-// this port does not build) would make instead.
+// fifth, exert sixth, discard seventh, life eighth, energy ninth,
+// tap-by-type tenth, return-by-type last," so a failed mana payment never
+// leaves the permanent tapped, sacrificed, exiled, returned, exerted, the
+// player short a card, short life, short energy, or another permanent
+// wrongly tapped or returned for nothing, and a Tap-self cost never taps a
+// permanent that has already left the battlefield. CR 601.2h's own "costs
+// may be paid in any order" makes this ordering a free choice, not an
+// approximation of a specific one Java's own CostPayment (a part-by-part,
+// player-cancellable payment loop this port does not build) would make
+// instead.
 //
 // A successful activation pushes through pushTriggeredAbilities
 // (trigger.go) with card's own controller as the sole entry -- resolving
@@ -228,6 +235,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfReturn {
 		returnCards(g, controller, []CardID{card})
+	}
+	if shape.SelfExert {
+		c.Exerted = true
+		g.checkExertedTriggers(controller, card)
 	}
 	if shape.DiscardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)

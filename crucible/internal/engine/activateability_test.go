@@ -1164,6 +1164,138 @@ func TestActivateAbilityDeclinesForNonLiteralReturnTypeCost(t *testing.T) {
 	}
 }
 
+// TestActivateAbilitySelfExertCostExertsSourceAndRunsEffect proves
+// Exert<1/CARDNAME> -- SelfSac's own fourth sibling shape -- actually marks
+// the source Exerted (Card.Exerted, card.go) and still lets the ability
+// resolve, unlike Sac/Exile/Return the source stays right where it is.
+func TestActivateAbilitySelfExertCostExertsSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Self Exert", "AB$ GainLife | Cost$ Exert<1/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(creature).Exerted {
+		t.Error("source not Exerted after an Exert<1/CARDNAME> activation")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Battlefield {
+		t.Errorf("source zone = %v, want Battlefield -- exerting does not move it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23", got)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndSelfExert proves Tap and SelfExert
+// compose on one line -- the source taps, then it is marked Exerted.
+func TestActivateAbilityCombinesTapAndSelfExert(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Tap Exert", "AB$ GainLife | Cost$ T Exert<1/CARDNAME> | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(creature).Tapped {
+		t.Error("source not tapped")
+	}
+	if !g.Card(creature).Exerted {
+		t.Error("source not Exerted")
+	}
+}
+
+// TestActivateAbilityDeclinesForChosenExertCost proves an Exert<...> naming
+// anything but the literal self-reference CARDNAME/NICKNAME -- a chosen
+// count here -- still declines outright: ActivationShape's own doc comment
+// has the reason (internal/cost).
+func TestActivateAbilityDeclinesForChosenExertCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Chosen Exert", "AB$ GainLife | Cost$ Exert<2/CARDNAME> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for Exert<2/CARDNAME>, want false")
+	}
+}
+
+// TestActivateAbilityExertCostFiresOwnTrigger proves checkExertedTriggers
+// (exertcost.go) actually fires CR 701.42a's own trigger for an
+// Exert<1/CARDNAME> cost, on the exerted card's own trigger.
+func TestActivateAbilityExertCostFiresOwnTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbilityAndTrigger(t, "Test Exert Own Trigger",
+		"AB$ GainLife | Cost$ Exert<1/CARDNAME> | Defined$ You | LifeAmount$ 1",
+		"Mode$ Exerted | ValidCard$ Card.Self | Execute$ TrigDraw")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the Exerted trigger's own Draw)", got)
+	}
+}
+
+// TestActivateAbilityExertCostFiresOtherWatcherTrigger proves the real
+// corpus shape -- a separate permanent watching "whenever you exert a
+// creature" (ValidCard$ Creature.YouCtrl) -- fires too, every one of the 5
+// real corpus T:Mode$ Exerted lines this exact shape.
+func TestActivateAbilityExertCostFiresOtherWatcherTrigger(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	watcher := diesTriggerCreatureDefWithLine(t, "2", "2",
+		"Mode$ Exerted | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw")
+	g.NewCard(watcher, p, engine.Battlefield)
+
+	def := creatureDefWithAbility(t, "Test Exert Other Watcher", "AB$ GainLife | Cost$ Exert<1/CARDNAME> | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("StackLen() = %d, want 2 (the activated ability plus the watcher's own Draw)", got)
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

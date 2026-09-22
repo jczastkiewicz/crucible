@@ -334,6 +334,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.KeywordMod.Clear()
 		c.Tapped = false
 		c.SummonSick = false
+		c.Exerted = false
 		c.ProtectingPlayer = NoPlayer
 		g.Unattach(id)
 		g.clearPumps(id)
@@ -403,6 +404,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.KeywordMod.Clear()
 		c.Tapped = false
 		c.SummonSick = false
+		c.Exerted = false
 		c.ProtectingPlayer = NoPlayer
 		g.Unattach(id)
 		g.clearPumps(id)

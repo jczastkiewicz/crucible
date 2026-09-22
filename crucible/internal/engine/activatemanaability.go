@@ -148,26 +148,31 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // integer (resolveNamedAmount, amount.go -- pumpAmount's own identical
 // plain-integer-or-SVar reading), or an unaffordable mana half of the cost.
 //
-// PayEnergy, SelfExile and tapXType are not declined the way Discard/
-// PayLife are: 4 real corpus A:AB$ Mana lines name PayEnergy<...>
-// (aether_hub.txt's/servant_of_the_conduit.txt's/solar_transformer.txt's own
-// real "T, Pay one energy counter: Add one mana of any color" among them), 1
-// names Exile<1/CARDNAME> (mirrored_lotus.txt's own real "T, Exile CARDNAME:
-// Add three mana of any one color"), and 22 more name tapXType<...>
-// (birchlore_rangers.txt's own real "Tap two untapped Elves you control:
-// Add one mana of any color" among them), so
-// unlike Discard/PayLife this function pays each the identical way
+// PayEnergy, SelfExile, SelfExert and tapXType are not declined the way
+// Discard/PayLife/Return are: 4 real corpus A:AB$ Mana lines name
+// PayEnergy<...> (aether_hub.txt's/servant_of_the_conduit.txt's/
+// solar_transformer.txt's own real "T, Pay one energy counter: Add one mana
+// of any color" among them), 1 names Exile<1/CARDNAME> (mirrored_lotus.txt's
+// own real "T, Exile CARDNAME: Add three mana of any one color"), 1 names
+// Exert<1/CARDNAME> with no other unresolved param (a second real line
+// combining it also names AddsKeywords$/AddsKeywordsValid$/
+// AddsKeywordsUntil$, already outside manaAbilityAllowedParams for an
+// unrelated reason, so it stays unreachable regardless of this landing), and
+// 22 more name tapXType<...> (birchlore_rangers.txt's own real "Tap two
+// untapped Elves you control: Add one mana of any color" among them), so
+// unlike Discard/PayLife/Return this function pays each the identical way
 // ActivateAbility does (Player.Counters, counters.go, subtracted and a
 // CounterChanged event emitted for PayEnergy; exileCards, exile.go, for
-// SelfExile; ChoosePermanentsToTap/tapChosenPermanents, taptype.go, for
+// SelfExile; Card.Exerted set and checkExertedTriggers fired, exertcost.go,
+// for SelfExert; ChoosePermanentsToTap/tapChosenPermanents, taptype.go, for
 // tapXType) rather than refusing a shape the corpus actually needs. A
 // tapXType component whose own type spec is unresolvable
 // (tapTypeResolvable, taptype.go) or whose own candidate count falls short
 // of TapTypeN declines the identical way ActivateAbility's own does.
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
-// self-sac third, exile fourth, energy seventh, tap-by-type last
-// (activateability.go's own doc comment has the CR 601.2h reasoning),
+// self-sac third, exile fourth, exert sixth, energy ninth, tap-by-type
+// tenth (activateability.go's own doc comment has the CR 601.2h reasoning),
 // reusing sacrificeCards (sacrificeeffect.go), exileCards (exile.go) and
 // tapChosenPermanents (taptype.go) the identical way. A Tap-self cost also
 // fires CR 603's own "taps for mana" trigger (checkTapsForManaTriggers,
@@ -177,7 +182,11 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // nothing, so nothing "becomes tapped to produce mana"); a tapXType
 // component's own tapped permanents fire only the ordinary "becomes tapped"
 // trigger, never "taps for mana" -- they did not themselves produce the
-// mana, the source card alone did.
+// mana, the source card alone did. A SelfExert component pays off nothing
+// here either -- CR 701.42b's own "doesn't untap next turn" cost is
+// entirely deferred to the exerting player's own next untapStep (turn.go),
+// the identical deferral activateability.go's own doc comment already
+// documents for SelfExert.
 func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
 	c := g.Card(card)
 	if c.Controller() != pid || c.Zone != Battlefield {
@@ -269,6 +278,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	if shape.SelfExile {
 		exileCards(g, controller, []CardID{card})
+	}
+	if shape.SelfExert {
+		c.Exerted = true
+		g.checkExertedTriggers(controller, card)
 	}
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)

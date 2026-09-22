@@ -53,14 +53,25 @@ type Card struct {
 	KeywordMod KeywordMod
 	ControlMod ControlMod
 
-	// Tapped and SummonSick are the two pieces of battlefield state every
-	// permanent carries that are not "how much of something" -- everything
-	// else that shape (Renowned, Monstrous, PhasedOut, and the rest of
-	// GameState's per-card annotation grammar) waits on the mechanic that
-	// reads it, which is card-type-specific and not built yet
+	// Tapped, SummonSick and Exerted are battlefield state every permanent
+	// carries that is not "how much of something" -- everything else that
+	// shape (Renowned, Monstrous, PhasedOut, and the rest of GameState's
+	// per-card annotation grammar) waits on the mechanic that reads it,
+	// which is card-type-specific and not built yet
 	// (porting/port-log/game-state-fixture.md).
 	Tapped     bool
 	SummonSick bool
+	// Exerted is CR 701.42a's own marker (Card.exertedByPlayer in Java,
+	// collapsed from a per-player set to a single bool -- this port's own
+	// activation-cost caller is always the card's own controller, and
+	// control does not realistically change between exerting and the
+	// exerting player's own next untap step for any real corpus card).
+	// untapStep (turn.go) reads it to skip untapping (Card.untap's own
+	// "isExertedBy(phase)" early return) and clears it unconditionally
+	// every untap step regardless, the identical unconditional-clear
+	// Untap.java's own separate "remove exerted flags from all things in
+	// play" pass already has.
+	Exerted bool
 
 	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
 	// per-card counter -- incremented once per combat this card is declared

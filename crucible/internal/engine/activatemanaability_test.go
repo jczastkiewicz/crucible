@@ -198,6 +198,36 @@ func TestActivateManaAbilityDeclinesWhenNotEnoughTapTypeCandidates(t *testing.T)
 	}
 }
 
+// TestActivateManaAbilityExertCost proves a self-exert cost composes here
+// exactly as it does for ActivateAbility (activateability.go) -- the real
+// corpus shape "T, Exert ~: Add two mana of any one color."
+func TestActivateManaAbilityExertCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Mana Exert", "AB$ Mana | Cost$ T Exert<1/CARDNAME> | Produced$ Any | Amount$ 2")
+	source := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.White)
+	if !g.ActivateManaAbility(p, source, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if !g.Card(source).Tapped {
+		t.Error("source not tapped")
+	}
+	if !g.Card(source).Exerted {
+		t.Error("source not Exerted")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{2, 0, 0, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want two white", got)
+	}
+}
+
 // TestActivateManaAbilityDeclinesWhenSummonSickWithoutHaste proves CR
 // 602.5b/302.6 applies to a mana dork the identical way it applies to any
 // other Tap-cost activated ability.
@@ -380,7 +410,7 @@ func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForDiscardCost proves a Discard<N/Card>
-// cost component -- one of cost.Cost.ActivationShape's own nine primitives,
+// cost component -- one of cost.Cost.ActivationShape's own ten primitives,
 // but 0 real corpus A:AB$ Mana lines ever carry it -- declines outright
 // rather than claiming the cost was paid while never actually discarding
 // anything (ActivateManaAbility's own doc comment has the reason, PORT-8/
@@ -407,7 +437,7 @@ func TestActivateManaAbilityDeclinesForDiscardCost(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForPayLifeCost proves a PayLife<N> cost
-// component -- one of cost.Cost.ActivationShape's own nine primitives, but
+// component -- one of cost.Cost.ActivationShape's own ten primitives, but
 // 0 real corpus A:AB$ Mana lines ever carry it -- declines outright rather
 // than claiming the cost was paid while never actually losing any life
 // (ActivateManaAbility's own doc comment has the reason, PORT-8/GO-7).

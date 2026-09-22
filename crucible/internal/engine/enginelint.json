@@ -58,6 +58,7 @@
     "exile": ["exile.go"],
     "taptype": ["taptype.go"],
     "returncost": ["returncost.go"],
+    "exertcost": ["exertcost.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"]
   },
@@ -297,6 +298,7 @@
     "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "taptype": ["id", "zone", "card", "game", "control", "valid", "trigger"],
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
+    "exertcost": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
     "targeting": ["id", "card", "game", "player", "ability", "control", "valid", "amount", "zone"],
     "subability": ["id", "game", "ability", "control", "effect"]
   }

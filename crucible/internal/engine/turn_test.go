@@ -261,6 +261,32 @@ func TestUntapClearsTappedAndSummonSickForTheActivePlayerOnly(t *testing.T) {
 	}
 }
 
+// TestUntapSkipsExertedPermanentAndClearsFlag proves CR 701.42b: an exerted
+// permanent does not untap during its controller's own next untap step
+// (Card.untap's own "isExertedBy(phase)" early return, ported as the
+// exerted check in untapStep, turn.go) -- but Exerted itself still clears
+// unconditionally that same step (Untap.java's own separate "remove exerted
+// flags" pass), so a second untap step would untap it normally.
+func TestUntapSkipsExertedPermanentAndClearsFlag(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	mine := g.NewCard(nil, a, engine.Battlefield)
+	g.Card(mine).Tapped = true
+	g.Card(mine).Exerted = true
+
+	g.StartTurn(a, engine.NewScriptedController())
+
+	if c := g.Card(mine); !c.Tapped {
+		t.Error("exerted permanent untapped on its own controller's next untap step, want it to stay tapped")
+	}
+	if c := g.Card(mine); c.Exerted {
+		t.Error("Exerted not cleared after the untap step it applied to, want false")
+	}
+}
+
 // The top of the library is index 0: a fixture author's left-to-right order
 // is top-to-bottom, and Load builds cards in that order.
 func TestDrawMovesTopOfLibraryToHand(t *testing.T) {

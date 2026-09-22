@@ -948,5 +948,19 @@ genuinely new trigger machinery too, `isExiledTrigger`'s own third sibling (`isR
 line naming `Return<1/CARDNAME>` is already unreachable for an unrelated reason (`SorcerySpeed$`), and 0 real lines name
 `Return<N/Type>` at all.
 
+`ActivateAbility`/`ActivateManaAbility` gained an eleventh cost primitive too — `Exert<1/CARDNAME>` (CR 701.42a,
+`SelfSac`'s own fourth self-reference sibling, 36 real lines, every one the self-reference shape — no chosen-type
+sibling exists here the way Sac/Exile/Return each have one). Unlike every other self-reference primitive, exerting moves
+nothing at all: `Card.Exerted` (a new field, `card.go`) is set and CR 701.42a's own trigger fires
+(`checkExertedTriggers`, new `exertcost.go`, `checkTapsTriggers`'s own single unified battlefield walk reused rather
+than the Dies/Exiled/Returned family's own separate own/other split, since exerting is not a zone change and needs no
+`g.LKI` lookback), but CR 701.42b's own actual cost — "it doesn't untap during your next untap step" — is entirely
+deferred to `untapStep` (`turn.go`), which now checks `Card.Exerted` before `untapBlocked` (`Card.untap`'s own
+`isExertedBy(phase)` ordering, ported directly) and clears the flag unconditionally every untap step regardless
+(`Untap.java`'s own separate "remove exerted flags from all things in play" pass). `Move`'s own battlefield-leaving
+reset (`game.go`) now clears `Exerted` too, alongside `Tapped`/`SummonSick`. `ActivateManaAbility` pays it rather than
+declining it — 1 real `AB$ Mana` line needs it (a second real line combining `Exert<1/CARDNAME>` with
+`AddsKeywords$`/`AddsKeywordsValid$`/`AddsKeywordsUntil$` stays unreachable regardless, for an unrelated reason).
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

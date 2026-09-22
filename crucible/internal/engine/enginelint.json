@@ -134,6 +134,7 @@
     "manaability": [
       "id",
       "zone",
+      "parts",
       "card",
       "game",
       "player",
@@ -142,12 +143,14 @@
       "ability",
       "manapay",
       "amount",
+      "event",
       "sacrificeeffect"
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
       "id",
       "zone",
+      "parts",
       "card",
       "game",
       "player",

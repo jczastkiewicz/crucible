@@ -289,7 +289,7 @@ func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForDiscardCost proves a Discard<N/Card>
-// cost component -- one of cost.Cost.ActivationShape's own three primitives,
+// cost component -- one of cost.Cost.ActivationShape's own five primitives,
 // but 0 real corpus A:AB$ Mana lines ever carry it -- declines outright
 // rather than claiming the cost was paid while never actually discarding
 // anything (ActivateManaAbility's own doc comment has the reason, PORT-8/
@@ -316,7 +316,7 @@ func TestActivateManaAbilityDeclinesForDiscardCost(t *testing.T) {
 }
 
 // TestActivateManaAbilityDeclinesForPayLifeCost proves a PayLife<N> cost
-// component -- one of cost.Cost.ActivationShape's own four primitives, but
+// component -- one of cost.Cost.ActivationShape's own five primitives, but
 // 0 real corpus A:AB$ Mana lines ever carry it -- declines outright rather
 // than claiming the cost was paid while never actually losing any life
 // (ActivateManaAbility's own doc comment has the reason, PORT-8/GO-7).
@@ -337,5 +337,63 @@ func TestActivateManaAbilityDeclinesForPayLifeCost(t *testing.T) {
 	}
 	if got := g.Player(p).Life; got != 20 {
 		t.Errorf("life = %d, want 20 -- a declined activation must not touch life", got)
+	}
+}
+
+// TestActivateManaAbilityPaysEnergyCost proves PayEnergy<N> is not declined
+// the way Discard/PayLife are -- aether_hub.txt's own real
+// "T, Pay one energy counter: Add one mana of any color" shape (4 real
+// corpus A:AB$ Mana lines carry PayEnergy<...>) pays it and still produces
+// mana.
+func TestActivateManaAbilityPaysEnergyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).Counters.Add(engine.Energy, 2)
+
+	def := creatureDefWithAbility(t, "Test Mana Pay Energy", "AB$ Mana | Cost$ T PayEnergy<1> | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Blue)
+	if !g.ActivateManaAbility(p, rock, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if !g.Card(rock).Tapped {
+		t.Error("source not tapped after a Cost$ T PayEnergy<1> mana ability")
+	}
+	if got := g.Player(p).Counters.Count(engine.Energy); got != 1 {
+		t.Errorf("Energy count = %d, want 1 (2 - 1 paid)", got)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 1, 0, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one blue -- the queued ChooseManaColor answer", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesWhenEnergyTooLowForPayEnergyCost proves a
+// PayEnergy<N> cost declines outright with no side effect when the player's
+// own Energy counter count is below N.
+func TestActivateManaAbilityDeclinesWhenEnergyTooLowForPayEnergyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).Counters.Add(engine.Energy, 0)
+
+	def := creatureDefWithAbility(t, "Test Mana Pay Energy Too Low", "AB$ Mana | Cost$ T PayEnergy<1> | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Blue)
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true with 0 energy for a PayEnergy<1> cost, want false")
+	}
+	if g.Card(rock).Tapped {
+		t.Error("source tapped for a declined PayEnergy<1> mana ability, want untapped")
 	}
 }

@@ -53,13 +53,14 @@ func (c Cost) IsPureMana() bool {
 // in Cost.Mana itself -- an optional Tap-self token, an optional
 // self-sacrifice (Sac<1/CARDNAME>, "sacrifice this permanent," fetch lands'
 // and sac outlets' own dominant real shape), an optional "discard N cards of
-// your choice" (Discard<N/Card>), and an optional "pay N life"
-// (PayLife<N>). Each of the four started as its own predicate
-// (IsPureManaOrTap, then IsPureManaTapAndSelfSac, SelfSac) before this type
-// replaced all three the first three grew into: Discard's own count could not
-// fit a bool the way Tap and SelfSac could, and three near-identical
-// predicates was already the sign a fourth should not be a fourth. PayLife
-// slotted into the same struct rather than becoming that fourth predicate all
+// your choice" (Discard<N/Card>), an optional "pay N life" (PayLife<N>), and
+// an optional "pay N energy counters" (PayEnergy<N>). Each of the five
+// started as its own predicate (IsPureManaOrTap, then
+// IsPureManaTapAndSelfSac, SelfSac) before this type replaced all three the
+// first three grew into: Discard's own count could not fit a bool the way Tap
+// and SelfSac could, and three near-identical predicates was already the sign
+// a fourth should not be a fourth. PayLife and PayEnergy each slotted into
+// the same struct rather than becoming that fourth (then fifth) predicate all
 // over again.
 type ActivationShape struct {
 	Tap bool
@@ -73,18 +74,22 @@ type ActivationShape struct {
 	// PayLifeN is PayLife<N>'s own N, or 0 when the cost names no PayLife
 	// part at all. Never negative, the identical guarantee DiscardN carries.
 	PayLifeN int
+	// PayEnergyN is PayEnergy<N>'s own N, or 0 when the cost names no
+	// PayEnergy part at all. Never negative, the identical guarantee DiscardN
+	// and PayLifeN both carry.
+	PayEnergyN int
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the four primitives [ActivationShape] carries, decomposed
+// zero or more of the five primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>, a Discard<...> past
 // the literal "N/Card" shape (a self-discard, a random discard, a
-// type-restricted choice, ...), a PayLife<...> past a literal positive
-// integer (PayLife<X> and its own kin -- an amount this port has no
-// X-value/computed-life-total resolver to plug in here), or any other named
-// Part -- PORT-8/GO-7's "skip the whole line" applied at the cost's own shape
-// rather than guessing at a partial payment.
+// type-restricted choice, ...), a PayLife<...> or PayEnergy<...> past a
+// literal positive integer (PayLife<X>/PayEnergy<X> and their own kin -- an
+// amount this port has no X-value/computed-total resolver to plug in here),
+// or any other named Part -- PORT-8/GO-7's "skip the whole line" applied at
+// the cost's own shape rather than guessing at a partial payment.
 func (c Cost) ActivationShape() (ActivationShape, bool) {
 	if c.Untap || c.Mandatory || c.XMin != "" {
 		return ActivationShape{}, false
@@ -108,6 +113,12 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 				return ActivationShape{}, false
 			}
 			shape.PayLifeN = n
+		case p.Name == "PayEnergy" && shape.PayEnergyN == 0:
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.PayEnergyN = n
 		default:
 			return ActivationShape{}, false
 		}

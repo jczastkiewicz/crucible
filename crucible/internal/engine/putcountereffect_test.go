@@ -346,7 +346,7 @@ func TestPutCounterEffectEmitsCounterChangedEventForNamedType(t *testing.T) {
 }
 
 // TestPutCounterEffectSkipsEventForUnnamedType proves the documented
-// counterDetail gap (event.go): a script-written CounterType past the eight
+// counterDetail gap (event.go): a script-written CounterType past the nine
 // named constants still gets the counter (Counters.Add has no such limit)
 // but emits no CounterChanged event, rather than one whose own Detail lies
 // about what kind changed.
@@ -360,16 +360,16 @@ func TestPutCounterEffectSkipsEventForUnnamedType(t *testing.T) {
 	var sink recordingSink
 	g.SetSink(&sink)
 
-	creature, err := castETBPutCounter(t, g, p, etbPutCounterTriggerDefParams(t, "Test Unnamed Type", "Defined$ Self | CounterType$ ENERGY | CounterNum$ 1", nil))
+	creature, err := castETBPutCounter(t, g, p, etbPutCounterTriggerDefParams(t, "Test Unnamed Type", "Defined$ Self | CounterType$ EXPERIENCE | CounterNum$ 1", nil))
 	if err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
-	if n := g.Card(creature).Counters.Count(engine.CounterType("ENERGY")); n != 1 {
-		t.Errorf("ENERGY count = %d, want 1 -- the counter itself must still be added", n)
+	if n := g.Card(creature).Counters.Count(engine.CounterType("EXPERIENCE")); n != 1 {
+		t.Errorf("EXPERIENCE count = %d, want 1 -- the counter itself must still be added", n)
 	}
 	for _, e := range sink.events {
 		if e.Kind == engine.CounterChanged {
-			t.Error("saw a CounterChanged event for CounterType$ ENERGY, want none -- counterDetail's own closed set does not cover it")
+			t.Error("saw a CounterChanged event for CounterType$ EXPERIENCE, want none -- counterDetail's own closed set does not cover it")
 		}
 	}
 }

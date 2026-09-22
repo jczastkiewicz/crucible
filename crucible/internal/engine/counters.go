@@ -27,6 +27,11 @@ const (
 	// Poison is a player-level counter. Ten or more is a state-based loss
 	// (CR 704.5c) -- the only rule that currently reads a player's Counters.
 	Poison CounterType = "POISON"
+	// Energy is a player-level counter CR 122.5's PayEnergy<N> activation
+	// cost (activateability.go/activatemanaability.go) spends -- unlike
+	// Poison, nothing in the rules ever adds a *threshold* check against it;
+	// a player's own count is only ever read to see whether N is affordable.
+	Energy CounterType = "ENERGY"
 )
 
 // Counters is what a card has on it.

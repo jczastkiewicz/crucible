@@ -4914,6 +4914,83 @@ decline for `PayLife<X>` (the non-literal shape); `activatemanaability_test.go` 
 table with `PayLife` alone, combined with each of the other three primitives, and three more reject cases (`PayLife<0>`,
 `PayLife<X/...>`, a duplicate `PayLife<1> PayLife<1>`).
 
+## PayEnergy<N> activation cost lands
+
+`ActivationShape`'s own doc comment (above, `PayLife<N>`'s own landing) already named `PayEnergy<...` as the next
+candidate primitive. A corpus scan for it: 59 real non-`AB$ Mana` `A:AB$` lines name `PayEnergy<...>` as a cost part, 56
+of them a literal positive integer (15 `PayEnergy<1>`, 13 `PayEnergy<2>`, 12 `PayEnergy<3>`, 5 `PayEnergy<6>`, 4
+`PayEnergy<8>`, 4 `PayEnergy<4>`, 2 `PayEnergy<5>`, 1 `PayEnergy<50>`), 3 more naming `PayEnergy<X>` -- the identical
+"no X-value resolver" gap `PayLife<X>` already has, not a new omission. Every real line combines it with only mana/
+Tap/self-sac/PayLife -- one line (`Cost$ PayEnergy<8> Exile<1/CARDNAME>`) also names `Exile<...>`, a primitive
+`ActivationShape` does not carry, so that one line stays unreachable regardless of this landing (PORT-8/GO-7's "skip the
+whole line").
+
+`PayEnergyN int` joined `ActivationShape` directly (`internal/cost/cost.go`) as its sixth field, the parsing case
+mirroring `PayLife`'s own exactly (`case p.Name == "PayEnergy" && shape.PayEnergyN == 0:`, the identical zero-value
+guard, no separate duplicate check needed).
+
+Reading `CostPayEnergy.java` and `Player.payEnergy`/`loseEnergy` (`Player.java:611-629`) directly answered the same
+question `PayLife<N>`'s own landing asked, with a simpler result this time: `Player.payEnergy` calls
+`canPayEnergy(n) && loseEnergy(n)`, and `loseEnergy` calls `subtractCounter(CounterEnumType.ENERGY, n, this)` -- an
+ordinary counter removal with **no trigger fired at all**, unlike `Player.payLife`'s own `TriggerType.PayLife` call.
+Forge's own `TriggerType` enum has no `PayEnergy` (or `EnergyPaid`) mode whatsoever -- not "0 real corpus lines use it,"
+the way `PayLife`'s mode is, but the mode does not exist to check for in the first place, confirmed by grepping both
+`TriggerType.java` and the whole corpus for any `Mode$` naming energy. So this cost primitive needed no "skip this
+trigger check" doc-comment caveat the way `PayLife`/`Discard` both do -- there is nothing here Java itself ever checks.
+
+`Energy CounterType = "ENERGY"` joined the named constants in `counters.go`, alongside `Poison` -- the port's second
+player-level counter kind. `CounterDetailEnergy` joined `event.go`'s own closed `CounterDetail` set (now nine values,
+not eight) so `emitCounterChanged` -- `putCounterEffect`'s own event-emission helper, reused wholesale rather than
+duplicated -- actually emits a `CounterChanged` event for it instead of silently dropping one the way it still does for
+every counter kind outside the closed set. This closed-set extension had one unplanned side effect:
+`TestPutCounterEffectSkipsEventForUnnamedType` (`putcountereffect_test.go`) had picked `CounterType$ ENERGY` as its own
+example of a counter kind past the closed set -- true when that test was written, false the instant `Energy` joined it.
+Caught by the gate sweep's own full test run, not by any special review step; fixed by swapping the example to
+`EXPERIENCE` (a real Magic counter kind this port still does not name), which is still genuinely outside the closed set.
+The unrelated `TestPutCounterEffectDefinedYouAddsPlayerCounter`, which also uses `CounterType$ ENERGY` as a plain
+example value with no event assertion, needed no change -- it never depended on `ENERGY` being unnamed.
+
+`ActivateAbility`'s own execution (`activateability.go`) mirrors `putCounterEffect`'s own player-counter branch:
+subtract `PayEnergyN` from `g.Player(pid).Counters` via `Counters.Add(Energy, -shape.PayEnergyN)`, then
+`emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)`. Feasibility runs before commitment the
+identical way every other primitive's own does: `shape.PayEnergyN > g.Player(pid).Counters.Count(Energy)` declines
+outright. The regression-toggle pass found a third distinct shape for what disabling a feasibility guard produces --
+Discard's own disabled guard panics (`ChooseCardsToDiscard` has no cards left to hand out), `PayLife`'s own produces a
+clean failed assertion (`Player.Life` has no floor of its own), and disabling this one **also** produces a clean failed
+assertion, but for a different structural reason: `Counters.Add`'s own delta-clamp (`counters.go`, "the total never goes
+below zero") silently clamps the over-large subtraction to 0 rather than going negative _or_ panicking, so the only
+symptom is the activation wrongly succeeding and the count wrongly landing at 0 instead of unchanged -- the guard is
+still load-bearing, just masked by a different piece of existing code than either of the other two primitives' guards
+are.
+
+Unlike every primitive before it, `PayEnergy` is **not** declined by `ActivateManaAbility` -- 4 real `AB$ Mana` lines
+actually carry it (`aether_hub.txt`'s/`servant_of_the_conduit.txt`'s/`solar_transformer.txt`'s own real
+`Cost$ T PayEnergy<1> | Produced$ Any`, "T, Pay one energy counter: Add one mana of any color," plus
+`conversion_apparatus.txt`'s own `Cost$ T PayEnergy<3> | Produced$ Combo Any`, still unreachable regardless since
+`Combo Any` itself is not a built `Produced$` shape). `ActivateManaAbility` pays it the identical way `ActivateAbility`
+does (feasibility check, then `Counters.Add`/`emitCounterChanged`, committed after self-sac and before the pool actually
+receives mana), rather than refusing a shape the corpus needs the way it still refuses `Discard`/`PayLife` (0 real
+`AB$ Mana` lines for either of those). This is the first `ActivationShape` primitive both dispatch functions actually
+execute rather than one declining what the other runs.
+
+Adding `g.Player(pid).Counters` to both `activateability.go` and `activatemanaability.go` surfaced two `enginelint` gaps
+at once: neither the `castspell` nor the `manaability` group's own allow-list had ever needed the `parts` group before
+(`Counters`/`Energy` are declared in `counters.go`, grouped under `parts` alongside `pt.go`/`typemod.go`/...), and
+`manaability` additionally needed `event` added for `emitCounterChanged` (`castspell` already had `event` from
+`PayLife<N>`'s own `LifeChanged` emission). Both fixed in `enginelint.json` before the sweep went green.
+
+9 new tests: `activateability_test.go` gained four, mirroring `PayLife`'s own set exactly -- a `PayEnergy<2>` cost on a
+`Draw` ability subtracting the Energy counter, emitting `CounterChanged` with `Detail == CounterDetailEnergy`, and still
+resolving the draw; a decline when Energy is below `PayEnergyN` with no side effect; `Tap` and `PayEnergy` composing on
+one line; a decline for `PayEnergy<X>` (the non-literal shape). `activatemanaability_test.go` gained three: a resolving
+`Cost$ T PayEnergy<1> | Produced$ Any` activation (the real `aether_hub.txt` shape) that taps, pays energy, and adds the
+chosen color to the pool; a decline when Energy is too low, asserting the source stays untapped; the pre-existing
+`TestActivateManaAbilityDeclinesForPayLifeCost`/`TestActivateManaAbilityDeclinesForDiscardCost` doc comments' own stale
+"one of `ActivationShape`'s own four/three primitives" counts corrected to "five" in the same pass (`DOC-16`, caught
+while writing this landing's own doc comment, not a new gap this landing introduced). `internal/cost/parsing_test.go`
+extended `TestActivationShape`'s own table with `PayEnergy` alone, combined with each of the other four primitives, and
+three more reject cases (`PayEnergy<0>`, `PayEnergy<X>`, a duplicate `PayEnergy<1> PayEnergy<1>`).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

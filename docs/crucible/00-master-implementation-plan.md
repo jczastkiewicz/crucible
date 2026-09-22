@@ -1953,6 +1953,21 @@ printed form.
     what caused the loss. `ActivateManaAbility` declines any `PayLifeN > 0` the identical way it already declines
     `DiscardN > 0` (0 real `AB$ Mana` lines carry `PayLife<...>` either).
 
+    **`ActivateAbility` gained a sixth cost primitive too** -- `PayEnergy<N>`, "pay N energy counters" (CR 122.5), 56
+    more real non-`AB$ Mana` `A:AB$` lines. `PayEnergyN` slotted straight into `ActivationShape` (internal/cost) rather
+    than becoming a sixth near-identical predicate. A feasibility check first confirms
+    `Player.Counters.Count(Energy) >= PayEnergyN`, run before anything else commits the identical way every other cost
+    primitive's own feasibility check already is; committing subtracts `PayEnergyN` from the player's own `Energy`
+    counter (`Player.Counters`, `counters.go` -- a new named `CounterType` constant, joining `Poison`) and emits the
+    identical `CounterChanged` event `putCounterEffect` already emits for a player-level counter (a new
+    `CounterDetailEnergy` value, `event.go`'s own closed set, extended alongside it). Verified by reading
+    `CostPayEnergy.java`/`Player.payEnergy` directly: unlike `Player.payLife`, `Player.payEnergy` fires no trigger of
+    its own at all -- Forge's own `TriggerType` has no `PayEnergy` mode to even skip, a simpler case than `PayLife`'s
+    own "the mode exists but 0 real lines use it." Unlike `Discard`/`PayLife`, `ActivateManaAbility` does **not**
+    decline `PayEnergyN > 0`: 4 real `AB$ Mana` lines actually carry it (`aether_hub.txt`'s own real "T, Pay one energy
+    counter: Add one mana of any color," `Cost$ T PayEnergy<1> | Produced$ Any`), so this is the first `ActivationShape`
+    primitive both dispatch functions actually pay rather than one declining what the other executes.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

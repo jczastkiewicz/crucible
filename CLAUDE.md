@@ -894,5 +894,16 @@ same `ActivationShape` struct rather than becoming a fifth near-identical predic
 `PayLifeN > 0` the identical way it already declines `DiscardN > 0` (0 real `AB$ Mana` lines carry `PayLife<...>`
 either).
 
+`ActivateAbility` gained a sixth cost primitive too — `PayEnergy<N>`, "pay N energy counters" (CR 122.5), 56 more real
+non-`AB$ Mana` `A:AB$` lines — checking `Player.Counters.Count(Energy) >= N` first, then subtracting `N` and emitting
+the identical `CounterChanged` event `putCounterEffect` already emits for a player-level counter (`Player.payEnergy` in
+Java routes through an ordinary `subtractCounter` call with no trigger of its own — unlike `PayLife`, Forge's own
+`TriggerType` has no `PayEnergy` mode to even skip). `PayEnergyN` slotted into the same `ActivationShape` struct rather
+than becoming a sixth near-identical predicate; `Energy` joined `counters.go`'s named `CounterType` constants and
+`event.go`'s closed `CounterDetail` set alongside it. Unlike `Discard`/`PayLife`, `ActivateManaAbility` does **not**
+decline `PayEnergyN > 0` — 4 real `AB$ Mana` lines actually carry it (`aether_hub.txt`'s own real "T, Pay one energy
+counter: Add one mana of any color" among them), so it pays the cost the identical way `ActivateAbility` does instead of
+refusing a shape the corpus needs.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

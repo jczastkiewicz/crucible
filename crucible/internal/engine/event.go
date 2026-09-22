@@ -112,7 +112,7 @@ type Sink interface {
 }
 
 // CounterDetail is the Event.Detail payload a CounterChanged event carries.
-// Closed over the eight named CounterType constants (counters.go), not every
+// Closed over the nine named CounterType constants (counters.go), not every
 // string CounterType allows: nothing yet creates a counter from a
 // script-written name -- that needs a SpellAbility to run one, M6 -- so
 // there is no open-string case to encode today. Extending this switch, or
@@ -134,6 +134,7 @@ const (
 	CounterDetailStun
 	CounterDetailShield
 	CounterDetailPoison
+	CounterDetailEnergy
 )
 
 // counterDetail maps t to the Detail value CounterChanged carries for it, and
@@ -156,6 +157,8 @@ func counterDetail(t CounterType) (CounterDetail, bool) {
 		return CounterDetailShield, true
 	case Poison:
 		return CounterDetailPoison, true
+	case Energy:
+		return CounterDetailEnergy, true
 	default:
 		return counterDetailNone, false
 	}

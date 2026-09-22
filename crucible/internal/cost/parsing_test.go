@@ -190,9 +190,9 @@ func TestIsPureMana(t *testing.T) {
 	}
 }
 
-// TestActivationShape covers Tap, SelfSac, Discard and PayLife both alone and
-// combined -- the shape ActivateAbility/ActivateManaAbility (internal/engine)
-// actually pay.
+// TestActivationShape covers Tap, SelfSac, Discard, PayLife and PayEnergy
+// both alone and combined -- the shape ActivateAbility/ActivateManaAbility
+// (internal/engine) actually pay.
 func TestActivationShape(t *testing.T) {
 	t.Parallel()
 
@@ -220,6 +220,15 @@ func TestActivationShape(t *testing.T) {
 		{"Discard<1/Card> PayLife<1>", cost.ActivationShape{DiscardN: 1, PayLifeN: 1}, true},
 		{"1 T Sac<1/CARDNAME> Discard<1/Card> PayLife<2>",
 			cost.ActivationShape{Tap: true, SelfSac: true, DiscardN: 1, PayLifeN: 2}, true},
+		{"PayEnergy<1>", cost.ActivationShape{PayEnergyN: 1}, true},
+		{"PayEnergy<3>", cost.ActivationShape{PayEnergyN: 3}, true},
+		{"1 PayEnergy<3>", cost.ActivationShape{PayEnergyN: 3}, true},
+		{"T PayEnergy<1>", cost.ActivationShape{Tap: true, PayEnergyN: 1}, true},
+		{"Sac<1/CARDNAME> PayEnergy<1>", cost.ActivationShape{SelfSac: true, PayEnergyN: 1}, true},
+		{"Discard<1/Card> PayEnergy<1>", cost.ActivationShape{DiscardN: 1, PayEnergyN: 1}, true},
+		{"PayLife<1> PayEnergy<1>", cost.ActivationShape{PayLifeN: 1, PayEnergyN: 1}, true},
+		{"1 T Sac<1/CARDNAME> Discard<1/Card> PayLife<2> PayEnergy<3>",
+			cost.ActivationShape{Tap: true, SelfSac: true, DiscardN: 1, PayLifeN: 2, PayEnergyN: 3}, true},
 		{"Sac<1/Creature.Other/another creature>", cost.ActivationShape{}, false},
 		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},
@@ -229,6 +238,9 @@ func TestActivationShape(t *testing.T) {
 		{"PayLife<0>", cost.ActivationShape{}, false},
 		{"PayLife<X/half your life, rounded up>", cost.ActivationShape{}, false},
 		{"PayLife<1> PayLife<1>", cost.ActivationShape{}, false},
+		{"PayEnergy<0>", cost.ActivationShape{}, false},
+		{"PayEnergy<X>", cost.ActivationShape{}, false},
+		{"PayEnergy<1> PayEnergy<1>", cost.ActivationShape{}, false},
 		{"Untap Sac<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"Mandatory Sac<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"XMin1 Sac<1/CARDNAME>", cost.ActivationShape{}, false},

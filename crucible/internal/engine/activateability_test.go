@@ -534,6 +534,122 @@ func TestActivateAbilityDeclinesForNonLiteralPayLifeCost(t *testing.T) {
 	}
 }
 
+// TestActivateAbilityPayEnergyCostRunsEffectAndEmitsCounterChanged proves
+// PayEnergy<N> -- CR 122.5's "pay N energy counters" activation-cost shape --
+// subtracts N from the activating player's own Energy counter, emits the
+// identical CounterChanged event putCounterEffect's own does, and still lets
+// the ability resolve.
+func TestActivateAbilityPayEnergyCostRunsEffectAndEmitsCounterChanged(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Counters.Add(engine.Energy, 3)
+	g.NewCard(nil, p, engine.Library)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	def := creatureDefWithAbility(t, "Test Pay Energy", "AB$ Draw | Cost$ PayEnergy<2> | Defined$ You | NumCards$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Player(p).Counters.Count(engine.Energy); got != 1 {
+		t.Errorf("Energy count = %d, want 1", got)
+	}
+	var saw bool
+	for _, e := range sink.events {
+		if e.Kind == engine.CounterChanged && e.Detail == uint32(engine.CounterDetailEnergy) {
+			saw = true
+			if e.Amount != -2 {
+				t.Errorf("CounterChanged Amount = %d, want -2", e.Amount)
+			}
+		}
+	}
+	if !saw {
+		t.Error("no Energy CounterChanged event seen")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand size = %d, want 1 -- Draw must still resolve", got)
+	}
+}
+
+// TestActivateAbilityDeclinesWhenEnergyTooLowForPayEnergyCost proves a
+// PayEnergy<N> cost declines outright with no side effect when the player's
+// own Energy counter count is below N.
+func TestActivateAbilityDeclinesWhenEnergyTooLowForPayEnergyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Counters.Add(engine.Energy, 1)
+
+	def := creatureDefWithAbility(t, "Test Pay Energy Too Low", "AB$ GainLife | Cost$ PayEnergy<2> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true with 1 energy for a PayEnergy<2> cost, want false")
+	}
+	if got := g.Player(p).Counters.Count(engine.Energy); got != 1 {
+		t.Errorf("Energy count = %d, want 1 -- a declined activation must not touch it", got)
+	}
+}
+
+// TestActivateAbilityCombinesTapAndPayEnergyCost proves Tap and PayEnergy
+// compose on one line -- the source taps, then energy is paid, then the
+// ability still resolves.
+func TestActivateAbilityCombinesTapAndPayEnergyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Counters.Add(engine.Energy, 1)
+
+	def := creatureDefWithAbility(t, "Test Tap Pay Energy", "AB$ GainLife | Cost$ T PayEnergy<1> | Defined$ You | LifeAmount$ 4")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if !g.Card(creature).Tapped {
+		t.Error("creature not tapped after a Cost$ T PayEnergy<1> activation")
+	}
+	if got := g.Player(p).Counters.Count(engine.Energy); got != 0 {
+		t.Errorf("Energy count = %d, want 0 (1 - 1 paid)", got)
+	}
+}
+
+// TestActivateAbilityDeclinesForNonLiteralPayEnergyCost proves a
+// PayEnergy<...> naming anything but a literal positive integer -- an
+// X-cost here, PayEnergy<X> -- still declines outright: ActivationShape's
+// own doc comment has the reason (internal/cost).
+func TestActivateAbilityDeclinesForNonLiteralPayEnergyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Counters.Add(engine.Energy, 5)
+
+	def := creatureDefWithAbility(t, "Test Pay Energy X", "AB$ GainLife | Cost$ X PayEnergy<X> | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for PayEnergy<X>, want false")
+	}
+}
+
 // TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
 // collapses to CastSpell's own sorcery-speed shape: wrong phase, a
 // nonempty stack and a wrong-controller/off-battlefield source are all

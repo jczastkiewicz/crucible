@@ -852,5 +852,17 @@ cost went unpaid; the pushed ability then resolves normally even though its own 
 (CR 112.7a), the identical "ability survives its source" contract `SubAbility$` chaining into a just-sacrificed card's
 own `Defined$ Self` already relies on elsewhere.
 
+CR 605.3's own general mana ability landed too (`ActivateManaAbility`, activatemanaability.go) — every real card
+printing its own `A:AB$ Mana` line (rocks, dorks, Treasures), not only a basic land's synthesized intrinsic one
+(`TapLandForMana`, manaability.go). 2,156 real lines exist corpus-wide, 1,946 already matching `IsPureManaTapAndSelfSac`
+— the identical predicate `ActivateAbility` uses, reused outright since the two APIs never compete for the same line.
+`Produced$`'s own literal single-color/colorless shape (1,005 of the 1,946; `Any`/`Combo`/ `Chosen` — 833 more — ask a
+player to choose or reference an earlier choice, neither built) resolves through a new `producedManaColor`; a new
+positive allow-list, `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads
+(`compile.Ability.Params` is directly enumerable, so naming what it needs was shorter than naming everything it does
+not) — 850 of the 1,005 clear it and resolve end to end. Payment order matches `ActivateAbility`'s own exactly (mana,
+tap, self-sac), reusing `sacrificeCards` and `checkTapsForManaTriggers` (CR 603's own "taps for mana" trigger, fired
+only when the cost actually taps something) wholesale.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

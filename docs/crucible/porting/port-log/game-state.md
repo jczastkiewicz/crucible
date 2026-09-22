@@ -4615,6 +4615,75 @@ identical pairing `IsPureMana`/`IsPureManaOrTap` already share one for. Regressi
 `SelfSac`-gated payment branch failed exactly the two new tests that exercise it and no others, restored after
 confirming.
 
+## ActivateManaAbility lands, CR 605.3 past a basic land's own intrinsic version
+
+`TapLandForMana` (manaability.go) is CR 305.6's own synthesized mana ability -- a land with a basic land type gets it
+whether or not its own printed text carries an `A:` line at all. Every other real card that carries a printed
+`A:AB$ Mana` line -- rocks, dorks, Treasures -- stayed unreachable until now, even though nothing about CR 605.3's own
+payment rule differs between the two: a mana ability just resolves without the stack, whoever prints it. A fresh corpus
+scan (the same tokenizer-based one `ActivateAbility`'s own self-sac chunk built, above) found 2,156 real `A:AB$ Mana`
+lines corpus-wide, 1,946 of them already matching `IsPureManaTapAndSelfSac` (internal/cost) -- the identical predicate
+`ActivateAbility` already uses, reused outright rather than a second one: `ActivateAbility` itself refuses API `"Mana"`
+and `ActivateManaAbility` refuses anything else, so the two never compete for the same line.
+
+`Produced$`'s own values split the 1,946: 518 write `C` (colorless), 487 combined write a single literal WUBRG letter
+(146 `G`, 92 `U`, 87 `R`, 84 `B`, 78 `W`), 476 a fixed multi-symbol `Combo` list, 334 write `Any` (CR 605.3b's own
+"choose a color," a player decision this port has no `PlayerController` hook for yet), 23 `Chosen` (a color picked
+earlier in the same resolution, an SVar-like reference this dispatch does not follow), 108 something else or nothing at
+all. `producedManaColor` (activatemanaability.go) resolves the dominant literal shape only -- the 1,005 real `C`/WUBRG
+lines -- returning early for `Any`/`Combo`/`Chosen`/an absent `Produced$` rather than guessing a color (PORT-8/GO-7); CR
+605.3b's own chooser is a further chunk's own work, not built here.
+
+`manaAbilityAllowedParams` (activatemanaability.go) is a positive allow-list rather than the growing per-effect
+blocklists every script-driven `Effect` in this file uses (`pumpUnresolvedParams`, `sacrificeUnresolvedParams`, ...):
+`compile.Ability.Params` is directly enumerable (`[]vocab.Param`, compile.go), and a mana ability's own real param
+vocabulary is small enough (`AB$`/`Cost$`/`SpellDescription$`/`Produced$`/`Amount$`, five keys, against roughly twenty
+real ones corpus-wide) that naming the ones this dispatch reads is shorter than naming everything it does not. Of the
+1,005 real lines clearing `producedManaColor`, 850 clear this allow-list too and resolve end to end; the other 155 name
+at least one further param this port has no resolver for: `RestrictValid$` (53) tags the mana itself with a spending
+restriction (CR 106.6a's own "this mana can only be spent on...") this port's own `Pool` has no bucket for at all,
+distinct from every other cost or effect restriction this port already tracks; `SubAbility$` (28) chains a further
+ability this immediate, no-stack resolution has nowhere to route through `Registry.Resolve` -- a mana ability's own
+chain runs before the mana itself is even added, so reusing `resolveSubAbility` here would need a `*Registry` this
+function does not carry and an ordering question (`Registry.Resolve`'s own trailing-chain contract, effect.go, assumes
+its own effect body already ran) this file's own immediate-resolution shape does not fit cleanly; a bare `IsPresent$`/
+`ConditionCheckSVar$`/`ConditionSVarCompare$`/`PresentCompare$`/`CheckSVar$`/`SVarCompare$`/`OpponentTurn$` (26
+combined) is an "Activate only if..." restriction on the ability itself -- distinct from `subAbilityConditionMet`'s own
+`Condition$`-prefixed pair, which no real resolving `Mana` line in the corpus actually carries, so nothing here silently
+reuses that gate for the wrong key family; `TriggersWhenSpent$`/`AddsKeywords$`/`AddsKeywordsValid$`/
+`AddsKeywordsUntil$` (16 combined) tag the mana itself with a further effect once it is spent, a mechanic this port's
+own `Pool` cannot carry (mana in the pool is just a color and a snow flag, `Pool`'s own doc comment); `AILogic$`/
+`AINoRecursiveCheck$`/`PrecostDesc$`/`Activation$` (13 combined) are AI hinting or a further cost-description gate,
+neither read by anything real here.
+
+`Amount$` resolves through `resolveNamedAmount` (amount.go) -- `pumpAmount`'s own identical plain-integer-or-named-SVar
+reading, reused rather than re-derived -- defaulting to 1 when absent (`AbilityUtils.getParamOrDefault`'s own real
+default for this key). Payment order matches `ActivateAbility`'s own exactly: mana first, tap second, a self-sacrifice
+cost last, reusing `sacrificeCards` (sacrificeeffect.go) wholesale the identical way
+(`## ActivateAbility's own self-sacrifice cost`, above) -- CR 601.2h's own "any order" reasoning applies here too, so
+this is the same free implementation choice, not a second approximation of it. `checkTapsForManaTriggers` (trigger.go)
+-- CR 603's own "taps for mana" trigger, `TapLandForMana`'s own pairing alongside the ordinary "becomes tapped" one --
+fires only when the cost actually has a Tap component: a pure self-sacrifice mana ability (a Treasure-shaped "Sacrifice
+this artifact: Add one mana of any color," when it happens to name a literal color rather than `Any`) taps nothing, so
+nothing "becomes tapped to produce mana," the identical zero-Tap skip `ActivateAbility`'s own `checkTapsTriggers` call
+already has.
+
+Snow mana (CR 106.3a) is read the identical way `TapLandForMana` already reads it --
+`Card.Type().HasSupertype( cardtype.Snow)` -- even though no real non-land permanent in the corpus carries both the Snow
+supertype and a resolvable `AB$ Mana` line today: the check costs three lines and keeps this function's own contract
+exactly as general as `TapLandForMana`'s, rather than silently wrong the day a set prints one.
+
+8 new tests (`activatemanaability_test.go`): a literal single-color mana dork (`Cost$ T`) tapping and producing;
+`Produced$ C` adding colorless rather than a sixth color; a plain-integer `Amount$` multiplying the mana produced; a
+self-sacrifice cost composing the identical way it does for `ActivateAbility`; a decline for a summoning-sick,
+haste-less Tap-cost source; a decline for any API but `"Mana"`; a decline for `Produced$ Any`; a decline for a
+`RestrictValid$`-bearing line. `enginelint` group `manaability` gained a second file (`activatemanaability.go`) and its
+own allow-list grew to admit `ability`/`manapay`/`amount`/`sacrificeeffect` -- `manaAbility`'s own runtime `Ability`
+literal, `PayManaCost`, `resolveNamedAmount` and `sacrificeCards` respectively -- alongside the
+`id`/`zone`/`card`/`game`/`player`/`control`/`trigger` it already had. Regression-toggle: forcing `Amount$` to always
+resolve to 0 failed exactly the three tests that read a nonzero pool afterward (the plain single-color case, the
+colorless case, and the self-sac case) and no others, restored after confirming.
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

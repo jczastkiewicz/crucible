@@ -1880,6 +1880,27 @@ printed form.
     "ability survives its source" contract a `SubAbility$` chain into a just-sacrificed card's own `Defined$ Self`
     already relies on elsewhere in this port.
 
+    **CR 605.3's own general mana ability landed too** (`ActivateManaAbility`, activatemanaability.go) -- every real
+    card printing its own `A:AB$ Mana` line (rocks, dorks, Treasures), not only a basic land's synthesized intrinsic one
+    (`TapLandForMana`, manaability.go, CR 305.6). 2,156 real lines exist corpus-wide, 1,946 already matching
+    `IsPureManaTapAndSelfSac` (internal/cost) -- the identical predicate `ActivateAbility` already uses, reused outright
+    rather than a second one, since `ActivateAbility` itself refuses API `"Mana"` and `ActivateManaAbility` refuses
+    anything else. `Produced$`'s own dominant real shape within that 1,946 -- a single literal WUBRG letter or `C`
+    (colorless), 1,005 lines -- resolves through a new `producedManaColor`; `Any`/`Combo`/`Chosen` (833 combined) ask a
+    player to choose a color or reference one chosen earlier in the same resolution, neither built (CR 605.3b's own
+    chooser, a further chunk's own work); the remaining 108 name something else or no `Produced$` at all. A new positive
+    allow-list, `manaAbilityAllowedParams`, admits only the five real keys this dispatch reads or safely ignores
+    (`AB$`/`Cost$`/`SpellDescription$`/`Produced$`/`Amount$`) rather than a growing per-effect blocklist --
+    `compile.Ability.Params` is directly enumerable, so naming what a mana ability's own small real vocabulary needs was
+    shorter than naming the roughly twenty further keys it does not. 850 of the 1,005 clear it and resolve end to end;
+    the rest name `RestrictValid$` (53, a mana-pool spending restriction this port's own `Pool` has no bucket for),
+    `SubAbility$` (28, a further ability this immediate no-stack resolution has nowhere to route through
+    `Registry.Resolve`), a bare "activate only if..." restriction (`IsPresent$`/`ConditionCheckSVar$`/... 26 combined),
+    a mana-tagging effect (`TriggersWhenSpent$`/`AddsKeywords$`/... 16 combined), or AI hinting/a cost-description gate
+    (`AILogic$`/ `PrecostDesc$`/... 13 combined). Payment order matches `ActivateAbility`'s own exactly -- mana, tap,
+    self-sac, reusing `sacrificeCards` wholesale for the last -- and `checkTapsForManaTriggers` (CR 603's own "taps for
+    mana" trigger, `TapLandForMana`'s own pairing) fires only when the cost actually has a Tap component.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

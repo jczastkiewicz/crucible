@@ -1901,15 +1901,26 @@ printed form.
     mana" trigger, `TapLandForMana`'s own pairing) fires only when the cost actually has a Tap component.
 
     **`Produced$ Any` landed too** -- CR 605.3b's own "choose a color," 334 more of the 1,946. A new `PlayerController`
-    method, `ChooseManaColor` (its 28th), asks the decider directly -- distinct from `ChooseHybridManaColor`'s own
-    two-colour subset (CR 601.2h's own hybrid-payment decision), since the real corpus's own "Add one mana of any color"
-    always offers all five, never a restricted list. The answer is validated (`mana.Colors.Count() == 1`) before it ever
-    reaches `Pool.Add`, which panics on anything else -- `PlayerController`'s own "not re-checked, trust the
-    controller's answer" contract stops here rather than at that panic, since a bad script answer is a testing bug, not
-    an engine invariant breach (GO-7). The regression-toggle check for this guard demonstrated the point directly:
-    disabling it turned the expected test failure into an actual panic. `Combo` (476, a fixed multi-symbol list) and
-    `Chosen` (23, a color picked earlier in the same resolution) still are not built -- this port has not researched
-    `Combo`'s own real semantics yet, and `Chosen` needs an SVar-like reference this dispatch does not follow.
+    method, `ChooseManaColor` (its 28th), asks the decider directly, taking an `options mana.Colors` set -- distinct
+    from `ChooseHybridManaColor`'s own always-exactly-two contract (CR 601.2h's own hybrid-payment decision). The answer
+    is validated (`mana.Colors.Count() == 1`, and a member of `options`) before it ever reaches `Pool.Add`, which panics
+    on anything else -- `PlayerController`'s own "not re-checked, trust the controller's answer" contract stops here
+    rather than at that panic, since a bad script answer is a testing bug, not an engine invariant breach (GO-7). The
+    regression-toggle check for this guard demonstrated the point directly: disabling it turned the expected test
+    failure into an actual panic.
+
+    **`Produced$ Combo <letters>` landed too** -- CR 605.3b's own restricted-choice version of "Any," a dual/tri-land's
+    own real "Add W or U"/"Add G, U, or R" (`rootbound_crag.txt`'s/`rattleclaw_mystic.txt`'s own real shape), 367 more
+    of the 1,946. `ChooseManaColor`'s own `options` parameter -- added for exactly this, not only for "Any" -- narrows
+    to a new `parseComboColors`' own parsed letter set (two to four literal WUBRG letters; anything else -- `Combo Any`/
+    `Combo AnyDifferent`, 24 combined, CR 605.3b's own "add two mana in any combination of colors," a per-unit
+    independent choice this single-color-per-activation dispatch does not model; `ColorIdentity`, 6, Commander's own
+    format concept, untracked; a `Chosen` token, `producedManaColor`'s own identical unresolved reference -- fails the
+    whole match rather than guessing a subset, PORT-8/GO-7) rather than a second interface method. `ActivateManaAbility`
+    checks the answer is both exactly one color AND a member of that narrower set, the identical "trust ends here, not
+    at `Pool.Add`'s own panic" contract "Any" already has -- confirmed by its own regression-toggle test, disabling just
+    the `options.Has` half of the check failed only the one test built to catch a controller naming a color outside the
+    offered set.
 
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;

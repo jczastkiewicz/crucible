@@ -864,12 +864,17 @@ tap, self-sac), reusing `sacrificeCards` and `checkTapsForManaTriggers` (CR 603'
 only when the cost actually taps something) wholesale.
 
 `Produced$ Any` — CR 605.3b's own "choose a color," 334 more of the 1,946 — resolves too now, through a new
-`PlayerController` method, `ChooseManaColor` (its 28th) — distinct from `ChooseHybridManaColor`'s own two-color subset,
-since the real corpus's own "Add one mana of any color" always offers all five. A bad answer (not exactly one color)
-declines rather than reaching `Pool.Add`'s own panic — caught by the regression-toggle check itself: disabling the guard
-turned the expected test failure into an actual panic, proof the guard is load-bearing rather than defensive padding.
-`Combo` (476) and `Chosen` (23) still are not built — a fixed multi-symbol list whose real semantics this port has not
-researched, and a reference to a color chosen earlier in the same resolution, respectively.
+`PlayerController` method, `ChooseManaColor` (its 28th, taking an `options mana.Colors` set) — distinct from
+`ChooseHybridManaColor`'s own always-exactly-two contract. A bad answer (not exactly one color) declines rather than
+reaching `Pool.Add`'s own panic — caught by the regression-toggle check itself: disabling the guard turned the expected
+test failure into an actual panic, proof the guard is load-bearing rather than defensive padding.
+
+`Produced$ Combo <letters>` — a dual/tri-land's own real "Add W or U"/"Add G, U, or R," 367 more of the 1,946 — resolves
+too, reusing `ChooseManaColor` with `options` narrowed to the listed colors instead of all five (`parseComboColors`)
+rather than a second interface method: the answer is validated against that narrower set the identical way "Any"'s
+answer is validated against all five. `Combo Any`/`Combo AnyDifferent` (24, "add two mana in any combination of colors,"
+a per-unit independent choice this single-color-per-activation dispatch does not model), `ColorIdentity` (6, Commander's
+own color-identity set, untracked) and `Chosen` (a color picked earlier in the same resolution) still are not built.
 
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

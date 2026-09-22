@@ -158,7 +158,7 @@ func (c *scriptedMulliganController) ConfirmPayCost(_ *engine.Game, _ engine.Pla
 	panic("scriptedMulliganController: ConfirmPayCost was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ChooseManaColor(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) mana.Colors {
+func (c *scriptedMulliganController) ChooseManaColor(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ mana.Colors) mana.Colors {
 	panic("scriptedMulliganController: ChooseManaColor was not expected to be called")
 }
 

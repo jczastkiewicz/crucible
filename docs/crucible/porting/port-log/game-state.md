@@ -4693,14 +4693,13 @@ colorless case, and the self-sac case) and no others, restored after confirming.
 one mana of any color" (`Amount$` absent, one unit) or "Add two mana of any one color" (`Amount$` 2) -- a single color
 chosen once, every unit of it the same color, never a mixed combination -- exactly CR 605.3b's own text.
 
-A new `PlayerController` method, `ChooseManaColor` (its 28th, control.go), asks the decider directly. This is not a
-reuse of `ChooseHybridManaColor` (CR 601.2h's own hybrid-payment decision, manapay.go): that method's own doc comment
-says its `options` parameter "is exactly the two colours the symbol offers" -- a real precondition, not a suggestion --
-and every real `Produced$ Any` line offers all five, never a restricted subset (no line in the corpus scan carries any
-narrower shape). Reusing a method documented for a two-color choice to also ask a five-color one would leave that
-method's own contract silently wrong for one of its two callers, so `ChooseManaColor` takes no `options` parameter at
-all and is scoped to CR 605.3b specifically -- one new interface method per distinct real decision kind, the same
-discipline `ConfirmPayCost`/`ChooseTargets`/`ChoosePermanentsToSacrifice` were each added under already.
+A new `PlayerController` method, `ChooseManaColor` (its 28th, control.go), asks the decider directly, taking an
+`options mana.Colors` set -- `Any` itself always passes `mana.AllColors`. This is not a reuse of `ChooseHybridManaColor`
+(CR 601.2h's own hybrid-payment decision, manapay.go): that method's own doc comment says its own `options` parameter
+"is exactly the two colours the symbol offers" -- a real precondition, not a suggestion -- which a five-color "Any"
+choice would leave silently wrong for one of that method's two callers. `options` earns its keep past `Any` alone almost
+immediately -- `## Produced$ Combo lands`, below, is this exact parameter's own second real caller, a restricted
+two-to-four-color subset rather than all five.
 
 `ActivateManaAbility` (activatemanaability.go) validates the answer before using it: `mana.Colors.Count() != 1` returns
 `false` (declines the whole activation) rather than passing whatever came back straight to `Pool.Add`, which panics on
@@ -4720,6 +4719,59 @@ real implementers the identical way every prior interface addition has: `Scripte
 `ChooseManaColor`, control.go, `QueueHybridManaColor`'s own exact shape) and `scriptedMulliganController`
 (mulligan_test.go, a stub panicking "was not expected to be called," the same as every other method that struct never
 actually exercises).
+
+## Produced$ Combo lands, CR 605.3b's own restricted-choice version of "Any"
+
+`ChooseManaColor`'s own landing (above) closed `Produced$ Any` on the claim that "every real `Produced$ Any` line offers
+all five, never a restricted subset." That claim held for `Any` specifically, but a further corpus scan of the 476 real
+pure-cost `Produced$ Combo <...>` lines -- left declining outright at `ChooseManaColor`'s own landing, "a fixed
+multi-symbol list whose real semantics this port has not researched" -- found exactly the restricted subset
+`ChooseManaColor`'s own doc comment had already anticipated and left room for. Real examples (`rootbound_crag.txt`:
+`Produced$ Combo R G`, "Add {R} or {G}"; `rattleclaw_mystic.txt`: `Produced$ Combo G U R`, "Add {G}, {U}, or {R}")
+confirmed the dominant shape directly: a fixed list of two to four literal WUBRG letters, choose exactly one, add one
+unit of it -- CR 605.3b's own restricted-choice sibling to "Any," not a distinct mechanic.
+
+A new `parseComboColors` (activatemanaability.go) reads `"Combo W U"` into the `mana.Colors` bitmask `{White, Blue}`,
+then `ActivateManaAbility` calls the identical `ChooseManaColor` `Any` already calls, passing that narrower set as
+`options` instead of `mana.AllColors` -- the parameter `ChooseManaColor`'s own landing added specifically so a second
+restricted-choice caller would not need a second interface method, now used for exactly that. The scan surfaced three
+further real `Produced$` shapes past the literal letter list, all left unbuilt: `Combo Any`/`Combo AnyDifferent` (22 and
+2 lines, always paired with `Amount$ 2` -- "add two mana in any combination of colors"/"...of different colors," CR
+605.3b's own per-unit-independent-choice text, two separate color decisions rather than one repeated, a shape this
+single-`ChooseManaColor`-call-per-activation dispatch does not model); `ColorIdentity` (6, Commander's own
+color-identity set -- a format concept, distinct from a card's own printed colors, this port does not track anywhere);
+and a `Chosen` token inside the list (`thriving_isle.txt`'s own real "Add {U} or one mana of the chosen color" --
+`producedManaColor`'s own identical unresolved reference, an externally chosen color this dispatch has no memory slot to
+read). `parseComboColors` rejects each by construction: every one of those fails "every token past `Combo` is a single
+literal WUBRG letter" outright, so the whole match fails and the ability declines rather than resolving half a choice.
+
+`parseComboColors` itself does not reject a repeated letter (`Combo R R`, not a real corpus shape but a structurally
+possible one) -- `options` is a bitmask, so ORing the same bit twice changes nothing. A duplicate-rejecting check inside
+`parseComboColors`' own parsing loop (an identical-looking `options.Has(color)` call, but checking the letter just
+parsed against the ones already accumulated, not the final chosen color) was added during development, then toggled off
+to verify it -- every test stayed green, proof the check caught nothing a real corpus line could ever trigger, and it
+was dropped rather than kept as inert complexity (the anti-overengineering half of this session's own standing
+discipline, not a PORT-8/GO-7 correctness question -- accepting a harmless duplicate is not "applying half a script and
+guessing at the rest").
+
+`ActivateManaAbility` itself still validates the real controller answer twice, mirroring `Any`'s own pair of checks
+exactly: `color.Count() != 1` (the controller answered with something other than a single color) and
+`!options.Has(color)` (the controller answered with a color the `Combo` list never offered, a controller-side bug this
+dispatch catches rather than trusts) -- both decline rather than reaching `Pool.Add`'s own panic. A regression-toggle
+run on this pair confirmed the `options.Has` half specifically is load-bearing: disabling just it failed exactly
+`TestActivateManaAbilityDeclinesForOutOfComboColor` and no other test.
+
+367 of the corpus's own 476 real pure-cost `Produced$ Combo` lines resolve end to end (the literal-letter-list shape,
+past `manaAbilityAllowedParams`' own existing gate -- `SubAbility$`/`IsPresent$`/`ActivationLimit$`/`RestrictValid$`/
+`PlayerTurn$` block the remaining 109 the identical way they already block a literal-color or `Any` line naming them, no
+new blocking logic needed).
+
+3 new tests (`activatemanaability_test.go`): a queued answer inside a `Combo R G` land's own offered set producing
+exactly that color; a queued answer naming a color the land never offered (`Black` on a `Combo R G` land) declining;
+`Produced$ Combo Any` (the per-unit-independent-choice shape, above) declining outright since `parseComboColors` never
+matches it. `ChooseManaColor`'s own interface signature changed to add the `options` parameter -- the second edit to
+this exact method inside two commits, both of its real implementers (`ScriptedController`, `scriptedMulliganController`)
+updated the identical way `Any`'s own landing already updated them for the method's first addition.
 
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 

@@ -196,6 +196,76 @@ func TestActivateManaAbilityDeclinesForInvalidChosenColor(t *testing.T) {
 	}
 }
 
+// TestActivateManaAbilityAsksForComboColor proves the corpus's own dominant
+// dual/tri-land shape -- Produced$ Combo <letters> -- offers only the listed
+// colors (parseComboColors), not every color the way "Any" does.
+func TestActivateManaAbilityAsksForComboColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Combo Land", "AB$ Mana | Cost$ T | Produced$ Combo R G")
+	land := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Green)
+	if !g.ActivateManaAbility(p, land, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 0, 0, 1, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one green -- the queued ChooseManaColor answer", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesForOutOfComboColor proves a ChooseManaColor
+// answer naming a color the Combo list did not offer -- a controller
+// choosing Black for a "Combo R G" land -- declines rather than adding an
+// unlisted color, the identical "trust ends here, not at Pool.Add's own
+// panic" contract TestActivateManaAbilityDeclinesForInvalidChosenColor
+// already proves for "Any".
+func TestActivateManaAbilityDeclinesForOutOfComboColor(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Combo Wrong Color", "AB$ Mana | Cost$ T | Produced$ Combo R G")
+	land := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Black)
+	if g.ActivateManaAbility(p, land, 0, c) {
+		t.Error("ActivateManaAbility returned true for a Black answer on a Combo R G land, want false")
+	}
+}
+
+// TestActivateManaAbilityDeclinesForNonLiteralComboShape proves
+// parseComboColors refuses anything past a literal WUBRG letter list --
+// "Combo Any" here, CR 605.3b's own "add two mana in any combination of
+// colors" (a per-unit independent choice this dispatch does not model) --
+// rather than guessing at a subset (PORT-8/GO-7).
+func TestActivateManaAbilityDeclinesForNonLiteralComboShape(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Combo Any", "AB$ Mana | Cost$ T | Produced$ Combo Any | Amount$ 2")
+	rock := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true for Produced$ Combo Any, want false")
+	}
+}
+
 // TestActivateManaAbilityDeclinesForBlockedParam proves a param past
 // manaAbilityAllowedParams -- RestrictValid$ here, a mana-pool spending
 // restriction this port's own Pool cannot tag mana with -- declines the

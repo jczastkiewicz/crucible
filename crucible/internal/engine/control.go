@@ -339,18 +339,22 @@ type PlayerController interface {
 	// paying to prevent.
 	ConfirmPayCost(g *Game, decider PlayerID, cost mana.Cost, source CardID) bool
 
-	// ChooseManaColor decides which of the five colors a Produced$ Any mana
-	// ability adds (CR 605.3b, ActivateManaAbility, activatemanaability.go)
-	// -- distinct from ChooseHybridManaColor's own two-color subset: the
-	// real corpus's own "Add one mana of any color" always offers all five,
-	// never a restricted list, so this takes no options parameter at all.
+	// ChooseManaColor decides which color a Produced$ Any or Produced$ Combo
+	// mana ability adds (CR 605.3b, ActivateManaAbility,
+	// activatemanaability.go). options is the offered set -- AllColors for
+	// "Any" (the real corpus's own "Add one mana of any color" always offers
+	// all five), or the specific two-to-four colors a "Combo W U"-shaped
+	// dual/tri-land lists (a duo/triome's own real "Add W or U" shape) --
+	// distinct from ChooseHybridManaColor's own always-exactly-two contract
+	// (that method's own doc comment), which this one generalizes past.
 	// source is the permanent whose ability is resolving. The return value
-	// should be exactly one of White/Blue/Black/Red/Green -- not re-checked
-	// by the interface itself, but ActivateManaAbility validates it before
-	// ever calling Pool.Add, since Pool.Add panics on anything else
+	// should be exactly one color options itself contains -- not re-checked
+	// by the interface itself, but ActivateManaAbility validates both
+	// (Count() == 1 and options.Has(color)) before ever calling Pool.Add,
+	// since Pool.Add panics on anything but a single valid color
 	// ([Pool.Add]'s own doc comment) and a bad script answer is not an
 	// engine invariant breach (GO-7).
-	ChooseManaColor(g *Game, decider PlayerID, source CardID) mana.Colors
+	ChooseManaColor(g *Game, decider PlayerID, source CardID, options mana.Colors) mana.Colors
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -844,7 +848,7 @@ func (c *ScriptedController) QueueManaColor(color mana.Colors) {
 }
 
 // ChooseManaColor returns the next answer QueueManaColor queued.
-func (c *ScriptedController) ChooseManaColor(_ *Game, _ PlayerID, _ CardID) mana.Colors {
+func (c *ScriptedController) ChooseManaColor(_ *Game, _ PlayerID, _ CardID, _ mana.Colors) mana.Colors {
 	if len(c.manaColor) == 0 {
 		panic(scriptExhausted("mana color"))
 	}

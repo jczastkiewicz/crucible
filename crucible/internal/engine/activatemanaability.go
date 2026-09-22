@@ -56,15 +56,14 @@ func manaAbilityParamsResolvable(a *compile.Ability) bool {
 	return true
 }
 
-// producedManaColor reads Produced$'s own literal shape -- one of WUBRG, or
-// C for colorless -- 1,005 of the corpus's own 2,156 real A:AB$ Mana lines,
-// the dominant shape past "Any" (CR 605.3b's own "choose a color," 334 more
-// real lines, resolved separately in ActivateManaAbility itself through
-// ChooseManaColor since it needs a controller and a source this function
-// does not carry), "Chosen" (a color picked earlier in the same resolution,
-// an SVar-like reference this port does not follow) and a fixed multi-symbol
-// "Combo" list (a further shape this port has not researched the real
-// semantics of).
+// producedManaColor reads Produced$'s own literal single-symbol shape -- one
+// of WUBRG, or C for colorless -- 1,005 of the corpus's own 2,156 real
+// A:AB$ Mana lines, the dominant shape past "Any" (CR 605.3b's own "choose a
+// color," resolved separately in ActivateManaAbility through
+// ChooseManaColor) and "Combo <letters>" (parseComboColors, below, a
+// restricted-set version of the identical choice). "Chosen" (a color picked
+// earlier in the same resolution, an SVar-like reference this port does not
+// follow) stays unresolved.
 func producedManaColor(produced string) (color mana.Colors, colorless bool, ok bool) {
 	switch produced {
 	case "W":
@@ -83,6 +82,37 @@ func producedManaColor(produced string) (color mana.Colors, colorless bool, ok b
 	return 0, false, false
 }
 
+// parseComboColors reads Produced$'s own "Combo <letters>" shape -- CR
+// 605.3b's own restricted-choice version of "Any," a dual/tri-land's real
+// "Add W or U"/"Add G, U, or R" -- into the set of colors offered. Every
+// token past "Combo" must be a single literal WUBRG letter (a repeat is
+// harmless -- options is a set, ORing the same bit twice changes nothing);
+// anything else -- "Combo Any"/"Combo AnyDifferent" (CR 605.3b's own
+// "in any combination of colors," a per-unit independent choice this
+// single-color-per-activation dispatch does not model), "ColorIdentity"
+// (Commander's own color-identity set, a format concept this port does not
+// track), a "Chosen" token (producedManaColor's own identical unresolved
+// reference) -- fails the whole match rather than guessing a subset
+// (PORT-8/GO-7).
+func parseComboColors(produced string) (mana.Colors, bool) {
+	tokens := strings.Fields(produced)
+	if len(tokens) < 2 || tokens[0] != "Combo" {
+		return 0, false
+	}
+	var options mana.Colors
+	for _, tok := range tokens[1:] {
+		if len(tok) != 1 {
+			return 0, false
+		}
+		color, ok := mana.ColorFromLetter(tok[0])
+		if !ok {
+			return 0, false
+		}
+		options |= color
+	}
+	return options, true
+}
+
 // ActivateManaAbility is CR 605.3: pay index's own Cost$, then add
 // Produced$'s own mana to the pool at once, no stack involved. index selects
 // among card's own compiled `A:` lines by position, the identical
@@ -97,13 +127,14 @@ func producedManaColor(produced string) (color mana.Colors, colorless bool, ok b
 // this function refuses anything else, so the two never overlap), a
 // Tap-self cost declined by CR 602.5b/302.6 (SummonSick/Haste,
 // DeclareCombatAttackers' own gate, reused), a Produced$ past
-// producedManaColor's own literal shape or "Any", ChooseManaColor answering
-// with anything but exactly one color -- not re-checked by the interface
-// itself (ChooseManaColor's own doc comment, control.go), so this is where
-// that trust ends rather than at [Pool.Add]'s own panic -- an Amount$ that
-// does not resolve to a positive integer (resolveNamedAmount, amount.go --
-// pumpAmount's own identical plain-integer-or-SVar reading), or an
-// unaffordable mana half of the cost.
+// producedManaColor's own literal shape, "Any" or parseComboColors' own
+// literal-letters-only "Combo" shape, ChooseManaColor answering with
+// anything but exactly one color from the set it was offered -- not
+// re-checked by the interface itself (ChooseManaColor's own doc comment,
+// control.go), so this is where that trust ends rather than at
+// [Pool.Add]'s own panic -- an Amount$ that does not resolve to a positive
+// integer (resolveNamedAmount, amount.go -- pumpAmount's own identical
+// plain-integer-or-SVar reading), or an unaffordable mana half of the cost.
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
 // self-sac last (activateability.go's own doc comment has the CR 601.2h
@@ -147,12 +178,22 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	var color mana.Colors
 	var colorless bool
-	if produced == "Any" {
-		color = controller.ChooseManaColor(g, pid, card)
+	switch {
+	case produced == "Any":
+		color = controller.ChooseManaColor(g, pid, card, mana.AllColors)
 		if color.Count() != 1 {
 			return false
 		}
-	} else {
+	case strings.HasPrefix(produced, "Combo "):
+		options, comboOK := parseComboColors(produced)
+		if !comboOK {
+			return false
+		}
+		color = controller.ChooseManaColor(g, pid, card, options)
+		if color.Count() != 1 || !options.Has(color) {
+			return false
+		}
+	default:
 		color, colorless, ok = producedManaColor(produced)
 		if !ok {
 			return false

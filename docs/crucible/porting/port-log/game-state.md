@@ -3593,15 +3593,16 @@ its callers.
 
 Not resolved, each skipped whole via an allow-list of the params real corpus lines pair with this shape rather than a
 reject-list of the ones found (`tapAbilityResolvesTap`'s own identical style, replacement.go) -- a param neither list
-has seen skips by construction instead of silently applying (PORT-8/GO-7):
-`Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/
+has seen skips by construction instead of silently applying (PORT-8/GO-7): `Planeswalker$`/
 `ValidTgts$`/`TriggeredSpellAbility$`/`DamageMap$`/`CounterNum$`/`Optional$`/`TgtPrompt$` (each its own further
 mechanic, no real line among the 822 combining more than one); `NoPrevention$` (1) -- this port's own
 `damagePrevented`/`damagePreventedPlayer` would otherwise wrongly apply where Java's own `AbilityKey.NoPreventDamage`
 says the damage cannot be prevented at all. `SubAbility$` (80 of 822) no longer blocks -- removed from
 `dealDamageUnresolvedParams` once `resolveSubAbility` ("SubAbility chaining itself lands," below) landed: 9 of the
 corpus's own 316 real SVar-defined `DealDamage` lines naming `SubAbility$` chain to an already-built leaf ability and
-resolve end to end.
+resolve end to end. `UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$` no longer block either, removed once
+`resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$` gate," below) landed: 3 of the corpus's own 31 real
+`DealDamage` lines naming `UnlessCost$` resolve past that gate.
 
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` (5 of the 822, once
 `SubAbility$`/`DamageSource$`/every other still-unresolved param above is excluded) are resolved now too, the exact same
@@ -3755,7 +3756,14 @@ same real-world answer without one.
 
 `SubAbility$` (119 of 1,335) no longer blocks -- removed from `pumpUnresolvedParams` once `resolveSubAbility`
 ("SubAbility chaining itself lands," below) landed: 17 of the corpus's own 571 real SVar-defined `Pump` lines naming
-`SubAbility$` chain to an already-built leaf ability and resolve end to end.
+`SubAbility$` chain to an already-built leaf ability and resolve end to end. `UnlessCost$`/`UnlessPayer$`/
+`UnlessSwitched$` no longer block either, removed once `resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$`
+gate," below) landed: 1 of the corpus's own 15 real `Pump` lines naming `UnlessCost$` resolves past that gate and is
+actually reachable at all (spitting_slug.txt's own real "gains first strike... unless you pay {1}{G}," chaining
+`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid) -- the other 14 name a non-pure-mana cost, an
+unresolvable `UnlessPayer$`, an activated ability's own `Cost$` (general activated-ability casting, not built), or a
+top-level spell on an Instant (`CastSpell` does not cast an instant or sorcery at all), pushing the `Defined$`-shape
+count from 1,147 to 1,148 of 1,335.
 
 Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `Condition$` itself and
 `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionActivationLimit$` (0/19/0/4) --
@@ -3764,13 +3772,12 @@ Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `C
 two real lines; `NumAtt$`/`NumDef$` naming the literal `Double`/`Triple` (1 combined) -- the target's own power or
 toughness doubled or tripled, a hardcoded special case rather than a named SVar `resolveNamedAmount` could resolve; a
 `KW$` token starting with `HIDDEN` (22) -- a hidden-keyword phrase (`gameCard.addHiddenExtrinsicKeywords`), its own
-separate mechanic; `UnlessCost$`/`UnlessPayer$`/`UnlessSwitched$` (6/6/4) -- CR 601.2i's own "unless a cost is paid"
-branch; `CanBlockAmount$`/`CanBlockAny$` (4/0) -- an additional-blocker grant this port's own block-legality gate
-(staticability.go) has nowhere to consult a one-shot record from; `DefinedKW$`/`KWChoice$`/`RandomKeyword$` (3/3/1) -- a
-placeholder substitution, an interactive choice and a random draw, none of which this port's own `KW$` handling does;
-`SharedKeywordsZone$`/`SharedRestrictions$` (2/2) -- `CardFactoryUtil.sharedKeywords`'s own zone scan; `ValidTgts$` (1)
--- a real target past the `Defined$` card this effect already resolves; `AtEOT$` (9) -- `registerDelayedTrigger`, a new
-trigger this effect would silently fail to create; `ImprintCards$` (1) and
+separate mechanic; `CanBlockAmount$`/`CanBlockAny$` (4/0) -- an additional-blocker grant this port's own block-legality
+gate (staticability.go) has nowhere to consult a one-shot record from; `DefinedKW$`/`KWChoice$`/`RandomKeyword$` (3/3/1)
+-- a placeholder substitution, an interactive choice and a random draw, none of which this port's own `KW$` handling
+does; `SharedKeywordsZone$`/`SharedRestrictions$` (2/2) -- `CardFactoryUtil.sharedKeywords`'s own zone scan;
+`ValidTgts$` (1) -- a real target past the `Defined$` card this effect already resolves; `AtEOT$` (9) --
+`registerDelayedTrigger`, a new trigger this effect would silently fail to create; `ImprintCards$` (1) and
 `DefinedLandwalk$`/`ForgetObjects$`/`RememberObjects$`/`RememberPumped$`/`LeaveBattlefield$`/`ForgetImprinted$`/
 `NoteCards$`/`NoteCardsFor$`/`ClearNotedCardsFor$`/`NoteNumber$` (0 each in this scope) -- each its own further tracking
 mechanic; `IsPresent$` (6) -- unclear semantics on a resolving (not triggering) `Pump` line, skipped rather than assumed
@@ -3814,7 +3821,12 @@ their own zones, rather than scanning every player unconditionally.
 
 `SubAbility$` (90 of 833) no longer blocks -- removed from `pumpAllUnresolvedParams` once `resolveSubAbility`
 ("SubAbility chaining itself lands," below) landed: 6 of the corpus's own 75 real SVar-defined `PumpAll` lines naming
-`SubAbility$` chain to an already-built leaf ability and resolve end to end.
+`SubAbility$` chain to an already-built leaf ability and resolve end to end. `UnlessCost$`/`UnlessPayer$` no longer
+block either, removed once `resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$` gate," below) landed: 0 of the
+corpus's own 3 real `PumpAll` lines naming `UnlessCost$` resolve, though -- rhystic_shield.txt's own real "get +0/+2...
+unless any player pays {2}" is the only one clearing that gate's own pure-mana-cost/resolvable-payer filter, and it is a
+top-level `A:SP$ PumpAll` line on an Instant, which `CastSpell` cannot cast at all; the other 2 name a controller-
+derived `UnlessPayer$` and a non-mana `UnlessCost$` neither resolvable here regardless.
 
 Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `Condition$` itself and
 `ConditionDefined$`/`ConditionZone$`/`ConditionPlayerTurn$`/`ConditionManaSpent$`/`ConditionManaNotSpent$` (4/5/3/1/4/0)
@@ -3823,8 +3835,8 @@ Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `C
 lands," below), `PumpAll` just has not been extended to read `Targeted` back yet; `Planeswalker$`/`Ultimate$` (26/13) --
 unclear semantics on a `PumpAll` line, not worth guessing at from either; `RememberPumped$` (8) -- `Card.Memory` has no
 writer wired to a blanket multi-card grant; `SharedKeywordsZone$`/`SharedRestrictions$` (4/4) --
-`CardFactoryUtil.sharedKeywords`'s own zone scan, a further mechanic; `UnlessCost$`/`UnlessPayer$` (3/3) -- CR 601.2i's
-own "unless a cost is paid" branch; `ModeCost$`/`Exhaust$` (3/4) -- each its own further activation mechanic.
+`CardFactoryUtil.sharedKeywords`'s own zone scan, a further mechanic; `ModeCost$`/`Exhaust$` (3/4) -- each its own
+further activation mechanic.
 
 11 new tests (`pumpalleffect_test.go`) drive every resolvable and every rejected shape through the real cast-and-resolve
 pipeline, `pumpAllEffect` itself being unexported (TEST-1): a blanket `ValidCards$ Creature.YouCtrl` match pumping every
@@ -3867,16 +3879,22 @@ neither built, the identical real-gap-not-a-wrong-answer every other unbuilt rep
 
 Not resolved, each failing loudly by name rather than draining the wrong amount from the wrong player (PORT-8/GO-7):
 `Condition$` itself and `ConditionDefined$`/`ConditionZone$` (0/14/1) -- `SpellAbilityCondition`'s own shapes
-`subAbilityConditionMet` does not cover, the identical `GainLife`-shaped gap;
-`Planeswalker$`/`UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$` (6/4/4/2, counted across the wider 823-line real
-`Defined$` set) -- each its own further mechanic; `Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/`ModeCost$`
-(1/2/2/2/1) -- unclear semantics on a `LoseLife` line, not worth guessing at from a handful of real lines. `ValidTgts$`
-(163 of the 823) no longer blocks -- "Targeting itself lands," below, is why. `SubAbility$` (210 of 445) no longer
-blocks either -- "SubAbility chaining itself lands," further below, removed it from this file's own unresolved-param
-list: Sphinx Sovereign's own real "gain 3 life if untapped, otherwise each opponent loses 3" (one `DB$ LoseLife` with a
-`SubAbility$ DB$ GainLife`, the negated condition split across the two) is exactly why that chain has to run regardless
-of whether `subAbilityConditionMet` let this effect's own body run. 144 of the corpus's own 382 real SVar-defined
-`LoseLife` lines naming `SubAbility$` chain to an already-built leaf ability and resolve end to end.
+`subAbilityConditionMet` does not cover, the identical `GainLife`-shaped gap; `Planeswalker$` (6, counted across the
+wider 823-line real `Defined$` set) -- each its own further mechanic;
+`Ultimate$`/`IsPresent$`/`PresentCompare$`/`NumCards$`/`ModeCost$` (1/2/2/2/1) -- unclear semantics on a `LoseLife`
+line, not worth guessing at from a handful of real lines. `ValidTgts$` (163 of the 823) no longer blocks -- "Targeting
+itself lands," below, is why. `SubAbility$` (210 of 445) no longer blocks either -- "SubAbility chaining itself lands,"
+further below, removed it from this file's own unresolved-param list: Sphinx Sovereign's own real "gain 3 life if
+untapped, otherwise each opponent loses 3" (one `DB$ LoseLife` with a `SubAbility$ DB$ GainLife`, the negated condition
+split across the two) is exactly why that chain has to run regardless of whether `subAbilityConditionMet` let this
+effect's own body run. 144 of the corpus's own 382 real SVar-defined `LoseLife` lines naming `SubAbility$` chain to an
+already-built leaf ability and resolve end to end. `UnlessPayer$`/`UnlessCost$`/`UnlessSwitched$` no longer block
+either, removed once `resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$` gate," below) landed: 0 of the
+corpus's own 42 real `LoseLife` lines naming `UnlessCost$` resolve, though -- delaying_shield.txt's own real pure-mana
+"{1}{W}" is the only one clearing that gate's own pure-mana-cost/resolvable-payer filter, and it is reached only through
+`DB$ Repeat`'s own `RepeatSubAbility$` (not the plain `SubAbility$` chaining `resolveSubAbility` reads), a general
+repeat-N-times mechanic this port does not build; every other real line names a `Sac<.../Discard<.../PayLife<.../...`
+cost part or a controller-derived `UnlessPayer$` this port cannot resolve.
 
 9 new tests (`loselifeeffect_test.go`) drive every resolvable and every rejected shape through the real cast-and-resolve
 pipeline, `loseLifeEffect` itself being unexported (TEST-1) -- `gainLifeEffect_test.go`'s own set minus the two
@@ -4022,7 +4040,13 @@ gets it for free, `definedPlayers` being shared rather than owned by any one eff
 
 `SubAbility$` (196 of 728) no longer blocks -- removed from `discardUnresolvedParams` once `resolveSubAbility`
 ("SubAbility chaining itself lands," below) landed: 11 of the corpus's own 254 real SVar-defined `Discard` lines naming
-`SubAbility$` chain to an already-built leaf ability and resolve end to end.
+`SubAbility$` chain to an already-built leaf ability and resolve end to end. `UnlessCost$`/`UnlessPayer$`/
+`UnlessSwitched$`/`UnlessResolveSubs$` no longer block either, removed once `resolveUnlessCost` ("`Registry.Resolve`'s
+own `UnlessCost$` gate," below) landed: 0 of the corpus's own 16 real `Discard` lines naming `UnlessCost$` resolve,
+though -- rhystic_scrying.txt's own real pure-mana "{2}" is the only one clearing that gate's own pure-mana-cost/
+resolvable-payer filter, and its own `DB$ Discard` is reached only by chaining out of a top-level `A:SP$ Draw` line on a
+Sorcery, which `CastSpell` cannot cast at all; every other real line names a `PayEnergy<.../Sac<.../Return<.../...` cost
+part or a controller-derived `UnlessPayer$` this port cannot resolve.
 
 Not resolved, each failing loudly by name rather than discarding the wrong cards from the wrong player (PORT-8/GO-7):
 every `Mode$` other than `TgtChoose` (above, 214 real lines combined); `ValidTgts$`/`TargetMin$`/`TargetMax$` (98/3/3)
@@ -4032,14 +4056,12 @@ read `Targeted` back yet; `Optional$` (38) -- an interactive confirm this port's
 contract; `DiscardValid$`/`DiscardValidDesc$` (18) -- a filtered choice set, the identical gap `PutCounter`'s own
 `Choices$` family already documents; `UnlessType$` (14) -- Java's own separate `chooseCardsToDiscardUnlessType`
 controller method, a different sub-flow entirely; `RevealNumber$` -- a reveal-then-choose-a-subset step ahead of the
-discard itself, not modeled; `UnlessCost$`/`UnlessPayer$`/`UnlessSwitched$`/`UnlessResolveSubs$` (10/10/5/0) -- "discard
-unless you pay a cost," each its own further mechanic;
-`RememberDiscarded$`/`RememberDiscardingPlayers$`/`RememberDiscardingPlayer$` (88 combined) -- no `Defined$ Remembered`
-resolver exists to ever read the value back (chaining itself existing does not help here: `Discard` still blocks
-`SubAbility$` outright, and even unblocked, `defined.go` has no `"Remembered"` case), the identical "blocked outright
-rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made. `Condition$` itself and
-`ConditionDefined$`/`ConditionZone$` -- `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover,
-the identical `Pump`/`GainLife`/`LoseLife`/`PutCounter`-shaped gap;
+discard itself, not modeled; `RememberDiscarded$`/`RememberDiscardingPlayers$`/`RememberDiscardingPlayer$` (88 combined)
+-- no `Defined$ Remembered` resolver exists to ever read the value back (chaining itself existing does not help here:
+`Discard` still blocks `SubAbility$` outright, and even unblocked, `defined.go` has no `"Remembered"` case), the
+identical "blocked outright rather than silently no-op'd" choice `PutCounter`'s own `RememberCards$` already made.
+`Condition$` itself and `ConditionDefined$`/`ConditionZone$` -- `SpellAbilityCondition`'s own shapes
+`subAbilityConditionMet` does not cover, the identical `Pump`/`GainLife`/`LoseLife`/`PutCounter`-shaped gap;
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` are resolved through it exactly as
 those four already are.
 
@@ -4213,8 +4235,9 @@ dependency to register into.
 ## M6's twelfth effect: Sacrifice, and CR 701.20's own Mode$ Sacrificed trigger
 
 `Sacrifice` (CR 701.20, `SacrificeEffect.java` + `GameAction.sacrifice`/`sacrificeDestroy`) is the corpus's own dominant
-real shape past `SacValid$` absent or the literal value `Self`: 465 of the corpus's 792 real `(AB|DB)$ Sacrifice` lines
-resolve, more real lines than the "no `SacValid$` at all" default this port's own effects usually resolve first.
+real shape past `SacValid$` absent or the literal value `Self`: 516 of the corpus's 792 real `(AB|DB)$ Sacrifice` lines
+resolve (51 of them past `resolveUnlessCost`'s own new gate, "`Registry.Resolve`'s own `UnlessCost$` gate," below), more
+real lines than the "no `SacValid$` at all" default this port's own effects usually resolve first.
 
 An absent `SacValid$`, or the literal value `Self`, sacrifices the ability's own host outright -- Java's own
 `valid.equals("Self")` branch -- but only if the host is still on the battlefield and still controlled by the ability's
@@ -4244,17 +4267,15 @@ once `Sacrifice`'s own body finishes, whether or not `subAbilityConditionMet` le
 shape every other M6 effect already has.
 
 Not resolved, each failing loudly by name rather than sacrificing the wrong permanent, the wrong count, or silently
-skipping a choice (PORT-8/GO-7): `UnlessPayer$`/`UnlessCost$` (155 combined, always co-occurring) -- "sacrifice unless a
-cost is paid," a further mechanic no effect in this port has; `Optional$` (46) -- an interactive "may sacrifice"
-confirm, the identical ability-body-level gap `Discard`'s own `Optional$`/`Pump`'s own `Optional$` already document,
-distinct from CR 603.3d's own `OptionalDecider$` a trigger carries; `ConditionDefined$` (19) and
-`ConditionActivationLimit$` (0) -- `SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the
-identical `GainLife`/`LoseLife`-shaped gap; `Planeswalker$` (11) -- unclear semantics on a `Sacrifice` line, not worth
-guessing at; `ChangeNum$` (5) -- `SacrificeAll`'s own param, never read by this `ApiType` at all, so its presence marks
-a line this port would misclassify rather than one it can safely ignore; `UnlessResolveSubs$`/`UnlessSwitched$` (4/4) --
-the "unless" family's own further branches; `ValidCard$` (3) -- `SacrificeEffect.java` never reads this key at all, so
-its real meaning on the handful of lines naming it is unclear; `SorcerySpeed$` (1) -- a cost-restriction flag with no
-cost-payment site to attach to; `SacEachValid$` (1) -- a comma-list of several `SacValid$` specs sacrificed
+skipping a choice (PORT-8/GO-7): `Optional$` (46) -- an interactive "may sacrifice" confirm, the identical
+ability-body-level gap `Discard`'s own `Optional$`/`Pump`'s own `Optional$` already document, distinct from CR 603.3d's
+own `OptionalDecider$` a trigger carries; `ConditionDefined$` (19) and `ConditionActivationLimit$` (0) --
+`SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `GainLife`/`LoseLife`-shaped
+gap; `Planeswalker$` (11) -- unclear semantics on a `Sacrifice` line, not worth guessing at; `ChangeNum$` (5) --
+`SacrificeAll`'s own param, never read by this `ApiType` at all, so its presence marks a line this port would
+misclassify rather than one it can safely ignore; `ValidCard$` (3) -- `SacrificeEffect.java` never reads this key at
+all, so its real meaning on the handful of lines naming it is unclear; `SorcerySpeed$` (1) -- a cost-restriction flag
+with no cost-payment site to attach to; `SacEachValid$` (1) -- a comma-list of several `SacValid$` specs sacrificed
 independently, a distribution mechanic; `Random$` (1) -- `Aggregates.random`, a randomized choice this port's own
 `ChoosePermanentsToSacrifice` contract does not carry; `Destroy$` (2) -- CR 701.7's own destroy rather than sacrifice, a
 different `GameAction` call and a different `Mode$` trigger entirely; `StrictAmount$` (2) -- the clamp's own opposite,
@@ -4264,6 +4285,14 @@ further upkeep-cost mechanic ahead of the ordinary sacrifice this port ports, 0 
 `ConditionSVarCompare$` resolve through `subAbilityConditionMet` exactly as `Scry`'s/`Discard`'s/`PutCounter`'s own
 already do. `SacrificeAll` (140 real lines, `SacrificeAllEffect.java`) is built too now ("M6's thirteenth effect:
 SacrificeAll," below).
+
+`UnlessPayer$`/`UnlessCost$`/`UnlessResolveSubs$`/`UnlessSwitched$` no longer block, removed once `resolveUnlessCost`
+("`Registry.Resolve`'s own `UnlessCost$` gate," below) landed: 51 of the corpus's own 155 real `Sacrifice` lines naming
+`UnlessCost$` resolve past that gate and are actually reachable at all -- 6 of the 57 real lines that clear
+`resolveUnlessCost`'s own pure-mana-cost/resolvable-payer filter still are not, each a
+`S:Mode$ Continuous | AddTrigger$` line's own dynamically granted trigger (aura_flux.txt's/magus_of_the_tabernacle.txt's
+own real "other permanents have 'sacrifice this unless you pay...'" among them) -- `AddTrigger$` is not a built
+continuous-effect param, so the trigger it would grant never exists in this port's own game at all.
 
 Sacrificing a card also fires CR 701.20's own `Mode$ Sacrificed` trigger, ported from `TriggerSacrificed.performTest`
 into a new `checkSacrificedTriggers` (trigger.go), called from a new shared `sacrificeCards` (sacrificeeffect.go, both
@@ -4331,16 +4360,24 @@ trigger fires twice for two sacrificed creatures in one `SacrificeAll` resolutio
 holding every sacrificed card, not just the last one.
 
 91 of the corpus's own 140 real lines resolve. Not resolved, each failing loudly by name rather than sacrificing the
-wrong set (PORT-8/GO-7): `UnlessCost$`/`UnlessPayer$` (6/6, always co-occurring) -- the identical "unless a cost is
-paid" gap `Sacrifice`'s own already documents; `ConditionDefined$` (3) -- `SpellAbilityCondition`'s own shape
-`subAbilityConditionMet` does not cover, the identical `GainLife`/`LoseLife`/`Sacrifice`-shaped gap; `Planeswalker$` (1)
--- unclear semantics, not worth guessing at; `Activator$` (1) -- a restriction on who activated the ability rather than
-on what it affects, a further mechanic; `SorcerySpeed$` (1) -- a cost-restriction flag with no cost-payment site to
-attach to; `ImprintSacrificed$` (1) -- `Card.Memory` has an `Imprint` writer (memory.go) but no caller yet, not worth
-building for the one real line naming it. `SubAbility$` no longer blocks ("SubAbility chaining itself landed," below):
-chains through `resolveSubAbility` the identical way every other M6 effect already does.
+wrong set (PORT-8/GO-7): `ConditionDefined$` (3) -- `SpellAbilityCondition`'s own shape `subAbilityConditionMet` does
+not cover, the identical `GainLife`/`LoseLife`/`Sacrifice`-shaped gap; `Planeswalker$` (1) -- unclear semantics, not
+worth guessing at; `Activator$` (1) -- a restriction on who activated the ability rather than on what it affects, a
+further mechanic; `SorcerySpeed$` (1) -- a cost-restriction flag with no cost-payment site to attach to;
+`ImprintSacrificed$` (1) -- `Card.Memory` has an `Imprint` writer (memory.go) but no caller yet, not worth building for
+the one real line naming it. `SubAbility$` no longer blocks ("SubAbility chaining itself landed," below): chains through
+`resolveSubAbility` the identical way every other M6 effect already does.
 `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/`ConditionSVarCompare$` resolve through
-`subAbilityConditionMet` exactly as `Sacrifice`'s own already do.
+`subAbilityConditionMet` exactly as `Sacrifice`'s own already do. `UnlessCost$`/`UnlessPayer$` no longer block either,
+removed once `resolveUnlessCost` ("`Registry.Resolve`'s own `UnlessCost$` gate," below) landed -- the identical "unless
+a cost is paid" gap `Sacrifice`'s own already documented: 0 of the corpus's own 6 real `SacrificeAll` lines naming
+`UnlessCost$` resolve, though. ashling*the_limitless.txt's own real pure-mana "{W}{U}{B}{R}{G}" is the only one clearing
+`resolveUnlessCost`'s own pure-mana-cost/resolvable-payer filter, and its own `Defined$ DelayTriggerRememberedLKI` is
+reached only through `DB$ DelayedTrigger`, a general delayed-trigger mechanic this port does not build; every other real
+line names a
+`PayEnergy<.../DefinedCost*.../X`-shard `UnlessCost$` or a
+controller-derived `UnlessPayer$` (`EnchantedController`) this
+port cannot resolve.
 
 8 new tests (`sacrificealleffect_test.go`) drive every resolvable and every rejected shape through the real
 cast-and-resolve pipeline, `sacrificeAllEffect` itself being unexported (TEST-1): a battlefield-wide `ValidCards$` scan
@@ -4351,6 +4388,91 @@ writing every sacrificed card (not just one) onto `Memory.Remembered()`, and `Mo
 sacrificed card rather than once for the whole ability. `NewRegistry` (`castspell.go`) registers `APISacrificeAll`;
 `enginelint` group `sacrificeeffect` gained a second file (`sacrificealleffect.go`), its own existing allow-list already
 covering everything the new file needs.
+
+## Registry.Resolve's own UnlessCost$ gate, CR's own "unless a cost is paid"
+
+`AbilityUtils.handleUnlessCost` is Java's own alternative to the ordinary `sa.resolve(); resolveSubAbilities(sa, game)`
+pairing `resolveApiAbility` otherwise runs: an ability naming `UnlessCost$` decides both whether its own body runs AND
+whether/when its own `SubAbility$` chains, in one place, rather than falling through to the identical unconditional
+trailing call every other ability gets. A new `resolveUnlessCost` (effect.go) ports it as a branch `Registry.Resolve`
+takes instead of its own `Effect.Resolve`/`resolveSubAbility` pairing whenever `a.Params` names `UnlessCost$` (a nil
+`a.Params` -- `APIPermanentCreature`/`APIPermanentNoncreature`/`APIAttach`, `Ability.Params`'s own doc comment -- is
+checked first, a real nil-pointer panic caught before any test ran against it: casting an ordinary creature with no
+chained ability at all used to crash the moment this gate's own unconditional `a.Params.Param(...)` call ran against
+it).
+
+Each of `UnlessPayer$`'s own players (`definedPlayers`, reused; an absent value is Java's own "TargetedController"
+default, not resolved -- no real corpus line among this gate's own reachable subset needs it, below) is asked a new
+`PlayerController` method, `ConfirmPayCost` (its twenty-seventh), and a `true` answer actually charged through
+`PayManaCost` (manapay.go) -- `payCostToPreventEffect`'s own "decide, then pay" pairing, split the identical way every
+other mana decision on the interface already is (`ChoosePayMonocoloredHybrid`, ...): a confirmed payment that
+`PayManaCost` cannot actually afford is not a paid cost, the identical "declined by the rules, not a bug" outcome a
+failed `PayManaCost` call already carries everywhere else. `paid` accumulates across every payer with `||` -- Java's own
+`alreadyPaid |= payer.getController().payCostToPreventEffect(...)` -- so any one of several payers succeeding is enough.
+The ability's own body runs when `paid == isSwitched` (`handleUnlessCost`'s own comparison, ported directly),
+`isSwitched` false by default and flipped by `UnlessSwitched$`'s own presence -- "pay to make it happen instead."
+`UnlessResolveSubs$` decides whether the chained `SubAbility$` still runs regardless (absent, Java's own "Always") or
+only on one particular outcome ("WhenPaid"/"WhenNotPaid").
+
+Trimmed to the corpus's own one resolvable shape: a pure-mana `UnlessCost$` and an explicit `UnlessPayer$` naming
+`You`/`Player`/`Opponent`/`Player.Opponent`. "Pure mana" is a new `cost.Cost.IsPureMana` (`internal/cost`) -- no named
+`Part` (`Sac<.../Discard<.../PayLife<...`), no `Tap`/`Untap`/`Mandatory` token, no `XMin` -- rather than reading those
+fields directly in effect.go: a first draft did read `parsed.Untap` directly and tripped `enginelint`'s own
+plain-identifier matching (`group "effect" may not reference "phase"`), since `phase.go` happens to declare an unrelated
+package-level `Untap` `PhaseType` constant and the tool cannot tell a struct field selector from a bare identifier
+reference without full type information (its own doc comment: "go/types is not needed"). Moving the field reads into
+`internal/cost` itself -- a package `enginelint` never scans at all -- was the fix, and `IsPureMana` is a genuinely
+general predicate for any caller that can only pay mana, not an engine-specific workaround living in the wrong package.
+A parsed `Mana` cost is then handed to `mana.Parse` directly (space-joined, mana.Parse's own accepted spelling), and
+rejected if it carries an `X` shard -- deciding an X amount mid-resolution is a further mechanic this gate does not have
+a question for.
+
+55 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and are actually reachable by this port at all,
+spread across three already-built effects: 51 of `Sacrifice`'s own 155 (nicol_bolas.txt's own real "sacrifice CARDNAME
+unless you pay {U}{B}{R}" shape, reached through an already-built `T:Mode$ Phase`/`Mode$ Attacks` trigger in every real
+case, never an activated ability's own `Cost$`), 3 of `DealDamage`'s own 31 (force_of_nature.txt's own real "deals 8
+damage to you unless you pay {G}{G}{G}{G}", `T:Mode$ Phase` again), and 1 of `Pump`'s own 15 (spitting_slug.txt's own
+real "gains first strike... unless you pay {1}{G}", `T:Mode$ AttackerBlocked`/`Mode$ Blocks`, chaining
+`UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid). The other 672 real lines fail one hop up the
+call chain rather than at this gate itself -- each already documented against its own effect above -- falling into one
+of six shapes: an activated ability's own `Cost$`-gated line (general activated-ability casting, still not built,
+nakaya_shade.txt's own real `{B}:` ability among them); an instant or sorcery's own top-level line (`CastSpell`'s own
+doc comment: "an instant or sorcery resolves into a script effect this port does not build",
+wild_might.txt's/rhystic_shield.txt's/rhystic_scrying.txt's own real lines among them, the last two also blocked a
+second, independent way -- rhystic_scrying.txt's own `DB$ Discard` is itself reached only by chaining out of that same
+uncastable top-level spell); a line reached only through an unbuilt API's own `SubAbility$`/`RepeatSubAbility$`/...
+chain link (`DB$ Effect`, `DB$ Repeat`, `DB$ GenericChoice`, `DB$ DelayedTrigger`, none built --
+valiant_batrider.txt's/delaying_shield.txt's/ashling_the_limitless.txt's own real lines among them); a
+`S:Mode$ Continuous | AddTrigger$` line's own dynamically granted trigger (not a built continuous-effect param,
+aura_flux.txt's/magus_of_the_tabernacle.txt's own real lines among them); a non-mana cost part or an X shard once
+parsed; or an unresolvable `UnlessPayer$` value (`TriggeredPlayer`, `EnchantedController`, `RememberedController`, ...).
+
+`UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/`UnlessSwitched$` no longer block any of the eight already-built
+effects that named them in their own unresolved-param lists (`sacrificeEffect`/`sacrificeAllEffect`/`dealDamageEffect`/
+`pumpEffect`/`pumpAllEffect`/`gainLifeEffect`/`loseLifeEffect`/`discardEffect`, each updated above) -- removing the dead
+keys mattered, not just cosmetically: leaving `UnlessCost` in an effect's own blocklist after this gate already consumed
+it would have re-rejected every line this gate correctly let through the moment `e.Resolve` ran. `Draw` and `PutCounter`
+never blocked either key at all, a real pre-existing silent-wrong-firing gap for any line combining `UnlessCost$` with
+an otherwise-resolvable shape -- closed for free now that this gate intercepts before either effect's own `Resolve`
+runs, though `isu_the_abominable.txt`'s own three real `PutCounter` lines (the corpus's only `UnlessCost$`-naming
+`PutCounter` lines at all) still do not resolve end to end: each is reached only through `DB$ GenericChoice` (not built)
+and separately omits `Defined$` entirely, which `definedCounterTargets` has no default for
+(`AbilityUtils.getDefinedCards`'s own null-defaults-to-"Self" is not ported).
+
+8 new tests (`unlesscost_test.go`) drive `resolveUnlessCost` through the real cast-and-resolve pipeline via
+`Sacrifice`'s own ETB-trigger fixture (`etbSacrificeTriggerDefParams`, sacrificeeffect_test.go), `sacrificeEffect`/
+`gainLifeEffect`/`pumpEffect` all being unexported (TEST-1): a decline running the ability with the pool untouched, a
+confirmed and successful payment preventing it with the pool actually charged, a confirmed but unaffordable payment
+still running the ability (`ConfirmPayCost` and `PayManaCost` are two separate steps), `UnlessSwitched$` inverting the
+outcome both directions, `UnlessResolveSubs$ WhenNotPaid` gating a chained `SubAbility$` both directions,
+`UnlessPayer$ Player` asking every player in turn and stopping at the first success, and an absent `UnlessPayer$`
+rejected loudly naming itself rather than `UnlessCost$`. `control_test.go`'s own
+`TestScriptedControllerEachQueuePanicsWhenExhausted` table gained a `"confirm pay cost"` row, and `mulligan_test.go`'s
+own `scriptedMulliganController` gained a panicking `ConfirmPayCost` stub. Regression-verified by temporarily
+short-circuiting `Registry.Resolve`'s own new branch back to the plain `Effect.Resolve`/`resolveSubAbility` pairing and
+confirming six of the eight new tests fail exactly as expected (the decline-only and chained-decline cases pass
+trivially either way), then restoring it. `enginelint` group `effect` gained `defined`/`manapay` to its own allow-list
+(`definedPlayers` and `PayManaCost`, both now reached directly from effect.go); no new group.
 
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 

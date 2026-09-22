@@ -786,5 +786,33 @@ its owner's graveyard so the controller is never asked about the same pair twice
 one of those borrowed names collides with some OTHER legendary's own literal printed name needs a lookup across every
 creature card this game ever printed, and this port's `*Game` holds no `*carddb.DB` reference to ask — threading one
 through every `*Game` constructor across the whole test suite is a disproportionately large refactor for the one corpus
-card it would unlock (PORT-8). **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the
-≥300 floor; the qualitative half ("every layer, every SBA," Plan Section 3.2) is not.
+card it would unlock (PORT-8). CR's own "unless a cost is paid" is real now too (`resolveUnlessCost`, `effect.go`,
+ported from `AbilityUtils.handleUnlessCost`) — a new gate `Registry.Resolve` checks ahead of its own ordinary
+`Effect.Resolve`/`resolveSubAbility` pairing whenever an ability names `UnlessCost$`: each of `UnlessPayer$`'s own
+players (`definedPlayers`, reused; an absent value is Java's own "TargetedController" default, not resolved) is asked a
+new `PlayerController` method, `ConfirmPayCost` (its twenty-seventh), and a yes actually charged through `PayManaCost`
+(manapay.go) — the identical "decide, then pay" split every other mana decision on the interface already has. The
+ability's own body runs when nobody paid (`UnlessSwitched$`'s own presence flips that), and `UnlessResolveSubs$` decides
+whether its own chained `SubAbility$` still runs regardless (absent, "Always") or only on one particular outcome
+("WhenPaid"/"WhenNotPaid"). Trimmed to the corpus's own one resolvable shape — a pure-mana `UnlessCost$` (a new
+`cost.Cost.IsPureMana`, `internal/cost`, added once a direct `Tap`/`Untap` field read in effect.go collided with
+phase.go's own `Untap` step constant under enginelint's plain-identifier matching) and an explicit `UnlessPayer$` naming
+`You`/`Player`/`Opponent`/`Player.Opponent` — 55 of the corpus's 727 real `UnlessCost$` lines resolve past this gate and
+are actually reachable by this port at all: `nicol_bolas.txt`'s own real "sacrifice CARDNAME unless you pay {U}{B}{R}"
+shape dominates (51 of Sacrifice's own 155 real lines), plus 3 of DealDamage's own 31 (`force_of_nature.txt`'s own real
+"deals 8 damage to you unless you pay {G}{G}{G}{G}") and 1 of Pump's own 15 (`spitting_slug.txt`'s own real "gains first
+strike... unless you pay {1}{G}", chaining `UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid).
+The other 672 real lines fail one hop up the call chain rather than at this gate itself: an activated ability's own
+`Cost$`-gated line (general activated-ability casting, still not built), an instant or sorcery's own top-level line
+(`CastSpell`'s own doc comment: "an instant or sorcery resolves into a script effect this port does not build"), a line
+reached only through an unbuilt API's own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`, `DB$ Repeat`,
+`DB$ GenericChoice`, `DB$ DelayedTrigger`, none built), a `S:...AddTrigger$` line's own dynamically granted trigger (not
+a built continuous-effect param), a non-mana cost part (`Sac<.../Discard<.../PayLife<...`), or an unresolvable
+`UnlessPayer$` value (`TriggeredPlayer`, `EnchantedController`, ...) each account for the remainder.
+`UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/ `UnlessSwitched$` no longer block any of the eight already-built
+effects that named them in their own unresolved-param lists
+(`sacrificeEffect`/`sacrificeAllEffect`/`dealDamageEffect`/`pumpEffect`/`pumpAllEffect`/`gainLifeEffect`/
+`loseLifeEffect`/`discardEffect`) — Sacrifice's own real corpus count rises from 465 to 516 of 792, DealDamage's from 62
+to 65 of 2,219, and Pump's own Defined$-shape count from 1,147 to 1,148 of 1,335. **P4 exit gate's fixture-count half
+met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative half ("every layer, every SBA," Plan
+Section 3.2) is not.

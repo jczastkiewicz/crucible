@@ -29,12 +29,19 @@ import "fmt"
 // dealPlayerDamage already emits for a life LOSS, reused here for a gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
-// to the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/UnlessCost$/
-// ValidTgts$ (each its own further mechanic, and this port's own targeting
-// gap for the non-Defined$ shape); Condition$ itself and ConditionDefined$/
-// ConditionZone$/ConditionOptionalPaid$ (SpellAbilityCondition's own
-// separate flag switch and shapes subAbilityConditionMet does not cover,
-// the identical DealDamage-shaped gap).
+// to the wrong player, PORT-8/GO-7): Planeswalker$/ValidTgts$ (each its own
+// further mechanic, and this port's own targeting gap for the non-Defined$
+// shape); Condition$ itself and ConditionDefined$/ConditionZone$/
+// ConditionOptionalPaid$ (SpellAbilityCondition's own separate flag switch
+// and shapes subAbilityConditionMet does not cover, the identical
+// DealDamage-shaped gap).
+//
+// UnlessCost$/UnlessPayer$ no longer block either: resolveUnlessCost
+// (effect.go) gates the whole ability before Registry.Resolve ever reaches
+// it. 0 of the corpus's own 3 real GainLife lines naming UnlessCost$ clear
+// that gate's own pure-mana-cost/resolvable-payer filter at all (each
+// names a Sac<.../Reveal<... cost part or a controller-derived UnlessPayer$
+// this port cannot resolve).
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$
 // are resolved through subAbilityConditionMet (condition.go) the identical
@@ -52,7 +59,7 @@ import "fmt"
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"Planeswalker", "UnlessPayer", "UnlessCost", "ValidTgts",
+	"Planeswalker", "ValidTgts",
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 

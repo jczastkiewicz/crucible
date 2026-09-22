@@ -12,7 +12,7 @@ import (
 
 // PlayerController is where the game asks a player to decide something.
 // Ported from forge-game/src/main/java/forge/game/player/PlayerController.java,
-// which has 110 abstract methods; only the twenty-six answerable with
+// which has 110 abstract methods; only the twenty-seven answerable with
 // today's engine are here.
 //
 // The rest need SpellAbility, targeting, replacement effects and the rest of
@@ -51,6 +51,11 @@ import (
 // fixture without a controller-per-player wiring step (PORT-1) -- and so an
 // implementation carries no per-player state, the same reasoning GO-2 applies
 // to the rest of the engine.
+//
+// ConfirmPayCost's own caller (resolveUnlessCost, effect.go) is the
+// twenty-seventh -- CR's own "unless a cost is paid" gate, a further
+// SpellAbility-level decision distinct from ConfirmOptionalTrigger's own
+// CR 603.3d "may."
 type PlayerController interface {
 	// ChooseStartingPlayer decides who takes the first turn. decider is the
 	// player being asked -- the winner of a coin flip on game one, the loser
@@ -321,6 +326,18 @@ type PlayerController interface {
 	// optional at all, false skips both, the identical two outcomes a
 	// mandatory ability's own success/no-legal-target split already has.
 	ConfirmOptionalTrigger(g *Game, decider PlayerID, source CardID) bool
+
+	// ConfirmPayCost decides whether decider pays an UnlessCost$ cost to
+	// prevent an ability's own effect from happening (resolveUnlessCost,
+	// effect.go) -- PlayerController.payCostToPreventEffect's own decision
+	// half, ported apart from its own payment half: a true answer still
+	// needs PayManaCost (manapay.go) to actually succeed, exactly the
+	// two-step "decide, then pay" split every other mana decision on this
+	// interface already has (ChoosePayMonocoloredHybrid, ...). cost is the
+	// UnlessCost$ line's own parsed mana cost, source the ability's own
+	// host card, carried so a real controller could describe what it is
+	// paying to prevent.
+	ConfirmPayCost(g *Game, decider PlayerID, cost mana.Cost, source CardID) bool
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -359,6 +376,7 @@ type ScriptedController struct {
 	targets          [][]EntityID
 	optionalTrigger  []bool
 	sacrificeChoices [][]CardID
+	payCost          []bool
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -788,6 +806,21 @@ func (c *ScriptedController) ConfirmOptionalTrigger(_ *Game, _ PlayerID, _ CardI
 	}
 	v := c.optionalTrigger[0]
 	c.optionalTrigger = c.optionalTrigger[1:]
+	return v
+}
+
+// QueueConfirmPayCost appends the answer to the next ConfirmPayCost call.
+func (c *ScriptedController) QueueConfirmPayCost(pay bool) {
+	c.payCost = append(c.payCost, pay)
+}
+
+// ConfirmPayCost returns the next answer QueueConfirmPayCost queued.
+func (c *ScriptedController) ConfirmPayCost(_ *Game, _ PlayerID, _ mana.Cost, _ CardID) bool {
+	if len(c.payCost) == 0 {
+		panic(scriptExhausted("confirm pay cost"))
+	}
+	v := c.payCost[0]
+	c.payCost = c.payCost[1:]
 	return v
 }
 

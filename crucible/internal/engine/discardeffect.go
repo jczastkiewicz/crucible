@@ -31,9 +31,7 @@ import (
 // own Choices$ family already documents; UnlessType$ -- a different
 // sub-flow (chooseCardsToDiscardUnlessType, Java's own separate controller
 // method); RevealNumber$ -- a reveal-then-choose-a-subset step ahead of the
-// discard itself; UnlessCost$/UnlessPayer$/UnlessSwitched$/
-// UnlessResolveSubs$ -- "discard unless you pay a cost," each its own
-// further mechanic; RememberDiscarded$/RememberDiscardingPlayers$/
+// discard itself; RememberDiscarded$/RememberDiscardingPlayers$/
 // RememberDiscardingPlayer$ -- no Defined$ Remembered resolver exists to
 // ever read the value back (chaining itself existing does not help here:
 // defined.go has no "Remembered" case), the identical "blocked outright
@@ -45,10 +43,22 @@ import (
 // finishes, whether or not subAbilityConditionMet let it run at all. 11 of
 // the corpus's own 254 real SVar-defined Discard lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
+//
+// UnlessCost$/UnlessPayer$/UnlessSwitched$/UnlessResolveSubs$ no longer
+// block either: resolveUnlessCost (effect.go) gates the whole ability
+// before Registry.Resolve ever reaches it -- CR's own "discard unless you
+// pay a cost." 0 of the corpus's own 16 real Discard lines naming
+// UnlessCost$ resolve, though: rhystic_scrying.txt's own real pure-mana
+// "{2}" is the only one clearing resolveUnlessCost's own pure-mana-cost/
+// resolvable-payer filter, and its own DB$ Discard is reached only by
+// chaining out of a top-level A:SP$ Draw line on a Sorcery -- CastSpell
+// does not cast an instant or sorcery at all (castspell.go's own doc
+// comment); every other real line names a PayEnergy<.../Sac<.../
+// Return<.../... cost part or a controller-derived UnlessPayer$
+// (RememberedController, ReplacedPlayer, ...) this port cannot resolve.
 var discardUnresolvedParams = [...]string{
 	"ValidTgts", "TargetMin", "TargetMax", "Optional", "AnyNumber",
 	"DiscardValid", "DiscardValidDesc", "UnlessType", "RevealNumber",
-	"UnlessCost", "UnlessPayer", "UnlessSwitched", "UnlessResolveSubs",
 	"RememberDiscarded", "RememberDiscardingPlayers", "RememberDiscardingPlayer",
 }
 

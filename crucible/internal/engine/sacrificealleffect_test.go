@@ -165,7 +165,8 @@ func TestSacrificeAllEffectRejectsUnresolvedDefinedValue(t *testing.T) {
 }
 
 // TestSacrificeAllEffectRejectsUnlessCost proves a real, representative
-// unresolved param (UnlessCost$, sacrificeAllUnresolvedParams' own list)
+// non-pure-mana UnlessCost$ shape (resolveUnlessCost's own gate,
+// effect.go -- soul_tithe.txt's own real X-shard UnlessCost$ among them)
 // fails the whole line loudly rather than silently sacrificing
 // unconditionally (PORT-8/GO-7).
 func TestSacrificeAllEffectRejectsUnlessCost(t *testing.T) {
@@ -177,7 +178,7 @@ func TestSacrificeAllEffectRejectsUnlessCost(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	def := etbSacrificeAllTriggerDefParams(t, "Test UnlessCost", "ValidCards$ Creature | UnlessCost$ 1", nil)
+	def := etbSacrificeAllTriggerDefParams(t, "Test UnlessCost", "ValidCards$ Creature | UnlessCost$ X | UnlessPayer$ You", nil)
 	_, err := castETBSacrifice(t, g, p, def, c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming UnlessCost")

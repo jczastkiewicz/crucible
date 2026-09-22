@@ -5,6 +5,10 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Effect resolves one ability.
@@ -57,6 +61,11 @@ var ErrUnimplemented = errors.New("engine: no effect registered for API")
 // can run the ability behind it, so asking first and failing loudly only once
 // something would actually try to run matches CR 603.3d more closely than
 // erroring out a card a controller would have declined anyway.
+//
+// An ability naming UnlessCost$ takes resolveUnlessCost's own alternative
+// route instead of the plain Resolve/resolveSubAbility pairing below --
+// AbilityUtils.resolveApiAbility's own if/else between `sa.resolve()` and
+// `handleUnlessCost(sa, game)`, the same branch point.
 func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
 		return nil
@@ -68,10 +77,95 @@ func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if e == nil {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
+	if a.Params != nil {
+		if unlessCost, ok := a.Params.Param("UnlessCost"); ok {
+			return r.resolveUnlessCost(g, a, controller, e, unlessCost)
+		}
+	}
 	if err := e.Resolve(g, a, controller); err != nil {
 		return err
 	}
 	return r.resolveSubAbility(g, a, controller)
+}
+
+// resolveUnlessCost is CR's own "unless a cost is paid" gate --
+// AbilityUtils.handleUnlessCost, ported apart from the ordinary
+// Resolve/resolveSubAbility pairing above because Java's own version
+// decides both whether the ability's body runs AND whether/when its own
+// SubAbility$ chains, in one place, rather than falling through to the
+// identical unconditional trailing call every other ability gets.
+//
+// Each of UnlessPayer$'s own players (definedPlayers, reused; the value is
+// required explicitly -- an absent UnlessPayer$ defaults to
+// "TargetedController" in Java, not resolved here, below) is asked
+// ConfirmPayCost in turn and, on a yes, actually charged via PayManaCost
+// (manapay.go) -- payCostToPreventEffect's own "decide, then pay" pairing,
+// split the identical way every other mana decision on PlayerController
+// already is. The ability's own body runs when paying did NOT happen
+// (handleUnlessCost's own `alreadyPaid == isSwitched`, isSwitched false by
+// default -- UnlessSwitched$'s own presence flips it, "pay to make it
+// happen instead"). UnlessResolveSubs$ decides whether the chained
+// SubAbility$ still runs regardless (absent, Java's own "Always") or only
+// on one particular outcome ("WhenPaid"/"WhenNotPaid").
+//
+// Trimmed to the corpus's own one resolvable shape, and further to what is
+// actually reachable at all: a pure-mana UnlessCost$ (cost.Parse's own Mana
+// tokens alone -- no Sac<.../Discard<.../PayLife<.../... cost Part, no
+// Tap/Untap/Mandatory/XMin token, and no X shard once parsed, each its own
+// further mechanic with nowhere to route a mid-resolution "decide, then
+// pay" question through) and an explicit UnlessPayer$ naming
+// You/Player/Opponent/Player.Opponent (definedPlayers, reused). 55 of the
+// corpus's 727 real UnlessCost$ lines resolve past this gate and are
+// actually reachable by this port at all -- an activated ability's own
+// Cost$-gated UnlessCost$ line (general activated-ability casting, not
+// built), an instant/sorcery's own top-level UnlessCost$ line (CastSpell's
+// own doc comment: "an instant or sorcery resolves into a script effect
+// this port does not build"), and a line reached only through an unbuilt
+// API's own SubAbility$/RepeatSubAbility$/... chain link (DB$ Effect, DB$
+// Repeat, DB$ GenericChoice, DB$ DelayedTrigger, S:...AddTrigger$'s own
+// dynamically granted trigger, none of them built) all fail loudly one hop
+// up the call chain rather than here, PORT-8/GO-7's "skip the whole line"
+// applied at whichever link in the chain the actual gap sits.
+func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerController, e Effect, unlessCostText string) error {
+	parsed := cost.Parse(unlessCostText)
+	if !parsed.IsPureMana() {
+		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
+	}
+	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
+	if err != nil || manaCost.CountX() > 0 {
+		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
+	}
+
+	payerSpec, ok := a.Params.Param("UnlessPayer")
+	if !ok {
+		return fmt.Errorf("engine: UnlessPayer$ default (TargetedController) not resolvable yet")
+	}
+	payers, err := definedPlayers(g, a.Controller, payerSpec, a.Targets)
+	if err != nil {
+		return fmt.Errorf("engine: UnlessPayer$: %w", err)
+	}
+
+	resolveSubs, hasResolveSubs := a.Params.Param("UnlessResolveSubs")
+	execWhenPaid := !hasResolveSubs || resolveSubs == "WhenPaid"
+	execWhenNotPaid := !hasResolveSubs || resolveSubs == "WhenNotPaid"
+	_, switched := a.Params.Param("UnlessSwitched")
+
+	paid := false
+	for _, pid := range payers {
+		if controller.ConfirmPayCost(g, pid, manaCost, a.Source) && g.PayManaCost(pid, manaCost, controller) {
+			paid = true
+		}
+	}
+
+	if paid == switched {
+		if err := e.Resolve(g, a, controller); err != nil {
+			return err
+		}
+	}
+	if paid && execWhenPaid || !paid && execWhenNotPaid {
+		return r.resolveSubAbility(g, a, controller)
+	}
+	return nil
 }
 
 // Implemented is how many APIs have an effect. The corpus coverage report

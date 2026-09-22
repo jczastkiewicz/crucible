@@ -1,5 +1,7 @@
-// Sacrifice: CR 701.20, SacrificeEffect.java's own resolve -- 465 of the
-// corpus's 792 real (AB|DB)$ Sacrifice lines. The dominant real shape is
+// Sacrifice: CR 701.20, SacrificeEffect.java's own resolve -- 516 of the
+// corpus's 792 real (AB|DB)$ Sacrifice lines, 51 of them past
+// resolveUnlessCost's own new gate (effect.go, below). The dominant real
+// shape is
 // SacValid$ (569 of 792), not the "no SacValid$ at all" default this port's
 // own effects usually resolve first: SacValid$ absent or the literal value
 // "Self" sacrifices the ability's own host card outright, no choice asked
@@ -24,9 +26,7 @@ import (
 // sacrificeUnresolvedParams names SacrificeEffect.resolve's own params this
 // port does not evaluate. Every one fails the whole line loudly rather than
 // sacrificing the wrong permanent, the wrong count, or silently skipping a
-// choice (PORT-8/GO-7): UnlessPayer$/UnlessCost$ (155/155, always
-// co-occurring) -- "sacrifice unless a cost is paid," a further mechanic no
-// effect in this port has; Optional$ (46) -- an interactive "may sacrifice"
+// choice (PORT-8/GO-7): Optional$ (46) -- an interactive "may sacrifice"
 // confirm, the identical ability-body-level gap Discard's own Optional$/
 // Pump's own Optional$ already document, distinct from CR 603.3d's own
 // OptionalDecider$ a trigger carries (Ability.Optional's own doc comment);
@@ -36,8 +36,7 @@ import (
 // semantics on a Sacrifice line, not worth guessing at; ChangeNum$ (5) --
 // SacrificeAll's own param, never read by this ApiType at all, so its
 // presence marks a line this port would misclassify rather than one it can
-// safely ignore; UnlessResolveSubs$/UnlessSwitched$ (4/4) -- the "unless"
-// family's own further branches; ValidCard$ (3) -- SacrificeEffect.java
+// safely ignore; ValidCard$ (3) -- SacrificeEffect.java
 // never reads this key at all, so its real meaning on the handful of lines
 // naming it is unclear; SorcerySpeed$ (1) -- a cost-restriction flag with
 // no cost-payment site to attach to; SacEachValid$ (1) -- a comma-list of
@@ -59,9 +58,24 @@ import (
 // whether or not subAbilityConditionMet let it run at all, the identical
 // shape every other M6 effect already has -- not named here because it
 // never blocks.
+//
+// UnlessCost$/UnlessPayer$/UnlessResolveSubs$/UnlessSwitched$ no longer
+// block either: resolveUnlessCost (effect.go) gates the whole ability --
+// this effect's own body included -- before Registry.Resolve ever reaches
+// it, CR's own "sacrifice unless a cost is paid." 51 of the corpus's own
+// 155 real Sacrifice lines naming UnlessCost$ resolve past that gate and
+// are actually reachable at all (resolveUnlessCost's own doc comment has
+// the pure-mana-cost/resolvable-payer accounting); 6 of the 57 that clear
+// that filter still are not -- CardFactoryUtil's own real "other
+// enchantments/creatures have 'sacrifice this unless you pay...'" shape
+// (a Layer 6 S:Mode$ Continuous | AddTrigger$ line granting the actual
+// T:Mode$ Phase trigger to every OTHER permanent it names, aura_flux.txt's/
+// magus_of_the_tabernacle.txt's own real cards among them) -- AddTrigger$
+// is not a built continuous-effect param, so the trigger it would grant
+// never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
-	"UnlessPayer", "UnlessCost", "Optional", "ConditionDefined", "ConditionActivationLimit",
-	"Planeswalker", "ChangeNum", "UnlessResolveSubs", "UnlessSwitched", "ValidCard",
+	"Optional", "ConditionDefined", "ConditionActivationLimit",
+	"Planeswalker", "ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
 	"Echo", "CumulativeUpkeep",
 }

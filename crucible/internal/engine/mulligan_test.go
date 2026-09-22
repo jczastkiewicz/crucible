@@ -154,6 +154,10 @@ func (c *scriptedMulliganController) ConfirmOptionalTrigger(_ *engine.Game, _ en
 	panic("scriptedMulliganController: ConfirmOptionalTrigger was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ConfirmPayCost(_ *engine.Game, _ engine.PlayerID, _ mana.Cost, _ engine.CardID) bool {
+	panic("scriptedMulliganController: ConfirmPayCost was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChoosePermanentsToSacrifice(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ int) []engine.CardID {
 	panic("scriptedMulliganController: ChoosePermanentsToSacrifice was not expected to be called")
 }

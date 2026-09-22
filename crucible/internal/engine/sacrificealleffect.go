@@ -18,8 +18,6 @@ import (
 // sacrificeAllUnresolvedParams names SacrificeAllEffect.resolve's own
 // params this port does not evaluate. Every one fails the whole line
 // loudly rather than sacrificing the wrong set (PORT-8/GO-7):
-// UnlessCost$/UnlessPayer$ (6/6, always co-occurring) -- the identical
-// "unless a cost is paid" gap Sacrifice's own already documents;
 // ConditionDefined$ (3) -- SpellAbilityCondition's own shape
 // subAbilityConditionMet does not cover, the identical GainLife/LoseLife/
 // Sacrifice-shaped gap; Planeswalker$ (1) -- unclear semantics, not worth
@@ -34,8 +32,20 @@ import (
 // whether or not subAbilityConditionMet let it run at all, the identical
 // shape every other M6 effect already has -- not named here because it
 // never blocks.
+//
+// UnlessCost$/UnlessPayer$ no longer block either: resolveUnlessCost
+// (effect.go) gates the whole ability before Registry.Resolve ever reaches
+// it, the identical gap Sacrifice's own already documented. 0 of the
+// corpus's own 6 real SacrificeAll lines naming UnlessCost$ resolve,
+// though: ashling_the_limitless.txt's own real pure-mana "{W}{U}{B}{R}{G}"
+// is the only one clearing resolveUnlessCost's own pure-mana-cost/
+// resolvable-payer filter, and its own Defined$ DelayTriggerRememberedLKI
+// is reached only through DB$ DelayedTrigger, a general delayed-trigger
+// mechanic this port does not build; every other real line names a
+// PayEnergy<.../DefinedCost_.../X-shard UnlessCost$ or a controller-derived
+// UnlessPayer$ (EnchantedController) this port cannot resolve.
 var sacrificeAllUnresolvedParams = [...]string{
-	"UnlessCost", "UnlessPayer", "ConditionDefined", "Planeswalker", "Activator", "SorcerySpeed", "ImprintSacrificed",
+	"ConditionDefined", "Planeswalker", "Activator", "SorcerySpeed", "ImprintSacrificed",
 }
 
 type sacrificeAllEffect struct{}

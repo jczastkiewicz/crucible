@@ -1793,6 +1793,41 @@ printed form.
     named this key at all, so search_the_city.txt's/jokulmorder.txt's/burgeoning.txt's own real "you may..." lines were
     firing unconditionally before this, a real correctness fix (PORT-8/GO-7) rather than only a new resolution.
 
+    **CR's own "unless a cost is paid" is real now too** (`resolveUnlessCost`, effect.go, ported from
+    `AbilityUtils.handleUnlessCost`) — a new gate `Registry.Resolve` checks ahead of its own ordinary
+    `Effect.Resolve`/`resolveSubAbility` pairing whenever an ability names `UnlessCost$`: each of `UnlessPayer$`'s own
+    players (`definedPlayers`, reused; an absent value is Java's own "TargetedController" default, not resolved) is
+    asked a new `PlayerController` method, `ConfirmPayCost` (its twenty-seventh), and a yes actually charged through
+    `PayManaCost` (manapay.go) — the identical "decide, then pay" split every other mana decision on the interface
+    already has. The ability's own body runs when nobody paid (`UnlessSwitched$`'s own presence flips that), and
+    `UnlessResolveSubs$` decides whether its own chained `SubAbility$` still runs regardless (absent, Java's own
+    "Always") or only on one particular outcome ("WhenPaid"/"WhenNotPaid"). Trimmed to the corpus's own one resolvable
+    shape — a pure-mana `UnlessCost$` (a new `cost.Cost.IsPureMana`, `internal/cost`, added once a direct `Tap`/`Untap`
+    field read in effect.go collided with `phase.go`'s own `Untap` step constant under enginelint's plain-identifier
+    matching, moving the field read into a different Go package sidesteps it) and an explicit `UnlessPayer$` naming
+    `You`/`Player`/`Opponent`/`Player.Opponent` (`definedPlayers`, reused) — 55 of the corpus's 727 real `UnlessCost$`
+    lines resolve past this gate and are actually reachable by this port at all: nicol_bolas.txt's own real "sacrifice
+    CARDNAME unless you pay {U}{B}{R}" shape dominates (51 of `Sacrifice`'s own 155 real lines, all reached through an
+    already-built trigger mode -- `T:Mode$ Phase`, mostly -- rather than an activated ability's own `Cost$`, which this
+    port cannot activate at all), plus 3 of `DealDamage`'s own 31 (force_of_nature.txt's own real "deals 8 damage to you
+    unless you pay {G}{G}{G}{G}") and 1 of `Pump`'s own 15 (spitting_slug.txt's own real "gains first strike... unless
+    you pay {1}{G}", chaining `UnlessResolveSubs$ WhenNotPaid` into `PumpAll` when the cost goes unpaid). Of the 672
+    real lines that do not: 6 real `Sacrifice` lines that otherwise clear this gate's own filter are a
+    `S:Mode$ Continuous | AddTrigger$` line's own dynamically granted trigger instead
+    (aura_flux.txt's/magus_of_the_tabernacle.txt's own real "other permanents have 'sacrifice this unless you pay...'"
+    among them) — `AddTrigger$` is not a built continuous-effect param, so the trigger it would grant never exists in
+    this port's own game at all; the rest name a non-mana cost part (`Sac<.../Discard<.../PayLife<...`), an X shard, an
+    unresolvable `UnlessPayer$` value (`TriggeredPlayer`, `EnchantedController`, ...), an activated ability's own
+    `Cost$` (general activated-ability casting, still not built), an instant or sorcery's own top-level line
+    (`CastSpell`'s own doc comment: "an instant or sorcery resolves into a script effect this port does not build"), or
+    a line reached only through an unbuilt API's own `SubAbility$`/`RepeatSubAbility$`/... chain link (`DB$ Effect`,
+    `DB$ Repeat`, `DB$ GenericChoice`, `DB$ DelayedTrigger`, none built).
+    `UnlessCost$`/`UnlessPayer$`/`UnlessResolveSubs$`/`UnlessSwitched$` no longer block any of the eight already-built
+    effects that named them in their own unresolved-param lists
+    (`sacrificeEffect`/`sacrificeAllEffect`/`dealDamageEffect`/`pumpEffect`/`pumpAllEffect`/`gainLifeEffect`/
+    `loseLifeEffect`/`discardEffect`) — `Sacrifice`'s own real corpus count rises from 465 to 516 of 792, `DealDamage`'s
+    from 62 to 65 of 2,219, and `Pump`'s own `Defined$`-shape count from 1,147 to 1,148 of 1,335.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

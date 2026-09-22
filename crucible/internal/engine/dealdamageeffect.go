@@ -1,9 +1,11 @@
 // DealDamage: CR 119/120.1, M6's second script-driven effect. Trimmed to the
 // corpus's single largest resolvable shape: a plain-or-named-SVar NumDmg$
 // dealt to a Defined$ player or the ability's own host, sourced from that
-// same host -- 62 of the corpus's 2,219 real (AB|DB)$ DealDamage lines that
+// same host -- 65 of the corpus's 2,219 real (AB|DB)$ DealDamage lines that
 // also name Defined$ You/Player.Opponent/Opponent/Self and carry no other
-// unresolved param, out of 822 total naming any Defined$ value at all.
+// unresolved param, out of 822 total naming any Defined$ value at all. 3 of
+// the 65 also name UnlessCost$ -- resolveUnlessCost's own new gate
+// (effect.go) runs ahead of this file entirely now, below.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/DamageDealEffect.java's
@@ -30,19 +32,22 @@ import "fmt"
 // Not ported (every one fails loudly rather than dealing the wrong amount to
 // the wrong thing, PORT-8/GO-7): DamageSource$ (17 of 822 real Defined$
 // lines -- a source other than the ability's own host, needing a reference
-// vocabulary this file does not have); Planeswalker$/UnlessPayer$/
-// UnlessCost$/UnlessResolveSubs$/ValidTgts$/TriggeredSpellAbility$/
-// DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each its own further
-// mechanic); NoPrevention$ (1 -- this port's own damagePrevented/
-// damagePreventedPlayer would otherwise apply where Java's own
-// AbilityKey.NoPreventDamage says not to, a wrong answer rather than a
+// vocabulary this file does not have); Planeswalker$/ValidTgts$/
+// TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each
+// its own further mechanic); NoPrevention$ (1 -- this port's own
+// damagePrevented/damagePreventedPlayer would otherwise apply where Java's
+// own AbilityKey.NoPreventDamage says not to, a wrong answer rather than a
 // missing one). SubAbility$ no longer blocks: resolveSubAbility
 // (subability.go) chains it through Registry.Resolve (effect.go) once this
 // effect's own body finishes, whether or not subAbilityConditionMet below
 // let it run at all -- sword_of_fire_and_ice_and_war_and_peace.txt's own
 // real DealDamage-chaining-into-GainLife shape is why. 9 of the corpus's
 // own 316 real SVar-defined DealDamage lines naming SubAbility$ chain to an
-// already-built leaf ability and resolve end to end.
+// already-built leaf ability and resolve end to end. UnlessPayer$/
+// UnlessCost$/UnlessResolveSubs$ no longer block either: resolveUnlessCost
+// (effect.go) gates the whole ability, this effect's own body included,
+// before Registry.Resolve ever reaches it -- force_of_nature.txt's own real
+// "deals 8 damage to you unless you pay {G}{G}{G}{G}" is the shape.
 //
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
 // ConditionSVarCompare$ -- SpellAbilityCondition's own gate on the ability
@@ -64,8 +69,7 @@ type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
 	"DamageSource", "Condition", "ConditionDefined",
-	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessResolveSubs",
-	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
+	"Planeswalker", "ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
 	"NoPrevention", "Optional", "TgtPrompt",
 }
 

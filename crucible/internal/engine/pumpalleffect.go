@@ -34,8 +34,7 @@ import (
 // guessing at; RememberPumped$ (8) -- Card.Memory has no writer wired to a
 // blanket multi-card grant; SharedKeywordsZone$/SharedRestrictions$ (4/4) --
 // CardFactoryUtil.sharedKeywords' own zone scan, a further mechanic;
-// UnlessCost$/UnlessPayer$ (3/3) -- CR 601.2i's own "unless a cost is paid"
-// branch; ModeCost$ (3) and Exhaust$ (4) -- each its own further activation
+// ModeCost$ (3) and Exhaust$ (4) -- each its own further activation
 // mechanic; AtEOT$ (0 real PumpAll lines, kept for symmetry with Pump's own
 // list and in case a future corpus update adds one) --
 // registerDelayedTrigger, a new trigger this effect would silently fail to
@@ -46,10 +45,21 @@ import (
 // finishes, whether or not subAbilityConditionMet let it run at all. 6 of
 // the corpus's own 75 real SVar-defined PumpAll lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
+//
+// UnlessCost$/UnlessPayer$ no longer block either: resolveUnlessCost
+// (effect.go) gates the whole ability before Registry.Resolve ever reaches
+// it. 0 of the corpus's own 3 real PumpAll lines naming UnlessCost$ resolve,
+// though: rhystic_shield.txt's own real "get +0/+2... unless any player
+// pays {2}" is the one clearing resolveUnlessCost's own pure-mana-cost/
+// resolvable-payer filter, and it is a top-level A:SP$ PumpAll line on an
+// Instant -- CastSpell does not cast an instant or sorcery at all
+// (castspell.go's own doc comment); the other 2 name UnlessPayer$
+// RememberedController and a non-mana UnlessCost$ (Mandatory PayEnergy<X>),
+// neither resolvable here regardless.
 var pumpAllUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts", "Planeswalker", "Ultimate",
-	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions", "UnlessCost", "UnlessPayer",
+	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions",
 	"ModeCost", "Exhaust", "AtEOT",
 }
 

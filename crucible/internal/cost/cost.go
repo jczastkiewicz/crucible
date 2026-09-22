@@ -36,6 +36,15 @@ type Cost struct {
 	Text string
 }
 
+// IsPureMana reports whether the cost is nothing but mana symbols -- no
+// named Part, no Tap/Untap/Mandatory token, and no XMin. A caller that can
+// only pay mana (Game.PayManaCost and its own callers) uses this to decide
+// whether it can attempt payment at all, rather than reading every other
+// field itself.
+func (c Cost) IsPureMana() bool {
+	return len(c.Parts) == 0 && !c.Tap && !c.Untap && !c.Mandatory && c.XMin == ""
+}
+
 // Part is one named cost part: a name and the fields of its `<...>` body.
 type Part struct {
 	// Name is the part's name, without the body.

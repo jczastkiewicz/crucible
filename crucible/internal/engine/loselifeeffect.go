@@ -37,11 +37,10 @@ import "fmt"
 // checks a trigger at all.
 //
 // Not ported (every one fails loudly rather than draining the wrong amount
-// from the wrong player, PORT-8/GO-7): Planeswalker$/UnlessPayer$/
-// UnlessCost$/UnlessSwitched$ (each its own further mechanic); Ultimate$/
-// IsPresent$/PresentCompare$/NumCards$/ModeCost$ (unclear semantics or
-// each its own further mechanic, not worth guessing at from a handful of
-// real lines); Condition$ itself and ConditionDefined$/ConditionZone$
+// from the wrong player, PORT-8/GO-7): Planeswalker$/Ultimate$/IsPresent$/
+// PresentCompare$/NumCards$/ModeCost$ (unclear semantics or each its own
+// further mechanic, not worth guessing at from a handful of real lines);
+// Condition$ itself and ConditionDefined$/ConditionZone$
 // (SpellAbilityCondition's own separate flag switch and shapes
 // subAbilityConditionMet does not cover, the identical GainLife-shaped
 // gap). ValidTgts$ itself no longer blocks: resolveTargets (targeting.go)
@@ -64,10 +63,23 @@ import "fmt"
 // own 382 real SVar-defined LoseLife lines naming SubAbility$ chain to an
 // already-built leaf ability and resolve end to end; a chain more than one
 // deep, or one whose target is not built yet, is not counted here.
+//
+// UnlessCost$/UnlessPayer$/UnlessSwitched$ no longer block either:
+// resolveUnlessCost (effect.go) gates the whole ability before
+// Registry.Resolve ever reaches it. 0 of the corpus's own 42 real LoseLife
+// lines naming UnlessCost$ resolve, though -- delaying_shield.txt's own
+// real pure-mana "{1}{W}" is the only one clearing resolveUnlessCost's own
+// pure-mana-cost/resolvable-payer filter, and it is reached only through
+// DB$ Repeat's own RepeatSubAbility$ (not the plain SubAbility$ chaining
+// this port's own resolveSubAbility reads), a general repeat-N-times
+// mechanic this port does not build; every other real line names a
+// Sac<.../Discard<.../PayLife<.../... cost part or a controller-derived
+// UnlessPayer$ (TriggeredPlayer, ParentTarget, ...) this port cannot
+// resolve.
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"Planeswalker", "UnlessPayer", "UnlessCost", "UnlessSwitched",
+	"Planeswalker",
 	"Ultimate", "IsPresent", "PresentCompare", "NumCards", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionZone",
 }

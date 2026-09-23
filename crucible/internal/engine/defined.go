@@ -8,7 +8,11 @@
 
 package engine
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
 
 // definedPlayers resolves Defined$ to the players it names: "You" (the
 // ability's own controller), "Opponent"/"Player.Opponent" (every opponent),
@@ -86,4 +90,41 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}
+}
+
+// targetedOrDefinedCards is SpellAbilityEffect.getTargetCards(sa)'s own
+// either/or contract (getCards(false, "Defined", sa), forge-game's own
+// SpellAbilityEffect.java): an ability that carries ValidTgts$ itself uses
+// its own chosen targets -- a's own Targets field, resolveTargets's own
+// answer (targeting.go) against these same Params, already populated before
+// Resolve is ever called (pushTriggeredAbilities, trigger.go) -- and Defined$
+// is not consulted at all, even if also present on the same line (destroy_
+// evil.txt-shaped SubAbility$ chains sometimes carry both, the outer half
+// dead). No ValidTgts$ at all falls back to Defined$, defaulting to "Self"
+// the same way Java's own getParamOrDefault(definedParam, "Self") does --
+// destroyEffect's/tapEffect's/untapEffect's own first caller, DestroyEffect.
+// java/TapEffect.java/UntapEffect.java each calling the identical
+// getTargetCards(sa) with no definedParam override.
+//
+// DestroyEffect.java's own dominant real shape (782 of 986 non-DestroyAll
+// (AB|DB)$ Destroy lines) names ValidTgts$ alone; TapEffect.java's (413 of
+// 577 non-ETB (AB|DB)$ Tap lines) does too -- the first two effects in this
+// port to read a's own Targets field directly rather than only through
+// definedCards's own "Targeted"/"ThisTargetedCard" case, Ability.Targets's
+// own doc comment updated to match (ability.go).
+func targetedOrDefinedCards(host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {
+	if _, ok := a.Param("ValidTgts"); ok {
+		var cards []CardID
+		for _, e := range targets {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		return cards, nil
+	}
+	defined, ok := a.Param("Defined")
+	if !ok {
+		defined = "Self"
+	}
+	return definedCards(host, defined, targets)
 }

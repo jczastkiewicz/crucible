@@ -73,8 +73,14 @@ type Ability struct {
 	// both. A card or a player target is carried the same way here
 	// (EntityID, unlike Target's own CardID-only shape), matching
 	// AbilityUtils.getTargetCards/getTargetPlayers' own split -- an effect
-	// reads either half back through definedCards's/definedPlayers's own
-	// new "Targeted" case (defined.go), never this field directly.
+	// naming Defined$ reads either half back through definedCards's/
+	// definedPlayers's own "Targeted" case (defined.go); one naming
+	// ValidTgts$ on its own line instead reads this field directly
+	// (targetedOrDefinedCards, defined.go, SpellAbilityEffect.
+	// getTargetCards(sa)'s own contract -- destroyEffect's/tapEffect's/
+	// untapEffect's own first callers), since it IS that ability's own
+	// resolveTargets answer, already populated against these same Params
+	// before Resolve is ever called.
 	Targets []EntityID
 	// Params is the compiled sub-ability record backing this API call --
 	// Defined$, NumCards$, and every other key an Effect's own Resolve reads

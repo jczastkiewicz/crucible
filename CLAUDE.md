@@ -192,12 +192,13 @@ information (`Game.LKI`); activating an ability (`activateability.go`/`activatem
 AddCounter/SubCounter; tapXType/Return-by-type; ExileFromGrave, self-discard and ExileFromHand for the graveyard/hand
 `ActivationZone$` cases) and CR 606.3's loyalty-ability once-per-turn restriction.
 
-M6 in progress alongside it: 12 of the corpus's 203 script-driven `Effect` APIs resolve rather than reporting
+M6 in progress alongside it: 15 of the corpus's 203 script-driven `Effect` APIs resolve rather than reporting
 `ErrUnimplemented` — `Draw`, `DealDamage`, `GainLife`, `Pump`, `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`,
-`Surveil`, `Sacrifice`, `SacrificeAll` — each with `UnlessCost$` and `SubAbility$` chaining wired through
-`Registry.Resolve` (`effect.go`). `ChangeZone` (6,616 real corpus lines) is the single largest remaining gap; real
-instant/sorcery casting, `DB$ Effect`/`Repeat`/`GenericChoice`/`DelayedTrigger`, and token creation are the next
-largest.
+`Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`, `Untap` — each with `UnlessCost$` and `SubAbility$` chaining
+wired through `Registry.Resolve` (`effect.go`); `Destroy`/`Tap`/`Untap` are the first to read a chosen target
+(`Ability.Targets`) directly rather than only through `Defined$` (`targetedOrDefinedCards`, `defined.go`). `ChangeZone`
+(6,616 real corpus lines) is the single largest remaining gap; real instant/sorcery casting,
+`DB$ Effect`/`Repeat`/`GenericChoice`/`DelayedTrigger`, and token creation are the next largest.
 
 Thin or missing: Layer 1 (copy effects — a separate resolution-time mechanism, not a continuous one); Layer 3 past one
 real line (`GainTextOf$`); Layer 8's `MayLookAt$`/`MayPlay$`/`AddHiddenKeyword$`; most of Layers 4-6 past a literal

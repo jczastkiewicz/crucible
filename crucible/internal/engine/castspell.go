@@ -200,8 +200,8 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	return nil
 }
 
-// NewRegistry builds a Registry carrying every Effect this port has. Ten
-// entries today: APIPermanentCreature and APIPermanentNoncreature share
+// NewRegistry builds a Registry carrying every Effect this port has.
+// Fifteen entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -235,7 +235,21 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // append-at-the-end could not reach; APISurveil is surveilEffect
 // (surveileffect.go), M6's tenth and ArrangeForScry's own sibling decision
 // reused wholesale -- the only difference from Scry is that the cards not
-// kept on top go to the graveyard rather than the bottom of the library.
+// kept on top go to the graveyard rather than the bottom of the library;
+// APISacrifice is sacrificeEffect (sacrificeeffect.go), M6's eleventh and
+// the first effect to read SacValid$'s own battlefield scan rather than a
+// Defined$/ValidTgts$ target; APISacrificeAll is sacrificeAllEffect
+// (sacrificealleffect.go), M6's twelfth and sacrificeEffect's own blanket
+// sibling; APIDestroy is destroyEffect (destroyeffect.go), M6's thirteenth
+// and the first to read a's own Targets field directly for a ValidTgts$-
+// bearing line rather than only through Defined$ (targetedOrDefinedCards,
+// defined.go); APITap is tapEffect (tapeffect.go), M6's fourteenth and the
+// first whose own dominant real corpus shape (ETB$'s "enters tapped")
+// resolves entirely outside Registry.Resolve, through replacement.go's own
+// tapAbilityResolvesTap; APIUntap is untapEffect (untapeffect.go), M6's
+// fifteenth and Tap's own mirror image, firing checkUntapsTriggers
+// (trigger.go) rather than checkTapsTriggers.
+//
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
 // wiring... so the direction stays visible and test binaries can register a
@@ -258,5 +272,8 @@ func NewRegistry() *Registry {
 	r[APISurveil] = surveilEffect{}
 	r[APISacrifice] = sacrificeEffect{}
 	r[APISacrificeAll] = sacrificeAllEffect{}
+	r[APIDestroy] = destroyEffect{}
+	r[APITap] = tapEffect{}
+	r[APIUntap] = untapEffect{}
 	return &r
 }

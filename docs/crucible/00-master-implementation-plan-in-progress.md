@@ -1773,10 +1773,10 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 
-**In progress.** 12 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
-`PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`, `Surveil`, `Sacrifice`, `SacrificeAll`) — see
-`docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below stay in their original
-plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way M0-M5 are).
+**In progress.** 15 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
+`PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`, `Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`,
+`Untap`) — see `docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below stay in
+their original plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way M0-M5 are).
 
 30. Implement APIs in corpus-first, then frequency order (Section 1.5). Keywords, triggers, replacements, cost parts
     alongside.

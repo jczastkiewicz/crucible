@@ -112,6 +112,37 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 // port to read a's own Targets field directly rather than only through
 // definedCards's own "Targeted"/"ThisTargetedCard" case, Ability.Targets's
 // own doc comment updated to match (ability.go).
+// targetedOrDefinedPlayers is getTargetPlayers(sa)'s own mirror-image
+// contract (getPlayers(false, "Defined", sa)), the player-shaped twin of
+// targetedOrDefinedCards, above -- millEffect's own first caller
+// (millEffect.java calling the identical getTargetPlayers(sa) with no
+// definedParam override). Defaults to "You" rather than "Self" when neither
+// ValidTgts$ nor Defined$ is present, Java's own
+// getParamOrDefault(definedParam, "You") for a player list.
+//
+// Not ported: getPlayers' own trailing APNAP sort (StartingWith$/the active
+// player). This port's own definedPlayers already returns "Player"'s/
+// "Opponent"'s own candidates in Players()' own fixed seat order rather than
+// turn order -- an established simplification every other effect naming
+// Defined$ Player/Opponent already carries (scryEffect's/discardEffect's
+// own doc comments), not a new gap Mill introduces.
+func targetedOrDefinedPlayers(g *Game, controller PlayerID, a *compile.Ability, targets []EntityID) ([]PlayerID, error) {
+	if _, ok := a.Param("ValidTgts"); ok {
+		var players []PlayerID
+		for _, e := range targets {
+			if pid, ok := e.AsPlayer(); ok {
+				players = append(players, pid)
+			}
+		}
+		return players, nil
+	}
+	defined, ok := a.Param("Defined")
+	if !ok {
+		defined = "You"
+	}
+	return definedPlayers(g, controller, defined, targets)
+}
+
 func targetedOrDefinedCards(host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {
 	if _, ok := a.Param("ValidTgts"); ok {
 		var cards []CardID

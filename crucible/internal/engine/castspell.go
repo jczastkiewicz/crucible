@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Fifteen entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Seventeen entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -248,7 +248,13 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // resolves entirely outside Registry.Resolve, through replacement.go's own
 // tapAbilityResolvesTap; APIUntap is untapEffect (untapeffect.go), M6's
 // fifteenth and Tap's own mirror image, firing checkUntapsTriggers
-// (trigger.go) rather than checkTapsTriggers.
+// (trigger.go) rather than checkTapsTriggers; APIFight is fightEffect
+// (fighteffect.go), M6's sixteenth and the first to combine a Defined$ card
+// with a ValidTgts$ target into two separate fighters rather than reading
+// either alone; APIMill is millEffect (milleffect.go), M6's seventeenth and
+// the first to read a PLAYER target directly (targetedOrDefinedPlayers,
+// defined.go) rather than a card one, reusing scryEffect's own top-of-
+// library defensive-copy idiom for a plain move instead of a reorder.
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -275,5 +281,7 @@ func NewRegistry() *Registry {
 	r[APIDestroy] = destroyEffect{}
 	r[APITap] = tapEffect{}
 	r[APIUntap] = untapEffect{}
+	r[APIFight] = fightEffect{}
+	r[APIMill] = millEffect{}
 	return &r
 }

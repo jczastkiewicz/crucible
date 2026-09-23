@@ -64,7 +64,9 @@
     "subability": ["subability.go"],
     "destroyeffect": ["destroyeffect.go"],
     "tapeffect": ["tapeffect.go"],
-    "untapeffect": ["untapeffect.go"]
+    "untapeffect": ["untapeffect.go"],
+    "fighteffect": ["fighteffect.go"],
+    "milleffect": ["milleffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -192,7 +194,9 @@
       "sacrificeeffect",
       "destroyeffect",
       "tapeffect",
-      "untapeffect"
+      "untapeffect",
+      "fighteffect",
+      "milleffect"
     ],
     "trigger": [
       "id",
@@ -313,6 +317,8 @@
     "subability": ["id", "game", "ability", "control", "effect"],
     "destroyeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts"],
     "tapeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts"],
-    "untapeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"]
+    "untapeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"],
+    "fighteffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "combatdamage", "trigger"],
+    "milleffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "zone", "parts", "amount"]
   }
 }

@@ -1,0 +1,159 @@
+// Fight: CR 701.12, M6's own sixteenth script-driven effect -- 146 of the
+// corpus's real (AB|DB)$ Fight lines, every one of them naming Defined$, 138
+// of THOSE also naming ValidTgts$ (fight_with_fire.txt's own dominant real
+// shape, "Defined$ Self | ValidTgts$ Creature" -- CARDNAME fights a chosen
+// target) and 8 naming Defined$ alone (two specific creatures, e.g. both
+// Remembered).
+//
+// Ported from
+// forge-game/src/main/java/forge/game/ability/effects/FightEffect.java's
+// resolve/getFighters/dealDamage. Not ported: TriggerType.Fight/FightOnce --
+// this port's own trigger table has no entry for either mode yet, the
+// identical "an unbuilt Mode$ simply never fires" reasoning every other
+// still-missing mode already has (game-state.md's own "Not ported yet").
+package engine
+
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+)
+
+// fightUnresolvedParams names FightEffect's own params this port does not
+// evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
+// ReplaceDyingDefined$/ReplaceDyingExiledWith$ (4/1) -- replaceDying's own
+// "if it would die this turn, exile instead" effect-scoped replacement, a
+// further mechanic; Optional$ (2) -- an interactive "would you like to
+// fight" confirm, the identical gap Sacrifice's/Discard's/Pump's own
+// Optional$ already document; ExcessSVarCondition$/ExcessSVar$ (2/2) --
+// unclear semantics, not worth guessing at from four real lines;
+// TargetsAtRandom$ (1) -- Aggregates.random, a randomized choice this
+// port's own ChooseTargets contract does not carry; SorcerySpeed$ (1) -- a
+// cost-restriction flag with no cost-payment site to attach to,
+// sacrificeEffect's own identical reasoning; Condition$/ConditionDefined$
+// (0/0) -- condition.go's own subAbilityConditionMet would otherwise
+// silently no-op a card naming either, dealDamageEffect's own identical
+// reasoning.
+var fightUnresolvedParams = [...]string{
+	"ReplaceDyingDefined", "ReplaceDyingExiledWith", "Optional",
+	"ExcessSVarCondition", "ExcessSVar", "TargetsAtRandom", "SorcerySpeed",
+	"Condition", "ConditionDefined",
+}
+
+// fightEffect resolves Mode$/DB$/AB$ Fight. ConditionPresent$/
+// ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
+// through subAbilityConditionMet (condition.go), the identical way every
+// other M6 effect's own does.
+type fightEffect struct{}
+
+func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	for _, key := range fightUnresolvedParams {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: Fight: %s$ not resolvable yet", key)
+		}
+	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	fighters, err := fightFighters(g, source, a.Params, a.Targets)
+	if err != nil {
+		return fmt.Errorf("engine: Fight: %w", err)
+	}
+	if len(fighters) < 2 {
+		return nil
+	}
+	fighterA, fighterB := g.Card(fighters[0]), g.Card(fighters[1])
+
+	var table damageTable
+	powerA, ok := fighterA.Power()
+	if !ok {
+		return fmt.Errorf("engine: Fight: %s's own power is not resolvable", fighterA.Def.Name)
+	}
+	// CR 701.12c: a creature fighting itself deals damage to itself equal to
+	// twice its power, dealDamage's own `fighterA.equals(fighterB)` branch.
+	if fighterA.ID == fighterB.ID {
+		g.dealPermanentDamage(controller, fighterA.ID, fighterA.ID, powerA*2, fighterA.HasKeyword("Deathtouch"), false, &table)
+		g.checkDamageTableTriggers(controller, table, false)
+		return nil
+	}
+	powerB, ok := fighterB.Power()
+	if !ok {
+		return fmt.Errorf("engine: Fight: %s's own power is not resolvable", fighterB.Def.Name)
+	}
+	g.dealPermanentDamage(controller, fighterA.ID, fighterB.ID, powerA, fighterA.HasKeyword("Deathtouch"), false, &table)
+	g.dealPermanentDamage(controller, fighterB.ID, fighterA.ID, powerB, fighterB.HasKeyword("Deathtouch"), false, &table)
+	g.checkDamageTableTriggers(controller, table, false)
+	return nil
+}
+
+// fightFighters is getFighters's own real corpus shape: at most one card
+// from ValidTgts$'s own chosen target (targetedOrDefinedCards's own first
+// half, defined.go -- read directly here rather than through that helper,
+// since Fight's own combining rule needs to know separately whether a
+// target supplied a card, unlike every other targeted effect this port
+// has) and Defined$'s own resolved cards, combined the identical way
+// Java's own priority does: a lone Defined$ card pairs with an already-
+// found target (fighter2 = the target, fighter1 = the Defined$ card,
+// getFighters' own real corpus shape); two or more Defined$ cards with no
+// target found yet become both fighters outright. CR 701.12b's own "no
+// longer on the battlefield or no longer a creature" legality check
+// (definedCards's own filter has no such notion) is applied here, to
+// Defined$'s own resolved cards only -- Java's own identical asymmetry,
+// since a freshly-chosen ValidTgts$ target was already legality-filtered by
+// resolveTargets' own candidate walk (targeting.go) moments before this
+// runs, and nothing can happen to it in between (attachEffect's own CR
+// 608.2b doc comment, castspell.go, has the "no responses exist yet"
+// reasoning).
+func fightFighters(g *Game, host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {
+	var fighter1, fighter2 CardID
+	haveFighter1 := false
+
+	if _, hasValidTgts := a.Param("ValidTgts"); hasValidTgts {
+		for _, e := range targets {
+			if id, ok := e.AsCard(); ok {
+				fighter1, haveFighter1 = id, true
+				break
+			}
+		}
+	}
+
+	if defined, ok := a.Param("Defined"); ok {
+		cards, err := definedCards(host, defined, targets)
+		if err != nil {
+			return nil, err
+		}
+		var live []CardID
+		for _, id := range cards {
+			c := g.Card(id)
+			if c.Zone == Battlefield && c.Type().Has(cardtype.Creature) {
+				live = append(live, id)
+			}
+		}
+		switch {
+		case len(live) > 1 && !haveFighter1:
+			fighter1, fighter2 = live[0], live[1]
+			haveFighter1 = true
+		case len(live) > 0:
+			fighter2 = fighter1
+			fighter1 = live[0]
+			haveFighter1 = true
+		}
+	} else if haveFighter1 {
+		var cardTargets []CardID
+		for _, e := range targets {
+			if id, ok := e.AsCard(); ok {
+				cardTargets = append(cardTargets, id)
+			}
+		}
+		if len(cardTargets) > 1 {
+			fighter2 = cardTargets[1]
+		}
+	}
+
+	if !haveFighter1 || fighter2 == NoCard {
+		return nil, nil
+	}
+	return []CardID{fighter1, fighter2}, nil
+}

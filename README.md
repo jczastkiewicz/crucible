@@ -24,7 +24,9 @@ linters that check the port's architectural premises. What is finished is the bl
 accepted ADRs, 7 binding guidelines, 4 design documents and the implementation plan. That order is deliberate: the port
 is documentation-driven.
 
-Progress is tracked in [the implementation plan](docs/crucible/00-master-implementation-plan.md), §5.
+Progress is tracked in [the implementation plan](docs/crucible/00-master-implementation-plan.md), §5 — split into
+[in-progress](docs/crucible/00-master-implementation-plan-in-progress.md) and
+[open](docs/crucible/00-master-implementation-plan-open.md) milestone detail once a milestone leaves M0-M4.
 
 ---
 

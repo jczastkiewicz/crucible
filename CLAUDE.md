@@ -208,7 +208,8 @@ across every card this game ever printed, which `*Game` holds no `*carddb.DB` re
 own "Not ported yet" section lists in full.
 
 Full detail — every primitive, every real corpus count, every design decision and its Java citation:
-`docs/crucible/00-master-implementation-plan.md` items 24-29, `docs/crucible/porting/port-log/game-state.md`.
+`docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32,
+`docs/crucible/porting/port-log/game-state.md`.
 
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

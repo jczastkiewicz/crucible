@@ -72,7 +72,11 @@ func (c Cost) IsPureMana() bool {
 // Goldmane's own real "[+1]: You gain 2 life," AddCounter<1/LOYALTY>), and
 // an optional "remove N counters of a kind from this permanent"
 // (SubCounter<N/Type>, AddCounter's own mirror image -- Ajani's own real
-// "[-1]:"/"[-6]:" abilities). Each started as its own predicate
+// "[-1]:"/"[-6]:" abilities), and an optional self-exile-from-the-graveyard
+// (ExileFromGrave<1/CARDNAME>, SelfExile's own sibling for CostExile.java's
+// other real "from" zone -- an Escape/Unearth-style ability's own dominant
+// real cost, activated from the graveyard rather than the battlefield).
+// Each started as its own predicate
 // (IsPureManaOrTap, then IsPureManaTapAndSelfSac, SelfSac) before this type
 // replaced all three the first three grew into: Discard's own count could
 // not fit a bool the way Tap and SelfSac could, and three near-identical
@@ -159,6 +163,19 @@ type ActivationShape struct {
 	// -- AddCounterType's own mirror image. Empty exactly when the cost
 	// names no self-reference SubCounter part at all.
 	SubCounterType string
+	// SelfExileFromGrave is ExileFromGrave<1/CARDNAME|NICKNAME>'s own
+	// presence -- SelfExile's own sibling for CostExile.java's other real
+	// "from" zone (Graveyard rather than Battlefield, the identical class,
+	// a different ZoneType constructor argument): "exile CARDNAME from your
+	// graveyard," the dominant real cost of an Escape/Unearth-style ability
+	// activated from the graveyard rather than the battlefield
+	// (ActivationZone$ Graveyard, ActivateAbility's own doc comment). Unlike
+	// SelfExile, this is never combined with a battlefield-only primitive in
+	// any real corpus line (Tap/SelfSac/Discard/... all assume a permanent
+	// already on the battlefield, which a graveyard card is not), so
+	// ActivateAbility itself -- not this decomposition -- is what refuses a
+	// Graveyard-zone ability naming any of those.
+	SelfExileFromGrave bool
 }
 
 // isSelfReferenceField reports whether field is one of the two literal
@@ -172,10 +189,10 @@ func isSelfReferenceField(field string) bool {
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the twelve primitives [ActivationShape] carries, decomposed
+// zero or more of the thirteen primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>/
-// Return<...>/Exert<...>, a Discard<...> past the literal "N/Card" shape (a
+// Return<...>/Exert<...>/ExileFromGrave<...>, a Discard<...> past the literal "N/Card" shape (a
 // self-discard, a random discard, a type-restricted choice, ...), a
 // PayLife<...> or PayEnergy<...> past a literal positive integer
 // (PayLife<X>/PayEnergy<X> and their own kin -- an amount this port has no
@@ -251,6 +268,8 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			}
 			shape.SubCounterN = n
 			shape.SubCounterType = p.Field(1)
+		case p.Name == "ExileFromGrave" && !shape.SelfExileFromGrave && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+			shape.SelfExileFromGrave = true
 		default:
 			return ActivationShape{}, false
 		}

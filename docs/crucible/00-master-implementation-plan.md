@@ -2111,6 +2111,38 @@ printed form.
     session to actually try pushing one of these abilities through `Registry.Resolve`, and every one of the nine failed
     identically the first time it was tried.
 
+    **`ActivateAbility`/`ActivateManaAbility` gained a fourteenth cost primitive too** -- `ExileFromGrave<1/CARDNAME>`
+    (`CostExile.java`'s own graveyard-origin constructor, the identical class `Exile<1/CARDNAME>` already reads, a
+    different `ZoneType` argument), paired with CR 602.2's own `ActivationZone$` generalization past a permanent already
+    on the battlefield -- `SpellAbilityRestriction.checkZoneRestrictions`, read directly, since without it this
+    primitive alone would pay off nothing (every real corpus line naming it also names `ActivationZone$`, and
+    `ActivateAbility` hardcoded `c.Zone != Battlefield` at its own top gate before this). 230 real corpus lines name
+    `ActivationZone$ Graveyard` (Escape/Unearth-style abilities), the corpus's own dominant non-Battlefield destination
+    -- `Hand`'s 97 (Cycling, Transmute) and `Command`'s 57 (emblems, sagas) stay unbuilt, this landing's own scope cut.
+    A Graveyard-zone ability's own "you" is the source's **owner**, not its controller (CR 109.5 -- a card outside the
+    battlefield has no controller), so `ActivateAbility`/`ActivateManaAbility` both now switch on
+    `ability.Param("ActivationZone")` (fetched right after the ability itself, reordered ahead of the old top-of-
+    function zone/controller check, since that check now depends on which ability is being activated): absent or
+    `Battlefield` keeps the identical `c.Controller() != pid || c.Zone != Battlefield` gate, `Graveyard` swaps it for
+    `c.Owner != pid || c.Zone != Graveyard`, anything else declines outright. `SelfExileFromGrave bool` joined
+    `ActivationShape` (`internal/cost`) as a fourteenth primitive; a Graveyard-zone ability naming any other primitive
+    (`Tap`/`SelfSac`/`Discard`/...) declines outright too -- 0 real corpus lines combine `ActivationZone$ Graveyard`
+    with anything but plain mana or `ExileFromGrave<1/CARDNAME>`, confirmed by grep before writing the guard. Paying it
+    calls a new `exileFromGraveyard` (new `exilefromgrave.go`) -- `exileCards`'s (exile.go) own much simpler sibling: a
+    plain zone move with no trigger check and no `g.LKI` snapshot, since CR 603.6d's own "leaves the battlefield" family
+    is specifically about a permanent leaving the battlefield, which a graveyard card never was for this move (56 real
+    corpus `T:Mode$ ChangesZone | Origin$ Graveyard` lines are a separate, unrelated, still-unbuilt "leaves the
+    graveyard" trigger family this landing does not reach either). 168 of the corpus's own 220 real
+    `ActivationZone$ Graveyard` lines resolve at the cost-shape level (82 pure mana, 86 mana plus `ExileFromGrave`); the
+    other 52 name a chosen-type `Sac<.../Discard<.../tapXType<...` component this decomposition does not carry for a
+    graveyard ability, correctly declined by the existing `ActivationShape` gate with no new code. Of those 168, 49
+    actually run an already-built effect end to end (19 `PutCounter`, 11 `Pump`, 10 `Draw`, 3 `PumpAll`, 2 `GainLife`, 1
+    each of `Discard`/`Scry`/`DealDamage`/`Mana`); 87 name `ChangeZone` (Escape's/Unearth's own dominant real effect,
+    still this port's own single largest unbuilt API, 6,616 real corpus lines corpus-wide) and the remainder name
+    another unbuilt API. `ActivateManaAbility` pays `SelfExileFromGrave` too -- the sole real
+    `AB$ Mana | ActivationZone$ Graveyard` line needed `activationzone` added to `manaAbilityAllowedParams` alongside
+    the zone-check generalization.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

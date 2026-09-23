@@ -8,10 +8,21 @@
 // (PayEnergy<N>), an optional "tap N untapped permanents of a type"
 // (tapXType<N/Type>), an optional "return N permanents of a type you
 // control" (Return<N/Type>), an optional "put N counters of a kind on this
-// permanent" (AddCounter<N/Type>) and an optional "remove N counters of a
-// kind from this permanent" (SubCounter<N/Type>), in any combination
-// (cost.Cost.ActivationShape, internal/cost) -- the only primitives this
-// port has payment machinery for. A Planeswalker$ ability -- CR 606.3's own
+// permanent" (AddCounter<N/Type>), an optional "remove N counters of a
+// kind from this permanent" (SubCounter<N/Type>) and an optional
+// self-exile-from-the-graveyard (ExileFromGrave<1/CARDNAME>), in any
+// combination (cost.Cost.ActivationShape, internal/cost) -- the only
+// primitives this port has payment machinery for. An ability naming
+// ActivationZone$ Graveyard activates from the graveyard rather than the
+// battlefield -- CR 602.2's own generalization past a permanent already on
+// the battlefield, ported past its own single dominant real destination
+// (230 real lines name Graveyard; Hand's 97 and Command's 57 stay
+// unbuilt): the source's own owner, not controller (CR 109.5, a card
+// outside the battlefield has no controller), may activate it while it
+// sits in Graveyard rather than Battlefield, and only ExileFromGrave (plus
+// mana) may pay for it -- every other primitive above assumes a permanent
+// already on the battlefield, and 0 real corpus lines combine one with
+// ActivationZone$ Graveyard. A Planeswalker$ ability -- CR 606.3's own
 // loyalty ability, real corpus lines pairing AddCounter/SubCounter with it
 // 996 times out of 999 -- may activate at most once per turn regardless of
 // which of those two shapes its own cost uses, including AddCounter<0/...>'s
@@ -70,7 +81,11 @@ import (
 // chosen permanent, "OriginalHost," a type list), or an Untap/Mandatory/
 // XMin token, each its own further payment primitive this port does not
 // have, PORT-8/GO-7's "skip the whole line" applied to the cost itself
-// rather than to the ability's own other params, a Planeswalker$ ability
+// rather than to the ability's own other params, an ActivationZone$ this
+// port does not build (Hand/Command/Exile/Stack -- Graveyard is the only
+// non-Battlefield zone supported), a Graveyard-zone ability naming any
+// primitive but ExileFromGrave (or a Battlefield-zone ability naming
+// ExileFromGrave), a Planeswalker$ ability
 // already activated once this turn (CR 606.3, Card.LoyaltyAbilityActivated),
 // a Discard component the activating player's own hand
 // cannot actually pay (fewer cards in hand than DiscardN), a PayLife
@@ -151,12 +166,16 @@ import (
 // counters of AddCounterType on the source (Card.Counters, counters.go) and
 // emits the identical CounterChanged event putCounterEffect's own does, then
 // a SubCounter component removes SubCounterN counters the identical way with
-// a negative delta -- CR 602.2g's own "costs are paid together" is
+// a negative delta, then a SelfExileFromGrave component exiles the source
+// from the graveyard (exileFromGraveyard, exilefromgrave.go -- no trigger
+// check, unlike the battlefield SelfExile branch above: CR 603.6d's own
+// "leaves the battlefield" family does not apply to a card that was never
+// on the battlefield) -- CR 602.2g's own "costs are paid together" is
 // approximated here as "check every cost for feasibility first, then commit
 // each one, mana first, tap second, sacrifice third, exile fourth, return
 // fifth, exert sixth, discard seventh, life eighth, energy ninth,
 // tap-by-type tenth, return-by-type eleventh, add-counter twelfth,
-// remove-counter last," so a failed mana payment never
+// remove-counter thirteenth, exile-from-graveyard last," so a failed mana payment never
 // leaves the permanent tapped, sacrificed, exiled, returned, exerted, the
 // player short a card, short life, short energy, wrongly gaining or missing
 // counters, or another permanent
@@ -190,15 +209,26 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	c := g.Card(card)
-	if c.Controller() != pid || c.Zone != Battlefield {
-		return false
-	}
 	abilities := c.Def.Faces[0].Abilities
 	if index < 0 || index >= len(abilities) {
 		return false
 	}
 	ability := abilities[index]
 	if ability.Record != compile.Activated || ability.Name == "Mana" {
+		return false
+	}
+	fromGraveyard := false
+	switch zone, _ := ability.Param("ActivationZone"); zone {
+	case "", "Battlefield":
+		if c.Controller() != pid || c.Zone != Battlefield {
+			return false
+		}
+	case "Graveyard":
+		if c.Owner != pid || c.Zone != Graveyard {
+			return false
+		}
+		fromGraveyard = true
+	default:
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
@@ -212,6 +242,14 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
 	if !ok {
+		return false
+	}
+	if fromGraveyard && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
+		shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
+		shape.AddCounterType != "" || shape.SubCounterType != "") {
+		return false
+	}
+	if !fromGraveyard && shape.SelfExileFromGrave {
 		return false
 	}
 	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
@@ -308,6 +346,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		ct := CounterType(strings.ToUpper(shape.SubCounterType))
 		c.Counters.Add(ct, -shape.SubCounterN)
 		emitCounterChanged(g.sink, card, CardEntity(card), ct, -shape.SubCounterN)
+	}
+	if shape.SelfExileFromGrave {
+		exileFromGraveyard(g, card)
 	}
 	if isLoyaltyAbility {
 		c.LoyaltyAbilityActivated = true

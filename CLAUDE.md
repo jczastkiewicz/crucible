@@ -988,5 +988,19 @@ how the effect they cost-gate resolves — fixed in all nine, each headline corp
 (`dealDamageEffect` 65→72, `gainLifeEffect` 857→862, `loseLifeEffect` 300→306, `putCounterEffect` 992→993, `scryEffect`
 332→340, `surveilEffect` 183→187, `sacrificeAllEffect` 91→92, `sacrificeEffect` 516→522, `pumpAllEffect` 642→668).
 
+`ActivateAbility`/`ActivateManaAbility` gained a fourteenth cost primitive too — `ExileFromGrave<1/CARDNAME>`
+(`CostExile.java`'s own graveyard-origin constructor, `Exile<1/CARDNAME>`'s own sibling for the identical class) —
+paired with CR 602.2's own `ActivationZone$` generalization past a permanent already on the battlefield: an ability
+naming `ActivationZone$ Graveyard` (230 real lines, the corpus's own dominant non-Battlefield destination — `Hand`'s 97
+and `Command`'s 57 stay unbuilt) activates from the graveyard instead, gated on the source's own **owner**, not
+controller (CR 109.5 — a card outside the battlefield has no controller), and may only pay with mana or `ExileFromGrave`
+(0 real corpus lines combine `ActivationZone$ Graveyard` with any battlefield-only primitive). Paying it calls a new
+`exileFromGraveyard` (new `exilefromgrave.go`) — a plain zone move with no trigger check, since CR 603.6d's own "leaves
+the battlefield" family does not apply to a card that was never on the battlefield. 168 of the corpus's own 220 real
+`ActivationZone$ Graveyard` lines resolve at the cost-shape level (82 pure mana, 86 mana plus `ExileFromGrave`); 49 of
+those actually run an already-built effect end to end, and 87 more name `ChangeZone` (Escape's/Unearth's own dominant
+real effect, still this port's own single largest unbuilt API). `ActivateManaAbility` pays it too — the sole real
+`AB$ Mana` line naming `ActivationZone$ Graveyard`.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

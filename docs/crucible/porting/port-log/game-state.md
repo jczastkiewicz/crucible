@@ -5473,6 +5473,65 @@ gained five --
 `NICKNAME` target forms, and combining the two) and reject cases (non-literal `N`, a negative `N`, a chosen target, a
 duplicate part).
 
+## ExileFromGrave<1/CARDNAME> activation cost lands, CR 602.2's own ActivationZone$ generalization
+
+Corpus-frequency research for the next primitive turned up `ExileFromGrave<...>` -- `CostExile.java`'s own graveyard-
+origin constructor, the identical class `Exile<1/CARDNAME>` already reads, a different `ZoneType` argument -- at 294
+real occurrences, dominated by the self-reference shape (`ExileFromGrave<1/CARDNAME>`, 78, plus
+`ExileFromGrave<1/ CARDNAME/this card>`, 20). Reading a real card that carries it (`rubblebelt_maverick.txt`) directly
+showed why this primitive alone would pay off nothing:
+`A:AB$ PutCounter | Cost$ G ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | ...` -- `ActivateAbility` hardcodes
+`c.Zone != Battlefield` at its own top gate, so no ability naming `ActivationZone$` at all could ever activate
+regardless of what its own `Cost$` could pay. `ActivationZone$` is Java's own general mechanism
+(`SpellAbilityRestriction.checkZoneRestrictions`) for an ability activated from somewhere other than the battlefield --
+230 real corpus lines name `Graveyard` (Escape/Unearth-style abilities), 97 name `Hand` (Cycling, Transmute) and 57 name
+`Command` (emblems, sagas). This landing scopes to `Graveyard` alone, the corpus's own dominant real destination and
+`ExileFromGrave`'s own natural pairing; `Hand`/`Command` stay unbuilt.
+
+`checkZoneRestrictions` (`SpellAbilityRestriction.java:215-259`), read directly, settled the real semantics: a
+Graveyard-zone ability's own "you" is the source's **owner**, not its controller -- CR 109.5's own "a card outside the
+battlefield has no controller." `ActivateAbility`/`ActivateManaAbility` both switch on `ability.Param("ActivationZone")`
+now, fetched right after the ability itself (reordered ahead of the old top-of-function zone/controller check, since
+that check now depends on which ability is being activated rather than being a fixed precondition): absent or the
+literal `Battlefield` keeps the identical `c.Controller() != pid || c.Zone != Battlefield` gate; `Graveyard` swaps it
+for `c.Owner != pid || c.Zone != Graveyard`; anything else (`Hand`/`Command`/`Exile`/`Stack`, 1 real line each for the
+last two) declines outright.
+
+`SelfExileFromGrave bool` joined `ActivationShape` (`internal/cost`) as a fourteenth primitive, `isSelfReferenceField`
+reused outright for its own self-reference check the identical way `SelfExile`'s already does. A Graveyard-zone ability
+naming any OTHER primitive above -- `Tap`, `SelfSac`, `Discard`, `AddCounter`, ... -- declines outright rather than
+committing nonsense (tapping a card that is not a permanent, sacrificing one that is not on the battlefield): 0 real
+corpus lines combine `ActivationZone$ Graveyard` with anything but plain mana or `ExileFromGrave<1/CARDNAME>`, confirmed
+by grepping every real line's own `Cost$` before writing the guard rather than assuming symmetry with the battlefield
+primitives. Paying `SelfExileFromGrave` calls a new `exileFromGraveyard` (new `exilefromgrave.go`) -- `exileCards`'s
+(exile.go) own much simpler sibling: a plain `g.Move(id, Exile, owner)`, no trigger check and no `g.LKI` snapshot at
+all, since CR 603.6d's own "leaves the battlefield" family (`checkExiledTriggers`) is specifically about a permanent
+leaving the battlefield, which a graveyard card never was for this move. 56 real corpus
+`T:Mode$ ChangesZone | Origin$ Graveyard` lines exist -- a separate, unrelated, still-unbuilt "leaves the graveyard"
+trigger family this landing does not reach either.
+
+Of the corpus's own 220 real `A:AB$ ... | ActivationZone$ Graveyard` lines, 168 resolve at the cost-shape level (82 pure
+mana, 86 mana plus `ExileFromGrave<1/CARDNAME>`); the other 52 name a chosen-type `Sac<.../Discard<.../tapXType<...`
+component this decomposition does not carry for a graveyard ability (`Sac<1/Clue>`, `Mill<4>`, ... -- correctly declined
+by the existing `ActivationShape` gate with no new code). Of those 168, 49 actually run an already-built effect end to
+end (19 `PutCounter`, 11 `Pump`, 10 `Draw`, 3 `PumpAll`, 2 `GainLife`, 1 each of `Discard`/`Scry`/`DealDamage`/ `Mana`);
+87 name `ChangeZone` (Escape's/Unearth's own dominant real effect, "return this card from your graveyard to the
+battlefield" -- `ChangeZone` itself is still this port's own single largest unbuilt effect, 6,616 real corpus lines
+corpus-wide, unrelated to this landing) and the remainder name another unbuilt API (`Token`, `MakeCard`, ...).
+`ActivateManaAbility` pays `SelfExileFromGrave` too -- the sole real `A:AB$ Mana | ActivationZone$ Graveyard` line
+(`Cost$ 1 ExileFromGrave<1/CARDNAME> | Produced$ Any`) needed `activationzone` added to `manaAbilityAllowedParams`
+alongside the zone-check generalization.
+
+10 new tests: `activateability_test.go` gained six -- `TestActivateAbilityExileFromGraveCostExilesSourceAndRunsEffect`
+(source moves Graveyard→Exile, the ability still resolves), `...GraveyardAbilityWithPureManaCostStaysInGraveyard` (the
+corpus's own dominant real shape: the source is untouched, only the effect -- not built here -- would move it),
+`...DeclinesGraveyardAbilityWhenNotInGraveyard`, `...DeclinesGraveyardAbilityForNonOwner` (CR 109.5's own
+owner-not-controller check, proven by activating as the non-active-turn player who nonetheless owns the card),
+`...DeclinesGraveyardAbilityCombinedWithTapCost` and `...DeclinesUnsupportedActivationZone` (`Hand`).
+`activatemanaability_test.go` gained `TestActivateManaAbilityExileFromGraveCost`, the real two-part shape end to end.
+`internal/cost/parsing_test.go` extended `TestActivationShape` with `ExileFromGrave<1/CARDNAME>`/`<1/NICKNAME>` alone
+and combined with mana, and three reject cases (a chosen count, a chosen type, a duplicate).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

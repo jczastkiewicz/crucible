@@ -1561,3 +1561,149 @@ func TestActivateAbilityDeclinesForNonSelfAddCounterTarget(t *testing.T) {
 		t.Error("ActivateAbility returned true for a non-self AddCounter target, want false")
 	}
 }
+
+// TestActivateAbilityExileFromGraveCostExilesSourceAndRunsEffect proves
+// ActivationZone$ Graveyard -- CR 602.2's own generalization past a
+// permanent already on the battlefield -- actually activates from the
+// graveyard: the source's own owner (not controller, CR 109.5 -- a card
+// outside the battlefield has no controller) may activate it while it sits
+// in Graveyard, ExileFromGrave<1/CARDNAME> exiles it as the cost
+// (exileFromGraveyard, exilefromgrave.go), and the ability still resolves
+// with its own source already gone.
+func TestActivateAbilityExileFromGraveCostExilesSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Exile From Grave",
+		"AB$ GainLife | Cost$ ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 3")
+	creature := g.NewCard(def, p, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile -- the ExileFromGrave<1/CARDNAME> cost must actually exile it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23", got)
+	}
+}
+
+// TestActivateAbilityGraveyardAbilityWithPureManaCostStaysInGraveyard proves
+// the corpus's own dominant real ActivationZone$ Graveyard shape past
+// ExileFromGrave -- a plain mana cost, e.g. Unearth-style abilities whose
+// own effect (not built here) moves the card elsewhere: the source is not
+// itself touched by activation.
+func TestActivateAbilityGraveyardAbilityWithPureManaCostStaysInGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+
+	def := creatureDefWithAbility(t, "Test Grave Pure Mana",
+		"AB$ GainLife | Cost$ B | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 2")
+	creature := g.NewCard(def, p, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(creature).Zone; zone != engine.Graveyard {
+		t.Errorf("source zone = %v, want Graveyard -- a plain mana cost must not move it", zone)
+	}
+}
+
+// TestActivateAbilityDeclinesGraveyardAbilityWhenNotInGraveyard proves the
+// zone check is real: the identical card/ability, but sitting on the
+// battlefield instead of in the graveyard, cannot activate its own
+// ActivationZone$ Graveyard line.
+func TestActivateAbilityDeclinesGraveyardAbilityWhenNotInGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Grave Not In Grave",
+		"AB$ GainLife | Cost$ ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for a graveyard ability on a battlefield card, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesGraveyardAbilityForNonOwner proves CR 109.5's
+// own "a card outside the battlefield has no controller, its owner's own
+// zones are the 'you'" -- only the source's own owner, not just any player,
+// may activate it from the graveyard.
+func TestActivateAbilityDeclinesGraveyardAbilityForNonOwner(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	owner, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, other, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Grave Non Owner",
+		"AB$ GainLife | Cost$ ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, owner, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(other, creature, 0, c) {
+		t.Error("ActivateAbility returned true for a non-owner activating a graveyard ability, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesGraveyardAbilityCombinedWithTapCost proves a
+// graveyard-zone ability naming any battlefield-only cost primitive besides
+// ExileFromGrave -- Tap here, none of which any real corpus line combines
+// with ActivationZone$ Graveyard -- declines outright rather than tapping a
+// card that is not a permanent at all.
+func TestActivateAbilityDeclinesGraveyardAbilityCombinedWithTapCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Grave Tap",
+		"AB$ GainLife | Cost$ T ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for a graveyard ability combined with a Tap cost, want false")
+	}
+}
+
+// TestActivateAbilityDeclinesUnsupportedActivationZone proves an
+// ActivationZone$ this port does not build (Hand here, 97 real corpus
+// lines) fails closed rather than defaulting to Battlefield or Graveyard.
+func TestActivateAbilityDeclinesUnsupportedActivationZone(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Hand Zone",
+		"AB$ Discard | Cost$ Discard<1/CARDNAME> | ActivationZone$ Hand | Defined$ You")
+	creature := g.NewCard(def, p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for ActivationZone$ Hand, want false")
+	}
+}

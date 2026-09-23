@@ -681,3 +681,33 @@ func TestActivateManaAbilityDeclinesWhenLoyaltyAbilityAlreadyActivated(t *testin
 		t.Errorf("loyalty = %d, want 4 -- a declined activation must not touch it", got)
 	}
 }
+
+// TestActivateManaAbilityExileFromGraveCost proves the real corpus shape
+// "1, Exile CARDNAME from your graveyard: Add one mana of any color" --
+// ActivationZone$ Graveyard applies to a mana ability the identical way it
+// applies to ActivateAbility.
+func TestActivateManaAbilityExileFromGraveCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+
+	def := creatureDefWithAbility(t, "Test Mana Grave Exile",
+		"AB$ Mana | Cost$ 1 ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueueManaColor(mana.Blue)
+	if !g.ActivateManaAbility(p, rock, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if zone := g.Card(rock).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile", zone)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 1, 0, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one blue", got)
+	}
+}

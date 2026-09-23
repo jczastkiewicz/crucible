@@ -1,7 +1,11 @@
 // PutCounter: CR 121.1, the corpus's own second-largest resolvable slice
-// after Pump -- 992 of the corpus's 3,165 real (AB|DB)$ PutCounter lines
+// after Pump -- 993 of the corpus's 3,165 real (AB|DB)$ PutCounter lines
 // that name a single literal CounterType$, Defined$ Self/Enchanted/
-// Equipped/You, and carry no other unresolved param.
+// Equipped/You, and carry no other unresolved param -- 1 of them naming
+// Planeswalker$ too, no longer blocked (below): CR 606.3's own
+// loyalty-ability restriction is a cost-side gate (ActivateAbility/
+// ActivateManaAbility, activateability.go), never a restriction on how the
+// effect it pays for actually resolves.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/CountersPutEffect.java's
@@ -42,7 +46,7 @@ import (
 // not this one; ForColor$/SharedKeywords$/SharedKeywordsDefined$/
 // SharedKeywordsZone$/SharedRestrictions$/TriggeredCounterMap$/
 // CounterMapValues$/SpecifyCounter$/Placer$/RememberCards$/RemovePhase$/
-// Planeswalker$/Optional$/UpTo$/UpToMin$ -- each its own further mechanic.
+// Optional$/UpTo$/UpToMin$ -- each its own further mechanic.
 //
 // Condition$ itself and ConditionDefined$/ConditionZone$/
 // ConditionPlayerTurn$/ConditionActivationLimit$/ConditionPresent2$/
@@ -66,7 +70,7 @@ var putCounterUnresolvedParams = [...]string{
 	"CounterTypePerDefined", "CounterNumPerDefined", "OnlyNewKind", "SkipReceiveCounters", "RandomType",
 	"CounterTypes", "ForColor", "SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter", "Placer",
-	"RememberCards", "RemovePhase", "Planeswalker", "Optional", "UpTo", "UpToMin",
+	"RememberCards", "RemovePhase", "Optional", "UpTo", "UpToMin",
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn", "ConditionActivationLimit",
 	"ConditionPresent2", "ConditionCompare2",
 }

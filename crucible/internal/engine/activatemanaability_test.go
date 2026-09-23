@@ -569,3 +569,115 @@ func TestActivateManaAbilityDeclinesWhenEnergyTooLowForPayEnergyCost(t *testing.
 		t.Error("source tapped for a declined PayEnergy<1> mana ability, want untapped")
 	}
 }
+
+// TestActivateManaAbilityAddCounterLoyaltyCost proves a loyalty-ability mana
+// line -- 6 real corpus lines, e.g. "[+1]: Add {R}{R}." -- pays by adding
+// counters to the source (not tapping or sacrificing it), and marks the
+// once-per-turn flag the identical way ActivateAbility's own does.
+func TestActivateManaAbilityAddCounterLoyaltyCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := planeswalkerDefWithAbility(t, "Test Mana Add Loyalty", "4",
+		"AB$ Mana | Cost$ AddCounter<2/LOYALTY> | Planeswalker$ True | Produced$ R")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateManaAbility(p, pw, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 6 {
+		t.Errorf("loyalty = %d, want 6 (4 + 2)", got)
+	}
+	if !g.Card(pw).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = false, want true")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 0, 1, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one red", got)
+	}
+}
+
+// TestActivateManaAbilitySubCounterCost proves a mana rock's own dominant
+// real Add/SubCounter shape -- "T, Remove a charge counter from CARDNAME:
+// Add one mana of any color" -- with no Planeswalker$ param at all, so no
+// once-per-turn restriction applies.
+func TestActivateManaAbilitySubCounterCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Mana Sub Charge", "AB$ Mana | Cost$ T SubCounter<1/CHARGE> | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Battlefield)
+	g.Card(rock).Counters.Add(engine.Charge, 2)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Blue)
+	if !g.ActivateManaAbility(p, rock, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if got := g.Card(rock).Counters.Count(engine.Charge); got != 1 {
+		t.Errorf("charge counters = %d, want 1 (2 - 1)", got)
+	}
+	if g.Card(rock).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = true with no Planeswalker$ param, want false")
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 1, 0, 0, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one blue", got)
+	}
+}
+
+// TestActivateManaAbilityDeclinesSubCounterCostWhenNotEnoughCounters proves
+// the identical floor ActivateAbility's own SubCounter component checks:
+// the source's own counter count must be at least SubCounterN.
+func TestActivateManaAbilityDeclinesSubCounterCostWhenNotEnoughCounters(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Mana Sub Charge Too Low", "AB$ Mana | Cost$ T SubCounter<2/CHARGE> | Produced$ Any")
+	rock := g.NewCard(def, p, engine.Battlefield)
+	g.Card(rock).Counters.Add(engine.Charge, 1)
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Blue)
+	if g.ActivateManaAbility(p, rock, 0, c) {
+		t.Error("ActivateManaAbility returned true with 1 charge counter for a SubCounter<2/CHARGE> cost, want false")
+	}
+	if g.Card(rock).Tapped {
+		t.Error("source tapped for a declined SubCounter<2/CHARGE> mana ability, want untapped")
+	}
+}
+
+// TestActivateManaAbilityDeclinesWhenLoyaltyAbilityAlreadyActivated proves
+// CR 606.3's own once-per-turn restriction applies to a mana ability too,
+// and applies across ActivateAbility and ActivateManaAbility alike --
+// Card.LoyaltyAbilityActivated is the one shared flag, not per-caller state.
+func TestActivateManaAbilityDeclinesWhenLoyaltyAbilityAlreadyActivated(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := planeswalkerDefWithAbility(t, "Test Mana Loyalty Twice", "4",
+		"AB$ Mana | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Produced$ R")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+	g.Card(pw).LoyaltyAbilityActivated = true
+
+	c := engine.NewScriptedController()
+	if g.ActivateManaAbility(p, pw, 0, c) {
+		t.Error("ActivateManaAbility returned true after a loyalty ability already activated this turn, want false")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 4 {
+		t.Errorf("loyalty = %d, want 4 -- a declined activation must not touch it", got)
+	}
+}

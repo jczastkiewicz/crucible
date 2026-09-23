@@ -1,8 +1,13 @@
 // GainLife: CR 119.1, M6's third script-driven effect, and the corpus's
 // single largest resolvable slice past DealDamage -- a plain-or-named-SVar
-// LifeAmount$ granted to a Defined$ player, no target -- 857 of the corpus's
+// LifeAmount$ granted to a Defined$ player, no target -- 862 of the corpus's
 // 1,700 real (AB|DB)$ GainLife lines that also name Defined$
-// You/Player.Opponent and carry no other unresolved param.
+// You/Player.Opponent and carry no other unresolved param -- 5 of them
+// naming Planeswalker$ too, Ajani Goldmane's own real "[+1]: You gain 2
+// life" among them, no longer blocked (below): CR 606.3's own loyalty
+// ability restriction is a cost-side gate (ActivateAbility/
+// ActivateManaAbility, activateability.go), never a restriction on how the
+// effect it pays for actually resolves.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/LifeGainEffect.java's
@@ -29,9 +34,8 @@ import "fmt"
 // dealPlayerDamage already emits for a life LOSS, reused here for a gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
-// to the wrong player, PORT-8/GO-7): Planeswalker$/ValidTgts$ (each its own
-// further mechanic, and this port's own targeting gap for the non-Defined$
-// shape); Condition$ itself and ConditionDefined$/ConditionZone$/
+// to the wrong player, PORT-8/GO-7): ValidTgts$ (this port's own targeting
+// gap for the non-Defined$ shape); Condition$ itself and ConditionDefined$/ConditionZone$/
 // ConditionOptionalPaid$ (SpellAbilityCondition's own separate flag switch
 // and shapes subAbilityConditionMet does not cover, the identical
 // DealDamage-shaped gap).
@@ -59,7 +63,7 @@ import "fmt"
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"Planeswalker", "ValidTgts",
+	"ValidTgts",
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 

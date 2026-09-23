@@ -5,7 +5,10 @@
 // all -- Java's own `!sa.usesTargeting() && !sa.hasParam("Defined")` branch,
 // this port's entire real scope since neither targeting nor most Defined$
 // shapes exist -- and within that (plus the 3 real Defined$ You/Opponent
-// lines resolveDefinedPlayers already covers), 642 of 833 resolve.
+// lines resolveDefinedPlayers already covers), 668 of 833 resolve, 26 of
+// them naming Planeswalker$/Ultimate$ (below) -- CR 606.3's own
+// loyalty-ability marker and its own purely-descriptive sibling, neither a
+// restriction on how the effect they cost-gate actually resolves.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/PumpAllEffect.java's
@@ -29,9 +32,8 @@ import (
 // ConditionManaSpent$/ConditionManaNotSpent$ (4/5/3/1/4/0) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
 // the identical Pump-shaped gap; ValidTgts$ (12) -- a real target past a
-// blanket ValidCards$ match, this port's own targeting gap; Planeswalker$
-// (26) and Ultimate$ (13) -- unclear semantics on a PumpAll line, not worth
-// guessing at; RememberPumped$ (8) -- Card.Memory has no writer wired to a
+// blanket ValidCards$ match, this port's own targeting gap; RememberPumped$
+// (8) -- Card.Memory has no writer wired to a
 // blanket multi-card grant; SharedKeywordsZone$/SharedRestrictions$ (4/4) --
 // CardFactoryUtil.sharedKeywords' own zone scan, a further mechanic;
 // ModeCost$ (3) and Exhaust$ (4) -- each its own further activation
@@ -58,7 +60,7 @@ import (
 // neither resolvable here regardless.
 var pumpAllUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
-	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts", "Planeswalker", "Ultimate",
+	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts",
 	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions",
 	"ModeCost", "Exhaust", "AtEOT",
 }

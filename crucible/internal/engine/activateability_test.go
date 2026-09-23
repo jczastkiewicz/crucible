@@ -1316,3 +1316,248 @@ func TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack(t *testing.T) {
 		t.Error("ActivateAbility returned true during combat, want false")
 	}
 }
+
+// planeswalkerDefWithAbility builds a *compile.Card for a legendary
+// Planeswalker carrying one real A:AB$ line -- planeswalkerDefLoyalty's own
+// sibling (action_test.go), built through the real compiled param parser
+// (TEST-1) the way creatureDefWithAbility already is for a creature, since
+// the loyalty-ability tests below need both a printed Loyalty and a real
+// Cost$ line to activate.
+func planeswalkerDefWithAbility(t *testing.T, name, loyalty, abilityText string) *compile.Card {
+	t.Helper()
+
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Planeswalker Test")
+	raw.Faces[0].InitialLoyalty = loyalty
+	raw.Faces[0].Abilities = []string{abilityText}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// TestActivateAbilityAddCounterCostAddsLoyaltyAndRunsEffect proves
+// AddCounter<N/Type> -- CR 606's own dominant loyalty-ability cost shape,
+// Ajani Goldmane's own real "[+1]: You gain 2 life" -- actually puts
+// counters on the source (Card.Counters, card.go) rather than moving or
+// tapping it, marks the once-per-turn flag (Card.LoyaltyAbilityActivated),
+// and still lets the ability resolve.
+func TestActivateAbilityAddCounterCostAddsLoyaltyAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := planeswalkerDefWithAbility(t, "Test Add Loyalty", "4",
+		"AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 2")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 5 {
+		t.Errorf("loyalty = %d, want 5 (4 + 1)", got)
+	}
+	if !g.Card(pw).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = false, want true after a Planeswalker$ ability activates")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 22 {
+		t.Errorf("life = %d, want 22", got)
+	}
+}
+
+// TestActivateAbilitySubCounterCostRemovesLoyaltyAndRunsEffect proves
+// SubCounter<N/Type> -- AddCounter's own mirror image, Ajani's own real
+// "[-1]:" ability -- removes counters from the source rather than adding
+// them.
+func TestActivateAbilitySubCounterCostRemovesLoyaltyAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := planeswalkerDefWithAbility(t, "Test Sub Loyalty", "4",
+		"AB$ GainLife | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 5")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 2 {
+		t.Errorf("loyalty = %d, want 2 (4 - 2)", got)
+	}
+	if !g.Card(pw).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = false, want true")
+	}
+}
+
+// TestActivateAbilityDeclinesSubCounterCostWhenNotEnoughLoyalty proves CR
+// 121.5's own "can't remove more counters than there are" floor
+// (CostRemoveCounter.java's own "source.getCounters(cntrs) - amount >= 0"),
+// with no side effect on a decline.
+func TestActivateAbilityDeclinesSubCounterCostWhenNotEnoughLoyalty(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := planeswalkerDefWithAbility(t, "Test Sub Loyalty Too Low", "4",
+		"AB$ GainLife | Cost$ SubCounter<6/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 1")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, pw, 0, c) {
+		t.Error("ActivateAbility returned true with 4 loyalty for a SubCounter<6/LOYALTY> cost, want false")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 4 {
+		t.Errorf("loyalty = %d, want 4 -- a declined activation must not touch it", got)
+	}
+	if g.Card(pw).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = true after a declined activation, want false")
+	}
+}
+
+// TestActivateAbilityAddCounterZeroCostStillActivatesAndSetsLoyaltyFlag
+// proves AddCounter<0/...> -- a real corpus "+0" loyalty ability, 54 real
+// lines -- is exactly as legal a cost as any positive N: it commits (no
+// floor to fail), leaves the counter count unchanged, and still marks
+// Card.LoyaltyAbilityActivated (CR 606.3 restricts the whole ability, not
+// only a nonzero counter change).
+func TestActivateAbilityAddCounterZeroCostStillActivatesAndSetsLoyaltyFlag(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := planeswalkerDefWithAbility(t, "Test Plus Zero", "4",
+		"AB$ GainLife | Cost$ AddCounter<0/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 3")
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 4 {
+		t.Errorf("loyalty = %d, want 4 -- AddCounter<0/...> changes nothing", got)
+	}
+	if !g.Card(pw).LoyaltyAbilityActivated {
+		t.Error("LoyaltyAbilityActivated = false, want true even for a +0 ability")
+	}
+}
+
+// TestActivateAbilityDeclinesSecondLoyaltyAbilityActivationSameTurn proves
+// CR 606.3's own once-per-turn restriction: a second Planeswalker$ ability
+// on the same permanent, same turn, declines regardless of which of its own
+// two abilities it names.
+func TestActivateAbilityDeclinesSecondLoyaltyAbilityActivationSameTurn(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	raw := &carddb.Card{Filename: "Test Twice A Turn"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Twice A Turn"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Planeswalker Test")
+	raw.Faces[0].InitialLoyalty = "4"
+	raw.Faces[0].Abilities = []string{
+		"AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 1",
+		"AB$ GainLife | Cost$ SubCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | LifeAmount$ 1",
+	}
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	pw := g.NewCard(def, p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 4)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatal("first ActivateAbility returned false, want true")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.ActivateAbility(p, pw, 1, c) {
+		t.Error("second ActivateAbility (a different loyalty ability, same turn) returned true, want false")
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 5 {
+		t.Errorf("loyalty = %d, want 5 -- only the first activation's +1 must have applied", got)
+	}
+}
+
+// TestActivateAbilityNonLoyaltyCounterCostHasNoOncePerTurnLimit proves the
+// CR 606.3 gate is conditional on Planeswalker$'s own presence, not a
+// blanket rule over every AddCounter/SubCounter cost: a plain counter cost
+// with no Planeswalker$ param activates twice in the same turn.
+func TestActivateAbilityNonLoyaltyCounterCostHasNoOncePerTurnLimit(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Plain Counter Cost", "AB$ GainLife | Cost$ SubCounter<1/CHARGE> | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+	g.Card(creature).Counters.Add(engine.Charge, 2)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("first ActivateAbility returned false, want true")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Error("second ActivateAbility (no Planeswalker$ param, same turn) returned false, want true")
+	}
+	if got := g.Card(creature).Counters.Count(engine.Charge); got != 0 {
+		t.Errorf("charge counters = %d, want 0 (2 - 1 - 1)", got)
+	}
+}
+
+// TestActivateAbilityDeclinesForNonSelfAddCounterTarget proves an
+// AddCounter<N/Type> naming a target past the self-reference shape (a
+// chosen creature you control, "Creature.YouCtrl") declines the whole line
+// outright -- ActivationShape's own doc comment has the reason
+// (internal/cost, CostRemoveCounter.java's own non-self branch this port
+// does not carry).
+func TestActivateAbilityDeclinesForNonSelfAddCounterTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Non Self AddCounter",
+		"AB$ GainLife | Cost$ 2 R T AddCounter<1/M1M1/Creature.YouCtrl/a creature you control> | ValidTgts$ Any | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, creature, 0, c) {
+		t.Error("ActivateAbility returned true for a non-self AddCounter target, want false")
+	}
+}

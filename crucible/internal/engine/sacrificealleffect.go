@@ -20,8 +20,7 @@ import (
 // loudly rather than sacrificing the wrong set (PORT-8/GO-7):
 // ConditionDefined$ (3) -- SpellAbilityCondition's own shape
 // subAbilityConditionMet does not cover, the identical GainLife/LoseLife/
-// Sacrifice-shaped gap; Planeswalker$ (1) -- unclear semantics, not worth
-// guessing at; Activator$ (1) -- a restriction on who activated the
+// Sacrifice-shaped gap; Activator$ (1) -- a restriction on who activated the
 // ability rather than on what it affects, a further mechanic; SorcerySpeed$
 // (1) -- a cost-restriction flag with no cost-payment site to attach to;
 // ImprintSacrificed$ (1) -- Card.Memory has an Imprint writer (memory.go)
@@ -45,7 +44,7 @@ import (
 // PayEnergy<.../DefinedCost_.../X-shard UnlessCost$ or a controller-derived
 // UnlessPayer$ (EnchantedController) this port cannot resolve.
 var sacrificeAllUnresolvedParams = [...]string{
-	"ConditionDefined", "Planeswalker", "Activator", "SorcerySpeed", "ImprintSacrificed",
+	"ConditionDefined", "Activator", "SorcerySpeed", "ImprintSacrificed",
 }
 
 type sacrificeAllEffect struct{}
@@ -63,8 +62,11 @@ type sacrificeAllEffect struct{}
 // to cards controlled by one of its own resolved players (definedPlayers,
 // defined.go), Java's own "do the controller check after LKI got updated"
 // step reordered here since this port takes no LKI snapshot until the
-// actual sacrifice happens (sacrificeCards, sacrificeeffect.go). 91 of the
-// corpus's own 140 real lines resolve.
+// actual sacrifice happens (sacrificeCards, sacrificeeffect.go). 92 of the
+// corpus's own 140 real lines resolve, the sole real line naming
+// Planeswalker$ among them now that it no longer blocks (CR 606.3's own
+// loyalty-ability restriction is a cost-side gate, activateability.go,
+// never a restriction on how the effect it pays for resolves).
 func (sacrificeAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range sacrificeAllUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {

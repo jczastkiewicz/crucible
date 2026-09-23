@@ -41,8 +41,13 @@ import (
 // this port's own Pool cannot carry; AILogic$/AINoRecursiveCheck$/
 // PrecostDesc$/Activation$ (13 combined) are AI hinting or a further
 // "Activate only as..." cost-description gate, neither read here.
+// Planeswalker$ (CR 606.3's own loyalty-ability marker, SpellAbility.
+// isPwAbility's own bare hasParam check) and Ultimate$ (purely descriptive,
+// never itself a restriction) are both admitted: 21 real A:AB$ Mana lines
+// name the first, every one paired with AddCounter<...>/SubCounter<...>.
 var manaAbilityAllowedParams = map[string]bool{
 	"ab": true, "cost": true, "spelldescription": true, "produced": true, "amount": true,
+	"planeswalker": true, "ultimate": true,
 }
 
 // manaAbilityParamsResolvable reports whether a is nothing but the params
@@ -148,8 +153,9 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // integer (resolveNamedAmount, amount.go -- pumpAmount's own identical
 // plain-integer-or-SVar reading), or an unaffordable mana half of the cost.
 //
-// PayEnergy, SelfExile, SelfExert and tapXType are not declined the way
-// Discard/PayLife/Return are: 4 real corpus A:AB$ Mana lines name
+// PayEnergy, SelfExile, SelfExert, tapXType and Add/SubCounter are not
+// declined the way Discard/PayLife/Return are: 4 real corpus A:AB$ Mana
+// lines name
 // PayEnergy<...> (aether_hub.txt's/servant_of_the_conduit.txt's/
 // solar_transformer.txt's own real "T, Pay one energy counter: Add one mana
 // of any color" among them), 1 names Exile<1/CARDNAME> (mirrored_lotus.txt's
@@ -157,24 +163,47 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // Exert<1/CARDNAME> with no other unresolved param (a second real line
 // combining it also names AddsKeywords$/AddsKeywordsValid$/
 // AddsKeywordsUntil$, already outside manaAbilityAllowedParams for an
-// unrelated reason, so it stays unreachable regardless of this landing), and
+// unrelated reason, so it stays unreachable regardless of this landing),
 // 22 more name tapXType<...> (birchlore_rangers.txt's own real "Tap two
-// untapped Elves you control: Add one mana of any color" among them), so
-// unlike Discard/PayLife/Return this function pays each the identical way
+// untapped Elves you control: Add one mana of any color" among them), and 27
+// of the 83 real corpus lines naming AddCounter<...>/SubCounter<...> resolve
+// (3 AddCounter, 24 SubCounter -- a "[+N]: Add ..." loyalty ability among the
+// first, a mana rock's own charge-counter-powered
+// "T, Remove a charge counter from CARDNAME: Add one mana of any color"
+// shape the corpus's own dominant real one for the second); the remaining
+// 56 name a param outside manaAbilityAllowedParams (SubAbility$/AILogic$/
+// RestrictValid$/CostDesc$ among the most common), an unresolvable
+// AddCounter/SubCounter shape (a non-literal N -- SubCounter<X/...>'s own
+// "remove that many counters" storage-counter-battery shape, X1+, or a
+// target past the self-reference pair), or a Produced$ past
+// producedManaColor's/parseComboColors' own literal shape (a plain
+// space-separated multi-color line, "Add {R}{G}" written as
+// Produced$ R G rather than Combo R G -- the identical literal-shape gap
+// every other Produced$ line already has), each the identical PORT-8/GO-7
+// gap ActivateAbility's own doc comment already names. So unlike
+// Discard/PayLife/Return this function pays each the identical way
 // ActivateAbility does (Player.Counters, counters.go, subtracted and a
 // CounterChanged event emitted for PayEnergy; exileCards, exile.go, for
 // SelfExile; Card.Exerted set and checkExertedTriggers fired, exertcost.go,
 // for SelfExert; ChoosePermanentsToTap/tapChosenPermanents, taptype.go, for
-// tapXType) rather than refusing a shape the corpus actually needs. A
-// tapXType component whose own type spec is unresolvable
+// tapXType; Card.Counters, counters.go, adjusted and a CounterChanged event
+// emitted, for Add/SubCounter) rather than refusing a shape the corpus
+// actually needs. A tapXType component whose own type spec is unresolvable
 // (tapTypeResolvable, taptype.go) or whose own candidate count falls short
-// of TapTypeN declines the identical way ActivateAbility's own does.
+// of TapTypeN declines the identical way ActivateAbility's own does, and a
+// SubCounter component whose own counter count falls short of SubCounterN
+// declines the identical way too. A Planeswalker$ mana ability -- CR 606.3's
+// own loyalty-ability restriction, real corpus lines pairing it with
+// AddCounter/SubCounter exactly as often here as in ActivateAbility's own
+// non-mana lines -- may activate at most once per turn the identical way
+// (Card.LoyaltyAbilityActivated, checked and set here too).
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
 // self-sac third, exile fourth, exert sixth, energy ninth, tap-by-type
-// tenth (activateability.go's own doc comment has the CR 601.2h reasoning),
-// reusing sacrificeCards (sacrificeeffect.go), exileCards (exile.go) and
-// tapChosenPermanents (taptype.go) the identical way. A Tap-self cost also
+// tenth, add-counter twelfth, remove-counter last (activateability.go's own
+// doc comment has the CR 601.2h reasoning), reusing sacrificeCards
+// (sacrificeeffect.go), exileCards (exile.go) and tapChosenPermanents
+// (taptype.go) the identical way. A Tap-self cost also
 // fires CR 603's own "taps for mana" trigger (checkTapsForManaTriggers,
 // trigger.go) alongside the ordinary "becomes tapped" one -- TapLandForMana's
 // own pairing, ported here rather than duplicated, and skipped when the cost
@@ -186,7 +215,10 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // here either -- CR 701.42b's own "doesn't untap next turn" cost is
 // entirely deferred to the exerting player's own next untapStep (turn.go),
 // the identical deferral activateability.go's own doc comment already
-// documents for SelfExert.
+// documents for SelfExert. A Planeswalker$ ability marks
+// Card.LoyaltyAbilityActivated last, after the mana is already in the pool
+// -- activateability.go's own identical ordering, since CR 606.3 restricts
+// the whole ability only once it has actually happened.
 func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
 	c := g.Card(card)
 	if c.Controller() != pid || c.Zone != Battlefield {
@@ -203,6 +235,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !manaAbilityParamsResolvable(ability) {
 		return false
 	}
+	_, isLoyaltyAbility := ability.Param("Planeswalker")
+	if isLoyaltyAbility && c.LoyaltyAbilityActivated {
+		return false
+	}
 	costText, ok := ability.Param("Cost")
 	if !ok {
 		return false
@@ -216,6 +252,9 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
+		return false
+	}
+	if shape.SubCounterType != "" && shape.SubCounterN > c.Counters.Count(CounterType(strings.ToUpper(shape.SubCounterType))) {
 		return false
 	}
 	var tapCandidates []CardID
@@ -290,6 +329,19 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if shape.TapTypeN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
 		tapChosenPermanents(g, controller, chosen)
+	}
+	if shape.AddCounterType != "" {
+		ct := CounterType(strings.ToUpper(shape.AddCounterType))
+		c.Counters.Add(ct, shape.AddCounterN)
+		emitCounterChanged(g.sink, card, CardEntity(card), ct, shape.AddCounterN)
+	}
+	if shape.SubCounterType != "" {
+		ct := CounterType(strings.ToUpper(shape.SubCounterType))
+		c.Counters.Add(ct, -shape.SubCounterN)
+		emitCounterChanged(g.sink, card, CardEntity(card), ct, -shape.SubCounterN)
+	}
+	if isLoyaltyAbility {
+		c.LoyaltyAbilityActivated = true
 	}
 
 	snow := c.Type().HasSupertype(cardtype.Snow)

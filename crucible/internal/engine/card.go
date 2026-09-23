@@ -94,6 +94,22 @@ type Card struct {
 	// turn.go) alongside AttacksThisTurn.
 	BecameTargetThisTurn bool
 
+	// LoyaltyAbilityActivated is CR 606.3's own once-per-turn marker
+	// (Card.planeswalkerAbilityActivated in Java, collapsed from an int to a
+	// bool -- StaticAbilityNumLoyaltyAct's own limit-raising static ability,
+	// the only real reason Java counts past one, is a further mechanic this
+	// port does not build). ActivateAbility/ActivateManaAbility
+	// (activateability.go/activatemanaability.go) refuse any ability naming
+	// Planeswalker$ (SpellAbility.isPwAbility's own bare hasParam check, the
+	// identical presence-only contract compile.Ability.Param already
+	// returns) once this reads true, and set it the moment such an ability
+	// actually commits -- CR 606.3 restricts the whole loyalty ability, not
+	// only the shape that pays for it, so an AddCounter<0/...> "+0" ability
+	// (a real corpus shape, addCounterN's own doc comment) sets it exactly
+	// the same as any other. Reset every cleanup (cleanupStep, turn.go)
+	// alongside AttacksThisTurn/BecameTargetThisTurn.
+	LoyaltyAbilityActivated bool
+
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a
 	// Battle that has not been assigned one yet (assignBattleProtector,

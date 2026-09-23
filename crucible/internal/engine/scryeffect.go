@@ -1,12 +1,15 @@
 // Scry: CR 701.19, ScryEffect.java + GameAction.scry -- the first
 // script-driven effect that asks the resolving player to reorder cards
 // rather than a plain choose-N-of-a-set decision (ChooseCardsToDiscard's
-// own shape, discardeffect.go). 332 of the corpus's 415 real
+// own shape, discardeffect.go). 340 of the corpus's 415 real
 // (AB|DB)$ Scry lines that also name Defined$ You/Opponent/Player/
 // Player.Opponent or no Defined$ at all -- AbilityUtils.getDefinedPlayers's
 // own `changedDef = (def == null) ? "You" : ...` default, unlike every
 // other M6 effect so far, where an absent Defined$ is a real error -- and
-// carry no other unresolved param, resolve.
+// carry no other unresolved param, resolve; 8 of them name Planeswalker$
+// too, no longer blocked (CR 606.3's own loyalty-ability restriction is a
+// cost-side gate, activateability.go, never a restriction on how the
+// effect it pays for resolves).
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/ScryEffect.java's
@@ -28,7 +31,7 @@ import (
 // the corpus's own 57 real SVar-defined Scry lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
 var scryUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
+	"ValidTgts", "TargetMin", "TargetMax", "Optional",
 }
 
 type scryEffect struct{}

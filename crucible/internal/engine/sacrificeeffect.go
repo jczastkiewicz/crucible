@@ -1,7 +1,10 @@
-// Sacrifice: CR 701.20, SacrificeEffect.java's own resolve -- 516 of the
+// Sacrifice: CR 701.20, SacrificeEffect.java's own resolve -- 522 of the
 // corpus's 792 real (AB|DB)$ Sacrifice lines, 51 of them past
-// resolveUnlessCost's own new gate (effect.go, below). The dominant real
-// shape is
+// resolveUnlessCost's own new gate (effect.go, below), 6 of them naming
+// Planeswalker$ too, no longer blocked (below): CR 606.3's own
+// loyalty-ability restriction is a cost-side gate (activateability.go),
+// never a restriction on how the effect it pays for resolves. The
+// dominant real shape is
 // SacValid$ (569 of 792), not the "no SacValid$ at all" default this port's
 // own effects usually resolve first: SacValid$ absent or the literal value
 // "Self" sacrifices the ability's own host card outright, no choice asked
@@ -32,8 +35,7 @@ import (
 // OptionalDecider$ a trigger carries (Ability.Optional's own doc comment);
 // ConditionDefined$ (19) and ConditionActivationLimit$ (0) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
-// the identical GainLife/LoseLife-shaped gap; Planeswalker$ (11) -- unclear
-// semantics on a Sacrifice line, not worth guessing at; ChangeNum$ (5) --
+// the identical GainLife/LoseLife-shaped gap; ChangeNum$ (5) --
 // SacrificeAll's own param, never read by this ApiType at all, so its
 // presence marks a line this port would misclassify rather than one it can
 // safely ignore; ValidCard$ (3) -- SacrificeEffect.java
@@ -75,7 +77,7 @@ import (
 // never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
 	"Optional", "ConditionDefined", "ConditionActivationLimit",
-	"Planeswalker", "ChangeNum", "ValidCard",
+	"ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
 	"Echo", "CumulativeUpkeep",
 }

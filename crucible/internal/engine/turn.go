@@ -328,6 +328,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			g.Card(id).Damage.Clear()
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
+			g.Card(id).LoyaltyAbilityActivated = false
 		}
 		p := g.Player(pid)
 		p.LandsPlayedLastTurn = p.LandsPlayed

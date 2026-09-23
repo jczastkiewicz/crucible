@@ -6,18 +6,30 @@
 // CR 701.42a), an optional "discard N cards of your choice" (Discard<N/Card>),
 // an optional "pay N life" (PayLife<N>), an optional "pay N energy counters"
 // (PayEnergy<N>), an optional "tap N untapped permanents of a type"
-// (tapXType<N/Type>), and an optional "return N permanents of a type you
-// control" (Return<N/Type>), in any combination (cost.Cost.ActivationShape,
-// internal/cost) -- the only primitives this port has payment machinery
-// for. Java's own entry
+// (tapXType<N/Type>), an optional "return N permanents of a type you
+// control" (Return<N/Type>), an optional "put N counters of a kind on this
+// permanent" (AddCounter<N/Type>) and an optional "remove N counters of a
+// kind from this permanent" (SubCounter<N/Type>), in any combination
+// (cost.Cost.ActivationShape, internal/cost) -- the only primitives this
+// port has payment machinery for. A Planeswalker$ ability -- CR 606.3's own
+// loyalty ability, real corpus lines pairing AddCounter/SubCounter with it
+// 996 times out of 999 -- may activate at most once per turn regardless of
+// which of those two shapes its own cost uses, including AddCounter<0/...>'s
+// own real "+0" shape (Card.LoyaltyAbilityActivated, card.go); the raised
+// limit a StaticAbilityNumLoyaltyAct effect grants is not built (PORT-8/
+// GO-7, 0 real corpus lines this port cannot already resolve some other way
+// depend on it). Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
 // input loop) is a real priority-window action; this port has no priority
 // window at all yet (game-state.md's own "Not ported yet" -- "ResolveStack
 // plays out only the degenerate case, nobody able to respond"), so timing
 // collapses to the identical sorcery-speed shape CastSpell's own CR 601.3a
 // simplification already uses: active player, a main phase, an empty
-// stack. A future instant-speed activation needs the real priority window
-// built first, not a special case here.
+// stack -- CR 606.3's own separate sorcery-speed restriction on a loyalty
+// ability specifically is a free consequence of this port having no other
+// timing at all yet, not a rule enforced for its own sake here. A future
+// instant-speed activation needs the real priority window built first, not
+// a special case here.
 
 package engine
 
@@ -53,16 +65,24 @@ import (
 // "N/Card" shape, a PayLife<...>/PayEnergy<...> past a literal positive
 // integer (PayLife<X>/PayEnergy<X> and their own kin, an amount this port
 // has no resolver to plug in here), a tapXType<...>/Return<...> naming a
-// non-literal or non-positive N, a SubCounter<...>/... part ActivationShape
-// does not carry at all, or an Untap/Mandatory/XMin token, each its own
-// further payment primitive this port does not have, PORT-8/GO-7's "skip
-// the whole line" applied to the cost itself rather than to the ability's
-// own other params, a Discard component the activating player's own hand
+// non-literal or non-positive N, an AddCounter<...>/SubCounter<...> naming a
+// non-literal or negative N or a target past the self-reference shape (a
+// chosen permanent, "OriginalHost," a type list), or an Untap/Mandatory/
+// XMin token, each its own further payment primitive this port does not
+// have, PORT-8/GO-7's "skip the whole line" applied to the cost itself
+// rather than to the ability's own other params, a Planeswalker$ ability
+// already activated once this turn (CR 606.3, Card.LoyaltyAbilityActivated),
+// a Discard component the activating player's own hand
 // cannot actually pay (fewer cards in hand than DiscardN), a PayLife
 // component the activating player's own life cannot actually pay (CR 119.4:
 // a life payment can never bring the payer below 0), a PayEnergy component
 // the activating player's own energy-counter count cannot actually pay (CR
 // 122.5's identical "never below 0" shape, checked the identical way), a
+// SubCounter component the source's own count of that counter kind cannot
+// actually pay (CostRemoveCounter.java's own "source.getCounters(cntrs) -
+// amount >= 0" -- CR 121.5's identical "can't remove more than there are"
+// shape; AddCounter has no such floor, "put 0 counters" trivially always
+// pays, CostPutCounter.java's own "getAbilityAmount == 0" early return), a
 // tapXType component whose own type spec this port cannot evaluate
 // (tapTypeResolvable, taptype.go) or whose own candidate count -- the
 // activating player's own untapped, type-matched battlefield permanents,
@@ -81,7 +101,9 @@ import (
 // checks the hand actually holds DiscardN cards, a PayLife component checks
 // the player's own current life is at least PayLifeN, a PayEnergy
 // component checks the player's own current Energy counter count is at
-// least PayEnergyN, a tapXType component checks its own candidate count
+// least PayEnergyN, a SubCounter component checks the source's own current
+// count of that counter kind is at least SubCounterN, a tapXType component
+// checks its own candidate count
 // (tapTypeCandidates, taptype.go) is at least TapTypeN, and a Return<N/Type>
 // component checks its own candidate count (returnTypeCandidates,
 // returncost.go) is at least ReturnTypeN. The mana half is paid through
@@ -125,19 +147,29 @@ import (
 // component asks ChoosePermanentsToReturn for exactly ReturnTypeN of the
 // candidates already found feasible and returns them to hand (returnCards,
 // returncost.go, reused wholesale the identical way the self-return branch
-// above already reuses it) -- CR 602.2g's own "costs are paid together" is
+// above already reuses it), then an AddCounter component puts AddCounterN
+// counters of AddCounterType on the source (Card.Counters, counters.go) and
+// emits the identical CounterChanged event putCounterEffect's own does, then
+// a SubCounter component removes SubCounterN counters the identical way with
+// a negative delta -- CR 602.2g's own "costs are paid together" is
 // approximated here as "check every cost for feasibility first, then commit
 // each one, mana first, tap second, sacrifice third, exile fourth, return
 // fifth, exert sixth, discard seventh, life eighth, energy ninth,
-// tap-by-type tenth, return-by-type last," so a failed mana payment never
+// tap-by-type tenth, return-by-type eleventh, add-counter twelfth,
+// remove-counter last," so a failed mana payment never
 // leaves the permanent tapped, sacrificed, exiled, returned, exerted, the
-// player short a card, short life, short energy, or another permanent
+// player short a card, short life, short energy, wrongly gaining or missing
+// counters, or another permanent
 // wrongly tapped or returned for nothing, and a Tap-self cost never taps a
 // permanent that has already left the battlefield. CR 601.2h's own "costs
 // may be paid in any order" makes this ordering a free choice, not an
 // approximation of a specific one Java's own CostPayment (a part-by-part,
 // player-cancellable payment loop this port does not build) would make
-// instead.
+// instead. A Planeswalker$ ability marks Card.LoyaltyAbilityActivated last,
+// after every other part of its own cost has already committed -- CR 606.3
+// restricts the whole ability regardless of which shape paid for it, so a
+// "+0" AddCounter<0/...> ability sets this the identical way a "-N" one
+// does.
 //
 // A successful activation pushes through pushTriggeredAbilities
 // (trigger.go) with card's own controller as the sole entry -- resolving
@@ -169,6 +201,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if ability.Record != compile.Activated || ability.Name == "Mana" {
 		return false
 	}
+	_, isLoyaltyAbility := ability.Param("Planeswalker")
+	if isLoyaltyAbility && c.LoyaltyAbilityActivated {
+		return false
+	}
 	costText, ok := ability.Param("Cost")
 	if !ok {
 		return false
@@ -189,6 +225,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
+		return false
+	}
+	if shape.SubCounterType != "" && shape.SubCounterN > c.Counters.Count(CounterType(strings.ToUpper(shape.SubCounterType))) {
 		return false
 	}
 	var tapCandidates []CardID
@@ -259,6 +298,19 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.ReturnTypeN > 0 {
 		chosen := controller.ChoosePermanentsToReturn(g, pid, returnCandidates, shape.ReturnTypeN)
 		returnCards(g, controller, chosen)
+	}
+	if shape.AddCounterType != "" {
+		ct := CounterType(strings.ToUpper(shape.AddCounterType))
+		c.Counters.Add(ct, shape.AddCounterN)
+		emitCounterChanged(g.sink, card, CardEntity(card), ct, shape.AddCounterN)
+	}
+	if shape.SubCounterType != "" {
+		ct := CounterType(strings.ToUpper(shape.SubCounterType))
+		c.Counters.Add(ct, -shape.SubCounterN)
+		emitCounterChanged(g.sink, card, CardEntity(card), ct, -shape.SubCounterN)
+	}
+	if isLoyaltyAbility {
+		c.LoyaltyAbilityActivated = true
 	}
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true

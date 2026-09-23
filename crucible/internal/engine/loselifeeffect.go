@@ -1,8 +1,11 @@
 // LoseLife: CR 119.3, GainLife's own mirror image -- a plain-or-named-SVar
-// LifeAmount$ taken from a Defined$ or targeted player -- 300 of the
+// LifeAmount$ taken from a Defined$ or targeted player -- 306 of the
 // corpus's 445 real (AB|DB)$ LoseLife lines that name Defined$
 // You/Opponent/Player.Opponent or a resolvable ValidTgts$ and carry no
-// other unresolved param.
+// other unresolved param -- 6 of them naming Planeswalker$ too, no longer
+// blocked (below): CR 606.3's own loyalty-ability restriction is a
+// cost-side gate (ActivateAbility/ActivateManaAbility, activateability.go),
+// never a restriction on how the effect it pays for actually resolves.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/LifeLoseEffect.java's
@@ -37,7 +40,7 @@ import "fmt"
 // checks a trigger at all.
 //
 // Not ported (every one fails loudly rather than draining the wrong amount
-// from the wrong player, PORT-8/GO-7): Planeswalker$/Ultimate$/IsPresent$/
+// from the wrong player, PORT-8/GO-7): IsPresent$/
 // PresentCompare$/NumCards$/ModeCost$ (unclear semantics or each its own
 // further mechanic, not worth guessing at from a handful of real lines);
 // Condition$ itself and ConditionDefined$/ConditionZone$
@@ -79,8 +82,7 @@ import "fmt"
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"Planeswalker",
-	"Ultimate", "IsPresent", "PresentCompare", "NumCards", "ModeCost",
+	"IsPresent", "PresentCompare", "NumCards", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionZone",
 }
 

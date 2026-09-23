@@ -5,7 +5,11 @@
 // also name Defined$ You/Player.Opponent/Opponent/Self and carry no other
 // unresolved param, out of 822 total naming any Defined$ value at all. 3 of
 // the 65 also name UnlessCost$ -- resolveUnlessCost's own new gate
-// (effect.go) runs ahead of this file entirely now, below.
+// (effect.go) runs ahead of this file entirely now, below. 72 resolve as of
+// Planeswalker$ no longer blocking (below) -- CR 606.3's own loyalty-ability
+// marker, ActivateAbility's/ActivateManaAbility's own cost-side gate
+// (activateability.go), never itself a restriction on how the effect it
+// pays for resolves.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/DamageDealEffect.java's
@@ -32,7 +36,7 @@ import "fmt"
 // Not ported (every one fails loudly rather than dealing the wrong amount to
 // the wrong thing, PORT-8/GO-7): DamageSource$ (17 of 822 real Defined$
 // lines -- a source other than the ability's own host, needing a reference
-// vocabulary this file does not have); Planeswalker$/ValidTgts$/
+// vocabulary this file does not have); ValidTgts$/
 // TriggeredSpellAbility$/DamageMap$/CounterNum$/Optional$/TgtPrompt$ (each
 // its own further mechanic); NoPrevention$ (1 -- this port's own
 // damagePrevented/damagePreventedPlayer would otherwise apply where Java's
@@ -69,7 +73,7 @@ type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
 	"DamageSource", "Condition", "ConditionDefined",
-	"Planeswalker", "ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
+	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
 	"NoPrevention", "Optional", "TgtPrompt",
 }
 

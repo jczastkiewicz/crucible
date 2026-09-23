@@ -5375,6 +5375,104 @@ proving both halves of CR 701.42b at once -- the skip, and the unconditional cle
 above. `internal/cost/parsing_test.go` extended `TestActivationShape` with `Exert<1/CARDNAME>`/`Exert<1/NICKNAME>` alone
 and combined with `T`, and three reject cases (`Exert<2/CARDNAME>`, a chosen valid spec, a duplicate).
 
+## AddCounter<N/Type> and SubCounter<N/Type> activation costs land, CR 606's own loyalty ability
+
+Every self-reference/chosen-type primitive built so far (`Sac`/`Exile`/`Return`/`Exert`) moves the ability's own host
+off the battlefield or marks it. The next candidate by real corpus weight was `SubCounter<...>`/`AddCounter<...>`
+(`CostRemoveCounter.java`/`CostPutCounter.java`) -- 950 and 354 real occurrences respectively, dominated by CR 606's own
+loyalty ability: `SubCounter<N/LOYALTY>` and `AddCounter<N/LOYALTY>` pay a planeswalker's own `[+N]`/`[-N]` abilities,
+confirmed by reading a real card (`ajani_goldmane.txt`) directly --
+`A:AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | ...`. A prior pass had named this "notably larger
+scope" and deferred it, assuming it needed the whole loyalty/planeswalker mechanic built from scratch; re-reading
+`Card.Counters`/`action.go`'s own zero-loyalty SBA (already ported) and `SpellAbility.isPwAbility()`'s own bare
+`hasParam("Planeswalker")` check showed the real remaining scope was much smaller than assumed: `Planeswalker$` is a
+plain param presence check, not a class of its own, and `Card.Counters` already exists to read/write.
+
+`CostRemoveCounter`/`CostPutCounter` both default their own target field to `CARDNAME` (`CostPart.java`'s
+`payCostFromSource`, `isSelfReferenceField` reused outright) -- confirmed by reading the constructors before writing any
+parsing code, not assumed from the self-reference primitives that came before. `AddCounterN`/`AddCounterType` and
+`SubCounterN`/`SubCounterType` joined `ActivationShape` (internal/cost) as a fourth field-pair shape, `TapTypeN`/
+`TapTypeSpec`'s own pattern -- but with one real difference: `0` is a legal, common real value here.
+`AddCounter<0/LOYALTY>` (54 real lines) is CR 606's own "+0" loyalty ability, and `SubCounter<0/LOYALTY>` (5 real lines)
+an oddly-spelled version of the identical shape -- unlike every other `N` field in `ActivationShape` (`DiscardN`/
+`PayLifeN`/... all treat `0` as absent), `AddCounterType`/`SubCounterType` being non-empty, not `N != 0`, is what
+signals presence here. `namedParts` (`internal/cost/parts.go`) already had `AddCounter`/`SubCounter` registered from an
+earlier chunk that never wired them into `ActivationShape` -- they were silently falling into `Cost.Mana` and failing
+`mana.Parse` before this landing, a safe (if opaque) "always decline" rather than a bug.
+
+`Card.LoyaltyAbilityActivated bool` (new field, `card.go`) is CR 606.3's own once-per-turn restriction --
+`Card.planeswalkerAbilityActivated` in Java, an `int` collapsed to a `bool` here since the only reason Java counts past
+one is `StaticAbilityNumLoyaltyAct`, a limit-raising static ability this port does not build (0 real corpus lines this
+port can already resolve some other way depend on the raised limit). `ActivateAbility`/`ActivateManaAbility`
+(activateability.go/activatemanaability.go) both check `ability.Param("Planeswalker")`'s own bare presence (not its
+value -- the corpus writes both `Planeswalker$ True` and `Planeswalker$ true`) before anything else, decline if the flag
+already reads `true`, and set it only once every other part of the cost has actually committed -- CR 606.3 restricts the
+whole ability regardless of which shape paid for it, so a "+0" `AddCounter<0/...>` ability sets the flag exactly the
+same as any other. Reset every cleanup (`cleanupStep`, `turn.go`, alongside `AttacksThisTurn`/`BecameTargetThisTurn`)
+and on every battlefield-leaving `Move`/`MoveToLibraryTop` (`game.go`, alongside `Tapped`/`SummonSick`/`Exerted`) -- CR
+400.7's own "a new object remembers nothing" applies here exactly as it does to those three.
+
+`ActivateManaAbility`'s own `manaAbilityAllowedParams` gains `planeswalker`/`ultimate` (both previously outside the
+allow-list, so any real `AB$ Mana` loyalty ability declined before even reaching `Cost$`) -- `Ultimate$` is purely
+descriptive (`SpellAbilityView`'s own UI hint that an ability wins the game, never itself a restriction), admitted for
+the same reason `SpellDescription$` already is.
+
+CR 121.5's own floor -- "can't remove more counters than there are" -- is `CostRemoveCounter.java`'s own
+`source.getCounters(cntrs) - amount >= 0`, checked before either caller commits anything
+(`shape.SubCounterN > c.Counters.Count(...)`, the identical shape `PayLifeN`/`PayEnergyN`'s own floors already have).
+`AddCounter` has no such floor: `CostPutCounter.java`'s own `canPay` returns `true` unconditionally when
+`getAbilityAmount(ability) == 0` (the "+0" shape again), and this port's `Counters.Add` never has a reason to refuse a
+positive addition either -- `canReceiveCounters`'s own "shield counters"/"can't receive that kind of counter"
+static-ability gate is not ported (0 real `LOYALTY` lines would ever hit it), the identical PORT-8/GO-7 tradeoff
+`putCounterEffect`'s own doc comment already makes for the same gate.
+
+`ActivateAbility` commits `AddCounter` then `SubCounter` last in the payment order (mana, tap, sac, exile, return,
+exert, discard, life, energy, tap-by-type, return-by-type, add-counter, remove-counter), reusing `emitCounterChanged`
+(event.go) the identical way `putCounterEffect`/`PayEnergy` already do. `ActivateManaAbility` pays both too rather than
+declining them -- the identical "corpus actually needs it" precedent `PayEnergy`/`SelfExile`/`SelfExert`/`tapXType`
+already set: of the corpus's 83 real `AB$ Mana` lines naming `AddCounter<...>`/`SubCounter<...>`, 27 resolve fully (3
+`AddCounter`, 24 `SubCounter`, 6 of the 27 loyalty abilities) once `Produced$`'s own literal-shape gate
+(`producedManaColor`/`parseComboColors`) is checked too -- a `Produced$ R G` bare-space-separated multi-color line (not
+`Combo R G`) still declines the identical way every other `Produced$` shape past the three resolvable ones already does,
+catching an over-count in this landing's own first pass (31, before checking `Produced$` at all -- a mana rock's
+`SubCounter<1/CHARGE>: Add one mana of any color` shape is the corpus's own dominant real one for the second).
+
+**A real, separate bug surfaced and fixed in the same pass:** pushing a `Planeswalker$`-carrying ability onto the stack
+for the first time (this port had never been able to before) immediately hit
+`engine: GainLife: Planeswalker$ not resolvable yet` -- nine already-built effects
+(`dealDamageEffect`/`gainLifeEffect`/`loseLifeEffect`/`pumpAllEffect`/
+`putCounterEffect`/`scryEffect`/`sacrificeAllEffect`/`sacrificeEffect`/`surveilEffect`) each independently listed
+`Planeswalker`/`Ultimate` (two of them) in their own unresolved-param blocklist, defensively added by an earlier chunk
+that saw the param on real corpus lines without realizing it is purely a cost-side marker
+(`SpellAbility.isPwAbility()`'s own bare `hasParam` check) with zero bearing on how the effect it cost-gates actually
+resolves. Removed from all nine (a plain "cost params never block effect resolution" rule this session had not needed to
+state explicitly until an ability carrying one could finally reach `Registry.Resolve` at all), each with its own
+headline corpus count corrected upward: `dealDamageEffect` 65→72, `gainLifeEffect` 857→862, `loseLifeEffect` 300→306
+(the `Defined$` branch alone; the `ValidTgts$` branch is unaffected), `putCounterEffect` 992→993, `scryEffect` 332→340,
+`surveilEffect` 183→187, `sacrificeAllEffect` 91→92, `sacrificeEffect` 516→522, `pumpAllEffect` 642→668 (`Ultimate$`'s
+own removal folded into the same count, since every real `PumpAll` line naming it also names `Planeswalker$`). This was
+not a hypothetical found by re-reading old code for its own sake: it was found because this landing was the first thing
+in the whole session to actually try pushing one of these abilities through `ResolveStack`, and every one of the nine
+failed identically the first time it was tried.
+
+16 new tests: `activateability_test.go` gained a new `planeswalkerDefWithAbility` helper (`planeswalkerDefLoyalty`'s own
+sibling, built through the real compiled param parser, TEST-1) and seven tests --
+`TestActivateAbilityAddCounterCostAddsLoyaltyAndRunsEffect`/`...SubCounterCostRemovesLoyaltyAndRunsEffect` (the
+Ajani-shaped `[+1]`/`[-1]` abilities end to end), `...DeclinesSubCounterCostWhenNotEnoughLoyalty` (CR 121.5's floor),
+`...AddCounterZeroCostStillActivatesAndSetsLoyaltyFlag` (the "+0" shape, proving the once-per-turn flag still sets),
+`...DeclinesSecondLoyaltyAbilityActivationSameTurn` (CR 606.3, two different abilities on one permanent, the second
+declining even though its own cost is independently payable -- `ResolveStack` run between the two activations so the
+empty-stack timing gate is not what is actually being tested), `...NonLoyaltyCounterCostHasNoOncePerTurnLimit` (the gate
+is conditional on `Planeswalker$`'s own presence, not a blanket rule over every counter cost) and
+`...DeclinesForNonSelfAddCounterTarget` (a chosen-target `AddCounter` still fails closed). `activatemanaability_test.go`
+gained five --
+`TestActivateManaAbilityAddCounterLoyaltyCost`/`...SubCounterCost`/`...DeclinesSubCounterCostWhenNotEnoughCounters`/
+`...DeclinesWhenLoyaltyAbilityAlreadyActivated` (proving the flag is shared state, not per-caller: set through
+`ActivateManaAbility`, read the identical way `ActivateAbility` reads it). `internal/cost/parsing_test.go` extended
+`TestActivationShape` with accept cases for both primitives (including the `0` shape, the explicit `CARDNAME`/
+`NICKNAME` target forms, and combining the two) and reject cases (non-literal `N`, a negative `N`, a chosen target, a
+duplicate part).
+
 ## Mode$ ChangesZoneAll lands, CR 603.6d's own batched trigger
 
 `TriggerChangesZoneAll.performTest` is `Mode$ ChangesZone`'s own batched sibling: rather than firing once per card the

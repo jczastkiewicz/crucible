@@ -962,5 +962,31 @@ reset (`game.go`) now clears `Exerted` too, alongside `Tapped`/`SummonSick`. `Ac
 declining it — 1 real `AB$ Mana` line needs it (a second real line combining `Exert<1/CARDNAME>` with
 `AddsKeywords$`/`AddsKeywordsValid$`/`AddsKeywordsUntil$` stays unreachable regardless, for an unrelated reason).
 
+`ActivateAbility`/`ActivateManaAbility` gained a twelfth and thirteenth cost primitive too — `AddCounter<N/Type>` and
+`SubCounter<N/Type>` (`CostPutCounter.java`/`CostRemoveCounter.java`), the self-reference shape only (`CostPart.java`'s
+own `payCostFromSource`, `isSelfReferenceField` reused), the dominant real cost shape of CR 606's own loyalty ability —
+a prior pass had deferred `SubCounter<...>`'s own 950 real occurrences as "notably larger scope," assuming a whole
+planeswalker mechanic was missing; re-reading `SpellAbility.isPwAbility()` showed `Planeswalker$` is a bare `hasParam`
+check, and `Card.Counters`/the zero-loyalty SBA (`action.go`) already existed. `AddCounterN`/`AddCounterType` and
+`SubCounterN`/`SubCounterType` join `ActivationShape` (`internal/cost`) as `TapTypeN`/`TapTypeSpec`'s own field-pair
+shape, but `0` is a real value here (`AddCounter<0/LOYALTY>`, CR 606's own "+0" ability, 54 real lines) —
+`AddCounterType`/`SubCounterType` being non-empty, not `N != 0`, signals presence. A new
+`Card.LoyaltyAbilityActivated bool` (CR 606.3's own once-per-turn restriction, `Card.planeswalkerAbilityActivated` in
+Java collapsed from an `int` — the only reason Java counts past one is a limit-raising static ability this port does not
+build) is checked via `ability.Param("Planeswalker")`'s own bare presence before either caller commits anything, and set
+once every other part of the cost has committed, regardless of shape — a "+0" ability sets it exactly the same as any
+other. Reset every cleanup (`cleanupStep`) and on every battlefield-leaving `Move`/`MoveToLibraryTop`, alongside
+`Tapped`/`SummonSick`/`Exerted`. `SubCounter` checks CR 121.5's own floor (`c.Counters.Count(...) >= SubCounterN`);
+`AddCounter` has none (`CostPutCounter.java`'s own `getAbilityAmount(ability) == 0` early return). `ActivateManaAbility`
+pays both — 27 of the corpus's 83 real `AB$ Mana` lines resolve (3 `AddCounter`, 24 `SubCounter`) once `Produced$`'s own
+literal-shape gate is checked too (a bare `Produced$ R G`, not `Combo R G`, still declines) — and gains `planeswalker`/
+`ultimate` in `manaAbilityAllowedParams`. Pushing a `Planeswalker$`-carrying ability onto the stack for the first time
+surfaced a real bug across nine already-built effects (`dealDamageEffect`/`gainLifeEffect`/`loseLifeEffect`/
+`pumpAllEffect`/`putCounterEffect`/`scryEffect`/`sacrificeAllEffect`/`sacrificeEffect`/`surveilEffect`), each
+independently blocking `Planeswalker$`/`Ultimate$` (two of them) as an unresolved param despite neither ever bearing on
+how the effect they cost-gate resolves — fixed in all nine, each headline corpus count corrected upward
+(`dealDamageEffect` 65→72, `gainLifeEffect` 857→862, `loseLifeEffect` 300→306, `putCounterEffect` 992→993, `scryEffect`
+332→340, `surveilEffect` 183→187, `sacrificeAllEffect` 91→92, `sacrificeEffect` 516→522, `pumpAllEffect` 642→668).
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

@@ -2,11 +2,13 @@
 // own sibling decision, reusing scryEffect's own shape (scryeffect.go) for a
 // second reordering effect: look at the top Amount$ cards, put some back on
 // top in a chosen order, and the rest into the graveyard rather than the
-// bottom of the library. 183 of the corpus's 208 real (AB|DB)$ Surveil lines
+// bottom of the library. 187 of the corpus's 208 real (AB|DB)$ Surveil lines
 // that also name Defined$ You/Opponent/Player/Player.Opponent or no Defined$
 // at all -- the identical "absent Defined$ means You" default scryEffect's
 // own doc comment already covers -- and carry no other unresolved param,
-// resolve.
+// resolve; 4 of them name Planeswalker$ too, no longer blocked (CR 606.3's
+// own loyalty-ability restriction is a cost-side gate, activateability.go,
+// never a restriction on how the effect it pays for resolves).
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/SurveilEffect.java's
@@ -29,7 +31,7 @@ import (
 // the corpus's own 15 real SVar-defined Surveil lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
 var surveilUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax", "Optional", "Planeswalker",
+	"ValidTgts", "TargetMin", "TargetMax", "Optional",
 	"RememberMoved", "RememberKept",
 }
 

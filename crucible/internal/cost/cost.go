@@ -62,18 +62,24 @@ func (c Cost) IsPureMana() bool {
 // Sac/Exile/Return each have one), an optional "discard N cards of your
 // choice" (Discard<N/Card>), an optional "pay N life" (PayLife<N>), an
 // optional "pay N energy counters" (PayEnergy<N>), an optional "tap N
-// untapped permanents of a type" (tapXType<N/Type>), and an optional
+// untapped permanents of a type" (tapXType<N/Type>), an optional
 // "return N permanents of a type you control to their owner's hand"
 // (Return<N/Type>, tapXType's own sibling: past SelfReturn, "any number
 // greater than one" is always a choice among many, its own type spec
-// carried through unparsed for the identical reason TapTypeSpec's own is).
-// Each started as its own predicate (IsPureManaOrTap, then
-// IsPureManaTapAndSelfSac, SelfSac) before this type replaced all three the
-// first three grew into: Discard's own count could not fit a bool the way
-// Tap and SelfSac could, and three near-identical predicates was already the
-// sign a fourth should not be a fourth. Every primitive since slotted into
-// the same struct rather than becoming that fourth (then fifth, sixth,
-// seventh, eighth, ninth, tenth) predicate all over again.
+// carried through unparsed for the identical reason TapTypeSpec's own is),
+// an optional "put N counters of a kind on this permanent" (AddCounter<N/
+// Type>, CR 606's own dominant loyalty-ability cost shape -- Ajani
+// Goldmane's own real "[+1]: You gain 2 life," AddCounter<1/LOYALTY>), and
+// an optional "remove N counters of a kind from this permanent"
+// (SubCounter<N/Type>, AddCounter's own mirror image -- Ajani's own real
+// "[-1]:"/"[-6]:" abilities). Each started as its own predicate
+// (IsPureManaOrTap, then IsPureManaTapAndSelfSac, SelfSac) before this type
+// replaced all three the first three grew into: Discard's own count could
+// not fit a bool the way Tap and SelfSac could, and three near-identical
+// predicates was already the sign a fourth should not be a fourth. Every
+// primitive since slotted into the same struct rather than becoming that
+// fourth (then fifth, sixth, seventh, eighth, ninth, tenth, eleventh,
+// twelfth, thirteenth) predicate all over again.
 type ActivationShape struct {
 	Tap bool
 	// SelfSac is Sac<1/CARDNAME>'s (or Sac<1/NICKNAME>'s -- CostPart.java's
@@ -126,6 +132,33 @@ type ActivationShape struct {
 	// TapTypeSpec's own identical unparsed-OR-list contract. Empty exactly
 	// when ReturnTypeN is 0.
 	ReturnTypeSpec string
+	// AddCounterN is AddCounter<N/Type>'s own N, for the self-reference shape
+	// only (CostPart.java's own payCostFromSource -- an absent third field
+	// defaults to "CARDNAME" in Java's own constructor, ported as
+	// isSelfReferenceField treating "" the identical way). Unlike every
+	// other N field, 0 is a real value here, not "absent" -- CR 606's own
+	// "+0" loyalty ability (AddCounter<0/LOYALTY>, 54 real corpus lines) is
+	// exactly as legal a cost as any positive one, so AddCounterType, not
+	// this field, is what ActivationShape's own second result checks for
+	// presence.
+	AddCounterN int
+	// AddCounterType is AddCounter<N/Type>'s own CounterType field, verbatim
+	// and uncanonicalized -- internal/cost has no dependency on the engine's
+	// own CounterType casing rule (CounterEnumType.getType's own
+	// uppercasing), the identical reason TapTypeSpec/ReturnTypeSpec both stay
+	// raw. Empty exactly when the cost names no self-reference AddCounter
+	// part at all.
+	AddCounterType string
+	// SubCounterN is SubCounter<N/Type>'s own N, the self-reference shape
+	// only, AddCounterN's own mirror image for "remove" rather than "add" --
+	// 0 is a real value here too (SubCounter<0/LOYALTY>, 5 real corpus
+	// lines, an oddly-spelled "+0" ability some cards write this way
+	// instead).
+	SubCounterN int
+	// SubCounterType is SubCounter<N/Type>'s own CounterType field, verbatim
+	// -- AddCounterType's own mirror image. Empty exactly when the cost
+	// names no self-reference SubCounter part at all.
+	SubCounterType string
 }
 
 // isSelfReferenceField reports whether field is one of the two literal
@@ -139,7 +172,7 @@ func isSelfReferenceField(field string) bool {
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the ten primitives [ActivationShape] carries, decomposed
+// zero or more of the twelve primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>/
 // Return<...>/Exert<...>, a Discard<...> past the literal "N/Card" shape (a
@@ -147,9 +180,14 @@ func isSelfReferenceField(field string) bool {
 // PayLife<...> or PayEnergy<...> past a literal positive integer
 // (PayLife<X>/PayEnergy<X> and their own kin -- an amount this port has no
 // X-value/computed-total resolver to plug in here), a tapXType<...> or
-// Return<...> naming a non-literal or non-positive N, or any other named
-// Part -- PORT-8/GO-7's "skip the whole line" applied at the cost's own
-// shape rather than guessing at a partial payment.
+// Return<...> naming a non-literal or non-positive N, an AddCounter<...> or
+// SubCounter<...> naming a non-literal or negative N (X/All/X1+ and their
+// own kin, the identical unresolved-amount reasoning) or a target field past
+// the self-reference shape (a chosen permanent, "OriginalHost," a type
+// list -- CostRemoveCounter.java's own non-self branch this decomposition
+// does not carry), or any other named Part -- PORT-8/GO-7's "skip the whole
+// line" applied at the cost's own shape rather than guessing at a partial
+// payment.
 func (c Cost) ActivationShape() (ActivationShape, bool) {
 	if c.Untap || c.Mandatory || c.XMin != "" {
 		return ActivationShape{}, false
@@ -199,6 +237,20 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			}
 			shape.ReturnTypeN = n
 			shape.ReturnTypeSpec = p.Field(1)
+		case p.Name == "AddCounter" && shape.AddCounterType == "" && (p.Field(2) == "" || isSelfReferenceField(p.Field(2))):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n < 0 {
+				return ActivationShape{}, false
+			}
+			shape.AddCounterN = n
+			shape.AddCounterType = p.Field(1)
+		case p.Name == "SubCounter" && shape.SubCounterType == "" && (p.Field(2) == "" || isSelfReferenceField(p.Field(2))):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n < 0 {
+				return ActivationShape{}, false
+			}
+			shape.SubCounterN = n
+			shape.SubCounterType = p.Field(1)
 		default:
 			return ActivationShape{}, false
 		}

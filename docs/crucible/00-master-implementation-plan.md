@@ -2065,6 +2065,52 @@ printed form.
     `AddsKeywords$`/`AddsKeywordsValid$`/`AddsKeywordsUntil$` stays unreachable regardless, already outside
     `manaAbilityAllowedParams` for a reason unrelated to this landing).
 
+    **`ActivateAbility`/`ActivateManaAbility` gained a twelfth and thirteenth cost primitive too** --
+    `AddCounter<N/ Type>` and `SubCounter<N/Type>` (`CostPutCounter.java`/`CostRemoveCounter.java`), the self-reference
+    shape only (`CostPart.java`'s own `payCostFromSource`, `isSelfReferenceField` reused), the dominant real cost shape
+    of CR 606's own loyalty ability -- a prior pass had deferred `SubCounter<...>`'s own 950 real occurrences as
+    "notably larger scope," assuming a whole planeswalker mechanic was missing to build first; re-reading
+    `SpellAbility.isPwAbility()` showed `Planeswalker$` is a bare `hasParam` check, not a class of its own, and
+    `Card.Counters`/the zero-loyalty SBA (`action.go`) already existed to build on. `AddCounterN`/`AddCounterType` and
+    `SubCounterN`/`SubCounterType` join `ActivationShape` (`internal/cost`) as `TapTypeN`/`TapTypeSpec`'s own field-pair
+    shape, but `0` is a real value here, not "absent" the way every other `N` field treats it: `AddCounter<0/LOYALTY>`
+    (CR 606's own "+0" loyalty ability, 54 real lines) and `SubCounter<0/LOYALTY>` (5 real lines, an oddly-spelled
+    version of the identical shape) are both real corpus costs, so `AddCounterType`/`SubCounterType` being non-empty,
+    not `N != 0`, is what signals presence. A new `Card.LoyaltyAbilityActivated bool` (CR 606.3's own once-per-turn
+    restriction -- `Card.planeswalkerAbilityActivated` in Java collapsed from an `int`, since the only reason Java
+    counts past one is `StaticAbilityNumLoyaltyAct`, a limit-raising static ability this port does not build) is checked
+    via `ability.Param("Planeswalker")`'s own bare presence (the corpus writes both `Planeswalker$ True` and
+    `Planeswalker$ true`) before either caller commits anything, and set once every other part of the cost has actually
+    committed, regardless of shape -- CR 606.3 restricts the whole ability, so a "+0" `AddCounter<0/...>` ability sets
+    the flag exactly the same as any other. Reset every cleanup (`cleanupStep`, alongside `AttacksThisTurn`/
+    `BecameTargetThisTurn`) and on every battlefield-leaving `Move`/`MoveToLibraryTop` (alongside
+    `Tapped`/`SummonSick`/`Exerted`) -- CR 400.7's own "a new object remembers nothing." `SubCounter` checks CR 121.5's
+    own floor (`CostRemoveCounter.java`'s own `source.getCounters(cntrs) - amount >= 0`,
+    `shape.SubCounterN > c.Counters.Count(...)`); `AddCounter` has none (`CostPutCounter.java`'s own
+    `getAbilityAmount(ability) == 0` early return -- adding never fails). `ActivateManaAbility` pays both rather than
+    declining them, `PayEnergy`/`SelfExile`/ `SelfExert`/`tapXType`'s own "corpus actually needs it" precedent: 27 of
+    the corpus's 83 real `AB$ Mana` lines naming either resolve fully (3 `AddCounter`, 24 `SubCounter`, 6 of the 27
+    loyalty abilities) once `Produced$`'s own literal-shape gate (`producedManaColor`/`parseComboColors`) is checked too
+    -- catching an over-count in this landing's own first pass (31, before checking `Produced$` at all): a bare
+    `Produced$ R G`, not `Combo R G`, still declines the identical way every other unresolvable `Produced$` shape
+    already does. `manaAbilityAllowedParams` gains `planeswalker`/`ultimate` (`Ultimate$` purely descriptive, admitted
+    the same reason `SpellDescription$` already is).
+
+    **A real, separate bug surfaced and fixed in the same pass:** pushing a `Planeswalker$`-carrying ability onto the
+    stack for the first time (this port had never been able to before this landing) immediately hit
+    `engine: GainLife: Planeswalker$ not resolvable yet` -- nine already-built effects
+    (`dealDamageEffect`/`gainLifeEffect`/
+    `loseLifeEffect`/`pumpAllEffect`/`putCounterEffect`/`scryEffect`/`sacrificeAllEffect`/`sacrificeEffect`/
+    `surveilEffect`) each independently listed `Planeswalker`/`Ultimate` (two of them) in their own unresolved-param
+    blocklist, defensively added by an earlier chunk that saw the param on real corpus lines without realizing it is
+    purely a cost-side marker with zero bearing on how the effect it cost-gates actually resolves. Removed from all
+    nine, each headline corpus count corrected upward: `dealDamageEffect` 65→72, `gainLifeEffect` 857→862,
+    `loseLifeEffect` 300→306 (the `Defined$` branch alone), `putCounterEffect` 992→993, `scryEffect` 332→340,
+    `surveilEffect` 183→187, `sacrificeAllEffect` 91→92, `sacrificeEffect` 516→522, `pumpAllEffect` 642→668. Not a
+    hypothetical found by re-reading old code for its own sake -- found because this was the first thing in the whole
+    session to actually try pushing one of these abilities through `Registry.Resolve`, and every one of the nine failed
+    identically the first time it was tried.
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

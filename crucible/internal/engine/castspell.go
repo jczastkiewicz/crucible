@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Twenty-two entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Twenty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -271,7 +271,21 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // resolution loop around one existing call; APIExchangeLife is
 // exchangeLifeEffect (exchangelifeeffect.go), M6's twenty-second and
 // setPlayerLife's own second caller, CR 119.10's own exchange reduced to
-// "the higher total loses the difference, the lower gains it."
+// "the higher total loses the difference, the lower gains it." APITapAll is
+// tapAllEffect (tapalleffect.go), M6's twenty-third and tapEffect's own
+// battlefield-scan sibling, ValidCards$ read through valid.Parse/Matches
+// (valid.go) rather than a's own Targets/Defined$; APIUntapAll is
+// untapAllEffect (untapalleffect.go), M6's twenty-fourth and TapAll's own
+// mirror image; APIPutCounterAll is putCounterAllEffect
+// (putcounteralleffect.go), M6's twenty-fifth and putCounterEffect's own
+// battlefield-scan sibling; APIRemoveCounterAll is removeCounterAllEffect
+// (removecounteralleffect.go), M6's twenty-sixth, reusing removeCounters
+// (removecountereffect.go) outright for its own per-card body the identical
+// way removeCounterEffect's own does; APIMultiplyCounter is
+// multiplyCounterEffect (multiplycountereffect.go), M6's twenty-seventh and
+// the first M6 effect to read a's own Targets field through
+// targetedOrDefinedCards for a MultiplyCounter-shaped line rather than a
+// Destroy/Tap/Untap-shaped one.
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -305,5 +319,10 @@ func NewRegistry() *Registry {
 	r[APISetLife] = setLifeEffect{}
 	r[APIShuffle] = shuffleEffect{}
 	r[APIExchangeLife] = exchangeLifeEffect{}
+	r[APITapAll] = tapAllEffect{}
+	r[APIUntapAll] = untapAllEffect{}
+	r[APIPutCounterAll] = putCounterAllEffect{}
+	r[APIRemoveCounterAll] = removeCounterAllEffect{}
+	r[APIMultiplyCounter] = multiplyCounterEffect{}
 	return &r
 }

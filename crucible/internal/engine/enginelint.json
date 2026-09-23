@@ -71,7 +71,12 @@
     "damagealleffect": ["damagealleffect.go"],
     "setlifeeffect": ["setlifeeffect.go"],
     "shuffleeffect": ["shuffleeffect.go"],
-    "exchangelifeeffect": ["exchangelifeeffect.go"]
+    "exchangelifeeffect": ["exchangelifeeffect.go"],
+    "tapalleffect": ["tapalleffect.go"],
+    "untapalleffect": ["untapalleffect.go"],
+    "putcounteralleffect": ["putcounteralleffect.go"],
+    "removecounteralleffect": ["removecounteralleffect.go"],
+    "multiplycountereffect": ["multiplycountereffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -206,7 +211,12 @@
       "damagealleffect",
       "setlifeeffect",
       "shuffleeffect",
-      "exchangelifeeffect"
+      "exchangelifeeffect",
+      "tapalleffect",
+      "untapalleffect",
+      "putcounteralleffect",
+      "removecounteralleffect",
+      "multiplycountereffect"
     ],
     "trigger": [
       "id",
@@ -334,6 +344,11 @@
     "damagealleffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "valid", "trigger", "amount"],
     "setlifeeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "event"],
     "shuffleeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"],
-    "exchangelifeeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "setlifeeffect"]
+    "exchangelifeeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "setlifeeffect"],
+    "tapalleffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts", "valid", "trigger"],
+    "untapalleffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts", "valid", "trigger"],
+    "putcounteralleffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "zone", "valid", "amount", "event", "parts"],
+    "removecounteralleffect": ["id", "card", "game", "ability", "condition", "control", "zone", "valid", "amount", "removecountereffect", "parts"],
+    "multiplycountereffect": ["id", "card", "game", "ability", "defined", "condition", "control", "parts", "event"]
   }
 }

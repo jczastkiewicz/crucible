@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Seventeen entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Twenty-two entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -255,6 +255,23 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // the first to read a PLAYER target directly (targetedOrDefinedPlayers,
 // defined.go) rather than a card one, reusing scryEffect's own top-of-
 // library defensive-copy idiom for a plain move instead of a reorder.
+// APIRemoveCounter is removeCounterEffect (removecountereffect.go), M6's
+// eighteenth and putCounterEffect's own mirror image, reusing
+// definedCounterTargets outright; APIDamageAll is damageAllEffect
+// (damagealleffect.go), M6's nineteenth and DealDamage's own "to every
+// matching creature and/or player at once" sibling, sharing one damageTable
+// across the whole sweep the identical way dealDamageEffect's own multi-
+// player loop already does; APISetLife is setLifeEffect (setlifeeffect.go),
+// M6's twentieth and the first to re-derive Player.setLife's own CR 119.5
+// gain-or-loss dispatch (setPlayerLife) rather than mutating Player.Life
+// directly the way GainLife/LoseLife each do for their own single
+// direction; APIShuffle is shuffleEffect (shuffleeffect.go), M6's twenty-
+// first and the thinnest effect yet -- Game.Shuffle (game.go) already
+// existed, mulligan.go's own real caller, so this file is a target-
+// resolution loop around one existing call; APIExchangeLife is
+// exchangeLifeEffect (exchangelifeeffect.go), M6's twenty-second and
+// setPlayerLife's own second caller, CR 119.10's own exchange reduced to
+// "the higher total loses the difference, the lower gains it."
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -283,5 +300,10 @@ func NewRegistry() *Registry {
 	r[APIUntap] = untapEffect{}
 	r[APIFight] = fightEffect{}
 	r[APIMill] = millEffect{}
+	r[APIRemoveCounter] = removeCounterEffect{}
+	r[APIDamageAll] = damageAllEffect{}
+	r[APISetLife] = setLifeEffect{}
+	r[APIShuffle] = shuffleEffect{}
+	r[APIExchangeLife] = exchangeLifeEffect{}
 	return &r
 }

@@ -66,7 +66,12 @@
     "tapeffect": ["tapeffect.go"],
     "untapeffect": ["untapeffect.go"],
     "fighteffect": ["fighteffect.go"],
-    "milleffect": ["milleffect.go"]
+    "milleffect": ["milleffect.go"],
+    "removecountereffect": ["removecountereffect.go"],
+    "damagealleffect": ["damagealleffect.go"],
+    "setlifeeffect": ["setlifeeffect.go"],
+    "shuffleeffect": ["shuffleeffect.go"],
+    "exchangelifeeffect": ["exchangelifeeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -196,7 +201,12 @@
       "tapeffect",
       "untapeffect",
       "fighteffect",
-      "milleffect"
+      "milleffect",
+      "removecountereffect",
+      "damagealleffect",
+      "setlifeeffect",
+      "shuffleeffect",
+      "exchangelifeeffect"
     ],
     "trigger": [
       "id",
@@ -319,6 +329,11 @@
     "tapeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts"],
     "untapeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"],
     "fighteffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "combatdamage", "trigger"],
-    "milleffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "zone", "parts", "amount"]
+    "milleffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "zone", "parts", "amount"],
+    "removecountereffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "parts", "event", "amount", "putcountereffect"],
+    "damagealleffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "valid", "trigger", "amount"],
+    "setlifeeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "event"],
+    "shuffleeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"],
+    "exchangelifeeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "setlifeeffect"]
   }
 }

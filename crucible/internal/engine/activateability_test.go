@@ -1689,8 +1689,8 @@ func TestActivateAbilityDeclinesGraveyardAbilityCombinedWithTapCost(t *testing.T
 }
 
 // TestActivateAbilityDeclinesUnsupportedActivationZone proves an
-// ActivationZone$ this port does not build (Hand here, 97 real corpus
-// lines) fails closed rather than defaulting to Battlefield or Graveyard.
+// ActivationZone$ this port does not build (Command here, 57 real corpus
+// lines) fails closed rather than defaulting to Battlefield/Graveyard/Hand.
 func TestActivateAbilityDeclinesUnsupportedActivationZone(t *testing.T) {
 	t.Parallel()
 
@@ -1698,12 +1698,95 @@ func TestActivateAbilityDeclinesUnsupportedActivationZone(t *testing.T) {
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 
-	def := creatureDefWithAbility(t, "Test Hand Zone",
-		"AB$ Discard | Cost$ Discard<1/CARDNAME> | ActivationZone$ Hand | Defined$ You")
-	creature := g.NewCard(def, p, engine.Hand)
+	def := creatureDefWithAbility(t, "Test Command Zone",
+		"AB$ GainLife | Cost$ 1 | ActivationZone$ Command | Defined$ You | LifeAmount$ 1")
+	creature := g.NewCard(def, p, engine.Command)
 
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for ActivationZone$ Hand, want false")
+		t.Error("ActivateAbility returned true for ActivationZone$ Command, want false")
+	}
+}
+
+// TestActivateAbilitySelfDiscardCostDiscardsSourceAndRunsEffect proves CR
+// 702.28's own Cycling shape -- Discard<1/CARDNAME>, ActivationZone$ Hand --
+// discards the source (discardCards, discardeffect.go, reused wholesale, so
+// Mode$ Discarded fires the identical way any other discard does) and the
+// ability still resolves.
+func TestActivateAbilitySelfDiscardCostDiscardsSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(nil, p, engine.Library)
+
+	def := creatureDefWithAbility(t, "Test Self Discard",
+		"AB$ Draw | Cost$ Discard<1/CARDNAME> | ActivationZone$ Hand | Defined$ You | NumCards$ 1")
+	card := g.NewCard(def, p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, card, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(card).Zone; zone != engine.Graveyard {
+		t.Errorf("source zone = %v, want Graveyard -- the Discard<1/CARDNAME> cost must actually discard it", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
+		t.Errorf("hand size = %d, want 1 -- the Draw effect must still resolve", got)
+	}
+}
+
+// TestActivateAbilitySelfExileFromHandCostExilesSourceAndRunsEffect proves
+// ExileFromHand<1/CARDNAME> -- SelfExileFromGrave's own sibling for the
+// hand -- actually exiles the source rather than discarding it.
+func TestActivateAbilitySelfExileFromHandCostExilesSourceAndRunsEffect(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Self Exile From Hand",
+		"AB$ GainLife | Cost$ ExileFromHand<1/CARDNAME> | ActivationZone$ Hand | Defined$ You | LifeAmount$ 2")
+	card := g.NewCard(def, p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, card, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if zone := g.Card(card).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile", zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 22 {
+		t.Errorf("life = %d, want 22", got)
+	}
+}
+
+// TestActivateAbilityDeclinesHandAbilityCombinedWithTapCost mirrors
+// TestActivateAbilityDeclinesGraveyardAbilityCombinedWithTapCost: 0 real
+// corpus lines combine ActivationZone$ Hand with any battlefield-only
+// primitive, so one declines outright.
+func TestActivateAbilityDeclinesHandAbilityCombinedWithTapCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Hand Tap",
+		"AB$ GainLife | Cost$ T Discard<1/CARDNAME> | ActivationZone$ Hand | Defined$ You | LifeAmount$ 1")
+	card := g.NewCard(def, p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, card, 0, c) {
+		t.Error("ActivateAbility returned true for a Hand ability combined with a Tap cost, want false")
 	}
 }

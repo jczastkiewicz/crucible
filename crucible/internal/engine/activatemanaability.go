@@ -197,16 +197,21 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // AddCounter/SubCounter exactly as often here as in ActivateAbility's own
 // non-mana lines -- may activate at most once per turn the identical way
 // (Card.LoyaltyAbilityActivated, checked and set here too). ActivationZone$
-// Graveyard applies here too -- the identical owner-not-controller,
-// zone-swapped gate and the identical "only ExileFromGrave plus mana" shape
-// restriction ActivateAbility's own doc comment already covers -- for the
-// one real corpus line naming it (a mana rock's own "1, Exile CARDNAME from
-// your graveyard: Add one mana of any color").
+// Graveyard/Hand both apply here too -- the identical owner-not-controller,
+// zone-swapped gate and the identical "only that zone's own self-reference
+// primitive plus mana" shape restriction ActivateAbility's own doc comment
+// already covers -- for the one real corpus line naming Graveyard (a mana
+// rock's own "1, Exile CARDNAME from your graveyard: Add one mana of any
+// color") and the two naming Hand (both "Exile CARDNAME from your hand: Add
+// {R}/{G}", SelfDiscard's own real corpus payoff here is 0 lines, so this
+// function declines it the identical way it already declines DiscardN/
+// PayLife/Return).
 //
 // Payment order matches ActivateAbility's own: mana first, tap second,
 // self-sac third, exile fourth, exert sixth, energy ninth, tap-by-type
 // tenth, add-counter twelfth, remove-counter thirteenth, exile-from-graveyard
-// last (activateability.go's own
+// fourteenth, exile-from-hand last -- SelfDiscard is declined outright
+// above, so it never reaches this ordering (activateability.go's own
 // doc comment has the CR 601.2h reasoning), reusing sacrificeCards
 // (sacrificeeffect.go), exileCards (exile.go) and tapChosenPermanents
 // (taptype.go) the identical way. A Tap-self cost also
@@ -238,7 +243,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if !manaAbilityParamsResolvable(ability) {
 		return false
 	}
-	fromGraveyard := false
+	fromGraveyard, fromHand := false, false
 	switch zone, _ := ability.Param("ActivationZone"); zone {
 	case "", "Battlefield":
 		if c.Controller() != pid || c.Zone != Battlefield {
@@ -249,6 +254,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 			return false
 		}
 		fromGraveyard = true
+	case "Hand":
+		if c.Owner != pid || c.Zone != Hand {
+			return false
+		}
+		fromHand = true
 	default:
 		return false
 	}
@@ -262,14 +272,24 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
-	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 {
+	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard {
 		return false
 	}
-	if fromGraveyard && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfExert ||
+	nonBattlefield := fromGraveyard || fromHand
+	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfExert ||
 		shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.AddCounterType != "" || shape.SubCounterType != "") {
 		return false
 	}
 	if !fromGraveyard && shape.SelfExileFromGrave {
+		return false
+	}
+	if !fromHand && shape.SelfExileFromHand {
+		return false
+	}
+	if fromGraveyard && shape.SelfExileFromHand {
+		return false
+	}
+	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
 	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
@@ -366,6 +386,9 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	if shape.SelfExileFromGrave {
 		exileFromGraveyard(g, card)
+	}
+	if shape.SelfExileFromHand {
+		exileFromHand(g, card)
 	}
 	if isLoyaltyAbility {
 		c.LoyaltyAbilityActivated = true

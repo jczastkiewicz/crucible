@@ -711,3 +711,29 @@ func TestActivateManaAbilityExileFromGraveCost(t *testing.T) {
 		t.Errorf("pool breakdown = %v, want one blue", got)
 	}
 }
+
+// TestActivateManaAbilityExileFromHandCost proves the real corpus shape
+// "Exile CARDNAME from your hand: Add {R}." -- ActivationZone$ Hand applies
+// to a mana ability the identical way it applies to ActivateAbility.
+func TestActivateManaAbilityExileFromHandCost(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := creatureDefWithAbility(t, "Test Mana Hand Exile",
+		"AB$ Mana | Cost$ ExileFromHand<1/CARDNAME> | ActivationZone$ Hand | Produced$ R")
+	card := g.NewCard(def, p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateManaAbility(p, card, 0, c) {
+		t.Fatal("ActivateManaAbility returned false, want true")
+	}
+	if zone := g.Card(card).Zone; zone != engine.Exile {
+		t.Errorf("source zone = %v, want Exile", zone)
+	}
+	if got, want := g.Player(p).ManaPool.Breakdown(), ([6]int{0, 0, 0, 1, 0, 0}); got != want {
+		t.Errorf("pool breakdown = %v, want one red", got)
+	}
+}

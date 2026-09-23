@@ -72,18 +72,23 @@ func (c Cost) IsPureMana() bool {
 // Goldmane's own real "[+1]: You gain 2 life," AddCounter<1/LOYALTY>), and
 // an optional "remove N counters of a kind from this permanent"
 // (SubCounter<N/Type>, AddCounter's own mirror image -- Ajani's own real
-// "[-1]:"/"[-6]:" abilities), and an optional self-exile-from-the-graveyard
+// "[-1]:"/"[-6]:" abilities), an optional self-exile-from-the-graveyard
 // (ExileFromGrave<1/CARDNAME>, SelfExile's own sibling for CostExile.java's
 // other real "from" zone -- an Escape/Unearth-style ability's own dominant
-// real cost, activated from the graveyard rather than the battlefield).
-// Each started as its own predicate
+// real cost, activated from the graveyard rather than the battlefield), an
+// optional self-discard (Discard<1/CARDNAME>, CR 702.28's own Cycling and
+// its own kin's dominant real cost, activated from the hand), and an
+// optional self-exile-from-hand (ExileFromHand<1/CARDNAME>,
+// SelfExileFromGrave's own sibling for CostExile.java's third real "from"
+// zone -- Hand -- SelfDiscard's own sibling for "exile" rather than
+// "discard"). Each started as its own predicate
 // (IsPureManaOrTap, then IsPureManaTapAndSelfSac, SelfSac) before this type
 // replaced all three the first three grew into: Discard's own count could
 // not fit a bool the way Tap and SelfSac could, and three near-identical
 // predicates was already the sign a fourth should not be a fourth. Every
 // primitive since slotted into the same struct rather than becoming that
 // fourth (then fifth, sixth, seventh, eighth, ninth, tenth, eleventh,
-// twelfth, thirteenth) predicate all over again.
+// twelfth, thirteenth, fourteenth, fifteenth) predicate all over again.
 type ActivationShape struct {
 	Tap bool
 	// SelfSac is Sac<1/CARDNAME>'s (or Sac<1/NICKNAME>'s -- CostPart.java's
@@ -176,6 +181,21 @@ type ActivationShape struct {
 	// ActivateAbility itself -- not this decomposition -- is what refuses a
 	// Graveyard-zone ability naming any of those.
 	SelfExileFromGrave bool
+	// SelfDiscard is Discard<1/CARDNAME|NICKNAME>'s own presence -- CR
+	// 702.28's own Cycling and its own kin's dominant real cost, "discard
+	// this card" -- distinct from DiscardN's own "discard N cards of your
+	// choice" shape (Field(1) is "Card" there, never a self-reference token,
+	// so the two cases can never both match one Part). Only meaningful for
+	// an ability activated from the hand (ActivationZone$ Hand,
+	// ActivateAbility's own doc comment); ActivateAbility itself, not this
+	// decomposition, is what refuses a Battlefield-zone ability naming it.
+	SelfDiscard bool
+	// SelfExileFromHand is ExileFromHand<1/CARDNAME|NICKNAME>'s own presence
+	// -- SelfExileFromGrave's own sibling for CostExile.java's third real
+	// "from" zone (Hand rather than Battlefield or Graveyard), SelfDiscard's
+	// own sibling for "exile this card" rather than "discard this card,"
+	// both real corpus shapes an ActivationZone$ Hand ability pays with.
+	SelfExileFromHand bool
 }
 
 // isSelfReferenceField reports whether field is one of the two literal
@@ -189,10 +209,10 @@ func isSelfReferenceField(field string) bool {
 }
 
 // ActivationShape reports whether the cost is nothing but mana symbols and
-// zero or more of the thirteen primitives [ActivationShape] carries, decomposed
+// zero or more of the fifteen primitives [ActivationShape] carries, decomposed
 // into that value. The second result is false for anything past those --
 // Untap/Mandatory/XMin, a chosen or SVar-sized Sac<...>/Exile<...>/
-// Return<...>/Exert<...>/ExileFromGrave<...>, a Discard<...> past the literal "N/Card" shape (a
+// Return<...>/Exert<...>/ExileFromGrave<...>/ExileFromHand<...>, a Discard<...> past the literal "1/CARDNAME|NICKNAME" self-reference or "N/Card" shape (a
 // self-discard, a random discard, a type-restricted choice, ...), a
 // PayLife<...> or PayEnergy<...> past a literal positive integer
 // (PayLife<X>/PayEnergy<X> and their own kin -- an amount this port has no
@@ -222,6 +242,8 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			shape.SelfReturn = true
 		case p.Name == "Exert" && !shape.SelfExert && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfExert = true
+		case p.Name == "Discard" && !shape.SelfDiscard && shape.DiscardN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+			shape.SelfDiscard = true
 		case p.Name == "Discard" && shape.DiscardN == 0 && p.Field(1) == "Card":
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {
@@ -270,6 +292,8 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			shape.SubCounterType = p.Field(1)
 		case p.Name == "ExileFromGrave" && !shape.SelfExileFromGrave && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfExileFromGrave = true
+		case p.Name == "ExileFromHand" && !shape.SelfExileFromHand && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+			shape.SelfExileFromHand = true
 		default:
 			return ActivationShape{}, false
 		}

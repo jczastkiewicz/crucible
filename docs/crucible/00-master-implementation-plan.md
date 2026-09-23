@@ -2143,6 +2143,33 @@ printed form.
     `AB$ Mana | ActivationZone$ Graveyard` line needed `activationzone` added to `manaAbilityAllowedParams` alongside
     the zone-check generalization.
 
+    **`ActivationZone$ Hand` lands too, with two more new cost primitives** -- `Discard<1/CARDNAME>` (CR 702.28's own
+    Cycling and its own kin, "discard this card: draw a card," 69 real lines) and `ExileFromHand<1/CARDNAME>`
+    (`CostExile.java`'s third real "from" zone, `SelfExileFromGrave`'s own sibling, 14 real lines) -- the corpus's own
+    second-largest real `ActivationZone$` destination (97 lines) after Graveyard's own 230; `Command`'s 57 stays
+    unbuilt. Both self-reference shapes had been silently unreachable rather than merely undiscovered before this
+    landing: `Discard<1/CARDNAME>`'s own literal `1/CARDNAME` shape does not match the existing choose-N-from-hand
+    `DiscardN` case's own `p.Field(1) == "Card"` guard, so every real self-discard line was falling through to the
+    cost-shape's own `default: false` the entire time `Discard<N/Card>` has existed in this port -- caught by this
+    landing's own corpus-frequency research into Cycling, not by any prior audit. `SelfDiscard bool`/
+    `SelfExileFromHand bool` join `ActivationShape` (`internal/cost`) as a fifteenth primitive pair,
+    `isSelfReferenceField` reused for both. `ActivateAbility`'s own `ActivationZone$` switch grows a third case (`Hand`:
+    `c.Owner != pid || c.Zone != Hand`), and the cross-contamination guard generalizes to
+    `nonBattlefield := fromGraveyard || fromHand` plus four one-line checks refusing the wrong zone's own self-reference
+    primitive -- 0 real corpus lines combine `ActivationZone$ Hand` with any battlefield-only primitive or with
+    `ExileFromGrave`, confirmed by grep before writing the guard, the identical discipline the Graveyard landing already
+    established. Paying `SelfDiscard` reuses `discardCards` (discardeffect.go) wholesale -- CR 701.8's own
+    `Mode$ Discarded` trigger fires the identical way it already does for the unrelated choose-N-from-hand shape, since
+    Cycling really is an ordinary discard of a fixed, self-chosen card, the one real difference from
+    `SelfExileFromGrave`/`SelfExileFromHand` (both fire no trigger at all, the identical CR 603.6d reasoning). A new
+    `exileFromHand` (`exilefromgrave.go`) is `exileFromGraveyard`'s exact sibling. 92 of the corpus's own 95 real
+    `ActivationZone$ Hand` lines resolve at the cost-shape level, 41 of those actually running an already-built effect
+    end to end (25 `Pump`, 6 `DealDamage`, 3 `PutCounter`, 2 `Draw`, 2 `Mana`, 1 each of
+    `Sacrifice`/`GainLife`/`Discard`) and 14 naming `ChangeZone`. `ActivateManaAbility` pays `SelfExileFromHand` -- 2 of
+    its own 92 real `AB$ Mana | ActivationZone$ Hand` lines resolve fully -- but declines `SelfDiscard` outright, its
+    own real `AB$ Mana` payoff being 0 lines (`DiscardN`/`PayLife`/`SelfReturn`'s own "0 real benefit" precedent, not
+    `PayEnergy`/`SelfExile`/`tapXType`'s own "pay it" one).
+
 27. Continuous effects & the layer system (`StaticAbilityContinuous`). **Six real slices of `Mode$ Continuous` now,
     Layer 7a among them, alongside two sibling modes built independently** — `layer.go` has the CR 613 layer _numbers_;
     `pt.go` folds power/toughness through them, and that folding mechanism has a real (non-test) caller for the first

@@ -9,20 +9,24 @@
 // (tapXType<N/Type>), an optional "return N permanents of a type you
 // control" (Return<N/Type>), an optional "put N counters of a kind on this
 // permanent" (AddCounter<N/Type>), an optional "remove N counters of a
-// kind from this permanent" (SubCounter<N/Type>) and an optional
-// self-exile-from-the-graveyard (ExileFromGrave<1/CARDNAME>), in any
-// combination (cost.Cost.ActivationShape, internal/cost) -- the only
+// kind from this permanent" (SubCounter<N/Type>), an optional
+// self-exile-from-the-graveyard (ExileFromGrave<1/CARDNAME>), an optional
+// self-discard (Discard<1/CARDNAME>, CR 702.28's own Cycling and its own
+// kin) and an optional self-exile-from-hand (ExileFromHand<1/CARDNAME>), in
+// any combination (cost.Cost.ActivationShape, internal/cost) -- the only
 // primitives this port has payment machinery for. An ability naming
-// ActivationZone$ Graveyard activates from the graveyard rather than the
+// ActivationZone$ Graveyard or Hand activates from that zone rather than the
 // battlefield -- CR 602.2's own generalization past a permanent already on
-// the battlefield, ported past its own single dominant real destination
-// (230 real lines name Graveyard; Hand's 97 and Command's 57 stay
-// unbuilt): the source's own owner, not controller (CR 109.5, a card
-// outside the battlefield has no controller), may activate it while it
-// sits in Graveyard rather than Battlefield, and only ExileFromGrave (plus
-// mana) may pay for it -- every other primitive above assumes a permanent
-// already on the battlefield, and 0 real corpus lines combine one with
-// ActivationZone$ Graveyard. A Planeswalker$ ability -- CR 606.3's own
+// the battlefield, ported past its own two dominant real destinations (230
+// real lines name Graveyard, 97 name Hand; Command's 57 stays unbuilt): the
+// source's own owner, not controller (CR 109.5, a card outside the
+// battlefield has no controller), may activate it while it sits in that
+// zone rather than Battlefield, and only that zone's own self-reference
+// primitive (plus mana) may pay for it -- every other primitive above
+// assumes a permanent already on the battlefield, and 0 real corpus lines
+// combine one with ActivationZone$ Graveyard or Hand, or combine one
+// zone's own self-reference primitive with the other's. A Planeswalker$
+// ability -- CR 606.3's own
 // loyalty ability, real corpus lines pairing AddCounter/SubCounter with it
 // 996 times out of 999 -- may activate at most once per turn regardless of
 // which of those two shapes its own cost uses, including AddCounter<0/...>'s
@@ -82,10 +86,12 @@ import (
 // XMin token, each its own further payment primitive this port does not
 // have, PORT-8/GO-7's "skip the whole line" applied to the cost itself
 // rather than to the ability's own other params, an ActivationZone$ this
-// port does not build (Hand/Command/Exile/Stack -- Graveyard is the only
-// non-Battlefield zone supported), a Graveyard-zone ability naming any
-// primitive but ExileFromGrave (or a Battlefield-zone ability naming
-// ExileFromGrave), a Planeswalker$ ability
+// port does not build (Command/Exile/Stack -- Graveyard and Hand are the
+// only non-Battlefield zones supported), a Graveyard-zone ability naming
+// any primitive but ExileFromGrave, a Hand-zone ability naming any
+// primitive but Discard's or ExileFromHand's own self-reference shape, or a
+// Battlefield-zone ability naming ExileFromGrave/Discard-self/
+// ExileFromHand, a Planeswalker$ ability
 // already activated once this turn (CR 606.3, Card.LoyaltyAbilityActivated),
 // a Discard component the activating player's own hand
 // cannot actually pay (fewer cards in hand than DiscardN), a PayLife
@@ -167,15 +173,22 @@ import (
 // emits the identical CounterChanged event putCounterEffect's own does, then
 // a SubCounter component removes SubCounterN counters the identical way with
 // a negative delta, then a SelfExileFromGrave component exiles the source
-// from the graveyard (exileFromGraveyard, exilefromgrave.go -- no trigger
-// check, unlike the battlefield SelfExile branch above: CR 603.6d's own
-// "leaves the battlefield" family does not apply to a card that was never
-// on the battlefield) -- CR 602.2g's own "costs are paid together" is
+// from the graveyard (exileFromGraveyard, exilefromgrave.go), then a
+// SelfDiscard component discards the source (discardCards, discardeffect.go
+// -- Mode$ Discarded fires the identical way any other discard does, unlike
+// SelfExileFromGrave/SelfExileFromHand's own no-trigger exile), then a
+// SelfExileFromHand component exiles the source from the hand
+// (exileFromHand, exilefromgrave.go) -- neither exile-from-a-non-battlefield-
+// zone branch fires a trigger check at all, unlike the battlefield SelfExile
+// branch above: CR 603.6d's own "leaves the battlefield" family does not
+// apply to a card that was never on the battlefield -- CR 602.2g's own
+// "costs are paid together" is
 // approximated here as "check every cost for feasibility first, then commit
 // each one, mana first, tap second, sacrifice third, exile fourth, return
 // fifth, exert sixth, discard seventh, life eighth, energy ninth,
 // tap-by-type tenth, return-by-type eleventh, add-counter twelfth,
-// remove-counter thirteenth, exile-from-graveyard last," so a failed mana payment never
+// remove-counter thirteenth, exile-from-graveyard fourteenth, self-discard
+// fifteenth, exile-from-hand last," so a failed mana payment never
 // leaves the permanent tapped, sacrificed, exiled, returned, exerted, the
 // player short a card, short life, short energy, wrongly gaining or missing
 // counters, or another permanent
@@ -217,7 +230,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if ability.Record != compile.Activated || ability.Name == "Mana" {
 		return false
 	}
-	fromGraveyard := false
+	fromGraveyard, fromHand := false, false
 	switch zone, _ := ability.Param("ActivationZone"); zone {
 	case "", "Battlefield":
 		if c.Controller() != pid || c.Zone != Battlefield {
@@ -228,6 +241,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 			return false
 		}
 		fromGraveyard = true
+	case "Hand":
+		if c.Owner != pid || c.Zone != Hand {
+			return false
+		}
+		fromHand = true
 	default:
 		return false
 	}
@@ -244,12 +262,22 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if !ok {
 		return false
 	}
-	if fromGraveyard && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
+	nonBattlefield := fromGraveyard || fromHand
+	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
 		shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
 		shape.AddCounterType != "" || shape.SubCounterType != "") {
 		return false
 	}
 	if !fromGraveyard && shape.SelfExileFromGrave {
+		return false
+	}
+	if !fromHand && (shape.SelfDiscard || shape.SelfExileFromHand) {
+		return false
+	}
+	if fromGraveyard && (shape.SelfDiscard || shape.SelfExileFromHand) {
+		return false
+	}
+	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
 	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
@@ -349,6 +377,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.SelfExileFromGrave {
 		exileFromGraveyard(g, card)
+	}
+	if shape.SelfDiscard {
+		discardCards(g, controller, []CardID{card}, pid)
+	}
+	if shape.SelfExileFromHand {
+		exileFromHand(g, card)
 	}
 	if isLoyaltyAbility {
 		c.LoyaltyAbilityActivated = true

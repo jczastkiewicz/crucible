@@ -1002,5 +1002,20 @@ those actually run an already-built effect end to end, and 87 more name `ChangeZ
 real effect, still this port's own single largest unbuilt API). `ActivateManaAbility` pays it too — the sole real
 `AB$ Mana` line naming `ActivationZone$ Graveyard`.
 
+`ActivationZone$ Hand` generalizes the same mechanism to the corpus's own second-largest real destination (97 lines),
+paired with two more new self-reference primitives — `Discard<1/CARDNAME>` (69 real lines, CR 702.28's own Cycling —
+"discard this card: draw a card," previously silently unreachable: its literal `1/CARDNAME` shape does not match the
+existing choose-N-from-hand `DiscardN` case's own `Field(1) == "Card"` guard, so it fell through to the cost-shape's own
+`default: false` the entire time `Discard<N/Card>` has existed) and `ExileFromHand<1/CARDNAME>` (14 real lines,
+`CostExile.java`'s third real "from" zone). `SelfDiscard`/`SelfExileFromHand` join `ActivationShape` as a fifteenth
+primitive pair; the cross-contamination guard generalizes to `nonBattlefield := fromGraveyard || fromHand`, plus four
+one-line checks refusing the wrong zone's own self-reference primitive — 0 real corpus lines combine
+`ActivationZone$ Hand` with any battlefield-only primitive or with `ExileFromGrave`. Paying `SelfDiscard` reuses
+`discardCards` wholesale — CR 701.8's own `Mode$ Discarded` trigger fires the identical way it already does for the
+unrelated choose-N shape, since Cycling really is an ordinary discard of a fixed, self-chosen card. 92 of the corpus's
+own 95 real `ActivationZone$ Hand` lines resolve at the cost-shape level, 41 running an already-built effect end to end;
+2 of 92 real `AB$ Mana | ActivationZone$ Hand` lines name `ExileFromHand` and resolve fully, while `SelfDiscard`'s own
+real `AB$ Mana` payoff is 0 lines, so `ActivateManaAbility` declines it outright.
+
 **P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
 half ("every layer, every SBA," Plan Section 3.2) is not.

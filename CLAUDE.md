@@ -133,11 +133,17 @@ npx markdownlint-cli2 "CLAUDE.md" "docs/crucible/**/*.md"   # semantic lint
 ```
 
 ```bash
-# Go
+# Go — every line below is a CI gate (.github/workflows/crucible-go.yml)
+cd crucible && gofmt -l . && go vet ./...
 cd crucible && go test -race ./...
 cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/covergate -profile cover.out   # TEST-12 floors
-cd crucible && go test ./internal/carddb/compile -run TestCorpusAST -update   # regen the golden AST fingerprints, review the diff
-cd crucible && golangci-lint run
+cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
+cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
+cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
+cd crucible && golangci-lint run   # CI only; not installed locally
+
+# Regenerate the golden AST fingerprints, then review the diff
+cd crucible && go test ./internal/carddb/compile -run TestCorpusAST -update
 
 # Java oracle
 mvn -pl crucible/oracle-java -am test
@@ -168,53 +174,40 @@ allowlist empty, golden AST diff clean.
 
 M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerController` (eleven decision methods) with
 `ScriptedController`; `GameState` fixture load/dump, byte-identical round-trip (`internal/fixture`); event schema v1
-(ADR-0013). Effect dispatch scaffolding (`Effect`/`Registry`, ADR-0011, ADR-0003 puts them in `internal/engine`) landed
-holding zero implementations — M5's own `permanentEffect` (below) is the first two, but the 203 script-driven APIs in
-corpus-frequency order were still M6's job, not M4's or M5's, until `Draw` (below) became the first to land.
+(ADR-0013); `Effect`/`Registry` dispatch (ADR-0011; ADR-0003 puts it in `internal/engine`).
 
-M5 in progress (rules kernel). Real: turn/phase/step loop + priority (`turn.go`, `phase.go`); zone changes and
-state-based actions (`action.go`) — both legend-rule corner cases, World rule, lethal damage, Battle protector,
-dangling-attachment cleanup; combat (`combat.go`, `attack.go`, `block.go`, `combatdamage.go`) — first strike, trample,
-gang blocking, a combat split across more than one defending player; mulligans (`mulligan.go`); the valid-string
-evaluator (`valid.go`, `engine.Matches`), corpus-frequency-first (`port-log/valid-strings.md`); a mana pool and payment
-covering all eight harder cost shapes (`mana.go`, `manapay.go`); a basic land's intrinsic mana ability and playing a
-land (`manaability.go`, `land.go`); casting a spell — a non-Aura permanent or an Aura, through the stack —
-(`castspell.go`); trigger firing (`trigger.go`) for most real `Mode$` kinds in the corpus, built in corpus-frequency
-order (see `port-log/game-state.md` for the full per-mode breakdown), including CR 603.3b's own APNAP ordering
-(`pushTriggeredAbilities`) and `CardTraitBase.meetsCommonRequirements`'s general gate; CR 614's replacement-effect
-system (`replacement.go`) for `Moved`/`Untap`/`DamageDone`/`Draw`/`GainLife`; block legality (`staticability.go`) —
-flying/reach/Fear/Horsemanship/Intimidate/Landwalk/Protection/Menace/Skulk and every literal `CantBlockBy` line;
-continuous effects (`continuous.go`) — six real slices of `Mode$ Continuous` across all eight layers (several only
-partially, see "Thin or missing" below), folded through `pt.go`/`typemod.go`/`colormod.go`/`keywordmod.go`/
-`controlmod.go`/`rulesmod.go`; targeting (`targeting.go`) and SubAbility chaining (`subability.go`); last-known-
-information (`Game.LKI`); activating an ability (`activateability.go`/`activatemanaability.go`) — fifteen
-`cost.Cost.ActivationShape` primitives (mana; Tap; Sac/Exile/Return/Exert self-reference; Discard-N/PayLife/PayEnergy/
-AddCounter/SubCounter; tapXType/Return-by-type; ExileFromGrave, self-discard and ExileFromHand for the graveyard/hand
-`ActivationZone$` cases) and CR 606.3's loyalty-ability once-per-turn restriction.
+M5 in progress (rules kernel): turn/priority loop, zone changes and state-based actions, combat, mulligans, the
+valid-string evaluator, mana pool and payment, casting permanents and Auras through the stack, trigger firing,
+replacement effects, block legality, continuous effects across all eight layers (partial), targeting, SubAbility
+chaining, last-known information, activated abilities.
 
-M6 in progress alongside it: 37 of the corpus's 203 script-driven `Effect` APIs resolve rather than reporting
-`ErrUnimplemented` — `Draw`, `DealDamage`, `GainLife`, `Pump`, `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`,
-`Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`, `Untap`, `Fight`, `Mill`, `RemoveCounter`, `DamageAll`,
-`SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`, `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter`,
-`Mana`, `MoveCounter`, `Poison`, `Unattach`, `RevealHand`, `LosesGame`, `WinsGame`, `Radiation`, `RemoveFromCombat`,
-`Connive` — each with `UnlessCost$` and `SubAbility$` chaining wired through `Registry.Resolve` (`effect.go`);
-`Destroy`/`Tap`/`Untap` are the first to read a chosen target (`Ability.Targets`) directly rather than only through
-`Defined$` (`targetedOrDefinedCards`, `defined.go`), and `Mill`/`Shuffle`/`SetLife`/ `ExchangeLife` do the same for a
-player target (`targetedOrDefinedPlayers`). `ChangeZone` (6,616 real corpus lines) is the single largest remaining gap;
-real instant/sorcery casting, `DB$ Effect`/`Repeat`/`GenericChoice`/`DelayedTrigger`, and token creation are the next
-largest.
+M6 in progress: 37 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, `castspell.go`); the rest
+return `ErrUnimplemented`. Largest gaps: `ChangeZone` (6,616 corpus lines), real instant/sorcery casting,
+`DB$ Effect`/`Repeat`/`GenericChoice`/`DelayedTrigger`, token creation.
 
-Thin or missing: Layer 1 (copy effects — a separate resolution-time mechanism, not a continuous one); Layer 3 past one
-real line (`GainTextOf$`); Layer 8's `MayLookAt$`/`MayPlay$`/`AddHiddenKeyword$`; most of Layers 4-6 past a literal
-token list, and Layer 7a past the Valid-family SVar shape; the legend rule's own Corner Case 1 (needs a card-name lookup
-across every card this game ever printed, which `*Game` holds no `*carddb.DB` reference to make); a real priority window
-(`ResolveStack` plays out only the degenerate no-response case, so every activation's own timing check collapses to
-"active player, a main phase, an empty stack"); most trigger-mode and replacement-family gaps `port-log/game-state.md`'s
-own "Not ported yet" section lists in full.
+Thin or missing: Layer 1 copy effects; most of Layers 3-8 past their literal shapes; a real priority window
+(`ResolveStack` plays only the no-response case). Full list: `port-log/game-state.md`, "Not ported yet".
 
-Full detail — every primitive, every real corpus count, every design decision and its Java citation:
-`docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32,
-`docs/crucible/porting/port-log/game-state.md`.
+**P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
+SBA," Plan Section 3.2) not.
 
-**P4 exit gate's fixture-count half met:** 342 scenarios (`testdata/scenarios/`) past the ≥300 floor; the qualitative
-half ("every layer, every SBA," Plan Section 3.2) is not.
+Keep this section short — it loads every session. Every primitive, corpus count, design decision and Java citation goes
+in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
+`docs/crucible/porting/port-log/game-state.md`, never here.
+
+---
+
+## Adding an M6 effect
+
+Each step below is enforced by a gate or has broken a commit before.
+
+1. Write `internal/engine/<api>effect.go`. Reject every param the effect does not resolve with an `error` before doing
+   anything, then check `subAbilityConditionMet` (PORT-8, GO-7).
+2. Register the effect in `NewRegistry()` in `castspell.go` and extend that function's doc comment.
+3. Add a one-file group for the new file to `internal/engine/enginelint.json`, give it an allow-list, and add the group
+   to `castspell`'s allow-list. Run `enginelint` until clean.
+4. Write the test in `package engine_test` with at least two players. A one-player game ends at the first state-based
+   action check (CR 104.2a), so later stack items never resolve.
+5. In the same commit, add a section to `port-log/game-state.md` just before `## Not ported yet`, update the
+   remaining-API count there and in `00-master-implementation-plan-in-progress.md`, and bump the count above. Then
+   confirm `grep -c '^| ---' docs/crucible/porting/port-log/game-state.md` still prints `6`.

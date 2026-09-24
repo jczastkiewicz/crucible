@@ -63,7 +63,7 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, cont
 		panic("engine: TapLandForMana wants exactly one basic land color")
 	}
 	c := g.Card(land)
-	if c.Controller() != pid || c.Zone != Battlefield || c.Tapped {
+	if c.Controller() != pid || c.Zone != Battlefield || c.Tapped || c.isDetained() {
 		return false
 	}
 	if !c.Type().HasSubtype(basic) {

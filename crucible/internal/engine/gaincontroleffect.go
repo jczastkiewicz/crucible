@@ -79,10 +79,16 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 // addTempController plus controllerChangeZoneCorrection): when that is a
 // real change the permanent leaves combat and is summoning sick again.
 func (g *Game) changeController(id CardID, to PlayerID) {
+	g.timestamp++
+	g.changeControllerAt(id, to, g.timestamp)
+}
+
+// changeControllerAt is changeController under a timestamp the caller took
+// -- several permanents changing controller in one event share it.
+func (g *Game) changeControllerAt(id CardID, to PlayerID, ts uint64) {
 	c := g.Card(id)
 	before := c.Controller()
-	g.timestamp++
-	c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: g.timestamp, Controller: to})
+	c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: to})
 	if c.Controller() != before {
 		c.SummonSick = true
 		g.removeFromCombat(id)

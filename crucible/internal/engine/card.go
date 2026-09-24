@@ -148,6 +148,37 @@ type Card struct {
 	// battlefield -- Java's one-shot Regeneration effect per Regenerate call.
 	RegenShields int
 
+	// detainedBy is Card.detainedBy (CR 701.35): the players who detained
+	// this permanent. While any remain it can't attack or block and its
+	// activated abilities can't be activated; each ends when that player's
+	// next turn begins.
+	detainedBy []PlayerID
+
+	// Intensity is Card.intensity (Alchemy's intensify): starts at zero and
+	// is raised by Intensify, read through Count$CardIntensity.
+	Intensity int
+
+	// Suspected, Solved, Harnessed and Plotted are Card's designations of
+	// those names (AlterAttribute). suspectedTS is the timestamp of the
+	// menace a suspected card has.
+	Suspected, Solved, Harnessed, Plotted bool
+	suspectedTS                           uint64
+
+	// faceUpDef is the card's own definition while it is face down (CR
+	// 708): Def then holds the face-down characteristics. Manifested and
+	// Cloaked record how it turned face down.
+	faceUpDef           *compile.Card
+	Manifested, Cloaked bool
+
+	// frontDef is the card's own (front face) definition while it is
+	// transformed: Def then holds the back face. Transforms counts its
+	// transformations, Java's transformedTimestamp.
+	frontDef   *compile.Card
+	Transforms int
+
+	// goadedBy are this creature's goads (CR 701.15).
+	goadedBy []goad
+
 	// tempControllers are one-shot control changes (GainControl,
 	// ExchangeControl): Java's Card.addTempController. Controller merges them
 	// with ControlMod's continuous effects by timestamp, the latest winning.

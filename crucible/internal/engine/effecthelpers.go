@@ -140,3 +140,102 @@ func withAmount(amounts map[string]expr.Amount, name string, n int) map[string]e
 	out[strings.ToLower(name)] = expr.Parse(strconv.Itoa(n))
 	return out
 }
+
+// battlefieldStaticNames reports whether any permanent has a static ability
+// naming key -- how an effect refuses to guess while a static it does not
+// model could change it.
+func battlefieldStaticNames(g *Game, key string) bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Def == nil {
+				continue
+			}
+			for _, s := range c.Def.Faces[0].Statics {
+				if _, ok := s.Param(key); ok {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// battlefieldStaticMode reports whether any permanent has a static ability
+// of Mode$ mode.
+func battlefieldStaticMode(g *Game, mode string) bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Def == nil {
+				continue
+			}
+			for _, s := range c.Def.Faces[0].Statics {
+				if v, ok := s.Param("Mode"); ok && v == mode {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// battlefieldReplacementEvent reports whether any permanent has a
+// replacement effect for Event$ event.
+func battlefieldReplacementEvent(g *Game, event string) bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Def == nil {
+				continue
+			}
+			for _, r := range c.Def.Faces[0].Replacements {
+				if v, ok := r.Param("Event"); ok && v == event {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// containsString reports whether list holds s.
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// rememberAll adds each of objs to m, answering the ones that were new --
+// what a later forgetAll takes back (Java's addRemembered/removeRemembered
+// pairs around a sub-ability).
+func rememberAll(m *Memory, objs []EntityID) []EntityID {
+	var added []EntityID
+	for _, o := range objs {
+		if m.Remember(o) {
+			added = append(added, o)
+		}
+	}
+	return added
+}
+
+// forgetAll removes each of objs from m.
+func forgetAll(m *Memory, objs []EntityID) {
+	for _, o := range objs {
+		m.Forget(o)
+	}
+}
+
+// rotateToFront is Collections.rotate bringing first to the front, when
+// players holds it.
+func rotateToFront(players []PlayerID, first PlayerID) []PlayerID {
+	for i, p := range players {
+		if p == first {
+			return append(append([]PlayerID(nil), players[i:]...), players[:i]...)
+		}
+	}
+	return players
+}

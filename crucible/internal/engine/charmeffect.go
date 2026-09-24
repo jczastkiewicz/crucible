@@ -161,6 +161,8 @@ func (charmEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	for _, mode := range a.Modes {
 		m := mode
+		m.hostTransforms, m.hasHostTransforms = a.hostTransforms, a.hasHostTransforms
+		m.damageMap = a.damageMap
 		r := g.registry
 		err := r.Resolve(g, &m, controller)
 		g.registry = r

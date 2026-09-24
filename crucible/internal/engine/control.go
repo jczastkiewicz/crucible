@@ -452,7 +452,29 @@ type PlayerController interface {
 	// library, or on the bottom?": true for the top -- Java's
 	// willPutCardOnTop.
 	WillPutCardOnTop(g *Game, decider PlayerID, card CardID) bool
+
+	// ChooseBinary answers one of Java's PlayerController.chooseBinary
+	// questions, kind naming its BinaryChoiceType: true is the first of the
+	// pair (Tap, Odd, Left).
+	ChooseBinary(g *Game, decider PlayerID, source CardID, kind BinaryChoice) bool
+
+	// ChooseOption picks one of options, answering with its index -- the
+	// shared shape of Java's chooseSomeType, chooseCardName, vote and
+	// pile choices, each a pick from a list of strings.
+	ChooseOption(g *Game, decider PlayerID, source CardID, options []string) int
 }
+
+// BinaryChoice names a PlayerController.BinaryChoiceType.
+type BinaryChoice string
+
+// The BinaryChoiceType values the ported effects ask.
+const (
+	TapOrUntap   BinaryChoice = "TapOrUntap"
+	OddsOrEvens  BinaryChoice = "OddsOrEvens"
+	LeftOrRight  BinaryChoice = "LeftOrRight"
+	AddOrRemove  BinaryChoice = "AddOrRemove"
+	Pile1OrPile2 BinaryChoice = "Pile1OrPile2"
+)
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
 // method. It is what a TEST-5 fixture runs against: no AI, no heuristics, so
@@ -508,6 +530,8 @@ type ScriptedController struct {
 	protectionChoice []int
 	coinCalls        []bool
 	cardOnTop        []bool
+	binary           []bool
+	option           []int
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -1123,6 +1147,22 @@ func (c *ScriptedController) QueueCardOnTop(top bool) { c.cardOnTop = append(c.c
 // WillPutCardOnTop returns the next answer QueueCardOnTop queued.
 func (c *ScriptedController) WillPutCardOnTop(_ *Game, _ PlayerID, _ CardID) bool {
 	return popQueue(&c.cardOnTop, "card on top")
+}
+
+// QueueBinary appends the answer to the next ChooseBinary call.
+func (c *ScriptedController) QueueBinary(first bool) { c.binary = append(c.binary, first) }
+
+// ChooseBinary returns the next answer QueueBinary queued.
+func (c *ScriptedController) ChooseBinary(_ *Game, _ PlayerID, _ CardID, _ BinaryChoice) bool {
+	return popQueue(&c.binary, "binary choice")
+}
+
+// QueueOption appends the answer to the next ChooseOption call.
+func (c *ScriptedController) QueueOption(i int) { c.option = append(c.option, i) }
+
+// ChooseOption returns the next answer QueueOption queued.
+func (c *ScriptedController) ChooseOption(_ *Game, _ PlayerID, _ CardID, _ []string) int {
+	return popQueue(&c.option, "option")
 }
 
 // popQueue pops the head of one ScriptedController queue, panicking with kind

@@ -73,7 +73,7 @@ type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
 	"DamageSource", "Condition", "ConditionDefined",
-	"ValidTgts", "TriggeredSpellAbility", "DamageMap", "CounterNum",
+	"ValidTgts", "TriggeredSpellAbility", "CounterNum",
 	"NoPrevention", "Optional", "TgtPrompt",
 }
 
@@ -96,8 +96,27 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		return fmt.Errorf("engine: DealDamage: NumDmg$ %q is not resolvable", numDmg)
 	}
 	deathtouch := source.HasKeyword("Deathtouch")
+	if hasParam(a, "DamageMap") && a.damageMap == nil {
+		a.damageMap = &pendingDamage{}
+	}
 
 	defined, _ := a.Params.Param("Defined")
+	if a.damageMap != nil {
+		// DamageMap$: the damage is recorded, and dealt all at once by a
+		// later DamageResolve (DamageDealEffect's usedDamageMap).
+		if defined == "Self" {
+			a.damageMap.add(a.Source, CardEntity(a.Source), dmg)
+			return nil
+		}
+		players, err := definedPlayers(g, a.Controller, a.Source, defined, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: DealDamage: %w", err)
+		}
+		for _, pid := range players {
+			a.damageMap.add(a.Source, PlayerEntity(pid), dmg)
+		}
+		return nil
+	}
 	if defined == "Self" {
 		var table damageTable
 		g.dealPermanentDamage(controller, a.Source, a.Source, dmg, deathtouch, false, &table)

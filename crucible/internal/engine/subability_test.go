@@ -209,8 +209,8 @@ func TestSubAbilityChainDepthThreeChainsAllThree(t *testing.T) {
 // naming it -- Registry.Resolve's own existing contract for a top-level
 // ability, extended for free once resolveSubAbility recurses back through
 // Registry.Resolve itself (effect.go's own doc comment): DB$ Draw |
-// Defined$ You | NumCards$ 3 | SubAbility$ DBSetState, chaining into DB$
-// SetState (transforming, an API this port has not built yet). Draw's own
+// Defined$ You | NumCards$ 3 | SubAbility$ DBPlay, chaining into DB$
+// Play (casting without paying, an API this port has not built yet). Draw's own
 // three cards must
 // already be in hand: CR's own sequential resolution means the parts of an
 // ability already executed stay executed even when a later part fails,
@@ -228,22 +228,22 @@ func TestSubAbilityChainUnimplementedAPIErrors(t *testing.T) {
 	}
 
 	def := etbSubAbilityTriggerDefParams(t, "Test Riverwise Augur",
-		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBSetState",
-		map[string]string{"DBSetState": "DB$ SetState | Defined$ Self | Mode$ Transform"})
+		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBPlay",
+		map[string]string{"DBPlay": "DB$ Play | Defined$ Self"})
 
 	c := engine.NewScriptedController()
 	err := castETBSubAbility(t, g, p, def, c)
 	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming SetState")
+		t.Fatal("ResolveStack: got nil error, want one naming Play")
 	}
 	if !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("ResolveStack error = %q, want it to wrap ErrUnimplemented", err.Error())
 	}
-	if !strings.Contains(err.Error(), "SetState") {
-		t.Errorf("ResolveStack error = %q, want it to name SetState", err.Error())
+	if !strings.Contains(err.Error(), "Play") {
+		t.Errorf("ResolveStack error = %q, want it to name Play", err.Error())
 	}
 	if len(g.Zone(engine.Hand, p).Cards()) != 3 {
-		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit SetState",
+		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit Play",
 			len(g.Zone(engine.Hand, p).Cards()))
 	}
 }

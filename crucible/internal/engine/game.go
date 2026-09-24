@@ -111,6 +111,23 @@ type Game struct {
 	// this turn, counted at CombatBegin and reset as the turn ends -- what
 	// FirstCombat$ reads once AddPhase can add a second combat.
 	combatsThisTurn int
+
+	// turnOrderReversed is Game.turnOrder flipped to Direction.Right by
+	// ReverseTurnOrder: nextPlayerAfter walks the seats backwards.
+	turnOrderReversed bool
+
+	// preventShields are PreventDamage's "prevent the next N damage"
+	// shields, oldest first, all ending at cleanup.
+	preventShields []preventShield
+
+	// dayTime is Game.daytime: DayNeither until something makes it day or
+	// night (DayTime, CR 726.2), then Day or Night.
+	dayTime DayTime
+	// previousPlayer and previousPlayerSpells are the last turn's active
+	// player and the spells they cast that turn -- what CR 726.3a's untap
+	// step check reads (Untap.doDayTime).
+	previousPlayer       PlayerID
+	previousPlayerSpells int
 	// extraTurns is Java PhaseHandler's own extra-turn stack (AddTurn): the
 	// last entry is the next turn taken. The bottom entry, pushed with the
 	// first extra turn, is the player whose normal turn comes next, so
@@ -369,6 +386,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.controller = c.Owner
 		c.tempControllers = nil
 		c.RegenShields = 0
+		c.detainedBy = nil
+		c.goadedBy = nil
+		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.turnFaceUp()
+		c.turnFrontFaceUp()
+		g.dropPreventShields(id)
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
@@ -440,6 +463,12 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.controller = c.Owner
 		c.tempControllers = nil
 		c.RegenShields = 0
+		c.detainedBy = nil
+		c.goadedBy = nil
+		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.turnFaceUp()
+		c.turnFrontFaceUp()
+		g.dropPreventShields(id)
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
@@ -572,6 +601,11 @@ func (g *Game) Clone() *Game {
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
+		turnOrderReversed:     g.turnOrderReversed,
+		preventShields:        append([]preventShield(nil), g.preventShields...),
+		dayTime:               g.dayTime,
+		previousPlayer:        g.previousPlayer,
+		previousPlayerSpells:  g.previousPlayerSpells,
 		lki:                   make(map[CardID]*Card, len(g.lki)),
 	}
 	for i := range g.extraPhases {
@@ -592,6 +626,8 @@ func (g *Game) Clone() *Game {
 		c := &out.cards[i]
 		c.Counters = g.cards[i].Counters.clone()
 		c.Memory = g.cards[i].Memory.clone()
+		c.detainedBy = append([]PlayerID(nil), g.cards[i].detainedBy...)
+		c.goadedBy = append([]goad(nil), g.cards[i].goadedBy...)
 		c.PT = g.cards[i].PT.clone()
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()

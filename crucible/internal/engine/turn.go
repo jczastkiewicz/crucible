@@ -60,7 +60,6 @@ func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 // stack and its skipped turns. A phase an AddPhase effect queued after the
 // current one comes first (g.extraPhases); a phase a SkipPhase effect names
 // for the active player is passed over without beginning (consumeSkip).
-// The reversed turn order a handful of effects create is not ported.
 func (g *Game) AdvancePhase(controller PlayerController) {
 	var next PhaseType
 	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
@@ -70,9 +69,16 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 		next = PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
 		if next == Untap {
 			g.turn++
+			g.previousPlayer = g.activePlayer
+			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
+			for _, pid := range g.Players() {
+				g.Player(pid).SpellsCastThisTurn = 0
+			}
 			g.extraPhases = [numPhaseTypes][]PhaseType{}
 			g.combatsThisTurn = 0
 			g.activePlayer = g.nextActivePlayer()
+			g.endDetains(g.activePlayer)
+			g.endGoads(g.activePlayer)
 			g.delayedTriggersOnNextTurn(g.activePlayer)
 			g.activateCleanupDelayedTriggers()
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
@@ -145,6 +151,13 @@ func (g *Game) addExtraTurn(p PlayerID) {
 // already over; returning p unchanged rather than panicking is safe because
 // nothing calls AdvancePhase without checking Over first once that happens.
 func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
+	return g.nextPlayerInDirection(p, g.turnOrderReversed)
+}
+
+// nextPlayerInDirection is Game.getNextPlayerAfter(p, direction): the next
+// player still in the game after p, walking the seats forwards (Direction.
+// Left) or, with right, backwards.
+func (g *Game) nextPlayerInDirection(p PlayerID, right bool) PlayerID {
 	ids := g.Players()
 	start := 0
 	for i, id := range ids {
@@ -153,8 +166,12 @@ func (g *Game) nextPlayerAfter(p PlayerID) PlayerID {
 			break
 		}
 	}
+	step := 1
+	if right {
+		step = len(ids) - 1
+	}
 	for i := 1; i <= len(ids); i++ {
-		next := ids[(start+i)%len(ids)]
+		next := ids[(start+i*step)%len(ids)]
 		if !g.Player(next).Lost {
 			return next
 		}
@@ -228,6 +245,7 @@ func (g *Game) emptyManaPools() {
 // since a card already untapped is not an event to check triggers against
 // at all.
 func (g *Game) untapStep(controller PlayerController) {
+	g.dayTimeAtUntap()
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
 		wasTapped := c.Tapped
@@ -409,6 +427,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	}
 
 	g.combatDamagePrevented = false
+	g.preventShields = nil
 
 	kept := g.pumps[:0]
 	for _, p := range g.pumps {

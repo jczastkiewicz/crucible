@@ -200,13 +200,26 @@ func (d *DB) Token(script string) (*Card, bool) {
 // does not have is a decklist error worth surfacing, not a near-miss to guess
 // at.
 func (d *DB) Card(name string) (*Card, bool) {
+	if d == nil {
+		return nil, false
+	}
 	c, ok := d.byName[name]
 	return c, ok
 }
 
 // Len is how many cards the database holds.
-func (d *DB) Len() int { return len(d.byName) }
+func (d *DB) Len() int {
+	if d == nil {
+		return 0
+	}
+	return len(d.byName)
+}
 
 // Names returns every card name, in the order the corpus walk found them,
 // which is the filesystem's lexical order.
-func (d *DB) Names() []string { return d.names }
+func (d *DB) Names() []string {
+	if d == nil {
+		return nil
+	}
+	return d.names
+}

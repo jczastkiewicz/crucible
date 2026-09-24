@@ -149,5 +149,5 @@ func menaceLegal(g *Game, blocks []Block) []Block {
 // staticability.go).
 func (g *Game) CanBlock(attacker, blocker CardID) bool {
 	b := g.Card(blocker)
-	return b.Type().Has(cardtype.Creature) && !b.Tapped && !cantBlockBy(g, attacker, blocker)
+	return b.Type().Has(cardtype.Creature) && !b.Tapped && !b.isDetained() && !b.Suspected && !cantBlockBy(g, attacker, blocker)
 }

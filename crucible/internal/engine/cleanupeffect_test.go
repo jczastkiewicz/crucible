@@ -64,16 +64,33 @@ func TestCleanupEffectLeavesUnnamedListsAlone(t *testing.T) {
 	}
 }
 
-// TestCleanupEffectRejectsUnresolvedParam proves ClearNamedCard$ fails
-// closed rather than clearing a value nothing sets yet (PORT-8).
+// TestCleanupEffectRejectsUnresolvedParam proves Log$ fails closed rather
+// than being dropped (PORT-8).
 func TestCleanupEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test Cleanup Named", "DB$ Cleanup | ClearRemembered$ True | ClearNamedCard$ True")
+	def := etbChainDef(t, "Test Cleanup Log", "DB$ Cleanup | ClearRemembered$ True | Log$ Something")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ClearNamedCard$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Log$")
+	}
+}
+
+// TestCleanupEffectClearsChosenTypeAndNamedCard proves ClearChosenType$
+// empties both chosen types and ClearNamedCard$ the named cards.
+func TestCleanupEffectClearsChosenTypeAndNamedCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueOption(0)
+	host := resolveLine(t, g, p, c, "DB$ ChooseType | Defined$ You | Type$ Card | SubAbility$ DBName",
+		"DBName", "DB$ NameCard | Defined$ You | ChooseFromList$ Alpha | AtRandom$ True | SubAbility$ DBClean",
+		"DBClean", "DB$ Cleanup | ClearChosenType$ True | ClearNamedCard$ True")
+	m := g.Card(host).Memory
+	if m.ChosenType(false) != "" || len(m.NamedCards()) != 0 {
+		t.Errorf("chosen type %q, named %v; want both cleared", m.ChosenType(false), m.NamedCards())
 	}
 }
 

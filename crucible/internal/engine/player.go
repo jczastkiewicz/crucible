@@ -25,6 +25,16 @@ type Player struct {
 	// it. Both can be false at once; both true is an engine invariant breach.
 	Lost bool
 	Won  bool
+	// Speed is Player.speed (CR 702.179): 0 until "Start your engines!"
+	// gives the player one, then 1-4, changed by ChangeSpeed.
+	Speed int
+	// NamedCard is Player.namedCard: the name this player last named with
+	// NameCard (read by NamedByRememberedPlayer).
+	NamedCard string
+	// SpellsCastThisTurn counts the spells this player cast this turn
+	// (MagicStack.getSpellsCastThisTurn); day/night reads the count the
+	// previous turn's active player ended with (CR 726.3a).
+	SpellsCastThisTurn int
 	// Counters is player-level counters -- poison chief among them, which is
 	// what CR 704.5c checks. The same type as a card's, because nothing about
 	// "a count that is never stored at zero" is specific to what holds it.

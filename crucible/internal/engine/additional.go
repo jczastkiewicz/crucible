@@ -42,6 +42,9 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		Params:            sub.Ability,
 		Amounts:           parent.Amounts,
 		TriggerRemembered: parent.TriggerRemembered,
+		hostTransforms:    parent.hostTransforms,
+		hasHostTransforms: parent.hasHostTransforms,
+		damageMap:         parent.damageMap,
 	}
 	r := g.registry
 	err := r.Resolve(g, &child, controller)

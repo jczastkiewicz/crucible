@@ -1,0 +1,221 @@
+package engine
+
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
+
+// voteEffect is VoteEffect.java: starting with the activator, each Defined$
+// or targeted player votes once for one option -- a Choices$ ability, a
+// VoteCard$ card in Zone$ (default Battlefield), or a VotePlayer$ player
+// (Other: anyone but the voter). Then, with EachVote$, each Choices$
+// ability resolves once per vote for it, with that voter remembered.
+// Otherwise the most-voted options win: a tie with VoteTiedAbility$ runs
+// that instead; VoteSubAbility$ runs with the winners remembered; plain
+// Choices$ runs each winning ability; StoreVoteNum$ with Choices$ runs
+// every ability with VoteNum bound to its vote count.
+//
+// Java groups votes in a hash multimap, so its tie order and EachVote$
+// order are arbitrary; this port uses the options' own order. Extra votes
+// (AdditionalVote$/AdditionalOptionalVote$ statics) and a controlled vote
+// are not modeled, so the effect fails while such a static is out.
+type voteEffect struct{}
+
+type voteOption struct {
+	sub    int
+	entity EntityID
+}
+
+func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if err := rejectParams(a, "Vote", "Condition", "UpTo"); err != nil {
+		return err
+	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	if battlefieldStaticNames(g, "AdditionalVote") || battlefieldStaticNames(g, "AdditionalOptionalVote") || battlefieldStaticNames(g, "ControlVote") {
+		return fmt.Errorf("engine: Vote: extra or controlled votes not resolvable yet")
+	}
+	choices := additionalAbilities(a.Params, "Choices")
+	var options []voteOption
+	switch {
+	case hasParam(a, "Choices"):
+		for i := range choices {
+			options = append(options, voteOption{sub: i})
+		}
+	case hasParam(a, "VoteCard"):
+		spec, _ := a.Params.Param("VoteCard")
+		zone := Battlefield
+		if raw, ok := a.Params.Param("Zone"); ok {
+			z, ok := ZoneByName(raw)
+			if !ok {
+				return fmt.Errorf("engine: Vote: Zone$ %q not resolvable", raw)
+			}
+			zone = z
+		}
+		parsed := valid.Parse(spec)
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(zone, pid).Cards() {
+				if Matches(g, g.Card(id), parsed, a.Controller, a.Source) {
+					options = append(options, voteOption{sub: -1, entity: CardEntity(id)})
+				}
+			}
+		}
+	case hasParam(a, "VotePlayer"):
+		raw, _ := a.Params.Param("VotePlayer")
+		if raw == "Other" {
+			raw = "Player"
+		}
+		players, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: Vote: %w", err)
+		}
+		for _, p := range players {
+			options = append(options, voteOption{sub: -1, entity: PlayerEntity(p)})
+		}
+	}
+	if len(options) == 0 {
+		return nil
+	}
+	storeNum := hasParam(a, "StoreVoteNum")
+	if storeNum && !hasParam(a, "Choices") {
+		return fmt.Errorf("engine: Vote: StoreVoteNum$ without Choices$ not resolvable yet")
+	}
+	voters, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: Vote: %w", err)
+	}
+	voters = rotateToFront(voters, a.Controller)
+	raw, _ := a.Params.Param("VotePlayer")
+	other := raw == "Other"
+	counts := make([]int, len(options))
+	var ballots []struct {
+		option int
+		voter  PlayerID
+	}
+	for _, p := range voters {
+		if g.Player(p).Lost {
+			continue
+		}
+		opts := make([]int, 0, len(options))
+		for i, o := range options {
+			if other && o.entity == PlayerEntity(p) {
+				continue
+			}
+			opts = append(opts, i)
+		}
+		if len(opts) == 0 {
+			continue
+		}
+		pick, err := castVote(g, controller, p, a, choices, options, opts)
+		if err != nil {
+			return err
+		}
+		counts[pick]++
+		ballots = append(ballots, struct {
+			option int
+			voter  PlayerID
+		}{pick, p})
+	}
+	resolveSub := func(i int, amounts bool) error {
+		child := *a
+		if amounts {
+			child.Amounts = withAmount(a.Amounts, "VoteNum", counts[i])
+		}
+		return g.resolveAdditional(&child, controller, choices[options[i].sub])
+	}
+	if hasParam(a, "EachVote") {
+		for _, b := range ballots {
+			if options[b.option].sub < 0 {
+				return fmt.Errorf("engine: Vote: EachVote$ needs Choices$")
+			}
+			added := rememberAll(&source.Memory, []EntityID{PlayerEntity(b.voter)})
+			if err := resolveSub(b.option, false); err != nil {
+				return err
+			}
+			forgetAll(&source.Memory, added)
+		}
+		return nil
+	}
+	if storeNum {
+		for i := range options {
+			if err := resolveSub(i, true); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	most, best := []int{}, 0
+	for i, n := range counts {
+		switch {
+		case n == 0:
+		case n > best:
+			most, best = []int{i}, n
+		case n == best:
+			most = append(most, i)
+		}
+	}
+	switch {
+	case len(most) > 1 && len(additionalAbilities(a.Params, "VoteTiedAbility")) > 0:
+		if err := g.resolveAdditionalKey(a, controller, "VoteTiedAbility"); err != nil {
+			return err
+		}
+	case len(additionalAbilities(a.Params, "VoteSubAbility")) > 0:
+		for _, i := range most {
+			if options[i].sub >= 0 {
+				return fmt.Errorf("engine: Vote: VoteSubAbility$ over Choices$ not resolvable yet")
+			}
+			source.Memory.Remember(options[i].entity)
+		}
+		if err := g.resolveAdditionalKey(a, controller, "VoteSubAbility"); err != nil {
+			return err
+		}
+		source.Memory.ClearRemembered()
+	case hasParam(a, "Choices"):
+		for _, i := range most {
+			if err := resolveSub(i, false); err != nil {
+				return err
+			}
+		}
+	}
+	if hasParam(a, "RememberVotedObjects") {
+		for i, n := range counts {
+			if n > 0 && options[i].sub < 0 {
+				source.Memory.Remember(options[i].entity)
+			}
+		}
+	}
+	return nil
+}
+
+// castVote asks p for one vote among opts (indices into options).
+func castVote(g *Game, controller PlayerController, p PlayerID, a *Ability, choices []compile.SubRef, options []voteOption, opts []int) (int, error) {
+	if options[opts[0]].sub >= 0 {
+		names := make([]string, len(opts))
+		for i, o := range opts {
+			names[i] = choices[options[o].sub].SVar
+		}
+		picked := controller.ChooseAbilitiesForEffect(g, p, a.Source, names, 1)
+		if len(picked) != 1 || picked[0] < 0 || picked[0] >= len(opts) {
+			return 0, fmt.Errorf("engine: Vote: vote %v out of range", picked)
+		}
+		return opts[picked[0]], nil
+	}
+	ents := make([]EntityID, len(opts))
+	for i, o := range opts {
+		ents[i] = options[o].entity
+	}
+	chosen := controller.ChooseEntitiesForEffect(g, p, a.Source, ents, 1, 1)
+	if err := checkChoice(chosen, ents, 1, 1); err != nil {
+		return 0, fmt.Errorf("engine: Vote: %w", err)
+	}
+	for i, e := range ents {
+		if e == chosen[0] {
+			return opts[i], nil
+		}
+	}
+	return 0, fmt.Errorf("engine: Vote: vote not an option")
+}

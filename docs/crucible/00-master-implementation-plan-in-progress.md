@@ -1773,7 +1773,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 
-**In progress.** 87 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
+**In progress.** 137 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
 `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`, `Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`,
 `Untap`, `Fight`, `Mill`, `RemoveCounter`, `DamageAll`, `SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`,
 `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter`, `Mana`, `MoveCounter`, `Poison`, `Unattach`, `RevealHand`,
@@ -1783,9 +1783,15 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 `RepeatEach`, `Regenerate`, `Fog`, `AddTurn`, `SkipTurn`, `GainControl`, `ExchangeControl`, `HealDamage`, `EachDamage`,
 `DrainMana`, `Token`, `Investigate`, `Amass`, `Incubate`, `Animate`, `AnimateAll`, `Debuff`, `Protection`,
 `ProtectionAll`, `DelayedTrigger`, `ImmediateTrigger`, `Charm`, `FlipCoin`, `RollDice`, `Clash`, `Seek`, `StoreSVar`,
-`Balance`, `AddPhase`, `SkipPhase`) — see `docs/crucible/porting/port-log/game-state.md` for the per-API landing notes;
-items 30-32 below stay in their original plan-authoring voice (forward-looking, not yet rewritten as a per-item
-retrospective the way M0-M5 are).
+`Balance`, `AddPhase`, `SkipPhase`, `BlankLine`, `GameDrawn`, `RemoveFromGame`, `ReverseTurnOrder`, `ChangeSpeed`,
+`GainOwnership`, `ReorderZone`, `EndTurn`, `EndCombatPhase`, `ChooseEvenOdd`, `ChooseDirection`, `ExchangeLifeVariant`,
+`ExchangePower`, `TapOrUntapAll`, `AddOrRemoveCounter`, `BecomesBlocked`, `Block`, `ChangeCombatants`,
+`GainControlVariant`, `Detain`, `Intensify`, `Blight`, `TimeTravel`, `Endure`, `AssignGroup`, `VillainousChoice`,
+`TwoPiles`, `ChooseType`, `NameCard`, `PreventDamage`, `DigMultiple`, `Recruit`, `BidLife`, `ExchangeControlVariant`,
+`DayTime`, `AlterAttribute`, `Vote`, `MakeCard`, `Learn`, `CopyPermanent`, `Counter`, `Manifest`, `Cloak`,
+`ManifestDread`, `SetState`, `Goad`, `RemoveFromMatch`, `ActivateAbility`, `MultiplePiles`, `DamageResolve`) — see
+`docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below stay in their original
+plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way M0-M5 are).
 
 30. Implement APIs in corpus-first, then frequency order (Section 1.5). Keywords, triggers, replacements, cost parts
     alongside.

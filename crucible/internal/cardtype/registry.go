@@ -196,3 +196,14 @@ func (r *Registry) multiwordPrefix(text string) (string, bool) {
 	}
 	return "", false
 }
+
+// Members lists category c's subtypes, sorted. Java keeps them in hash
+// sets, so no order is Java's; sorting makes the list deterministic.
+func (r *Registry) Members(c Category) []string {
+	out := make([]string, 0, len(r.members[c]))
+	for name := range r.members[c] {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}

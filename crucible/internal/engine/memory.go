@@ -31,6 +31,16 @@ type Memory struct {
 	chosenColors    mana.Colors
 	chosenNumber    int
 	hasChosenNumber bool
+
+	// chosenEvenOdd, chosenDirection, chosenType/chosenType2 and namedCards
+	// are Card's setChosenEvenOdd, setChosenDirection, setChosenType/
+	// setChosenType2 and addNamedCard: what ChooseEvenOdd, ChooseDirection,
+	// ChooseType and NameCard record for later abilities to read.
+	chosenEvenOdd   string
+	chosenDirection string
+	chosenType      string
+	chosenType2     string
+	namedCards      []string
 }
 
 // Remember adds an entity, and reports whether it was new. Order is the order
@@ -130,12 +140,55 @@ func (m *Memory) SetChosenNumber(n int) { m.chosenNumber, m.hasChosenNumber = n,
 // when none was, since zero is a legal choice.
 func (m *Memory) ChosenNumber() (n int, ok bool) { return m.chosenNumber, m.hasChosenNumber }
 
+// SetChosenEvenOdd records ChooseEvenOdd's pick, "Odd" or "Even".
+func (m *Memory) SetChosenEvenOdd(v string) { m.chosenEvenOdd = v }
+
+// ChosenEvenOdd is ChooseEvenOdd's pick, "" when none was made.
+func (m *Memory) ChosenEvenOdd() string { return m.chosenEvenOdd }
+
+// SetChosenDirection records ChooseDirection's pick, "Left" or "Right".
+func (m *Memory) SetChosenDirection(v string) { m.chosenDirection = v }
+
+// ChosenDirection is ChooseDirection's pick, "" when none was made.
+func (m *Memory) ChosenDirection() string { return m.chosenDirection }
+
+// SetChosenType records ChooseType's pick; second is Java's chosenType2.
+func (m *Memory) SetChosenType(v string, second bool) {
+	if second {
+		m.chosenType2 = v
+		return
+	}
+	m.chosenType = v
+}
+
+// ChosenType is ChooseType's pick (second: chosenType2), "" when none.
+func (m *Memory) ChosenType(second bool) string {
+	if second {
+		return m.chosenType2
+	}
+	return m.chosenType
+}
+
+// AddNamedCard records one NameCard pick; NamedCards lists them in order.
+func (m *Memory) AddNamedCard(name string) { m.namedCards = append(m.namedCards, name) }
+
+// NamedCards lists every NameCard pick, oldest first.
+func (m *Memory) NamedCards() []string { return m.namedCards }
+
+// ClearNamedCards is Cleanup's ClearNamedCard$.
+func (m *Memory) ClearNamedCards() { m.namedCards = nil }
+
 func (m Memory) clone() Memory {
 	out := Memory{
 		chosenPlayer:    m.chosenPlayer,
 		chosenColors:    m.chosenColors,
 		chosenNumber:    m.chosenNumber,
 		hasChosenNumber: m.hasChosenNumber,
+		chosenEvenOdd:   m.chosenEvenOdd,
+		chosenDirection: m.chosenDirection,
+		chosenType:      m.chosenType,
+		chosenType2:     m.chosenType2,
+		namedCards:      append([]string(nil), m.namedCards...),
 	}
 	if m.remembered != nil {
 		out.remembered = m.remembered.Clone()

@@ -220,3 +220,10 @@ token half of the P2 gate.
 `LoadDB` also keeps the `TypeLists.txt` registry it parsed the corpus with (`DB.Types`; `WithTypes` for a hand-built
 DB). The engine's type-changing effects need it to remove a whole subtype category -- Animate's `RemoveCreatureTypes$`
 asks "is this subtype a creature type," which only the vocabulary answers.
+
+## Face names and split type on the compiled card
+
+`compile.Face.Name` is each face's printed name and `compile.Card.SplitType` the card's `AlternateMode:`, copied from
+`carddb` at compile time. Transform reads both: a transforming double-faced permanent turns to a one-face definition
+built from its other face, which needs that face's own name. Neither is part of the AST fingerprint, which covers
+abilities only. `DB.Card`, `DB.Len` and `DB.Names` answer "nothing" on a nil DB, like `DB.Token`.

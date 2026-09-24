@@ -77,6 +77,7 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 	}
 	g.PushAbility(Ability{API: api, Source: card, Controller: pid})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
 	return true
 }
@@ -125,6 +126,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.Move(card, Stack, pid)
 	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
 	g.checkBecomesTargetTriggers(controller, []EntityID{CardEntity(target)}, true, pid)
 	return true
@@ -201,7 +203,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Eighty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
+// One hundred thirty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -329,7 +331,11 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // -- add token creation (token.go), Animate-shaped one-shot layer records
 // (animate.go), delayed triggers (delayedtrigger.go), push-time Charm modes
 // (charmeffect.go) and extra/skipped phases (addphaseeffect.go,
-// skipphaseeffect.go).
+// skipphaseeffect.go). The next fifty -- BlankLine through DamageResolve,
+// registered below in that order -- add ChooseBinary/ChooseOption
+// decisions, detain and goad legality, forced blocks, prevention shields,
+// damage maps, face-down and transformed cards (facedown.go,
+// setstateeffect.go), stack-spell targeting for Counter, and day/night.
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -428,5 +434,55 @@ func NewRegistry() *Registry {
 	r[APIBalance] = balanceEffect{}
 	r[APIAddPhase] = addPhaseEffect{}
 	r[APISkipPhase] = skipPhaseEffect{}
+	r[APIBlankLine] = blankLineEffect{}
+	r[APIGameDrawn] = gameDrawnEffect{}
+	r[APIRemoveFromGame] = removeFromGameEffect{}
+	r[APIReverseTurnOrder] = reverseTurnOrderEffect{}
+	r[APIChangeSpeed] = changeSpeedEffect{}
+	r[APIGainOwnership] = gainOwnershipEffect{}
+	r[APIReorderZone] = reorderZoneEffect{}
+	r[APIEndTurn] = endTurnEffect{}
+	r[APIEndCombatPhase] = endCombatPhaseEffect{}
+	r[APIChooseEvenOdd] = chooseEvenOddEffect{}
+	r[APIChooseDirection] = chooseDirectionEffect{}
+	r[APIExchangeLifeVariant] = exchangeLifeVariantEffect{}
+	r[APIExchangePower] = exchangePowerEffect{}
+	r[APITapOrUntapAll] = tapOrUntapAllEffect{}
+	r[APIAddOrRemoveCounter] = addOrRemoveCounterEffect{}
+	r[APIBecomesBlocked] = becomesBlockedEffect{}
+	r[APIBlock] = blockEffect{}
+	r[APIChangeCombatants] = changeCombatantsEffect{}
+	r[APIGainControlVariant] = gainControlVariantEffect{}
+	r[APIDetain] = detainEffect{}
+	r[APIIntensify] = intensifyEffect{}
+	r[APIBlight] = blightEffect{}
+	r[APITimeTravel] = timeTravelEffect{}
+	r[APIEndure] = endureEffect{}
+	r[APIAssignGroup] = assignGroupEffect{}
+	r[APIVillainousChoice] = villainousChoiceEffect{}
+	r[APITwoPiles] = twoPilesEffect{}
+	r[APIChooseType] = chooseTypeEffect{}
+	r[APINameCard] = nameCardEffect{}
+	r[APIPreventDamage] = preventDamageEffect{}
+	r[APIDigMultiple] = digMultipleEffect{}
+	r[APIRecruit] = recruitEffect{}
+	r[APIBidLife] = bidLifeEffect{}
+	r[APIExchangeControlVariant] = exchangeControlVariantEffect{}
+	r[APIDayTime] = dayTimeEffect{}
+	r[APIAlterAttribute] = alterAttributeEffect{}
+	r[APIVote] = voteEffect{}
+	r[APIMakeCard] = makeCardEffect{}
+	r[APILearn] = learnEffect{}
+	r[APICopyPermanent] = copyPermanentEffect{}
+	r[APICounter] = counterEffect{}
+	r[APIManifest] = manifestEffect{api: "Manifest", remember: "RememberManifested"}
+	r[APICloak] = manifestEffect{api: "Cloak", cloak: true, remember: "RememberCloaked"}
+	r[APIManifestDread] = manifestDreadEffect{}
+	r[APISetState] = setStateEffect{}
+	r[APIGoad] = goadEffect{}
+	r[APIRemoveFromMatch] = removeFromMatchEffect{}
+	r[APIActivateAbility] = activateAbilityEffect{}
+	r[APIMultiplePiles] = multiplePilesEffect{}
+	r[APIDamageResolve] = damageResolveEffect{}
 	return &r
 }

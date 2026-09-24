@@ -23,6 +23,9 @@ package engine
 // unconditionally (casting a spell, an activated ability once one exists)
 // has no ordering question to answer and calls this directly.
 func (g *Game) PushAbility(a Ability) {
+	if !a.hasHostTransforms && a.Source != NoCard && int(a.Source) < len(g.cards) {
+		a.hostTransforms, a.hasHostTransforms = g.Card(a.Source).Transforms, true
+	}
 	g.stack = append(g.stack, a)
 	g.sink.Emit(Event{Kind: AbilityActivated, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
 }

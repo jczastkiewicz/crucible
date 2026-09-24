@@ -222,6 +222,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	c := g.Card(card)
+	if c.isDetained() {
+		return false
+	}
 	abilities := c.Def.Faces[0].Abilities
 	if index < 0 || index >= len(abilities) {
 		return false

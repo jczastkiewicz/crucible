@@ -3,15 +3,12 @@ package engine
 import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot
-// honour yet. ClearChosenType$ and ClearNamedCard$ clear values no effect in
-// this port sets (ChooseType and NameCard are not ported); accepting them as
-// no-ops would silently go stale the day those land, so the line fails
-// closed instead (PORT-8). ForgetDefined$ needs getDefinedEntities' mixed
+// honour yet. ForgetDefined$ needs getDefinedEntities' mixed
 // card-and-player reading, ClearTriggered$ a delayed-trigger registry,
 // ClearCoinFlips$ FlipCoin, Log$ a random-log event -- none built.
 var cleanupUnresolvedParams = [...]string{
 	"Defined", "ForgetDefined", "ClearTriggered", "ClearCoinFlips",
-	"ClearChosenType", "ClearNamedCard", "Log",
+	"Log",
 	"Condition", "ConditionDefined",
 }
 
@@ -46,6 +43,13 @@ func (cleanupEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	if _, ok := a.Params.Param("ClearChosenColor"); ok {
 		m.SetChosenColors(0)
+	}
+	if _, ok := a.Params.Param("ClearChosenType"); ok {
+		m.SetChosenType("", false)
+		m.SetChosenType("", true)
+	}
+	if _, ok := a.Params.Param("ClearNamedCard"); ok {
+		m.ClearNamedCards()
 	}
 	return nil
 }

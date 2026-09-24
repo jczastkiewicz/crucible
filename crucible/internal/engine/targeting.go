@@ -80,7 +80,18 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 		return false
 	}
 
-	candidates := g.targetCandidates(a.Controller, a.Source, validTgts)
+	var candidates []EntityID
+	if targetType, ok := a.Params.Param("TargetType"); ok {
+		// TargetType$ Spell names spells on the stack (CR 115.1a); a spell
+		// here is a card in the Stack zone. Activated/Triggered abilities
+		// on the stack are not targetable objects in this port.
+		if targetType != "Spell" {
+			return false
+		}
+		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
+	} else {
+		candidates = g.targetCandidates(a.Controller, a.Source, validTgts)
+	}
 	if len(candidates) == 0 {
 		return false
 	}
@@ -117,6 +128,24 @@ func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string)
 			if Matches(g, g.Card(id), parsed, controller, source) {
 				candidates = append(candidates, CardEntity(id))
 			}
+		}
+	}
+	return candidates
+}
+
+// stackSpellCandidates is every spell on the stack -- a card in the Stack
+// zone, top first -- matching spec.
+func (g *Game) stackSpellCandidates(controller PlayerID, source CardID, spec string) []EntityID {
+	parsed := valid.Parse(spec)
+	var candidates []EntityID
+	for i := len(g.stack) - 1; i >= 0; i-- {
+		id := g.stack[i].Source
+		c := g.Card(id)
+		if c.Zone != Stack || containsEntity(candidates, CardEntity(id)) {
+			continue
+		}
+		if Matches(g, c, parsed, controller, source) {
+			candidates = append(candidates, CardEntity(id))
 		}
 	}
 	return candidates

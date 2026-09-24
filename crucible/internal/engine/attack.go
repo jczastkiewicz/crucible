@@ -48,6 +48,9 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 		if c.SummonSick && !c.HasKeyword("Haste") {
 			continue
 		}
+		if c.isDetained() {
+			continue
+		}
 		eligible = append(eligible, id)
 	}
 	if len(eligible) == 0 {
@@ -55,6 +58,12 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	}
 
 	attackers := controller.DeclareCombatAttackers(g, g.activePlayer, eligible)
+	// CR 701.15b / 508.1d: a goaded creature that can attack does.
+	for _, id := range eligible {
+		if g.Card(id).IsGoaded() && !containsCard(attackers, id) {
+			attackers = append(attackers, id)
+		}
+	}
 	for _, id := range attackers {
 		if !g.Card(id).HasKeyword("Vigilance") {
 			g.Card(id).Tapped = true
@@ -88,11 +97,12 @@ func (g *Game) assignAttackTargets(controller PlayerController, attackers []Card
 	eligible := g.eligibleAttackTargets()
 	targets := make(map[CardID]EntityID, len(attackers))
 	for _, id := range attackers {
-		if len(eligible) == 1 {
-			targets[id] = eligible[0]
+		options := g.goadTargets(id, eligible)
+		if len(options) == 1 {
+			targets[id] = options[0]
 			continue
 		}
-		targets[id] = controller.ChooseAttackTarget(g, g.activePlayer, id, eligible)
+		targets[id] = controller.ChooseAttackTarget(g, g.activePlayer, id, options)
 	}
 	g.combat.AttackTargets = targets
 }

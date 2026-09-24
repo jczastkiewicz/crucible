@@ -148,6 +148,10 @@ func mergeParams(params []vocab.Param) []vocab.Param {
 
 // Face is one printed face's compiled definitions, in script order.
 type Face struct {
+	// Name is the face's own printed name -- a back face's differs from
+	// the card's (Card.Name is the front face's).
+	Name string
+
 	// Type is the face's printed card type line, carried through unchanged
 	// from carddb.Face -- the engine's only way to ask "is this an Aura"
 	// today. It is the printed value only: nothing that would change it
@@ -225,6 +229,9 @@ type Card struct {
 	// stem, not a printed name (card.go:196).
 	Name  string
 	Faces [carddb.NumFaces]Face
+	// SplitType is how the faces relate (AlternateMode:), what decides
+	// whether the card can transform.
+	SplitType carddb.SplitType
 }
 
 // Compile resolves every ability line of every face.
@@ -234,7 +241,7 @@ type Card struct {
 // is how a card can ship with an ability that silently does half of what its
 // text says; a script that cannot be compiled is a script to fix (PORT-8).
 func Compile(card *carddb.Card) (*Card, error) {
-	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name}
+	out := &Card{Filename: card.Filename, Name: card.Faces[0].Name, SplitType: card.SplitType}
 	for _, i := range card.PresentFaces() {
 		face, err := compileFace(&card.Faces[i])
 		if err != nil {
@@ -249,6 +256,7 @@ func compileFace(face *carddb.Face) (Face, error) {
 	c := &faceCompiler{face: face, open: map[string]bool{}}
 
 	out := Face{
+		Name: face.Name,
 		Type: face.Type, Power: face.Power, Toughness: face.Toughness,
 		Loyalty: face.InitialLoyalty, Defense: face.Defense, Keywords: face.Keywords,
 		ManaCost: face.ManaCost, Colors: face.Colors, HasColors: face.HasColors,

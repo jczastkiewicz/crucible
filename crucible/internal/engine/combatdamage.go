@@ -98,7 +98,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 
 		if dealsInStep(atk, firstStrike) {
 			if power, ok := atk.Power(); ok && power > 0 {
-				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0, &table)
+				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
 			}
 		}
 
@@ -261,6 +261,9 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if g.damagePrevented(source, target, isCombat, amount) {
 		return
 	}
+	if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
+		return
+	}
 	amount = g.damageReplaced(source, target, isCombat, amount)
 	if amount <= 0 {
 		return
@@ -314,6 +317,9 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // the identical contract for a player-shaped target.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
 	if g.damagePreventedPlayer(source, target, isCombat, amount) {
+		return
+	}
+	if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
 		return
 	}
 	amount = g.damageReplacedPlayer(source, target, isCombat, amount)

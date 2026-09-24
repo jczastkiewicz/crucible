@@ -496,6 +496,14 @@ func (c *scriptedMulliganController) ChooseProtectionType(_ *engine.Game, _ engi
 	panic("scriptedMulliganController: ChooseProtectionType was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseBinary(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ engine.BinaryChoice) bool {
+	panic("scriptedMulliganController: ChooseBinary was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseOption(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string) int {
+	panic("scriptedMulliganController: ChooseOption was not expected to be called")
+}
+
 func (c *scriptedMulliganController) CallCoinFlip(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
 	panic("scriptedMulliganController: CallCoinFlip was not expected to be called")
 }

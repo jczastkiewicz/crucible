@@ -21,3 +21,15 @@ func (g *Game) randomSample(n, count int) []int {
 	}
 	return out
 }
+
+// randomIndex is Aggregates.random over a List of n: no draw for zero or one
+// element, otherwise nextInt(n). -1 when n is zero.
+func (g *Game) randomIndex(n int) int {
+	switch n {
+	case 0:
+		return -1
+	case 1:
+		return 0
+	}
+	return int(g.rand.Int32n(int32(n)))
+}

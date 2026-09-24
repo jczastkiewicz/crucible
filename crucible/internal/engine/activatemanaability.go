@@ -232,6 +232,9 @@ func parseComboColors(produced string) (mana.Colors, bool) {
 // the whole ability only once it has actually happened.
 func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
 	c := g.Card(card)
+	if c.isDetained() {
+		return false
+	}
 	abilities := c.Def.Faces[0].Abilities
 	if index < 0 || index >= len(abilities) {
 		return false

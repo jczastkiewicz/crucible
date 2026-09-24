@@ -119,6 +119,17 @@ type Ability struct {
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
+
+	// hostTransforms is the host's transform count when this ability went
+	// on the stack -- or, for a delayed trigger, when it was created: Java's
+	// StoredTransform SVar, read by SetState (CR 701.28f).
+	hostTransforms    int
+	hasHostTransforms bool
+
+	// damageMap is SpellAbility.getDamageMap: damage recorded under a
+	// DamageMap$ ability for a later DamageResolve, shared down the
+	// sub-ability chain.
+	damageMap *pendingDamage
 	// modesErr is why chooseCharmModes could not pick modes for a Charm it
 	// was asked about; the Charm is still pushed and fails with this error
 	// when it resolves, since pushing has no error path of its own (GO-7).

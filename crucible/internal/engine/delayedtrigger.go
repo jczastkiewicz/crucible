@@ -34,6 +34,8 @@ type delayedTrigger struct {
 	// ForPlayer holds the trigger inactive until that player's next turn
 	// begins (DelayedTriggerDefinedPlayer$).
 	ForPlayer PlayerID
+	// HostTransforms is the host's transform count as the trigger was made.
+	HostTransforms int
 }
 
 func (d *delayedTrigger) active() bool { return !d.AtCleanup && d.ForPlayer == NoPlayer }
@@ -99,6 +101,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 		})
 	}
 	g.delayed = kept

@@ -142,3 +142,151 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		}
 	}
 }
+
+// TestFiftyPackFailsClosed is the same guard for the fifty-API pack.
+func TestFiftyPackFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"DB$ GameDrawn | Condition$ Kicked",
+		"DB$ ChangeSpeed | Defined$ You | Mode$ Sideways",
+		"DB$ GainOwnership | Defined$ Self | TgtZone$ Ante",
+		"DB$ ReorderZone | Zone$ Nowhere | Defined$ You",
+		"DB$ ReorderZone | Defined$ You",
+		"DB$ EndTurn | PlayerTurn$ True",
+		"DB$ ExchangeLifeVariant | Defined$ You | Mode$ Colors",
+		"DB$ ExchangePower | Defined$ Self | BasePower$ True",
+		"DB$ ExchangePower | Defined$ Self | Duration$ Perpetual",
+		"DB$ AddOrRemoveCounter | Defined$ Self | RemoveConditionSVar$ X",
+		"DB$ AddOrRemoveCounter | Defined$ Self | CounterNum$ Bogus",
+		"DB$ BecomesBlocked | Defined$ Self | RememberTargets$ True",
+		"DB$ ChangeCombatants | Defined$ Self | Attacking$ TargetedPlayer",
+		"DB$ GainControlVariant | AllValid$ Creature | ChangeController$ Bogus",
+		"DB$ GainControlVariant | ChangeController$ CardOwner",
+		"DB$ TapOrUntapAll | ValidCards$ Creature | Condition$ Kicked",
+		"DB$ Intensify | Amount$ Bogus",
+		"DB$ Blight | Defined$ You | Num$ Bogus",
+		"DB$ TimeTravel | Amount$ Bogus",
+		"DB$ Endure | Num$ Bogus",
+		"DB$ AssignGroup | Defined$ Player | Chooser$ TriggeredPlayer | Choices$ DBX",
+		"DB$ VillainousChoice | Defined$ You | Amount$ Bogus | Choices$ DBX",
+		"DB$ TwoPiles | Defined$ You | Zone$ Nowhere",
+		"DB$ TwoPiles | Defined$ You | DefinedPiles$ Self",
+		"DB$ ChooseType | Defined$ You | Type$ Creature | Secretly$ True",
+		"DB$ ChooseType | Defined$ You | Type$ Creature | AtRandom$ True",
+		"DB$ ChooseType | Defined$ You | Type$ Bogus",
+		"DB$ ChooseType | Defined$ You | Type$ Card | ValidTypes$ Artifact | InvalidTypes$ Artifact",
+		"DB$ NameCard | Defined$ You | ChooseFromDefinedCards$ Self",
+		"DB$ NameCard | Defined$ You | AtRandom$ True",
+		"DB$ NameCard | Defined$ You",
+		"DB$ PreventDamage | Defined$ You | Amount$ 1 | Radiance$ True",
+		"DB$ PreventDamage | Defined$ You",
+		"DB$ PreventDamage | Defined$ You | Amount$ Bogus",
+		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | ChooseAmount$ 1",
+		"DB$ DigMultiple | ChangeValid$ Card",
+		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | SourceZone$ Nowhere",
+		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | LibraryPosition$ 3",
+		"DB$ Recruit | Defined$ TriggeredPlayer",
+		"DB$ BidLife | StartBidding$ Bogus",
+		"DB$ ExchangeControlVariant | Defined$ Player | Zone$ Graveyard",
+		"DB$ DayTime | Value$ Dusk",
+		"DB$ AlterAttribute | Defined$ Self | Attributes$ Prepared",
+		"DB$ Vote | Defined$ Player | VoteCard$ Card | StoreVoteNum$ True",
+		"DB$ Vote | Defined$ Player | VoteCard$ Card | Zone$ Nowhere",
+		"DB$ MakeCard | Name$ Nonexistent Card | Zone$ Hand",
+		"DB$ MakeCard | Booster$ True",
+		"DB$ MakeCard | Name$ X | Zone$ Nowhere",
+		"DB$ Learn | Condition$ Kicked",
+		"DB$ CopyPermanent | Defined$ Self | AtEOT$ Exile",
+		"DB$ CopyPermanent | Defined$ ChosenMap",
+		"DB$ CopyPermanent | Defined$ Self | SetPower$ Bogus",
+		"DB$ Counter | Defined$ Parent",
+		"DB$ Counter | TargetType$ Activated",
+		"DB$ Manifest | Amount$ Bogus",
+		"DB$ Manifest | ChoiceZone$ Nowhere",
+		"DB$ ManifestDread | Amount$ Bogus",
+		"DB$ SetState | Defined$ Self | Mode$ Flip",
+		"DB$ SetState | Defined$ Self | Mode$ Transform | NewState$ Backside",
+		"DB$ Goad | Defined$ Self | Duration$ AsLongAsControl",
+		"DB$ ActivateAbility | Defined$ You | Type$ Land",
+		"DB$ MultiplePiles | Defined$ Player | Piles$ Bogus",
+		"DB$ DamageResolve | ReplaceDyingDefined$ Self",
+	} {
+		g, p, _ := newPackGame(t)
+		libraryCards(t, g, p, 3)
+		c := engine.NewScriptedController()
+		def := etbChainDef(t, "Test Fail Closed", line, "DBX", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+		if _, err := castETBChain(t, g, p, def, c); err == nil {
+			t.Errorf("%q: resolved, want an error", line)
+		}
+	}
+}
+
+// TestFiftyPackUnresolvableDefined proves each effect of the pack reports
+// a Defined$ (or player/card reference) it cannot resolve as an error.
+func TestFiftyPackUnresolvableDefined(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"DB$ RemoveFromGame | Defined$ Bogus",
+		"DB$ ChangeSpeed | Defined$ Bogus",
+		"DB$ GainOwnership | Defined$ Bogus",
+		"DB$ GainOwnership | Defined$ Self | DefinedPlayer$ Bogus",
+		"DB$ ReorderZone | Zone$ Hand | Defined$ Bogus",
+		"DB$ EndTurn | Optional$ True | Defined$ Bogus",
+		"DB$ ChooseEvenOdd | Defined$ Bogus",
+		"DB$ ExchangeLifeVariant | Mode$ Power | Defined$ Bogus",
+		"DB$ ExchangePower | Defined$ Bogus",
+		"DB$ TapOrUntapAll | Defined$ Bogus",
+		"DB$ AddOrRemoveCounter | Defined$ Bogus",
+		"DB$ AddOrRemoveCounter | Defined$ Self | DefinedPlayer$ Bogus",
+		"DB$ Detain | Defined$ Bogus",
+		"DB$ Intensify | Defined$ Bogus",
+		"DB$ Blight | Defined$ Bogus",
+		"DB$ Endure | Defined$ Bogus",
+		"DB$ AssignGroup | Defined$ Bogus | Choices$ DBX",
+		"DB$ VillainousChoice | Defined$ Bogus | Choices$ DBX",
+		"DB$ TwoPiles | Defined$ Bogus",
+		"DB$ TwoPiles | Defined$ You | Separator$ Bogus",
+		"DB$ TwoPiles | Defined$ You | DefinedCards$ Bogus",
+		"DB$ TwoPiles | Defined$ You | DefinedPiles$ Bogus,Self",
+		"DB$ ChooseType | Defined$ Bogus | Type$ Card",
+		"DB$ NameCard | Defined$ Bogus | ChooseFromList$ A",
+		"DB$ PreventDamage | Defined$ Bogus | Amount$ 1",
+		"DB$ DigMultiple | DigNum$ 1 | ChangeValid$ Card | Defined$ Bogus",
+		"DB$ Recruit | Defined$ Bogus",
+		"DB$ BidLife | OtherBidder$ Bogus",
+		"DB$ ExchangeControlVariant | Defined$ Bogus",
+		"DB$ AlterAttribute | Defined$ Bogus | Attributes$ Solved",
+		"DB$ Vote | Defined$ Bogus | Choices$ DBX",
+		"DB$ Vote | Defined$ Player | VotePlayer$ Bogus",
+		"DB$ MakeCard | Defined$ Bogus | Name$ X",
+		"DB$ MakeCard | DefinedName$ Bogus",
+		"DB$ Learn | Defined$ Bogus",
+		"DB$ CopyPermanent | Defined$ Bogus",
+		"DB$ CopyPermanent | Defined$ Self | Controller$ Bogus",
+		"DB$ CopyPermanent | Choices$ Creature | Chooser$ Bogus",
+		"DB$ Manifest | Defined$ Bogus",
+		"DB$ Manifest | DefinedPlayer$ Bogus",
+		"DB$ ManifestDread | DefinedPlayer$ Bogus",
+		"DB$ SetState | Defined$ Bogus | Mode$ Transform",
+		"DB$ Goad | Defined$ Bogus",
+		"DB$ RemoveFromMatch | Defined$ Bogus",
+		"DB$ ActivateAbility | Defined$ Bogus | ManaAbility$ True",
+		"DB$ MultiplePiles | Defined$ Bogus | Piles$ 2",
+		"DB$ MultiplePiles | Defined$ You | Piles$ 2 | DefinedCards$ Bogus",
+		"DB$ MultiplePiles | Defined$ You | Piles$ 2 | Zone$ Nowhere",
+		"DB$ Block | DefinedAttacker$ Bogus",
+		"DB$ Block | DefinedAttacker$ Self | DefinedBlocker$ Bogus",
+		"DB$ ChangeCombatants | Defined$ Bogus | Attacking$ True",
+		"DB$ TimeTravel | Condition$ Kicked",
+	} {
+		g, p, _ := newPackGame(t)
+		libraryCards(t, g, p, 3)
+		c := engine.NewScriptedController()
+		def := etbChainDef(t, "Test Fail Closed", line, "DBX", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+		if _, err := castETBChain(t, g, p, def, c); err == nil {
+			t.Errorf("%q: resolved, want an error", line)
+		}
+	}
+}

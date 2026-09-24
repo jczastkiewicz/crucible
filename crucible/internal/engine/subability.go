@@ -82,6 +82,9 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		Params:            sub.Ability,
 		Amounts:           parent.Amounts,
 		TriggerRemembered: parent.TriggerRemembered,
+		hostTransforms:    parent.hostTransforms,
+		hasHostTransforms: parent.hasHostTransforms,
+		damageMap:         parent.damageMap,
 	}
 	return r.Resolve(g, &child, controller)
 }

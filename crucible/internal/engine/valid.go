@@ -172,6 +172,54 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "nonChosenCard":
 		sc, ok := sourceCard(g, source)
 		return ok && !containsCard(sc.Memory.Chosen(), c.ID)
+	case name == "ChosenType" || name == "IsNotChosenType" || name == "ChosenType2":
+		// CardStateProperty: a chosen "Non<Type>" inverts ChosenType; an
+		// unset choice matches no type.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		chosen := sc.Memory.ChosenType(name == "ChosenType2")
+		if chosen == "" {
+			return name == "IsNotChosenType"
+		}
+		if name == "IsNotChosenType" {
+			return !c.Type().HasStringType(chosen)
+		}
+		if rest, ok := strings.CutPrefix(chosen, "Non"); ok && name == "ChosenType" && rest != "" {
+			return !c.Type().HasStringType(strings.ToUpper(rest[:1]) + rest[1:])
+		}
+		return c.Type().HasStringType(chosen)
+	case name == "IsSuspected":
+		return c.Suspected
+	case name == "IsSolved":
+		return c.Solved
+	case name == "NamedCard":
+		sc, ok := sourceCard(g, source)
+		if !ok || c.Def == nil {
+			return false
+		}
+		return containsString(sc.Memory.NamedCards(), c.Def.Name)
+	case name == "NamedByRememberedPlayer":
+		sc, ok := sourceCard(g, source)
+		if !ok || c.Def == nil {
+			return false
+		}
+		for _, e := range sc.Memory.Remembered() {
+			if p, isPlayer := e.AsPlayer(); isPlayer && g.Player(p).NamedCard != c.Def.Name {
+				return false
+			}
+		}
+		return true
+	case name == "cmcChosenEvenOdd" || name == "cmcNotChosenEvenOdd":
+		// CardProperty: false while the source has no pick; otherwise the
+		// card's mana value parity against it, inverted for "Not".
+		sc, ok := sourceCard(g, source)
+		if !ok || sc.Memory.ChosenEvenOdd() == "" {
+			return false
+		}
+		match := (c.CMC()%2 == 0) == (sc.Memory.ChosenEvenOdd() == "Even")
+		return match == (name == "cmcChosenEvenOdd")
 	case name == "IsRemembered":
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), CardEntity(c.ID))

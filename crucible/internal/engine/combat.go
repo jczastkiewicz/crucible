@@ -12,7 +12,25 @@ type Combat struct {
 	Attackers     []CardID
 	AttackTargets map[CardID]EntityID
 	Blocks        []Block
+	// ForcedBlocked is Combat.setBlocked(attacker, true) for an attacker
+	// that became blocked without a blocker (BecomesBlocked, CR 509.1h): it
+	// stays blocked and deals no combat damage unless it has trample.
+	ForcedBlocked []CardID
 }
+
+// isBlocked is Combat.isBlocked: an attacker with a blocker, or one an
+// effect made blocked.
+func (c *Combat) isBlocked(attacker CardID) bool {
+	for _, b := range c.Blocks {
+		if b.Attacker == attacker {
+			return true
+		}
+	}
+	return containsCard(c.ForcedBlocked, attacker)
+}
+
+// isAttacking reports whether id is one of this combat's attackers.
+func (c *Combat) isAttacking(id CardID) bool { return containsCard(c.Attackers, id) }
 
 // Block is one blocking assignment: Blocker blocks Attacker (CR 509.1). A
 // single Attacker can appear in more than one Block -- gang blocking is
@@ -62,6 +80,7 @@ func (g *Game) removeFromCombat(id CardID) {
 		}
 	}
 	g.combat.Blocks = blocks
+	g.combat.ForcedBlocked = withoutCards(g.combat.ForcedBlocked, []CardID{id})
 }
 
 // clone is Combat's half of Game.Clone: a shared backing array would let a
@@ -79,5 +98,6 @@ func (c Combat) clone() Combat {
 		Attackers:     append([]CardID(nil), c.Attackers...),
 		AttackTargets: targets,
 		Blocks:        append([]Block(nil), c.Blocks...),
+		ForcedBlocked: append([]CardID(nil), c.ForcedBlocked...),
 	}
 }

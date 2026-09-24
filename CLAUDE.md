@@ -37,8 +37,9 @@ commit bodies.
 | `crucible/oracle-java/` | Only place Java may be added — test-scoped dumpers/recorders |
 | everything else         | Upstream Forge. **Do not edit**                              |
 
-Unavoidable upstream edit → log it in `docs/crucible/porting/upstream-patches.md`, same commit. Reason: every touched
-line outside `crucible/` and `docs/crucible/` is a future rebase conflict (REV-1).
+Unavoidable upstream edit → log it in `docs/crucible/porting/upstream-patches.md`, same commit.
+`.claude/hooks/guard-upstream.sh` asks before any unlogged one. Reason: every touched line outside `crucible/` and
+`docs/crucible/` is a future rebase conflict (REV-1).
 
 ---
 

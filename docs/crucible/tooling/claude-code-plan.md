@@ -29,19 +29,21 @@ Hooks run in the harness, not the model. Rule cannot be forgotten.
 
 Implemented: `.claude/settings.json` (committed), scripts in `.claude/hooks/`, gate runner `crucible/scripts/gates.sh`.
 
-| Hook                                  | Action                                                                          | Blocks | Rule enforced |
-| ------------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- |
-| `PreToolUse` on Bash `git commit`     | `gates.sh full`: every CI gate incl. `golangci-lint`, `go test -race`, prettier | yes    | CI parity     |
-| `PostToolUse` on `Edit\|Write` `*.go` | `gofmt -s -w <file>`                                                            | no     | GO-1          |
-| `PostToolUse` on `Edit\|Write` `*.md` | `prettier --write <file>`                                                       | no     | DOC-14        |
-| `Stop`                                | `gates.sh fast` when `crucible/` or `docs/crucible/` dirty; `systemMessage`     | no     | early warning |
-| `PreToolUse` on `Edit\|Write`         | Reject path outside `crucible/`, `docs/crucible/`, `.claude/`, `/CLAUDE.md`     | yes    | REV-1 — to do |
+| Hook                                        | Action                                                                                                               | Blocks | Rule enforced |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------ | ------------- |
+| `PreToolUse` on Bash `git commit`           | `gates.sh full`: every CI gate incl. `golangci-lint`, `go test -race`, prettier                                      | yes    | CI parity     |
+| `PostToolUse` on `Edit\|Write` `*.go`       | `gofmt -s -w <file>`                                                                                                 | no     | GO-1          |
+| `PostToolUse` on `Edit\|Write` `*.md`       | `prettier --write <file>`                                                                                            | no     | DOC-14        |
+| `Stop`                                      | `gates.sh fast` when `crucible/` or `docs/crucible/` dirty; `systemMessage`                                          | no     | early warning |
+| `PreToolUse` on `Write\|Edit\|NotebookEdit` | Path in repo outside `crucible/`, `docs/crucible/`, `.claude/`, `CLAUDE.md` and not in `upstream-patches.md` → `ask` | asks   | REV-1         |
 
 Measured: `fast` `~16 s`, `full` `~80 s` (`go test -race` on `internal/engine` alone `~42 s`). `full` too slow for every
 `Stop`, so commit is the hard gate. `Stop` reports only: blocking loops on a failure Claude cannot fix in-turn.
 
 Why commit hook exists: CI run `35962658352` failed on 33 `revive` findings. `golangci-lint` was CI-only, nothing ran it
 before push.
+
+Guard asks, never denies: PORT-8 fixes to card scripts are legitimate upstream edits. Bash writes (`sed -i`) bypass it.
 
 Upstream `.gitignore:107` ignores `.claude`. Files there are force-added (`git add -f`), not un-ignored. Reason: editing
 `.gitignore` is an upstream patch (REV-1).
@@ -116,12 +118,12 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 
 ## TOOL-6 — Small items
 
-| Item                                                | Gain                                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `/fewer-permission-prompts` → allowlist in settings | `go test`, `go run ./tools/...`, `prettier`, `mvn -pl crucible/oracle-java` run unprompted |
-| gopls LSP plugin (`gopls` not installed locally)    | Go-to-definition, diagnostics instead of grep                                              |
-| `crucible/scripts/gates.sh`                         | One command for hooks, skill and humans; `CLAUDE.md` shrinks                               |
-| Commit per effect batch                             | Working tree now holds ~50 uncommitted files; bisect and review suffer                     |
+| Item                                             | Gain                                                                                                                                                                                                              |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allowlist in `.claude/settings.json` — done      | 20 rules from transcript scan: `go test/build/vet`, `gofmt -l`, gate tools, `golangci-lint run`, `prettier --check`, `gates.sh`. Writers (`prettier --write`, `gofmt -w`, `mvn`, generic `go run`) left prompting |
+| gopls LSP plugin (`gopls` not installed locally) | Go-to-definition, diagnostics instead of grep                                                                                                                                                                     |
+| `crucible/scripts/gates.sh`                      | One command for hooks, skill and humans; `CLAUDE.md` shrinks                                                                                                                                                      |
+| Commit per effect batch                          | Working tree now holds ~50 uncommitted files; bisect and review suffer                                                                                                                                            |
 
 ---
 
@@ -130,8 +132,8 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 | #   | Step                                     | Effort | Depends on |
 | --- | ---------------------------------------- | ------ | ---------- |
 | 1   | `scripts/gates.sh` done                  | S      | —          |
-| 2   | TOOL-1 hooks done, REV-1 guard to do     | S      | 1          |
-| 3   | TOOL-6 permission allowlist              | S      | —          |
+| 2   | TOOL-1 hooks done                        | S      | 1          |
+| 3   | TOOL-6 permission allowlist done         | S      | —          |
 | 4   | TOOL-2 `port-effect` + `gates` skills    | M      | 1          |
 | 5   | TOOL-3 subagents done                    | S      | —          |
 | 6   | TOOL-4 `game-state.md` split + `docgate` | M      | —          |

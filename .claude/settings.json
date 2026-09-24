@@ -11,12 +11,28 @@
             "statusMessage": "Running CI gates before commit"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-upstream.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-on-edit.sh", "timeout": 30 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-on-edit.sh",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "Stop": [
@@ -30,6 +46,30 @@
           }
         ]
       }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/gates.sh *)",
+      "Bash(crucible/scripts/gates.sh *)",
+      "Bash(go build *)",
+      "Bash(go env *)",
+      "Bash(go env)",
+      "Bash(go run ./tools/apiscan -check*)",
+      "Bash(go run ./tools/covergate *)",
+      "Bash(go run ./tools/docgate *)",
+      "Bash(go run ./tools/enginelint *)",
+      "Bash(go run ./tools/javacycles *)",
+      "Bash(go run ./tools/vocabscan *)",
+      "Bash(go test *)",
+      "Bash(go tool cover *)",
+      "Bash(go version)",
+      "Bash(go vet *)",
+      "Bash(gofmt -l *)",
+      "Bash(golangci-lint run *)",
+      "Bash(golangci-lint run)",
+      "Bash(npx markdownlint-cli2 *)",
+      "Bash(prettier --check *)"
     ]
   }
 }

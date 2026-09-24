@@ -8,11 +8,9 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/DestroyEffect.java's
-// resolve/internalDestroy. Not ported: GameAction.destroy's own
-// ReplacementType.Destroy check (CR 701.16's own regeneration shield) --
-// replacement.go builds no Destroy-type replacement at all, so running the
-// check would always answer NotReplaced; skipping it changes nothing a real
-// game could observe, the identical reasoning NoRegen$ below gets.
+// resolve/internalDestroy. A regeneration shield (Game.regenerate,
+// regeneration.go) replaces the destruction unless NoRegen$ is set -- the
+// one Destroy-type replacement this port models.
 // TriggerType.Destroyed -- a rare corpus trigger mode ("whenever a permanent
 // is destroyed," distinct from Mode$ Dies, which checkDiesTriggers already
 // fires below for every real battlefield departure regardless of cause) this
@@ -42,11 +40,6 @@ import (
 // permanent taken before the move, this port's own Game.LKI is a whole-batch
 // zone-change record (game-state.md), not wired to a single script-driven
 // effect's own Remembered list yet.
-//
-// NoRegen$ (62) is not here: this port has no regeneration shield to skip
-// (the file doc comment above has the reason), so the param changes nothing
-// this port's own resolve body does either way -- a real, narrow
-// simplification, not a gap.
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes, the
@@ -80,10 +73,14 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Destroy: %w", err)
 	}
 	_, remember := a.Params.Param("RememberDestroyed")
+	_, noRegen := a.Params.Param("NoRegen")
 	var destroyed []CardID
 	for _, id := range cards {
 		c := g.Card(id)
 		if c.Zone != Battlefield || !canBeDestroyed(c) {
+			continue
+		}
+		if !noRegen && g.regenerate(controller, id) {
 			continue
 		}
 		if remember {

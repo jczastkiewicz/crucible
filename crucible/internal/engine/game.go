@@ -43,6 +43,11 @@ type Game struct {
 	// reproducible from its seed alone. There is no package-level RNG
 	// (GO-2, ADR-0006).
 	rand *javarand.Rand
+	// registry is the Registry resolving the current stack object, recorded
+	// by Registry.Resolve so an effect can resolve one of its own
+	// AdditionalAbility SVars (TrueSubAbility$, RepeatSubAbility$, Choices$)
+	// through the same dispatch (additional.go).
+	registry *Registry
 
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.
@@ -90,6 +95,14 @@ type Game struct {
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord
+	// extraTurns is Java PhaseHandler's own extra-turn stack (AddTurn): the
+	// last entry is the next turn taken. The bottom entry, pushed with the
+	// first extra turn, is the player whose normal turn comes next, so
+	// normal turn order resumes once the stack drains.
+	extraTurns []PlayerID
+	// combatDamagePrevented is Fog's "prevent all combat damage this turn",
+	// cleared at cleanup (damagePrevented/damagePreventedPlayer read it).
+	combatDamagePrevented bool
 
 	// lki is CR 603.6d's "look back in time": each CardID's own frozen copy
 	// of itself from the instant before Move's own battlefield-leaving branch
@@ -337,6 +350,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.Exerted = false
 		c.LoyaltyAbilityActivated = false
 		c.ProtectingPlayer = NoPlayer
+		c.controller = c.Owner
+		c.tempControllers = nil
+		c.RegenShields = 0
 		g.Unattach(id)
 		g.clearPumps(id)
 	case from != Battlefield && kind == Battlefield:
@@ -408,6 +424,9 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.Exerted = false
 		c.LoyaltyAbilityActivated = false
 		c.ProtectingPlayer = NoPlayer
+		c.controller = c.Owner
+		c.tempControllers = nil
+		c.RegenShields = 0
 		g.Unattach(id)
 		g.clearPumps(id)
 	}
@@ -531,7 +550,10 @@ func (g *Game) Clone() *Game {
 		stack:  append([]Ability(nil), g.stack...),
 		combat: g.combat.clone(),
 		pumps:  append([]pumpRecord(nil), g.pumps...),
-		lki:    make(map[CardID]*Card, len(g.lki)),
+
+		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
+		combatDamagePrevented: g.combatDamagePrevented,
+		lki:                   make(map[CardID]*Card, len(g.lki)),
 	}
 	if g.rand != nil {
 		r := *g.rand
@@ -553,6 +575,7 @@ func (g *Game) Clone() *Game {
 		c.ColorMod = g.cards[i].ColorMod.clone()
 		c.KeywordMod = g.cards[i].KeywordMod.clone()
 		c.ControlMod = g.cards[i].ControlMod.clone()
+		c.tempControllers = append([]ControlEffect(nil), g.cards[i].tempControllers...)
 		if g.cards[i].attachments != nil {
 			c.attachments = g.cards[i].attachments.Clone()
 		}

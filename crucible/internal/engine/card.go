@@ -129,6 +129,17 @@ type Card struct {
 	// when their printed names differ.
 	HasNonLegendaryCreatureNames bool
 
+	// RegenShields counts the regeneration shields Regenerate gave this
+	// permanent this turn (CR 701.15): each replaces one destruction
+	// (Game.regenerate) and all of them end at cleanup or when it leaves the
+	// battlefield -- Java's one-shot Regeneration effect per Regenerate call.
+	RegenShields int
+
+	// tempControllers are one-shot control changes (GainControl,
+	// ExchangeControl): Java's Card.addTempController. Controller merges them
+	// with ControlMod's continuous effects by timestamp, the latest winning.
+	tempControllers []ControlEffect
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.
@@ -149,6 +160,11 @@ func (c *Card) Controller() PlayerID {
 	var bestTS uint64
 	found := false
 	for _, e := range c.ControlMod.effects {
+		if !found || e.Timestamp > bestTS {
+			best, bestTS, found = e.Controller, e.Timestamp, true
+		}
+	}
+	for _, e := range c.tempControllers {
 		if !found || e.Timestamp > bestTS {
 			best, bestTS, found = e.Controller, e.Timestamp, true
 		}

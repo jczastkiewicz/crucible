@@ -259,3 +259,20 @@ func (p *Pool) PayWithSnow(cost mana.Cost, snow []mana.Shard) bool {
 	*p = spend
 	return true
 }
+
+// merge adds every mana in o to p, snow mana staying snow -- DrainMana's
+// DrainMana$ True moving a drained pool into the activator's own.
+func (p *Pool) merge(o Pool) {
+	p.white += o.white
+	p.blue += o.blue
+	p.black += o.black
+	p.red += o.red
+	p.green += o.green
+	p.colorless += o.colorless
+	p.snowWhite += o.snowWhite
+	p.snowBlue += o.snowBlue
+	p.snowBlack += o.snowBlack
+	p.snowRed += o.snowRed
+	p.snowGreen += o.snowGreen
+	p.snowColorless += o.snowColorless
+}

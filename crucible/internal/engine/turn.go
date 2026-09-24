@@ -56,20 +56,66 @@ func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 // that phase's actions and the state-based-action check that follows,
 // ported from PhaseHandler.advanceToNextPhase and onPhaseBegin.
 //
-// Java's extra-turn and extra-phase stacks (AddTurnEffect, SkipPhaseEffect)
-// and its topsy-turvy phase order (a handful of effects that reverse it) are
-// not here: both are abilities this port has not implemented, so nothing can
-// push onto either yet, and skipping them is not a gap a card can currently
-// expose.
+// The next active player comes from nextActivePlayer: Java's extra-turn
+// stack and its skipped turns. Extra phases (AddPhase, SkipPhase) and the
+// reversed turn order a handful of effects create are not ported.
 func (g *Game) AdvancePhase(controller PlayerController) {
 	next := PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
 	if next == Untap {
 		g.turn++
-		g.activePlayer = g.nextPlayerAfter(g.activePlayer)
+		g.activePlayer = g.nextActivePlayer()
 		g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 	}
 	g.activePhase = next
 	g.beginPhase(controller)
+}
+
+// nextActivePlayer is PhaseHandler.getNextActivePlayer: the top of the
+// extra-turn stack when it has one, otherwise the player after the current
+// one in turn order. A player with TurnsToSkip left loses that turn (Java's
+// BeginTurn replacement, which counts down); a skipped normal turn still
+// advances the turn-order cursor past them, and the pick repeats. An extra
+// turn belonging to a player who has since lost is dropped.
+func (g *Game) nextActivePlayer() PlayerID {
+	cursor := g.activePlayer
+	for guard := 0; guard < 1000; guard++ {
+		var next PlayerID
+		fromExtra := false
+		if n := len(g.extraTurns); n > 0 {
+			next, fromExtra = g.extraTurns[n-1], true
+			g.extraTurns = g.extraTurns[:n-1]
+		} else {
+			next = g.nextPlayerAfter(cursor)
+		}
+		p := g.Player(next)
+		if p.Lost {
+			if !fromExtra {
+				// nextPlayerAfter only returns a lost player when every
+				// player has lost; the game is over and turn order is moot.
+				return next
+			}
+			continue
+		}
+		if p.TurnsToSkip > 0 {
+			p.TurnsToSkip--
+			if !fromExtra {
+				cursor = next
+			}
+			continue
+		}
+		return next
+	}
+	panic("engine: nextActivePlayer found no player able to take a turn")
+}
+
+// addExtraTurn is PhaseHandler.addExtraTurn: the first extra turn also
+// pushes the player whose normal turn comes next, so turn order resumes
+// from the right seat when the extra turns are done.
+func (g *Game) addExtraTurn(p PlayerID) {
+	if len(g.extraTurns) == 0 {
+		g.extraTurns = append(g.extraTurns, g.nextPlayerAfter(g.activePlayer))
+	}
+	g.extraTurns = append(g.extraTurns, p)
 }
 
 // nextPlayerAfter is turn order: seating order, skipping anyone who has
@@ -329,6 +375,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false
 			g.Card(id).LoyaltyAbilityActivated = false
+			g.Card(id).RegenShields = 0
 		}
 		p := g.Player(pid)
 		p.LandsPlayedLastTurn = p.LandsPlayed
@@ -337,6 +384,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.DescendedThisTurn = false
 		p.LifeGainedTimesThisTurn = 0
 	}
+
+	g.combatDamagePrevented = false
 
 	kept := g.pumps[:0]
 	for _, p := range g.pumps {

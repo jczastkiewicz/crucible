@@ -479,3 +479,15 @@ func (c *scriptedMulliganController) ChooseEntitiesForEffect(_ *engine.Game, _ e
 func (c *scriptedMulliganController) ConfirmReveal(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
 	panic("scriptedMulliganController: ConfirmReveal was not expected to be called")
 }
+
+func (c *scriptedMulliganController) ConfirmEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: ConfirmEffect was not expected to be called")
+}
+
+func (c *scriptedMulliganController) OrderCardsForZone(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ engine.ZoneType) []engine.CardID {
+	panic("scriptedMulliganController: OrderCardsForZone was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseAbilitiesForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string, _ int) []int {
+	panic("scriptedMulliganController: ChooseAbilitiesForEffect was not expected to be called")
+}

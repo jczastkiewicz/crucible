@@ -103,6 +103,14 @@ func (m *Memory) Forget(e EntityID) bool {
 	return m.remembered.Remove(e)
 }
 
+// forgetImprinted removes id from the imprinted list -- Java's
+// removeImprintedCard, RepeatEach's UseImprinted$ undo.
+func (m *Memory) forgetImprinted(id CardID) {
+	if m.imprinted != nil {
+		m.imprinted.Remove(id)
+	}
+}
+
 // SetChosenPlayer records the player a ChoosePlayer picked; NoPlayer clears it.
 func (m *Memory) SetChosenPlayer(p PlayerID) { m.chosenPlayer = p }
 

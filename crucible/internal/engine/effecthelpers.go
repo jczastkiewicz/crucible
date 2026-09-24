@@ -1,0 +1,104 @@
+package engine
+
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
+
+// checkChoice validates a controller's answer against the offer: every
+// pick drawn from options, none twice, and a count in [min, max]. A bad
+// answer is a controller bug a card script can surface, so it is an error,
+// not a panic (GO-7).
+func checkChoice[T comparable](chosen, options []T, min, max int) error {
+	if len(chosen) < min || len(chosen) > max {
+		return fmt.Errorf("controller chose %d, want between %d and %d", len(chosen), min, max)
+	}
+	offered := make(map[T]bool, len(options))
+	for _, o := range options {
+		offered[o] = true
+	}
+	for _, c := range chosen {
+		if !offered[c] {
+			return fmt.Errorf("controller chose %v, which was not offered", c)
+		}
+		delete(offered, c)
+	}
+	return nil
+}
+
+// filterValid keeps the cards of ids matching the valid string spec, with
+// sourceController as the "You" of that string.
+func filterValid(g *Game, ids []CardID, spec string, sourceController PlayerID, source CardID) []CardID {
+	parsed := valid.Parse(spec)
+	var out []CardID
+	for _, id := range ids {
+		if Matches(g, g.Card(id), parsed, sourceController, source) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// hasParam reports whether a's script names key.
+func hasParam(a *Ability, key string) bool {
+	_, ok := a.Params.Param(key)
+	return ok
+}
+
+// withoutCards returns all minus drop, keeping all's order.
+func withoutCards(all, drop []CardID) []CardID {
+	var out []CardID
+	for _, id := range all {
+		if !containsCard(drop, id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// reversedCards returns ids in reverse order, a fresh slice.
+func reversedCards(ids []CardID) []CardID {
+	out := make([]CardID, len(ids))
+	for i, id := range ids {
+		out[len(ids)-1-i] = id
+	}
+	return out
+}
+
+// swapRememberedPlayer removes every remembered player from m, remembers p
+// instead, and returns the removed ones -- the tempRemembered swap
+// ChooseGenericEffect and RepeatEachEffect both perform around a
+// resolution.
+func swapRememberedPlayer(m *Memory, p PlayerID) []EntityID {
+	var old []EntityID
+	for _, e := range m.Remembered() {
+		if _, ok := e.AsPlayer(); ok {
+			old = append(old, e)
+		}
+	}
+	for _, e := range old {
+		m.Forget(e)
+	}
+	m.Remember(PlayerEntity(p))
+	return old
+}
+
+// restoreRememberedPlayers undoes swapRememberedPlayer.
+func restoreRememberedPlayers(m *Memory, p PlayerID, old []EntityID) {
+	m.Forget(PlayerEntity(p))
+	for _, e := range old {
+		m.Remember(e)
+	}
+}
+
+// changeZoneDestination parses Destination$, limited to the five zones a
+// card can be moved to by this port (PlanarDeck/Ante/Sideboard/Command/Stack
+// are not modeled as destinations).
+func changeZoneDestination(name string) (ZoneType, error) {
+	z, ok := ZoneByName(name)
+	if !ok || (z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile) {
+		return 0, fmt.Errorf("Destination$ %q not resolvable yet", name)
+	}
+	return z, nil
+}

@@ -174,24 +174,3 @@ func chooseCardPool(g *Game, a *Ability, source *Card) ([]CardID, error) {
 	}
 	return pool, nil
 }
-
-// checkChoice validates a controller's answer against the offer: every
-// pick drawn from options, none twice, and a count in [min, max]. A bad
-// answer is a controller bug a card script can surface, so it is an error,
-// not a panic (GO-7).
-func checkChoice[T comparable](chosen, options []T, min, max int) error {
-	if len(chosen) < min || len(chosen) > max {
-		return fmt.Errorf("controller chose %d, want between %d and %d", len(chosen), min, max)
-	}
-	offered := make(map[T]bool, len(options))
-	for _, o := range options {
-		offered[o] = true
-	}
-	for _, c := range chosen {
-		if !offered[c] {
-			return fmt.Errorf("controller chose %v, which was not offered", c)
-		}
-		delete(offered, c)
-	}
-	return nil
-}

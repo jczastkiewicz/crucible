@@ -403,6 +403,9 @@ func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostContro
 // this file's own doc comment already gives CR 614 over CR 603's own
 // triggers.
 func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int) bool {
+	if isCombat && g.combatDamagePrevented {
+		return true
+	}
 	targetCard := g.Card(target)
 	toughness, hasToughness := targetCard.Toughness()
 	for _, pid := range g.Players() {
@@ -435,6 +438,9 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 // checkDamageDoneTriggersToCard's own: ValidTarget$ matched against a Player
 // through matchesPlayerSpec rather than Matches.
 func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bool, amount int) bool {
+	if isCombat && g.combatDamagePrevented {
+		return true
+	}
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {

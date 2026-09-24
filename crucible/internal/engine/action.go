@@ -314,11 +314,16 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) {
 			}
 		}
 	}
+	var died []CardID
 	for _, id := range dead {
+		if g.regenerate(controller, id) {
+			continue
+		}
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
+		died = append(died, id)
 	}
-	g.checkChangesZoneAllTriggers(controller, dead, Battlefield, Graveyard)
+	g.checkChangesZoneAllTriggers(controller, died, Battlefield, Graveyard)
 }
 
 // destroyZeroLoyalty is CR 704.5's planeswalker-loyalty rule -- Java's own

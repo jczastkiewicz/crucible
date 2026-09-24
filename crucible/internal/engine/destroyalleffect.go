@@ -8,9 +8,8 @@ import (
 )
 
 // destroyAllUnresolvedParams are DestroyAllEffect.java's params this port
-// cannot honour yet. NoRegen$/NoRegenValid$ are accepted: regeneration is not
-// ported, so every destroy already behaves as "can't be regenerated" -- the
-// same reading destroyEffect gives NoRegen$.
+// cannot honour yet. NoRegen$ and NoRegenValid$ (the per-card version) stop a
+// regeneration shield (regeneration.go) from replacing the destruction.
 var destroyAllUnresolvedParams = [...]string{
 	"Optional", "RememberAllObjects", "Zone", "Hidden",
 	"Condition", "ConditionDefined", "SorcerySpeed", "PlayerTurn", "ModeCost",
@@ -70,10 +69,23 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if remember {
 		source.Memory.ClearRemembered()
 	}
+	_, noRegen := a.Params.Param("NoRegen")
+	var noRegenSpec valid.Spec
+	noRegenValid, hasNoRegenValid := a.Params.Param("NoRegenValid")
+	if hasNoRegenValid {
+		noRegenSpec = valid.Parse(noRegenValid)
+	}
 	var destroyed []CardID
 	for _, id := range list {
 		c := g.Card(id)
 		if c.Zone != Battlefield || !canBeDestroyed(c) {
+			continue
+		}
+		cantRegen := noRegen
+		if hasNoRegenValid {
+			cantRegen = Matches(g, c, noRegenSpec, a.Controller, a.Source)
+		}
+		if !cantRegen && g.regenerate(controller, id) {
 			continue
 		}
 		g.Move(id, Graveyard, c.Owner)

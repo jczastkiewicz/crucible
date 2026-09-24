@@ -416,6 +416,22 @@ type PlayerController interface {
 	// ConfirmReveal answers PeekAndReveal's RevealOptional$ prompt -- Java's
 	// confirmAction with "reveal this card to other players?".
 	ConfirmReveal(g *Game, decider PlayerID, source CardID) bool
+
+	// ConfirmEffect answers an effect's generic yes/no prompt -- Java's
+	// confirmAction as an Optional$ param, ShuffleNonMandatory$, MayShuffle$
+	// or Explore's "put this card into your graveyard?" asks it.
+	ConfirmEffect(g *Game, decider PlayerID, source CardID) bool
+
+	// OrderCardsForZone orders cards moving together into dest -- Java's
+	// orderMoveToZoneList. The answer is the order they are moved in, so for
+	// a library top the last card ends up on top. The caller checks it is a
+	// permutation of cards (GO-7).
+	OrderCardsForZone(g *Game, decider PlayerID, cards []CardID, dest ZoneType) []CardID
+
+	// ChooseAbilitiesForEffect picks amount of the offered modes, answering
+	// with their indices into options (the SVar names GenericChoice's
+	// Choices$ lists) -- Java's chooseSpellAbilitiesForEffect.
+	ChooseAbilitiesForEffect(g *Game, decider PlayerID, source CardID, options []string, amount int) []int
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -465,6 +481,9 @@ type ScriptedController struct {
 	tapOrUntap       []bool
 	entityChoices    [][]EntityID
 	confirmReveal    []bool
+	confirmEffect    []bool
+	cardOrders       [][]CardID
+	abilityChoices   [][]int
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -1020,6 +1039,32 @@ func (c *ScriptedController) QueueConfirmReveal(v bool) { c.confirmReveal = appe
 // ConfirmReveal returns the next answer QueueConfirmReveal queued.
 func (c *ScriptedController) ConfirmReveal(_ *Game, _ PlayerID, _ CardID) bool {
 	return popQueue(&c.confirmReveal, "confirm reveal")
+}
+
+// QueueConfirmEffect appends the answer to the next ConfirmEffect call.
+func (c *ScriptedController) QueueConfirmEffect(v bool) { c.confirmEffect = append(c.confirmEffect, v) }
+
+// ConfirmEffect returns the next answer QueueConfirmEffect queued.
+func (c *ScriptedController) ConfirmEffect(_ *Game, _ PlayerID, _ CardID) bool {
+	return popQueue(&c.confirmEffect, "confirm effect")
+}
+
+// QueueCardOrder appends the answer to the next OrderCardsForZone call.
+func (c *ScriptedController) QueueCardOrder(ids []CardID) { c.cardOrders = append(c.cardOrders, ids) }
+
+// OrderCardsForZone returns the next answer QueueCardOrder queued.
+func (c *ScriptedController) OrderCardsForZone(_ *Game, _ PlayerID, _ []CardID, _ ZoneType) []CardID {
+	return popQueue(&c.cardOrders, "card order")
+}
+
+// QueueAbilityChoice appends the answer to the next ChooseAbilitiesForEffect call.
+func (c *ScriptedController) QueueAbilityChoice(idx []int) {
+	c.abilityChoices = append(c.abilityChoices, idx)
+}
+
+// ChooseAbilitiesForEffect returns the next answer QueueAbilityChoice queued.
+func (c *ScriptedController) ChooseAbilitiesForEffect(_ *Game, _ PlayerID, _ CardID, _ []string, _ int) []int {
+	return popQueue(&c.abilityChoices, "ability choice")
 }
 
 // popQueue pops the head of one ScriptedController queue, panicking with kind

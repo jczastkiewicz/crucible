@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Forty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Sixty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -315,7 +315,14 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // PeekAndReveal, TapOrUntap, Proliferate -- land together: Cleanup and the
 // four Choose effects write the host's Memory (memory.go) that definedCards'
 // Remembered/Imprinted/ChosenCard and definedPlayers' ChosenPlayer/Remembered
-// cases (defined.go) read back.
+// cases (defined.go) read back. The next twenty -- ChangeZone,
+// ChangeZoneAll, Dig, DigUntil, RearrangeTopOfLibrary, Explore, LookAt,
+// Branch, GenericChoice, Repeat, RepeatEach, Regenerate, Fog, AddTurn,
+// SkipTurn, GainControl, ExchangeControl, HealDamage, EachDamage, DrainMana
+// -- share three new pieces of engine: moveByEffect/orderCardsByTheirOwners
+// (zonemove.go), AdditionalAbility dispatch (additional.go), and
+// regeneration shields, extra/skipped turns and one-shot control changes
+// (regeneration.go, turn.go, gaincontroleffect.go).
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -374,5 +381,25 @@ func NewRegistry() *Registry {
 	r[APIPeekAndReveal] = peekAndRevealEffect{}
 	r[APITapOrUntap] = tapOrUntapEffect{}
 	r[APIProliferate] = proliferateEffect{}
+	r[APIChangeZone] = changeZoneEffect{}
+	r[APIChangeZoneAll] = changeZoneAllEffect{}
+	r[APIDig] = digEffect{}
+	r[APIDigUntil] = digUntilEffect{}
+	r[APIRearrangeTopOfLibrary] = rearrangeTopOfLibraryEffect{}
+	r[APIExplore] = exploreEffect{}
+	r[APILookAt] = lookAtEffect{}
+	r[APIBranch] = branchEffect{}
+	r[APIGenericChoice] = genericChoiceEffect{}
+	r[APIRepeat] = repeatEffect{}
+	r[APIRepeatEach] = repeatEachEffect{}
+	r[APIRegenerate] = regenerateEffect{}
+	r[APIFog] = fogEffect{}
+	r[APIAddTurn] = addTurnEffect{}
+	r[APISkipTurn] = skipTurnEffect{}
+	r[APIGainControl] = gainControlEffect{}
+	r[APIExchangeControl] = exchangeControlEffect{}
+	r[APIHealDamage] = healDamageEffect{}
+	r[APIEachDamage] = eachDamageEffect{}
+	r[APIDrainMana] = drainManaEffect{}
 	return &r
 }

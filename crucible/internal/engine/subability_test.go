@@ -208,11 +208,10 @@ func TestSubAbilityChainDepthThreeChainsAllThree(t *testing.T) {
 // this port has not built an Effect for yet fails with ErrUnimplemented
 // naming it -- Registry.Resolve's own existing contract for a top-level
 // ability, extended for free once resolveSubAbility recurses back through
-// Registry.Resolve itself (effect.go's own doc comment) -- riverwise_augur.txt's
-// own real shape: DB$ Draw | Defined$ You | NumCards$ 3 |
-// SubAbility$ DBChangeZone, chaining into DB$ ChangeZone (203 script-driven
-// APIs this port has not built yet, ChangeZone the single most-referenced
-// SubAbility$ target in the whole corpus). Draw's own three cards must
+// Registry.Resolve itself (effect.go's own doc comment): DB$ Draw |
+// Defined$ You | NumCards$ 3 | SubAbility$ DBToken, chaining into DB$ Token
+// (token creation, the most-referenced SubAbility$ target this port has not
+// built yet). Draw's own three cards must
 // already be in hand: CR's own sequential resolution means the parts of an
 // ability already executed stay executed even when a later part fails,
 // the identical reasoning Rousing Read's own chain already exercises for
@@ -229,22 +228,22 @@ func TestSubAbilityChainUnimplementedAPIErrors(t *testing.T) {
 	}
 
 	def := etbSubAbilityTriggerDefParams(t, "Test Riverwise Augur",
-		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBChangeZone",
-		map[string]string{"DBChangeZone": "DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True"})
+		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBToken",
+		map[string]string{"DBToken": "DB$ Token | TokenAmount$ 1 | TokenScript$ c_1_1_soldier"})
 
 	c := engine.NewScriptedController()
 	err := castETBSubAbility(t, g, p, def, c)
 	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming ChangeZone")
+		t.Fatal("ResolveStack: got nil error, want one naming Token")
 	}
 	if !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("ResolveStack error = %q, want it to wrap ErrUnimplemented", err.Error())
 	}
-	if !strings.Contains(err.Error(), "ChangeZone") {
-		t.Errorf("ResolveStack error = %q, want it to name ChangeZone", err.Error())
+	if !strings.Contains(err.Error(), "Token") {
+		t.Errorf("ResolveStack error = %q, want it to name Token", err.Error())
 	}
 	if len(g.Zone(engine.Hand, p).Cards()) != 3 {
-		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit ChangeZone",
+		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit Token",
 			len(g.Zone(engine.Hand, p).Cards()))
 	}
 }

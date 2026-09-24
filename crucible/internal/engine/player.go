@@ -96,6 +96,10 @@ type Player struct {
 	// cleanup (cleanupStep, turn.go) the identical way LandsPlayed/
 	// CardsDrawnThisTurn already are.
 	LifeGainedTimesThisTurn int
+
+	// TurnsToSkip is how many of this player's next turns are skipped
+	// (SkipTurn): Java's BeginTurn replacement effect that counts itself down.
+	TurnsToSkip int
 	// Rules is Layer 8's own continuous effects currently affecting this
 	// player (rulesmod.go), recomputed fresh every CheckStateBasedActions
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/

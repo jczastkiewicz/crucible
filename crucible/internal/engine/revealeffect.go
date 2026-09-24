@@ -1,10 +1,6 @@
 package engine
 
-import (
-	"fmt"
-
-	"github.com/jczastkiewicz/crucible/internal/valid"
-)
+import "fmt"
 
 // revealUnresolvedParams are RevealEffect.java's params this port cannot
 // honour yet: Random$ (Aggregates.random), OptionalDecider$ and
@@ -93,17 +89,4 @@ func (revealEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		}
 	}
 	return nil
-}
-
-// filterValid keeps the cards of ids matching the valid string spec, with
-// sourceController as the "You" of that string.
-func filterValid(g *Game, ids []CardID, spec string, sourceController PlayerID, source CardID) []CardID {
-	parsed := valid.Parse(spec)
-	var out []CardID
-	for _, id := range ids {
-		if Matches(g, g.Card(id), parsed, sourceController, source) {
-			out = append(out, id)
-		}
-	}
-	return out
 }

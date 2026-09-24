@@ -67,6 +67,9 @@ var ErrUnimplemented = errors.New("engine: no effect registered for API")
 // AbilityUtils.resolveApiAbility's own if/else between `sa.resolve()` and
 // `handleUnlessCost(sa, game)`, the same branch point.
 func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if g != nil {
+		g.registry = r
+	}
 	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
 		return nil
 	}

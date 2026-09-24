@@ -201,6 +201,13 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 
 ---
 
+## Subagents
+
+`.claude/agents/`: `forge-oracle` (Java semantics of an API, before porting), `rules-reviewer` (diff vs non-negotiables,
+before commit), `gate-runner` (gates, failures only). Delegate to them instead of reading Java or test logs inline.
+
+---
+
 ## Adding an M6 effect
 
 Each step below is enforced by a gate or has broken a commit before.

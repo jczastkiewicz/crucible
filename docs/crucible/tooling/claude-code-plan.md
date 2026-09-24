@@ -69,11 +69,16 @@ it.
 
 ## TOOL-3 — Subagents isolate heavy reading
 
-| Agent            | Model  | Tools     | Job                                                                                      |
-| ---------------- | ------ | --------- | ---------------------------------------------------------------------------------------- |
-| `forge-oracle`   | cheap  | read-only | Given API name (`SetState`), read `forge-game/`, return semantics with `file:line` cites |
-| `rules-reviewer` | strong | read-only | Check diff against GO-2/3/4/8/9/12, PORT-8, TEST-1; report violations only               |
-| `gate-runner`    | Haiku  | Bash      | Run `go test -race ./...` + `covergate`, return failures only                            |
+Implemented in `.claude/agents/`. Main session delegates by name ("use forge-oracle on SetState").
+
+| Agent            | Model  | Tools                       | Job                                                                                     |
+| ---------------- | ------ | --------------------------- | --------------------------------------------------------------------------------------- |
+| `forge-oracle`   | Sonnet | Read, Grep, Glob, Bash (ro) | API name in; Java params, resolution order, corpus shapes, PORT-7/8 quirks, `path:line` |
+| `rules-reviewer` | Opus   | Read, Grep, Glob, Bash (ro) | Diff against GO-2/3/4/7/8/9/12, PORT-2/8, TEST-1/8, REV-1, DOC-12; findings only        |
+| `gate-runner`    | Haiku  | Bash, Read                  | `gates.sh fast\|full` or one `go test -run`; failures verbatim, max 15 lines each       |
+
+Model per agent: research needs reading judgment (Sonnet); review misses are costly (Opus); running a script and
+trimming output is mechanical (Haiku). `(ro)` = prompt restricts Bash to read commands; not enforced by harness.
 
 Reason: Java reads and test logs are large, disposable. Main context keeps Go work only.
 
@@ -128,7 +133,7 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 | 2   | TOOL-1 hooks done, REV-1 guard to do     | S      | 1          |
 | 3   | TOOL-6 permission allowlist              | S      | —          |
 | 4   | TOOL-2 `port-effect` + `gates` skills    | M      | 1          |
-| 5   | TOOL-3 subagents                         | S      | —          |
+| 5   | TOOL-3 subagents done                    | S      | —          |
 | 6   | TOOL-4 `game-state.md` split + `docgate` | M      | —          |
 | 7   | ADR amendment for generated registry     | S      | —          |
 | 8   | TOOL-5 generators                        | L      | 7          |

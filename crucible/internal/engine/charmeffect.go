@@ -72,15 +72,15 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		num = n
 	}
-	min := num
+	minModes := num
 	if raw, ok := a.Params.Param("MinCharmNum"); ok {
 		n, ok := resolveNamedAmount(g, a.Amounts, host, raw)
 		if !ok {
 			return false, fmt.Errorf("engine: Charm: MinCharmNum$ %q is not resolvable", raw)
 		}
-		min = n
+		minModes = n
 	}
-	if min > len(options) {
+	if minModes > len(options) {
 		return false, nil
 	}
 	if num > len(options) {
@@ -94,8 +94,8 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		chosen = g.randomSample(len(options), num)
 	} else {
-		chosen = controller.ChooseModesForAbility(g, a.Controller, a.Source, names, min, num)
-		if err := checkModeChoice(chosen, len(options), min, num); err != nil {
+		chosen = controller.ChooseModesForAbility(g, a.Controller, a.Source, names, minModes, num)
+		if err := checkModeChoice(chosen, len(options), minModes, num); err != nil {
 			return false, err
 		}
 	}
@@ -131,11 +131,11 @@ func (g *Game) modeHasLegalTargets(mode *Ability) bool {
 	return len(g.targetCandidates(mode.Controller, mode.Source, validTgts)) > 0
 }
 
-// checkModeChoice rejects a controller answer that is not min..max distinct
+// checkModeChoice rejects a controller answer that is not lo..hi distinct
 // indices into n options.
-func checkModeChoice(chosen []int, n, min, max int) error {
-	if len(chosen) < min || len(chosen) > max {
-		return fmt.Errorf("engine: Charm: chose %d modes, want %d..%d", len(chosen), min, max)
+func checkModeChoice(chosen []int, n, lo, hi int) error {
+	if len(chosen) < lo || len(chosen) > hi {
+		return fmt.Errorf("engine: Charm: chose %d modes, want %d..%d", len(chosen), lo, hi)
 	}
 	seen := make([]bool, n)
 	for _, i := range chosen {

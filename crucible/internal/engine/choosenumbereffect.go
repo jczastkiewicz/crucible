@@ -21,7 +21,7 @@ var chooseNumberUnresolvedParams = [...]string{
 // each chooser (Defined$, default You) picks an integer between Min$
 // (default 0) and Max$ (default 99) and the host records it
 // (Memory.SetChosenNumber). ChooseAnyNumber$ is Java's announceRequirements
-// path, the identical [min, max] contract, so it shares this one decision.
+// path, the identical [lo, hi] contract, so it shares this one decision.
 type chooseNumberEffect struct{}
 
 func (chooseNumberEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

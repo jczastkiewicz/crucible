@@ -12,6 +12,7 @@
 // not a turn-structure decision this port's own missing priority window
 // would otherwise gate -- and ActivateManaAbility keeps the identical
 // contract for every other permanent's own printed mana ability.
+
 package engine
 
 import (

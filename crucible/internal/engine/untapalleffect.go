@@ -17,6 +17,7 @@
 // the identical "who untaps attribution" TapperController$ leaves
 // unresolved on TapAll, appears on zero real UntapAll lines -- not even
 // listed below, nothing to guard against.
+
 package engine
 
 import (

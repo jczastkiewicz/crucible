@@ -225,10 +225,8 @@ func (manifestDreadEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			rest := withoutCards(top, chosen)
 			if g.Card(chosen[0]).Zone != Battlefield {
 				rest = append(rest, chosen[0])
-			} else {
-				if hasParam(a, "RememberManifested") {
-					source.Memory.Remember(CardEntity(chosen[0]))
-				}
+			} else if hasParam(a, "RememberManifested") {
+				source.Memory.Remember(CardEntity(chosen[0]))
 			}
 			for _, id := range rest {
 				g.moveByEffect(controller, id, Graveyard, 0, NoPlayer, false)

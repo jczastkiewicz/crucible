@@ -16,6 +16,7 @@
 // exactly those two shapes) rather than a third, redundant copy of the
 // identical gainLifePrevented/gainLifeReplaced/checkLifeGainedTriggers
 // sequence.
+
 package engine
 
 import "fmt"

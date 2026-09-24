@@ -15,6 +15,7 @@
 // being tapped stops it from also being returned to hand. This file's own
 // returnTypeCandidates therefore takes no excludeSelf parameter at all,
 // unlike tapTypeCandidates (taptype.go).
+
 package engine
 
 import (

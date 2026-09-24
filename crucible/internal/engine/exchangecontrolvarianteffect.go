@@ -51,12 +51,9 @@ func (exchangeControlVariantEffect) Resolve(g *Game, a *Ability, controller Play
 		return out
 	}
 	list1, list2 := list(players[0]), list(players[1])
-	max := len(list1)
-	if len(list2) < max {
-		max = len(list2)
-	}
-	chosen1 := controller.ChooseCardsForEffect(g, a.Controller, a.Source, list1, 0, max)
-	if err := checkChoice(chosen1, list1, 0, max); err != nil {
+	most := min(len(list1), len(list2))
+	chosen1 := controller.ChooseCardsForEffect(g, a.Controller, a.Source, list1, 0, most)
+	if err := checkChoice(chosen1, list1, 0, most); err != nil {
 		return fmt.Errorf("engine: ExchangeControlVariant: %w", err)
 	}
 	n := len(chosen1)

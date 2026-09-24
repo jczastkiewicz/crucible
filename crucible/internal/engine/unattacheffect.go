@@ -14,6 +14,7 @@
 // re-check (game.getCardState/equalsWithGameTimestamp) is not ported:
 // targetedOrDefinedCards never returns a card the game itself no longer
 // tracks, multiplyCounterEffect's own identical reasoning.
+
 package engine
 
 import "fmt"

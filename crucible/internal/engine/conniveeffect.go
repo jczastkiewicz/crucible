@@ -22,6 +22,7 @@
 // controller's hand. ReplacementType.Connive (a replacement effect keyed to
 // this API specifically) is not ported -- no real corpus card defines one,
 // so NotReplaced is the only real outcome regardless.
+
 package engine
 
 import (

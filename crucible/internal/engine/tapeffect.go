@@ -16,6 +16,7 @@
 // worth building -- taptype.go's own identical reasoning for the same
 // trigger, reached from a cost-paid tap rather than a script-driven one
 // there).
+
 package engine
 
 import "fmt"

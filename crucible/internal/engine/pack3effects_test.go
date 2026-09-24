@@ -318,7 +318,9 @@ func TestDayTimeSetAndUntapRule(t *testing.T) {
 	if g.DayTime() != engine.Night {
 		t.Errorf("after a turn with no spells daytime = %v, want Night", g.DayTime())
 	}
-	resolveNow(t, g, g.ActivePlayer(), engine.NewScriptedController(), nil, "DB$ DayTime | Value$ Switch")
+	if _, err := resolveNow(t, g, g.ActivePlayer(), engine.NewScriptedController(), nil, "DB$ DayTime | Value$ Switch"); err != nil {
+		t.Fatalf("DayTime: %v", err)
+	}
 	if g.DayTime() != engine.Day {
 		t.Errorf("after Switch = %v, want Day", g.DayTime())
 	}
@@ -336,7 +338,6 @@ func TestAlterAttributeSuspected(t *testing.T) {
 	if g.CanBlock(atk, host) {
 		t.Error("a suspected creature can block")
 	}
-	resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ AlterAttribute | Defined$ Valid Creature | Attributes$ Suspected | Activate$ False")
 }
 
 func TestAlterAttributeUnsuspect(t *testing.T) {

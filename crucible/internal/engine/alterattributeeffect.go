@@ -93,7 +93,7 @@ func (g *Game) setSuspected(id CardID, on bool) {
 	c.Suspected = false
 	kept := g.animates[:0]
 	for _, r := range g.animates {
-		if !(r.Card == id && r.Timestamp == c.suspectedTS) {
+		if r.Card != id || r.Timestamp != c.suspectedTS {
 			kept = append(kept, r)
 		}
 	}

@@ -5,6 +5,7 @@
 // argument each) -- SelfExile's own two siblings for an ability activated
 // from somewhere other than the battlefield (ActivationZone$ Graveyard/Hand,
 // activateability.go).
+
 package engine
 
 // exileFromGraveyard moves id from the graveyard to exile as a paid cost.

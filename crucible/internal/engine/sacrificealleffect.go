@@ -7,6 +7,7 @@
 // forge-game/src/main/java/forge/game/ability/effects/SacrificeAllEffect.java's
 // resolve; sacrificeCards (sacrificeeffect.go) does the actual sacrificing,
 // shared with sacrificeEffect's own two branches outright.
+
 package engine
 
 import (

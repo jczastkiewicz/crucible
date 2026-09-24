@@ -14,6 +14,7 @@
 // this file resolves, the identical scope a PutCounter line gets independent
 // of whatever static ability a keyword counter's own kind might imply
 // elsewhere.
+
 package engine
 
 import "fmt"

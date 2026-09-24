@@ -485,7 +485,7 @@ func TestBidLifeOtherBidderAndAny(t *testing.T) {
 
 func TestPackMoreBranches(t *testing.T) {
 	t.Parallel()
-	g, p, other := newPackGame(t)
+	g, p, _ := newPackGame(t)
 	// Vote: EachVote needs Choices$, VoteSubAbility over Choices$ is refused.
 	c := engine.NewScriptedController()
 	c.QueueEntityChoice([]engine.EntityID{engine.PlayerEntity(p)})
@@ -493,7 +493,7 @@ func TestPackMoreBranches(t *testing.T) {
 	if _, err := castETBChain(t, g, p, etbChainDef(t, "V", "DB$ Vote | Defined$ Player | VotePlayer$ Player | EachVote$ True"), c); err == nil {
 		t.Error("EachVote$ over players resolved")
 	}
-	g, p, other = newPackGame(t)
+	g, p, other := newPackGame(t)
 	c = engine.NewScriptedController()
 	c.QueueAbilityChoice([]int{0})
 	c.QueueAbilityChoice([]int{0})

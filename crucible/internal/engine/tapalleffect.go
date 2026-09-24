@@ -16,6 +16,7 @@
 // per-card one) -- tapEffect.go's own identical reasoning, checkTapsTriggers
 // already firing per card below covers every real corpus T: line that
 // exists.
+
 package engine
 
 import (

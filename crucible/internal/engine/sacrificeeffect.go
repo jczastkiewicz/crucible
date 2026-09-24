@@ -18,6 +18,7 @@
 // forge-game/src/main/java/forge/game/ability/effects/SacrificeEffect.java's
 // resolve; GameAction.sacrifice/sacrificeDestroy for the actual zone
 // change, shared with the "Self" branch through sacrificeCards, below.
+
 package engine
 
 import (

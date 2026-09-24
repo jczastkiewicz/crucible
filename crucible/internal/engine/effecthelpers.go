@@ -10,12 +10,12 @@ import (
 )
 
 // checkChoice validates a controller's answer against the offer: every
-// pick drawn from options, none twice, and a count in [min, max]. A bad
+// pick drawn from options, none twice, and a count in [lo, hi]. A bad
 // answer is a controller bug a card script can surface, so it is an error,
 // not a panic (GO-7).
-func checkChoice[T comparable](chosen, options []T, min, max int) error {
-	if len(chosen) < min || len(chosen) > max {
-		return fmt.Errorf("controller chose %d, want between %d and %d", len(chosen), min, max)
+func checkChoice[T comparable](chosen, options []T, lo, hi int) error {
+	if len(chosen) < lo || len(chosen) > hi {
+		return fmt.Errorf("controller chose %d, want between %d and %d", len(chosen), lo, hi)
 	}
 	offered := make(map[T]bool, len(options))
 	for _, o := range options {
@@ -101,7 +101,7 @@ func restoreRememberedPlayers(m *Memory, p PlayerID, old []EntityID) {
 func changeZoneDestination(name string) (ZoneType, error) {
 	z, ok := ZoneByName(name)
 	if !ok || (z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile) {
-		return 0, fmt.Errorf("Destination$ %q not resolvable yet", name)
+		return 0, fmt.Errorf("engine: ChangeZone: Destination$ %q not resolvable yet", name)
 	}
 	return z, nil
 }

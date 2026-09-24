@@ -10,6 +10,7 @@
 // caller for London's own "shuffle the cards put back" step -- so this file
 // is the thinnest M6 effect yet: read the player list, call it once per
 // player.
+
 package engine
 
 import "fmt"

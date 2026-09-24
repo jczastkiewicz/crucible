@@ -14,6 +14,7 @@
 // forge-game/src/main/java/forge/game/ability/effects/GameWinEffect.java's
 // resolve. checkGameOverCondition's own explicit call is not ported, the
 // identical reasoning losesGameEffect's own doc comment gives.
+
 package engine
 
 import "fmt"

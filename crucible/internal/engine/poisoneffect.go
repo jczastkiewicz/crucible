@@ -11,6 +11,7 @@
 // resolve. Counters.Add's own clamp-at-zero contract (counters.go) means a
 // removal past the current count is a no-op rather than a negative pile,
 // the identical reasoning removeCounterEffect's own doc comment gives.
+
 package engine
 
 import "fmt"

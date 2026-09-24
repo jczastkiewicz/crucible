@@ -13,6 +13,7 @@
 // (checkUntapsTriggers, trigger.go) already fires per card below, the
 // identical "per-card mode already covers the real corpus" reasoning
 // TapAll's own tapEffect doc comment gives for skipping the batch mode.
+
 package engine
 
 import "fmt"

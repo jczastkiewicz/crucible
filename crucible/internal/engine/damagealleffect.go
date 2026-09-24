@@ -22,6 +22,7 @@
 // reads HasKeyword(Deathtouch) at all -- ported faithfully, not a gap: a
 // sweeper's own damage source is overwhelmingly a spell or a planeswalker
 // ability, not a creature, in the real corpus this port has read.
+
 package engine
 
 import (

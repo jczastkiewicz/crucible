@@ -13,6 +13,7 @@
 // (TriggerChangesZone.java's own performTest, ported here the identical way
 // checkDiesTriggers already ports it for the graveyard-destination case) --
 // checkExiledTriggers, below, is that family's exile-destination sibling.
+
 package engine
 
 import (

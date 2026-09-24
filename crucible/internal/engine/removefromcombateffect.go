@@ -14,6 +14,7 @@
 // Game.LKI (game-state.md's "Last-known-information lands") already covers
 // the one subset the real corpus's own dies triggers read, and a card
 // merely leaving combat, still on the battlefield, needs no LKI copy at all.
+
 package engine
 
 import "fmt"

@@ -12,6 +12,7 @@
 // resolve. checkGameOverCondition's own explicit call is not ported: this
 // port's CheckStateBasedActions already runs after every resolution
 // (ResolveStack, stack.go), so nothing here has to force an extra pass.
+
 package engine
 
 import "fmt"

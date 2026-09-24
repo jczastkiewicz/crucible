@@ -22,6 +22,7 @@
 // Crew mechanic at all, so every real corpus line combining tapXType with a
 // K:Crew keyword line resolves (or not) as an ordinary tapXType cost, never
 // as crewing specifically.
+
 package engine
 
 import (

@@ -203,7 +203,7 @@ func TestSkipPhaseEffectSkipsOpponentsDraw(t *testing.T) {
 	if _, err := castETBChain(t, g, p, def, c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
-	for !(g.ActivePlayer() == other && g.ActivePhase() == engine.Upkeep) {
+	for g.ActivePlayer() != other || g.ActivePhase() != engine.Upkeep {
 		g.AdvancePhase(c)
 	}
 	g.AdvancePhase(c)

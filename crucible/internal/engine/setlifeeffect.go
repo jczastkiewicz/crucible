@@ -18,6 +18,7 @@
 // (loseLifeEffect's own plain `Life -= amount`, no prevention machinery
 // built, loselifeeffect.go's own identical gap); set to the SAME value is
 // no event at all, CR 119.5's own explicit carve-out.
+
 package engine
 
 import "fmt"

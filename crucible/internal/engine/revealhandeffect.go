@@ -13,6 +13,7 @@
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/RevealHandEffect.java's
 // resolve.
+
 package engine
 
 import (

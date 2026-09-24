@@ -55,21 +55,21 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		if amount <= 0 {
 			return nil
 		}
-		min, err := optionalAmount(g, a, "SetState", "MinAmount", amount)
+		minCards, err := optionalAmount(g, a, "SetState", "MinAmount", amount)
 		if err != nil {
 			return err
 		}
 		if !hasParam(a, "Mandatory") {
-			min = 0
+			minCards = 0
 		}
 		if amount > len(choices) {
 			amount = len(choices)
 		}
-		if min > amount {
-			min = amount
+		if minCards > amount {
+			minCards = amount
 		}
-		cards = controller.ChooseCardsForEffect(g, a.Controller, a.Source, choices, min, amount)
-		if err := checkChoice(cards, choices, min, amount); err != nil {
+		cards = controller.ChooseCardsForEffect(g, a.Controller, a.Source, choices, minCards, amount)
+		if err := checkChoice(cards, choices, minCards, amount); err != nil {
 			return fmt.Errorf("engine: SetState: %w", err)
 		}
 	} else {

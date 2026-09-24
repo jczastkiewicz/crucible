@@ -13,6 +13,7 @@
 // (checkExertedTriggers, below), and the actual cost -- CR 701.42b's "it
 // doesn't untap during your next untap step" -- is entirely deferred, paid
 // off at the exerting player's own next untapStep (turn.go), not here.
+
 package engine
 
 import (

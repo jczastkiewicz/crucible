@@ -17,6 +17,7 @@
 // port's own trigger table has no entry for yet, the identical "an unbuilt
 // Mode$ simply never fires" reasoning every other still-missing mode already
 // has (game-state.md's own "Not ported yet").
+
 package engine
 
 import (

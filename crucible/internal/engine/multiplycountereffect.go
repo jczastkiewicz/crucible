@@ -23,6 +23,7 @@
 // battlefield or changed state) -- this port's own targetedOrDefinedCards
 // never returns a card the game itself no longer tracks, so the guard has
 // nothing to protect against here and is not ported.
+
 package engine
 
 import (

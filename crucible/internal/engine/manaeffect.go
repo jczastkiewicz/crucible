@@ -23,6 +23,7 @@
 // DoubleManaInPool/LastNotedType/EachColorAmong reference vocabulary, and
 // Chooser$'s own delegated-decider override -- 0 real (SP|DB)$ Mana lines
 // name Chooser$ at all, so nothing here is silently ignored by skipping it.
+
 package engine
 
 import (

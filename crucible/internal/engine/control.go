@@ -386,32 +386,32 @@ type PlayerController interface {
 	// engine invariant breach (GO-7).
 	ChooseManaColor(g *Game, decider PlayerID, source CardID, options mana.Colors) mana.Colors
 
-	// ChooseCardsForEffect picks between min and max cards out of options for
+	// ChooseCardsForEffect picks between lo and hi cards out of options for
 	// an effect resolving from source -- Java PlayerController's own
 	// chooseCardsForEffect, what ChooseCard's default shape and Reveal's
 	// chooseCardsToRevealFromHand both ask. The answer is re-checked by the
 	// caller (size and membership) before it is used (GO-7).
-	ChooseCardsForEffect(g *Game, decider PlayerID, source CardID, options []CardID, min, max int) []CardID
+	ChooseCardsForEffect(g *Game, decider PlayerID, source CardID, options []CardID, lo, hi int) []CardID
 
 	// ChoosePlayerForEffect picks one player out of options -- Java's
 	// chooseSingleEntityForEffect as ChoosePlayer calls it.
 	ChoosePlayerForEffect(g *Game, decider PlayerID, source CardID, options []PlayerID) PlayerID
 
-	// ChooseColors picks between min and max colors out of options -- Java's
+	// ChooseColors picks between lo and hi colors out of options -- Java's
 	// chooseColors as ChooseColor calls it.
-	ChooseColors(g *Game, decider PlayerID, source CardID, options mana.Colors, min, max int) mana.Colors
+	ChooseColors(g *Game, decider PlayerID, source CardID, options mana.Colors, lo, hi int) mana.Colors
 
-	// ChooseNumber picks an integer in [min, max] -- Java's chooseNumber as
+	// ChooseNumber picks an integer in [lo, hi] -- Java's chooseNumber as
 	// ChooseNumber calls it.
-	ChooseNumber(g *Game, decider PlayerID, source CardID, min, max int) int
+	ChooseNumber(g *Game, decider PlayerID, source CardID, lo, hi int) int
 
 	// ChooseTapOrUntap decides whether TapOrUntap taps (true) or untaps
 	// (false) target -- Java's chooseBinary with BinaryChoiceType.TapOrUntap.
 	ChooseTapOrUntap(g *Game, decider PlayerID, target CardID) bool
 
-	// ChooseEntitiesForEffect picks between min and max entities out of
+	// ChooseEntitiesForEffect picks between lo and hi entities out of
 	// options -- Java's chooseEntitiesForEffect as Proliferate calls it.
-	ChooseEntitiesForEffect(g *Game, decider PlayerID, source CardID, options []EntityID, min, max int) []EntityID
+	ChooseEntitiesForEffect(g *Game, decider PlayerID, source CardID, options []EntityID, lo, hi int) []EntityID
 
 	// ConfirmReveal answers PeekAndReveal's RevealOptional$ prompt -- Java's
 	// confirmAction with "reveal this card to other players?".
@@ -433,11 +433,11 @@ type PlayerController interface {
 	// Choices$ lists) -- Java's chooseSpellAbilitiesForEffect.
 	ChooseAbilitiesForEffect(g *Game, decider PlayerID, source CardID, options []string, amount int) []int
 
-	// ChooseModesForAbility picks between min and max of a Charm's modes,
+	// ChooseModesForAbility picks between lo and hi of a Charm's modes,
 	// answering with distinct indices into options (the Choices$ SVar
 	// names) -- Java's chooseModeForAbility. The caller checks the answer
 	// (GO-7).
-	ChooseModesForAbility(g *Game, decider PlayerID, source CardID, options []string, min, max int) []int
+	ChooseModesForAbility(g *Game, decider PlayerID, source CardID, options []string, lo, hi int) []int
 
 	// ChooseProtectionType picks one of options (a color or a card type) for
 	// a Protection effect's Gains$ Choice, answering with its index -- Java's

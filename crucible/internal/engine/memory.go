@@ -102,8 +102,6 @@ func (m *Memory) Chosen() []CardID {
 // ClearChosen empties the chosen list.
 func (m *Memory) ClearChosen() { m.chosen = nil }
 
-// clone returns an independent copy. Each list is copied only when it exists,
-// because the overwhelming majority of cards remember nothing.
 // Forget removes e from the remembered list -- Java's removeRemembered, what
 // ChooseCard's ForgetChosen$ and Cleanup's ForgetDefined$ call.
 func (m *Memory) Forget(e EntityID) bool {
@@ -178,6 +176,8 @@ func (m *Memory) NamedCards() []string { return m.namedCards }
 // ClearNamedCards is Cleanup's ClearNamedCard$.
 func (m *Memory) ClearNamedCards() { m.namedCards = nil }
 
+// clone returns an independent copy. Each list is copied only when it exists,
+// because the overwhelming majority of cards remember nothing.
 func (m Memory) clone() Memory {
 	out := Memory{
 		chosenPlayer:    m.chosenPlayer,

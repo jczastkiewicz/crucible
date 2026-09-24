@@ -16,6 +16,7 @@
 // per-card body -- the first M6 pack whose own "All" sibling shares its
 // per-entity write path with its own singular effect's file directly,
 // rather than each effect owning a private copy.
+
 package engine
 
 import (

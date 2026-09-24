@@ -33,6 +33,37 @@ type DamageAssignment struct {
 	Amount  int
 }
 
+// removeFromCombat is CR 506.4's own "if a permanent leaves combat" --
+// removeFromCombatEffect.go's own real caller, CR 400.7's own Move (game.go)
+// leaving combat untouched itself since that rule fires from far more places
+// than a script-driven zone change alone (first strike/second strike damage,
+// a Battle losing its own last defender, ...), none of which this port
+// tracks well enough yet to fire this on its own (game-state.md's "Not
+// ported yet"). id stops being an attacker and every block naming it either
+// side (attacker or blocker) drops -- CR 509.1h's own "removed from combat"
+// for a blocker gone mid-combat, and the identical rule for an attacker
+// applied to Blocks the other direction, both a plain filter since neither
+// side's own departure ever implies a different one should also leave.
+func (g *Game) removeFromCombat(id CardID) {
+	var attackers []CardID
+	for _, a := range g.combat.Attackers {
+		if a != id {
+			attackers = append(attackers, a)
+		}
+	}
+	g.combat.Attackers = attackers
+	if g.combat.AttackTargets != nil {
+		delete(g.combat.AttackTargets, id)
+	}
+	var blocks []Block
+	for _, b := range g.combat.Blocks {
+		if b.Attacker != id && b.Blocker != id {
+			blocks = append(blocks, b)
+		}
+	}
+	g.combat.Blocks = blocks
+}
+
 // clone is Combat's half of Game.Clone: a shared backing array would let a
 // declaration on the clone alias the original, the same reasoning PT's own
 // clone has.

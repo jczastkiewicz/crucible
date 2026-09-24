@@ -192,11 +192,12 @@ information (`Game.LKI`); activating an ability (`activateability.go`/`activatem
 AddCounter/SubCounter; tapXType/Return-by-type; ExileFromGrave, self-discard and ExileFromHand for the graveyard/hand
 `ActivationZone$` cases) and CR 606.3's loyalty-ability once-per-turn restriction.
 
-M6 in progress alongside it: 27 of the corpus's 203 script-driven `Effect` APIs resolve rather than reporting
+M6 in progress alongside it: 37 of the corpus's 203 script-driven `Effect` APIs resolve rather than reporting
 `ErrUnimplemented` — `Draw`, `DealDamage`, `GainLife`, `Pump`, `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`,
 `Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`, `Untap`, `Fight`, `Mill`, `RemoveCounter`, `DamageAll`,
-`SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`, `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter` —
-each with `UnlessCost$` and `SubAbility$` chaining wired through `Registry.Resolve` (`effect.go`);
+`SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`, `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter`,
+`Mana`, `MoveCounter`, `Poison`, `Unattach`, `RevealHand`, `LosesGame`, `WinsGame`, `Radiation`, `RemoveFromCombat`,
+`Connive` — each with `UnlessCost$` and `SubAbility$` chaining wired through `Registry.Resolve` (`effect.go`);
 `Destroy`/`Tap`/`Untap` are the first to read a chosen target (`Ability.Targets`) directly rather than only through
 `Defined$` (`targetedOrDefinedCards`, `defined.go`), and `Mill`/`Shuffle`/`SetLife`/ `ExchangeLife` do the same for a
 player target (`targetedOrDefinedPlayers`). `ChangeZone` (6,616 real corpus lines) is the single largest remaining gap;

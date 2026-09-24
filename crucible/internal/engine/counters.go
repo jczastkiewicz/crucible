@@ -32,6 +32,11 @@ const (
 	// Poison, nothing in the rules ever adds a *threshold* check against it;
 	// a player's own count is only ever read to see whether N is affordable.
 	Energy CounterType = "ENERGY"
+	// Radiation is a player-level counter (CR 121.13). radiationEffect
+	// (radiationeffect.go) is the only writer; CR 704.5u's own upkeep
+	// dice-roll-or-lose-life consequence needs PhaseHandler's own Upkeep step
+	// body (game-state.md's "Not ported yet"), not built yet.
+	Radiation CounterType = "RAD"
 )
 
 // Counters is what a card has on it.

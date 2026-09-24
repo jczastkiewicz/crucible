@@ -76,7 +76,17 @@
     "untapalleffect": ["untapalleffect.go"],
     "putcounteralleffect": ["putcounteralleffect.go"],
     "removecounteralleffect": ["removecounteralleffect.go"],
-    "multiplycountereffect": ["multiplycountereffect.go"]
+    "multiplycountereffect": ["multiplycountereffect.go"],
+    "manaeffect": ["manaeffect.go"],
+    "movecountereffect": ["movecountereffect.go"],
+    "poisoneffect": ["poisoneffect.go"],
+    "unattacheffect": ["unattacheffect.go"],
+    "revealhandeffect": ["revealhandeffect.go"],
+    "losesgameeffect": ["losesgameeffect.go"],
+    "winsgameeffect": ["winsgameeffect.go"],
+    "radiationeffect": ["radiationeffect.go"],
+    "removefromcombateffect": ["removefromcombateffect.go"],
+    "conniveeffect": ["conniveeffect.go"]
   },
   "allow": {
     "zone": ["id"],
@@ -85,7 +95,7 @@
     "card": ["id", "zone", "parts", "layer"],
     "player": ["id", "parts", "mana"],
     "ability": ["id"],
-    "combat": ["id"],
+    "combat": ["id", "game"],
     "game": ["id", "zone", "parts", "card", "player", "phase", "event", "ability", "combat"],
     "effect": [
       "id",
@@ -216,7 +226,17 @@
       "untapalleffect",
       "putcounteralleffect",
       "removecounteralleffect",
-      "multiplycountereffect"
+      "multiplycountereffect",
+      "manaeffect",
+      "movecountereffect",
+      "poisoneffect",
+      "unattacheffect",
+      "revealhandeffect",
+      "losesgameeffect",
+      "winsgameeffect",
+      "radiationeffect",
+      "removefromcombateffect",
+      "conniveeffect"
     ],
     "trigger": [
       "id",
@@ -349,6 +369,16 @@
     "untapalleffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone", "parts", "valid", "trigger"],
     "putcounteralleffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "zone", "valid", "amount", "event", "parts"],
     "removecounteralleffect": ["id", "card", "game", "ability", "condition", "control", "zone", "valid", "amount", "removecountereffect", "parts"],
-    "multiplycountereffect": ["id", "card", "game", "ability", "defined", "condition", "control", "parts", "event"]
+    "multiplycountereffect": ["id", "card", "game", "ability", "defined", "condition", "control", "parts", "event"],
+    "manaeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "manaability"],
+    "movecountereffect": ["id", "card", "game", "ability", "defined", "condition", "control", "amount", "parts", "event"],
+    "poisoneffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "parts", "event"],
+    "unattacheffect": ["id", "card", "game", "ability", "defined", "condition", "control", "zone"],
+    "revealhandeffect": ["id", "card", "game", "ability", "defined", "condition", "control", "valid", "zone", "parts"],
+    "losesgameeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control"],
+    "winsgameeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control"],
+    "radiationeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "parts", "event"],
+    "removefromcombateffect": ["id", "card", "game", "ability", "defined", "condition", "control", "parts", "combat", "zone"],
+    "conniveeffect": ["id", "card", "game", "player", "ability", "defined", "condition", "control", "amount", "parts", "event", "zone", "turn", "discardeffect"]
   }
 }

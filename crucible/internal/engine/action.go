@@ -97,8 +97,33 @@ import (
 // A GameEnded event fires exactly once, on the call that flips g.over --
 // never on a later call finding it already true, and not from any other
 // path: this is the only place g.over is set.
+//
+// CR 104.1's own alt-win -- winsGameEffect (winsgameeffect.go) setting
+// Player.Won directly rather than through CR 104.2a's own elimination count
+// below -- ends the game immediately, checked first for the identical
+// reason: an effect that makes a player win does not wait for every
+// opponent to also be eliminated first. More than one Player.Won at once
+// (winsGameEffect resolving for two players in the same pass) is CR
+// 104.4a's own simultaneous-win draw, Actor left NoPlayer the same as the
+// ordinary zero-remaining draw below.
 func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	if g.over {
+		return true
+	}
+
+	winner, wins := NoPlayer, 0
+	for _, id := range g.Players() {
+		if g.Player(id).Won {
+			winner, wins = id, wins+1
+		}
+	}
+	if wins > 0 {
+		g.over = true
+		actor := winner
+		if wins > 1 {
+			actor = NoPlayer
+		}
+		g.sink.Emit(Event{Kind: GameEnded, Active: g.activePlayer, Actor: actor, Turn: uint16(g.turn)})
 		return true
 	}
 

@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Twenty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Thirty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -285,7 +285,32 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // multiplyCounterEffect (multiplycountereffect.go), M6's twenty-seventh and
 // the first M6 effect to read a's own Targets field through
 // targetedOrDefinedCards for a MultiplyCounter-shaped line rather than a
-// Destroy/Tap/Untap-shaped one.
+// Destroy/Tap/Untap-shaped one. APIMana is manaEffect (manaeffect.go), M6's
+// twenty-eighth and the first to reuse activatemanaability.go's own
+// producedManaColor/parseComboColors/ChooseManaColor for a RESOLVING mana
+// burst rather than an activated ability; APIMoveCounter is
+// moveCounterEffect (movecountereffect.go), M6's twenty-ninth and
+// PutCounter's/RemoveCounter's own card-to-card sibling; APIPoison is
+// poisonEffect (poisoneffect.go), M6's thirtieth and Radiation's own
+// mirror-shaped sibling below; APIUnattach is unattachEffect
+// (unattacheffect.go), M6's thirty-first, a target-resolution loop around
+// the already-built Game.Unattach; APIRevealHand is revealHandEffect
+// (revealhandeffect.go), M6's thirty-second and the first effect whose only
+// real state change is Memory.Remember, since this port's own engine has no
+// hidden information to actually reveal; APILosesGame is losesGameEffect
+// (losesgameeffect.go), M6's thirty-third, a target-resolution loop around
+// the already-checked Player.Lost; APIWinsGame is winsGameEffect
+// (winsgameeffect.go), M6's thirty-fourth and Player.Won's own first writer
+// past CheckStateBasedActions' own CR 104.2a elimination count, which now
+// checks it first (action.go); APIRadiation is radiationEffect
+// (radiationeffect.go), M6's thirty-fifth and Poison's own mirror-shaped
+// sibling above; APIRemoveFromCombat is removeFromCombatEffect
+// (removefromcombateffect.go), M6's thirty-sixth, a target-resolution loop
+// around the new Game.removeFromCombat (combat.go); APIConnive is
+// conniveEffect (conniveeffect.go), M6's thirty-seventh and the first M6
+// effect built entirely by composing three already-built primitives
+// (Game.DrawCards, ChooseCardsToDiscard/discardCards, Counters.Add) rather
+// than adding a new one of its own.
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -324,5 +349,15 @@ func NewRegistry() *Registry {
 	r[APIPutCounterAll] = putCounterAllEffect{}
 	r[APIRemoveCounterAll] = removeCounterAllEffect{}
 	r[APIMultiplyCounter] = multiplyCounterEffect{}
+	r[APIMana] = manaEffect{}
+	r[APIMoveCounter] = moveCounterEffect{}
+	r[APIPoison] = poisonEffect{}
+	r[APIUnattach] = unattachEffect{}
+	r[APIRevealHand] = revealHandEffect{}
+	r[APILosesGame] = losesGameEffect{}
+	r[APIWinsGame] = winsGameEffect{}
+	r[APIRadiation] = radiationEffect{}
+	r[APIRemoveFromCombat] = removeFromCombatEffect{}
+	r[APIConnive] = conniveEffect{}
 	return &r
 }

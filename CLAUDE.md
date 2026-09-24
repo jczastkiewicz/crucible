@@ -202,24 +202,16 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 
 ---
 
-## Subagents
+## Subagents and skills
 
-`.claude/agents/`: `forge-oracle` (Java semantics of an API, before porting), `rules-reviewer` (diff vs non-negotiables,
-before commit), `gate-runner` (gates, failures only). Delegate to them instead of reading Java or test logs inline.
+| Kind     | Name             | Use for                                                                           |
+| -------- | ---------------- | --------------------------------------------------------------------------------- |
+| subagent | `forge-oracle`   | Java semantics of an API before porting. Keeps `forge-game/` reads out of context |
+| subagent | `rules-reviewer` | Diff vs non-negotiables, before commit                                            |
+| subagent | `gate-runner`    | Gates or one test, failures only                                                  |
+| skill    | `port-effect`    | Any M6 `ApiType` effect: file, registry, enginelint, test, docs, counts           |
+| skill    | `port-java-unit` | Any other Java unit, PORT-3 order                                                 |
+| skill    | `add-scenario`   | Rules test as a `testdata/scenarios/` fixture                                     |
 
----
-
-## Adding an M6 effect
-
-Each step below is enforced by a gate or has broken a commit before.
-
-1. Write `internal/engine/<api>effect.go`. Reject every param the effect does not resolve with an `error` before doing
-   anything, then check `subAbilityConditionMet` (PORT-8, GO-7).
-2. Register the effect in `NewRegistry()` in `castspell.go` and extend that function's doc comment.
-3. Add a one-file group for the new file to `internal/engine/enginelint.json`, give it an allow-list, and add the group
-   to `castspell`'s allow-list. Run `enginelint` until clean.
-4. Write the test in `package engine_test` with at least two players. A one-player game ends at the first state-based
-   action check (CR 104.2a), so later stack items never resolve.
-5. In the same commit, add a section to `port-log/game-state.md` just before `## Not ported yet`, update the
-   remaining-API count there and in `00-master-implementation-plan-in-progress.md`, and bump the count above. Then
-   confirm `grep -c '^| ---' docs/crucible/porting/port-log/game-state.md` still prints `6`.
+Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`; `game-state.md` is the index plus
+`Not ported yet`.

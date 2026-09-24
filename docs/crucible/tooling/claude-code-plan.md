@@ -27,16 +27,24 @@ Claude remembers it.
 
 Hooks run in the harness, not the model. Rule cannot be forgotten.
 
-| Hook                                  | Action                                                                      | Rule enforced |
-| ------------------------------------- | --------------------------------------------------------------------------- | ------------- |
-| `PreToolUse` on `Edit\|Write`         | Reject path outside `crucible/`, `docs/crucible/`, `.claude/`, `/CLAUDE.md` | REV-1         |
-| `PostToolUse` on `Edit\|Write` `*.go` | `gofmt -s -w <file>`                                                        | GO-1          |
-| `PostToolUse` on `Edit\|Write` `*.md` | `prettier --write <file>`                                                   | DOC-14        |
-| `Stop`                                | Fast gates: `gofmt -l`, `go vet`, `enginelint`, `docgate`, `apiscan -check` | CI parity     |
-| `PreToolUse` on `git commit`          | `prettier --check .` + `markdownlint-cli2`                                  | DOC-14/15     |
+Implemented: `.claude/settings.json` (committed), scripts in `.claude/hooks/`, gate runner `crucible/scripts/gates.sh`.
 
-`go vet ./...` measured `~2 s`. `go test -race ./...` too slow for every `Stop`; stays in TOOL-2 `gates` skill and
-pre-commit.
+| Hook                                  | Action                                                                          | Blocks | Rule enforced |
+| ------------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------- |
+| `PreToolUse` on Bash `git commit`     | `gates.sh full`: every CI gate incl. `golangci-lint`, `go test -race`, prettier | yes    | CI parity     |
+| `PostToolUse` on `Edit\|Write` `*.go` | `gofmt -s -w <file>`                                                            | no     | GO-1          |
+| `PostToolUse` on `Edit\|Write` `*.md` | `prettier --write <file>`                                                       | no     | DOC-14        |
+| `Stop`                                | `gates.sh fast` when `crucible/` or `docs/crucible/` dirty; `systemMessage`     | no     | early warning |
+| `PreToolUse` on `Edit\|Write`         | Reject path outside `crucible/`, `docs/crucible/`, `.claude/`, `/CLAUDE.md`     | yes    | REV-1 — to do |
+
+Measured: `fast` `~16 s`, `full` `~80 s` (`go test -race` on `internal/engine` alone `~42 s`). `full` too slow for every
+`Stop`, so commit is the hard gate. `Stop` reports only: blocking loops on a failure Claude cannot fix in-turn.
+
+Why commit hook exists: CI run `35962658352` failed on 33 `revive` findings. `golangci-lint` was CI-only, nothing ran it
+before push.
+
+Upstream `.gitignore:107` ignores `.claude`. Files there are force-added (`git add -f`), not un-ignored. Reason: editing
+`.gitignore` is an upstream patch (REV-1).
 
 Upstream-path hook allows edits listed in `porting/upstream-patches.md` only via explicit user approval, never silently.
 Reason: PORT-8 fixes upstream are legitimate but must be logged in same commit.
@@ -116,8 +124,8 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 
 | #   | Step                                     | Effort | Depends on |
 | --- | ---------------------------------------- | ------ | ---------- |
-| 1   | `scripts/gates.sh`                       | S      | —          |
-| 2   | TOOL-1 hooks in `.claude/settings.json`  | S      | 1          |
+| 1   | `scripts/gates.sh` done                  | S      | —          |
+| 2   | TOOL-1 hooks done, REV-1 guard to do     | S      | 1          |
 | 3   | TOOL-6 permission allowlist              | S      | —          |
 | 4   | TOOL-2 `port-effect` + `gates` skills    | M      | 1          |
 | 5   | TOOL-3 subagents                         | S      | —          |
@@ -129,12 +137,6 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 Steps 1-4 give most value per hour: rules enforced by harness, `CLAUDE.md` shorter.
 
 ---
-
-## Open questions
-
-- `.claude/settings.json` committed (shared) or `settings.local.json` (private)? Committed makes hooks part of repo
-  contract; fork has one contributor today.
-- `Stop` hook blocking vs. reporting only. Blocking stops Claude ending turn on red gate; may loop on unfixable failure.
 
 ## Related
 

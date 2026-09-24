@@ -140,7 +140,11 @@ cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/cov
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
 cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
-cd crucible && golangci-lint run   # CI only; not installed locally
+cd crucible && golangci-lint run   # v2.13.2, same as CI: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+
+# All of the above in CI order. fast ~16 s, full ~80 s. .claude/ hooks run full before every Claude commit (blocking)
+# and fast on Stop (report only). New .claude/ files need `git add -f`: upstream .gitignore ignores .claude
+crucible/scripts/gates.sh fast|full
 
 # Regenerate the golden AST fingerprints, then review the diff
 cd crucible && go test ./internal/carddb/compile -run TestCorpusAST -update

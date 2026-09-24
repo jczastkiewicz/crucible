@@ -40,6 +40,7 @@ This repo is a fork of [Card-Forge/forge](https://github.com/Card-Forge/forge). 
 | [telemetry/](telemetry/)       | Metric definitions; event schema and report formats later                                            | `metric-definitions` — 21 `MET-n`, versioned           |
 | [research/](research/)         | Meta gauntlet definition, format scope                                                               | Structure written; Modern decklists pending            |
 | `runbooks/`                    | [`upstream-sync.md`](runbooks/upstream-sync.md). Batch runs, card support and parity failures follow | Sync now; the rest needs working code — M8             |
+| [tooling/](tooling/)           | Claude Code setup: hooks, skills, subagents                                                          | `claude-code-plan` — Draft                             |
 
 ---
 

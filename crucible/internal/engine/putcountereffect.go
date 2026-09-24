@@ -165,7 +165,7 @@ func putCounterType(a *compile.Ability) (CounterType, error) {
 func definedCounterTargets(g *Game, controller PlayerID, host *Card, defined string, targets []EntityID) ([]CardID, []PlayerID, error) {
 	switch defined {
 	case "You", "Opponent", "Player.Opponent":
-		players, err := definedPlayers(g, controller, defined, targets)
+		players, err := definedPlayers(g, controller, host.ID, defined, targets)
 		return nil, players, err
 	default:
 		cards, err := definedCards(host, defined, targets)

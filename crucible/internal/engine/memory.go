@@ -2,7 +2,10 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/pkg/collect"
+import (
+	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/pkg/collect"
+)
 
 // Memory is the lists a card carries between the parts of one effect.
 //
@@ -19,6 +22,15 @@ type Memory struct {
 	remembered *collect.OrderedSet[EntityID]
 	imprinted  *collect.OrderedSet[CardID]
 	chosen     *collect.OrderedSet[CardID]
+
+	// chosenPlayer, chosenColors and chosenNumber are Java Card's own
+	// setChosenPlayer/setChosenColors/setChosenNumber: single values, each
+	// overwritten by the next ChoosePlayer/ChooseColor/ChooseNumber and
+	// cleared by Cleanup's ClearChosenPlayer$/ClearChosenColor$.
+	chosenPlayer    PlayerID
+	chosenColors    mana.Colors
+	chosenNumber    int
+	hasChosenNumber bool
 }
 
 // Remember adds an entity, and reports whether it was new. Order is the order
@@ -82,8 +94,41 @@ func (m *Memory) ClearChosen() { m.chosen = nil }
 
 // clone returns an independent copy. Each list is copied only when it exists,
 // because the overwhelming majority of cards remember nothing.
+// Forget removes e from the remembered list -- Java's removeRemembered, what
+// ChooseCard's ForgetChosen$ and Cleanup's ForgetDefined$ call.
+func (m *Memory) Forget(e EntityID) bool {
+	if m.remembered == nil {
+		return false
+	}
+	return m.remembered.Remove(e)
+}
+
+// SetChosenPlayer records the player a ChoosePlayer picked; NoPlayer clears it.
+func (m *Memory) SetChosenPlayer(p PlayerID) { m.chosenPlayer = p }
+
+// ChosenPlayer is the player last recorded by SetChosenPlayer, NoPlayer when none.
+func (m *Memory) ChosenPlayer() PlayerID { return m.chosenPlayer }
+
+// SetChosenColors records the colors a ChooseColor picked; zero clears them.
+func (m *Memory) SetChosenColors(c mana.Colors) { m.chosenColors = c }
+
+// ChosenColors is the colors last recorded by SetChosenColors.
+func (m *Memory) ChosenColors() mana.Colors { return m.chosenColors }
+
+// SetChosenNumber records the number a ChooseNumber picked.
+func (m *Memory) SetChosenNumber(n int) { m.chosenNumber, m.hasChosenNumber = n, true }
+
+// ChosenNumber is the number last recorded by SetChosenNumber; ok is false
+// when none was, since zero is a legal choice.
+func (m *Memory) ChosenNumber() (n int, ok bool) { return m.chosenNumber, m.hasChosenNumber }
+
 func (m Memory) clone() Memory {
-	var out Memory
+	out := Memory{
+		chosenPlayer:    m.chosenPlayer,
+		chosenColors:    m.chosenColors,
+		chosenNumber:    m.chosenNumber,
+		hasChosenNumber: m.hasChosenNumber,
+	}
 	if m.remembered != nil {
 		out.remembered = m.remembered.Clone()
 	}

@@ -149,8 +149,9 @@ func TestDrawEffectEmptyLibraryLosesTheGame(t *testing.T) {
 }
 
 // TestDrawEffectUnsupportedDefinedErrors proves a Defined$ shape this port
-// cannot resolve yet (Remembered, TriggeredPlayer, ...) is a real error
-// naming the param, not a silent no-op or a wrong guess (GO-7).
+// cannot resolve yet (TriggeredPlayer, ...) is a real error naming the
+// param, not a silent no-op or a wrong guess (GO-7). "Remembered" and
+// "ChosenPlayer" read the host's Memory (defined.go), and
 // "Targeted"/"TargetedPlayer" moved out of this group once targeting.go
 // landed: definedPlayers now resolves them by reading a.Targets, which
 // resolveTargets fills from ValidTgts$ -- an ability naming Defined$
@@ -165,7 +166,7 @@ func TestDrawEffectUnsupportedDefinedErrors(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 
-	err := castETBDraw(t, g, p, etbDrawTriggerDefParams(t, "Test Defined Remembered", "Remembered", "1"))
+	err := castETBDraw(t, g, p, etbDrawTriggerDefParams(t, "Test Defined TriggeredPlayer", "TriggeredPlayer", "1"))
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming Defined$")
 	}

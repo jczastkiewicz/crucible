@@ -102,7 +102,7 @@ func (sacrificeAllEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	}
 
 	if controllerParam, ok := a.Params.Param("Controller"); ok {
-		players, err := definedPlayers(g, a.Controller, controllerParam, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, controllerParam, a.Targets)
 		if err != nil {
 			return fmt.Errorf("engine: SacrificeAll: %w", err)
 		}

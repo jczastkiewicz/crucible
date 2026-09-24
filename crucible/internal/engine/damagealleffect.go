@@ -102,7 +102,7 @@ func (damageAllEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		}
 	}
 	if validPlayers, ok := a.Params.Param("ValidPlayers"); ok {
-		players, err := definedPlayers(g, a.Controller, validPlayers, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, validPlayers, a.Targets)
 		if err != nil {
 			return fmt.Errorf("engine: DamageAll: ValidPlayers$: %w", err)
 		}

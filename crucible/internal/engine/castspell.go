@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Thirty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Forty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -310,7 +310,12 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // conniveEffect (conniveeffect.go), M6's thirty-seventh and the first M6
 // effect built entirely by composing three already-built primitives
 // (Game.DrawCards, ChooseCardsToDiscard/discardCards, Counters.Add) rather
-// than adding a new one of its own.
+// than adding a new one of its own. The next ten -- Cleanup, DestroyAll,
+// ChooseCard, ChoosePlayer, ChooseColor, ChooseNumber, Reveal,
+// PeekAndReveal, TapOrUntap, Proliferate -- land together: Cleanup and the
+// four Choose effects write the host's Memory (memory.go) that definedCards'
+// Remembered/Imprinted/ChosenCard and definedPlayers' ChosenPlayer/Remembered
+// cases (defined.go) read back.
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -359,5 +364,15 @@ func NewRegistry() *Registry {
 	r[APIRadiation] = radiationEffect{}
 	r[APIRemoveFromCombat] = removeFromCombatEffect{}
 	r[APIConnive] = conniveEffect{}
+	r[APICleanup] = cleanupEffect{}
+	r[APIDestroyAll] = destroyAllEffect{}
+	r[APIChooseCard] = chooseCardEffect{}
+	r[APIChoosePlayer] = choosePlayerEffect{}
+	r[APIChooseColor] = chooseColorEffect{}
+	r[APIChooseNumber] = chooseNumberEffect{}
+	r[APIReveal] = revealEffect{}
+	r[APIPeekAndReveal] = peekAndRevealEffect{}
+	r[APITapOrUntap] = tapOrUntapEffect{}
+	r[APIProliferate] = proliferateEffect{}
 	return &r
 }

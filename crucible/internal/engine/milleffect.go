@@ -69,7 +69,7 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return nil
 	}
 
-	millers, err := targetedOrDefinedPlayers(g, a.Controller, a.Params, a.Targets)
+	millers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Mill: %w", err)
 	}

@@ -181,7 +181,7 @@ valid-string evaluator, mana pool and payment, casting permanents and Auras thro
 replacement effects, block legality, continuous effects across all eight layers (partial), targeting, SubAbility
 chaining, last-known information, activated abilities.
 
-M6 in progress: 37 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, `castspell.go`); the rest
+M6 in progress: 47 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, `castspell.go`); the rest
 return `ErrUnimplemented`. Largest gaps: `ChangeZone` (6,616 corpus lines), real instant/sorcery casting,
 `DB$ Effect`/`Repeat`/`GenericChoice`/`DelayedTrigger`, token creation.
 

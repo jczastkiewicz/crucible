@@ -451,3 +451,31 @@ func equalCardIDs(a, b []engine.CardID) bool {
 	}
 	return true
 }
+
+func (c *scriptedMulliganController) ChooseCardsForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.CardID, _, _ int) []engine.CardID {
+	panic("scriptedMulliganController: ChooseCardsForEffect was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChoosePlayerForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.PlayerID) engine.PlayerID {
+	panic("scriptedMulliganController: ChoosePlayerForEffect was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseColors(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ mana.Colors, _, _ int) mana.Colors {
+	panic("scriptedMulliganController: ChooseColors was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseNumber(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _, _ int) int {
+	panic("scriptedMulliganController: ChooseNumber was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseTapOrUntap(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: ChooseTapOrUntap was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseEntitiesForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.EntityID, _, _ int) []engine.EntityID {
+	panic("scriptedMulliganController: ChooseEntitiesForEffect was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ConfirmReveal(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: ConfirmReveal was not expected to be called")
+}

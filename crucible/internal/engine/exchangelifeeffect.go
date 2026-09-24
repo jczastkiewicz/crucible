@@ -51,7 +51,7 @@ func (exchangeLifeEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 		return nil
 	}
 
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: ExchangeLife: %w", err)
 	}

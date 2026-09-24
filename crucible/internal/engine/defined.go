@@ -1,8 +1,9 @@
 // Defined$ resolution shared across M6's own script-driven effects --
 // AbilityUtils.getDefinedPlayers's/getDefinedCards's own real corpus shapes
 // this port can resolve without its full ability-context reference
-// vocabulary (Targeted, Remembered, TriggeredPlayer, TriggeredController,
-// ... -- game-state.md's "Not ported yet"). No single effect owns this
+// vocabulary (TriggeredPlayer, TriggeredController, ... -- game-state.md's
+// "Not ported yet"). The host-Memory references -- Remembered, Imprinted,
+// ChosenCard, ChosenPlayer -- read memory.go. No single effect owns this
 // outright, the identical "shared, so neither" reason amount.go's own
 // resolveAmount lives apart from its first two callers.
 
@@ -27,9 +28,11 @@ import (
 // targeting.go -- filtered from a mixed EntityID slice even though no real
 // ValidTgts$ line this port evaluates ever actually mixes cards and players
 // in one target set, since nothing about Defined$'s own reading enforces
-// that). A player no longer in the game is skipped, matching Java's own
+// that), "ChosenPlayer" (the host's Memory.ChosenPlayer) and "Remembered"/
+// "RememberedController"/"RememberedOwner" (rememberedPlayers, below). A
+// player no longer in the game is skipped, matching Java's own
 // `if (!p.isInGame()) continue`.
-func definedPlayers(g *Game, controller PlayerID, defined string, targets []EntityID) ([]PlayerID, error) {
+func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, targets []EntityID) ([]PlayerID, error) {
 	var candidates []PlayerID
 	switch defined {
 	case "You":
@@ -48,6 +51,12 @@ func definedPlayers(g *Game, controller PlayerID, defined string, targets []Enti
 				candidates = append(candidates, pid)
 			}
 		}
+	case "ChosenPlayer":
+		if pid := g.Card(host).Memory.ChosenPlayer(); pid != NoPlayer {
+			candidates = []PlayerID{pid}
+		}
+	case "Remembered", "RememberedController", "RememberedOwner":
+		candidates = rememberedPlayers(g, defined, g.Card(host).Memory.Remembered(), true)
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}
@@ -60,6 +69,39 @@ func definedPlayers(g *Game, controller PlayerID, defined string, targets []Enti
 	return players, nil
 }
 
+// rememberedPlayers is AbilityUtils.addPlayer for the three "Remembered"
+// Defined$ spellings: a remembered player is taken as-is; a remembered card
+// contributes its controller ("RememberedController"), its owner
+// ("RememberedOwner"), or -- for plain "Remembered", Java's own
+// def.endsWith("Remembered") branch -- the players that card itself
+// remembers, one level deep (recurse false), which is Java's own
+// skipRemembered guard against Riveteers Overlook's StackOverflow.
+func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse bool) []PlayerID {
+	var out []PlayerID
+	for _, e := range remembered {
+		if pid, ok := e.AsPlayer(); ok {
+			out = append(out, pid)
+			continue
+		}
+		cid, ok := e.AsCard()
+		if !ok {
+			continue
+		}
+		c := g.Card(cid)
+		switch defined {
+		case "RememberedController":
+			out = append(out, c.Controller())
+		case "RememberedOwner":
+			out = append(out, c.Owner)
+		default:
+			if recurse {
+				out = append(out, rememberedPlayers(g, defined, c.Memory.Remembered(), false)...)
+			}
+		}
+	}
+	return out
+}
+
 // definedCards resolves Defined$ to the cards it names, relative to the
 // ability's own host card rather than its controller (pumpEffect's first
 // caller): "Self" (the host itself, 1,094 of pumpEffect's own 1,147 real
@@ -69,7 +111,8 @@ func definedPlayers(g *Game, controller PlayerID, defined string, targets []Enti
 // AbilityUtils.getDefinedCards returning an empty list for an unattached
 // Aura/Equipment rather than failing the ability), and "Targeted"/
 // "ThisTargetedCard" (every CardEntity in targets -- resolveTargets's own
-// answer, targeting.go).
+// answer, targeting.go), and the host's own Memory lists: "Remembered"/
+// "RememberedCard" (its card entries only), "Imprinted", "ChosenCard".
 func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, error) {
 	switch defined {
 	case "Self":
@@ -87,6 +130,18 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 			}
 		}
 		return cards, nil
+	case "Remembered", "RememberedCard":
+		var cards []CardID
+		for _, e := range host.Memory.Remembered() {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		return cards, nil
+	case "Imprinted":
+		return append([]CardID(nil), host.Memory.Imprinted()...), nil
+	case "ChosenCard":
+		return append([]CardID(nil), host.Memory.Chosen()...), nil
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}
@@ -126,7 +181,7 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 // turn order -- an established simplification every other effect naming
 // Defined$ Player/Opponent already carries (scryEffect's/discardEffect's
 // own doc comments), not a new gap Mill introduces.
-func targetedOrDefinedPlayers(g *Game, controller PlayerID, a *compile.Ability, targets []EntityID) ([]PlayerID, error) {
+func targetedOrDefinedPlayers(g *Game, controller PlayerID, host CardID, a *compile.Ability, targets []EntityID) ([]PlayerID, error) {
 	if _, ok := a.Param("ValidTgts"); ok {
 		var players []PlayerID
 		for _, e := range targets {
@@ -140,7 +195,7 @@ func targetedOrDefinedPlayers(g *Game, controller PlayerID, a *compile.Ability, 
 	if !ok {
 		defined = "You"
 	}
-	return definedPlayers(g, controller, defined, targets)
+	return definedPlayers(g, controller, host, defined, targets)
 }
 
 func targetedOrDefinedCards(host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {

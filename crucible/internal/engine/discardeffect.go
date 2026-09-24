@@ -84,7 +84,7 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 
 	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, defined, a.Targets)
+	players, err := definedPlayers(g, a.Controller, a.Source, defined, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: Discard: %w", err)
 	}

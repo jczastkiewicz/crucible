@@ -63,7 +63,7 @@ func (setLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: SetLife: LifeAmount$ %q is not resolvable", lifeAmount)
 	}
 
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
 	if err != nil {
 		return fmt.Errorf("engine: SetLife: %w", err)
 	}

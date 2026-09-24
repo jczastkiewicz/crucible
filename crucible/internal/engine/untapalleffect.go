@@ -72,7 +72,7 @@ func (untapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	players := g.Players()
 	if hasValidTgts || hasDefined {
 		var err error
-		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Params, a.Targets)
+		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
 		if err != nil {
 			return fmt.Errorf("engine: UntapAll: %w", err)
 		}

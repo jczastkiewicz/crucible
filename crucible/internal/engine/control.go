@@ -385,6 +385,37 @@ type PlayerController interface {
 	// ([Pool.Add]'s own doc comment) and a bad script answer is not an
 	// engine invariant breach (GO-7).
 	ChooseManaColor(g *Game, decider PlayerID, source CardID, options mana.Colors) mana.Colors
+
+	// ChooseCardsForEffect picks between min and max cards out of options for
+	// an effect resolving from source -- Java PlayerController's own
+	// chooseCardsForEffect, what ChooseCard's default shape and Reveal's
+	// chooseCardsToRevealFromHand both ask. The answer is re-checked by the
+	// caller (size and membership) before it is used (GO-7).
+	ChooseCardsForEffect(g *Game, decider PlayerID, source CardID, options []CardID, min, max int) []CardID
+
+	// ChoosePlayerForEffect picks one player out of options -- Java's
+	// chooseSingleEntityForEffect as ChoosePlayer calls it.
+	ChoosePlayerForEffect(g *Game, decider PlayerID, source CardID, options []PlayerID) PlayerID
+
+	// ChooseColors picks between min and max colors out of options -- Java's
+	// chooseColors as ChooseColor calls it.
+	ChooseColors(g *Game, decider PlayerID, source CardID, options mana.Colors, min, max int) mana.Colors
+
+	// ChooseNumber picks an integer in [min, max] -- Java's chooseNumber as
+	// ChooseNumber calls it.
+	ChooseNumber(g *Game, decider PlayerID, source CardID, min, max int) int
+
+	// ChooseTapOrUntap decides whether TapOrUntap taps (true) or untaps
+	// (false) target -- Java's chooseBinary with BinaryChoiceType.TapOrUntap.
+	ChooseTapOrUntap(g *Game, decider PlayerID, target CardID) bool
+
+	// ChooseEntitiesForEffect picks between min and max entities out of
+	// options -- Java's chooseEntitiesForEffect as Proliferate calls it.
+	ChooseEntitiesForEffect(g *Game, decider PlayerID, source CardID, options []EntityID, min, max int) []EntityID
+
+	// ConfirmReveal answers PeekAndReveal's RevealOptional$ prompt -- Java's
+	// confirmAction with "reveal this card to other players?".
+	ConfirmReveal(g *Game, decider PlayerID, source CardID) bool
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -427,6 +458,13 @@ type ScriptedController struct {
 	manaColor        []mana.Colors
 	tapChoices       [][]CardID
 	returnChoices    [][]CardID
+	cardChoices      [][]CardID
+	playerChoices    []PlayerID
+	colorChoices     []mana.Colors
+	numberChoices    []int
+	tapOrUntap       []bool
+	entityChoices    [][]EntityID
+	confirmReveal    []bool
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -917,6 +955,81 @@ func (c *ScriptedController) ChooseManaColor(_ *Game, _ PlayerID, _ CardID, _ ma
 	}
 	v := c.manaColor[0]
 	c.manaColor = c.manaColor[1:]
+	return v
+}
+
+// QueueCardChoice appends the answer to the next ChooseCardsForEffect call.
+func (c *ScriptedController) QueueCardChoice(ids []CardID) {
+	c.cardChoices = append(c.cardChoices, ids)
+}
+
+// ChooseCardsForEffect returns the next answer QueueCardChoice queued.
+func (c *ScriptedController) ChooseCardsForEffect(_ *Game, _ PlayerID, _ CardID, _ []CardID, _, _ int) []CardID {
+	return popQueue(&c.cardChoices, "card choice")
+}
+
+// QueuePlayerChoice appends the answer to the next ChoosePlayerForEffect call.
+func (c *ScriptedController) QueuePlayerChoice(p PlayerID) {
+	c.playerChoices = append(c.playerChoices, p)
+}
+
+// ChoosePlayerForEffect returns the next answer QueuePlayerChoice queued.
+func (c *ScriptedController) ChoosePlayerForEffect(_ *Game, _ PlayerID, _ CardID, _ []PlayerID) PlayerID {
+	return popQueue(&c.playerChoices, "player choice")
+}
+
+// QueueColorChoice appends the answer to the next ChooseColors call.
+func (c *ScriptedController) QueueColorChoice(colors mana.Colors) {
+	c.colorChoices = append(c.colorChoices, colors)
+}
+
+// ChooseColors returns the next answer QueueColorChoice queued.
+func (c *ScriptedController) ChooseColors(_ *Game, _ PlayerID, _ CardID, _ mana.Colors, _, _ int) mana.Colors {
+	return popQueue(&c.colorChoices, "color choice")
+}
+
+// QueueNumberChoice appends the answer to the next ChooseNumber call.
+func (c *ScriptedController) QueueNumberChoice(n int) { c.numberChoices = append(c.numberChoices, n) }
+
+// ChooseNumber returns the next answer QueueNumberChoice queued.
+func (c *ScriptedController) ChooseNumber(_ *Game, _ PlayerID, _ CardID, _, _ int) int {
+	return popQueue(&c.numberChoices, "number choice")
+}
+
+// QueueTapOrUntap appends the answer to the next ChooseTapOrUntap call.
+func (c *ScriptedController) QueueTapOrUntap(tap bool) { c.tapOrUntap = append(c.tapOrUntap, tap) }
+
+// ChooseTapOrUntap returns the next answer QueueTapOrUntap queued.
+func (c *ScriptedController) ChooseTapOrUntap(_ *Game, _ PlayerID, _ CardID) bool {
+	return popQueue(&c.tapOrUntap, "tap-or-untap")
+}
+
+// QueueEntityChoice appends the answer to the next ChooseEntitiesForEffect call.
+func (c *ScriptedController) QueueEntityChoice(ids []EntityID) {
+	c.entityChoices = append(c.entityChoices, ids)
+}
+
+// ChooseEntitiesForEffect returns the next answer QueueEntityChoice queued.
+func (c *ScriptedController) ChooseEntitiesForEffect(_ *Game, _ PlayerID, _ CardID, _ []EntityID, _, _ int) []EntityID {
+	return popQueue(&c.entityChoices, "entity choice")
+}
+
+// QueueConfirmReveal appends the answer to the next ConfirmReveal call.
+func (c *ScriptedController) QueueConfirmReveal(v bool) { c.confirmReveal = append(c.confirmReveal, v) }
+
+// ConfirmReveal returns the next answer QueueConfirmReveal queued.
+func (c *ScriptedController) ConfirmReveal(_ *Game, _ PlayerID, _ CardID) bool {
+	return popQueue(&c.confirmReveal, "confirm reveal")
+}
+
+// popQueue pops the head of one ScriptedController queue, panicking with kind
+// when it is empty (scriptExhausted).
+func popQueue[T any](q *[]T, kind string) T {
+	if len(*q) == 0 {
+		panic(scriptExhausted(kind))
+	}
+	v := (*q)[0]
+	*q = (*q)[1:]
 	return v
 }
 

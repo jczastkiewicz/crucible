@@ -117,7 +117,7 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 
 	var players []PlayerID
 	if defined, ok := a.Params.Param("Defined"); ok {
-		players, err = definedPlayers(g, a.Controller, defined, a.Targets)
+		players, err = definedPlayers(g, a.Controller, a.Source, defined, a.Targets)
 		if err != nil {
 			return fmt.Errorf("engine: PumpAll: %w", err)
 		}

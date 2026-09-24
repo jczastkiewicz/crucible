@@ -30,7 +30,7 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if !ok {
 		return fmt.Errorf("engine: AddTurn: NumTurns$ %q not resolvable yet", raw)
 	}
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: AddTurn: %w", err)
 	}

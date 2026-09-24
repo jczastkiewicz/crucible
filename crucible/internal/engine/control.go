@@ -432,6 +432,26 @@ type PlayerController interface {
 	// with their indices into options (the SVar names GenericChoice's
 	// Choices$ lists) -- Java's chooseSpellAbilitiesForEffect.
 	ChooseAbilitiesForEffect(g *Game, decider PlayerID, source CardID, options []string, amount int) []int
+
+	// ChooseModesForAbility picks between min and max of a Charm's modes,
+	// answering with distinct indices into options (the Choices$ SVar
+	// names) -- Java's chooseModeForAbility. The caller checks the answer
+	// (GO-7).
+	ChooseModesForAbility(g *Game, decider PlayerID, source CardID, options []string, min, max int) []int
+
+	// ChooseProtectionType picks one of options (a color or a card type) for
+	// a Protection effect's Gains$ Choice, answering with its index -- Java's
+	// chooseProtectionType.
+	ChooseProtectionType(g *Game, decider PlayerID, source CardID, options []string) int
+
+	// CallCoinFlip is the flipper's call before a coin flip: true for heads
+	// -- Java's chooseBinary with BinaryChoiceType.HeadsOrTails.
+	CallCoinFlip(g *Game, decider PlayerID, source CardID) bool
+
+	// WillPutCardOnTop answers Clash's "put the revealed card on top of your
+	// library, or on the bottom?": true for the top -- Java's
+	// willPutCardOnTop.
+	WillPutCardOnTop(g *Game, decider PlayerID, card CardID) bool
 }
 
 // ScriptedController answers every decision from a pre-loaded queue, one per
@@ -484,6 +504,10 @@ type ScriptedController struct {
 	confirmEffect    []bool
 	cardOrders       [][]CardID
 	abilityChoices   [][]int
+	modeChoices      [][]int
+	protectionChoice []int
+	coinCalls        []bool
+	cardOnTop        []bool
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -1065,6 +1089,40 @@ func (c *ScriptedController) QueueAbilityChoice(idx []int) {
 // ChooseAbilitiesForEffect returns the next answer QueueAbilityChoice queued.
 func (c *ScriptedController) ChooseAbilitiesForEffect(_ *Game, _ PlayerID, _ CardID, _ []string, _ int) []int {
 	return popQueue(&c.abilityChoices, "ability choice")
+}
+
+// QueueModeChoice appends the answer to the next ChooseModesForAbility call.
+func (c *ScriptedController) QueueModeChoice(idx []int) { c.modeChoices = append(c.modeChoices, idx) }
+
+// ChooseModesForAbility returns the next answer QueueModeChoice queued.
+func (c *ScriptedController) ChooseModesForAbility(_ *Game, _ PlayerID, _ CardID, _ []string, _, _ int) []int {
+	return popQueue(&c.modeChoices, "mode choice")
+}
+
+// QueueProtectionChoice appends the answer to the next ChooseProtectionType call.
+func (c *ScriptedController) QueueProtectionChoice(i int) {
+	c.protectionChoice = append(c.protectionChoice, i)
+}
+
+// ChooseProtectionType returns the next answer QueueProtectionChoice queued.
+func (c *ScriptedController) ChooseProtectionType(_ *Game, _ PlayerID, _ CardID, _ []string) int {
+	return popQueue(&c.protectionChoice, "protection choice")
+}
+
+// QueueCoinCall appends the answer to the next CallCoinFlip call.
+func (c *ScriptedController) QueueCoinCall(heads bool) { c.coinCalls = append(c.coinCalls, heads) }
+
+// CallCoinFlip returns the next answer QueueCoinCall queued.
+func (c *ScriptedController) CallCoinFlip(_ *Game, _ PlayerID, _ CardID) bool {
+	return popQueue(&c.coinCalls, "coin call")
+}
+
+// QueueCardOnTop appends the answer to the next WillPutCardOnTop call.
+func (c *ScriptedController) QueueCardOnTop(top bool) { c.cardOnTop = append(c.cardOnTop, top) }
+
+// WillPutCardOnTop returns the next answer QueueCardOnTop queued.
+func (c *ScriptedController) WillPutCardOnTop(_ *Game, _ PlayerID, _ CardID) bool {
+	return popQueue(&c.cardOnTop, "card on top")
 }
 
 // popQueue pops the head of one ScriptedController queue, panicking with kind

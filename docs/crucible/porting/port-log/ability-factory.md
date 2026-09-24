@@ -208,3 +208,15 @@ real corpus before `internal/engine`'s scenario harness did (`porting/port-log/g
 that claim the whole corpus compiles clean go through `tools/carddump` and `compile_test.go`'s own `parseCorpus`, which
 already call `ResolvePlaceholders` themselves. Fixed by splitting `LoadDB` into the same two passes: parse every file,
 resolve placeholders once across all of them, then compile.
+
+## Token scripts and the subtype vocabulary on `compile.DB`
+
+`LoadTokenScripts` compiles every `res/tokenscripts` file, keyed by file name without `.txt` -- the name `TokenScript$`
+writes, and Java's `TokenDb` key. The table sits beside `byName`, not in it: many token scripts share one printed name
+("Soldier Token"), and nothing looks a token up by name. `DB.WithTokens` attaches it to a copy, so a DB stays read-only
+once shared (ADR-0005); `DB.Token` on a nil DB reports nothing. `TestTokenScriptsCompile` compiles all 853 files, the
+token half of the P2 gate.
+
+`LoadDB` also keeps the `TypeLists.txt` registry it parsed the corpus with (`DB.Types`; `WithTypes` for a hand-built
+DB). The engine's type-changing effects need it to remove a whole subtype category -- Animate's `RemoveCreatureTypes$`
+asks "is this subtype a creature type," which only the vocabulary answers.

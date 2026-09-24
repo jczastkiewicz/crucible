@@ -81,7 +81,7 @@ func (sacrificeAllEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	var cards []CardID
 	if defined, ok := a.Params.Param("Defined"); ok {
 		var err error
-		cards, err = definedCards(source, defined, a.Targets)
+		cards, err = definedCards(source, defined, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: SacrificeAll: %w", err)
 		}
@@ -102,7 +102,7 @@ func (sacrificeAllEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	}
 
 	if controllerParam, ok := a.Params.Param("Controller"); ok {
-		players, err := definedPlayers(g, a.Controller, a.Source, controllerParam, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, controllerParam, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: SacrificeAll: %w", err)
 		}

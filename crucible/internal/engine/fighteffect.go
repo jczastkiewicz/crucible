@@ -57,7 +57,7 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	fighters, err := fightFighters(g, source, a.Params, a.Targets)
+	fighters, err := fightFighters(g, source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Fight: %w", err)
 	}
@@ -106,12 +106,12 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 // runs, and nothing can happen to it in between (attachEffect's own CR
 // 608.2b doc comment, castspell.go, has the "no responses exist yet"
 // reasoning).
-func fightFighters(g *Game, host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {
+func fightFighters(g *Game, host *Card, a *compile.Ability, refs abilityRefs) ([]CardID, error) {
 	var fighter1, fighter2 CardID
 	haveFighter1 := false
 
 	if _, hasValidTgts := a.Param("ValidTgts"); hasValidTgts {
-		for _, e := range targets {
+		for _, e := range refs.targets {
 			if id, ok := e.AsCard(); ok {
 				fighter1, haveFighter1 = id, true
 				break
@@ -120,7 +120,7 @@ func fightFighters(g *Game, host *Card, a *compile.Ability, targets []EntityID) 
 	}
 
 	if defined, ok := a.Param("Defined"); ok {
-		cards, err := definedCards(host, defined, targets)
+		cards, err := definedCards(host, defined, refs)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +142,7 @@ func fightFighters(g *Game, host *Card, a *compile.Ability, targets []EntityID) 
 		}
 	} else if haveFighter1 {
 		var cardTargets []CardID
-		for _, e := range targets {
+		for _, e := range refs.targets {
 			if id, ok := e.AsCard(); ok {
 				cardTargets = append(cardTargets, id)
 			}

@@ -108,7 +108,7 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	defined, _ := a.Params.Param("Defined")
-	cards, players, err := definedCounterTargets(g, a.Controller, source, defined, a.Targets)
+	cards, players, err := definedCounterTargets(g, a.Controller, source, defined, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: PutCounter: %w", err)
 	}
@@ -162,13 +162,13 @@ func putCounterType(a *compile.Ability) (CounterType, error) {
 // itself: a player-only counter kind (energy, poison, ...) is only ever
 // reached because Defined$ itself names a player, the identical shape this
 // dispatch reproduces.
-func definedCounterTargets(g *Game, controller PlayerID, host *Card, defined string, targets []EntityID) ([]CardID, []PlayerID, error) {
+func definedCounterTargets(g *Game, controller PlayerID, host *Card, defined string, refs abilityRefs) ([]CardID, []PlayerID, error) {
 	switch defined {
 	case "You", "Opponent", "Player.Opponent":
-		players, err := definedPlayers(g, controller, host.ID, defined, targets)
+		players, err := definedPlayers(g, controller, host.ID, defined, refs)
 		return nil, players, err
 	default:
-		cards, err := definedCards(host, defined, targets)
+		cards, err := definedCards(host, defined, refs)
 		return cards, nil, err
 	}
 }

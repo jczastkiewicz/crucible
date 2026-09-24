@@ -36,7 +36,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	}
 	newController := a.Controller
 	if spec, ok := a.Params.Param("NewController"); ok {
-		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: GainControl: NewController$: %w", err)
 		}
@@ -44,7 +44,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			newController = players[0]
 		}
 	}
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: GainControl: %w", err)
 	}

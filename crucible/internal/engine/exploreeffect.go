@@ -40,7 +40,7 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		}
 		amount = n
 	}
-	explorers, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	explorers, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Explore: %w", err)
 	}

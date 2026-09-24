@@ -98,7 +98,7 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 	players := g.Players()
 	if _, ok := a.Params.Param("ValidTgts"); ok {
 		var err error
-		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: PutCounterAll: %w", err)
 		}

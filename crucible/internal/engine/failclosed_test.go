@@ -87,3 +87,58 @@ func TestEffectsFailClosedOnUnresolvedShapes(t *testing.T) {
 		}
 	}
 }
+
+// TestTokenAnimateTriggerPackFailsClosed is the same guarantee for the
+// token, Animate-shaped, delayed-trigger, dispatch and phase effects: one
+// representative unresolved line per branch.
+func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"DB$ Token | TokenScript$ w_1_1_soldier | TokenAttacking$ True",
+		"DB$ Token | TokenScript$ w_1_1_soldier | PumpKeywords$ Haste | PumpDuration$ UntilYourNextTurn",
+		"DB$ Token | TokenScript$ w_1_1_soldier | TokenOwner$ TriggeredPlayer",
+		"DB$ Token",
+		"DB$ Investigate | Optional$ True",
+		"DB$ Amass | Type$ Elf | Num$ 1",
+		"DB$ Amass | Num$ 1",
+		"DB$ Incubate | Amount$ Bogus",
+		"DB$ Animate | Defined$ Self | Triggers$ DBX",
+		"DB$ Animate | Defined$ Self | Power$ 1 | Duration$ Perpetual",
+		"DB$ Animate | Defined$ Self | Types$ ChosenType",
+		"DB$ Animate | Defined$ Self | Colors$ Plaid",
+		"DB$ Animate | Defined$ Self | Keywords$ HIDDEN CARDNAME can't block.",
+		"DB$ AnimateAll | ValidCards$ Creature | Zone$ Graveyard | Power$ 1",
+		"DB$ Debuff | Defined$ Self | Keywords$ Forestwalk | AllSuffixKeywords$ walk",
+		"DB$ Protection | Defined$ Self | Gains$ TargetedCardColor",
+		"DB$ Protection | Defined$ Self | Gains$ Choice | Choices$ AnyColor | Choser$ Controller",
+		"DB$ ProtectionAll | ValidCards$ Creature | ValidPlayers$ You | Gains$ red",
+		"DB$ DelayedTrigger | Mode$ ChangesZone | Execute$ DBX",
+		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | RememberNumber$ True | Execute$ DBX",
+		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep",
+		"DB$ ImmediateTrigger | RememberSVarAmount$ X | Execute$ DBX",
+		"DB$ ImmediateTrigger | TriggerAmount$ Bogus | Execute$ DBX",
+		"DB$ Charm | ChoiceRestriction$ ThisGame | Choices$ DBX",
+		"DB$ FlipCoin | ForEachPlayer$ Player | WinSubAbility$ DBX",
+		"DB$ RollDice | Sides$ 6 | RerollResults$ True",
+		"DB$ Clash | Defined$ TriggeredPlayer",
+		"DB$ Seek | DefinedCards$ Self",
+		"DB$ StoreSVar | SVar$ X | Type$ Targeted | Expression$ CardPower",
+		"DB$ StoreSVar | SVar$ EachPlayer | Type$ Number | Expression$ 1",
+		"DB$ StoreSVar | SVar$ X | Type$ Calculate | Expression$ Bogus",
+		"DB$ Balance | Valid$ Creature | Zone$ Graveyard",
+		"DB$ AddPhase | ExtraPhase$ Bogus",
+		"DB$ AddPhase | ExtraPhase$ Combat | ExtraPhaseDelayedTrigger$ DBX",
+		"DB$ SkipPhase | Defined$ You | Step$ Draw | Start$ True",
+		"DB$ SkipPhase | Defined$ You | Step$ Draw | Duration$ UntilYourNextTurn",
+		"DB$ SkipPhase | Defined$ You | Step$ Bogus",
+	} {
+		g, p, _ := newTokenGame(t)
+		libraryCards(t, g, p, 3)
+		c := engine.NewScriptedController()
+		def := etbChainDef(t, "Test Fail Closed", line, "DBX", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+		if _, err := castETBChain(t, g, p, def, c); err == nil {
+			t.Errorf("%q: ResolveStack succeeded, want an error", line)
+		}
+	}
+}

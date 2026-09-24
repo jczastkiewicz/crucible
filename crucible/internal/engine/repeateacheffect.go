@@ -71,7 +71,7 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	} else if spec, ok := a.Params.Param("DefinedCards"); ok {
 		hasCards = true
 		var err error
-		cards, err = definedCards(source, spec, a.Targets)
+		cards, err = definedCards(source, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: RepeatEach: DefinedCards$: %w", err)
 		}
@@ -106,7 +106,7 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	if spec, ok := a.Params.Param("RepeatPlayers"); ok {
-		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: RepeatEach: RepeatPlayers$: %w", err)
 		}

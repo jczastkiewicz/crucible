@@ -1,0 +1,92 @@
+// Tokens: creating one from a token script and CR 704.5d's "a token
+// anywhere but the battlefield ceases to exist."
+//
+// Ported from forge-game/src/main/java/forge/game/ability/effects/
+// TokenEffectBase.java's makeTokenTable and GameAction.java's
+// stateBasedAction704_5d.
+
+package engine
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
+
+// tokenSpec is one token to create: the script, who creates (owns) it, and
+// the per-token adjustments TokenEffectBase applies before it enters.
+type tokenSpec struct {
+	Def                    *compile.Card
+	Owner                  PlayerID
+	Tapped                 bool
+	Power, Toughness       int
+	HasPower, HasToughness bool
+	// P1P1 is WithCountersType$ P1P1's amount (Incubate): counters the
+	// token enters with.
+	P1P1 int
+}
+
+// tokenScript looks up a TokenScript$ name. A script the DB does not hold
+// is an error, Java's "don't find Token for TokenScript" (PORT-8).
+func tokenScript(g *Game, script string) (*compile.Card, error) {
+	def, ok := g.db.Token(script)
+	if !ok {
+		return nil, fmt.Errorf("engine: token script %q not found", script)
+	}
+	return def, nil
+}
+
+// createToken is one pass of makeTokenTable's inner loop: a new card from
+// the script, owned by spec.Owner, tapped first when TokenTapped$ says so,
+// carrying its enter-with counters, then moved onto the battlefield from
+// ZoneType None through moveByEffect -- ETB replacement and triggers
+// included, Origin$ None the way Java's triggerList records it. The
+// caller fires ChangesZoneAll once for the batch.
+func (g *Game) createToken(controller PlayerController, spec tokenSpec) CardID {
+	id := g.NewCard(spec.Def, spec.Owner, None)
+	c := g.Card(id)
+	c.IsToken = true
+	c.basePower, c.hasBasePower = spec.Power, spec.HasPower
+	c.baseToughness, c.hasBaseToughness = spec.Toughness, spec.HasToughness
+	if spec.P1P1 > 0 {
+		c.Counters.Add(P1P1, spec.P1P1)
+		emitCounterChanged(g.sink, id, CardEntity(id), P1P1, spec.P1P1)
+	}
+	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped)
+	return id
+}
+
+// removeTokensOffBattlefield is CR 704.5d: a token in any zone but the
+// battlefield leaves the game, silently (Zone.remove, no zone-change
+// event). It is parked in its owner's None zone, since a CardID is never
+// freed (ADR-0009).
+func removeTokensOffBattlefield(g *Game) {
+	for _, pid := range g.Players() {
+		for _, kind := range []ZoneType{Hand, Library, Graveyard, Exile, Command, Sideboard} {
+			for _, id := range append([]CardID(nil), g.Zone(kind, pid).Cards()...) {
+				if g.Card(id).IsToken {
+					g.Zone(kind, pid).cards.Remove(id)
+					g.put(id, None, g.Card(id).Owner)
+				}
+			}
+		}
+	}
+}
+
+// inAPNAPOrder sorts players the way SpellAbilityEffect.getPlayers does
+// before returning them: turn order starting with the active player.
+func (g *Game) inAPNAPOrder(players []PlayerID) []PlayerID {
+	order := g.playersInAPNAPOrder()
+	rank := func(p PlayerID) int {
+		for i, q := range order {
+			if q == p {
+				return i
+			}
+		}
+		return len(order)
+	}
+	out := append([]PlayerID(nil), players...)
+	sort.SliceStable(out, func(i, j int) bool { return rank(out[i]) < rank(out[j]) })
+	return out
+}

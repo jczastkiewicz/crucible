@@ -81,7 +81,7 @@ func (damageAllEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	if !ok {
 		damageSource = "Self"
 	}
-	sources, err := definedCards(source, damageSource, a.Targets)
+	sources, err := definedCards(source, damageSource, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: DamageAll: %w", err)
 	}
@@ -102,7 +102,7 @@ func (damageAllEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		}
 	}
 	if validPlayers, ok := a.Params.Param("ValidPlayers"); ok {
-		players, err := definedPlayers(g, a.Controller, a.Source, validPlayers, a.Targets)
+		players, err := definedPlayers(g, a.Controller, a.Source, validPlayers, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: DamageAll: ValidPlayers$: %w", err)
 		}

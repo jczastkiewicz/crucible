@@ -41,7 +41,7 @@ func (eachDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	var sources []CardID
 	if spec, ok := a.Params.Param("DefinedDamagers"); ok {
 		var err error
-		sources, err = definedCards(host, spec, a.Targets)
+		sources, err = definedCards(host, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: EachDamage: DefinedDamagers$: %w", err)
 		}
@@ -90,7 +90,7 @@ func (eachDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	case hasParam(a, "ToEachOther"):
 		spec, _ := a.Params.Param("ToEachOther")
-		cards, err := definedCards(host, spec, a.Targets)
+		cards, err := definedCards(host, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: EachDamage: ToEachOther$: %w", err)
 		}
@@ -136,14 +136,14 @@ func eachDamageTargets(g *Game, a *Ability, host *Card) ([]EntityID, error) {
 	case "Targeted", "TargetedPlayer", "ThisTargetedCard":
 		return a.Targets, nil
 	}
-	if players, err := definedPlayers(g, a.Controller, a.Source, spec, a.Targets); err == nil {
+	if players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs()); err == nil {
 		out := make([]EntityID, len(players))
 		for i, p := range players {
 			out[i] = PlayerEntity(p)
 		}
 		return out, nil
 	}
-	cards, err := definedCards(host, spec, a.Targets)
+	cards, err := definedCards(host, spec, a.refs())
 	if err != nil {
 		return nil, fmt.Errorf("engine: EachDamage: %w", err)
 	}

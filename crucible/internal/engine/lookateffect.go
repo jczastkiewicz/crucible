@@ -19,7 +19,7 @@ func (lookAtEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if _, err := targetedOrDefinedCards(source, a.Params, a.Targets); err != nil {
+	if _, err := targetedOrDefinedCards(source, a.Params, a.refs()); err != nil {
 		return fmt.Errorf("engine: LookAt: %w", err)
 	}
 	return nil

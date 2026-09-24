@@ -180,6 +180,9 @@ func resolveNamedAmount(g *Game, amounts map[string]expr.Amount, host *Card, val
 	if n, err := strconv.Atoi(value); err == nil {
 		return n, true
 	}
+	if n, ok := host.svars[strings.ToLower(value)]; ok {
+		return n, true
+	}
 	amt, ok := amounts[strings.ToLower(value)]
 	if !ok {
 		return 0, false

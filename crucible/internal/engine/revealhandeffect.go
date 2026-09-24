@@ -53,7 +53,7 @@ func (revealHandEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return nil
 	}
 
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: RevealHand: %w", err)
 	}

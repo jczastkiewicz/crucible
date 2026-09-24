@@ -57,16 +57,37 @@ func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 // ported from PhaseHandler.advanceToNextPhase and onPhaseBegin.
 //
 // The next active player comes from nextActivePlayer: Java's extra-turn
-// stack and its skipped turns. Extra phases (AddPhase, SkipPhase) and the
-// reversed turn order a handful of effects create are not ported.
+// stack and its skipped turns. A phase an AddPhase effect queued after the
+// current one comes first (g.extraPhases); a phase a SkipPhase effect names
+// for the active player is passed over without beginning (consumeSkip).
+// The reversed turn order a handful of effects create is not ported.
 func (g *Game) AdvancePhase(controller PlayerController) {
-	next := PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
-	if next == Untap {
-		g.turn++
-		g.activePlayer = g.nextActivePlayer()
-		g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
+	var next PhaseType
+	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
+		next = st[len(st)-1]
+		g.extraPhases[g.activePhase] = st[:len(st)-1]
+	} else {
+		next = PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
+		if next == Untap {
+			g.turn++
+			g.extraPhases = [numPhaseTypes][]PhaseType{}
+			g.combatsThisTurn = 0
+			g.activePlayer = g.nextActivePlayer()
+			g.delayedTriggersOnNextTurn(g.activePlayer)
+			g.activateCleanupDelayedTriggers()
+			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
+		}
 	}
 	g.activePhase = next
+	if g.consumeSkip(next) {
+		// ReplaceBeginPhase replaced it: a skipped combat phase jumps to its
+		// end step, then the phase walk carries on (advanceToNextPhase).
+		if next == CombatBegin {
+			g.activePhase = CombatEnd
+		}
+		g.AdvancePhase(controller)
+		return
+	}
 	g.beginPhase(controller)
 }
 
@@ -153,6 +174,8 @@ func (g *Game) beginPhase(controller PlayerController) {
 		g.untapStep(controller)
 	case Draw:
 		g.drawStep(controller)
+	case CombatBegin:
+		g.combatsThisTurn++
 	case CombatEnd:
 		g.endCombat()
 	case Cleanup:
@@ -394,4 +417,50 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 	g.pumps = kept
+	g.endAnimatesAtCleanup()
+	g.endSkipsAtCleanup()
 }
+
+// skipPhase is one SkipPhase effect: Player skips the next phase or step in
+// Phases -- or, with a Duration$, each one until that duration ends.
+// Java builds a command-zone effect holding a BeginPhase replacement that
+// exiles itself after one use unless it has a Duration$ (Skip$ True).
+type skipPhase struct {
+	Player       PlayerID
+	Phases       phaseSet
+	Each         bool
+	UntilCleanup bool
+}
+
+// consumeSkip reports whether a skip applies to phase p of the active
+// player's turn, using up a one-shot skip.
+func (g *Game) consumeSkip(p PhaseType) bool {
+	for i, s := range g.skips {
+		if s.Player != g.activePlayer || !s.Phases.has(p) {
+			continue
+		}
+		if !s.Each {
+			g.skips = append(g.skips[:i:i], g.skips[i+1:]...)
+		}
+		return true
+	}
+	return false
+}
+
+// endSkipsAtCleanup ends every Duration$ skip (addUntilCommand's
+// end-of-turn default).
+func (g *Game) endSkipsAtCleanup() {
+	kept := g.skips[:0]
+	for _, s := range g.skips {
+		if !s.UntilCleanup {
+			kept = append(kept, s)
+		}
+	}
+	g.skips = kept
+}
+
+// isFirstCombat is PhaseHandler.isFirstCombat (nCombatsThisTurn == 1), with
+// zero also counted as first: a fixture set straight into a combat step
+// through SetTurnState never passed a CombatBegin, and that combat is still
+// the turn's first.
+func (g *Game) isFirstCombat() bool { return g.combatsThisTurn <= 1 }

@@ -23,6 +23,16 @@ import (
 type DB struct {
 	byName map[string]*Card
 	names  []string
+	// tokens is every token script, keyed by its file name without the
+	// extension -- the name TokenScript$ uses (Java's TokenDb, keyed the
+	// same way). Kept apart from byName: many token scripts share a printed
+	// name ("Soldier Token"), and a token is never looked up by that.
+	tokens map[string]*Card
+	// types is the subtype vocabulary the corpus was parsed against, for
+	// the engine's type-changing effects that remove a whole subtype
+	// category (Animate's RemoveCreatureTypes$). Nil for a DB built with
+	// NewDB unless WithTypes adds one.
+	types *cardtype.Registry
 }
 
 // LoadDB parses and compiles every script under root.
@@ -73,7 +83,7 @@ func LoadDB(root, typeList string) (*DB, error) {
 		return nil, err
 	}
 
-	db := &DB{byName: make(map[string]*Card, len(cards))}
+	db := &DB{byName: make(map[string]*Card, len(cards)), types: reg}
 	for _, parsed := range cards {
 		card, err := Compile(parsed)
 		if err != nil {
@@ -102,6 +112,87 @@ func NewDB(cards map[string]*Card) *DB {
 	}
 	sort.Strings(db.names)
 	return db
+}
+
+// LoadTokenScripts parses and compiles every token script under root, keyed
+// by file name without ".txt" -- res/tokenscripts in the Forge tree. Same
+// stop-at-first-failure contract as LoadDB (PORT-8).
+func LoadTokenScripts(root, typeList string) (map[string]*Card, error) {
+	f, err := os.Open(typeList)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := cardtype.LoadRegistry(f)
+	_ = f.Close()
+	if err != nil {
+		return nil, err
+	}
+	tokens := make(map[string]*Card)
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".txt" {
+			return err
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		script := strings.TrimSuffix(filepath.Base(path), ".txt")
+		parsed, err := carddb.ParseScript(reg, script, raw)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		card, err := Compile(parsed)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		tokens[script] = card
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+// WithTokens returns a copy of d whose token table is tokens. d itself is
+// not changed: a DB is shared read-only once built (ADR-0005).
+func (d *DB) WithTokens(tokens map[string]*Card) *DB {
+	out := d.copy()
+	out.tokens = tokens
+	return out
+}
+
+// WithTypes returns a copy of d whose subtype vocabulary is reg.
+func (d *DB) WithTypes(reg *cardtype.Registry) *DB {
+	out := d.copy()
+	out.types = reg
+	return out
+}
+
+// Types is the subtype vocabulary, or nil when d has none.
+func (d *DB) Types() *cardtype.Registry {
+	if d == nil {
+		return nil
+	}
+	return d.types
+}
+
+func (d *DB) copy() *DB {
+	if d == nil {
+		return &DB{}
+	}
+	out := *d
+	return &out
+}
+
+// Token looks a token script up by its file name (TokenScript$'s value).
+// A nil DB has no tokens.
+func (d *DB) Token(script string) (*Card, bool) {
+	if d == nil {
+		return nil, false
+	}
+	c, ok := d.tokens[script]
+	return c, ok
 }
 
 // Card looks a card up by its printed name, and reports whether the database

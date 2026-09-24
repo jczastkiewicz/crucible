@@ -351,3 +351,44 @@ func (l Line) String() string {
 	}
 	return b.String()
 }
+
+// WithoutCardTypes clears every core type except Instant and Sorcery --
+// CardChangedType.applyChanges' RemoveCardTypes, which keeps them per CR
+// 205.1a ("an object with either the instant or sorcery card type retains
+// that type").
+func (l Line) WithoutCardTypes() Line {
+	keep := uint16(1)<<uint(Instant) | uint16(1)<<uint(Sorcery)
+	out := l
+	out.coreTypes &= keep
+	out.subtypes = append([]string(nil), l.subtypes...)
+	return out
+}
+
+// WithoutSupertypes clears every supertype (RemoveSuperTypes).
+func (l Line) WithoutSupertypes() Line {
+	out := l
+	out.supertypes = 0
+	out.subtypes = append([]string(nil), l.subtypes...)
+	return out
+}
+
+// WithoutSubtypes clears every subtype (RemoveSubTypes).
+func (l Line) WithoutSubtypes() Line {
+	out := l
+	out.subtypes = nil
+	return out
+}
+
+// WithoutSubtypesWhere clears every subtype drop reports true for --
+// RemoveCreatureTypes/RemoveLandTypes/RemoveArtifactTypes/
+// RemoveEnchantmentTypes, each a Registry membership test.
+func (l Line) WithoutSubtypesWhere(drop func(string) bool) Line {
+	out := l
+	out.subtypes = nil
+	for _, s := range l.subtypes {
+		if !drop(s) {
+			out.subtypes = append(out.subtypes, s)
+		}
+	}
+	return out
+}

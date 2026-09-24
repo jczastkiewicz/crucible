@@ -78,7 +78,7 @@ func (multiplyCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) er
 		allKinds = false
 	}
 
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: MultiplyCounter: %w", err)
 	}

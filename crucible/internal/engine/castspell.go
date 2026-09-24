@@ -201,7 +201,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 }
 
 // NewRegistry builds a Registry carrying every Effect this port has.
-// Sixty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
+// Eighty-seven entries today: APIPermanentCreature and APIPermanentNoncreature share
 // permanentEffect, CastSpell's own first (and so far only) real caller of
 // PushAbility outside stack.go's tests; APIAttach is attachEffect, castAura's
 // own; APIDraw is drawEffect (draweffect.go), M6's own first script-driven
@@ -322,7 +322,14 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 // -- share three new pieces of engine: moveByEffect/orderCardsByTheirOwners
 // (zonemove.go), AdditionalAbility dispatch (additional.go), and
 // regeneration shields, extra/skipped turns and one-shot control changes
-// (regeneration.go, turn.go, gaincontroleffect.go).
+// (regeneration.go, turn.go, gaincontroleffect.go). The next twenty --
+// Token, Investigate, Amass, Incubate, Animate, AnimateAll, Debuff,
+// Protection, ProtectionAll, DelayedTrigger, ImmediateTrigger, Charm,
+// FlipCoin, RollDice, Clash, Seek, StoreSVar, Balance, AddPhase, SkipPhase
+// -- add token creation (token.go), Animate-shaped one-shot layer records
+// (animate.go), delayed triggers (delayedtrigger.go), push-time Charm modes
+// (charmeffect.go) and extra/skipped phases (addphaseeffect.go,
+// skipphaseeffect.go).
 //
 // Explicit construction here, not an
 // init() populating a package-level Registry, is ADR-0003's own "explicit
@@ -401,5 +408,25 @@ func NewRegistry() *Registry {
 	r[APIHealDamage] = healDamageEffect{}
 	r[APIEachDamage] = eachDamageEffect{}
 	r[APIDrainMana] = drainManaEffect{}
+	r[APIToken] = tokenEffect{}
+	r[APIInvestigate] = investigateEffect{}
+	r[APIAmass] = amassEffect{}
+	r[APIIncubate] = incubateEffect{}
+	r[APIAnimate] = animateEffect{}
+	r[APIAnimateAll] = animateAllEffect{}
+	r[APIDebuff] = debuffEffect{}
+	r[APIProtection] = protectionEffect{}
+	r[APIProtectionAll] = protectionAllEffect{}
+	r[APIDelayedTrigger] = delayedTriggerEffect{}
+	r[APIImmediateTrigger] = immediateTriggerEffect{}
+	r[APICharm] = charmEffect{}
+	r[APIFlipCoin] = flipCoinEffect{}
+	r[APIRollDice] = rollDiceEffect{}
+	r[APIClash] = clashEffect{}
+	r[APISeek] = seekEffect{}
+	r[APIStoreSVar] = storeSVarEffect{}
+	r[APIBalance] = balanceEffect{}
+	r[APIAddPhase] = addPhaseEffect{}
+	r[APISkipPhase] = skipPhaseEffect{}
 	return &r
 }

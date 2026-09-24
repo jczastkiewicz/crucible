@@ -95,6 +95,22 @@ type Game struct {
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord
+	// animates is every Animate-shaped effect in force (animate.go):
+	// Animate, AnimateAll, Debuff, Protection, ProtectionAll.
+	animates []animateRecord
+	// delayed is every registered delayed trigger (delayedtrigger.go), in
+	// registration order.
+	delayed []delayedTrigger
+	// extraPhases is PhaseHandler.extraPhases: for each phase, the stack of
+	// phases an AddPhase effect queued to follow it instead of the normal
+	// next one (last entry first). Cleared when the turn ends.
+	extraPhases [numPhaseTypes][]PhaseType
+	// skips is every SkipPhase effect in force (skipphaseeffect.go).
+	skips []skipPhase
+	// combatsThisTurn is PhaseHandler.nCombatsThisTurn: combat phases begun
+	// this turn, counted at CombatBegin and reset as the turn ends -- what
+	// FirstCombat$ reads once AddPhase can add a second combat.
+	combatsThisTurn int
 	// extraTurns is Java PhaseHandler's own extra-turn stack (AddTurn): the
 	// last entry is the next turn taken. The bottom entry, pushed with the
 	// first extra turn, is the player whose normal turn comes next, so
@@ -355,6 +371,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.RegenShields = 0
 		g.Unattach(id)
 		g.clearPumps(id)
+		g.clearAnimates(id)
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
@@ -372,12 +389,8 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	// owner (not its controller -- every real Move-to-Graveyard call site in
 	// this port already passes owner as c.Owner itself) as having descended,
 	// read back by matchesPlayerProperty's own "descended" case (valid.go).
-	// Java's own check also excludes a token; this port has no
-	// token-creation effect yet (M6's own remaining territory), so every card
-	// that can ever reach this line is non-token by construction, the same
-	// "holds by construction" reasoning untapStep's own
-	// ValidStepTurnToController$ skip already documents.
-	if kind == Graveyard && isPermanent {
+	// Java's own check also excludes a token.
+	if kind == Graveyard && isPermanent && !c.IsToken {
 		g.Player(owner).DescendedThisTurn = true
 	}
 
@@ -429,6 +442,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.RegenShields = 0
 		g.Unattach(id)
 		g.clearPumps(id)
+		g.clearAnimates(id)
 	}
 
 	g.sink.Emit(Event{
@@ -551,9 +565,17 @@ func (g *Game) Clone() *Game {
 		combat: g.combat.clone(),
 		pumps:  append([]pumpRecord(nil), g.pumps...),
 
+		animates: append([]animateRecord(nil), g.animates...),
+		delayed:  append([]delayedTrigger(nil), g.delayed...),
+		skips:    append([]skipPhase(nil), g.skips...),
+
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
+		combatsThisTurn:       g.combatsThisTurn,
 		lki:                   make(map[CardID]*Card, len(g.lki)),
+	}
+	for i := range g.extraPhases {
+		out.extraPhases[i] = append([]PhaseType(nil), g.extraPhases[i]...)
 	}
 	if g.rand != nil {
 		r := *g.rand
@@ -576,6 +598,12 @@ func (g *Game) Clone() *Game {
 		c.KeywordMod = g.cards[i].KeywordMod.clone()
 		c.ControlMod = g.cards[i].ControlMod.clone()
 		c.tempControllers = append([]ControlEffect(nil), g.cards[i].tempControllers...)
+		if g.cards[i].svars != nil {
+			c.svars = make(map[string]int, len(g.cards[i].svars))
+			for k, v := range g.cards[i].svars {
+				c.svars[k] = v
+			}
+		}
 		if g.cards[i].attachments != nil {
 			c.attachments = g.cards[i].attachments.Clone()
 		}

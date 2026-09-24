@@ -46,7 +46,7 @@ func (peekAndRevealEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	if !ok {
 		revealValid = "Card"
 	}
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: PeekAndReveal: %w", err)
 	}

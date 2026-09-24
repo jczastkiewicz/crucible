@@ -166,6 +166,8 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 		return true
 	}
 
+	removeTokensOffBattlefield(g)
+
 	// CR 613: recomputed fresh every pass, before anything below reads
 	// Power()/Toughness() or Type() -- applyContinuousPT's own doc comment
 	// (continuous.go) has the reason this cannot be a one-time push instead.
@@ -188,6 +190,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// a Mode$ Continuous S: line (applyPumpEffects's own doc comment,
 	// continuous.go).
 	applyPumpEffects(g)
+	applyAnimateEffects(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {

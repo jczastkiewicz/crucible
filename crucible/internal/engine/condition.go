@@ -46,7 +46,7 @@ import (
 // wrong about the rest (PORT-8/GO-7).
 var subAbilityUnresolvedParams = [...]string{
 	"Condition", "ConditionPresent2", "ConditionCompare2", "ConditionZone",
-	"ConditionPlayerTurn", "ConditionPhases", "ConditionActivationLimit",
+	"ConditionActivationLimit",
 	"ConditionGameTypes", "ConditionSorcerySpeed", "ConditionChosenColor",
 	"ConditionLifeTotal", "ConditionLifeAmount", "ConditionManaSpent",
 	"ConditionManaNotSpent", "ConditionPlayerDefined", "ConditionPlayerContains",
@@ -56,7 +56,11 @@ var subAbilityUnresolvedParams = [...]string{
 }
 
 // subAbilityConditionMet reports whether a's own SpellAbilityCondition gate
-// permits it to resolve: ConditionPresent$/ConditionCompare$ (a zone-scan
+// permits it to resolve: ConditionPlayerTurn$ (the host's controller is --
+// or, for "False", is not -- the active player; Java asks the activator,
+// which is the host's controller for every ability this port resolves),
+// ConditionPhases$ (the current phase is in parsePhaseRange's set),
+// ConditionFirstCombat$ (Game.isFirstCombat), ConditionPresent$/ConditionCompare$ (a zone-scan
 // count against Battlefield, isPresentMatches' own default when
 // ConditionZone$ is absent, which it always is for every real line this
 // resolves) and ConditionCheckSVar$/ConditionSVarCompare$ (a named-SVar
@@ -70,6 +74,21 @@ var subAbilityUnresolvedParams = [...]string{
 func subAbilityConditionMet(g *Game, host *Card, amounts map[string]expr.Amount, a *compile.Ability) bool {
 	for _, key := range subAbilityUnresolvedParams {
 		if _, ok := a.Param(key); ok {
+			return false
+		}
+	}
+	if turn, ok := a.Param("ConditionPlayerTurn"); ok {
+		mine := g.ActivePlayer() == host.Controller()
+		if (turn == "False") == mine {
+			return false
+		}
+	}
+	if _, ok := a.Param("ConditionFirstCombat"); ok && !g.isFirstCombat() {
+		return false
+	}
+	if phases, ok := a.Param("ConditionPhases"); ok {
+		set, recognized := parsePhaseRange(phases)
+		if !recognized || !set.has(g.activePhase) {
 			return false
 		}
 	}

@@ -488,6 +488,22 @@ func (c *scriptedMulliganController) OrderCardsForZone(_ *engine.Game, _ engine.
 	panic("scriptedMulliganController: OrderCardsForZone was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseModesForAbility(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string, _, _ int) []int {
+	panic("scriptedMulliganController: ChooseModesForAbility was not expected to be called")
+}
+
+func (c *scriptedMulliganController) ChooseProtectionType(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string) int {
+	panic("scriptedMulliganController: ChooseProtectionType was not expected to be called")
+}
+
+func (c *scriptedMulliganController) CallCoinFlip(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: CallCoinFlip was not expected to be called")
+}
+
+func (c *scriptedMulliganController) WillPutCardOnTop(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
+	panic("scriptedMulliganController: WillPutCardOnTop was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseAbilitiesForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string, _ int) []int {
 	panic("scriptedMulliganController: ChooseAbilitiesForEffect was not expected to be called")
 }

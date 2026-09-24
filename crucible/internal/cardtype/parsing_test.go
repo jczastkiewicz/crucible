@@ -455,3 +455,33 @@ func diffSlices[T comparable](got, want []T) string {
 	}
 	return fmt.Sprintf("got %v, want %v", got, want)
 }
+
+// TestLineRemovalHelpers covers the category removals a type-changing
+// effect applies before its additions (CardChangedType.applyChanges).
+func TestLineRemovalHelpers(t *testing.T) {
+	t.Parallel()
+
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n[ArtifactTypes]\nEquipment\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	line := cardtype.Parse(reg, "Legendary Artifact Creature Instant Elf Equipment")
+
+	noCard := line.WithoutCardTypes()
+	if noCard.Has(cardtype.Artifact) || noCard.Has(cardtype.Creature) || !noCard.Has(cardtype.Instant) {
+		t.Errorf("WithoutCardTypes = %v, want only Instant kept among core types", noCard)
+	}
+	if !noCard.HasSubtype("Elf") || !noCard.HasSupertype(cardtype.Legendary) {
+		t.Errorf("WithoutCardTypes = %v, want subtypes and supertypes untouched", noCard)
+	}
+	if got := line.WithoutSupertypes(); got.HasSupertype(cardtype.Legendary) || !got.HasSubtype("Elf") {
+		t.Errorf("WithoutSupertypes = %v", got)
+	}
+	if got := line.WithoutSubtypes(); len(got.Subtypes()) != 0 || !got.Has(cardtype.Creature) {
+		t.Errorf("WithoutSubtypes = %v", got)
+	}
+	got := line.WithoutSubtypesWhere(reg.IsCreatureType)
+	if got.HasSubtype("Elf") || !got.HasSubtype("Equipment") {
+		t.Errorf("WithoutSubtypesWhere(creature) = %v, want Equipment kept, Elf gone", got)
+	}
+}

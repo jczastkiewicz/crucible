@@ -46,7 +46,7 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	_, allZones := a.Params.Param("UseAllOriginZones")
 	players := g.Players()
 	if (hasTgts || hasDefined) && !allZones {
-		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: ChangeZoneAll: %w", err)
 		}
@@ -79,7 +79,7 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		if dest == Library && len(cards) >= 2 {
 			decider := a.Controller
 			if spec, ok := a.Params.Param("DefinedPlayer"); ok {
-				ps, err := definedPlayers(g, a.Controller, a.Source, spec, a.Targets)
+				ps, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 				if err != nil || len(ps) == 0 {
 					return fmt.Errorf("engine: ChangeZoneAll: DefinedPlayer$ %q not resolvable yet", spec)
 				}

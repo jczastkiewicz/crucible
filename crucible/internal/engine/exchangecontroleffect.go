@@ -40,7 +40,7 @@ func (exchangeControlEffect) Resolve(g *Game, a *Ability, controller PlayerContr
 		object1 = targets[0]
 	}
 	if spec, ok := a.Params.Param("Defined"); ok {
-		cards, err := definedCards(source, spec, a.Targets)
+		cards, err := definedCards(source, spec, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: ExchangeControl: %w", err)
 		}

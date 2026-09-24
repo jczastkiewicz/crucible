@@ -68,7 +68,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Connive: ConniveNum$ %q is not resolvable", numParam)
 	}
 
-	connivers, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	connivers, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Connive: %w", err)
 	}

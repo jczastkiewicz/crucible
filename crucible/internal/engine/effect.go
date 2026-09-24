@@ -145,7 +145,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 	if !ok {
 		return fmt.Errorf("engine: UnlessPayer$ default (TargetedController) not resolvable yet")
 	}
-	payers, err := definedPlayers(g, a.Controller, a.Source, payerSpec, a.Targets)
+	payers, err := definedPlayers(g, a.Controller, a.Source, payerSpec, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: UnlessPayer$: %w", err)
 	}

@@ -38,7 +38,7 @@ func (revealEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		}
 		cnt = n
 	}
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Reveal: %w", err)
 	}
@@ -53,7 +53,7 @@ func (revealEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		}
 		var revealed []CardID
 		if defined, ok := a.Params.Param("RevealDefined"); ok {
-			revealed, err = definedCards(source, defined, a.Targets)
+			revealed, err = definedCards(source, defined, a.refs())
 			if err != nil {
 				return fmt.Errorf("engine: Reveal: RevealDefined$: %w", err)
 			}

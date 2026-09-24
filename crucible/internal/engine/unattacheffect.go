@@ -45,7 +45,7 @@ func (unattachEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return nil
 	}
 
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Unattach: %w", err)
 	}

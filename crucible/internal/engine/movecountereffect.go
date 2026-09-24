@@ -88,7 +88,7 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error 
 	if !ok {
 		sourceParam = "Self"
 	}
-	srcCards, err := definedCards(source, sourceParam, a.Targets)
+	srcCards, err := definedCards(source, sourceParam, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: MoveCounter: Source$: %w", err)
 	}
@@ -100,7 +100,7 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error 
 		return nil
 	}
 
-	destCards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	destCards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: MoveCounter: %w", err)
 	}

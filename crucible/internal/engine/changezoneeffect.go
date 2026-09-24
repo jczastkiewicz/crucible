@@ -83,7 +83,7 @@ func changeZoneGainControl(g *Game, a *Ability) (PlayerID, error) {
 	if strings.EqualFold(raw, "True") {
 		return a.Controller, nil
 	}
-	players, err := definedPlayers(g, a.Controller, a.Source, raw, a.Targets)
+	players, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
 	if err != nil {
 		return NoPlayer, fmt.Errorf("engine: ChangeZone: GainControl$: %w", err)
 	}
@@ -124,7 +124,7 @@ func changeZonePreMemory(a *Ability, source *Card) {
 // cards heading into a library are ordered by their owners first (CR
 // 401.4) unless Shuffle$ True will shuffle them anyway.
 func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID) error {
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
 	}
@@ -203,7 +203,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	if !hasDefinedPlayer {
 		fetchSpec = "You"
 	}
-	fetchers, err := definedPlayers(g, a.Controller, a.Source, fetchSpec, a.Targets)
+	fetchers, err := definedPlayers(g, a.Controller, a.Source, fetchSpec, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: DefinedPlayer$: %w", err)
 	}
@@ -261,7 +261,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			if chooseFromDefined {
 				spec = chooseFrom
 			}
-			fetchList, err = definedCards(source, spec, a.Targets)
+			fetchList, err = definedCards(source, spec, a.refs())
 			if err != nil {
 				return fmt.Errorf("engine: ChangeZone: %w", err)
 			}

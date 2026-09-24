@@ -126,7 +126,7 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		if !ok {
 			defined = "You"
 		}
-		players, err = definedPlayers(g, a.Controller, a.Source, defined, a.Targets)
+		players, err = definedPlayers(g, a.Controller, a.Source, defined, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: Sacrifice: %w", err)
 		}

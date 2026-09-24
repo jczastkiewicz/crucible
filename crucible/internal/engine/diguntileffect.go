@@ -97,7 +97,7 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	sequential := hasRevealed && hasFound && revealedDest == foundDest
 
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: DigUntil: %w", err)
 	}

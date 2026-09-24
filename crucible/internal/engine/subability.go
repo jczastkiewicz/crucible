@@ -74,13 +74,14 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		return fmt.Errorf("engine: SubAbility$ %s: unrecognized API %q", sub.SVar, sub.Ability.Name)
 	}
 	child := Ability{
-		API:        api,
-		Source:     parent.Source,
-		Controller: parent.Controller,
-		Target:     parent.Target,
-		Targets:    parent.Targets,
-		Params:     sub.Ability,
-		Amounts:    parent.Amounts,
+		API:               api,
+		Source:            parent.Source,
+		Controller:        parent.Controller,
+		Target:            parent.Target,
+		Targets:           parent.Targets,
+		Params:            sub.Ability,
+		Amounts:           parent.Amounts,
+		TriggerRemembered: parent.TriggerRemembered,
 	}
 	return r.Resolve(g, &child, controller)
 }

@@ -47,7 +47,7 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChooseCard: %w", err)
 	}
@@ -140,7 +140,7 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 // by Choices$, in seat order per zone -- game.getCardsIn's own order.
 func chooseCardPool(g *Game, a *Ability, source *Card) ([]CardID, error) {
 	if defined, ok := a.Params.Param("DefinedCards"); ok {
-		cards, err := definedCards(source, defined, a.Targets)
+		cards, err := definedCards(source, defined, a.refs())
 		if err != nil {
 			return nil, fmt.Errorf("engine: ChooseCard: DefinedCards$: %w", err)
 		}

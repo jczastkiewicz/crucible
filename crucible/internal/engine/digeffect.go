@@ -95,7 +95,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 	}
 	_, tapped := a.Params.Param("Tapped")
 
-	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Dig: %w", err)
 	}

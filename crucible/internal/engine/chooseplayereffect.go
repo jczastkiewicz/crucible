@@ -30,7 +30,7 @@ func (choosePlayerEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChoosePlayer: %w", err)
 	}
@@ -38,7 +38,7 @@ func (choosePlayerEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	if !ok {
 		choicesParam = "Player"
 	}
-	choices, err := definedPlayers(g, a.Controller, a.Source, choicesParam, a.Targets)
+	choices, err := definedPlayers(g, a.Controller, a.Source, choicesParam, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChoosePlayer: Choices$: %w", err)
 	}

@@ -53,7 +53,7 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Untap: %w", err)
 	}

@@ -34,13 +34,14 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		return fmt.Errorf("engine: %s$ %s: no Registry is resolving", sub.Key, sub.SVar)
 	}
 	child := Ability{
-		API:        api,
-		Source:     parent.Source,
-		Controller: parent.Controller,
-		Target:     parent.Target,
-		Targets:    parent.Targets,
-		Params:     sub.Ability,
-		Amounts:    parent.Amounts,
+		API:               api,
+		Source:            parent.Source,
+		Controller:        parent.Controller,
+		Target:            parent.Target,
+		Targets:           parent.Targets,
+		Params:            sub.Ability,
+		Amounts:           parent.Amounts,
+		TriggerRemembered: parent.TriggerRemembered,
 	}
 	r := g.registry
 	err := r.Resolve(g, &child, controller)

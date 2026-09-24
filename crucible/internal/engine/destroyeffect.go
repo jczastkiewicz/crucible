@@ -68,7 +68,7 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Destroy: %w", err)
 	}

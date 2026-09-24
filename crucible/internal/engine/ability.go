@@ -110,4 +110,30 @@ type Ability struct {
 	// subability.go) -- neither is ever optional on its own, a trigger's own
 	// OptionalDecider$ never carrying onto what it chains into.
 	Optional bool
+	// TriggerRemembered is what a delayed or reflexive trigger remembered when
+	// it was created (RememberObjects$, Java's Trigger.addRemembered),
+	// carried onto the ability it runs and every sub-ability that ability
+	// chains -- Java reads it off the root ability. Defined$
+	// DelayTriggerRemembered[LKI] reads it (defined.go).
+	TriggerRemembered []EntityID
+	// Modes is a Charm's chosen modes, each with its own targets, picked as
+	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
+	Modes []Ability
+	// modesErr is why chooseCharmModes could not pick modes for a Charm it
+	// was asked about; the Charm is still pushed and fails with this error
+	// when it resolves, since pushing has no error path of its own (GO-7).
+	modesErr error
+}
+
+// abilityRefs is what Defined$ can name beyond the host card: the
+// ability's own chosen targets and, for a delayed or reflexive trigger's
+// ability, what that trigger remembered.
+type abilityRefs struct {
+	targets           []EntityID
+	triggerRemembered []EntityID
+}
+
+// refs is a's own abilityRefs.
+func (a *Ability) refs() abilityRefs {
+	return abilityRefs{targets: a.Targets, triggerRemembered: a.TriggerRemembered}
 }

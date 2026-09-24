@@ -2,7 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -101,4 +104,39 @@ func changeZoneDestination(name string) (ZoneType, error) {
 		return 0, fmt.Errorf("Destination$ %q not resolvable yet", name)
 	}
 	return z, nil
+}
+
+// rejectParams fails the whole line on the first of keys a names -- the
+// PORT-8 "a param this port does not resolve is an error, never a guess"
+// gate every effect opens with. api names the effect for the message.
+func rejectParams(a *Ability, api string, keys ...string) error {
+	for _, key := range keys {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: %s: %s$ not resolvable yet", api, key)
+		}
+	}
+	return nil
+}
+
+// optionalAmount resolves key through resolveNamedAmount, def when absent.
+func optionalAmount(g *Game, a *Ability, api, key string, def int) (int, error) {
+	raw, ok := a.Params.Param(key)
+	if !ok {
+		return def, nil
+	}
+	n, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
+	if !ok {
+		return 0, fmt.Errorf("engine: %s: %s$ %q is not resolvable", api, key, raw)
+	}
+	return n, nil
+}
+
+// withAmount is a copy of amounts with name bound to the literal n.
+func withAmount(amounts map[string]expr.Amount, name string, n int) map[string]expr.Amount {
+	out := make(map[string]expr.Amount, len(amounts)+1)
+	for k, v := range amounts {
+		out[k] = v
+	}
+	out[strings.ToLower(name)] = expr.Parse(strconv.Itoa(n))
+	return out
 }

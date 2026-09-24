@@ -67,7 +67,7 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	players := g.Players()
 	if hasValidTgts || hasDefined {
 		var err error
-		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+		players, err = targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 		if err != nil {
 			return fmt.Errorf("engine: TapAll: %w", err)
 		}

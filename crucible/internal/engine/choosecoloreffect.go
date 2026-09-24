@@ -66,7 +66,7 @@ func (chooseColorEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		hi = options.Count()
 	}
 
-	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.Targets)
+	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChooseColor: %w", err)
 	}

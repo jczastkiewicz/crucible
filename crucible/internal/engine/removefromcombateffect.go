@@ -49,7 +49,7 @@ func (removeFromCombatEffect) Resolve(g *Game, a *Ability, _ PlayerController) e
 	}
 
 	_, remember := a.Params.Param("RememberRemovedFromCombat")
-	cards, err := targetedOrDefinedCards(source, a.Params, a.Targets)
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: RemoveFromCombat: %w", err)
 	}

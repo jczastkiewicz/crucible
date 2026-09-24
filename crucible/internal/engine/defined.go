@@ -28,11 +28,15 @@ import (
 // targeting.go -- filtered from a mixed EntityID slice even though no real
 // ValidTgts$ line this port evaluates ever actually mixes cards and players
 // in one target set, since nothing about Defined$'s own reading enforces
-// that), "ChosenPlayer" (the host's Memory.ChosenPlayer) and "Remembered"/
-// "RememberedController"/"RememberedOwner" (rememberedPlayers, below). A
+// that), "TargetedController" (the controller of each targeted card),
+// "ChosenPlayer" (the host's Memory.ChosenPlayer), "Remembered"/
+// "RememberedController"/"RememberedOwner" (rememberedPlayers, below) and
+// "DelayTriggerRemembered"/"DelayTriggerRememberedController", the same
+// reading applied to what a delayed trigger remembered (Ability.
+// TriggerRemembered). A
 // player no longer in the game is skipped, matching Java's own
 // `if (!p.isInGame()) continue`.
-func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, targets []EntityID) ([]PlayerID, error) {
+func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, refs abilityRefs) ([]PlayerID, error) {
 	var candidates []PlayerID
 	switch defined {
 	case "You":
@@ -45,8 +49,14 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, t
 				candidates = append(candidates, pid)
 			}
 		}
-	case "TargetedPlayer", "Targeted":
-		for _, e := range targets {
+	case "TargetedController":
+		for _, e := range refs.targets {
+			if id, ok := e.AsCard(); ok {
+				candidates = append(candidates, g.Card(id).Controller())
+			}
+		}
+	case "TargetedPlayer", "Targeted", "ThisTargetedPlayer":
+		for _, e := range refs.targets {
 			if pid, ok := e.AsPlayer(); ok {
 				candidates = append(candidates, pid)
 			}
@@ -57,6 +67,10 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, t
 		}
 	case "Remembered", "RememberedController", "RememberedOwner":
 		candidates = rememberedPlayers(g, defined, g.Card(host).Memory.Remembered(), true)
+	case "DelayTriggerRemembered":
+		candidates = rememberedPlayers(g, "", refs.triggerRemembered, false)
+	case "DelayTriggerRememberedController":
+		candidates = rememberedPlayers(g, "RememberedController", refs.triggerRemembered, false)
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}
@@ -111,9 +125,13 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 // AbilityUtils.getDefinedCards returning an empty list for an unattached
 // Aura/Equipment rather than failing the ability), and "Targeted"/
 // "ThisTargetedCard" (every CardEntity in targets -- resolveTargets's own
-// answer, targeting.go), and the host's own Memory lists: "Remembered"/
-// "RememberedCard" (its card entries only), "Imprinted", "ChosenCard".
-func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, error) {
+// answer, targeting.go), the host's own Memory lists: "Remembered"/
+// "RememberedCard" (its card entries only), "Imprinted", "ChosenCard", and
+// "DelayTriggerRemembered"/"DelayTriggerRememberedLKI" -- the cards a
+// delayed or reflexive trigger remembered (Ability.TriggerRemembered). A
+// CardID is stable across zone changes, so the two spellings name the same
+// card; Java's LKI form differs only in which snapshot it reads.
+func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error) {
 	switch defined {
 	case "Self":
 		return []CardID{host.ID}, nil
@@ -124,7 +142,7 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 		return nil, nil
 	case "Targeted", "ThisTargetedCard":
 		var cards []CardID
-		for _, e := range targets {
+		for _, e := range refs.targets {
 			if id, ok := e.AsCard(); ok {
 				cards = append(cards, id)
 			}
@@ -133,6 +151,14 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 	case "Remembered", "RememberedCard":
 		var cards []CardID
 		for _, e := range host.Memory.Remembered() {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		return cards, nil
+	case "DelayTriggerRemembered", "DelayTriggerRememberedLKI":
+		var cards []CardID
+		for _, e := range refs.triggerRemembered {
 			if id, ok := e.AsCard(); ok {
 				cards = append(cards, id)
 			}
@@ -181,10 +207,10 @@ func definedCards(host *Card, defined string, targets []EntityID) ([]CardID, err
 // turn order -- an established simplification every other effect naming
 // Defined$ Player/Opponent already carries (scryEffect's/discardEffect's
 // own doc comments), not a new gap Mill introduces.
-func targetedOrDefinedPlayers(g *Game, controller PlayerID, host CardID, a *compile.Ability, targets []EntityID) ([]PlayerID, error) {
+func targetedOrDefinedPlayers(g *Game, controller PlayerID, host CardID, a *compile.Ability, refs abilityRefs) ([]PlayerID, error) {
 	if _, ok := a.Param("ValidTgts"); ok {
 		var players []PlayerID
-		for _, e := range targets {
+		for _, e := range refs.targets {
 			if pid, ok := e.AsPlayer(); ok {
 				players = append(players, pid)
 			}
@@ -195,13 +221,13 @@ func targetedOrDefinedPlayers(g *Game, controller PlayerID, host CardID, a *comp
 	if !ok {
 		defined = "You"
 	}
-	return definedPlayers(g, controller, host, defined, targets)
+	return definedPlayers(g, controller, host, defined, refs)
 }
 
-func targetedOrDefinedCards(host *Card, a *compile.Ability, targets []EntityID) ([]CardID, error) {
+func targetedOrDefinedCards(host *Card, a *compile.Ability, refs abilityRefs) ([]CardID, error) {
 	if _, ok := a.Param("ValidTgts"); ok {
 		var cards []CardID
-		for _, e := range targets {
+		for _, e := range refs.targets {
 			if id, ok := e.AsCard(); ok {
 				cards = append(cards, id)
 			}
@@ -212,5 +238,24 @@ func targetedOrDefinedCards(host *Card, a *compile.Ability, targets []EntityID) 
 	if !ok {
 		defined = "Self"
 	}
-	return definedCards(host, defined, targets)
+	return definedCards(host, defined, refs)
+}
+
+// definedEntities is AbilityUtils.getDefinedEntities: the players def names,
+// then the cards. A spelling only one of the two readers knows yields that
+// side alone; one neither knows is an error.
+func definedEntities(g *Game, controller PlayerID, host *Card, def string, refs abilityRefs) ([]EntityID, error) {
+	var out []EntityID
+	players, perr := definedPlayers(g, controller, host.ID, def, refs)
+	for _, p := range players {
+		out = append(out, PlayerEntity(p))
+	}
+	cards, cerr := definedCards(host, def, refs)
+	for _, c := range cards {
+		out = append(out, CardEntity(c))
+	}
+	if perr != nil && cerr != nil {
+		return nil, cerr
+	}
+	return out, nil
 }

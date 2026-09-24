@@ -976,6 +976,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -1084,6 +1085,7 @@ func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table d
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -1742,6 +1744,7 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -1813,23 +1816,6 @@ func phaseTriggerMatches(t *compile.Ability, key string, current PhaseType) bool
 	return false
 }
 
-// phaseNameFold is PhaseByName's own case-insensitive twin, needed only
-// here: the corpus itself is inconsistent about one phase's own case
-// (`Phase$ End of Turn`, 677 real lines; `Phase$ End Of Turn`, 3 more, a
-// capital `O`) the way ZoneByName's own doc comment says zone names never
-// are, so an exact match would silently drop those 3 real lines rather than
-// fire their trigger. PhaseByName itself stays exact -- fixture.go's own
-// GameState text format is this port's own, not the corpus's, and has no
-// such inconsistency to tolerate.
-func phaseNameFold(name string) (PhaseType, bool) {
-	for i, n := range phaseNames {
-		if strings.EqualFold(n, name) {
-			return PhaseType(i), true
-		}
-	}
-	return Untap, false
-}
-
 // isPhaseTrigger reports whether t is CR 500's "beginning of a step or
 // phase" shape: Mode$ Phase.
 func isPhaseTrigger(t *compile.Ability) bool {
@@ -1873,6 +1859,14 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 		for i := range matches {
 			if matches[i].Controller != pid {
 				continue
+			}
+			if matches[i].API == APICharm {
+				ok, err := g.chooseCharmModes(controller, &matches[i])
+				if err != nil {
+					matches[i].modesErr = err
+				} else if !ok {
+					continue
+				}
 			}
 			if !g.resolveTargets(controller, &matches[i]) {
 				continue
@@ -2296,15 +2290,11 @@ func lifeTotalMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // "my opponent's turn" are the same fact).
 //
 // FirstCombat$ (6, Attacks/AttackersDeclared, both already built) is
-// PhaseHandler.isFirstCombat's own nCombatsThisTurn==1 -- always true here:
-// this port has no extra-combat mechanism (an AddCombat effect is not
-// built, turn.go's own doc comment: "extra turns/phases... not here"), so
-// no real game this port can play ever reaches a second combat phase in the
-// same turn, making a hardcoded true the CORRECT answer today rather than a
-// guess -- the identical reasoning combatdamage.go's own CombatDamage$
-// check already uses for the identical "no mechanism makes this false yet"
-// shape. 0 real lines write FirstCombat$ False, so the reverse case needs
-// no answer here.
+// PhaseHandler.isFirstCombat: Game.combatsThisTurn, counted at each
+// CombatBegin (beginPhase, turn.go), is at most one -- an AddPhase extra
+// combat makes it two. A game dropped straight into a combat step with
+// SetTurnState has begun no combat yet, which is still its first. The
+// param's value is not read, as Java does not read it.
 //
 // Not resolved, each skipping the whole line rather than guessing (GO-7):
 // FirstUpkeep$ (1) / FirstUpkeepThisGame$ (2, both Mode$ Phase only) --
@@ -2338,10 +2328,8 @@ func triggerPhasesCheck(g *Game, host *Card, t *compile.Ability) bool {
 			return false
 		}
 	}
-	if v, ok := t.Param("FirstCombat"); ok {
-		if !strings.EqualFold(v, "True") {
-			return false
-		}
+	if _, ok := t.Param("FirstCombat"); ok && !g.isFirstCombat() {
+		return false
 	}
 	return true
 }
@@ -2497,6 +2485,7 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -2789,6 +2778,7 @@ func (g *Game) checkDrawnTriggers(controller PlayerController, drawer PlayerID, 
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -2881,6 +2871,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -2964,6 +2955,7 @@ func (g *Game) checkLandPlayedTriggers(controller PlayerController, card CardID,
 			}
 		}
 	}
+	matches = append(matches, g.delayedPhaseTriggerMatches()...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 

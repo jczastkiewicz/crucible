@@ -94,7 +94,7 @@ func (removeCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 	}
 
 	defined, _ := a.Params.Param("Defined")
-	cards, players, err := definedCounterTargets(g, a.Controller, source, defined, a.Targets)
+	cards, players, err := definedCounterTargets(g, a.Controller, source, defined, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: RemoveCounter: %w", err)
 	}

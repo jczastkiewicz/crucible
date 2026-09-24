@@ -3,30 +3,29 @@
 
 package engine
 
-// KeywordMod is the continuous keyword grants currently affecting one card
-// -- CR 613.4's Layer 6. Unlike TypeMod/ColorMod, there is no fold order to
-// resolve: HasKeyword (card.go) only ever asks "is this keyword present,"
-// never "what is the current value," so every effect's own AddKeywords
-// simply contributes to the same membership test regardless of Timestamp --
-// CR 613.7's tiebreak only matters where two effects could disagree about
-// the SAME thing (Layer 7's Set-vs-Modify, Layer 5's Set-vs-Add), and two
-// continuous effects both granting a keyword never disagree about anything.
+// KeywordMod is the continuous keyword changes currently affecting one card
+// -- CR 613.4's Layer 6, folded in Timestamp order (Card.KeywordLines) the
+// way Java's KeywordsChange.applyKeywords runs over its TreeMap: an effect
+// that removes a keyword only removes what the effects before it left.
 type KeywordMod struct {
 	effects []KeywordEffect
 }
 
-// KeywordEffect is one continuous effect's own AddKeyword$ contribution:
-// every keyword line it grants, verbatim -- exactly the form a real K: line
-// would carry ("Ward:2", "First Strike", "Protection:..."), keyword.Parse's
-// own job to split further at HasKeyword's own query time, the identical
-// treatment a printed keyword line already gets. Removing a keyword
-// continuously (RemoveKeyword$/RemoveAllAbilities$) is not represented
-// here: applyOneContinuousKeyword (continuous.go) skips a whole line that
-// carries either rather than resolving only the add half of a "gains X,
-// loses Y" line, so nothing yet needs a Remove side to fold against.
+// KeywordEffect is one continuous effect's own keyword change: every
+// keyword line it grants, verbatim -- exactly the form a real K: line would
+// carry ("Ward:2", "First Strike", "Protection:..."), keyword.Parse's own
+// job to split further at HasKeyword's own query time -- and what it takes
+// away first. RemoveKeywords drops every line starting with one of its
+// entries (KeywordCollection.remove's own startsWith match); RemoveAll drops
+// every line. Removal applies before the effect's own additions, Java's
+// applyKeywords order. A resolved Animate/Debuff line is the only source of
+// a removal today: applyOneContinuousKeyword (continuous.go) still skips a
+// static line naming RemoveKeyword$/RemoveAllAbilities$.
 type KeywordEffect struct {
-	Timestamp   uint64
-	AddKeywords []string
+	Timestamp      uint64
+	AddKeywords    []string
+	RemoveKeywords []string
+	RemoveAll      bool
 }
 
 // Add records one continuous effect. Order does not matter here, the same

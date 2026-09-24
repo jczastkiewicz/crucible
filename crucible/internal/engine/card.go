@@ -6,6 +6,7 @@ package engine
 import (
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -31,6 +32,18 @@ type Card struct {
 	// differ whenever something has taken control of the card.
 	Owner      PlayerID
 	controller PlayerID
+	// IsToken marks a card a Token effect created (CR 111.1): it ceases to
+	// exist once it is anywhere but the battlefield (CR 704.5d, action.go).
+	IsToken bool
+	// basePower/baseToughness replace the printed value when set --
+	// TokenPower$/TokenToughness$ (TokenInfo.getProtoType's setBasePower).
+	basePower, baseToughness       int
+	hasBasePower, hasBaseToughness bool
+	// svars are SVars an effect set at runtime (StoreSVar's
+	// Card.setSVar(key, "Number$N")), keyed lower-case; each shadows the
+	// script's own SVar of that name for resolveNamedAmount. A card's SVars
+	// survive its zone changes, as Java's do.
+	svars map[string]int
 	// Zone is where the card is. The zone's own list is the ordering
 	// authority; this is the reverse index, kept in step by the move
 	// operations.
@@ -192,15 +205,8 @@ func (c *Card) Type() cardtype.Line {
 // its own printed face, exact match against keyword.Parse's own Name (the
 // head as written -- "Indestructible" for a bare line, "Ward" for
 // "Ward:2"), so a keyword written with arguments is still found by its bare
-// name, folded with Layer 6's own continuous keyword grants (KeywordMod,
-// keywordmod.go) -- Type()'s/Colors()'s own Layer 4/5 counterpart. Every
-// keyword line a continuous effect adds is checked the identical way a
-// printed one is (keyword.Parse(line).Name), so a granted "Ward:2" or
-// "Protection:..." is found by its own bare name exactly as a printed one
-// would be. Removing a keyword continuously is not folded in yet
-// (KeywordMod's own doc comment has the reason), so a card a continuous
-// effect currently strips still reports the printed one
-// (game-state.md's "Not ported yet").
+// name, folded with Layer 6's own continuous keyword changes (KeywordMod,
+// keywordmod.go) -- Type()'s/Colors()'s own Layer 4/5 counterpart.
 func (c *Card) HasKeyword(name string) bool {
 	for _, line := range c.KeywordLines() {
 		if keyword.Parse(line).Name == name {
@@ -210,23 +216,46 @@ func (c *Card) HasKeyword(name string) bool {
 	return false
 }
 
-// KeywordLines is every keyword line c currently carries, printed and
-// continuously granted alike (Layer 6, KeywordMod) -- HasKeyword's own
-// enumeration, factored out once a caller needed a keyword's own
-// Details/Args rather than just whether c carries it by name
-// (landwalkType/protectionValid, staticability.go): a keyword Layer 6
-// grants continuously is exactly as real a source for either as a printed
-// one is, the identical reasoning HasKeyword's own doc comment already
-// gives for name-only membership.
+// KeywordLines is every keyword line c currently carries: the printed face
+// with every Layer 6 change (KeywordMod) applied in Timestamp order -- each
+// one's removals, then its additions (KeywordsChange.applyKeywords). A
+// keyword Layer 6 grants is exactly as real a source for landwalk or
+// protection (staticability.go) as a printed one.
 func (c *Card) KeywordLines() []string {
 	var lines []string
 	if c.Def != nil {
 		lines = append(lines, c.Def.Faces[0].Keywords...)
 	}
-	for _, e := range c.KeywordMod.effects {
+	if len(c.KeywordMod.effects) == 0 {
+		return lines
+	}
+	effects := append([]KeywordEffect(nil), c.KeywordMod.effects...)
+	sort.SliceStable(effects, func(i, j int) bool { return effects[i].Timestamp < effects[j].Timestamp })
+	for _, e := range effects {
+		switch {
+		case e.RemoveAll:
+			lines = nil
+		case len(e.RemoveKeywords) > 0:
+			kept := lines[:0:0]
+			for _, line := range lines {
+				if !hasAnyPrefix(line, e.RemoveKeywords) {
+					kept = append(kept, line)
+				}
+			}
+			lines = kept
+		}
 		lines = append(lines, e.AddKeywords...)
 	}
 	return lines
+}
+
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // BasePower and BaseToughness are the card's printed power and toughness --
@@ -241,6 +270,9 @@ func (c *Card) KeywordLines() []string {
 // neither of which this reaches yet -- a coverage gap, not a wrong answer,
 // the same category CheckStateBasedActions's own gaps are in.
 func (c *Card) BasePower() (int, bool) {
+	if c.hasBasePower {
+		return c.basePower, true
+	}
 	if c.Def == nil {
 		return 0, false
 	}
@@ -250,6 +282,9 @@ func (c *Card) BasePower() (int, bool) {
 
 // BaseToughness is BasePower's counterpart; see its doc comment.
 func (c *Card) BaseToughness() (int, bool) {
+	if c.hasBaseToughness {
+		return c.baseToughness, true
+	}
 	if c.Def == nil {
 		return 0, false
 	}

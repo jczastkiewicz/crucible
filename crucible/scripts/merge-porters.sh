@@ -109,8 +109,8 @@ merge)
 			fi
 		done
 	done
-	(cd crucible && go generate -run genregistry ./internal/engine)
-	n=$(cd crucible && go run ./tools/genregistry -dir internal/engine | sed -nE 's/.* ([0-9]+) resolved script-driven/\1/p')
+	out=$(cd crucible && go generate -run genregistry ./internal/engine)
+	n=$(printf '%s' "$out" | sed -nE 's/.* ([0-9]+) resolved script-driven/\1/p')
 	sed -i.bak -E "s/[0-9]+ of the corpus's ([0-9]+) script-driven/$n of the corpus's \1 script-driven/" \
 		CLAUDE.md docs/crucible/00-master-implementation-plan-in-progress.md
 	rm -f CLAUDE.md.bak docs/crucible/00-master-implementation-plan-in-progress.md.bak

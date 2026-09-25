@@ -19,10 +19,16 @@ repo_root() {
 # commit_dir CMD CWD: when shell command CMD runs `git commit` (git's
 # subcommand, not a word inside `git log --grep=commit` or a message), print
 # the directory that commit runs in; print nothing otherwise. Follows a
-# preceding `cd DIR` and git's own `-C DIR`.
+# preceding `cd DIR`, a subshell's `(cd DIR && ...)`, a no-op wrapper (time,
+# sudo, nice, env, ...) in front of `git`, and git's own `-C DIR`.
 commit_dir() {
 	local cmd=$1 dir=$2 seg rest tok
 	while IFS= read -r seg; do
+		seg=${seg#"${seg%%[![:space:]]*}"}
+		# A subshell `( cd DIR && git commit ... )` splits into segments that
+		# still carry the opening paren on the first one; strip it so `cd`/`git`
+		# detection below sees the bare command.
+		while [[ $seg == \(* ]]; do seg=${seg#\(}; done
 		seg=${seg#"${seg%%[![:space:]]*}"}
 		# Leading VAR=value assignments do not change the command.
 		while [[ $seg =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+(.*)$ ]]; do seg=${BASH_REMATCH[1]}; done
@@ -33,6 +39,20 @@ commit_dir() {
 			case "$tok" in /*) dir=$tok ;; *) dir=$dir/$tok ;; esac
 			continue
 		fi
+		# Skip a no-op wrapper (time, sudo, nice, env, ...), its flags and any
+		# VAR=value assignments it introduces in turn -- what actually execs
+		# `git` may be several hops down from the segment's first word.
+		while :; do
+			if [[ $seg =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+(.*)$ ]]; then
+				seg=${BASH_REMATCH[1]}
+			elif [[ $seg =~ ^-[^[:space:]]*[[:space:]]+(.*)$ ]]; then
+				seg=${BASH_REMATCH[1]}
+			elif [[ $seg =~ ^(time|sudo|nice|ionice|nohup|env|stdbuf|chrt|command)[[:space:]]+(.*)$ ]]; then
+				seg=${BASH_REMATCH[2]}
+			else
+				break
+			fi
+		done
 		[[ $seg =~ ^git([[:space:]]+(.*))?$ ]] || continue
 		rest=${BASH_REMATCH[2]}
 		local gdir=$dir

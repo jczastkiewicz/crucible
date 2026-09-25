@@ -30,7 +30,17 @@ func testTokens(t *testing.T) map[string]*compile.Card {
 		"b_0_0_zombie_army":           tokenDefT(t, "Zombie Army Token", "Creature Zombie Army", "0", "0"),
 		"b_0_0_orc_army":              tokenDefT(t, "Orc Army Token", "Creature Orc Army", "0", "0"),
 		"incubator_c_0_0_a_phyrexian": tokenDefT(t, "Incubator Token", "Artifact Incubator", "", ""),
+		"u_empower":                   empowerTokenDef(t),
 	}
+}
+
+// empowerTokenDef is res/tokenscripts/u_empower.txt's own shape: a
+// nameless "Token" planeswalker with printed loyalty 0.
+func empowerTokenDef(t *testing.T) *compile.Card {
+	t.Helper()
+	def := tokenDefT(t, "Token", "Planeswalker", "", "")
+	def.Faces[0].Loyalty = "0"
+	return def
 }
 
 // newTokenGame is newTwoPlayerGame over a DB holding testTokens.

@@ -63,22 +63,6 @@ func TestMatchesNonColor(t *testing.T) {
 	}
 }
 
-// "WhiteSource" is not implemented (colorMatches' own doc comment -- it
-// needs a damage-source context Matches does not carry) and must not be
-// silently misread as bare "White": a white card should not match it, and
-// neither should a card of any other color.
-func TestMatchesColorSourceSuffixIsNotImplemented(t *testing.T) {
-	t.Parallel()
-
-	g := newGame(t, "a")
-	p := g.Players()[0]
-	white := g.NewCard(creatureDefManaCost(t, "1 W"), p, engine.Battlefield)
-
-	if engine.Matches(g, g.Card(white), valid.Parse("Creature.WhiteSource"), p, engine.NoCard) {
-		t.Error("a white creature matched the unimplemented WhiteSource property")
-	}
-}
-
 // Colorless and nonColorless are each other's opposite, and neither is a
 // color name -- a colored card is not Colorless, and a colorless one is not
 // nonColorless.

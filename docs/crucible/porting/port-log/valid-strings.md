@@ -128,14 +128,16 @@ dump across the whole corpus. `internal/mana.Colors`, the bitmask type both shar
 (`internal/mana`'s own doc comment, ported from `MagicColor`/`ColorSet` for M1's mana-cost work) — this is its first use
 outside cost parsing.
 
-**`colorMatches` exact-matches rather than reproducing Java's `Contains`/prefix-stripped form, on purpose.** Java folds
-a `Source` suffix into the same branch (`WhiteSource`, a damage-context check comparing the color of whatever _dealt_
-damage, not the candidate card `Matches` is given) by slicing the trailing characters off before the
-`MagicColor.fromName` lookup. `Matches` has no damage-source context to answer that question with, so implementing the
-slice without the context it exists for would either panic on an unexpected shape or (worse) silently answer the wrong
-question. An exact match against `White`/`Blue`/.../`nonGreen` means `WhiteSource` simply does not match `colorMatches`
-at all and falls through to `propertyMatches`'s own type-name fallthrough — false for every card, the honest "not
-implemented" answer, rather than a plausible-looking wrong one.
+**`colorMatches` exact-matches rather than reproducing Java's `Contains`/prefix-stripped form, on purpose.** The one
+suffix Java folds into its color branch, `Source` (`WhiteSource`, `nonRedSource`, `ColorlessSource`), is stripped first
+by `propertyMatches` and answered by `sourceColorMatches` (`valid.go`): the candidate's own colors, except colorless
+while a `Mode$ ColorlessDamageSource` static's `ValidCard$` matches it (`colorlessDamageSource`, Java's
+`StaticAbilityColorlessDamageSource.colorlessDamageSource`; `ghostly_flame.txt` is the corpus's only such static). Only
+battlefield hosts are scanned, same reach as `ignoreLegendRule`. Ghostly Flame's stack clauses (`Spell.Red+inZoneStack`)
+never match: `baseMatches` has no `Spell` case, so a spell on the stack keeps its printed color here; `ChooseSource`
+refuses that shape rather than answer it. Any other suffixed or compound name falls through to `propertyMatches`'s own
+type-name fallthrough — false for every card, the honest "not implemented" answer, rather than a plausible-looking wrong
+one.
 
 **The generic `non<Type>` fallback is `CardStateProperty`'s own tail, reached only after color already had first
 refusal.** `nonBlack` and `nonLand` look identical in shape but mean different things — one is a color negation

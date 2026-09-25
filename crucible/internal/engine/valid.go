@@ -374,6 +374,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	if rest, ok := strings.CutPrefix(name, "hasKeyword"); ok {
 		return c.HasKeyword(rest)
 	}
+	if base, ok := strings.CutSuffix(name, "Source"); ok {
+		if matched, ok := sourceColorMatches(g, c, base); ok {
+			return matched
+		}
+	}
 	if color, mustHave, ok := colorMatches(name); ok {
 		return mustHave == c.Colors().Has(color)
 	}
@@ -395,15 +400,86 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	return c.Type().HasStringType(name)
 }
 
+// sourceColorMatches is CardStateProperty.hasProperty's withSource form of
+// its color branches -- "RedSource", "nonWhiteSource", "ColorlessSource",
+// base being the property name with its "Source" suffix already stripped.
+// Java reads c's own colors, except that c counts as colorless while a
+// Mode$ ColorlessDamageSource static ability applies to it
+// (StaticAbilityColorlessDamageSource.colorlessDamageSource, ghostly_flame.
+// txt, the corpus's only such static). ok is false when base is not a
+// color property at all ("ExiledWith", "Effect", ...), leaving name to the
+// branches below.
+func sourceColorMatches(g *Game, c *Card, base string) (matched, ok bool) {
+	color, mustHave, isColor := colorMatches(base)
+	isColorless := base == "Colorless" || base == "nonColorless"
+	if !isColor && !isColorless {
+		return false, false
+	}
+	colors := c.Colors()
+	if colorlessDamageSource(g, c.ID) {
+		colors = 0
+	}
+	if isColorless {
+		return (base == "Colorless") == colors.IsColorless(), true
+	}
+	return mustHave == colors.Has(color), true
+}
+
+// colorlessDamageSource is StaticAbilityColorlessDamageSource.
+// colorlessDamageSource: whether any Mode$ ColorlessDamageSource static
+// ability whose ValidCard$ matches id is in play, making id a colorless
+// source. Only battlefield hosts are scanned, the same reach
+// ignoreLegendRule's own scan (staticability.go) has: Java walks
+// ZoneType.STATIC_ABILITIES_SOURCE_ZONES, but the corpus's one such static
+// (ghostly_flame.txt, an Enchantment with no EffectZone$) is only ever
+// active on the battlefield. A missing ValidCard$ matches every card, Java's
+// own matchesValidParam default.
+func colorlessDamageSource(g *Game, id CardID) bool {
+	return eachColorlessDamageSource(g, func(h *Card, validCard string, ok bool) bool {
+		return !ok || Matches(g, g.Card(id), valid.Parse(validCard), h.Controller(), h.ID)
+	})
+}
+
+// colorlessDamageSourceInPlay reports whether any Mode$
+// ColorlessDamageSource static is on the battlefield at all -- for a
+// caller that must refuse a shape colorlessDamageSource cannot answer yet
+// (a spell on the stack: baseMatches has no Spell case).
+func colorlessDamageSourceInPlay(g *Game) bool {
+	return eachColorlessDamageSource(g, func(*Card, string, bool) bool { return true })
+}
+
+// eachColorlessDamageSource calls f with each battlefield Mode$
+// ColorlessDamageSource static's host and ValidCard$, stopping at the
+// first true.
+func eachColorlessDamageSource(g *Game, f func(h *Card, validCard string, ok bool) bool) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "ColorlessDamageSource") {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if f(h, validCard, ok) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // colorMatches is CardStateProperty.hasProperty's color branch (White,
 // Blue, Black, Red, Green, each with a `non` form), exact-matched rather
-// than Java's `Contains`/prefix-stripped form: this port does not
-// implement the "Source" suffix (`WhiteSource`, a damage-context check
-// needing a source distinct from the candidate card, which propertyMatches
-// has no context for), and an exact match is what keeps that gap honest --
-// "WhiteSource" falls through to propertyMatches' own type-name
-// fallthrough (false for every card, the same as any other unimplemented
-// property) rather than being silently misread as bare "White".
+// than Java's `Contains`/prefix-stripped form: the "Source" suffix
+// (`WhiteSource`) is stripped by propertyMatches before it gets here
+// (sourceColorMatches), and an exact match is what keeps any other suffixed
+// or compound name from being silently misread as bare "White".
 //
 // mustHave mirrors Java's own local of the same name: false for the `non`
 // form, meaning the card must lack the color rather than carry it.

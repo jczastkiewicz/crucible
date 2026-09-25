@@ -20,3 +20,7 @@ combatdamage
 # One more advance for the state-based-action check that moves the
 # lethally damaged Bears to the graveyard.
 advance
+# CR 514.2: at cleanup the copy ends and damage wears off together; were a
+# state-based-action check to run between them, the 0/1 with 2 damage would
+# die. Advance into the next turn to see it survive as itself.
+advance 4

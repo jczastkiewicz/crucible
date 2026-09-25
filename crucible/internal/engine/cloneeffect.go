@@ -566,6 +566,21 @@ func cloneDef(g *Game, a *Ability, origin cloneOrigin, out *Card) (*compile.Card
 		}
 		ch.apply(f, faceAt(out.Def, i), faceAt(origin.printed, i))
 	}
+	// Java adds the gained ability to every copied state, but only the
+	// current one is ever active. This port's trigger scans walk every face
+	// of Def, so the ability goes on the current face alone -- on an
+	// adventurer's second face too it would trigger twice.
+	if ch.gain != nil {
+		f := &def.Faces[0]
+		switch ch.gainKind {
+		case compile.Trigger:
+			f.Triggers = append(append([]*compile.Ability(nil), f.Triggers...), ch.gain)
+		case compile.Replacement:
+			f.Replacements = append(append([]*compile.Ability(nil), f.Replacements...), ch.gain)
+		default:
+			f.Abilities = append(append([]*compile.Ability(nil), f.Abilities...), ch.gain)
+		}
+	}
 	switch {
 	case ch.keepName:
 		def.Name = out.Def.Name
@@ -714,16 +729,6 @@ func (ch *cloneChanges) apply(f, out, printed *compile.Face) {
 		}
 		if ch.setTough {
 			f.Toughness = strconv.Itoa(ch.toughness)
-		}
-	}
-	if ch.gain != nil {
-		switch ch.gainKind {
-		case compile.Trigger:
-			f.Triggers = append(append([]*compile.Ability(nil), f.Triggers...), ch.gain)
-		case compile.Replacement:
-			f.Replacements = append(append([]*compile.Ability(nil), f.Replacements...), ch.gain)
-		default:
-			f.Abilities = append(append([]*compile.Ability(nil), f.Abilities...), ch.gain)
 		}
 	}
 	if len(ch.addAmounts) > 0 {

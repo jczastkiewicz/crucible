@@ -843,3 +843,34 @@ func TestCloneGainThisAbilityFromElsewhereIsRejected(t *testing.T) {
 		t.Errorf("err = %v, want the GainThisAbility$ rejection", err)
 	}
 }
+
+// TestCloneAdventurerKeepsBothFacesAndGainsOnTheCurrentOne proves
+// getCloneStates' multi-state branch (an adventurer copies both faces) and
+// that a gained trigger lands on the current face alone: this port's
+// trigger scans walk every face, so a second copy would fire twice.
+func TestCloneAdventurerKeepsBothFacesAndGainsOnTheCurrentOne(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	creature := copyTestDef(t, "Adventurer", "Creature Giant", "4", "3")
+	story := copyTestDef(t, "Stomp", "Instant Adventure", "", "")
+	adv := &compile.Card{Filename: "adventurer", Name: "Adventurer", SplitType: carddb.SplitAdventure}
+	adv.Faces[0], adv.Faces[1] = creature.Faces[0], story.Faces[0]
+	source := g.NewCard(adv, other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	host, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(source)},
+		"DB$ Clone | ValidTgts$ Creature | GainThisAbility$ True | AddTypes$ Zombie")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := g.Card(host).Def
+	if d.SplitType != carddb.SplitAdventure || d.Faces[1].Name != "Stomp" {
+		t.Fatalf("copy split=%v second face %q, want the adventurer's both faces", d.SplitType, d.Faces[1].Name)
+	}
+	if len(d.Faces[0].Triggers) != 1 || len(d.Faces[1].Triggers) != 0 {
+		t.Errorf("gained trigger on faces: %d/%d, want 1/0", len(d.Faces[0].Triggers), len(d.Faces[1].Triggers))
+	}
+	if !d.Faces[1].Type.HasSubtype("Zombie") {
+		t.Error("AddTypes$ skipped the second copied state")
+	}
+}

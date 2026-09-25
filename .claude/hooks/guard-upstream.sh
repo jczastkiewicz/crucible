@@ -2,14 +2,21 @@
 # PreToolUse(Write|Edit|NotebookEdit): REV-1. Every line touched outside
 # Crucible's own paths is a future rebase conflict, so such an edit needs the
 # user's explicit approval. Paths already logged in upstream-patches.md pass.
-root=$CLAUDE_PROJECT_DIR
-f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""')
+#
+# The path is judged relative to the checkout that holds the file, so an edit
+# to forge-gui/... inside a .claude/worktrees/<name> checkout is caught too.
+. "$(dirname "$0")/lib.sh"
+in=$(cat)
+f=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$in")
 [ -n "$f" ] || exit 0
-case "$f" in /*) ;; *) f="$root/$f" ;; esac
+case "$f" in /*) ;; *) f="$(jq -r '.cwd // ""' <<<"$in")/$f" ;; esac
+root=$(repo_root "$(dirname "$f")")
 case "$f" in "$root"/*) rel=${f#"$root"/} ;; *) exit 0 ;; esac
 
 case "$rel" in
-crucible/* | docs/crucible/* | .claude/* | CLAUDE.md) exit 0 ;;
+crucible/* | docs/crucible/* | CLAUDE.md) exit 0 ;;
+.claude/worktrees/*) ;; # another checkout nested in this one; never exempt
+.claude/*) exit 0 ;;
 esac
 grep -qF "\`$rel\`" "$root/docs/crucible/porting/upstream-patches.md" 2>/dev/null && exit 0
 

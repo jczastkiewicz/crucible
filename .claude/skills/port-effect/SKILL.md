@@ -16,12 +16,13 @@ per commit (memory: port in bigger packs), but every API gets every step.
 Pick by corpus use, among effects nobody has already ruled out:
 
 ```bash
-crucible/scripts/unported-apis.sh 30   # "<lines> <Api>", unregistered only, most-used first
+crucible/scripts/unported-apis.sh 30   # "<lines> <Api>[  deferred]", unregistered only, most-used first
 ```
 
-Skip any API in the `**Researched and deferred.**` tables of
-`docs/crucible/porting/port-log/game-state/effects-batches.md` unless you are taking on its named blocker. Reason: each
-row cost a full `forge-oracle` run to establish. An API you research and defer gets a row there, with its blocker.
+Skip any API the script marks `deferred` unless you are taking on the blocker its `**Researched and deferred.**` table
+row names (`grep -rn '<Api>' docs/crucible/porting/port-log/game-state/effects-*.md`). Reason: each row cost a full
+`forge-oracle` run to establish. An API you research and defer gets a row, with its blocker, in your own batch file's
+table (step 5); the script picks it up from there.
 
 Routine or hard: routine = the dominant shape is a state change over pieces the engine already has. Hard = needs a new
 stack/casting mechanic, a Layer 1 copy, synthetic Command-zone cards with their own triggers, a new trigger mode, a new
@@ -144,18 +145,33 @@ ability waiting on the stack under the one being tested.
 
 Add one test per rejected param shape that matters: assert `resolveNow` returns the `not resolvable yet` error.
 
+Write a test for every resolved param branch now, not after the covergate fails. `internal/engine` has a 90% floor
+(TEST-12) and a batch of effects tested only on their main shape lands below it. Check the new files before moving on to
+the docs:
+
+```bash
+cd crucible && go test -count=1 -coverprofile=/tmp/eff.out ./internal/engine \
+  && go tool cover -func=/tmp/eff.out | grep -E '/(<api1>|<api2>)effect\.go:' | awk '$3+0 < 90'
+```
+
+Every function it prints is under 90%; cover its missing branches (`go tool cover -html=/tmp/eff.out` shows which).
+
 ## 5. Docs, same commit (DOC-12)
 
-| File                                                           | Change                                                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `docs/crucible/porting/port-log/game-state/effects-batches.md` | New `## <Apis> land` section at the end: what resolves, what is rejected and why, shared engine pieces, Java `path:line` |
-| `docs/crucible/porting/port-log/game-state.md`                 | Index row for the new section; update the remaining-effects sentence in `## Not ported yet` (`M6's N remaining ...`)     |
-| `docs/crucible/00-master-implementation-plan-in-progress.md`   | Resolved-API count                                                                                                       |
-| `CLAUDE.md`                                                    | `M6 in progress: N of the corpus's 203` count and largest gaps (`unported-apis.sh` counts)                               |
-| `docs/crucible/porting/forge-java-defects.md`                  | A row per Forge Java bug found (PORT-8): site, defect, what Crucible does meanwhile, upstream status                     |
+| File                                                             | Change                                                                                                                                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/crucible/porting/port-log/game-state/effects-<batch>.md`   | New file, one per batch (`<batch>` = kebab-case of its lead APIs). A `## <Apis> land` section: what resolves, what is rejected and why, shared engine pieces, Java `path:line`; then a `**Researched and deferred.**` table for APIs researched and not ported |
+| `docs/crucible/porting/port-log/game-state.md`                   | Index row for the new section; update the remaining-effects sentence in `## Not ported yet` (`M6's N remaining ...`)                                                                   |
+| `docs/crucible/00-master-implementation-plan-in-progress.md`     | Resolved-API count                                                                                                                                                                      |
+| `CLAUDE.md`                                                      | `M6 in progress: N of the corpus's 203` count and largest gaps (`unported-apis.sh` counts)                                                                                             |
+| `docs/crucible/porting/forge-java-defects.md`                    | A row per Forge Java bug found (PORT-8): site, defect, what Crucible does meanwhile, upstream status                                                                                   |
 
-A parallel porter (`effect-porter`, `effect-porter-hard`) leaves `## Not ported yet` and the final counts to the
-orchestrator that merges the batches. Reason: every porter edits the same sentence, and the merge conflicts.
+`effects-batches.md` and the other existing `effects-*.md` files are closed: never append to them. Reason: parallel
+porters appending to one file conflict on every merge; a new file per batch never does, and the index rows it adds merge
+as a union (`scripts/merge-porters.sh`).
+
+A parallel porter (`effect-porter`, `effect-porter-hard`) leaves `## Not ported yet` and the counts to the orchestrator
+that merges the batches (`port-batch` skill). Reason: every porter edits the same sentence.
 
 Count = registered APIs minus the three M5 casting entries. `genregistry -check` (in `gates.sh` and CI) prints it and
 fails when `CLAUDE.md` or the plan quotes a different number:

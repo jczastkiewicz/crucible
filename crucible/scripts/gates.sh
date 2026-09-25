@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the CI gates from .github/workflows/crucible-go.yml locally, in CI order.
 #
-#   gates.sh fast   gofmt, go vet, golangci-lint, enginelint, genregistry, docgate, apiscan
+#   gates.sh fast   gofmt, go vet, golangci-lint, enginelint, genregistry, docgate, apiscan,
+#                   hooks (.claude/hooks/hooks_test.sh; not a CI gate)
 #   gates.sh full   fast + go test -race, covergate, javacycles, prettier, markdownlint
 #
 # GATES_SKIP="apiscan ..." skips gates whose name starts with a listed word.
@@ -21,6 +22,7 @@
 #                      under crucible/ moved
 #   prettier           unless a .md/.json/.yml/.yaml file changed
 #   markdownlint       unless a .md file changed
+#   hooks              unless .claude/hooks/ changed
 #
 # Tests run without -count=1 here, unlike CI: go test caches per package and
 # invalidates on any changed source, dependency, or file the test opened (the
@@ -49,6 +51,7 @@ if [ "${GATES_AUTO_SKIP:-}" = 1 ]; then
 	has '^(crucible/|forge-gui/res/)' || auto="$auto gofmt go golangci-lint covergate"
 	has '\.(md|json|ya?ml)$' || auto="$auto prettier"
 	has '\.md$' || auto="$auto markdownlint"
+	has '^\.claude/hooks/' || auto="$auto hooks"
 	GATES_SKIP="${GATES_SKIP:-}$auto"
 fi
 
@@ -95,6 +98,7 @@ gate genregistry go run ./tools/genregistry -dir internal/engine -check \
 gate docgate go run ./tools/docgate -module . -docs ../docs/crucible
 gate "apiscan -check" go run ./tools/apiscan -check
 gate "apiscan -check -api" go run ./tools/apiscan -check -api
+[ -x ../.claude/hooks/hooks_test.sh ] && gate hooks ../.claude/hooks/hooks_test.sh
 
 if [ "$mode" = full ]; then
 	gate "go test -race" go test -race -coverprofile="$tmp/cover.out" ./...

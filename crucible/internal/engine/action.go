@@ -351,12 +351,17 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) {
 //
 // Candidates are collected before Move runs, the same reason
 // destroyLethalToughness and cleanupDanglingAttachments do.
+//
+// A Mode$ IgnorePlaneswalkerZeroLoyaltyRule static ability
+// (ignorePlaneswalkerZeroLoyaltyRule, staticability.go) exempts a matching
+// planeswalker from this whole SBA, per Java's own Card.
+// ignorePlaneswalkerZeroLoyaltyRule()/GameAction.handlePlaneswalkerRule.
 func destroyZeroLoyalty(g *Game, controller PlayerController) {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
-			if c.Type().Has(cardtype.Planeswalker) && c.Counters.Count(Loyalty) <= 0 {
+			if c.Type().Has(cardtype.Planeswalker) && c.Counters.Count(Loyalty) <= 0 && !ignorePlaneswalkerZeroLoyaltyRule(g, id) {
 				dead = append(dead, id)
 			}
 		}

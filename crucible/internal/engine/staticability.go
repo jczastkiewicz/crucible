@@ -488,3 +488,38 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 	}
 	return false
 }
+
+// ignorePlaneswalkerZeroLoyaltyRule reports whether id is exempt from CR
+// 704.5i (destroyZeroLoyalty, action.go) by some Mode$
+// IgnorePlaneswalkerZeroLoyaltyRule static ability in play. Ported from
+// StaticAbilityIgnoreZeroLoyalty.ignorePlaneswalkerZeroLoyaltyRule/
+// applyIgnorePlaneswalkerZeroLoyaltyRuleAbility, the exact same shape as
+// ignoreLegendRule above (a plain ValidCard match walked over every
+// battlefield permanent, an absent ValidCard$ matching every card) except
+// this mode's own Java side has no IsPresent$/PresentCompare$ escape hatch
+// to skip.
+func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "IgnorePlaneswalkerZeroLoyaltyRule") {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if !ok {
+						return true
+					}
+					if Matches(g, g.Card(id), valid.Parse(validCard), h.Controller(), h.ID) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}

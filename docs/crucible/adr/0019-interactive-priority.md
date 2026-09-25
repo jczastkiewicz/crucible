@@ -69,29 +69,39 @@ Option 1 chosen.
    than inventing a third cast path. `ScriptedController.QueueAction`/`TakeAction` follow the existing
    `QueueX`/`ChooseX` pattern (`control.go:499-...`): an empty queue answers pass, the same default every other
    `ScriptedController` method already has.
-2. **A priority loop, `Game.passPriority`**, replaces `ResolveStack`'s current "everyone already passed" assumption:
-   - Priority starts with the active player at the top of every step/phase that grants it (Decision, point 4) and resets
-     to the active player every time the stack resolves (CR 117.3b) — one field, `Game.priorityPlayer`, the same role
-     Java's `pFirstPriority` and `pPlayerPriority` both play, kept as one field here: this port has no human GUI to
-     drive separately from the pass-counter anchor, so the two Java roles collapse into one without losing the coupling
-     Java's `resetPriority()` already ties them to (`MagicStack.java:582`, `PhaseHandler.java:142-144`).
-   - Loop: check state-based actions and push waiting triggers in APNAP order (`pushTriggeredAbilities`, already ported)
-     — before every ask, not once per phase, same as `checkStateBasedEffects` runs before every
-     `chooseSpellAbilityToPlay` call (`PhaseHandler.java:1050-1056`). Then ask `priorityPlayer.TakeAction`. A non-pass
-     answer applies it (push or activate), sets `priorityPlayer` back to the acting player (CR 117.3c — the caster keeps
-     priority), and loops again without advancing. A pass advances `priorityPlayer` to the next player in turn order;
-     once priority has gone around back to whoever it started this round with, either the stack is empty (step ends,
-     return to `AdvancePhase`'s caller) or non-empty (`ResolveStack` pops and resolves exactly one item, then the loop
-     restarts with priority reset to the active player).
+2. **A new public entry, `Game.PassPriority(reg *Registry, controller PlayerController) error`**, standalone — nothing
+   existing calls it. It is not wired into `beginPhase` (`turn.go:189`): `beginPhase` takes no `*Registry`, and wiring
+   it there would resolve phase triggers through the priority loop, changing every existing scenario's `expect.events`.
+   Wiring the loop into the turn structure is a later commit; this one only adds the loop itself, callable directly by a
+   test, a fixture verb, or (eventually) `AdvancePhase`'s own caller. The byte-identical invariant (Decision Drivers)
+   holds by construction, not by a phase-body check.
+   - Priority state is local to the call, not a new `Game` field: a `holder PlayerID` starting at the active player, and
+     a consecutive-pass count. A one-field `Game.priorityPlayer` cannot by itself detect "priority has gone all the way
+     around" — the loop needs to know how many players in a row passed, which a single current-holder field does not
+     carry. Counting locally needs nothing persisted on `*Game` between calls, since the whole round runs inside one
+     `PassPriority` call (CR 117.3c's "keeps priority" is loop-local too: an action resets the counter and the holder to
+     the actor, it never has to survive past this call the way turn/phase state does).
+   - Loop body, in order: `CheckStateBasedActions` (already the only pre-ask step this port's trigger design needs —
+     `pushTriggeredAbilities` fires inline at trigger-detection sites, not from a waiting queue a priority ask would
+     have to drain, unlike Java's `addAllTriggeredAbilitiesToStack`). Then ask `holder.TakeAction`. A non-pass answer is
+     applied by calling `CastSpell`/`ActivateAbility` directly (Decision, point 5, for the timing check both now need);
+     on success, `holder` and the pass count reset to the actor (CR 117.3c); on failure, `PassPriority` returns an error
+     naming the action (GO-7). A pass advances `holder` to the next player and increments the pass count; once it
+     reaches the number of live players, either the stack is empty (the round, and `PassPriority` itself, ends) or
+     non-empty (`ResolveStack`'s own loop pops and resolves everything currently on the stack — CR 117.4 does not stop
+     at one item once passes have gone all the way around, and `ResolveStack`'s existing to-empty shape is exactly CR
+     405.5's "keep resolving while nothing responds," reused as-is rather than narrowed), then the pass count resets to
+     zero with `holder` back at the active player for a fresh round.
    - No nested loops: a response only pushes and returns to the outer loop — the loop itself is the only place
-     `PushAbility`/`ActivateAbility` get called from a priority ask. `CastSpell`'s own public entry point (main-phase,
-     sorcery-speed cast) stays a caller of the loop, not a recursive call into it, the same relationship it already has
-     to `ResolveStack` today.
-3. **`ResolveStack` narrows to "pop and resolve exactly one item"**, called once per full pass-around by `passPriority`,
-   instead of looping to empty itself. Existing direct callers (module tests, `actions.go`'s `resolvestack` verb) keep
-   working unchanged for the no-response case: looping `ResolveStack` to empty by hand is exactly what those callers
-   already do, and stays a valid, narrower way to drive the stack without going through a full priority round — useful
-   for a test that wants to resolve without a controller ever being offered a response.
+     `CastSpell`/`ActivateAbility` get called from a priority ask. Both keep their existing push-only, gate-then-push
+     shape (Decision, point 5) and stay callable directly the way every existing test and `actions.go` verb already
+     calls them, unchanged.
+3. **`ResolveStack` keeps its existing to-empty shape.** `PassPriority` calls it, unmodified, once a full pass-around
+   ends with a non-empty stack. An earlier draft of this point said `ResolveStack` would narrow to "pop one item" —
+   wrong against the code: it already loops to empty (`stack.go:69-86`), and every existing test plus `actions.go`'s
+   `resolvestack` verb depends on that to-empty behavior in one call. Narrowing it would break all of them for no reason
+   `PassPriority` needs — CR 117.4 already means "resolve everything now that a full round has passed with no response,"
+   which is what calling the existing loop once already does.
 4. **Which steps grant priority** (`Game.givesPriority(phase PhaseType) bool`, ported from `onPhaseBegin`'s own
    per-phase sets, `PhaseHandler.java:240-451`): not `Untap` (CR 502.4). `Cleanup` grants it only when the SBA check or
    a trigger check after it finds something to do (CR 514.3a) — `beginPhase`'s existing Cleanup body (`turn.go`'s own
@@ -100,20 +110,39 @@ Option 1 chosen.
    attackers, a first-strike-damage step with no first strikers) do not grant it either — this port's own Combat is thin
    enough (`00-master-implementation-plan-in-progress.md` item 29) that this rule is stated now and wired in once each
    of those steps has a real body to guard. Every other step/phase grants it by default.
-5. **A controller's chosen action that fails a legality check is an error, not a silent skip or a re-prompt.** The
-   oracle (`ScriptedController`, or any future real controller) is never offered an action it cannot legally take — CR
-   307.1's own timing check (`Player.canCastSorcery`, `Player.java:2512-2515`) only ever gates what appears in the
-   legal-action set a controller chooses from, never re-validates after the fact in Java. This port has no such
-   legal-action enumeration yet (`TakeAction` just asks "what, if anything" and trusts the answer, the same stance every
-   other `PlayerController` method already documents — `Ability`'s own doc comment, "NOT re-checked ... trust the
-   controller's answer"). Trusting a queued action that violates sorcery timing or any other structural legality check
-   would let a fixture reach a state CR forbids with nothing catching it, so `passPriority` checks timing legality
-   itself before applying a non-pass answer and returns an error if it fails (GO-7: a bad card, or here a bad queued
-   action, fails its own game, not the batch) — the one exception to "trust the controller" this port's decision methods
-   otherwise hold to, made here because nothing else in this loop can catch it before state changes. This is the general
-   rule `MustBlock`'s own ADR (Context) applies rather than re-decides: a controller's answer is trusted up to the
-   legality checks this port can cheaply run inline; a check that would require re-deriving the full legal-action set
-   (Java's own approach) is deferred, not silently skipped.
+5. **`CastSpell` and `ActivateAbility` gain a CR 307.1 timing check in place of their current blanket gate**, and a
+   controller's chosen action that fails it is an error, not a silent skip or a re-prompt. Both functions today reject
+   any cast/activate unless `pid == g.activePlayer`, the phase is `Main1`/`Main2`, and the stack is empty
+   (`castspell.go:59-61`, `activateability.go:215-217`) — correct for a permanent, an Aura, or a Sorcery (CR 307.1
+   itself), but it also blocks an Instant or an instant-speed activated ability from ever being cast as a response,
+   which is the entire point of this ADR. The gate splits by object, checked inline where each function already returns
+   `false` today:
+   - Permanent, Aura, Sorcery: keep exactly the existing check (CR 307.1 — your turn, a main phase, empty stack).
+   - Instant: no timing restriction (CR 307.1 already excludes Instants) — legal whenever `TakeAction`'s caller has
+     priority to be asked at all, which `PassPriority`'s own loop already only does for a live player during a
+     priority-granting step (Decision, point 4).
+   - Activated ability: legal at instant speed unless its compiled `Ability` carries `SorcerySpeed$ true`
+     (`compile.Ability.Param("SorcerySpeed")` — generic across every `APIType`'s param struct, since the check runs
+     before dispatch, the same shape `activatemanaability.go:139`'s own comment already names as unenforced). This
+     closes that gap and the identical ones `destroyeffect.go:38`, `milleffect.go:31`, `sacrificeeffect.go:44`,
+     `sacrificealleffect.go:25` and others already flag as "a cost-restriction flag with no cost-payment site to enforce
+     it yet" — `SorcerySpeed$` gets its first real enforcement site here, at activation, not at cost payment
+     (Consequences). A loyalty/planeswalker ability's own once-per-turn, sorcery-speed-only restriction is not modeled
+     by this port at all yet (no `Planeswalker$` ability marker exists to check) and stays out of scope, same as before
+     this ADR.
+   - The oracle (`ScriptedController`, or any future real controller) is never offered an action it cannot legally take
+     in Java — `canCastTiming` only ever gates what appears in the legal-action set a controller chooses from, never
+     re-validates after the fact (`SpellAbility.java:2596-2613`). This port has no legal-action enumeration
+     (`TakeAction` just asks "what, if anything" and trusts the answer, the same stance every other `PlayerController`
+     method already documents). Trusting a queued action that violates this timing check would let a fixture reach a
+     state CR forbids with nothing catching it, so the check runs inline in `CastSpell`/ `ActivateAbility` themselves —
+     not only from `PassPriority` — and a violation returns an error rather than the plain `false` both functions return
+     for every other declined-by-the-rules case today (GO-7: a bad queued action fails its own game, not the batch).
+     This is the general rule `MustBlock`'s own ADR (Context) applies rather than re-decides: a controller's answer is
+     trusted up to the legality checks this port can cheaply run inline; a check that would require re-deriving the full
+     legal-action set (Java's own approach) is deferred, not silently skipped.
+   - Existing tests asserting an Instant is rejected outside `Main1`/`Main2` (if any) are a deliberate CR 307.1 fix, not
+     a regression — named as such in the implementing commit.
 6. **No new event.** A pass is not telemetry-worthy on its own (ADR-0013's own volume argument — a pass happens far more
    often than every event this port already emits combined) and every existing `expect.events` fixture file must stay
    byte-identical for the empty-queue default (Decision Drivers). `AbilityActivated`/`AbilityResolved` already cover a
@@ -127,9 +156,10 @@ ADR only removes their remaining blocker); the general CR 608.2b fizzle check pa
 ## Consequences
 
 **Good:** `Play`, `CopySpellAbility`, and the casting-infra bucket of `PlayerController`'s remaining gaps all unblock.
-`ResolveStack`'s existing callers (module tests, `actions.go`'s `resolvestack` verb) keep their current meaning — pop
-and resolve one item — rather than needing to learn a new "resolve everything, offering priority along the way" shape; a
-caller that wants the full priority round calls `passPriority` instead, additive rather than a breaking rename.
+`ResolveStack` is untouched — same signature, same to-empty behavior, same callers. `PassPriority` is purely additive:
+nothing existing calls it, so every current test and scenario stays byte-identical by construction. `SorcerySpeed$`'s
+own long-standing "parsed but never enforced" gap (Decision, point 5) closes for free as part of giving
+`CastSpell`/`ActivateAbility` a real timing check.
 
 **Bad:** the general CR 608.2b fizzle check becomes load-bearing rather than a documented but currently-unreachable gap
 — a response resolving above a targeted spell can now actually remove its target before this port has a general re-check
@@ -138,8 +168,12 @@ here: Java's own mechanism is a per-entity `canTarget(entity, fizzleCheck=true)`
 recompute-and-intersect of the candidate list — the shape that already broke `TestRemoveFromGameSpellOnStack` once
 (ADR-0018 Decision point 3) and must not be reused for the general case either.
 
-**Neutral:** `Game` gains one field (`priorityPlayer PlayerID`), no new type. `PlayerController` gains one method,
-implemented by `ScriptedController` and any future controller the same way every other method already is.
+**Neutral:** `Game` gains no new field — the priority round's state (holder, pass count) is local to one `PassPriority`
+call, not persisted turn-structure state. `PlayerController` gains one method, implemented by `ScriptedController` and
+any future controller the same way every other method already is. `CastSpell` and `ActivateAbility`'s existing callers
+(every test, `actions.go`'s `cast`/`activate` verbs) that only ever exercise the main-phase, empty-stack, active-player
+case see no behavior change — the CR 307.1 split only changes what an Instant or a non-`SorcerySpeed$` activated ability
+can now do outside that case, which nothing exercised before this ADR.
 
 ## Related
 

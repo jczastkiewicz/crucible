@@ -57,7 +57,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		mode := Ability{
 			API: api, Source: a.Source, Controller: a.Controller, Params: sub.Ability,
-			Amounts: a.Amounts, TriggerRemembered: a.TriggerRemembered,
+			Amounts: a.Amounts, TriggerRemembered: a.TriggerRemembered, triggered: a.triggered,
 		}
 		if !g.modeHasLegalTargets(&mode) {
 			continue

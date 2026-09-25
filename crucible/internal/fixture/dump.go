@@ -38,6 +38,9 @@ func Dump(l *Loaded) *State {
 		RemoveSummoningSickness: false,
 		Over:                    g.Over(),
 	}
+	if m := g.Monarch(); m != engine.NoPlayer {
+		st.Monarch = g.Player(m).Name
+	}
 	// ActivePhase has no "unset" of its own on Game -- a real game always has
 	// some active phase once its turn state is initialised. Emitting it only
 	// alongside ActivePlayer keeps a truly empty fixture (no active player at
@@ -78,13 +81,14 @@ func Dump(l *Loaded) *State {
 // own order (GO-12): that order is what a fixture reproduces when it names a
 // library, so Dump must not reorder it.
 func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) string {
-	cards := g.Zone(kind, owner).Cards()
-	if len(cards) == 0 {
-		return ""
-	}
-	entries := make([]string, len(cards))
-	for i, id := range cards {
-		entries[i] = dumpCard(g, id)
+	var entries []string
+	for _, id := range g.Zone(kind, owner).Cards() {
+		// A designation's effect card is written as monarch=, not as a
+		// card (State.Monarch).
+		if g.IsDesignationCard(id) {
+			continue
+		}
+		entries = append(entries, dumpCard(g, id))
 	}
 	return strings.Join(entries, ";")
 }

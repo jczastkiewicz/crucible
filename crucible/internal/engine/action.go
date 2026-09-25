@@ -139,6 +139,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 			p.Lost = true
 		}
 	}
+	g.onPlayersLost(controller)
 
 	remaining := NoPlayer
 	count := 0

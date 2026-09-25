@@ -295,6 +295,14 @@ them: comparing would have failed every scenario that legitimately ends the game
 running `CheckStateBasedActions` in `actions.log`, and `expect.state` writing `humanlost=true`, `aiwon=true`,
 `over=true` down as the assertion.
 
+**`monarch=<player>` is the monarch designation, Crucible-only like `over=`.** Java's `GameState.toString` writes the
+monarch's "The Monarch" effect card into the command zone by name, and nothing can load it back: no card database holds
+it. `State.Monarch` writes the designation instead. `Load` recreates the card through `Game.SetMonarch` (no trigger
+runs); `Dump` writes `monarch=` and leaves every designation card (`Game.IsDesignationCard`) out of the command zone;
+`compareGames` compares the monarch by name. An unknown player is a `Load` error. Reason: the card is state the
+designation implies, so writing both would let a fixture say two contradicting things.
+`testdata/scenarios/monarch-draws-at-end-step-and-passes-by-combat-damage` is the example.
+
 **`Protector:` is `lost=`/`won=`/`over=`'s own pattern applied to a single card field.** `Card.ProtectingPlayer` (CR
 704.5w, `game-state.md`'s "Combat") is Crucible state with no Java `GameState` key to diverge from at all — grep finds
 nothing resembling one in `GameState.java`. `Load`'s case is `Owner:`'s own shape exactly (`playerSlot`, then

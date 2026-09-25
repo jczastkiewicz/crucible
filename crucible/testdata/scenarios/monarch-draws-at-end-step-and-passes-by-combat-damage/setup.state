@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanhand=Palace Sentinels|Id:1
+humanbattlefield=Plains|Id:2;Plains|Id:3;Plains|Id:4;Plains|Id:5
+humanlibrary=Forest|Id:6;Forest|Id:7
+ailibrary=Forest|Id:8;Forest|Id:9
+aibattlefield=Grizzly Bears|Id:10

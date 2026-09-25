@@ -115,6 +115,18 @@ type Player struct {
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/
 	// LandPlayLimit, below, are what folds it against the printed defaults.
 	Rules RulesMod
+
+	// monarchEffect is this player's "The Monarch" effect card
+	// (Player.monarchEffect), NoCard until they first become the monarch.
+	// One card per player for the whole game, as in Java: losing the
+	// monarchy parks it in None and becoming the monarch again puts the same
+	// card back in the Command zone (becomemonarcheffect.go).
+	monarchEffect CardID
+	// lossHandled records that Game.onPlayerLost has run for this player:
+	// Java runs it once, as the loss is awarded (GameAction.
+	// checkGameOverCondition), and it is what passes the monarchy on (CR
+	// 724.4, becomemonarcheffect.go).
+	lossHandled bool
 }
 
 // HandSizeLimit folds Layer 8's own SetMaxHandSize$/RaiseMaxHandSize$

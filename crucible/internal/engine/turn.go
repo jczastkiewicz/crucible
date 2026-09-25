@@ -82,6 +82,7 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 			g.delayedTriggersOnNextTurn(g.activePlayer)
 			g.activateCleanupDelayedTriggers()
 			g.endEffectsAtTurnStart(g.activePlayer)
+			g.monarchBeginTurn = g.monarch
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}

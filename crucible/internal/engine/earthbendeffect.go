@@ -112,6 +112,13 @@ func (g *Game) checkElementalBendTriggers(controller PlayerController, bender Pl
 // skipped: no per-trigger counter enforces them (checkLifeGainedTriggers'
 // reasoning, trigger.go).
 func (g *Game) checkPlayerActionTriggers(controller PlayerController, actor PlayerID, modes ...string) {
+	g.pushTriggeredAbilities(controller, g.playerActionTriggerMatches(actor, nil, modes...))
+}
+
+// playerActionTriggerMatches is checkPlayerActionTriggers' walk, returning
+// the matches instead of pushing them. gate, when not nil, is a further
+// mode-specific test a line must pass (Mode$ BecomeMonarch's BeginTurn$).
+func (g *Game) playerActionTriggerMatches(actor PlayerID, gate func(h *Card, t *compile.Ability) bool, modes ...string) []Ability {
 	var matches []Ability
 	for _, mode := range modes {
 		for _, pid := range g.Players() {
@@ -135,6 +142,9 @@ func (g *Game) checkPlayerActionTriggers(controller PlayerController, actor Play
 									continue
 								}
 							}
+							if gate != nil && !gate(h, t) {
+								continue
+							}
 							if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
 							}
@@ -144,5 +154,5 @@ func (g *Game) checkPlayerActionTriggers(controller PlayerController, actor Play
 			}
 		}
 	}
-	g.pushTriggeredAbilities(controller, matches)
+	return matches
 }

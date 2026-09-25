@@ -116,6 +116,11 @@ type Ability struct {
 	// chains -- Java reads it off the root ability. Defined$
 	// DelayTriggerRemembered[LKI] reads it (defined.go).
 	TriggerRemembered []EntityID
+	// triggered is what the trigger that put this ability on the stack
+	// recorded about its event (SpellAbility.setTriggeringObject), carried
+	// onto every sub-ability it chains the way TriggerRemembered is: Java
+	// reads it off the root ability. Zero for any ability no trigger made.
+	triggered triggeredObjects
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
@@ -148,9 +153,33 @@ type Ability struct {
 type abilityRefs struct {
 	targets           []EntityID
 	triggerRemembered []EntityID
+	triggered         triggeredObjects
 }
 
 // refs is a's own abilityRefs.
 func (a *Ability) refs() abilityRefs {
-	return abilityRefs{targets: a.Targets, triggerRemembered: a.TriggerRemembered}
+	return abilityRefs{targets: a.Targets, triggerRemembered: a.TriggerRemembered, triggered: a.triggered}
+}
+
+// triggeredObjects is the slice of Java's triggering-objects map
+// (SpellAbility.getTriggeringObject) a ported trigger mode records, read by
+// Defined$ Triggered<Key> (definedPlayers, defined.go). Only the keys some
+// mode sets are here; a Defined$ naming one its trigger did not record is
+// an error rather than an empty answer (GO-7), so a mode that never learned
+// to set a key fails loudly instead of acting on nobody.
+type triggeredObjects struct {
+	// source is AbilityKey.Source: the card that dealt the damage
+	// (TriggerDamageDone) or the player whose creatures did
+	// (TriggerDamageDoneOnceByController). NoEntity when unset.
+	source EntityID
+	// sourceController is source's controller as the trigger fired --
+	// Java stores a last-known-information copy of the damage source
+	// (CardCopyService.getLKICopy), so a creature that changes control or
+	// dies before the trigger resolves still answers its controller at
+	// damage time. For a player source it is that player.
+	sourceController PlayerID
+	// player is AbilityKey.Player: who became the monarch (Mode$
+	// BecomeMonarch), took the initiative (TakesInitiative) or completed a
+	// dungeon (DungeonCompleted). NoPlayer when unset.
+	player PlayerID
 }

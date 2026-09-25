@@ -128,6 +128,13 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 	if err := ld.resolveRefs(); err != nil {
 		return nil, err
 	}
+	if st.Monarch != "" {
+		slot, ok := playerSlot(st.Monarch)
+		if !ok || slotToID[slot] == engine.NoPlayer {
+			return nil, fmt.Errorf("monarch %q: no such player", st.Monarch)
+		}
+		g.SetMonarch(slotToID[slot])
+	}
 	if st.RemoveSummoningSickness {
 		for _, p := range slots {
 			for _, id := range g.Zone(engine.Battlefield, slotToID[p]).Cards() {

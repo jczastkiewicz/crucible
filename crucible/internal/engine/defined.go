@@ -71,6 +71,24 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		candidates = rememberedPlayers(g, "", refs.triggerRemembered, false)
 	case "DelayTriggerRememberedController":
 		candidates = rememberedPlayers(g, "RememberedController", refs.triggerRemembered, false)
+	case "TriggeredPlayer":
+		if refs.triggered.player == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no player", defined)
+		}
+		candidates = []PlayerID{refs.triggered.player}
+	case "TriggeredSource", "TriggeredSourceController":
+		// AbilityUtils.getDefinedPlayers' "Triggered" branch over
+		// AbilityKey.Source: a player source is itself, a card source
+		// answers its controller for the ...Controller spelling. Unset --
+		// a trigger mode that does not record Source -- is an error.
+		src := refs.triggered.source
+		if src == NoEntity {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no source", defined)
+		}
+		if _, isCard := src.AsCard(); isCard && defined == "TriggeredSource" {
+			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
+		}
+		candidates = []PlayerID{refs.triggered.sourceController}
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}

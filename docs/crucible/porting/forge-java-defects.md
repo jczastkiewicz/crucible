@@ -15,12 +15,13 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                              | Defect                                                                 | Crucible meanwhile                       | Upstream  |
-| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty    | `TargetControls$` rejected               | Not filed |
-| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game          | `error` for the chooser left empty       | Not filed |
-| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                             | No counterpart: no set codes in Crucible | Not filed |
-| `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on | Reproduced (oracle parity)               | Not filed |
+| Site                              | Defect                                                                                       | Crucible meanwhile                         | Upstream  |
+| --------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ | --------- |
+| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                          | `TargetControls$` rejected                 | Not filed |
+| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game                                | `error` for the chooser left empty         | Not filed |
+| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                                                   | No counterpart: no set codes in Crucible   | Not filed |
+| `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on                       | Reproduced (oracle parity)                 | Not filed |
+| `CardUtil.java:345`               | Nested reflection frame resolves `Valid$` against the reflecting card, not the reflected one | No counterpart: `ManaReflected` not ported | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -172,3 +173,55 @@ if (p.hasLost()) {
 **Crucible meanwhile:** reproduced. `takeinitiativeeffect.go`'s `takeInitiative` runs the same code, so the lost active
 player ends holding the initiative (`TestInitiativeToALostActivePlayerReproducesJava`). A state bug, not a crash or a
 hang, so matching the oracle wins over correcting it in Go alone (PORT-8).
+
+### `CardUtil.java:345` — nested `getReflectableManaColors` frame reads the wrong host
+
+```java
+// CardUtil.java:237-243
+private static Set<String> getReflectableManaColors(final SpellAbility abMana, final SpellAbility sa,
+        Set<String> colors, final CardCollection parents) {
+    ...
+    final Card card = abMana.getHostCard();
+
+// CardUtil.java:264-271
+    if (validCard.startsWith("Defined.")) {
+        cards = AbilityUtils.getDefinedCards(card, TextUtil.fastReplace(validCard, "Defined.", ""), abMana);
+    } else {
+        ...
+        cards = CardLists.getValidCards(activator.getGame().getCardsIn(ZoneType.Battlefield), validCard, activator, card, sa);
+    }
+
+// CardUtil.java:345, inside the ReflectProperty$ Produce branch
+    colors = CardUtil.getReflectableManaColors(sa, ab, colors, parents);
+```
+
+The recursion reads `ab`'s own `Valid$`, `ColorOrType$` and `ReflectProperty$` through `sa`, but passes the outer `sa`
+as `abMana`. So `card` in the nested frame is the reflecting card's host, not `ab.getHostCard()`, and:
+
+- `Valid$ Defined.*` resolves against the reflecting card, and `getDefinedCards`' player is `abMana`'s activator
+  (`AbilityUtils.java:71-77`).
+- A non-`Defined` `Valid$` uses the reflecting card as its valid-string source.
+
+Corpus cases, each wrong under CR 106.7 ("the types of mana the reflected ability could produce"):
+
+| Reflecting                              | Reflected                                                       | Java reads                                                |
+| --------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| Reflecting Pool (`Valid$ Land.YouCtrl`) | Pit of Offerings (`Valid$ Defined.ExiledWith`)                  | Cards exiled with Reflecting Pool: none, so no colors     |
+| Exotic Orchard (`Valid$ Land.OppCtrl`)  | Opponent's The Grey Havens (`Defined.ValidGraveyard ...YouOwn`) | Legendary creatures in the Orchard controller's graveyard |
+
+Depth 2 is inconsistent again: its `abMana` is depth 1's `ab`, so a chain of three reflecting lands reads a different
+wrong host at each level.
+
+**Proposed fix:** pass the reflected ability as both arguments, so `card` and the defined-player are `ab`'s own:
+
+```java
+colors = CardUtil.getReflectableManaColors(ab, ab, colors, parents);
+```
+
+`abMana.getApi()` (`:245`) still reads `ManaReflected`, since only such abilities reach `reflectAbilities`. The
+`Produced` branch's `abMana.getRootAbility()` (`:297`) is never reached from the recursion: `Produced` abilities are not
+added to `reflectAbilities` (`:333`).
+
+**Crucible meanwhile:** no counterpart. `ManaReflected` is deferred
+([`effects-manareflected.md`](port-log/game-state/effects-manareflected.md)); whoever ports the `Produce` walk decides
+between reproducing it (oracle parity) and carrying the fix upstream first.

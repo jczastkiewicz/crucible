@@ -691,10 +691,10 @@ named `<Type$> Token`. Then `Num$` (default 1) loyalty counters on one such toke
 
 **Researched and deferred.**
 
-| API             | Blocker                                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| `MustBlock`     | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR |
-| `ManaReflected` | `CardUtil.getReflectableManaColors`' cross-permanent reflection walk (`CardUtil.java:231-346`)           |
+| API             | Blocker                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MustBlock`     | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR                                                 |
+| `ManaReflected` | Triggered mana abilities (CR 605.1b) for the dominant `Produced` shape; not the reflection walk ([`effects-manareflected.md`](effects-manareflected.md)) |
 
 `BecomeMonarch`/`TakeInitiative`/`Venture` retired from this table: their own blocker (synthetic Command-zone effect
 cards with their own triggers) stopped applying once the `Effect` port gave Command-zone `IsEffect` cards live triggers

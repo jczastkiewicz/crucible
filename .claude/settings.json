@@ -71,5 +71,8 @@
       "Bash(npx markdownlint-cli2 *)",
       "Bash(prettier --check *)"
     ]
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }

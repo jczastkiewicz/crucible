@@ -7,7 +7,7 @@ package engine
 // Resolve(*Game, *Ability, PlayerController) error, under the API its name
 // gives or the API its //crucible:register lines name (ADR-0017).
 //
-// 142 APIs. Explicit construction, not an init() populating a package-level
+// 148 APIs. Explicit construction, not an init() populating a package-level
 // Registry: a caller that wants fewer APIs builds its own Registry.
 //
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
@@ -17,6 +17,7 @@ func NewRegistry() *Registry {
 	r[APIAddOrRemoveCounter] = addOrRemoveCounterEffect{}
 	r[APIAddPhase] = addPhaseEffect{}
 	r[APIAddTurn] = addTurnEffect{}
+	r[APIAirbend] = airbendEffect{}
 	r[APIAlterAttribute] = alterAttributeEffect{}
 	r[APIAmass] = amassEffect{}
 	r[APIAnimate] = animateEffect{}
@@ -62,9 +63,12 @@ func NewRegistry() *Registry {
 	r[APIDigMultiple] = digMultipleEffect{}
 	r[APIDigUntil] = digUntilEffect{}
 	r[APIDiscard] = discardEffect{}
+	r[APIDiscover] = discoverEffect{}
+	r[APIDraft] = draftEffect{}
 	r[APIDrainMana] = drainManaEffect{}
 	r[APIDraw] = drawEffect{}
 	r[APIEachDamage] = eachDamageEffect{}
+	r[APIEarthbend] = earthbendEffect{}
 	r[APIEmpower] = empowerEffect{}
 	r[APIEndCombatPhase] = endCombatPhaseEffect{}
 	r[APIEndTurn] = endTurnEffect{}
@@ -74,6 +78,7 @@ func NewRegistry() *Registry {
 	r[APIExchangeLife] = exchangeLifeEffect{}
 	r[APIExchangeLifeVariant] = exchangeLifeVariantEffect{}
 	r[APIExchangePower] = exchangePowerEffect{}
+	r[APIExchangeZone] = exchangeZoneEffect{}
 	r[APIExplore] = exploreEffect{}
 	r[APIFight] = fightEffect{}
 	r[APIFlipCoin] = flipCoinEffect{}
@@ -86,6 +91,7 @@ func NewRegistry() *Registry {
 	r[APIGenericChoice] = genericChoiceEffect{}
 	r[APIGoad] = goadEffect{}
 	r[APIHealDamage] = healDamageEffect{}
+	r[APIHeist] = heistEffect{}
 	r[APIImmediateTrigger] = immediateTriggerEffect{}
 	r[APIIncubate] = incubateEffect{}
 	r[APIIntensify] = intensifyEffect{}

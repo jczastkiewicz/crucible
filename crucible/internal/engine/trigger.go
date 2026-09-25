@@ -194,6 +194,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 		}
 	}
 	matches = append(matches, g.otherDiesTriggerMatches(left)...)
+	matches = append(matches, g.delayedLeftBattlefieldMatches(left, Graveyard)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 

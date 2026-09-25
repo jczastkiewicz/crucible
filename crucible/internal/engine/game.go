@@ -120,6 +120,10 @@ type Game struct {
 	// shields, oldest first, all ending at cleanup.
 	preventShields []preventShield
 
+	// exileGrants are Airbend's and Heist's "may cast it from exile"
+	// permissions (ExilePlayGrant), in the order they were made.
+	exileGrants []ExilePlayGrant
+
 	// dayTime is Game.daytime: DayNeither until something makes it day or
 	// night (DayTime, CR 726.2), then Day or Night.
 	dayTime DayTime
@@ -368,6 +372,10 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
 	g.put(id, kind, owner)
 
+	// A card exiled face down (Heist) turns face up as it leaves exile.
+	if from == Exile && kind != Exile {
+		c.turnFaceUp()
+	}
 	switch {
 	case from == Battlefield && kind != Battlefield:
 		snap := *c
@@ -603,6 +611,7 @@ func (g *Game) Clone() *Game {
 		combatsThisTurn:       g.combatsThisTurn,
 		turnOrderReversed:     g.turnOrderReversed,
 		preventShields:        append([]preventShield(nil), g.preventShields...),
+		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
 		dayTime:               g.dayTime,
 		previousPlayer:        g.previousPlayer,
 		previousPlayerSpells:  g.previousPlayerSpells,

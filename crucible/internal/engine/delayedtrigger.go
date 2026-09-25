@@ -107,3 +107,63 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 	g.delayed = kept
 	return matches
 }
+
+// delayedLeftBattlefieldMatches collects every live delayed trigger watching
+// left leave the battlefield for dest, removing each one it collects: a
+// Mode$ ChangesZone trigger from the battlefield to dest, or (dest Exile) a
+// Mode$ Exiled one, whose ValidCard$ Card.IsTriggerRemembered names left --
+// the one shape registered today, Earthbend's return (earthbendeffect.go).
+// Identity is the CardID, as Java's Card.equals compares ids.
+func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedWatchesLeaving(d, left, dest) {
+			kept = append(kept, d)
+			continue
+		}
+		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, Ability{
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+		})
+	}
+	g.delayed = kept
+	return matches
+}
+
+// delayedWatchesLeaving reports whether d is a battlefield-leaving delayed
+// trigger for left going to dest.
+func delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneType) bool {
+	t := d.Trigger
+	if v, _ := t.Param("ValidCard"); v != "Card.IsTriggerRemembered" {
+		return false
+	}
+	if o, _ := t.Param("Origin"); o != "Battlefield" {
+		return false
+	}
+	switch {
+	case strings.EqualFold(t.Name, "Exiled"):
+		if dest != Exile {
+			return false
+		}
+	case strings.EqualFold(t.Name, "ChangesZone"):
+		want, _ := t.Param("Destination")
+		if z, ok := ZoneByName(want); !ok || z != dest {
+			return false
+		}
+	default:
+		return false
+	}
+	for _, e := range d.Remembered {
+		if id, ok := e.AsCard(); ok && id == left {
+			return true
+		}
+	}
+	return false
+}

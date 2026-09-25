@@ -53,6 +53,11 @@ var targetUnresolvedParams = [...]string{
 // settles the shape for the whole spec.
 func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 	validTgts, ok := a.Params.Param("ValidTgts")
+	if !ok && a.API == APIEarthbend {
+		// EarthbendEffect.buildSpellAbility sets the target restriction
+		// itself; no script line names it.
+		validTgts, ok = "Land.YouCtrl", true
+	}
 	if !ok {
 		return true
 	}

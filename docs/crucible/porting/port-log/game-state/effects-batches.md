@@ -621,8 +621,8 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
 
 - `Play`, `Effect`, `Clone`, `CopySpellAbility`, `ChangeTargets`, the `Replace*` family, `Phases`, `MustBlock`,
   `BecomeMonarch`/`TakeInitiative`/`Venture`/`RingTemptsYou` (command-zone effects with their own triggers),
-  `Earthbend`/`Airbend` (delayed zone-change triggers), `Discover` (casting without paying), `SwitchBlock` (both real
-  lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy APIs.
+  `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy
+  APIs.
 - `Counter`: abilities as targets, `Defined$` spells, a `CantBeCountered` static or `Counter` replacement,
   `RememberCounteredCMC$` (an Integer). `SetState`: `Flip`, `TurnFaceDown`, `Specialize`, a `CantTransform` static or
   `Transform` replacement. `CopyPermanent`: every copy exception past power/toughness, end-of-turn cleanup, attacking
@@ -694,10 +694,55 @@ named `<Type$> Token`. Then `Num$` (default 1) loyalty counters on one such toke
 | `MustBlock`                      | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR |
 | `BecomeMonarch`/`TakeInitiative` | Synthetic Command-zone effect cards with their own triggers (`Player.java:3438-3541`), plus `Venture`    |
 | `ManaReflected`                  | `CardUtil.getReflectableManaColors`' cross-permanent reflection walk (`CardUtil.java:231-346`)           |
-| `Draft`                          | Spellbook shuffle through `MyRandom`, "A-" rebalanced lookup, two-hop move through zone `None`           |
-| `Earthbend`                      | Delayed `ChangesZone`/`Exiled` triggers, `IsTriggerRemembered`, `ElementalBend` trigger mode             |
 
 **Forge bug (PORT-8, found researching `BecomeMonarch`; tracked in
 [`forge-java-defects.md`](../../forge-java-defects.md)).** `Player.java:3434-3436`, `getMonarchSet`: condition inverted
 (`monarchEffect == null ? monarchEffect.getSetCode() : null`) — always null in the normal case, NPE otherwise. Sibling
 `getInitiativeSet` (`:3486-3488`) is correct. Cosmetic (set code for the effect card's image); to report upstream.
+
+---
+
+## Earthbend, Airbend, Discover, Draft, Heist and ExchangeZone land
+
+Six more script-driven APIs resolve, 145 of the corpus's 203 (`Empower` landed with `ChooseSource`, above). Corpus
+lines: Earthbend 38, Airbend 13, Discover 37, Draft 42, Heist 8, ExchangeZone 1.
+
+| API            | Resolves                                                                                                                                                                                                             | Fails closed / not modeled                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Earthbend`    | Target land you control becomes a 0/0 haste land creature (Permanent `animateRecord`), `Num$` +1/+1 counters, two delayed "return it tapped under your control" triggers (dies, exiled), then ElementalBend triggers | `AB$ Earthbend` (3 lines): `ActivateAbility` chooses no targets yet                                          |
+| `Airbend`      | Each target or `Defined$` permanent exiled; owner may cast a nonland non-token one for {2} (`ExilePlayGrant`); `ChangesZoneAll`; ElementalBend triggers when anything moved                                          | `TgtZone$` (1 line, a spell on the stack)                                                                    |
+| `Discover`     | Exile from top until nonland with MV ≤ `Num$`, one `ChangesZoneAll` per card; cast (`ConfirmEffect` true) or hand; rest to bottom shuffled; `Mode$ Discover` triggers; `RememberDiscovered$`                         | Casting an instant, sorcery or Aura: checked by peeking before anything moves, then an error                 |
+| `Draft`        | `DraftNum$` rounds: spellbook shuffled, first three made (the `A-` version when the DB has it), one picked to hand; `RememberDrafted$`                                                                               | --                                                                                                           |
+| `Heist`        | `Num$` rounds: three random nonland cards of the target's library, one exiled face down; heister may play it with any mana type (`ExilePlayGrant`)                                                                   | `addMayLookFaceDownExile` (no hidden-information model); `canExiledBy` (no `CantExile` static)               |
+| `ExchangeZone` | `Object$` (default host) in `Zone1$` swaps with a chosen `ValidExchange$` card in `Zone2$`; optional unless `Mandatory$`                                                                                             | `Type$` (Aura re-attachment, 0 lines). The one real line (Darkpact) is an ante sorcery this port cannot cast |
+
+Shared engine pieces:
+
+- **`ExilePlayGrant`** (`airbendeffect.go`, `Game.exileGrants`, copied by `Clone`): the `MayPlay$` static on the
+  command-zone effect card `AirbendEffect.java:95-104` and `HeistEffect.java:58-67` create. Their forget-on-moved and
+  forget-on-cast triggers fold into the card's exile timestamp: any later zone change ends the grant.
+  `Game.MayPlayFromExile` is the query; `CastSpell` still casts only from hand, so nothing consumes it yet.
+- **Delayed battlefield-leaving triggers** (`delayedtrigger.go`, `delayedLeftBattlefieldMatches`): a delayed
+  `Mode$ ChangesZone` (Origin Battlefield, Destination the zone) or `Mode$ Exiled` trigger with
+  `ValidCard$ Card.IsTriggerRemembered`, checked from `checkDiesTriggers` and `checkExiledTriggers`. Fires once and is
+  removed; the other of Earthbend's pair stays, as in Java. `earthbendReturnTrigger` builds the trigger tree
+  `buildTrigger` (`EarthbendEffect.java:74-89`) parses from strings.
+- **Implied targets:** `EarthbendEffect.buildSpellAbility` (`EarthbendEffect.java:40-44`) sets `ValidTgts$ Land.YouCtrl`
+  itself; `resolveTargets` supplies it for `APIEarthbend`. Earthbend re-checks the target on resolution (CR 608.2b).
+- **Player-action triggers:** `checkPlayerActionTriggers` runs `ValidPlayer$`-only modes -- `ElementalBend` then
+  `Earthbend`/`Airbend` (`Player.triggerElementalBend`, `Player.java:4081-4088`) and `Discover`. `ActivationLimit$`
+  lines skip, as in `checkLifeGainedTriggers`. `elementalBendThisTurn` is not kept: Firebend and Waterbend are not
+  ported, so "all four this turn" cannot happen.
+- **`castWithoutPaying`** (`discovereffect.go`): `CastSpell`'s tail without timing or payment -- stack, permanent
+  ability, `SpellCast`, cast and zone-change triggers.
+- **Face-down exile:** a heisted card's `Def` is a blank definition (`Card.turnFaceDown`'s FaceDown state), its own kept
+  in `faceUpDef`; `Game.Move` turns it face up as it leaves exile.
+
+Decisions: Draft and Heist use `ChooseCardsForEffect` for Java's `chooseSingleCardForZoneChange`; Discover's cast/hand
+choice is `ConfirmEffect` (Java's `confirmAction`, "Cast" first). No new `PlayerController` method.
+
+Rebalanced cards: `DraftEffect.java:52-55` swaps a name for its `A-` version when `PaperCard.isUnRebalanced` -- an
+edition lists `A-<name>` under `[rebalanced]`. This port has no edition data and asks the DB for `A-<name>`. All nine
+spellbook names with an `A-` card (Akki Ronin, Ancestral Katana, Asari Captain, Cauldron Familiar, Eiganjo Exemplar,
+Imperial Subduer, Patrician Geist, Peerless Samurai, Shipwreck Sifters) are listed under `[rebalanced]`, so both agree
+on every real line.

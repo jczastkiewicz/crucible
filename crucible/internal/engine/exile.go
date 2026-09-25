@@ -101,6 +101,7 @@ func (g *Game) checkExiledTriggers(controller PlayerController, left CardID) {
 		}
 	}
 	matches = append(matches, g.otherExiledTriggerMatches(left)...)
+	matches = append(matches, g.delayedLeftBattlefieldMatches(left, Exile)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 

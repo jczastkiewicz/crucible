@@ -88,7 +88,8 @@
       "turn",
       "preventdamageeffect",
       "daytimeeffect",
-      "goadeffect"
+      "goadeffect",
+      "airbendeffect"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
@@ -279,7 +280,7 @@
     "regeneration": ["id", "card", "game", "control", "parts"],
     "effecthelpers": ["id", "card", "game", "valid", "parts", "ability", "zone", "amount"],
     "animate": ["ability", "card", "effecthelpers", "game", "id", "layer", "parts", "valid", "zone"],
-    "delayedtrigger": ["ability", "card", "game", "id", "player", "trigger", "valid"],
+    "delayedtrigger": ["ability", "card", "game", "id", "player", "trigger", "valid", "zone"],
     "random": ["game"],
     "token": ["card", "control", "event", "game", "id", "parts", "zone"],
     "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined"]

@@ -128,6 +128,7 @@ queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from L
 queue enchanttarget <id>      ScriptedController.QueueEnchantTarget, id from Loaded.CardByFixtureID
 queue targets <id>[,<id>...]  ScriptedController.QueueTargets, a triggered ability's card targets from Loaded.CardByFixtureID
 queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from Loaded.CardByFixtureID (no ids declines)
+queue exertattackers [<id>,...]  ScriptedController.QueueExertAttackers, ids from Loaded.CardByFixtureID (no ids/"none" declines)
 queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's Loaded.CardByFixtureID
 queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from Loaded.CardByFixtureID (no pairs declines)
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID

@@ -1,0 +1,18 @@
+# CR 508.1c: Gust Walker (2/2, "you may exert this as it attacks. When you
+# do, it gets +1/+1 and gains flying until end of turn") attacks alone and
+# is exerted -- exertDeclaredAttackers (attack.go) offers it right after
+# tapping, before target assignment; ExertAttackers's chosen answer sets
+# Card.Exerted and pushes the static ability's own Trigger$ payoff
+# (resolveOptionalAttackCostPayoff), resolved here through resolvestack.
+# GameState's own dump format (dump.go) has no Exerted/granted-keyword/PT
+# field to assert against -- Card.Exerted and the Pump/Flying payoff are
+# proven at module level instead (attack_test.go,
+# TestDeclareCombatAttackersExertsAndRunsPayoff). This fixture's own value
+# is compiling and running a real corpus S:Mode$ OptionalAttackCost card
+# (Gust Walker) end to end through the whole engine, tap included.
+startturn human
+advance 5
+queue attackers 1
+queue exertattackers 1
+declareattackers
+resolvestack

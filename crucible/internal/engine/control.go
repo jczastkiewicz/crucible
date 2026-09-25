@@ -97,6 +97,17 @@ type PlayerController interface {
 	// active player declining to attack with anything.
 	DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
+	// ExertAttackers decides which of the newly declared attackers decider
+	// exerts (CR 508.1c, Game.DeclareCombatAttackers, attack.go) -- Mode$
+	// OptionalAttackCost's own Cost$ Exert<1/CARDNAME> shape
+	// (Ahn-Crop Crasher, "you may exert CARDNAME as it attacks"). eligible
+	// is every declared attacker carrying that static ability, never empty
+	// (Game.DeclareCombatAttackers does not call this otherwise). The
+	// return value is a subset of eligible, not re-checked -- trust the
+	// controller's answer, the same as DeclareCombatAttackers's own; an
+	// empty return is legal, the player declining every offer.
+	ExertAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
+
 	// ChooseAttackTarget decides what a single declared attacker is
 	// attacking -- the defending player, or one of the planeswalkers/battles
 	// they control (CR 508.1d, Game.assignAttackTargets, attack.go). eligible
@@ -492,6 +503,7 @@ type ScriptedController struct {
 	tucked           [][]CardID
 	legendaryKeep    []CardID
 	attackers        [][]CardID
+	exertAttackers   [][]CardID
 	attackTargets    []EntityID
 	blocks           [][]Block
 	damage           [][]DamageAssignment
@@ -580,6 +592,13 @@ func (c *ScriptedController) QueueLegendaryToKeep(id CardID) {
 // still consumes the queue slot.
 func (c *ScriptedController) QueueAttackers(cards []CardID) {
 	c.attackers = append(c.attackers, cards)
+}
+
+// QueueExertAttackers appends the answer to the next ExertAttackers call. An
+// empty or nil cards declines every offer, a legal answer that still
+// consumes the queue slot.
+func (c *ScriptedController) QueueExertAttackers(cards []CardID) {
+	c.exertAttackers = append(c.exertAttackers, cards)
 }
 
 // QueueAttackTarget appends the answer to the next ChooseAttackTarget call.
@@ -714,6 +733,16 @@ func (c *ScriptedController) DeclareCombatAttackers(_ *Game, _ PlayerID, _ []Car
 	}
 	v := c.attackers[0]
 	c.attackers = c.attackers[1:]
+	return v
+}
+
+// ExertAttackers returns the next answer QueueExertAttackers queued.
+func (c *ScriptedController) ExertAttackers(_ *Game, _ PlayerID, _ []CardID) []CardID {
+	if len(c.exertAttackers) == 0 {
+		panic(scriptExhausted("exert attackers"))
+	}
+	v := c.exertAttackers[0]
+	c.exertAttackers = c.exertAttackers[1:]
 	return v
 }
 

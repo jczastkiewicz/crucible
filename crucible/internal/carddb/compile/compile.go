@@ -552,6 +552,19 @@ var subAbilityKeys = map[string]bool{
 	"giftability":            true,
 	"votesubability":         true,
 	"votetiedability":        true,
+
+	// StaticAbilityCantAttackBlock's own Mode$ OptionalAttackCost (CR
+	// 508.1c's "you may exert this as it attacks"): the "when you do" payoff
+	// this static ability's own Trigger$ param names, 23 of the corpus's 28
+	// real Cost$ Exert<1/CARDNAME> OptionalAttackCost lines (5 name none at
+	// all -- ahn_crop_crasher.txt's own K:Haste sits above a bare S: line
+	// with no Trigger$; resolute_survivors.txt's own payoff is a separate,
+	// ordinary T:Mode$ Exerted line instead, checkExertedTriggers'
+	// (exertcost.go) own shape already covers that one). Not the same key
+	// as `T:`'s own `Trigger$` -- CR 603's own trigger-mode grammar has no
+	// param of this name; StaticAbilityCantAttackBlock.java's own
+	// `getAttackCost`/`getSSTrigger` is the only Java reader.
+	"trigger": true,
 }
 
 // effectTraitKeys are the params through which an Effect names the SVars

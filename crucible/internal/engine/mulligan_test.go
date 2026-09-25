@@ -78,6 +78,10 @@ func (c *scriptedMulliganController) DeclareCombatAttackers(_ *engine.Game, _ en
 	panic("scriptedMulliganController: DeclareCombatAttackers was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ExertAttackers(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID) []engine.CardID {
+	panic("scriptedMulliganController: ExertAttackers was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseAttackTarget(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []engine.EntityID) engine.EntityID {
 	panic("scriptedMulliganController: ChooseAttackTarget was not expected to be called")
 }

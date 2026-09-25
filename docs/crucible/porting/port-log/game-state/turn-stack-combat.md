@@ -469,3 +469,38 @@ controller answers, and an illegal pairing is dropped rather than committed — 
 re-checked, unlike every other `Choose*`/`Declare*` method (`control.go`'s own doc comment,
 [`## Combat`](#combat-declaring-attackers-declaring-blockers-and-dealing-damage), above). Menace's own `menaceLegal`
 runs as a second filter on top, once `CanBlock` has already narrowed a defender's answer to individually legal pairs.
+
+---
+
+## CR 508.1c: exerting an attacker as it attacks
+
+`compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`
+param (`StaticAbilityCantAttackBlock.java`'s own `getAttackCost`/`getSSTrigger`), not `T:`'s own `Trigger$` (that
+grammar has no param of this name; the two share a param key by coincidence, not by CR mechanic). 23 of the corpus's 28
+real `Cost$ Exert<1/CARDNAME>` `OptionalAttackCost` lines name one (`ahn_crop_crasher.txt`, `gust_walker.txt`); the
+other 5 (`resolute_survivors.txt` and four more) name none at all -- their own payoff, if any, is an ordinary
+`T:Mode$ Exerted` line instead, `checkExertedTriggers`' (`exertcost.go`) own shape already covering it. Compiling
+`Trigger$` into `ability.Subs` regenerated 23 golden AST hashes (`testdata/ast.golden`), the exact 23 cards carrying one
+-- verified by count before landing.
+
+`PlayerController` gains its 47th method, `ExertAttackers` (`control.go`) -- CR 508.1c's own "you may exert this as it
+attacks," a subset answer over every declared attacker carrying a real `OptionalAttackCost` static naming
+`Cost$ Exert<1/CARDNAME>` (`optionalAttackCostExert`, `attack.go`, reusing `cost.ActivationShape`'s own `SelfExert` flag
+-- `activateability.go`'s identical reuse for the unrelated activated-ability cost shape). Not offered at all when no
+declared attacker carries one, the same "nothing meaningful to decide" reasoning `DeclareCombatAttackers` itself already
+uses for an empty eligible set.
+
+`exertDeclaredAttackers` (`attack.go`) runs right after tapping, before target assignment -- `PhaseHandler.java`'s own
+ordering (`declareAttackersTurnBasedAction`, right after attackers are provisionally tapped). Each chosen attacker: sets
+`Card.Exerted`, calls `checkExertedTriggers` (the identical `T:Mode$ Exerted` walk the cost-based `Exert<...>` shape
+already uses -- `Card.exert(Player)` fires the identical trigger type in Java regardless of what caused it), then
+`resolveOptionalAttackCostPayoff` finds and pushes the static's own `Trigger$` sub-ability if one exists, through
+`pushTriggeredAbilities` -- CR 601.2c/603.3b's own "choices are made the moment it's put on the stack," the identical
+push every other trigger already goes through.
+
+`ScriptedController` gains `QueueExertAttackers`/`ExertAttackers`, on `QueueAttackers`'s own shape (a nil or empty
+answer declines every offer, still consuming the queue slot). `fixture/actions.go` gains
+`queue exertattackers [<id>,...]`, `queue attackers`'s own sibling. `cr-508-1c-exert-attacker-runs-payoff` is the
+fixture: a real Gust Walker attacks and taps -- `GameState`'s own dump format (`dump.go`) has no
+`Exerted`/granted-keyword/PT field to assert against, so the exert flag and the Pump/Flying payoff are proven at module
+level instead (`TestDeclareCombatAttackersExertsAndRunsPayoff`, `attack_test.go`).

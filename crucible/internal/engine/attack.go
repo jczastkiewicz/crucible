@@ -3,7 +3,13 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/cardtype"
+import (
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/cost"
+)
 
 // Attackers returns the creatures currently attacking, if any.
 func (g *Game) Attackers() []CardID { return g.combat.Attackers }
@@ -71,6 +77,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 		}
 	}
 	g.combat.Attackers = attackers
+	g.exertDeclaredAttackers(controller, attackers)
 	g.assignAttackTargets(controller, attackers)
 	for _, id := range attackers {
 		g.Card(id).AttacksThisTurn++
@@ -79,6 +86,92 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
 	g.checkAttackersDeclaredOneTargetTrigger(controller)
 	g.checkAttackersDeclaredTrigger(controller)
 	return attackers
+}
+
+// exertDeclaredAttackers is CR 508.1c: after tapping, before target
+// assignment (PhaseHandler.declareAttackersTurnBasedAction, right after
+// attackers are provisionally tapped -- CombatUtil.getOptionalAttackCostCreatures
+// filters the same way optionalAttackCostExert (below) does). Every
+// attacker carrying a real S:Mode$ OptionalAttackCost | Cost$
+// Exert<1/CARDNAME> static ability (Ahn-Crop Crasher) is offered; if none
+// are, the controller is not asked at all, the same "nothing meaningful to
+// decide" reasoning DeclareCombatAttackers itself already uses for an empty
+// eligible set.
+func (g *Game) exertDeclaredAttackers(controller PlayerController, attackers []CardID) {
+	var eligible []CardID
+	for _, id := range attackers {
+		if _, ok := optionalAttackCostExert(g.Card(id)); ok {
+			eligible = append(eligible, id)
+		}
+	}
+	if len(eligible) == 0 {
+		return
+	}
+	chosen := controller.ExertAttackers(g, g.activePlayer, eligible)
+	for _, id := range chosen {
+		c := g.Card(id)
+		c.Exerted = true
+		g.checkExertedTriggers(controller, id)
+		g.resolveOptionalAttackCostPayoff(controller, id)
+	}
+}
+
+// optionalAttackCostExert is exertDeclaredAttackers' own eligibility check:
+// c's own S:Mode$ OptionalAttackCost static ability, if its own Cost$ names
+// Exert<1/CARDNAME|NICKNAME> (cost.ActivationShape's own SelfExert,
+// activateability.go's identical reuse for the unrelated activated-ability
+// shape) -- every one of the corpus's 28 real OptionalAttackCost lines,
+// this port's only supported OptionalAttackCost cost shape.
+func optionalAttackCostExert(c *Card) (*compile.Ability, bool) {
+	if c.Def == nil {
+		return nil, false
+	}
+	for _, face := range c.Def.Faces {
+		for _, s := range face.Statics {
+			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
+				continue
+			}
+			costText, ok := s.Param("Cost")
+			if !ok {
+				continue
+			}
+			if shape, ok := cost.Parse(costText).ActivationShape(); ok && shape.SelfExert {
+				return s, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// resolveOptionalAttackCostPayoff runs id's own OptionalAttackCost static
+// ability's own Trigger$ sub-ability (compile.go's own "trigger" subAbilityKeys
+// entry resolves it at compile time) -- CR 508.1c's "when you do" payoff,
+// 23 of the corpus's 28 real OptionalAttackCost lines (5 name none at all:
+// resolute_survivors.txt's own payoff is an ordinary T:Mode$ Exerted line
+// instead, which checkExertedTriggers (exertcost.go), already called before
+// this, already covers). Pushed the identical way checkExertedTriggers'
+// own matches are: through pushTriggeredAbilities, for CR 601.2c/603.3b's
+// own "choices are made the moment it's put on the stack" targeting and
+// APNAP-consistent push, even though a lone exerting player has no APNAP
+// order to disagree with.
+func (g *Game) resolveOptionalAttackCostPayoff(controller PlayerController, id CardID) {
+	s, ok := optionalAttackCostExert(g.Card(id))
+	if !ok {
+		return
+	}
+	for _, sub := range s.Subs {
+		if !strings.EqualFold(sub.Key, "Trigger") {
+			continue
+		}
+		api, ok := APIByName(sub.Ability.Name)
+		if !ok {
+			return
+		}
+		c := g.Card(id)
+		payoff := Ability{API: api, Source: id, Controller: c.Controller(), Params: sub.Ability, Amounts: c.Def.Faces[0].Amounts}
+		g.pushTriggeredAbilities(controller, []Ability{payoff})
+		return
+	}
 }
 
 // AttackTarget returns what attacker is attacking -- a player, or a

@@ -46,6 +46,7 @@ import (
 //	queue legendarykeep <id>      ScriptedController.QueueLegendaryToKeep, id from CardByFixtureID
 //	queue enchanttarget <id>      ScriptedController.QueueEnchantTarget, id from CardByFixtureID
 //	queue attackers [<id>,...]    ScriptedController.QueueAttackers, ids from CardByFixtureID (no ids declines)
+//	queue exertattackers [<id>,...]  ScriptedController.QueueExertAttackers, ids from CardByFixtureID (no ids/"none" declines)
 //	queue attacktarget <p>|<id>   ScriptedController.QueueAttackTarget, a player name or a planeswalker/battle's CardByFixtureID
 //	queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker pairs from CardByFixtureID (no pairs declines)
 //	queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from CardByFixtureID
@@ -308,6 +309,19 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue attackers: %w", err)
 		}
 		c.QueueAttackers(ids)
+
+	case "exertattackers":
+		// "none" mirrors "attackers none" above: declining every offer is
+		// still an answer that has to be queued.
+		if value == "none" {
+			c.QueueExertAttackers(nil)
+			break
+		}
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue exertattackers: %w", err)
+		}
+		c.QueueExertAttackers(ids)
 
 	case "attacktarget":
 		target, err := resolveAttackTarget(l, value)

@@ -5078,8 +5078,7 @@ PumpAll	ShowCurrentCard	1	-	defined:2	token:1
 PumpAll	SorcerySpeed	3	-	-	bool:3
 PumpAll	SpellDescription	545	-	-	prose:544,token:1
 PumpAll	StackDescription	16	-	-	token:11,prose:5
-PumpAll	SubABility	1	-	-	token:1
-PumpAll	SubAbility	173	-	-	token:173
+PumpAll	SubAbility	174	-	-	token:174
 PumpAll	TgtPrompt	2	-	-	prose:2
 PumpAll	Ultimate	13	-	-	bool:13
 PumpAll	UnlessCost	3	-	amount:1	int:2,prose:1

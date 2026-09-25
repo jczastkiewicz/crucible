@@ -195,6 +195,22 @@ func (d *DB) Token(script string) (*Card, bool) {
 	return c, ok
 }
 
+// TokenScripts is every token script name, sorted: a walk over the token
+// table in an order that does not depend on the map (GO-12), for the
+// effects that choose among tokens by type (Venture's dungeons,
+// VentureEffect.getDungeonCard). A nil DB has none.
+func (d *DB) TokenScripts() []string {
+	if d == nil {
+		return nil
+	}
+	out := make([]string, 0, len(d.tokens))
+	for name := range d.tokens {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // Card looks a card up by its printed name, and reports whether the database
 // has it. Names are matched exactly: a decklist naming a card the database
 // does not have is a decklist error worth surfacing, not a near-miss to guess

@@ -741,7 +741,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: damageSourceObjects(g, source)})
 					}
 				}
 			}
@@ -770,7 +770,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: damageSourceObjects(g, source)})
 					}
 				}
 			}
@@ -853,6 +853,15 @@ func damageAmountMatches(param string, amount, toughness int, hasToughness bool)
 	return compareOp(amount, operator, operand)
 }
 
+// damageSourceObjects is TriggerDamageDone.setTriggeringObjects' Source:
+// the damage source, with its controller read now -- Java stores an LKI
+// copy of the source -- so Defined$ TriggeredSourceController answers the
+// controller at damage time (The Monarch's "its controller becomes the
+// monarch").
+func damageSourceObjects(g *Game, source CardID) triggeredObjects {
+	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller()}
+}
+
 // isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:
 // Mode$ DamageDone.
 func isDamageDoneTrigger(t *compile.Ability) bool {
@@ -883,17 +892,18 @@ type damageEntry struct {
 type damageTable []damageEntry
 
 // checkDamageTableTriggers checks every Mode$ this port builds on top of
-// one shared damageTable -- DamageDoneOnce (below), DamageDealtOnce and
-// DamageAll (both further below) -- once each, CardDamageTable's own real
-// shape: Java's own `triggerDamageDoneOnce` fires all three (plus
-// DamageDoneOnceByController, 0 real corpus lines, not built) off the
-// identical table, not a separately-built one per mode. Both real callers
-// (dealCombatDamageStep, combatdamage.go; dealDamageEffect,
-// dealdamageeffect.go) call this once, rather than each of the three
-// dispatches separately, so a future fourth table-driven mode has one call
-// site to add, not every damage-dealing action's own caller.
+// one shared damageTable -- DamageDoneOnce (below),
+// DamageDoneOnceByController (takeinitiativeeffect.go; 0 corpus lines, The
+// Initiative's own trigger), DamageDealtOnce and DamageAll (both further
+// below) -- once each, CardDamageTable's own real shape: Java's own
+// `triggerDamageDoneOnce` fires all four off the identical table, not a
+// separately-built one per mode. Both real callers (dealCombatDamageStep,
+// combatdamage.go; dealDamageEffect, dealdamageeffect.go) call this once,
+// rather than each dispatch separately, so a further table-driven mode has
+// one call site to add, not every damage-dealing action's own caller.
 func (g *Game) checkDamageTableTriggers(controller PlayerController, table damageTable, isCombat bool) {
 	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
+	g.checkDamageDoneOnceByControllerTriggers(controller, table, isCombat)
 	g.checkDamageDealtOnceTriggers(controller, table, isCombat)
 	g.checkDamageAllTriggers(controller, table, isCombat)
 }
@@ -1898,6 +1908,13 @@ func (g *Game) playersInAPNAPOrder() []PlayerID {
 	active := g.ActivePlayer()
 	if active == NoPlayer {
 		return g.Players()
+	}
+	// An active player who has lost is out of the order, which starts at
+	// the next player still in the game (MagicStack.java:835-838); starting
+	// at them anyway would never come back round, since nextPlayerAfter
+	// skips the lost.
+	if g.Player(active).Lost {
+		active = g.nextPlayerAfter(active)
 	}
 	order := []PlayerID{active}
 	for p := g.nextPlayerAfter(active); p != active; p = g.nextPlayerAfter(p) {

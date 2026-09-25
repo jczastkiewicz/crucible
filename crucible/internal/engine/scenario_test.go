@@ -123,6 +123,14 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		t.Errorf("over = %v, want %v", got.Over(), want.Over())
 	}
 
+	// By name, the same reason protector is compared that way below.
+	if gm, wm := playerNameOrEmpty(got, got.Monarch()), playerNameOrEmpty(want, want.Monarch()); gm != wm {
+		t.Errorf("monarch = %q, want %q", gm, wm)
+	}
+	if gi, wi := playerNameOrEmpty(got, got.Initiative()), playerNameOrEmpty(want, want.Initiative()); gi != wi {
+		t.Errorf("initiative = %q, want %q", gi, wi)
+	}
+
 	gotPlayers, wantPlayers := got.Players(), want.Players()
 	if len(gotPlayers) != len(wantPlayers) {
 		t.Fatalf("player count = %d, want %d", len(gotPlayers), len(wantPlayers))
@@ -167,6 +175,14 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 			compareZoneCards(t, gp.Name, zone, got, gotPlayers[i], want, wantPlayers[i])
 		}
 	}
+}
+
+// playerNameOrEmpty is pid's name in g, empty for NoPlayer.
+func playerNameOrEmpty(g *engine.Game, pid engine.PlayerID) string {
+	if pid == engine.NoPlayer {
+		return ""
+	}
+	return g.Player(pid).Name
 }
 
 func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got *engine.Game, gpid engine.PlayerID, want *engine.Game, wpid engine.PlayerID) {

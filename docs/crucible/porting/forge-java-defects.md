@@ -15,11 +15,12 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                              | Defect                                                              | Crucible meanwhile                    | Upstream  |
-| --------------------------------- | ------------------------------------------------------------------- | ------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty | `TargetControls$` rejected            | Not filed |
-| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game       | `error` for the chooser left empty    | Not filed |
-| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                          | Not reached: `BecomeMonarch` unported | Not filed |
+| Site                              | Defect                                                                 | Crucible meanwhile                       | Upstream  |
+| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty    | `TargetControls$` rejected               | Not filed |
+| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game          | `error` for the chooser left empty       | Not filed |
+| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                             | No counterpart: no set codes in Crucible | Not filed |
+| `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on | Reproduced (oracle parity)               | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -128,7 +129,46 @@ public String getMonarchSet() {
 }
 ```
 
-**Crucible meanwhile:** not reached — `BecomeMonarch`/`TakeInitiative` are still `ErrUnimplemented` in `NewRegistry`
-(M6, `port-log/game-state.md`, "Not ported yet"), so nothing in Go calls the Monarch-set equivalent yet. Noted now
-because it was found while researching `ChooseSourceEffect.java`'s neighborhood, per PORT-8: report on discovery, don't
-wait for the port that would exercise it.
+The one game-rules caller is `Game.java:992/994`, passing the monarchy on when the monarch loses: `monarchEffect` is set
+there, so it passes `null` rather than throwing.
+
+**Crucible meanwhile:** no counterpart. `BecomeMonarch` is ported (`becomemonarcheffect.go`), but this port carries no
+set codes and `becomeMonarch` takes none, so there is nothing for the defect to reach.
+
+### `GameAction.java:2568-2573` — `takeInitiative` gives the initiative to a player who has lost
+
+```java
+if (!p.equals(previous)) {
+    if (previous != null) {
+        previous.removeInitiativeEffect();
+    }
+
+    if (p.hasLost()) { // the person who should take initiative is gone, it goes to next player
+        takeInitiative(game.getNextPlayerAfter(p), set);
+    }
+
+    game.setHasInitiative(p);
+    p.createInitiativeEffect(set);
+}
+```
+
+The `hasLost` branch passes the take to the next player, as its comment says, and then falls through: `p` -- the player
+who has lost -- becomes the holder and gets a new "The Initiative" card, while the next player's card, created by the
+recursive call, is never removed. Both players then hold a card; only the lost one is `game.getHasInitiative()`.
+
+Reached from `Game.onPlayerLost` (`Game.java:998-1006`) when the holder and the active player lose in the same
+`checkGameOverCondition` pass: the holder's initiative passes to the active player, who has lost too.
+`TakeInitiativeEffect` never reaches it (it skips players not in the game).
+
+**Proposed fix:** return after the recursive call.
+
+```java
+if (p.hasLost()) {
+    takeInitiative(game.getNextPlayerAfter(p), set);
+    return;
+}
+```
+
+**Crucible meanwhile:** reproduced. `takeinitiativeeffect.go`'s `takeInitiative` runs the same code, so the lost active
+player ends holding the initiative (`TestInitiativeToALostActivePlayerReproducesJava`). A state bug, not a crash or a
+hang, so matching the oracle wins over correcting it in Go alone (PORT-8).

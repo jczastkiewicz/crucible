@@ -42,6 +42,7 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		Params:            sub.Ability,
 		Amounts:           parent.Amounts,
 		TriggerRemembered: parent.TriggerRemembered,
+		triggered:         parent.triggered,
 		hostTransforms:    parent.hostTransforms,
 		hasHostTransforms: parent.hasHostTransforms,
 		damageMap:         parent.damageMap,

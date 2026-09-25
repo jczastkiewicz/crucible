@@ -52,6 +52,16 @@ type State struct {
 	// scenario ends the game, and Over is what Game.Over reports, so this is
 	// the fixture's way of writing that expectation down (Crucible-only).
 	Over bool
+	// Monarch names the player who is the monarch (CR 724), empty for
+	// nobody. Crucible-only, the same scenario-harness need as Over: Java's
+	// GameState writes the monarch's "The Monarch" effect card into the
+	// command zone and cannot load it back (no card database holds it), so
+	// the designation is written down instead and the card it implies is
+	// left out of the command zone (Dump) and recreated from it (Load).
+	Monarch string
+	// Initiative names the player who has the initiative (CR 725), empty
+	// for nobody: Monarch's pattern for "The Initiative".
+	Initiative string
 	// Players is indexed by slot: 0 is `human`, 1 is `ai`, and `p<n>` is n.
 	Players [MaxPlayers]PlayerState
 	// AbilityStrings holds `ability<key>=` lines verbatim, keyed by what
@@ -156,6 +166,12 @@ func Write(w io.Writer, s *State) error {
 	if s.Over {
 		b.WriteString("over=true\n")
 	}
+	if s.Monarch != "" {
+		fmt.Fprintf(&b, "monarch=%s\n", s.Monarch)
+	}
+	if s.Initiative != "" {
+		fmt.Fprintf(&b, "initiative=%s\n", s.Initiative)
+	}
 
 	for i := range s.Players {
 		p := &s.Players[i]
@@ -241,6 +257,12 @@ func (s *State) apply(key, value string) error {
 		return nil
 	case key == "over":
 		s.Over = strings.EqualFold(strings.TrimSpace(value), "true")
+		return nil
+	case key == "monarch":
+		s.Monarch = strings.TrimSpace(value)
+		return nil
+	case key == "initiative":
+		s.Initiative = strings.TrimSpace(value)
 		return nil
 	case strings.HasPrefix(key, "ability"):
 		if s.AbilityStrings == nil {

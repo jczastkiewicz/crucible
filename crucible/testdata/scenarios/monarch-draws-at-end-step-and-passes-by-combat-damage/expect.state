@@ -1,0 +1,12 @@
+turn=2
+activeplayer=ai
+activephase=Combat Damage
+monarch=ai
+humanlife=18
+humanhand=Forest
+humanlibrary=Forest
+humanbattlefield=Plains|Tapped;Plains|Tapped;Plains|Tapped;Plains|Tapped;Palace Sentinels|SummonSick
+ailife=20
+aihand=Forest
+ailibrary=Forest
+aibattlefield=Grizzly Bears|Tapped

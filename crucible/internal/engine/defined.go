@@ -1,8 +1,10 @@
 // Defined$ resolution shared across M6's own script-driven effects --
 // AbilityUtils.getDefinedPlayers's/getDefinedCards's own real corpus shapes
-// this port can resolve without its full ability-context reference
-// vocabulary (TriggeredPlayer, TriggeredController, ... -- game-state.md's
-// "Not ported yet"). The host-Memory references -- Remembered, Imprinted,
+// this port can resolve. Of the ability-context Triggered* vocabulary only
+// the keys a ported trigger mode records resolve (Ability.triggered:
+// TriggeredPlayer, TriggeredSource, TriggeredSourceController); the rest
+// (TriggeredCard, TriggeredController, ...) stay in game-state.md's "Not
+// ported yet". The host-Memory references -- Remembered, Imprinted,
 // ChosenCard, ChosenPlayer -- read memory.go. No single effect owns this
 // outright, the identical "shared, so neither" reason amount.go's own
 // resolveAmount lives apart from its first two callers.
@@ -33,9 +35,12 @@ import (
 // "RememberedController"/"RememberedOwner" (rememberedPlayers, below) and
 // "DelayTriggerRemembered"/"DelayTriggerRememberedController", the same
 // reading applied to what a delayed trigger remembered (Ability.
-// TriggerRemembered). A
-// player no longer in the game is skipped, matching Java's own
-// `if (!p.isInGame()) continue`.
+// TriggerRemembered), and "TriggeredPlayer"/"TriggeredSource"/
+// "TriggeredSourceController", what the trigger that made the ability
+// recorded (Ability.triggered) -- an error, "the trigger recorded no ...",
+// when it recorded no such key, so a trigger mode that never learned to
+// set one fails loudly (GO-7). A player no longer in the game is skipped,
+// matching Java's own `if (!p.isInGame()) continue`.
 func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, refs abilityRefs) ([]PlayerID, error) {
 	var candidates []PlayerID
 	switch defined {
@@ -71,6 +76,24 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		candidates = rememberedPlayers(g, "", refs.triggerRemembered, false)
 	case "DelayTriggerRememberedController":
 		candidates = rememberedPlayers(g, "RememberedController", refs.triggerRemembered, false)
+	case "TriggeredPlayer":
+		if refs.triggered.player == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no player", defined)
+		}
+		candidates = []PlayerID{refs.triggered.player}
+	case "TriggeredSource", "TriggeredSourceController":
+		// AbilityUtils.getDefinedPlayers' "Triggered" branch over
+		// AbilityKey.Source: a player source is itself, a card source
+		// answers its controller for the ...Controller spelling. Unset --
+		// a trigger mode that does not record Source -- is an error.
+		src := refs.triggered.source
+		if src == NoEntity {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no source", defined)
+		}
+		if _, isCard := src.AsCard(); isCard && defined == "TriggeredSource" {
+			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
+		}
+		candidates = []PlayerID{refs.triggered.sourceController}
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}

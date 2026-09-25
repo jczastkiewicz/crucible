@@ -161,6 +161,15 @@ type Game struct {
 	// "one frozen copy, replaced whole" contract getLKICopy() itself has, one
 	// CardID absent here simply never having left the battlefield yet.
 	lki map[CardID]*Card
+
+	// monarch is the player who is the monarch (CR 724, Game.monarch),
+	// NoPlayer while nobody is. monarchBeginTurn is who was the monarch as
+	// the current turn began (Game.monarchBeginTurn, set by PhaseHandler at
+	// each new turn), read by Mode$ BecomeMonarch's BeginTurn$.
+	monarch, monarchBeginTurn PlayerID
+	// initiative is the player who has the initiative (CR 725,
+	// Game.hasInitiative), NoPlayer while nobody does.
+	initiative PlayerID
 }
 
 // pumpRecord is one resolved Pump effect's own contribution -- Defined$'s
@@ -647,6 +656,9 @@ func (g *Game) Clone() *Game {
 		previousPlayer:        g.previousPlayer,
 		previousPlayerSpells:  g.previousPlayerSpells,
 		lki:                   make(map[CardID]*Card, len(g.lki)),
+		monarch:               g.monarch,
+		monarchBeginTurn:      g.monarchBeginTurn,
+		initiative:            g.initiative,
 	}
 	for i := range g.extraPhases {
 		out.extraPhases[i] = append([]PhaseType(nil), g.extraPhases[i]...)
@@ -659,6 +671,9 @@ func (g *Game) Clone() *Game {
 	for i := range out.players {
 		out.players[i].Counters = g.players[i].Counters.clone()
 		out.players[i].Rules = g.players[i].Rules.clone()
+		if g.players[i].completedDungeons != nil {
+			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
+		}
 	}
 
 	copy(out.cards, g.cards)

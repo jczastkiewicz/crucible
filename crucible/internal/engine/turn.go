@@ -83,6 +83,7 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 			g.activateCleanupDelayedTriggers()
 			g.endEffectsAtTurnStart(g.activePlayer)
 			g.endCopiesAtTurnStart(g.activePlayer)
+			g.monarchBeginTurn = g.monarch
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}
@@ -426,6 +427,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.LandsPlayed = 0
 		p.CardsDrawnThisTurn = 0
 		p.DescendedThisTurn = false
+		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 	}
 

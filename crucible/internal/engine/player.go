@@ -115,6 +115,33 @@ type Player struct {
 	// pass (applyContinuousRules, continuous.go) -- HandSizeLimit/
 	// LandPlayLimit, below, are what folds it against the printed defaults.
 	Rules RulesMod
+
+	// VenturedThisTurn counts this player's ventures into the dungeon this
+	// turn (Player.venturedThisTurn), read by the VenturedThisTurn player
+	// property (Keen-Eared Sentry's CantVenture); reset for every player at
+	// cleanup (Player.onCleanupPhase).
+	VenturedThisTurn int
+	// completedDungeons is every dungeon this player has completed, in
+	// completion order (Player.completedDungeons, CR 309.7). The cards
+	// themselves have ceased to exist, parked in None.
+	completedDungeons []CardID
+
+	// monarchEffect is this player's "The Monarch" effect card
+	// (Player.monarchEffect), NoCard until they first become the monarch.
+	// One card per player for the whole game, as in Java: losing the
+	// monarchy parks it in None and becoming the monarch again puts the same
+	// card back in the Command zone (becomemonarcheffect.go).
+	monarchEffect CardID
+	// initiativeEffect is this player's "The Initiative" effect card
+	// (Player.initiativeEffect), reused the way monarchEffect is
+	// (takeinitiativeeffect.go).
+	initiativeEffect CardID
+	// lossHandled records that Game.onPlayerLost has run for this player:
+	// Java runs it once, as the loss is awarded (GameAction.
+	// checkGameOverCondition), passing the monarchy and the initiative on
+	// (CR 724.4, 725.4, becomemonarcheffect.go), then drops the player from
+	// ingamePlayers.
+	lossHandled bool
 }
 
 // HandSizeLimit folds Layer 8's own SetMaxHandSize$/RaiseMaxHandSize$

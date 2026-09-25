@@ -128,6 +128,22 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 	if err := ld.resolveRefs(); err != nil {
 		return nil, err
 	}
+	for _, d := range []struct {
+		key, name string
+		set       func(engine.PlayerID)
+	}{
+		{"monarch", st.Monarch, g.SetMonarch},
+		{"initiative", st.Initiative, g.SetInitiative},
+	} {
+		if d.name == "" {
+			continue
+		}
+		slot, ok := playerSlot(d.name)
+		if !ok || slotToID[slot] == engine.NoPlayer {
+			return nil, fmt.Errorf("%s %q: no such player", d.key, d.name)
+		}
+		d.set(slotToID[slot])
+	}
 	if st.RemoveSummoningSickness {
 		for _, p := range slots {
 			for _, id := range g.Zone(engine.Battlefield, slotToID[p]).Cards() {

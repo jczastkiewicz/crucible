@@ -44,6 +44,10 @@ type Card struct {
 	// effectLife is when an effect card stops existing: its Duration$ and
 	// its ExileOnMoved$/ForgetOnMoved$ watch. Zero on every other card.
 	effectLife effectLifetime
+	// CurrentRoom is the room a dungeon's venture marker is on (CR 309.4,
+	// Card.currentRoom), its RoomName$; empty before the first venture and
+	// on every card that is not a dungeon (ventureeffect.go).
+	CurrentRoom string
 	// basePower/baseToughness replace the printed value when set --
 	// TokenPower$/TokenToughness$ (TokenInfo.getProtoType's setBasePower).
 	basePower, baseToughness       int

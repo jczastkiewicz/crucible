@@ -379,3 +379,50 @@ func TestDumpEmptyZoneIsEmptyString(t *testing.T) {
 		t.Errorf("battlefield %q, want empty", st.Players[0].Battlefield)
 	}
 }
+
+// monarch= and initiative= are the designations written down
+// (State.Monarch/Initiative): Load recreates each effect card from them,
+// Dump writes them back and leaves those cards out of the command zone, so
+// the round trip carries them with no card name no database holds.
+func TestDesignationsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\nmonarch=ai\ninitiative=human\n")
+	ai := l.Game.Players()[1]
+	if l.Game.Monarch() != ai {
+		t.Fatalf("Load: Monarch = %v, want ai", l.Game.Monarch())
+	}
+	if n := len(l.Game.Zone(engine.Command, ai).Cards()); n != 1 {
+		t.Errorf("Load: ai command zone holds %d cards, want the monarch's effect card", n)
+	}
+
+	if l.Game.Initiative() != l.Game.Players()[0] {
+		t.Errorf("Load: Initiative = %v, want human", l.Game.Initiative())
+	}
+
+	st := fixture.Dump(l)
+	if st.Monarch != "ai" || st.Players[1].Command != "" {
+		t.Errorf("Dump: monarch=%q aicommand=%q, want ai and no card", st.Monarch, st.Players[1].Command)
+	}
+	if st.Initiative != "human" || st.Players[0].Command != "" {
+		t.Errorf("Dump: initiative=%q humancommand=%q, want human and no card", st.Initiative, st.Players[0].Command)
+	}
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "monarch=ai\ninitiative=human\n") {
+		t.Errorf("Write = %q, want a monarch=ai line", buf.String())
+	}
+
+	for _, text := range []string{"humanlife=20\nmonarch=p7\n", "humanlife=20\ninitiative=ai\n"} {
+		bad, err := fixture.Parse(strings.NewReader(text))
+		if err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+		if _, err := fixture.Load(bad, db, javarand.New(1)); err == nil {
+			t.Errorf("Load(%q) with no such player: err = nil, want an error", text)
+		}
+	}
+}

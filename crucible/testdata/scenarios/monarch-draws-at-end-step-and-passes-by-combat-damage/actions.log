@@ -1,0 +1,29 @@
+# CR 724 through "The Monarch" effect card (Player.createMonarchEffect):
+# Palace Sentinels' ETB makes its controller the monarch. The Monarch's
+# Phase trigger draws them a card at the beginning of their end step; on
+# the next turn the opponent's creature deals them combat damage, and The
+# Monarch's DamageDone trigger makes that creature's controller the
+# monarch (Defined$ TriggeredSourceController).
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue paygeneric W
+queue paygeneric W
+castspell human 1
+resolvestack
+advance 8
+resolvestack
+advance 7
+queue attackers 10
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+resolvestack

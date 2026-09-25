@@ -630,7 +630,9 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 // port fails to understand), and descended (Player.DescendedThisTurn,
 // player.go -- CR's own "descend" tracker, Java's own getDescended() < 1,
 // this port needing only the boolean "at all" question every real corpus
-// line asks).
+// line asks), and VenturedThisTurn (Player.VenturedThisTurn, at least one
+// venture this turn -- PlayerProperty.java:482's getVenturedThisTurn() < 1,
+// Keen-Eared Sentry's CantVenture).
 //
 // Every other real property (EnchantedBy and Chosen on a *player* -- an
 // Aura enchanting a player directly, CR 303.4h, and a ChosenPlayer memory
@@ -662,6 +664,8 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 		return candidate == g.Card(enchanting).Controller(), true
 	case "descended":
 		return g.Player(candidate).DescendedThisTurn, true
+	case "VenturedThisTurn":
+		return g.Player(candidate).VenturedThisTurn > 0, true
 	}
 	return false, false
 }

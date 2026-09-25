@@ -361,8 +361,9 @@ func TestBecomeMonarchSkipsAPlayerWhoHasLost(t *testing.T) {
 	g.SetTurnState(1, a, engine.Main1)
 	g.Player(b).Lost = true
 	c := engine.NewScriptedController()
-	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(b)})
-	resolveLine(t, g, a, c, "DB$ BecomeMonarch | ValidTgts$ Player")
+	if err := resolveTargeting(t, g, a, c, []engine.EntityID{engine.PlayerEntity(b)}, "DB$ BecomeMonarch | ValidTgts$ Player"); err != nil {
+		t.Fatalf("BecomeMonarch: %v", err)
+	}
 	if g.Monarch() != engine.NoPlayer {
 		t.Errorf("Monarch = %v, want nobody -- the target has lost", g.Monarch())
 	}

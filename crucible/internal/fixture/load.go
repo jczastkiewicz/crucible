@@ -128,12 +128,21 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 	if err := ld.resolveRefs(); err != nil {
 		return nil, err
 	}
-	if st.Monarch != "" {
-		slot, ok := playerSlot(st.Monarch)
-		if !ok || slotToID[slot] == engine.NoPlayer {
-			return nil, fmt.Errorf("monarch %q: no such player", st.Monarch)
+	for _, d := range []struct {
+		key, name string
+		set       func(engine.PlayerID)
+	}{
+		{"monarch", st.Monarch, g.SetMonarch},
+		{"initiative", st.Initiative, g.SetInitiative},
+	} {
+		if d.name == "" {
+			continue
 		}
-		g.SetMonarch(slotToID[slot])
+		slot, ok := playerSlot(d.name)
+		if !ok || slotToID[slot] == engine.NoPlayer {
+			return nil, fmt.Errorf("%s %q: no such player", d.key, d.name)
+		}
+		d.set(slotToID[slot])
 	}
 	if st.RemoveSummoningSickness {
 		for _, p := range slots {

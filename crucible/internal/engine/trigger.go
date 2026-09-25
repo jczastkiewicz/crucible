@@ -892,17 +892,18 @@ type damageEntry struct {
 type damageTable []damageEntry
 
 // checkDamageTableTriggers checks every Mode$ this port builds on top of
-// one shared damageTable -- DamageDoneOnce (below), DamageDealtOnce and
-// DamageAll (both further below) -- once each, CardDamageTable's own real
-// shape: Java's own `triggerDamageDoneOnce` fires all three (plus
-// DamageDoneOnceByController, 0 real corpus lines, not built) off the
-// identical table, not a separately-built one per mode. Both real callers
-// (dealCombatDamageStep, combatdamage.go; dealDamageEffect,
-// dealdamageeffect.go) call this once, rather than each of the three
-// dispatches separately, so a future fourth table-driven mode has one call
-// site to add, not every damage-dealing action's own caller.
+// one shared damageTable -- DamageDoneOnce (below),
+// DamageDoneOnceByController (takeinitiativeeffect.go; 0 corpus lines, The
+// Initiative's own trigger), DamageDealtOnce and DamageAll (both further
+// below) -- once each, CardDamageTable's own real shape: Java's own
+// `triggerDamageDoneOnce` fires all four off the identical table, not a
+// separately-built one per mode. Both real callers (dealCombatDamageStep,
+// combatdamage.go; dealDamageEffect, dealdamageeffect.go) call this once,
+// rather than each dispatch separately, so a further table-driven mode has
+// one call site to add, not every damage-dealing action's own caller.
 func (g *Game) checkDamageTableTriggers(controller PlayerController, table damageTable, isCombat bool) {
 	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
+	g.checkDamageDoneOnceByControllerTriggers(controller, table, isCombat)
 	g.checkDamageDealtOnceTriggers(controller, table, isCombat)
 	g.checkDamageAllTriggers(controller, table, isCombat)
 }

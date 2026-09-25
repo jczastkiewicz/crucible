@@ -643,8 +643,8 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     this mode carries already has a resolver.
 
     `DamageDoneOnceByController` -- the table's fourth real sibling in Java, grouping by a target's every damaging
-    controller -- is not built: 0 real corpus lines name it, the identical "nothing to wire this into" reasoning
-    `Mode$ Scry`'s/`Mode$ Surveil`'s own untriggered real shapes already have.
+    controller -- names 0 real corpus lines and is built as The Initiative's own trigger (`TakeInitiative`,
+    `port-log/game-state/effects-monarch-initiative-venture.md`).
 
     6 new tests (damagetabletriggers_test.go) drive both dispatches through the real combat-damage and cast-and-resolve
     pipelines, both being unexported (TEST-1): a gang-blocked attacker's own split damage firing `DamageDealtOnce` once
@@ -1773,7 +1773,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 
-**In progress.** 154 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
+**In progress.** 155 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
 `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`, `Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`,
 `Untap`, `Fight`, `Mill`, `RemoveCounter`, `DamageAll`, `SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`,
 `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter`, `Mana`, `MoveCounter`, `Poison`, `Unattach`, `RevealHand`,

@@ -54,6 +54,8 @@ reference is an `error` (`the trigger recorded no source`), never an empty playe
 | `DamageDone` (card or player) | Source = the damage source; sourceController read at damage time. Java stores an LKI copy (`TriggerDamageDone.java`'s `getLKICopy`) |
 | `BecomeMonarch`               | Player = the new monarch (`TriggerBecomeMonarch.setTriggeringObjects`)                                                              |
 | `DungeonCompleted`            | Player = who completed it (`TriggerCompletedDungeon.setTriggeringObjects`)                                                          |
+| `TakesInitiative`             | Player = who took it (`TriggerTakesInitiative.setTriggeringObjects`)                                                                |
+| `DamageDoneOnceByController`  | Source = the player whose creatures dealt the damage (`TriggerDamageDoneOnceByController.setTriggeringObjects`)                     |
 
 A card source named as players (`Defined$ TriggeredSource` on a `DamageDone` trigger) is rejected:
 `AbilityUtils.addPlayer` over a card is a shape no ported line needs.
@@ -68,9 +70,10 @@ opponent becomes the monarch") are skipped: no mode here resolves a trigger off 
 `checkConditions` shape) or a `ValidPlayer$` `matchesPlayerSpec` cannot read is an `error` (`noPlayerStatic`).
 
 **CR 724.4, the monarch leaving the game** (`Game.java:988-996`): `onPlayersLost`, called from `CheckStateBasedActions`
-after CR 704.5a-c, passes the monarchy once per loser -- to the active player, or to the next player in turn order when
-the loser is the active player. It runs before the game-over check, as `checkGameOverCondition` does, so a two-player
-game's winner ends as the monarch.
+after CR 704.5a-c, passes the monarchy once per loser, in seat order -- to the active player, or, when the loser is the
+active player, to the next player Java still holds in `ingamePlayers` (`nextInGameAfter`: everyone not yet processed as
+a loser, so a loser of the same pass still waiting its turn counts, as in `Game.getNextPlayerAfter`). It runs before the
+game-over check, as `checkGameOverCondition` does, so a two-player game's winner ends as the monarch.
 
 **Engine fix: `playersInAPNAPOrder` with a lost active player.** It walked `nextPlayerAfter` round to the active player,
 which `nextPlayerAfter` never returns once that player has lost -- an infinite loop the first time a trigger fired in
@@ -133,3 +136,46 @@ reached by the dungeons: `Count$DungeonsCompleted` and the other dungeon counts,
 **No scenario fixture.** A dungeon in the Command zone cannot be written down: `GameState.java` has no current-room key,
 and this port's `Load` does not load `T:` token entries. Module tests (`dungeon_test.go`) walk the real Lost Mine of
 Phandelver to completion instead.
+
+---
+
+## TakeInitiative lands
+
+`TakeInitiative` (23 corpus lines) resolves: each targeted or `Defined$` player (default the activator) still in the
+game takes the initiative (CR 725) -- even one who already has it, which ventures again. `takeinitiativeeffect.go`,
+ported from `TakeInitiativeEffect.java`, `GameAction.takeInitiative` (`GameAction.java:2557-2579`) and
+`Player.createInitiativeEffect`/`removeInitiativeEffect` (`Player.java:3490-3548`).
+
+"The Initiative" is built the way "The Monarch" is (`initiativeEffectDef`, one reused card per player in
+`Player.initiativeEffect`), carrying Java's three triggers in Java's order:
+
+| Trigger                                                                                                                      | Effect                                           |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `Mode$ DamageDoneOnceByController \| ValidSource$ Player \| ValidTarget$ You \| CombatDamage$ True \| TriggerZones$ Command` | `DB$ TakeInitiative \| Defined$ TriggeredSource` |
+| `Mode$ Phase \| Phase$ Upkeep \| TriggerZones$ Command \| ValidPlayer$ You \| Secondary$ True`                               | `DB$ Venture \| Dungeon$ Undercity`              |
+| `Mode$ TakesInitiative \| ValidPlayer$ You \| TriggerZones$ Command`                                                         | `DB$ Venture \| Dungeon$ Undercity`              |
+
+Java re-registers the new card's triggers (`registerActiveTrigger`) so its own TakesInitiative trigger sees the take
+that created it; this port's trigger checks walk the zones live, so the card in the Command zone is enough.
+
+**Two trigger modes, both 0 corpus lines outside this card.** `Mode$ TakesInitiative` runs through
+`playerActionTriggerMatches` (`ValidPlayer$` against the taker) and records `TriggeredPlayer`.
+`Mode$ DamageDoneOnceByController` (`checkDamageDoneOnceByControllerTriggers`) joins `checkDamageTableTriggers`, after
+`DamageDoneOnce`: per damaged target in first-seen order, once per distinct controller of the sources that damaged it,
+in first-seen order (`CardDamageTable.java:77-104`), the controller read at damage time. Two attacking creatures of one
+player make one take, not two.
+
+**New engine state:** `Game.initiative` (`Game.hasInitiative`, copied by `Game.Clone`) and `Player.initiativeEffect`. CR
+725.4 shares `onPlayersLost` and its successor rule with the monarchy. Fixture key `initiative=`, `monarch=`'s pattern
+(`game-state-fixture.md`).
+
+**Forge defect reproduced, not corrected (PORT-8, `forge-java-defects.md`).** `GameAction.java:2568-2573`: a player who
+has lost passes the initiative to the next player, and then -- no `return` after the recursive call -- takes it anyway.
+Reached from `onPlayersLost` when the holder and the active player lose in one SBA pass. This port runs the same code,
+so the lost active player ends holding the initiative, as in Java (`TestInitiativeToALostActivePlayerReproducesJava`);
+correcting it in Go alone would make Crucible disagree with the oracle.
+
+**Rejected:** `ConditionDefined$` (0 corpus lines), for `BecomeMonarch`'s reason.
+
+**No scenario fixture:** taking the initiative puts Undercity in the Command zone, which a fixture cannot write down
+(`## Venture lands`).

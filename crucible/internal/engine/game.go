@@ -167,6 +167,9 @@ type Game struct {
 	// the current turn began (Game.monarchBeginTurn, set by PhaseHandler at
 	// each new turn), read by Mode$ BecomeMonarch's BeginTurn$.
 	monarch, monarchBeginTurn PlayerID
+	// initiative is the player who has the initiative (CR 725,
+	// Game.hasInitiative), NoPlayer while nobody does.
+	initiative PlayerID
 }
 
 // pumpRecord is one resolved Pump effect's own contribution -- Defined$'s
@@ -653,6 +656,7 @@ func (g *Game) Clone() *Game {
 		lki:                   make(map[CardID]*Card, len(g.lki)),
 		monarch:               g.monarch,
 		monarchBeginTurn:      g.monarchBeginTurn,
+		initiative:            g.initiative,
 	}
 	for i := range g.extraPhases {
 		out.extraPhases[i] = append([]PhaseType(nil), g.extraPhases[i]...)

@@ -64,6 +64,13 @@ func newDungeonGame(t *testing.T, players ...string) *engine.Game {
 // the Execute$ of a battlefield host p controls, then the stack empties.
 func resolveWith(t *testing.T, g *engine.Game, p engine.PlayerID, c engine.PlayerController, line string, svars ...string) error {
 	t.Helper()
+	return resolveTargeting(t, g, p, c, nil, line, svars...)
+}
+
+// resolveTargeting is resolveWith with the ability's targets already
+// chosen.
+func resolveTargeting(t *testing.T, g *engine.Game, p engine.PlayerID, c engine.PlayerController, targets []engine.EntityID, line string, svars ...string) error {
+	t.Helper()
 	def := etbChainDef(t, "Test Venture", line, svars...)
 	host := g.NewCard(def, p, engine.Battlefield)
 	sub := def.Faces[0].Triggers[0].Subs[0].Ability
@@ -71,7 +78,7 @@ func resolveWith(t *testing.T, g *engine.Game, p engine.PlayerID, c engine.Playe
 	if !ok {
 		t.Fatalf("unknown API %q", sub.Name)
 	}
-	g.PushAbility(engine.Ability{API: api, Source: host, Controller: p, Params: sub, Amounts: def.Faces[0].Amounts})
+	g.PushAbility(engine.Ability{API: api, Source: host, Controller: p, Params: sub, Amounts: def.Faces[0].Amounts, Targets: targets})
 	return g.ResolveStack(engine.NewRegistry(), c)
 }
 
@@ -327,8 +334,7 @@ func TestVentureSkipsUnmetConditionAndLostTarget(t *testing.T) {
 		t.Fatalf("venture: %v", err)
 	}
 	g.Player(lost).Lost = true
-	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(lost)})
-	if err := resolveWith(t, g, p, c, "DB$ Venture | ValidTgts$ Player"); err != nil {
+	if err := resolveTargeting(t, g, p, c, []engine.EntityID{engine.PlayerEntity(lost)}, "DB$ Venture | ValidTgts$ Player"); err != nil {
 		t.Fatalf("venture: %v", err)
 	}
 	if dungeonOf(g, p) != engine.NoCard || dungeonOf(g, lost) != engine.NoCard {

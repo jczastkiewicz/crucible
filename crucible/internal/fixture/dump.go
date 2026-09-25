@@ -41,6 +41,9 @@ func Dump(l *Loaded) *State {
 	if m := g.Monarch(); m != engine.NoPlayer {
 		st.Monarch = g.Player(m).Name
 	}
+	if i := g.Initiative(); i != engine.NoPlayer {
+		st.Initiative = g.Player(i).Name
+	}
 	// ActivePhase has no "unset" of its own on Game -- a real game always has
 	// some active phase once its turn state is initialised. Emitting it only
 	// alongside ActivePlayer keeps a truly empty fixture (no active player at
@@ -83,8 +86,8 @@ func Dump(l *Loaded) *State {
 func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) string {
 	var entries []string
 	for _, id := range g.Zone(kind, owner).Cards() {
-		// A designation's effect card is written as monarch=, not as a
-		// card (State.Monarch).
+		// A designation's effect card is written as monarch= or
+		// initiative=, not as a card (State.Monarch).
 		if g.IsDesignationCard(id) {
 			continue
 		}

@@ -75,15 +75,15 @@ func (g *Game) SetMonarch(p PlayerID) {
 }
 
 // IsDesignationCard reports whether id is some player's designation effect
-// card ("The Monarch"): state the designation itself implies, which a
-// fixture writes as monarch= rather than as a Command-zone card no
-// database holds.
+// card ("The Monarch", "The Initiative"): state the designation itself
+// implies, which a fixture writes as monarch=/initiative= rather than as a
+// Command-zone card no database holds.
 func (g *Game) IsDesignationCard(id CardID) bool {
 	if id == NoCard {
 		return false
 	}
 	for _, pid := range g.Players() {
-		if g.Player(pid).monarchEffect == id {
+		if pl := g.Player(pid); pl.monarchEffect == id || pl.initiativeEffect == id {
 			return true
 		}
 	}
@@ -270,27 +270,68 @@ func (g *Game) pushPlayerTriggers(c PlayerController, p PlayerID, matches []Abil
 	g.pushTriggeredAbilities(c, matches)
 }
 
-// onPlayersLost is the designation half of Game.onPlayerLost, run once per
-// player as CheckStateBasedActions awards the loss (GameAction.
-// checkGameOverCondition): CR 724.4, a monarch who leaves the game passes
-// the monarchy to the active player -- or, when the leaver is the active
-// player, to the next player in turn order. Java calls becomeMonarch
-// without re-checking CantBecomeMonarch here; becomeMonarch's own check
-// still applies, and a static it cannot read keeps the monarchy where it is
-// rather than guessing (the SBA has no error channel).
+// onPlayersLost is the designation half of Game.onPlayerLost
+// (Game.java:988-1006), run once per player as CheckStateBasedActions
+// awards the loss (GameAction.checkGameOverCondition), in seat order.
+// CR 724.4 and 725.4: a monarch, or the player with the initiative, who
+// leaves the game passes it to the active player -- or, when the leaver is
+// the active player, to the next player in the game.
+//
+// Java calls becomeMonarch here without the effect's CantBecomeMonarch
+// pre-check; becomeMonarch's own check still applies, and a static it
+// cannot read keeps the monarchy where it is rather than guessing (the SBA
+// has no error channel). lossHandled is set once the player is processed:
+// until then Java still counts them among ingamePlayers (successor).
 func (g *Game) onPlayersLost(c PlayerController) {
 	for _, pid := range g.Players() {
 		pl := g.Player(pid)
 		if !pl.Lost || pl.lossHandled {
 			continue
 		}
-		pl.lossHandled = true
 		if g.monarch == pid {
-			next := g.activePlayer
-			if next == pid {
-				next = g.nextPlayerAfter(pid)
-			}
-			_ = g.becomeMonarch(c, next)
+			_ = g.becomeMonarch(c, g.successor(pid))
+		}
+		if g.initiative == pid {
+			g.takeInitiative(c, g.successor(pid))
+		}
+		pl.lossHandled = true
+	}
+}
+
+// successor is who a leaving player's designation passes to: the active
+// player, or, when the leaver is the active player, the next player in the
+// game after them.
+func (g *Game) successor(leaver PlayerID) PlayerID {
+	if leaver != g.activePlayer {
+		return g.activePlayer
+	}
+	return g.nextInGameAfter(leaver)
+}
+
+// nextInGameAfter is Game.getNextPlayerAfter during onPlayerLost: the next
+// seat, in turn order, whose player Java still holds in ingamePlayers --
+// every player not yet processed as a loser, including losers of this same
+// pass still waiting their turn (Player.lossHandled unset). Unlike
+// nextPlayerAfter, which skips every player who has lost. NoPlayer when
+// nobody is left.
+func (g *Game) nextInGameAfter(p PlayerID) PlayerID {
+	ids := g.Players()
+	start := 0
+	for i, id := range ids {
+		if id == p {
+			start = i
+			break
 		}
 	}
+	step := 1
+	if g.turnOrderReversed {
+		step = len(ids) - 1
+	}
+	for i := 1; i <= len(ids); i++ {
+		next := ids[(start+i*step)%len(ids)]
+		if pl := g.Player(next); !pl.Lost || !pl.lossHandled {
+			return next
+		}
+	}
+	return NoPlayer
 }

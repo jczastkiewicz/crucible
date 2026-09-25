@@ -132,10 +132,15 @@ type Player struct {
 	// monarchy parks it in None and becoming the monarch again puts the same
 	// card back in the Command zone (becomemonarcheffect.go).
 	monarchEffect CardID
+	// initiativeEffect is this player's "The Initiative" effect card
+	// (Player.initiativeEffect), reused the way monarchEffect is
+	// (takeinitiativeeffect.go).
+	initiativeEffect CardID
 	// lossHandled records that Game.onPlayerLost has run for this player:
 	// Java runs it once, as the loss is awarded (GameAction.
-	// checkGameOverCondition), and it is what passes the monarchy on (CR
-	// 724.4, becomemonarcheffect.go).
+	// checkGameOverCondition), passing the monarchy and the initiative on
+	// (CR 724.4, 725.4, becomemonarcheffect.go), then drops the player from
+	// ingamePlayers.
 	lossHandled bool
 }
 

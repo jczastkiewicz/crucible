@@ -511,9 +511,10 @@ once `DamageDoneOnce` itself was done and tested.
 
 A new `checkDamageTableTriggers` (trigger.go) is what both real call sites actually invoke now, in place of a bare
 `checkDamageDoneOnceTriggers` call: it runs all three built dispatches off the one table, `CardDamageTable`'s own real
-sequencing ported directly (`DamageDoneOnceByController`, the fourth, is not built -- 0 real corpus lines name it, so
-there is nothing to wire it into). A future fifth table-driven mode, if the corpus ever needs one, has exactly one call
-site to add to, not two.
+sequencing ported directly. `DamageDoneOnceByController`, the fourth, is The Initiative's own trigger -- 0 real corpus
+lines name it -- and runs from the same call (`checkDamageDoneOnceByControllerTriggers`,
+[`effects-monarch-initiative-venture.md`](effects-monarch-initiative-venture.md#takeinitiative-lands)). A future fifth
+table-driven mode, if the corpus ever needs one, has exactly one call site to add to, not two.
 
 `checkDamageDealtOnceTriggers` (`Mode$ DamageDealtOnce`, ported from `TriggerDamageDealtOnce.performTest`) is
 `checkDamageDoneOnceTriggers`'s own mirror image: `bySource`, not `bySource[e.Target]`, groups the table -- a

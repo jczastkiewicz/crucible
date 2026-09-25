@@ -127,6 +127,9 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 	if gm, wm := playerName(got, got.Monarch()), playerName(want, want.Monarch()); gm != wm {
 		t.Errorf("monarch = %q, want %q", gm, wm)
 	}
+	if gi, wi := playerName(got, got.Initiative()), playerName(want, want.Initiative()); gi != wi {
+		t.Errorf("initiative = %q, want %q", gi, wi)
+	}
 
 	gotPlayers, wantPlayers := got.Players(), want.Players()
 	if len(gotPlayers) != len(wantPlayers) {

@@ -25,9 +25,9 @@ else entirely — `ValidZone$ Hand`, `ValidCounterType$ ENERGY`, `ValidKeyword$ 
 the `...Desc`, `...Des` and `...Message` suffixes mark prose. `Affected$` is the one valid-typed key without the prefix.
 
 So the rule is a prefix minus a named exception list
-([`internal/carddb/vocab`](../../../crucible/internal/carddb/vocab)), not a list of the keys that do hold one: upstream
-adds `Valid` keys, and a missing entry on the exception list shows up as a zone name in the base vocabulary rather than
-as silence.
+([`internal/carddb/vocab`](../../../../crucible/internal/carddb/vocab)), not a list of the keys that do hold one:
+upstream adds `Valid` keys, and a missing entry on the exception list shows up as a zone name in the base vocabulary
+rather than as silence.
 
 `ValidTgtsDes$` and `ValidTgtsDesc$` both appear. Nothing parses either, which is why the typo survived.
 

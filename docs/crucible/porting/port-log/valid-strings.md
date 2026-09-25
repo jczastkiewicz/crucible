@@ -80,7 +80,7 @@ any of them needs a game.
 `CardProperty.cardHasProperty` itself yet — that 2,135-line switch is corpus-frequency work, same as `effect.go`'s
 `Registry` (ADR-0011), and starts with three names: `YouCtrl`, `OppCtrl`, `Self`. A fourth case, a bare
 type/supertype/subtype word used as either a `Base` or a `Property`, reaches
-[`cardtype.Line.HasStringType`](../../../crucible/internal/cardtype/cardtype.go) — the Go port of
+[`cardtype.Line.HasStringType`](../../../../crucible/internal/cardtype/cardtype.go) — the Go port of
 `CardType.hasStringType`, which both `Card.isValid`'s own default case and every property chain's final fallthrough call
 in Java.
 

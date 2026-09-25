@@ -4,7 +4,7 @@
   `go run ./tools/vocabscan -matrix > ../docs/crucible/porting/parity-matrix.md` and then `prettier --write`, which owns
   the table alignment (DOC-14)
 
-Support status of every card-script vocabulary item in the Go engine, over 33,913 cards.
+Support status of every card-script vocabulary item in the Go engine, over 33,978 cards.
 
 The used column is what the corpus writes. The supported column is what the engine implements, and only the API row can
 answer it: the other vocabularies are consumed by code that has no registry to count yet, and a zero there would read as

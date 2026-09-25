@@ -189,8 +189,10 @@ func (g *Game) uncopy(id CardID, e copyEffect) {
 // The copied values are the copied card's own copiable values with the
 // "except" params applied (CardFactory.getCloneStates): NewName$/KeepName$,
 // AddColors$/SetColor$, NonLegendary$, AddTypes$, AddKeywords$ (IfNew
-// filtering), SetPower$/SetToughness$ and AddSVars$ (numeric SVars; an
-// ability SVar is already compiled into the ability that names it, PORT-2).
+// filtering), SetPower$/SetToughness$, AddSVars$ (numeric SVars; an
+// ability SVar is already compiled into the ability that names it, PORT-2)
+// and GainThisAbility$ (the copy keeps the trigger or ability this line
+// resolves under).
 // IntoPlayTapped$ taps the copy; RememberCloneOrigin$ remembers the copied
 // card.
 //
@@ -200,14 +202,14 @@ func (g *Game) uncopy(id CardID, e copyEffect) {
 type cloneEffect struct{}
 
 // cloneUnresolvedParams are the CloneEffect/getCloneStates params this port
-// does not resolve: gaining this ability, triggers, abilities or statics
-// (each needs the ability's own root or a compiled SVar trait this port does
-// not build yet), the pump keywords' own until-command, Embalm's condition,
+// does not resolve: gaining triggers, abilities or statics named by SVar
+// (each needs a compiled SVar trait this port does not build for Clone
+// yet), the pump keywords' own until-command, Embalm's condition,
 // mana cost and card/creature type rewriting, keyword removal, loyalty, and
 // RemoveCreatureTypes$ -- which getCloneStates never reads (PORT-8,
 // effects-clone.md).
 var cloneUnresolvedParams = [...]string{
-	"GainThisAbility", "AddTriggers", "AddAbilities", "AddStaticAbilities", "GainTextAbilities", "GainTextOf",
+	"AddTriggers", "AddAbilities", "AddStaticAbilities", "GainTextAbilities", "GainTextOf",
 	"PumpKeywords", "PumpDuration", "Embalm", "RemoveCost", "SetManaCost", "SetColorByManaCost",
 	"RemoveCardTypes", "RemoveSubTypes", "RemoveCreatureTypes", "SetCreatureTypes", "RemoveKeywords",
 	"SetLoyalty", "Condition",
@@ -552,6 +554,11 @@ func cloneDef(g *Game, a *Ability, origin cloneOrigin, out *Card) (*compile.Card
 	if err != nil {
 		return nil, err
 	}
+	if hasParam(a, "GainThisAbility") {
+		if ch.gain, ch.gainKind, err = cloneRoot(g.Card(a.Source), a); err != nil {
+			return nil, err
+		}
+	}
 	for i := range def.Faces {
 		f := &def.Faces[i]
 		if i > 0 && f.Name == "" && f.Type.IsEmpty() {
@@ -589,6 +596,8 @@ type cloneChanges struct {
 	power, toughness     int
 	addAmounts           map[string]expr.Amount
 	addAmountNames       []string
+	gain                 *compile.Ability
+	gainKind             compile.Record
 }
 
 func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
@@ -707,6 +716,16 @@ func (ch *cloneChanges) apply(f, out, printed *compile.Face) {
 			f.Toughness = strconv.Itoa(ch.toughness)
 		}
 	}
+	if ch.gain != nil {
+		switch ch.gainKind {
+		case compile.Trigger:
+			f.Triggers = append(append([]*compile.Ability(nil), f.Triggers...), ch.gain)
+		case compile.Replacement:
+			f.Replacements = append(append([]*compile.Ability(nil), f.Replacements...), ch.gain)
+		default:
+			f.Abilities = append(append([]*compile.Ability(nil), f.Abilities...), ch.gain)
+		}
+	}
 	if len(ch.addAmounts) > 0 {
 		amounts := make(map[string]expr.Amount, len(f.Amounts)+len(ch.addAmounts))
 		for k, v := range f.Amounts {
@@ -750,6 +769,56 @@ func cloneOverridesCDA(ch *cloneChanges, s *compile.Ability) bool {
 func hasKeywordLine(lines []string, name string) bool {
 	for _, l := range lines {
 		if keyword.Parse(l).Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// cloneRoot is GainThisAbility$'s "this ability": the trigger, activated
+// ability or replacement on the host whose compiled tree holds the line
+// resolving now -- SpellAbility.getRootAbility, and through an immediate or
+// delayed trigger its spawning ability (Aurora Shifter), since the spawned
+// trigger's Execute$ is compiled inside the ability that spawns it. The
+// host's current definition is searched first, then its own and each copy
+// effect's, so a copy that already gained the ability finds it again. kind
+// is the list the root came from.
+func cloneRoot(host *Card, a *Ability) (*compile.Ability, compile.Record, error) {
+	defs := []*compile.Card{host.Def, host.UncopiedDef()}
+	for _, e := range host.copies {
+		defs = append(defs, e.def)
+	}
+	for _, def := range defs {
+		if def == nil {
+			continue
+		}
+		for i := range def.Faces {
+			f := &def.Faces[i]
+			for _, list := range []struct {
+				roots []*compile.Ability
+				kind  compile.Record
+			}{{f.Triggers, compile.Trigger}, {f.Abilities, compile.Spell}, {f.Replacements, compile.Replacement}} {
+				for _, r := range list.roots {
+					if abilityTreeHolds(r, a.Params) {
+						return r, list.kind, nil
+					}
+				}
+			}
+		}
+	}
+	return nil, 0, fmt.Errorf("engine: Clone: GainThisAbility$ from outside the host's own abilities not resolvable yet")
+}
+
+// abilityTreeHolds reports whether target is root or one of the abilities
+// root's params reference, at any depth. A compiled tree is acyclic
+// (compile's ErrCycle) and every reference is its own *Ability, so pointer
+// identity names exactly one place.
+func abilityTreeHolds(root, target *compile.Ability) bool {
+	if root == target {
+		return true
+	}
+	for _, sub := range root.Subs {
+		if abilityTreeHolds(sub.Ability, target) {
 			return true
 		}
 	}

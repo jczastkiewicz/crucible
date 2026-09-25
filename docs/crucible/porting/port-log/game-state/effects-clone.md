@@ -57,14 +57,23 @@ modal and meld cards. `cloneDef` keeps every face for `SplitFlip`/`SplitSplit`/`
 
 ### Resolution, `CloneEffect.resolve`
 
-| Step          | Params                                                                                                                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Duration      | Absent: permanent. `UntilEndOfTurn` ends at cleanup, `UntilYourNextTurn` as the activator's turn begins, `UntilHostLeavesPlay` as the host leaves (no-op if the host is off the battlefield and stack) |
-| Card to copy  | `Choices$` (activator picks, in `ChoiceZone$`, `ChoiceOptional$`), else first `Defined$`, else first targeted card, else `CopyFromChosenName$` (DB lookup of the host's named card)                    |
-| Confirm       | `Optional$` asks the host's controller (`host.getController()`, not the activator)                                                                                                                     |
-| Becoming copy | `CloneTarget$` (`definedCards` plus `Valid <spec>`), else the target when `Choices$` chose, else the host; `ExcludeChosen$`, `CloneZone$`                                                              |
-| Except        | `NewName$`, `KeepName$`, `AddColors$`, `SetColor$` (drops devoid and a CDA color), `NonLegendary$`, `AddTypes$`, `AddKeywords$` (`IfNew`), `SetPower$`/`SetToughness$` (drop a CDA P/T), `AddSVars$`   |
-| After         | `IntoPlayTapped$` taps; host's own memory cleared unless `ImprintRememberedNoCleanup$`; `Duration$` snapshot; target's memory cleared; `RememberCloneOrigin$`                                          |
+| Step          | Params                                                                                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Duration      | Absent: permanent. `UntilEndOfTurn` ends at cleanup, `UntilYourNextTurn` as the activator's turn begins, `UntilHostLeavesPlay` as the host leaves (no-op if the host is off the battlefield and stack)                   |
+| Card to copy  | `Choices$` (activator picks, in `ChoiceZone$`, `ChoiceOptional$`), else first `Defined$`, else first targeted card, else `CopyFromChosenName$` (DB lookup of the host's named card)                                      |
+| Confirm       | `Optional$` asks the host's controller (`host.getController()`, not the activator)                                                                                                                                       |
+| Becoming copy | `CloneTarget$` (`definedCards` plus `Valid <spec>`), else the target when `Choices$` chose, else the host; `ExcludeChosen$`, `CloneZone$`                                                                                |
+| Except        | `NewName$`, `KeepName$`, `AddColors$`, `SetColor$` (drops devoid and a CDA color), `NonLegendary$`, `AddTypes$`, `AddKeywords$` (`IfNew`), `SetPower$`/`SetToughness$` (drop a CDA P/T), `AddSVars$`, `GainThisAbility$` |
+| After         | `IntoPlayTapped$` taps; host's own memory cleared unless `ImprintRememberedNoCleanup$`; `Duration$` snapshot; target's memory cleared; `RememberCloneOrigin$`                                                            |
+
+`GainThisAbility$` (24 lines) keeps "this ability" on the copy: `cloneRoot` finds the trigger, activated ability or
+replacement on the host whose compiled tree holds the resolving line, by pointer (`SpellAbility.getRootAbility`), and
+appends that same `*compile.Ability` to each copied face. A delayed or immediate trigger's `Execute$` compiles inside
+the ability that spawns it, so the search lands on the spawning root, as `getSpawningAbility` does (Aurora Shifter,
+which also names the still-rejected `AddTriggers$`) (`CardFactory.java:667-682`). The host's current definition is
+searched first, then its own and each copy's, so a copy that gained the ability finds it again. No new `Ability` field
+and no trigger-site change were needed. A line whose root is not among the host's abilities (granted by another card) is
+an `error`.
 
 `AddSVars$` carries only numeric SVars (`Face.Amounts`). An ability SVar it names in Java is text the gained ability
 looks up at run time. Here that ability is already compiled with its sub-abilities embedded (PORT-2), so there is
@@ -86,7 +95,6 @@ through combat as a 3/3 copy of Hill Giant.
 
 | Param or shape                                                                                                               | Why                                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GainThisAbility$` (24 lines)                                                                                                | Needs the resolving ability's root trigger or ability; `Ability` does not carry it                                        |
 | `AddTriggers$`, `AddAbilities$`, `AddStaticAbilities$`, `GainTextAbilities$`, `GainTextOf$`                                  | Name SVars holding traits; `compile` does not compile Clone's SVar lists (only Effect's, `effectTraitKeys`)               |
 | `PumpKeywords$`, `PumpDuration$`                                                                                             | Layer 6 grant with its own until-command (`TokenEffectBase.addPumpUntil`)                                                 |
 | `Embalm$`, `RemoveCost$`, `SetManaCost$`, `SetColorByManaCost$`                                                              | Embalmed state and mana-cost rewriting; `RemoveCost$` would also need the color frozen, since color derives from the cost |

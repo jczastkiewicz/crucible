@@ -731,7 +731,6 @@ func TestCloneRejectsUnportedShapes(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct{ line, want string }{
-		{"Clone | ValidTgts$ Creature | GainThisAbility$ True", "GainThisAbility$ not resolvable yet"},
 		{"Clone | ValidTgts$ Creature | AddTriggers$ T", "AddTriggers$ not resolvable yet"},
 		{"Clone | ValidTgts$ Creature | RemoveCreatureTypes$ True", "RemoveCreatureTypes$ not resolvable yet"},
 		{"Clone | ValidTgts$ Creature | Duration$ UntilUnattached", `Duration$ "UntilUnattached" not resolvable yet`},
@@ -769,5 +768,78 @@ func TestCloneRejectsUnportedShapes(t *testing.T) {
 		if g.Card(host).IsCopy() {
 			t.Errorf("%q: host became a copy despite the error", tc.line)
 		}
+	}
+}
+
+// TestCloneGainThisAbilityKeepsTheActivatedAbility proves GainThisAbility$
+// on an activated line (Dimir Doppelganger, Likeness Looter): the copy has
+// the copied card's abilities plus the one that made it, which can copy
+// again.
+func TestCloneGainThisAbilityKeepsTheActivatedAbility(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	giant := g.NewCard(copyTestDef(t, "Copied Giant", "Creature Giant", "4", "5",
+		"A:AB$ GainLife | LifeAmount$ 1"), other, engine.Battlefield)
+	wall := g.NewCard(copyTestDef(t, "Copied Wall", "Creature Wall", "0", "7"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	host := shifter(t, g, p, "Clone | ValidTgts$ Creature | GainThisAbility$ True")
+	own := g.Card(host).Def.Faces[0].Abilities[0]
+	mustActivate(t, g, p, c, host, giant)
+
+	abs := g.Card(host).Def.Faces[0].Abilities
+	if len(abs) != 2 || abs[0].Name != "GainLife" || abs[1] != own {
+		t.Fatalf("copy abilities = %d, want the Giant's GainLife then the Clone ability", len(abs))
+	}
+	if len(g.Card(giant).Def.Faces[0].Abilities) != 1 {
+		t.Error("gaining the ability wrote into the copied card's definition")
+	}
+	// Activating the gained ability from the copy copies again, keeping it.
+	def := g.Card(host).Def
+	g.PushAbility(engine.Ability{API: engine.APIClone, Source: host, Controller: p, Params: abs[1],
+		Amounts: def.Faces[0].Amounts, Targets: []engine.EntityID{engine.CardEntity(wall)}})
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if h := g.Card(host); h.Def.Name != "Copied Wall" || len(h.Def.Faces[0].Abilities) != 1 || h.Def.Faces[0].Abilities[0] != own {
+		t.Errorf("second copy is %q with %d abilities, want Copied Wall keeping the Clone ability", h.Def.Name, len(h.Def.Faces[0].Abilities))
+	}
+}
+
+// TestCloneGainThisAbilityKeepsTheTrigger proves GainThisAbility$ on a
+// triggered line (Cryptoplasm, Artisan of Forms): the root is the trigger
+// whose Execute$ holds the line, found through a sub-ability chain.
+func TestCloneGainThisAbilityKeepsTheTrigger(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	giant := g.NewCard(giantDef(t), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	host, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(giant)},
+		"DB$ GainLife | Defined$ You | LifeAmount$ 1 | SubAbility$ DBCopy", "DBCopy", "DB$ Clone | ValidTgts$ Creature | GainThisAbility$ True")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := g.Card(host)
+	trigs := h.Def.Faces[0].Triggers
+	if h.Def.Name != "Copied Giant" || len(trigs) != 1 || trigs[0] != h.UncopiedDef().Faces[0].Triggers[0] {
+		t.Errorf("copy %q has %d triggers, want Copied Giant with the host's own trigger", h.Def.Name, len(trigs))
+	}
+}
+
+// TestCloneGainThisAbilityFromElsewhereIsRejected proves a line whose root
+// is not among the host's own abilities fails rather than gaining nothing.
+func TestCloneGainThisAbilityFromElsewhereIsRejected(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	giant := g.NewCard(giantDef(t), other, engine.Battlefield)
+	host := g.NewCard(copyTestDef(t, "Plain", "Creature Elf", "1", "1"), p, engine.Battlefield)
+	elsewhere := copyTestDef(t, "Elsewhere", "Artifact", "", "", "A:AB$ Clone | ValidTgts$ Creature | GainThisAbility$ True")
+	g.PushAbility(engine.Ability{API: engine.APIClone, Source: host, Controller: p, Params: elsewhere.Faces[0].Abilities[0],
+		Targets: []engine.EntityID{engine.CardEntity(giant)}})
+	err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController())
+	if err == nil || !strings.Contains(err.Error(), "GainThisAbility$ from outside") {
+		t.Errorf("err = %v, want the GainThisAbility$ rejection", err)
 	}
 }

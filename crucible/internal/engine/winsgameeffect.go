@@ -17,6 +17,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control
+
 import "fmt"
 
 // winsGameUnresolvedParams names GameWinEffect's own params this port does

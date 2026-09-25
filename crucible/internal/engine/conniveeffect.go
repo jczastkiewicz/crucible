@@ -25,6 +25,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount parts event zone turn discardeffect
+
 import (
 	"fmt"
 

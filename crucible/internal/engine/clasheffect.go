@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability additional card condition control defined effecthelpers game id parts player zone
+
 import "fmt"
 
 // clashEffect is ClashEffect.java (CR 701.30): the host's controller clashes

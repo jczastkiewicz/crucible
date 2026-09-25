@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability defined condition control amount parts
+
 import "fmt"
 
 // chooseNumberUnresolvedParams are ChooseNumberEffect.java's params this

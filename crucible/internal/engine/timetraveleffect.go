@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game control ability effecthelpers card condition id zone parts event
+
 import "fmt"
 
 // timeTravelEffect is TimeTravelEffect.java: Amount$ (default 1) times, the

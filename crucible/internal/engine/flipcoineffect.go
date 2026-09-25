@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability additional card condition control defined effecthelpers game id parts zone
+
 import (
 	"fmt"
 	"strings"

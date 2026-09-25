@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition defined player
+
 import "fmt"
 
 // changeSpeedEffect is ChangeSpeedEffect.java: Mode$ Increase (the default)

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition defined zone id parts
+
 import "fmt"
 
 // goadEffect is GoadEffect.java (CR 701.15): each Defined$ or targeted

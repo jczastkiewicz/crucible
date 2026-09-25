@@ -16,7 +16,7 @@ ADR-0003 and ADR-0008 put the 203 API implementations in `internal/engine/effect
 | Effects in `internal/engine/effect`           | 135 `*effect.go` files in `internal/engine` itself                   |
 | Generated `Register`, called from `cmd/`      | Hand-written `NewRegistry()` in `internal/engine/castspell.go`       |
 | Generator input: corpus API vocabulary scan   | No generator; unregistered APIs return `ErrUnimplemented` (ADR-0011) |
-| `enginelint` groups declared in one JSON file | `enginelint.json` 1,314 lines; 133 one-file effect groups            |
+| `enginelint` groups declared in one JSON file | `enginelint.json` 1,680 lines; 133 one-file effect groups            |
 
 Placement was not a slip. 134 of the 135 effect files call unexported engine functions (`moveByEffect`,
 `targetedOrDefinedCards`, `subAbilityConditionMet`, the animate/layer records). A separate package would force all of
@@ -55,9 +55,9 @@ so in its doc comment, one line per API:
 //crucible:register Manifest manifestEffect{api: "Manifest", remember: "RememberManifested"}
 ```
 
-An API name with no `APIType` constant, or registered twice, fails the generator. `go generate ./internal/engine`
-regenerates; `genregistry -check` fails CI when the committed file is stale — the check ADR-0008 named as the condition
-for the whole guarantee.
+An API name with no `APIType` constant, or registered twice, fails the generator.
+`go generate -run genregistry ./internal/engine` regenerates; `genregistry -check` fails CI when the committed file is
+stale — the check ADR-0008 named as the condition for the whole guarantee.
 
 **`NewRegistry()` stays an explicit constructor, not an `init()`.** A test that wants a subset still builds its own
 `Registry`.

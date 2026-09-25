@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability game control effecthelpers card condition parts
+
 // chooseDirectionEffect is ChooseDirectionEffect.java: the activator picks
 // left (clockwise) or right -- chooseBinary with LeftOrRight, true for
 // left -- and the host records it (setChosenDirection).

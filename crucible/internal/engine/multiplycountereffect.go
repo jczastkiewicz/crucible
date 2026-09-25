@@ -26,6 +26,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control parts event
+
 import (
 	"fmt"
 	"strconv"

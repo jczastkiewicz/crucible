@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game control ability effecthelpers card condition defined player parts
+
 import "fmt"
 
 // chooseEvenOddEffect is ChooseEvenOddEffect.java: each target player (the

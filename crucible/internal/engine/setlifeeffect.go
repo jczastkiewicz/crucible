@@ -21,6 +21,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount event
+
 import "fmt"
 
 // setLifeUnresolvedParams names LifeSetEffect's own params this port does

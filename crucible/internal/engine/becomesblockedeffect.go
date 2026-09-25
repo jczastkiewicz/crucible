@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition defined valid
+
 import "fmt"
 
 // becomesBlockedEffect is BecomesBlockedEffect.java: outside combat nothing

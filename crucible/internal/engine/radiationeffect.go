@@ -17,6 +17,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount parts event
+
 import "fmt"
 
 // radiationUnresolvedParams names RadiationEffect's own params this port

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability animate card condition control effecthelpers game id zone
+
 // animateAllEffect is AnimateAllEffect.java: every battlefield card matching
 // ValidCards$ takes buildAnimate's characteristics. Zone$ past the
 // battlefield and the player-scoped ValidTgts$/Defined$ form fail closed.

@@ -17,6 +17,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control zone
+
 import "fmt"
 
 // unattachUnresolvedParams names UnattachEffect's own params this port does

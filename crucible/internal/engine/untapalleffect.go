@@ -20,6 +20,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control zone parts valid trigger
+
 import (
 	"fmt"
 

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability defined condition control zone
+
 import "fmt"
 
 // regenerateUnresolvedParams: RegenerationAbility$ (a follow-up ability when

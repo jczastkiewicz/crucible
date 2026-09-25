@@ -17,6 +17,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control parts combat zone
+
 import "fmt"
 
 // removeFromCombatUnresolvedParams names RemoveFromCombatEffect's own

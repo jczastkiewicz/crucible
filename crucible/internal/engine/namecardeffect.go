@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition parts defined player amount
+
 import (
 	"fmt"
 	"strconv"

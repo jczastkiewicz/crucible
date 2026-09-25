@@ -19,6 +19,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control setlifeeffect
+
 import "fmt"
 
 // exchangeLifeUnresolvedParams names LifeExchangeEffect's own params this

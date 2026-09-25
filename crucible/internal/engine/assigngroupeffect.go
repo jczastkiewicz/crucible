@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers card condition id defined additional parts
+
 import "fmt"
 
 // assignGroupEffect is AssignGroupEffect.java: the Chooser$ (the activator

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control ability game effecthelpers card condition defined zone token parts event id
+
 import "fmt"
 
 // endureEffect is EndureEffect.java: for each Defined$ (default Self) or

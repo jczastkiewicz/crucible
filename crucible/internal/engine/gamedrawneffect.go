@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability game control effecthelpers condition card event id
+
 // gameDrawnEffect is GameDrawEffect.java: every player draws the game
 // intentionally and the game ends in a draw (CR 104.4a) -- no winner, no
 // loser. Its ConditionPresent$/ConditionCheckSVar$ gates are the only params

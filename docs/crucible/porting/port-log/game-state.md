@@ -90,6 +90,11 @@ into an interface value with no hashing and no allocation (ADR-0008). The consta
 enum by `tools/genapitype` — 202 of them — so a new API upstream is a regenerated file and a build failure rather than a
 gap found on card 12,004.
 
+`NewRegistry()` is generated (`registry_gen.go`, `tools/genregistry`, ADR-0017): every type named `*Effect` with a
+value-receiver `Resolve` registers under the API its name gives; `//crucible:register` lines cover `permanentEffect`
+(two APIs) and `manifestEffect` (two APIs with field values). Each effect file declares its own `enginelint` group with
+`//enginelint:allow`.
+
 An unregistered API returns `ErrUnimplemented` naming the API, and does not panic. Most of the array is empty for the
 whole port; a gap is a tracked hole in coverage (ADR-0011), not an invariant breach, and one unimplemented API must fail
 its own game and no more (GO-7).

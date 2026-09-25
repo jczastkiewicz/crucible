@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers card condition defined
+
 import "fmt"
 
 // gainOwnershipEffect is OwnershipGainEffect.java: the first DefinedPlayer$

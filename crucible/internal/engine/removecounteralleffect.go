@@ -19,6 +19,8 @@
 
 package engine
 
+//enginelint:allow id card game ability condition control zone valid amount removecountereffect parts
+
 import (
 	"fmt"
 	"strings"

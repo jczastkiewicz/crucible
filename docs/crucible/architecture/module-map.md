@@ -43,6 +43,7 @@ Column meaning:
 | [`tools/apiscan`](../../../crucible/tools/apiscan)                     | Recovers each ability API's param vocabulary from Forge's call sites, and fails the build on a param key nothing reads                                                                                                    | — new code                                                                                                                                                                             | —                                                                                                                |
 | [`tools/genparams`](../../../crucible/tools/genparams)                 | Generates the typed parameter struct for every ability API from that scan's evidence table                                                                                                                                | — new code                                                                                                                                                                             | —                                                                                                                |
 | [`tools/genapitype`](../../../crucible/tools/genapitype)               | Generates the `APIType` constants from Forge's `ApiType` enum                                                                                                                                                             | — new code                                                                                                                                                                             | —                                                                                                                |
+| [`tools/genregistry`](../../../crucible/tools/genregistry)             | Generates `internal/engine`'s `NewRegistry` (`registry_gen.go`) from the package's `*Effect` types; `-check` fails on a stale file or a wrong resolved-API count in the docs (ADR-0017)                                   | — new code                                                                                                                                                                             | —                                                                                                                |
 
 **Twenty-four packages: two in `pkg/`, twelve in `internal/`, one `cmd/`, nine in `tools/`.** The split follows
 [ADR-0003](../adr/0003-go-project-layout.md): `pkg/` is reserved for code with no Crucible semantics, and an ordered set
@@ -57,15 +58,16 @@ meaning, `mana` and `cardtype` included, goes in `internal/` where nothing outsi
 
 ## Enforcement
 
-| Tool                                                     | Scope                | Enforces                                                                               |
-| -------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------- |
-| `depguard`, inside `golangci-lint`                       | Between packages     | ADR-0002 stdlib-only runtime, ADR-0006 no global RNG, ADR-0003 arrow direction         |
-| [`tools/enginelint`](../../../crucible/tools/enginelint) | Inside one package   | File-group boundaries within `internal/engine`, which no package-level tool can see    |
-| [`tools/javacycles`](../../../crucible/tools/javacycles) | The Java tree        | Re-checks ADR-0003's 82-cycle premise after an upstream sync                           |
-| [`tools/docgate`](../../../crucible/tools/docgate)       | Code against docs    | DOC-12 module-map rows, PORT-4 port-log notes, ADRP-4 ADR-before-code                  |
-| [`tools/covergate`](../../../crucible/tools/covergate)   | Tests against docs   | TEST-12 coverage floors, read from the guideline rather than a second config           |
-| [`tools/carddump`](../../../crucible/tools/carddump)     | Go against Java      | P1: every card's canonical JSON, diffed against `oracle-java`'s `CardRulesDumper`      |
-| [`tools/apiscan`](../../../crucible/tools/apiscan)       | Scripts against Java | P2: no card writes a param key no Java code reads, outside the parity-matrix allowlist |
+| Tool                                                       | Scope                | Enforces                                                                                                                                                       |
+| ---------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `depguard`, inside `golangci-lint`                         | Between packages     | ADR-0002 stdlib-only runtime, ADR-0006 no global RNG, ADR-0003 arrow direction                                                                                 |
+| [`tools/enginelint`](../../../crucible/tools/enginelint)   | Inside one package   | File-group boundaries within `internal/engine`, which no package-level tool can see; effect files declare their own group with `//enginelint:allow` (ADR-0017) |
+| [`tools/genregistry`](../../../crucible/tools/genregistry) | Effect wiring        | ADR-0017: `registry_gen.go` matches the effect files; docs quote the registered count                                                                          |
+| [`tools/javacycles`](../../../crucible/tools/javacycles)   | The Java tree        | Re-checks ADR-0003's 82-cycle premise after an upstream sync                                                                                                   |
+| [`tools/docgate`](../../../crucible/tools/docgate)         | Code against docs    | DOC-12 module-map rows, PORT-4 port-log notes, ADRP-4 ADR-before-code                                                                                          |
+| [`tools/covergate`](../../../crucible/tools/covergate)     | Tests against docs   | TEST-12 coverage floors, read from the guideline rather than a second config                                                                                   |
+| [`tools/carddump`](../../../crucible/tools/carddump)       | Go against Java      | P1: every card's canonical JSON, diffed against `oracle-java`'s `CardRulesDumper`                                                                              |
+| [`tools/apiscan`](../../../crucible/tools/apiscan)         | Scripts against Java | P2: no card writes a param key no Java code reads, outside the parity-matrix allowlist                                                                         |
 
 ## What the arrows look like today
 
@@ -94,12 +96,12 @@ flowchart LR
 Listed so the gap between this map and [ADR-0003](../adr/0003-go-project-layout.md)'s layout is visible rather than
 inferred. Each lands with its milestone (ARCH-2).
 
-| Package                                                     | Milestone |
-| ----------------------------------------------------------- | --------- |
-| `internal/engine/effect`, `internal/valid`, `internal/expr` | M6        |
-| `internal/ai`                                               | M7        |
-| `internal/sim`, `internal/telemetry`, `internal/store`      | M8        |
-| `internal/report`, `cmd/crucible`                           | M9        |
+| Package                                                | Milestone |
+| ------------------------------------------------------ | --------- |
+| `internal/valid`, `internal/expr`                      | M6        |
+| `internal/ai`                                          | M7        |
+| `internal/sim`, `internal/telemetry`, `internal/store` | M8        |
+| `internal/report`, `cmd/crucible`                      | M9        |
 
 ## Invalidated by
 

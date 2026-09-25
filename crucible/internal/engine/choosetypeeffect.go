@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control game ability effecthelpers card condition defined parts
+
 import (
 	"fmt"
 	"strings"

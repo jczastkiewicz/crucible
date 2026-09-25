@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount zone effecthelpers
+
 import "fmt"
 
 // rearrangeTopOfLibraryUnresolvedParams: RearrangePlayer$ (1 real line) has

@@ -147,6 +147,9 @@ cd crucible && golangci-lint run   # v2.13.2, same as CI: go install github.com/
 # and fast on Stop (report only). New .claude/ files need `git add -f`: upstream .gitignore ignores .claude
 crucible/scripts/gates.sh fast|full
 
+# Regenerate NewRegistry after adding an effect (ADR-0017); CI fails on a stale registry_gen.go
+cd crucible && go generate -run genregistry ./internal/engine
+
 # Regenerate the golden AST fingerprints, then review the diff
 cd crucible && go test ./internal/carddb/compile -run TestCorpusAST -update
 
@@ -186,9 +189,9 @@ valid-string evaluator, mana pool and payment, casting permanents and Auras thro
 replacement effects, block legality, continuous effects across all eight layers (partial), targeting, SubAbility
 chaining, last-known information, activated abilities.
 
-M6 in progress: 137 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, `castspell.go`); the rest
-return `ErrUnimplemented`. Largest gaps: real instant/sorcery casting, `DB$ Effect` (1,751 corpus lines), `Play` (323),
-`CopySpellAbility` (239), `Clone` (175).
+M6 in progress: 137 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps: real instant/sorcery casting, `DB$ Effect` (1,751
+corpus lines), `Play` (323), `CopySpellAbility` (239), `Clone` (175).
 
 Thin or missing: Layer 1 copy effects; most of Layers 3-8 past their literal shapes; a real priority window
 (`ResolveStack` plays only the no-response case). Full list: `port-log/game-state.md`, "Not ported yet".

@@ -12,6 +12,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control zone parts amount
+
 import "fmt"
 
 // millUnresolvedParams names MillEffect's own params this port does not

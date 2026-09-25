@@ -21,6 +21,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined amount condition control zone
+
 import (
 	"fmt"
 )

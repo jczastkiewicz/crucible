@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove
+
 import (
 	"fmt"
 	"strings"

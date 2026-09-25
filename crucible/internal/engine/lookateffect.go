@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability defined condition control
+
 import "fmt"
 
 // lookAtEffect is LookAtEffect.java: the activator looks at the targeted or

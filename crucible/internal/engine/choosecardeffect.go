@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability defined condition control amount parts zone valid effecthelpers
+
 import (
 	"fmt"
 	"strconv"

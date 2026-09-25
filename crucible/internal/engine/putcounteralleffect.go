@@ -18,6 +18,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control zone valid amount event parts
+
 import (
 	"fmt"
 	"strings"

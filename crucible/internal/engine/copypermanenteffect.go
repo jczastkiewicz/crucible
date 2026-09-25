@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game control ability effecthelpers card condition id defined player token parts zone valid amount
+
 import (
 	"fmt"
 

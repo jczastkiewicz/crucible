@@ -108,13 +108,25 @@ sections by title; the root index resolves them.
 
 ## TOOL-5 — Remove merge hot spots for parallel ports
 
-Effects are mostly independent. Parallel worktree agents (one API batch each) collide only on:
+Implemented under [ADR-0017](../adr/0017-effects-inside-engine-generated-registry.md). A new effect now touches its own
+file, a regenerated `registry_gen.go` and its docs.
 
-| File                                     | Conflict                        | Fix                                                                     |
-| ---------------------------------------- | ------------------------------- | ----------------------------------------------------------------------- |
-| `castspell.go` `NewRegistry()` + comment | Every effect appends lines      | Generate `registry_gen.go` from `*effect.go` via `go generate`          |
-| `enginelint.json`                        | Every effect adds group         | One file per group under `enginelint.d/`, or generator from file header |
-| Remaining-API counts in 3 docs           | Every effect bumps same numbers | Generate count from registry; docs cite command, not number             |
+| File                                     | Was                          | Now                                                                         |
+| ---------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `castspell.go` `NewRegistry()` + comment | Every effect appended lines  | `tools/genregistry` writes `registry_gen.go`; `-check` in CI and `gates.sh` |
+| `enginelint.json`                        | Every effect added 3 entries | Effect file carries `//enginelint:allow`; JSON keeps shared groups only     |
+| Resolved-API counts in docs              | Bumped by hand, drifted      | `genregistry -check -docs` fails on a count that differs from the registry  |
+
+Measured on migration: generated registry identical to the hand-written one (140 entries, 137 script-driven); 131 of 133
+effect groups moved to file directives (`pumpeffect`, `sacrificeeffect` span two files each and stay in JSON);
+`enginelint.json` 1,680 → 287 lines. `registry_gen.go` can still conflict when two branches add neighbouring APIs;
+resolution is rerunning the generator.
+
+---------------------------------------- | ------------------------------- |
+----------------------------------------------------------------------- | | `castspell.go` `NewRegistry()` + comment |
+Every effect appends lines | Generate `registry_gen.go` from `*effect.go` via `go generate` | | `enginelint.json` |
+Every effect adds group | One file per group under `enginelint.d/`, or generator from file header | | Remaining-API
+counts in 3 docs | Every effect bumps same numbers | Generate count from registry; docs cite command, not number |
 
 `NewRegistry()` explicit wiring is required by ADR-0003. Generated file keeps wiring explicit and visible (output is
 committed Go), but change still needs ADR amendment before implementation (ADRP-4).
@@ -134,17 +146,17 @@ committed Go), but change still needs ADR amendment before implementation (ADRP-
 
 ## Order
 
-| #   | Step                                 | Effort | Depends on |
-| --- | ------------------------------------ | ------ | ---------- |
-| 1   | `scripts/gates.sh` done              | S      | —          |
-| 2   | TOOL-1 hooks done                    | S      | 1          |
-| 3   | TOOL-6 permission allowlist done     | S      | —          |
-| 4   | TOOL-2 `port-effect` skill done      | M      | 1          |
-| 5   | TOOL-3 subagents done                | S      | —          |
-| 6   | TOOL-4 `game-state.md` split done    | M      | —          |
-| 7   | ADR amendment for generated registry | S      | —          |
-| 8   | TOOL-5 generators                    | L      | 7          |
-| 9   | Remaining TOOL-2 skills done         | M      | 4          |
+| #   | Step                              | Effort | Depends on |
+| --- | --------------------------------- | ------ | ---------- |
+| 1   | `scripts/gates.sh` done           | S      | —          |
+| 2   | TOOL-1 hooks done                 | S      | 1          |
+| 3   | TOOL-6 permission allowlist done  | S      | —          |
+| 4   | TOOL-2 `port-effect` skill done   | M      | 1          |
+| 5   | TOOL-3 subagents done             | S      | —          |
+| 6   | TOOL-4 `game-state.md` split done | M      | —          |
+| 7   | ADR-0017 done                     | S      | —          |
+| 8   | TOOL-5 generators done            | L      | 7          |
+| 9   | Remaining TOOL-2 skills done      | M      | 4          |
 
 Steps 1-4 give most value per hour: rules enforced by harness, `CLAUDE.md` shorter.
 

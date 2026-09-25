@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control game ability effecthelpers card condition amount id defined player parts
+
 import (
 	"fmt"
 	"math"

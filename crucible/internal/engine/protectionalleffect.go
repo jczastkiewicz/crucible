@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability animate card condition control effecthelpers game id protectioneffect zone
+
 import "fmt"
 
 // protectionAllEffect is ProtectAllEffect.java: every battlefield card

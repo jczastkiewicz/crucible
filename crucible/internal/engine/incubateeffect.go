@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability card condition control defined effecthelpers game id parts token zone
+
 // incubateEffect is IncubateEffect.java: Times$ (default 1) times per
 // target or Defined$ player (default You), an Incubator token
 // (incubator_c_0_0_a_phyrexian) enters with Amount$ (default 1) +1/+1

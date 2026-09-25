@@ -21,6 +21,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control parts event amount putcountereffect
+
 import (
 	"fmt"
 	"strings"

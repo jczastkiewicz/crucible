@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability condition control parts
+
 import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot

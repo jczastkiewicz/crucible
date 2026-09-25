@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition
+
 // reverseTurnOrderEffect is ReverseTurnOrderEffect.java: Game.
 // reverseTurnOrder flips turn order to the other direction (CR 101.4
 // "turn order ... reversed"), read by nextPlayerAfter.

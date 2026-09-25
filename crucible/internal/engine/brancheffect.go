@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability condition control amount valid
+
 import "fmt"
 
 // branchEffect is BranchEffect.java: BranchConditionSVar$ is compared with

@@ -14,6 +14,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount parts event
+
 import "fmt"
 
 // poisonUnresolvedParams names PoisonEffect's own params this port does not

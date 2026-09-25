@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers card condition additional defined id parts
+
 import "fmt"
 
 // villainousChoiceEffect is VillainousChoiceEffect.java: each Defined$ or

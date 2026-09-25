@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability card condition control effecthelpers game phase
+
 import (
 	"fmt"
 	"strings"

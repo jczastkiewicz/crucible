@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the CI gates from .github/workflows/crucible-go.yml locally, in CI order.
 #
-#   gates.sh fast   gofmt, go vet, golangci-lint, enginelint, docgate, apiscan
+#   gates.sh fast   gofmt, go vet, golangci-lint, enginelint, genregistry, docgate, apiscan
 #   gates.sh full   fast + go test -race, covergate, javacycles, prettier, markdownlint
 #
 # Exit status is non-zero when any gate fails; every gate still runs so one
@@ -46,6 +46,8 @@ gate gofmt gofmt_clean
 gate "go vet" go vet ./...
 gate golangci-lint golangci
 gate enginelint go run ./tools/enginelint -config internal/engine/enginelint.json
+gate genregistry go run ./tools/genregistry -dir internal/engine -check \
+	-docs ../CLAUDE.md,../docs/crucible/00-master-implementation-plan-in-progress.md
 gate docgate go run ./tools/docgate -module . -docs ../docs/crucible
 gate "apiscan -check" go run ./tools/apiscan -check
 gate "apiscan -check -api" go run ./tools/apiscan -check -api

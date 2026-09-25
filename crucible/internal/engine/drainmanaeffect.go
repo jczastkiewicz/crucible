@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game player ability defined condition control effecthelpers mana
+
 import "fmt"
 
 // drainManaEffect is DrainManaEffect.java: each target player (default You)

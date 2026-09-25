@@ -5,6 +5,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability turn defined amount control
+
 import "fmt"
 
 // drawEffect resolves Mode$/DB$ Draw. Two of Java's params are handled:

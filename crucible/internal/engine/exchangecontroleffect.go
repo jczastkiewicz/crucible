@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability defined condition control parts zone
+
 import "fmt"
 
 // exchangeControlUnresolvedParams: target-selection restrictions targeting.go

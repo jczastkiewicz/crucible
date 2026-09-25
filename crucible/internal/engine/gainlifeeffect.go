@@ -15,6 +15,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability event trigger defined amount condition control
+
 import "fmt"
 
 // gainLifeEffect resolves Mode$/DB$/AB$ GainLife. Player.Life is a plain

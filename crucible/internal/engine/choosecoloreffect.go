@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability defined condition control parts
+
 import (
 	"fmt"
 	"strings"

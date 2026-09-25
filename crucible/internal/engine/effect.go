@@ -2,6 +2,8 @@
 
 package engine
 
+//enginelint:allow id zone parts card player game ability control subability defined manapay
+
 import (
 	"errors"
 	"fmt"
@@ -27,6 +29,8 @@ import (
 type Effect interface {
 	Resolve(g *Game, a *Ability, controller PlayerController) error
 }
+
+//go:generate go run ../../tools/genregistry
 
 // Registry maps an API to the code that resolves it.
 //

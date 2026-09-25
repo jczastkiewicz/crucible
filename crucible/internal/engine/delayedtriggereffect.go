@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability additional card condition control defined delayedtrigger effecthelpers game
+
 import (
 	"fmt"
 	"strings"

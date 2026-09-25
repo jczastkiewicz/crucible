@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control ability game effecthelpers card condition defined action phase zone id
+
 import "fmt"
 
 // endTurnEffect is EndTurnEffect.java and CR 723: with Optional$ the first

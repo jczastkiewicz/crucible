@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability condition control parts zone valid destroyeffect
+
 import (
 	"fmt"
 	"strings"

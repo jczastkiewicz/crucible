@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game control ability effecthelpers card condition defined id zone
+
 import "fmt"
 
 // removeFromGameEffect is RemoveFromGameEffect.java: each Defined$ (or

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition parts zone id
+
 import "fmt"
 
 // counterEffect is CounterEffect.java: each targeted spell (TargetType$

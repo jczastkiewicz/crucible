@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability card condition control discardeffect effecthelpers game id sacrificeeffect valid zone
+
 import (
 	"fmt"
 

@@ -17,6 +17,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability combatdamage defined amount condition control trigger effecthelpers damageresolveeffect
+
 import "fmt"
 
 // dealDamageEffect resolves Mode$/DB$/AB$ DealDamage. Reuses the exact

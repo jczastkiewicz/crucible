@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers card condition defined zone player setlifeeffect animate id
+
 import (
 	"fmt"
 

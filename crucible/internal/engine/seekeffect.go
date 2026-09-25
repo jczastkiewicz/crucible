@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability card condition control defined effecthelpers game id parts player valid zone
+
 import (
 	"strings"
 

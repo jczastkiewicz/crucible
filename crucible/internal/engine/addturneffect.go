@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability defined condition control amount
+
 import "fmt"
 
 // addTurnUnresolvedParams: an extra turn carrying a delayed trigger

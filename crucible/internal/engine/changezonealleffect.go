@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove
+
 import "fmt"
 
 // changeZoneAllUnresolvedParams are ChangeZoneAllEffect.java's params this

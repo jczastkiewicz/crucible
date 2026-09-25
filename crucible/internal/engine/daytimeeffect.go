@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers condition card id zone
+
 import "fmt"
 
 // DayTime is Game.daytime (CR 726): neither until an effect or a daybound

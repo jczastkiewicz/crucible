@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game player ability condition control amount parts event zone effecthelpers
+
 import "fmt"
 
 // proliferateUnresolvedParams are CountersProliferateEffect.java's params

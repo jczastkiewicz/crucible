@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability defined condition control parts effecthelpers
+
 import "fmt"
 
 // choosePlayerUnresolvedParams are ChoosePlayerEffect.java's params this

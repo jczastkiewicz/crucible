@@ -26,6 +26,8 @@
 
 package engine
 
+//enginelint:allow id card game player ability defined condition control amount manaability
+
 import (
 	"fmt"
 	"strings"

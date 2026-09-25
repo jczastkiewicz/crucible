@@ -10,6 +10,8 @@
 
 package engine
 
+//enginelint:allow ability amount card control game
+
 import (
 	"fmt"
 	"sort"

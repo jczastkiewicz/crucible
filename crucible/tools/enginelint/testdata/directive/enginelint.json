@@ -1,0 +1,8 @@
+{
+  "package": ".",
+  "groups": {
+    "state": ["state.go"],
+    "registry": ["registry_gen.go"]
+  },
+  "allow": {}
+}

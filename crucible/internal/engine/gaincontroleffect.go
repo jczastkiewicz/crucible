@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow id card game ability defined condition control parts zone
+
 import "fmt"
 
 // gainControlUnresolvedParams are ControlGainEffect.java's params this port

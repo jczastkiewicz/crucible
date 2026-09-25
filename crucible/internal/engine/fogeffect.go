@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability condition control
+
 import "fmt"
 
 // fogEffect is FogEffect.java: all combat damage is prevented for the rest

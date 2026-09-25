@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control ability game effecthelpers card condition zone defined id player parts
+
 import (
 	"fmt"
 	"strconv"

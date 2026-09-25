@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability animate card condition control defined effecthelpers game id parts zone
+
 import "fmt"
 
 // animateEffect is AnimateEffect.java: each targeted or Defined$ card

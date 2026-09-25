@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers trigger card zone id
+
 // damageResolveEffect is DamageResolveEffect.java: the damage a DamageMap$
 // ability recorded (pendingDamage) is dealt all at once -- GameAction.
 // dealDamage over the whole map -- then the damage-done-once triggers

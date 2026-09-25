@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition action phase
+
 // endCombatPhaseEffect is EndCombatPhaseEffect.java: outside combat it does
 // nothing. Inside, every spell on the stack is exiled and every ability
 // removed, combat ends, state-based actions are checked, and the game moves

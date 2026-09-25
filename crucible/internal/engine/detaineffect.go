@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control ability game effecthelpers card condition defined id
+
 import "fmt"
 
 // detainEffect is DetainEffect.java (CR 701.35): each targeted permanent is

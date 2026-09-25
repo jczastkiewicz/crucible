@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability control game effecthelpers card condition animate defined id zone
+
 import "fmt"
 
 // exchangePowerEffect is PowerExchangeEffect.java: two creatures -- the

@@ -31,6 +31,13 @@ func TestCheck(t *testing.T) {
 			},
 			wantUngrouped: []string{"orphan.go"},
 		},
+		{
+			name: "a file directive declares its own group, and generated files are not checked as a source",
+			dir:  "directive",
+			wantViolations: []string{
+				`tapeffect.go:6: group "tapeffect" may not reference "state"`,
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -113,4 +120,19 @@ func joinViolations(vs []Violation) string {
 		b.WriteString("  " + v.String() + "\n")
 	}
 	return b.String()
+}
+
+// A file may not both carry a directive and match a config glob: it would
+// belong to two groups, and which rule applies would depend on the tool.
+func TestDirectiveConflictsWithConfigGroup(t *testing.T) {
+	t.Parallel()
+	cfgPath := filepath.Join("testdata", "directive", "enginelint.json")
+	cfg, err := LoadConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	cfg.Groups = map[string][]string{"all": {"*.go"}}
+	if _, _, err := Check(cfgPath, cfg); err == nil || !strings.Contains(err.Error(), "also matches group") {
+		t.Errorf("Check error = %v, want one naming the double membership", err)
+	}
 }

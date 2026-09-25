@@ -59,15 +59,35 @@ Rules that bite here:
 Reuse helpers before writing new ones: `targetedOrDefinedCards`, `targetedOrDefinedPlayers` (`defined.go`),
 `resolveNamedAmount` (`amount.go`), `optionalAmount`, `checkChoice` (`effecthelpers.go`), `moveByEffect` (`zonemove.go`).
 
-## 2. Register in `NewRegistry()` (`castspell.go`)
+## 2. Regenerate the registry
 
-Add `r[API<Api>] = <api>Effect{}` and extend the function's doc comment, which lists every API by batch.
+`NewRegistry()` is generated (ADR-0017): type `<api>Effect` with a value-receiver `Resolve` registers as `API<Api>`
+automatically. Only a type serving several APIs, another API, or needing field values adds doc-comment lines:
 
-## 3. `internal/engine/enginelint.json`
+```go
+//crucible:register Manifest manifestEffect{api: "Manifest", remember: "RememberManifested"}
+```
 
-Three edits: a group `"<api>effect": ["<api>effect.go"]` under `groups`; an allow-list entry `"<api>effect": [...]` under
-`allow` naming the groups it may call (copy a similar effect's list, e.g. `healdamageeffect`); the new group added to
-`castspell`'s allow-list. Then run until clean:
+Then regenerate; never edit `registry_gen.go` by hand:
+
+```bash
+cd crucible && go generate -run genregistry ./internal/engine
+```
+
+On a merge conflict in `registry_gen.go`, take either side and rerun `go generate`.
+
+## 3. `enginelint` group, in the effect file
+
+The file declares its own group (named after the file) right after the package clause. Copy a similar effect's list,
+e.g. `healdamageeffect.go`:
+
+```go
+package engine
+
+//enginelint:allow card game ability defined condition control parts
+```
+
+Do not touch `enginelint.json` for an effect. Run until clean:
 
 ```bash
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json
@@ -104,9 +124,13 @@ Add one test per rejected param shape that matters: assert `resolveNow` returns 
 | `docs/crucible/00-master-implementation-plan-in-progress.md`    | Resolved-API count                                                   |
 | `CLAUDE.md`                                                     | `M6 in progress: N of the corpus's 203` count and largest gaps       |
 
-Count: previous number plus the APIs this commit registers. Cross-check with
-`grep -c '^\s*r\[API' crucible/internal/engine/castspell.go`, which printed 140 when the docs said 137; keep that
-offset of 3.
+Count = registered APIs minus the three M5 casting entries. `genregistry -check` (in `gates.sh` and CI) prints it and
+fails when `CLAUDE.md` or the plan quotes a different number:
+
+```bash
+cd crucible && go run ./tools/genregistry -dir internal/engine -check \
+    -docs ../CLAUDE.md,../docs/crucible/00-master-implementation-plan-in-progress.md
+```
 
 ## 6. Verify, then commit
 

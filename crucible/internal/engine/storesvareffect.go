@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability amount card condition control effecthelpers game
+
 import (
 	"fmt"
 	"strconv"

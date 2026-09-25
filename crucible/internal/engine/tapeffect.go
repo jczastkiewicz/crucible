@@ -19,6 +19,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control zone parts
+
 import "fmt"
 
 // tapUnresolvedParams names TapEffect's own params this port does not

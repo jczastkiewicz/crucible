@@ -69,6 +69,9 @@ func (c *Card) turnFrontFaceUp() {
 // Choices$. Library cards go one at a time; others together. Shuffle$
 // randomizes the order; Tapped$ (cloak) taps them first. The Remember$
 // param remembers each one on the host.
+//
+//crucible:register Manifest manifestEffect{api: "Manifest", remember: "RememberManifested"}
+//crucible:register Cloak manifestEffect{api: "Cloak", cloak: true, remember: "RememberCloaked"}
 type manifestEffect struct {
 	api      string
 	cloak    bool

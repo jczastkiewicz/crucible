@@ -25,6 +25,12 @@ import (
 	"strings"
 )
 
+// directive marks a file that declares its own group: the file is a group of
+// one, named after its base name, and the fields after the directive are the
+// groups it may reference. It keeps a one-file group next to the code it
+// constrains, so adding such a file never touches the shared JSON (ADR-0017).
+const directive = "//enginelint:allow"
+
 // Config declares the groups within one package and which may reference which.
 type Config struct {
 	// Package is the directory to check, relative to the config file.
@@ -117,8 +123,30 @@ func Check(cfgPath string, c *Config) (violations []Violation, ungrouped []strin
 	// which keeps this stdlib-only (ADR-0002).
 	declaredIn := map[string]string{}
 	fileGroup := map[string]string{}
+	allow := make(map[string][]string, len(c.Allow))
+	for g, to := range c.Allow {
+		allow[g] = to
+	}
+	cfg := &Config{Package: c.Package, Groups: c.Groups, Allow: allow}
 
 	for base, f := range files {
+		if to, ok := directiveAllow(f); ok {
+			if g, inJSON := c.groupOf(base); inJSON {
+				return nil, nil, fmt.Errorf("%s: carries %s but also matches group %q in the config", base, directive, g)
+			}
+			g := strings.TrimSuffix(base, ".go")
+			if _, clash := c.Groups[g]; clash {
+				return nil, nil, fmt.Errorf("%s: %s group %q is also a config group", base, directive, g)
+			}
+			fileGroup[base] = g
+			allow[g] = to
+			for _, d := range f.Decls {
+				for _, name := range topLevelNames(d) {
+					declaredIn[name] = base
+				}
+			}
+			continue
+		}
 		g, ok := c.groupOf(base)
 		if !ok {
 			ungrouped = append(ungrouped, base)
@@ -138,6 +166,12 @@ func Check(cfgPath string, c *Config) (violations []Violation, ungrouped []strin
 		if !ok {
 			continue
 		}
+		// Generated wiring (registry_gen.go) references every effect by
+		// construction; the generator constrains it, not this check. Its own
+		// declarations are still grouped, so references into it are checked.
+		if ast.IsGenerated(f) {
+			continue
+		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			id, ok := n.(*ast.Ident)
 			if !ok {
@@ -148,7 +182,7 @@ func Check(cfgPath string, c *Config) (violations []Violation, ungrouped []strin
 				return true
 			}
 			to := fileGroup[decl]
-			if c.allows(from, to) {
+			if cfg.allows(from, to) {
 				return true
 			}
 			violations = append(violations, Violation{
@@ -165,6 +199,18 @@ func Check(cfgPath string, c *Config) (violations []Violation, ungrouped []strin
 		return violations[i].Line < violations[j].Line
 	})
 	return violations, ungrouped, nil
+}
+
+// directiveAllow returns the groups named by a file's directive line, if any.
+func directiveAllow(f *ast.File) ([]string, bool) {
+	for _, cg := range f.Comments {
+		for _, cm := range cg.List {
+			if rest, ok := strings.CutPrefix(cm.Text, directive); ok {
+				return strings.Fields(rest), true
+			}
+		}
+	}
+	return nil, false
 }
 
 // topLevelNames returns the package-level identifiers a declaration introduces.
@@ -228,7 +274,7 @@ func parsePackage(fset *token.FileSet, dir string) (map[string]*ast.File, error)
 		if !ok {
 			continue
 		}
-		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.ParseComments)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", name, err)
 		}

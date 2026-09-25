@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game player ability defined condition control amount
+
 import "fmt"
 
 // skipTurnEffect is SkipTurnEffect.java: each target player (default You)

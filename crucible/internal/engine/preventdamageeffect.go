@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow control ability game effecthelpers card condition amount id defined zone
+
 import "fmt"
 
 // preventDamageEffect is DamagePreventEffect.java: each targeted (or

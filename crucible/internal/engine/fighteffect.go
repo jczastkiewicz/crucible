@@ -14,6 +14,8 @@
 
 package engine
 
+//enginelint:allow id card game ability defined condition control zone combatdamage trigger
+
 import (
 	"fmt"
 

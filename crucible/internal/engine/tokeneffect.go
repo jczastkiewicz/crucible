@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability animate card condition control defined effecthelpers game id parts player token zone
+
 import (
 	"fmt"
 	"strings"

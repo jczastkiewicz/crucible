@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow card game ability condition control amount trigger
+
 import "fmt"
 
 // repeatUnresolvedParams: RepeatDefined$ swaps the battlefield for a

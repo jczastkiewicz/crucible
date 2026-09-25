@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow game ability control effecthelpers card condition defined player id zone discardeffect
+
 import "fmt"
 
 // learnEffect is LearnEffect.java through Player.learnLesson: each target

@@ -1,5 +1,7 @@
 package engine
 
+//enginelint:allow ability card condition control defined effecthelpers game id parts player token zone
+
 // investigateEffect is InvestigateEffect.java: Num$ times (default 1), each
 // target or Defined$ player (default You) creates a Clue (c_a_clue_draw),
 // ChangesZoneAll firing once per round. Optional$ (a per-player "may")

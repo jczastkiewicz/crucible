@@ -52,6 +52,10 @@ type Game struct {
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.
 	timestamp uint64
+	// nextStackItemID is the monotonic counter behind Ability.ID (ADR-0018),
+	// on the same terms as timestamp above: PushAbility increments it and
+	// hands out the new value, so an ID is never reused within a game.
+	nextStackItemID StackItemID
 
 	// over is set once CheckStateBasedActions decides the game has ended --
 	// a win, a loss, or a draw. Nothing unsets it: a game that has ended

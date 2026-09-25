@@ -47,6 +47,14 @@ func APIByName(name string) (APIType, bool) {
 // and for the one target CastSpell's own Aura branch chooses at cast time
 // (CR 601.2c).
 type Ability struct {
+	// ID is this stack item's own identity (ADR-0018, StackItemID's doc
+	// comment, id.go) -- set by PushAbility, NoStackItem until then. Distinct
+	// from Source: CopySpellAbility's copy and the spell it copies share no
+	// CardID host once the original has left the stack, but need to be told
+	// apart, and a triggered ability's own Defined$ TriggeredSpellAbility
+	// (checkSpellCastTriggers, trigger.go) names a specific one of possibly
+	// several spells cast this turn.
+	ID StackItemID
 	// API decides which Effect resolves this.
 	API APIType
 	// Source is the card the ability came from.

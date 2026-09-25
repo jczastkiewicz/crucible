@@ -76,12 +76,23 @@ Option 2 chosen.
    caller), pay or decline the cost, `PushAbility` the spell's own `Ability{API, Params, Amounts, Targets, ID}`, fire
    `SpellCast` and `checkSpellCastTriggers`/`checkBecomesTargetTriggers` — the same four steps `castAura` already runs,
    reordered per CR 601.2c (choose modes and targets before paying).
-3. **`ResolveStack` gains a fizzle check and a post-resolution move.** Before dispatch: CR 608.2b — if the popped
-   ability names a target (`Ability.Target`/`Targets`) no longer legal, skip `Registry.Resolve` for it (the same
+3. **`ResolveStack` gains a fizzle check and a post-resolution move.** Before dispatch: CR 608.2b, narrowed to an Aura's
+   own single cast-time `Target` (`castAura`) — if it is no longer legal, skip `Registry.Resolve` for it (the same
    "declined by the rules" contract `resolveTargets` already uses for CR 603.3c) but still run the post-resolution move
-   below, since CR 608.2b's own fizzled spell still leaves the stack into the graveyard. After dispatch (fizzled or
-   resolved): if the ability's `Source` card is still in the `Stack` zone — `permanentEffect`/`attachEffect` already
-   moved their own source away, so this is a no-op for both existing shapes — `Move` it to its owner's graveyard.
+   below. **Not the general `Ability.Targets` shape.** `resolveTargets`' own push-time candidate scan
+   (`targetCandidates`, `targeting.go`) is scoped to find _new_ candidates, not to confirm an already-chosen one is
+   still among them — `Ability`'s own doc comment already states a chosen `Targets` answer is "NOT re-checked... trust
+   the controller's answer," the same stance every `PlayerController` decision method in `control.go` documents for its
+   own return value. A general re-check discovered to be unsound against a real, already-passing test
+   (`TestRemoveFromGameSpellOnStack`, `pack3shapes_test.go`): its `RemoveFromGame` ability legally targets a spell still
+   on the `Stack` zone through a plain `ValidTgts$ Card` line, made legal at push time only because some _other_
+   battlefield card satisfied `resolveTargets`' own nonempty-candidates gate — recomputing and intersecting that same
+   scan at resolve time wrongly fizzles it. The Aura shape does not have this problem: `enchantTargets` (`castspell.go`)
+   is already scoped to the Aura's own real domain (battlefield permanents matching its `Enchant` restriction), so
+   re-running that exact check is sound. A general `ValidTgts$` fizzle check needs its own design, not a reuse of
+   `resolveTargets`' own push-time helpers, and is not part of this ADR. After dispatch (fizzled or resolved): if the
+   ability's `Source` card is still in the `Stack` zone — `permanentEffect`/`attachEffect` already moved their own
+   source away, so this is a no-op for both existing shapes — `Move` it to its owner's graveyard.
    `checkMovedReplacement` (`replacement.go:93`) is not called here: it resolves CR 614.1's "enters the battlefield
    tapped" replacement specifically, wired only at the three battlefield-entry sites that already call it
    (`permanentEffect`/`attachEffect`/`PlayLand`) — not a general zone-change hook. `ReplaceGraveyard$` (CR 614's own

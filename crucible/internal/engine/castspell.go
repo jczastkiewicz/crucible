@@ -1,11 +1,12 @@
-// Casting a spell: CR 601, trimmed to the two shapes with nothing left to
-// decide once a target (an Aura) or nothing (every other permanent) is
-// chosen -- an instant or sorcery still resolves into a script effect this
-// port does not build.
+// Casting a spell: CR 601. Three shapes: nothing left to decide once a
+// permanent (no target) or an Aura (one target) is chosen, and an Instant or
+// Sorcery, whose own A:SP$ ability line can name modes and targets of its
+// own (ADR-0018).
 
 package engine
 
 import (
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -16,9 +17,10 @@ import (
 // getBasicSpells, which routes a permanent, non-Aura card to SpellPermanent
 // -- an Aura routes to getAuraSpell() instead (castAura, below) since it
 // needs a target chosen at cast time (CR 601.2c) that this shape has none
-// of; an instant or sorcery resolves into a script effect this port does not
-// build. A land is never a spell at all (CR 305.1) and is correctly excluded
-// by not appearing in this list rather than by a special case.
+// of, and an Instant or Sorcery routes to castInstantOrSorcery (below)
+// instead, whose own A:SP$ ability line may need either. A land is never a
+// spell at all (CR 305.1) and is correctly excluded by not appearing in this
+// list rather than by a special case.
 func castableAsPermanent(c *Card) bool {
 	t := c.Type()
 	if t.HasSubtype("Aura") {
@@ -26,6 +28,13 @@ func castableAsPermanent(c *Card) bool {
 	}
 	return t.Has(cardtype.Creature) || t.Has(cardtype.Artifact) || t.Has(cardtype.Enchantment) ||
 		t.Has(cardtype.Planeswalker) || t.Has(cardtype.Battle)
+}
+
+// castableAsInstantOrSorcery reports whether c is an Instant or a Sorcery --
+// CastSpell's own third branch (castInstantOrSorcery, below).
+func castableAsInstantOrSorcery(c *Card) bool {
+	t := c.Type()
+	return t.Has(cardtype.Instant) || t.Has(cardtype.Sorcery)
 }
 
 // CastSpell is CR 601: pay the cost, then the spell becomes an object on the
@@ -63,6 +72,9 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller)
+	}
+	if castableAsInstantOrSorcery(c) {
+		return g.castInstantOrSorcery(pid, card, c, controller)
 	}
 	if !castableAsPermanent(c) {
 		return false
@@ -129,6 +141,63 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
 	g.checkBecomesTargetTriggers(controller, []EntityID{CardEntity(target)}, true, pid)
+	return true
+}
+
+// castInstantOrSorcery is CastSpell's own Instant/Sorcery branch (ADR-0018):
+// CR 601.2b/601.2c's own "choose modes, then targets" for the one real
+// A:SP$ ability line the card carries (Def.Faces[0].Abilities, the identical
+// field ActivateAbility already reads for its own A:AB$/A:T$ lines,
+// activateability.go), reusing chooseCharmModes and resolveTargets the same
+// way pushTriggeredAbilities already does for a triggered ability
+// (trigger.go). Cost payment sits between the two and PushAbility here,
+// which pushTriggeredAbilities' own all-in-one shape has no room for -- its
+// own caller, an already-paid triggered or activated ability, never needs
+// it.
+//
+// Reports false for every legal-but-declined case CastSpell's own other two
+// branches already have: no A:SP$ line this port's compiler gave the card
+// (PORT-8, not this port's job to guess one), a Charm whose modes the
+// controller declined (chooseCharmModes' own false, the identical
+// "ability never goes on the stack" case pushTriggeredAbilities already
+// treats as a skip), no legal target (CR 601.2c), or the cost could not be
+// paid.
+func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controller PlayerController) bool {
+	var spellAbility *compile.Ability
+	for _, ab := range c.Def.Faces[0].Abilities {
+		if ab.Record == compile.Spell {
+			spellAbility = ab
+			break
+		}
+	}
+	if spellAbility == nil {
+		return false
+	}
+	apiType, ok := APIByName(spellAbility.Name)
+	if !ok {
+		return false
+	}
+	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts}
+	if a.API == APICharm {
+		modesOK, err := g.chooseCharmModes(controller, &a)
+		if err != nil {
+			a.modesErr = err
+		} else if !modesOK {
+			return false
+		}
+	}
+	if !g.resolveTargets(controller, &a) {
+		return false
+	}
+	if !g.PayManaCost(pid, c.Def.Faces[0].ManaCost, controller) {
+		return false
+	}
+	g.Move(card, Stack, pid)
+	g.PushAbility(a)
+	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.Player(pid).SpellsCastThisTurn++
+	g.checkSpellCastTriggers(controller, card, pid)
+	g.checkBecomesTargetTriggers(controller, a.Targets, false, pid)
 	return true
 }
 

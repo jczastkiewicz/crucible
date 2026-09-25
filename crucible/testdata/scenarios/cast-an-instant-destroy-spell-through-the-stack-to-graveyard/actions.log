@@ -1,0 +1,17 @@
+# ADR-0018: cast a real Instant through CastSpell's own third branch
+# (castInstantOrSorcery). Two Swamps pay {1}{B} -- one for the black pip,
+# one for the generic -- and Terror becomes an object on the stack (CR
+# 405.2, 601.2i), with its own target (CR 601.2c) chosen before the cost is
+# paid. resolvestack resolves it through destroyEffect, which moves the
+# targeted creature to its owner's graveyard; ResolveStack's own
+# post-resolution move (moveResolvedSpellToGraveyard, stack.go) then moves
+# Terror itself off the Stack zone into its owner's graveyard, since
+# destroyEffect never touches its own source card.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+queue paygeneric B
+queue targets 4
+castspell human 1
+resolvestack

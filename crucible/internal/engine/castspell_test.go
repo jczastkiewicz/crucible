@@ -3,11 +3,53 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
+
+// instantDefWithAbility builds a *compile.Card for an Instant carrying one
+// real A:SP$ line (abilityText, written exactly as a card script would --
+// "SP$ Destroy | ..."), the same "go through the real compiled param
+// parser rather than a hand-built compile.Ability" reasoning
+// creatureDefWithAbility already documents (activateability_test.go,
+// TEST-1).
+func instantDefWithAbility(t *testing.T, name, cost, abilityText string) *compile.Card {
+	t.Helper()
+
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Instant")
+	raw.Faces[0].ManaCost = mana.MustParse(cost)
+	raw.Faces[0].Abilities = []string{abilityText}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
+
+// sorceryDefWithAbility is instantDefWithAbility's own Sorcery sibling.
+func sorceryDefWithAbility(t *testing.T, name, cost, abilityText string) *compile.Card {
+	t.Helper()
+
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Sorcery")
+	raw.Faces[0].ManaCost = mana.MustParse(cost)
+	raw.Faces[0].Abilities = []string{abilityText}
+
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
+}
 
 func artifactDefManaCost(t *testing.T, cost string) *compile.Card {
 	t.Helper()
@@ -507,5 +549,146 @@ func TestCastSpellAuraFailsWhenCostCannotBePaid(t *testing.T) {
 	}
 	if atts := g.Card(target).Attachments(); len(atts) != 0 {
 		t.Errorf("target's attachments = %v, want none", atts)
+	}
+}
+
+// CastSpell's own third branch (ADR-0018): an Instant with a targeted
+// ability line goes to the stack like a permanent, but resolves into its
+// own script effect and leaves for the graveyard instead of the
+// battlefield -- CR 601.2i's casting, CR 608.2m/608.3g's resolution, and
+// the graveyard move ResolveStack now runs for any spell whose own effect
+// does not relocate its source itself (moveResolvedSpellToGraveyard,
+// stack.go).
+func TestCastSpellInstantResolvesThroughStackToGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	target := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	bolt := g.NewCard(instantDefWithAbility(t, "Terror", "R", "SP$ Destroy | ValidTgts$ Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+
+	if !g.CastSpell(p, bolt, c) {
+		t.Fatal("CastSpell failed casting an Instant with exactly enough mana and a legal target")
+	}
+	if g.Card(bolt).Zone != engine.Stack {
+		t.Fatalf("card zone after casting = %v, want Stack", g.Card(bolt).Zone)
+	}
+	if g.StackLen() != 1 {
+		t.Fatalf("StackLen() = %d, want 1", g.StackLen())
+	}
+
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(bolt).Zone != engine.Graveyard {
+		t.Errorf("card zone after resolving = %v, want Graveyard", g.Card(bolt).Zone)
+	}
+	if g.StackLen() != 0 {
+		t.Errorf("StackLen() after resolving = %d, want 0", g.StackLen())
+	}
+	if g.Card(target).Zone != engine.Graveyard {
+		t.Errorf("target zone = %v, want Graveyard", g.Card(target).Zone)
+	}
+}
+
+// A Sorcery naming no ValidTgts$ at all has nothing to choose -- the
+// identical "nil Targets" case resolveTargets already documents for a
+// triggered ability, reached through CastSpell's own Instant/Sorcery branch
+// for the first time.
+func TestCastSpellSorceryWithNoTargetResolvesThroughStackToGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	divination := g.NewCard(sorceryDefWithAbility(t, "Divination", "G", "SP$ Draw | Defined$ You | NumCards$ 2"), p, engine.Hand)
+	g.NewCard(creatureDef(t), p, engine.Library)
+	g.NewCard(creatureDef(t), p, engine.Library)
+	c := engine.NewScriptedController()
+
+	if !g.CastSpell(p, divination, c) {
+		t.Fatal("CastSpell failed casting a Sorcery with no targets to choose")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(divination).Zone != engine.Graveyard {
+		t.Errorf("card zone after resolving = %v, want Graveyard", g.Card(divination).Zone)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 2 {
+		t.Errorf("cards in hand after resolving = %d, want 2", got)
+	}
+}
+
+// CR 601.2c: an Instant naming a target with no legal one is illegal to
+// cast, the identical "nothing to point at" case CastSpell's own Aura
+// branch already declines for.
+func TestCastSpellInstantFailsWithNoLegalTarget(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	bolt := g.NewCard(instantDefWithAbility(t, "Terror", "R", "SP$ Destroy | ValidTgts$ Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, bolt, c) {
+		t.Fatal("CastSpell succeeded casting an Instant with no creature on the battlefield to target")
+	}
+	if g.Card(bolt).Zone != engine.Hand {
+		t.Errorf("card zone after a failed cast = %v, want Hand", g.Card(bolt).Zone)
+	}
+}
+
+// An unaffordable cost declines the cast the same as a permanent's own
+// (TestCastSpellFailsWhenCostCannotBePaid) -- the card never leaves hand.
+func TestCastSpellInstantFailsWhenCostCannotBePaid(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	target := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	bolt := g.NewCard(instantDefWithAbility(t, "Terror", "R", "SP$ Destroy | ValidTgts$ Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+
+	if g.CastSpell(p, bolt, c) {
+		t.Fatal("CastSpell succeeded with no mana in the pool")
+	}
+	if g.Card(bolt).Zone != engine.Hand {
+		t.Errorf("card zone after a failed cast = %v, want Hand", g.Card(bolt).Zone)
+	}
+	if g.Card(target).Zone != engine.Battlefield {
+		t.Errorf("target zone = %v, want Battlefield", g.Card(target).Zone)
+	}
+}
+
+// A card with no real A:SP$ line -- this port's compiler gave it none --
+// declines rather than guessing one (PORT-8); a hand-built *compile.Card
+// with no Abilities at all is the only way to construct that shape, the
+// same reasoning creatureDefManaCost's own bare literal construction uses
+// for the permanent branch's tests.
+func TestCastSpellInstantFailsWithNoSpellAbilityLine(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	def := &compile.Card{Name: "Blank Instant"}
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Instant")
+	def.Faces[0].ManaCost = mana.MustParse("R")
+	blank := g.NewCard(def, p, engine.Hand)
+	c := engine.NewScriptedController()
+
+	if g.CastSpell(p, blank, c) {
+		t.Fatal("CastSpell succeeded on an Instant with no A:SP$ ability line")
 	}
 }

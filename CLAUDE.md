@@ -197,17 +197,18 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 (ADR-0013); `Effect`/`Registry` dispatch, effects inside `internal/engine`, registry generated (ADR-0017).
 
 M5 in progress (rules kernel): turn/priority loop, zone changes and state-based actions, combat, mulligans, the
-valid-string evaluator, mana pool and payment, casting permanents and Auras through the stack, trigger firing,
-replacement effects, block legality, continuous effects across all eight layers (partial), targeting, SubAbility
-chaining, last-known information, activated abilities.
+valid-string evaluator, mana pool and payment, casting permanents, Auras and Instants/Sorceries through the stack
+(ADR-0018), trigger firing, replacement effects, block legality, continuous effects across all eight layers (partial),
+targeting, SubAbility chaining, last-known information, activated abilities.
 
 M6 in progress: 158 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`): real
-instant/sorcery casting, `Play` (330), `CopySpellAbility` (255), `Phases` (72).
+`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`): `Play`
+(330), `CopySpellAbility` (255), `Phases` (72) — ADR-0018 unblocked the instant/sorcery stack object both need, neither
+has landed yet.
 
 Thin or missing: Layer 1 past `Clone`'s "becomes a copy" (no "enters as a copy"); most of Layers 3-8 past their literal
-shapes; a real priority window (`ResolveStack` plays only the no-response case). Full list: `port-log/game-state.md`,
-"Not ported yet".
+shapes; a real priority window (`ResolveStack` plays only the no-response case); CR 608.2b's own fizzle check past an
+Aura's own single target (ADR-0018). Full list: `port-log/game-state.md`, "Not ported yet".
 
 **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
 SBA," Plan Section 3.2) not.

@@ -284,11 +284,64 @@ method ([`## Controller`](../game-state.md#controller)).
 `Ability` (`ability.go`) gained a `Target CardID` field for this — its own doc comment had already reserved the shape
 ("once casting or targeting exists to fill them") before this landed. `attachEffect` reads it back at resolution: `Move`
 to the battlefield, `Attach` to `a.Target`, then `checkETBTriggers` the same as `permanentEffect`. CR 608.2b's own
-fizzle check — re-validating the target is still legal right before resolving — is not ported: nothing between casting
-and resolving can make a chosen target illegal in a port with no responses, so the target chosen at cast time is still
-exactly as legal at resolution, and `cleanupDanglingAttachments` would catch it anyway if that ever stopped being true.
+fizzle check — re-validating the target is still legal right before resolving — is ported now
+([`## Instant and Sorcery spells reach the stack for real`](#instant-and-sorcery-spells-reach-the-stack-for-real),
+ADR-0018): a trigger resolving above an Aura on the stack can remove its target (a `SpellCast` trigger destroying,
+exiling or bouncing it), and `targetsStillLegal` (`targeting.go`) catches it right before `attachEffect` would run.
 
 `castspell`'s own DSL verb needed no change — `CastSpell` already branches internally — but `queue enchanttarget <id>`
 (`game-state-fixture.md`) is new, `queue legendarykeep`'s own "pick one id from a list" shape.
 `cast-an-aura-spell- attaches-to-chosen-target` is the fixture: a real Pacifism (`{1}{W}`, `K:Enchant:Creature`) cast at
 a lone Grizzly Bears on the battlefield, assigned automatically, attached at resolution.
+
+---
+
+## Instant and Sorcery spells reach the stack for real
+
+ADR-0018. `CastSpell` (`castspell.go`) gains a third branch, `castInstantOrSorcery`, for a card `castableAsPermanent`
+and the Aura branch both decline: it finds the card's own `A:SP$` line (`Def.Faces[0].Abilities`,
+`Record == compile.Spell` — the identical field `ActivateAbility` already reads for its own `A:AB$`/`A:T$` lines),
+chooses modes through `chooseCharmModes` if it names `APICharm`, chooses targets through `resolveTargets` — the same
+function `pushTriggeredAbilities` already calls for a triggered ability, its own doc comment's "a future cast path...
+would call it from wherever that lands too" now true — pays the cost, then pushes
+`Ability{API, Params, Amounts, Targets}` the same as `castAura` does for `APIAttach`. Unlike `castAura`,
+`castInstantOrSorcery` cannot reuse `pushTriggeredAbilities` wholesale: cost payment has to sit between mode/target
+selection and the push, and `pushTriggeredAbilities`' own all-in-one shape (modes, targets, push, in one call) has no
+room for that — its own caller, an already-paid triggered or activated ability, never needs it.
+
+`Ability` gained an `ID StackItemID` field (`id.go`), assigned by `PushAbility` from a new `Game.nextStackItemID`
+monotonic counter, on `Card.Timestamp`'s own "never reused within a game" terms. Nothing reads it yet —
+`CopySpellAbility`'s own `Defined$ TriggeredSpellAbility` shape is the first real consumer, still deferred
+(`effects-play-copyspellability.md`) — but every stack push, cast or triggered, now carries one.
+
+`ResolveStack` (`stack.go`) gained two things after popping the top ability and before/after dispatching it:
+
+- **`targetsStillLegal`** (`targeting.go`), CR 608.2b's own fizzle check — narrowed to the one shape re-checkable
+  without breaking an existing, load-bearing contract: an Aura's own single `Target`. `resolveTargets`' own push-time
+  candidate scan (`targetCandidates`) is built to find _new_ candidates, not to confirm an already-chosen one is still
+  among them, and `Ability`'s own doc comment already states a chosen `Targets` answer is "NOT re-checked... trust the
+  controller's answer" — every `PlayerController` decision method in `control.go` documents the identical stance for its
+  own return value. Recomputing and intersecting that scan against the general `Ability.Targets` shape was tried and
+  reverted: `TestRemoveFromGameSpellOnStack` (`pack3shapes_test.go`) already relies on a `RemoveFromGame` ability
+  legally targeting a spell still on the `Stack` zone through a plain `ValidTgts$ Card` line with no `TargetType$ Spell`
+  at all — legal at push time only because some _other_ battlefield card satisfied the nonempty-candidates gate, with
+  the actually-chosen target trusted separately and never re-scanned. `auraTargetStillLegal` re-runs `enchantTargets`'s
+  own two checks (`Matches` against the `Enchant` spec, `hostRefusesEnchant`) instead, sound because that scan was
+  already scoped to the Aura's own real domain. A general `ValidTgts$` fizzle check needs its own design and is not part
+  of this ADR.
+- **`moveResolvedSpellToGraveyard`** (`stack.go`), CR 608.2m's own "then it's put into its owner's graveyard," run after
+  dispatch (fizzled or resolved) whenever the ability's own `Source` card is still in the `Stack` zone —
+  `permanentEffect`/`attachEffect` already move their own source to the battlefield as part of what they resolve into,
+  so this is a no-op for both. It is the only place an Instant or Sorcery's own source ever leaves the stack, since
+  `destroyEffect`/`drawEffect`/... never touch their own host card. `checkMovedReplacement` (`replacement.go`) is not
+  called here — it resolves CR 614.1's "enters the battlefield tapped" replacement specifically, wired only at the three
+  battlefield-entry call sites that already use it. `ReplaceGraveyard$` (CR 614's own "goes to exile instead of a
+  graveyard" redirect) has no resolver in this port and always ends up in the graveyard regardless.
+
+Three scenarios: `cast-an-instant-destroy-spell-through-the-stack-to-graveyard` (a real Terror, `{1}{B}`, destroying a
+targeted creature — the fixture this section is proven by) plus `TestCastSpellInstantResolvesThroughStackToGraveyard`/
+`TestCastSpellSorceryWithNoTargetResolvesThroughStackToGraveyard` (`castspell_test.go`) at module level.
+
+Not ported: interactive priority (a later ADR, ADR-0018's own scope explicitly excludes it — neither `Play` nor
+`CopySpellAbility`'s dominant shape needs it, `effects-play-copyspellability.md`); a general `ValidTgts$` fizzle check
+(above); `ReplaceGraveyard$` (above).

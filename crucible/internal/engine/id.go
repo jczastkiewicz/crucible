@@ -16,6 +16,19 @@ type CardID uint32
 // created" -- a distinction that is otherwise a bug per struct.
 const NoCard CardID = 0
 
+// StackItemID addresses one thing that has ever been on the stack (ADR-0018).
+// It is not a CardID: a copy of a spell (CopySpellAbility) and the spell it
+// copies are the same card, or no card at all once the original has moved to
+// the graveyard, but two distinct stack items -- and CR 707.10a's copy stops
+// existing the moment it leaves the stack, while its host card's own CardID,
+// if any, lives on in the arena. Assigned by PushAbility from Game's own
+// monotonic counter (stack.go), on the same "never reused within a game"
+// terms as CardID (id.go's own doc comment) and Card.Timestamp (game.go).
+type StackItemID uint32
+
+// NoStackItem is the absent stack item, on the same reasoning as [NoCard].
+const NoStackItem StackItemID = 0
+
 // PlayerID addresses a player. Games are two-player by default and Commander
 // runs to six, so a byte is not a gamble.
 type PlayerID uint8

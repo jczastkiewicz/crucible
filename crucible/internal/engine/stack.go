@@ -26,6 +26,8 @@ func (g *Game) PushAbility(a Ability) {
 	if !a.hasHostTransforms && a.Source != NoCard && int(a.Source) < len(g.cards) {
 		a.hostTransforms, a.hasHostTransforms = g.Card(a.Source).Transforms, true
 	}
+	g.nextStackItemID++
+	a.ID = g.nextStackItemID
 	g.stack = append(g.stack, a)
 	g.sink.Emit(Event{Kind: AbilityActivated, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
 }
@@ -44,19 +46,21 @@ func (g *Game) StackTop() (Ability, bool) {
 
 // ResolveStack resolves the stack to empty against reg: pop the top ability
 // (CR 608.2m -- it leaves the stack before its effect happens, so a
-// resolving ability never sees itself still there), dispatch it, emit
-// AbilityResolved, then check state-based actions (CR 704.3) before
-// resolving what is now on top -- the same pairing beginPhase runs after a
-// turn-based action.
+// resolving ability never sees itself still there), check CR 608.2b's own
+// fizzle condition, dispatch it if it did not fizzle, emit AbilityResolved,
+// move a spell's own source off the stack (ADR-0018), then check
+// state-based actions (CR 704.3) before resolving what is now on top -- the
+// same pairing beginPhase runs after a turn-based action.
 //
 // This plays out CR 117's priority algorithm for the one case this port can
 // reach today: no PlayerController method lets a player respond to anything
 // on the stack, so every priority pass is a pass in succession and the top
 // item always resolves next, with nothing new arriving on top of it in the
-// meantime. Interactive priority -- responding to what is already there,
-// MagicStack's freeze/unfreeze around a resolution that pushes another
-// ability -- waits on a real activate/cast hook to have anything to prove it
-// against (M6).
+// meantime -- CastSpell (castspell.go) casting an Instant/Sorcery does not
+// change that: it adds a second thing that can be on the stack, not a
+// response window. Interactive priority -- responding to what is already
+// there, MagicStack's freeze/unfreeze around a resolution that pushes
+// another ability -- waits on a later ADR.
 //
 // A resolution's own error stops the loop immediately and reaches the
 // caller unchanged (GO-7): a bad card fails its game, not the batch, and
@@ -69,11 +73,41 @@ func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
 		g.stack[n] = Ability{}
 		g.stack = g.stack[:n]
 
-		if err := reg.Resolve(g, &a, controller); err != nil {
-			return err
+		if g.targetsStillLegal(&a) {
+			if err := reg.Resolve(g, &a, controller); err != nil {
+				return err
+			}
+			g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
 		}
-		g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
+		g.moveResolvedSpellToGraveyard(a)
 		CheckStateBasedActions(g, controller)
 	}
 	return nil
+}
+
+// moveResolvedSpellToGraveyard is ADR-0018's own post-resolution step:
+// permanentEffect and attachEffect (castspell.go) already move a's own
+// source card off the Stack zone as part of what they resolve into, so this
+// is a no-op for both -- and for an activated or triggered ability, whose
+// Source never enters the Stack zone at all (only the card it names as its
+// own host, castable a-la-carte in castspell.go's two cast paths, ever
+// does). An Instant or Sorcery's own effect never moves its own source
+// (permanentEffect's/attachEffect's own Battlefield destination has no
+// meaning for a card that never becomes a permanent), so this is the one
+// place CR 608.2m's "the spell... is then put into its owner's graveyard"
+// actually happens for it -- fizzled (CR 608.2b) or resolved, the same
+// either way.
+//
+// ReplaceGraveyard$ (CR 614's own "goes to exile instead" redirect) has no
+// resolver in this port yet (ADR-0018's own Decision, point 3) -- this
+// always moves to the graveyard, never anywhere else.
+func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
+	if a.Source == NoCard || int(a.Source) >= len(g.cards) {
+		return
+	}
+	c := g.Card(a.Source)
+	if c.Zone != Stack {
+		return
+	}
+	g.Move(a.Source, Graveyard, c.Owner)
 }

@@ -62,6 +62,28 @@ func TestPushAbilityGrowsStackAndSetsTop(t *testing.T) {
 	}
 }
 
+// PushAbility assigns each pushed ability its own StackItemID (ADR-0018),
+// never NoStackItem and never reused within a game -- the same "monotonic,
+// never repeats" contract Card.Timestamp already has.
+func TestPushAbilityAssignsDistinctStackItemIDs(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+
+	g.PushAbility(engine.Ability{Source: 1, Controller: p})
+	first, _ := g.StackTop()
+	g.PushAbility(engine.Ability{Source: 2, Controller: p})
+	second, _ := g.StackTop()
+
+	if first.ID == engine.NoStackItem || second.ID == engine.NoStackItem {
+		t.Fatalf("StackItemID = %d, %d, want neither NoStackItem", first.ID, second.ID)
+	}
+	if first.ID == second.ID {
+		t.Errorf("two pushes got the same StackItemID %d, want distinct", first.ID)
+	}
+}
+
 // PushAbility emits AbilityActivated, the pair AbilityResolved forms once the
 // item resolves.
 func TestPushAbilityEmitsAbilityActivated(t *testing.T) {

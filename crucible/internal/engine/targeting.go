@@ -155,3 +155,47 @@ func (g *Game) stackSpellCandidates(controller PlayerID, source CardID, spec str
 	}
 	return candidates
 }
+
+// targetsStillLegal is CR 608.2b, checked by ResolveStack (ADR-0018) right
+// before an ability would resolve -- narrowed to the one shape this port can
+// re-check soundly: an Aura's own single cast-time Target (castAura,
+// castspell.go). Every other ability keeps resolveTargets' own contract
+// unrevisited: a's own doc comment already says a chosen Targets answer "is
+// NOT re-checked... trust the controller's answer" (ability.go), the same
+// stance every decision method in control.go documents for its own return
+// value, and targetCandidates' own scan (below) is scoped for finding NEW
+// candidates at push time, not for confirming an already-chosen one is still
+// among them: TestRemoveFromGameSpellOnStack (pack3shapes_test.go) targets a
+// spell still on the Stack zone through a plain ValidTgts$ Card line with no
+// TargetType$ Spell at all -- legal at push time only because
+// targetCandidates found some OTHER Battlefield card matching "Card" to
+// satisfy resolveTargets' own nonempty-candidates gate, with the actually
+// chosen target trusted separately. Recomputing that same scan here and
+// intersecting it against a.Targets would wrongly fizzle a real, already
+// passing case; a general re-check needs its own design, not a reuse of
+// resolveTargets' own push-time helpers.
+func (g *Game) targetsStillLegal(a *Ability) bool {
+	if a.API != APIAttach || a.Target == NoCard {
+		return true
+	}
+	return g.auraTargetStillLegal(a)
+}
+
+// auraTargetStillLegal is targetsStillLegal's own Aura branch: a's Target
+// (castAura, castspell.go) is still legal only if it is still on the
+// battlefield, still matches self's own Enchant restriction, and still does
+// not refuse self outright (hostRefusesEnchant, staticability.go -- the
+// identical two checks enchantTargets already ran to build the candidate set
+// this target was chosen from, castspell.go).
+func (g *Game) auraTargetStillLegal(a *Ability) bool {
+	c := g.Card(a.Source)
+	target := g.Card(a.Target)
+	if target.Zone != Battlefield {
+		return false
+	}
+	spec, ok := enchantSpec(c)
+	if !ok {
+		return true
+	}
+	return Matches(g, target, spec, a.Controller, a.Source) && !hostRefusesEnchant(g, c, a.Target)
+}

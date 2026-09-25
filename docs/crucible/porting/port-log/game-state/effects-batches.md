@@ -544,8 +544,10 @@ additional main phase" still returns to the turn's own second main phase. `SkipP
 combat jumps to its end step first, as `advanceToNextPhase` does -- once, or each time until end of turn with
 `Duration$ EndOfTurn`. `Game.combatsThisTurn` counts combat phases begun, for `FirstCombat$`.
 
-`BecomeMonarch` was researched and left out: Java's monarch is an effect card in the command zone carrying its own draw
-and combat-damage triggers, and nothing here gives an ability a host without a card.
+`BecomeMonarch` was researched and left out here: Java's monarch is an effect card in the command zone carrying its own
+draw and combat-damage triggers, and nothing at this point gave an ability a host without a card. Ported later, once the
+`Effect` port gave Command-zone `IsEffect` cards their own live triggers --
+[`effects-monarch-initiative-venture.md`](effects-monarch-initiative-venture.md).
 
 ---
 
@@ -619,10 +621,10 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
 
 **Deliberately unresolved (fail closed, PORT-8).**
 
-- `Play`, `Clone`, `CopySpellAbility`, `ChangeTargets`, `Phases`, `MustBlock`,
-  `BecomeMonarch`/`TakeInitiative`/`Venture`/`RingTemptsYou` (command-zone effects with their own triggers),
-  `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy
-  APIs.
+- `Play`, `Clone` past its "becomes a copy" shapes, `CopySpellAbility`, `ChangeTargets`, `Phases`, `MustBlock`,
+  `RingTemptsYou` (a command-zone effect with its own triggers, same shape as the now-ported `BecomeMonarch`/
+  `TakeInitiative`/`Venture`), `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the
+  Planechase/Archenemy/Un-set/Alchemy APIs.
 - `Counter`: abilities as targets, `Defined$` spells, a `CantBeCountered` static or `Counter` replacement,
   `RememberCounteredCMC$` (an Integer). `SetState`: `Flip`, `TurnFaceDown`, `Specialize`, a `CantTransform` static or
   `Transform` replacement. `CopyPermanent`: every copy exception past power/toughness, end-of-turn cleanup, attacking
@@ -689,11 +691,14 @@ named `<Type$> Token`. Then `Num$` (default 1) loyalty counters on one such toke
 
 **Researched and deferred.**
 
-| API                              | Blocker                                                                                                  |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `MustBlock`                      | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR |
-| `BecomeMonarch`/`TakeInitiative` | Synthetic Command-zone effect cards with their own triggers (`Player.java:3438-3541`), plus `Venture`    |
-| `ManaReflected`                  | `CardUtil.getReflectableManaColors`' cross-permanent reflection walk (`CardUtil.java:231-346`)           |
+| API             | Blocker                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| `MustBlock`     | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR |
+| `ManaReflected` | `CardUtil.getReflectableManaColors`' cross-permanent reflection walk (`CardUtil.java:231-346`)           |
+
+`BecomeMonarch`/`TakeInitiative`/`Venture` retired from this table: their own blocker (synthetic Command-zone effect
+cards with their own triggers) stopped applying once the `Effect` port gave Command-zone `IsEffect` cards live triggers
+-- [`effects-monarch-initiative-venture.md`](effects-monarch-initiative-venture.md).
 
 **Forge bug (PORT-8, found researching `BecomeMonarch`; tracked in
 [`forge-java-defects.md`](../../forge-java-defects.md)).** `Player.java:3434-3436`, `getMonarchSet`: condition inverted

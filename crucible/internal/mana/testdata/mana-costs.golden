@@ -1,3 +1,5 @@
+ 2 W	{2}{W}	3	W
+ 5 W	{5}{W}	6	W
 0	{0}	0	C
 1	{1}	1	C
 1 2U 2R	{1}{2/U}{2/R}	5	UR
@@ -542,6 +544,7 @@
 6 W	{6}{W}	7	W
 6 W B	{6}{W}{B}	8	WB
 6 W U	{6}{W}{U}	8	WU
+6 W U B	{6}{W}{U}{B}	9	WUB
 6 W W	{6}{W}{W}	8	W
 6 W W W	{6}{W}{W}{W}	9	W
 7	{7}	7	C
@@ -756,6 +759,7 @@ WB WB WB WB WB	{W/B}{W/B}{W/B}{W/B}{W/B}	5	WB
 WP	{W/P}	1	W
 WU	{W/U}	1	WU
 WU U UB	{W/U}{U}{U/B}	3	WUB
+WU UB BR RG GW	{W/U}{U/B}{B/R}{R/G}{G/W}	5	WUBRG
 WU WU	{W/U}{W/U}	2	WU
 WU WU WU	{W/U}{W/U}{W/U}	3	WU
 WU WU WU WU	{W/U}{W/U}{W/U}{W/U}	4	WU

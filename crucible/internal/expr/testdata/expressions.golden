@@ -103,7 +103,7 @@ context	CastSA>	5
 context	Spawner>	6
 context	TriggeredSpellAbility>	1
 operator	Abs	6
-operator	DivideEvenlyDown	6
+operator	DivideEvenlyDown	7
 operator	DivideEvenlyUp	1
 operator	HalfDown	44
 operator	HalfUp	59
@@ -113,7 +113,7 @@ operator	Minus	118
 operator	Mod	3
 operator	NMinus	14
 operator	Negative	1
-operator	Plus	316
+operator	Plus	317
 operator	Pow	1
 operator	ThirdUp	5
 operator	Thrice	9

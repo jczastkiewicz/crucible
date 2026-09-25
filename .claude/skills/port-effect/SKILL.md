@@ -3,7 +3,7 @@ name: port-effect
 description:
   Port one or more Forge ApiType effects (M6) to crucible/internal/engine - effect file, registry wiring, enginelint
   group, engine_test test, port-log section and API counts, in one commit. Use when asked to port, implement or land an
-  effect such as "SetState", "Play", "CopySpellAbility", or "the next M6 effects".
+  effect such as "Play", "CopySpellAbility", "Clone", or "the next M6 effects".
 ---
 
 # Port an M6 effect
@@ -25,6 +25,8 @@ File name is the API name lowercased plus `effect.go`. Shape, from `healdamageef
 
 ```go
 package engine
+
+//enginelint:allow card game ability defined condition control parts
 
 import "fmt"
 
@@ -57,7 +59,6 @@ Rules that bite here:
 | GO-9   | Hold `CardID`/`PlayerID`, never `*Card`                                                         |
 | GO-8   | No `any`; read params through `a.Params`                                                        |
 | PORT-8 | Forge bug found -> stop, report file:line, do not compensate in Go                              |
-| lint   | No `min`/`max` as identifiers (revive); blank line between a file comment and `package engine`  |
 
 Reuse helpers before writing new ones: `targetedOrDefinedCards`, `targetedOrDefinedPlayers` (`defined.go`),
 `resolveNamedAmount` (`amount.go`), `optionalAmount`, `checkChoice` (`effecthelpers.go`), `moveByEffect`

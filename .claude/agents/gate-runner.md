@@ -14,7 +14,7 @@ Commands, from the repo root:
 | Ask                        | Run                                                                    |
 | -------------------------- | ---------------------------------------------------------------------- |
 | fast gates (default)       | `crucible/scripts/gates.sh fast`                                       |
-| full / all / before commit | `crucible/scripts/gates.sh full` (about 80 s; use a 600000 ms timeout) |
+| full / all / before commit | `crucible/scripts/gates.sh full` (~25 s with tests cached, up to ~3 min cold; use a 600000 ms timeout) |
 | a named test or package    | `cd crucible && go test -race -count=1 -run '<pattern>' ./<pkg>/...`   |
 
 ## Output

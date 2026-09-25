@@ -184,7 +184,7 @@ allowlist empty, golden AST diff clean.
 
 M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerController` (eleven decision methods) with
 `ScriptedController`; `GameState` fixture load/dump, byte-identical round-trip (`internal/fixture`); event schema v1
-(ADR-0013); `Effect`/`Registry` dispatch (ADR-0011; ADR-0003 puts it in `internal/engine`).
+(ADR-0013); `Effect`/`Registry` dispatch, effects inside `internal/engine`, registry generated (ADR-0017).
 
 M5 in progress (rules kernel): turn/priority loop, zone changes and state-based actions, combat, mulligans, the
 valid-string evaluator, mana pool and payment, casting permanents and Auras through the stack, trigger firing,

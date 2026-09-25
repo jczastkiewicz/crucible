@@ -1,6 +1,7 @@
 # ADR-0003 — Go Project Layout
 
-- **Status:** Accepted
+- **Status:** Accepted; `engine/effect` placement and `cmd/` registry wiring superseded by
+  [ADR-0017](0017-effects-inside-engine-generated-registry.md)
 - **Date:** 2026-09-06
 - **Deciders:** `jc@archlab.pl`
 

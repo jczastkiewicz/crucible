@@ -1,6 +1,6 @@
 # ADR-0008 — Effect Dispatch
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0017
 - **Date:** 2026-09-07
 - **Deciders:** `jc@archlab.pl`
 

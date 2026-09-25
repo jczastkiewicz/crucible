@@ -185,6 +185,15 @@ type Card struct {
 	frontDef   *compile.Card
 	Transforms int
 
+	// copies are the Layer 1 copy effects on this permanent (CR 613.2a,
+	// 707.2), ascending Timestamp: Java's Card.clonedStates. The last one's
+	// definition is Def; uncopiedDef is what Def was before the first of
+	// them and what it returns to once the last one ends (cloneeffect.go).
+	// Every other layer already folds over Def, so a copy effect sits under
+	// all of them without any of them knowing.
+	copies      []copyEffect
+	uncopiedDef *compile.Card
+
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
 
@@ -309,8 +318,12 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 // instant, a nil Def). Resolving those needs `internal/expr` and a game,
 // neither of which this reaches yet -- a coverage gap, not a wrong answer,
 // the same category CheckStateBasedActions's own gaps are in.
+//
+// A token's own override (hasBasePower) is part of its own copiable values,
+// so a copy effect on the token hides it: the copied definition carries the
+// copied object's own power instead (CR 707.2).
 func (c *Card) BasePower() (int, bool) {
-	if c.hasBasePower {
+	if c.hasBasePower && len(c.copies) == 0 {
 		return c.basePower, true
 	}
 	if c.Def == nil {
@@ -322,7 +335,7 @@ func (c *Card) BasePower() (int, bool) {
 
 // BaseToughness is BasePower's counterpart; see its doc comment.
 func (c *Card) BaseToughness() (int, bool) {
-	if c.hasBaseToughness {
+	if c.hasBaseToughness && len(c.copies) == 0 {
 		return c.baseToughness, true
 	}
 	if c.Def == nil {

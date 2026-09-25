@@ -115,6 +115,15 @@ func (g *Game) transform(id CardID) bool {
 	if c.IsFaceDown() {
 		return false
 	}
+	// A permanent under a copy effect has the copied object's single face
+	// only (CardFactory.getCloneStates' current-state branch), so it has no
+	// back face to turn to. Java still flips its own backside flag here
+	// (Card.changeCardState), so the underlying card shows its other face
+	// once the copy ends; this port does not reproduce that
+	// (effects-clone.md).
+	if len(c.copies) > 0 {
+		return false
+	}
 	front := c.Def
 	if c.frontDef != nil {
 		front = c.frontDef

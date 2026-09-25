@@ -622,7 +622,7 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
 - `Play`, `Effect`, `Clone`, `CopySpellAbility`, `ChangeTargets`, the `Replace*` family, `Phases`, `MustBlock`,
   `BecomeMonarch`/`TakeInitiative`/`Venture`/`RingTemptsYou` (command-zone effects with their own triggers),
   `Earthbend`/`Airbend` (delayed zone-change triggers), `Discover` (casting without paying), `SwitchBlock` (both real
-  lines use `Defined$ Valid ...`), `ChooseSector`/`ChooseSource`, and the Planechase/Archenemy/Un-set/Alchemy APIs.
+  lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy APIs.
 - `Counter`: abilities as targets, `Defined$` spells, a `CantBeCountered` static or `Counter` replacement,
   `RememberCounteredCMC$` (an Integer). `SetState`: `Flip`, `TurnFaceDown`, `Specialize`, a `CantTransform` static or
   `Transform` replacement. `CopyPermanent`: every copy exception past power/toughness, end-of-turn cleanup, attacking
@@ -630,3 +630,73 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
   `AlterAttribute`: Prepared, Saddled, Commander, Suspected under `CantBeSuspected`. `ChooseType`: `Secretly$`, `Note$`,
   `TypesFromDefined$`. `NameCard`: `ChooseFromDefinedCards$`, `AtRandom$` over every card, `ManaCost=` filters.
   `ActivateAbility`: non-mana activations.
+
+## ChooseSource and Empower land
+
+139 of 203 script-driven APIs resolve.
+
+**`ChooseSource`** (`choosesourceeffect.go`, `ChooseSourceEffect.java:32-142`). Each chooser (`Defined$`/`ValidTgts$`,
+default `You`) picks one source; the pick becomes the host's chosen card (`Memory.Choose`), `RememberChosen$` also
+remembers it. 65 of 67 real lines chain into `DB$ Effect`, still `ErrUnimplemented`.
+
+| Pool group, in Java's order  | This port                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| Battlefield permanents       | Every player's battlefield, seat order                                                |
+| Stack item sources           | Resolving ability first, then `g.stack` top to bottom                                 |
+| Objects stack items refer to | First targeted card per item (`getTargetCard`); triggering/replacing objects not held |
+| Face-up Command-zone cards   | Every player's Command zone, face-down skipped                                        |
+
+- Pool is an `OrderedSet`: Java's `CardCollection` keeps a card at its first position, so an activated ability's source
+  or a targeted permanent is offered once, among the permanents. Reason: an `[]CardID` would offer it twice.
+- Resolving ability counts as the first stack item. Reason: `MagicStack.resolveStack` removes it only after resolving
+  (`MagicStack.java:572`); `ResolveStack` pops first (CR 608.2m), so the resolving ability stands in for that first item
+  and an `SP$ ChooseSource` spell offers its own card, as Java does.
+- Java's four `--PERMANENTS:--`-style divider cards are left out. Reason: its own do/while rejects every pick naming
+  one, so none can reach the chosen list.
+- One `ChooseCardsForEffect(lo=1, hi=1)` per chooser, pick removed from the shared pool. `setChosenCards` replaces per
+  chooser (`:137`), so with several choosers only the last pick stays chosen (PORT-7); `RememberChosen$` keeps all.
+- `Ability` carries no triggering or replacing objects (`getTriggeringObjects`/`getReplacingObjects`), so a card only a
+  trigger or replacement on the stack refers to is not offered.
+
+Rejected with `not resolvable yet`: `Amount$` (0 real lines; Java's do/while never ends once the pool runs dry),
+`TargetControls$` (0 real lines), `Choices$` naming `ChosenColor` (2 lines) or a suffixed `SharesColorWith` (2 lines).
+Reason: each would read false for every card and silently empty the pool.
+
+Also rejected: a color-`Source` `Choices$` while a `Mode$ ColorlessDamageSource` static is in play and a stack item's
+source is off the battlefield. Reason: Ghostly Flame's `Spell.<Color>+inZoneStack` clauses need a `Spell` base `Matches`
+has no case for, so a red spell would still read red.
+
+**Forge bugs (PORT-8, not carried).**
+
+| Site                              | Bug                                                                                                                                | Here           |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `ChooseSourceEffect.java:84-89`   | `TargetControls$` read by presence only; `tgtPlayers.get(0)` unguarded, `IndexOutOfBoundsException` when the chooser left the game | Param rejected |
+| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser picks → do/while rejects the dividers forever, game hangs                                      | `error`        |
+
+**`<Color>Source` valid property** lands with it: 15 of 67 `Choices$` lines name one (`Card.RedSource`, ...).
+`valid-strings.md` has the rule and the Ghostly Flame exception.
+
+**`Empower`** (`empowereffect.go`, `EmpowerEffect.java:48-98`). First target or `Defined$` player (default `You`); none
+is a no-op (`FCollection.getFirst` returns null). No token of `Type$` on their battlefield → create one from
+`u_empower_<type>` if the DB holds it, else `u_empower` (the only one shipped), with `Type$` added to its type line and
+named `<Type$> Token`. Then `Num$` (default 1) loyalty counters on one such token, the player's choice among several.
+
+- Prototype is a copy of the compiled token script. Reason: the DB's `*compile.Card` is shared, immutable across games
+  (GO-2).
+- Counters go on after the token enters and before state-based actions, so a 0-loyalty token survives.
+- `GameEntityCounterTable.replaceCounterEffect` not ported, same gap as `PutCounter`.
+- All 32 corpus lines are `Type$ Jace` under `cardsfolder/upcoming/`.
+
+**Researched and deferred.**
+
+| API                              | Blocker                                                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `MustBlock`                      | Enforcement breaks `DeclareCombatBlockers`' "not re-checked" contract; re-prompt vs correct needs an ADR |
+| `BecomeMonarch`/`TakeInitiative` | Synthetic Command-zone effect cards with their own triggers (`Player.java:3438-3541`), plus `Venture`    |
+| `ManaReflected`                  | `CardUtil.getReflectableManaColors`' cross-permanent reflection walk (`CardUtil.java:231-346`)           |
+| `Draft`                          | Spellbook shuffle through `MyRandom`, "A-" rebalanced lookup, two-hop move through zone `None`           |
+| `Earthbend`                      | Delayed `ChangesZone`/`Exiled` triggers, `IsTriggerRemembered`, `ElementalBend` trigger mode             |
+
+**Forge bug (PORT-8, found researching `BecomeMonarch`).** `Player.java:3434-3436`, `getMonarchSet`: condition inverted
+(`monarchEffect == null ? monarchEffect.getSetCode() : null`) — always null in the normal case, NPE otherwise. Sibling
+`getInitiativeSet` (`:3486-3488`) is correct. Cosmetic (set code for the effect card's image); to report upstream.

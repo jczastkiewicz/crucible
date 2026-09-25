@@ -434,6 +434,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		g.endCopiesOnLeave(id)
+		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)
@@ -513,6 +514,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		g.endCopiesOnLeave(id)
+		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)

@@ -99,6 +99,18 @@ type Card struct {
 	// play" pass already has.
 	Exerted bool
 
+	// Sprocket is the Contraption's own dial (Unfinity's "assemble the
+	// Contraption," CR 725): 1, 2 or 3, chosen (AssembleContraptionEffect.java's
+	// own chooseSprocket) the moment the Contraption enters the battlefield
+	// via assembleContraptionEffect.go, and read by nothing else this port
+	// builds yet -- the Crank/sprocket-triggered abilities a Contraption's own
+	// Sprocket$ line names are a further mechanic (AssembleContraption$ lands,
+	// AdvanceCrank$ does not). Zero for every card that has never been
+	// assembled, cleared on leaving the battlefield (Game.Move) exactly as
+	// Tapped/Exerted are, since a Contraption reassembled later rolls a fresh
+	// dial rather than remembering its last one (CR 725.4a).
+	Sprocket int
+
 	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
 	// per-card counter -- incremented once per combat this card is declared
 	// an attacker in (DeclareCombatAttackers, attack.go), reset every cleanup

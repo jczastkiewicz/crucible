@@ -20,6 +20,7 @@ Plan: `docs/crucible/00-master-implementation-plan.md`
 | Making an architectural decision                    | `docs/crucible/guidelines/04-adr-process.md`            |
 | Writing anything under `architecture/` or `design/` | `docs/crucible/guidelines/06-architecture-docs.md`      |
 | Committing / reviewing                              | `docs/crucible/guidelines/05-commit-and-review.md`      |
+| Syncing with `Card-Forge/forge`                     | `docs/crucible/runbooks/upstream-sync.md`               |
 
 Index: `docs/crucible/guidelines/README.md`
 
@@ -222,6 +223,7 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 | skill    | `port-effect`        | Any M6 `ApiType` effect: file, registry, enginelint, test, docs, counts                |
 | skill    | `port-java-unit`     | Any other Java unit, PORT-3 order                                                      |
 | skill    | `add-scenario`       | Rules test as a `testdata/scenarios/` fixture                                          |
+| skill    | `sync-upstream`      | Merge `Card-Forge/forge`, verify the port still agrees with what moved                 |
 
 Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`; `game-state.md` is the index plus
 `Not ported yet`.

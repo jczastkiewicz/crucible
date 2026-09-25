@@ -12,7 +12,13 @@
 #   apiscan            unless the Java tree, corpus, parity-matrix.md or the
 #                      carddb/cardtype/expr parsers compiled into it changed
 #   javacycles         unless forge-game/ changed
-#   Go vet/lint/tests  unless something under crucible/ changed
+#   Go vet/lint/tests  unless something under crucible/ or forge-gui/res/
+#                      changed -- several Go tests (internal/carddb,
+#                      internal/cost, internal/deck, and every corpus golden)
+#                      read the card/deck corpus as a fixture, so a
+#                      card-script-only change (an upstream sync, a PORT-8
+#                      fix) is a real input to them even though no file
+#                      under crucible/ moved
 #   prettier           unless a .md/.json/.yml/.yaml file changed
 #   markdownlint       unless a .md file changed
 #
@@ -40,7 +46,7 @@ if [ "${GATES_AUTO_SKIP:-}" = 1 ]; then
 	auto=""
 	has '^(forge-|crucible/internal/(carddb|cardtype|expr)/|crucible/tools/apiscan/|docs/crucible/porting/parity-matrix\.md)' || auto="$auto apiscan"
 	has '^forge-game/' || auto="$auto javacycles"
-	has '^crucible/' || auto="$auto gofmt go golangci-lint covergate"
+	has '^(crucible/|forge-gui/res/)' || auto="$auto gofmt go golangci-lint covergate"
 	has '\.(md|json|ya?ml)$' || auto="$auto prettier"
 	has '\.md$' || auto="$auto markdownlint"
 	GATES_SKIP="${GATES_SKIP:-}$auto"

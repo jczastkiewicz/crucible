@@ -28,10 +28,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0015](0015-upstream-sync-procedure.md)                  | Upstream sync procedure                   | Accepted           |
 | [0016](0016-reporting-without-duckdb.md)                 | Reporting without DuckDB for v1           | Accepted           |
 | [0017](0017-effects-inside-engine-generated-registry.md) | Effects inside engine, generated registry | Accepted           |
+| [0018](0018-instant-sorcery-spell-object.md)             | Instant/sorcery spells as stack objects   | Proposed           |
 
 ## Numbering
 
-No gap and no missing number: 0001-0017, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0018, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

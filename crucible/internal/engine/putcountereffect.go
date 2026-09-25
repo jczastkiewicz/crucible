@@ -84,7 +84,7 @@ var putCounterUnresolvedParams = [...]string{
 // DealDamage's/GainLife's/Pump's own do.
 type putCounterEffect struct{}
 
-func (putCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range putCounterUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: PutCounter: %s$ not resolvable yet", key)
@@ -116,12 +116,20 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	for _, cid := range cards {
-		g.Card(cid).Counters.Add(counterType, amount)
-		emitCounterChanged(g.sink, a.Source, CardEntity(cid), counterType, amount)
+		n := g.countersReplaced(controller, a.Controller, CardEntity(cid), counterType, amount)
+		if n <= 0 {
+			continue
+		}
+		g.Card(cid).Counters.Add(counterType, n)
+		emitCounterChanged(g.sink, a.Source, CardEntity(cid), counterType, n)
 	}
 	for _, pid := range players {
-		g.Player(pid).Counters.Add(counterType, amount)
-		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), counterType, amount)
+		n := g.countersReplaced(controller, a.Controller, PlayerEntity(pid), counterType, amount)
+		if n <= 0 {
+			continue
+		}
+		g.Player(pid).Counters.Add(counterType, n)
+		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), counterType, n)
 	}
 	return nil
 }

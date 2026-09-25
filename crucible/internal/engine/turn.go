@@ -81,6 +81,7 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 			g.endGoads(g.activePlayer)
 			g.delayedTriggersOnNextTurn(g.activePlayer)
 			g.activateCleanupDelayedTriggers()
+			g.endEffectsAtTurnStart(g.activePlayer)
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}
@@ -373,6 +374,7 @@ const MaxHandSize = 7
 // neither returns early by clearing it (game-state.md's "Combat" section).
 func (g *Game) endCombat() {
 	g.combat = Combat{}
+	g.endEffectsAtEndOfCombat()
 }
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
@@ -438,6 +440,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	g.pumps = kept
 	g.endAnimatesAtCleanup()
 	g.endSkipsAtCleanup()
+	g.endEffectsAtCleanup()
 }
 
 // skipPhase is one SkipPhase effect: Player skips the next phase or step in

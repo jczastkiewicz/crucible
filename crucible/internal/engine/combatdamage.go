@@ -264,7 +264,8 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
 		return
 	}
-	amount = g.damageReplaced(source, target, isCombat, amount)
+	amount, redirect, redirected := g.damageReplaced(source, target, isCombat, amount)
+	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
 	if amount <= 0 {
 		return
 	}
@@ -322,7 +323,8 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
 		return
 	}
-	amount = g.damageReplacedPlayer(source, target, isCombat, amount)
+	amount, redirect, redirected := g.damageReplacedPlayer(source, target, isCombat, amount)
+	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
 	if amount <= 0 {
 		return
 	}
@@ -336,5 +338,23 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
 	if table != nil {
 		*table = append(*table, damageEntry{Source: source, Target: PlayerEntity(target), Amount: amount})
+	}
+}
+
+// dealRedirectedDamage deals the half of a damage event ReplaceSplitDamage
+// split off (replaceeffect.go) to its new target: a separate event with its
+// own prevention and replacements, what ReplacementHandler's damage map
+// records under the new target. Nothing happens when amount is not
+// positive.
+func (g *Game) dealRedirectedDamage(controller PlayerController, source CardID, to EntityID, amount int, isCombat bool, table *damageTable) {
+	if amount <= 0 {
+		return
+	}
+	if cid, ok := to.AsCard(); ok {
+		g.dealPermanentDamage(controller, source, cid, amount, g.Card(source).HasKeyword("Deathtouch"), isCombat, table)
+		return
+	}
+	if pid, ok := to.AsPlayer(); ok {
+		g.dealPlayerDamage(controller, source, pid, amount, isCombat, table)
 	}
 }

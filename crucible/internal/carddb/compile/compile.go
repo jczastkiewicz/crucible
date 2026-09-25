@@ -372,8 +372,15 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	defer delete(c.open, name)
 
 	// A referenced SVar is a sub-ability unless its own key says otherwise,
-	// which is what `Execute$` on a delayed trigger relies on.
-	ability, err := c.line(body, SubAbility)
+	// which is what `Execute$` on a delayed trigger relies on. The one
+	// exception is Effect's `StaticAbilities$`: its SVars lead with `Mode$`
+	// like a trigger's, and only the naming key says they are continuous
+	// effects (EffectEffect.java adds them through addStaticAbility).
+	want := SubAbility
+	if strings.EqualFold(key, "StaticAbilities") {
+		want = StaticEffect
+	}
+	ability, err := c.line(body, want)
 	if err != nil {
 		return SubRef{}, fmt.Errorf("in %q: %w", name, err)
 	}
@@ -384,10 +391,12 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 // references returns the SVar names a param holds, and whether the param names
 // abilities at all.
 //
-// Four shapes, all of them AbilityFactory's:
+// Five shapes, four of them AbilityFactory's:
 //
 //   - `SubAbility$ X` and the additional-ability keys name one SVar.
 //   - `Choices$ A,B,C` names a list, and only for the five APIs that read it.
+//   - `StaticAbilities$`/`Triggers$`/`ReplacementEffects$ A,B` name a list,
+//     and only for Effect (EffectEffect.java).
 //   - `ResultSubAbilities$ 1:A,2:B` names `key:svar` pairs, and only for
 //     RollDice.
 //
@@ -399,6 +408,8 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 	case subAbilityKeys[strings.ToLower(p.Key)]:
 		return []string{p.Value}, true
 	case strings.EqualFold(p.Key, "Choices") && choiceAPIs[a.Name]:
+		return splitTrim(p.Value, ","), true
+	case effectTraitKeys[strings.ToLower(p.Key)] && a.Name == "Effect":
 		return splitTrim(p.Value, ","), true
 	case strings.EqualFold(p.Key, "ResultSubAbilities") && a.Name == "RollDice":
 		var out []string
@@ -468,6 +479,20 @@ var subAbilityKeys = map[string]bool{
 	"giftability":            true,
 	"votesubability":         true,
 	"votetiedability":        true,
+}
+
+// effectTraitKeys are the params through which an Effect names the SVars
+// holding the triggers, continuous effects and replacement effects its
+// effect card carries: EffectEffect.java splits each on "," and parses every
+// name with AbilityUtils.getSVar. Compiling them here is what lets the
+// engine build an effect card from compiled abilities instead of reparsing
+// script text at resolution (PORT-2). Gated on the Effect API for the same
+// reason `Choices$` is gated: Animate and others write `Triggers$` too, and
+// their values are not all SVar lists this compiler can follow yet.
+var effectTraitKeys = map[string]bool{
+	"staticabilities":    true,
+	"triggers":           true,
+	"replacementeffects": true,
 }
 
 // choiceAPIs are the APIs whose `Choices$` names sub-abilities.

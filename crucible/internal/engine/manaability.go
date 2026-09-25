@@ -70,12 +70,28 @@ func (g *Game) TapLandForMana(pid PlayerID, land CardID, color mana.Colors, cont
 		return false
 	}
 	c.Tapped = true
-	if c.Type().HasSupertype(cardtype.Snow) {
-		g.Player(pid).ManaPool.AddSnow(color, 1)
-	} else {
-		g.Player(pid).ManaPool.Add(color, 1)
-	}
+	g.addProducedMana(pid, g.manaReplaced(controller, pid, land,
+		producedMana{color: color, snow: c.Type().HasSupertype(cardtype.Snow), amount: 1}))
 	g.checkTapsTriggers(controller, land, pid, false)
 	g.checkTapsForManaTriggers(controller, land, pid)
 	return true
+}
+
+// addProducedMana puts one production of mana in pid's pool, after
+// ProduceMana replacements (manaReplaced, replacement.go) have had their say.
+func (g *Game) addProducedMana(pid PlayerID, m producedMana) {
+	if m.amount <= 0 {
+		return
+	}
+	pool := &g.Player(pid).ManaPool
+	switch {
+	case m.colorless && m.snow:
+		pool.AddSnowColorless(m.amount)
+	case m.colorless:
+		pool.AddColorless(m.amount)
+	case m.snow:
+		pool.AddSnow(m.color, m.amount)
+	default:
+		pool.Add(m.color, m.amount)
+	}
 }

@@ -619,7 +619,7 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
 
 **Deliberately unresolved (fail closed, PORT-8).**
 
-- `Play`, `Effect`, `Clone`, `CopySpellAbility`, `ChangeTargets`, the `Replace*` family, `Phases`, `MustBlock`,
+- `Play`, `Clone`, `CopySpellAbility`, `ChangeTargets`, `Phases`, `MustBlock`,
   `BecomeMonarch`/`TakeInitiative`/`Venture`/`RingTemptsYou` (command-zone effects with their own triggers),
   `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy
   APIs.
@@ -746,3 +746,102 @@ edition lists `A-<name>` under `[rebalanced]`. This port has no edition data and
 spellbook names with an `A-` card (Akki Ronin, Ancestral Katana, Asari Captain, Cauldron Familiar, Eiganjo Exemplar,
 Imperial Subduer, Patrician Geist, Peerless Samurai, Shipwreck Sifters) are listed under `[rebalanced]`, so both agree
 on every real line.
+
+---
+
+## Effect, ReplaceEffect, ReplaceDamage, ReplaceSplitDamage, ReplaceToken, ReplaceCounter and ReplaceMana land
+
+Java: `forge-game/src/main/java/forge/game/ability/effects/EffectEffect.java` (`resolve`), `SpellAbilityEffect.java`
+(`createEffect`, `checkValidDuration`, `addUntilCommand`, `addForgetOnMovedTrigger`, `addExileOnMovedTrigger`,
+`addForgetOnCastTrigger`), `GameAction.java` (`exileEffect`, `changeZone`'s immutable branch),
+`Replace{,Damage,SplitDamage,Token,Counter,Mana}Effect.java`, `replacement/ReplaceDamage.java` (`DamageTarget$`),
+`replacement/ReplacementHandler.java` (split-damage bookkeeping).
+
+**Effect cards.** `effectEffect` (`effecteffect.go`) builds, per `EffectOwner$` player (default the activator), a card
+in that player's Command zone with `Card.IsEffect` set. Its definition is built at resolution from compiled abilities
+only: `StaticAbilities$`, `Triggers$` and `ReplacementEffects$` name SVars that `internal/carddb/compile` now follows
+for the `Effect` API (`effectTraitKeys`; `StaticAbilities$` SVars compile as `StaticEffect`), and the card's amounts are
+the host's SVars (`createEffect`'s `eff.setSVars(sa.getSVars())`). No script text is read at resolution (PORT-2). It
+remembers `RememberObjects$` (split on `" & "`), imprints `ImprintCards$`, copies the host's choices
+(`Memory.copyChoicesFrom`: colors, cards, player, direction, both types, named cards, number) and takes
+`SetChosenNumber$`. `Name$` names it (default `<host>'s Effect`); `Unique$` skips a player already holding one of that
+name.
+
+**Active zone.** An effect card's traits are active in the Command zone alone, whatever `TriggerZones$`/`ActiveZones$`
+say (`setActiveZone(EnumSet.of(ZoneType.Command))`):
+
+| Walker                                                                                                                             | Change                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Every `continuous.go` applier, `cantBlockBy`, `ignoreLegendRule`, and every battlefield-walking trigger check in `trigger.go` (19) | Host list is `Game.traitHosts`: battlefield, then Command effect cards |
+| `phaseTriggerZoneMatches` (Phase, AttackersDeclared, Drawn, LifeGained, LandPlayed)                                                | Effect card matches the Command zone only                              |
+| `hostInActiveZones` (every replacement dispatch)                                                                                   | Effect card matches the Command zone only                              |
+
+**Lifetime.** `effectLifetime` on the card records the `Duration$` and the move watch; `Game.Clone` copies it by value.
+
+| `Duration$`                                                   | Ends                                                                                                                                                     |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| absent, `EndOfTurn`, `UntilEndOfTurn` (Java's default branch) | Next cleanup step (`endEffectsAtCleanup`)                                                                                                                |
+| `Permanent`                                                   | Never by duration                                                                                                                                        |
+| `UntilYourNextTurn`                                           | As its controller's next turn begins (`endEffectsAtTurnStart`, `AdvancePhase`)                                                                           |
+| `UntilTheEndOfYourNextTurn`                                   | Cleanup of the controller's next turn; one made during their turn survives that one                                                                      |
+| `UntilEndOfCombat`                                            | `endCombat` (`endEffectsAtEndOfCombat`)                                                                                                                  |
+| `UntilHostLeavesPlay`, `UntilHostLeavesPlayOrEOT`             | Host leaves the battlefield (and, for the second, next cleanup); no effect if host is neither on the battlefield nor on the stack (`checkValidDuration`) |
+
+`ExileOnMoved$ <zones>` ends the effect when a remembered card leaves one of the zones. `ForgetOnMoved$ <zones>` forgets
+a remembered card that leaves one of them for anywhere but the stack or exile, that is exiled from anywhere, or --
+unless the value is `Stack` or `ForgetOnCast$ False` -- that is cast; an effect left remembering no card ends. The three
+Java triggers fold into one check in `Game.Move`/`MoveToLibraryTop` (`effectCardsSeeMove`). Not modeled: the Exiled
+trigger's `ValidCause$ SpellAbility.!EffectSourceAbility` exception; the corpus's chains exile before they make the
+effect, so it has nothing to apply to.
+
+An ended effect leaves the game: `exileEffect` removes it from the Command zone and parks it in `None`, no zone-change
+event -- `GameAction.changeZone` removes an immutable card moving to exile and adds it nowhere. Consequence for
+fixtures: a live effect card dumps into `<player>command=` under a name the DB does not hold, so a scenario's
+`expect.state` can only be taken once every effect has ended (`effect-card-prevents-combat-damage-this-turn` runs to
+cleanup).
+
+**Rejected (fail closed).** `Abilities$`, `RememberSpell$`, `RememberLKI$`, `RememberKeywords$`/`SharedKeywordsZone$`/
+`SharedRestrictions$`, `ForgetCounter$`, `ForgetOnPhasedIn$`, `ExileOnCounter$`, `NoteCounterDefined$`, `ExileOnLost$`,
+`Boon$` (the one-shot removal after its first trigger), `AtEOT$`, `ImprintOnHost$`, `Adventure$`, `Condition$`/
+`ConditionDefined$`/`ConditionZone$`, and every other `Duration$` (`AsLongAsControl`, `UntilTheEndOfYourNextUntap`,
+`UntilYourNextEndStep`, `UntilUntaps`, `AsLongAsInPlay`, `UntilYourNextUpkeep`, `ThisTurnAndNextTurn`, ...). A trait an
+effect card carries is still subject to its own dispatch's gaps: `Mode$ Continuous | MayPlay$` (the largest static shape
+on effect cards) stays skipped by `AffectedZone$`, as it is on any card.
+
+**Upstream fix.** Following `StaticAbilities$` found `peace_talks.txt:4` naming `STCantTargetPlayer`, an SVar the card
+never defines; `EffectEffect.resolve` drops the null static silently. Fixed in the fork, logged in
+`porting/upstream-patches.md` and `porting/card-script-defects.md` (PORT-8).
+
+**Replace\* effects.** The six APIs are registry effects (`replaceeffect.go`) editing `Ability.replacing`, a
+`replacementEvent` (Java's `OriginalParams` map as a struct: result, `amountName` + amount, affected, the split-off
+redirect, counter type, produced mana). The replacement dispatches run a `ReplaceWith$` naming one of them through
+`Game.runReplaceWith`, which calls the same effect the Registry holds, with the event attached -- one mechanism, not a
+hand-run copy. The former hand-run `applyDamageReplaceDamage`/`applyDamageReplaceEffect`/`applyGainLifeReplaceEffect`
+are gone. A `ReplaceWith$` naming `SubAbility$`, or a param its effect rejects, still skips the line whole, event
+untouched. On the stack (no event) `ReplaceEffect` fails, the other five do nothing
+(`if (!sa.isReplacementAbility()) return;`).
+
+| API                  | Resolves                                                                                                                                                              | Rejected                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `ReplaceEffect`      | Default `VarType$` (amount): `VarName$` must be the event's (`DamageAmount`, `LifeGained`, ...); `VarValue$` a literal, `ReplaceCount$` expression or any host amount | `VarType$` Card/Player/GameEntity/Map/CardSet/PlanarDice, `VarKey$` |
+| `ReplaceDamage`      | Prevent `Amount$` (default 1); a `Number$` SVar is a depleting shield written back to the host, an effect card exiled once spent; `PreventedDamage` SVar set          | `DivideShield$`                                                     |
+| `ReplaceSplitDamage` | `VarName$` (default 1) of the damage goes to `DamageTarget$`, dealt by the caller as its own event (`dealRedirectedDamage`); a spent effect card is exiled            | --                                                                  |
+| `ReplaceToken`       | `Type$ Amount`, `Amount$` Twice/Thrice/HalfUp/HalfDown/Plus.N/Minus.N (default Twice)                                                                                 | `Type$` AddToken/ReplaceToken/ReplaceController                     |
+| `ReplaceCounter`     | `Amount$` over `ReplaceCount$CounterNum`; `ValidCounterType$`; `ChooseCounter$` moot (one source per placement)                                                       | `ValidSource$`                                                      |
+| `ReplaceMana`        | `ReplaceMana$` (a symbol or `Any`), `ReplaceType$`, `ReplaceColor$` (+`ReplaceOnly$`, `Chosen`), `ReplaceAmount$`                                                     | --                                                                  |
+
+**New replacement events** (`replacement.go`, all through `eachReplacement`: Battlefield and Command hosts, first match
+applies, the file's CR 616 simplification):
+
+| Event         | Wired at                                                     | Checks                                                                                                                      | Skips the line                           |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `AddCounter`  | `putCounterEffect`, per card and per player                  | `ValidCard$`, `ValidPlayer$`, `ValidObject$`, `ValidCounterType$`, `ValidSource$` (placer), `EffectOnly$`                   | `ValidCause$`, anything else             |
+| `CreateToken` | `tokenEffect`, per owner and script                          | `ValidToken$` (against the unentered token), `ValidPlayer$` (creator), `EffectOnly$`                                        | `Optional$`, `Layer$`                    |
+| `ProduceMana` | `TapLandForMana`, `ActivateManaAbility` (`addProducedMana`)  | `ValidCard$` (the source), `ValidActivator$`                                                                                | `ManaAmount$`, `ValidSA$`                |
+| `DamageDone`  | existing; now also `DamageTarget$` (`damageRedirectAllowed`) | the can't-be-redirected keyword, defined players in the game, defined cards creature/planeswalker/battle on the battlefield | the cause's `NoRedirection$` is not seen |
+
+Every other counter, token or mana site (`Counters.Add` in costs and keyword effects, `Amass`/`Investigate`/`Incubate`
+tokens, `Mana` effects) does not consult these events yet.
+
+Tests: `effectcard_test.go`, `replaceeffects_test.go`; scenario `effect-card-prevents-combat-damage-this-turn` (Haze
+Frog).

@@ -1,0 +1,28 @@
+# CR 615 through an effect card (EffectEffect.java): Haze Frog's ETB
+# trigger puts an effect in its controller's Command zone carrying "prevent
+# all combat damage that other creatures would deal this turn". The
+# replacement is active from the Command zone, so Grizzly Bears' unblocked
+# attack deals nothing. At cleanup the effect ends and leaves the game
+# (GameAction.changeZone drops an exiled effect card outright).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack
+advance 2
+queue attackers 7
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+advance 4

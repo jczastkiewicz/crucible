@@ -320,6 +320,33 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 	return z
 }
 
+// traitHosts is every card of pid's whose static abilities and triggers are
+// active: the battlefield's permanents, then pid's effect cards in the
+// Command zone, whose traits EffectEffect.java makes active there alone
+// (setActiveZone(EnumSet.of(ZoneType.Command))). With no effect card it is
+// the battlefield's own slice, so the common case allocates nothing.
+func (g *Game) traitHosts(pid PlayerID) []CardID {
+	bf := g.Zone(Battlefield, pid).Cards()
+	cmd := g.Zone(Command, pid).Cards()
+	effects := 0
+	for _, id := range cmd {
+		if g.cards[id].IsEffect {
+			effects++
+		}
+	}
+	if effects == 0 {
+		return bf
+	}
+	out := make([]CardID, 0, len(bf)+effects)
+	out = append(out, bf...)
+	for _, id := range cmd {
+		if g.cards[id].IsEffect {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // LKI returns id's frozen last-known-information snapshot -- Move's own
 // battlefield-leaving branch, below -- or nil if id has never left the
 // battlefield. checkDiesTriggers/otherDiesTriggerMatches (trigger.go) are its
@@ -435,6 +462,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		From:   from,
 		To:     kind,
 	})
+	g.effectCardsSeeMove(id, from, kind)
 }
 
 // MoveToLibraryTop moves id to the top of owner's library -- library index
@@ -492,6 +520,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		From:   from,
 		To:     Library,
 	})
+	g.effectCardsSeeMove(id, from, Library)
 }
 
 // Shuffle randomises one zone's order, in place, using the game's own random

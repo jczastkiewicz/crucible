@@ -77,7 +77,8 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			}
 			spec := base
 			spec.Def, spec.Owner = def, owner
-			for i := 0; i < amount; i++ {
+			n := g.tokensReplaced(controller, owner, def, amount)
+			for i := 0; i < n; i++ {
 				specs = append(specs, spec)
 			}
 		}

@@ -130,6 +130,12 @@ type Ability struct {
 	// DamageMap$ ability for a later DamageResolve, shared down the
 	// sub-ability chain.
 	damageMap *pendingDamage
+	// replacing is the event a ReplaceWith$ ability edits in place:
+	// SpellAbility.getReplacingObject and its OriginalParams map
+	// (replaceeffect.go). Set only on the Ability a replacement dispatch
+	// (replacement.go) builds and resolves on the spot, never on one pushed
+	// to the stack, so no stacked Ability carries a live one into Clone.
+	replacing *replacementEvent
 	// modesErr is why chooseCharmModes could not pick modes for a Charm it
 	// was asked about; the Charm is still pushed and fails with this error
 	// when it resolves, since pushing has no error path of its own (GO-7).

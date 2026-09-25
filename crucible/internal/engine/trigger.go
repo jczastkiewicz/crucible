@@ -120,7 +120,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
+		for _, watcher := range g.traitHosts(pid) {
 			if watcher == entered {
 				continue
 			}
@@ -226,7 +226,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 		dying = snap
 	}
 	for _, pid := range g.Players() {
-		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
+		for _, watcher := range g.traitHosts(pid) {
 			w := g.Card(watcher)
 			if w.Def == nil {
 				continue
@@ -293,7 +293,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 func (g *Game) checkAttacksTriggers(controller PlayerController, attacker CardID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -426,7 +426,7 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	var matches []Ability
 	c := g.Card(cast)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -514,7 +514,7 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 func (g *Game) checkBlocksTriggers(controller PlayerController, blk Block) {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -586,7 +586,7 @@ func isBlocksTrigger(t *compile.Ability) bool {
 func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacker CardID, blockers []CardID) {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -644,7 +644,7 @@ func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacke
 func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerController, blk Block) {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -726,7 +726,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 	var matches []Ability
 	toughness, hasToughness := g.Card(target).Toughness()
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -753,7 +753,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -942,7 +942,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 			toughness, hasToughness = g.Card(cid).Toughness()
 		}
 		for _, pid := range g.Players() {
-			for _, host := range g.Zone(Battlefield, pid).Cards() {
+			for _, host := range g.traitHosts(pid) {
 				h := g.Card(host)
 				if h.Def == nil {
 					continue
@@ -1054,7 +1054,7 @@ func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table d
 	for _, source := range order {
 		entries := bySource[source]
 		for _, pid := range g.Players() {
-			for _, host := range g.Zone(Battlefield, pid).Cards() {
+			for _, host := range g.traitHosts(pid) {
 				h := g.Card(host)
 				if h.Def == nil {
 					continue
@@ -1126,7 +1126,7 @@ func (g *Game) checkDamageAllTriggers(controller PlayerController, table damageT
 	}
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1224,7 +1224,7 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1306,7 +1306,7 @@ func (g *Game) checkSacrificedTriggers(controller PlayerController, card CardID,
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1405,7 +1405,7 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 	}
 	var matches []Ability
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1489,7 +1489,7 @@ func (g *Game) checkTapsTriggers(controller PlayerController, card CardID, playe
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1554,7 +1554,7 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1611,7 +1611,7 @@ func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -1725,7 +1725,7 @@ func (g *Game) checkPhaseTriggers(controller PlayerController) {
 							"APlayerHasMoreLifeThanEachOther", "APlayerHasMostCardsInHand") {
 							continue
 						}
-						if !phaseTriggerZoneMatches(t, z) {
+						if !phaseTriggerZoneMatches(h, t, z) {
 							continue
 						}
 						if !phaseTriggerMatches(t, "Phase", g.activePhase) {
@@ -1763,7 +1763,14 @@ var phaseTriggerZones = []ZoneType{Battlefield, Command, Graveyard, Exile}
 // contract applied to Mode$ Phase: TriggerZones$ absent or empty passes
 // regardless of zone (26 of 2,362 real lines carry none), a comma-list
 // (`Command,Battlefield`, 1 real line) matches if zone is any one of them.
-func phaseTriggerZoneMatches(t *compile.Ability, zone ZoneType) bool {
+//
+// An effect card's triggers are active in the Command zone alone, whatever
+// TriggerZones$ says: EffectEffect.java overrides it with
+// setActiveZone(EnumSet.of(ZoneType.Command)).
+func phaseTriggerZoneMatches(h *Card, t *compile.Ability, zone ZoneType) bool {
+	if h.IsEffect {
+		return zone == Command
+	}
 	v, ok := t.Param("TriggerZones")
 	if !ok {
 		return true
@@ -2472,7 +2479,7 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 						if !isAttackersDeclaredTrigger(t) {
 							continue
 						}
-						if !phaseTriggerZoneMatches(t, z) {
+						if !phaseTriggerZoneMatches(h, t, z) {
 							continue
 						}
 						if !attackersDeclaredParamsMatch(g, h, t, g.combat.Attackers, targets) {
@@ -2531,7 +2538,7 @@ func (g *Game) checkAttackersDeclaredOneTargetTrigger(controller PlayerControlle
 							if !isAttackersDeclaredOneTargetTrigger(t) {
 								continue
 							}
-							if !phaseTriggerZoneMatches(t, z) {
+							if !phaseTriggerZoneMatches(h, t, z) {
 								continue
 							}
 							if !attackersDeclaredParamsMatch(g, h, t, attackers, targets) {
@@ -2750,7 +2757,7 @@ func (g *Game) checkDrawnTriggers(controller PlayerController, drawer PlayerID, 
 						if !isDrawnTrigger(t) {
 							continue
 						}
-						if !phaseTriggerZoneMatches(t, z) {
+						if !phaseTriggerZoneMatches(h, t, z) {
 							continue
 						}
 						if hasAnyParam(t, "FirstCardInDrawStep", "ForReveal") {
@@ -2850,7 +2857,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if hasAnyParam(t, "ValidSource", "Spell", "ResolvedLimit", "ActivationLimit") {
 							continue
 						}
-						if !phaseTriggerZoneMatches(t, z) {
+						if !phaseTriggerZoneMatches(h, t, z) {
 							continue
 						}
 						validPlayer, ok := t.Param("ValidPlayer")
@@ -2932,7 +2939,7 @@ func (g *Game) checkLandPlayedTriggers(controller PlayerController, card CardID,
 						if hasAnyParam(t, "ValidSA", "Static") {
 							continue
 						}
-						if !phaseTriggerZoneMatches(t, z) {
+						if !phaseTriggerZoneMatches(h, t, z) {
 							continue
 						}
 						if !hasZoneOrAny(t, "Origin", origin) {
@@ -3053,7 +3060,7 @@ func (g *Game) checkBecomesTargetTriggers(controller PlayerController, targets [
 		}
 
 		for _, pid := range g.Players() {
-			for _, watcher := range g.Zone(Battlefield, pid).Cards() {
+			for _, watcher := range g.traitHosts(pid) {
 				w := g.Card(watcher)
 				if w.Def == nil {
 					continue

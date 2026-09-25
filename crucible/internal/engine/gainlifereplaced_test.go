@@ -161,8 +161,8 @@ func TestGainLifeNotReplacedByUnrecognizedSourceRestriction(t *testing.T) {
 	}
 }
 
-// TestGainLifeDoubledByReplaceEffect proves applyGainLifeReplaceEffect
-// (replacement.go) resolves rhox_faithmender.txt's/the_wind_crystal.txt's/
+// TestGainLifeDoubledByReplaceEffect proves replaceEffectEffect
+// (replaceeffect.go) resolves rhox_faithmender.txt's/the_wind_crystal.txt's/
 // selenia_the_cursed_heart.txt's/alhammarrets_archive.txt's/
 // doctor_strange_surgeon.txt's/boon_reflection.txt's/phial_of_galadriel.txt's
 // own real "if you would gain life, you gain twice that much life instead"

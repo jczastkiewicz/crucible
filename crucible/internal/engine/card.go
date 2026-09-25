@@ -35,6 +35,15 @@ type Card struct {
 	// IsToken marks a card a Token effect created (CR 111.1): it ceases to
 	// exist once it is anywhere but the battlefield (CR 704.5d, action.go).
 	IsToken bool
+	// IsEffect marks an effect card (GamePieceType.EFFECT): the Command-zone
+	// object an Effect ability creates to carry its triggers, continuous
+	// effects and replacement effects (effecteffect.go). Its traits are
+	// active in the Command zone only, whatever zones their own script text
+	// names (EffectEffect.java's setActiveZone(EnumSet.of(ZoneType.Command))).
+	IsEffect bool
+	// effectLife is when an effect card stops existing: its Duration$ and
+	// its ExileOnMoved$/ForgetOnMoved$ watch. Zero on every other card.
+	effectLife effectLifetime
 	// basePower/baseToughness replace the printed value when set --
 	// TokenPower$/TokenToughness$ (TokenInfo.getProtoType's setBasePower).
 	basePower, baseToughness       int

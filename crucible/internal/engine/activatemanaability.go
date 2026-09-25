@@ -398,18 +398,9 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		c.LoyaltyAbilityActivated = true
 	}
 
-	snow := c.Type().HasSupertype(cardtype.Snow)
-	pool := &g.Player(pid).ManaPool
-	switch {
-	case colorless && snow:
-		pool.AddSnowColorless(amount)
-	case colorless:
-		pool.AddColorless(amount)
-	case snow:
-		pool.AddSnow(color, amount)
-	default:
-		pool.Add(color, amount)
-	}
+	g.addProducedMana(pid, g.manaReplaced(controller, pid, card, producedMana{
+		color: color, colorless: colorless, snow: c.Type().HasSupertype(cardtype.Snow), amount: amount,
+	}))
 
 	if shape.Tap {
 		g.checkTapsForManaTriggers(controller, card, pid)

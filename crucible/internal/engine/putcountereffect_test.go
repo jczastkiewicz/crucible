@@ -373,3 +373,30 @@ func TestPutCounterEffectSkipsEventForUnnamedType(t *testing.T) {
 		}
 	}
 }
+
+// TestPutCounterEffectSkipsZeroedCounterAfterReplacement proves a
+// replacement that zeroes the amount (a "counters can't be placed" effect
+// modeled as Amount$ 0) neither calls Counters.Add nor emits CounterChanged
+// -- Java fires no counter-added event for zero counters, and Add(ct, 0)
+// would be a visible no-op mutation for nothing.
+func TestPutCounterEffectSkipsZeroedCounterAfterReplacement(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(replacementEnchantmentDefWithSVar(t, "Test No More Counters",
+		"Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.YouCtrl | ValidCounterType$ P1P1 | ReplaceWith$ Nullify | Description$ No more counters.",
+		"Nullify", "DB$ ReplaceCounter | Amount$ 0"), p, engine.Battlefield)
+	var sink recordingSink
+	g.SetSink(&sink)
+
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 3")
+	if got := g.Card(host).Counters.Count(engine.P1P1); got != 0 {
+		t.Errorf("P1P1 count = %d, want 0", got)
+	}
+	for _, e := range sink.events {
+		if e.Kind == engine.CounterChanged {
+			t.Error("saw a CounterChanged event for a zeroed counter placement, want none")
+		}
+	}
+}

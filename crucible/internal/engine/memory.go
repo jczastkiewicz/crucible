@@ -178,6 +178,37 @@ func (m *Memory) ClearNamedCards() { m.namedCards = nil }
 
 // clone returns an independent copy. Each list is copied only when it exists,
 // because the overwhelming majority of cards remember nothing.
+// copyChoicesFrom copies src's choices onto m: what EffectEffect.resolve
+// hands an effect card from its host -- chosen colors, cards, player,
+// direction, type, second type, named cards and number (not even/odd,
+// which Java does not copy).
+func (m *Memory) copyChoicesFrom(src *Memory) {
+	if src.chosenColors != 0 {
+		m.chosenColors = src.chosenColors
+	}
+	if src.chosen != nil {
+		m.chosen = src.chosen.Clone()
+	}
+	if src.chosenPlayer != NoPlayer {
+		m.chosenPlayer = src.chosenPlayer
+	}
+	if src.chosenDirection != "" {
+		m.chosenDirection = src.chosenDirection
+	}
+	if src.chosenType != "" {
+		m.chosenType = src.chosenType
+	}
+	if src.chosenType2 != "" {
+		m.chosenType2 = src.chosenType2
+	}
+	if len(src.namedCards) > 0 {
+		m.namedCards = append([]string(nil), src.namedCards...)
+	}
+	if src.hasChosenNumber {
+		m.chosenNumber, m.hasChosenNumber = src.chosenNumber, true
+	}
+}
+
 func (m Memory) clone() Memory {
 	out := Memory{
 		chosenPlayer:    m.chosenPlayer,

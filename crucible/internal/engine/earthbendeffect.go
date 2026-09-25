@@ -123,7 +123,7 @@ func (g *Game) checkPlayerActionTriggers(controller PlayerController, actor Play
 					}
 					for _, face := range h.Def.Faces {
 						for _, t := range face.Triggers {
-							if !strings.EqualFold(t.Name, mode) || !phaseTriggerZoneMatches(t, z) {
+							if !strings.EqualFold(t.Name, mode) || !phaseTriggerZoneMatches(h, t, z) {
 								continue
 							}
 							if hasAnyParam(t, "ActivationLimit", "ResolvedLimit") {

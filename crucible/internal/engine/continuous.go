@@ -100,7 +100,7 @@ func applyContinuousPT(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -240,7 +240,7 @@ func applyContinuousType(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -362,7 +362,7 @@ func applyContinuousColor(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -477,7 +477,7 @@ func applyContinuousKeyword(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -574,7 +574,7 @@ func applyContinuousNames(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -738,7 +738,7 @@ func applyContinuousRules(g *Game) {
 		g.Player(pid).Rules.Clear()
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -883,7 +883,7 @@ func applyContinuousControl(g *Game) {
 		}
 	}
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue

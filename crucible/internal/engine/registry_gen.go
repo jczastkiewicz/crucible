@@ -7,7 +7,7 @@ package engine
 // Resolve(*Game, *Ability, PlayerController) error, under the API its name
 // gives or the API its //crucible:register lines name (ADR-0017).
 //
-// 148 APIs. Explicit construction, not an init() populating a package-level
+// 155 APIs. Explicit construction, not an init() populating a package-level
 // Registry: a caller that wants fewer APIs builds its own Registry.
 //
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
@@ -69,6 +69,7 @@ func NewRegistry() *Registry {
 	r[APIDraw] = drawEffect{}
 	r[APIEachDamage] = eachDamageEffect{}
 	r[APIEarthbend] = earthbendEffect{}
+	r[APIEffect] = effectEffect{}
 	r[APIEmpower] = empowerEffect{}
 	r[APIEndCombatPhase] = endCombatPhaseEffect{}
 	r[APIEndTurn] = endTurnEffect{}
@@ -133,6 +134,12 @@ func NewRegistry() *Registry {
 	r[APIReorderZone] = reorderZoneEffect{}
 	r[APIRepeat] = repeatEffect{}
 	r[APIRepeatEach] = repeatEachEffect{}
+	r[APIReplaceCounter] = replaceCounterEffect{}
+	r[APIReplaceDamage] = replaceDamageEffect{}
+	r[APIReplaceEffect] = replaceEffectEffect{}
+	r[APIReplaceMana] = replaceManaEffect{}
+	r[APIReplaceSplitDamage] = replaceSplitDamageEffect{}
+	r[APIReplaceToken] = replaceTokenEffect{}
 	r[APIReveal] = revealEffect{}
 	r[APIRevealHand] = revealHandEffect{}
 	r[APIReverseTurnOrder] = reverseTurnOrderEffect{}

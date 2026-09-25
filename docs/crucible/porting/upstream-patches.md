@@ -58,28 +58,40 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date       | Path                                                            | Change                                                                                                                                                                                                                                                               | Upstream |
-| ---------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 2026-09-19 | `forge-gui/res/cardsfolder/n/nascent_metamorph.txt`             | `SVar:DBCleanupOne` renamed `DBCleanup` — matches the `SubAbility$ DBCleanup` reference above it and the corpus's own convention (2,771 cards)                                                                                                                       | pending  |
-| 2026-09-25 | `forge-gui/res/cardsfolder/d/the_disciple_of_vess.txt`          | Trailing line `(There are currently thirteen. Perhaps look up the list and roll a D20?)\nPERSON` deleted — a stray authoring note, not a script line; `FileSection` rejects it as an unknown key                                                                     | pending  |
-| 2026-09-25 | `forge-gui/res/cardsfolder/upcoming/ginger_queen_of_sweets.txt` | `TokenOwner$` renamed `Controller$` — `CopyPermanentEffect.java` reads `sa.getParam("Controller")`, never `TokenOwner`; the corpus's own convention (5 other `CopyPermanent` cards)                                                                                  | pending  |
-| 2026-09-25 | `forge-gui/res/cardsfolder/upcoming/sanctum_lurker.txt`         | `Affected$` renamed `ValidCard$` on its `IgnorePlaneswalkerZeroLoyaltyRule` line — `StaticAbilityIgnoreZeroLoyalty.java` reads `matchesValidParam("ValidCard", card)`, never `Affected`; the card's own sibling `Mode$ Continuous` line is where `Affected$` belongs | pending  |
+| Date       | Path                                                              | Change                                                                                                                                                                                                                                                               | Upstream |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/clash_of_elements.txt`        | `SVar:DBDealDamage` renamed `DBDamage` — `SubAbility$` on the line above already named `DBDamage`; the SVar it pointed at did not exist                                                                                                                              | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/dack_fayden_helping_hand.txt` | `SubAbility$ DBRepeatEach` renamed `SubAbility$ DBRepeat` — the defined SVar is `DBRepeat`, the corpus's own convention for `DB$ RepeatEach` (78 other cards)                                                                                                        | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/n/nascent_metamorph.txt`               | `SVar:DBCleanupOne` renamed `DBCleanup` — matches the `SubAbility$ DBCleanup` reference above it and the corpus's own convention (2,771 cards)                                                                                                                       | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/living_library.txt`           | `ValidOrigin$` renamed `Origin$` — `ChangeZoneEffect.java` reads `Origin`, never `ValidOrigin`; the param reached no code                                                                                                                                            | pending  |
+| 2026-09-19 | `forge-gui/res/cardsfolder/upcoming/venser_fervent_forger.txt`    | `ValidTgtDesc$` renamed `ValidTgtsDesc$` — the corpus's own convention (344 cards) for `CopyPermanent`'s target description                                                                                                                                          | pending  |
+| 2026-09-25 | `forge-gui/res/cardsfolder/d/the_disciple_of_vess.txt`            | Trailing line `(There are currently thirteen. Perhaps look up the list and roll a D20?)\nPERSON` deleted — a stray authoring note, not a script line; `FileSection` rejects it as an unknown key                                                                     | pending  |
+| 2026-09-25 | `forge-gui/res/cardsfolder/upcoming/ginger_queen_of_sweets.txt`   | `TokenOwner$` renamed `Controller$` — `CopyPermanentEffect.java` reads `sa.getParam("Controller")`, never `TokenOwner`; the corpus's own convention (5 other `CopyPermanent` cards)                                                                                  | pending  |
+| 2026-09-25 | `forge-gui/res/cardsfolder/upcoming/sanctum_lurker.txt`           | `Affected$` renamed `ValidCard$` on its `IgnorePlaneswalkerZeroLoyaltyRule` line — `StaticAbilityIgnoreZeroLoyalty.java` reads `matchesValidParam("ValidCard", card)`, never `Affected`; the card's own sibling `Mode$ Continuous` line is where `Affected$` belongs | pending  |
+| 2026-09-25 | `forge-gui/res/cardsfolder/p/peace_talks.txt`                     | `StaticAbilities$` drops `STCantTargetPlayer` — no such SVar; `EffectEffect.java` skips the null static silently. `STCantTarget` already covers players                                                                                                              | pending  |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
 
-`nascent_metamorph.txt` was found in the 2026-09-19 sync to `db4304cc40d`, alongside four siblings of the same shape — a
-`SubAbility$`/`SVar:` name mismatch or a param that reached no code — all four of which have since merged upstream and
-retired from this table. The other three were found in the 2026-09-25 sync to `45baeffbf21`: `the_disciple_of_vess.txt`
-(`a854eef5507`, #11874) ends in a leftover note to the card's own author rather than a script line, which
-`tools/apiscan -check` reads as an unknown key; `ginger_queen_of_sweets.txt` writes a param `CopyPermanentEffect.java`
-never reads, which `tools/apiscan -check -api` catches. `sanctum_lurker.txt` is the same shape as
-`ginger_queen_of_sweets.txt` — a param that never reaches its effect — but no gate caught it: `tools/apiscan` scans only
-`AB$`/`SP$`/`DB$` effect params, not `S:` static-ability params, so this one surfaced by reading the sync's diff to
-`forge-game/src/main/java` directly (the upstream-sync runbook's step 3), the way a real game would have silently let
-any planeswalker, not just ones you control, ignore the zero-loyalty rule. PORT-8: a param that never reaches its
-effect, a sub-ability chain broken by name, or a line that is not a script line at all is a Forge bug, reported and
-fixed here rather than exempted from a gate.
+The five 2026-09-19 rows were found when the 2026-09-19 sync to `db4304cc40d` moved `internal/carddb/compile`'s
+`TestCorpusCompiles` from 33,913 of 33,913 to 33,910 (three cards with a `SubAbility$`/`SVar:` name that does not
+match), and `tools/apiscan -check` from zero unread param keys to two (`ValidOrigin$`, `ValidTgtDesc$`). All five cards
+are new, under `cardsfolder/upcoming/` or freshly added elsewhere.
+
+The three 2026-09-25 rows were found in the sync to `45baeffbf21`: `the_disciple_of_vess.txt` (`a854eef5507`, #11874)
+ends in a leftover note to the card's own author rather than a script line, which `tools/apiscan -check` reads as an
+unknown key; `ginger_queen_of_sweets.txt` writes a param `CopyPermanentEffect.java` never reads, which
+`tools/apiscan -check -api` catches. `sanctum_lurker.txt` is the same shape as `ginger_queen_of_sweets.txt` — a param
+that never reaches its effect — but no gate caught it: `tools/apiscan` scans only `AB$`/`SP$`/`DB$` effect params, not
+`S:` static-ability params, so this one surfaced by reading the sync's diff to `forge-game/src/main/java` directly (the
+upstream-sync runbook's step 3), the way a real game would have silently let any planeswalker, not just ones you
+control, ignore the zero-loyalty rule.
+
+Peace Talks' row was found when `internal/carddb/compile` began following Effect's `StaticAbilities$` list: its one
+missing name fails `TestCorpusCompiles` the way a dangling `SubAbility$` does.
+
+PORT-8: a param that never reaches its effect, a sub-ability chain broken by name, or a line that is not a script line
+at all is a Forge bug, reported and fixed here rather than exempted from either gate.
 
 Eleven rows have retired this way — #11846, #11848, #11850, #11851, #11852, #11854, #11859, and four more from the
 2026-09-19 batch (`clash_of_elements.txt`, `dack_fayden_helping_hand.txt`, `living_library.txt`,

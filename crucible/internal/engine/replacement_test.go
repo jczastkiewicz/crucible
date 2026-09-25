@@ -937,8 +937,8 @@ func replacementEnchantmentDefWithSVars(t *testing.T, name, replacement string, 
 	return c
 }
 
-// TestDamageToPlayerDoubledByReplaceEffect proves applyDamageReplaceEffect
-// (replacement.go) resolves raphael_the_muscle.txt's/gratuitous_violence.txt's
+// TestDamageToPlayerDoubledByReplaceEffect proves replaceEffectEffect
+// (replaceeffect.go) resolves raphael_the_muscle.txt's/gratuitous_violence.txt's
 // own real shape: DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X,
 // X:ReplaceCount$DamageAmount/Twice doubles a 3-damage combat hit to 6 -- CR
 // 616's own "Updated" outcome computing a new amount rather than ReplaceDamage's
@@ -1049,7 +1049,7 @@ func TestDamageToPlayerReducedByReplaceDamageWithCommaValidTarget(t *testing.T) 
 	}
 }
 
-// TestDamageToCreatureTripledByReplaceEffect proves applyDamageReplaceEffect's
+// TestDamageToCreatureTripledByReplaceEffect proves replaceEffectEffect's
 // own card-target half (city_on_fire.txt's own real Thrice shape, applied to
 // a creature the way TestDamageToCreatureReducedByReplaceDamage already
 // proves ReplaceDamage's own card-target half).
@@ -1147,7 +1147,7 @@ func TestDamageToPlayerReplaceEffectPlusLiteral(t *testing.T) {
 // TestDamageToPlayerReplaceEffectMinusClampsAtZero proves the Minus operator
 // -- benevolent_unicorn.txt's/lashknife_barrier.txt's own real
 // ReplaceCount$DamageAmount/Minus.1 shape -- and that a reduction to zero
-// applies no damage at all, the identical clamp applyDamageReplaceDamage's
+// applies no damage at all, the identical clamp replaceDamageEffect's
 // own Amount$ reduction already gives. ValidSource$ Spell dropped (the real
 // card restricts to spell-dealt damage; this test drives the shape through
 // combat instead, the same reason every other test in this file simplifies

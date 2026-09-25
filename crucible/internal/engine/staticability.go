@@ -90,7 +90,7 @@ var cantBlockByKeywords = []struct {
 // (game-state.md's "Not ported yet" has the count this is based on).
 func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue
@@ -462,7 +462,7 @@ func controllerControlsType(g *Game, pid PlayerID, typeSpec string, host *Card) 
 // not.
 func ignoreLegendRule(g *Game, id CardID) bool {
 	for _, pid := range g.Players() {
-		for _, host := range g.Zone(Battlefield, pid).Cards() {
+		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
 			if h.Def == nil {
 				continue

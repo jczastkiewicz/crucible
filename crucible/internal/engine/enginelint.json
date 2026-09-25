@@ -68,9 +68,9 @@
     "zone": ["id"],
     "layer": [],
     "parts": ["id", "layer"],
-    "card": ["id", "zone", "parts", "layer", "goadeffect"],
+    "card": ["id", "zone", "parts", "layer", "goadeffect", "effecteffect"],
     "player": ["id", "parts", "mana"],
-    "ability": ["id", "damageresolveeffect"],
+    "ability": ["id", "damageresolveeffect", "replaceeffect"],
     "combat": ["id", "game", "valid", "effecthelpers"],
     "game": [
       "id",
@@ -89,7 +89,8 @@
       "preventdamageeffect",
       "daytimeeffect",
       "goadeffect",
-      "airbendeffect"
+      "airbendeffect",
+      "effecteffect"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
@@ -122,7 +123,8 @@
       "event",
       "control",
       "combat",
-      "trigger"
+      "trigger",
+      "effecteffect"
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card"],
@@ -161,7 +163,8 @@
       "sacrificeeffect",
       "exile",
       "exilefromgrave",
-      "taptype"
+      "taptype",
+      "replaceeffect"
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
@@ -236,7 +239,10 @@
       "putcountereffect",
       "parts",
       "event",
-      "phase"
+      "phase",
+      "replaceeffect",
+      "effecthelpers",
+      "defined"
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card", "ability", "parts"],

@@ -28,7 +28,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0015](0015-upstream-sync-procedure.md)                  | Upstream sync procedure                   | Accepted           |
 | [0016](0016-reporting-without-duckdb.md)                 | Reporting without DuckDB for v1           | Accepted           |
 | [0017](0017-effects-inside-engine-generated-registry.md) | Effects inside engine, generated registry | Accepted           |
-| [0018](0018-instant-sorcery-spell-object.md)             | Instant/sorcery spells as stack objects   | Proposed           |
+| [0018](0018-instant-sorcery-spell-object.md)             | Instant/sorcery spells as stack objects   | Accepted           |
 
 ## Numbering
 

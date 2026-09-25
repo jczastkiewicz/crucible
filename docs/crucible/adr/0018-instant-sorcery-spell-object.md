@@ -1,6 +1,6 @@
 # ADR-0018 — Instant/Sorcery Spells as Stack Objects, With Stack-Item Identity
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-25
 - **Deciders:** `mc@archlab.pl`
 

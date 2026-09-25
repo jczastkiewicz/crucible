@@ -42,9 +42,10 @@ has yet.
 - GO-9: identity by ID, never pointer — a stack item needs an ID as much as a `Card` does, for the same reason.
 - GO-7: a bad card fails its own game, not the batch — the fizzle check and Stack→Graveyard move must not panic.
 - Unblocks `Play`, `CopySpellAbility`, `Discover`'s rejected branch (`discovereffect.go`),
-  `ChangeZoneEffect.java:1556`'s cast, `ReplaceGraveyard$`, flashback, and `Game.MayPlayFromExile` consumers (Airbend,
-  Heist grants) — six real callers already blocked on exactly this, not a speculative generalization (the "no premature
-  abstraction" rule cuts the other way once six callers exist).
+  `ChangeZoneEffect.java:1556`'s cast, flashback, and `Game.MayPlayFromExile` consumers (Airbend, Heist grants) — five
+  real callers already blocked on exactly this, not a speculative generalization (the "no premature abstraction" rule
+  cuts the other way once five callers exist). `ReplaceGraveyard$` stays blocked on a separate gap this ADR does not
+  close (Decision, point 3).
 
 ## Considered Options
 
@@ -79,10 +80,14 @@ Option 2 chosen.
    ability names a target (`Ability.Target`/`Targets`) no longer legal, skip `Registry.Resolve` for it (the same
    "declined by the rules" contract `resolveTargets` already uses for CR 603.3c) but still run the post-resolution move
    below, since CR 608.2b's own fizzled spell still leaves the stack into the graveyard. After dispatch (fizzled or
-   resolved): if the ability's `Source` card is still in the `Stack` zone — `permanentEffect`/ `attachEffect` already
-   moved their own source away, so this is a no-op for both existing shapes — move it to its owner's graveyard through
-   the existing replacement pipeline (`checkMovedReplacement`), covering `ReplaceGraveyard$` for free since that already
-   hooks the same `Move` path every other zone change uses.
+   resolved): if the ability's `Source` card is still in the `Stack` zone — `permanentEffect`/`attachEffect` already
+   moved their own source away, so this is a no-op for both existing shapes — `Move` it to its owner's graveyard.
+   `checkMovedReplacement` (`replacement.go:93`) is not called here: it resolves CR 614.1's "enters the battlefield
+   tapped" replacement specifically, wired only at the three battlefield-entry sites that already call it
+   (`permanentEffect`/`attachEffect`/`PlayLand`) — not a general zone-change hook. `ReplaceGraveyard$` (CR 614's own
+   "this would go to a graveyard, exile it instead" redirect) has no resolver in this port yet and is not solved by this
+   ADR; it stays a real gap for `Play`'s own 35-line shape, tracked the same place it already is
+   (`effects-play-copyspellability.md:37`).
 4. **`ResolveStack`'s doc comment is corrected**, not the mechanism: "no `PlayerController` method lets a player respond
    to anything on the stack" still holds after this ADR — casting an Instant/Sorcery does not add a response window,
    only a second thing that can be _on_ the stack. Interactive priority stays a documented gap for a later ADR (see
@@ -90,11 +95,11 @@ Option 2 chosen.
 
 ## Consequences
 
-**Good:** `Play` and `CopySpellAbility` unblock immediately once this lands — both were fully researched and only
+**Good:** `Play` and `CopySpellAbility`'s dominant shapes unblock once this lands — both were fully researched and only
 waiting on exactly this (`effects-play-copyspellability.md`). `CopySpellAbility`'s `Defined$ TriggeredSpellAbility`
-shape (164 of 255 lines) reads `ID` off the `SpellCast` event's ability, once the event carries it. Six other blocked
-callers (Context) unblock too, without a second design pass. The stack-item identity is cheap: one field, one counter,
-no new type, no change to any existing `Ability` caller's signature.
+shape (164 of 255 lines) reads `ID` off the `SpellCast` event's ability, once the event carries it. `ReplaceGraveyard$`
+(Context) is not one of these — see Decision, point 3 — and stays its own follow-up. The stack-item identity is cheap:
+one field, one counter, no new type, no change to any existing `Ability` caller's signature.
 
 **Bad:** `Ability` grows a field every existing literal `Ability{...}` construction site does not set (defaults to zero,
 which `PushAbility` overwrites) — a small, one-time textual diff, not a semantic one. `Game.Clone` (`cloneeffect.go`)

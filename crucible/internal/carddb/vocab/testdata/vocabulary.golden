@@ -982,7 +982,6 @@ paramKey	TargetingPlayer
 paramKey	TargetingPlayerControls
 paramKey	TargetsAtRandom
 paramKey	TargetsForEachPlayer
-paramKey	TargetsForEachType
 paramKey	TargetsValid
 paramKey	TargetsWithControllerProperty
 paramKey	TargetsWithDefinedController
@@ -1134,7 +1133,6 @@ paramKey	ValidSpellAbility
 paramKey	ValidStepTurnToController
 paramKey	ValidSupportedCopy
 paramKey	ValidTarget
-paramKey	ValidTgt
 paramKey	ValidTgts
 paramKey	ValidTgtsDesc
 paramKey	ValidToken
@@ -1416,6 +1414,7 @@ mode	CanAdapt
 mode	CanAttackDefender
 mode	CanAttackIfHaste
 mode	CanBlockIfReach
+mode	CanBlockIfShadow
 mode	CantAttach
 mode	CantAttack
 mode	CantAttack,CantBlock
@@ -1528,6 +1527,7 @@ mode	Hand
 mode	IgnoreHexproof
 mode	IgnoreLandWalk
 mode	IgnoreLegendRule
+mode	IgnorePlaneswalkerZeroLoyaltyRule
 mode	IgnoreShroud
 mode	Increase
 mode	InfectDamage
@@ -2518,8 +2518,10 @@ validProperty	ControllerControlsAtLeastAsManyLand
 validProperty	ControllerControlsIsland
 validProperty	ControllerControlsLand_LE3
 validProperty	ControllerControlsMoreLand
+validProperty	CostsHybridMana
 validProperty	CostsPhyrexianMana
 validProperty	CouldCastTiming
+validProperty	CountersRemovedToPayGE2
 validProperty	Coward
 validProperty	Creature
 validProperty	Crew
@@ -2555,6 +2557,7 @@ validProperty	Elder
 validProperty	Eldrazi
 validProperty	Elemental
 validProperty	Elf
+validProperty	Elspeth
 validProperty	Embalm
 validProperty	EnchantedBy
 validProperty	EnchantedBy Aura.Other
@@ -2588,6 +2591,7 @@ validProperty	Food
 validProperty	Foretelling
 validProperty	FortifiedBy
 validProperty	Fungus
+validProperty	Garruk
 validProperty	Gate
 validProperty	Giant
 validProperty	Gideon
@@ -2653,6 +2657,7 @@ validProperty	Legendary
 validProperty	Legendary$Colors
 validProperty	Leviathan
 validProperty	Lhurgoyf
+validProperty	Liliana
 validProperty	LostLifeThisTurn
 validProperty	Loyalty
 validProperty	ManaAbility
@@ -2697,6 +2702,7 @@ validProperty	NamedSpell
 validProperty	Nightmare
 validProperty	Ninja
 validProperty	Ninjutsu
+validProperty	Nissa
 validProperty	NoAbilities
 validProperty	Noble
 validProperty	NonActive
@@ -2833,6 +2839,7 @@ validProperty	TargetedPlayerCtrl$GreatestCardPower
 validProperty	TargetedPlayerOwn
 validProperty	TargetedPlayerOwn$GreatestCardManaCost
 validProperty	Teamwork
+validProperty	Teferi
 validProperty	Tezzeret
 validProperty	ThisTurnCast
 validProperty	ThisTurnEntered
@@ -2896,6 +2903,7 @@ validProperty	YouCtrl$DifferentColorPair
 validProperty	YouCtrl$GreatestCardManaCost
 validProperty	YouCtrl$GreatestCardPower
 validProperty	YouCtrl$GreatestCardToughness
+validProperty	YouCtrl$PlaneswalkerType
 validProperty	YouDontCtrl
 validProperty	YouDontCtrl$GreatestCardPower
 validProperty	YouDontCtrl$GreatestCardToughness
@@ -3589,7 +3597,6 @@ keywordHead	Bloodthirst
 keywordHead	Bushido
 keywordHead	Buyback
 keywordHead	CARDNAME can be your commander.
-keywordHead	CARDNAME can block creatures with shadow as though they didn't have shadow.
 keywordHead	CARDNAME can only attack alone.
 keywordHead	CARDNAME can't attack alone.
 keywordHead	CARDNAME can't attack or block alone.
@@ -3656,7 +3663,6 @@ keywordHead	Evolve
 keywordHead	Exalted
 keywordHead	Exploit
 keywordHead	Extort
-keywordHead	FLying
 keywordHead	Fabricate
 keywordHead	Fading
 keywordHead	Fear

@@ -1,15 +1,15 @@
 field	basePower	6
 field	baseToughness	4
-field	cmc	625
+field	cmc	632
 field	numColors	6
 field	numTypes	2
 field	power	390
 field	totalPT	5
 field	toughness	54
-operator	EQ	155
+operator	EQ	161
 operator	GE	252
 operator	GT	19
-operator	LE	601
+operator	LE	602
 operator	LT	64
 operator	M2	1
 operand	0

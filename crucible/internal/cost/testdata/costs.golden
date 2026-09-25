@@ -1,4 +1,4 @@
-part	AddCounter	429
+part	AddCounter	431
 part	Behold	9
 part	BeholdExile	5
 part	Blight	20
@@ -34,9 +34,9 @@ part	RevealChosen	4
 part	RevealFromExile	1
 part	RevealOrChoose	2
 part	RollDice	1
-part	Sac	2251
-part	SubCounter	944
-part	T	5543
+part	Sac	2253
+part	SubCounter	947
+part	T	5552
 part	Unattach	9
 part	Waterbend	25
 part	tapXType	232
@@ -54,6 +54,7 @@ fields	Discard	2
 fields	Discard	3
 fields	Draw	2
 fields	Exert	2
+fields	Exert	3
 fields	Exile	2
 fields	Exile	3
 fields	ExileAnyGrave	2

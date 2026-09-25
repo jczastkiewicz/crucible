@@ -24,6 +24,7 @@ Artifact Creature Bird	Artifact Creature - Bird
 Artifact Creature Bird Construct	Artifact Creature - Bird Construct
 Artifact Creature Boar	Artifact Creature - Boar
 Artifact Creature Boar Beast	Artifact Creature - Boar Beast
+Artifact Creature Boar Construct	Artifact Creature - Boar Construct
 Artifact Creature Boar Toy	Artifact Creature - Boar Toy
 Artifact Creature Book Illusion	Artifact Creature - Book Illusion
 Artifact Creature Borg	Artifact Creature - Borg
@@ -58,6 +59,7 @@ Artifact Creature Dog	Artifact Creature - Dog
 Artifact Creature Dog Construct	Artifact Creature - Dog Construct
 Artifact Creature Dog Food	Artifact Creature - Dog Food
 Artifact Creature Dragon	Artifact Creature - Dragon
+Artifact Creature Dragon Construct	Artifact Creature - Dragon Construct
 Artifact Creature Dragon Wurm	Artifact Creature - Dragon Wurm
 Artifact Creature Drake	Artifact Creature - Drake
 Artifact Creature Dreadnought	Artifact Creature - Dreadnought
@@ -296,6 +298,7 @@ Creature	Creature
 Creature Aetherborn Artificer	Creature - Aetherborn Artificer
 Creature Aetherborn Rogue	Creature - Aetherborn Rogue
 Creature Aetherborn Vampire	Creature - Aetherborn Vampire
+Creature Aetherborn Warlock	Creature - Aetherborn Warlock
 Creature Aetherborn Warrior	Creature - Aetherborn Warrior
 Creature Alien	Creature - Alien
 Creature Alien Beast	Creature - Alien Beast
@@ -413,6 +416,7 @@ Creature Bird Citizen	Creature - Bird Citizen
 Creature Bird Cleric	Creature - Bird Cleric
 Creature Bird Demon	Creature - Bird Demon
 Creature Bird Egg	Creature - Bird Egg
+Creature Bird Fish Illusion	Creature - Bird Fish Illusion
 Creature Bird Frog	Creature - Bird Frog
 Creature Bird Goat	Creature - Bird Goat
 Creature Bird Horror	Creature - Bird Horror
@@ -847,6 +851,7 @@ Creature Elf Shaman Bard	Creature - Elf Shaman Bard
 Creature Elf Shaman Mutant	Creature - Elf Shaman Mutant
 Creature Elf Soldier	Creature - Elf Soldier
 Creature Elf Soldier Ally	Creature - Elf Soldier Ally
+Creature Elf Sorcerer	Creature - Elf Sorcerer
 Creature Elf Spellshaper	Creature - Elf Spellshaper
 Creature Elf Spider	Creature - Elf Spider
 Creature Elf Spirit	Creature - Elf Spirit
@@ -1274,6 +1279,7 @@ Creature Human Wizard Warlock	Creature - Human Wizard Warlock
 Creature Hydra	Creature - Hydra
 Creature Hydra Beast	Creature - Hydra Beast
 Creature Hydra Dog	Creature - Hydra Dog
+Creature Hydra Horror	Creature - Hydra Horror
 Creature Hydra Mutant	Creature - Hydra Mutant
 Creature Hyena	Creature - Hyena
 Creature Hyena Rogue	Creature - Hyena Rogue
@@ -1848,6 +1854,7 @@ Creature Shade	Creature - Shade
 Creature Shade Horror	Creature - Shade Horror
 Creature Shade Spirit	Creature - Shade Spirit
 Creature Shade Warlock	Creature - Shade Warlock
+Creature Shade Wizard	Creature - Shade Wizard
 Creature Shapeshifter	Creature - Shapeshifter
 Creature Shapeshifter Ally	Creature - Shapeshifter Ally
 Creature Shapeshifter Cleric	Creature - Shapeshifter Cleric
@@ -2533,6 +2540,7 @@ Legendary Artifact Creature Equipment Jellyfish	Legendary Artifact Creature - Eq
 Legendary Artifact Creature Food Horse	Legendary Artifact Creature - Food Horse
 Legendary Artifact Creature Food Knight	Legendary Artifact Creature - Food Knight
 Legendary Artifact Creature Food Mutant	Legendary Artifact Creature - Food Mutant
+Legendary Artifact Creature Food Noble	Legendary Artifact Creature - Food Noble
 Legendary Artifact Creature Gnome	Legendary Artifact Creature - Gnome
 Legendary Artifact Creature God	Legendary Artifact Creature - God
 Legendary Artifact Creature Golem	Legendary Artifact Creature - Golem
@@ -2709,6 +2717,7 @@ Legendary Creature Centaur Warrior	Legendary Creature - Centaur Warrior
 Legendary Creature Chimera	Legendary Creature - Chimera
 Legendary Creature Clown Wizard	Legendary Creature - Clown Wizard
 Legendary Creature Crab Druid	Legendary Creature - Crab Druid
+Legendary Creature Crab Human	Legendary Creature - Crab Human
 Legendary Creature Crab Mutant	Legendary Creature - Crab Mutant
 Legendary Creature Crocodile	Legendary Creature - Crocodile
 Legendary Creature Crocodile Druid	Legendary Creature - Crocodile Druid
@@ -2804,6 +2813,7 @@ Legendary Creature Elder Giant	Legendary Creature - Elder Giant
 Legendary Creature Elder Giant Dog	Legendary Creature - Elder Giant Dog
 Legendary Creature Elder Human Noble	Legendary Creature - Elder Human Noble
 Legendary Creature Elder Nephilim	Legendary Creature - Elder Nephilim
+Legendary Creature Elder Sable Judge	Legendary Creature - Elder Sable Judge
 Legendary Creature Elder Sphinx	Legendary Creature - Elder Sphinx
 Legendary Creature Elder Wizard	Legendary Creature - Elder Wizard
 Legendary Creature Eldrazi	Legendary Creature - Eldrazi
@@ -3259,6 +3269,7 @@ Legendary Creature Lizard Warlock	Legendary Creature - Lizard Warlock
 Legendary Creature Lizard Warrior	Legendary Creature - Lizard Warrior
 Legendary Creature Lobster Citizen	Legendary Creature - Lobster Citizen
 Legendary Creature Lobster Noble	Legendary Creature - Lobster Noble
+Legendary Creature Merfolk Advisor	Legendary Creature - Merfolk Advisor
 Legendary Creature Merfolk Ally	Legendary Creature - Merfolk Ally
 Legendary Creature Merfolk Artificer	Legendary Creature - Merfolk Artificer
 Legendary Creature Merfolk Bard	Legendary Creature - Merfolk Bard
@@ -3286,6 +3297,7 @@ Legendary Creature Moogle Warrior	Legendary Creature - Moogle Warrior
 Legendary Creature Moonfolk Artificer	Legendary Creature - Moonfolk Artificer
 Legendary Creature Moonfolk Monk	Legendary Creature - Moonfolk Monk
 Legendary Creature Moonfolk Pilot	Legendary Creature - Moonfolk Pilot
+Legendary Creature Moonfolk Warrior	Legendary Creature - Moonfolk Warrior
 Legendary Creature Moonfolk Wizard	Legendary Creature - Moonfolk Wizard
 Legendary Creature Mouse Knight	Legendary Creature - Mouse Knight
 Legendary Creature Mouse Soldier	Legendary Creature - Mouse Soldier
@@ -3482,6 +3494,7 @@ Legendary Creature Snake Wizard Sorcerer	Legendary Creature - Snake Wizard Sorce
 Legendary Creature Soltari Cleric	Legendary Creature - Soltari Cleric
 Legendary Creature Specter	Legendary Creature - Specter
 Legendary Creature Sphinx	Legendary Creature - Sphinx
+Legendary Creature Sphinx Avatar	Legendary Creature - Sphinx Avatar
 Legendary Creature Sphinx Demon	Legendary Creature - Sphinx Demon
 Legendary Creature Sphinx Rogue	Legendary Creature - Sphinx Rogue
 Legendary Creature Sphinx Wizard	Legendary Creature - Sphinx Wizard
@@ -3737,6 +3750,7 @@ Legendary Planeswalker Sifa	Legendary Planeswalker - Sifa
 Legendary Planeswalker Sivitri	Legendary Planeswalker - Sivitri
 Legendary Planeswalker Sorin	Legendary Planeswalker - Sorin
 Legendary Planeswalker Stone	Legendary Planeswalker - Stone
+Legendary Planeswalker Svega	Legendary Planeswalker - Svega
 Legendary Planeswalker Szat	Legendary Planeswalker - Szat
 Legendary Planeswalker Tamiyo	Legendary Planeswalker - Tamiyo
 Legendary Planeswalker Tasha	Legendary Planeswalker - Tasha

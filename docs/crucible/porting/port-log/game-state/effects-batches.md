@@ -666,7 +666,7 @@ Also rejected: a color-`Source` `Choices$` while a `Mode$ ColorlessDamageSource`
 source is off the battlefield. Reason: Ghostly Flame's `Spell.<Color>+inZoneStack` clauses need a `Spell` base `Matches`
 has no case for, so a red spell would still read red.
 
-**Forge bugs (PORT-8, not carried).**
+**Forge bugs (PORT-8, not carried; tracked in [`forge-java-defects.md`](../../forge-java-defects.md)).**
 
 | Site                              | Bug                                                                                                                                | Here           |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -697,6 +697,7 @@ named `<Type$> Token`. Then `Num$` (default 1) loyalty counters on one such toke
 | `Draft`                          | Spellbook shuffle through `MyRandom`, "A-" rebalanced lookup, two-hop move through zone `None`           |
 | `Earthbend`                      | Delayed `ChangesZone`/`Exiled` triggers, `IsTriggerRemembered`, `ElementalBend` trigger mode             |
 
-**Forge bug (PORT-8, found researching `BecomeMonarch`).** `Player.java:3434-3436`, `getMonarchSet`: condition inverted
+**Forge bug (PORT-8, found researching `BecomeMonarch`; tracked in
+[`forge-java-defects.md`](../../forge-java-defects.md)).** `Player.java:3434-3436`, `getMonarchSet`: condition inverted
 (`monarchEffect == null ? monarchEffect.getSetCode() : null`) — always null in the normal case, NPE otherwise. Sibling
 `getInitiativeSet` (`:3486-3488`) is correct. Cosmetic (set code for the effect card's image); to report upstream.

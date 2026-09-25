@@ -35,6 +35,18 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 600,
+            "statusMessage": "Installing golangci-lint for the gates"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -51,14 +63,18 @@
   "permissions": {
     "allow": [
       "Bash(./scripts/gates.sh *)",
+      "Bash(crucible/scripts/ensure-golangci.sh*)",
       "Bash(crucible/scripts/gates.sh *)",
+      "Bash(crucible/scripts/unported-apis.sh*)",
       "Bash(go build *)",
       "Bash(go env *)",
       "Bash(go env)",
+      "Bash(go generate -run genregistry *)",
       "Bash(go run ./tools/apiscan -check*)",
       "Bash(go run ./tools/covergate *)",
       "Bash(go run ./tools/docgate *)",
       "Bash(go run ./tools/enginelint *)",
+      "Bash(go run ./tools/genregistry *)",
       "Bash(go run ./tools/javacycles *)",
       "Bash(go run ./tools/vocabscan *)",
       "Bash(go test *)",
@@ -69,7 +85,8 @@
       "Bash(golangci-lint run *)",
       "Bash(golangci-lint run)",
       "Bash(npx markdownlint-cli2 *)",
-      "Bash(prettier --check *)"
+      "Bash(prettier --check *)",
+      "Bash(prettier --write *)"
     ]
   },
   "worktree": {

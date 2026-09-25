@@ -141,13 +141,16 @@ cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/cov
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
 cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
-cd crucible && golangci-lint run   # v2.13.2, same as CI: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+cd crucible && golangci-lint run   # v2.13.2, same as CI; scripts/ensure-golangci.sh installs one built with go.mod's Go
 
 # All of the above in CI order. .claude/ hooks run full before every Claude commit (blocking) and fast on Stop (report
 # only), both with GATES_AUTO_SKIP=1: gates whose inputs are unchanged since HEAD are skipped, and go test uses its cache
 # (CI keeps -count=1). Measured: ~25 s with tests cached; a changed engine adds its own ~45 s test run. New .claude/ files need `git add -f`: upstream
 # .gitignore ignores .claude
 crucible/scripts/gates.sh fast|full
+
+# What to port next: unregistered APIs by corpus line count (port-effect step 0)
+crucible/scripts/unported-apis.sh 30
 
 # Regenerate NewRegistry after adding an effect (ADR-0017); CI fails on a stale registry_gen.go
 cd crucible && go generate -run genregistry ./internal/engine
@@ -192,8 +195,8 @@ replacement effects, block legality, continuous effects across all eight layers 
 chaining, last-known information, activated abilities.
 
 M6 in progress: 139 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps: real instant/sorcery casting, `DB$ Effect` (1,751
-corpus lines), `Play` (323), `CopySpellAbility` (239), `Clone` (175).
+`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`): real
+instant/sorcery casting, `Effect` (1,928), `Play` (327), `CopySpellAbility` (254), `Clone` (180).
 
 Thin or missing: Layer 1 copy effects; most of Layers 3-8 past their literal shapes; a real priority window
 (`ResolveStack` plays only the no-response case). Full list: `port-log/game-state.md`, "Not ported yet".

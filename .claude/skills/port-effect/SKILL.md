@@ -11,10 +11,26 @@ description:
 Every step is enforced by a gate or has broken a commit before. Do them all, in order, for each API. Batch several APIs
 per commit (memory: port in bigger packs), but every API gets every step.
 
-## 0. Research first
+## 0. Pick, then research
 
-Delegate to the `forge-oracle` subagent: "forge-oracle: <Api>". Its answer gives the params the Java reads, resolution
-order, controller decisions, corpus shapes and PORT-8 bugs. Do not read `forge-game/` inline unless it left a gap.
+Pick by corpus use, among effects nobody has already ruled out:
+
+```bash
+crucible/scripts/unported-apis.sh 30   # "<lines> <Api>", unregistered only, most-used first
+```
+
+Skip any API in the `**Researched and deferred.**` tables of
+`docs/crucible/porting/port-log/game-state/effects-batches.md` unless you are taking on its named blocker. Reason: each
+row cost a full `forge-oracle` run to establish. An API you research and defer gets a row there, with its blocker.
+
+Routine or hard: routine = the dominant shape is a state change over pieces the engine already has. Hard = needs a new
+stack/casting mechanic, a Layer 1 copy, synthetic Command-zone cards with their own triggers, a new trigger mode, a new
+`PlayerController` decision loop, or changes a documented contract (e.g. `DeclareCombatBlockers`' "not re-checked") --
+that last one needs an ADR first (ADRP-4). Hard ones go to `effect-porter-hard`, or get deferred.
+
+Then delegate to the `forge-oracle` subagent: "forge-oracle: <Api>". Its answer gives the params the Java reads,
+resolution order, controller decisions, corpus shapes and PORT-8 bugs. Do not read `forge-game/` inline unless it left a
+gap.
 
 Pick which params to resolve by corpus count. Everything else is rejected with an `error` (step 1), never silently
 ignored.
@@ -53,12 +69,13 @@ func (<api>Effect) Resolve(g *Game, a *Ability, c PlayerController) error {
 
 Rules that bite here:
 
-| Rule   | Do                                                                                              |
-| ------ | ----------------------------------------------------------------------------------------------- |
-| GO-12  | Iterate `collect.OrderedSet`/`OrderedMap` or slices, never a bare `map`, where order is visible |
-| GO-9   | Hold `CardID`/`PlayerID`, never `*Card`                                                         |
-| GO-8   | No `any`; read params through `a.Params`                                                        |
-| PORT-8 | Forge bug found -> stop, report file:line, do not compensate in Go                              |
+| Rule   | Do                                                                                                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GO-12  | Iterate `collect.OrderedSet`/`OrderedMap` or slices, never a bare `map`, where order is visible                                                                                                  |
+| GO-9   | Hold `CardID`/`PlayerID`, never `*Card`                                                                                                                                                          |
+| GO-8   | No `any`; read params through `a.Params`                                                                                                                                                         |
+| PORT-8 | Forge bug found -> stop, report file:line, do not compensate in Go                                                                                                                               |
+| GO-7   | A valid-string property `Matches` has no case for reads false for every card, silently. Check each `Choices$`/`Valid*$` property the dominant shape uses in `valid.go`; reject the unported ones |
 
 Reuse helpers before writing new ones: `targetedOrDefinedCards`, `targetedOrDefinedPlayers` (`defined.go`),
 `resolveNamedAmount` (`amount.go`), `optionalAmount`, `checkChoice` (`effecthelpers.go`), `moveByEffect`
@@ -92,7 +109,10 @@ package engine
 //enginelint:allow card game ability defined condition control parts
 ```
 
-Do not touch `enginelint.json` for an effect. Run until clean:
+Do not touch `enginelint.json` for an effect. A violation names the file a symbol lives in
+(`Memory is declared in memory.go`); the allow list takes that file's group name, which can differ -- look it up under
+`"groups"` in `internal/engine/enginelint.json` (`memory.go` is group `parts`, `emitCounterChanged`'s `event.go` is
+`event`). Run until clean:
 
 ```bash
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json
@@ -116,7 +136,11 @@ func Test<Api>Effect<WhatItProves>(t *testing.T) {
 
 Helpers: `newTwoPlayerGame`, `resolveLine` (fails the test on error), `resolveNow` (returns the error; use it to assert
 a rejected param), `creatureDefPT`, `libraryCards`, `etbChainDef` + `castETBChain` for a `SubAbility$` chain. Queue
-controller answers on `engine.NewScriptedController()` (`QueueEntityChoice`, `QueueAbilityChoice`, ...).
+controller answers on `engine.NewScriptedController()` (`QueueEntityChoice`, `QueueAbilityChoice`, ...). `newTokenGame`
+is a two-player game whose DB holds `testTokens` (`tokens_test.go`; add a script there). In `pack4effects_test.go`:
+`offerRecorder` records every card pool `ChooseCardsForEffect` is offered (assert on pool contents and order),
+`firstPicker` picks the first cards offered (for cards the effect itself creates), and `pushStackAbility` leaves an
+ability waiting on the stack under the one being tested.
 
 Add one test per rejected param shape that matters: assert `resolveNow` returns the `not resolvable yet` error.
 
@@ -127,7 +151,11 @@ Add one test per rejected param shape that matters: assert `resolveNow` returns 
 | `docs/crucible/porting/port-log/game-state/effects-batches.md` | New `## <Apis> land` section at the end: what resolves, what is rejected and why, shared engine pieces, Java `path:line` |
 | `docs/crucible/porting/port-log/game-state.md`                 | Index row for the new section; update the remaining-effects sentence in `## Not ported yet` (`M6's N remaining ...`)     |
 | `docs/crucible/00-master-implementation-plan-in-progress.md`   | Resolved-API count                                                                                                       |
-| `CLAUDE.md`                                                    | `M6 in progress: N of the corpus's 203` count and largest gaps                                                           |
+| `CLAUDE.md`                                                    | `M6 in progress: N of the corpus's 203` count and largest gaps (`unported-apis.sh` counts)                               |
+| `docs/crucible/porting/forge-java-defects.md`                  | A row per Forge Java bug found (PORT-8): site, defect, what Crucible does meanwhile, upstream status                     |
+
+A parallel porter (`effect-porter`, `effect-porter-hard`) leaves `## Not ported yet` and the final counts to the
+orchestrator that merges the batches. Reason: every porter edits the same sentence, and the merge conflicts.
 
 Count = registered APIs minus the three M5 casting entries. `genregistry -check` (in `gates.sh` and CI) prints it and
 fails when `CLAUDE.md` or the plan quotes a different number:

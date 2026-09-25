@@ -121,6 +121,14 @@ type Player struct {
 	// property (Keen-Eared Sentry's CantVenture); reset for every player at
 	// cleanup (Player.onCleanupPhase).
 	VenturedThisTurn int
+	// CrankCounter is Player.crankCounter (Java's own field, default 3): the
+	// CRANK! counter's own sprocket position (1, 2 or 3), advanced by
+	// AdvanceCrank (advancecrankeffect.go). Set to 3 at game creation
+	// (NewGame, game.go) the same way Java's own field initializer does, so
+	// the first AdvanceCrank ever resolved moves it to 1 -- CR 725's own
+	// Contraption subtype rules.
+	CrankCounter int
+
 	// completedDungeons is every dungeon this player has completed, in
 	// completion order (Player.completedDungeons, CR 309.7). The cards
 	// themselves have ceased to exist, parked in None.

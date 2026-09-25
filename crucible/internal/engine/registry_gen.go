@@ -17,6 +17,7 @@ func NewRegistry() *Registry {
 	r[APIAddOrRemoveCounter] = addOrRemoveCounterEffect{}
 	r[APIAddPhase] = addPhaseEffect{}
 	r[APIAddTurn] = addTurnEffect{}
+	r[APIAdvanceCrank] = advanceCrankEffect{}
 	r[APIAirbend] = airbendEffect{}
 	r[APIAlterAttribute] = alterAttributeEffect{}
 	r[APIAmass] = amassEffect{}
@@ -46,6 +47,7 @@ func NewRegistry() *Registry {
 	r[APIChoosePlayer] = choosePlayerEffect{}
 	r[APIChooseSource] = chooseSourceEffect{}
 	r[APIChooseType] = chooseTypeEffect{}
+	r[APIClaimThePrize] = claimThePrizeEffect{}
 	r[APIClash] = clashEffect{}
 	r[APICleanup] = cleanupEffect{}
 	r[APICloak] = manifestEffect{api: "Cloak", cloak: true, remember: "RememberCloaked"}

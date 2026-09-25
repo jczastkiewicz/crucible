@@ -915,6 +915,39 @@ func TestCheckStateBasedActionsZeroLoyaltyDies(t *testing.T) {
 	}
 }
 
+// A Mode$ IgnorePlaneswalkerZeroLoyaltyRule static ability exempts a
+// matching planeswalker at zero loyalty from CR 704.5's own SBA -- Sanctum
+// Lurker's own effect (once its card-script Affected$/ValidCard$ mix-up is
+// fixed, upstream-patches.md), and StaticAbilityIgnoreZeroLoyalty.java's
+// whole reason to exist.
+func TestCheckStateBasedActionsZeroLoyaltyExemptedSurvives(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	exempt := g.NewCard(planeswalkerDefIgnoreZeroLoyalty(t, "Test Exempt Planeswalker", "3"), a, engine.Battlefield)
+	// other belongs to b, not a: exempt's own ValidCard$ Planeswalker.YouCtrl
+	// reads "You" as its ability's controller (a), so a second planeswalker
+	// under a would be legitimately exempted too -- b's isolates the
+	// exemption's own controller scoping, not just its existence.
+	other := g.NewCard(planeswalkerDefLoyalty(t, "3"), b, engine.Battlefield)
+	// exempt is left at the default zero counters, same as dead in
+	// TestCheckStateBasedActionsZeroLoyaltyDies -- no ETB hook exists yet
+	// to give it its printed starting loyalty. other gets none either, so
+	// it dies exactly as that test's own dead case does: the exemption,
+	// not some difference in starting loyalty, is what this test isolates.
+
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+
+	if z := g.Card(exempt).Zone; z != engine.Battlefield {
+		t.Errorf("exempted zero-loyalty planeswalker zone = %v, want Battlefield", z)
+	}
+	if z := g.Card(other).Zone; z != engine.Graveyard {
+		t.Errorf("non-exempt zero-loyalty planeswalker zone = %v, want Graveyard", z)
+	}
+}
+
 // A non-planeswalker permanent at the same (absent) loyalty count is
 // untouched -- this rule is about planeswalkers, not about the counter
 // being absent.
@@ -1157,6 +1190,26 @@ func TestCheckStateBasedActionsLegendRuleOnlyAppliesToLegendaryPermanents(t *tes
 	if z := g.Card(second).Zone; z != engine.Battlefield {
 		t.Errorf("its same-named non-legendary sibling zone = %v, want Battlefield", z)
 	}
+}
+
+// planeswalkerDefIgnoreZeroLoyalty builds a planeswalker carrying a real
+// S:Mode$ IgnorePlaneswalkerZeroLoyaltyRule line (ValidCard$ Planeswalker.
+// YouCtrl, Sanctum Lurker's own shape once its Affected$/ValidCard$ mix-up
+// is fixed -- upstream-patches.md), compiled through the real pipeline the
+// same reason legendaryCreatureDefIgnoreLegendRule is.
+func planeswalkerDefIgnoreZeroLoyalty(t *testing.T, name, loyalty string) *compile.Card {
+	t.Helper()
+	raw := &carddb.Card{Filename: name}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = name
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Planeswalker Test")
+	raw.Faces[0].InitialLoyalty = loyalty
+	raw.Faces[0].Statics = []string{"Mode$ IgnorePlaneswalkerZeroLoyaltyRule | ValidCard$ Planeswalker.YouCtrl"}
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", name, err)
+	}
+	return c
 }
 
 // legendaryCreatureDefIgnoreLegendRule builds a legendary creature carrying a

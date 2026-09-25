@@ -3811,9 +3811,9 @@ IgnoreLegendRule	IsPresent	2	-	-	prose:2
 IgnoreLegendRule	Mode	11	-	-	token:11
 IgnoreLegendRule	PresentCompare	2	-	-	token:2
 IgnoreLegendRule	ValidCard	10	-	valid:5	token:8,prose:2
-IgnorePlaneswalkerZeroLoyaltyRule	Affected	1	-	valid:1	token:1
 IgnorePlaneswalkerZeroLoyaltyRule	Description	1	-	-	prose:1
 IgnorePlaneswalkerZeroLoyaltyRule	Mode	1	-	-	token:1
+IgnorePlaneswalkerZeroLoyaltyRule	ValidCard	1	-	valid:5	token:1
 ImmediateTrigger	AB	149	-	-	token:149
 ImmediateTrigger	AILogic	5	-	-	token:5
 ImmediateTrigger	AfterReplacement	1	-	-	bool:1

@@ -150,8 +150,14 @@ cd crucible && golangci-lint run   # v2.13.2, same as CI; scripts/ensure-golangc
 # .gitignore ignores .claude
 crucible/scripts/gates.sh fast|full
 
-# What to port next: unregistered APIs by corpus line count (port-effect step 0)
+# What to port next: unregistered APIs by corpus line count, deferred ones marked (port-effect step 0)
 crucible/scripts/unported-apis.sh 30
+
+# Parallel porters (port-batch skill): list agent worktrees, merge their branches, remove merged ones
+crucible/scripts/merge-porters.sh list|merge|cleanup [BRANCH...]
+
+# After editing .claude/hooks: their decision logic (what counts as a commit, what REV-1 guards)
+.claude/hooks/hooks_test.sh
 
 # Regenerate NewRegistry after adding an effect (ADR-0017); CI fails on a stale registry_gen.go
 cd crucible && go generate -run genregistry ./internal/engine
@@ -221,9 +227,14 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 | subagent | `effect-porter`      | Batch of routine M6 effects (Sonnet), one worktree per batch, run in parallel          |
 | subagent | `effect-porter-hard` | M6 effects needing real design (stack/casting, Layer 1, Command zone) - `effort: high` |
 | skill    | `port-effect`        | Any M6 `ApiType` effect: file, registry, enginelint, test, docs, counts                |
+| skill    | `port-batch`         | Big M6 batch: split across parallel porters, merge, reconcile, clean up worktrees      |
 | skill    | `port-java-unit`     | Any other Java unit, PORT-3 order                                                      |
 | skill    | `add-scenario`       | Rules test as a `testdata/scenarios/` fixture                                          |
 | skill    | `sync-upstream`      | Merge `Card-Forge/forge`, verify the port still agrees with what moved                 |
 
 Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`; `game-state.md` is the index plus
-`Not ported yet`.
+`Not ported yet`. Each new M6 batch gets its own `game-state/effects-<batch>.md`; existing `effects-*.md` files are
+closed, so parallel porters never append to one file.
+
+Hooks resolve the checkout from the tool call (hook input `cwd`, the edited path, `git -C`/`cd`), never
+`$CLAUDE_PROJECT_DIR` alone: a porter's worktree is gated and REV-1-guarded as its own checkout.

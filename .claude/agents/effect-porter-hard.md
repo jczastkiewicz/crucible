@@ -34,10 +34,11 @@ Rules, non-negotiable:
   `cd crucible && go generate -run genregistry ./internal/engine`. Never hand-edit `registry_gen.go`.
 - Tests in `package engine_test`, two players, files named for behavior. Add a scenario fixture (skill `add-scenario`)
   for any whole-engine rules behavior you touch (combat, SBA, layers, triggers). Check every returned error.
-- Docs (DOC-12): one section per batch at the end of `docs/crucible/porting/port-log/game-state/effects-batches.md`,
-  an index row in `game-state.md`, and the resolved-API count in `CLAUDE.md` /
-  `00-master-implementation-plan-in-progress.md` kept consistent with your branch's registry (an orchestrator
-  reconciles the final number across parallel porters afterward). Never edit "## Not ported yet" yourself.
+- Docs (DOC-12): your batch's own new file `docs/crucible/porting/port-log/game-state/effects-<batch>.md` (skill
+  step 5; never append to an existing `effects-*.md`), an index row in `game-state.md`, and the resolved-API count in
+  `CLAUDE.md` / `00-master-implementation-plan-in-progress.md` kept consistent with your branch's registry. The
+  orchestrator (`port-batch` skill, `scripts/merge-porters.sh`) unions index rows and rewrites the final count across
+  parallel porters. Never edit "## Not ported yet" yourself.
 - Run `crucible/scripts/gates.sh full` until green, commit on your branch with the attribution lines your system
   prompt gives (never a hardcoded model name), commit every 1-2 APIs so progress survives an interruption. Never push.
 - If an API genuinely cannot be ported at all without an architecture change out of scope for this batch, say so with

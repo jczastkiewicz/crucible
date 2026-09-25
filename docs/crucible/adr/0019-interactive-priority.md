@@ -64,11 +64,22 @@ Option 1 chosen.
 
 1. **`PlayerController` gains one method**, `TakeAction(g *Game, pid PlayerID) Action` — the "priority" ask, named for
    the CR 117 concept, not Java's method name. `Action` is a typed struct (GO-8): a zero value means pass. `Action`'s
-   fields carry exactly what a response can be today — cast a spell (Instant/Sorcery only, `castInstantOrSorcery`'s own
-   path) or activate an ability (`ActivateAbility`'s own path) — reusing those two functions' existing signatures rather
-   than inventing a third cast path. `ScriptedController.QueueAction`/`TakeAction` follow the existing
-   `QueueX`/`ChooseX` pattern (`control.go:499-...`): an empty queue answers pass, the same default every other
-   `ScriptedController` method already has.
+   fields carry exactly what a response can be today — cast a spell (`CastSpell`'s own path, Decision point 5's split
+   makes an Instant legal here) or activate an ability (`ActivateAbility`'s own path) — reusing those two functions'
+   existing signatures rather than inventing a third cast path. `ScriptedController` keys its queue **per player**
+   (`[MaxPlayers][]Action`-shaped, indexed by `PlayerID` like `Game.players` already is — not a `map`, GO-12) rather
+   than one shared FIFO: a single shared queue and "empty means pass" contradict each other the moment more than one
+   player acts in a round. CR 117.3c lets a player keep priority and be asked again immediately, so a fixture queuing
+   `[A's sorcery, B's Bolt]` in one FIFO would have A's own second ask (still A's turn to act, per 117.3c) pop B's entry
+   by mistake. A per-player queue makes `QueueAction(pid, ...)` name who the answer is for, the same way a fixture
+   already names a player for every other multi-player decision. `ScriptedController.QueueAction`/`TakeAction` use the
+   existing `QueueX`/`ChooseX` naming, but not the existing exhaustion behavior: every other queued decision panics on
+   empty (`scriptExhausted`, `control.go`'s own struct comment — "a queue running dry mid-game is a fixture-authoring
+   mistake"), because each is asked a bounded, known number of times a fixture author can count. `TakeAction` is asked
+   an unbounded number of times per priority round — CR 117.3c lets a player act repeatedly, and every round ends in a
+   pass — so "nothing left queued for this player" is the overwhelmingly common, correct answer, not a mistake. An empty
+   per-player queue answers pass for `TakeAction` specifically, a deliberate, documented exception to the panic
+   convention, not an instance of it.
 2. **A new public entry, `Game.PassPriority(reg *Registry, controller PlayerController) error`**, standalone — nothing
    existing calls it. It is not wired into `beginPhase` (`turn.go:189`): `beginPhase` takes no `*Registry`, and wiring
    it there would resolve phase triggers through the priority loop, changing every existing scenario's `expect.events`.
@@ -84,24 +95,30 @@ Option 1 chosen.
    - Loop body, in order: `CheckStateBasedActions` (already the only pre-ask step this port's trigger design needs —
      `pushTriggeredAbilities` fires inline at trigger-detection sites, not from a waiting queue a priority ask would
      have to drain, unlike Java's `addAllTriggeredAbilitiesToStack`). Then ask `holder.TakeAction`. A non-pass answer is
-     applied by calling `CastSpell`/`ActivateAbility` directly (Decision, point 5, for the timing check both now need);
-     on success, `holder` and the pass count reset to the actor (CR 117.3c); on failure, `PassPriority` returns an error
-     naming the action (GO-7). A pass advances `holder` to the next player and increments the pass count; once it
-     reaches the number of live players, either the stack is empty (the round, and `PassPriority` itself, ends) or
-     non-empty (`ResolveStack`'s own loop pops and resolves everything currently on the stack — CR 117.4 does not stop
-     at one item once passes have gone all the way around, and `ResolveStack`'s existing to-empty shape is exactly CR
-     405.5's "keep resolving while nothing responds," reused as-is rather than narrowed), then the pass count resets to
-     zero with `holder` back at the active player for a fresh round.
+     applied by calling `CastSpell`/`ActivateAbility` directly; a `false` return means the queued action failed a
+     legality check `PassPriority` itself did not pre-derive (Decision, point 5) and becomes an error naming the player,
+     the card and, for an activated ability, its index (GO-7: a bad queued action fails its own game, not the batch). On
+     success, `holder` and the pass count reset to the actor (CR 117.3c — the caster keeps priority). A pass advances
+     `holder` to the next live player (`nextPlayerAfter`, already skips a player who has lost) and increments the pass
+     count; once it reaches the number of live players (recomputed each time — a state-based action inside the loop can
+     remove one mid-round), CR 117.4 resolves **only the object on top of the stack**, not the whole stack —
+     `resolveTop` (Decision, point 3) — then CR 117.3b gives priority back to the active player (or the next live player
+     after them, if the active player has since lost, `PhaseHandler.java:1131-1135`) with the pass count reset to zero,
+     and the loop continues. If the stack was already empty when the pass count reached the player count, the step ends
+     and `PassPriority` returns. The loop's own guard is `!g.over`, checked going into each iteration — a state-based
+     action can end the game mid-round.
    - No nested loops: a response only pushes and returns to the outer loop — the loop itself is the only place
      `CastSpell`/`ActivateAbility` get called from a priority ask. Both keep their existing push-only, gate-then-push
      shape (Decision, point 5) and stay callable directly the way every existing test and `actions.go` verb already
      calls them, unchanged.
-3. **`ResolveStack` keeps its existing to-empty shape.** `PassPriority` calls it, unmodified, once a full pass-around
-   ends with a non-empty stack. An earlier draft of this point said `ResolveStack` would narrow to "pop one item" —
-   wrong against the code: it already loops to empty (`stack.go:69-86`), and every existing test plus `actions.go`'s
-   `resolvestack` verb depends on that to-empty behavior in one call. Narrowing it would break all of them for no reason
-   `PassPriority` needs — CR 117.4 already means "resolve everything now that a full round has passed with no response,"
-   which is what calling the existing loop once already does.
+3. **`ResolveStack`'s loop body is extracted into `resolveTop`** — pop, the existing fizzle check, dispatch, emit
+   `AbilityResolved`, move a resolved spell's own source to the graveyard, then `CheckStateBasedActions`: exactly one
+   pass through what is currently `ResolveStack`'s `for` body (`stack.go:70-83`). `ResolveStack` itself becomes
+   `for len(g.stack) > 0 && !g.over { resolveTop(...) }` — byte-identical behavior, same signature, same callers,
+   verified by the existing test suite passing unchanged. `PassPriority` calls `resolveTop` once per full pass-around
+   (Decision, point 2), never `ResolveStack`: CR 117.4 only ever resolves the top object, then hands priority back
+   before the next one — calling the to-empty `ResolveStack` from inside the loop would resolve everything currently on
+   the stack in one pass-around with no response window between items, which is CR 117.3b's whole point to prevent.
 4. **Which steps grant priority** (`Game.givesPriority(phase PhaseType) bool`, ported from `onPhaseBegin`'s own
    per-phase sets, `PhaseHandler.java:240-451`): not `Untap` (CR 502.4). `Cleanup` grants it only when the SBA check or
    a trigger check after it finds something to do (CR 514.3a) — `beginPhase`'s existing Cleanup body (`turn.go`'s own
@@ -121,26 +138,30 @@ Option 1 chosen.
    - Instant: no timing restriction (CR 307.1 already excludes Instants) — legal whenever `TakeAction`'s caller has
      priority to be asked at all, which `PassPriority`'s own loop already only does for a live player during a
      priority-granting step (Decision, point 4).
-   - Activated ability: legal at instant speed unless its compiled `Ability` carries `SorcerySpeed$ true`
-     (`compile.Ability.Param("SorcerySpeed")` — generic across every `APIType`'s param struct, since the check runs
-     before dispatch, the same shape `activatemanaability.go:139`'s own comment already names as unenforced). This
-     closes that gap and the identical ones `destroyeffect.go:38`, `milleffect.go:31`, `sacrificeeffect.go:44`,
-     `sacrificealleffect.go:25` and others already flag as "a cost-restriction flag with no cost-payment site to enforce
-     it yet" — `SorcerySpeed$` gets its first real enforcement site here, at activation, not at cost payment
-     (Consequences). A loyalty/planeswalker ability's own once-per-turn, sorcery-speed-only restriction is not modeled
-     by this port at all yet (no `Planeswalker$` ability marker exists to check) and stays out of scope, same as before
-     this ADR.
+   - Activated ability: legal at instant speed unless its compiled `Ability` carries `SorcerySpeed$ true` or
+     `Planeswalker$` (a loyalty ability) — both read via `compile.Ability.Param(key)`, generic across every `APIType`'s
+     param struct since the check runs before dispatch, the same shape `activatemanaability.go:139`'s own comment
+     already names `SorcerySpeed$` as unenforced. `ActivateAbility` already reads `Planeswalker$` today
+     (`activateability.go`'s `isLoyaltyAbility`/`LoyaltyAbilityActivated` once-per-turn check) but does not yet tie it
+     to sorcery timing (CR 606.3) — this closes that gap too, alongside `SorcerySpeed$`'s and the identical ones
+     `destroyeffect.go:38`, `milleffect.go:31`, `sacrificeeffect.go:44`, `sacrificealleffect.go:25` and others already
+     flag as "a cost-restriction flag with no cost-payment site to enforce it yet" — both get their first real
+     enforcement site here, at activation, not at cost payment (Consequences).
    - The oracle (`ScriptedController`, or any future real controller) is never offered an action it cannot legally take
      in Java — `canCastTiming` only ever gates what appears in the legal-action set a controller chooses from, never
      re-validates after the fact (`SpellAbility.java:2596-2613`). This port has no legal-action enumeration
      (`TakeAction` just asks "what, if anything" and trusts the answer, the same stance every other `PlayerController`
-     method already documents). Trusting a queued action that violates this timing check would let a fixture reach a
-     state CR forbids with nothing catching it, so the check runs inline in `CastSpell`/ `ActivateAbility` themselves —
-     not only from `PassPriority` — and a violation returns an error rather than the plain `false` both functions return
-     for every other declined-by-the-rules case today (GO-7: a bad queued action fails its own game, not the batch).
-     This is the general rule `MustBlock`'s own ADR (Context) applies rather than re-decides: a controller's answer is
-     trusted up to the legality checks this port can cheaply run inline; a check that would require re-deriving the full
-     legal-action set (Java's own approach) is deferred, not silently skipped.
+     method already documents). `CastSpell`/`ActivateAbility` themselves keep their existing contract — `false` for
+     every declined-by-the-rules case, timing included, the identical signature every current caller (every test,
+     `actions.go`'s verbs) already relies on. `PassPriority` is the one caller that cannot treat a `false` here as an
+     ordinary decline: the action came from a controller being asked what to do with priority, not from a test calling a
+     cast function speculatively, so any `false` `PassPriority` gets back from applying a non-pass answer becomes an
+     error naming the player, the card, and (for an activated ability) its index — no separate legality-checking logic
+     duplicated on `PassPriority`'s own side, just turning the existing gate's answer into a hard stop where the caller
+     is a controller's decision (GO-7: a bad queued action fails its own game, not the batch). This is the general rule
+     `MustBlock`'s own ADR (Context) applies rather than re-decides: a controller's answer is trusted up to the legality
+     checks this port can cheaply run inline; a check that would require re-deriving the full legal-action set (Java's
+     own approach) is deferred, not silently skipped.
    - Existing tests asserting an Instant is rejected outside `Main1`/`Main2` (if any) are a deliberate CR 307.1 fix, not
      a regression — named as such in the implementing commit.
 6. **No new event.** A pass is not telemetry-worthy on its own (ADR-0013's own volume argument — a pass happens far more
@@ -156,10 +177,11 @@ ADR only removes their remaining blocker); the general CR 608.2b fizzle check pa
 ## Consequences
 
 **Good:** `Play`, `CopySpellAbility`, and the casting-infra bucket of `PlayerController`'s remaining gaps all unblock.
-`ResolveStack` is untouched — same signature, same to-empty behavior, same callers. `PassPriority` is purely additive:
-nothing existing calls it, so every current test and scenario stays byte-identical by construction. `SorcerySpeed$`'s
-own long-standing "parsed but never enforced" gap (Decision, point 5) closes for free as part of giving
-`CastSpell`/`ActivateAbility` a real timing check.
+`ResolveStack` keeps its exact signature and to-empty behavior for every existing caller — only its body moves into
+`resolveTop` (Decision, point 3), verified by the existing test suite passing unchanged. `PassPriority` is purely
+additive: nothing existing calls it, so every current test and scenario stays byte-identical by construction.
+`SorcerySpeed$`'s and `Planeswalker$`'s own long-standing "parsed but never enforced for timing" gaps (Decision,
+point 5) close for free as part of giving `CastSpell`/`ActivateAbility` a real timing check.
 
 **Bad:** the general CR 608.2b fizzle check becomes load-bearing rather than a documented but currently-unreachable gap
 — a response resolving above a targeted spell can now actually remove its target before this port has a general re-check

@@ -2,9 +2,8 @@
 
 One of this batch's seven assigned `ApiType`s (`ControlPlayer` 11 corpus lines, `ChaosEnsues` 11, `Meld` 7,
 `ControlSpell` 6, `UnlockDoor` 4, `Subgame` 3, `Regeneration` 3) actually needed new code; the other six were researched
-and deferred — table below. `Regeneration`'s own corpus lines are fully resolved, but through a hand-run replacement
-match rather than a `NewRegistry` registration, so `scripts/unported-apis.sh` still lists them as unregistered — see
-"Why `Regeneration` is not in `NewRegistry`," below.
+and deferred — table below. `Regeneration` is now registered in `NewRegistry` (159 of the corpus's 203 script-driven
+`ApiType`s resolve) and its 3 real corpus lines resolve end to end.
 
 ## Regeneration
 
@@ -14,46 +13,52 @@ itself has no `AB$`/`SP$` corpus line at all: every one of the corpus's 3 real `
 (`mossbridge_troll.txt:5-6`, `knight_of_the_holy_nimbus.txt:6-7`, `clergy_of_the_holy_nimbus.txt:6-7`) is reached only
 through a permanent's own always-on replacement,
 `R:Event$ Destroy | ActiveZones$ Battlefield | ValidCard$ Card.Self | Regeneration$ True | ReplaceWith$ <SVar>` naming
-`DB$ Regeneration | Defined$ ReplacedCard` — a shape `replacement.go`'s own doc comment did not previously list among
-the `Event$ Destroy` replacements this port models (only the shield mechanism, `Game.regenerate`, was).
+`DB$ Regeneration | Defined$ ReplacedCard` — a `Destroy`-event replacement shape `replacement.go` does not resolve (only
+`Moved`, `Untap`, `DamageDone`, `Draw` and `GainLife` are; the shield mechanism, `Game.regenerate`, was the only
+`Destroy`-type replacement this port modeled before this batch).
 
 `regeneration.go` now resolves that shape end to end:
 
 - `destroyReplacedByRegeneration` walks `host.Def.Faces[*].Replacements` the identical way `checkMovedReplacement` does,
-  looking for a match.
-- `regenerationReplacementMatches` is the match itself: `Event$ Destroy`, `Regeneration$ True`, host inside one of the
-  replacement's own `ActiveZones$` (`hostInActiveZones`, `replacement.go`), `ValidCard$` matched against host,
-  `replacementRequirementsCheck` (`replacement.go`). Any param past the corpus's own real six (`Event`, `ActiveZones`,
-  `ValidCard`, `Regeneration`, `ReplaceWith`, `Description`) refuses the whole line (GO-7) — none exist today, so this
-  allow-list is exhaustive against the real corpus, not aspirational.
-- `regenerationSubAbilityRecognized` is `tapAbilityResolvesTap`'s own "recognize this one `ReplaceWith$` shape and run
-  it by hand" role (`replacement.go`) applied here: a bare `DB$ Regeneration | Defined$ ReplacedCard` (3 of 3 real
-  lines) or `Defined$ Self` (0 real lines, but the identical substitution `AbilityUtils.getDefinedCards` would make for
-  it, since every real line's own `ValidCard$ Card.Self` already means the two resolve to the same card). Any other
-  `Defined$` value, or a param besides `Defined$`, is refused rather than guessed at.
+  looking for a match, and — once found — builds a synthetic `*Ability` from the `ReplaceWith$` SVar and calls
+  `regenerationEffect{}.Resolve` (`regenerationeffect.go`) directly, as a value rather than through `Registry.Resolve`.
+  The call sites that decide a destruction (`destroyEffect`, `destroyAllEffect`, `destroyDamagedCreatures`) run outside
+  any `Registry.Resolve` call — a fresh game's very first state-based-action check, before any ability has ever
+  resolved, is one of them — so `Game.registry` (`game.go`) cannot be relied on to be set yet, the identical reason
+  `drawReplaced`'s/`gainLifeReplaced`'s own `applyDrawReplacement`/`applyGainLifeReplacement` (`replacement.go`)
+  hand-run their own `Event$`s' `ReplaceWith$` targets. Calling the real registered effect directly (rather than a
+  second hand-rolled copy of its body) means the registered API and the one the corpus's own 3 real lines run are the
+  same code.
+- `regenerationReplacementMatches` is the replacement match itself: `Event$ Destroy`, `Regeneration$ True`, host inside
+  one of the replacement's own `ActiveZones$` (`hostInActiveZones`, `replacement.go`), `ValidCard$` matched against
+  host, `replacementRequirementsCheck` (`replacement.go`). Any param past the corpus's own real six (`Event`,
+  `ActiveZones`, `ValidCard`, `Regeneration`, `ReplaceWith`, `Description`) refuses the whole line (GO-7) — none exist
+  today, so this allow-list is exhaustive against the real corpus, not aspirational. The `ReplaceWith$` target itself is
+  recognized only when it names `DB$ Regeneration` with no `SubAbility$` of its own (0 real lines chain one; PORT-8/GO-7
+  refuses rather than drops a chain silently) — anything else is left unmatched.
+- `regenerationEffect.Resolve` (`regenerationeffect.go`) reads `Defined$`: `ReplacedCard` (100% of the corpus's 3 real
+  lines) — Java's own "the object the replacement is actually about" — and `Self` (0 real lines, but the identical
+  substitution `AbilityUtils.getDefinedCards` would make for it, since every real line's own `ValidCard$ Card.Self`
+  already means the two resolve to the same card) both resolve to `a.Source`; absent, it defaults to `Self`
+  (`targetedOrDefinedCards`'s own convention). Any other `Defined$` value, or any other param, is rejected (GO-7).
+- `cardCantRegenerate` is a new `cantBlockBy`-shaped scan (`staticability.go`'s own `Game.traitHosts` walk applied to a
+  different `Mode$`): `Mode$ CantRegenerate` — the disruption half of
+  `knight_of_the_holy_nimbus.txt:8-9`/`clergy_of_the_holy_nimbus.txt:7-8`'s own opponent-only "{N}: CARDNAME can't be
+  regenerated this turn," created as an effect card's `StaticAbilities$` trait (`effecteffect.go`) — blocks both
+  regeneration sources, checked in `Game.regenerate` before either. Without it, an opponent paying for that ability
+  would have no effect: these two cards would regenerate every time regardless, an actively wrong answer (Knight/Clergy
+  of the Holy Nimbus effectively indestructible), not merely an incomplete one, since `AB$ Effect | StaticAbilities$`
+  was already resolved by `effecteffect.go` before this batch and nothing consulted the trait it built.
 - `Game.regenerate` (the shield-spending entry point every destroy call site already calls — `destroyeffect.go:86`,
-  `destroyalleffect.go:90`, `action.go:324`) checks the static replacement first, since it costs nothing; only when it
-  does not match does a shield actually get spent. A corpus with no card combining both shapes on one permanent cannot
-  tell the two orders apart empirically, but checking the free one first is the more useful of the two. `regenerateBody`
-  is the three-part action (`c.Damage.Clear()`, tap with `checkTapsTriggers`, `removeFromCombat`) both sources now
-  share.
+  `destroyalleffect.go:90`, `action.go:324`) checks `cardCantRegenerate` first, then the static replacement (it costs
+  nothing); only when neither applies does a shield actually get spent. A corpus with no card combining a shield and
+  this replacement on one permanent cannot tell the replacement-before-shield order apart from the reverse empirically,
+  but checking the free one first is the more useful of the two. `regenerateBody` is the three-part action
+  (`c.Damage.Clear()`, tap with `checkTapsTriggers`, `removeFromCombat`) both sources share.
 
 No changes to `destroyeffect.go`, `destroyalleffect.go` or `action.go` were needed: all three already call
-`Game.regenerate` for every real destruction, so folding the new check into that one function reaches every real call
+`Game.regenerate` for every real destruction, so folding the new checks into that one function reaches every real call
 site for free.
-
-### Why `Regeneration` is not in `NewRegistry`
-
-`destroyReplacedByRegeneration` hand-runs the recognized shape directly rather than building an `*Ability` and calling
-`Registry.Resolve` on it — the identical reason `drawReplaced`'s/`gainLifeReplaced`'s own
-`applyDrawReplacement`/`applyGainLifeReplacement` (`replacement.go`) do for their own `Event$`s: the call sites that
-decide a destruction run outside any `Registry.Resolve` call (a fresh game's very first state-based-action check, before
-any ability has ever resolved, is one of them), so `Game.registry` (`game.go`) cannot be relied on to be set yet. Since
-0 real corpus lines ever reach `ApiType.Regeneration` through an ordinary `AB$`/`DB$` chain a card script could name on
-its own, there is no other real shape a `NewRegistry` registration would serve — registering it would be dead code
-exercised only by a synthetic unit test, not by the corpus. `scripts/unported-apis.sh` (its own count is purely
-`grep -oE 'r\[API[A-Za-z]+\]'` against `registry_gen.go`) will keep listing these 3 lines as unregistered on that basis;
-that is a known gap in the script's proxy metric, not an unresolved corpus shape.
 
 ## Researched and deferred
 

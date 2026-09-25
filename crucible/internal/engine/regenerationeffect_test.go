@@ -112,6 +112,87 @@ func TestRegenerationReplacementAcceptsDefinedSelf(t *testing.T) {
 	}
 }
 
+// TestRegenerationCantRegenerateBlocksStaticReplacement proves Mode$
+// CantRegenerate (knight_of_the_holy_nimbus.txt's/clergy_of_the_holy_nimbus
+// .txt's own opponent-only "{N}: CARDNAME can't be regenerated this turn")
+// blocks the free static replacement too, not just a shield -- Java's own
+// Card.canRegenerate checks it before either source.
+func TestRegenerationCantRegenerateBlocksStaticReplacement(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Mossbridge Locked"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = raw.Filename
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].ManaCost = mana.MustParse("G")
+	raw.Faces[0].Replacements = []string{mossbridgeReplacement}
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig",
+	}
+	raw.Faces[0].SVars.Set("Trig", "DB$ Effect | RememberObjects$ Self | StaticAbilities$ NoRegen | SubAbility$ DBDestroy")
+	raw.Faces[0].SVars.Set("NoRegen", "Mode$ CantRegenerate | ValidCard$ Card.IsRemembered")
+	raw.Faces[0].SVars.Set("DBDestroy", "DB$ Destroy | Defined$ Self")
+	raw.Faces[0].SVars.Set("DBRegen", "DB$ Regeneration | Defined$ ReplacedCard")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Errorf("zone = %v, want Graveyard -- CantRegenerate must override the free static replacement too", z)
+	}
+}
+
+// TestRegenerationCantRegenerateRequiresValidCard proves a Mode$
+// CantRegenerate static naming no ValidCard$ at all (0 real corpus lines,
+// but cardCantRegenerate's own defensive branch) does not block anything --
+// it is simply skipped, not treated as a blanket ban.
+func TestRegenerationCantRegenerateRequiresValidCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Mossbridge Bare CantRegen"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = raw.Filename
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].ManaCost = mana.MustParse("G")
+	raw.Faces[0].Replacements = []string{mossbridgeReplacement}
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig",
+	}
+	raw.Faces[0].SVars.Set("Trig", "DB$ Effect | StaticAbilities$ NoRegen | SubAbility$ DBDestroy")
+	raw.Faces[0].SVars.Set("NoRegen", "Mode$ CantRegenerate")
+	raw.Faces[0].SVars.Set("DBDestroy", "DB$ Destroy | Defined$ Self")
+	raw.Faces[0].SVars.Set("DBRegen", "DB$ Regeneration | Defined$ ReplacedCard")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(host).Zone; z != engine.Battlefield {
+		t.Errorf("zone = %v, want Battlefield -- a ValidCard$-less CantRegenerate must not block anything", z)
+	}
+}
+
 // TestRegenerationReplacementClearsDamage proves the state-based lethal
 // damage destruction (destroyDamagedCreatures, action.go) is replaced too,
 // and that the marked damage is actually removed, not just the destroy
@@ -300,11 +381,49 @@ func TestRegenerationReplacementRequiresRegenerationTrue(t *testing.T) {
 	}
 }
 
-// TestRegenerationSubAbilityRejectsWrongNameAndMissingDefined proves a
+// TestRegenerationSubAbilityAcceptsBareOrDefinedOmitted proves a bare
+// `DB$ Regeneration` with no Defined$ at all defaults to Self
+// (AbilityUtils.getDefinedCards' own default, the identical convention
+// targetedOrDefinedCards already has) and still regenerates.
+func TestRegenerationSubAbilityAcceptsBareOrDefinedOmitted(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Test Mossbridge Bare"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = raw.Filename
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].ManaCost = mana.MustParse("G")
+	raw.Faces[0].Replacements = []string{mossbridgeReplacement}
+	raw.Faces[0].Triggers = []string{
+		"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig",
+	}
+	raw.Faces[0].SVars.Set("Trig", "DB$ Destroy | Defined$ Self")
+	raw.Faces[0].SVars.Set("DBRegen", "DB$ Regeneration")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(host).Zone; z != engine.Battlefield {
+		t.Errorf("zone = %v, want Battlefield -- a bare DB$ Regeneration defaults Defined$ to Self", z)
+	}
+}
+
+// TestRegenerationSubAbilityRejectsWrongNameAndExtraParams proves a
 // ReplaceWith$ pointing to something other than DB$ Regeneration, and one
-// pointing to a bare DB$ Regeneration with no Defined$ at all, both leave
-// the replacement unrecognized.
-func TestRegenerationSubAbilityRejectsWrongNameAndMissingDefined(t *testing.T) {
+// pointing to DB$ Regeneration with a param past Defined$, both leave the
+// replacement unrecognized (GO-7): the destroy proceeds normally.
+func TestRegenerationSubAbilityRejectsWrongNameAndExtraParams(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
@@ -318,8 +437,8 @@ func TestRegenerationSubAbilityRejectsWrongNameAndMissingDefined(t *testing.T) {
 		sub  string
 	}{
 		{"WrongName", "DB$ Tap | Defined$ ReplacedCard"},
-		{"NoDefined", "DB$ Regeneration"},
 		{"ExtraParam", "DB$ Regeneration | Defined$ ReplacedCard | RememberObjects$ Self"},
+		{"SubAbilityChain", "DB$ Regeneration | Defined$ ReplacedCard | SubAbility$ DBNoop"},
 	} {
 		raw := &carddb.Card{Filename: "Test Mossbridge " + tc.name}
 		raw.Faces[0].Present = true
@@ -333,6 +452,7 @@ func TestRegenerationSubAbilityRejectsWrongNameAndMissingDefined(t *testing.T) {
 		}
 		raw.Faces[0].SVars.Set("Trig", "DB$ Destroy | Defined$ Self")
 		raw.Faces[0].SVars.Set("DBRegen", tc.sub)
+		raw.Faces[0].SVars.Set("DBNoop", "DB$ Cleanup")
 		def, err := compile.Compile(raw)
 		if err != nil {
 			t.Fatalf("compile %s: %v", tc.name, err)

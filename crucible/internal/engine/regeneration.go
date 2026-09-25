@@ -18,18 +18,28 @@ import (
 // <SVar>, e.g. mossbridge_troll.txt:5-6). It reports whether the
 // destruction was replaced.
 //
-// The static replacement is checked first: it costs nothing and Java's own
-// GameAction.destroy offers every applicable ReplacementEffect through the
-// identical CR 616 "which one applies" choice a shield's own replacement
-// instance is generated into -- checking it first here simply means a
-// permanent carrying both this static text AND an active shield spends
-// neither at once and keeps the shield for a later destruction, the more
-// useful of the two orders a corpus with no card combining both today
-// cannot tell apart empirically either way.
+// cardCantRegenerate is checked first, ahead of both sources: Mode$
+// CantRegenerate (knight_of_the_holy_nimbus.txt's/clergy_of_the_holy_nimbus
+// .txt's own "{N}: CARDNAME can't be regenerated this turn," an opponent-only
+// activated ability) blocks a shield exactly as it blocks the static
+// replacement -- Card.canRegenerate's own first check in Java,
+// `getGame().getStaticEffects().getCantRegenerateList()`, applied before
+// either source is even asked.
+//
+// Past that, the static replacement is checked before a shield: it costs
+// nothing, and Java's own GameAction.destroy offers every applicable
+// ReplacementEffect through the identical CR 616 "which one applies" choice
+// a shield's own replacement instance is generated into -- checking it first
+// here simply means a permanent carrying both this static text AND an
+// active shield spends neither at once and keeps the shield for a later
+// destruction, the more useful of the two orders a corpus with no card
+// combining both today cannot tell apart empirically either way.
 func (g *Game) regenerate(controller PlayerController, id CardID) bool {
+	if cardCantRegenerate(g, id) {
+		return false
+	}
 	c := g.Card(id)
-	if destroyReplacedByRegeneration(g, c) {
-		g.regenerateBody(controller, id)
+	if destroyReplacedByRegeneration(g, controller, c) {
 		return true
 	}
 	if c.RegenShields <= 0 {
@@ -40,10 +50,48 @@ func (g *Game) regenerate(controller PlayerController, id CardID) bool {
 	return true
 }
 
+// cardCantRegenerate reports whether any Mode$ CantRegenerate static
+// ability currently in play names id -- cantBlockBy's own walk
+// (staticability.go, Game.traitHosts) applied to a different Mode$: every
+// battlefield permanent and Command-zone effect card is a possible host,
+// the identical source Java's own getCantRegenerateList draws from (an
+// effect card's own StaticAbilities$ trait, effecteffect.go, is the only
+// real corpus source -- 2 of the corpus's real AB$ Effect|StaticAbilities$
+// lines, knight_of_the_holy_nimbus.txt's/clergy_of_the_holy_nimbus.txt's own
+// opponent-only "{N}: CARDNAME can't be regenerated this turn"). Any param
+// past ValidCard$ (0 real lines carry one) is not read: both real lines are
+// bare past it.
+func cardCantRegenerate(g *Game, id CardID) bool {
+	target := g.Card(id)
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantRegenerate") {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if !ok {
+						continue
+					}
+					if Matches(g, target, valid.Parse(validCard), h.Controller(), host) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // regenerateBody is CR 701.16's own three-part action -- RegenerationEffect
 // .resolve's own healDamage/tap/removeFromCombat trio -- shared by both of
-// regenerate's own sources: a spent shield and the static replacement
-// (destroyReplacedByRegeneration) below.
+// regenerate's own sources: a spent shield (above) and regenerationEffect
+// (regenerationeffect.go), which the static replacement below runs.
 func (g *Game) regenerateBody(controller PlayerController, id CardID) {
 	c := g.Card(id)
 	c.Damage.Clear()
@@ -60,26 +108,27 @@ func (g *Game) regenerateBody(controller PlayerController, id CardID) {
 // knight_of_the_holy_nimbus.txt:6-7, clergy_of_the_holy_nimbus.txt:6-7 --
 // 3 of 3 real DB$ Regeneration lines, every one naming ValidCard$ Card.Self,
 // so host is always both the replacement's own carrier and the card the
-// replacement is about).
+// replacement is about) and, when it does, runs it.
 //
-// Hand-run directly against host's own compiled Replacements, the identical
-// "recognize the one shape, run it by hand" precedent drawReplaced's/
-// gainLifeReplaced's own applyDrawReplacement/applyGainLifeReplacement
-// already have for a different Event$ (replacement.go): the call sites that
-// decide a destruction (destroyEffect, destroyAllEffect,
-// destroyDamagedCreatures) run outside any Registry.Resolve call, so
-// Game.registry (game.go) cannot be relied on to be set yet -- a fresh
-// game's very first state-based-action check, before any ability has ever
-// resolved, is exactly the case that would panic on a nil Registry.
-//
-// ApiType.Regeneration is not registered in NewRegistry for the identical
-// reason Draw's/PutCounter's own ReplaceWith$ shapes never gained a second
-// registration of their own: every real corpus line reaching it does so
-// through this one hand-run path, never through an ordinary AB$/DB$ chain
-// a card script could name on its own (0 real AB$/SP$ Regeneration lines
-// exist). scripts/unported-apis.sh still counts these 3 lines as
-// unregistered on that basis; effects-batch-b.md notes the discrepancy.
-func destroyReplacedByRegeneration(g *Game, host *Card) bool {
+// The match itself is hand-run against host's own compiled Replacements,
+// the identical "recognize the one shape, run it by hand" precedent
+// drawReplaced's/gainLifeReplaced's own applyDrawReplacement/
+// applyGainLifeReplacement already have for a different Event$
+// (replacement.go): the call sites that decide a destruction (destroyEffect,
+// destroyAllEffect, destroyDamagedCreatures) run outside any
+// Registry.Resolve call, so Game.registry (game.go) cannot be relied on to
+// be set yet -- a fresh game's very first state-based-action check, before
+// any ability has ever resolved, is exactly the case that would panic on a
+// nil Registry. Once matched, the ReplaceWith$ ability itself runs through
+// the real registered regenerationEffect (regenerationeffect.go) directly --
+// called as a value, not through *Registry.Resolve, for the identical
+// nil-Game.registry reason -- rather than a second hand-rolled copy of its
+// body: the registered API and the one this file's own real corpus lines
+// run are the same code. regenerationEffect.Resolve's own error (an
+// unrecognized Defined$) means the whole replacement is not run, exactly
+// like an unrecognized shape reported false here would be -- GO-7's refuse-
+// rather-than-guess contract, not a reason to fall back to a shield anyway.
+func destroyReplacedByRegeneration(g *Game, controller PlayerController, host *Card) bool {
 	if host.Def == nil {
 		return false
 	}
@@ -89,9 +138,22 @@ func destroyReplacedByRegeneration(g *Game, host *Card) bool {
 				continue
 			}
 			for _, sub := range r.Subs {
-				if strings.EqualFold(sub.Key, "ReplaceWith") && regenerationSubAbilityRecognized(sub.Ability) {
-					return true
+				if !strings.EqualFold(sub.Key, "ReplaceWith") || !strings.EqualFold(sub.Ability.Name, "Regeneration") {
+					continue
 				}
+				if _, ok := sub.Ability.Param("SubAbility"); ok {
+					// No chaining support here (PORT-8/GO-7) -- 0 real lines
+					// name one.
+					return false
+				}
+				child := Ability{
+					API:        APIRegeneration,
+					Source:     host.ID,
+					Controller: host.Controller(),
+					Params:     sub.Ability,
+					Amounts:    face.Amounts,
+				}
+				return (regenerationEffect{}).Resolve(g, &child, controller) == nil
 			}
 		}
 	}
@@ -135,37 +197,4 @@ func regenerationReplacementMatches(g *Game, r *compile.Ability, host *Card, amo
 		return false
 	}
 	return replacementRequirementsCheck(g, host, amounts, r)
-}
-
-// regenerationSubAbilityRecognized is tapAbilityResolvesTap's own
-// "recognize this ReplaceWith$ shape" role (replacement.go) applied to
-// ApiType.Regeneration: a bare `DB$ Regeneration | Defined$ ReplacedCard`
-// (3 of 3 real lines) or `Defined$ Self` (0 real lines, but the identical
-// substitution AbilityUtils.getDefinedCards would make for it, since every
-// real line's own ValidCard$ Card.Self already means the two resolve to the
-// same card). ReplacedCard is Java's own "the object the replacement is
-// actually about," identical here to Self because ValidCard$ Card.Self is
-// the only real shape -- a future replacement whose ValidCard$ names a
-// DIFFERENT card would need a general "replacing object" context this port
-// does not carry (drawReplaced's/gainLifeReplaced's own doc comments note
-// the same gap for their own Event$s), so this substitution is narrow to
-// this one shape, not a general Defined$ ReplacedCard reader. Any other
-// param, or a SubAbility$ of its own, is refused rather than run partially
-// (PORT-8/GO-7).
-func regenerationSubAbilityRecognized(a *compile.Ability) bool {
-	if !strings.EqualFold(a.Name, "Regeneration") {
-		return false
-	}
-	defined, ok := a.Param("Defined")
-	if !ok {
-		return false
-	}
-	for _, p := range a.Params {
-		switch strings.ToLower(p.Key) {
-		case "db", "defined":
-		default:
-			return false
-		}
-	}
-	return strings.EqualFold(defined, "ReplacedCard") || strings.EqualFold(defined, "Self")
 }

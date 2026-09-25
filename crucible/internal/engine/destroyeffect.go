@@ -8,9 +8,11 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/DestroyEffect.java's
-// resolve/internalDestroy. A regeneration shield (Game.regenerate,
-// regeneration.go) replaces the destruction unless NoRegen$ is set -- the
-// one Destroy-type replacement this port models.
+// resolve/internalDestroy. Game.regenerate (regeneration.go) replaces the
+// destruction unless NoRegen$ is set -- a regeneration shield or a
+// permanent's own always-on "if this would be destroyed, regenerate it"
+// replacement (ApiType.Regeneration), the two Destroy-type replacements
+// this port models, both gated by Mode$ CantRegenerate first.
 // TriggerType.Destroyed -- a rare corpus trigger mode ("whenever a permanent
 // is destroyed," distinct from Mode$ Dies, which checkDiesTriggers already
 // fires below for every real battlefield departure regardless of cause) this

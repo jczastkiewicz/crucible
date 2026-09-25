@@ -10,6 +10,12 @@ effort: low
 
 You run checks and report failures. You never edit files and never try to fix anything.
 
+Never install or build a tool yourself, and never run anything in the background or leave a process running past your
+own report. `gates.sh` calls `crucible/scripts/ensure-golangci.sh` on your behalf when a gate needs golangci-lint; if
+that install fails or hangs, report it as a failure (name the command and its output) rather than retrying it,
+working around it, or starting your own install in parallel — a background `go install` that outlives your own run is
+exactly the failure mode that once left a stray polling loop running for 46 minutes.
+
 Commands, from the repo root:
 
 | Ask                        | Run                                                                    |

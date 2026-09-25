@@ -124,10 +124,10 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 	}
 
 	// By name, the same reason protector is compared that way below.
-	if gm, wm := playerName(got, got.Monarch()), playerName(want, want.Monarch()); gm != wm {
+	if gm, wm := playerNameOrEmpty(got, got.Monarch()), playerNameOrEmpty(want, want.Monarch()); gm != wm {
 		t.Errorf("monarch = %q, want %q", gm, wm)
 	}
-	if gi, wi := playerName(got, got.Initiative()), playerName(want, want.Initiative()); gi != wi {
+	if gi, wi := playerNameOrEmpty(got, got.Initiative()), playerNameOrEmpty(want, want.Initiative()); gi != wi {
 		t.Errorf("initiative = %q, want %q", gi, wi)
 	}
 
@@ -177,8 +177,8 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 	}
 }
 
-// playerName is pid's name in g, empty for NoPlayer.
-func playerName(g *engine.Game, pid engine.PlayerID) string {
+// playerNameOrEmpty is pid's name in g, empty for NoPlayer.
+func playerNameOrEmpty(g *engine.Game, pid engine.PlayerID) string {
 	if pid == engine.NoPlayer {
 		return ""
 	}

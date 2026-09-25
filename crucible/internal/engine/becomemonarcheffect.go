@@ -281,7 +281,7 @@ func (g *Game) pushPlayerTriggers(c PlayerController, p PlayerID, matches []Abil
 // pre-check; becomeMonarch's own check still applies, and a static it
 // cannot read keeps the monarchy where it is rather than guessing (the SBA
 // has no error channel). lossHandled is set once the player is processed:
-// until then Java still counts them among ingamePlayers (successor).
+// until then Java still counts them among ingamePlayers (designationSuccessor).
 func (g *Game) onPlayersLost(c PlayerController) {
 	for _, pid := range g.Players() {
 		pl := g.Player(pid)
@@ -289,19 +289,19 @@ func (g *Game) onPlayersLost(c PlayerController) {
 			continue
 		}
 		if g.monarch == pid {
-			_ = g.becomeMonarch(c, g.successor(pid))
+			_ = g.becomeMonarch(c, g.designationSuccessor(pid))
 		}
 		if g.initiative == pid {
-			g.takeInitiative(c, g.successor(pid))
+			g.takeInitiative(c, g.designationSuccessor(pid))
 		}
 		pl.lossHandled = true
 	}
 }
 
-// successor is who a leaving player's designation passes to: the active
-// player, or, when the leaver is the active player, the next player in the
-// game after them.
-func (g *Game) successor(leaver PlayerID) PlayerID {
+// designationSuccessor is who a leaving player's designation passes to:
+// the active player, or, when the leaver is the active player, the next
+// player in the game after them.
+func (g *Game) designationSuccessor(leaver PlayerID) PlayerID {
 	if leaver != g.activePlayer {
 		return g.activePlayer
 	}

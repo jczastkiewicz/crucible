@@ -133,6 +133,23 @@ its `ValidPlayer$ Opponent.VenturedThisTurn` needed the `VenturedThisTurn` playe
 reached by the dungeons: `Count$DungeonsCompleted` and the other dungeon counts, and the Panharmonicon-style
 `ValidMode$ RoomEntered` statics.
 
+**Rooms that resolve.** A room's ability is an ordinary ability of another API, so a dungeon is only as playable as its
+rooms. Each of the 30 rooms, resolved on its own with a token table holding the scripts it names:
+
+| Dungeon                 | Rooms | Resolve                                                                                  | Error (the room's own API rejects it)                                                                                                                  |
+| ----------------------- | ----: | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lost Mine of Phandelver |     7 | Cave Entrance, Goblin Lair, Mine Tunnels, Dark Pool, Temple of Dumathoin                 | Storeroom, Fungi Cavern (`PutCounter`/`Pump` reject `ValidTgts$`)                                                                                      |
+| Undercity               |     9 | Secret Entrance, Lost Well, Trap!, Arena, Stash, Catacombs                               | Forge (`PutCounter` `ValidTgts$`), Archive (bare `DB$ Draw`: `drawEffect` has no `Defined$` default), Throne of the Dead Three (`Dig` `WithCounters$`) |
+| Tomb of Annihilation    |     5 | Trapped Entry, Cradle of the Death God                                                   | Veils of Fear, Sandfall Cell (`UnlessCost$`), Oubliette (`Sacrifice` `SacEachValid$`)                                                                  |
+| Dungeon of the Mad Mage |     9 | Yawning Portal, Dungeon Level, Goblin Bazaar, Lost Level, Deep Mines, Muiral's Graveyard | Twisted Caverns (`Pump` `ValidTgts$`), Runestone Caverns (`Play` unported), Mad Wizard's Lair (`Draw` `RememberDrawn$`)                                |
+
+A room that errors fails its trigger's resolution loudly, never silently; each gap is its own API's to close. The bare
+`DB$ Draw` default (Java's `getTargetPlayers` falls back to the activator) is the widest: it is not specific to rooms.
+
+**Real runs have no token table.** Only tests attach one (`DB.WithTokens`); `LoadDB`, the fixture loader and the
+scenario harness do not. Until something loads `res/tokenscripts` for a real game, every venture errors
+(`no dungeon "" in the token database`), the same gap `Token` has.
+
 **No scenario fixture.** A dungeon in the Command zone cannot be written down: `GameState.java` has no current-room key,
 and this port's `Load` does not load `T:` token entries. Module tests (`dungeon_test.go`) walk the real Lost Mine of
 Phandelver to completion instead.

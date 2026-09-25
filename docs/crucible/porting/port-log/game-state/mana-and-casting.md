@@ -345,3 +345,50 @@ targeted creature — the fixture this section is proven by) plus `TestCastSpell
 Not ported: interactive priority (a later ADR, ADR-0018's own scope explicitly excludes it — neither `Play` nor
 `CopySpellAbility`'s dominant shape needs it, `effects-play-copyspellability.md`); a general `ValidTgts$` fizzle check
 (above); `ReplaceGraveyard$` (above).
+
+---
+
+## CR 115's own "any target" lands, and targetCandidates stops picking one pool
+
+`targetCandidates` (`targeting.go`) used to pick one pool -- every player, or every battlefield card -- by trying
+`matchesPlayerSpec` once on the whole spec and branching on whether it was player-shaped at all. That was never Java's
+own shape: `TargetRestrictions.getAllCandidates` (`forge-game/.../spellability/TargetRestrictions.java`) unconditionally
+tries `game.getPlayers()` and `game.getCardsIn(zone)` for every real `ValidTgts$` string, and lets
+`Player.isValid`/`Card.isValid` filter each pool on their own -- an ordinary card-shaped spec ("Creature.YouCtrl")
+simply matches zero players the same way an ordinary player-shaped one ("Opponent") matches zero cards. `"Any"` (CR
+115's own "any target") is not a structural special case on top of that: `Player.isValid`/`Card.isValid` both
+special-case the literal string, unconditionally true for a player, `creature || planeswalker || Battle` for a card
+(`matchesPlayerBase`'s own new `"Any"` case, `baseMatches`'s existing one, `valid.go`). `targetCandidates` now unions
+both pools unconditionally too, matching Java's real structure -- not an `"Any"`-only patch: the corpus writes the same
+mixed shape out explicitly too (`Player,Planeswalker`, 273 real lines corpus-wide), which the old either/or design could
+never have answered correctly even before `"Any"` motivated fixing it. No existing caller regressed: every
+already-ported `ValidTgts$` shape (`Destroy`, `Tap`, ...) is purely one-pool in the real corpus, so the added pool
+always contributes zero candidates for them.
+
+`dealDamageEffect` (`dealdamageeffect.go`) is the first real consumer: `ValidTgts$` (2,068 real corpus lines; 615 of
+them `ValidTgts$ Any` alone -- Lightning Bolt, Shock, the corpus's own dominant shape) reads `Ability.Targets` directly
+and dispatches per entity -- `dealPermanentDamage` for a card (CR 120.3c's own loyalty-counter branch, CR 121.5's own
+defense-counter branch, both already shared with combat damage), `dealPlayerDamage` for a player -- a single loop with
+an `AsCard`/`AsPlayer` check, `DamageDealEffect.java`'s own identical shape (a single `instanceof`-checked loop over
+`getTargetEntities`, not two separate `getTargetCards`/`getTargetPlayers` passes, those existing only for
+`getStackDescription`). `dealDamageTargets` (below `Resolve`) skips a card target that already left the battlefield
+between targeting and resolution -- `DamageDealEffect.java`'s own per-target liveness check, not a general CR 608.2b
+fizzle (ADR-0018's own fizzle check stays scoped to an Aura's single target; this is a narrower, DealDamage-specific
+loop Java itself does not delegate to a shared check either) -- while every other target in the same resolution still
+takes its damage. No such check exists for a player target in Java's own loop, so none was added here.
+
+`DividedAsYouChoose$` (Forked Bolt's own uneven-split shape, 74 real lines) is explicitly not ported: Java records the
+allocation at target-choosing time (`SpellAbility.addDividedAllocation`), a decision this port's own
+`resolveTargets`/`ChooseTargets` has nowhere to carry, so a line naming it fails loudly rather than dealing the
+ability's own full `NumDmg$` to every target chosen.
+
+`fixture/actions.go`'s own `queue targets` verb gained player-name support (`resolveTargetEntities`,
+`resolveAttackTarget`'s own comma-separated-list sibling) -- a real target list can now name a seated player, not just a
+card's `Loaded.CardByFixtureID`. `deal-damage-any-target-lightning-bolt-at-a-planeswalker` is the fixture: a real
+Lightning Bolt cast at an opponent's Narset, Parter of Veils, `Counters:LOYALTY` dropping from 5 to 2. Module tests
+(`dealdamagetargets_test.go`) cover a creature, a planeswalker (loyalty, and dying at zero to the state-based action), a
+Battle, a player, the identical path through `ActivateAbility`, the already-left-the-battlefield skip, and
+`DividedAsYouChoose$` failing loudly.
+
+Closes the M5 "Not ported yet" row for non-combat damage to a planeswalker or a Battle
+(`docs/crucible/porting/port-log/game-state.md`).

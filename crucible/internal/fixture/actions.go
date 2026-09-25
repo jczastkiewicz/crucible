@@ -283,15 +283,15 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		c.QueueEnchantTarget(ids[0])
 
 	case "targets":
-		// A triggered ability's own targets (resolveTargets' ChooseTargets),
-		// cards only: no scenario needs a player target yet.
-		ids, err := resolveCardIDs(l, value)
+		// A triggered ability's, cast spell's or activated ability's own
+		// targets (resolveTargets' ChooseTargets) -- a card's own
+		// CardByFixtureID or a seated player's name, per entry
+		// (resolveAttackTarget's own either/or, reused per comma-separated
+		// value here since ChooseTargets can return more than one entity,
+		// unlike ChooseAttackTarget's own single answer).
+		chosen, err := resolveTargetEntities(l, value)
 		if err != nil {
 			return fmt.Errorf("queue targets: %w", err)
-		}
-		chosen := make([]engine.EntityID, len(ids))
-		for i, id := range ids {
-			chosen[i] = engine.CardEntity(id)
 		}
 		c.QueueTargets(chosen)
 
@@ -497,6 +497,22 @@ func resolveAttackTarget(l *Loaded, value string) (engine.EntityID, error) {
 		return engine.EntityID(0), err
 	}
 	return engine.PlayerEntity(pid), nil
+}
+
+// resolveTargetEntities is resolveAttackTarget's own comma-separated-list
+// sibling: each entry is a card's CardByFixtureID or a seated player's name,
+// resolveAttackTarget's own either/or reused per entry.
+func resolveTargetEntities(l *Loaded, value string) ([]engine.EntityID, error) {
+	parts := strings.Split(value, ",")
+	entities := make([]engine.EntityID, len(parts))
+	for i, p := range parts {
+		e, err := resolveAttackTarget(l, strings.TrimSpace(p))
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = e
+	}
+	return entities, nil
 }
 
 // resolveBlocks turns a comma-separated list of blocker=attacker fixture-ID

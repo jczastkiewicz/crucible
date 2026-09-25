@@ -107,6 +107,10 @@ func baseMatches(c *Card, name string) bool {
 		// Nothing this port creates is ever one, so every real card matches.
 		return true
 	case "Any":
+		// CR 115's own "any target": a creature, planeswalker or Battle here
+		// -- matchesPlayerBase's own "Any" case (above) is this card-side
+		// case's own player-side sibling, the two together giving
+		// targetCandidates (targeting.go) every legal "any target" answer.
 		return c.Type().Has(cardtype.Creature) || c.Type().Has(cardtype.Planeswalker) || c.Type().Has(cardtype.Battle)
 	case "Spell", "Effect", "Emblem", "Boon":
 		return false
@@ -535,7 +539,12 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 		return candidate == host, true
 	case "Opponent":
 		return candidate != host, true
-	case "Player":
+	case "Player", "Any":
+		// "Any" (CR 115's own "any target") matches every player the same as
+		// bare "Player" does -- Player.isValid's own literal "Any" case
+		// (Player.java) applies no further restriction, the identical
+		// unconditional match baseMatches' own "Any" case (below) gives a
+		// creature/planeswalker/Battle candidate on the card side.
 		return true, true
 	}
 	return false, false

@@ -1,0 +1,12 @@
+# CR 115's own "any target" (ValidTgts$ Any): a real Lightning Bolt cast at
+# an opponent's planeswalker, outside combat -- dealDamageTargets
+# (dealdamageeffect.go) reads the chosen target from Ability.Targets and
+# calls dealPermanentDamage (combatdamage.go) the same shared function
+# combat damage already uses, CR 120.3c's own loyalty-counter branch firing
+# for a script-driven source for the first time.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 3
+castspell human 1
+resolvestack

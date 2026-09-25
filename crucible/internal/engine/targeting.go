@@ -44,13 +44,12 @@ var targetUnresolvedParams = [...]string{
 //
 // TargetMin$/TargetMax$ (1/1 when neither is named, TargetRestrictions.
 // java's own getOrDefault) resolve through resolveNamedAmount exactly as
-// every other numeric param already does. ValidTgts$'s own shape decides
-// whether candidates are players or cards -- never both, since no real
-// corpus line this port has read mixes the two in one ValidTgts$ string --
-// by trying matchesPlayerSpec (valid.go) first: ok reports whether the
-// spec's own base token is player-shaped at all (matchesPlayerBase's own
-// contract), regardless of which candidate is asked, so one trial call
-// settles the shape for the whole spec.
+// every other numeric param already does. targetCandidates (below) always
+// evaluates ValidTgts$ against both players and cards and unions whatever
+// matches -- a real corpus spec regularly names both ("Any", CR 115's own
+// "any target"; `Player,Planeswalker`, written out explicitly, 273 real
+// lines corpus-wide), so there is no single "shape" to settle up front the
+// way an earlier version of this function tried to.
 func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 	validTgts, ok := a.Params.Param("ValidTgts")
 	if !ok && a.API == APIEarthbend {
@@ -105,29 +104,40 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 	return true
 }
 
-// targetCandidates evaluates spec against every player still in the game
-// (matchesPlayerSpec, valid.go; a player who has lost is never a legal
-// target, the identical exclusion definedPlayers's own `if (!p.isInGame())`
-// reading already makes), if spec is player-shaped at all, else against
-// every card on any player's battlefield (Matches, valid.go) -- CR's own
-// implicit "target creature" scope, and the only zone 0 real corpus
-// TgtZone$ lines ever ask this port to look anywhere else than.
+// targetCandidates is the union of spec evaluated against every player still
+// in the game (matchesPlayerSpec, valid.go; a player who has lost is never a
+// legal target, the identical exclusion definedPlayers's own
+// `if (!p.isInGame())` reading already makes) AND against every card on any
+// player's battlefield (Matches, valid.go) -- CR's own implicit "target
+// creature" scope, and the only zone 0 real corpus TgtZone$ lines ever ask
+// this port to look anywhere else than.
+//
+// Both pools are always tried, never one or the other picked by a spec's own
+// shape: Java's own TargetRestrictions.getAllCandidates (CR 115's own "any
+// target" candidate collection) does the identical thing, unconditionally
+// probing game.getPlayers() and game.getCardsIn(zone) for every ValidTgts$
+// spec -- an ordinary card-shaped spec ("Creature.YouCtrl") simply matches
+// zero players the same way an ordinary player-shaped one ("Opponent")
+// matches zero cards, filtering happening entirely inside matchesPlayerSpec/
+// Matches rather than by picking a pool up front. This port tried the
+// "pick one pool by a trial match" shortcut first; it is unsound for any
+// spec whose comma-separated alternatives mix a player-shaped and a
+// card-shaped one -- CR 115's own "Any" (matchesPlayerBase's own "Any" case)
+// is the single-token example, but the corpus also writes it out explicitly
+// (`Player,Planeswalker`, 273 real lines corpus-wide) -- so the union is not
+// an "Any"-only special case, it is the general, correct shape.
 func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string) []EntityID {
-	if _, ok := matchesPlayerSpec(g, controller, controller, source, spec); ok {
-		var candidates []EntityID
-		for _, pid := range g.Players() {
-			if g.Player(pid).Lost {
-				continue
-			}
-			if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched {
-				candidates = append(candidates, PlayerEntity(pid))
-			}
+	var candidates []EntityID
+	for _, pid := range g.Players() {
+		if g.Player(pid).Lost {
+			continue
 		}
-		return candidates
+		if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched {
+			candidates = append(candidates, PlayerEntity(pid))
+		}
 	}
 
 	parsed := valid.Parse(spec)
-	var candidates []EntityID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			if Matches(g, g.Card(id), parsed, controller, source) {

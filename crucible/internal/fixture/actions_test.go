@@ -630,6 +630,38 @@ func TestRunActionsQueueDiscardBadIDErrors(t *testing.T) {
 	}
 }
 
+// queue targets answers a triggered ability's ChooseTargets with the cards
+// setup.state's Id: numbers name.
+func TestRunActionsQueueTargetsResolvesFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue targets 2,1\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+
+	got := c.ChooseTargets(l.Game, l.Game.Players()[0], nil, 1, 2)
+	want := []engine.EntityID{engine.CardEntity(l.CardByFixtureID[2]), engine.CardEntity(l.CardByFixtureID[1])}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("targets %v, want %v", got, want)
+	}
+}
+
+func TestRunActionsQueueTargetsBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue targets abc\n"); err == nil {
+		t.Error("a non-numeric id did not error")
+	}
+}
+
 // queue battleprotector accepts a seated player's name, the same vocabulary
 // queue startingplayer uses.
 func TestRunActionsQueueBattleProtectorResolvesAPlayerName(t *testing.T) {

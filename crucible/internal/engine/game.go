@@ -424,6 +424,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		g.endCopiesOnLeave(id)
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)
@@ -502,6 +503,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		g.endCopiesOnLeave(id)
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)
@@ -672,6 +674,7 @@ func (g *Game) Clone() *Game {
 		c.KeywordMod = g.cards[i].KeywordMod.clone()
 		c.ControlMod = g.cards[i].ControlMod.clone()
 		c.tempControllers = append([]ControlEffect(nil), g.cards[i].tempControllers...)
+		c.copies = append([]copyEffect(nil), g.cards[i].copies...)
 		if g.cards[i].svars != nil {
 			c.svars = make(map[string]int, len(g.cards[i].svars))
 			for k, v := range g.cards[i].svars {
@@ -694,6 +697,7 @@ func (g *Game) Clone() *Game {
 		s.ColorMod = snap.ColorMod.clone()
 		s.KeywordMod = snap.KeywordMod.clone()
 		s.ControlMod = snap.ControlMod.clone()
+		s.copies = append([]copyEffect(nil), snap.copies...)
 		if snap.attachments != nil {
 			s.attachments = snap.attachments.Clone()
 		}

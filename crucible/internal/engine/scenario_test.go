@@ -181,8 +181,11 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		gcard, wcard := got.Card(gc[i]), want.Card(wc[i])
 		label := fmt.Sprintf("%s %s[%d]", playerName, zone, i)
 
-		if gcard.Def.Name != wcard.Def.Name {
-			t.Errorf("%s name = %q, want %q", label, gcard.Def.Name, wcard.Def.Name)
+		// GameState text names a card by its own paper card, never by what a
+		// copy effect currently makes it (GameState.java writes
+		// getPaperCard().getName()).
+		if gname, wname := gcard.UncopiedDef().Name, wcard.UncopiedDef().Name; gname != wname {
+			t.Errorf("%s name = %q, want %q", label, gname, wname)
 			continue
 		}
 		if gcard.Tapped != wcard.Tapped {

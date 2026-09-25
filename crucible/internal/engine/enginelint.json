@@ -68,7 +68,7 @@
     "zone": ["id"],
     "layer": [],
     "parts": ["id", "layer"],
-    "card": ["id", "zone", "parts", "layer", "goadeffect", "effecteffect"],
+    "card": ["id", "zone", "parts", "layer", "goadeffect", "effecteffect", "cloneeffect"],
     "player": ["id", "parts", "mana"],
     "ability": ["id", "damageresolveeffect", "replaceeffect"],
     "combat": ["id", "game", "valid", "effecthelpers"],
@@ -90,7 +90,8 @@
       "daytimeeffect",
       "goadeffect",
       "airbendeffect",
-      "effecteffect"
+      "effecteffect",
+      "cloneeffect"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],

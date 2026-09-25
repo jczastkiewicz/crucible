@@ -99,7 +99,7 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 func dumpCard(g *engine.Game, id engine.CardID) string {
 	c := g.Card(id)
 	var b strings.Builder
-	b.WriteString(c.Def.Name)
+	b.WriteString(c.UncopiedDef().Name)
 	b.WriteString("|Id:")
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
 

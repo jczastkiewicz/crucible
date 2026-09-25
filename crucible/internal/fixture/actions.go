@@ -281,6 +281,19 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueEnchantTarget(ids[0])
 
+	case "targets":
+		// A triggered ability's own targets (resolveTargets' ChooseTargets),
+		// cards only: no scenario needs a player target yet.
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue targets: %w", err)
+		}
+		chosen := make([]engine.EntityID, len(ids))
+		for i, id := range ids {
+			chosen[i] = engine.CardEntity(id)
+		}
+		c.QueueTargets(chosen)
+
 	case "attackers":
 		// "none" is written explicitly, not an empty value, because every
 		// other queue kind requires a value too (the len(args) < 2 check

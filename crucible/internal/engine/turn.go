@@ -82,6 +82,7 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 			g.delayedTriggersOnNextTurn(g.activePlayer)
 			g.activateCleanupDelayedTriggers()
 			g.endEffectsAtTurnStart(g.activePlayer)
+			g.endCopiesAtTurnStart(g.activePlayer)
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}
@@ -439,6 +440,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	}
 	g.pumps = kept
 	g.endAnimatesAtCleanup()
+	g.endCopiesAtCleanup()
 	g.endSkipsAtCleanup()
 	g.endEffectsAtCleanup()
 }

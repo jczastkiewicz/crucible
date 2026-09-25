@@ -1,0 +1,22 @@
+# CR 707.2 / 613.2a: Tilonalli's Skinshifter (0/1) attacks next to Hill Giant
+# (3/3); its attack trigger makes it a copy of the Giant until end of turn, a
+# Layer 1 copy effect. Grizzly Bears (2/2) blocks it: as a 3/3 copy it kills
+# the Bears and survives 2 damage, where a 0/1 would have died. The unblocked
+# Giant deals 3.
+startturn human
+advance 5
+queue attackers 1,2
+# The attack trigger targets Hill Giant (Id:2); advance does not resolve the
+# stack, so resolvestack does.
+queue targets 2
+declareattackers
+resolvestack
+advance
+queue blocks 3=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that moves the
+# lethally damaged Bears to the graveyard.
+advance

@@ -117,11 +117,7 @@ type copyOriginal struct {
 }
 
 func copyPermanentOriginals(g *Game, a *Ability, controller PlayerController, source *Card) ([]copyOriginal, error) {
-	fromCard := func(id CardID) copyOriginal {
-		c := g.Card(id)
-		return copyOriginal{def: c.Def, power: c.basePower, hasPower: c.hasBasePower,
-			toughness: c.baseToughness, hasToughness: c.hasBaseToughness}
-	}
+	fromCard := func(id CardID) copyOriginal { return g.Card(id).copiableValues() }
 	if name, ok := a.Params.Param("DefinedName"); ok {
 		if name == "NamedCard" {
 			named := source.Memory.NamedCards()

@@ -30,7 +30,7 @@ Java: `PlayEffect.java:84-493` (`resolve`), `PlayerControllerHuman.java:2416` / 
 | ------------------------------------------------------------------------- | ----- | ----------------------------------- |
 | `Optional$`                                                               | 310   | --                                  |
 | `WithoutManaCost$`                                                        | 284   | --                                  |
-| `ValidSA$ Spell` (205 bare, more with `cmc` suffixes)                     | 264   | Any spell                           |
+| `ValidSA$ Spell...` (205 bare `Spell`, rest with `cmc`/type suffixes)     | 242   | Mostly any card type                |
 | `Defined$ Remembered` / `Valid$ Card.IsRemembered`                        | 128   | Whatever an earlier step exiled     |
 | `ValidSA$`/`ValidTgts$`/`Valid$` naming only `Instant`/`Sorcery` per item | 63    | Only an instant or sorcery, always  |
 | `CopyCard$`                                                               | 56    | A token copy cast from its zone     |

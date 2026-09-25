@@ -38,8 +38,8 @@ Rules, non-negotiable:
   an index row in `game-state.md`, and the resolved-API count in `CLAUDE.md` /
   `00-master-implementation-plan-in-progress.md` kept consistent with your branch's registry (an orchestrator
   reconciles the final number across parallel porters afterward). Never edit "## Not ported yet" yourself.
-- Run `crucible/scripts/gates.sh full` until green, commit on your branch ("Co-Authored-By: Claude Sonnet 5
-  <noreply@anthropic.com>"), commit every 1-2 APIs so progress survives an interruption. Never push.
+- Run `crucible/scripts/gates.sh full` until green, commit on your branch with the attribution lines your system
+  prompt gives (never a hardcoded model name), commit every 1-2 APIs so progress survives an interruption. Never push.
 - If an API genuinely cannot be ported at all without an architecture change out of scope for this batch, say so with
   a concrete reason (what would have to change and why it's out of scope) rather than faking it.
 

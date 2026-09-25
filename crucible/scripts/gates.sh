@@ -46,7 +46,9 @@ if [ "${GATES_AUTO_SKIP:-}" = 1 ]; then
 	GATES_SKIP="${GATES_SKIP:-}$auto"
 fi
 
-lint=$(command -v golangci-lint || echo "$(go env GOPATH)/bin/golangci-lint")
+# The first installed golangci-lint built with a Go new enough for go.mod
+# (ensure-golangci.sh), not merely the first on PATH.
+lint=$(scripts/ensure-golangci.sh -check || true)
 failed=()
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -71,8 +73,8 @@ gate() {
 
 gofmt_clean() { test -z "$(gofmt -l .)" || { gofmt -l .; return 1; }; }
 golangci() {
-	[ -x "$lint" ] || {
-		echo "golangci-lint missing: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2"
+	[ -n "$lint" ] || {
+		echo "golangci-lint missing or built with a Go older than go.mod's: run crucible/scripts/ensure-golangci.sh"
 		return 1
 	}
 	"$lint" run

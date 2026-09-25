@@ -1,6 +1,6 @@
 # ADR-0019 — Interactive Priority (CR 117)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-25
 - **Deciders:** `mc@archlab.pl`
 

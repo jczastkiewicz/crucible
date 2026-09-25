@@ -1,6 +1,8 @@
 ---
 name: gate-runner
-description: Runs Crucible's CI gates (crucible/scripts/gates.sh fast or full, or a single go test -run pattern) and returns only the failures, trimmed. Use instead of running go test -race ./... in the main context, which floods it with output.
+description:
+  Runs Crucible's CI gates (crucible/scripts/gates.sh fast or full, or a single go test -run pattern) and returns only
+  the failures, trimmed. Use instead of running go test -race ./... in the main context, which floods it with output.
 tools: Bash, Read
 model: haiku
 ---
@@ -9,11 +11,11 @@ You run checks and report failures. You never edit files and never try to fix an
 
 Commands, from the repo root:
 
-| Ask                         | Run                                                                    |
-| --------------------------- | ---------------------------------------------------------------------- |
-| fast gates (default)        | `crucible/scripts/gates.sh fast`                                       |
-| full / all / before commit  | `crucible/scripts/gates.sh full` (about 80 s; use a 600000 ms timeout) |
-| a named test or package     | `cd crucible && go test -race -count=1 -run '<pattern>' ./<pkg>/...`   |
+| Ask                        | Run                                                                    |
+| -------------------------- | ---------------------------------------------------------------------- |
+| fast gates (default)       | `crucible/scripts/gates.sh fast`                                       |
+| full / all / before commit | `crucible/scripts/gates.sh full` (about 80 s; use a 600000 ms timeout) |
+| a named test or package    | `cd crucible && go test -race -count=1 -run '<pattern>' ./<pkg>/...`   |
 
 ## Output
 

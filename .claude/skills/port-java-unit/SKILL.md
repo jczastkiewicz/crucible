@@ -1,6 +1,9 @@
 ---
 name: port-java-unit
-description: Port a Forge Java unit that is not an ApiType effect (a rules primitive, cost, trigger mode, replacement, static ability, parser or new package) to Crucible Go, following PORT-3 order - read Java, write the port-log note, API, tests, implementation, docs. Use for "port GameAction.X", "port the Y trigger mode", "add package Z".
+description:
+  Port a Forge Java unit that is not an ApiType effect (a rules primitive, cost, trigger mode, replacement, static
+  ability, parser or new package) to Crucible Go, following PORT-3 order - read Java, write the port-log note, API,
+  tests, implementation, docs. Use for "port GameAction.X", "port the Y trigger mode", "add package Z".
 ---
 
 # Port a Java unit
@@ -14,10 +17,10 @@ For ApiType effects use the `port-effect` skill instead. Rules: `docs/crucible/g
    Read inline only what it could not answer.
 2. **Port-log note first.** Decide where it goes:
 
-   | Unit                                     | Note                                                                          |
-   | ---------------------------------------- | ----------------------------------------------------------------------------- |
-   | Part of `internal/engine`                | New `##` section in the matching `docs/crucible/porting/port-log/game-state/<topic>.md`, plus an index row in `game-state.md` |
-   | New package or standalone unit           | New `docs/crucible/porting/port-log/<unit>.md` in PORT-4 format               |
+   | Unit                           | Note                                                                                                                          |
+   | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+   | Part of `internal/engine`      | New `##` section in the matching `docs/crucible/porting/port-log/game-state/<topic>.md`, plus an index row in `game-state.md` |
+   | New package or standalone unit | New `docs/crucible/porting/port-log/<unit>.md` in PORT-4 format                                                               |
 
    Topic files: `state-based-actions`, `layers`, `turn-stack-combat`, `mana-and-casting`, `triggers`, `trigger-modes`,
    `replacement`, `activation`, `activation-costs`, `targeting-and-chaining`, `effects-*`. Content: what it does, real

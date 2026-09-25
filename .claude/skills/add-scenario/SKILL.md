@@ -1,6 +1,9 @@
 ---
 name: add-scenario
-description: Add a whole-engine rules test as a fixture directory under crucible/testdata/scenarios (setup.state, actions.log, expect.state) and run it. Use when a rules behavior (CR section, SBA, layer, combat, trigger, casting) needs a test, when asked to "add a scenario/fixture", or for the P4 gate's per-layer/per-SBA coverage.
+description:
+  Add a whole-engine rules test as a fixture directory under crucible/testdata/scenarios (setup.state, actions.log,
+  expect.state) and run it. Use when a rules behavior (CR section, SBA, layer, combat, trigger, casting) needs a test,
+  when asked to "add a scenario/fixture", or for the P4 gate's per-layer/per-SBA coverage.
 ---
 
 # Add a scenario
@@ -10,17 +13,17 @@ TEST-5: rules tests are data. Adding a test = adding a directory; never a new Go
 
 ## 1. Name it
 
-Directory name = what it proves, kebab-case, flat under `crucible/testdata/scenarios/`:
-`battle-zero-defense-destroyed`, `aura-falls-off-when-host-dies-sent-to-graveyard`. Check it does not exist:
+Directory name = what it proves, kebab-case, flat under `crucible/testdata/scenarios/`: `battle-zero-defense-destroyed`,
+`aura-falls-off-when-host-dies-sent-to-graveyard`. Check it does not exist:
 `ls crucible/testdata/scenarios | grep <word>`.
 
 ## 2. Write the files
 
-| File           | Content                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| `setup.state`  | Forge `GameState` text format, same one the Java oracle reads. Do not invent keys                 |
+| File           | Content                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| `setup.state`  | Forge `GameState` text format, same one the Java oracle reads. Do not invent keys                   |
 | `actions.log`  | Ordered scripted decisions, one per line; `#` comments explain the CR rule and why each step exists |
-| `expect.state` | The post-state, same format as `setup.state`                                                     |
+| `expect.state` | The post-state, same format as `setup.state`                                                        |
 
 Grammar references: `setup.state` / `expect.state` keys in `docs/crucible/porting/port-log/game-state-fixture.md`
 (`Parse`/`Write`), `actions.log` verbs in its `## Scenarios: actions.log and the harness` section. Copy the closest
@@ -57,8 +60,9 @@ to. Every controller decision the engine will ask for needs a `queue ...` line f
 cd crucible && go test -race -count=1 -run 'TestScenarios/<name>$' ./internal/engine/
 ```
 
-Takes about 60 s even for one case (the card DB loads first). A failing expectation prints the state diff. Fix the fixture only when the fixture is wrong; if the engine is wrong,
-that is the bug to fix (bug fix -> this scenario is its regression test, TEST-2).
+Takes about 60 s even for one case (the card DB loads first). A failing expectation prints the state diff. Fix the
+fixture only when the fixture is wrong; if the engine is wrong, that is the bug to fix (bug fix -> this scenario is its
+regression test, TEST-2).
 
 ## 4. Commit
 

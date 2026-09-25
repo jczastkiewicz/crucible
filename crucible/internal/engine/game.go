@@ -665,6 +665,9 @@ func (g *Game) Clone() *Game {
 	for i := range out.players {
 		out.players[i].Counters = g.players[i].Counters.clone()
 		out.players[i].Rules = g.players[i].Rules.clone()
+		if g.players[i].completedDungeons != nil {
+			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
+		}
 	}
 
 	copy(out.cards, g.cards)

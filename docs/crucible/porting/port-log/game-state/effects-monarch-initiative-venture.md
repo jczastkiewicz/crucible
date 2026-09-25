@@ -53,6 +53,7 @@ reference is an `error` (`the trigger recorded no source`), never an empty playe
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `DamageDone` (card or player) | Source = the damage source; sourceController read at damage time. Java stores an LKI copy (`TriggerDamageDone.java`'s `getLKICopy`) |
 | `BecomeMonarch`               | Player = the new monarch (`TriggerBecomeMonarch.setTriggeringObjects`)                                                              |
+| `DungeonCompleted`            | Player = who completed it (`TriggerCompletedDungeon.setTriggeringObjects`)                                                          |
 
 A card source named as players (`Defined$ TriggeredSource` on a `DamageDone` trigger) is rejected:
 `AbilityUtils.addPlayer` over a card is a shape no ported line needs.
@@ -91,3 +92,44 @@ them.
 
 **Forge `getMonarchSet` (PORT-8, `forge-java-defects.md`).** No Crucible counterpart: this port carries no set codes,
 and `becomeMonarch` takes none.
+
+---
+
+## Venture lands
+
+`Venture` (46 corpus lines) resolves: each targeted or `Defined$` player (default the activator) still in the game
+ventures into the dungeon (CR 701.49) -- into `Dungeon$`'s dungeon type when named (the initiative's Undercity).
+`ventureeffect.go`, ported from `VentureEffect.java` (`getDungeonCard`, `chooseNextRoom`, `ventureIntoDungeon`),
+`GameAction.completeDungeon` (`GameAction.java:2783-2790`) and `stateBasedAction_Dungeon` (`:1736-1743`).
+
+**Rooms compile from `K:Dungeon:` (PORT-2).** A dungeon's room SVars are named only by its keyword, so nothing compiled
+them. `compile.dungeonRooms` expands the keyword the way `CardFactoryUtil.java:1955-1989` does at card creation: one
+`Mode$ RoomEntered | TriggerZones$ Command | ValidCard$ Card.Self | ValidRoom$ <RoomName>` trigger per room, in keyword
+order, the room's ability as its `Execute$`, plus `NextRoomName$` (the `RoomName$` values of its `NextRoom$` SVars) on
+each room ability. Only the four `res/tokenscripts` dungeons carry the keyword; no `cardsfolder` card does, so the
+golden AST is unchanged. A room without `RoomName$`, or leading to an SVar its keyword does not list, is
+`compile.ErrBadRoom` -- Java dereferences `null` on both.
+
+| Step                | Port                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which dungeon       | The player's dungeon in the Command zone, unless its marker is on its last room -- that one is completed first. Otherwise a new one from the token table (`DB.TokenScripts`, new, sorted), `Dungeon$`'s subtype or every enterable dungeon, offered sorted by name through `ChooseOption` (Java's `chooseSingleCardFace` over a `TreeMap`) -- asked even for one option, as Java asks |
+| Enterable           | `CardRules.isEnterableDungeon` reads oracle text for "You can't enter this dungeon unless"; `compile.Face` has none, so the matching `K:` line (Undercity's only) stands in                                                                                                                                                                                                           |
+| Which room          | Empty marker: the first room. Otherwise the one `NextRoomName$` room, or the player's pick of several through `ChooseAbilitiesForEffect` over room names (Java's `chooseSingleSpellForEffect`)                                                                                                                                                                                        |
+| Enter               | `Card.CurrentRoom` set; `Mode$ RoomEntered` triggers run (`playerActionTriggerMatches`, gated on `ValidCard$` and an exact `ValidRoom$` match); `Player.VenturedThisTurn` counts up                                                                                                                                                                                                   |
+| Complete (CR 309.7) | SBA `completeFinishedDungeons`, next to `removeTokensOffBattlefield` (Java's same 704.5d loop): marker on the last room and nothing from the dungeon on the stack. The dungeon joins `Player.completedDungeons`, ceases to exist (`None`, as `exileEffect` parks an effect card), `Mode$ DungeonCompleted` triggers run                                                               |
+
+**New engine state:** `Card.CurrentRoom` (`Card.currentRoom`), `Player.VenturedThisTurn` (reset at cleanup, as
+`Player.onCleanupPhase` does), `Player.completedDungeons` (deep-copied by `Game.Clone`; nil until the first completion,
+so `TestCloneAllocationsStayBounded` holds). `Game.CompletedDungeons` exposes the list.
+
+**Statics and properties.** `Mode$ CantVenture` (Keen-Eared Sentry) shares `noPlayerStatic` with `CantBecomeMonarch`;
+its `ValidPlayer$ Opponent.VenturedThisTurn` needed the `VenturedThisTurn` player property (`matchesPlayerProperty`,
+`PlayerProperty.java:482`). `Mode$ DungeonCompleted` (4 corpus lines) records `TriggeredPlayer`.
+
+**Rejected:** `ConditionDefined$` (0 corpus lines; rejected for the reason `BecomeMonarch` rejects it). Unported and not
+reached by the dungeons: `Count$DungeonsCompleted` and the other dungeon counts, and the Panharmonicon-style
+`ValidMode$ RoomEntered` statics.
+
+**No scenario fixture.** A dungeon in the Command zone cannot be written down: `GameState.java` has no current-room key,
+and this port's `Load` does not load `T:` token entries. Module tests (`dungeon_test.go`) walk the real Lost Mine of
+Phandelver to completion instead.

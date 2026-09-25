@@ -279,8 +279,81 @@ func compileFace(face *carddb.Face) (Face, error) {
 			*group.target = append(*group.target, ability)
 		}
 	}
+	for _, kw := range face.Keywords {
+		rooms, ok := strings.CutPrefix(kw, "Dungeon:")
+		if !ok {
+			continue
+		}
+		triggers, err := c.dungeonRooms(splitTrim(rooms, ","))
+		if err != nil {
+			return Face{}, err
+		}
+		out.Triggers = append(out.Triggers, triggers...)
+	}
 	out.Amounts = compileAmounts(face)
 	return out, nil
+}
+
+// ErrBadRoom is a dungeon room ability missing its RoomName$, or naming a
+// NextRoom$ SVar its own K:Dungeon line does not list.
+var ErrBadRoom = errors.New("bad dungeon room")
+
+// dungeonRooms expands a dungeon's `K:Dungeon:<svar>,<svar>,...` keyword
+// into one room trigger per SVar, in keyword order -- the order
+// VentureEffect reads (its first trigger is the entrance) -- the way
+// CardFactoryUtil.java:1955-1989 does at card creation:
+//
+//	Mode$ RoomEntered | TriggerZones$ Command | ValidCard$ Card.Self | ValidRoom$ <RoomName>
+//
+// with the room's own ability as the trigger's Execute$. A room naming
+// NextRoom$ SVars also gets NextRoomName$, their RoomName$ values joined
+// with ",", which is what VentureEffect.chooseNextRoom offers. Nothing
+// references these SVars through a param, so without this they would
+// compile nowhere and a dungeon would have no rooms (PORT-2).
+//
+// Java dereferences a missing RoomName$ or an unlisted NextRoom$ SVar
+// (NullPointerException); both are ErrBadRoom here (PORT-8).
+func (c *faceCompiler) dungeonRooms(svars []string) ([]*Ability, error) {
+	rooms := make([]SubRef, 0, len(svars))
+	index := make(map[string]*Ability, len(svars))
+	for _, name := range svars {
+		ref, err := c.reference("Dungeon", name)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := ref.Ability.Param("RoomName"); !ok {
+			return nil, fmt.Errorf("%w: %q has no RoomName$", ErrBadRoom, name)
+		}
+		rooms = append(rooms, ref)
+		index[name] = ref.Ability
+	}
+	triggers := make([]*Ability, 0, len(rooms))
+	for _, ref := range rooms {
+		room := ref.Ability
+		roomName, _ := room.Param("RoomName")
+		if next, ok := room.Param("NextRoom"); ok {
+			var names []string
+			for _, svar := range splitTrim(next, ",") {
+				target, ok := index[svar]
+				if !ok {
+					return nil, fmt.Errorf("%w: %q leads to %q, not a room of this dungeon", ErrBadRoom, ref.SVar, svar)
+				}
+				n, _ := target.Param("RoomName")
+				names = append(names, n)
+			}
+			room.Params = append(room.Params, vocab.Param{Key: "NextRoomName", Value: strings.Join(names, ",")})
+		}
+		triggers = append(triggers, &Ability{
+			Record: Trigger,
+			Name:   "RoomEntered",
+			Params: []vocab.Param{
+				{Key: "Mode", Value: "RoomEntered"}, {Key: "TriggerZones", Value: "Command"},
+				{Key: "ValidCard", Value: "Card.Self"}, {Key: "ValidRoom", Value: roomName},
+			},
+			Subs: []SubRef{{Key: "Execute", SVar: ref.SVar, Ability: room}},
+		})
+	}
+	return triggers, nil
 }
 
 // compileAmounts parses every SVar face defines that is NOT itself an

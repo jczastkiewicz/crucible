@@ -168,6 +168,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	}
 
 	removeTokensOffBattlefield(g)
+	g.completeFinishedDungeons(controller)
 
 	// CR 613: recomputed fresh every pass, before anything below reads
 	// Power()/Toughness() or Type() -- applyContinuousPT's own doc comment

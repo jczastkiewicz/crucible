@@ -184,7 +184,12 @@ func BenchmarkGameClone(b *testing.B) {
 // like cloning something per card that used to be shared, not to police single
 // allocations.
 func TestCloneAllocationsStayBounded(t *testing.T) {
-	t.Parallel()
+	// Not t.Parallel(), unlike the rest of the package (TEST-7): the
+	// allocation count comes from process-wide runtime.MemStats, so any
+	// parallel test allocating at the same time is counted as Clone's. A
+	// sequential test runs before the parallel ones are released, which
+	// isolates the measurement; under `go test -race ./...` load the parallel
+	// version read 271 against this budget and 194 alone.
 
 	g := engine.NewGame(nil, javarand.New(1), []string{"a", "b"})
 	for _, p := range g.Players() {
@@ -207,6 +212,7 @@ func TestCloneAllocationsStayBounded(t *testing.T) {
 			_ = g.Clone()
 		}
 	})
+	t.Logf("Game.Clone: %d allocs per copy", res.AllocsPerOp())
 	if got := res.AllocsPerOp(); got > budget {
 		t.Errorf("Game.Clone allocates %d times per copy, budget %d -- "+
 			"something that was shared is now copied per card", got, budget)

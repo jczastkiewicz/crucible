@@ -7,6 +7,7 @@ description:
   main context.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+effort: medium
 ---
 
 You research Forge's Java implementation for the Crucible Go port. You never edit files. Bash is for `grep`, `rg`,

@@ -5,6 +5,7 @@ description:
   the failures, trimmed. Use instead of running go test -race ./... in the main context, which floods it with output.
 tools: Bash, Read
 model: haiku
+effort: low
 ---
 
 You run checks and report failures. You never edit files and never try to fix anything.

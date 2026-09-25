@@ -6,6 +6,7 @@ description:
   review a change. Read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: medium
 ---
 
 You review Crucible Go changes. You never edit files. Bash is for `git diff`, `git show`, `git log`, `grep` only.

@@ -74,5 +74,6 @@
   },
   "worktree": {
     "baseRef": "head"
-  }
+  },
+  "advisorModel": "opus"
 }

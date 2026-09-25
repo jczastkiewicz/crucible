@@ -209,14 +209,16 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 
 ## Subagents and skills
 
-| Kind     | Name             | Use for                                                                           |
-| -------- | ---------------- | --------------------------------------------------------------------------------- |
-| subagent | `forge-oracle`   | Java semantics of an API before porting. Keeps `forge-game/` reads out of context |
-| subagent | `rules-reviewer` | Diff vs non-negotiables, before commit                                            |
-| subagent | `gate-runner`    | Gates or one test, failures only                                                  |
-| skill    | `port-effect`    | Any M6 `ApiType` effect: file, registry, enginelint, test, docs, counts           |
-| skill    | `port-java-unit` | Any other Java unit, PORT-3 order                                                 |
-| skill    | `add-scenario`   | Rules test as a `testdata/scenarios/` fixture                                     |
+| Kind     | Name                 | Use for                                                                                |
+| -------- | -------------------- | -------------------------------------------------------------------------------------- |
+| subagent | `forge-oracle`       | Java semantics of an API before porting. Keeps `forge-game/` reads out of context      |
+| subagent | `rules-reviewer`     | Diff vs non-negotiables, before commit                                                 |
+| subagent | `gate-runner`        | Gates or one test, failures only                                                       |
+| subagent | `effect-porter`      | Batch of routine M6 effects (Sonnet), one worktree per batch, run in parallel          |
+| subagent | `effect-porter-hard` | M6 effects needing real design (stack/casting, Layer 1, Command zone) - `effort: high` |
+| skill    | `port-effect`        | Any M6 `ApiType` effect: file, registry, enginelint, test, docs, counts                |
+| skill    | `port-java-unit`     | Any other Java unit, PORT-3 order                                                      |
+| skill    | `add-scenario`       | Rules test as a `testdata/scenarios/` fixture                                          |
 
 Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`; `game-state.md` is the index plus
 `Not ported yet`.

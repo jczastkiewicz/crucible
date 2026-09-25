@@ -143,8 +143,10 @@ cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible          
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
 cd crucible && golangci-lint run   # v2.13.2, same as CI: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
-# All of the above in CI order. fast ~16 s, full ~80 s. .claude/ hooks run full before every Claude commit (blocking)
-# and fast on Stop (report only). New .claude/ files need `git add -f`: upstream .gitignore ignores .claude
+# All of the above in CI order. .claude/ hooks run full before every Claude commit (blocking) and fast on Stop (report
+# only), both with GATES_AUTO_SKIP=1: gates whose inputs are unchanged since HEAD are skipped, and go test uses its cache
+# (CI keeps -count=1). Measured: ~25 s with tests cached; a changed engine adds its own ~45 s test run. New .claude/ files need `git add -f`: upstream
+# .gitignore ignores .claude
 crucible/scripts/gates.sh fast|full
 
 # Regenerate NewRegistry after adding an effect (ADR-0017); CI fails on a stale registry_gen.go

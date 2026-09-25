@@ -424,6 +424,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)
@@ -502,6 +503,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		g.dropPreventShields(id)

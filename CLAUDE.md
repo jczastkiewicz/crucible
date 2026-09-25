@@ -201,7 +201,7 @@ valid-string evaluator, mana pool and payment, casting permanents and Auras thro
 replacement effects, block legality, continuous effects across all eight layers (partial), targeting, SubAbility
 chaining, last-known information, activated abilities.
 
-M6 in progress: 152 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+M6 in progress: 154 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`): real
 instant/sorcery casting, `Play` (330), `CopySpellAbility` (255), `Clone` (180).
 

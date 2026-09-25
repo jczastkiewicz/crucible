@@ -86,6 +86,7 @@ func NewRegistry() *Registry {
 	r[APIExplore] = exploreEffect{}
 	r[APIFight] = fightEffect{}
 	r[APIFlipCoin] = flipCoinEffect{}
+	r[APIFlipOntoBattlefield] = flipOntoBattlefieldEffect{}
 	r[APIFog] = fogEffect{}
 	r[APIGainControl] = gainControlEffect{}
 	r[APIGainControlVariant] = gainControlVariantEffect{}

@@ -22,6 +22,13 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `Player.java:3435`                | `getMonarchSet` ternary condition inverted                             | No counterpart: no set codes in Crucible | Not filed |
 | `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on | Reproduced (oracle parity)               | Not filed |
 | `CardUtil.java:345`               | Recursive frame resolves `Valid$` against the reflecting host          | None: `ManaReflected` deferred           | Not filed |
+| Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
+| `ChooseSourceEffect.java:131-133`    | Pool exhausted before every chooser has picked hangs the game                                                          | `error` for the chooser left empty                      | Not filed |
+| `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
+| `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
+| `FlipOntoBattlefieldEffect.java:109` | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot | `flipCandidates` rejects that one shape with an `error` | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -225,3 +232,29 @@ added to `reflectAbilities` (`:333`).
 **Crucible meanwhile:** no counterpart. `ManaReflected` is deferred
 ([`effects-manareflected.md`](port-log/game-state/effects-manareflected.md)); whoever ports the `Produce` walk decides
 between reproducing it (oracle parity) and carrying the fix upstream first.
+### `FlipOntoBattlefieldEffect.java:109` — neighbor filter always matches
+
+```java
+} else if (c.isPlaneswalker() || c.isArtifact() || (c.isEnchantment() && !c.isAura())) {
+    return card.isPlaneswalker() || card.isArtifact() || (c.isEnchantment() && !c.isAura());
+```
+
+`getNeighboringCard`'s own filter decides whether `card` is a candidate neighbor for the landing spot `c`. The third
+clause of the return re-tests `c` (the landing spot) instead of `card` (the candidate under test) —
+`c.isEnchantment() && !c.isAura()` instead of `card.isEnchantment() && !card.isAura()`. Entering the branch at all needs
+only one of the three OR'd conditions on `c` (`java:108`'s own `else if`). A planeswalker or artifact spot that is not
+also a non-Aura enchantment reaches the return with its own third clause `false`, so it degenerates to the correct
+`card.isPlaneswalker() || card.isArtifact()` — no bug there. Only when `c` is itself a non-Aura enchantment is that
+third clause `true` unconditionally, and the whole return degenerates to "true" regardless of `card`: every permanent on
+the landing spot's controller's battlefield becomes a valid neighbor.
+
+**Proposed fix:** test the candidate, matching every other clause in the same return:
+
+```java
+return card.isPlaneswalker() || card.isArtifact() || (card.isEnchantment() && !card.isAura());
+```
+
+**Crucible meanwhile:** `flipCandidates` (`flipontobattlefieldeffect.go`) rejects a non-Aura-enchantment landing spot
+outright with an `error` rather than sweeping the whole battlefield the way the bug does. A planeswalker or artifact
+landing spot — including Chaos Orb choosing itself, a real reachable shape — does not trigger the bug and is not
+rejected; it resolves through the correct two-clause filter above.

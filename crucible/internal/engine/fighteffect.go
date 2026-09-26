@@ -105,10 +105,8 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 // (definedCards's own filter has no such notion) is applied here, to
 // Defined$'s own resolved cards only -- Java's own identical asymmetry,
 // since a freshly-chosen ValidTgts$ target was already legality-filtered by
-// resolveTargets' own candidate walk (targeting.go) moments before this
-// runs, and nothing can happen to it in between (attachEffect's own CR
-// 608.2b doc comment, castspell.go, has the "no responses exist yet"
-// reasoning).
+// resolveTargets' own candidate walk (targeting.go) and re-checked by CR
+// 608.2b's targetsStillLegal as the ability resolves.
 func fightFighters(g *Game, host *Card, a *compile.Ability, refs abilityRefs) ([]CardID, error) {
 	var fighter1, fighter2 CardID
 	haveFighter1 := false

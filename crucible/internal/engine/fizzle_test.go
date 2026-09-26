@@ -150,3 +150,33 @@ func TestFizzleWhenPlayerTargetLeftTheGame(t *testing.T) {
 		t.Errorf("caster life = %d, want 20 (the spell fizzled, its sub-ability with it)", got)
 	}
 }
+
+// TestNoFizzleWhenTargetChangesControl: gaining control of a permanent does
+// not make it a new object (CR 400.7 covers zone changes only), so a spell
+// targeting it still resolves -- Java's gameTimestamp changes only inside
+// changeZone (GameAction.java:370). Here a steal resolves above a ping
+// aimed at the same creature.
+func TestNoFizzleWhenTargetChangesControl(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	ping := g.NewCard(instantDefWithAbility(t, "Test Ping", "0", "SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 1"), p, engine.Hand)
+	steal := g.NewCard(instantDefWithAbility(t, "Test Steal", "0", "SP$ GainControl | ValidTgts$ Creature"), p, engine.Hand)
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(creature)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(creature)})
+	if !g.CastSpell(p, ping, c) || !g.CastSpell(p, steal, c) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(creature).Controller(); got != p {
+		t.Fatalf("setup: controller = %v, want the stealing player", got)
+	}
+	if got := g.Card(creature).Damage.Marked; got != 1 {
+		t.Errorf("damage = %d, want 1 (a control change is not a zone change)", got)
+	}
+}

@@ -298,13 +298,10 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 // change if they ran the other way since Move and Attach touch disjoint
 // fields.
 //
-// Not ported: CR 608.2b's fizzle check, re-validating the target is still
-// legal right before this runs. This port has no way to make a chosen
-// target illegal between casting and resolving yet -- no responses exist,
-// so nothing can happen to the target in between -- and if that ever stops
-// being true, the existing cleanupDanglingAttachments state-based action
-// (action.go) already catches an Aura attached to an illegal host, however
-// it got there, on the very next check.
+// CR 608.2b's re-check of the Aura's target runs before this, in
+// targetsStillLegal (auraTargetStillLegal, targeting.go); an Aura whose host
+// becomes illegal after it attaches falls off through the
+// cleanupDanglingAttachments state-based action (action.go).
 type attachEffect struct{}
 
 func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

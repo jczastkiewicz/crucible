@@ -123,11 +123,12 @@ newly needing to call into groups their own files had not referenced before this
 
 ## CR 608.2b: every target re-checked at resolution
 
-`targetsStillLegal` (`targeting.go`, called by `resolveTop`) is `MagicStack.hasFizzled` (`MagicStack.java:704-752`).
-Each chosen target is checked on its own (`targetStillLegal`); an illegal one is removed from the ability's `Targets`,
-or its Charm mode's, before the effect runs (`MagicStack.java:748-750`). The ability fizzles — no effect, no
-sub-ability, no `AbilityResolved` — when at least one target was chosen and none is left, unless it or a chosen mode
-names `CantFizzle$`. A fizzled spell still goes to its owner's graveyard (`moveResolvedSpellToGraveyard`).
+`targetsStillLegal` (`targeting.go`, called by `resolveTop`; ADR-0027) is `MagicStack.hasFizzled`
+(`MagicStack.java:704-752`). Each chosen target is checked on its own (`targetStillLegal`); an illegal one is removed
+from the ability's `Targets`, or its Charm mode's, before the effect runs (`MagicStack.java:748-750`). The ability
+fizzles — no effect, no sub-ability, no `AbilityResolved` — when at least one target was chosen and none is left, unless
+it or a chosen mode names `CantFizzle$`. A fizzled spell still goes to its owner's graveyard
+(`moveResolvedSpellToGraveyard`).
 
 | Target | Illegal when                                                                                             | Java                                                   |
 | ------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |

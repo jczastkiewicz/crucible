@@ -84,13 +84,12 @@ import "fmt"
 // resolveTargets (targeting.go) already resolved it at cast/activation time,
 // the identical answer Destroy/Tap already read the same way. Unlike those,
 // this file adds its own per-target liveness check right before applying
-// damage: DamageDealEffect.java's own resolve loop (not a shared fizzle
-// check -- CR 608.2b's own general one stays out of scope past an Aura's
-// single target, ADR-0018) skips a card target that already left the
-// battlefield between targeting and resolution, still damaging every other
-// target -- a `SpellCast` trigger resolving above the spell is this port's
-// own reachable case, the identical one `TestRemoveFromGameSpellOnStack`
-// already exercises for a different API. No such check exists for a player
+// damage: DamageDealEffect.java's own resolve loop skips a card target that
+// is no longer on the battlefield, still damaging every other target, on
+// top of the shared CR 608.2b re-check resolveTop already ran
+// (targetsStillLegal, targeting.go). It matters for a target the shared
+// check keeps -- one chosen outside the battlefield, such as a spell on the
+// stack (`TestRemoveFromGameSpellOnStack`'s shape). No such check exists for a player
 // target in Java's own loop, so none is added here either -- a player who
 // has since lost the game is not filtered out.
 type dealDamageEffect struct{}

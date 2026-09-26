@@ -125,6 +125,6 @@ non-spell caller, at the cost of one `Card.Zone` read per resolution.
 
 ## Related
 
-ADR-0008 (dispatch, superseded in placement only by ADR-0017), ADR-0013 (event schema — `SpellCast` gains no new field;
-`ID` is read off the pushed `Ability`, not the event), `effects-play-copyspellability.md`,
-[04-adr-process](../guidelines/04-adr-process.md)
+ADR-0027 (per-target CR 608.2b check), ADR-0008 (dispatch, superseded in placement only by ADR-0017), ADR-0013 (event
+schema — `SpellCast` gains no new field; `ID` is read off the pushed `Ability`, not the event),
+`effects-play-copyspellability.md`, [04-adr-process](../guidelines/04-adr-process.md)

@@ -271,3 +271,33 @@ func TestStaticManaTriggerResolvesOnAClone(t *testing.T) {
 		t.Errorf("original pool total = %d, want 0", got)
 	}
 }
+
+// Regression: a static trigger failing in the middle of an effect stops that
+// ability there -- its SubAbility$ chain never runs -- and the error is
+// returned once by the resolving boundary, not left pending for a later one
+// (GO-7, ADR-0020 decision 4).
+func TestStaticManaTriggerFailureStopsTheSubAbilityChain(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.SetTurnState(1, p, engine.Main1)
+	forest := g.NewCard(landDef(t, "Forest", "Basic Land Forest"), p, engine.Battlefield)
+	refused := "DB$ Mana | Produced$ G | RestrictValid$ Creature | Defined$ TriggeredCardController"
+	aura := g.NewCard(auraDefWithTrigger(t, "Test Restricted Growth", "Land", wildGrowthTrigger, "TrigMana", refused), p, engine.Battlefield)
+	g.Attach(aura, forest)
+
+	_, err := castETBChain(t, g, p, etbChainDef(t, "Test Tap Everything",
+		"DB$ ActivateAbility | Defined$ You | ManaAbility$ True | Type$ Land | SubAbility$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 5"), engine.NewScriptedController())
+	if err == nil || !strings.Contains(err.Error(), "RestrictValid") {
+		t.Fatalf("err = %v, want the static trigger's RestrictValid$ refusal", err)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("life = %d, want 20: the SubAbility$ ran after the static trigger failed", got)
+	}
+	if again := g.TakePendingError(); again != nil {
+		t.Errorf("TakePendingError() = %v, want nil: the error was already returned", again)
+	}
+}

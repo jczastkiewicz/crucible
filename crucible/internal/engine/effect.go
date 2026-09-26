@@ -77,8 +77,13 @@ var ErrUnimplemented = errors.New("engine: no effect registered for API")
 // ability's own failure (ADR-0020 decision 4).
 func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	err := r.resolve(g, a, controller)
-	if err == nil && g != nil {
-		err = g.TakePendingError()
+	if g != nil {
+		if pending := g.TakePendingError(); pending != nil {
+			if err == nil {
+				return pending
+			}
+			return errors.Join(err, pending)
+		}
 	}
 	return err
 }
@@ -105,6 +110,11 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	if err := e.Resolve(g, a, controller); err != nil {
 		return err
+	}
+	// A static trigger the effect set off failed: stop here, before the
+	// sub-ability chain changes anything more (GO-7, ADR-0020 decision 4).
+	if g != nil && g.pendingErr != nil {
+		return nil
 	}
 	return r.resolveSubAbility(g, a, controller)
 }

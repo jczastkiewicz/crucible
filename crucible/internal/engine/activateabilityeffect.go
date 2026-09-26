@@ -71,6 +71,9 @@ func (activateAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerContr
 			} else {
 				g.ActivateManaAbility(p, id, ch.index, controller)
 			}
+			if g.pendingErr != nil {
+				return nil
+			}
 		}
 	}
 	return nil

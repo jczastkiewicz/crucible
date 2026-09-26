@@ -32,14 +32,14 @@ be rejected.
 
 ### What the engine lacks
 
-| Gap                                          | Where                                                                                                                                                                                                                                                        | Blocks        |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| Triggered mana abilities resolve immediately | `checkTapsForManaTriggers` (`trigger.go:1563`) pushes `Static$ True` matches onto the stack. Java runs them before any stacked trigger and never stacks them (`TriggerHandler.java:300-309`, `:522-526`)                                                     | `Produced`    |
-| A `Registry` at mana-activation time         | `g.registry` is set only inside `Registry.Resolve` (`effect.go:75`). `TapLandForMana` runs from `fixture/actions.go:179` and tests with none, so a static trigger there has nothing to resolve through                                                       | `Produced`    |
-| Triggering `Produced`/`Activator`/`Card`     | `triggeredObjects` (`ability.go`) holds `source`, `sourceController`, `player` only. Java records the mana after replacement (`AbilityManaPart.java:205`, `:224`), which here is `manaReplaced`'s `producedMana`                                             | `Produced`    |
-| Colorless as a choice                        | `ColorOrType$ Type` adds colorless (`CardUtil.java:256`, `:303-305`, `:362-364`). `ChooseManaColor` (`control.go:387`) answers a `mana.Colors`, which has no colorless member; Java asks `chooseColorAllowColorless` (`ManaReflectedEffect.java:99`, `:108`) | `Type` lines  |
-| `ManaReflected` as a mana ability            | `ActivateAbility` refuses only `Name == "Mana"` (`activateability.go:233`); registering `ManaReflected` would put Reflecting Pool on the stack. `ActivateManaAbility` accepts only `Mana` (`activatemanaability.go:244`)                                     | `A:AB$` lines |
-| `Valid$ Defined.*` names                     | `definedCards` (`defined.go`) lacks `ExiledWith`, `ValidGraveyard ...`, and the cost-paid `Sacrificed`/`Untapped` lists                                                                                                                                      | 5 lines       |
+In place since ADR-0020 ([`static-triggers.md`](static-triggers.md)): `Static$ True` `TapsForMana` triggers resolve
+immediately, `Game` owns its registry, and `triggeredObjects` carries the produced mana, activator and card.
+
+| Gap                               | Where                                                                                                                                                                                                                                                        | Blocks        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| Colorless as a choice             | `ColorOrType$ Type` adds colorless (`CardUtil.java:256`, `:303-305`, `:362-364`). `ChooseManaColor` (`control.go:387`) answers a `mana.Colors`, which has no colorless member; Java asks `chooseColorAllowColorless` (`ManaReflectedEffect.java:99`, `:108`) | `Type` lines  |
+| `ManaReflected` as a mana ability | `ActivateAbility` refuses only `Name == "Mana"` (`activateability.go:233`); registering `ManaReflected` would put Reflecting Pool on the stack. `ActivateManaAbility` accepts only `Mana` (`activatemanaability.go:244`)                                     | `A:AB$` lines |
+| `Valid$ Defined.*` names          | `definedCards` (`defined.go`) lacks `ExiledWith`, `ValidGraveyard ...`, and the cost-paid `Sacrificed`/`Untapped` lists                                                                                                                                      | 5 lines       |
 
 `Static$ True` `TapsForMana` triggers are already a gap without this API: 56 of 72 corpus `Mode$ TapsForMana` lines are
 `Static$ True`, and 34 of them execute `DB$ Mana`. Those are stacked today. Other modes skip `Static$` lines outright
@@ -61,11 +61,8 @@ errs toward "cannot activate"; here it gives a smaller color set.
 
 ### Smallest real design, in order
 
-1. **Triggered mana abilities (CR 605.1b).** `checkTapsForManaTriggers` resolves `Static$ True` matches on the spot,
-   before pushing the rest (`TriggerHandler.java:300-309`). Give the mana-activation path a `Registry`, either held by
-   `Game` from construction or passed to `TapLandForMana`/`ActivateManaAbility`. Record `produced` (after
-   `manaReplaced`), `activator` and `card` in `triggeredObjects`, with `Game.Clone` coverage. This changes the
-   documented contract for the 34 stacked `DB$ Mana` lines too. ADR first (ADRP-4). Unblocks `Produced` (22 lines).
+1. **Triggered mana abilities (CR 605.1b).** In place (ADR-0020, [`static-triggers.md`](static-triggers.md)). What
+   remains for `Produced` (22 lines) is registering `ManaReflected` itself over the recorded `produced` mana.
 2. **Colorless choice.** A `PlayerController` decision offering colors plus colorless, mirroring
    `chooseColorAllowColorless`. Unblocks every `ColorOrType$ Type` line.
 3. **Activated route.** `ActivateManaAbility` branches on `Name == "ManaReflected"`; `ActivateAbility` refuses it.
@@ -81,6 +78,6 @@ Offerings (`Valid$ Defined.ExiledWith`) reads cards exiled with Reflecting Pool,
 
 **Researched and deferred.**
 
-| API             | Blocker                                                                                                                                                          |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ManaReflected` | Dominant `Produced` shape (22 of 47) needs triggered mana abilities (CR 605.1b), a `Registry` at mana-activation time, triggering `Produced` (step 1, ADR first) |
+| API             | Blocker                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ManaReflected` | Dominant `Produced` shape (22 of 47) needs the effect itself registered over the triggering `Produced` mana (ADR-0020 infrastructure in place) |

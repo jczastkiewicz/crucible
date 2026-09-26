@@ -178,11 +178,14 @@ bookkeeping; both walks share `advanceStep`/`beginStep` (`turn.go`), and only `d
 | Cleanup           | unchanged                                                          | only if its SBA check did something or the stack is non-empty; then another Cleanup | `:419-428`, `:446-450`, `:156-158` |
 | every other step  | unchanged                                                          | always                                                                              | —                                  |
 
-A skipped step is not begun at all: no `PhaseBegan`, no phase triggers — Java's `skipped` path (`:244-246`, `:436-441`),
-the same treatment `consumeSkip` gives a SkipPhase-skipped step. `Game.skipDamageSteps` carries the "nobody attacked"
-answer from DeclareBlockers to the two damage steps, as Java's field of the same name does, and `Clone` copies it.
-`combatDamageAssigned` (`combatdamage.go`) is `Combat.assignCombatDamage`'s return (`Combat.java:919-925`) computed
-before damage is dealt.
+`drivenSkips` also skips turn 1's draw step in a two-player game (CR 103.7a, `:221-222`); `advance` still begins it and
+`drawStep` draws nothing. A skipped step is not begun at all: no `PhaseBegan`, no phase triggers — Java's `skipped` path
+(`:244-246`, `:436-441`), the same treatment `consumeSkip` gives a SkipPhase-skipped step. Cleanup's "SBA did something"
+is `checkStateBasedActions`' `performed` result (`action.go`), Java's `performedSBA` (`GameAction.java:1412`, `:1614`):
+each SBA helper reports whether it acted; rebuilding continuous effects and completing a dungeon do not count.
+`Game.skipDamageSteps` carries the "nobody attacked" answer from DeclareBlockers to the two damage steps, as Java's
+field of the same name does, and `Clone` copies it. `combatDamageAssigned` (`combatdamage.go`) is
+`Combat.assignCombatDamage`'s return (`Combat.java:919-925`) computed before damage is dealt.
 
 `Step` takes the current step's own priority window as played: `StartTurn` begins Untap, which grants none, so
 `StartTurn` then `Run` plays a whole game. `Run` stops after turn `maxTurns`'s Cleanup with `Over()` false — M8 decides
@@ -194,7 +197,7 @@ Three `Action` kinds make a driven step payable, since mana pools empty on every
 controller's error, not `TapLandForMana`'s invariant panic.
 
 A queued `Action` is spent on the first priority round that asks its player, Upkeep included. A fixture that wants an
-action in Main1 steps to it first (`step 2` from Untap on turn 1), then queues. Fixtures: every
+action in Main1 steps to Upkeep first (`step` from Untap on turn 1), then queues. Fixtures: every
 `testdata/scenarios/driver-*`; Go tests in `turndriver_test.go` for what state cannot show (the Cleanup repeat).
 
 Gaps, each in `game-state.md`'s `Not ported yet`: a Cleanup that `EndTurn` begins mid-round does not repeat (its SBA
@@ -375,7 +378,7 @@ else only when it's false. `DealFirstStrikeDamage` and `DealCombatDamage` are th
 (`firststrikedamage`, `combatdamage`, `game-state-fixture.md`), not one call that internally loops twice, because a real
 state-based-action check has to happen between them — a first-strike kill has to be dead before the regular step asks
 whether it still deals or receives anything — and that check already happens for free: `beginPhase` runs
-`CheckStateBasedActions` on every phase entry ([`## Turn structure`](#turn-structure), `turn.go:107`), so a scenario
+`CheckStateBasedActions` on every phase entry ([`## Turn structure`](#turn-structure), `turn.go:275`), so a scenario
 that `advance`s from `FirstStrikeDamage` into `CombatDamage` between the two verbs gets the kill applied without a new
 verb invented just for it.
 

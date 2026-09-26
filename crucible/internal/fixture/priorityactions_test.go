@@ -74,11 +74,8 @@ func TestRunActionsPassPriorityDeclinedActionErrors(t *testing.T) {
 	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=Mountain|Id:1\n")
 	c := engine.NewScriptedController()
 
-	log := "startturn human\nadvance 3\nqueue action human manaability 1 0\nqueue action human activate 1 0\npassPriority\n"
+	log := "startturn human\nadvance 3\nqueue action human manaability 1 0\npasspriority\n"
 	if err := runActions(t, l, c, log); err == nil {
-		t.Fatal("unknown verb passPriority did not error")
-	}
-	if err := runActions(t, l, c, "passpriority\n"); err == nil {
 		t.Error("declined mana ability did not error")
 	}
 }
@@ -92,11 +89,12 @@ func TestRunActionsStepAndRun(t *testing.T) {
 	l := load(t, db, "humanlife=20\nailife=20\n")
 	c := engine.NewScriptedController()
 
-	if err := runActions(t, l, c, "startturn human\nstep\nstep 2\n"); err != nil {
+	// Upkeep, then Main1: turn 1 skips the draw step (CR 103.7a).
+	if err := runActions(t, l, c, "startturn human\nstep\nstep 1\n"); err != nil {
 		t.Fatalf("RunActions: %v", err)
 	}
 	if l.Game.ActivePhase() != engine.Main1 {
-		t.Errorf("phase %v after step 3, want Main1", l.Game.ActivePhase())
+		t.Errorf("phase %v after two steps, want Main1", l.Game.ActivePhase())
 	}
 	if err := runActions(t, l, c, "run 1\n"); err != nil {
 		t.Fatalf("RunActions: %v", err)

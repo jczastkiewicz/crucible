@@ -3,9 +3,10 @@
 # 116.3), taps it for R (CR 605.3a, no stack, keeps priority) and casts
 # Lightning Bolt at ai. Both pass; Bolt resolves.
 startturn human
-# Upkeep and Draw first: a queued action is spent on the first priority
-# round that asks its player, so queue only once Main1 is next.
-step 2
+# Upkeep first: a queued action is spent on the first priority round that
+# asks its player, so queue only once Main1 is next (turn 1 skips the draw
+# step, CR 103.7a).
+step
 queue targets ai
 queue action human playland 1
 queue action human tapformana 1 R

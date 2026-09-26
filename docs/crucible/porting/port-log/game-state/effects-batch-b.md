@@ -50,7 +50,7 @@ through a permanent's own always-on replacement,
   of the Holy Nimbus effectively indestructible), not merely an incomplete one, since `AB$ Effect | StaticAbilities$`
   was already resolved by `effecteffect.go` before this batch and nothing consulted the trait it built.
 - `Game.regenerate` (the shield-spending entry point every destroy call site already calls — `destroyeffect.go:86`,
-  `destroyalleffect.go:90`, `action.go:324`) checks `cardCantRegenerate` first, then the static replacement (it costs
+  `destroyalleffect.go:90`, `action.go:341`) checks `cardCantRegenerate` first, then the static replacement (it costs
   nothing); only when neither applies does a shield actually get spent. A corpus with no card combining a shield and
   this replacement on one permanent cannot tell the replacement-before-shield order apart from the reverse empirically,
   but checking the free one first is the more useful of the two. `regenerateBody` is the three-part action

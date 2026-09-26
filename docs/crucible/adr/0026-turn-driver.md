@@ -27,11 +27,12 @@ Java's shape (`PhaseHandler.java`): `mainGameLoop` (`:1032-1037`) calls `mainLoo
 `onPhaseBegin` (`:240-451`) runs the step's turn-based action, then `TriggerType.Phase` triggers, and sets
 `givePriorityToPlayer` per step: false for Untap (`:251`) and Cleanup (`:422`); `inCombat()` for declare attackers
 (`:311`); false for a damage step where `Combat.assignCombatDamage` assigns nothing (`:328`, `:340`,
-`Combat.java:919-925`). `isSkippingPhase` (`:219-238`) skips declare blockers and both damage steps when no creature
-attacked (`skipDamageSteps`, `:229`). Cleanup repeats (`bRepeatCleanup`, `:156-158`) when its own state-based check did
-something (`:425-426`) or the stack is non-empty after triggers (`:447-449`). Lands and mana abilities go through the
-same `chooseSpellAbilityToPlay` ask as spells (`:1056`, `:1079`). No turn cap; only an AI-only 999-action guard
-(`:1102-1105`).
+`Combat.java:919-925`). `isSkippingPhase` (`:219-238`) skips turn 1's draw step in a two-player game (`:221-222`) and
+declare blockers and both damage steps when no creature attacked (`skipDamageSteps`, `:229`). Cleanup repeats
+(`bRepeatCleanup`, `:156-158`) when its own state-based check did something — `checkStateEffects`' own `performedSBA`,
+not game over (`GameAction.java:1412`, `:1614`) — (`:425-426`) or the stack is non-empty after triggers (`:447-449`).
+Lands and mana abilities go through the same `chooseSpellAbilityToPlay` ask as spells (`:1056`, `:1079`). No turn cap;
+only an AI-only 999-action guard (`:1102-1105`).
 
 ## Decision Drivers
 
@@ -79,12 +80,12 @@ Option 3 chosen.
    | Cleanup           | unchanged                                          | only if the step's state-based check did something or the stack is non-empty (CR 514.3a) |
    | every other step  | unchanged                                          | always                                                                                   |
 
-   Skip rule: entering DeclareBlockers driven sets `Game.skipDamageSteps` to "no attackers declared" (`:229`);
-   DeclareBlockers, FirstStrikeDamage and CombatDamage are then skipped the way `consumeSkip` skips them — not begun, no
-   `PhaseBegan`, no triggers — matching Java's `skipped` path, which runs neither turn-based actions nor
-   `TriggerType.Phase` (`:244-246`, `:436-441`). "Damage is assigned" mirrors `assignCombatDamage`'s return: some live
-   attacker dealing damage in the step has power above zero, or some live blocker dealing damage in the step still
-   blocks a live attacker.
+   Skip rules (`drivenSkips`): Draw on turn 1 of a two-player game (CR 103.7a, `:221-222`); and, entering
+   DeclareBlockers driven sets `Game.skipDamageSteps` to "no attackers declared" (`:229`), with none DeclareBlockers,
+   FirstStrikeDamage and CombatDamage. Each is skipped the way `consumeSkip` skips them — not begun, no `PhaseBegan`, no
+   triggers — matching Java's `skipped` path, which runs neither turn-based actions nor `TriggerType.Phase` (`:244-246`,
+   `:436-441`). "Damage is assigned" mirrors `assignCombatDamage`'s return: some live attacker dealing damage in the
+   step has power above zero, or some live blocker dealing damage in the step still blocks a live attacker.
 
    Declaration errors (ADR-0024) and a static trigger's pending error (ADR-0020) are returned from the driven step
    before any priority round.

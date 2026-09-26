@@ -106,20 +106,25 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 		}
 		return g.advanceStep(controller, driven)
 	}
-	if driven && g.skipsDamageStep(next) {
+	if driven && g.drivenSkips(next) {
 		return g.advanceStep(controller, driven)
 	}
 	return g.beginStep(controller, driven)
 }
 
-// skipsDamageStep is PhaseHandler.isSkippingPhase's combat half
-// (PhaseHandler.java:228-233): entering DeclareBlockers records whether any
-// creature attacked, and with none, DeclareBlockers and both damage steps
-// are skipped -- not begun at all, no PhaseBegan and no phase triggers,
-// Java's own `skipped` path (PhaseHandler.java:244-246, 436-441). Driven
-// only: a fixture's `advance` walks through these steps unconditionally.
-func (g *Game) skipsDamageStep(next PhaseType) bool {
+// drivenSkips is PhaseHandler.isSkippingPhase (PhaseHandler.java:219-238)
+// for the steps the driver skips on its own: the first player's draw step
+// on turn 1 of a two-player game (CR 103.7a), and -- entering
+// DeclareBlockers records whether any creature attacked -- with none,
+// DeclareBlockers and both damage steps. A skipped step is not begun at
+// all: no PhaseBegan and no phase triggers, Java's own `skipped` path
+// (PhaseHandler.java:244-246, 436-441). Driven only: a fixture's `advance`
+// walks through these steps unconditionally, and drawStep itself skips the
+// draw.
+func (g *Game) drivenSkips(next PhaseType) bool {
 	switch next {
+	case Draw:
+		return g.turn == 1 && len(g.Players()) == 2
 	case DeclareBlockers:
 		g.skipDamageSteps = len(g.combat.Attackers) == 0
 		return g.skipDamageSteps
@@ -267,8 +272,8 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		priority = false // CR 514.3, PhaseHandler.java:422
 	}
 	g.checkPhaseTriggers(controller)
-	found := CheckStateBasedActions(g, controller)
-	if g.activePhase == Cleanup && (found || len(g.stack) != 0) {
+	_, performed := checkStateBasedActions(g, controller)
+	if g.activePhase == Cleanup && (performed || len(g.stack) != 0) {
 		// CR 514.3a: priority, then another cleanup step
 		// (PhaseHandler.java:425-426, 447-449).
 		priority = true

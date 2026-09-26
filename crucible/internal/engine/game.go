@@ -129,7 +129,7 @@ type Game struct {
 	combatsThisTurn int
 	// skipDamageSteps is PhaseHandler.skipDamageSteps: set by a driven
 	// entry into DeclareBlockers when no creature attacked, read by the
-	// damage steps that follow (skipsDamageStep, turn.go; ADR-0026).
+	// damage steps that follow (drivenSkips, turn.go; ADR-0026).
 	skipDamageSteps bool
 
 	// turnOrderReversed is Game.turnOrder flipped to Direction.Right by

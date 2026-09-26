@@ -82,6 +82,40 @@ func TestStepRepeatsCleanupWhenItGrantsPriority(t *testing.T) {
 	}
 }
 
+// TestStepRepeatsCleanupWhenAStateBasedActionIsPerformed is CR 514.3a's
+// other half: nothing is on the stack, but the cleanup step's own
+// state-based-action check puts a 0-toughness creature into the graveyard
+// (CR 704.5f), so priority is granted and another cleanup step follows.
+// Nothing checks state-based actions between setup and the cleanup step's
+// body, so that check is the one that performs the action.
+func TestStepRepeatsCleanupWhenAStateBasedActionIsPerformed(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a, b := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, a, engine.EndOfTurn)
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	var sink recordingSink
+	g.SetSink(&sink)
+	doomed := g.NewCard(creatureDefPT(t, "1", "0"), a, engine.Battlefield)
+
+	if err := g.Step(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("Step: %v", err)
+	}
+	cleanups := 0
+	for _, e := range sink.events {
+		if e.Kind == engine.PhaseBegan && e.Phase == engine.Cleanup {
+			cleanups++
+		}
+	}
+	if cleanups != 2 {
+		t.Errorf("cleanup steps begun = %d, want 2 (CR 514.3a repeat after an SBA)", cleanups)
+	}
+	if got := g.Card(doomed).Zone; got != engine.Graveyard {
+		t.Errorf("0-toughness creature zone = %v, want Graveyard", got)
+	}
+}
+
 // TestStepEndsCleanupWithoutPriorityWhenNothingHappens is CR 514.3's
 // ordinary case: a cleanup step with nothing to discard and no trigger
 // grants no priority and begins once.

@@ -98,8 +98,8 @@ func (g *Game) givesPriority(phase PhaseType, controller PlayerController) bool 
 	case Untap:
 		return false
 	case Cleanup:
-		found := CheckStateBasedActions(g, controller)
-		return found || len(g.stack) != 0
+		_, performed := checkStateBasedActions(g, controller)
+		return performed || len(g.stack) != 0
 	default:
 		return true
 	}

@@ -3,9 +3,10 @@
 # no block is asked for (CR 509.1). No creature has first strike, so the
 # first-strike damage step deals nothing and grants no priority
 # (PhaseHandler.java:321-332). The combat damage step deals 2 (CR 510.2).
-# Eight steps from Untap: Upkeep, Draw, Main1, BeginCombat, Declare
-# Attackers, Declare Blockers, First Strike Damage, Combat Damage.
+# Seven steps from Untap: Upkeep, Main1 (turn 1 skips the draw step, CR
+# 103.7a), BeginCombat, Declare Attackers, Declare Blockers, First Strike
+# Damage, Combat Damage.
 startturn human
 queue attackers 1
 queue attacktarget ai
-step 8
+step 7

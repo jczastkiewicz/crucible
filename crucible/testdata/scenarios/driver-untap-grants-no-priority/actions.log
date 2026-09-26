@@ -1,0 +1,8 @@
+# CR 502.4, PhaseHandler.java:251: no player gets priority in the untap
+# step. human queues a mana ability; if the untap step granted priority,
+# human would be asked and tap the Mountain. Stepping into ai's turn 2
+# untap step leaves it untapped and the action still queued.
+startturn human
+run 1
+queue action human tapformana 1 R
+step

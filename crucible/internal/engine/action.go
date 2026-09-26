@@ -107,8 +107,22 @@ import (
 // 104.4a's own simultaneous-win draw, Actor left NoPlayer the same as the
 // ordinary zero-remaining draw below.
 func CheckStateBasedActions(g *Game, controller PlayerController) bool {
+	over, _ := checkStateBasedActions(g, controller)
+	return over
+}
+
+// checkStateBasedActions is CheckStateBasedActions' body. over is the game
+// having ended; performed is GameAction.checkStateEffects' own
+// performedSBA (GameAction.java:1412, :1614): some state-based action
+// actually did something -- a permanent moved, counters annihilated, an
+// attachment fell off, a token ceased to exist, a battle was assigned a
+// protector. Rebuilding continuous effects is not an action, and neither is
+// completing a dungeon (Java leaves checkAgain alone for it,
+// GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
+// reads performed (beginStep, turn.go).
+func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
 	if g.over {
-		return true
+		return true, false
 	}
 
 	winner, wins := NoPlayer, 0
@@ -124,7 +138,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 			actor = NoPlayer
 		}
 		g.sink.Emit(Event{Kind: GameEnded, Active: g.activePlayer, Actor: actor, Turn: uint16(g.turn)})
-		return true
+		return true, false
 	}
 
 	// CR 704.5b, 704.5a, 704.5c
@@ -164,10 +178,10 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 		// separate PlayerLost event, so this is also where a loss is
 		// visible in the stream: everyone else in the game lost.
 		g.sink.Emit(Event{Kind: GameEnded, Active: g.activePlayer, Actor: remaining, Turn: uint16(g.turn)})
-		return true
+		return true, false
 	}
 
-	removeTokensOffBattlefield(g)
+	performed = removeTokensOffBattlefield(g)
 	g.completeFinishedDungeons(controller)
 
 	// CR 613: recomputed fresh every pass, before anything below reads
@@ -198,18 +212,18 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// CR 704.5q
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			annihilateCounters(g, id)
+			performed = annihilateCounters(g, id) || performed
 		}
 	}
-	destroyLethalToughness(g, controller)
-	destroyDamagedCreatures(g, controller)
-	destroyZeroLoyalty(g, controller)
-	assignBattleProtector(g, controller)
-	destroyZeroDefense(g, controller)
-	resolveLegendRule(g, controller)
-	resolveWorldRule(g, controller)
-	cleanupDanglingAttachments(g, controller)
-	return false
+	performed = destroyLethalToughness(g, controller) || performed
+	performed = destroyDamagedCreatures(g, controller) || performed
+	performed = destroyZeroLoyalty(g, controller) || performed
+	performed = assignBattleProtector(g, controller) || performed
+	performed = destroyZeroDefense(g, controller) || performed
+	performed = resolveLegendRule(g, controller) || performed
+	performed = resolveWorldRule(g, controller) || performed
+	performed = cleanupDanglingAttachments(g, controller) || performed
+	return false, performed
 }
 
 // annihilateCounters is CR 704.5q: N +1/+1 and N -1/-1 counters are removed
@@ -217,11 +231,11 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // neither, is untouched. Sourced from id itself: the rule is self-inflicted,
 // not a card's ability doing it, the same as Move's ETB loyalty/defense grant
 // (game.go) has no other card to attribute it to.
-func annihilateCounters(g *Game, id CardID) {
+func annihilateCounters(g *Game, id CardID) bool {
 	c := g.Card(id)
 	plus, minus := c.Counters.Count(P1P1), c.Counters.Count(M1M1)
 	if plus == 0 || minus == 0 {
-		return
+		return false
 	}
 	remove := plus
 	if minus < remove {
@@ -231,6 +245,7 @@ func annihilateCounters(g *Game, id CardID) {
 	c.Counters.Add(M1M1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), P1P1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), M1M1, -remove)
+	return true
 }
 
 // destroyLethalToughness is CR 704.5f, GameAction.java's own comment (not
@@ -253,7 +268,7 @@ func annihilateCounters(g *Game, id CardID) {
 // simultaneously," a board wipe's own "whenever one or more creatures you
 // control die" firing once naming every creature this SBA killed together,
 // not once per creature.
-func destroyLethalToughness(g *Game, controller PlayerController) {
+func destroyLethalToughness(g *Game, controller PlayerController) bool {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -271,6 +286,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) {
 		g.checkDiesTriggers(controller, id)
 	}
 	g.checkChangesZoneAllTriggers(controller, dead, Battlefield, Graveyard)
+	return len(dead) > 0
 }
 
 // destroyDamagedCreatures is CR 704.5g and 704.5h together, GameAction.java's
@@ -303,7 +319,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) {
 // simplification against CR 704.3's own full simultaneity, not observable
 // against a corpus with no card that cares which of the two SBA clauses
 // killed which creature.
-func destroyDamagedCreatures(g *Game, controller PlayerController) {
+func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -330,6 +346,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) {
 		died = append(died, id)
 	}
 	g.checkChangesZoneAllTriggers(controller, died, Battlefield, Graveyard)
+	return len(dead) > 0
 }
 
 // destroyZeroLoyalty is CR 704.5's planeswalker-loyalty rule -- Java's own
@@ -359,7 +376,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) {
 // (ignorePlaneswalkerZeroLoyaltyRule, staticability.go) exempts a matching
 // planeswalker from this whole SBA, per Java's own Card.
 // ignorePlaneswalkerZeroLoyaltyRule()/GameAction.handlePlaneswalkerRule.
-func destroyZeroLoyalty(g *Game, controller PlayerController) {
+func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -373,6 +390,7 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) {
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	return len(dead) > 0
 }
 
 // destroyZeroDefense is CR 704.5v: a Battle at defense zero or less goes to
@@ -421,7 +439,7 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) {
 // since CheckStateBasedActions already returned above if only one player
 // remained -- sends the Battle to its owner's graveyard instead of asking,
 // CR 704.5w's own fallback.
-func assignBattleProtector(g *Game, controller PlayerController) {
+func assignBattleProtector(g *Game, controller PlayerController) bool {
 	var needsProtector []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -453,6 +471,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 		}
 		c.ProtectingPlayer = controller.ChooseBattleProtector(g, c.Controller(), id, eligible)
 	}
+	return len(needsProtector) > 0
 }
 
 // destroyZeroDefense is CR 704.5v: a Battle at defense zero or less goes to
@@ -475,7 +494,7 @@ func assignBattleProtector(g *Game, controller PlayerController) {
 // real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
 // comment) -- a setup.state-placed Battle still needs its own explicit
 // Counters:DEFENSE= if it wants one.
-func destroyZeroDefense(g *Game, controller PlayerController) {
+func destroyZeroDefense(g *Game, controller PlayerController) bool {
 	var dead []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -489,6 +508,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) {
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	return len(dead) > 0
 }
 
 // resolveLegendRule is the legend rule -- another of Java's own comments do
@@ -528,7 +548,8 @@ func destroyZeroDefense(g *Game, controller PlayerController) {
 // card (Spy Kit) this would unlock, is a disproportionately large refactor
 // (every `*Game` constructor across the whole test suite would need one
 // threaded through) for what it reaches (PORT-8/GO-7): skipped, not guessed.
-func resolveLegendRule(g *Game, controller PlayerController) {
+func resolveLegendRule(g *Game, controller PlayerController) bool {
+	performed := false
 	for _, pid := range g.Players() {
 		byName := map[string][]CardID{}
 		var order []string
@@ -560,6 +581,7 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 			for _, id := range dup {
 				if id != keep {
 					removed[id] = true
+					performed = true
 					g.Move(id, Graveyard, g.Card(id).Owner)
 					g.checkDiesTriggers(controller, id)
 				}
@@ -578,11 +600,13 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 		keep := controller.ChooseLegendaryToKeep(g, pid, remaining)
 		for _, id := range remaining {
 			if id != keep {
+				performed = true
 				g.Move(id, Graveyard, g.Card(id).Owner)
 				g.checkDiesTriggers(controller, id)
 			}
 		}
 	}
+	return performed
 }
 
 // resolveWorldRule is CR 704.5m: at most one permanent with the World
@@ -609,7 +633,7 @@ func resolveLegendRule(g *Game, controller PlayerController) {
 // reachable" position destroyZeroDefense's own stack-trigger exception is
 // in -- and is exercised here only by a test that sets Card.Timestamp
 // directly.
-func resolveWorldRule(g *Game, controller PlayerController) {
+func resolveWorldRule(g *Game, controller PlayerController) bool {
 	var worlds []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -619,7 +643,7 @@ func resolveWorldRule(g *Game, controller PlayerController) {
 		}
 	}
 	if len(worlds) < 2 {
-		return
+		return false
 	}
 
 	var newest CardID
@@ -634,13 +658,16 @@ func resolveWorldRule(g *Game, controller PlayerController) {
 		}
 	}
 
+	performed := false
 	for _, id := range worlds {
 		if tied == 1 && id == newest {
 			continue
 		}
+		performed = true
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	return performed
 }
 
 // cleanupDanglingAttachments is CR 704.5's attachment-legality rule: an
@@ -680,7 +707,7 @@ func resolveWorldRule(g *Game, controller PlayerController) {
 // both mutate the battlefield zone or a card's own attachment list -- the
 // same hazard the zone-snapshot every zone read hands out already carries,
 // just reachable here for the first time.
-func cleanupDanglingAttachments(g *Game, controller PlayerController) {
+func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	var toGraveyard, toUnattach []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -712,6 +739,7 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) {
 		g.Move(id, Graveyard, g.Card(id).Owner)
 		g.checkDiesTriggers(controller, id)
 	}
+	return len(toGraveyard) > 0 || len(toUnattach) > 0
 }
 
 // enchantSpec parses c's own `Enchant` keyword (CR 303.4a) into a valid.Spec,

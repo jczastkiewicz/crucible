@@ -273,8 +273,8 @@ ask. Targets still come from the shared `queue targets` FIFO, in cast order. Fix
 declarations and damage itself (so a scenario queues `attackers`/`blocks` answers instead of calling `declareattackers`)
 and opens a priority round wherever the step grants one, so a phase trigger resolves before `step` returns. A queued
 action is spent on the first round that asks its player — Upkeep included — so a scenario steps to the step it wants
-before queueing: on turn 1, `step 2` from Untap stops in Draw, so actions queued next are asked in Main1. Fixtures:
-`testdata/scenarios/driver-*`.
+before queueing: on turn 1, `step` from Untap stops in Upkeep and the next step is Main1 (the driver skips turn 1's draw
+step, CR 103.7a). Fixtures: `testdata/scenarios/driver-*`.
 
 `queue enchanttarget` answers `ChooseEnchantTarget` (`castspell.go`'s own Aura branch, CR 601.2c) the same
 `queue legendarykeep` shape — a bare id, no color or bool vocabulary — needed only when an Aura's own `Enchant`

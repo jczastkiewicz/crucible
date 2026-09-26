@@ -1,0 +1,12 @@
+# CR 510.4, PhaseHandler.java:321-332: with no first or double striker in
+# combat, the first-strike damage step deals no damage and grants no
+# priority. After Declare Blockers (Upkeep, Main1, BeginCombat, Declare
+# Attackers, Declare Blockers: five steps, turn 1 skips its draw), human
+# queues a mana ability; stepping into First Strike Damage never asks for
+# it, so the Mountain stays untapped and ai takes no damage yet.
+startturn human
+queue attackers 1
+queue attacktarget ai
+step 5
+queue action human tapformana 2 R
+step

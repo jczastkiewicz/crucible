@@ -2,9 +2,10 @@
 # CR 605.1a) is a priority answer too. human taps the Elves and a Forest
 # for G each and casts Grizzly Bears ({1}{G}); both pass and it resolves.
 startturn human
-# Upkeep and Draw first: a queued action is spent on the first priority
-# round that asks its player, so queue only once Main1 is next.
-step 2
+# Upkeep first: a queued action is spent on the first priority round that
+# asks its player, so queue only once Main1 is next (turn 1 skips the draw
+# step, CR 103.7a).
+step
 queue paygeneric G
 queue action human manaability 2 0
 queue action human tapformana 3 G

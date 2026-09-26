@@ -15,12 +15,15 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                              | Defect                                                                 | Crucible meanwhile                       | Upstream  |
-| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty    | `TargetControls$` rejected               | Not filed |
-| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game          | `error` for the chooser left empty       | Not filed |
-| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                             | No counterpart: no set codes in Crucible | Not filed |
-| `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on | Reproduced (oracle parity)               | Not filed |
+| Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
+| `ChooseSourceEffect.java:131-133`    | Pool exhausted before every chooser has picked hangs the game                                                          | `error` for the chooser left empty                      | Not filed |
+| `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
+| `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
+| `CardUtil.java:345`                  | Recursive frame resolves `Valid$` against the reflecting host                                                          | None: `ManaReflected` deferred                          | Not filed |
+| `FlipOntoBattlefieldEffect.java:109` | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot | `flipCandidates` rejects that one shape with an `error` | Not filed |
+| `PlayEffect.java:312`, `:389`        | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                         | `playRepeatLoop` returns an `error`                     | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -172,3 +175,119 @@ if (p.hasLost()) {
 **Crucible meanwhile:** reproduced. `takeinitiativeeffect.go`'s `takeInitiative` runs the same code, so the lost active
 player ends holding the initiative (`TestInitiativeToALostActivePlayerReproducesJava`). A state bug, not a crash or a
 hang, so matching the oracle wins over correcting it in Go alone (PORT-8).
+
+### `CardUtil.java:345` — nested `getReflectableManaColors` frame reads the wrong host
+
+```java
+// CardUtil.java:237-243
+private static Set<String> getReflectableManaColors(final SpellAbility abMana, final SpellAbility sa,
+        Set<String> colors, final CardCollection parents) {
+    ...
+    final Card card = abMana.getHostCard();
+
+// CardUtil.java:264-271
+    if (validCard.startsWith("Defined.")) {
+        cards = AbilityUtils.getDefinedCards(card, TextUtil.fastReplace(validCard, "Defined.", ""), abMana);
+    } else {
+        ...
+        cards = CardLists.getValidCards(activator.getGame().getCardsIn(ZoneType.Battlefield), validCard, activator, card, sa);
+    }
+
+// CardUtil.java:345, inside the ReflectProperty$ Produce branch
+    colors = CardUtil.getReflectableManaColors(sa, ab, colors, parents);
+```
+
+The recursion reads `ab`'s own `Valid$`, `ColorOrType$` and `ReflectProperty$` through `sa`, but passes the outer `sa`
+as `abMana`. So `card` in the nested frame is the reflecting card's host, not `ab.getHostCard()`, and:
+
+- `Valid$ Defined.*` resolves against the reflecting card, and `getDefinedCards`' player is `abMana`'s activator
+  (`AbilityUtils.java:71-77`).
+- A non-`Defined` `Valid$` uses the reflecting card as its valid-string source.
+
+Corpus cases, each wrong under CR 106.7 ("the types of mana the reflected ability could produce"):
+
+| Reflecting                              | Reflected                                                       | Java reads                                                |
+| --------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| Reflecting Pool (`Valid$ Land.YouCtrl`) | Pit of Offerings (`Valid$ Defined.ExiledWith`)                  | Cards exiled with Reflecting Pool: none, so no colors     |
+| Exotic Orchard (`Valid$ Land.OppCtrl`)  | Opponent's The Grey Havens (`Defined.ValidGraveyard ...YouOwn`) | Legendary creatures in the Orchard controller's graveyard |
+
+Depth 2 is inconsistent again: its `abMana` is depth 1's `ab`, so a chain of three reflecting lands reads a different
+wrong host at each level.
+
+**Proposed fix:** pass the reflected ability as both arguments, so `card` and the defined-player are `ab`'s own:
+
+```java
+colors = CardUtil.getReflectableManaColors(ab, ab, colors, parents);
+```
+
+`abMana.getApi()` (`:245`) still reads `ManaReflected`, since only such abilities reach `reflectAbilities`. The
+`Produced` branch's `abMana.getRootAbility()` (`:297`) is never reached from the recursion: `Produced` abilities are not
+added to `reflectAbilities` (`:333`).
+
+**Crucible meanwhile:** no counterpart. `ManaReflected` is deferred
+([`effects-manareflected.md`](port-log/game-state/effects-manareflected.md)); whoever ports the `Produce` walk decides
+between reproducing it (oracle parity) and carrying the fix upstream first.
+
+### `FlipOntoBattlefieldEffect.java:109` — neighbor filter always matches
+
+```java
+} else if (c.isPlaneswalker() || c.isArtifact() || (c.isEnchantment() && !c.isAura())) {
+    return card.isPlaneswalker() || card.isArtifact() || (c.isEnchantment() && !c.isAura());
+```
+
+`getNeighboringCard`'s own filter decides whether `card` is a candidate neighbor for the landing spot `c`. The third
+clause of the return re-tests `c` (the landing spot) instead of `card` (the candidate under test) —
+`c.isEnchantment() && !c.isAura()` instead of `card.isEnchantment() && !card.isAura()`. Entering the branch at all needs
+only one of the three OR'd conditions on `c` (`java:108`'s own `else if`). A planeswalker or artifact spot that is not
+also a non-Aura enchantment reaches the return with its own third clause `false`, so it degenerates to the correct
+`card.isPlaneswalker() || card.isArtifact()` — no bug there. Only when `c` is itself a non-Aura enchantment is that
+third clause `true` unconditionally, and the whole return degenerates to "true" regardless of `card`: every permanent on
+the landing spot's controller's battlefield becomes a valid neighbor.
+
+**Proposed fix:** test the candidate, matching every other clause in the same return:
+
+```java
+return card.isPlaneswalker() || card.isArtifact() || (card.isEnchantment() && !card.isAura());
+```
+
+**Crucible meanwhile:** `flipCandidates` (`flipontobattlefieldeffect.go`) rejects a non-Aura-enchantment landing spot
+outright with an `error` rather than sweeping the whole battlefield the way the bug does. A planeswalker or artifact
+landing spot — including Chaos Orb choosing itself, a real reachable shape — does not trigger the bug and is not
+rejected; it resolves through the correct two-clause filter above.
+
+### `PlayEffect.java:312`, `:389` — `AllowRepeats$` re-offers an unplayable card forever
+
+```java
+if (!sa.hasParam("AllowRepeats")) {
+    tgtCards.remove(tgtCard);
+}
+// ...
+if (sas.isEmpty()) {
+    continue;                       // :312
+}
+// ...
+} else if (tgtSA.getPayCosts().hasManaCost() && tgtSA.getPayCosts().getCostMana().getMana().isNoCost()) {
+    // unpayable
+    continue;                       // :389
+}
+```
+
+The loop runs `while (!tgtCards.isEmpty() && amount > 0 ...)`. Both `continue`s skip `amount--` (`:484`). Without
+`AllowRepeats$` the card already left `tgtCards` (`:267-269`), so the loop still shrinks. With it, the card stays, the
+next pass offers it again, and a non-optional or single-candidate pass picks it every time: a hang. The `continue`s at
+`:327-333` (a cancelled `getAbilityToPlay`) and `:365-367` (`XMin$` under an alternative cost) have the same shape.
+
+Latent: the two real `AllowRepeats$` lines (Mnemonic Deluge, Chandra, Pyromaster) carry `ValidSA$ Spell` and
+`WithoutManaCost$`, so their `ValidSA$` pre-filter (`:198`) removes a card with no spell and neither reaches `:389`.
+
+**Proposed fix:** spend the pick on every `continue` that does not play, or remove the card from `tgtCards` there:
+
+```java
+if (sas.isEmpty()) {
+    tgtCards.remove(tgtCard);
+    continue;
+}
+```
+
+**Crucible meanwhile:** `playRepeatLoop` (`playeffect.go`) returns an `error` when either branch is reached under
+`AllowRepeats$`, rather than looping or quietly dropping the card.

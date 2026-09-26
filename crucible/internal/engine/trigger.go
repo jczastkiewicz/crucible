@@ -425,6 +425,9 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, activator PlayerID) {
 	var matches []Ability
 	c := g.Card(cast)
+	// AbilityKey.SpellAbility: the spell just pushed, read before any
+	// trigger goes on top of it (Defined$ TriggeredSpellAbility).
+	spellID, _ := g.spellItemOf(cast)
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
@@ -448,7 +451,8 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: triggeredObjects{spellAbility: spellID}})
 					}
 				}
 			}

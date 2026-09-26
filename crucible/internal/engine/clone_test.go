@@ -218,3 +218,25 @@ func TestCloneAllocationsStayBounded(t *testing.T) {
 			"something that was shared is now copied per card", got, budget)
 	}
 }
+
+// A clone keeps allocating stack item IDs where the original left off, so
+// its next push never reuses an ID already on its stack (ADR-0018: a
+// StackItemID names one stack object for the whole game, and a copy of a
+// spell is told from its original by it). Regression: Clone did not carry
+// the counter, so a clone's first push reused ID 1.
+func TestCloneContinuesStackItemIDs(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.PushAbility(engine.Ability{Source: 1, Controller: p})
+	g.PushAbility(engine.Ability{Source: 2, Controller: p})
+	second, _ := g.StackTop()
+
+	clone := g.Clone()
+	clone.PushAbility(engine.Ability{Source: 3, Controller: p})
+	third, _ := clone.StackTop()
+	if third.ID <= second.ID {
+		t.Errorf("clone's next StackItemID = %d, want past the original's %d", third.ID, second.ID)
+	}
+}

@@ -51,18 +51,43 @@ var targetUnresolvedParams = [...]string{
 // lines corpus-wide), so there is no single "shape" to settle up front the
 // way an earlier version of this function tried to.
 func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
-	validTgts, ok := a.Params.Param("ValidTgts")
-	if !ok && a.API == APIEarthbend {
-		// EarthbendEffect.buildSpellAbility sets the target restriction
-		// itself; no script line names it.
-		validTgts, ok = "Land.YouCtrl", true
+	choice, named, ok := g.targetChoiceFor(a)
+	if !named {
+		return true
 	}
 	if !ok {
-		return true
+		return false
+	}
+	a.Targets = controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max)
+	return true
+}
+
+// targetChoice is one targeting part's CR 601.2c question: the legal
+// candidates and how many of them to choose.
+type targetChoice struct {
+	candidates []EntityID
+	min, max   int
+}
+
+// targetChoiceFor builds a's targetChoice from its ValidTgts$/TargetType$/
+// TargetMin$/TargetMax$, the scan resolveTargets asks the controller over
+// and a copy's new targets are chosen from (CR 707.10c, copySpell,
+// copyspellabilityeffect.go). named is false when a names no ValidTgts$ at
+// all; ok is false when it does but has no legal candidate or a shape
+// targetUnresolvedParams names -- resolveTargets' own two outcomes.
+func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool) {
+	validTgts, named := a.Params.Param("ValidTgts")
+	if !named && a.API == APIEarthbend {
+		// EarthbendEffect.buildSpellAbility sets the target restriction
+		// itself; no script line names it.
+		validTgts, named = "Land.YouCtrl", true
+	}
+	if !named {
+		return targetChoice{}, false, true
 	}
 	for _, key := range targetUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
-			return false
+			return targetChoice{}, true, false
 		}
 	}
 
@@ -77,11 +102,11 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 	}
 	targetMin, ok := resolveNamedAmount(g, a.Amounts, source, minStr)
 	if !ok {
-		return false
+		return targetChoice{}, true, false
 	}
 	targetMax, ok := resolveNamedAmount(g, a.Amounts, source, maxStr)
 	if !ok {
-		return false
+		return targetChoice{}, true, false
 	}
 
 	var candidates []EntityID
@@ -90,18 +115,22 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 		// here is a card in the Stack zone. Activated/Triggered abilities
 		// on the stack are not targetable objects in this port.
 		if targetType != "Spell" {
-			return false
+			return targetChoice{}, true, false
 		}
+		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
+	} else if a.API == APICopySpellAbility {
+		// CopySpellAbilityEffect.buildSpellAbility sets the target zone to
+		// the stack whether or not TargetType$ is named
+		// (CopySpellAbilityEffect.java:28-33): Mischievous Quanar's
+		// ValidTgts$ Instant,Sorcery names spells, not battlefield cards.
 		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
 	} else {
 		candidates = g.targetCandidates(a.Controller, a.Source, validTgts)
 	}
 	if len(candidates) == 0 {
-		return false
+		return targetChoice{}, true, false
 	}
-	chosen := controller.ChooseTargets(g, a.Controller, candidates, targetMin, targetMax)
-	a.Targets = chosen
-	return true
+	return targetChoice{candidates: candidates, min: targetMin, max: targetMax}, true, true
 }
 
 // targetCandidates is the union of spec evaluated against every player still

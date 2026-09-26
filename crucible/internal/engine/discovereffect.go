@@ -101,16 +101,9 @@ func (discoverEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 // cast and zone-change triggers run. Timing is not checked -- an effect's
 // "cast it" ignores it (CR 608.2g). The caller has checked castableAsPermanent.
 func (g *Game) castWithoutPaying(controller PlayerController, pid PlayerID, card CardID) {
-	c := g.Card(card)
-	origin := c.Zone
-	g.Move(card, Stack, pid)
-	api := APIPermanentNoncreature
-	if c.Type().Has(cardtype.Creature) {
-		api = APIPermanentCreature
-	}
-	g.PushAbility(Ability{API: api, Source: card, Controller: pid})
-	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.Player(pid).SpellsCastThisTurn++
-	g.checkSpellCastTriggers(controller, card, pid)
+	origin := g.Card(card).Zone
+	// A non-Aura permanent spell with no mana to pay has nothing left to
+	// decline (castSpell's permanent branch), so this always casts.
+	g.castSpell(controller, pid, card, castOpts{withoutManaCost: true})
 	g.checkChangesZoneAllTriggers(controller, []CardID{card}, origin, Stack)
 }

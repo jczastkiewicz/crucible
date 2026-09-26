@@ -52,14 +52,34 @@ func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) 
 	if !c.Type().Has(cardtype.Land) {
 		return false
 	}
-	if limit, unlimited := g.Player(pid).LandPlayLimit(maxLandPlays); !unlimited && g.Player(pid).LandsPlayed >= limit {
+	if !g.hasLandDrop(pid) {
 		return false
 	}
+	g.playLandNow(controller, pid, card)
+	return true
+}
+
+// hasLandDrop reports whether pid has a land play left this turn
+// (LandPlayLimit, player.go) -- Player.canPlayLand's own count check, the
+// half of it an effect's "you may play that card" still applies (CR 305.3,
+// AbilityUtils.getSpellsFromPlayEffect).
+func (g *Game) hasLandDrop(pid PlayerID) bool {
+	limit, unlimited := g.Player(pid).LandPlayLimit(maxLandPlays)
+	return unlimited || g.Player(pid).LandsPlayed < limit
+}
+
+// playLandNow is Player.playLandNoCheck: card goes onto the battlefield
+// under pid from wherever it is, its ETB replacement and triggers run, then
+// its LandPlayed triggers, and the play counts against pid's land drops.
+// PlayLand calls it once its own timing and hand gates pass; Play
+// (playeffect.go) calls it for a land from any zone.
+func (g *Game) playLandNow(controller PlayerController, pid PlayerID, card CardID) {
+	c := g.Card(card)
 	origin := c.Zone
 	g.Move(card, Battlefield, pid)
+	c.controller = pid
 	g.checkMovedReplacement(card, origin)
 	g.checkETBTriggers(controller, card, origin)
 	g.checkLandPlayedTriggers(controller, card, pid, origin)
 	g.Player(pid).LandsPlayed++
-	return true
 }

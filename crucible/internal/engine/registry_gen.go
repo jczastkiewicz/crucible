@@ -7,7 +7,7 @@ package engine
 // Resolve(*Game, *Ability, PlayerController) error, under the API its name
 // gives or the API its //crucible:register lines name (ADR-0017).
 //
-// 161 APIs. Explicit construction, not an init() populating a package-level
+// 167 APIs. Explicit construction, not an init() populating a package-level
 // Registry: a caller that wants fewer APIs builds its own Registry.
 //
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
@@ -17,6 +17,7 @@ func NewRegistry() *Registry {
 	r[APIAddOrRemoveCounter] = addOrRemoveCounterEffect{}
 	r[APIAddPhase] = addPhaseEffect{}
 	r[APIAddTurn] = addTurnEffect{}
+	r[APIAdvanceCrank] = advanceCrankEffect{}
 	r[APIAirbend] = airbendEffect{}
 	r[APIAlterAttribute] = alterAttributeEffect{}
 	r[APIAmass] = amassEffect{}
@@ -46,12 +47,14 @@ func NewRegistry() *Registry {
 	r[APIChoosePlayer] = choosePlayerEffect{}
 	r[APIChooseSource] = chooseSourceEffect{}
 	r[APIChooseType] = chooseTypeEffect{}
+	r[APIClaimThePrize] = claimThePrizeEffect{}
 	r[APIClash] = clashEffect{}
 	r[APICleanup] = cleanupEffect{}
 	r[APICloak] = manifestEffect{api: "Cloak", cloak: true, remember: "RememberCloaked"}
 	r[APIClone] = cloneEffect{}
 	r[APIConnive] = conniveEffect{}
 	r[APICopyPermanent] = copyPermanentEffect{}
+	r[APICopySpellAbility] = copySpellAbilityEffect{}
 	r[APICounter] = counterEffect{}
 	r[APIDamageAll] = damageAllEffect{}
 	r[APIDamageResolve] = damageResolveEffect{}
@@ -86,6 +89,7 @@ func NewRegistry() *Registry {
 	r[APIExplore] = exploreEffect{}
 	r[APIFight] = fightEffect{}
 	r[APIFlipCoin] = flipCoinEffect{}
+	r[APIFlipOntoBattlefield] = flipOntoBattlefieldEffect{}
 	r[APIFog] = fogEffect{}
 	r[APIGainControl] = gainControlEffect{}
 	r[APIGainControlVariant] = gainControlVariantEffect{}
@@ -117,6 +121,7 @@ func NewRegistry() *Registry {
 	r[APIPeekAndReveal] = peekAndRevealEffect{}
 	r[APIPermanentCreature] = permanentEffect{}
 	r[APIPermanentNoncreature] = permanentEffect{}
+	r[APIPlay] = playEffect{}
 	r[APIPoison] = poisonEffect{}
 	r[APIPreventDamage] = preventDamageEffect{}
 	r[APIProliferate] = proliferateEffect{}
@@ -130,6 +135,7 @@ func NewRegistry() *Registry {
 	r[APIRearrangeTopOfLibrary] = rearrangeTopOfLibraryEffect{}
 	r[APIRecruit] = recruitEffect{}
 	r[APIRegenerate] = regenerateEffect{}
+	r[APIRegeneration] = regenerationEffect{}
 	r[APIRemoveCounter] = removeCounterEffect{}
 	r[APIRemoveCounterAll] = removeCounterAllEffect{}
 	r[APIRemoveFromCombat] = removeFromCombatEffect{}

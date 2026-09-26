@@ -258,7 +258,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
-		g.players = append(g.players, Player{ID: id, Name: name})
+		g.players = append(g.players, Player{ID: id, Name: name, CrankCounter: 3})
 		for _, z := range []ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Command, Sideboard} {
 			g.zones[zoneKey{z, id}] = &Zone{Type: z, Owner: id, cards: collect.NewOrderedSet[CardID](0)}
 		}
@@ -406,8 +406,18 @@ func (g *Game) LKI(id CardID) *Card {
 // not: this is real play, and NewCard is setup nothing downstream should
 // see as something happening.
 func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
+	if g.ceaseCopiedSpell(id) {
+		return
+	}
 	c := g.Card(id)
 	from := c.Zone
+	if from == Stack && kind != Battlefield {
+		// CR 108.4a: only a permanent or a spell has a controller. A spell
+		// leaving the stack for anywhere but the battlefield goes back to
+		// its owner's control -- the other half of castSpell's CR 110.2
+		// "the caster controls it" (castspell.go).
+		c.controller = c.Owner
+	}
 	isPermanent := c.Type().IsPermanent()
 	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
 	g.put(id, kind, owner)
@@ -494,8 +504,14 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 // that cleanup for free rather than a scry-only shortcut that silently
 // skips it.
 func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
+	if g.ceaseCopiedSpell(id) {
+		return
+	}
 	c := g.Card(id)
 	from := c.Zone
+	if from == Stack {
+		c.controller = c.Owner
+	}
 	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
 	g.putFront(id, owner)
 
@@ -538,6 +554,26 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		To:     Library,
 	})
 	g.effectCardsSeeMove(id, from, Library)
+}
+
+// ceaseCopiedSpell is GameAction.changeZone's copied-spell early return
+// (GameAction.java:100-105, CR 707.10a): a copy of a spell that would move
+// anywhere is removed from its zone instead -- no timestamp, no ZoneChanged,
+// no zone-change trigger. It is parked in its owner's None zone, since a
+// CardID is never freed (ADR-0009), the same place removeTokensOffBattlefield
+// (token.go) parks a token. A permanent spell's copy that resolves is not
+// ceased: permanentEffect/attachEffect (castspell.go) turn it into a token
+// first (CR 111.11, GameAction.java:96). Reports whether id was ceased, so
+// the caller stops.
+func (g *Game) ceaseCopiedSpell(id CardID) bool {
+	c := g.Card(id)
+	if !c.IsCopiedSpell {
+		return false
+	}
+	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
+	c.Zone, c.ZoneOwner = None, c.Owner
+	g.Zone(None, c.Owner).cards.Add(id)
+	return true
 }
 
 // Shuffle randomises one zone's order, in place, using the game's own random
@@ -643,10 +679,14 @@ func (g *Game) Clone() *Game {
 		// Always DiscardSink, whatever the original's sink is: the AI's
 		// lookahead explores lines that never happened, and a clone holding
 		// the real sink would record imagined casts as real.
-		sink:   DiscardSink{},
-		stack:  append([]Ability(nil), g.stack...),
-		combat: g.combat.clone(),
-		pumps:  append([]pumpRecord(nil), g.pumps...),
+		sink:  DiscardSink{},
+		stack: append([]Ability(nil), g.stack...),
+		// Carried so the clone's next push gets an ID no item already on
+		// its stack has (ADR-0018: a StackItemID is never reused within a
+		// game, and CopySpellAbility tells a copy from its original by it).
+		nextStackItemID: g.nextStackItemID,
+		combat:          g.combat.clone(),
+		pumps:           append([]pumpRecord(nil), g.pumps...),
 
 		animates: append([]animateRecord(nil), g.animates...),
 		delayed:  append([]delayedTrigger(nil), g.delayed...),

@@ -119,14 +119,16 @@ Option 1 chosen.
    (Decision, point 2), never `ResolveStack`: CR 117.4 only ever resolves the top object, then hands priority back
    before the next one — calling the to-empty `ResolveStack` from inside the loop would resolve everything currently on
    the stack in one pass-around with no response window between items, which is CR 117.3b's whole point to prevent.
-4. **Which steps grant priority** (`Game.givesPriority(phase PhaseType) bool`, ported from `onPhaseBegin`'s own
-   per-phase sets, `PhaseHandler.java:240-451`): not `Untap` (CR 502.4). `Cleanup` grants it only when the SBA check or
-   a trigger check after it finds something to do (CR 514.3a) — `beginPhase`'s existing Cleanup body (`turn.go`'s own
-   header already names Cleanup as one of the four steps with a body) gains that repeat-check, not a blanket "no
-   priority in Cleanup" rule. Combat steps with no attackers/no damage to assign (`COMBAT_DECLARE_ATTACKERS` with zero
-   attackers, a first-strike-damage step with no first strikers) do not grant it either — this port's own Combat is thin
-   enough (`00-master-implementation-plan-in-progress.md` item 29) that this rule is stated now and wired in once each
-   of those steps has a real body to guard. Every other step/phase grants it by default.
+4. **Which steps grant priority** (`Game.givesPriority(phase PhaseType, controller PlayerController) bool`, ported from
+   `onPhaseBegin`'s own per-phase sets, `PhaseHandler.java:240-451`): not `Untap` (CR 502.4). `Cleanup` grants it only
+   when `CheckStateBasedActions` finds something to do or the stack is non-empty (CR 514.3a) — `givesPriority` runs that
+   check itself for `Cleanup` (it can only be known by actually running it, not cached), rather than `beginPhase`'s own
+   Cleanup body carrying a separate repeat-check; `PassPriority` is not wired into `beginPhase` yet (Decision, point 2),
+   so there is only one caller to check it today. Combat steps with no attackers/no damage to assign
+   (`COMBAT_DECLARE_ATTACKERS` with zero attackers, a first-strike-damage step with no first strikers) do not grant it
+   either in Java — this port's own Combat is thin enough (`00-master-implementation-plan-in-progress.md` item 29) that
+   this rule is stated now and wired in once each of those steps has a real body to guard, not implemented in
+   `givesPriority` itself yet. Every other step/phase grants it unconditionally.
 5. **`CastSpell` and `ActivateAbility` gain a CR 307.1 timing check in place of their current blanket gate**, and a
    controller's chosen action that fails it is an error, not a silent skip or a re-prompt. Both functions today reject
    any cast/activate unless `pid == g.activePlayer`, the phase is `Main1`/`Main2`, and the stack is empty
@@ -138,15 +140,20 @@ Option 1 chosen.
    - Instant: no timing restriction (CR 307.1 already excludes Instants) — legal whenever `TakeAction`'s caller has
      priority to be asked at all, which `PassPriority`'s own loop already only does for a live player during a
      priority-granting step (Decision, point 4).
-   - Activated ability: legal at instant speed unless its compiled `Ability` carries `SorcerySpeed$ true` or
-     `Planeswalker$` (a loyalty ability) — both read via `compile.Ability.Param(key)`, generic across every `APIType`'s
-     param struct since the check runs before dispatch, the same shape `activatemanaability.go:139`'s own comment
-     already names `SorcerySpeed$` as unenforced. `ActivateAbility` already reads `Planeswalker$` today
-     (`activateability.go`'s `isLoyaltyAbility`/`LoyaltyAbilityActivated` once-per-turn check) but does not yet tie it
-     to sorcery timing (CR 606.3) — this closes that gap too, alongside `SorcerySpeed$`'s and the identical ones
-     `destroyeffect.go:38`, `milleffect.go:31`, `sacrificeeffect.go:44`, `sacrificealleffect.go:25` and others already
-     flag as "a cost-restriction flag with no cost-payment site to enforce it yet" — both get their first real
-     enforcement site here, at activation, not at cost payment (Consequences).
+   - Activated ability: legal at instant speed unless its own top `A:AB$`/`A:AR$` line — `abilities[index]`, the exact
+     `compile.Ability` `ActivateAbility` is asked to activate, never a `SubAbility$`/`DB$` chained off it or a spell's
+     own `SP$` line — carries `SorcerySpeed$ true` or `Planeswalker$` (a loyalty ability), both read via
+     `compile.Ability.Param(key)`, generic across every `APIType`'s param struct since the check runs before dispatch.
+     `ActivateAbility` already reads `Planeswalker$` today (`activateability.go`'s `isLoyaltyAbility`/
+     `LoyaltyAbilityActivated` once-per-turn check) but does not yet tie it to sorcery timing (CR 606.3) — this closes
+     that gap for the top-line case. `destroyeffect.go:38`, `milleffect.go:31`, `sacrificeeffect.go:44`,
+     `sacrificealleffect.go:25` and others each flag their own `SorcerySpeed$` param as "a cost-restriction flag with no
+     cost-payment site to enforce it yet" on a `DB$`/`SP$` line those files compile, not necessarily the same occurrence
+     this gate reads — a `SorcerySpeed$` written on a Sorcery's own `SP$` line (already sorcery speed by card type, so
+     the param would be redundant there) or a chained sub-ability (which never gates casting/activating at all) stays
+     exactly as unenforced as before this ADR. Only the shape `activateability.go`'s own gate reads —
+     `SorcerySpeed$`/`Planeswalker$` on an activated ability's own top line — gets a real enforcement site here
+     (Consequences).
    - The oracle (`ScriptedController`, or any future real controller) is never offered an action it cannot legally take
      in Java — `canCastTiming` only ever gates what appears in the legal-action set a controller chooses from, never
      re-validates after the fact (`SpellAbility.java:2596-2613`). This port has no legal-action enumeration
@@ -172,7 +179,11 @@ Option 1 chosen.
 **Explicitly out of scope:** mana abilities (CR 605, which do not use the stack and do not pass priority the normal
 way); split second; a real `AIController` (M7); `MagicStack.undoStack`; `Play` and `CopySpellAbility` themselves (this
 ADR only removes their remaining blocker); the general CR 608.2b fizzle check past an Aura's own `Target`
-(Consequences).
+(Consequences); Flash — a non-Instant permanent carrying the `Flash` keyword (parsed, `keyword/defined.go:90`) should be
+castable at instant speed too, but `canActSorcerySpeed`'s split only ever checks `cardtype.Instant`, so a Flash
+permanent queued as a response fails CR 307.1's check exactly like any other permanent. A real gap, not a silent wrong
+answer — `PassPriority` still errors rather than allowing it, so nothing plays out incorrectly, it is simply not yet
+possible to cast a Flash permanent as a response.
 
 ## Consequences
 
@@ -180,8 +191,8 @@ ADR only removes their remaining blocker); the general CR 608.2b fizzle check pa
 `ResolveStack` keeps its exact signature and to-empty behavior for every existing caller — only its body moves into
 `resolveTop` (Decision, point 3), verified by the existing test suite passing unchanged. `PassPriority` is purely
 additive: nothing existing calls it, so every current test and scenario stays byte-identical by construction.
-`SorcerySpeed$`'s and `Planeswalker$`'s own long-standing "parsed but never enforced for timing" gaps (Decision,
-point 5) close for free as part of giving `CastSpell`/`ActivateAbility` a real timing check.
+`SorcerySpeed$`'s and `Planeswalker$`'s own top-line-on-an-activated-ability shape (Decision, point 5) gets its first
+real timing enforcement as part of giving `CastSpell`/`ActivateAbility` a real check.
 
 **Bad:** the general CR 608.2b fizzle check becomes load-bearing rather than a documented but currently-unreachable gap
 — a response resolving above a targeted spell can now actually remove its target before this port has a general re-check
@@ -193,9 +204,12 @@ recompute-and-intersect of the candidate list — the shape that already broke `
 **Neutral:** `Game` gains no new field — the priority round's state (holder, pass count) is local to one `PassPriority`
 call, not persisted turn-structure state. `PlayerController` gains one method, implemented by `ScriptedController` and
 any future controller the same way every other method already is. `CastSpell` and `ActivateAbility`'s existing callers
-(every test, `actions.go`'s `cast`/`activate` verbs) that only ever exercise the main-phase, empty-stack, active-player
-case see no behavior change — the CR 307.1 split only changes what an Instant or a non-`SorcerySpeed$` activated ability
-can now do outside that case, which nothing exercised before this ADR.
+that only ever exercise the main-phase, empty-stack, active-player case see no behavior change. One existing test did
+not: `TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack` asserted that a plain, unmarked activated ability
+declines outside a main phase — exactly the blanket-gate behavior this ADR replaces. It is renamed and split into
+`TestActivateAbilityInstantSpeedByDefault` (the same ability now activates during combat, correctly) and
+`TestActivateAbilityDeclinesSorcerySpeedOutsideMainPhase` (an otherwise-identical ability marked `SorcerySpeed$` still
+declines) — a deliberate CR 307.1 fix, not a regression, named as such in the implementing commit.
 
 ## Related
 

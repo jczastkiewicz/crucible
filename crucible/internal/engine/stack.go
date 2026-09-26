@@ -6,12 +6,13 @@
 // true at once) is ported too, as pushTriggeredAbilities (trigger.go) --
 // every real trigger-check function collects its own matches and calls it
 // once, rather than calling PushAbility inline as each match is found.
-// freezeStack/unfreezeStack (holding new pushes while one ability is
-// already resolving) and undoStack only matter once something can push a
-// second ability while the first is still open, and casting still has no
-// cost-payment or targeting to drive that (control.go's four
-// PlayerController methods are the same shape of gap) -- "mechanism now,
-// content later," the shape effect.go's Registry already landed in.
+// undoStack still has nothing to undo (no PlayerController method reaches
+// it). freezeStack/unfreezeStack -- holding a push arriving while another
+// ability is still resolving, so it lands only once that one finishes --
+// stays unbuilt too: PassPriority (priority.go, ADR-0019) is real
+// interactive priority now, but everything it can push happens between
+// resolutions (resolveTop, one per round), never during one, so nothing
+// yet needs holding.
 
 package engine
 
@@ -44,23 +45,16 @@ func (g *Game) StackTop() (Ability, bool) {
 	return g.stack[len(g.stack)-1], true
 }
 
-// ResolveStack resolves the stack to empty against reg: pop the top ability
-// (CR 608.2m -- it leaves the stack before its effect happens, so a
-// resolving ability never sees itself still there), check CR 608.2b's own
-// fizzle condition, dispatch it if it did not fizzle, emit AbilityResolved,
-// move a spell's own source off the stack (ADR-0018), then check
-// state-based actions (CR 704.3) before resolving what is now on top -- the
-// same pairing beginPhase runs after a turn-based action.
-//
-// This plays out CR 117's priority algorithm for the one case this port can
-// reach today: no PlayerController method lets a player respond to anything
-// on the stack, so every priority pass is a pass in succession and the top
-// item always resolves next, with nothing new arriving on top of it in the
-// meantime -- CastSpell (castspell.go) casting an Instant/Sorcery does not
-// change that: it adds a second thing that can be on the stack, not a
-// response window. Interactive priority -- responding to what is already
-// there, MagicStack's freeze/unfreeze around a resolution that pushes
-// another ability -- waits on a later ADR.
+// ResolveStack resolves the stack to empty against reg by calling resolveTop
+// until it is: CR 405.5's "keep resolving while nothing responds," the
+// shape this port needs whenever nothing is asking a player whether to
+// respond in between (every existing caller -- module tests, actions.go's
+// resolvestack verb). PassPriority (priority.go, ADR-0019) calls resolveTop
+// directly instead, once per full pass-around: CR 117.4 only ever resolves
+// the single object on top of the stack before priority is offered again
+// (CR 117.3b), and looping this to empty from inside a priority round would
+// remove the response window between items that is the entire point of
+// interactive priority.
 //
 // A resolution's own error stops the loop immediately and reaches the
 // caller unchanged (GO-7): a bad card fails its game, not the batch, and
@@ -68,20 +62,35 @@ func (g *Game) StackTop() (Ability, bool) {
 // happened.
 func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
 	for len(g.stack) > 0 && !g.over {
-		n := len(g.stack) - 1
-		a := g.stack[n]
-		g.stack[n] = Ability{}
-		g.stack = g.stack[:n]
-
-		if g.targetsStillLegal(&a) {
-			if err := reg.Resolve(g, &a, controller); err != nil {
-				return err
-			}
-			g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
+		if err := g.resolveTop(reg, controller); err != nil {
+			return err
 		}
-		g.moveResolvedSpellToGraveyard(a)
-		CheckStateBasedActions(g, controller)
 	}
+	return nil
+}
+
+// resolveTop pops the top ability (CR 608.2m -- it leaves the stack before
+// its effect happens, so a resolving ability never sees itself still
+// there), checks CR 608.2b's own fizzle condition, dispatches it if it did
+// not fizzle, emits AbilityResolved, moves a spell's own source off the
+// stack (ADR-0018), then checks state-based actions (CR 704.3) -- the same
+// pairing beginPhase runs after a turn-based action. One call is one
+// resolution, CR 117.4's own grain: ResolveStack loops it to empty,
+// PassPriority (priority.go) calls it once per full pass-around.
+func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
+	n := len(g.stack) - 1
+	a := g.stack[n]
+	g.stack[n] = Ability{}
+	g.stack = g.stack[:n]
+
+	if g.targetsStillLegal(&a) {
+		if err := reg.Resolve(g, &a, controller); err != nil {
+			return err
+		}
+		g.sink.Emit(Event{Kind: AbilityResolved, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
+	}
+	g.moveResolvedSpellToGraveyard(a)
+	CheckStateBasedActions(g, controller)
 	return nil
 }
 

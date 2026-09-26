@@ -519,3 +519,7 @@ func (c *scriptedMulliganController) WillPutCardOnTop(_ *engine.Game, _ engine.P
 func (c *scriptedMulliganController) ChooseAbilitiesForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string, _ int) []int {
 	panic("scriptedMulliganController: ChooseAbilitiesForEffect was not expected to be called")
 }
+
+func (c *scriptedMulliganController) TakeAction(_ *engine.Game, _ engine.PlayerID) engine.Action {
+	panic("scriptedMulliganController: TakeAction was not expected to be called")
+}

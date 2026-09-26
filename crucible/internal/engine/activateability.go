@@ -35,16 +35,13 @@
 // GO-7, 0 real corpus lines this port cannot already resolve some other way
 // depend on it). Java's own entry
 // point (Player.playSpellAbility, by way of PlayerControllerHuman/AI's own
-// input loop) is a real priority-window action; this port has no priority
-// window at all yet (game-state.md's own "Not ported yet" -- "ResolveStack
-// plays out only the degenerate case, nobody able to respond"), so timing
-// collapses to the identical sorcery-speed shape CastSpell's own CR 601.3a
-// simplification already uses: active player, a main phase, an empty
-// stack -- CR 606.3's own separate sorcery-speed restriction on a loyalty
-// ability specifically is a free consequence of this port having no other
-// timing at all yet, not a rule enforced for its own sake here. A future
-// instant-speed activation needs the real priority window built first, not
-// a special case here.
+// input loop) is a real priority-window action, and this port has one now:
+// PassPriority (priority.go, ADR-0019). Timing is CR 307.1/canActSorcerySpeed
+// (priority.go): instant speed by default, sorcery speed (active player, a
+// main phase, an empty stack) only for a loyalty ability (Planeswalker$,
+// CR 606.3's own separate restriction) or one explicitly marked
+// SorcerySpeed$ -- both read generically off the compiled Ability's own
+// params before dispatch.
 
 package engine
 
@@ -212,15 +209,6 @@ import (
 // (CR 603's own remaining gap, game-state.md); this port has none built to
 // fire.
 func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
-	if pid != g.activePlayer {
-		return false
-	}
-	if g.activePhase != Main1 && g.activePhase != Main2 {
-		return false
-	}
-	if len(g.stack) != 0 {
-		return false
-	}
 	c := g.Card(card)
 	if c.isDetained() {
 		return false
@@ -231,6 +219,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	ability := abilities[index]
 	if ability.Record != compile.Activated || ability.Name == "Mana" {
+		return false
+	}
+	_, isLoyaltyAbility := ability.Param("Planeswalker")
+	_, sorcerySpeed := ability.Param("SorcerySpeed")
+	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
@@ -252,7 +245,6 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	default:
 		return false
 	}
-	_, isLoyaltyAbility := ability.Param("Planeswalker")
 	if isLoyaltyAbility && c.LoyaltyAbilityActivated {
 		return false
 	}

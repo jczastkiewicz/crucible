@@ -96,12 +96,12 @@ trivially either way), then restoring it. `enginelint` group `effect` gained `de
 ## Activating an ability lands, CR 602.2
 
 `Player.playSpellAbility` (by way of `PlayerControllerHuman`'s own input loop) is Java's own entry point for CR 602 -- a
-real priority-window action this port has no equivalent window for at all
-([`## The scenario harness lives partly here`](../game-state.md#the-scenario-harness-lives-partly-here), below --
-`ResolveStack` plays out only the degenerate case, nobody able to respond). A new `ActivateAbility` (activateability.go)
-ports it anyway, collapsing timing to the identical sorcery-speed shape `CastSpell`'s own CR 601.3a simplification
-already uses (active player, a main phase, an empty stack) -- a real instant-speed activation needs the priority window
-built first, not a special case here.
+real priority-window action this port had no equivalent window for at the time `ActivateAbility` (activateability.go)
+first landed, so it collapsed timing to `CastSpell`'s own CR 601.3a simplification (active player, a main phase, an
+empty stack) for every activated ability alike. `PassPriority` (ADR-0019,
+[`## Interactive priority: CR 117 lands`](turn-stack-combat.md#interactive-priority-cr-117-lands)) replaced that with CR
+307.1's real split: instant speed by default, sorcery speed only for a loyalty ability (`Planeswalker$`) or one
+explicitly marked `SorcerySpeed$`.
 
 10,879 real `(A:)AB$` lines exist corpus-wide -- more than any one trigger mode past `Mode$ ChangesZone` itself, and
 this port's own single largest remaining action by real line count. Trimmed to the corpus's own two dominant real

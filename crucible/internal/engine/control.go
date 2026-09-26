@@ -56,6 +56,11 @@ import (
 // twenty-seventh -- CR's own "unless a cost is paid" gate, a further
 // SpellAbility-level decision distinct from ConfirmOptionalTrigger's own
 // CR 603.3d "may."
+//
+// TakeAction (below) is CR 117's own priority ask, a different shape from
+// every method above it: it is asked an unbounded number of times per
+// PassPriority round rather than once per decision point (priority.go,
+// ADR-0019).
 type PlayerController interface {
 	// ChooseStartingPlayer decides who takes the first turn. decider is the
 	// player being asked -- the winner of a coin flip on game one, the loser
@@ -473,6 +478,13 @@ type PlayerController interface {
 	// shared shape of Java's chooseSomeType, chooseCardName, vote and
 	// pile choices, each a pick from a list of strings.
 	ChooseOption(g *Game, decider PlayerID, source CardID, options []string) int
+
+	// TakeAction is CR 117's own priority ask (ADR-0019): what, if anything,
+	// pid does with priority right now. The zero value, ActionPass, is a
+	// pass -- Java's chooseSpellAbilityToPlay returning null
+	// (PlayerController.java:278, PlayerControllerHuman.java:1714-1716).
+	// PassPriority (priority.go) is the only caller.
+	TakeAction(g *Game, pid PlayerID) Action
 }
 
 // BinaryChoice names a PlayerController.BinaryChoiceType.
@@ -544,6 +556,11 @@ type ScriptedController struct {
 	cardOnTop        []bool
 	binary           []bool
 	option           []int
+	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
+	// by PlayerID like Game.players already is -- not a map, GO-12. A slot
+	// left nil means "nothing queued for this player yet," the same as an
+	// empty slice.
+	actionQueue []*[]Action
 }
 
 // scryDecision is one queued answer to ArrangeForScry or ArrangeForSurveil
@@ -1192,6 +1209,54 @@ func (c *ScriptedController) QueueOption(i int) { c.option = append(c.option, i)
 // ChooseOption returns the next answer QueueOption queued.
 func (c *ScriptedController) ChooseOption(_ *Game, _ PlayerID, _ CardID, _ []string) int {
 	return popQueue(&c.option, "option")
+}
+
+// QueueAction appends a to pid's own priority-answer queue, consumed by
+// pid's next TakeAction call. Per player (ADR-0019), not one shared FIFO:
+// CR 117.3c lets a player be asked again immediately after acting, so a
+// single shared queue would let that second ask pop an entry meant for a
+// different player's own later turn to act.
+func (c *ScriptedController) QueueAction(pid PlayerID, a Action) {
+	c.actionsFor(pid, true)
+	*c.actionQueue[pid] = append(*c.actionQueue[pid], a)
+}
+
+// TakeAction returns pid's own next queued Action, or ActionPass if none is
+// queued -- the one ScriptedController decision that defaults instead of
+// panicking on empty (control.go's own struct comment covers why every
+// other one panics): CR 117.3c means TakeAction is asked an unbounded
+// number of times per priority round, and "nothing left queued for this
+// player" is the ordinary way every round ends, not a fixture mistake.
+func (c *ScriptedController) TakeAction(_ *Game, pid PlayerID) Action {
+	q := c.actionsFor(pid, false)
+	if q == nil || len(*q) == 0 {
+		return Action{}
+	}
+	v := (*q)[0]
+	*q = (*q)[1:]
+	return v
+}
+
+// actionsFor returns pid's own queue slot, growing actionQueue to cover pid
+// if grow is true (QueueAction's own call) or returning nil if it does not
+// exist yet (TakeAction's own call -- an unqueued player has simply never
+// been queued anything, the same as an empty queue).
+func (c *ScriptedController) actionsFor(pid PlayerID, grow bool) *[]Action {
+	if int(pid) >= len(c.actionQueue) {
+		if !grow {
+			return nil
+		}
+		grown := make([]*[]Action, int(pid)+1)
+		copy(grown, c.actionQueue)
+		c.actionQueue = grown
+	}
+	if c.actionQueue[pid] == nil {
+		if !grow {
+			return nil
+		}
+		c.actionQueue[pid] = &[]Action{}
+	}
+	return c.actionQueue[pid]
 }
 
 // popQueue pops the head of one ScriptedController queue, panicking with kind

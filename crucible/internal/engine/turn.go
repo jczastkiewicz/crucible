@@ -16,13 +16,13 @@
 // ActivePhase and nothing else beyond the trigger check, until each one's
 // turn comes (porting/port-log/game-state.md).
 //
-// PhaseHandler's priority loop (mainLoopStep) is still not wired in here,
-// even though the stack itself now exists (stack.go). No PlayerController
-// method can cast or activate anything, so a player asked "do you have a
-// legal action" always answers no -- calling ResolveStack from beginPhase
-// today would be a no-op on every call, since nothing yet pushes an ability
-// in production. It lands here once something does (triggers, at the
-// earliest).
+// PhaseHandler's priority loop (mainLoopStep) is ported now -- PassPriority
+// (priority.go, ADR-0019) -- but still not wired in here: beginPhase takes
+// no *Registry, and wiring a priority round into it would resolve phase
+// triggers through that loop, changing every existing scenario's own
+// expect.events. It is a standalone entry today, called directly by a test
+// or a fixture verb; wiring it into beginPhase/AdvancePhase is a later
+// commit's job.
 
 package engine
 

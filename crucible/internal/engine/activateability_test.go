@@ -1296,11 +1296,11 @@ func TestActivateAbilityExertCostFiresOtherWatcherTrigger(t *testing.T) {
 	}
 }
 
-// TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack proves timing
-// collapses to CastSpell's own sorcery-speed shape: wrong phase, a
-// nonempty stack and a wrong-controller/off-battlefield source are all
-// declined the identical way.
-func TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack(t *testing.T) {
+// TestActivateAbilityInstantSpeedByDefault proves ADR-0019's CR 307.1
+// split: an activated ability with no SorcerySpeed$/Planeswalker$ marker is
+// instant speed by default (Java's own default, SpellAbility.java:
+// 2607-2610) and activates fine outside a main phase.
+func TestActivateAbilityInstantSpeedByDefault(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -1308,12 +1308,34 @@ func TestActivateAbilityDeclinesOutsideMainPhaseWithEmptyStack(t *testing.T) {
 	g.SetTurnState(1, p, engine.CombatBegin)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
-	def := creatureDefWithAbility(t, "Test Wrong Phase", "AB$ Pump | Cost$ T | Defined$ Self | NumAtt$ 1 | NumDef$ 1")
+	def := creatureDefWithAbility(t, "Test Instant Speed", "AB$ Pump | Cost$ T | Defined$ Self | NumAtt$ 1 | NumDef$ 1")
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false during combat, want true (instant speed by default)")
+	}
+}
+
+// TestActivateAbilityDeclinesSorcerySpeedOutsideMainPhase proves the other
+// half of ADR-0019's CR 307.1 split: an ability explicitly marked
+// SorcerySpeed$ still needs the active player, a main phase and an empty
+// stack, the same as before this ADR.
+func TestActivateAbilityDeclinesSorcerySpeedOutsideMainPhase(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.CombatBegin)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := creatureDefWithAbility(t, "Test Sorcery Speed",
+		"AB$ Pump | Cost$ T | Defined$ Self | NumAtt$ 1 | NumDef$ 1 | SorcerySpeed$ True")
 	creature := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true during combat, want false")
+		t.Error("ActivateAbility returned true during combat, want false (SorcerySpeed$)")
 	}
 }
 

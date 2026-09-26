@@ -1242,21 +1242,22 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     further chunk's own work, not done here.
 
     Timing collapses to `CastSpell`'s own CR 601.3a simplification (active player, a main phase, an empty stack) since
-    this port has no real priority window at all yet (item 29's own "Not ported yet" entry — `ResolveStack` plays out
-    only the degenerate case, nobody able to respond); a real instant-speed activation needs that window built first,
-    not a special case here. A Tap-self cost checks CR 602.5b/302.6 first (`Card.SummonSick`/`HasKeyword("Haste")`,
-    `DeclareCombatAttackers`'s own identical gate, `attack.go`, reused) with no side effect yet — already tapped, or
-    summoning-sick without haste, both decline outright; the mana half pays through `PayManaCost` exactly as
-    `CastSpell`'s own does, and only once that succeeds does the tap itself actually happen (`Card.Tapped` set,
-    `checkTapsTriggers` fired), so a failed mana payment never leaves the source tapped for nothing. A successful
-    activation pushes through `pushTriggeredAbilities` (trigger.go) with the activating player as its own sole entry —
-    resolving `ValidTgts$` (targeting.go) and firing CR 115's own "becomes the target" check the identical way a
-    triggered ability's own push already does, APNAP ordering a harmless no-op over the one player activating — reusing
-    every one of the twelve already-built effects and the general `Registry.Resolve` machinery
-    (`UnlessCost$`/`SubAbility$` chaining/`ConditionCheckSVar$`/...) they already carry, with no new effect code at all.
-    `compile.Face.Abilities` (compile.go) already carried every `A:` line's own compiled `Ability` since M3 -- both
-    `A:AB$` (`Record` `Activated`) and `A:SP$` (`Record` `Spell`) share the one slice, told apart by `Record` alone --
-    so this needed no new compile-layer work at all, only an engine-side consumer for what had sat unread.
+    this chunk landed before this port had a real priority window. ADR-0019's `PassPriority` later replaced this with CR
+    307.1's real split (instant speed by default, sorcery speed only for `SorcerySpeed$`/`Planeswalker$`), documented at
+    [`## Interactive priority: CR 117 lands`](porting/port-log/game-state/turn-stack-combat.md#interactive-priority-cr-117-lands).
+    A Tap-self cost checks CR 602.5b/302.6 first (`Card.SummonSick`/`HasKeyword("Haste")`, `DeclareCombatAttackers`'s
+    own identical gate, `attack.go`, reused) with no side effect yet — already tapped, or summoning-sick without haste,
+    both decline outright; the mana half pays through `PayManaCost` exactly as `CastSpell`'s own does, and only once
+    that succeeds does the tap itself actually happen (`Card.Tapped` set, `checkTapsTriggers` fired), so a failed mana
+    payment never leaves the source tapped for nothing. A successful activation pushes through `pushTriggeredAbilities`
+    (trigger.go) with the activating player as its own sole entry — resolving `ValidTgts$` (targeting.go) and firing CR
+    115's own "becomes the target" check the identical way a triggered ability's own push already does, APNAP ordering a
+    harmless no-op over the one player activating — reusing every one of the twelve already-built effects and the
+    general `Registry.Resolve` machinery (`UnlessCost$`/`SubAbility$` chaining/`ConditionCheckSVar$`/...) they already
+    carry, with no new effect code at all. `compile.Face.Abilities` (compile.go) already carried every `A:` line's own
+    compiled `Ability` since M3 -- both `A:AB$` (`Record` `Activated`) and `A:SP$` (`Record` `Spell`) share the one
+    slice, told apart by `Record` alone -- so this needed no new compile-layer work at all, only an engine-side consumer
+    for what had sat unread.
 
     `ActivateAbility` gained a third cost shape too -- mana and/or a Tap-self token plus a single self-sacrifice token,
     `Sac<1/CARDNAME>` ("sacrifice this permanent," fetch lands' and sac outlets' own dominant real shape), through a new

@@ -39,9 +39,12 @@ func castableAsInstantOrSorcery(c *Card) bool {
 
 // CastSpell is CR 601: pay the cost, then the spell becomes an object on the
 // stack (CR 405.2, 601.2i) -- resolving is a separate step, ResolveStack.
-// Timing is CR 601.3a's own default (sorcery speed, no flash this port can
-// grant), collapsed the same way PlayLand's own CR 305.3 check is: active
-// player, a main phase, an empty stack.
+// Timing (CR 307.1/601.3a, ADR-0019 Decision point 5) is canActSorcerySpeed
+// for everything except an Instant: a permanent, an Aura and a Sorcery all
+// need the active player, a main phase and an empty stack the same way
+// PlayLand's own CR 305.3 check does; an Instant has none of those
+// restrictions and may be cast whenever something asks (PassPriority,
+// priority.go).
 //
 // Reports whether the spell was cast. false covers every legal-but-declined
 // case: wrong timing, the card is not in pid's hand, castableAsPermanent
@@ -56,17 +59,11 @@ func castableAsInstantOrSorcery(c *Card) bool {
 // trigger.go) -- fired at cast time, not on resolution, the same place
 // Java's own checkTriggerEffects call sits.
 func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController) bool {
-	if pid != g.activePlayer {
-		return false
-	}
-	if g.activePhase != Main1 && g.activePhase != Main2 {
-		return false
-	}
-	if len(g.stack) != 0 {
-		return false
-	}
 	c := g.Card(card)
 	if c.Controller() != pid || c.Zone != Hand {
+		return false
+	}
+	if !c.Type().Has(cardtype.Instant) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
 

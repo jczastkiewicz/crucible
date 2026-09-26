@@ -106,20 +106,68 @@ window for a \_third* ability to arrive while the second is still open either. `
 zero implementations -- `permanentEffect` and `attachEffect` (castspell.go) are `CastSpell`'s own resolutions, and
 `ResolveStack` has real (non-test) callers through both.
 
-`ResolveStack` is also CR 117's priority algorithm, for the one case this port can play out today. Priority's real job
--- offering every player, in APNAP order, a chance to respond to what is on top before it resolves -- needs a
-`PlayerController` method that can activate or cast something in response, which does not exist
-([`## Controller`](../game-state.md#controller)). `CastSpell` is a `Game` method, not a controller decision, and its own
-empty-stack precondition means it cannot be used to respond to what is already on top anyway. With nobody able to
-respond, every priority pass is a pass in succession, so the top item always resolves next; `ResolveStack` encodes
-exactly that degenerate case rather than a full pass-tracking loop nothing could yet exercise.
+`ResolveStack`'s loop body is now `resolveTop` (below, ADR-0019): pop, fizzle check, dispatch, emit, move a resolved
+spell's own source to the graveyard, `CheckStateBasedActions`. `ResolveStack` itself is `resolveTop` called to empty,
+unchanged for every existing caller.
 
-`turn.go`'s `beginPhase` does not call `ResolveStack`. Nothing in the phase machinery itself ever pushes onto the stack
--- only `CastSpell` does that today, driven by an explicit player decision outside `beginPhase` entirely -- so a call to
-`ResolveStack` there would resolve whatever `CastSpell` already left behind at a point in the turn structure that has
-nothing to do with when a caster actually stopped passing priority. It is wired in from an explicit action instead, the
-same way `CastSpell`/`PlayLand` themselves are driven by a caller's decision rather than a phase-boundary hook: the
-fixture's own `resolvestack` verb (`game-state-fixture.md`) and engine tests call it directly.
+`turn.go`'s `beginPhase` does not call `ResolveStack` or `PassPriority`. Nothing in the phase machinery itself ever
+pushes onto the stack -- only `CastSpell`/`ActivateAbility` do that today, driven by an explicit player decision outside
+`beginPhase` entirely -- so wiring either into the phase machinery is its own future commit, not this one (ADR-0019's
+own Decision, point 2: `beginPhase` takes no `*Registry`, and wiring a priority round in there would resolve phase
+triggers through it, changing every scenario's `expect.events`). Both stay driven by an explicit action instead, the
+same way `CastSpell`/`PlayLand` themselves are: the fixture's own `resolvestack` verb (`game-state-fixture.md`) and
+engine tests call `ResolveStack` directly; `PassPriority` has no fixture verb yet, only engine tests
+(`priority_test.go`).
+
+---
+
+## Interactive priority: CR 117 lands
+
+ADR-0019. Until now, `ResolveStack`'s own doc comment stated the honest limit: "no `PlayerController` method lets a
+player respond to anything on the stack, so every priority pass is a pass in succession." `PassPriority` (`priority.go`)
+is the real CR 117 loop that limit describes the absence of: each live player, starting with the active player, is asked
+a new `PlayerController` method, `TakeAction`, in turn order; a pass moves to the next live player; a non-pass action
+applies it and returns priority to the actor (CR 117.3c — Java's own `pFirstPriority`/`pPlayerPriority` reset,
+`PhaseHandler.java:1079-1082`). Once everyone in a row has passed, `resolveTop` resolves the one object on top of the
+stack (CR 117.4 — not the whole stack, which would remove the response window between items) and a fresh round starts
+with the active player (CR 117.3b).
+
+Priority state — who currently holds it, how many passes in a row — is local to one `PassPriority` call, not a new
+`Game` field: the whole round runs inside one call, so nothing needs to survive past it the way turn/phase state does.
+Java's `pFirstPriority` and `pPlayerPriority` are two fields serving two CR-distinct roles (the pass-counter anchor and
+who gets priority after a resolution); this port collapses them into a `holder` local and a pass count because it has no
+human GUI needing them tracked separately.
+
+`TakeAction`'s zero value, `ActionPass`, is a pass — Java's own `chooseSpellAbilityToPlay` returning `null`
+(`PlayerController.java:278`). `ScriptedController` keys its queue per player (`actionQueue []*[]Action`, indexed by
+`PlayerID` like `Game.players` already is, GO-12 — not a `map`) rather than one shared FIFO: CR 117.3c lets one player
+be asked twice in a row, which a single shared FIFO cannot express without a fixture author writing an explicit pass for
+every intermediate ask. An empty per-player queue answers pass — the one `ScriptedController` decision that defaults
+instead of panicking on empty (`control.go`'s own struct comment covers why every other one panics): CR 117.3c means
+`TakeAction` is asked an unbounded number of times per round, and "nothing left queued for this player" is the ordinary
+way every round ends, not a fixture mistake.
+
+`CastSpell` and `ActivateAbility` traded their blanket main-phase/empty-stack/active-player gate for CR 307.1's real
+split: a permanent, an Aura or a Sorcery still need it; an Instant never did (CR 307.1 excludes it); an activated
+ability is instant speed unless its own top `A:AB$`/`A:AR$` line carries `SorcerySpeed$` or is a loyalty ability
+(`Planeswalker$`), both read generically off the compiled `Ability`'s own params before dispatch
+(`compile.Ability.Param`) — the same param written on a different line (a chained `SubAbility$`, or a Sorcery's own
+`SP$` line where it would be redundant) stays exactly as unenforced as before this ADR; only the activated-ability
+top-line shape gets a real enforcement site here. Both functions keep their existing `bool` contract unchanged — `false`
+still means declined, the identical signature every existing caller (every test, `actions.go`'s verbs) already relies
+on. `PassPriority` is the one caller that cannot treat that `false` as an ordinary decline, since the action came from a
+controller answering a priority ask rather than a test calling a cast function speculatively: it turns a `false` there
+into an error naming the player, the card and (for an activate) its ability index (GO-7).
+
+The general CR 608.2b fizzle check is still Aura-only (ADR-0018) — a response resolving above a targeted spell can now
+actually remove its target, and this port has no general re-check for that yet. Named as the next real unit, not solved
+here: Java's own mechanism is a per-entity `canTarget(entity, fizzleCheck=true)` (`SpellAbility.java:1591`), not a
+recompute-and-intersect of the candidate list, the shape that already broke `TestRemoveFromGameSpellOnStack` once
+(ADR-0018).
+
+`PassPriority` is not wired into `beginPhase`/`AdvancePhase` yet (above) — a later commit's job, once the turn structure
+is ready to drive a real priority round through every step without changing every scenario's `expect.events` in the
+process.
 
 ---
 

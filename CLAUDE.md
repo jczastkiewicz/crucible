@@ -207,8 +207,9 @@ M6 in progress: 158 of the corpus's 203 script-driven `Effect` APIs resolve (`Ne
 has landed yet.
 
 Thin or missing: Layer 1 past `Clone`'s "becomes a copy" (no "enters as a copy"); most of Layers 3-8 past their literal
-shapes; a real priority window (`ResolveStack` plays only the no-response case); CR 608.2b's own fizzle check past an
-Aura's own single target (ADR-0018). Full list: `port-log/game-state.md`, "Not ported yet".
+shapes; `PassPriority` (ADR-0019, CR 117) is not yet wired into the turn structure — only `CastSpell`/`ActivateAbility`
+and existing tests drive it; CR 608.2b's own fizzle check past an Aura's own single target — now load-bearing rather
+than unreachable, since a response can invalidate a target. Full list: `port-log/game-state.md`, "Not ported yet".
 
 **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
 SBA," Plan Section 3.2) not.

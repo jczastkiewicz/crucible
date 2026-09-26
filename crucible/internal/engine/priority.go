@@ -1,0 +1,191 @@
+// Interactive priority: CR 117. ADR-0019.
+//
+// PassPriority is a standalone entry -- nothing in the turn structure
+// (turn.go's beginPhase/AdvancePhase) calls it yet, and it is not meant to:
+// beginPhase takes no *Registry, and wiring a priority round into it would
+// resolve phase triggers through this loop, changing every existing
+// scenario's expect.events. A test, a fixture verb, or (once wired, a later
+// commit) AdvancePhase's own caller drives it directly.
+
+package engine
+
+import "fmt"
+
+// actionError is PassPriority's own GO-7 stop: a queued Action that
+// CastSpell/ActivateAbility declined. Naming the player, the card and (for
+// an activate) the ability index is enough to find the fixture line that
+// queued it -- the same information a scenario's own actions.log already
+// carries for the verb that produced it.
+type actionError struct {
+	pid   PlayerID
+	kind  string
+	card  CardID
+	index int
+}
+
+func (e *actionError) Error() string {
+	if e.kind == "activate" {
+		return fmt.Sprintf("engine: player %d could not %s card %d ability %d", e.pid, e.kind, e.card, e.index)
+	}
+	return fmt.Sprintf("engine: player %d could not %s card %d", e.pid, e.kind, e.card)
+}
+
+// Action is a player's answer to being offered priority: cast a spell
+// (Kind == ActionCast, Card names the hand card CastSpell would take) or
+// activate an ability (Kind == ActionActivate, Card and AbilityIndex are
+// ActivateAbility's own arguments). The zero value, ActionPass, is a pass --
+// GO-8's typed-struct shape, not a map or a sentinel string.
+type Action struct {
+	Kind         ActionKind
+	Card         CardID
+	AbilityIndex int
+}
+
+// ActionKind is Action's own discriminant.
+type ActionKind uint8
+
+const (
+	// ActionPass is the zero value: decline priority.
+	ActionPass ActionKind = iota
+	// ActionCast casts Card via CastSpell.
+	ActionCast
+	// ActionActivate activates Card's AbilityIndex'th ability via
+	// ActivateAbility.
+	ActionActivate
+)
+
+// canActSorcerySpeed is CR 307.1's own timing restriction (Player.java's
+// canCastSorcery, forge-game/src/main/java/forge/game/player/Player.java:
+// 2512-2515): pid's own turn, a main phase, an empty stack. CastSpell
+// applies it to everything except an Instant; ActivateAbility applies it to
+// a loyalty ability (Planeswalker$) or one explicitly marked
+// SorcerySpeed$ -- every other activated ability is instant speed by
+// default, the same default Java's own canCastTiming has
+// (SpellAbility.java:2607-2610).
+func (g *Game) canActSorcerySpeed(pid PlayerID) bool {
+	return pid == g.activePlayer && (g.activePhase == Main1 || g.activePhase == Main2) && len(g.stack) == 0
+}
+
+// givesPriority reports whether phase offers priority at all -- ported from
+// PhaseHandler.onPhaseBegin's own per-phase givePriorityToPlayer sets
+// (PhaseHandler.java:240-451). Untap never does (CR 502.4). Cleanup only
+// does when a state-based action found something to do or the stack is
+// non-empty (CR 514.3a) -- checked here, not cached, since it can only be
+// known by actually running the check. The no-attackers/no-damage
+// combat-step cases (PhaseHandler.java:305-344) need a real per-step body
+// this port's own Combat does not have yet (turn.go's header) and are
+// deferred, not silently wrong: nothing calls PassPriority from those steps
+// until the turn structure wires it in. Every other phase grants it
+// unconditionally.
+func (g *Game) givesPriority(phase PhaseType, controller PlayerController) bool {
+	switch phase {
+	case Untap:
+		return false
+	case Cleanup:
+		found := CheckStateBasedActions(g, controller)
+		return found || len(g.stack) != 0
+	default:
+		return true
+	}
+}
+
+// PassPriority runs one CR 117 priority round against reg to completion:
+// each live player, starting with the active player, is asked TakeAction in
+// turn order; a pass moves priority to the next live player; an action
+// applies it and hands priority back to the actor (CR 117.3c). Once
+// priority has gone all the way around with nothing but passes, either the
+// stack is empty (the round ends) or resolveTop (stack.go) resolves the one
+// object on top of it (CR 117.4) and a fresh round starts with the active
+// player (CR 117.3b), the active player's own next-in-line if they have
+// since lost.
+//
+// Returns nil without asking anyone if the current phase does not grant
+// priority (givesPriority).
+func (g *Game) PassPriority(reg *Registry, controller PlayerController) error {
+	if !g.givesPriority(g.activePhase, controller) {
+		return nil
+	}
+	holder := g.activePlayer
+	if g.Player(holder).Lost {
+		holder = g.nextPlayerAfter(holder)
+	}
+	for !g.over {
+		CheckStateBasedActions(g, controller)
+		if g.over {
+			return nil
+		}
+
+		passed := 0
+		for passed < g.livePlayerCount() && !g.over {
+			a := controller.TakeAction(g, holder)
+			if a.Kind == ActionPass {
+				holder = g.nextPlayerAfter(holder)
+				passed++
+				continue
+			}
+			if err := g.applyAction(holder, a, controller); err != nil {
+				return err
+			}
+			CheckStateBasedActions(g, controller)
+			if g.over {
+				return nil
+			}
+			// CR 117.3c: the actor keeps priority, unless losing the game
+			// they were just about to hold it in took them out of it too.
+			if g.Player(holder).Lost {
+				holder = g.nextPlayerAfter(holder)
+			}
+			passed = 0
+		}
+		if g.over {
+			return nil
+		}
+		if len(g.stack) == 0 {
+			return nil
+		}
+		if err := g.resolveTop(reg, controller); err != nil {
+			return err
+		}
+		holder = g.activePlayer
+		if g.Player(holder).Lost {
+			holder = g.nextPlayerAfter(holder)
+		}
+	}
+	return nil
+}
+
+// livePlayerCount is how many players have not yet lost -- recomputed on
+// every check rather than cached, since a state-based action inside the
+// loop can remove one mid-round.
+func (g *Game) livePlayerCount() int {
+	n := 0
+	for _, pid := range g.Players() {
+		if !g.Player(pid).Lost {
+			n++
+		}
+	}
+	return n
+}
+
+// applyAction turns a non-pass Action into the CastSpell/ActivateAbility
+// call it names. Both already carry their own CR 307.1 timing check
+// (castspell.go, activateability.go) and their existing "false means
+// declined" contract is unchanged for every other caller -- PassPriority is
+// the one caller asking on a controller's behalf, so a false here is not an
+// ordinary decline: the oracle should never queue an action it cannot
+// legally take, so a false becomes an error naming what failed (GO-7).
+func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) error {
+	switch a.Kind {
+	case ActionCast:
+		if !g.CastSpell(pid, a.Card, controller) {
+			return &actionError{pid: pid, kind: "cast", card: a.Card}
+		}
+	case ActionActivate:
+		if !g.ActivateAbility(pid, a.Card, a.AbilityIndex, controller) {
+			return &actionError{pid: pid, kind: "activate", card: a.Card, index: a.AbilityIndex}
+		}
+	default:
+		return &actionError{pid: pid, kind: fmt.Sprintf("take an action of unknown kind %d for", a.Kind), card: a.Card}
+	}
+	return nil
+}

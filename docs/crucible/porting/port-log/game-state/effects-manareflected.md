@@ -3,11 +3,23 @@
 - **Parent:** [`game-state.md`](../game-state.md) — Java counterpart, model, index, `Not ported yet`
 - **Go:** [`internal/engine`](../../../../../crucible/internal/engine)
 
-## ManaReflected researched, not ported
+## ManaReflected: Produced lands, Produce and Is stay deferred
 
-`ManaReflected` (47 corpus lines) stays `ErrUnimplemented`. Reason: its dominant shape, `ReflectProperty$ Produced` (22
-lines), is a triggered mana ability (CR 605.1b), and this port has none. The cross-permanent reflection walk
-(`CardUtil.java:237-346`) is not the blocker: it can be built from pieces the engine already has.
+`ManaReflected`'s dominant shape, `ReflectProperty$ Produced` (22 of 47 corpus lines), now resolves
+(`manareflectedeffect.go`), on top of ADR-0020's static-trigger primitive: `checkTapsForManaTriggers` (trigger.go)
+records the triggering mana on `Ability.triggered.produced`, and `manaReflectedEffect.Resolve` reflects it into every
+`Defined$`/targeted player's pool, honoring `ColorOrType$`/`Amount$`. `ReflectProperty$ Produce` and `Is` (25 lines)
+stay `ErrUnimplemented` -- both are `A:AB$` mana abilities that belong in `ActivateManaAbility`, not a `Registry`
+resolve, and `Produce`'s own recursive walk carries a Forge bug (`CardUtil.java:345`, below) not yet worth reproducing
+while it's unreachable.
+
+`a.triggered.activator == NoPlayer` is the "was this ever pushed through `checkTapsForManaTriggers`" guard: `produced`
+(`ability.go`) is a value whose zero `amount` a `ProduceMana` replacement can legitimately produce (a land whose mana
+was replaced away still fired the trigger), so it can't itself signal "wrong context" -- `activator` can, since
+`checkTapsForManaTriggers` always sets it to the tapping player and nothing else writes `triggeredObjects`.
+
+`ActivateAbility` (`activateability.go`) now also refuses `Name == "ManaReflected"` (previously only `"Mana"`), so
+Reflecting Pool's `A:AB$ ManaReflected` line correctly never reaches the stack.
 
 Java read directly: `ManaReflectedEffect.java:32-147`, `CardUtil.java:234-367` (`getReflectableManaColors`,
 `canProduce`), `AbilityManaPart.java:200-226` (`produceMana`, `tapsForMana`), `AbilityManaPart.java:601-613` and
@@ -61,13 +73,16 @@ errs toward "cannot activate"; here it gives a smaller color set.
 
 ### Smallest real design, in order
 
-1. **Triggered mana abilities (CR 605.1b).** In place (ADR-0020, [`static-triggers.md`](static-triggers.md)). What
-   remains for `Produced` (22 lines) is registering `ManaReflected` itself over the recorded `produced` mana.
+1. **Triggered mana abilities (CR 605.1b).** In place (ADR-0020, [`static-triggers.md`](static-triggers.md)), and
+   `Produced` (22 lines) now resolves over the recorded `produced` mana -- done.
 2. **Colorless choice.** A `PlayerController` decision offering colors plus colorless, mirroring
-   `chooseColorAllowColorless`. Unblocks every `ColorOrType$ Type` line.
-3. **Activated route.** `ActivateManaAbility` branches on `Name == "ManaReflected"`; `ActivateAbility` refuses it.
-   `Produce` walk and `Is` colors as above, with the parents set (`CardUtil.java:275`, `:329-331`) so mutually
-   reflecting lands terminate. Unblocks 22 `A:AB$` lines, less the 5 needing new `Defined$` names.
+   `chooseColorAllowColorless`. `manaReflectedEffect` reflects colorless mana already when the trigger produced it
+   (`ColorOrType$ Type`); this step is about a _choice_ among colors when the reflected set holds more than one, which
+   no real corpus line needs yet since every production in this port is one type. Not built until one does.
+3. **Activated route.** `ActivateManaAbility` branches on `Name == "ManaReflected"`; today it declines (only `"Mana"` is
+   recognized), matching `ActivateAbility`'s own refusal above. `Produce` walk and `Is` colors as above, with the
+   parents set (`CardUtil.java:275`, `:329-331`) so mutually reflecting lands terminate. Unblocks 25 `A:AB$`/`DB$`
+   lines, less the 5 needing new `Defined$` names.
 
 **Forge bug (PORT-8, tracked in [`forge-java-defects.md`](../../forge-java-defects.md)).** `CardUtil.java:345`: the
 recursive `getReflectableManaColors(sa, ab, colors, parents)` passes the outer `sa` as `abMana`, so the nested frame's
@@ -76,8 +91,6 @@ against the wrong card (`:265`), and so does the valid-string source (`:271`). R
 Offerings (`Valid$ Defined.ExiledWith`) reads cards exiled with Reflecting Pool, so misses the colors Pit could produce
 (CR 106.7). Correct only for the top frame.
 
-**Researched and deferred.**
-
-| API             | Blocker                                                                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ManaReflected` | Dominant `Produced` shape (22 of 47) needs the effect itself registered over the triggering `Produced` mana (ADR-0020 infrastructure in place) |
+**Still deferred, `ManaReflected`'s own `Produce`/`Is` shapes (25 of 47 lines).** Both are `A:AB$` mana abilities
+belonging in `ActivateManaAbility`, not this `Registry` resolve; `Produce`'s own recursive walk additionally carries the
+`CardUtil.java:345` Forge bug above, not reproduced while unreachable.

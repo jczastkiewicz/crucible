@@ -218,7 +218,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	ability := abilities[index]
-	if ability.Record != compile.Activated || ability.Name == "Mana" {
+	// A:AB$ ManaReflected (Reflecting Pool, Exotic Orchard) is a mana
+	// ability too, same as Mana -- never on the stack, ActivateManaAbility's
+	// job, not this one's, even though the Produce walk it would need there
+	// isn't ported yet either.
+	if ability.Record != compile.Activated || ability.Name == "Mana" || ability.Name == "ManaReflected" {
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")

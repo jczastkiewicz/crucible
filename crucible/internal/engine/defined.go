@@ -2,9 +2,9 @@
 // AbilityUtils.getDefinedPlayers's/getDefinedCards's own real corpus shapes
 // this port can resolve. Of the ability-context Triggered* vocabulary only
 // the keys a ported trigger mode records resolve (Ability.triggered:
-// TriggeredPlayer, TriggeredSource, TriggeredSourceController); the rest
-// (TriggeredCard, TriggeredController, ...) stay in game-state.md's "Not
-// ported yet". The host-Memory references -- Remembered, Imprinted,
+// TriggeredPlayer, TriggeredSource, TriggeredSourceController,
+// TriggeredCardController, TriggeredActivator); the rest (TriggeredCard,
+// TriggeredController, ...) stay in game-state.md's "Not ported yet". The host-Memory references -- Remembered, Imprinted,
 // ChosenCard, ChosenPlayer -- read memory.go. No single effect owns this
 // outright, the identical "shared, so neither" reason amount.go's own
 // resolveAmount lives apart from its first two callers.
@@ -36,8 +36,9 @@ import (
 // "DelayTriggerRemembered"/"DelayTriggerRememberedController", the same
 // reading applied to what a delayed trigger remembered (Ability.
 // TriggerRemembered), and "TriggeredPlayer"/"TriggeredSource"/
-// "TriggeredSourceController", what the trigger that made the ability
-// recorded (Ability.triggered) -- an error, "the trigger recorded no ...",
+// "TriggeredSourceController"/"TriggeredCardController"/
+// "TriggeredActivator", what the trigger that made the ability recorded
+// (Ability.triggered) -- an error, "the trigger recorded no ...",
 // when it recorded no such key, so a trigger mode that never learned to
 // set one fails loudly (GO-7). A player no longer in the game is skipped,
 // matching Java's own `if (!p.isInGame()) continue`.
@@ -94,6 +95,20 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
 		}
 		candidates = []PlayerID{refs.triggered.sourceController}
+	case "TriggeredCardController":
+		// AbilityUtils.getDefinedPlayers' "...Controller" branch over
+		// AbilityKey.Card (AbilityUtils.java:1017-1027): the triggering
+		// card's controller now, which for a static trigger is the moment
+		// it was tapped (ADR-0020).
+		if refs.triggered.card == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
+		}
+		candidates = []PlayerID{g.Card(refs.triggered.card).Controller()}
+	case "TriggeredActivator":
+		if refs.triggered.activator == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no activator", defined)
+		}
+		candidates = []PlayerID{refs.triggered.activator}
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}

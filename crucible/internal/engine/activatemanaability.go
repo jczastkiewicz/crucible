@@ -398,12 +398,13 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		c.LoyaltyAbilityActivated = true
 	}
 
-	g.addProducedMana(pid, g.manaReplaced(controller, pid, card, producedMana{
+	made := g.manaReplaced(controller, pid, card, producedMana{
 		color: color, colorless: colorless, snow: c.Type().HasSupertype(cardtype.Snow), amount: amount,
-	}))
+	})
+	g.addProducedMana(pid, made)
 
 	if shape.Tap {
-		g.checkTapsForManaTriggers(controller, card, pid)
+		g.checkTapsForManaTriggers(controller, card, pid, made)
 	}
 	return true
 }

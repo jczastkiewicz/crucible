@@ -101,7 +101,14 @@ func (g *Game) givesPriority(phase PhaseType, controller PlayerController) bool 
 //
 // Returns nil without asking anyone if the current phase does not grant
 // priority (givesPriority).
+//
+// A static trigger's pending error (statictrigger.go) is returned at entry
+// and after each applied action, before anyone is asked again (ADR-0020
+// decision 4).
 func (g *Game) PassPriority(reg *Registry, controller PlayerController) error {
+	if err := g.TakePendingError(); err != nil {
+		return err
+	}
 	if !g.givesPriority(g.activePhase, controller) {
 		return nil
 	}
@@ -124,6 +131,9 @@ func (g *Game) PassPriority(reg *Registry, controller PlayerController) error {
 				continue
 			}
 			if err := g.applyAction(holder, a, controller); err != nil {
+				return err
+			}
+			if err := g.TakePendingError(); err != nil {
 				return err
 			}
 			CheckStateBasedActions(g, controller)

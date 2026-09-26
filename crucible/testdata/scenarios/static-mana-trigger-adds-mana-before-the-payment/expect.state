@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Forest|Id:1|Tapped;Wild Growth|AttachedTo:1;Grizzly Bears|SummonSick
+ailife=20

@@ -1621,7 +1621,24 @@ func isTapsTrigger(t *compile.Ability) bool {
 // never colorless, and "ChosenColor" (1) needs a runtime value this port
 // has no evaluator for; skipped together rather than trying to resolve one
 // and not the other. 62 of 65 real lines carry none of it.
-func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID, player PlayerID) {
+//
+// A Static$ True line (49 real T: lines, Wild Growth's shape) is CR 605.1b's
+// triggered mana ability: it resolves here and now through
+// resolveStaticTriggers (statictrigger.go, ADR-0020), before this event's
+// non-static matches are even collected -- TriggerHandler.runWaitingTrigger
+// runs every static trigger first (TriggerHandler.java:300-309), and
+// runTrigger never holds a TapsForMana event back (:257). Every match
+// records the tapped card, the activator and produced, the mana after
+// ProduceMana replacements (TriggerTapsForMana.java:88).
+func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID, player PlayerID, produced producedMana) {
+	objects := triggeredObjects{card: card, activator: player, produced: produced}
+	g.resolveStaticTriggers(controller, g.tapsForManaMatches(card, player, objects, true))
+	g.pushTriggeredAbilities(controller, g.tapsForManaMatches(card, player, objects, false))
+}
+
+// tapsForManaMatches collects the Mode$ TapsForMana lines card's tap
+// matches, Static$ True ones only or the rest only, as static says.
+func (g *Game) tapsForManaMatches(card CardID, player PlayerID, objects triggeredObjects, static bool) []Ability {
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {
@@ -1632,7 +1649,7 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 			}
 			for _, face := range h.Def.Faces {
 				for _, t := range face.Triggers {
-					if !isTapsForManaTrigger(t) {
+					if !isTapsForManaTrigger(t) || isStaticTrigger(t) != static {
 						continue
 					}
 					if hasAnyParam(t, "Produced") {
@@ -1648,13 +1665,13 @@ func (g *Game) checkTapsForManaTriggers(controller PlayerController, card CardID
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: objects})
 					}
 				}
 			}
 		}
 	}
-	g.pushTriggeredAbilities(controller, matches)
+	return matches
 }
 
 // checkUntapsTriggers is CR 502.3/603's own "whenever ~ becomes untapped"

@@ -217,4 +217,20 @@ type triggeredObjects struct {
 	// trigger and its resolution, and the stack is the one place to ask.
 	// NoStackItem when unset.
 	spellAbility StackItemID
+	// card is AbilityKey.Card for Mode$ TapsForMana: the permanent tapped
+	// for mana (TriggerTapsForMana.java:88), read by Defined$
+	// TriggeredCardController. NoCard when unset.
+	card CardID
+	// activator is AbilityKey.Activator for Mode$ TapsForMana: the player
+	// who activated the mana ability, read by Defined$ TriggeredActivator.
+	// NoPlayer when unset.
+	activator PlayerID
+	// produced is AbilityKey.Produced for Mode$ TapsForMana: the mana the
+	// ability made after ProduceMana replacements (manaReplaced) -- Java
+	// passes produceMana's own after-replacement string on
+	// (AbilityManaPart.java:174, :211, :224; ManaEffect.java:187-193). No
+	// ported effect reads it yet; ManaReflected's ReflectProperty$ Produced
+	// will. A value, so a stacked Ability copies it with no aliasing. Zero
+	// amount when unset.
+	produced producedMana
 }

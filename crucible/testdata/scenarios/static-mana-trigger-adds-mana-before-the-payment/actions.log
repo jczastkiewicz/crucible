@@ -1,0 +1,15 @@
+# CR 605.1b: Wild Growth's "whenever enchanted land is tapped for mana, its
+# controller adds an additional {G}" is a triggered mana ability -- a
+# Static$ True Mode$ TapsForMana line that resolves inside the tap itself
+# and never uses the stack (ADR-0020, TriggerHandler.java:522-527). One
+# Forest tap therefore leaves {G}{G} in the pool, enough for Grizzly Bears'
+# {1}{G} with no resolvestack between the tap and the cast: the green pip
+# auto-pays, the generic unit takes the second green through queue
+# paygeneric. Were the trigger stacked, the pool would hold one green, the
+# cast would fail, and the Bears would stay in hand.
+startturn human
+advance 3
+tapformana human 1 G
+queue paygeneric G
+castspell human 3
+resolvestack

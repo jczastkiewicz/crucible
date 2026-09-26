@@ -70,7 +70,21 @@ var ErrUnimplemented = errors.New("engine: no effect registered for API")
 // route instead of the plain Resolve/resolveSubAbility pairing below --
 // AbilityUtils.resolveApiAbility's own if/else between `sa.resolve()` and
 // `handleUnlessCost(sa, game)`, the same branch point.
+//
+// A static trigger the effect set off at a site with no error return (an
+// effect tapping a land for mana, activateabilityeffect.go) leaves its error
+// pending on the Game; it is returned here, once the effect has run, as this
+// ability's own failure (ADR-0020 decision 4).
 func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	err := r.resolve(g, a, controller)
+	if err == nil && g != nil {
+		err = g.TakePendingError()
+	}
+	return err
+}
+
+// resolve is Resolve without the pending static-trigger error check.
+func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) error {
 	if g != nil {
 		g.registry = r
 	}

@@ -60,7 +60,14 @@ func (g *Game) StackTop() (Ability, bool) {
 // caller unchanged (GO-7): a bad card fails its game, not the batch, and
 // does not get to resolve whatever was left under it as if nothing
 // happened.
+//
+// A static trigger's error still pending from before the call (a mana
+// ability's tap has no error return, statictrigger.go) is returned first,
+// before anything resolves (ADR-0020 decision 4).
 func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
+	if err := g.TakePendingError(); err != nil {
+		return err
+	}
 	for len(g.stack) > 0 && !g.over {
 		if err := g.resolveTop(reg, controller); err != nil {
 			return err

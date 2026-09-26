@@ -1,6 +1,7 @@
 package fixture_test
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -1422,13 +1423,22 @@ func TestRunActionsCastSpellTooFewArgsErrors(t *testing.T) {
 // resolvestack surfaces ResolveStack's own error rather than swallowing it
 // -- an unimplemented API is a real gap, not a declined decision, the same
 // GO-7 "a bad card fails its game" reasoning the registry itself documents.
+//
+// The pushed Ability names an APIType past every registered (and every
+// corpus-known) one, rather than relying on the zero value: APIType's own
+// generated order is alphabetical by name (apitype_gen.go), so the zero
+// value is whichever API sorts first, and that has been a real, registered
+// one (APIAbandon) since abandoneffect.go landed. math.MaxUint16 always sits
+// past numAPITypes (registry_gen.go), so Registry.Resolve's own
+// int(a.API) >= numAPITypes bound (effect.go) is the only way this name
+// stays unregistered on purpose, not by alphabetical accident.
 func TestRunActionsResolveStackSurfacesAnUnimplementedAPI(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
 	l := load(t, db, "humanlife=20\n")
 	c := engine.NewScriptedController()
-	l.Game.PushAbility(engine.Ability{})
+	l.Game.PushAbility(engine.Ability{API: engine.APIType(math.MaxUint16)})
 
 	if err := runActions(t, l, c, "resolvestack\n"); err == nil {
 		t.Error("resolvestack with an unregistered API did not error")

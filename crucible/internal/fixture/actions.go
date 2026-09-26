@@ -140,10 +140,14 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		engine.PerformMulligans(l.Game, c, pid)
 
 	case "declareattackers":
-		l.Game.DeclareCombatAttackers(c)
+		if _, err := l.Game.DeclareCombatAttackers(c); err != nil {
+			return fmt.Errorf("declareattackers: %w", err)
+		}
 
 	case "declareblockers":
-		l.Game.DeclareCombatBlockers(c)
+		if _, err := l.Game.DeclareCombatBlockers(c); err != nil {
+			return fmt.Errorf("declareblockers: %w", err)
+		}
 
 	case "firststrikedamage":
 		l.Game.DealFirstStrikeDamage(c)

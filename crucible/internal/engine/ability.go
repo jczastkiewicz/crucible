@@ -209,6 +209,11 @@ type triggeredObjects struct {
 	// CardID is stable across zone changes, so the LKI spelling names the
 	// same card. NoCard when unset.
 	blocker CardID
+	// attacker is AbilityKey.Attacker for Mode$ Attacks
+	// (TriggerAttacks.setTriggeringObjects), read by Defined$
+	// TriggeredAttacker/TriggeredAttackerLKICopy (definedCards). NoCard when
+	// unset.
+	attacker CardID
 	// spellAbility is AbilityKey.SpellAbility for Mode$ SpellCast: the
 	// stack item of the spell just cast (checkSpellCastTriggers), read by
 	// Defined$ TriggeredSpellAbility (copyspellabilityeffect.go). An ID,

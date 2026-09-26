@@ -168,8 +168,9 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 // "DelayTriggerRemembered"/"DelayTriggerRememberedLKI" -- the cards a
 // delayed or reflexive trigger remembered (Ability.TriggerRemembered) --
 // and "TriggeredBlocker"/"TriggeredBlockerLKICopy", what Mode$
-// AttackerBlockedByCreature recorded (an error when the trigger recorded
-// none). A CardID is stable across zone changes, so each pair of spellings
+// AttackerBlockedByCreature recorded, and "TriggeredAttacker"/
+// "TriggeredAttackerLKICopy", what Mode$ Attacks recorded (an error when
+// the trigger recorded none). A CardID is stable across zone changes, so each pair of spellings
 // names the same card; Java's LKI form differs only in which snapshot it
 // reads.
 func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error) {
@@ -210,6 +211,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no blocker", defined)
 		}
 		return []CardID{refs.triggered.blocker}, nil
+	case "TriggeredAttacker", "TriggeredAttackerLKICopy":
+		if refs.triggered.attacker == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
+		}
+		return []CardID{refs.triggered.attacker}, nil
 	case "Imprinted":
 		return append([]CardID(nil), host.Memory.Imprinted()...), nil
 	case "ChosenCard":

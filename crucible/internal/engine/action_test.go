@@ -1648,7 +1648,7 @@ func TestAssignBattleProtectorNotAskedWhileBeingAttacked(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(battle))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	// No QueueBattleProtector call: if assignBattleProtector asked anyway,
 	// this panics on the empty queue, which is exactly the assertion.

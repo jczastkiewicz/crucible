@@ -258,9 +258,10 @@ ordinary, not a case the code has to special-case.
 `S:Mode$ CantBlockBy` line are checked.** `Game.DeclareCombatBlockers`'s own eligibility computation is still only
 "untapped creature the defending player controls" — `CantBlockBy` is a property of one attacker/blocker pair, not of a
 creature in isolation, so it is checked afterward instead, via `CanBlock`, against the controller's own answer
-([`## Block legality: CantBlockBy`](#block-legality-cantblockby) has the full account). Menace is a group-cardinality
-check (`menaceLegal`) rather than a `CanBlock` one, for the same reason Forge itself does not run it through the
-static-ability engine either.
+([`## Block legality: CantBlockBy`](#block-legality-cantblockby) has the full account). Menace is a per-attacker blocker
+count checked on the whole declaration (`validateBlocks`), not a `CanBlock` one, for the same reason Forge itself does
+not run it through the static-ability engine either. An illegal answer is an `*IllegalDeclarationError`, never a dropped
+pairing ([`effects-mustblock.md`](effects-mustblock.md)).
 
 **Not wired into `AdvancePhase`'s automatic walk through the phases.** `PerformMulligans` is the standing precedent for
 a real M5 mechanic a scenario calls explicitly (`actions.log`'s own `declareattackers`/`declareblockers` verbs) rather
@@ -413,10 +414,10 @@ literal compiled `S:` line — nothing in `internal/carddb/compile` performs Jav
 port's own version of it has to live here instead, one call site rather than a compile-time rewrite. `Menace` (408
 cards) is not among them: Forge itself does not run Menace through this engine either — `getMinMaxBlocker` hardcodes
 `attacker.hasKeyword(Keyword.MENACE)` directly, a minimum-blocker-_count_ rule a per-pair `CantBlockBy` check cannot
-express. `menaceLegal` (`block.go`) reproduces that same hardcoding at the one point that can see the whole group: after
-`CanBlock` has already filtered a defender's answer down to individually legal pairs, `menaceLegal` groups what is left
-by `Attacker` and drops every `Block` naming a Menace attacker that ended up with fewer than two distinct blockers,
-entirely rather than reducing it to one — CR 702.111b makes the whole attempt illegal to declare, not partially legal.
+express. `minMaxBlockers` (`blockvalidation.go`) reproduces that same hardcoding, with `Mode$ MinMaxBlocker`'s own
+counts on top, and `validateBlocks` checks every attacker's blocker count on the whole declaration: a Menace attacker
+declared blocked by one creature makes the declaration an `*IllegalDeclarationError` (CR 702.111b makes the whole
+attempt illegal to declare, not partially legal; [`effects-mustblock.md`](effects-mustblock.md)).
 
 `Intimidate` (23 cards) is now among `cantBlockByKeywords`, once `SharesColorWith` had somewhere real to live: its own
 `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed a `SharesColorWith` property `propertyMatches` (`valid.go`)

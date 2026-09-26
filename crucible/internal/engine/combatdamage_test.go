@@ -19,10 +19,10 @@ func TestDealCombatDamageUnblockedAttackerHitsThePlayer(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	var sink recordingSink
 	g.SetSink(&sink)
@@ -61,10 +61,10 @@ func TestDealCombatDamageSingleBlockerExchangesFullPower(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	g.DealCombatDamage(engine.NewScriptedController())
 
@@ -90,13 +90,13 @@ func TestDealCombatDamageGangBlockAsksForAssignment(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -130,10 +130,10 @@ func TestDealCombatDamageDeathtouchSetsTheFlag(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	g.DealCombatDamage(engine.NewScriptedController())
 
@@ -159,10 +159,10 @@ func TestDealCombatDamageZeroPowerDealsNothing(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	// No sink events expected and no controller call needed either way; an
 	// AssignCombatDamage call here would panic on the always-empty queue,
@@ -192,10 +192,10 @@ func declareOneAttackerAndBlocker(t *testing.T, g *engine.Game, attacker, blocke
 	t.Helper()
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 }
 
 // In the first-strike step, only a first striker deals damage -- its
@@ -343,13 +343,13 @@ func TestDealCombatDamageTrampleGangBlockAssignsLeftoverToPlayer(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -378,13 +378,13 @@ func TestDealCombatDamageNonTramplerWastesUnassignedDamage(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -521,13 +521,13 @@ func TestDealCombatDamageZeroAmountAssignmentMarksNothing(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{

@@ -27,7 +27,7 @@ import (
 // ChoosePayPhyrexian's, ChoosePayHybridPhyrexian's, ChoosePayGeneric's,
 // ChoosePayX's, ChoosePaySnow's and ChooseEnchantTarget's own callers
 // (resolveLegendRule, action.go; Game.DeclareCombatAttackers and
-// Game.assignAttackTargets, attack.go; Game.DeclareCombatBlockers, block.go;
+// Game.chooseAttackTargets, attack.go; Game.DeclareCombatBlockers, block.go;
 // Game.DealCombatDamage, combatdamage.go; Game.cleanupStep, turn.go;
 // assignBattleProtector, action.go; Game.PayManaCost, manapay.go, eight
 // times over; Game.CastSpell, castspell.go) are fully built, so the decision
@@ -96,10 +96,15 @@ type PlayerController interface {
 	ChooseLegendaryToKeep(g *Game, decider PlayerID, duplicates []CardID) CardID
 
 	// DeclareCombatAttackers decides which of decider's eligible creatures attack
-	// (CR 508.1, Game.DeclareCombatAttackers, attack.go). The return value is a
-	// subset of eligible, which is never empty (Game.DeclareCombatAttackers does
-	// not call this otherwise) -- an empty return is a legal answer, the
-	// active player declining to attack with anything.
+	// (CR 508.1, Game.DeclareCombatAttackers, attack.go). eligible is never
+	// empty (Game.DeclareCombatAttackers does not call this otherwise). The
+	// answer is checked, not trusted (ADR-0024): it must be a subset of
+	// eligible and obey as many attack requirements (goad, Mode$ MustAttack)
+	// as Java's AttackConstraints says are possible, or
+	// Game.DeclareCombatAttackers returns an *IllegalDeclarationError. The
+	// requirements themselves are not passed in; a controller that needs them
+	// reads the game (ADR-0024 Decision 4). An empty return is legal when no
+	// requirement is in force.
 	DeclareCombatAttackers(g *Game, decider PlayerID, eligible []CardID) []CardID
 
 	// ExertAttackers decides which of the newly declared attackers decider
@@ -115,19 +120,21 @@ type PlayerController interface {
 
 	// ChooseAttackTarget decides what a single declared attacker is
 	// attacking -- the defending player, or one of the planeswalkers/battles
-	// they control (CR 508.1d, Game.assignAttackTargets, attack.go). eligible
-	// always has at least two elements: Game.assignAttackTargets assigns a
-	// lone eligible target automatically without asking. The return value
-	// should be one of eligible's elements, and is not re-checked -- trust
-	// the controller's answer, the same as ChooseLegendaryToKeep.
+	// they control (CR 508.1b, Game.chooseAttackTargets, attack.go). eligible
+	// always has at least two elements: Game.chooseAttackTargets assigns a
+	// lone eligible target automatically without asking. An answer outside
+	// eligible makes the whole declaration an *IllegalDeclarationError
+	// (ADR-0024).
 	ChooseAttackTarget(g *Game, decider PlayerID, attacker CardID, eligible []EntityID) EntityID
 
 	// DeclareCombatBlockers decides which of decider's eligible creatures block
 	// which attacker (CR 509.1, Game.DeclareCombatBlockers, block.go). eligible is
-	// never empty. The return value need not use every element of eligible
-	// or attackers -- declining to block anything is legal -- and is not
-	// re-checked for legality beyond what Game.DeclareCombatBlockers already
-	// filtered (block.go's doc comment has the reasons why).
+	// never empty. The answer is checked, not trusted (ADR-0024): every
+	// pairing must be legal (CR 509.1a-b) and the whole declaration must pass
+	// Java's CombatUtil.validateBlocks (block requirements, Menace and other
+	// blocker-count limits), or Game.DeclareCombatBlockers returns an
+	// *IllegalDeclarationError. Declining to block anything is legal when no
+	// requirement is in force.
 	DeclareCombatBlockers(g *Game, decider PlayerID, attackers []CardID, eligible []CardID) []Block
 
 	// AssignCombatDamage decides how a gang-blocked attacker's combat damage
@@ -354,7 +361,7 @@ type PlayerController interface {
 	// to (CR 601.2c, Game.CastSpell, castspell.go). eligible always has at
 	// least two elements: CastSpell assigns a lone eligible target
 	// automatically without asking, the same "nothing meaningful to decide"
-	// reasoning assignAttackTargets already applies. The return value should
+	// reasoning chooseAttackTargets already applies. The return value should
 	// be one of eligible's elements, and is not re-checked -- trust the
 	// controller's answer, the same as ChooseLegendaryToKeep.
 	ChooseEnchantTarget(g *Game, decider PlayerID, aura CardID, eligible []CardID) CardID

@@ -478,6 +478,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.RegenShields = 0
 		c.detainedBy = nil
 		c.goadedBy = nil
+		c.mustBlock = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		g.endCopiesOnLeave(id)
 		c.Sprocket = 0
@@ -565,6 +566,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.RegenShields = 0
 		c.detainedBy = nil
 		c.goadedBy = nil
+		c.mustBlock = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		g.endCopiesOnLeave(id)
 		c.Sprocket = 0
@@ -766,6 +768,7 @@ func (g *Game) Clone() *Game {
 		c.Memory = g.cards[i].Memory.clone()
 		c.detainedBy = append([]PlayerID(nil), g.cards[i].detainedBy...)
 		c.goadedBy = append([]goad(nil), g.cards[i].goadedBy...)
+		c.mustBlock = append([]mustBlockReq(nil), g.cards[i].mustBlock...)
 		c.PT = g.cards[i].PT.clone()
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()

@@ -575,8 +575,8 @@ even/odd, direction, type, second type and named cards; valid strings read them 
 - `Detain` (CR 701.35): `Card.detainedBy`, read by the attack and block eligibility checks and every activation path
   (`ActivateAbility`, `ActivateManaAbility`, `TapLandForMana`), each ending as its detainer's turn begins.
 - `Goad` (CR 701.15): `Card.goadedBy`, until the goader's next turn or `Duration$ Permanent`. A goaded creature that can
-  attack is added to the declared attackers (CR 508.1d), and attacks a player other than a goader if it can
-  (`goadTargets`).
+  attack must be declared attacking (CR 508.1d, `validateAttackers`, [`effects-mustblock.md`](effects-mustblock.md)),
+  and attacks a player other than a goader if it can (`goadTargets`).
 
 **Combat.** `Combat.ForcedBlocked` is `setBlocked` without a blocker: `BecomesBlocked` adds to it and combat damage
 treats the attacker as blocked (no damage without trample). `Block` adds blocks with their triggers; `ChangeCombatants`

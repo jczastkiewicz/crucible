@@ -66,7 +66,7 @@ func TestRemoveFromCombatEffectRemovesAnAttacker(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if len(g.Attackers()) != 1 {
 		t.Fatalf("setup: Attackers() = %v, want 1 attacker", g.Attackers())
 	}
@@ -100,10 +100,10 @@ func TestRemoveFromCombatEffectRemovesABlocker(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	if len(g.Blocks()) != 1 {
 		t.Fatalf("setup: Blocks() = %v, want 1 block", g.Blocks())
 	}

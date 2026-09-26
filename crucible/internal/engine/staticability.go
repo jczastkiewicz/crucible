@@ -63,11 +63,10 @@ import (
 // not run Menace through the static-ability engine at all --
 // StaticAbilityCantAttackBlock.getMinMaxBlocker hardcodes
 // `attacker.hasKeyword(Keyword.MENACE)` directly, a minimum-blocker-COUNT
-// rule CantBlockBy's per-blocker-identity check cannot express. Porting it
-// needs a different hook (validating the size of a Block group per
-// attacker, not a single pair) -- a real gap, not a cut corner
-// (docs/crucible/porting/port-log/game-state.md's "Block legality"
-// section).
+// rule CantBlockBy's per-blocker-identity check cannot express. It is
+// checked on the whole declaration instead, with Mode$ MinMaxBlocker's
+// counts, by validateBlocks' per-attacker blocker count (minMaxBlockers,
+// blockvalidation.go).
 var cantBlockByKeywords = []struct {
 	keyword      string
 	validBlocker string

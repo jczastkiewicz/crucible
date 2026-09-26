@@ -20,7 +20,7 @@ func TestDeclareCombatAttackersAutoAssignsWhenOpponentHasNoPlaneswalkerOrBattle(
 
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if got, want := g.AttackTarget(attacker), engine.PlayerEntity(b); got != want {
 		t.Errorf("AttackTarget() = %v, want %v", got, want)
@@ -46,7 +46,7 @@ func TestDeclareCombatAttackersAsksWhenOpponentControlsAPlaneswalker(t *testing.
 			t.Error("DeclareCombatAttackers did not ask for an attack target with two eligible ones")
 		}
 	}()
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 }
 
 // The queued answer for a two-target choice is honored and stored.
@@ -62,7 +62,7 @@ func TestDeclareCombatAttackersHonorsAQueuedPlaneswalkerTarget(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{attacker})
 	c.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if got, want := g.AttackTarget(attacker), engine.CardEntity(pw); got != want {
 		t.Errorf("AttackTarget() = %v, want %v", got, want)
@@ -83,7 +83,7 @@ func TestDeclareCombatAttackersHonorsAQueuedBattleTarget(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{attacker})
 	c.QueueAttackTarget(engine.CardEntity(battle))
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if got, want := g.AttackTarget(attacker), engine.CardEntity(battle); got != want {
 		t.Errorf("AttackTarget() = %v, want %v", got, want)
@@ -105,7 +105,7 @@ func TestDeclareCombatAttackersMultiplayerChoosesWhichOpponent(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{attacker})
 	c.QueueAttackTarget(engine.PlayerEntity(c2))
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if got, want := g.AttackTarget(attacker), engine.PlayerEntity(c2); got != want {
 		t.Errorf("AttackTarget() = %v, want %v", got, want)
@@ -125,7 +125,7 @@ func TestDeclareCombatAttackersSkipsALostPlayer(t *testing.T) {
 
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if got, want := g.AttackTarget(attacker), engine.PlayerEntity(c2); got != want {
 		t.Errorf("AttackTarget() = %v, want %v (b has lost, only c is eligible)", got, want)
@@ -148,11 +148,11 @@ func TestDealCombatDamageToAPlaneswalkerRemovesLoyalty(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	g.DealCombatDamage(engine.NewScriptedController())
 
@@ -181,11 +181,11 @@ func TestDealCombatDamageToAPlaneswalkerEmitsCounterChanged(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	var sink recordingSink
 	g.SetSink(&sink)
@@ -231,11 +231,11 @@ func TestDealCombatDamageToABattleRemovesDefense(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(battle))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	g.DealCombatDamage(engine.NewScriptedController())
 
@@ -265,11 +265,11 @@ func TestDealCombatDamageTrampleExcessAgainstAPlaneswalkerRemovesLoyalty(t *test
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	g.DealCombatDamage(engine.NewScriptedController())
 
@@ -296,11 +296,11 @@ func TestDeclareCombatBlockersOffersThePlaneswalkersControllersCreatures(t *test
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if len(got) != 1 || got[0].Blocker != blocker {
 		t.Errorf("DeclareCombatBlockers() = %v, want a block naming %v", got, blocker)

@@ -58,13 +58,13 @@ func TestDamageDealtOnceFiresOnceForSourceHittingMultipleTargets(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -106,13 +106,13 @@ func TestDamageDealtOnceValidTargetFiltersTheSummedAmount(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: elfBlocker, Attacker: attacker},
 		{Blocker: goblinBlocker, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -144,10 +144,10 @@ func TestDamageDealtOnceSkipsLineNamingActivationLimit(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	g.DealCombatDamage(dc)
@@ -180,13 +180,13 @@ func TestDamageAllFiresOnceRegardlessOfGrouping(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	dc.QueueDamageAssignment([]engine.DamageAssignment{
@@ -223,10 +223,10 @@ func TestDamageAllRespectsValidSourceAndValidTargetFilter(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	dc := engine.NewScriptedController()
 	g.DealCombatDamage(dc)

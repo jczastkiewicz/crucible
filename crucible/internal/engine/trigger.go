@@ -336,7 +336,8 @@ func (g *Game) checkAttacksTriggers(controller PlayerController, attacker CardID
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: triggeredObjects{attacker: attacker}})
 					}
 				}
 			}
@@ -501,20 +502,16 @@ func isSpellCastTrigger(t *compile.Ability) bool {
 // once -- but this port's own checkBlocksTriggers is already called once
 // per declared Block (a per-pair granularity, this doc comment's own next
 // paragraph), never once per blocker with every attacker gathered, so
-// checking the one attacker each call already has stands in for "any
-// member of the collection" correctly for the overwhelming single-attacker
-// case and no worse than the existing per-pair granularity for the rare
-// double-block one (a blocker legally blocking two attackers at once fires
-// once per matching attacker here, where Java fires once total -- an
-// existing divergence, not a new one this param introduces).
+// checking the one attacker each call already has is "any member of the
+// collection" exactly: with no "can block an additional creature" source
+// in this port, a legal declaration has every blocker blocking one attacker
+// (DeclareCombatBlockers, block.go).
 //
-// Called once per declared Block, after CanBlock and menaceLegal have both
-// already filtered the pairing down to a legal one (DeclareCombatBlockers,
-// block.go) -- a blocker declared against more than one attacker at once (a
-// real corpus rarity this port's own combat model does not otherwise
-// restrict) fires once per Block entry rather than once with every attacker
-// gathered, the same per-pair granularity every other Block-consuming caller
-// already uses.
+// Called once per declared Block, after the whole declaration passed
+// validation (DeclareCombatBlockers, block.go; ADR-0024) -- one Block per
+// blocker, since no "can block an additional creature" source exists in
+// this port, so the per-pair granularity every other Block-consuming caller
+// uses is also Java's once-per-blocker.
 func (g *Game) checkBlocksTriggers(controller PlayerController, blk Block) {
 	var matches []Ability
 	for _, pid := range g.Players() {
@@ -571,7 +568,7 @@ func isBlocksTrigger(t *compile.Ability) bool {
 // attackers.
 //
 // Called from DeclareCombatBlockers (block.go) once per distinct attacker,
-// after every Block for it has been filtered by CanBlock/menaceLegal and
+// after the declaration passed validation and
 // checkBlocksTriggers/checkAttackerBlockedByCreatureTriggers have both
 // already run for each -- CR 509.2 groups every "blocks"/"becomes blocked"
 // trigger as one simultaneous event, but this port fires each shape as its

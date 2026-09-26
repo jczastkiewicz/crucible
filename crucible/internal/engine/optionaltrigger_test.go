@@ -55,7 +55,7 @@ func TestConfirmedOptionalTriggerRunsWholeAbilityChain(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueConfirmOptionalTrigger(true)
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestDeclinedOptionalTriggerSkipsWholeAbilityChain(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueConfirmOptionalTrigger(false)
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestUnresolvedOptionalDeciderSkipsTriggerWithoutAsking(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}

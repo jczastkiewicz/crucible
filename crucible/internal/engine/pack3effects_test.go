@@ -58,7 +58,7 @@ func TestDetainStopsAttackBlockAndActivation(t *testing.T) {
 	g.SetTurnState(1, other, engine.Main1)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers(nil)
-	if got := g.DeclareCombatAttackers(ac); len(got) != 0 {
+	if got := declareAttackers(t, g, ac); len(got) != 0 {
 		t.Errorf("attackers = %v, want none (detained was the only creature)", got)
 	}
 	g.SetTurnState(1, other, engine.Cleanup)
@@ -592,8 +592,10 @@ func TestSetStateTransformsBothWays(t *testing.T) {
 	}
 }
 
-func TestGoadForcesAttackAwayFromGoader(t *testing.T) {
-	t.Parallel()
+// goadedGame is a three-player game on ps[1]'s turn whose one creature ps[0]
+// goaded during its own turn.
+func goadedGame(t *testing.T) (*engine.Game, []engine.PlayerID, engine.CardID) {
+	t.Helper()
 	g := newGame(t, "a", "b", "c")
 	ps := g.Players()
 	for _, p := range ps {
@@ -608,14 +610,39 @@ func TestGoadForcesAttackAwayFromGoader(t *testing.T) {
 		t.Fatal("not goaded")
 	}
 	g.SetTurnState(2, ps[1], engine.DeclareAttackers)
+	return g, ps, victim
+}
+
+// A goaded creature declared attacking goes at the player who did not goad
+// it (CR 701.15b): the only option offered, so no target is asked for.
+func TestGoadForcesAttackAwayFromGoader(t *testing.T) {
+	t.Parallel()
+	g, ps, victim := goadedGame(t)
 	ac := engine.NewScriptedController()
-	ac.QueueAttackers(nil)
-	got := g.DeclareCombatAttackers(ac)
+	ac.QueueAttackers([]engine.CardID{victim})
+	got := declareAttackers(t, g, ac)
 	if len(got) != 1 || got[0] != victim {
 		t.Fatalf("attackers = %v, want the goaded creature", got)
 	}
 	if tgt := g.AttackTarget(victim); tgt != engine.PlayerEntity(ps[2]) {
 		t.Errorf("attack target = %v, want the non-goading player", tgt)
+	}
+}
+
+// Leaving a goaded creature that can attack at home is an illegal
+// declaration (CR 508.1d, ADR-0024), not one the engine repairs by adding it.
+func TestGoadedCreatureLeftHomeIsIllegal(t *testing.T) {
+	t.Parallel()
+	g, _, victim := goadedGame(t)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers(nil)
+	_, err := g.DeclareCombatAttackers(ac)
+	ill := wantIllegal(t, err, "CR 508.1d")
+	if len(ill.Cards) != 1 || ill.Cards[0] != victim {
+		t.Errorf("cards = %v, want the goaded creature", ill.Cards)
+	}
+	if len(g.Attackers()) != 0 || g.Card(victim).Tapped {
+		t.Errorf("attackers = %v, tapped = %v: the illegal declaration was applied", g.Attackers(), g.Card(victim).Tapped)
 	}
 }
 

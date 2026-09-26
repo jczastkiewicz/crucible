@@ -274,7 +274,7 @@ func TestCastSpellFailsWhenCardIsNotInHand(t *testing.T) {
 
 // A lone eligible target is assigned automatically -- CastSpell's own
 // "nothing meaningful to decide" reasoning, the same convention
-// assignAttackTargets (attack.go) already applies to a single attack target.
+// chooseAttackTargets (attack.go) already applies to a single attack target.
 func TestCastSpellAuraSingleEligibleTargetAutoAssigns(t *testing.T) {
 	t.Parallel()
 

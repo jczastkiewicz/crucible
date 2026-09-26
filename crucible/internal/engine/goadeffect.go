@@ -8,7 +8,7 @@ import "fmt"
 // permanent on the battlefield is goaded by the activator -- until that
 // player's next turn, or for good with Duration$ Permanent. A goaded
 // creature attacks each combat if able, and attacks a player other than a
-// goading player if able (DeclareCombatAttackers, assignAttackTargets).
+// goading player if able (DeclareCombatAttackers, chooseAttackTargets).
 // NoLonger$ ends every goad on it; RememberGoaded$ remembers it.
 type goadEffect struct{}
 

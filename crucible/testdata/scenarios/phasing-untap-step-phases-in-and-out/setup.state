@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20
+humanbattlefield=Sandbar Crocodile|Id:1;Grizzly Bears|Id:2|PhasedOut:P0|Tapped;Grizzly Bears|Id:3|PhasedOut:P1

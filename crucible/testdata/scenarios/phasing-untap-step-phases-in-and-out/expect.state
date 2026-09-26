@@ -1,0 +1,6 @@
+turn=2
+activeplayer=human
+activephase=Untap
+humanlife=20
+ailife=20
+humanbattlefield=Sandbar Crocodile|Id:1|PhasedOut:P0;Grizzly Bears|Id:2;Grizzly Bears|Id:3|PhasedOut:P1

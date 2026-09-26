@@ -113,7 +113,11 @@ func (mustBlockEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	for _, id := range blockers {
 		c := g.Card(id)
-		if c.Zone != Battlefield {
+		// A phased-out permanent is treated as though it doesn't exist
+		// (CR 702.26b) -- c.Zone still reads Battlefield (ADR-0021 decision
+		// 3), so this needs its own guard, matching Java's skip
+		// (MustBlockEffect.java:72).
+		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		for _, att := range attackers {

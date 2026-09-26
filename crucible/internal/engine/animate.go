@@ -52,12 +52,14 @@ func (r *animateRecord) changesTypes() bool {
 // mods -- applyPumpEffects' own contract (continuous.go): called from
 // CheckStateBasedActions after the Mode$ Continuous appliers have cleared
 // and rebuilt every battlefield card's mods for this pass. A record whose
-// card is not on the battlefield is skipped.
+// card is not on the battlefield is skipped, and so is one whose card is
+// phased out, for applyPumpEffects' own reason: the Clear() passes never
+// reach it (ADR-0021), so re-adding would stack.
 func applyAnimateEffects(g *Game) {
 	for i := range g.animates {
 		r := &g.animates[i]
 		c := g.Card(r.Card)
-		if c.Zone != Battlefield {
+		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		if r.changesTypes() {
@@ -275,7 +277,9 @@ func (g *Game) animateCards(template animateRecord, cards []CardID) {
 	g.timestamp++
 	ts := g.timestamp
 	for _, id := range cards {
-		if g.Card(id).Zone != Battlefield {
+		// A phased-out permanent is not animated at all
+		// (AnimateEffect.java:168, :176).
+		if c := g.Card(id); c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		r := template

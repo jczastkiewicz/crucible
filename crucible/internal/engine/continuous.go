@@ -664,10 +664,16 @@ func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
 // either for a card nowhere reads them from would be inert, not wrong, but
 // skipping is also what keeps a since-departed card's own entry from
 // silently piling up in Game.pumps until this turn's cleanup removes it.
+//
+// A phased-out card's record is skipped too, and kept: the Clear() passes
+// before this walk the battlefield enumeration, which leaves a phased-out
+// permanent out (Zone.Cards, ADR-0021), so re-adding to it would stack one
+// more copy of the pump every pass. It applies again once the card phases
+// back in, as Java's own pump -- a boost stored on the card itself -- does.
 func applyPumpEffects(g *Game) {
 	for _, p := range g.pumps {
 		c := g.Card(p.Card)
-		if c.Zone != Battlefield {
+		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		if p.Power != 0 || p.Toughness != 0 {

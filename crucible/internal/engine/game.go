@@ -15,6 +15,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
@@ -451,7 +453,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.controller = c.Owner
 	}
 	isPermanent := c.Type().IsPermanent()
-	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
+	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
 
 	// A card exiled face down (Heist) turns face up as it leaves exile.
@@ -462,6 +464,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	case from == Battlefield && kind != Battlefield:
 		snap := *c
 		g.lki[id] = &snap
+		// After the snapshot: last-known information keeps a phased-out
+		// card's own phasing (GameAction.java:977 reads lki.isPhasedOut()).
+		c.phasedOut, c.directlyPhasedOut, c.wontPhaseInNormal = NoPlayer, false, false
 		c.Counters = Counters{}
 		c.Damage.Clear()
 		c.PT.Clear()
@@ -546,10 +551,11 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 	if from == Stack {
 		c.controller = c.Owner
 	}
-	g.Zone(c.Zone, c.ZoneOwner).cards.Remove(id)
+	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
 
 	if from == Battlefield {
+		c.phasedOut, c.directlyPhasedOut, c.wontPhaseInNormal = NoPlayer, false, false
 		c.Counters = Counters{}
 		c.Damage.Clear()
 		c.PT.Clear()
@@ -682,6 +688,43 @@ func (g *Game) Unattach(attachment CardID) {
 	a.attachedTo = NoCard
 }
 
+// setPhasedOut is Card.setPhasedOut plus the zone's half of the same fact:
+// p NoPlayer phases id in, anything else phases it out on p's behalf. It is
+// the only writer of Card.phasedOut and Zone.phasedOut, which is what keeps
+// the battlefield enumeration (Zone.Cards) and the card agreeing (ADR-0021,
+// decision 5). The card keeps its place in the zone's order either way
+// (GO-12): phasing is not a zone change (CR 702.26d).
+func (g *Game) setPhasedOut(id CardID, p PlayerID) {
+	c := g.Card(id)
+	z := g.Zone(c.Zone, c.ZoneOwner)
+	c.phasedOut = p
+	if p == NoPlayer {
+		if z.phasedOut != nil {
+			z.phasedOut.Remove(id)
+		}
+		return
+	}
+	if z.phasedOut == nil {
+		z.phasedOut = collect.NewOrderedSet[CardID](1)
+	}
+	z.phasedOut.Add(id)
+}
+
+// SetPhasedOut writes a battlefield permanent's phased-out state directly --
+// p NoPlayer for phased in -- with no trigger, event or attachment
+// following: fixture loading's tool (GameState.java's own PhasedOut: key,
+// c.setPhasedOut at :1302-1304), the same relationship SetTurnState has to
+// StartTurn. Real play phases through Game.phase (phasing.go). A card not on
+// the battlefield is an error: only a permanent can phase (CR 702.26a).
+func (g *Game) SetPhasedOut(id CardID, p PlayerID) error {
+	if g.Card(id).Zone != Battlefield {
+		return fmt.Errorf("engine: SetPhasedOut: card %d is not on the battlefield", id)
+	}
+	g.setPhasedOut(id, p)
+	g.Card(id).directlyPhasedOut = p != NoPlayer
+	return nil
+}
+
 // Clone returns an independent copy of the game.
 //
 // This is what the AI's lookahead runs on, so it is on a hot path and its cost
@@ -693,7 +736,8 @@ func (g *Game) Unattach(attachment CardID) {
 // behind pointers -- its counters, its three memory lists, its attachments --
 // and copying the slice alone would leave the clone and the original writing
 // to the same ones. Each is copied when it exists and left nil when it does
-// not, which is most cards most of the time. lki gets the identical
+// not, which is most cards most of the time; a zone's phased-out subset
+// (Zone.clone, zone.go) the same. lki gets the identical
 // treatment, one frozen snapshot at a time -- a card that already left the
 // battlefield needs its own independent copy exactly as much as one still on
 // it does.
@@ -787,7 +831,7 @@ func (g *Game) Clone() *Game {
 		}
 	}
 	for k, z := range g.zones {
-		out.zones[k] = &Zone{Type: z.Type, Owner: z.Owner, cards: z.cards.Clone()}
+		out.zones[k] = z.clone()
 	}
 	for id, snap := range g.lki {
 		s := *snap

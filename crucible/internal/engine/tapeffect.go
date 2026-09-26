@@ -66,7 +66,8 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 	_, alwaysRem := a.Params.Param("AlwaysRemember")
 	for _, id := range cards {
 		c := g.Card(id)
-		if c.Zone != Battlefield {
+		// A phased-out permanent is skipped (TapEffect.java:56).
+		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		wasUntapped := !c.Tapped

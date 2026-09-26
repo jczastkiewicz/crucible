@@ -59,6 +59,12 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			return fmt.Errorf("engine: ChangeZone: Origin$: %w", err)
 		}
 		for _, z := range origin {
+			// Command only for an effect card exiling itself -- the corpus's
+			// 180-odd "Origin$ Command | Destination$ Exile" lines
+			// (changeZoneKnown's IsEffect branch).
+			if z == Command && dest == Exile {
+				continue
+			}
 			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile {
 				return fmt.Errorf("engine: ChangeZone: Origin$ %v not resolvable yet", z)
 			}
@@ -146,6 +152,11 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			return fmt.Errorf("engine: ChangeZone: %w", err)
 		}
 	}
+	for _, id := range cards {
+		if c := g.Card(id); c.Zone == Command && zoneIn(Command, origin) && !c.IsEffect {
+			return fmt.Errorf("engine: ChangeZone: Origin$ Command for a card that is not an effect not resolvable yet")
+		}
+	}
 	_, optional := a.Params.Param("Optional")
 	_, tapped := a.Params.Param("Tapped")
 	moved := map[ZoneType][]CardID{}
@@ -153,6 +164,18 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	for _, id := range cards {
 		c := g.Card(id)
 		if len(origin) > 0 && !zoneIn(c.Zone, origin) {
+			continue
+		}
+		if c.IsEffect && c.Zone == Command {
+			// GameAction.changeZone's immutable branch
+			// (GameAction.java:100-106): an effect card sent to exile just
+			// leaves the Command zone, with no zone-change event or trigger.
+			g.exileEffect(id)
+			continue
+		}
+		// A phased-out permanent is not moved (ChangeZoneEffect.java:557,
+		// ADR-0021 decision 3).
+		if c.IsPhasedOut() {
 			continue
 		}
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {

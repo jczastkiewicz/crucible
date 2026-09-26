@@ -132,7 +132,8 @@
       "combat",
       "trigger",
       "effecteffect",
-      "mustblockeffect"
+      "mustblockeffect",
+      "phasing"
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],

@@ -137,7 +137,7 @@ func TestEventRecordStaysFlat(t *testing.T) {
 	if got := unsafe.Sizeof(engine.Event{}); got > 40 {
 		t.Errorf("Event is %d bytes; it is meant to stay a small flat record", got)
 	}
-	if engine.SchemaVersion != 1 {
+	if engine.SchemaVersion != 2 {
 		t.Errorf("SchemaVersion is %d; bumping it is a deliberate act with a reader change behind it",
 			engine.SchemaVersion)
 	}

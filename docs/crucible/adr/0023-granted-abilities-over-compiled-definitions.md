@@ -1,6 +1,6 @@
 # ADR-0023 — Granted and Removed Abilities: a Timestamped Overlay of Compiled Traits
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 
@@ -20,11 +20,12 @@ Constructed examples: Urza's Saga (`DB$ Animate | Abilities$ ABMana`), Chromatic
 
 Java keeps printed traits on the card's current `CardState` and layers two timestamp-keyed tables over them —
 `changedCardTraitsByText` (Layer 3) and `changedCardTraits` (Layer 6), `Table<timestamp, staticAbilityId, changes>`
-(`Card.java:141-142`) — merged in layer then timestamp order on every read (`Card.java:4913-4920`). A grant's SVar is
-parsed into an ability object at apply time and cached per static ability and substituted text (`Card.java:4716-4718`,
-`:4857`; `StaticAbilityContinuous.java:336`). `RemoveAllAbilities$` removes everything with an earlier timestamp than
-the removing effect (`StaticAbilityContinuous.java:327-328`). Perpetual changes reuse the same Layer-6 table
-(`PerpetualAbilities.java:14-16`).
+(`Card.java:141-142`) — merged in layer then timestamp order on every read (`Card.java:4913-4920`), with a Layer-4
+land-trait slot between them (`getLandTraitChanges`, `:4917`) through which a basic land type grants or strips abilities
+(CR 305.7). A grant's SVar is parsed into an ability object at apply time and cached per static ability and substituted
+text (`Card.java:4716-4718`, `:4857`; `StaticAbilityContinuous.java:336`). `RemoveAllAbilities$` removes everything with
+an earlier timestamp than the removing effect (`StaticAbilityContinuous.java:327-328`). Perpetual changes reuse the same
+Layer-6 table (`PerpetualAbilities.java:14-16`).
 
 This port reads traits straight off the compiled definition: `Def.Faces[…].Triggers` in 41 range loops, `.Statics` in
 18, `.Replacements` in 15, `.Abilities` in 3. Layer 1 copies already swap `Def` for a per-game compiled definition
@@ -63,8 +64,10 @@ the grant silently does not happen (`effects-manareflected.md`, "Caveat").
    definition's traits merged with the overlay in timestamp order, a removal hiding everything older than itself
    (`Card.java:4913-4920` order). Every one of the 77 loops moves to them. A loop left reading `Def.Faces` directly is a
    review finding.
-4. **A grant the port cannot apply fails the card at load** through the ADR-0011 coverage gate, not at runtime by
-   omission. The `S:` lines that are applied today stay applied.
+4. **A grant the port cannot apply fails closed with an error when applied**, the way `Animate` rejects its trait params
+   today — never a silent omission. The coverage command (`cmd/crucible/coverage.go`) checks card presence only;
+   extending it to report unapplicable grants at load is part of the implementing work. The `S:` lines applied today
+   stay applied.
 5. **Layer 3 text-changing is out of scope** (`ChangeText` 17 lines, `GainTextOf$` 1). Java stores it as a substitution
    on the ability object (`changeTextIntrinsic`), which fits this overlay later without re-parsing; it gets its own
    decision when a gauntlet needs it.

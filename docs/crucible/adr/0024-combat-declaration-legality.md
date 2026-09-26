@@ -1,6 +1,6 @@
 # ADR-0024 — Combat Declarations: Validated With Java's Checks, an Illegal One Is an Error
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 
@@ -12,11 +12,11 @@ combat if able"), `Mode$ MustBlock` 27, the `MustBlock` API 26 (M6's last combat
 
 Java validates every declaration, but not symmetrically:
 
-| Side       | Java                                                                                                                                                                                                                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Attackers  | `CombatUtil.validateAttackers` (`CombatUtil.java:82`) asks `AttackConstraints` for the fewest violations achievable and rejects a declaration with more — true maximization                                                                                                                                |
-| Blockers   | `CombatUtil.validateBlocks` (`:637`) is a local check: a creature with an unmet requirement it could have met by switching (`findFreeBlockers`, `:604`; `mustBlockAnAttacker`, `:745`; blocks-each-combat, `:677`) fails the declaration. Forge's own TODO says it is not CR 509.1c's maximum (`:602-603`) |
-| On failure | The human is re-prompted (`InputBlock.java:101-109`); the AI builds required blocks itself and never sees the check                                                                                                                                                                                        |
+| Side       | Java                                                                                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Attackers  | `CombatUtil.validateAttackers` (`CombatUtil.java:82`) asks `AttackConstraints` for the fewest violations achievable (`getLegalAttackers`, `AttackConstraints.java:77-160`, a search over candidate attacks) and rejects a declaration with more; goad is one of its requirements (`AttackRequirement.java:36-38`) |
+| Blockers   | `CombatUtil.validateBlocks` (`:637`) is a local check: a creature with an unmet requirement it could have met by switching (`findFreeBlockers`, `:604`; `mustBlockAnAttacker`, `:745`; blocks-each-combat, `:677`) fails the declaration. Forge's own TODO says it is not CR 509.1c's maximum (`:602-603`)        |
+| On failure | The human is re-prompted (`InputBlock.java:101-109`); the AI builds required blocks itself and never sees the check                                                                                                                                                                                               |
 
 `MustBlockEffect` records the requirement on the blocker (`MustBlockEffect.java:76`, `:79`).
 

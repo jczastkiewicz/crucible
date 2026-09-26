@@ -30,12 +30,12 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0017](0017-effects-inside-engine-generated-registry.md)    | Effects inside engine, generated registry      | Accepted           |
 | [0018](0018-instant-sorcery-spell-object.md)                | Instant/sorcery spells as stack objects        | Accepted           |
 | [0019](0019-interactive-priority.md)                        | Interactive priority (CR 117)                  | Accepted           |
-| [0020](0020-static-triggers-resolve-immediately.md)         | Static triggers resolve immediately            | Proposed           |
-| [0021](0021-phasing-battlefield-view.md)                    | Phasing: battlefield view excludes phased-out  | Proposed           |
-| [0022](0022-as-enters-replacements.md)                      | "As enters" replacements before landing        | Proposed           |
-| [0023](0023-granted-abilities-over-compiled-definitions.md) | Granted abilities as a compiled-trait overlay  | Proposed           |
-| [0024](0024-combat-declaration-legality.md)                 | Combat declaration legality                    | Proposed           |
-| [0025](0025-continuous-effect-evaluation-order.md)          | Continuous effects: layer order and dependency | Proposed           |
+| [0020](0020-static-triggers-resolve-immediately.md)         | Static triggers resolve immediately            | Accepted           |
+| [0021](0021-phasing-battlefield-view.md)                    | Phasing: battlefield view excludes phased-out  | Accepted           |
+| [0022](0022-as-enters-replacements.md)                      | "As enters" replacements before landing        | Accepted           |
+| [0023](0023-granted-abilities-over-compiled-definitions.md) | Granted abilities as a compiled-trait overlay  | Accepted           |
+| [0024](0024-combat-declaration-legality.md)                 | Combat declaration legality                    | Accepted           |
+| [0025](0025-continuous-effect-evaluation-order.md)          | Continuous effects: layer order and dependency | Accepted           |
 
 ## Numbering
 

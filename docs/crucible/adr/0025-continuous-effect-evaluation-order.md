@@ -1,6 +1,6 @@
 # ADR-0025 — Continuous Effects: One Pass in CR 613 Layer Order, With Java's Dependency Rule
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 
@@ -52,10 +52,14 @@ Characteristic-defining P/T is already in place (`applyOneCharacteristicDefining
    from this pass. Resolved one-shot effects of a layer (pumps today) apply inside that layer, not after all of them.
 2. **Within the seven layers Java checks, dependency ordering follows `findStaticAbilityToApply`**: CR 613.8a dependency
    as Java tests it, cycles broken as Java breaks them, one effect applied at a time with the rest re-evaluated, CDAs
-   exempt. Color, 7c and rules stay timestamp-only, as in Java. The search is a small hand-written routine over the few
-   effects in one layer.
-3. **Amounts stay live**: a CDA or `SetPower$` amount is evaluated on every pass it applies, never cached across passes.
-4. **Rebuild-from-scratch stays the model**, including for `Game.Clone`.
+   exempt. Color, 7c and rules stay timestamp-only, as in Java. Java tests dependency by trial application: apply the
+   other effect, recompute the first's affected set, compare (`GameAction.java:1312-1331`). The port therefore needs to
+   evaluate one layer with and without a given effect; hand-written, no graph library.
+3. **The set of statics is fixed at the start of a pass**, as Java collects it once per call
+   (`GameAction.java:1098-1115`): a static ability granted in Layer 6 (ADR-0023) applies from the next pass, matching
+   Java.
+4. **Amounts stay live**: a CDA or `SetPower$` amount is evaluated on every pass it applies, never cached across passes.
+5. **Rebuild-from-scratch stays the model**, including for `Game.Clone`.
 
 ## Consequences
 
@@ -63,8 +67,8 @@ Characteristic-defining P/T is already in place (`applyOneCharacteristicDefining
 the other Layer 4/6 dependency cases, resolve as in Java.
 
 **Bad:** the reorder can change outcomes that were silently one pass late, so the implementing commit runs every
-scenario and names each changed `expect.state`/`expect.events` as a fix. The dependency search costs a comparison per
-effect pair per layer on each pass; typical boards have a handful of effects per layer.
+scenario and names each changed `expect.state`/`expect.events` as a fix. The dependency search costs one trial
+application per effect pair per dependency layer on each pass; typical boards have a handful of effects per layer.
 
 **Neutral:** Layer 3 text effects have no applier yet (ADR-0023, Decision 5); its slot in the order is reserved.
 

@@ -1,6 +1,6 @@
 # ADR-0022 — "As Enters" Replacements Resolve Before the Permanent Lands
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 
@@ -59,8 +59,9 @@ choice.
    a choice the ability makes (creature type, what to copy) goes through its existing `PlayerController` method.
 4. **Within one CR 616.1 layer, more than one applicable replacement keeps today's deterministic order** (GO-12). CR
    616's "affected player chooses" hook stays the separate M5 gap it already is.
-5. **The existing tapped-on-entry replacement moves into this path unchanged in effect.** Setting `Tapped` before
-   landing instead of after is observable only to something that reads the card mid-move, and nothing does.
+5. **The existing tapped-on-entry replacement moves into this path unchanged in effect.** `Move` resets `Tapped`
+   (`game.go:439`), so a replacement is _decided_ before landing and its result applied to the entering object as it
+   lands, before ETB triggers — the same observable order as today.
 
 ## Consequences
 

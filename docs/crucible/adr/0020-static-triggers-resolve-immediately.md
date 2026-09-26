@@ -1,6 +1,6 @@
 # ADR-0020 — Static Triggers Resolve Immediately; `Game` Owns Its Registry
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 
@@ -58,9 +58,10 @@ paid or failed. Skipping the line is safe only because the effect is refused lou
 3. **Scope is every mode's `Static$ True` line, not only `TapsForMana`.** The modes that skip `Static$` today move to
    this path one at a time, each in the commit that ports its effect; until then they keep skipping. The contract fixed
    here is the ordering and the no-stack rule, not which modes are wired.
-4. **An error from a static trigger reaches the caller of the action that fired it** (`TapLandForMana`,
-   `ActivateManaAbility`, `Move`, …). Those return `bool` today; each gains an error path in the commit that wires its
-   mode, the same GO-7 stop `PassPriority` applies.
+4. **An error from a static trigger is carried to the nearest boundary that already returns `error`** —
+   `Registry.Resolve`, `ResolveStack`, `PassPriority`, or a mana entry point once it gains one. `Move` (95 call sites)
+   does not change signature; the implementing commit records the pending error on `Game` and the boundary returns it
+   (GO-7).
 5. **`triggeredObjects` gains the fields a static mana trigger reads** — the produced mana after replacement
    (`AbilityManaPart.java:205`, `:224`), the activator and the tapped card — and `Game.Clone` covers them.
 

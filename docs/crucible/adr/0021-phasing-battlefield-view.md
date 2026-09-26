@@ -1,6 +1,6 @@
 # ADR-0021 — Phasing: the Battlefield Enumeration Excludes Phased-Out Permanents
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-26
 - **Deciders:** `mc@archlab.pl`
 

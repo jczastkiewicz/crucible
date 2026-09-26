@@ -10,6 +10,12 @@
 package engine
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -58,15 +64,26 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 	if !ok {
 		return false
 	}
+	if choice.err != nil {
+		// Pushed with no targets, failing when it resolves: pushing has no
+		// error path of its own (GO-7), the same deferral Ability.modesErr
+		// makes for a Charm.
+		a.targetsErr = choice.err
+		return true
+	}
 	a.Targets = controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max)
 	return true
 }
 
 // targetChoice is one targeting part's CR 601.2c question: the legal
-// candidates and how many of them to choose.
+// candidates and how many of them to choose. err is set, with no
+// candidates, when the legal set holds something this port cannot offer as
+// a target (stackAbilityCandidates): the question cannot be asked
+// faithfully, and narrowing it silently would be a wrong guess.
 type targetChoice struct {
 	candidates []EntityID
 	min, max   int
+	err        error
 }
 
 // targetChoiceFor builds a's targetChoice from its ValidTgts$/TargetType$/
@@ -110,7 +127,20 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 	}
 
 	var candidates []EntityID
-	if targetType, ok := a.Params.Param("TargetType"); ok {
+	targetType, hasTargetType := a.Params.Param("TargetType")
+	switch {
+	case hasTargetType && a.API == APIChangeTargets:
+		// ChangeTargets alone reads TargetType$ as SpellAbility.isValid's
+		// full restriction (stackAbilityCandidates): 23 of its 44 corpus
+		// lines name a shape past the literal "Spell". Every other API keeps
+		// the literal-only branch below, since its own Resolve was vetted
+		// against spell targets only.
+		var err error
+		candidates, err = g.stackAbilityCandidates(a, targetType, validTgts)
+		if err != nil {
+			return targetChoice{min: targetMin, max: targetMax, err: err}, true, true
+		}
+	case hasTargetType:
 		// TargetType$ Spell names spells on the stack (CR 115.1a); a spell
 		// here is a card in the Stack zone. Activated/Triggered abilities
 		// on the stack are not targetable objects in this port.
@@ -118,13 +148,13 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 			return targetChoice{}, true, false
 		}
 		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
-	} else if a.API == APICopySpellAbility {
+	case a.API == APICopySpellAbility:
 		// CopySpellAbilityEffect.buildSpellAbility sets the target zone to
 		// the stack whether or not TargetType$ is named
 		// (CopySpellAbilityEffect.java:28-33): Mischievous Quanar's
 		// ValidTgts$ Instant,Sorcery names spells, not battlefield cards.
 		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
-	} else {
+	default:
 		candidates = g.targetCandidates(a.Controller, a.Source, validTgts)
 	}
 	if len(candidates) == 0 {
@@ -193,6 +223,225 @@ func (g *Game) stackSpellCandidates(controller PlayerID, source CardID, spec str
 		}
 	}
 	return candidates
+}
+
+// stackAbilityCandidates is SpellAbility.canTargetSpellAbility
+// (SpellAbility.java:2059-2122) run over every stack item, top first, for a
+// ChangeTargets ability a: the item matches one of TargetType$'s
+// comma-separated alternatives (stackItemMatches), one of its targets
+// matches TargetValidTargeting$ when a names one, and its host card matches
+// ValidTgts$. A spell is offered as its card on the stack (CardEntity), the
+// convention Counter and CopySpellAbility already read back through
+// spellItemOf.
+//
+// An activated or triggered ability on the stack has no EntityID (id.go: a
+// card or a player), so one that would be a legal target is an error rather
+// than a candidate left out: offering the spells alone would be a narrower
+// question than Java asks. Ability has no activated/triggered kind, so
+// "Activated" and "Triggered" each match every non-spell item; the answer
+// they change is only which items raise that error.
+func (g *Game) stackAbilityCandidates(a *Ability, targetType, validTgts string) ([]EntityID, error) {
+	validSpec := valid.Parse(validTgts)
+	tvt, hasTVT := a.Params.Param("TargetValidTargeting")
+	var candidates []EntityID
+	for i := len(g.stack) - 1; i >= 0; i-- {
+		item := &g.stack[i]
+		if item.Source == NoCard || int(item.Source) >= len(g.cards) {
+			continue
+		}
+		matched, err := g.stackItemMatches(item, targetType, a)
+		if err != nil {
+			return nil, err
+		}
+		if !matched {
+			continue
+		}
+		if hasTVT {
+			matched, err := g.stackItemTargetsMatch(item, tvt, a)
+			if err != nil {
+				return nil, err
+			}
+			if !matched {
+				continue
+			}
+		}
+		if !Matches(g, g.Card(item.Source), validSpec, a.Controller, a.Source) {
+			continue
+		}
+		if !item.spell {
+			return nil, fmt.Errorf("engine: ChangeTargets: TargetType$ %q: targeting an ability on the stack not resolvable yet", targetType)
+		}
+		candidates = append(candidates, CardEntity(item.Source))
+	}
+	return candidates, nil
+}
+
+// stackItemMatches is SpellAbility.isValid (SpellAbility.java:2206-2270)
+// over restriction's comma-separated alternatives, for item judged by
+// ChangeTargets ability a: the kind before the first "." (Spell,
+// SpellAbility, Ability/Activated/Triggered, Instant, Sorcery), then every
+// "+"-joined property after it (stackItemHasProperty). A kind or property
+// this port does not read is an error, not a false (GO-7).
+func (g *Game) stackItemMatches(item *Ability, restriction string, a *Ability) (bool, error) {
+	for _, alt := range strings.Split(restriction, ",") {
+		head, rest, hasRest := strings.Cut(alt, ".")
+		var kind bool
+		switch head {
+		case "Spell":
+			kind = item.spell
+		case "SpellAbility":
+			kind = true
+		case "Ability", "Activated", "Triggered":
+			kind = !item.spell
+		case "Instant":
+			kind = g.Card(item.Source).Type().Has(cardtype.Instant)
+		case "Sorcery":
+			kind = g.Card(item.Source).Type().Has(cardtype.Sorcery)
+		default:
+			return false, fmt.Errorf("engine: ChangeTargets: TargetType$ %q not resolvable yet", alt)
+		}
+		if !kind {
+			continue
+		}
+		matched := true
+		if hasRest {
+			for _, prop := range strings.Split(rest, "+") {
+				ok, err := g.stackItemHasProperty(item, prop, a)
+				if err != nil {
+					return false, err
+				}
+				if !ok {
+					matched = false
+					break
+				}
+			}
+		}
+		if matched {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// stackItemHasProperty is SpellAbilityProperty.hasProperty
+// (SpellAbilityProperty.java:213-245) at the properties ChangeTargets'
+// TargetType$ lines name: singleTarget (exactly one target, the same object
+// twice counting twice), numTargets <op><n> (distinct objects), IsTargeting
+// Self/You (a's host card, a's controller), YouCtrl/OppCtrl.
+func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (bool, error) {
+	switch prop {
+	case "YouCtrl":
+		return item.Controller == a.Controller, nil
+	case "OppCtrl":
+		return item.Controller != a.Controller, nil
+	case "singleTarget":
+		targets, err := stackItemTargets(item)
+		return len(targets) == 1, err
+	}
+	name, arg, _ := strings.Cut(prop, " ")
+	switch name {
+	case "numTargets":
+		targets, err := stackItemTargets(item)
+		if err != nil {
+			return false, err
+		}
+		var distinct []EntityID
+		for _, t := range targets {
+			if !containsEntity(distinct, t) {
+				distinct = append(distinct, t)
+			}
+		}
+		if len(arg) < 3 {
+			return false, fmt.Errorf("engine: ChangeTargets: TargetType$ property %q not resolvable yet", prop)
+		}
+		n, err := strconv.Atoi(arg[2:])
+		if err != nil {
+			return false, fmt.Errorf("engine: ChangeTargets: TargetType$ property %q not resolvable yet", prop)
+		}
+		return compareOp(len(distinct), arg[:2], n), nil
+	case "IsTargeting":
+		var want EntityID
+		switch arg {
+		case "Self":
+			want = CardEntity(a.Source)
+		case "You":
+			want = PlayerEntity(a.Controller)
+		default:
+			return false, fmt.Errorf("engine: ChangeTargets: TargetType$ property %q not resolvable yet", prop)
+		}
+		targets, err := stackItemTargets(item)
+		return containsEntity(targets, want), err
+	}
+	return false, fmt.Errorf("engine: ChangeTargets: TargetType$ property %q not resolvable yet", prop)
+}
+
+// stackItemTargetsMatch is canTargetSpellAbility's TargetValidTargeting$
+// check (SpellAbility.java:2085-2108): some target of item matches spec,
+// judged with a's controller and host.
+func (g *Game) stackItemTargetsMatch(item *Ability, spec string, a *Ability) (bool, error) {
+	targets, err := stackItemTargets(item)
+	if err != nil {
+		return false, err
+	}
+	parsed := valid.Parse(spec)
+	for _, t := range targets {
+		if g.entityMatches(t, spec, parsed, a.Controller, a.Source) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// entityMatches is GameObject.isValid for a card or a player target: spec
+// through Matches for a card, matchesPlayerSpec for a player.
+func (g *Game) entityMatches(e EntityID, spec string, parsed valid.Spec, controller PlayerID, source CardID) bool {
+	if pid, ok := e.AsPlayer(); ok {
+		matched, _ := matchesPlayerSpec(g, pid, controller, source, spec)
+		return matched
+	}
+	if id, ok := e.AsCard(); ok {
+		return Matches(g, g.Card(id), parsed, controller, source)
+	}
+	return false
+}
+
+// stackItemTargets is SpellAbility.getAllTargetChoices for item: an Aura's
+// cast-time Target, its own Targets, then each Charm mode's. A SubAbility$
+// naming its own ValidTgts$ is not targeted separately in this port
+// (resolveSubAbility, subability.go), so Java's count for such an item is
+// unknown here and asking is an error.
+func stackItemTargets(item *Ability) ([]EntityID, error) {
+	if subChainTargets(item.Params) {
+		return nil, fmt.Errorf("engine: ChangeTargets: targets of a spell whose SubAbility$ targets not resolvable yet")
+	}
+	var targets []EntityID
+	if item.Target != NoCard {
+		targets = append(targets, CardEntity(item.Target))
+	}
+	targets = append(targets, item.Targets...)
+	for _, m := range item.Modes {
+		if subChainTargets(m.Params) {
+			return nil, fmt.Errorf("engine: ChangeTargets: targets of a spell whose SubAbility$ targets not resolvable yet")
+		}
+		targets = append(targets, m.Targets...)
+	}
+	return targets, nil
+}
+
+// subChainTargets reports whether any SubAbility$ below p names its own
+// ValidTgts$.
+func subChainTargets(p *compile.Ability) bool {
+	for p != nil {
+		sub, ok := findSubAbility(p)
+		if !ok {
+			return false
+		}
+		if _, ok := sub.Ability.Param("ValidTgts"); ok {
+			return true
+		}
+		p = sub.Ability
+	}
+	return false
 }
 
 // targetsStillLegal is CR 608.2b, checked by ResolveStack (ADR-0018) right

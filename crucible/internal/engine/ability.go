@@ -160,6 +160,11 @@ type Ability struct {
 	// was asked about; the Charm is still pushed and fails with this error
 	// when it resolves, since pushing has no error path of its own (GO-7).
 	modesErr error
+	// targetsErr is why resolveTargets could not ask for this ability's
+	// targets (targetChoice.err, targeting.go): a legal target it has no
+	// EntityID for. The ability is still pushed and fails with this error
+	// when it resolves, modesErr's own deferral.
+	targetsErr error
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the

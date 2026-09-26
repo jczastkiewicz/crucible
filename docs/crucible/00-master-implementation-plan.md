@@ -454,9 +454,9 @@ over Java 17 and 21, inside a virtual framebuffer. The release/snapshot workflow
 
 | Family                       | Files | Tests | Value to Crucible                                                                                                                                                                                                                                                                                           |
 | ---------------------------- | ----: | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `forge/ai/simulation/`       |     7 |   137 | **Highest.** `GameSimulationTest` (2,856 LOC, 73 tests) is real rules assertion — static abilities, layer interactions, equipment/aura grants, monstrous, triggers, combat. Plus `SpellAbilityPickerSimulationTest` (34), `GameStateEvaluatorTest`, `OnePlaySafetyCheckerTest`, `TerminalScoreDiscountTest` |
-| `forge/card/`                |     8 |    70 | **High.** `CardDbCardMockTestCase` alone is 54 tests over card-DB lookup, editions, request strings, lazy loading. Directly portable to Crucible P1/P2                                                                                                                                                      |
-| `forge/deck/`                |     5 |    91 | Deck construction/generation. Relevant at P7                                                                                                                                                                                                                                                                |
+| `forge/ai/simulation/`       |     7 |   142 | **Highest.** `GameSimulationTest` (2,856 LOC, 78 tests) is real rules assertion — static abilities, layer interactions, equipment/aura grants, monstrous, triggers, combat. Plus `SpellAbilityPickerSimulationTest` (34), `GameStateEvaluatorTest`, `OnePlaySafetyCheckerTest`, `TerminalScoreDiscountTest` |
+| `forge/card/`                |     8 |    83 | **High.** `CardDbCardMockTestCase` alone is 54 tests over card-DB lookup, editions, request strings, lazy loading. Directly portable to Crucible P1/P2                                                                                                                                                      |
+| `forge/deck/`                |     5 |    89 | Deck construction/generation. Relevant at P7                                                                                                                                                                                                                                                                |
 | `forge/ai/ability/`          |    13 |    38 | Per-API AI behaviour (`DamageDealAiTest`, `ChangeZoneAiTest`, `CountersProliferateAiTest`, `UnlockDoorAiTest`, …). The template for Go's per-effect test layout                                                                                                                                             |
 | `forge/gamesimulationtests/` |    31 |    15 | **Right shape, wrong medium, almost empty.** A declarative builder DSL keyed to Comprehensive Rules numbers — but only sections 103 and 104 are covered                                                                                                                                                     |
 | `forge/net/`                 |    18 |    16 | Network play harness. Irrelevant to Crucible                                                                                                                                                                                                                                                                |
@@ -502,12 +502,12 @@ What belongs here rather than there is when each layer has to exist:
 | Milestone | Test work that is part of its exit gate                                     |
 | --------- | --------------------------------------------------------------------------- |
 | M1        | L1 unit tests + `javarand` parity; CI running `go test -race`               |
-| M2        | L2 corpus golden diff; port the 70 `forge/card` tests                       |
+| M2        | L2 corpus golden diff; port the 83 `forge/card` tests                       |
 | M3        | L1 tests for every sub-DSL; L5 fuzz targets on all parsers                  |
 | M4        | L3 harness itself, plus `GameState` round-trip fixtures                     |
 | M5        | ≥300 rules fixtures; test-port matrix green for rules-relevant Java tests   |
 | M6        | ≥3 fixtures per implemented API; L4 replay parity live                      |
-| M7        | Port the 137 `ai/simulation` + 38 `ai/ability` tests; statistical dashboard |
+| M7        | Port the 142 `ai/simulation` + 38 `ai/ability` tests; statistical dashboard |
 | M8        | L5 soak at 10⁵ games; determinism re-run test                               |
 
 Porting an inherited Java test means converting it into a fixture directory, not into a Go test function. One row per

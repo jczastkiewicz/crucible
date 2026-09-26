@@ -1,4 +1,4 @@
-// RemoveCounter: CR 121.4, PutCounter's own mirror-image effect -- 199 real
+// RemoveCounter: CR 122.1, PutCounter's own mirror-image effect -- 199 real
 // (AB|DB)$ RemoveCounter lines, all naming Defined$ (112) -- the identical
 // Defined$ Self/Enchanted/Equipped/You shape putCounterEffect already
 // resolves, ValidTgts$ (36) deferred the same way (putcountereffect.go's

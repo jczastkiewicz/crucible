@@ -1,4 +1,4 @@
-// RemoveCounterAll: CR 121.4, removeCounterEffect's own battlefield-sweep
+// RemoveCounterAll: CR 122.1, removeCounterEffect's own battlefield-sweep
 // sibling and PutCounterAll's own mirror image -- 19 real (AB|DB)$
 // RemoveCounterAll lines, every one naming both ValidCards$ and
 // CounterType$; CounterNum$ is a resolvable amount (6) or absent,

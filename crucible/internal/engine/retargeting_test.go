@@ -581,3 +581,63 @@ func TestChangeTargetsWithoutAMagnetOrATarget(t *testing.T) {
 		t.Errorf("life = %d, want 23", g.Player(p).Life)
 	}
 }
+
+// TestChangeTargetsIsTargetingSelf proves Torchling's shape, TargetType$
+// Spell.numTargets EQ1+IsTargeting Self: a spell aimed at the retargeter's
+// own host is offered and moved to another permanent.
+func TestChangeTargetsIsTargetingSelf(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	host := seatRetargeter(t, g, p, "DB$ ChangeTargets | TargetType$ Spell.numTargets EQ1+IsTargeting Self | ValidTgts$ Card")
+	decoy := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	spell := g.NewCard(instantDefWithAbility(t, "Destroy", "W", "SP$ Destroy | ValidTgts$ Permanent"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(host)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(spell)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(decoy)})
+	if err := castW(t, g, p, spell, c); err != nil {
+		t.Fatal(err)
+	}
+	if g.Card(host).Zone != engine.Battlefield || g.Card(decoy).Zone != engine.Graveyard {
+		t.Errorf("host in %v, decoy in %v, want the decoy destroyed instead", g.Card(host).Zone, g.Card(decoy).Zone)
+	}
+}
+
+// TestCharmOffersAStackTargetingModeOnlyWithACandidate proves
+// makePossibleOptions' CR 603.3c filter for a mode naming TargetType$
+// (Insidious Will, Untimely Malfunction): over an empty stack the
+// ChangeTargets mode is not offered, so the one remaining option, index 0,
+// is the GainLife mode and the Charm is cast.
+func TestCharmOffersAStackTargetingModeOnlyWithACandidate(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	// A battlefield card: the battlefield scan would have offered the
+	// ChangeTargets mode for it.
+	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	charm := g.NewCard(spellDefWith(t, "Will Charm", "Instant", "W", "SP$ Charm | Choices$ DBChange,DBGain",
+		"DBChange", "DB$ ChangeTargets | TargetType$ Spell | ValidTgts$ Card",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 4"), p, engine.Hand)
+	var offered []string
+	c := &modeRecorder{ScriptedController: engine.NewScriptedController(), offered: &offered}
+	c.QueueModeChoice([]int{0})
+	if err := castW(t, g, p, charm, c); err != nil {
+		t.Fatal(err)
+	}
+	if len(offered) != 1 || offered[0] != "DBGain" {
+		t.Errorf("modes offered = %v, want only DBGain", offered)
+	}
+	if g.Player(p).Life != 24 {
+		t.Errorf("life = %d, want 24", g.Player(p).Life)
+	}
+}
+
+// modeRecorder records the mode names ChooseModesForAbility is offered.
+type modeRecorder struct {
+	*engine.ScriptedController
+	offered *[]string
+}
+
+func (r *modeRecorder) ChooseModesForAbility(g *engine.Game, p engine.PlayerID, src engine.CardID, options []string, lo, hi int) []int {
+	*r.offered = append(*r.offered, options...)
+	return r.ScriptedController.ChooseModesForAbility(g, p, src, options, lo, hi)
+}

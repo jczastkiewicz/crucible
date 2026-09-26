@@ -77,20 +77,20 @@ targets, so a `ValidSource$ Spell` watcher misses both (`becomesTargetSourceMatc
 
 ### Rejected with an `error` (PORT-8, GO-7)
 
-| Param / shape                                                               | Lines                                                                                        | Why                                                                           |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `Chooser$`                                                                  | Sudden Substitution, Psychic Battle                                                          | another player chooses                                                        |
-| `RandomTarget$`, `RandomTargetRestriction$`                                 | Chef's Kiss, Grip of Chaos                                                                   | random retarget; both also need an unbuilt `Defined$`/trigger mode            |
-| `ModeCost$`                                                                 | Return the Favor                                                                             | Spree cost; `Charm` charges none                                              |
-| `ConditionTargetValidTargeting$`, `ConditionTargetsSingleTarget$`           | Meddle, Quicksilver Dragon                                                                   | `subAbilityConditionMet` reads them as never met, silently                    |
-| `ConditionPlayerDefined$`, `ConditionPlayerContains$`                       | Emissary of Grudges                                                                          | same                                                                          |
-| `TargetsWithControllerProperty$`                                            | 0                                                                                            | `canTargetSpellAbility` filter not read                                       |
-| `Defined$` `TriggeredSourceSA`/`Remembered`/`ValidStack`/`SourceFirstSpell` | Captured by the Consulate, Psychic Battle, Chef's Kiss, Boltbender, Lightning Storm          | `getDefinedSpellAbilities` shapes not built                                   |
-| `ChangeSingleTarget$` without `DefinedMagnet$`                              | 0                                                                                            | Java defaults the magnet to `Self`; no line relies on it                      |
-| Pair pick over a target two parts share                                     | —                                                                                            | needs the (part, target) pair chosen; `PlayerController` has no such decision |
-| Aura spell's attach target                                                  | —                                                                                            | `Ability.Target`, chosen through `ChooseEnchantTarget`; not rewritten here    |
-| Spell whose `SubAbility$` names `ValidTgts$`; `DividedAsYouChoose$` part    | —                                                                                            | sub-ability targets not modelled; divided allocation not carried              |
-| Legal target is an activated/triggered ability                              | `SpellAbility.*`, `Spell,Activated,Triggered`, `Activated.*` lines, when one is on the stack | no `EntityID` (above)                                                         |
+| Param / shape                                                               | Lines                                                                                        | Why                                                                                                            |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `Chooser$`                                                                  | Sudden Substitution, Psychic Battle                                                          | another player chooses                                                                                         |
+| `RandomTarget$`, `RandomTargetRestriction$`                                 | Chef's Kiss, Grip of Chaos                                                                   | random retarget; both also need an unbuilt `Defined$`/trigger mode                                             |
+| `ModeCost$`                                                                 | Return the Favor                                                                             | Spree cost; `Charm` charges none                                                                               |
+| `ConditionTargetValidTargeting$`, `ConditionTargetsSingleTarget$`           | Meddle, Quicksilver Dragon                                                                   | `subAbilityConditionMet` reads them as never met, silently                                                     |
+| `ConditionPlayerDefined$`, `ConditionPlayerContains$`                       | Emissary of Grudges                                                                          | same                                                                                                           |
+| `TargetsWithControllerProperty$`                                            | 0                                                                                            | `canTargetSpellAbility` filter not read                                                                        |
+| `Defined$` `TriggeredSourceSA`/`Remembered`/`ValidStack`/`SourceFirstSpell` | Captured by the Consulate, Psychic Battle, Chef's Kiss, Boltbender, Lightning Storm          | `getDefinedSpellAbilities` shapes not built                                                                    |
+| `ChangeSingleTarget$` without `DefinedMagnet$`                              | 0                                                                                            | Java's `getDefinedCardsOrTargeted` falls back to the ability's own targets (else `Self`); no line relies on it |
+| Pair pick over a target two parts share                                     | —                                                                                            | needs the (part, target) pair chosen; `PlayerController` has no such decision                                  |
+| Aura spell's attach target                                                  | —                                                                                            | `Ability.Target`, chosen through `ChooseEnchantTarget`; not rewritten here                                     |
+| Spell whose `SubAbility$` names `ValidTgts$`; `DividedAsYouChoose$` part    | —                                                                                            | sub-ability targets not modelled; divided allocation not carried                                               |
+| Legal target is an activated/triggered ability                              | `SpellAbility.*`, `Spell,Activated,Triggered`, `Activated.*` lines, when one is on the stack | no `EntityID` (above)                                                                                          |
 
 `UnlessCost$` (Divert) fails in `resolveUnlessCost`: no `UnlessPayer$`, whose Java default `TargetedController` is not
 resolved there.
@@ -101,7 +101,22 @@ End to end today: a `Mode$ SpellCast` trigger whose `Execute$` is ChangeTargets,
 (`TestChangeTargetsRetargetsASpellWithASingleTarget`, `retargeting_test.go`). No real card reaches it yet: `CastSpell`
 and `ActivateAbility` require an empty stack (no priority window), Speedball's trigger needs `TargetsValid$`, Perplexing
 Chimera's and Commandeer's chains need `ControlSpell`, Wyll's Reversal's parent `Pump` names a `TargetType$` its own
-targeting does not read. So no scenario fixture: nothing a `setup.state`/`actions.log` can drive reaches the effect.
+targeting does not read, Captured by the Consulate is broken upstream (below). No effect-driven cast route is known
+either: a `Play`/`Discover` cast during a resolution finds nothing left under it to retarget. So no scenario fixture:
+nothing a `setup.state`/`actions.log` can drive reaches the effect.
+
+Registered anyway, unlike `Planeswalk` (`effects-batch-a.md`), whose every line resolves to Java's own no-op outside a
+Planechase game: ChangeTargets does real, tested work on real stack items, and goes live as soon as a priority window
+(or one of the trigger/parent gaps above) lands, with no change here.
+
+### Charm modes that target the stack
+
+`modeHasLegalTargets` (`charmeffect.go`, `makePossibleOptions`' CR 603.3c filter) judges a mode naming `TargetType$`, or
+a `CopySpellAbility` mode, by `targetChoiceFor`'s stack scan instead of the battlefield scan. Reason: over an empty
+stack the battlefield scan offered Insidious Will's/Untimely Malfunction's ChangeTargets mode (and Return the Favor's
+two), mode indices then disagreed with Java's option list, and picking it made the whole Charm silently not cast
+(`resolveTargets` false). A `targetChoice.err` keeps the mode, so its error surfaces when it resolves. Regression:
+`TestCharmOffersAStackTargetingModeOnlyWithACandidate`.
 
 **Forge defect found.** `captured_by_the_consulate.txt:8`: `Defined$ TriggeredSourceSA` under a `Mode$ SpellCast`
 trigger, which never records `SourceSA` (`TriggerSpellAbilityCastOrCopy.setTriggeringObjects`,

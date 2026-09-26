@@ -249,6 +249,11 @@ func (g *Game) stackAbilityCandidates(a *Ability, targetType, validTgts string) 
 		if item.Source == NoCard || int(item.Source) >= len(g.cards) {
 			continue
 		}
+		// ValidTgts$ first: a property below can raise an error for an
+		// item this would have ruled out anyway.
+		if !Matches(g, g.Card(item.Source), validSpec, a.Controller, a.Source) {
+			continue
+		}
 		matched, err := g.stackItemMatches(item, targetType, a)
 		if err != nil {
 			return nil, err
@@ -264,9 +269,6 @@ func (g *Game) stackAbilityCandidates(a *Ability, targetType, validTgts string) 
 			if !matched {
 				continue
 			}
-		}
-		if !Matches(g, g.Card(item.Source), validSpec, a.Controller, a.Source) {
-			continue
 		}
 		if !item.spell {
 			return nil, fmt.Errorf("engine: ChangeTargets: TargetType$ %q: targeting an ability on the stack not resolvable yet", targetType)

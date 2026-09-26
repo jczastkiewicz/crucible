@@ -1,0 +1,13 @@
+# CR 117.3c-117.4, CR 611.2a: human casts Lightning Bolt at ai's Grizzly
+# Bears; ai responds with Giant Growth on them (a targeted SP$ Pump). Only
+# the top object resolves first (CR 117.4): the Bears become 5/5 until end
+# of turn, then Bolt's 3 damage no longer kills them (CR 704.5g).
+startturn human
+advance 3
+tapformana human 2 R
+tapformana ai 5 G
+queue targets 4
+queue targets 4
+queue action human cast 1
+queue action ai cast 3
+passpriority

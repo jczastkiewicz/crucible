@@ -1,0 +1,9 @@
+# CR 119.1: Nourish's "SP$ GainLife | LifeAmount$ 6" names no Defined$ and
+# no target, so its activator gains the life -- Java's own default,
+# getParamOrDefault("Defined", "You") (SpellAbilityEffect.java:339).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+castspell human 1
+resolvestack

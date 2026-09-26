@@ -1220,7 +1220,8 @@ func (g *Game) checkDiscardedTriggers(controller PlayerController, card CardID, 
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+					matches = append(matches, Ability{API: api, Source: card, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+						triggered: triggeredObjects{card: card}})
 				}
 			}
 		}
@@ -1250,7 +1251,8 @@ func (g *Game) otherDiscardedTriggerMatches(card CardID, player PlayerID) []Abil
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: triggeredObjects{card: card}})
 					}
 				}
 			}

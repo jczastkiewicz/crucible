@@ -206,9 +206,8 @@ M6 in progress: 170 of the corpus's 203 script-driven `Effect` APIs resolve (`Ne
 `Planeswalk` (30), `ChangeText` (17), `ControlPlayer` (11).
 
 Thin or missing: Layer 1 past `Clone`'s "becomes a copy" (no "enters as a copy"); most of Layers 3-8 past their literal
-shapes; targeted `Pump` and `GainLife` with no `Defined$`; CR 608.2b's own fizzle check past an Aura's own single target
-and a phased-out target — now load-bearing rather than unreachable, since a response can invalidate a target. Full list:
-`port-log/game-state.md`, "Not ported yet".
+shapes; CR 608.2b's own fizzle check past an Aura's own single target and a phased-out target — now load-bearing rather
+than unreachable, since a response can invalidate a target. Full list: `port-log/game-state.md`, "Not ported yet".
 
 **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
 SBA," Plan Section 3.2) not.

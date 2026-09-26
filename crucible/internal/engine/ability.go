@@ -222,8 +222,9 @@ type triggeredObjects struct {
 	// trigger and its resolution, and the stack is the one place to ask.
 	// NoStackItem when unset.
 	spellAbility StackItemID
-	// card is AbilityKey.Card for Mode$ TapsForMana: the permanent tapped
-	// for mana (TriggerTapsForMana.java:88), read by Defined$
+	// card is AbilityKey.Card for Mode$ TapsForMana (the permanent tapped
+	// for mana, TriggerTapsForMana.java:88) and Mode$ Discarded (the card
+	// discarded, TriggerDiscarded.java:72-74), read by Defined$
 	// TriggeredCardController. NoCard when unset.
 	card CardID
 	// activator is AbilityKey.Activator for Mode$ TapsForMana: the player

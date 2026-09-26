@@ -37,8 +37,7 @@ import (
 // -- a placeholder substitution, an interactive choice, and a random draw,
 // none of which this port's own KW$ handling (below) does; SharedKeywordsZone$/
 // SharedRestrictions$ (2/2) -- CardFactoryUtil.sharedKeywords' own zone scan,
-// a further mechanic; ValidTgts$ (1) -- a real target past the Defined$ card
-// this effect already resolves; AtEOT$ (9) -- registerDelayedTrigger, a new
+// a further mechanic; AtEOT$ (9) -- registerDelayedTrigger, a new
 // trigger this effect would silently fail to create; DefinedLandwalk$/
 // ForgetObjects$/RememberObjects$/RememberPumped$/LeaveBattlefield$/
 // ImprintCards$/ForgetImprinted$ (0/0/0/0/0/1/0) -- each its own further
@@ -72,24 +71,26 @@ import (
 // with no special-casing, since ActivateAbility threads the ability's own
 // compiled Params (UnlessCost$ included) through unchanged. Of the 3 real
 // Pump lines clearing the pure-mana-cost/resolvable-payer filter itself
-// (resolveUnlessCost's own doc comment, effect.go), the last one still is
-// not reachable: wild_might.txt's own real spell-level ValidTgts$ (this
-// port's own targeting only resolves for a triggered ability or an
-// activated one, not a cast spell's own target, Ability.Targets's own doc
-// comment).
+// (resolveUnlessCost's own doc comment, effect.go), the third is
+// wild_might.txt's own spell-level ValidTgts$, reachable since a cast
+// spell's targets resolve (ADR-0018).
 var pumpUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionActivationLimit", "PlayerTurn",
 	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
-	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "ValidTgts", "AtEOT",
+	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
 	"DefinedLandwalk", "ForgetObjects", "RememberObjects", "RememberPumped", "LeaveBattlefield",
 	"ImprintCards", "ForgetImprinted", "NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
 	"NoteNumber", "IsPresent", "Optional", "OptionQuestion", "Radiance",
 }
 
-// pumpEffect resolves Mode$/DB$/AB$ Pump for the Defined$ Self/Enchanted/
-// Equipped shape -- no target, CR 601.2c's own "no ValidTgts$ on this line"
-// reading. ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
+// pumpEffect resolves SP$/DB$/AB$ Pump on its Defined$ cards (Self by
+// default) or, for a ValidTgts$ line, its chosen card targets
+// (targetedOrDefinedCards, defined.go; PumpEffect.java's
+// getCardsfromTargets) -- 2,555 of the corpus's 5,034 (SP|AB|DB)$ Pump lines
+// name ValidTgts$ (Giant Growth's shape), 2,318 of them no unresolved param.
+// A target that phased out or left PumpZone$ (Battlefield by default) since
+// it was chosen is skipped, as Java's own loop does. ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
 // ConditionSVarCompare$ are resolved through subAbilityConditionMet
 // (condition.go), the identical way DealDamage's/GainLife's own do.
 type pumpEffect struct{}
@@ -131,17 +132,29 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return nil
 	}
 
-	defined, _ := a.Params.Param("Defined")
-	cards, err := definedCards(source, defined, a.refs())
+	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Pump: %w", err)
+	}
+	// PumpEffect.java's tgtPlayers loop gives a player keywords only (a
+	// player has no power or toughness); this port has no player keyword
+	// record yet, so a keyword pump naming a player target fails loudly
+	// rather than granting nothing (GO-7). A P/T-only line ignores player
+	// targets, as Java's applyPump(player) does.
+	if len(keywords) > 0 {
+		for _, e := range a.Targets {
+			if _, ok := e.AsPlayer(); ok {
+				return fmt.Errorf("engine: Pump: KW$ on a player target not resolvable yet")
+			}
+		}
 	}
 
 	g.timestamp++
 	timestamp := g.timestamp
 	for _, cid := range cards {
 		c := g.Card(cid)
-		if !pumpZoneMatches(a.Params, c.Zone) {
+		// CR 702.26e: a phased-out target is not pumped (PumpEffect.java).
+		if c.IsPhasedOut() || !pumpZoneMatches(a.Params, c.Zone) {
 			continue
 		}
 		g.pumps = append(g.pumps, pumpRecord{

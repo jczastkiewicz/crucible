@@ -1,0 +1,8 @@
+# Megrim: "Whenever an opponent discards a card, Megrim deals 2 damage to
+# that player." human discards down to seven in cleanup (CR 514.1); the
+# Mode$ Discarded trigger records the discarded card (TriggerDiscarded.java
+# setTriggeringObjects), so Defined$ TriggeredCardController names human.
+startturn human
+queue discard 1
+advance 12
+resolvestack

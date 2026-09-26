@@ -2,7 +2,11 @@
 // single largest resolvable slice past DealDamage -- a plain-or-named-SVar
 // LifeAmount$ granted to a Defined$ player, no target -- 862 of the corpus's
 // 1,700 real (AB|DB)$ GainLife lines that also name Defined$
-// You/Player.Opponent and carry no other unresolved param -- 5 of them
+// You/Player.Opponent and carry no other unresolved param. A line naming no
+// Defined$ at all -- a chosen ValidTgts$ player, or the activator by
+// default (gainLifePlayers, below) -- is 796 of the corpus's 1,804
+// (SP|AB|DB)$ GainLife lines, 774 of them naming no unresolved param. 5 of
+// the Defined$ lines
 // naming Planeswalker$ too, Ajani Goldmane's own real "[+1]: You gain 2
 // life" among them, no longer blocked (below): CR 606.3's own loyalty
 // ability restriction is a cost-side gate (ActivateAbility/
@@ -36,8 +40,7 @@ import "fmt"
 // dealPlayerDamage already emits for a life LOSS, reused here for a gain.
 //
 // Not ported (every one fails loudly rather than granting the wrong amount
-// to the wrong player, PORT-8/GO-7): ValidTgts$ (this port's own targeting
-// gap for the non-Defined$ shape); Condition$ itself and ConditionDefined$/ConditionZone$/
+// to the wrong player, PORT-8/GO-7): Condition$ itself and ConditionDefined$/ConditionZone$/
 // ConditionOptionalPaid$ (SpellAbilityCondition's own separate flag switch
 // and shapes subAbilityConditionMet does not cover, the identical
 // DealDamage-shaped gap).
@@ -65,7 +68,6 @@ import "fmt"
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"ValidTgts",
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
 }
 
@@ -87,12 +89,15 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if !ok {
 		return fmt.Errorf("engine: GainLife: LifeAmount$ %q is not resolvable", lifeAmount)
 	}
-	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, a.Source, defined, a.refs())
+	players, err := gainLifePlayers(g, a)
 	if err != nil {
 		return fmt.Errorf("engine: GainLife: %w", err)
 	}
 	for _, pid := range players {
+		// LifeGainEffect.java: a player no longer in the game gains nothing.
+		if g.Player(pid).Lost {
+			continue
+		}
 		if g.gainLifePrevented(pid) {
 			continue
 		}
@@ -107,4 +112,26 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		g.checkLifeGainedTriggers(controller, pid, firstGain)
 	}
 	return nil
+}
+
+// gainLifePlayers is LifeGainEffect.resolve's getTargetPlayersWithDuplicates
+// (true, "Defined", sa) (SpellAbilityEffect.java:326-345): Defined$ first
+// when the line names it, else the chosen player targets (ValidTgts$,
+// Ability.Targets), else "You" -- the default Java's own
+// getParamOrDefault(definedParam, "You") supplies (SpellAbilityEffect.java:339).
+// Nourish's own bare "SP$ GainLife | LifeAmount$ 6" is that last shape.
+func gainLifePlayers(g *Game, a *Ability) ([]PlayerID, error) {
+	if defined, ok := a.Params.Param("Defined"); ok {
+		return definedPlayers(g, a.Controller, a.Source, defined, a.refs())
+	}
+	if _, ok := a.Params.Param("ValidTgts"); ok {
+		var players []PlayerID
+		for _, e := range a.Targets {
+			if pid, ok := e.AsPlayer(); ok {
+				players = append(players, pid)
+			}
+		}
+		return players, nil
+	}
+	return []PlayerID{a.Controller}, nil
 }

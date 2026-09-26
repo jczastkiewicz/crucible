@@ -11,10 +11,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
-// discardPunisherDef is a test enchantment shaped like Megrim: whenever an
-// opponent discards a card, 2 damage to each opponent. Megrim's own
-// Defined$ TriggeredCardController does not resolve for Mode$ Discarded
-// yet; Opponent is equivalent in a two-player game.
+// discardPunisherDef is Megrim's own trigger on a test enchantment:
+// whenever an opponent discards a card, 2 damage to that player.
 func discardPunisherDef(t *testing.T) *compile.Card {
 	t.Helper()
 
@@ -23,7 +21,7 @@ func discardPunisherDef(t *testing.T) *compile.Card {
 	raw.Faces[0].Name = "Test Punisher"
 	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Enchantment")
 	raw.Faces[0].Triggers = []string{"Mode$ Discarded | ValidCard$ Card.OppOwn | TriggerZones$ Battlefield | Execute$ TrigDealDamage"}
-	raw.Faces[0].SVars.Set("TrigDealDamage", "DB$ DealDamage | Defined$ Opponent | NumDmg$ 2")
+	raw.Faces[0].SVars.Set("TrigDealDamage", "DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 2")
 
 	c, err := compile.Compile(raw)
 	if err != nil {

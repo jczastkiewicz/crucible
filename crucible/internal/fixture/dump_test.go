@@ -426,3 +426,47 @@ func TestDesignationsRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// numringtemptedyou= and |IsRingBearer are Java GameState keys: both load
+// (Game.SetRingTemptedYou/SetRingBearer), dump and write back, and "The
+// Ring" card the count implies stays out of the command zone line.
+func TestDumpAndWriteRoundTripRing(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Grizzly Bears")
+	l := load(t, db, "humanlife=20\nailife=20\nhumannumringtemptedyou=2\nhumanbattlefield=Grizzly Bears|IsRingBearer;Grizzly Bears\n")
+	st := fixture.Dump(l)
+	if st.Players[0].Command != "" {
+		t.Errorf("command zone %q, want The Ring left out", st.Players[0].Command)
+	}
+	entries := strings.Split(st.Players[0].Battlefield, ";")
+	if !strings.HasSuffix(entries[0], "|IsRingBearer") || strings.Contains(entries[1], "IsRingBearer") {
+		t.Errorf("battlefield %q, want IsRingBearer on the first Bears only", st.Players[0].Battlefield)
+	}
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, st); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humannumringtemptedyou=2\n") || strings.Contains(buf.String(), "ainumringtemptedyou") {
+		t.Fatalf("Write, want humannumringtemptedyou=2 and no zero count:\n%s", buf.String())
+	}
+	st2, err := fixture.Parse(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("Parse(Write(x)): %v", err)
+	}
+	l2, err := fixture.Load(st2, db, javarand.New(1))
+	if err != nil {
+		t.Fatalf("Load(Parse(Write(x))): %v", err)
+	}
+	g, p := l2.Game, l2.Game.Players()[0]
+	if n := g.RingTemptedYou(p); n != 2 {
+		t.Errorf("round trip: numringtemptedyou = %d, want 2", n)
+	}
+	if b := g.RingBearer(p); b != g.Zone(engine.Battlefield, p).Cards()[0] {
+		t.Errorf("round trip: ring-bearer = %v, want the first Bears", b)
+	}
+	if n := len(g.Zone(engine.Command, p).Cards()); n != 1 {
+		t.Errorf("round trip: command zone holds %d cards, want The Ring", n)
+	}
+}

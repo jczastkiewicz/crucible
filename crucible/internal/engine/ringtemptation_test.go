@@ -374,12 +374,63 @@ func TestRingTemptsYouRejectsUnresolvedShapes(t *testing.T) {
 	g.NewCard(triggerWatcherDef(t, "Paid Draw",
 		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
 		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), p, engine.Battlefield)
+	g.NewCard(creatureDef(t), p, engine.Battlefield)
 	err = pushAndResolveErr(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou")
 	if err == nil || !strings.Contains(err.Error(), "Cost$ not resolvable yet") {
 		t.Errorf("err = %v, want the Cost$ trigger rejected", err)
 	}
 	if n := g.RingTemptedYou(p); n != 0 {
 		t.Errorf("RingTemptedYou = %d after a rejected temptation, want 0", n)
+	}
+}
+
+// TestRingTemptsYouIgnoresACostTriggerThatCannotFire proves the Cost$
+// rejection is narrow: an opponent's Call of the Ring (ValidCard$
+// Creature.YouCtrl, read against its own controller) can never fire on
+// your temptation, so it does not stop it; your own does, once you have a
+// creature it matches.
+func TestRingTemptsYouIgnoresACostTriggerThatCannotFire(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(triggerWatcherDef(t, "Their Paid Draw",
+		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
+		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), other, engine.Battlefield)
+	g.NewCard(creatureDef(t), p, engine.Battlefield)
+	pushAndResolve(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou")
+	if n := g.RingTemptedYou(p); n != 1 {
+		t.Fatalf("RingTemptedYou = %d, want 1", n)
+	}
+
+	g.NewCard(triggerWatcherDef(t, "My Paid Draw",
+		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
+		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), p, engine.Battlefield)
+	if err := pushAndResolveErr(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou"); err == nil {
+		t.Error("tempting with your own Cost$ trigger able to fire resolved, want an error")
+	}
+}
+
+// TestRingBearerEndsUnderAStaticControlChange proves the Layer 2 half of
+// CR 701.54a: a Mode$ Continuous GainControl$ static handing the
+// Ring-bearer to the opponent ends the designation at the next
+// state-based-action check (GameAction.checkStaticAbilities'
+// controllerChangeZoneCorrection), for good.
+func TestRingBearerEndsUnderAStaticControlChange(t *testing.T) {
+	t.Parallel()
+
+	g, p, other, bearer := ringBearerGame(t, 1, "2", "2")
+	thief := g.NewCard(continuousDef(t, "Test Thief", "Mode$ Continuous | Affected$ Creature | GainControl$ You"), other, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if got := g.Card(bearer).Controller(); got != other {
+		t.Fatalf("bearer controller = %v, want the static's controller %v", got, other)
+	}
+	g.Move(thief, engine.Graveyard, other)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if got := g.Card(bearer).Controller(); got != p {
+		t.Fatalf("bearer controller = %v after the static left, want %v", got, p)
+	}
+	if b := g.RingBearer(p); b != engine.NoCard {
+		t.Errorf("RingBearer = %v after control came back, want none: the static change ended it", b)
 	}
 }
 

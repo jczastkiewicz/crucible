@@ -65,8 +65,10 @@ All three are values `Game.Clone` copies with the `Player` struct (`TestRingStat
 **Losing the Ring-bearer (CR 701.54a).** Java registers a leaves-play and a change-controller `GameCommand` on the
 bearer. Here `loseRingBearer` runs from `Move`/`MoveToLibraryTop` leaving the battlefield and from `changeControllerAt`
 on a real controller change -- the `controllerChangeZoneCorrection` point, where the port already drops a creature from
-combat. Once cleared it stays cleared when control comes back, as in Java. `Game.RingBearer`'s zone/controller check
-also covers a Layer 2 static control change, which reaches no `changeControllerAt`.
+combat. A Layer 2 static control change reaches no `changeControllerAt`; `dropStolenRingBearers`, run by
+`CheckStateBasedActions` right after `applyContinuousControl`, clears a bearer another player now controls -- Java's
+`checkStaticAbilities` running `controllerChangeZoneCorrection` (`GameAction.java:1203-1207`). Once cleared it stays
+cleared when control comes back, as in Java.
 
 **No new `PlayerController` method.** Java's `chooseSingleEntityForEffect` over creatures is `ChooseCardsForEffect` with
 `lo = hi = 1`, `Play`'s pattern.
@@ -78,10 +80,10 @@ creature becomes the bearer, its own `RingTemptsYou` trigger counters each Wrait
 
 ### Rejected (`error` before acting)
 
-| Shape                                                        | Lines | Reason                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------ | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConditionDefined$`                                          |     1 | `subAbilityConditionMet` reads it as unmet and would skip the temptation silently (`BecomeMonarch`'s reason)                                                                                                                                             |
-| A `Mode$ RingTemptsYou` trigger whose `Execute$` has `Cost$` |     2 | Call of the Ring (`AB$ Draw \| Cost$ PayLife<2>`), Sauron, the Dark Lord (`Cost$ Discard<1/Hand>`). Trigger resolution here neither asks for nor pays a triggered ability's own cost; resolving would give the draw free. Checked before the count moves |
+| Shape                                                        | Lines | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------ | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConditionDefined$`                                          |     1 | `subAbilityConditionMet` reads it as unmet and would skip the temptation silently (`BecomeMonarch`'s reason)                                                                                                                                                                                                                                                                                                                                                                                         |
+| A `Mode$ RingTemptsYou` trigger whose `Execute$` has `Cost$` |     2 | Call of the Ring (`AB$ Draw \| Cost$ PayLife<2>`), Sauron, the Dark Lord (`Cost$ Discard<1/Hand>`). Trigger resolution here neither asks for nor pays a triggered ability's own cost; resolving would give the draw free. Checked before the count moves, and only for a trigger that could fire: its `ValidPlayer$` matches the tempted player and, with `ValidCard$`, some creature they could choose matches -- an opponent's Call of the Ring (`Creature.YouCtrl`) does not stop your temptation |
 
 **Found, not fixed here: a triggered `AB$` `Execute$` with `Cost$` resolves without its cost engine-wide.** No trigger
 walk or `Registry.Resolve` reads `Cost$` on a trigger's executed ability, so every such line outside `RingTemptsYou`

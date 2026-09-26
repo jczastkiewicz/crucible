@@ -207,6 +207,9 @@ func (g *Game) ringTemptsYouTriggersResolvable(p PlayerID) error {
 								continue
 							}
 						}
+						if vc, ok := t.Param("ValidCard"); ok && !g.anyRingBearerCandidateMatches(p, h, vc) {
+							continue
+						}
 						for _, sub := range additionalAbilities(t, "Execute") {
 							if _, ok := sub.Ability.Param("Cost"); ok {
 								return fmt.Errorf("%s's RingTemptsYou trigger: Execute$ with Cost$ not resolvable yet", h.Def.Name)
@@ -218,6 +221,38 @@ func (g *Game) ringTemptsYouTriggersResolvable(p PlayerID) error {
 		}
 	}
 	return nil
+}
+
+// anyRingBearerCandidateMatches reports whether spec, read from host,
+// matches any creature p could choose as Ring-bearer. A ValidCard$ trigger
+// none of them matches cannot fire on this temptation -- with no creature
+// the trigger's Card is null, whoever the kept bearer is (an opponent's Call of the Ring:
+// Creature.YouCtrl is read against its controller). Level 1 only adds
+// Legendary, so the candidates are the same after the level changes.
+func (g *Game) anyRingBearerCandidateMatches(p PlayerID, host *Card, spec string) bool {
+	parsed := valid.Parse(spec)
+	for _, id := range g.ringBearerCandidates(p) {
+		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// dropStolenRingBearers is controllerChangeZoneCorrection's Ring half for
+// a control change no effect made -- a Layer 2 static
+// (GameAction.checkStaticAbilities runs the correction for every
+// battlefield card whose controller is no longer its zone's player): a
+// Ring-bearer another player now controls stops being one for good (CR
+// 701.54a). CheckStateBasedActions runs it right after
+// applyContinuousControl.
+func (g *Game) dropStolenRingBearers() {
+	for i := range g.players {
+		pl := &g.players[i]
+		if pl.ringBearer != NoCard && g.Card(pl.ringBearer).Controller() != pl.ID {
+			pl.ringBearer = NoCard
+		}
+	}
 }
 
 // ringDef is the card Player.createTheRing and setRingLevel build: "The

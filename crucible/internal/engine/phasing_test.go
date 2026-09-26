@@ -833,3 +833,37 @@ func TestChangeZoneFromCommandIsOnlyAnEffectExilingItself(t *testing.T) {
 		t.Errorf("non-effect card from Command: err = %v, want not resolvable yet", err)
 	}
 }
+
+// TestForgetOnPhasedInKeepsTheEffectWhileItRemembersAnother is Out of Time's
+// shape with two creatures: the first to phase in is forgotten, the effect
+// stays for the second.
+func TestForgetOnPhasedInKeepsTheEffectWhileItRemembersAnother(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	a := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	b := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, c, nil,
+		"DB$ Phases | AllValid$ Creature.Other | RememberAffected$ True | WontPhaseInNormal$ True | SubAbility$ DBEffect",
+		"DBEffect", "DB$ Effect | RememberObjects$ Remembered | Duration$ Permanent | ForgetOnPhasedIn$ True"); err != nil {
+		t.Fatal(err)
+	}
+	if !g.Card(a).IsPhasedOut() || !g.Card(b).IsPhasedOut() || len(g.Zone(engine.Command, p).Cards()) != 1 {
+		t.Fatal("setup: want both creatures phased out and one effect")
+	}
+	// A phased-out creature cannot be targeted, so pick it instead.
+	c.QueueCardChoice([]engine.CardID{a})
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ Phases | AllValid$ Card.phasedOutCreature | PhaseInOrOut$ True | AnyNumber$ True"); err != nil {
+		t.Fatal(err)
+	}
+	cmd := g.Zone(engine.Command, p).Cards()
+	if g.Card(a).IsPhasedOut() || len(cmd) != 1 {
+		t.Fatalf("after one phased in: phased out %v, command %v; want it in and the effect kept", g.Card(a).IsPhasedOut(), cmd)
+	}
+	for _, e := range g.Card(cmd[0]).Memory.Remembered() {
+		if id, ok := e.AsCard(); ok && id == a {
+			t.Error("effect still remembers the creature that phased in")
+		}
+	}
+}

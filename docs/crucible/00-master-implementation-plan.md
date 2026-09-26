@@ -609,7 +609,8 @@ printed form.
     legend rule, cleanup discard, Battle protector) — nowhere near the ~110 estimate, because most of what drives a
     `PlayerController` call is M5/M6 rules and effects that have not landed yet to ask the question.
 22. `GameState` fixture load/dump in Go (byte-identical to Java's). **Done** — `internal/fixture`.
-23. Event schema v1 implemented per ADR-0013. **Done. Exit gate:** P3 gate — fixture round-trip parity. **Green.**
+23. Event schema implemented per ADR-0013 (`SchemaVersion` 2 since ADR-0021's `Phased`). **Done. Exit gate:** P3 gate —
+    fixture round-trip parity. **Green.**
 
 ### M5 — Rules kernel — 6–10 wks _(the largest single risk)_
 

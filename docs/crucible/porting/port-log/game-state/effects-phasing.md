@@ -120,9 +120,12 @@ names a phased-out card without targeting it (`Remembered`, `Self`, `Enchanted`,
 `TargetedPlayerCtrl` (`CardProperty.java:277-280`, 4 corpus lines) needs the ability's targets, which `Matches` does not
 see; `phasesValidCards` answers it from `Ability.Targets`, phased-in cards only. Negated, it is rejected
 (`not resolvable yet`). A `Defined$` value `definedCards` does not know is an error, as elsewhere: the corpus's
-`TriggeredTargetLKICopy`, `TriggeredAttackerLKICopy`, `TriggeredBlockerLKICopy` (1 line each) fail loudly. A permanent
-no longer on the battlefield is skipped -- Java's `equalsWithGameTimestamp` check less its timestamp half, since a
-`CardID` survives a zone change (ADR-0009).
+`TriggeredTargetLKICopy` (a `Mode$ BecomesTarget` trigger) and `TriggeredAttackerLKICopy`
+(`Mode$ AttackerBlockedByCreature`), 1 line each, fail loudly -- neither mode records that object for `Defined$` yet.
+`TriggeredBlockerLKICopy` (the same card's blocker half) resolves: `Mode$ AttackerBlockedByCreature` records the blocker
+(`triggeredObjects.blocker`). `DelayTriggerRememberedLKI`, `ChosenCard`, `Enchanted`, `Equipped` resolve. A permanent no
+longer on the battlefield is skipped -- Java's `equalsWithGameTimestamp` check less its timestamp half, since a `CardID`
+survives a zone change (ADR-0009).
 
 **`K:Phasing` (13 cards).** `untapStepPhasing` runs first in the untap step, before day/night and untapping
 (`Untap.executeAt`, `Untap.java:69-77`): every permanent the active player phased out directly phases in, every

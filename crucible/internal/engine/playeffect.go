@@ -149,7 +149,16 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		chosenCard := pick
 		if hasParam(a, "CopyCard") {
 			orig := g.Card(pick)
-			pick = g.NewCard(orig.Def, caster, orig.Zone)
+			origZone, origZoneOwner := orig.Zone, orig.ZoneOwner
+			// PlayEffect.java:273-281 adds the token to the original card's
+			// own Zone object (zone.add(tgtCard)), not the caster's: Owner is
+			// caster, but the zone it lands in is origZoneOwner's whenever
+			// the two differ (e.g. copying an opponent's exiled card).
+			pick = g.NewCard(orig.Def, caster, origZone)
+			if origZoneOwner != caster {
+				g.Zone(origZone, caster).cards.Remove(pick)
+				g.put(pick, origZone, origZoneOwner)
+			}
 			g.Card(pick).IsToken = true
 		}
 
@@ -168,8 +177,8 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		origin := g.Card(pick).Zone
 		if opt.land {
 			g.playLandNow(controller, caster, pick)
+			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Battlefield)
-			playRecord(a, source, pick, chosenCard)
 			amount--
 			continue
 		}
@@ -182,7 +191,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			continue
 		}
 		if g.castSpell(controller, caster, pick, castOpts{withoutManaCost: withoutMana}) {
-			playRecord(a, source, pick, chosenCard)
+			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
 		}
 		amount--
@@ -207,7 +216,12 @@ func playRepeatLoop(allowRepeats bool, c *Card, why string) error {
 // ImprintPlayed$ record what was played, ForgetRemembered$ clears the host's
 // remembered list, ForgetPlayed$ forgets the chosen card (tgtCard in Java,
 // PlayEffect.java:473 -- the original, not the copy).
-func playRecord(a *Ability, source *Card, played, chosen CardID) {
+func playRecord(g *Game, a *Ability, played, chosen CardID) {
+	// Re-read: a CopyCard$ token's NewCard call may have grown the arena and
+	// moved g.cards, so a *Card taken before it can point into a stale
+	// backing array whose lazily-allocated Memory.remembered writes are lost
+	// (effecteffect.go:143's own convention).
+	source := g.Card(a.Source)
 	if hasParam(a, "RememberPlayed") {
 		source.Memory.Remember(CardEntity(played))
 	}

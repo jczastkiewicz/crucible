@@ -97,6 +97,12 @@ more Play code.
 Not ported, no corpus line affected: `equalsWithGameTimestamp` on targeted cards (a `CardID` is stable across zones),
 `XMin$` on the cast spell under `WithoutManaCost$` (`:365`), `getAbilityToPlay`'s cancel (`:327-333`).
 
+**Known gap, PORT-2.** `validSAMatches`/`validSAPropertyMatches` hand-parse `ValidSA$`'s grammar at resolution time
+(`strings.Split`/`strings.Cut` on the raw spec) instead of compiling it into a typed spec at load and routing it through
+`internal/valid` the way every other `Valid$` key does. `ValidSA$` names a spell-ability shape, not a game object, so
+`valid.Match`'s existing `EntityID` contract does not fit it directly; this needs its own compiled representation, not
+reuse of the existing one. Left as runtime string parsing until that lands.
+
 `TestSubAbilityChainUnimplementedAPIErrors` chains into `Phases` as its unbuilt API, since `Play` resolves.
 
 | Test                                                  | Proves                                                                                                                                                                                                                |

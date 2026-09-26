@@ -101,7 +101,12 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 					targeted = append(targeted, tg)
 				}
 				if hasParam(a, "RememberNewCard") {
-					source.Memory.Remember(CardEntity(host))
+					// Re-read: NewCard (inside copySpell) may have grown the
+					// arena and moved g.cards, so source (taken before the
+					// loop) can point into a stale backing array whose
+					// lazily-allocated Memory.remembered writes are lost
+					// (effecteffect.go:143's own convention).
+					g.Card(a.Source).Memory.Remember(CardEntity(host))
 				}
 			}
 		}

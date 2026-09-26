@@ -198,8 +198,8 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 
 M5 in progress (rules kernel): turn/priority loop, zone changes and state-based actions, combat, mulligans, the
 valid-string evaluator, mana pool and payment, casting permanents, Auras and Instants/Sorceries through the stack
-(ADR-0018), trigger firing (static mana triggers off-stack, ADR-0020), replacement effects, block legality, continuous
-effects across all eight layers (partial), targeting, SubAbility chaining, last-known information, activated abilities.
+(ADR-0018), trigger firing, replacement effects, block legality, continuous effects across all eight layers (partial),
+targeting, SubAbility chaining, last-known information, activated abilities.
 
 M6 in progress: 167 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`):

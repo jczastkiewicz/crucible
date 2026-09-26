@@ -2,9 +2,9 @@
 // AbilityUtils.getDefinedPlayers's/getDefinedCards's own real corpus shapes
 // this port can resolve. Of the ability-context Triggered* vocabulary only
 // the keys a ported trigger mode records resolve (Ability.triggered:
-// TriggeredPlayer, TriggeredSource, TriggeredSourceController); the rest
-// (TriggeredCard, TriggeredController, ...) stay in game-state.md's "Not
-// ported yet". The host-Memory references -- Remembered, Imprinted,
+// TriggeredPlayer, TriggeredSource, TriggeredSourceController,
+// TriggeredCardController, TriggeredActivator); the rest (TriggeredCard,
+// TriggeredController, ...) stay in game-state.md's "Not ported yet". The host-Memory references -- Remembered, Imprinted,
 // ChosenCard, ChosenPlayer -- read memory.go. No single effect owns this
 // outright, the identical "shared, so neither" reason amount.go's own
 // resolveAmount lives apart from its first two callers.
@@ -36,8 +36,9 @@ import (
 // "DelayTriggerRemembered"/"DelayTriggerRememberedController", the same
 // reading applied to what a delayed trigger remembered (Ability.
 // TriggerRemembered), and "TriggeredPlayer"/"TriggeredSource"/
-// "TriggeredSourceController", what the trigger that made the ability
-// recorded (Ability.triggered) -- an error, "the trigger recorded no ...",
+// "TriggeredSourceController"/"TriggeredCardController"/
+// "TriggeredActivator", what the trigger that made the ability recorded
+// (Ability.triggered) -- an error, "the trigger recorded no ...",
 // when it recorded no such key, so a trigger mode that never learned to
 // set one fails loudly (GO-7). A player no longer in the game is skipped,
 // matching Java's own `if (!p.isInGame()) continue`.

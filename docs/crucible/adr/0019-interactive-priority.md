@@ -213,7 +213,7 @@ declines) — a deliberate CR 307.1 fix, not a regression, named as such in the 
 
 ## Related
 
-ADR-0018 (instant/sorcery spell object — this ADR removes the priority gap it deferred), ADR-0013 (event schema — no new
-event kind), ADR-0017 (`Registry` dispatch — a response still resolves through it, unchanged),
-`effects-play-copyspellability.md`, `effects-batches.md:696` (`MustBlock`'s own deferred question, answered generally
-here), [04-adr-process](../guidelines/04-adr-process.md)
+ADR-0026 (turn driver — wires this loop into the turn structure), ADR-0018 (instant/sorcery spell object — this ADR
+removes the priority gap it deferred), ADR-0013 (event schema — no new event kind), ADR-0017 (`Registry` dispatch — a
+response still resolves through it, unchanged), `effects-play-copyspellability.md`, `effects-batches.md:696`
+(`MustBlock`'s own deferred question, answered generally here), [04-adr-process](../guidelines/04-adr-process.md)

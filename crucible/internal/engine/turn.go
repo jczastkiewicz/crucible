@@ -242,12 +242,23 @@ func (g *Game) emptyManaPools() {
 // reason (Untap.java's own separate "remove exerted flags from all things
 // in play" pass, unconditional there too).
 //
+// Phasing comes first (untapStepPhasing, phasing.go; Untap.executeAt runs
+// doPhasing before doDayTime and doUntap, Untap.java:69-77), so a permanent
+// that phases in untaps with the rest; the untap walk itself reads the
+// battlefield enumeration, which leaves out whatever is still phased out,
+// as doUntap's own getCardsIn does. Java re-derives static abilities
+// between the two (checkStaticAbilities); this port's continuous effects
+// are rebuilt by the CheckStateBasedActions pass that follows the step, so
+// a permanent that just phased in untaps under the characteristics it had
+// when it phased out.
+//
 // checkUntapsTriggers (trigger.go) fires once per card that actually
 // untaps -- Card.untap()'s own early "if (!tapped) return false", ported as
 // the wasTapped check below rather than inside checkUntapsTriggers itself,
 // since a card already untapped is not an event to check triggers against
 // at all.
 func (g *Game) untapStep(controller PlayerController) {
+	g.untapStepPhasing(controller)
 	g.dayTimeAtUntap()
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
@@ -414,8 +425,11 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 
+	// Phased-out permanents too: CR 514.2's damage removal and
+	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
+	// (PhaseHandler.java:400, Game.java:1236) -- ADR-0021's cleanup opt-in.
 	for _, pid := range g.Players() {
-		for _, id := range g.Zone(Battlefield, pid).Cards() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
 			g.Card(id).Damage.Clear()
 			g.Card(id).AttacksThisTurn = 0
 			g.Card(id).BecameTargetThisTurn = false

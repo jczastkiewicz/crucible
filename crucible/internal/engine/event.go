@@ -12,7 +12,9 @@ package engine
 // Tooling refuses to merge shards with differing versions, because a reader
 // that silently unions two schemas produces a column meaning one thing for
 // half its rows.
-const SchemaVersion = 1
+//
+// Version 2 added Phased (ADR-0021).
+const SchemaVersion = 2
 
 // EventKind is what happened.
 type EventKind uint8
@@ -34,8 +36,12 @@ const (
 	CardDrawn
 	CounterChanged
 	GameEnded
+	// Phased is a permanent phasing in or out (CR 702.26, Java's
+	// GameEventCardPhased). Not a zone change: no ZoneChanged accompanies it
+	// (ADR-0021, decision 4). Detail is a PhaseDetail.
+	Phased
 
-	numEventKinds = int(GameEnded) + 1
+	numEventKinds = int(Phased) + 1
 )
 
 var eventKindNames = [numEventKinds]string{
@@ -43,7 +49,7 @@ var eventKindNames = [numEventKinds]string{
 	ZoneChanged: "ZoneChanged", SpellCast: "SpellCast",
 	AbilityActivated: "AbilityActivated", AbilityResolved: "AbilityResolved",
 	DamageDealt: "DamageDealt", LifeChanged: "LifeChanged", CardDrawn: "CardDrawn",
-	CounterChanged: "CounterChanged", GameEnded: "GameEnded",
+	CounterChanged: "CounterChanged", GameEnded: "GameEnded", Phased: "Phased",
 }
 
 // String returns the kind's name, for reports and debugging.
@@ -175,6 +181,16 @@ func emitCounterChanged(sink Sink, source CardID, target EntityID, t CounterType
 	}
 	sink.Emit(Event{Kind: CounterChanged, Source: source, Target: target, Amount: int32(delta), Detail: uint32(detail)})
 }
+
+// PhaseDetail is the Event.Detail payload a Phased event carries: which way
+// the permanent phased. Zero is never carried by a real Phased event.
+type PhaseDetail uint32
+
+// The two directions, GameEventCardPhased's own phaseState.
+const (
+	PhaseDetailOut PhaseDetail = iota + 1
+	PhaseDetailIn
+)
 
 // DiscardSink drops every event.
 //

@@ -98,7 +98,9 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 
 	sacValid, hasSacValid := a.Params.Param("SacValid")
 	if !hasSacValid || sacValid == "Self" {
-		if source.Zone != Battlefield || source.Controller() != a.Controller {
+		// Card.canBeSacrificedBy refuses a phased-out permanent
+		// (Card.java:6909).
+		if source.Zone != Battlefield || source.IsPhasedOut() || source.Controller() != a.Controller {
 			return nil
 		}
 		sacrificeCards(g, controller, a, []CardID{source.ID})
@@ -179,7 +181,7 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 	var sacrificed []CardID
 	for _, id := range ids {
 		c := g.Card(id)
-		if c.Zone != Battlefield {
+		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
 		pid := c.Controller()

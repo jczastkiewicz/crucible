@@ -447,10 +447,12 @@ func subChainTargets(p *compile.Ability) bool {
 }
 
 // targetsStillLegal is CR 608.2b, checked by ResolveStack (ADR-0018) right
-// before an ability would resolve -- narrowed to the one shape this port can
-// re-check soundly: an Aura's own single cast-time Target (castAura,
-// castspell.go). Every other ability keeps resolveTargets' own contract
-// unrevisited: a's own doc comment already says a chosen Targets answer "is
+// before an ability would resolve -- narrowed to two shapes this port can
+// re-check soundly: a target that has phased out since it was chosen
+// (dropPhasedOutTargets, below), and an Aura's own single cast-time Target
+// (castAura, castspell.go). Past those, every ability keeps resolveTargets'
+// own contract unrevisited: a's own doc comment already says a chosen
+// Targets answer "is
 // NOT re-checked... trust the controller's answer" (ability.go), the same
 // stance every decision method in control.go documents for its own return
 // value, and targetCandidates' own scan (below) is scoped for finding NEW
@@ -465,10 +467,69 @@ func subChainTargets(p *compile.Ability) bool {
 // passing case; a general re-check needs its own design, not a reuse of
 // resolveTargets' own push-time helpers.
 func (g *Game) targetsStillLegal(a *Ability) bool {
+	if !g.dropPhasedOutTargets(a) {
+		return false
+	}
 	if a.API != APIAttach || a.Target == NoCard {
 		return true
 	}
 	return g.auraTargetStillLegal(a)
+}
+
+// dropPhasedOutTargets is MagicStack.hasFizzled (MagicStack.java:704-752)
+// for the one cause of an illegal target this port re-checks: a card target
+// that has phased out since it was chosen, which canBeTargetedBy refuses
+// (Card.java:6829-6831, CR 702.26b) -- the per-target half of ADR-0021's
+// decision 3, since a chosen target is a per-card reference, not an
+// enumeration. Each such target is removed from a's own Targets and from
+// each Charm mode's (a Charm's modes are its sub-abilities in Java, which
+// hasFizzled recurses into). It reports false -- the ability fizzles --
+// when at least one target was chosen and none is left, unless the ability
+// or a chosen mode carries CantFizzle$.
+func (g *Game) dropPhasedOutTargets(a *Ability) bool {
+	chosen, kept := 0, 0
+	cantFizzle := hasCantFizzle(a)
+	a.Targets = g.withoutPhasedOut(a.Targets, &chosen, &kept)
+	for i := range a.Modes {
+		m := &a.Modes[i]
+		m.Targets = g.withoutPhasedOut(m.Targets, &chosen, &kept)
+		cantFizzle = cantFizzle || hasCantFizzle(m)
+	}
+	return chosen == 0 || kept > 0 || cantFizzle
+}
+
+// hasCantFizzle reports whether a names CantFizzle$ (Gilded Drake's
+// "cannot be countered by rules", MagicStack.java:736-740).
+func hasCantFizzle(a *Ability) bool {
+	if a.Params == nil {
+		return false
+	}
+	_, ok := a.Params.Param("CantFizzle")
+	return ok
+}
+
+// withoutPhasedOut is targets less every phased-out card, counting what it
+// saw and what it kept. The slice is rebuilt only when something is dropped.
+func (g *Game) withoutPhasedOut(targets []EntityID, chosen, kept *int) []EntityID {
+	*chosen += len(targets)
+	drop := 0
+	for _, e := range targets {
+		if id, ok := e.AsCard(); ok && g.Card(id).IsPhasedOut() {
+			drop++
+		}
+	}
+	*kept += len(targets) - drop
+	if drop == 0 {
+		return targets
+	}
+	out := make([]EntityID, 0, len(targets)-drop)
+	for _, e := range targets {
+		if id, ok := e.AsCard(); ok && g.Card(id).IsPhasedOut() {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 // auraTargetStillLegal is targetsStillLegal's own Aura branch: a's Target
@@ -480,7 +541,9 @@ func (g *Game) targetsStillLegal(a *Ability) bool {
 func (g *Game) auraTargetStillLegal(a *Ability) bool {
 	c := g.Card(a.Source)
 	target := g.Card(a.Target)
-	if target.Zone != Battlefield {
+	// A phased-out host cannot be targeted (Card.canBeTargetedBy,
+	// Card.java:6829-6831).
+	if target.Zone != Battlefield || target.IsPhasedOut() {
 		return false
 	}
 	spec, ok := enchantSpec(c)

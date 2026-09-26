@@ -155,6 +155,11 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		if len(origin) > 0 && !zoneIn(c.Zone, origin) {
 			continue
 		}
+		// A phased-out permanent is not moved (ChangeZoneEffect.java:557,
+		// ADR-0021 decision 3).
+		if c.IsPhasedOut() {
+			continue
+		}
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			continue
 		}

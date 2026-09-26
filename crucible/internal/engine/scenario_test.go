@@ -211,7 +211,10 @@ func playerNameOrEmpty(g *engine.Game, pid engine.PlayerID) string {
 func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got *engine.Game, gpid engine.PlayerID, want *engine.Game, wpid engine.PlayerID) {
 	t.Helper()
 
-	gc, wc := got.Zone(zone, gpid).Cards(), want.Zone(zone, wpid).Cards()
+	// Phased-out permanents included: expect.state names them in place
+	// (PhasedOut:), and comparing Cards() alone would let a scenario pass
+	// with the wrong permanent phased out (ADR-0021's fixture opt-in).
+	gc, wc := got.Zone(zone, gpid).CardsIncludingPhasedOut(), want.Zone(zone, wpid).CardsIncludingPhasedOut()
 	if len(gc) != len(wc) {
 		t.Errorf("%s %s has %d cards, want %d", playerName, zone, len(gc), len(wc))
 		return
@@ -253,6 +256,9 @@ func compareZoneCards(t *testing.T, playerName string, zone engine.ZoneType, got
 		}
 		if gProtector != wProtector {
 			t.Errorf("%s protector = %q, want %q", label, gProtector, wProtector)
+		}
+		if g, w := playerNameOrEmpty(got, gcard.PhasedOutFor()), playerNameOrEmpty(want, wcard.PhasedOutFor()); g != w {
+			t.Errorf("%s phased out for %q, want %q", label, g, w)
 		}
 		compareCounters(t, label, gcard.Counters, wcard.Counters)
 	}

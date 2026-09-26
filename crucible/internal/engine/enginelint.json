@@ -126,7 +126,8 @@
       "control",
       "combat",
       "trigger",
-      "effecteffect"
+      "effecteffect",
+      "phasing"
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],

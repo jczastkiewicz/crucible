@@ -248,6 +248,10 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.Tapped = true
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
+		case strings.HasPrefix(info, "PhasedOut"):
+			if err := ld.phasedOut(id, kind, info); err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
 		case strings.HasPrefix(info, "Counters:"):
 			if err := applyCounters(&c.Counters, strings.TrimPrefix(info, "Counters:")); err != nil {
 				return fmt.Errorf("%s: %w", name, err)
@@ -313,6 +317,37 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 		ld.imprints = append(ld.imprints, refList{id, imprinted})
 	}
 	return nil
+}
+
+// phasedOut applies PhasedOut:<player> (GameState.java:1302-1304): the card
+// is phased out, to phase back in on that player's untap step. The player is
+// parsePlayerString's own vocabulary (GameState.java:240-249) -- HUMAN and AI
+// for the first and second seat, P<digit> for a seat index, all indexes into
+// the seated players, not fixture slots -- except that an unrecognized value is an
+// error here rather than Java's silent fallback to the first player: a
+// fixture that relies on the fallback has a typo, and loading it as seat 0
+// would hide it. Java writes the key only for a Battlefield card; anywhere
+// else it is reported unapplied.
+func (ld *loader) phasedOut(id engine.CardID, kind engine.ZoneType, info string) error {
+	if kind != engine.Battlefield {
+		ld.unapplied = append(ld.unapplied, fmt.Sprintf("%s: phasing outside the battlefield", info))
+		return nil
+	}
+	_, value, _ := strings.Cut(info, ":")
+	seat := -1
+	switch {
+	case strings.EqualFold(value, "HUMAN"):
+		seat = 0
+	case strings.EqualFold(value, "AI"):
+		seat = 1
+	case len(value) >= 2 && value[0] == 'P' && value[1] >= '0' && value[1] <= '9':
+		seat = int(value[1] - '0')
+	}
+	players := ld.game.Players()
+	if seat < 0 || seat >= len(players) {
+		return fmt.Errorf("phased out %q: no such player", info)
+	}
+	return ld.game.SetPhasedOut(id, players[seat])
 }
 
 // resolveRefs applies every cross-reference collected while cards were being

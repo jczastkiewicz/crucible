@@ -99,14 +99,17 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	return nil
 }
 
-// canBeDestroyed is Card.canBeDestroyed's own formula, minus the isInPlay/
-// isPhasedOut halves the caller already checks (phasing does not exist in
-// this port -- game-state.md's own "Not ported yet"): indestructible blocks
+// canBeDestroyed is Card.canBeDestroyed's own formula (Card.java:6815-6817),
+// minus the isInPlay half every caller already checks: a phased-out
+// permanent cannot be destroyed (CR 702.26b), and indestructible blocks
 // destruction unless c is a creature at 0 or less toughness, CR 704.5f's own
 // carve-out (destroyDamagedCreatures's own identical Indestructible/
 // Toughness reasoning, action.go, applied here to an explicit Destroy rather
 // than lethal damage).
 func canBeDestroyed(c *Card) bool {
+	if c.IsPhasedOut() {
+		return false
+	}
 	if !c.HasKeyword("Indestructible") {
 		return true
 	}

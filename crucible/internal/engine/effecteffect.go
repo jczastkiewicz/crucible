@@ -16,9 +16,9 @@ import (
 // each its own further mechanic: granted activated abilities (Abilities$),
 // remembering a spell, a last-known copy or keywords rather than objects
 // (RememberSpell$/RememberLKI$/RememberKeywords$ and its SharedKeywordsZone$/
-// SharedRestrictions$), the counter- and phasing-driven forget/exile
-// triggers (ForgetCounter$/ForgetOnPhasedIn$/ExileOnCounter$/
-// NoteCounterDefined$), the loses-the-game exile trigger (ExileOnLost$), a
+// SharedRestrictions$), the counter-driven forget/exile triggers
+// (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), the loses-the-game
+// exile trigger (ExileOnLost$), a
 // standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
 // Boon one-shot (Boon$, TriggerHandler removes the effect after its first
 // trigger), the delayed end-of-turn trigger (AtEOT$), imprinting the effect
@@ -26,7 +26,7 @@ import (
 // SpellAbilityCondition shapes subAbilityConditionMet does not cover.
 var effectUnresolvedParams = [...]string{
 	"Abilities", "RememberSpell", "RememberLKI", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
-	"ForgetCounter", "ForgetOnPhasedIn", "ExileOnCounter", "NoteCounterDefined", "ExileOnLost",
+	"ForgetCounter", "ExileOnCounter", "NoteCounterDefined", "ExileOnLost",
 	"Boon", "AtEOT", "ImprintOnHost", "Adventure",
 	"Condition", "ConditionDefined", "ConditionZone",
 }
@@ -36,7 +36,7 @@ var effectUnresolvedParams = [...]string{
 // carrying the StaticAbilities$, Triggers$ and ReplacementEffects$ SVars,
 // active there alone, remembering RememberObjects$ and imprinting
 // ImprintCards$, until its Duration$ ends or its ExileOnMoved$/
-// ForgetOnMoved$ watch exiles it.
+// ForgetOnMoved$/ForgetOnPhasedIn$ watch exiles it.
 //
 // The traits are the compiled abilities the carddb compiler resolved from
 // those three params (compile.effectTraitKeys) -- nothing is parsed here
@@ -47,8 +47,9 @@ var effectUnresolvedParams = [...]string{
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/EffectEffect.java's
 // resolve, and SpellAbilityEffect.java's createEffect, checkValidDuration,
-// addUntilCommand, addForgetOnMovedTrigger, addExileOnMovedTrigger and
-// addForgetOnCastTrigger.
+// addUntilCommand, addForgetOnMovedTrigger, addExileOnMovedTrigger,
+// addForgetOnCastTrigger and addForgetOnPhasedInTrigger (phasing.go's
+// effectCardsSeePhaseIn).
 type effectEffect struct{}
 
 func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
@@ -78,10 +79,14 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			}
 			remember = append(remember, objs...)
 		}
-		// Java creates no effect when nothing is left to watch.
-		if len(remember) == 0 && (hasParam(a, "ForgetOnMoved") || hasParam(a, "ExileOnMoved")) {
+		// Java creates no effect when nothing is left to watch
+		// (EffectEffect.java:94).
+		if len(remember) == 0 && (hasParam(a, "ForgetOnMoved") || hasParam(a, "ExileOnMoved") || hasParam(a, "ForgetOnPhasedIn")) {
 			return nil
 		}
+		// Java arms the phase-in watch only on a remembered list
+		// (EffectEffect.java:247-249).
+		life.forgetOnPhasedIn = hasParam(a, "ForgetOnPhasedIn")
 	}
 	if !hasRemember && (hasParam(a, "ForgetOnMoved") || hasParam(a, "ExileOnMoved")) {
 		// Java only arms either watch on a remembered list.
@@ -224,7 +229,8 @@ func (m zoneMask) has(z ZoneType) bool { return m&(1<<z) != 0 }
 
 // effectLifetime is what ends an effect card: its Duration$ (for player's
 // turns, or host's leaving play) and the ExileOnMoved$/ForgetOnMoved$
-// watch on the cards it remembers. armed marks an
+// watch on the cards it remembers, and forgetOnPhasedIn its
+// ForgetOnPhasedIn$ watch. armed marks an
 // effectUntilEndOfYourNextTurn created during player's own turn, which
 // survives that turn's cleanup.
 type effectLifetime struct {
@@ -235,6 +241,9 @@ type effectLifetime struct {
 	exileOnMoved  zoneMask
 	forgetOnMoved zoneMask
 	forgetOnCast  bool
+	// forgetOnPhasedIn forgets a remembered card as it phases in
+	// (effectCardsSeePhaseIn, phasing.go).
+	forgetOnPhasedIn bool
 }
 
 // effectDurationOf reads Duration$ and applies checkValidDuration: a

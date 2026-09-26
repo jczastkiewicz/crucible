@@ -83,10 +83,12 @@ func Dump(l *Loaded) *State {
 
 // dumpZone writes one zone's cards as a `;`-joined entry list, in the zone's
 // own order (GO-12): that order is what a fixture reproduces when it names a
-// library, so Dump must not reorder it.
+// library, so Dump must not reorder it. Phased-out permanents are written
+// too, in place: GameState.toString walks getCardsIncludePhasingIn
+// (GameState.java:223, ADR-0021's fixture opt-in).
 func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) string {
 	var entries []string
-	for _, id := range g.Zone(kind, owner).Cards() {
+	for _, id := range g.Zone(kind, owner).CardsIncludingPhasedOut() {
 		// A designation's effect card is written as monarch= or
 		// initiative=, not as a card (State.Monarch).
 		if g.IsDesignationCard(id) {
@@ -99,7 +101,8 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 
 // dumpCard writes one card's `|`-separated entry. The zone gates Java's
 // GameState.toString applies stand as written: Tapped, SummonSick, Owner,
-// AttachedTo, Damage, RememberedCards and Imprinting are Battlefield-only;
+// PhasedOut, AttachedTo, Damage, RememberedCards and Imprinting are
+// Battlefield-only;
 // Counters is Battlefield or Exile; Id has no gate. Protector is
 // Crucible-only (Load's own case has the reason) but gated the same way as
 // the rest of the Battlefield-only state it sits next to -- Move clears it
@@ -125,6 +128,13 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		}
 		if c.SummonSick {
 			b.WriteString("|SummonSick")
+		}
+		if c.IsPhasedOut() {
+			// Java's own spelling, P<seat index> (GameState.java:309-311,
+			// getPlayerString at :236-238), not the player name Owner:
+			// writes above.
+			b.WriteString("|PhasedOut:P")
+			b.WriteString(strconv.Itoa(seatIndex(g, c.PhasedOutFor())))
 		}
 		if host, ok := c.AttachedTo(); ok {
 			b.WriteString("|AttachedTo:")
@@ -153,6 +163,17 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		}
 	}
 	return b.String()
+}
+
+// seatIndex is pid's position in seating order, Java's
+// game.getPlayers().indexOf(p).
+func seatIndex(g *engine.Game, pid engine.PlayerID) int {
+	for i, p := range g.Players() {
+		if p == pid {
+			return i
+		}
+	}
+	return -1
 }
 
 // cardRefs keeps the card entities out of a Remembered list, which can also

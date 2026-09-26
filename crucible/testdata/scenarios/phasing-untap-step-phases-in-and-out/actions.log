@@ -1,0 +1,6 @@
+# CR 702.26a/502.1: as human's untap step begins, Sandbar Crocodile (K:Phasing)
+# phases out and the Grizzly Bears human phased out phases back in -- before
+# untapping, so it untaps (Untap.java:69-77). The Bears phased out for ai stays
+# out: only its own player's untap step returns it (Card.isPhasedOut(Player)).
+# Every permanent keeps its place in the battlefield's order (GO-12).
+advance

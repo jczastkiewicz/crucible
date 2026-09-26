@@ -62,7 +62,8 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	for _, id := range cards {
 		c := g.Card(id)
-		if c.Zone != Battlefield || !c.Tapped {
+		// A phased-out permanent is skipped (UntapEffect.java:57).
+		if c.Zone != Battlefield || c.IsPhasedOut() || !c.Tapped {
 			continue
 		}
 		c.Tapped = false

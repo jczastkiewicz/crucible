@@ -161,10 +161,41 @@ func baseMatches(c *Card, name string) bool {
 // no teams), wrong only once a team variant exists to disagree with it.
 func propertyMatches(g *Game, c *Card, p valid.Property, sourceController PlayerID, source CardID) bool {
 	name := p.Name
-	if p.Compare != nil {
+	// CR 702.26b: a phased-out permanent has no property unless the property
+	// asks for a phased-out one -- "phasedOutSelf" reads "Self" on it, every
+	// other property false (CardProperty.java:50-56). The base type is not
+	// a property: a bare "Creature" still matches it, Card.isValid's own
+	// split (Card.java:5751-5763). Checked before the comparison dispatch,
+	// as Java's guard is at the top of cardHasProperty. A negated property
+	// reads true on a phased-out card, Java's own hasProperty negation.
+	if c.IsPhasedOut() {
+		rest, ok := strings.CutPrefix(name, "phasedOut")
+		if !ok {
+			return false
+		}
+		name = rest
+	} else if p.Compare != nil {
 		return compareMatches(c, *p.Compare)
 	}
 	switch {
+	case strings.HasPrefix(name, "phasedOut"):
+		// Reached for a phased-in card, or a doubled prefix
+		// (CardProperty.java:1051-1054).
+		return c.IsPhasedOut()
+	case strings.HasPrefix(name, "phasedIn"):
+		return !c.IsPhasedOut()
+	case name == "Permanent":
+		// CardProperty.java:90, "Card.phasedOutPermanent"'s own tail.
+		return c.Type().IsPermanent()
+	case name == "token":
+		// CardProperty.java:1336's exact form; its "tokenCreated..." suffixes
+		// fall through to the type fallback below, false for every card.
+		return c.IsToken
+	case name == "EffectSource":
+		// CardProperty.java:424: c is the card that created source, an
+		// effect card (effecteffect.go's effectLifetime.host).
+		sc, ok := sourceCard(g, source)
+		return ok && sc.IsEffect && sc.effectLife.host != NoCard && sc.effectLife.host == c.ID
 	case strings.HasPrefix(name, "ChosenCard"):
 		// ChosenCardStrict collapses to ChosenCard: Java's "Strict" form
 		// additionally checks equalsWithGameTimestamp, telling a chosen card

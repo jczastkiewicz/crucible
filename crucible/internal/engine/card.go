@@ -88,12 +88,27 @@ type Card struct {
 
 	// Tapped, SummonSick and Exerted are battlefield state every permanent
 	// carries that is not "how much of something" -- everything else that
-	// shape (Renowned, Monstrous, PhasedOut, and the rest of GameState's
-	// per-card annotation grammar) waits on the mechanic that reads it,
-	// which is card-type-specific and not built yet
-	// (porting/port-log/game-state-fixture.md).
+	// shape (Renowned, Monstrous, and the rest of GameState's per-card
+	// annotation grammar) waits on the mechanic that reads it, which is
+	// card-type-specific and not built yet
+	// (porting/port-log/game-state-fixture.md). PhasedOut is phasedOut,
+	// below.
 	Tapped     bool
 	SummonSick bool
+
+	// phasedOut is Card.phasedOut (CR 702.26): NoPlayer while the permanent
+	// is phased in, else the player whose untap step phases it back in --
+	// its controller as it phased out (Card.java:5645), read back by
+	// isPhasedOut(Player) (Card.java:5575). Game.setPhasedOut is the only
+	// writer and keeps the zone's own phased-out subset in step with it
+	// (zone.go, ADR-0021). directlyPhasedOut is false for a permanent that
+	// phased out only because what it is attached to did (CR 702.26g,
+	// Card.phase's direct flag), and wontPhaseInNormal is Phases'
+	// WontPhaseInNormal$: the untap step does not phase it back in
+	// (Card.switchPhaseState's first check).
+	phasedOut         PlayerID
+	directlyPhasedOut bool
+	wontPhaseInNormal bool
 	// Exerted is CR 701.42a's own marker (Card.exertedByPlayer in Java,
 	// collapsed from a per-player set to a single bool -- this port's own
 	// activation-cost caller is always the card's own controller, and
@@ -514,6 +529,16 @@ func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) (int,
 	}
 	return value, ok
 }
+
+// IsPhasedOut is Card.isPhasedOut (CR 702.26b). A phased-out permanent is
+// still in the battlefield zone -- c.Zone reads Battlefield, Java's own
+// isInPlay() split (ADR-0021, decision 3) -- but every battlefield
+// enumeration (Zone.Cards) leaves it out.
+func (c *Card) IsPhasedOut() bool { return c.phasedOut != NoPlayer }
+
+// PhasedOutFor is Card.getPhasedOut: the player whose untap step phases c
+// back in, NoPlayer while c is phased in.
+func (c *Card) PhasedOutFor() PlayerID { return c.phasedOut }
 
 // AttachedTo is what this card is attached to, and whether it is attached at
 // all. Auras, Equipment and Fortifications all use it.

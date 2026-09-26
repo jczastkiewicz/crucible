@@ -55,9 +55,12 @@ func (g *Game) advanceCrankCounter(controller PlayerController, pid PlayerID, so
 	sprocket := p.CrankCounter
 
 	var contraptions []CardID
-	for _, id := range g.Zone(Battlefield, pid).Cards() {
-		if g.Card(id).Sprocket == sprocket {
-			contraptions = append(contraptions, id)
+	for _, ownerID := range g.Players() {
+		for _, id := range g.Zone(Battlefield, ownerID).Cards() {
+			card := g.Card(id)
+			if card.Controller() == pid && card.Sprocket == sprocket {
+				contraptions = append(contraptions, id)
+			}
 		}
 	}
 	if len(contraptions) == 0 {

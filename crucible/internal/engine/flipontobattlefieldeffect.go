@@ -154,34 +154,40 @@ func flipCandidates(g *Game, tgtLoc *Card) (candidates, attachments []CardID, er
 		return nil, nil, fmt.Errorf("engine: FlipOntoBattlefield: chosen location %s is a non-Aura enchantment: forge-game/src/main/java/forge/game/ability/effects/FlipOntoBattlefieldEffect.java:109's own neighbor filter always matches every permanent for that shape (PORT-8), not reproduced", tgtLoc.Def.Name)
 	}
 
-	for _, cid := range g.Zone(Battlefield, tgtLoc.Controller()).Cards() {
-		card := g.Card(cid)
-		to, isAttached := card.AttachedTo()
-		include := false
-		switch {
-		case isAttached && to == tgtLoc.ID:
-			attachments = append(attachments, cid)
-			include = true
-		case isCreature:
-			include = card.Type().Has(cardtype.Creature)
-		case isPW || isArtifact:
-			include = card.Type().Has(cardtype.Planeswalker) || card.Type().Has(cardtype.Artifact)
-		case isLand:
-			include = card.Type().Has(cardtype.Land)
-		case tgtAttached:
-			// tgtLoc is itself attached to something (an Aura or Equipment
-			// as the landing spot): match siblings attached to the same
-			// host (java:112-113's own first disjunct). The second
-			// disjunct, `c.equals(card.getAttachedTo())`, can never fire
-			// here -- it asks whether card is attached to tgtLoc, which the
-			// first case above already caught and returned early for -- so
-			// it is not ported.
-			include = isAttached && to == attachedHost
-		default:
-			include = sharesCoreType(card.Type(), tgtType)
-		}
-		if include {
-			candidates = append(candidates, cid)
+	tgtController := tgtLoc.Controller()
+	for _, pid := range g.Players() {
+		for _, cid := range g.Zone(Battlefield, pid).Cards() {
+			card := g.Card(cid)
+			if card.Controller() != tgtController {
+				continue
+			}
+			to, isAttached := card.AttachedTo()
+			include := false
+			switch {
+			case isAttached && to == tgtLoc.ID:
+				attachments = append(attachments, cid)
+				include = true
+			case isCreature:
+				include = card.Type().Has(cardtype.Creature)
+			case isPW || isArtifact:
+				include = card.Type().Has(cardtype.Planeswalker) || card.Type().Has(cardtype.Artifact)
+			case isLand:
+				include = card.Type().Has(cardtype.Land)
+			case tgtAttached:
+				// tgtLoc is itself attached to something (an Aura or Equipment
+				// as the landing spot): match siblings attached to the same
+				// host (java:112-113's own first disjunct). The second
+				// disjunct, `c.equals(card.getAttachedTo())`, can never fire
+				// here -- it asks whether card is attached to tgtLoc, which the
+				// first case above already caught and returned early for -- so
+				// it is not ported.
+				include = isAttached && to == attachedHost
+			default:
+				include = sharesCoreType(card.Type(), tgtType)
+			}
+			if include {
+				candidates = append(candidates, cid)
+			}
 		}
 	}
 	return candidates, attachments, nil

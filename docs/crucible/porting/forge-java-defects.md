@@ -22,12 +22,6 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
 | `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
 | `CardUtil.java:345`                  | Recursive frame resolves `Valid$` against the reflecting host                                                          | None: `ManaReflected` deferred                          | Not filed |
-| Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
-| `ChooseSourceEffect.java:131-133`    | Pool exhausted before every chooser has picked hangs the game                                                          | `error` for the chooser left empty                      | Not filed |
-| `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
-| `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
 | `FlipOntoBattlefieldEffect.java:109` | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot | `flipCandidates` rejects that one shape with an `error` | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list

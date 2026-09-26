@@ -130,6 +130,16 @@ func (g *Game) modeHasLegalTargets(mode *Ability) bool {
 	if !ok || targetMin == 0 {
 		return ok
 	}
+	if _, stack := mode.Params.Param("TargetType"); stack || mode.API == APICopySpellAbility {
+		// A mode targeting the stack (Insidious Will's ChangeTargets and
+		// Counter modes) is judged by the stack scan casting itself uses;
+		// the battlefield scan below would offer it over an empty stack and
+		// the Charm would then fail to be put on the stack at all. A
+		// targetChoice.err keeps the mode, so the error surfaces when it
+		// resolves.
+		_, _, ok := g.targetChoiceFor(mode)
+		return ok
+	}
 	return len(g.targetCandidates(mode.Controller, mode.Source, validTgts)) > 0
 }
 

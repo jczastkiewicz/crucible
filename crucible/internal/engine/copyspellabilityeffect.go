@@ -297,6 +297,9 @@ func (g *Game) chooseCopyTargets(controller PlayerController, m *Ability) error 
 		return nil
 	}
 	choice, named, ok := g.targetChoiceFor(m)
+	if choice.err != nil {
+		return choice.err
+	}
 	if !named || !ok || !controller.ConfirmEffect(g, m.Controller, m.Source) {
 		return nil
 	}

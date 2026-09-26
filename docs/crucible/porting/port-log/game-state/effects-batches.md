@@ -621,10 +621,10 @@ the options' own order, sorted subtypes, and refuses `AtRandom$` over a list wit
 
 **Deliberately unresolved (fail closed, PORT-8).**
 
-- `Play`, `Clone` past its "becomes a copy" shapes, `CopySpellAbility`, `ChangeTargets`, `Phases`, `MustBlock`,
-  `RingTemptsYou` (a command-zone effect with its own triggers, same shape as the now-ported `BecomeMonarch`/
-  `TakeInitiative`/`Venture`), `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the
-  Planechase/Archenemy/Un-set/Alchemy APIs.
+- `Play`, `Clone` past its "becomes a copy" shapes, `CopySpellAbility`, `Phases`, `MustBlock`, `RingTemptsYou` (a
+  command-zone effect with its own triggers, same shape as the now-ported `BecomeMonarch`/ `TakeInitiative`/`Venture`),
+  `SwitchBlock` (both real lines use `Defined$ Valid ...`), `ChooseSector`, and the Planechase/Archenemy/Un-set/Alchemy
+  APIs.
 - `Counter`: abilities as targets, `Defined$` spells, a `CantBeCountered` static or `Counter` replacement,
   `RememberCounteredCMC$` (an Integer). `SetState`: `Flip`, `TurnFaceDown`, `Specialize`, a `CantTransform` static or
   `Transform` replacement. `CopyPermanent`: every copy exception past power/toughness, end-of-turn cleanup, attacking

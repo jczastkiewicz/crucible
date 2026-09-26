@@ -24,11 +24,13 @@ Each was found by a gate rather than by reading: a parser or scanner that treats
 | `peace_talks`                              | `StaticAbilities$` names `STCantTargetPlayer`, never defined                                       | Effect trait compilation        | pending                                                          |
 | `ludevic_necrogenius_olag_ludevics_hubris` | `AddColors$ Blue & Black`; `CardFactory.java:497` splits on `,`, so Olag gains no color            | Clone port (`effects-clone.md`) | Not filed                                                        |
 | `taskmaster_mercenary_mimic`               | Clone's `RemoveCreatureTypes$` is read by nothing in `getCloneStates` (`CardFactory.java:579-581`) | Clone port (`effects-clone.md`) | Not filed                                                        |
+| `captured_by_the_consulate`                | `TriggeredSourceSA` under `Mode$ SpellCast`: never set (`TriggerSpellAbilityCastOrCopy.java:232`)  | ChangeTargets port              | Not filed                                                        |
 
-Every row but `peace_talks` and the two Clone rows is merged upstream; the Clone rows are rejected with an `error`
-meanwhile. `peace_talks` is carried as a pending fix, logged in [upstream-patches.md](upstream-patches.md), until
-upstream merges it. `internal/carddb/compile` compiles the whole corpus with no exemption of any kind, and
-`internal/valid` parses all 49,615 valid strings with no padded base.
+Every row but `peace_talks`, the two Clone rows and `captured_by_the_consulate` is merged upstream; the Clone rows and
+`captured_by_the_consulate` are rejected with an `error` meanwhile (`Defined$ TriggeredSourceSA` is not resolvable, so
+the fix, `Defined$ TriggeredSpellAbility`, is what the port would resolve). `peace_talks` is carried as a pending fix,
+logged in [upstream-patches.md](upstream-patches.md), until upstream merges it. `internal/carddb/compile` compiles the
+whole corpus with no exemption of any kind, and `internal/valid` parses all 49,615 valid strings with no padded base.
 
 Two more change no rules behaviour:
 

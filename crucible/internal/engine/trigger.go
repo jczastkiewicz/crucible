@@ -1386,6 +1386,59 @@ func isSacrificedTrigger(t *compile.Ability) bool {
 	return strings.EqualFold(t.Name, "Sacrificed")
 }
 
+// checkAbandonedTriggers is Mode$ Abandoned (TriggerAbandoned.java's
+// performTest), CR 904.9's own "if this scheme is abandoned": run after
+// abandonEffect (abandoneffect.go) has already moved abandoned out of the
+// Command zone, matching ValidCard$ against the abandoned scheme itself --
+// TriggerAbandoned.java's own AbilityKey.Scheme is always the abandoned
+// card, never a watched permanent's own state. Walks traitHosts the same
+// way checkSacrificedTriggers does; a watching Command-zone Effect card
+// created by DB$ Effect (RememberObjects$ Self, effecteffect.go) stays
+// walkable there since it never itself moves.
+//
+// Static$ True (bow_to_my_command.txt's own TrigAbandoned, the only real
+// corpus line naming it) is skipped, BecomeMonarch's own identical
+// treatment (monarch_test.go's "a Static$ True line skipped rather than put
+// on the stack"): TriggerHandler.runTrigger runs a Static trigger inline,
+// ahead of the stack, rather than queuing it (TriggerHandler.java:301-307);
+// no mode this port has built resolves a trigger any way but through
+// pushTriggeredAbilities's own stack push, so a Static$ True line is skipped
+// rather than fired the wrong way.
+func (g *Game) checkAbandonedTriggers(controller PlayerController, abandoned CardID) {
+	var matches []Ability
+	c := g.Card(abandoned)
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, t := range face.Triggers {
+					if !isAbandonedTrigger(t) {
+						continue
+					}
+					if hasAnyParam(t, "Static") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+						continue
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// isAbandonedTrigger reports whether t is Mode$ Abandoned.
+func isAbandonedTrigger(t *compile.Ability) bool {
+	return strings.EqualFold(t.Name, "Abandoned")
+}
+
 // checkChangesZoneAllTriggers is CR 603.6d's own "one or more permanents
 // change zones together" trigger, Mode$ ChangesZoneAll, ported from
 // TriggerChangesZoneAll.performTest -- Mode$ ChangesZone's own batched

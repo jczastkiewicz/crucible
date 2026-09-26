@@ -13,6 +13,7 @@ package engine
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
 func NewRegistry() *Registry {
 	var r Registry
+	r[APIAbandon] = abandonEffect{}
 	r[APIActivateAbility] = activateAbilityEffect{}
 	r[APIAddOrRemoveCounter] = addOrRemoveCounterEffect{}
 	r[APIAddPhase] = addPhaseEffect{}

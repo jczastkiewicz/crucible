@@ -140,6 +140,20 @@ matches. `the_pandorica.txt` reads `IsPresent$ Card.EffectSource+tapped`, which 
 `addForgetOnPhasedInTrigger`: an effect card remembering a card that phases in forgets it, and is exiled once it
 remembers no card. No effect is created when nothing is remembered (`EffectEffect.java:94`).
 
+**`ChangeZone` `Origin$ Command`.** Oubliette, Out of Time and The Moment end their return chain with
+`DB$ ChangeZone | Origin$ Command | Destination$ Exile | Defined$ Self` -- the effect exiling itself, one of ~180 corpus
+lines of that shape. `ChangeZone` refused `Origin$ Command`, so the chain failed after phasing the creature back in.
+`changeZoneKnown` now resolves it for an effect card going to exile: `GameAction.changeZone`'s immutable branch
+(`GameAction.java:100-106`) removes the card from the Command zone with no zone-change event or trigger, which is
+`exileEffect`. Any other destination, or a non-effect card in the Command zone (a commander), is still rejected with
+`not resolvable yet`, checked before any card moves. `TestOublietteReturnsItsCreatureTapped` runs `oubliette.txt` from
+the corpus end to end.
+
+**Blocked elsewhere.** Teferi's Protection and Perch Protection reach `DB$ Phases` only through
+`DB$ Pump | Defined$ You | Duration$ UntilYourNextTurn | KW$ Protection from everything`, which `Pump` rejects
+(`Duration$ "UntilYourNextTurn" not resolvable yet`): the chain fails loudly before phasing. Player keywords and that
+duration are `Pump`'s gap, not `Phases`'.
+
 **Tests.** `phasing_test.go` (engine) and `phasing_test.go` (fixture) cover each branch; scenario
 `phasing-untap-step-phases-in-and-out` proves the untap step through the fixture harness: `K:Phasing` phases out, a
 permanent phased out for the active player phases in and untaps, one phased out for the other player stays out, order

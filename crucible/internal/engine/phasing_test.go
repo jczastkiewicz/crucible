@@ -9,7 +9,9 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
+	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
 // phasingDef compiles a card with typeLine and the given K:, T: and S:
@@ -748,5 +750,86 @@ func TestPhasingOutRemovesFromCombat(t *testing.T) {
 	}
 	if len(g.Attackers()) != 0 {
 		t.Errorf("attackers = %v, want the phased-out creature removed from combat", g.Attackers())
+	}
+}
+
+// TestOublietteReturnsItsCreatureTapped runs oubliette.txt from the corpus:
+// its ETB phases the target out with WontPhaseInNormal$ and an effect card
+// watching Oubliette; Oubliette leaving phases the creature back in, tapped
+// (PhaseInOrOut$ | Tapped$), and the effect exiles itself (ChangeZone
+// Origin$ Command, GameAction.java:100-106).
+func TestOublietteReturnsItsCreatureTapped(t *testing.T) {
+	t.Parallel()
+
+	db := scenarioDB(t)
+	g := engine.NewGame(db, javarand.New(1), []string{"human", "ai"})
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	oubDef, ok := db.Card("Oubliette")
+	bearsDef, ok2 := db.Card("Grizzly Bears")
+	if !ok || !ok2 {
+		t.Fatal("corpus lacks Oubliette or Grizzly Bears")
+	}
+	bears := g.NewCard(bearsDef, other, engine.Battlefield)
+	oub := g.NewCard(oubDef, p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bears)})
+	if !g.CastSpell(p, oub, c) {
+		t.Fatal("CastSpell Oubliette failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if !g.Card(bears).IsPhasedOut() || len(g.Zone(engine.Command, p).Cards()) != 1 {
+		t.Fatalf("after ETB: phased out %v, command %v; want phased out and one effect", g.Card(bears).IsPhasedOut(), g.Zone(engine.Command, p).Cards())
+	}
+
+	pushLine(t, g, p, g.NewCard(creatureDef(t), p, engine.Battlefield), "DB$ Destroy | ValidTgts$ Enchantment", engine.CardEntity(oub))
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	b := g.Card(bears)
+	if b.IsPhasedOut() || !b.Tapped {
+		t.Errorf("after Oubliette left: phased out %v tapped %v, want phased in, tapped", b.IsPhasedOut(), b.Tapped)
+	}
+	if n := len(g.Zone(engine.Command, p).Cards()); n != 0 {
+		t.Errorf("command zone holds %d cards, want the effect exiled", n)
+	}
+}
+
+// TestChangeZoneFromCommandIsOnlyAnEffectExilingItself: Origin$ Command
+// resolves only for an effect card going to exile; any other destination,
+// or a card in the Command zone that is not an effect, is refused.
+func TestChangeZoneFromCommandIsOnlyAnEffectExilingItself(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	for _, line := range []string{
+		"DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Hand",
+		"DB$ ChangeZone | Defined$ Remembered | Origin$ Command | Destination$ Exile",
+	} {
+		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+			"DB$ Pump | Defined$ Self | SubAbility$ DBMove", "DBMove", line)
+		if strings.Contains(line, "Hand") && (err == nil || !strings.Contains(err.Error(), "not resolvable yet")) {
+			t.Errorf("%q: err = %v, want not resolvable yet", line, err)
+		}
+		if !strings.Contains(line, "Hand") && err != nil {
+			t.Errorf("%q: %v", line, err)
+		}
+	}
+
+	// A plain card sitting in the Command zone, remembered by the host.
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ BlankLine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := g.NewCard(creatureDef(t), p, engine.Command)
+	g.Card(host).Memory.Remember(engine.CardEntity(plain))
+	pushLine(t, g, p, host, "DB$ ChangeZone | Defined$ Remembered | Origin$ Command | Destination$ Exile")
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err == nil || !strings.Contains(err.Error(), "not an effect") {
+		t.Errorf("non-effect card from Command: err = %v, want not resolvable yet", err)
 	}
 }

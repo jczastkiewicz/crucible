@@ -140,7 +140,9 @@ it or a chosen mode names `CantFizzle$`. A fizzled spell still goes to its owner
 
 `zoneStamp` (`card.go`) is Java's `gameTimestamp`: set only as a card enters a zone (`put`/`putFront`), so a transform
 (which restamps `Timestamp` for layer order) does not fizzle a spell targeting the transformed permanent. `PushAbility`
-records the stamps; `ChangeTargets` records them again for the targets it rewrites.
+records the stamps, an Aura's own `Target` included; a card already stamped keeps its stamp, so a target that changed
+zones stays illegal when `ChangeTargets` rewrites a different target or a `CopySpellAbility` copy keeps the original's
+targets.
 
 Per entity, never by recomputing the candidate scan and intersecting it: `TestRemoveFromGameSpellOnStack`
 (`pack3shapes_test.go`) targets a spell on the stack through a plain `ValidTgts$ Card` that `targetCandidates`'

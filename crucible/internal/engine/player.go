@@ -144,6 +144,19 @@ type Player struct {
 	// (Player.initiativeEffect), reused the way monarchEffect is
 	// (takeinitiativeeffect.go).
 	initiativeEffect CardID
+	// theRing is this player's "The Ring" effect card (Player.theRing),
+	// NoCard until the Ring first tempts them; it stays in the Command zone
+	// for the rest of the game (ringtemptsyoueffect.go).
+	theRing CardID
+	// ringTempted is how many times the Ring has tempted this player
+	// (Player.numRingTemptedYou); The Ring carries the abilities of every
+	// level up to it (Player.setRingLevel, at most four).
+	ringTempted int
+	// ringBearer is this player's chosen Ring-bearer (Player.ringBearer,
+	// CR 701.54a), NoCard for none. It is cleared as the creature leaves
+	// the battlefield or changes controller (loseRingBearer); Game.RingBearer
+	// also answers NoCard for a bearer another player controls.
+	ringBearer CardID
 	// lossHandled records that Game.onPlayerLost has run for this player:
 	// Java runs it once, as the loss is awarded (GameAction.
 	// checkGameOverCondition), passing the monarchy and the initiative on

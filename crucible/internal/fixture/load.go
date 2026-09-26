@@ -37,8 +37,7 @@ type Loaded struct {
 	// Unapplied records every value Load recognised the shape of but had
 	// nothing to apply it to: a card annotation for a mechanic that is not
 	// modeled yet (Renowned, ChosenColor, ...), or a player-level field with
-	// no corresponding engine.Player field (PersistentMana, NumRingTemptedYou,
-	// Speed, ...). Silently dropping these would make a fixture that names,
+	// no corresponding engine.Player field (PersistentMana, Speed, ...). Silently dropping these would make a fixture that names,
 	// say, a Monstrous creature pass while testing something other than what
 	// it says.
 	Unapplied []string
@@ -106,7 +105,6 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 		}
 		g.Player(pid).LandsPlayed = ps.LandsPlayed
 		g.Player(pid).LandsPlayedLastTurn = ps.LandsPlayedLastTurn
-
 		for _, z := range []struct {
 			text string
 			kind engine.ZoneType
@@ -123,6 +121,10 @@ func Load(st *State, db *compile.DB, rng *javarand.Rand) (*Loaded, error) {
 				return nil, err
 			}
 		}
+		// GameState.setupPlayerState, after the player's cards: the count,
+		// then "The Ring" with every level up to it -- no Ring card when the
+		// count is zero.
+		g.SetRingTemptedYou(pid, ps.NumRingTemptedYou)
 	}
 
 	if err := ld.resolveRefs(); err != nil {
@@ -284,6 +286,10 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: protector %q: no such player", name, info)
 			}
 			c.ProtectingPlayer = ld.slotToID[slot]
+		case strings.HasPrefix(info, "IsRingBearer"):
+			// GameState.java: player.setRingBearer(c), the player whose
+			// zone the entry is in.
+			ld.game.SetRingBearer(owner, id)
 		case strings.HasPrefix(info, "RememberedCards:"):
 			ids, err := parseIDList(strings.TrimPrefix(info, "RememberedCards:"))
 			if err != nil {

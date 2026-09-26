@@ -1,0 +1,15 @@
+# CR 701.54 through "The Ring" effect card (Player.createTheRing): Nazgûl's
+# ETB trigger makes the Ring tempt its controller. The Ring enters their
+# Command zone at level 1, and Nazgûl, the only creature they control,
+# becomes their Ring-bearer with no choice asked. Nazgûl's own Mode$
+# RingTemptsYou trigger then puts a +1/+1 counter on each Wraith they
+# control -- Nazgûl itself.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+queue paygeneric B
+queue paygeneric B
+castspell human 1
+resolvestack

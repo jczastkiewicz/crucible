@@ -68,6 +68,7 @@ func Dump(l *Loaded) *State {
 		ps.ManaPool = dumpManaPool(g.Player(pid).ManaPool)
 		ps.LandsPlayed = g.Player(pid).LandsPlayed
 		ps.LandsPlayedLastTurn = g.Player(pid).LandsPlayedLastTurn
+		ps.NumRingTemptedYou = g.RingTemptedYou(pid)
 
 		ps.Battlefield = dumpZone(g, engine.Battlefield, pid)
 		ps.Hand = dumpZone(g, engine.Hand, pid)
@@ -140,6 +141,9 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		if imp := c.Memory.Imprinted(); len(imp) > 0 {
 			b.WriteString("|Imprinting:")
 			b.WriteString(joinCardIDs(imp))
+		}
+		if g.RingBearer(c.Controller()) == id {
+			b.WriteString("|IsRingBearer")
 		}
 	}
 	if c.Zone == engine.Battlefield || c.Zone == engine.Exile {

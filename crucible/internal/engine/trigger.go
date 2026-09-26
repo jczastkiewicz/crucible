@@ -641,6 +641,9 @@ func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacke
 // reason: DeclareCombatBlockers (block.go) has no wider grouping at the
 // point either already runs.
 //
+// Records the blocker (Defined$ TriggeredBlocker, Ability.triggered), the
+// one triggering object a ported line reads (The Ring's level 3).
+//
 // Not resolved: ValidCard$/ValidBlocker$ LessPowerThanBlocker/
 // LessPowerThanAttacker (1 real line each) -- checkAttackerBlockedTriggers'
 // own doc comment has the identical reason this refuses rather than lets a
@@ -675,7 +678,8 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerControlle
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: triggeredObjects{blocker: blk.Blocker}})
 					}
 				}
 			}

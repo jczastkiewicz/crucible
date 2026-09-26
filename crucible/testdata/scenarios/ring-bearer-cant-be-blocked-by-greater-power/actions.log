@@ -1,0 +1,18 @@
+# The Ring's level 1 (Player.setRingLevel): "Your Ring-bearer can't be
+# blocked by creatures with greater power" -- Mode$ CantBlockBy with
+# ValidBlockerRelative$ Creature.powerGTX, X = Count$CardPower, the
+# attacker's power. The Ring-bearer Grizzly Bears (2/2) attacks; the AI
+# declares both Hill Giant (3/3) and its own Grizzly Bears (2/2) as
+# blockers. Hill Giant's block is illegal and dropped (CanBlock); the
+# equal-power Bears' block stands: each Bears takes 2 damage, and the
+# Hill Giant none.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1,3=1
+declareblockers
+advance
+advance
+combatdamage

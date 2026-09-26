@@ -195,8 +195,15 @@ type triggeredObjects struct {
 	sourceController PlayerID
 	// player is AbilityKey.Player: who became the monarch (Mode$
 	// BecomeMonarch), took the initiative (TakesInitiative) or completed a
-	// dungeon (DungeonCompleted). NoPlayer when unset.
+	// dungeon (DungeonCompleted), or whom the Ring tempted
+	// (RingTemptsYou). NoPlayer when unset.
 	player PlayerID
+	// blocker is AbilityKey.Blocker for Mode$ AttackerBlockedByCreature
+	// (TriggerAttackerBlockedByCreature.setTriggeringObjects), read by
+	// Defined$ TriggeredBlocker/TriggeredBlockerLKICopy (definedCards). A
+	// CardID is stable across zone changes, so the LKI spelling names the
+	// same card. NoCard when unset.
+	blocker CardID
 	// spellAbility is AbilityKey.SpellAbility for Mode$ SpellCast: the
 	// stack item of the spell just cast (checkSpellCastTriggers), read by
 	// Defined$ TriggeredSpellAbility (copyspellabilityeffect.go). An ID,

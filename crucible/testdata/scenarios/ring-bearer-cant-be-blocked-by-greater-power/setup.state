@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humannumringtemptedyou=1
+humanbattlefield=Grizzly Bears|Id:1|IsRingBearer
+aibattlefield=Hill Giant|Id:2;Grizzly Bears|Id:3

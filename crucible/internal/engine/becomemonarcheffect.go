@@ -75,12 +75,15 @@ func (g *Game) SetMonarch(p PlayerID) {
 }
 
 // IsDesignationCard reports whether id is some player's designation effect
-// card ("The Monarch", "The Initiative"): state the designation itself
-// implies, which a fixture writes as monarch=/initiative= rather than as a
-// Command-zone card no database holds.
+// card ("The Monarch", "The Initiative", "The Ring"): state the designation
+// itself implies, which a fixture writes as monarch=/initiative=/
+// numringtemptedyou= rather than as a Command-zone card no database holds.
 func (g *Game) IsDesignationCard(id CardID) bool {
 	if id == NoCard {
 		return false
+	}
+	if g.isRingCard(id) {
+		return true
 	}
 	for _, pid := range g.Players() {
 		if pl := g.Player(pid); pl.monarchEffect == id || pl.initiativeEffect == id {

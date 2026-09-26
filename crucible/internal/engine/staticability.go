@@ -17,6 +17,8 @@ package engine
 import (
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -106,9 +108,15 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 					}
 					vb, hasVB := s.Param("ValidBlocker")
 					vd, hasVD := s.Param("ValidDefender")
-					if applyCantBlockBy(g, h, va, vb, hasVB, vd, hasVD, attacker, blocker) {
-						return true
+					if !applyCantBlockBy(g, h, va, vb, hasVB, vd, hasVD, attacker, blocker) {
+						continue
 					}
+					if rel, ok := s.Param("ValidBlockerRelative"); ok {
+						if matched, recognized := blockerRelativeMatches(g, &face, rel, attacker, blocker); !recognized || !matched {
+							continue
+						}
+					}
+					return true
 				}
 			}
 			for _, kb := range cantBlockByKeywords {
@@ -167,6 +175,29 @@ func skulkBlocks(g *Game, host *Card, blocker CardID) bool {
 		return false
 	}
 	return blockerPower > attackerPower
+}
+
+// blockerRelativeMatches is a CantBlockBy static's ValidBlockerRelative$:
+// StaticAbilityCantAttackBlock.applyCantBlockByAbility matches the blocker
+// with the attacker as the source card (matchesValidParam(
+// "ValidBlockerRelative", blocker, attacker)). The one shape resolved is The
+// Ring's level-1 "can't be blocked by creatures with greater power"
+// (Player.setRingLevel): Creature.powerGTX with the static's X set to
+// Count$CardPower, so X is the attacker's power -- skulkBlocks' comparison.
+// recognized is false for any other spec or X (Space Beleren's
+// Creature.DifferentSector, 1 corpus line): the static is then skipped, the
+// skip-rather-than-guess contract matchesValidDefender has, rather than
+// applied as if the relative restriction were not there -- which would make
+// the attacker unblockable by everything.
+func blockerRelativeMatches(g *Game, face *compile.Face, spec string, attacker, blocker CardID) (matched, recognized bool) {
+	if spec != "Creature.powerGTX" {
+		return false, false
+	}
+	x, ok := face.Amounts["x"]
+	if !ok || x.Kind != expr.Expression || !strings.EqualFold(x.Head, "Count") || x.Body != "CardPower" || x.Op != nil {
+		return false, false
+	}
+	return skulkBlocks(g, g.Card(attacker), blocker), true
 }
 
 // landwalkType reports h's own Landwalk keyword argument (K:Landwalk:Island
@@ -382,8 +413,9 @@ func hexproofValidSource(details string) (validSource string, ok bool) {
 // exception (a ValidBlocker alternative containing "withoutReach" is undone
 // if a separate CanBlockIfReach static grants that specific blocker
 // effective reach against this specific attacker) -- one real corpus card
-// needs it; ValidAttackerRelative/ValidBlockerRelative -- one real corpus
-// card; and the Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) --
+// needs it; ValidAttackerRelative -- one real corpus card, Ironclaw Curse
+// (ValidBlockerRelative is cantBlockBy's own check, blockerRelativeMatches);
+// and the Landwalk ignore-check (StaticAbilityIgnoreLandwalk.java) --
 // zero real corpus S:Mode$ IgnoreLandwalk lines exist, so nothing here can
 // ever need to consult it.
 func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, hasValidBlocker bool,

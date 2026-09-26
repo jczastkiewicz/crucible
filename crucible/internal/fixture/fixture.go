@@ -192,6 +192,9 @@ func Write(w io.Writer, s *State) error {
 		if p.LandsPlayedLastTurn != 0 {
 			fmt.Fprintf(&b, "%slandsplayedlastturn=%d\n", name, p.LandsPlayedLastTurn)
 		}
+		if p.NumRingTemptedYou != 0 {
+			fmt.Fprintf(&b, "%snumringtemptedyou=%d\n", name, p.NumRingTemptedYou)
+		}
 		if p.Lost {
 			fmt.Fprintf(&b, "%slost=true\n", name)
 		}

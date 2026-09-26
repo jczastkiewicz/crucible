@@ -94,5 +94,6 @@ func (g *Game) changeControllerAt(id CardID, to PlayerID, ts uint64) {
 	if c.Controller() != before {
 		c.SummonSick = true
 		g.removeFromCombat(id)
+		g.loseRingBearer(id)
 	}
 }

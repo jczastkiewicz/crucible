@@ -1,0 +1,11 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=3
+humanbattlefield=Mountain|Tapped
+humangraveyard=Lightning Bolt
+ailife=0
+aibattlefield=Mountain|Tapped
+ailost=true
+humanwon=true
+over=true

@@ -1,0 +1,14 @@
+# CR 117.1b, ADR-0019 Decision point 5: an activated ability with no
+# SorcerySpeed$ is instant speed, so a non-active player can activate it in
+# response. human bolts ai's Prodigal Pyromancer; ai, holding priority with
+# Bolt on the stack, taps the Pyromancer to ping human before it dies. The
+# ping resolves first (CR 117.4, top of the stack), then Bolt kills the
+# Pyromancer through CR 704.5g.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 3
+queue targets human
+queue action human cast 1
+queue action ai activate 3 0
+passpriority

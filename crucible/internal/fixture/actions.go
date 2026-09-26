@@ -57,6 +57,10 @@ import (
 //	playland <player> <id>               Game.PlayLand(player, id), id from CardByFixtureID
 //	castspell <player> <id>              Game.CastSpell(player, id, controller), id from CardByFixtureID
 //	resolvestack                         Game.ResolveStack(engine.NewRegistry(), controller)
+//	passpriority                         Game.PassPriority(engine.NewRegistry(), controller), one CR 117 round (ADR-0019)
+//	queue action <p> pass                ScriptedController.QueueAction, p passes once (an empty queue passes too)
+//	queue action <p> cast <id>           ScriptedController.QueueAction, p casts id when next given priority
+//	queue action <p> activate <id> <n>   ScriptedController.QueueAction, p activates id's n'th ability (0-based)
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
 //	queue paysnow <shard>                 ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -230,6 +234,11 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("resolvestack: %w", err)
 		}
 
+	case "passpriority":
+		if err := l.Game.PassPriority(engine.NewRegistry(), c); err != nil {
+			return fmt.Errorf("passpriority: %w", err)
+		}
+
 	case "queue":
 		return runQueue(args, l, c)
 
@@ -293,6 +302,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue enchanttarget: want exactly one id, got %q", value)
 		}
 		c.QueueEnchantTarget(ids[0])
+
+	case "action":
+		a, pid, err := resolveAction(l, args[1:])
+		if err != nil {
+			return fmt.Errorf("queue action: %w", err)
+		}
+		c.QueueAction(pid, a)
 
 	case "targets":
 		// A triggered ability's, cast spell's or activated ability's own
@@ -479,6 +495,51 @@ func resolveActionPlayer(l *Loaded, args []string, want int) (engine.PlayerID, e
 		}
 	}
 	return engine.NoPlayer, fmt.Errorf("player %q is not seated in this game", name)
+}
+
+// resolveAction parses `queue action`'s own arguments -- a seated player,
+// then "pass", "cast <id>" or "activate <id> <index>" -- into the Action
+// that player's next TakeAction returns. An empty queue already answers
+// pass (ScriptedController.TakeAction); an explicit "pass" is for a player
+// who passes now and acts later in the same round, since the queue is
+// consumed one ask at a time.
+func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, error) {
+	if len(args) == 2 && args[1] == "pass" {
+		pid, err := resolveActionPlayer(l, args, 1)
+		return engine.Action{}, pid, err
+	}
+	if len(args) < 3 {
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want <player> pass|cast|activate [<id> [index]], got %q", strings.Join(args, " "))
+	}
+	pid, err := resolveActionPlayer(l, args, 1)
+	if err != nil {
+		return engine.Action{}, engine.NoPlayer, err
+	}
+	ids, err := resolveCardIDs(l, args[2])
+	if err != nil {
+		return engine.Action{}, engine.NoPlayer, err
+	}
+	if len(ids) != 1 {
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want exactly one card id, got %q", args[2])
+	}
+	switch args[1] {
+	case "cast":
+		if len(args) != 3 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("cast takes one card id, got %q", strings.Join(args[2:], " "))
+		}
+		return engine.Action{Kind: engine.ActionCast, Card: ids[0]}, pid, nil
+	case "activate":
+		if len(args) != 4 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("activate takes a card id and an ability index, got %q", strings.Join(args[2:], " "))
+		}
+		n, err := strconv.Atoi(args[3])
+		if err != nil {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("ability index %q: %w", args[3], err)
+		}
+		return engine.Action{Kind: engine.ActionActivate, Card: ids[0], AbilityIndex: n}, pid, nil
+	default:
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want cast or activate, got %q", args[1])
+	}
 }
 
 // resolveCardIDs turns a comma-separated list of setup.state Id: numbers

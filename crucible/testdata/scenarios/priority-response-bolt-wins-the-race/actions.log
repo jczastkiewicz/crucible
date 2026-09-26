@@ -1,0 +1,15 @@
+# CR 117.3c-117.4, ADR-0019: a response resolves before the spell it
+# answers. Both players are at 3 life. ai, the active player, casts
+# Lightning Bolt at human; human responds with a Bolt of their own at ai.
+# Once both pass, only the top object resolves (CR 117.4): human's Bolt
+# puts ai at 0, the state-based-action check that follows ends the game
+# (CR 704.5a), and ai's Bolt never resolves -- it is still on the stack.
+startturn ai
+advance 3
+tapformana ai 4 R
+tapformana human 2 R
+queue targets human
+queue targets ai
+queue action ai cast 3
+queue action human cast 1
+passpriority

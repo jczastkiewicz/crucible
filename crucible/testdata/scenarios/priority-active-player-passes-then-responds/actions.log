@@ -1,0 +1,17 @@
+# CR 117.3a-117.3c, ADR-0019: the active player gets priority first. human,
+# the active player, passes with an empty stack; ai casts Lightning Bolt at
+# human and, keeping priority, passes; human then responds with a Bolt at
+# ai. The explicit "queue action human pass" is what lets human's Bolt wait
+# for the second ask instead of being cast into an empty stack. Only the
+# top object resolves (CR 117.4): ai goes to 0 and loses (CR 704.5a)
+# before ai's own Bolt resolves.
+startturn human
+advance 3
+tapformana ai 4 R
+tapformana human 2 R
+queue targets human
+queue targets ai
+queue action human pass
+queue action human cast 1
+queue action ai cast 3
+passpriority

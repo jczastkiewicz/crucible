@@ -1,0 +1,6 @@
+humanlife=3
+ailife=3
+humanhand=Lightning Bolt|Id:1
+humanbattlefield=Mountain|Id:2
+aihand=Lightning Bolt|Id:3
+aibattlefield=Mountain|Id:4

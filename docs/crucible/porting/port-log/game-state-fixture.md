@@ -139,6 +139,10 @@ tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from
 playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFixtureID
 castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID
 resolvestack                  Game.ResolveStack(NewRegistry(), controller), no arguments
+passpriority                  Game.PassPriority(NewRegistry(), controller), one CR 117 round (ADR-0019), no arguments
+queue action <p> pass         ScriptedController.QueueAction, p passes once (an empty queue passes too)
+queue action <p> cast <id>    ScriptedController.QueueAction, p casts id when next given priority
+queue action <p> activate <id> <n>  ScriptedController.QueueAction, p activates id's n'th ability (0-based)
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -247,6 +251,18 @@ fixture that pops an API this port cannot yet resolve fails loudly instead of si
 Forests (`manapool=` cannot be used here either, the same CR 500.4 reason `tapformana`'s own fixtures already worked
 around — `emptyManaPools` wipes any preloaded pool the moment the first `startturn`/`advance` call runs `beginPhase`, so
 the lands are tapped mid-scenario, after reaching `Main1`, not preloaded at `setup.state` time).
+
+`passpriority` runs one `Game.PassPriority` round: every seated player is asked `TakeAction` in turn order, starting
+with the active player, until the stack is empty and everyone has passed in succession. It returns `error` like
+`resolvestack`, for the same reason, and also for a queued action `CastSpell`/`ActivateAbility` declines — ADR-0019
+Decision point 5 makes that a hard stop, not a silent decline. `queue action` fills one player's own `TakeAction` queue.
+Queues are per player (ADR-0019 Decision point 1), so the order of `queue action` lines between two players does not
+matter. An empty queue answers pass. An explicit `queue action <p> pass` is for a player who passes now and acts later
+in the same round: the active player is asked first, so without it their queued response would be spent on the first
+ask. Targets still come from the shared `queue targets` FIFO, in cast order. Fixtures:
+`priority-response-bolt-wins-the-race` (a response resolves first and wins the game before the spell under it resolves),
+`priority-active-player-passes-then-responds` (an explicit pass, then a response) and
+`priority-pyromancer-pings-in-response-to-bolt` (a non-active player's instant-speed activated ability as a response).
 
 `queue enchanttarget` answers `ChooseEnchantTarget` (`castspell.go`'s own Aura branch, CR 601.2c) the same
 `queue legendarykeep` shape — a bare id, no color or bool vocabulary — needed only when an Aura's own `Enchant`

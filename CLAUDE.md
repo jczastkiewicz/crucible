@@ -201,7 +201,7 @@ valid-string evaluator, mana pool and payment, casting permanents, Auras and Ins
 (ADR-0018), trigger firing, replacement effects, block legality, continuous effects across all eight layers (partial),
 targeting, SubAbility chaining, last-known information, activated abilities.
 
-M6 in progress: 160 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+M6 in progress: 162 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`): `Play`
 (330), `CopySpellAbility` (255), `Phases` (72) — ADR-0018 unblocked the instant/sorcery stack object both need, neither
 has landed yet.

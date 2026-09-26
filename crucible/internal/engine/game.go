@@ -455,6 +455,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
+		g.loseRingBearer(id)
 	case from != Battlefield && kind == Battlefield:
 		c.SummonSick = true
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
@@ -541,6 +542,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
+		g.loseRingBearer(id)
 	}
 
 	g.sink.Emit(Event{

@@ -196,6 +196,8 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Type().HasStringType(chosen)
 	case name == "IsSuspected":
 		return c.Suspected
+	case name == "IsRingbearer":
+		return g.isRingBearer(c)
 	case name == "IsSolved":
 		return c.Solved
 	case name == "NamedCard":

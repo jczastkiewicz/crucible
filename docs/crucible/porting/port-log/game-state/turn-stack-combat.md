@@ -499,7 +499,11 @@ is treated as matching once `ValidAttacker` does, exactly Java's own `if (stAb.h
 
 Not ported from `applyCantBlockByAbility`: the "Dragon Hunter" reach exception (a `ValidBlocker` alternative containing
 "withoutReach" is undone if a separate `CanBlockIfReach` static grants that specific blocker effective reach against
-that specific attacker — 1 real corpus card); `ValidAttackerRelative`/`ValidBlockerRelative` (1 card).
+that specific attacker — 1 real corpus card); `ValidAttackerRelative` (Ironclaw Curse, 1 card). `ValidBlockerRelative`
+itself now resolves one shape (`Creature.powerGTX` with X `Count$CardPower`, the Ring's own level-1 ability); any other
+shape is unrecognized and `cantBlockBy` skips the static rather than erroring (`CanBlock` returns a bare `bool`, no
+error channel), which for Space Beleren's `Creature.DifferentSector` static (1 card) means every block is now allowed
+rather than none.
 
 The one architectural wrinkle: `valid.go`'s own "attacking"/"blocking" bare-form properties used to call
 `g.Attackers()`/`g.Blocks()` (`attack.go`/`block.go`), which made the `valid` `enginelint` group depend on `attack` and

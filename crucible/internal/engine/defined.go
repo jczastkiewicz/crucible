@@ -151,9 +151,12 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 // answer, targeting.go), the host's own Memory lists: "Remembered"/
 // "RememberedCard" (its card entries only), "Imprinted", "ChosenCard", and
 // "DelayTriggerRemembered"/"DelayTriggerRememberedLKI" -- the cards a
-// delayed or reflexive trigger remembered (Ability.TriggerRemembered). A
-// CardID is stable across zone changes, so the two spellings name the same
-// card; Java's LKI form differs only in which snapshot it reads.
+// delayed or reflexive trigger remembered (Ability.TriggerRemembered) --
+// and "TriggeredBlocker"/"TriggeredBlockerLKICopy", what Mode$
+// AttackerBlockedByCreature recorded (an error when the trigger recorded
+// none). A CardID is stable across zone changes, so each pair of spellings
+// names the same card; Java's LKI form differs only in which snapshot it
+// reads.
 func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error) {
 	switch defined {
 	case "Self":
@@ -187,6 +190,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			}
 		}
 		return cards, nil
+	case "TriggeredBlocker", "TriggeredBlockerLKICopy":
+		if refs.triggered.blocker == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no blocker", defined)
+		}
+		return []CardID{refs.triggered.blocker}, nil
 	case "Imprinted":
 		return append([]CardID(nil), host.Memory.Imprinted()...), nil
 	case "ChosenCard":

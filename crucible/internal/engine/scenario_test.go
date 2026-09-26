@@ -167,6 +167,14 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 		if got, want := gp.LandsPlayedLastTurn, wp.LandsPlayedLastTurn; got != want {
 			t.Errorf("%s: lands played last turn = %d, want %d", gp.Name, got, want)
 		}
+		if g, w := got.RingTemptedYou(gotPlayers[i]), want.RingTemptedYou(wantPlayers[i]); g != w {
+			t.Errorf("%s: numringtemptedyou = %d, want %d", gp.Name, g, w)
+		}
+		// The Ring-bearer by its battlefield position, the same reason
+		// nothing here compares CardIDs directly.
+		if g, w := bearerIndex(got, gotPlayers[i]), bearerIndex(want, wantPlayers[i]); g != w {
+			t.Errorf("%s: ring-bearer battlefield index = %d, want %d", gp.Name, g, w)
+		}
 		compareCounters(t, gp.Name, gp.Counters, wp.Counters)
 		for _, zone := range []engine.ZoneType{
 			engine.Battlefield, engine.Hand, engine.Graveyard, engine.Library,
@@ -175,6 +183,21 @@ func compareGames(t *testing.T, got, want *engine.Game) {
 			compareZoneCards(t, gp.Name, zone, got, gotPlayers[i], want, wantPlayers[i])
 		}
 	}
+}
+
+// bearerIndex is pid's Ring-bearer's position among its controller's
+// battlefield cards, -1 for none.
+func bearerIndex(g *engine.Game, pid engine.PlayerID) int {
+	b := g.RingBearer(pid)
+	if b == engine.NoCard {
+		return -1
+	}
+	for i, id := range g.Zone(engine.Battlefield, g.Card(b).ZoneOwner).Cards() {
+		if id == b {
+			return i
+		}
+	}
+	return -1
 }
 
 // playerNameOrEmpty is pid's name in g, empty for NoPlayer.

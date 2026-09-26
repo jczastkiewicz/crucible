@@ -179,6 +179,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 	// property), which must already reflect this pass's own control changes
 	// (applyContinuousControl's own doc comment).
 	applyContinuousControl(g)
+	g.dropStolenRingBearers()
 	applyContinuousPT(g)
 	applyContinuousType(g)
 	applyContinuousColor(g)

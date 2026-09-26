@@ -1,0 +1,26 @@
+# PlayEffect.java: Jace's Mindseeker's ETB mills five of the opponent's
+# cards (RememberMilled$), then its DB$ Play | ValidZone$ Graveyard,Exile |
+# Valid$ Instant.IsRemembered,Sorcery.IsRemembered | Controller$ You |
+# WithoutManaCost$ True | Optional$ True lets its controller cast the one
+# instant among them for free. One candidate and Amount$ 1 make it Java's
+# singleOption: a yes/no confirm, no pick. Lightning Bolt is cast from the
+# opponent's graveyard under human's control (CR 110.2), goes on the stack
+# above the resolving trigger, resolves next (CR 608.2g, ADR-0018), and
+# returns to its owner's graveyard.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+tapformana human 7 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+castspell human 1
+queue targets ai
+queue confirmeffect true
+queue targets ai
+resolvestack

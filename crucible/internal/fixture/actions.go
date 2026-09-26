@@ -428,6 +428,16 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueuePayHybridPhyrexian(color)
 
+	case "confirmeffect":
+		// An effect's generic yes/no prompt (ConfirmEffect): Play's
+		// single-option "cast it?", CopySpellAbility's Optional$ and
+		// MayChooseTarget$, among others.
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue confirmeffect %q: %w", value, err)
+		}
+		c.QueueConfirmEffect(v)
+
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)
 	}

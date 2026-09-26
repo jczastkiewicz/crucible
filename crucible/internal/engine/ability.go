@@ -132,6 +132,13 @@ type Ability struct {
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
+	// spell is SpellAbility.isSpell: this item is a spell (cast, or a copy
+	// of one), not an activated or triggered ability. Set by every cast
+	// path (castSpell, castspell.go; castWithoutPaying, discovereffect.go)
+	// and by copySpell (copyspellabilityeffect.go). A card in the Stack
+	// zone is not enough to tell: a "when you cast this spell" trigger's
+	// Source is that same card, sitting above it (spellItemOf, stack.go).
+	spell bool
 
 	// hostTransforms is the host's transform count when this ability went
 	// on the stack -- or, for a delayed trigger, when it was created: Java's
@@ -190,4 +197,12 @@ type triggeredObjects struct {
 	// BecomeMonarch), took the initiative (TakesInitiative) or completed a
 	// dungeon (DungeonCompleted). NoPlayer when unset.
 	player PlayerID
+	// spellAbility is AbilityKey.SpellAbility for Mode$ SpellCast: the
+	// stack item of the spell just cast (checkSpellCastTriggers), read by
+	// Defined$ TriggeredSpellAbility (copyspellabilityeffect.go). An ID,
+	// not a copy of the Ability: the spell can change (a copy retargets
+	// nothing of it, but a fizzle or counter removes it) between the
+	// trigger and its resolution, and the stack is the one place to ask.
+	// NoStackItem when unset.
+	spellAbility StackItemID
 }

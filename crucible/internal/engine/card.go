@@ -35,6 +35,13 @@ type Card struct {
 	// IsToken marks a card a Token effect created (CR 111.1): it ceases to
 	// exist once it is anywhere but the battlefield (CR 704.5d, action.go).
 	IsToken bool
+	// IsCopiedSpell marks the card a copy of a spell lives on
+	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
+	// only on the stack and ceases to exist the moment anything would move
+	// it (CR 707.10a, ceaseCopiedSpell, game.go) -- unless it is a
+	// permanent spell resolving, which makes it a token instead (CR 111.11,
+	// permanentEffect, castspell.go).
+	IsCopiedSpell bool
 	// IsEffect marks an effect card (GamePieceType.EFFECT): the Command-zone
 	// object an Effect ability creates to carry its triggers, continuous
 	// effects and replacement effects (effecteffect.go). Its traits are

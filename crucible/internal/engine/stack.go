@@ -100,7 +100,10 @@ func (g *Game) ResolveStack(reg *Registry, controller PlayerController) error {
 //
 // ReplaceGraveyard$ (CR 614's own "goes to exile instead" redirect) has no
 // resolver in this port yet (ADR-0018's own Decision, point 3) -- this
-// always moves to the graveyard, never anywhere else.
+// always moves to the graveyard, never anywhere else. A copy of a spell
+// (Card.IsCopiedSpell) ceases to exist instead, inside Move itself
+// (ceaseCopiedSpell, game.go; MagicStack.removeCardFromStack's
+// ceaseToExist, MagicStack.java:680-683).
 func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
 	if a.Source == NoCard || int(a.Source) >= len(g.cards) {
 		return
@@ -110,4 +113,31 @@ func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
 		return
 	}
 	g.Move(a.Source, Graveyard, c.Owner)
+}
+
+// stackItem is the item on the stack whose ID is id, and whether one is --
+// MagicStack.getInstanceMatchingSpellAbilityID. Anything that resolved,
+// fizzled or was countered is gone.
+func (g *Game) stackItem(id StackItemID) (*Ability, bool) {
+	if id == NoStackItem {
+		return nil, false
+	}
+	for i := range g.stack {
+		if g.stack[i].ID == id {
+			return &g.stack[i], true
+		}
+	}
+	return nil, false
+}
+
+// spellItemOf is the ID of the spell card is on the stack as, and whether
+// there is one: the item marked spell whose Source is card, top first. A
+// card in the Stack zone is one spell (CR 405.1), so at most one matches.
+func (g *Game) spellItemOf(card CardID) (StackItemID, bool) {
+	for i := len(g.stack) - 1; i >= 0; i-- {
+		if g.stack[i].spell && g.stack[i].Source == card {
+			return g.stack[i].ID, true
+		}
+	}
+	return NoStackItem, false
 }

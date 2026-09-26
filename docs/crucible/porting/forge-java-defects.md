@@ -23,6 +23,7 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
 | `CardUtil.java:345`                  | Recursive frame resolves `Valid$` against the reflecting host                                                          | None: `ManaReflected` deferred                          | Not filed |
 | `FlipOntoBattlefieldEffect.java:109` | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot | `flipCandidates` rejects that one shape with an `error` | Not filed |
+| `PlayEffect.java:312`, `:389`        | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                         | `playRepeatLoop` returns an `error`                     | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -253,3 +254,40 @@ return card.isPlaneswalker() || card.isArtifact() || (card.isEnchantment() && !c
 outright with an `error` rather than sweeping the whole battlefield the way the bug does. A planeswalker or artifact
 landing spot — including Chaos Orb choosing itself, a real reachable shape — does not trigger the bug and is not
 rejected; it resolves through the correct two-clause filter above.
+
+### `PlayEffect.java:312`, `:389` — `AllowRepeats$` re-offers an unplayable card forever
+
+```java
+if (!sa.hasParam("AllowRepeats")) {
+    tgtCards.remove(tgtCard);
+}
+// ...
+if (sas.isEmpty()) {
+    continue;                       // :312
+}
+// ...
+} else if (tgtSA.getPayCosts().hasManaCost() && tgtSA.getPayCosts().getCostMana().getMana().isNoCost()) {
+    // unpayable
+    continue;                       // :389
+}
+```
+
+The loop runs `while (!tgtCards.isEmpty() && amount > 0 ...)`. Both `continue`s skip `amount--` (`:484`). Without
+`AllowRepeats$` the card already left `tgtCards` (`:267-269`), so the loop still shrinks. With it, the card stays, the
+next pass offers it again, and a non-optional or single-candidate pass picks it every time: a hang. The `continue`s at
+`:327-333` (a cancelled `getAbilityToPlay`) and `:365-367` (`XMin$` under an alternative cost) have the same shape.
+
+Latent: the two real `AllowRepeats$` lines (Mnemonic Deluge, Chandra, Pyromaster) carry `ValidSA$ Spell` and
+`WithoutManaCost$`, so their `ValidSA$` pre-filter (`:198`) removes a card with no spell and neither reaches `:389`.
+
+**Proposed fix:** spend the pick on every `continue` that does not play, or remove the card from `tgtCards` there:
+
+```java
+if (sas.isEmpty()) {
+    tgtCards.remove(tgtCard);
+    continue;
+}
+```
+
+**Crucible meanwhile:** `playRepeatLoop` (`playeffect.go`) returns an `error` when either branch is reached under
+`AllowRepeats$`, rather than looping or quietly dropping the card.

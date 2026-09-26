@@ -209,8 +209,8 @@ func TestSubAbilityChainDepthThreeChainsAllThree(t *testing.T) {
 // naming it -- Registry.Resolve's own existing contract for a top-level
 // ability, extended for free once resolveSubAbility recurses back through
 // Registry.Resolve itself (effect.go's own doc comment): DB$ Draw |
-// Defined$ You | NumCards$ 3 | SubAbility$ DBPlay, chaining into DB$
-// Play (casting without paying, an API this port has not built yet). Draw's own
+// Defined$ You | NumCards$ 3 | SubAbility$ DBPhases, chaining into DB$
+// Phases (phasing, an API this port has not built yet). Draw's own
 // three cards must
 // already be in hand: CR's own sequential resolution means the parts of an
 // ability already executed stay executed even when a later part fails,
@@ -228,22 +228,22 @@ func TestSubAbilityChainUnimplementedAPIErrors(t *testing.T) {
 	}
 
 	def := etbSubAbilityTriggerDefParams(t, "Test Riverwise Augur",
-		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBPlay",
-		map[string]string{"DBPlay": "DB$ Play | Defined$ Self"})
+		"DB$ Draw | Defined$ You | NumCards$ 3 | SubAbility$ DBPhases",
+		map[string]string{"DBPhases": "DB$ Phases | Defined$ Self"})
 
 	c := engine.NewScriptedController()
 	err := castETBSubAbility(t, g, p, def, c)
 	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming Play")
+		t.Fatal("ResolveStack: got nil error, want one naming Phases")
 	}
 	if !errors.Is(err, engine.ErrUnimplemented) {
 		t.Errorf("ResolveStack error = %q, want it to wrap ErrUnimplemented", err.Error())
 	}
-	if !strings.Contains(err.Error(), "Play") {
-		t.Errorf("ResolveStack error = %q, want it to name Play", err.Error())
+	if !strings.Contains(err.Error(), "Phases") {
+		t.Errorf("ResolveStack error = %q, want it to name Phases", err.Error())
 	}
 	if len(g.Zone(engine.Hand, p).Cards()) != 3 {
-		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit Play",
+		t.Errorf("p's hand size = %d, want 3 -- Draw's own body must already have run before the chain hit Phases",
 			len(g.Zone(engine.Hand, p).Cards()))
 	}
 }

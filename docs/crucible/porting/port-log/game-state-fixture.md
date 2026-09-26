@@ -147,6 +147,7 @@ queue paymonocoloredhybrid <bool>     ScriptedController.QueuePayMonocoloredHybr
 queue paycolorlesshybrid <bool>       ScriptedController.QueuePayColorlessHybrid
 queue payphyrexian <bool>             ScriptedController.QueuePayPhyrexian
 queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
+queue confirmeffect <bool>            ScriptedController.QueueConfirmEffect, an effect's yes/no prompt (Play's single option, CopySpellAbility's Optional$/MayChooseTarget$)
 ```
 
 `queue battleprotector` is a state-based action's own question, not tied to any combat verb:

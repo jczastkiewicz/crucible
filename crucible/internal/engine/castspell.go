@@ -69,29 +69,68 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 	if c.Controller() != pid || c.Zone != Hand {
 		return false
 	}
+	return g.castSpell(controller, pid, card, castOpts{})
+}
 
+// castOpts is how an effect's "cast it" differs from casting it normally
+// (PlayEffect.java's tgtSA adjustments before playSaFromPlayEffect).
+type castOpts struct {
+	// withoutManaCost is WithoutManaCost$ (SpellAbility.copyWithNoManaCost):
+	// no mana is paid, and an X in the cost is 0, so ChoosePayX is never
+	// asked (CR 107.3b).
+	withoutManaCost bool
+}
+
+// castSpell is CastSpell past its timing and hand gates: the three spell
+// shapes (Aura, Instant/Sorcery, other permanent), each choosing, paying,
+// then putting the card on the stack. It is the one cast path, from any
+// zone: CastSpell calls it for a card in hand at sorcery speed, and an
+// effect that casts during its resolution (Play, playeffect.go; Discover's
+// castWithoutPaying) calls it with timing ignored (CR 608.2g). Reports false
+// for every legal-but-declined case the three branches name.
+func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
+	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
-		return g.castAura(pid, card, c, controller)
+		return g.castAura(pid, card, c, controller, opts)
 	}
 	if castableAsInstantOrSorcery(c) {
-		return g.castInstantOrSorcery(pid, card, c, controller)
+		return g.castInstantOrSorcery(pid, card, c, controller, opts)
 	}
 	if !castableAsPermanent(c) {
 		return false
 	}
-	if !g.PayManaCost(pid, c.Def.Faces[0].ManaCost, controller) {
+	if !g.payCastCost(pid, c, controller, opts) {
 		return false
 	}
-	g.Move(card, Stack, pid)
+	g.putSpellOnStack(card, pid)
 	api := APIPermanentNoncreature
 	if c.Type().Has(cardtype.Creature) {
 		api = APIPermanentCreature
 	}
-	g.PushAbility(Ability{API: api, Source: card, Controller: pid})
+	g.PushAbility(Ability{API: api, Source: card, Controller: pid, spell: true})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
 	return true
+}
+
+// payCastCost pays c's printed mana cost for pid (CR 601.2g-h), or nothing
+// under opts.withoutManaCost.
+func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) bool {
+	if opts.withoutManaCost {
+		return true
+	}
+	return g.PayManaCost(pid, c.Def.Faces[0].ManaCost, controller)
+}
+
+// putSpellOnStack moves card to the stack under pid and makes pid its
+// controller: CR 110.2's "the player who cast it", MagicStack.add's
+// source.setController(activator). Move alone keeps whatever controller the
+// card had, which for an opponent's card cast by an effect (Play's
+// Controller$ You over an opponent's exiled card) is the opponent.
+func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
+	g.Move(card, Stack, pid)
+	g.Card(card).controller = pid
 }
 
 // castAura is CastSpell's own Aura branch (CardState.java's getAuraSpell,
@@ -119,7 +158,7 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 // targeting it, and this is the only cast-time path this port has today
 // that could ever reach it (a targeted Instant/Sorcery is not built yet,
 // checkBecomesTargetTriggers' own doc comment).
-func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController) bool {
+func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
 	spec, ok := enchantSpec(c)
 	if !ok {
 		return false
@@ -132,11 +171,11 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	if len(eligible) > 1 {
 		target = controller.ChooseEnchantTarget(g, pid, card, eligible)
 	}
-	if !g.PayManaCost(pid, c.Def.Faces[0].ManaCost, controller) {
+	if !g.payCastCost(pid, c, controller, opts) {
 		return false
 	}
-	g.Move(card, Stack, pid)
-	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target})
+	g.putSpellOnStack(card, pid)
+	g.PushAbility(Ability{API: APIAttach, Source: card, Controller: pid, Target: target, spell: true})
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
@@ -162,14 +201,8 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 // "ability never goes on the stack" case pushTriggeredAbilities already
 // treats as a skip), no legal target (CR 601.2c), or the cost could not be
 // paid.
-func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controller PlayerController) bool {
-	var spellAbility *compile.Ability
-	for _, ab := range c.Def.Faces[0].Abilities {
-		if ab.Record == compile.Spell {
-			spellAbility = ab
-			break
-		}
-	}
+func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
+	spellAbility := firstSpellAbility(c)
 	if spellAbility == nil {
 		return false
 	}
@@ -177,7 +210,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !ok {
 		return false
 	}
-	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts}
+	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true}
 	if a.API == APICharm {
 		modesOK, err := g.chooseCharmModes(controller, &a)
 		if err != nil {
@@ -189,16 +222,27 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !g.resolveTargets(controller, &a) {
 		return false
 	}
-	if !g.PayManaCost(pid, c.Def.Faces[0].ManaCost, controller) {
+	if !g.payCastCost(pid, c, controller, opts) {
 		return false
 	}
-	g.Move(card, Stack, pid)
+	g.putSpellOnStack(card, pid)
 	g.PushAbility(a)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++
 	g.checkSpellCastTriggers(controller, card, pid)
 	g.checkBecomesTargetTriggers(controller, a.Targets, false, pid)
 	return true
+}
+
+// firstSpellAbility is c's first A:SP$ line (Def.Faces[0].Abilities), or
+// nil when it has none -- the one spell castInstantOrSorcery casts.
+func firstSpellAbility(c *Card) *compile.Ability {
+	for _, ab := range c.Def.Faces[0].Abilities {
+		if ab.Record == compile.Spell {
+			return ab
+		}
+	}
+	return nil
 }
 
 // enchantTargets is every battlefield permanent, across every player, that
@@ -243,6 +287,7 @@ type permanentEffect struct{}
 
 func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	origin := g.Card(a.Source).Zone
+	copyBecomesToken(g.Card(a.Source))
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.checkMovedReplacement(a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
@@ -267,9 +312,21 @@ type attachEffect struct{}
 
 func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	origin := g.Card(a.Source).Zone
+	copyBecomesToken(g.Card(a.Source))
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
 	g.checkMovedReplacement(a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
 	return nil
+}
+
+// copyBecomesToken is CR 111.11, GameAction.changeZone's first branch
+// (GameAction.java:96-98): a copy of a permanent spell becomes a token as it
+// resolves, so the Move onto the battlefield that follows is a token's, not
+// a copy ceasing to exist (ceaseCopiedSpell, game.go). A no-op for a card
+// that is not a copy.
+func copyBecomesToken(c *Card) {
+	if c.IsCopiedSpell && c.Zone == Stack {
+		c.IsCopiedSpell, c.IsToken = false, true
+	}
 }

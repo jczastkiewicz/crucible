@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Jace's Mindseeker|SummonSick
+ailife=17
+ailibrary=Grizzly Bears
+aigraveyard=Grizzly Bears;Grizzly Bears;Grizzly Bears;Grizzly Bears;Lightning Bolt

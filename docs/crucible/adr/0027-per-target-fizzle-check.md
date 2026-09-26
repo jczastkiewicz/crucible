@@ -43,14 +43,18 @@ This port's `Card.Timestamp` cannot stand in for Java's `gameTimestamp`: it is r
 
 1. **`Card.zoneStamp`** is Java's `gameTimestamp`: set only as a card enters a zone (`put`/`putFront`,
    `GameAction.java:370`). A control change moves no card and leaves it unchanged.
-2. **`PushAbility` records** the `zoneStamp` of every card target of the ability and each Charm mode (`targetStamps`).
-   `ChangeTargets` records again for the targets it rewrites.
+2. **`PushAbility` records** the `zoneStamp` of every card target of the ability, each Charm mode and an Aura's own
+   `Target` (`targetStamps`). A card that already has a stamp keeps it: `ChangeTargets` re-records after rewriting an
+   item, and a `CopySpellAbility` copy starts from the original's stamps, so a target that changed zones stays illegal
+   there too — Java's copy carries the original target objects with their `gameTimestamp`. Only a newly chosen card is
+   stamped as it is now.
 3. **`targetStillLegal`** checks each target on its own: a card is illegal when its `zoneStamp` differs from the
    recorded one, it is phased out, or it no longer matches the ability's `ValidTgts$`; a player is illegal when they
    left the game or no longer match. Anything else (an ability targeted by `ChangeTargets`) is kept. An ability with no
    recorded stamps (resolved without going on the stack) gets the other checks only.
 4. **`dropIllegalTargets`** removes illegal targets from the ability and its modes; the ability fizzles when at least
-   one target was chosen and none is left, unless `CantFizzle$`. An Aura's own `Target` keeps `auraTargetStillLegal`.
+   one target was chosen and none is left, unless `CantFizzle$`. An Aura's own `Target` keeps `auraTargetStillLegal`,
+   which now also compares its stamp.
 5. **Checks are limited to what choosing a target checks.** Hexproof, shroud, protection and ward
    (`StaticAbilityCantTarget`) and `canTarget`'s multi-target params (`TargetUnique`, `SameController`, ...) are checked
    at neither point. They are one gap, closed at both points together.

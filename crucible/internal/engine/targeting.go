@@ -582,22 +582,44 @@ func targetSpec(a *Ability) (string, bool) {
 }
 
 // stampTargets records the zoneStamp of every card a and each of its Charm
-// modes target now: PushAbility calls it as a goes on the stack, and
-// ChangeTargets again after it rewrites an item's targets.
+// modes target -- an Aura's own Target included -- keeping the stamp
+// already recorded for a card that was a target before. PushAbility calls
+// it as a goes on the stack; ChangeTargets again after it rewrites an
+// item's targets. Keeping old stamps is what makes a target that changed
+// zones stay illegal (CR 400.7) when ChangeTargets rewrites a different
+// target of the same item, or when CopySpellAbility's copy keeps the
+// original's targets: Java's copy carries the original target objects with
+// their gameTimestamp. Only a newly chosen card is stamped as it is now.
 func (g *Game) stampTargets(a *Ability) {
-	a.targetStamps = g.stampsOf(a.Targets)
+	a.targetStamps = g.restamp(a.targetStamps, a.Targets, a.Target)
 	for i := range a.Modes {
-		a.Modes[i].targetStamps = g.stampsOf(a.Modes[i].Targets)
+		m := &a.Modes[i]
+		m.targetStamps = g.restamp(m.targetStamps, m.Targets, NoCard)
 	}
 }
 
-func (g *Game) stampsOf(targets []EntityID) []targetStamp {
+// restamp is stampTargets for one target list plus an optional Aura
+// target.
+func (g *Game) restamp(old []targetStamp, targets []EntityID, aura CardID) []targetStamp {
 	var out []targetStamp
+	add := func(id CardID) {
+		if id == NoCard || int(id) >= len(g.cards) {
+			return
+		}
+		for _, s := range old {
+			if s.card == id {
+				out = append(out, s)
+				return
+			}
+		}
+		out = append(out, targetStamp{card: id, stamp: g.Card(id).zoneStamp})
+	}
 	for _, e := range targets {
-		if id, ok := e.AsCard(); ok && id != NoCard && int(id) < len(g.cards) {
-			out = append(out, targetStamp{card: id, stamp: g.Card(id).zoneStamp})
+		if id, ok := e.AsCard(); ok {
+			add(id)
 		}
 	}
+	add(aura)
 	return out
 }
 
@@ -613,6 +635,10 @@ func (g *Game) auraTargetStillLegal(a *Ability) bool {
 	// A phased-out host cannot be targeted (Card.canBeTargetedBy,
 	// Card.java:6829-6831).
 	if target.Zone != Battlefield || target.IsPhasedOut() {
+		return false
+	}
+	// CR 400.7: a host that left and came back is a new object.
+	if stamp, ok := a.stampOf(a.Target); ok && stamp != target.zoneStamp {
 		return false
 	}
 	spec, ok := enchantSpec(c)

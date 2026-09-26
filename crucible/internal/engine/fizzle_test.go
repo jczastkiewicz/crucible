@@ -180,3 +180,37 @@ func TestNoFizzleWhenTargetChangesControl(t *testing.T) {
 		t.Errorf("damage = %d, want 1 (a control change is not a zone change)", got)
 	}
 }
+
+// TestAuraFizzlesWhenItsTargetChangedZones: an Aura spell's own target
+// (Ability.Target) is stamped too, so a host that left and came back
+// before the Aura resolves is a new object (CR 400.7) and the Aura does
+// not attach to it (CR 608.2b, 303.4a).
+func TestAuraFizzlesWhenItsTargetChangedZones(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life = 20
+	_ = g.NewCard(creatureDef(t), p, engine.Battlefield)
+	host := g.NewCard(creatureDef(t), p, engine.Battlefield)
+	aura := g.NewCard(auraDefWithEnchant(t, "Creature"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueEnchantTarget(host)
+
+	if !g.CastSpell(p, aura, c) {
+		t.Fatal("cast failed")
+	}
+	g.Move(host, engine.Graveyard, p)
+	g.Move(host, engine.Battlefield, p)
+
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if _, ok := g.Card(aura).AttachedTo(); ok {
+		t.Error("aura attached to the returned creature, want it to fizzle")
+	}
+	if got := g.Card(aura).Zone; got != engine.Graveyard {
+		t.Errorf("aura zone = %v, want Graveyard", got)
+	}
+}

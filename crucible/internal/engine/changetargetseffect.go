@@ -121,7 +121,7 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			return err
 		}
 		// A new target is checked at resolution as the object it is now
-		// (CR 608.2b), not as whatever the old one was.
+		// (CR 608.2b); a kept one keeps the stamp it was chosen with.
 		g.stampTargets(item)
 		if stop {
 			// ChangeTargetsEffect.java:88-90 returns from resolve outright

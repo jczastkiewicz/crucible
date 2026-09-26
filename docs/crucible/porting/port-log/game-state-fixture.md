@@ -140,9 +140,14 @@ playland <player> <id>        Game.PlayLand(player, id), id from Loaded.CardByFi
 castspell <player> <id>       Game.CastSpell(player, id, controller), id from Loaded.CardByFixtureID
 resolvestack                  Game.ResolveStack(NewRegistry(), controller), no arguments
 passpriority                  Game.PassPriority(NewRegistry(), controller), one CR 117 round (ADR-0019), no arguments
+step [n]                      Game.Step(NewRegistry(), controller), n times (default 1), one driven step each (ADR-0026)
+run <turns>                   Game.Run(NewRegistry(), controller, turns), steps until game over or turn <turns> ends
 queue action <p> pass         ScriptedController.QueueAction, p passes once (an empty queue passes too)
 queue action <p> cast <id>    ScriptedController.QueueAction, p casts id when next given priority
 queue action <p> activate <id> <n>  ScriptedController.QueueAction, p activates id's n'th ability (0-based)
+queue action <p> playland <id>      ScriptedController.QueueAction, p plays land id (ADR-0026)
+queue action <p> tapformana <id> <color>  ScriptedController.QueueAction, p taps basic land id for color (ADR-0026)
+queue action <p> manaability <id> <n>     ScriptedController.QueueAction, p activates id's n'th mana ability (ADR-0026)
 queue paygeneric <shard>      ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 queue payx <n>                 ScriptedController.QueuePayX, the value of X for a cost carrying one
 queue paysnow <shard>          ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -263,6 +268,13 @@ ask. Targets still come from the shared `queue targets` FIFO, in cast order. Fix
 `priority-response-bolt-wins-the-race` (a response resolves first and wins the game before the spell under it resolves),
 `priority-active-player-passes-then-responds` (an explicit pass, then a response) and
 `priority-pyromancer-pings-in-response-to-bolt` (a non-active player's instant-speed activated ability as a response).
+
+`step` and `run` are the turn driver (ADR-0026, `turn-stack-combat.md`): unlike `advance`, a driven step runs combat's
+declarations and damage itself (so a scenario queues `attackers`/`blocks` answers instead of calling `declareattackers`)
+and opens a priority round wherever the step grants one, so a phase trigger resolves before `step` returns. A queued
+action is spent on the first round that asks its player — Upkeep included — so a scenario steps to the step it wants
+before queueing: on turn 1, `step 2` from Untap stops in Draw, so actions queued next are asked in Main1. Fixtures:
+`testdata/scenarios/driver-*`.
 
 `queue enchanttarget` answers `ChooseEnchantTarget` (`castspell.go`'s own Aura branch, CR 601.2c) the same
 `queue legendarykeep` shape — a bare id, no color or bool vocabulary — needed only when an Aura's own `Enchant`

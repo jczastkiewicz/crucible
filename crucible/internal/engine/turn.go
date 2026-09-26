@@ -16,13 +16,13 @@
 // ActivePhase and nothing else beyond the trigger check, until each one's
 // turn comes (porting/port-log/game-state.md).
 //
-// PhaseHandler's priority loop (mainLoopStep) is ported now -- PassPriority
-// (priority.go, ADR-0019) -- but still not wired in here: beginPhase takes
-// no *Registry, and wiring a priority round into it would resolve phase
-// triggers through that loop, changing every existing scenario's own
-// expect.events. It is a standalone entry today, called directly by a test
-// or a fixture verb; wiring it into beginPhase/AdvancePhase is a later
-// commit's job.
+// PhaseHandler's priority loop (mainLoopStep) is ported as PassPriority
+// (priority.go, ADR-0019) and wired into the turn by the driver (driver.go,
+// ADR-0026), not by AdvancePhase: AdvancePhase stays bookkeeping, the walk
+// every fixture's `advance` verb and EndCombatPhase's resolution use. Both
+// share advanceStep/beginStep below; driven=true adds combat's turn-based
+// actions, the no-attackers damage-step skip and each step's own priority
+// grant, the parts only the driver acts on.
 
 package engine
 
@@ -61,6 +61,16 @@ func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 // current one comes first (g.extraPhases); a phase a SkipPhase effect names
 // for the active player is passed over without beginning (consumeSkip).
 func (g *Game) AdvancePhase(controller PlayerController) {
+	// Bookkeeping mode never fails: every error advanceStep can return comes
+	// from a driven-only branch.
+	_, _ = g.advanceStep(controller, false)
+}
+
+// advanceStep is AdvancePhase's body. driven (ADR-0026 Decision 2) is
+// passed through every recursive skip, so a skipped phase never drops the
+// driver back to bookkeeping mode. It returns the entered step's priority
+// grant (beginStep).
+func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, error) {
 	var next PhaseType
 	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
 		next = st[len(st)-1]
@@ -94,10 +104,29 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 		if next == CombatBegin {
 			g.activePhase = CombatEnd
 		}
-		g.AdvancePhase(controller)
-		return
+		return g.advanceStep(controller, driven)
 	}
-	g.beginPhase(controller)
+	if driven && g.skipsDamageStep(next) {
+		return g.advanceStep(controller, driven)
+	}
+	return g.beginStep(controller, driven)
+}
+
+// skipsDamageStep is PhaseHandler.isSkippingPhase's combat half
+// (PhaseHandler.java:228-233): entering DeclareBlockers records whether any
+// creature attacked, and with none, DeclareBlockers and both damage steps
+// are skipped -- not begun at all, no PhaseBegan and no phase triggers,
+// Java's own `skipped` path (PhaseHandler.java:244-246, 436-441). Driven
+// only: a fixture's `advance` walks through these steps unconditionally.
+func (g *Game) skipsDamageStep(next PhaseType) bool {
+	switch next {
+	case DeclareBlockers:
+		g.skipDamageSteps = len(g.combat.Attackers) == 0
+		return g.skipDamageSteps
+	case FirstStrikeDamage, CombatDamage:
+		return g.skipDamageSteps
+	}
+	return false
 }
 
 // nextActivePlayer is PhaseHandler.getNextActivePlayer: the top of the
@@ -185,24 +214,66 @@ func (g *Game) nextPlayerInDirection(p PlayerID, right bool) PlayerID {
 // beginPhase runs the active phase's turn-based actions, then the
 // state-based-action check CR 704.3 requires before anyone can act -- the
 // same pairing Java's onPhaseBegin and checkStateBasedEffects run back to
-// back at the top of mainLoopStep.
+// back at the top of mainLoopStep. Bookkeeping mode: beginStep with
+// driven=false, which never fails.
 func (g *Game) beginPhase(controller PlayerController) {
+	_, _ = g.beginStep(controller, false)
+}
+
+// beginStep is beginPhase's body. With driven (ADR-0026 Decision 2) it also
+// runs combat's turn-based actions -- inside the step body, before the
+// phase triggers, as onPhaseBegin does (PhaseHandler.java:305-344, then
+// 436-441) -- and reports whether the step grants priority, Java's own
+// givePriorityToPlayer. Without driven the grant is computed the same way
+// and ignored.
+func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error) {
 	g.emptyManaPools()
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
+	priority := true
 	switch g.activePhase {
 	case Untap:
 		g.untapStep(controller)
+		priority = false // CR 502.4, PhaseHandler.java:251
 	case Draw:
 		g.drawStep(controller)
 	case CombatBegin:
 		g.combatsThisTurn++
+	case DeclareAttackers:
+		if driven {
+			if _, err := g.DeclareCombatAttackers(controller); err != nil {
+				return false, err
+			}
+		}
+	case DeclareBlockers:
+		if driven {
+			if _, err := g.DeclareCombatBlockers(controller); err != nil {
+				return false, err
+			}
+		}
+	case FirstStrikeDamage, CombatDamage:
+		if driven {
+			// PhaseHandler.java:321-344: no damage to assign, no damage
+			// dealt and no priority.
+			firstStrike := g.activePhase == FirstStrikeDamage
+			priority = g.combatDamageAssigned(firstStrike)
+			if priority {
+				g.dealCombatDamageStep(controller, firstStrike)
+			}
+		}
 	case CombatEnd:
 		g.endCombat()
 	case Cleanup:
 		g.cleanupStep(controller)
+		priority = false // CR 514.3, PhaseHandler.java:422
 	}
 	g.checkPhaseTriggers(controller)
-	CheckStateBasedActions(g, controller)
+	found := CheckStateBasedActions(g, controller)
+	if g.activePhase == Cleanup && (found || len(g.stack) != 0) {
+		// CR 514.3a: priority, then another cleanup step
+		// (PhaseHandler.java:425-426, 447-449).
+		priority = true
+	}
+	return priority, nil
 }
 
 // emptyManaPools is CR 500.4: as a step or phase ends, every player's

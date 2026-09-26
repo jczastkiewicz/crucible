@@ -127,6 +127,10 @@ type Game struct {
 	// this turn, counted at CombatBegin and reset as the turn ends -- what
 	// FirstCombat$ reads once AddPhase can add a second combat.
 	combatsThisTurn int
+	// skipDamageSteps is PhaseHandler.skipDamageSteps: set by a driven
+	// entry into DeclareBlockers when no creature attacked, read by the
+	// damage steps that follow (skipsDamageStep, turn.go; ADR-0026).
+	skipDamageSteps bool
 
 	// turnOrderReversed is Game.turnOrder flipped to Direction.Right by
 	// ReverseTurnOrder: nextPlayerAfter walks the seats backwards.
@@ -778,6 +782,7 @@ func (g *Game) Clone() *Game {
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
+		skipDamageSteps:       g.skipDamageSteps,
 		turnOrderReversed:     g.turnOrderReversed,
 		preventShields:        append([]preventShield(nil), g.preventShields...),
 		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),

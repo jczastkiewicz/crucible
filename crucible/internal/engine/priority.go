@@ -1,15 +1,17 @@
 // Interactive priority: CR 117. ADR-0019.
 //
-// PassPriority is a standalone entry -- nothing in the turn structure
-// (turn.go's beginPhase/AdvancePhase) calls it yet, and it is not meant to:
-// beginPhase takes no *Registry, and wiring a priority round into it would
-// resolve phase triggers through this loop, changing every existing
-// scenario's expect.events. A test, a fixture verb, or (once wired, a later
-// commit) AdvancePhase's own caller drives it directly.
+// PassPriority is the standalone entry a test or the `passpriority` fixture
+// verb calls, gated by givesPriority. The turn driver (driver.go, ADR-0026)
+// calls priorityRound directly, gated by each step's own grant (beginStep,
+// turn.go) instead. AdvancePhase never opens a round: it is bookkeeping.
 
 package engine
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/mana"
+)
 
 // actionError is PassPriority's own GO-7 stop: a queued Action that
 // CastSpell/ActivateAbility declined. Naming the player, the card and (for
@@ -31,14 +33,19 @@ func (e *actionError) Error() string {
 }
 
 // Action is a player's answer to being offered priority: cast a spell
-// (Kind == ActionCast, Card names the hand card CastSpell would take) or
+// (Kind == ActionCast, Card names the hand card CastSpell would take),
 // activate an ability (Kind == ActionActivate, Card and AbilityIndex are
-// ActivateAbility's own arguments). The zero value, ActionPass, is a pass --
-// GO-8's typed-struct shape, not a map or a sentinel string.
+// ActivateAbility's own arguments), play a land (ActionPlayLand), or
+// activate a mana ability -- a basic land's intrinsic one (ActionTapForMana,
+// Color is the one color it taps for) or a scripted one
+// (ActionManaAbility, AbilityIndex as ActivateManaAbility takes it). The
+// zero value, ActionPass, is a pass -- GO-8's typed-struct shape, not a map
+// or a sentinel string.
 type Action struct {
 	Kind         ActionKind
 	Card         CardID
 	AbilityIndex int
+	Color        mana.Colors
 }
 
 // ActionKind is Action's own discriminant.
@@ -52,6 +59,15 @@ const (
 	// ActionActivate activates Card's AbilityIndex'th ability via
 	// ActivateAbility.
 	ActionActivate
+	// ActionPlayLand plays Card via PlayLand: a special action (CR 116.2a,
+	// 305.1), after which the player keeps priority (CR 116.3). ADR-0026.
+	ActionPlayLand
+	// ActionTapForMana taps the basic land Card for Color via
+	// TapLandForMana (CR 605.3a: no stack, priority kept). ADR-0026.
+	ActionTapForMana
+	// ActionManaAbility activates Card's AbilityIndex'th mana ability via
+	// ActivateManaAbility (CR 605.3a). ADR-0026.
+	ActionManaAbility
 )
 
 // canActSorcerySpeed is CR 307.1's own timing restriction (Player.java's
@@ -112,6 +128,13 @@ func (g *Game) PassPriority(reg *Registry, controller PlayerController) error {
 	if !g.givesPriority(g.activePhase, controller) {
 		return nil
 	}
+	return g.priorityRound(reg, controller)
+}
+
+// priorityRound is PassPriority's loop, without its entry checks: the turn
+// driver (driver.go) takes pending errors itself and gates on each step's
+// own grant, never on givesPriority (ADR-0026 Decision 3).
+func (g *Game) priorityRound(reg *Registry, controller PlayerController) error {
 	holder := g.activePlayer
 	if g.Player(holder).Lost {
 		holder = g.nextPlayerAfter(holder)
@@ -192,6 +215,25 @@ func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) 
 		}
 	case ActionActivate:
 		if !g.ActivateAbility(pid, a.Card, a.AbilityIndex, controller) {
+			return &actionError{pid: pid, kind: "activate", card: a.Card, index: a.AbilityIndex}
+		}
+	case ActionPlayLand:
+		if !g.PlayLand(pid, a.Card, controller) {
+			return &actionError{pid: pid, kind: "play land", card: a.Card}
+		}
+	case ActionTapForMana:
+		// TapLandForMana panics on a Colors value with more than one bit
+		// (manaability.go): an invariant for its internal callers, but here
+		// the value came from a controller, so it is that controller's error
+		// (GO-7).
+		if a.Color == 0 || a.Color&(a.Color-1) != 0 {
+			return &actionError{pid: pid, kind: fmt.Sprintf("tap for mana of colors %v with", a.Color), card: a.Card}
+		}
+		if !g.TapLandForMana(pid, a.Card, a.Color, controller) {
+			return &actionError{pid: pid, kind: "tap for mana", card: a.Card}
+		}
+	case ActionManaAbility:
+		if !g.ActivateManaAbility(pid, a.Card, a.AbilityIndex, controller) {
 			return &actionError{pid: pid, kind: "activate", card: a.Card, index: a.AbilityIndex}
 		}
 	default:

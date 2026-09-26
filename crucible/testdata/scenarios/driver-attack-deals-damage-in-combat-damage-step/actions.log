@@ -1,0 +1,11 @@
+# ADR-0026: the driven declare attackers step runs the declaration itself
+# (CR 508.1, a turn-based action before priority). ai has no creature, so
+# no block is asked for (CR 509.1). No creature has first strike, so the
+# first-strike damage step deals nothing and grants no priority
+# (PhaseHandler.java:321-332). The combat damage step deals 2 (CR 510.2).
+# Eight steps from Untap: Upkeep, Draw, Main1, BeginCombat, Declare
+# Attackers, Declare Blockers, First Strike Damage, Combat Damage.
+startturn human
+queue attackers 1
+queue attacktarget ai
+step 8

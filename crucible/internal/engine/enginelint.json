@@ -27,6 +27,7 @@
     "mulligan": ["mulligan.go"],
     "stack": ["stack.go"],
     "priority": ["priority.go"],
+    "driver": ["driver.go"],
     "valid": ["valid.go"],
     "combat": ["combat.go"],
     "attack": ["attack.go"],
@@ -138,6 +139,7 @@
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],
     "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player"],
+    "driver": ["game", "phase", "control", "effect"],
     "valid": ["id", "zone", "card", "parts", "game", "combat", "player", "effecthelpers"],
     "attack": [
       "id",

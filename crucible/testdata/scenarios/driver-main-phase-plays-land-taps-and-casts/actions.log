@@ -1,0 +1,13 @@
+# ADR-0026 Decision 4: land play and mana abilities are priority answers.
+# In the driven Main1, human plays Mountain (CR 305.1, keeps priority, CR
+# 116.3), taps it for R (CR 605.3a, no stack, keeps priority) and casts
+# Lightning Bolt at ai. Both pass; Bolt resolves.
+startturn human
+# Upkeep and Draw first: a queued action is spent on the first priority
+# round that asks its player, so queue only once Main1 is next.
+step 2
+queue targets ai
+queue action human playland 1
+queue action human tapformana 1 R
+queue action human cast 2
+step

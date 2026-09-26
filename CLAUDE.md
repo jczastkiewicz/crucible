@@ -196,20 +196,19 @@ M4 done — `internal/engine/{game,card,player,zone,event,control}`; `PlayerCont
 `ScriptedController`; `GameState` fixture load/dump, byte-identical round-trip (`internal/fixture`); event schema
 (ADR-0013); `Effect`/`Registry` dispatch, effects inside `internal/engine`, registry generated (ADR-0017).
 
-M5 in progress (rules kernel): turn/priority loop, zone changes and state-based actions, combat, mulligans, the
-valid-string evaluator, mana pool and payment, casting permanents, Auras and Instants/Sorceries through the stack
-(ADR-0018), trigger firing, replacement effects, block legality, continuous effects across all eight layers (partial),
-targeting, SubAbility chaining, last-known information, activated abilities.
+M5 in progress (rules kernel): turn/priority loop and turn driver (`Game.Step`/`Game.Run`, ADR-0026), zone changes and
+state-based actions, combat, mulligans, the valid-string evaluator, mana pool and payment, casting permanents, Auras and
+Instants/Sorceries through the stack (ADR-0018), trigger firing, replacement effects, block legality, continuous effects
+across all eight layers (partial), targeting, SubAbility chaining, last-known information, activated abilities.
 
 M6 in progress: 170 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`):
 `Planeswalk` (30), `ChangeText` (17), `ControlPlayer` (11).
 
 Thin or missing: Layer 1 past `Clone`'s "becomes a copy" (no "enters as a copy"); most of Layers 3-8 past their literal
-shapes; `PassPriority` (ADR-0019, CR 117) is not yet wired into the turn structure — only `CastSpell`/`ActivateAbility`
-and existing tests drive it; CR 608.2b's own fizzle check past an Aura's own single target and a phased-out target — now
-load-bearing rather than unreachable, since a response can invalidate a target. Full list: `port-log/game-state.md`,
-"Not ported yet".
+shapes; targeted `Pump` and `GainLife` with no `Defined$`; CR 608.2b's own fizzle check past an Aura's own single target
+and a phased-out target — now load-bearing rather than unreachable, since a response can invalidate a target. Full list:
+`port-log/game-state.md`, "Not ported yet".
 
 **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
 SBA," Plan Section 3.2) not.

@@ -114,6 +114,30 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 	g.checkDamageTableTriggers(controller, table, true)
 }
 
+// combatDamageAssigned is Combat.assignCombatDamage's return value
+// (Combat.java:919-925), computed before any damage is dealt: some live
+// attacker dealing damage in this step has power above zero, or some live
+// blocker dealing damage in this step still blocks a live attacker.
+// dealsInStep reads keywords held now, not Java's per-combatant "dealt
+// first-strike damage" set (Combat.java:906-917) -- ADR-0026's named gap.
+func (g *Game) combatDamageAssigned(firstStrike bool) bool {
+	for _, id := range g.combat.Attackers {
+		c := g.Card(id)
+		if !g.alive(id) || !dealsInStep(c, firstStrike) {
+			continue
+		}
+		if power, ok := c.Power(); ok && power > 0 {
+			return true
+		}
+	}
+	for _, b := range g.combat.Blocks {
+		if g.alive(b.Blocker) && g.alive(b.Attacker) && dealsInStep(g.Card(b.Blocker), firstStrike) {
+			return true
+		}
+	}
+	return false
+}
+
 // dealsInStep reports whether c deals damage in the first-strike step
 // (firstStrike true) or the regular step (false) -- CR 510.4, 702.4b, 702.7c:
 // double strike acts in both, first strike (alone) only in the first, and

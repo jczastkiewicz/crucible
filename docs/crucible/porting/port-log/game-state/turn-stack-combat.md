@@ -110,14 +110,9 @@ zero implementations -- `permanentEffect` and `attachEffect` (castspell.go) are 
 spell's own source to the graveyard, `CheckStateBasedActions`. `ResolveStack` itself is `resolveTop` called to empty,
 unchanged for every existing caller.
 
-`turn.go`'s `beginPhase` does not call `ResolveStack` or `PassPriority`. Nothing in the phase machinery itself ever
-pushes onto the stack -- only `CastSpell`/`ActivateAbility` do that today, driven by an explicit player decision outside
-`beginPhase` entirely -- so wiring either into the phase machinery is its own future commit, not this one (ADR-0019's
-own Decision, point 2: `beginPhase` takes no `*Registry`, and wiring a priority round in there would resolve phase
-triggers through it, changing every scenario's `expect.events`). Both stay driven by an explicit action instead, the
-same way `CastSpell`/`PlayLand` themselves are: the fixture's own `resolvestack` verb (`game-state-fixture.md`) and
-engine tests call `ResolveStack` directly; `PassPriority` has no fixture verb yet, only engine tests
-(`priority_test.go`).
+`AdvancePhase`/`beginPhase` never call `ResolveStack` or `PassPriority`: they are the bookkeeping walk, and a phase
+trigger they push stays on the stack until a caller resolves it. Fixtures do that with `resolvestack` or `passpriority`
+(`game-state-fixture.md`). The turn driver (below, ADR-0026) is the one path that opens priority rounds per step.
 
 ---
 
@@ -165,9 +160,47 @@ here: Java's own mechanism is a per-entity `canTarget(entity, fizzleCheck=true)`
 recompute-and-intersect of the candidate list, the shape that already broke `TestRemoveFromGameSpellOnStack` once
 (ADR-0018).
 
-`PassPriority` is not wired into `beginPhase`/`AdvancePhase` yet (above) — a later commit's job, once the turn structure
-is ready to drive a real priority round through every step without changing every scenario's `expect.events` in the
-process.
+---
+
+## Turn driver: ADR-0026
+
+`Game.Step`/`Game.Run` (`driver.go`) play whole steps through `PassPriority`'s loop, `priorityRound` (`priority.go`).
+Ported from `PhaseHandler.mainGameLoop`/`mainLoopStep` (`PhaseHandler.java:1032-1160`). `AdvancePhase` stays
+bookkeeping; both walks share `advanceStep`/`beginStep` (`turn.go`), and only `driven=true` adds the parts below.
+
+| Step              | Driven turn-based action (before phase triggers)                   | Priority                                                                            | Java                               |
+| ----------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| Untap             | unchanged                                                          | never                                                                               | `PhaseHandler.java:251`            |
+| DeclareAttackers  | `DeclareCombatAttackers`                                           | always, zero attackers included                                                     | `:305-312`                         |
+| DeclareBlockers   | `DeclareCombatBlockers`; skipped with no attackers                 | always                                                                              | `:228-233`, `:314-319`             |
+| FirstStrikeDamage | damage if `combatDamageAssigned(true)`; skipped with no attackers  | only if damage is assigned                                                          | `:321-332`                         |
+| CombatDamage      | damage if `combatDamageAssigned(false)`; skipped with no attackers | only if damage is assigned                                                          | `:334-344`                         |
+| Cleanup           | unchanged                                                          | only if its SBA check did something or the stack is non-empty; then another Cleanup | `:419-428`, `:446-450`, `:156-158` |
+| every other step  | unchanged                                                          | always                                                                              | —                                  |
+
+A skipped step is not begun at all: no `PhaseBegan`, no phase triggers — Java's `skipped` path (`:244-246`, `:436-441`),
+the same treatment `consumeSkip` gives a SkipPhase-skipped step. `Game.skipDamageSteps` carries the "nobody attacked"
+answer from DeclareBlockers to the two damage steps, as Java's field of the same name does, and `Clone` copies it.
+`combatDamageAssigned` (`combatdamage.go`) is `Combat.assignCombatDamage`'s return (`Combat.java:919-925`) computed
+before damage is dealt.
+
+`Step` takes the current step's own priority window as played: `StartTurn` begins Untap, which grants none, so
+`StartTurn` then `Run` plays a whole game. `Run` stops after turn `maxTurns`'s Cleanup with `Over()` false — M8 decides
+what an unfinished game counts as. Java has no cap.
+
+Three `Action` kinds make a driven step payable, since mana pools empty on every step (CR 500.4): `ActionPlayLand`
+(`PlayLand`, CR 116.3), `ActionTapForMana` (`TapLandForMana` with `Action.Color`) and `ActionManaAbility`
+(`ActivateManaAbility`). Each keeps priority, like a cast. A `Color` naming other than exactly one color is the
+controller's error, not `TapLandForMana`'s invariant panic.
+
+A queued `Action` is spent on the first priority round that asks its player, Upkeep included. A fixture that wants an
+action in Main1 steps to it first (`step 2` from Untap on turn 1), then queues. Fixtures: every
+`testdata/scenarios/driver-*`; Go tests in `turndriver_test.go` for what state cannot show (the Cleanup repeat).
+
+Gaps, each in `game-state.md`'s `Not ported yet`: a Cleanup that `EndTurn` begins mid-round does not repeat (its SBA
+result is discarded); `dealsInStep` reads keywords held now, not Java's "dealt first-strike damage" set
+(`Combat.java:906-917`); no cap on actions within one priority round (M7, where Java put its own guard,
+`PhaseHandler.java:1102-1105`).
 
 ---
 

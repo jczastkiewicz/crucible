@@ -1,0 +1,5 @@
+# ADR-0026 Decision 1: Run stops once turn 2's cleanup step has finished,
+# with the game not over. Turn 1 skips its draw (CR 103.7a); on turn 2 ai
+# draws the top card of its library.
+startturn human
+run 2

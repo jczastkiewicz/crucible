@@ -1,0 +1,7 @@
+# ADR-0026, PhaseHandler.isSkippingPhase (PhaseHandler.java:228-233): with
+# no attackers declared, the declare blockers step and both combat damage
+# steps are skipped. Six steps from Untap: Upkeep, Draw, Main1, BeginCombat,
+# Declare Attackers (human declines, CR 508.8), then straight to EndCombat.
+startturn human
+queue attackers none
+step 6

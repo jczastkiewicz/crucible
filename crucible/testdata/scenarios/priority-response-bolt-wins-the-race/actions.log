@@ -3,7 +3,7 @@
 # Lightning Bolt at human; human responds with a Bolt of their own at ai.
 # Once both pass, only the top object resolves (CR 117.4): human's Bolt
 # puts ai at 0, the state-based-action check that follows ends the game
-# (CR 704.5a), and ai's Bolt never resolves -- it is still on the stack.
+# (CR 704.5a), and ai's Bolt never resolves: human stays at 3.
 startturn ai
 advance 3
 tapformana ai 4 R

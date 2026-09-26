@@ -1,0 +1,7 @@
+# ADR-0026: Step plays a step through a real priority round. Entering
+# Upkeep pushes Juzam Djinn's "at the beginning of your upkeep" trigger
+# (CR 503.1); Upkeep grants priority (PhaseHandler.java onPhaseBegin), both
+# players pass, and the trigger resolves (CR 117.4) before Step returns.
+# `advance` would leave it on the stack.
+startturn human
+step

@@ -33,6 +33,8 @@ import (
 //
 //	startturn <player>            Game.StartTurn(player, controller)
 //	advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+//	step [n]                      Game.Step(engine.NewRegistry(), controller), n times (default 1), ADR-0026
+//	run <turns>                   Game.Run(engine.NewRegistry(), controller, turns), ADR-0026
 //	dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
@@ -61,6 +63,9 @@ import (
 //	queue action <p> pass                ScriptedController.QueueAction, p passes once (an empty queue passes too)
 //	queue action <p> cast <id>           ScriptedController.QueueAction, p casts id when next given priority
 //	queue action <p> activate <id> <n>   ScriptedController.QueueAction, p activates id's n'th ability (0-based)
+//	queue action <p> playland <id>       ScriptedController.QueueAction, p plays land id
+//	queue action <p> tapformana <id> <color>  ScriptedController.QueueAction, p taps basic land id for color
+//	queue action <p> manaability <id> <n>     ScriptedController.QueueAction, p activates id's n'th mana ability
 //	queue paygeneric <shard>             ScriptedController.QueuePayGeneric, a bare shard symbol ("W", "C", ...)
 //	queue payx <n>                       ScriptedController.QueuePayX, the value of X for a cost carrying one
 //	queue paysnow <shard>                 ScriptedController.QueuePaySnow, a bare shard symbol naming the color
@@ -131,6 +136,33 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		for i := 0; i < n; i++ {
 			l.Game.AdvancePhase(c)
+		}
+
+	case "step":
+		n := 1
+		if len(args) > 0 {
+			v, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("step %q: %w", args[0], err)
+			}
+			n = v
+		}
+		for i := 0; i < n; i++ {
+			if err := l.Game.Step(engine.NewRegistry(), c); err != nil {
+				return fmt.Errorf("step %d of %d: %w", i+1, n, err)
+			}
+		}
+
+	case "run":
+		if len(args) != 1 {
+			return fmt.Errorf("run: want a turn cap, got %q", strings.Join(args, " "))
+		}
+		maxTurns, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("run %q: %w", args[0], err)
+		}
+		if err := l.Game.Run(engine.NewRegistry(), c, maxTurns); err != nil {
+			return fmt.Errorf("run: %w", err)
 		}
 
 	case "dealopeninghands":
@@ -498,7 +530,8 @@ func resolveActionPlayer(l *Loaded, args []string, want int) (engine.PlayerID, e
 }
 
 // resolveAction parses `queue action`'s own arguments -- a seated player,
-// then "pass", "cast <id>" or "activate <id> <index>" -- into the Action
+// then "pass", "cast <id>", "activate <id> <index>", "playland <id>",
+// "tapformana <id> <color>" or "manaability <id> <index>" -- into the Action
 // that player's next TakeAction returns. An empty queue already answers
 // pass (ScriptedController.TakeAction); an explicit "pass" is for a player
 // who passes now and acts later in the same round, since the queue is
@@ -509,7 +542,7 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 		return engine.Action{}, pid, err
 	}
 	if len(args) < 3 {
-		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want <player> pass|cast|activate [<id> [index]], got %q", strings.Join(args, " "))
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want <player> <kind> [<id> ...], got %q", strings.Join(args, " "))
 	}
 	pid, err := resolveActionPlayer(l, args, 1)
 	if err != nil {
@@ -523,22 +556,39 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want exactly one card id, got %q", args[2])
 	}
 	switch args[1] {
-	case "cast":
+	case "cast", "playland":
 		if len(args) != 3 {
-			return engine.Action{}, engine.NoPlayer, fmt.Errorf("cast takes one card id, got %q", strings.Join(args[2:], " "))
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes one card id, got %q", args[1], strings.Join(args[2:], " "))
 		}
-		return engine.Action{Kind: engine.ActionCast, Card: ids[0]}, pid, nil
-	case "activate":
+		kind := engine.ActionCast
+		if args[1] == "playland" {
+			kind = engine.ActionPlayLand
+		}
+		return engine.Action{Kind: kind, Card: ids[0]}, pid, nil
+	case "activate", "manaability":
 		if len(args) != 4 {
-			return engine.Action{}, engine.NoPlayer, fmt.Errorf("activate takes a card id and an ability index, got %q", strings.Join(args[2:], " "))
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes a card id and an ability index, got %q", args[1], strings.Join(args[2:], " "))
 		}
 		n, err := strconv.Atoi(args[3])
 		if err != nil {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("ability index %q: %w", args[3], err)
 		}
-		return engine.Action{Kind: engine.ActionActivate, Card: ids[0], AbilityIndex: n}, pid, nil
+		kind := engine.ActionActivate
+		if args[1] == "manaability" {
+			kind = engine.ActionManaAbility
+		}
+		return engine.Action{Kind: kind, Card: ids[0], AbilityIndex: n}, pid, nil
+	case "tapformana":
+		if len(args) != 4 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("tapformana takes a card id and a color, got %q", strings.Join(args[2:], " "))
+		}
+		color, err := resolveManaColor(args[3])
+		if err != nil {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("color %q: %w", args[3], err)
+		}
+		return engine.Action{Kind: engine.ActionTapForMana, Card: ids[0], Color: color}, pid, nil
 	default:
-		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want cast or activate, got %q", args[1])
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want pass, cast, activate, playland, tapformana or manaability, got %q", args[1])
 	}
 }
 

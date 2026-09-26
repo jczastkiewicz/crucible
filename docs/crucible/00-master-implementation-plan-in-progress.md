@@ -13,7 +13,10 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 **In progress.**
 
 24. Turn/phase/step loop + priority (`PhaseHandler` port). **Done** — `turn.go`, `phase.go`, including CR 511.3's end of
-    combat cleanup (`endCombat`).
+    combat cleanup (`endCombat`); `PassPriority` (ADR-0019) and the turn driver `Game.Step`/`Game.Run` (`driver.go`,
+    ADR-0026), which plays whole steps and games through priority rounds with combat's turn-based actions, the
+    no-attackers skip, CR 514.3a's cleanup repeat and a turn cap. Design notes:
+    [`## Turn driver: ADR-0026`](porting/port-log/game-state/turn-stack-combat.md#turn-driver-adr-0026).
 25. Zone changes + state-based actions + game-over (`GameAction` port — budget the most time here). **Done** for the
     SBAs reached so far (`action.go`: legend rule, World rule, zero toughness/loyalty/defense, lethal damage, Battle
     protector, dangling-attachment cleanup including an Aura's own `Enchant` restriction against its still-present
@@ -1803,5 +1806,6 @@ plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospec
 30. Implement APIs in corpus-first, then frequency order (Section 1.5). Keywords, triggers, replacements, cost parts
     alongside.
 31. Three scenarios minimum per API. Parity matrix updated continuously.
-32. Replay-parity harness (Layer 3) stood up as soon as full games run at all — do not defer this to the end. **Exit
-    gate:** P5 gate — 100% corpus coverage for the active gauntlet; replay parity green over the nightly log corpus.
+32. Replay-parity harness (Layer 3) stood up as soon as full games run at all — do not defer this to the end. Full games
+    run now (`Game.Run`, ADR-0026) with a scripted controller; the harness itself is not started. **Exit gate:** P5 gate
+    — 100% corpus coverage for the active gauntlet; replay parity green over the nightly log corpus.

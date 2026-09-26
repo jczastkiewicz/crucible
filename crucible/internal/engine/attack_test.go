@@ -22,7 +22,7 @@ func TestDeclareCombatAttackersTapsADeclaredAttacker(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{creature})
 
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if len(got) != 1 || got[0] != creature {
 		t.Fatalf("DeclareCombatAttackers() = %v, want [%v]", got, creature)
@@ -47,7 +47,7 @@ func TestDeclareCombatAttackersVigilanceStaysUntapped(t *testing.T) {
 
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{creature})
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if g.Card(creature).Tapped {
 		t.Error("a vigilance attacker tapped")
@@ -69,7 +69,7 @@ func TestDeclareCombatAttackersSummoningSickIsIneligibleWithoutHaste(t *testing.
 
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{haste})
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if len(got) != 1 || got[0] != haste {
 		t.Errorf("DeclareCombatAttackers() = %v, want [%v] (only the hasty one was ever offered)", got, haste)
@@ -90,7 +90,7 @@ func TestDeclareCombatAttackersTappedIsIneligible(t *testing.T) {
 	// panics on an empty queue, which is exactly the assertion -- nothing
 	// eligible means nothing asked.
 	c := engine.NewScriptedController()
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if got != nil {
 		t.Errorf("DeclareCombatAttackers() = %v, want nil", got)
@@ -108,7 +108,7 @@ func TestDeclareCombatAttackersOnlyOffersActivePlayersCreatures(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if got != nil {
 		t.Errorf("DeclareCombatAttackers() = %v, want nil (the eligible creature belongs to the defending player)", got)
@@ -125,7 +125,7 @@ func TestDeclareCombatAttackersAsksNoOneWhenNothingIsEligible(t *testing.T) {
 	g.SetTurnState(1, a, engine.Main1)
 
 	c := engine.NewScriptedController()
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if got != nil {
 		t.Errorf("DeclareCombatAttackers() = %v, want nil", got)
@@ -143,7 +143,7 @@ func TestDeclareCombatAttackersCanDeclineWithEligibleCreatures(t *testing.T) {
 
 	c := engine.NewScriptedController()
 	c.QueueAttackers(nil)
-	got := g.DeclareCombatAttackers(c)
+	got := declareAttackers(t, g, c)
 
 	if got != nil {
 		t.Errorf("DeclareCombatAttackers() = %v, want nil", got)
@@ -166,7 +166,7 @@ func TestCloneCopiesCombat(t *testing.T) {
 	clone := g.Clone()
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{creature})
-	clone.DeclareCombatAttackers(c)
+	declareAttackers(t, clone, c)
 
 	if len(g.Attackers()) != 0 {
 		t.Errorf("original Attackers() = %v after the clone's changed, want none", g.Attackers())
@@ -223,7 +223,7 @@ func TestDeclareCombatAttackersExertsAndRunsPayoff(t *testing.T) {
 	c.QueueAttackers([]engine.CardID{creature})
 	c.QueueExertAttackers([]engine.CardID{creature})
 
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if !g.Card(creature).Exerted {
 		t.Error("chosen attacker did not become Exerted")
@@ -257,7 +257,7 @@ func TestDeclareCombatAttackersDeclinesExert(t *testing.T) {
 	c.QueueAttackers([]engine.CardID{creature})
 	c.QueueExertAttackers(nil)
 
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if g.Card(creature).Exerted {
 		t.Error("declined attacker became Exerted anyway")
@@ -281,7 +281,7 @@ func TestDeclareCombatAttackersSkipsExertOfferForOrdinaryCreature(t *testing.T) 
 	c := engine.NewScriptedController()
 	c.QueueAttackers([]engine.CardID{creature})
 
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if g.Card(creature).Exerted {
 		t.Error("an ordinary creature became Exerted")
@@ -305,7 +305,7 @@ func TestDeclareCombatAttackersExertsWithNoPayoff(t *testing.T) {
 	c.QueueAttackers([]engine.CardID{creature})
 	c.QueueExertAttackers([]engine.CardID{creature})
 
-	g.DeclareCombatAttackers(c)
+	declareAttackers(t, g, c)
 
 	if !g.Card(creature).Exerted {
 		t.Error("chosen attacker did not become Exerted")

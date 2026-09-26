@@ -517,10 +517,10 @@ func TestDamageToPlayerPreventedByReplacement(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 20 {
@@ -544,10 +544,10 @@ func TestDamageToPlayerNotPreventedWhenValidTargetDoesNotMatch(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 17 {
@@ -571,10 +571,10 @@ func TestDamageToCreaturePreventedByReplacement(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 0 {
@@ -600,10 +600,10 @@ func TestDamageToCreatureNotPreventedWhenValidSourceDoesNotMatch(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {
@@ -632,10 +632,10 @@ func TestDamageToCreatureNotPreventedByUndefinedCheckSVar(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {
@@ -660,10 +660,10 @@ func TestDamageToPlayerPreventedWhenPlayerTurnMatches(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(a).Life != 20 {
@@ -687,10 +687,10 @@ func TestDamageToPlayerNotPreventedWhenPlayerTurnDoesNotMatch(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(a).Life != 17 {
@@ -717,10 +717,10 @@ func TestDamageToPlayerReducedByReplaceDamage(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 18 {
@@ -746,10 +746,10 @@ func TestDamageToPlayerReductionClampsAtZero(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 20 {
@@ -830,10 +830,10 @@ func TestDamageToCreatureReducedByReplaceDamage(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 2 {
@@ -869,10 +869,10 @@ func TestDamageToCreatureNotReducedByChainedSubAbility(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {
@@ -898,10 +898,10 @@ func TestDamageToPlayerNotReducedByDivideShieldAmount(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 17 {
@@ -966,10 +966,10 @@ func TestDamageToPlayerDoubledByReplaceEffect(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 14 {
@@ -1005,10 +1005,10 @@ func TestDamageToPlayerDoubledByReplaceEffectWithCommaValidTarget(t *testing.T) 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 14 {
@@ -1038,10 +1038,10 @@ func TestDamageToPlayerReducedByReplaceDamageWithCommaValidTarget(t *testing.T) 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 18 {
@@ -1069,10 +1069,10 @@ func TestDamageToCreatureTripledByReplaceEffect(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 6 {
@@ -1099,10 +1099,10 @@ func TestDamageToPlayerNotReducedWhenValidSourceDoesNotMatch(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 17 {
@@ -1133,10 +1133,10 @@ func TestDamageToPlayerReplaceEffectPlusLiteral(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 15 {
@@ -1171,10 +1171,10 @@ func TestDamageToPlayerReplaceEffectMinusClampsAtZero(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 20 {
@@ -1204,10 +1204,10 @@ func TestDamageToPlayerReplaceEffectHalfDown(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 19 {
@@ -1234,10 +1234,10 @@ func TestDamageToPlayerReplaceEffectFlatReplacementAboveGate(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 18 {
@@ -1266,10 +1266,10 @@ func TestDamageToPlayerReplaceEffectFlatReplacementBelowGateNotApplied(t *testin
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 19 {
@@ -1302,10 +1302,10 @@ func TestDamageToPlayerReplaceEffectUnresolvedOperandNotApplied(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 17 {
@@ -1330,10 +1330,10 @@ func TestDamageToCreaturePreventedWhenDamageAmountGateMatches(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 0 {
@@ -1356,10 +1356,10 @@ func TestDamageToCreatureNotPreventedWhenDamageAmountExceedsGate(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 4 {
@@ -1415,10 +1415,10 @@ func TestDamageToCreatureReplacedByRemoveCounter(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 0 {
@@ -1452,10 +1452,10 @@ func TestDamageToPlayerReplacedByPutCounterUsingBareReplaceCount(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Player(b).Life != 20 {
@@ -1492,10 +1492,10 @@ func TestDamageToCreatureReplacedByPutCounterOnReplacedTarget(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: victim, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(victim).Damage.Marked != 0 {
@@ -1529,10 +1529,10 @@ func TestDamageToCreatureReplacedByPutCounterOnEquipped(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: victim, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(victim).Damage.Marked != 0 {
@@ -1575,10 +1575,10 @@ func TestDamageToCreatureNotReplacedByRemoveCounterWithSubAbility(t *testing.T) 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {
@@ -1604,10 +1604,10 @@ func TestDamageToPlayerNotReplacedByPutCounterNamingCheckDefinedPlayer(t *testin
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if g.Card(blocker).Damage.Marked != 3 {

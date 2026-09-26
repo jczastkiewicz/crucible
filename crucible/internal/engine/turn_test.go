@@ -446,7 +446,7 @@ func TestAdvancePhaseIntoCombatEndClearsCombat(t *testing.T) {
 	g.SetTurnState(1, a, engine.Main1)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if len(g.Attackers()) == 0 {
 		t.Fatal("setup: no attacker declared")
 	}
@@ -483,7 +483,7 @@ func TestDeclareCombatAttackersAfterCombatEndSeesNoStaleAttackers(t *testing.T) 
 	g.SetTurnState(1, a, engine.Main1)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	g.SetTurnState(1, a, engine.CombatDamage)
 	g.AdvancePhase(engine.NewScriptedController()) // -> CombatEnd, clears combat
 
@@ -491,7 +491,7 @@ func TestDeclareCombatAttackersAfterCombatEndSeesNoStaleAttackers(t *testing.T) 
 	// has nothing eligible to attack with: DeclareCombatAttackers returns
 	// early without asking the controller at all.
 	g.SetTurnState(2, a, engine.Main1)
-	got := g.DeclareCombatAttackers(engine.NewScriptedController())
+	got := declareAttackers(t, g, engine.NewScriptedController())
 
 	if got != nil {
 		t.Errorf("DeclareCombatAttackers() = %v, want nil (nothing eligible)", got)

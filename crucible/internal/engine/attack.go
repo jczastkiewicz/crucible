@@ -18,74 +18,105 @@ func (g *Game) Attackers() []CardID { return g.combat.Attackers }
 // eligible creatures attack. A creature is eligible if it is untapped and
 // either has no summoning sickness or has haste (CR 302.6, CR 508.1a) --
 // nothing this port can grant a creature the ability to attack tapped, so
-// that half of 508.1a is not a case that can arise yet. Declared attackers
-// tap, unless they have vigilance (CR 508.1f).
+// that half of 508.1a is not a case that can arise yet.
+//
+// The steps run in PhaseHandler.declareAttackersTurnBasedAction's order
+// (PhaseHandler.java:545-556): the controller's answer and each attacker's
+// defender (CR 508.1a-b, chooseAttackTargets) first, then the legality check
+// (CR 508.1c-d, validateAttackers in attackconstraints.go), and only then
+// does anything happen to the game -- declared attackers tap unless they
+// have vigilance (CR 508.1f), exert (CR 508.1g) and trigger. A declaration
+// that fails the check is an *IllegalDeclarationError and changes nothing
+// (ADR-0024): Java re-prompts its human, this port's controller is expected
+// to answer legally, and nothing is repaired on its behalf -- a goaded
+// creature left home is not added back, since which creature obeys a
+// requirement is the controller's choice, not the engine's (ADR-0024,
+// Considered Options 1).
 //
 // If no creature is eligible, the controller is not asked at all: there is
 // nothing meaningful to decide, the same reasoning a mulligan offer with no
-// legal targets would have no question to ask either. This also keeps every
-// existing scenario that walks through the DeclareAttackers phase (PhaseType,
-// phase.go -- a different thing from this method, named after the same CR
-// step) without ever creating a creature from needing to queue an empty
-// answer.
+// legal targets would have no question to ask either. Java's
+// CombatUtil.canAttack(playerTurn) guard skips the whole declaration,
+// validation included, the same way (PhaseHandler.java:537). This also keeps
+// every existing scenario that walks through the DeclareAttackers phase
+// without ever creating a creature from needing to queue an empty answer.
 //
 // Not wired into AdvancePhase's automatic walk through the phases
 // (turn.go): PerformMulligans is the precedent for a real M5 mechanic a
 // scenario calls explicitly (actions.log's own `declareattackers` verb)
-// rather than one the turn structure invokes unconditionally -- the same
-// "stub standing in for a decision no one can make yet" reasoning that
-// keeps ResolveStack out of beginPhase too, since most games reaching this
-// phase attack with nothing and the call would be a no-op far more often
-// than not.
+// rather than one the turn structure invokes unconditionally.
 // checkAttacksTriggers (trigger.go) runs once per declared attacker, after
 // tapping and target assignment both landed -- CR 508.3's own "whenever ~
 // attacks" trigger fires off the attack as declared, not off a
 // still-provisional one. checkAttackersDeclaredTrigger (trigger.go) runs
 // once after that loop, for CR 508.1's own "whenever a player attacks"
-// trigger -- its own guard on an empty attackers slice is exactly why this
-// method's own early return (below) never needs to call it at all.
-func (g *Game) DeclareCombatAttackers(controller PlayerController) []CardID {
-	var eligible []CardID
-	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
-		c := g.Card(id)
-		if !c.Type().Has(cardtype.Creature) || c.Tapped {
-			continue
-		}
-		if c.SummonSick && !c.HasKeyword("Haste") {
-			continue
-		}
-		if c.isDetained() {
-			continue
-		}
-		eligible = append(eligible, id)
-	}
+// trigger.
+func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, error) {
+	eligible := g.eligibleAttackers()
 	if len(eligible) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	attackers := controller.DeclareCombatAttackers(g, g.activePlayer, eligible)
-	// CR 701.15b / 508.1d: a goaded creature that can attack does.
-	for _, id := range eligible {
-		if g.Card(id).IsGoaded() && !containsCard(attackers, id) {
-			attackers = append(attackers, id)
+	for i, id := range attackers {
+		if !containsCard(eligible, id) {
+			return nil, illegal("CR 508.1a", "not an eligible attacker", id)
+		}
+		if containsCard(attackers[:i], id) {
+			return nil, illegal("CR 508.1a", "declared as an attacker twice", id)
 		}
 	}
+	targets, err := g.chooseAttackTargets(controller, attackers)
+	if err != nil {
+		return nil, err
+	}
+	if err := g.validateAttackers(attackers, targets); err != nil {
+		return nil, err
+	}
+
+	g.combat.Attackers = attackers
+	g.combat.AttackTargets = targets
 	for _, id := range attackers {
 		if !g.Card(id).HasKeyword("Vigilance") {
 			g.Card(id).Tapped = true
 			g.checkTapsTriggers(controller, id, g.Card(id).Controller(), true)
 		}
 	}
-	g.combat.Attackers = attackers
 	g.exertDeclaredAttackers(controller, attackers)
-	g.assignAttackTargets(controller, attackers)
 	for _, id := range attackers {
 		g.Card(id).AttacksThisTurn++
 		g.checkAttacksTriggers(controller, id)
 	}
 	g.checkAttackersDeclaredOneTargetTrigger(controller)
 	g.checkAttackersDeclaredTrigger(controller)
-	return attackers
+	return attackers, nil
+}
+
+// eligibleAttackers is every creature the active player controls that CR
+// 508.1a lets attack (canAttackAtAll), in battlefield order.
+func (g *Game) eligibleAttackers() []CardID {
+	var eligible []CardID
+	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
+		if g.canAttackAtAll(id) {
+			eligible = append(eligible, id)
+		}
+	}
+	return eligible
+}
+
+// canAttackAtAll is the part of CombatUtil.canAttack(attacker, defender)
+// that does not depend on the defender, for the sources this port has: a
+// creature, untapped, not summoning sick unless it has haste, not detained
+// (CR 701.35).
+func (g *Game) canAttackAtAll(id CardID) bool {
+	c := g.Card(id)
+	if !c.Type().Has(cardtype.Creature) || c.Tapped {
+		return false
+	}
+	if c.SummonSick && !c.HasKeyword("Haste") {
+		return false
+	}
+	return !c.isDetained()
 }
 
 // exertDeclaredAttackers is CR 508.1c: after tapping, before target
@@ -178,15 +209,19 @@ func (g *Game) resolveOptionalAttackCostPayoff(controller PlayerController, id C
 // planeswalker/battle that player controls.
 func (g *Game) AttackTarget(attacker CardID) EntityID { return g.combat.AttackTargets[attacker] }
 
-// assignAttackTargets is CR 508.1d: for each declared attacker, what it's
-// attacking. Every attacker shares the same eligible set (nothing this port
-// models restricts one creature's targets differently from another's), so
-// it's computed once and reused. A lone eligible target -- the ordinary
-// two-player game with no planeswalker or battle on the other side -- is
-// assigned automatically, the same "nothing meaningful to decide" reasoning
-// DeclareCombatAttackers/Blockers use for an empty eligible list; more than
-// one asks the controller per attacker (ChooseAttackTarget).
-func (g *Game) assignAttackTargets(controller PlayerController, attackers []CardID) {
+// chooseAttackTargets is CR 508.1b: for each declared attacker, what it's
+// attacking. Every attacker shares the same eligible set, narrowed per
+// attacker only by goad's restriction half (goadTargets, CR 701.15b --
+// CombatUtil.canAttack's own goad branch, CombatUtil.java:215-229). A lone
+// option -- the ordinary two-player game with no planeswalker or battle on
+// the other side -- is assigned automatically, the same "nothing
+// meaningful to decide" reasoning DeclareCombatAttackers uses for an empty
+// eligible list; more than one asks the controller per attacker
+// (ChooseAttackTarget). An answer outside the options breaks a restriction
+// -- Java's countViolations returns -1 for it -- and is an
+// *IllegalDeclarationError. Nothing is written to the game: the caller
+// commits the map once the whole declaration passed validation.
+func (g *Game) chooseAttackTargets(controller PlayerController, attackers []CardID) (map[CardID]EntityID, error) {
 	eligible := g.eligibleAttackTargets()
 	targets := make(map[CardID]EntityID, len(attackers))
 	for _, id := range attackers {
@@ -195,9 +230,13 @@ func (g *Game) assignAttackTargets(controller PlayerController, attackers []Card
 			targets[id] = options[0]
 			continue
 		}
-		targets[id] = controller.ChooseAttackTarget(g, g.activePlayer, id, options)
+		target := controller.ChooseAttackTarget(g, g.activePlayer, id, options)
+		if !containsEntity(options, target) {
+			return nil, illegal("CR 508.1b", "cannot attack the chosen defender", id)
+		}
+		targets[id] = target
 	}
-	g.combat.AttackTargets = targets
+	return targets, nil
 }
 
 // eligibleAttackTargets is every opponent still in the game, plus every

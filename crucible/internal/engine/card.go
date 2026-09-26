@@ -220,6 +220,13 @@ type Card struct {
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
 
+	// mustBlock are the attackers this creature must block if able
+	// (Card.mustBlockCards, MustBlockEffect.java:76/:79), in the order the
+	// effects resolved. Every entry ends at cleanup (Card.onCleanupPhase's
+	// clearMustBlockCards); a Duration$ UntilEndOfCombat one at end of
+	// combat. A creature leaving the battlefield loses them all (CR 400.7).
+	mustBlock []mustBlockReq
+
 	// tempControllers are one-shot control changes (GainControl,
 	// ExchangeControl): Java's Card.addTempController. Controller merges them
 	// with ControlMod's continuous effects by timestamp, the latest winning.

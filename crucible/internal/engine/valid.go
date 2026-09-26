@@ -277,6 +277,22 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// forbid "attack"/"block" from ever depending on "valid" back, which
 		// cantBlockBy (staticability.go) needs to.
 		return containsCard(g.combat.Attackers, c.ID)
+	case name == "DefenderCtrl":
+		// CardProperty.java:197-212: c's controller is the player the
+		// source is attacking, or the controller of the planeswalker or
+		// battle it attacks (Combat.getDefendingPlayerRelatedTo). Read off
+		// AttackTargets directly, for the reason "attacking" (above) gives.
+		// Only an attacking source is ported (every MustBlock corpus use);
+		// the ForRemembered suffix is a different name and never matches.
+		target, ok := g.combat.AttackTargets[source]
+		if !ok {
+			return false
+		}
+		if pid, isPlayer := target.AsPlayer(); isPlayer {
+			return c.Controller() == pid
+		}
+		cid, _ := target.AsCard()
+		return g.Card(cid).Controller() == c.Controller()
 	case name == "blocking":
 		return isBlocking(g.combat.Blocks, c.ID)
 	case name == "HasCounters":

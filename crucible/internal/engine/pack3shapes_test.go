@@ -199,7 +199,7 @@ func TestChangeCombatantsRedirectsAndOptional(t *testing.T) {
 	ac.QueueAttackers([]engine.CardID{atk})
 	ac.QueueAttackTarget(engine.PlayerEntity(ps[1]))
 	g.SetTurnState(1, ps[0], engine.DeclareAttackers)
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	c := engine.NewScriptedController()
 	c.QueueConfirmEffect(true)
 	c.QueueAttackTarget(engine.PlayerEntity(ps[2]))

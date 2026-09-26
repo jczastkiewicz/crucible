@@ -15,15 +15,16 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
-| `ChooseSourceEffect.java:131-133`    | Pool exhausted before every chooser has picked hangs the game                                                          | `error` for the chooser left empty                      | Not filed |
-| `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
-| `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
-| `CardUtil.java:345`                  | Recursive frame resolves `Valid$` against the reflecting host                                                          | None: `ManaReflected` deferred                          | Not filed |
-| `FlipOntoBattlefieldEffect.java:109` | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot | `flipCandidates` rejects that one shape with an `error` | Not filed |
-| `PlayEffect.java:312`, `:389`        | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                         | `playRepeatLoop` returns an `error`                     | Not filed |
+| Site                                    | Defect                                                                                                                           | Crucible meanwhile                                      | Upstream  |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`         | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                              | `TargetControls$` rejected                              | Not filed |
+| `ChooseSourceEffect.java:131-133`       | Pool exhausted before every chooser has picked hangs the game                                                                    | `error` for the chooser left empty                      | Not filed |
+| `Player.java:3435`                      | `getMonarchSet` ternary condition inverted                                                                                       | No counterpart: no set codes in Crucible                | Not filed |
+| `GameAction.java:2568-2573`             | `takeInitiative` has no `return` after passing a lost player's take on                                                           | Reproduced (oracle parity)                              | Not filed |
+| `CardUtil.java:345`                     | Recursive frame resolves `Valid$` against the reflecting host                                                                    | None: `ManaReflected` deferred                          | Not filed |
+| `FlipOntoBattlefieldEffect.java:109`    | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot           | `flipCandidates` rejects that one shape with an `error` | Not filed |
+| `PlayEffect.java:312`, `:389`           | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                                   | `playRepeatLoop` returns an `error`                     | Not filed |
+| `StaticAbilityCantAttackBlock.java:269` | `cantBlockBy(attacker, null)` always false, so `CombatUtil.canBeBlocked`'s unblockable check (`CombatUtil.java:533`) never fires | Check not ported; no validator outcome depends on it    | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -291,3 +292,18 @@ if (sas.isEmpty()) {
 
 **Crucible meanwhile:** `playRepeatLoop` (`playeffect.go`) returns an `error` when either branch is reached under
 `AllowRepeats$`, rather than looping or quietly dropping the card.
+
+### `StaticAbilityCantAttackBlock.java:269` — `cantBlockBy(attacker, null)` can never be true
+
+`CombatUtil.canBeBlocked(attacker, combat, defendingPlayer)` ends with an "Unblockable check" (`CombatUtil.java:533`):
+`StaticAbilityCantAttackBlock.cantBlockBy(attacker, null)`. Every static reaches `applyCantBlockByAbility`, whose
+`if (blocker == null || !stAb.matchesValidParam("ValidDefender", blocker.getController())) return false;` (`:269`)
+returns false for a null blocker before any restriction is applied. So an attacker that "can't be blocked" still reads
+as blockable to `canBeBlocked`, and every caller relying on it (the AI's block planning, `mustBlockAnAttacker`) has to
+be saved by a separate per-pair `canBlock(attacker, blocker)`.
+
+**Proposed fix:** give `applyCantBlockByAbility` a blocker-less mode that applies a static with no `ValidBlocker$`,
+`ValidBlockerRelative$` or `ValidDefender$` (an unconditional "can't be blocked"), or drop the dead check.
+
+**Crucible meanwhile:** `canBeBlockedInCombat` (`blockvalidation.go`) leaves the check out. The block validator's
+outcomes do not change: each of its requirement tests also asks `CanBlock(attacker, blocker)`, which applies the static.

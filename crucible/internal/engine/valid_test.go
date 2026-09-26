@@ -759,7 +759,7 @@ func TestMatchesAttacking(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if !engine.Matches(g, g.Card(attacker), valid.Parse("Card.attacking"), a, engine.NoCard) {
 		t.Error("the declared attacker did not match Card.attacking")
@@ -801,11 +801,11 @@ func TestMatchesBlocking(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if !engine.Matches(g, g.Card(blocker), valid.Parse("Card.blocking"), a, engine.NoCard) {
 		t.Error("the declared blocker did not match Card.blocking")
@@ -831,7 +831,7 @@ func TestMatchesAttackingBlockingSuffixedFormIsGap(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if engine.Matches(g, g.Card(attacker), valid.Parse("Card.attackingYou"), a, engine.NoCard) {
 		t.Error("Card.attackingYou matched despite the suffix never being evaluated")

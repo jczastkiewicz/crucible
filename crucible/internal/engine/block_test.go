@@ -19,11 +19,11 @@ func TestDeclareCombatBlockersAssignsADeclaredBlocker(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	want := []engine.Block{{Blocker: blocker, Attacker: attacker}}
 	if len(got) != 1 || got[0] != want[0] {
@@ -48,11 +48,11 @@ func TestDeclareCombatBlockersDoesNotTapTheBlocker(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if g.Card(blocker).Tapped {
 		t.Error("a declared blocker tapped")
@@ -72,13 +72,13 @@ func TestDeclareCombatBlockersTappedIsIneligible(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	// No QueueBlocks call: if DeclareCombatBlockers asked anyway, this
 	// panics on an empty queue, which is exactly the assertion -- nothing
 	// eligible means nothing asked.
 	bc := engine.NewScriptedController()
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if got != nil {
 		t.Errorf("DeclareCombatBlockers() = %v, want nil", got)
@@ -98,10 +98,10 @@ func TestDeclareCombatBlockersOnlyOffersDefendingPlayersCreatures(t *testing.T) 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if got != nil {
 		t.Errorf("DeclareCombatBlockers() = %v, want nil (the only untapped creature belongs to the attacking player)", got)
@@ -119,7 +119,7 @@ func TestDeclareCombatBlockersAsksNoOneWithNoAttackers(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	got := g.DeclareCombatBlockers(c)
+	got := declareBlockers(t, g, c)
 
 	if got != nil {
 		t.Errorf("DeclareCombatBlockers() = %v, want nil", got)
@@ -138,11 +138,11 @@ func TestDeclareCombatBlockersCanDeclineWithEligibleCreatures(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if got != nil {
 		t.Errorf("DeclareCombatBlockers() = %v, want nil", got)
@@ -163,14 +163,14 @@ func TestDeclareCombatBlockersAllowsGangBlocking(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if len(got) != 2 {
 		t.Fatalf("DeclareCombatBlockers() = %v, want 2 blocks", got)
@@ -195,7 +195,7 @@ func TestDeclareCombatBlockersSplitAcrossTwoDefendingPlayers(t *testing.T) {
 	ac.QueueAttackers([]engine.CardID{attackerOfB, attackerOfC})
 	ac.QueueAttackTarget(engine.PlayerEntity(b))
 	ac.QueueAttackTarget(engine.PlayerEntity(c2))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	// attackerOfB is first in the attackers slice, so b is asked first;
 	// c2's answer is queued second.
@@ -203,7 +203,7 @@ func TestDeclareCombatBlockersSplitAcrossTwoDefendingPlayers(t *testing.T) {
 	bc.QueueBlocks([]engine.Block{{Blocker: blockerB, Attacker: attackerOfB}})
 	bc.QueueBlocks([]engine.Block{{Blocker: blockerC, Attacker: attackerOfC}})
 
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	want := []engine.Block{
 		{Blocker: blockerB, Attacker: attackerOfB},
@@ -236,12 +236,12 @@ func TestDeclareCombatBlockersSkipsADefenderWithNoEligibleCreature(t *testing.T)
 	ac.QueueAttackers([]engine.CardID{attackerOfB, attackerOfC})
 	ac.QueueAttackTarget(engine.PlayerEntity(b))
 	ac.QueueAttackTarget(engine.PlayerEntity(c2))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blockerC, Attacker: attackerOfC}})
 
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	want := []engine.Block{{Blocker: blockerC, Attacker: attackerOfC}}
 	if len(got) != 1 || got[0] != want[0] {
@@ -249,9 +249,11 @@ func TestDeclareCombatBlockersSkipsADefenderWithNoEligibleCreature(t *testing.T)
 	}
 }
 
-// A Menace attacker (CR 702.111b) blocked by only one creature has the
-// whole illegal block dropped, not reduced to a single-blocker assignment.
-func TestDeclareCombatBlockersDropsSingleBlockerAgainstMenace(t *testing.T) {
+// A Menace attacker (CR 702.111b) declared blocked by only one creature is
+// an illegal declaration (CR 509.1b, ADR-0024): an error with nothing
+// applied, not a block dropped on the defender's behalf. Declining to block
+// is the legal answer the same defender can then give.
+func TestDeclareCombatBlockersRejectsSingleBlockerAgainstMenace(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -262,17 +264,22 @@ func TestDeclareCombatBlockersDropsSingleBlockerAgainstMenace(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	got := g.DeclareCombatBlockers(bc)
-
-	if got != nil {
-		t.Errorf("DeclareCombatBlockers() = %v, want nil -- one creature can't legally block a Menace attacker", got)
+	_, err := g.DeclareCombatBlockers(bc)
+	ill := wantIllegal(t, err, "CR 509.1b")
+	if len(ill.Cards) != 1 || ill.Cards[0] != attacker {
+		t.Errorf("cards = %v, want the Menace attacker", ill.Cards)
 	}
 	if len(g.Blocks()) != 0 {
 		t.Errorf("Blocks() = %v, want none", g.Blocks())
+	}
+
+	bc.QueueBlocks(nil)
+	if got := declareBlockers(t, g, bc); got != nil {
+		t.Errorf("DeclareCombatBlockers() = %v, want nil", got)
 	}
 }
 
@@ -290,14 +297,14 @@ func TestDeclareCombatBlockersAllowsTwoBlockersAgainstMenace(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{
 		{Blocker: blocker1, Attacker: attacker},
 		{Blocker: blocker2, Attacker: attacker},
 	})
-	got := g.DeclareCombatBlockers(bc)
+	got := declareBlockers(t, g, bc)
 
 	if len(got) != 2 {
 		t.Fatalf("DeclareCombatBlockers() = %v, want 2 blocks", got)
@@ -317,12 +324,12 @@ func TestCloneCopiesBlocks(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	clone := g.Clone()
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	clone.DeclareCombatBlockers(bc)
+	declareBlockers(t, clone, bc)
 
 	if len(g.Blocks()) != 0 {
 		t.Errorf("original Blocks() = %v after the clone's changed, want none", g.Blocks())

@@ -72,13 +72,13 @@ func attackWith(t *testing.T, g *engine.Game, p engine.PlayerID, attacker engine
 	g.SetTurnState(g.Turn(), p, engine.DeclareAttackers)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
 		t.Fatalf("ResolveStack after attacks: %v", err)
 	}
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(blocks)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
 		t.Fatalf("ResolveStack after blocks: %v", err)
 	}

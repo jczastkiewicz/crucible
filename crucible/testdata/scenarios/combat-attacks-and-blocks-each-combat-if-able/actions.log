@@ -1,0 +1,18 @@
+# CR 508.1d/509.1c requirements obeyed (ADR-0024): Bloodrock Cyclops
+# (3/3, S:Mode$ MustAttack | ValidCreature$ Card.Self) attacks each combat
+# if able, and Iron Golem (5/3, S:Mode$ MustBlock | ValidCreature$
+# Card.Self) blocks each combat if able. Each declaration names the
+# required creature -- leaving either out is an illegal declaration, an
+# error rather than one the engine repairs. The Golem's 5 damage kills the
+# Cyclops; the Cyclops' 3 kills the Golem.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

@@ -377,6 +377,7 @@ const MaxHandSize = 7
 func (g *Game) endCombat() {
 	g.combat = Combat{}
 	g.endEffectsAtEndOfCombat()
+	g.endMustBlocks(true)
 }
 
 // cleanupStep is CR 514.1 (discard to maximum hand size) followed by a
@@ -445,6 +446,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	g.endCopiesAtCleanup()
 	g.endSkipsAtCleanup()
 	g.endEffectsAtCleanup()
+	g.endMustBlocks(false)
 }
 
 // skipPhase is one SkipPhase effect: Player skips the next phase or step in

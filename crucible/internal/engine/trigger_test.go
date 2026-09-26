@@ -944,7 +944,7 @@ func TestDeclareCombatAttackersFiresAttacksTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -999,7 +999,7 @@ func TestDeclareCombatAttackersFiresOtherPermanentsWatchingAttackTrigger(t *test
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1053,7 +1053,7 @@ func TestDeclareCombatAttackersFiresAttacksTriggerWhenAttackedConditionMet(t *te
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
@@ -1080,7 +1080,7 @@ func TestDeclareCombatAttackersSkipsAttacksTriggerWhenAttackedConditionNotMet(t 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- Attacked$ You never matches attacking the lone opponent", got)
@@ -1133,7 +1133,7 @@ func TestDeclareCombatAttackersFiresFirstAttackTriggerOnFirstAttackThisTurn(t *t
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
@@ -1161,7 +1161,7 @@ func TestDeclareCombatAttackersSkipsFirstAttackTriggerWhenAlreadyAttackedThisTur
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- this creature already attacked once this turn", got)
@@ -1213,7 +1213,7 @@ func TestDeclareCombatAttackersFiresAloneTriggerWhenAttackingAlone(t *testing.T)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1242,7 +1242,7 @@ func TestDeclareCombatAttackersSkipsAloneTriggerWithAnotherAttacker(t *testing.T
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker, second})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- a second declared attacker fails Alone$ True", got)
@@ -1291,7 +1291,7 @@ func TestDeclareCombatAttackersFiresDefendingPlayerPoisonedTrigger(t *testing.T)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1315,7 +1315,7 @@ func TestDeclareCombatAttackersSkipsDefendingPlayerPoisonedTriggerWithNoPoison(t
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- the defending player has no poison counters", got)
@@ -1367,7 +1367,7 @@ func TestDeclareCombatAttackersFiresAttackDifferentPlayersTrigger(t *testing.T) 
 	ac.QueueAttackers([]engine.CardID{attacker, second})
 	ac.QueueAttackTarget(engine.PlayerEntity(b))
 	ac.QueueAttackTarget(engine.PlayerEntity(c2))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1394,7 +1394,7 @@ func TestDeclareCombatAttackersSkipsAttackDifferentPlayersTriggerAgainstOnePlaye
 	ac.QueueAttackers([]engine.CardID{attacker, second})
 	ac.QueueAttackTarget(engine.PlayerEntity(b))
 	ac.QueueAttackTarget(engine.PlayerEntity(b))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- both attackers hit the same player b", got)
@@ -1841,11 +1841,11 @@ func TestDeclareCombatBlockersFiresBlocksTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1899,11 +1899,11 @@ func TestDeclareCombatBlockersFiresOtherPermanentsWatchingBlockTrigger(t *testin
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1955,11 +1955,11 @@ func TestDeclareCombatBlockersFiresBlocksTriggerWhenValidBlockedMatches(t *testi
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -1984,11 +1984,11 @@ func TestDeclareCombatBlockersSkipsBlocksTriggerWhenValidBlockedDoesNotMatch(t *
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- ValidBlocked$ Creature.powerGE4 must reject a power-2 attacker", got)
@@ -2042,11 +2042,11 @@ func TestDeclareCombatBlockersFiresAttackerBlockedTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -2102,11 +2102,11 @@ func TestDeclareCombatBlockersFiresOtherPermanentsWatchingAttackerBlockedTrigger
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -2160,11 +2160,11 @@ func TestDeclareCombatBlockersFiresAttackerBlockedTriggerWhenBlockerAmountMatche
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker1, Attacker: attacker}, {Blocker: blocker2, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -2188,11 +2188,11 @@ func TestDeclareCombatBlockersSkipsAttackerBlockedTriggerWhenBlockerAmountDoesNo
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- ValidBlockerAmount$ GE2 must reject a single blocker", got)
@@ -2244,11 +2244,11 @@ func TestDeclareCombatBlockersFiresAttackerBlockedByCreatureTriggerWhenValidBloc
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -2272,11 +2272,11 @@ func TestDeclareCombatBlockersSkipsAttackerBlockedByCreatureTriggerWhenValidBloc
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- ValidBlocker$ Creature.powerGE4 must reject a power-2 blocker", got)
@@ -2305,11 +2305,11 @@ func TestDeclareCombatBlockersFiresAttackerBlockedByCreatureTriggerOncePerBlocke
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker1, Attacker: attacker}, {Blocker: blocker2, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 
 	if got := g.StackLen(); got != 2 {
 		t.Fatalf("StackLen() = %d, want 2 -- one AttackerBlockedByCreature trigger per matching blocker", got)
@@ -2361,10 +2361,10 @@ func TestDealCombatDamageFiresDamageDoneTriggerToPlayer(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2420,10 +2420,10 @@ func TestDealCombatDamageFiresDamageDoneTriggerToPlayerForQualifiedOther(t *test
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2450,10 +2450,10 @@ func TestDealCombatDamageFiresDamageDoneTriggerToCard(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2510,10 +2510,10 @@ func TestDealCombatDamageFiresOtherPermanentsWatchingDamageDoneTrigger(t *testin
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2568,10 +2568,10 @@ func TestDealCombatDamageFiresDamageDoneTriggerWithMatchingDamageAmount(t *testi
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2596,10 +2596,10 @@ func TestDealCombatDamageSkipsDamageDoneTriggerWithNonMatchingDamageAmount(t *te
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if got := g.StackLen(); got != 0 {
@@ -2624,10 +2624,10 @@ func TestDealCombatDamageFiresDamageDoneTriggerWithMatchingTargetToughness(t *te
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 
 	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
@@ -2847,7 +2847,7 @@ func TestDeclareCombatAttackersFiresTapsTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -2871,7 +2871,7 @@ func TestDeclareCombatAttackersSkipsTapsTriggerForVigilantAttacker(t *testing.T)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- Vigilance means no tap, so no Taps trigger should have fired", got)
@@ -2972,7 +2972,7 @@ func TestDeclareCombatAttackersSkipsTapsTriggerWithUnresolvedParam(t *testing.T)
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- FirstTime$ is not evaluated, so the trigger must not fire", got)
@@ -3063,7 +3063,7 @@ func TestDeclareCombatAttackersDoesNotFireTapsForManaTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- attacking is not a mana ability, so TapsForMana must not fire", got)
@@ -3533,7 +3533,7 @@ func TestDeclareCombatAttackersFiresAttackersDeclaredTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3559,7 +3559,7 @@ func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithNoAttackers(t *t
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- no attacker was declared, so the trigger must not fire", got)
@@ -3582,7 +3582,7 @@ func TestDeclareCombatAttackersFiresAttackingPlayerYouTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3607,7 +3607,7 @@ func TestDeclareCombatAttackersSkipsAttackingPlayerYouTriggerForDefender(t *test
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- AttackingPlayer$ You must not match a host controlled by the defending player", got)
@@ -3630,7 +3630,7 @@ func TestDeclareCombatAttackersFiresAttackedTargetYouTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3655,7 +3655,7 @@ func TestDeclareCombatAttackersSkipsAttackedTargetYouTriggerForAttacker(t *testi
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- AttackedTarget$ You must not match a host controlled by the attacking player", got)
@@ -3679,7 +3679,7 @@ func TestDeclareCombatAttackersFiresValidAttackersAmountTrigger(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{first, second})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3703,7 +3703,7 @@ func TestDeclareCombatAttackersSkipsValidAttackersAmountTriggerBelowThreshold(t 
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- one attacker fails ValidAttackersAmount$ GE2", got)
@@ -3765,7 +3765,7 @@ func TestDeclareCombatAttackersFiresAttackersDeclaredOneTargetTriggerOncePerDefe
 	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3797,7 +3797,7 @@ func TestDeclareCombatAttackersOneTargetAttackedTargetMatchesOnlyThatDefender(t 
 	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3832,7 +3832,7 @@ func TestDeclareCombatAttackersOneTargetValidAttackersCountsOnlyThatDefendersOwn
 	ac.QueueAttackers([]engine.CardID{toPlayer, toWalker})
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
 	ac.QueueAttackTarget(engine.CardEntity(pw))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- neither defender has two attackers of its own, so GE2 must fail for both firings", got)
@@ -3859,7 +3859,7 @@ func TestDeclareCombatAttackersOneTargetValidAttackersCountsBothAttackingOneDefe
 	ac.QueueAttackers([]engine.CardID{first, second})
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
@@ -3917,7 +3917,7 @@ func TestDeclareCombatAttackersFiresAttackersDeclaredTriggerWhenCheckSVarConditi
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
@@ -3943,7 +3943,7 @@ func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWhenCheckSVarConditi
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- CheckSVar$ X | SVarCompare$ GE1 is not met (X is 0)", got)
@@ -3966,7 +3966,7 @@ func TestDeclareCombatAttackersSkipsAttackersDeclaredTriggerWithUnresolvedParam(
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	if got := g.StackLen(); got != 0 {
 		t.Fatalf("StackLen() = %d, want 0 -- Condition$ is not evaluated, so the trigger must not fire", got)

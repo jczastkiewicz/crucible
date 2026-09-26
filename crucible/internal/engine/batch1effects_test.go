@@ -264,10 +264,10 @@ func TestBlockAndBecomesBlocked(t *testing.T) {
 	atk2 := g.NewCard(creatureDefPT(t, "4", "4"), p, engine.Battlefield)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{atk, atk2})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.SetTurnState(1, p, engine.DeclareBlockers)
 
 	c := engine.NewScriptedController()
@@ -316,10 +316,10 @@ func TestBecomesBlockedWithoutBlockerDealsNothing(t *testing.T) {
 	tramp := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Trample"), p, engine.Battlefield)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{atk, tramp})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.SetTurnState(1, p, engine.DeclareBlockers)
 	if _, err := resolveNow(t, g, other, engine.NewScriptedController(),
 		[]engine.EntityID{engine.CardEntity(atk), engine.CardEntity(tramp)},

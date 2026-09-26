@@ -344,12 +344,12 @@ func TestCanBlockRealCantBlockByLineOnAnotherHost(t *testing.T) {
 	}
 }
 
-// TestDeclareCombatBlockersDropsIllegalCantBlockByPairing proves
-// DeclareCombatBlockers (block.go) re-checks the controller's own answer
-// against CanBlock and drops an illegal pairing rather than committing it --
-// the one exception to "not re-checked for legality" control.go's own doc
-// comment states for every other Choose*/Declare* method.
-func TestDeclareCombatBlockersDropsIllegalCantBlockByPairing(t *testing.T) {
+// TestDeclareCombatBlockersRejectsIllegalCantBlockByPairing proves
+// DeclareCombatBlockers (block.go) checks the controller's answer against
+// CanBlock: a grounded creature declared blocking a flier is an illegal
+// declaration (CR 509.1b, ADR-0024), an error with nothing applied, not a
+// silently dropped pairing.
+func TestDeclareCombatBlockersRejectsIllegalCantBlockByPairing(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -360,16 +360,22 @@ func TestDeclareCombatBlockersDropsIllegalCantBlockByPairing(t *testing.T) {
 
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks([]engine.Block{{Blocker: ground, Attacker: attacker}})
-	got := g.DeclareCombatBlockers(bc)
-
-	if got != nil {
-		t.Errorf("DeclareCombatBlockers() = %v, want nil -- a grounded creature can't legally block a flying attacker", got)
+	_, err := g.DeclareCombatBlockers(bc)
+	ill := wantIllegal(t, err, "CR 509.1b")
+	if len(ill.Cards) != 2 || ill.Cards[0] != ground || ill.Cards[1] != attacker {
+		t.Errorf("cards = %v, want the blocker and the attacker", ill.Cards)
 	}
 	if len(g.Blocks()) != 0 {
 		t.Errorf("Blocks() = %v, want none", g.Blocks())
+	}
+
+	// The legal answer -- no block -- goes through.
+	bc.QueueBlocks(nil)
+	if got := declareBlockers(t, g, bc); got != nil {
+		t.Errorf("DeclareCombatBlockers() = %v, want nil", got)
 	}
 }

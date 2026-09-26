@@ -1,7 +1,9 @@
-// Combat's own state: CR 506-510, starting with CR 508's attackers, the
-// only piece this port has reached (attack.go, block.go).
+// Combat's own state: CR 506-510 -- attackers and their targets (attack.go),
+// blocks (block.go), and the error an illegal declaration of either returns.
 
 package engine
+
+import "fmt"
 
 // Combat is the game's current combat, if one is happening. Attackers is who
 // was declared this combat (CR 508.1); AttackTargets is what each one is
@@ -16,6 +18,28 @@ type Combat struct {
 	// that became blocked without a blocker (BecomesBlocked, CR 509.1h): it
 	// stays blocked and deals no combat damage unless it has trample.
 	ForcedBlocked []CardID
+}
+
+// IllegalDeclarationError is a declaration of attackers or blockers that
+// fails CR 508.1/509.1's legality check (ADR-0024): a restriction broken, or
+// fewer requirements obeyed than Java's validator says were possible. The
+// declaration is not applied; the caller gets this back instead (GO-7,
+// ADR-0019 Decision 5). Rule names the CR rule broken, Cards the creatures
+// the check names, and Reason is Java's own message for the failure
+// (CombatUtil.validateBlocks' strings) or this port's equivalent.
+type IllegalDeclarationError struct {
+	Rule   string
+	Cards  []CardID
+	Reason string
+}
+
+func (e *IllegalDeclarationError) Error() string {
+	return fmt.Sprintf("engine: illegal declaration (%s): %s %v", e.Rule, e.Reason, e.Cards)
+}
+
+// illegal builds an IllegalDeclarationError.
+func illegal(rule, reason string, cards ...CardID) error {
+	return &IllegalDeclarationError{Rule: rule, Cards: cards, Reason: reason}
 }
 
 // isBlocked is Combat.isBlocked: an attacker with a blocker, or one an

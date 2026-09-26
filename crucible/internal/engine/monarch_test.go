@@ -104,10 +104,10 @@ func TestMonarchPassesToTheControllerOfACreatureDealingCombatDamage(t *testing.T
 	attacker := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(c)
 	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)

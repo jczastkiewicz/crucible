@@ -24,10 +24,10 @@ func TestFogEffectPreventsCombatDamageOnly(t *testing.T) {
 	}
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	bc := engine.NewScriptedController()
 	bc.QueueBlocks(nil)
-	g.DeclareCombatBlockers(bc)
+	declareBlockers(t, g, bc)
 	g.DealCombatDamage(engine.NewScriptedController())
 	if got := g.Player(other).Life; got != 18 {
 		t.Errorf("life after combat = %d, want 18 (combat damage prevented)", got)

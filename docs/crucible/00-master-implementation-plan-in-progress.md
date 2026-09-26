@@ -103,14 +103,14 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     `performTest` matches it against the FULL collection of attackers one blocker blocks, ANY of which satisfying it
     fires the trigger once, but `checkBlocksTriggers` is already called once per declared `Block` rather than once per
     blocker with every attacker gathered, so checking the one attacker each call already has stands in for "any member
-    of the collection" correctly for the overwhelming single-attacker case — after `CanBlock` and `menaceLegal` have
-    both already filtered it legal (`DeclareCombatBlockers`, block.go). `DamageDone` splits into two functions because
-    the actual damaged object is either a `*Card` or a `*Player` (Java's own `DamageTarget` is a `GameEntity`), each
-    needing a different `ValidTarget` evaluator — fired from `dealPermanentDamage`/ `dealPlayerDamage`
-    (combatdamage.go), `CombatDamage$` checked against a hardcoded `true` since nothing outside combat deals damage in
-    this port yet. `Taps` fires from this port's only two real tap sites (`DeclareCombatAttackers`, attack.go;
-    `TapLandForMana`, manaability.go), `Attacker$` resolved as the boolean that tells them apart; `TapsForMana` is
-    `Taps`'s own narrower sibling, its own separate Java `Trigger` subclass, firing only from the mana-ability site.
+    of the collection" exactly, since a legal declaration has every blocker blocking one attacker (ADR-0024,
+    `DeclareCombatBlockers`, block.go). `DamageDone` splits into two functions because the actual damaged object is
+    either a `*Card` or a `*Player` (Java's own `DamageTarget` is a `GameEntity`), each needing a different
+    `ValidTarget` evaluator — fired from `dealPermanentDamage`/ `dealPlayerDamage` (combatdamage.go), `CombatDamage$`
+    checked against a hardcoded `true` since nothing outside combat deals damage in this port yet. `Taps` fires from
+    this port's only two real tap sites (`DeclareCombatAttackers`, attack.go; `TapLandForMana`, manaability.go),
+    `Attacker$` resolved as the boolean that tells them apart; `TapsForMana` is `Taps`'s own narrower sibling, its own
+    separate Java `Trigger` subclass, firing only from the mana-ability site.
     `SpellCast`/`CantBlockBy`/`DamageDone`/`Discarded`/`Taps`/`TapsForMana` all match something other than a `*Card` at
     some point (`ValidActivatingPlayer`, `ValidDefender`, `ValidSource`/`ValidTarget`-as-a-player, `ValidPlayer`,
     `Activator`) — a new `matchesPlayerBase` (`valid.go`) is the shared three-bare-value (`You`/`Opponent`/`Player`)
@@ -1016,11 +1016,11 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     to the attacker's own side of the same declare-blockers step. `checkAttackerBlockedTriggers` ports
     `TriggerAttackerBlocked.performTest` — `Mode$ AttackerBlocked`, 127 real lines, fires once per attacker that ended
     up with at least one legal blocker, the whole blocker group gathered first (`DeclareCombatBlockers`, block.go, once
-    every `Block` for it has cleared `CanBlock`/`menaceLegal`) rather than once per blocker; `ValidCard$` (74 of 127
-    real lines carry neither `ValidBlocker$` nor `ValidBlockerAmount$`, an unqualified "becomes blocked") matches
-    against the attacker directly, and a new `validCardsCountMatches` — `validAttackersCountMatches`'s own shape (item
-    26's own earlier `AttackersDeclared` paragraph) generalized past `g.combat.Attackers` to any `[]CardID` — counts how
-    many of the blocker group `ValidBlocker$` matches, compared against `ValidBlockerAmount$`'s own `"GE1"`-defaulted
+    the declaration passed validation, ADR-0024) rather than once per blocker; `ValidCard$` (74 of 127 real lines carry
+    neither `ValidBlocker$` nor `ValidBlockerAmount$`, an unqualified "becomes blocked") matches against the attacker
+    directly, and a new `validCardsCountMatches` — `validAttackersCountMatches`'s own shape (item 26's own earlier
+    `AttackersDeclared` paragraph) generalized past `g.combat.Attackers` to any `[]CardID` — counts how many of the
+    blocker group `ValidBlocker$` matches, compared against `ValidBlockerAmount$`'s own `"GE1"`-defaulted
     operator+operand. `checkAttackerBlockedByCreatureTriggers` ports `TriggerAttackerBlockedByCreature.performTest` —
     `Mode$ AttackerBlockedByCreature`, 102 real lines, `checkBlocksTriggers`'s own exact mirror image: `ValidCard$`
     against the attacker, `ValidBlocker$` against one blocker, both single-card `Matches` calls rather than a counted
@@ -1720,10 +1720,10 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     (keyword-synthesized the same way `CardFactoryUtil.java` builds them, `cantBlockByKeywords`); Landwalk and
     Protection separately, each one's own restriction being the keyword's OWN per-card argument rather than a name every
     carrier shares; and every literal `S:Mode$ CantBlockBy` line, walked across every battlefield permanent as a
-    possible source, not just the attacker's own card; Menace too (`menaceLegal`, a group-cardinality check `CanBlock`'s
-    own per-pair one cannot express, hardcoded the same way Forge's own `getMinMaxBlocker` is — not routed through
-    `CantBlockBy` at all). Intimidate's own `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed a new
-    `SharesColorWith` valid-string property (`valid.go`, `c.Colors().HasAny(sourceCard.Colors())`) — left unbuilt
+    possible source, not just the attacker's own card; Menace too (`minMaxBlockers`, a per-attacker blocker count
+    `validateBlocks` checks on the whole declaration, hardcoded the same way Forge's own `getMinMaxBlocker` is — not
+    routed through `CantBlockBy` at all). Intimidate's own `ValidBlocker$ Creature.nonArtifact+!SharesColorWith` needed
+    a new `SharesColorWith` valid-string property (`valid.go`, `c.Colors().HasAny(sourceCard.Colors())`) — left unbuilt
     earlier because the generic `non<Type>` fallthrough it would otherwise reach reads it as a nonexistent type and the
     leading `!` then negates that to an actively wrong "matches everything," not an absent property. Landwalk's own
     `ValidDefender$ Player.controls<Type>` needed a new `matchesValidDefender` (`staticability.go`): a `Player`, not a
@@ -1737,26 +1737,28 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     `X` (`Count$CardPower` against the ability's own host, always the attacker since `ValidAttacker$` is fixed to
     `Creature.Self`) turns out to be a constant "the attacker's own power" question once read precisely, not a
     `Compare`/SVar one at all — `skulkBlocks` (staticability.go) is a direct `Power()` comparison, the same hardcoded
-    shape `menaceLegal` already has for Menace. **Block legality's `CantBlockBy` has no remaining gap.** **Mulligans
-    done** (`mulligan.go`) — London, free mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool`
-    per player (twelve buckets — six colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain
-    colored-and-generic case plus snow (a same-color pip or generic unit falls back to the snow bucket once the plain
-    one is empty, CR 106.3a; a snow ({S}) symbol spends only the snow bucket, never the plain one), CR 500.4's emptying
-    every phase/step, and `PayManaCost` resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many
-    `{X}` symbols it carries, CR 107.3f), snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike
-    `{X}`, two can take two different colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored
-    hybrid shard via `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a
-    single-color Phyrexian shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and
-    each unit of a cost's generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve
-    are resolved. A basic land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`),
-    `Pool.Add`'s first real (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR
-    106.3a) — any other mana ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch
-    machinery this one deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not
-    script text. **Playing a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no
-    stack; sorcery-speed timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's
-    one-per-turn limit via new `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by
-    `cleanupStep`. The first card this port moves from hand to the battlefield through a real game action rather than
-    `setup.state` placing it there directly.
+    shape Menace's own blocker count has. **Block legality's `CantBlockBy` has no remaining gap.** **Combat declarations
+    are validated** (ADR-0024, `attackconstraints.go`, `blockvalidation.go`): Java's `AttackConstraints` and
+    `validateBlocks`, an illegal declaration an `*IllegalDeclarationError`. **Mulligans done** (`mulligan.go`) — London,
+    free mulligans, tucking. **Mana payment done** (`mana.go`, `manapay.go`): a `Pool` per player (twelve buckets — six
+    colors/colorless, each split plain/snow), `Pay`/`PayWithSnow` for the plain colored-and-generic case plus snow (a
+    same-color pip or generic unit falls back to the snow bucket once the plain one is empty, CR 106.3a; a snow ({S})
+    symbol spends only the snow bucket, never the plain one), CR 500.4's emptying every phase/step, and `PayManaCost`
+    resolving `{X}` via `ChoosePayX` (asked once per cost regardless of how many `{X}` symbols it carries, CR 107.3f),
+    snow via `ChoosePaySnow` (asked once per `{S}` symbol independently — unlike `{X}`, two can take two different
+    colors), a two-color hybrid shard via `ChooseHybridManaColor`, a monocolored hybrid shard via
+    `ChoosePayMonocoloredHybrid`, a colorless hybrid shard via `ChoosePayColorlessHybrid`, a single-color Phyrexian
+    shard via `ChoosePayPhyrexian`, a hybrid Phyrexian shard via `ChoosePayHybridPhyrexian`, and each unit of a cost's
+    generic amount via `ChoosePayGeneric` — all eight harder shapes this port set out to resolve are resolved. A basic
+    land's own intrinsic mana ability (CR 305.6) is: `TapLandForMana` (`manaability.go`), `Pool.Add`'s first real
+    (non-test) caller, snow-aware (a land carrying the Snow supertype produces snow mana, CR 106.3a) — any other mana
+    ability (a nonbasic land, a creature, an artifact) still needs the M6 effect-dispatch machinery this one
+    deliberately bypasses, since CR 305.6's ability is a fixed rule keyed off the type line, not script text. **Playing
+    a land done** (`land.go`): `Game.PlayLand`, CR 305 — not casting a spell, so no cost and no stack; sorcery-speed
+    timing (CR 305.3) collapsed to active player, a main phase, empty stack; CR 305.2's one-per-turn limit via new
+    `Player.LandsPlayed`/`LandsPlayedLastTurn` fields, reset for every player each turn by `cleanupStep`. The first card
+    this port moves from hand to the battlefield through a real game action rather than `setup.state` placing it there
+    directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
     harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
@@ -1774,7 +1776,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 
-**In progress.** 167 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
+**In progress.** 168 of the corpus's 203 script-driven `Effect` APIs resolve (`Draw`, `DealDamage`, `GainLife`, `Pump`,
 `PumpAll`, `LoseLife`, `PutCounter`, `Discard`, `Scry`, `Surveil`, `Sacrifice`, `SacrificeAll`, `Destroy`, `Tap`,
 `Untap`, `Fight`, `Mill`, `RemoveCounter`, `DamageAll`, `SetLife`, `Shuffle`, `ExchangeLife`, `TapAll`, `UntapAll`,
 `PutCounterAll`, `RemoveCounterAll`, `MultiplyCounter`, `Mana`, `MoveCounter`, `Poison`, `Unattach`, `RevealHand`,
@@ -1794,9 +1796,9 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 `ChooseSource`, `Empower`, `Earthbend`, `Airbend`, `Discover`, `Draft`, `Heist`, `ExchangeZone`, `Effect`,
 `ReplaceEffect`, `ReplaceDamage`, `ReplaceSplitDamage`, `ReplaceToken`, `ReplaceCounter`, `ReplaceMana`, `Clone`,
 `BecomeMonarch`, `TakeInitiative`, `Venture`, `OpenAttraction`, `AssembleContraption`, `Regeneration`, `Play`,
-`CopySpellAbility`, `RingTemptsYou`, `Abandon`, `ChangeTargets`) — see `docs/crucible/porting/port-log/game-state.md`
-for the per-API landing notes; items 30-32 below stay in their original plan-authoring voice (forward-looking, not yet
-rewritten as a per-item retrospective the way M0-M5 are).
+`CopySpellAbility`, `RingTemptsYou`, `Abandon`, `ChangeTargets`, `MustBlock`) — see
+`docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below stay in their original
+plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way M0-M5 are).
 
 30. Implement APIs in corpus-first, then frequency order (Section 1.5). Keywords, triggers, replacements, cost parts
     alongside.

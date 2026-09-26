@@ -470,7 +470,7 @@ func TestAttacksFiresFirstCombatTrigger(t *testing.T) {
 	ac := engine.NewScriptedController()
 	ac.QueueAttackers([]engine.CardID{attacker})
 	ac.QueueAttackTarget(engine.PlayerEntity(other))
-	g.DeclareCombatAttackers(ac)
+	declareAttackers(t, g, ac)
 	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}

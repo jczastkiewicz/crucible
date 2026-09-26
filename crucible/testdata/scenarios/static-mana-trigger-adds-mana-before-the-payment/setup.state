@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanhand=Grizzly Bears|Id:3
+humanbattlefield=Forest|Id:1;Wild Growth|Id:2|AttachedTo:1

@@ -43,11 +43,21 @@ type Game struct {
 	// reproducible from its seed alone. There is no package-level RNG
 	// (GO-2, ADR-0006).
 	rand *javarand.Rand
-	// registry is the Registry resolving the current stack object, recorded
-	// by Registry.Resolve so an effect can resolve one of its own
-	// AdditionalAbility SVars (TrueSubAbility$, RepeatSubAbility$, Choices$)
-	// through the same dispatch (additional.go).
+	// registry is the Registry this game resolves through. NewGame sets it
+	// to NewRegistry() -- an array of stateless effect values, immutable
+	// and shareable like db (ADR-0020) -- so a static trigger fired where
+	// no Registry is passed in (TapLandForMana, ActivateManaAbility) has one
+	// (statictrigger.go). Registry.Resolve re-records the table it runs
+	// on, so an effect resolving one of its own AdditionalAbility SVars
+	// (TrueSubAbility$, RepeatSubAbility$, Choices$) uses the same dispatch
+	// as the stack object around it (additional.go).
 	registry *Registry
+	// pendingErr is a static trigger's error from a site with no error
+	// return (resolveStaticTriggers, statictrigger.go), waiting for the
+	// nearest boundary that has one -- Registry.Resolve, ResolveStack,
+	// PassPriority, or a caller's own TakePendingError (ADR-0020 decision
+	// 4, GO-7). The first error is kept; nil when none is waiting.
+	pendingErr error
 
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.
@@ -248,13 +258,14 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	g := &Game{
 		// Slot 0 is NoCard and NoPlayer, so a zero-valued handle field means
 		// "none" instead of aliasing the first entity created.
-		cards:   make([]Card, 1, 128),
-		players: make([]Player, 1, len(names)+1),
-		zones:   make(map[zoneKey]*Zone, len(names)*8),
-		db:      db,
-		rand:    rng,
-		sink:    DiscardSink{},
-		lki:     make(map[CardID]*Card),
+		cards:    make([]Card, 1, 128),
+		players:  make([]Player, 1, len(names)+1),
+		zones:    make(map[zoneKey]*Zone, len(names)*8),
+		db:       db,
+		rand:     rng,
+		registry: NewRegistry(),
+		sink:     DiscardSink{},
+		lki:      make(map[CardID]*Card),
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
@@ -272,6 +283,27 @@ func (g *Game) DB() *compile.DB { return g.db }
 
 // Rand is this game's random stream.
 func (g *Game) Rand() *javarand.Rand { return g.rand }
+
+// TakePendingError returns the error a static trigger raised at a site with
+// no error return (a mana ability's tap), and clears it, so
+// each such error reaches exactly one caller (ADR-0020 decision 4, GO-7).
+// ResolveStack, PassPriority and Registry.Resolve take it themselves; a
+// driver that calls a bool-returning entry point such as TapLandForMana
+// directly, like the fixture action runner, takes it after each call. nil
+// when nothing is waiting.
+func (g *Game) TakePendingError() error {
+	err := g.pendingErr
+	g.pendingErr = nil
+	return err
+}
+
+// recordPendingError keeps err for TakePendingError unless an earlier error
+// is already waiting: the first failure is the one that explains the rest.
+func (g *Game) recordPendingError(err error) {
+	if g.pendingErr == nil {
+		g.pendingErr = err
+	}
+}
 
 // Card resolves a handle. It panics on an out-of-range or absent handle,
 // because that is an engine invariant breach rather than anything a card
@@ -669,10 +701,13 @@ func (g *Game) Unattach(attachment CardID) {
 // is rather than replaying it or advancing it.
 func (g *Game) Clone() *Game {
 	out := &Game{
-		cards:        make([]Card, len(g.cards)),
-		players:      append([]Player(nil), g.players...),
-		zones:        make(map[zoneKey]*Zone, len(g.zones)),
-		db:           g.db,
+		cards:   make([]Card, len(g.cards)),
+		players: append([]Player(nil), g.players...),
+		zones:   make(map[zoneKey]*Zone, len(g.zones)),
+		db:      g.db,
+		// Shared like db: a Registry holds only stateless effect values.
+		registry:     g.registry,
+		pendingErr:   g.pendingErr,
 		timestamp:    g.timestamp,
 		over:         g.over,
 		turn:         g.turn,

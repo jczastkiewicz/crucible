@@ -94,6 +94,20 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q naming a card as players not resolvable yet", defined)
 		}
 		candidates = []PlayerID{refs.triggered.sourceController}
+	case "TriggeredCardController":
+		// AbilityUtils.getDefinedPlayers' "...Controller" branch over
+		// AbilityKey.Card (AbilityUtils.java:1017-1027): the triggering
+		// card's controller now, which for a static trigger is the moment
+		// it was tapped (ADR-0020).
+		if refs.triggered.card == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
+		}
+		candidates = []PlayerID{g.Card(refs.triggered.card).Controller()}
+	case "TriggeredActivator":
+		if refs.triggered.activator == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no activator", defined)
+		}
+		candidates = []PlayerID{refs.triggered.activator}
 	default:
 		return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 	}

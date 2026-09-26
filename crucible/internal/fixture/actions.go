@@ -94,6 +94,12 @@ func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) e
 		if err := runAction(text, l, controller); err != nil {
 			return fmt.Errorf("line %d: %w", line, err)
 		}
+		// Most verbs call a bool-returning entry point (tapformana,
+		// castspell), so a static trigger's error waits on the Game until
+		// someone takes it (engine.Game.TakePendingError, ADR-0020).
+		if err := l.Game.TakePendingError(); err != nil {
+			return fmt.Errorf("line %d: %w", line, err)
+		}
 	}
 	return sc.Err()
 }

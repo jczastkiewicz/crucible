@@ -39,6 +39,7 @@
     "land": ["land.go"],
     "castspell": ["castspell.go", "activateability.go"],
     "trigger": ["trigger.go"],
+    "statictrigger": ["statictrigger.go"],
     "continuous": ["continuous.go"],
     "amount": ["amount.go"],
     "replacement": ["replacement.go"],
@@ -92,7 +93,8 @@
       "goadeffect",
       "airbendeffect",
       "effecteffect",
-      "cloneeffect"
+      "cloneeffect",
+      "registry"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
@@ -211,8 +213,11 @@
       "control",
       "amount",
       "playerstate",
-      "targeting"
+      "targeting",
+      "statictrigger",
+      "replaceeffect"
     ],
+    "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [
       "id",
       "zone",

@@ -66,6 +66,11 @@ A porter that left uncommitted work in its worktree shows `uncommitted>0` in `li
 Commit what belongs to the batch in that worktree and merge it. Anything else is either explained or dropped, never
 silently lost.
 
+Each porter commits its own `PORTER_PLAN.md` (its working plan, per its own agent definition) as scratch, deleted in
+its own final commit once its assignment is done. A porter interrupted mid-task (rate limit, timeout) before that
+final commit leaves it behind — drop it when merging that branch (it's not part of the batch's deliverable), the same
+way any other porter-only scratch state gets dropped.
+
 ## 5. Reconcile, verify, commit
 
 1. `## Not ported yet` in `game-state.md`: the remaining-effects sentence, and the largest-gaps list in `CLAUDE.md`

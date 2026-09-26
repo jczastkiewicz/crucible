@@ -35,7 +35,17 @@ Rules, non-negotiable:
   orchestrator (`port-batch` skill, `scripts/merge-porters.sh`) unions index rows and rewrites the final count across
   parallel porters. Never edit "## Not ported yet" yourself.
 - Run `crucible/scripts/gates.sh full` until green, commit on your branch with the attribution lines your system
-  prompt gives (never a hardcoded model name), commit every 3-4 APIs so progress survives an interruption (each commit runs the full gates, about a minute). Never push.
+  prompt gives (never a hardcoded model name). Never push.
+- **Commit at least every 10 minutes of work, never less often.** Don't wait for 3-4 APIs to finish if that would take
+  longer than that - split at whatever natural boundary you're at (one API done, or even mid-API if it's taking a
+  while: the effect file compiling with its own tests green is a valid checkpoint even before docs/counts catch up).
+  Each commit must itself build and pass `gates.sh fast` at minimum (full gates aren't required on every 10-minute
+  commit, only whenever you've finished a batch of APIs) - never commit code that doesn't compile. This is how an
+  interruption (rate limit, timeout) loses minutes of work instead of the whole batch.
+- **Write a short plan before starting work.** At the very start, write `PORTER_PLAN.md` at the repo root (your
+  worktree's own copy) listing your assigned APIs and intended order, and commit it as your first commit. Update it as
+  you go if your approach changes. Once your whole batch is done, delete `PORTER_PLAN.md` in your final commit - it's
+  scratch scaffolding for whoever resumes you, not a deliverable.
 - If an API genuinely cannot be ported at all, say so with a reason rather than faking it.
 
 If, while researching, an assigned API turns out to need a new stack/casting mechanic, a Layer 1 rewrite, or scanning

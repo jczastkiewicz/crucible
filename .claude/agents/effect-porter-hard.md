@@ -40,7 +40,20 @@ Rules, non-negotiable:
   orchestrator (`port-batch` skill, `scripts/merge-porters.sh`) unions index rows and rewrites the final count across
   parallel porters. Never edit "## Not ported yet" yourself.
 - Run `crucible/scripts/gates.sh full` until green, commit on your branch with the attribution lines your system
-  prompt gives (never a hardcoded model name), commit every 1-2 APIs so progress survives an interruption. Never push.
+  prompt gives (never a hardcoded model name). Never push.
+- **Commit at least every 10 minutes of work, never less often, whichever piece you're mid-way through.** Do not wait
+  for a whole API or the whole batch to finish - a single hard API (a new primitive plus its dependent effect) can run
+  well past that on its own, and a commit interval measured in APIs fails exactly the sessions where it matters most.
+  Split naturally: commit the primitive/engine-state change alone once it builds and its own tests are green, before
+  starting the effect that depends on it; commit again after that effect lands; commit again after docs/counts. Each
+  commit must itself build and pass `gates.sh fast` at minimum (full gates aren't required on every 10-minute commit,
+  only on your final one for each API) - never commit code that doesn't compile. This is how an interruption (rate
+  limit, timeout) loses minutes of work instead of the whole task.
+- **Write a short plan before starting work.** At the very start, write `PORTER_PLAN.md` at the repo root (your
+  worktree's own copy) listing the APIs/ADRs assigned, your intended approach and step order, and commit it as your
+  first commit. Update it as your approach changes. Once the whole assignment is done (or you're stopping and handing
+  off with everything committed), delete `PORTER_PLAN.md` in your final commit - it's scratch scaffolding for whoever
+  resumes you, not a deliverable.
 - If an API genuinely cannot be ported at all without an architecture change out of scope for this batch, say so with
   a concrete reason (what would have to change and why it's out of scope) rather than faking it.
 

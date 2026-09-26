@@ -1429,7 +1429,7 @@ func TestRunActionsCastSpellTooFewArgsErrors(t *testing.T) {
 // generated order is alphabetical by name (apitype_gen.go), so the zero
 // value is whichever API sorts first, and that has been a real, registered
 // one (APIAbandon) since abandoneffect.go landed. math.MaxUint16 always sits
-// past numAPITypes (registry_gen.go), so Registry.Resolve's own
+// past numAPITypes (apitype_gen.go), so Registry.Resolve's own
 // int(a.API) >= numAPITypes bound (effect.go) is the only way this name
 // stays unregistered on purpose, not by alphabetical accident.
 func TestRunActionsResolveStackSurfacesAnUnimplementedAPI(t *testing.T) {

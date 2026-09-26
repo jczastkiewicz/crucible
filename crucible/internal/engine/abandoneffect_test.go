@@ -160,10 +160,11 @@ func TestAbandonEffectHostNotInCommandIsNoOp(t *testing.T) {
 
 // TestAbandonEffectFiresWatchingAbandonedTrigger proves Mode$ Abandoned
 // (checkAbandonedTriggers, trigger.go) fires for a watching permanent that
-// remembered the scheme, the shape bow_to_my_command.txt's own
-// CantAttackEffect uses (RememberObjects$ Self on a Command-zone Effect
-// card, Triggers$ naming a Mode$ Abandoned trigger with ValidCard$
-// Card.IsRemembered).
+// remembered the scheme -- the shape a Command-zone Effect card built by
+// DB$ Effect (RememberObjects$ Self, effecteffect.go) would use, minus its
+// own Static$ True: bow_to_my_command.txt's own real TrigAbandoned line
+// carries Static$ True and is skipped instead (TestAbandonEffectSkipsStaticTrigger),
+// so this synthetic non-static watcher is what exercises the walk itself.
 func TestAbandonEffectFiresWatchingAbandonedTrigger(t *testing.T) {
 	t.Parallel()
 

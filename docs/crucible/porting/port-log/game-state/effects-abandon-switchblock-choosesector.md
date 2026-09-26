@@ -33,29 +33,38 @@ itself, `changeZoneMemory`'s (`changezoneeffect.go`) identical `RememberX$` shap
 nothing for: `checkAbandonedTriggers` (below) reads each host's own current `Zone` through `traitHosts` rather than a
 cached registration, the same reasoning the earlier `Abandon` research already gave (`effects-batches.md`).
 
-### New trigger mode: `Mode$ Abandoned`
+### New trigger mode: `Mode$ Abandoned` — built and tested, 0 of 2 real corpus lines reachable yet
 
 `checkAbandonedTriggers` (`trigger.go`), the one piece the earlier research named as the actual blocker. Ported from
 `TriggerAbandoned.java`'s `performTest`: `ValidCard$` matches against the abandoned card itself (`AbilityKey.Scheme` is
 always the abandoned card, never a watching permanent's own state). Built the same way `checkSacrificedTriggers` is —
 one walk of every player's `traitHosts`, `isAbandonedTrigger` gating on `Mode$ Abandoned` by name, then the shared
-`triggerEffectAPI` gate every other mode already uses (`ConditionCheckSVar$`, `OptionalDecider$`, phases, ...).
+`triggerEffectAPI` gate every other mode already uses (`ConditionCheckSVar$`, `OptionalDecider$`, phases, ...). Tested
+on a synthetic non-`Static$` watcher (`TestAbandonEffectFiresWatchingAbandonedTrigger`, `abandoneffect_test.go`), the
+shape a watching Command-zone `Effect` card built by `DB$ Effect` (`RememberObjects$ Self`, `effecteffect.go`) would
+use.
 
-A watching Command-zone `Effect` card built by `DB$ Effect` (`RememberObjects$ Self`, `effecteffect.go`) stays walkable
-by `traitHosts` after the scheme moves, since the watcher never itself moves — `bow_to_my_command.txt`'s own
-`CantAttackEffect` shape (`SVar:CantAttackEffect:DB$ Effect | ... | Triggers$ TrigAbandoned | RememberObjects$ Self`).
-Ported and tested (`TestAbandonEffectFiresWatchingAbandonedTrigger`, `abandoneffect_test.go`).
+**Every real `Mode$ Abandoned` line in the corpus is `bow_to_my_command.txt`'s own two, and neither is reachable
+today:**
 
-**`Static$ True` is skipped**, not fired (`bow_to_my_command.txt`'s own `TrigAbandoned` line, the only real corpus line
-naming it): `TriggerHandler.runTrigger` runs a Java `Static` trigger inline, ahead of the stack
-(`TriggerHandler.java:301-307`), rather than queuing it — BecomeMonarch's identical treatment (`monarch_test.go`'s "a
-Static$ True line skipped rather than put on the stack"), since no mode this port has built resolves a trigger any way
-but through `pushTriggeredAbilities`'s own stack push. `TestAbandonEffectSkipsStaticTrigger`.
+- `SVar:TrigAbandoned:Mode$ Abandoned | ValidCard$ Card.IsRemembered | Execute$ EffectCleanup | Static$ True` carries
+  `Static$ True`, which `checkAbandonedTriggers` skips rather than fires (below) — so the synthetic watcher test above
+  exercises the walk itself, not this line.
+- `T:Mode$ Abandoned | ValidCard$ Card.Self | Execute$ DBCleanup` sits on the scheme card's own printed triggers, which
+  `traitHosts` cannot reach at all (below).
 
-**Not reachable yet: a scheme's own printed `Mode$ Abandoned` trigger** (`bow_to_my_command.txt`'s second trigger,
-`T:Mode$ Abandoned | ValidCard$ Card.Self | Execute$ DBCleanup`, on the scheme card itself rather than a synthetic
-Effect wrapper). `traitHosts` (`game.go:341`) only walks the battlefield and `IsEffect` Command-zone cards, not a plain
-Scheme-typed card sitting in Command — and no engine path puts one there yet anyway: Archenemy's own
+Consequence: as things stand, abandoning Bow to My Command never fires either of its own two cleanup triggers, so its
+`CantAttackEffect` (the effect granting "creatures the chosen player controls can't attack you") is never removed — once
+Archenemy schemes are playable at all, this is a real gap to close alongside the two reasons below, not a solved case.
+
+**`Static$ True` is skipped**, not fired: `TriggerHandler.runTrigger` runs a Java `Static` trigger inline, ahead of the
+stack (`TriggerHandler.java:301-307`), rather than queuing it — BecomeMonarch's identical treatment (`monarch_test.go`'s
+"a Static$ True line skipped rather than put on the stack"), since no mode this port has built resolves a trigger any
+way but through `pushTriggeredAbilities`'s own stack push. `TestAbandonEffectSkipsStaticTrigger`.
+
+**Not reachable yet: a scheme's own printed `Mode$ Abandoned` trigger**, on the scheme card itself rather than a
+synthetic Effect wrapper. `traitHosts` (`game.go:341`) only walks the battlefield and `IsEffect` Command-zone cards, not
+a plain Scheme-typed card sitting in Command — and no engine path puts one there yet anyway: Archenemy's own
 `Mode$ SetInMotion`/`ApiType.SetInMotion` (`SetInMotionEffect.java`) is not ported, so a real scheme never legitimately
 reaches the Command zone through play today. Once Archenemy schemes are set in motion, a scheme's own trigger will need
 `traitHosts` (or a scheme-specific caller) to also walk plain Command-zone Scheme cards — tracked here rather than
@@ -79,9 +88,8 @@ exception, cards this port cannot deal from a scheme deck at all yet.
 
 ## SwitchBlock
 
-`effects-batches.md` recorded only "both real lines use `Defined$ Valid ...`" against `SwitchBlock`, no blocking reason.
-Read `SwitchBlockEffect.java` (both real corpus users: `general_jarkeld.txt`, `sorrows_path.txt`) end to end, then
-checked each combat piece it touches against what `combat.go`/`block.go`/`combatdamage.go` already build:
+`SwitchBlockEffect.java` (both real corpus users: `general_jarkeld.txt`, `sorrows_path.txt`), checked end to end against
+each combat piece it touches in `combat.go`/`block.go`/`combatdamage.go`:
 
 - **Attacking bands** (`Combat.getBandOfAttacker`, `Combat.java:309`): General Jarkeld's own branch only switches
   blockers when its two attackers are in _different_ bands. This port has no banding keyword and no band grouping at all
@@ -103,28 +111,29 @@ The real gaps are elsewhere, in targeting and the valid-string vocabulary both r
 - **`Creature.blockingTargeted`** (General Jarkeld's own `DefinedBlocker$ Valid Creature.blockingTargeted`):
   `CardProperty.java:1558-1577`'s own `blocking` + suffix dispatch resolves `Targeted` through
   `AbilityUtils.getDefinedCards(source, "Targeted", sa)` -- the ability's own targeted cards. `Matches` (`valid.go:67`)
-  takes no ability/targets parameter at all today; every call site passes only `source`/ `sourceController`. Reading an
-  ability's own `Targets` from inside a property match needs a signature change threaded through every `Matches` caller,
-  not a local addition.
+  takes no ability/targets parameter at all today; every call site passes only `source`/`sourceController`. Evaluating
+  this one suffix needs `Matches` (or a targets-aware variant reachable from the `Valid ...` property path) to see the
+  resolving ability's own `Targets`, a gap this file's own local reject cannot paper over.
 - **`Creature.blockedByValidThisTurn`** (Sorrow's Path's own
   `DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted`): `Card.getBlockedByThisTurn()` is a per-turn list
   Java's own `Card` tracks and clears each turn (`CardProperty.java:1618`). This port's `Card` (`card.go`) has no such
   field, and nothing resets one per turn today.
 - **`TargetsWithSameController$`** (Sorrow's Path's own targeting restriction, forcing both targets to share a
-  controller): no equivalent in `targeting.go` yet.
+  controller): the compiled param exists (`params_gen.go`, 2 corpus uses), but nothing in `targeting.go` reads it --
+  every ability that names it resolves its targets exactly as if it were absent.
 
-None of these three is a narrow param gap this file can reject its way past: the first is a `Matches` signature change
-reaching every caller, the second is new per-`Card` per-turn state with its own reset hook, the third is a new targeting
-restriction. Deferred on these, not on bands/`canBlockAdditional`/damage order, which turned out not to be gaps at all.
+None of these three is a narrow param gap this file can reject its way past: the first needs `Matches` (or a
+targets-aware sibling) to see the resolving ability's own targets, the second is new per-`Card` per-turn state with its
+own reset hook, the third is an unread targeting restriction. Deferred on these, not on bands/`canBlockAdditional`/
+damage order, none of which are real gaps here.
 
 ---
 
 ## ChooseSector
 
-`effects-batches.md` bare-mentioned `ChooseSector` with no reason at all. Its only real corpus user is _Space Beleren_
-(`space_beleren.txt`), and reading `ChooseSectorEffect.java` plus its call sites shows "sector" is not a Battle-card
-defender concept or anything generic — it is Space Beleren's own printed rules text ("Space Beleren divides the
-battlefield into alpha, beta, and gamma sectors...").
+`ChooseSector`'s only real corpus user is _Space Beleren_ (`space_beleren.txt`). `ChooseSectorEffect.java` and its call
+sites show "sector" is not a Battle-card defender concept or anything generic — it is Space Beleren's own printed rules
+text ("Space Beleren divides the battlefield into alpha, beta, and gamma sectors...").
 
 `ChooseSectorEffect.resolve` just asks `controller.chooseSector` and stores the answer on the host
 (`Card.setChosenSector`, `Card.java:2348`), which alone would be a one-line, portable `PlayerController` addition. But

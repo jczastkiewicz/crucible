@@ -58,6 +58,12 @@ func (abandonEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			return nil
 		}
 	}
+	// Crucible addition, not Java parity: AbandonEffect.java removes/adds to
+	// the two zones unconditionally, trusting that Abandon is only ever
+	// resolved against a real Command-zone scheme. This guard makes that
+	// same assumption an explicit no-op instead of a wrong move (GO-7) for
+	// a host a SubAbility$ chain reached after something else already moved
+	// it (TestAbandonEffectHostNotInCommandIsNoOp).
 	if source.Zone != Command {
 		return nil
 	}

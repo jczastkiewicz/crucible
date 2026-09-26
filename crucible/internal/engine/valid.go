@@ -280,11 +280,20 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "DefenderCtrl":
 		// CardProperty.java:197-212: c's controller is the player the
 		// source is attacking, or the controller of the planeswalker or
-		// battle it attacks (Combat.getDefendingPlayerRelatedTo). Read off
+		// battle it attacks (Combat.getDefendingPlayerRelatedTo,
+		// Combat.java:452-463: an Aura, Fortification or Equipment source
+		// stands for the creature it is attached to). Read off
 		// AttackTargets directly, for the reason "attacking" (above) gives.
-		// Only an attacking source is ported (every MustBlock corpus use);
-		// the ForRemembered suffix is a different name and never matches.
-		target, ok := g.combat.AttackTargets[source]
+		// Every ValidTgts$/Valid*$ naming it (47 corpus files) resolves
+		// through here; the ForRemembered suffix is a different name and
+		// never matches.
+		attacker := source
+		if host, ok := sourceCard(g, source); ok {
+			if t := host.Type(); t.HasSubtype("Aura") || t.HasSubtype("Equipment") || t.HasSubtype("Fortification") {
+				attacker, _ = host.AttachedTo()
+			}
+		}
+		target, ok := g.combat.AttackTargets[attacker]
 		if !ok {
 			return false
 		}

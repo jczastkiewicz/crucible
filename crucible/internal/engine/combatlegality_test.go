@@ -9,6 +9,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // declareAttackers runs g.DeclareCombatAttackers and fails the test on an
@@ -680,4 +681,61 @@ func resolveExecute(t *testing.T, g *engine.Game, p engine.PlayerID, host, targe
 		return
 	}
 	t.Fatal("no Execute$")
+}
+
+// DefenderCtrl (CardProperty.java:197-212) is relative to the attacking
+// source -- or, for an Aura or Equipment source, to the creature it is
+// attached to (Combat.getDefendingPlayerRelatedTo).
+func TestDefenderCtrlFollowsTheAttackOrItsAttachment(t *testing.T) {
+	t.Parallel()
+	g, a, b := combatGame(t)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	homebody := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+	aura := g.NewCard(auraDef(t), a, engine.Battlefield)
+	g.Attach(aura, attacker)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	spec := valid.Parse("Creature.DefenderCtrl")
+	if engine.Matches(g, g.Card(theirs), spec, a, attacker) {
+		t.Error("DefenderCtrl matched before any attack")
+	}
+	declareAttacking(t, g, attacker)
+	for _, src := range []engine.CardID{attacker, aura} {
+		if !engine.Matches(g, g.Card(theirs), spec, a, src) {
+			t.Errorf("source %d: the defender's creature did not match", src)
+		}
+		if engine.Matches(g, g.Card(homebody), spec, a, src) {
+			t.Errorf("source %d: the attacker's own creature matched", src)
+		}
+	}
+	if engine.Matches(g, g.Card(theirs), spec, a, homebody) {
+		t.Error("a non-attacking source matched")
+	}
+}
+
+// A lure keyword printed on a card (a K: line, compiled from script text the
+// way the corpus is) is what the block validator reads.
+func TestCompiledLureKeywordIsEnforced(t *testing.T) {
+	t.Parallel()
+	reg, err := cardtype.LoadRegistry(strings.NewReader("[CreatureTypes]\nElf\n"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	raw := &carddb.Card{Filename: "Lure Beast"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Lure Beast"
+	raw.Faces[0].Type = cardtype.Parse(reg, "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Keywords = []string{"All creatures able to block CARDNAME do so."}
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	g, a, b := combatGame(t)
+	lure := g.NewCard(def, a, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
+	declareAttacking(t, g, lure)
+	wantIllegal(t, tryBlocks(g), "CR 509.1c")
+	if err := tryBlocks(g, engine.Block{Blocker: blocker, Attacker: lure}); err != nil {
+		t.Fatalf("DeclareCombatBlockers: %v", err)
+	}
 }

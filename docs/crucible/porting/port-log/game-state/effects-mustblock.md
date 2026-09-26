@@ -112,6 +112,11 @@ The requirement lives on the blocker, as Java's `Card.mustBlockCards` (`MustBloc
 
 A blocker no longer on the battlefield is skipped (Java's `equalsWithGameTimestamp`).
 
+`DefenderCtrl` (`CardProperty.java:197-212`) is engine-wide, not MustBlock's alone: every `ValidTgts$`/`Valid*$` naming
+it (47 corpus files, attack triggers targeting "creature defending player controls") now finds its targets instead of
+none. Relative to the attacking source, or for an Aura, Equipment or Fortification source to what it is attached to
+(`Combat.getDefendingPlayerRelatedTo`, `Combat.java:452-463`). `DefenderCtrlForRemembered` stays unmatched.
+
 ## Mode$ MustAttack and Mode$ MustBlock land
 
 Both scanned on demand over `traitHosts` (battlefield and Command-zone effect cards), `eachCombatStatic`

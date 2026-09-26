@@ -14,7 +14,7 @@ is tapped for mana, add …") resolves immediately and is never put on the stack
 
 The corpus has 246 `T:` lines with `Static$ True`: `ChangesZone` 125, `TapsForMana` 49, `SpellCast` 17, `Phase` 17,
 `TurnBegin` 8, `DamageDone` 6, a tail. Of the 49 `TapsForMana` lines, the `Execute$` is `DB$ Mana` 29 times (Utopia
-Sprawl, Wild Growth, Zendikar Resurgent) and `DB$ ManaReflected` 18 times.
+Sprawl, Wild Growth, Fertile Ground) and `DB$ ManaReflected` 18 times (Zendikar Resurgent, Mana Flare).
 
 This port has no static-trigger path:
 

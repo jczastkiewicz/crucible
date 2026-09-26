@@ -87,6 +87,13 @@ Also an error, never a silent empty pool or a guess (GO-7):
 
 The `ValidSA$` pre-filter keeps a card `playCastGap` names (Java would offer it); only choosing it fails.
 
+**One cast path.** Play casts only what `castSpell` casts: a permanent, an Aura, or an instant/sorcery with exactly one
+`A:SP$` line and no `Cost$` on it, paying the printed mana cost or nothing. Not covered, each an `error` from the two
+tables above: split/adventure/omen/modal/prepare cards, alternate states, alternative and modified costs, Stack →
+Graveyard replacement, targets outside the battlefield. Reason: each needs a decision or cast step `castSpell` lacks
+(`getAbilityToPlay`'s choice among spells, alternate-cost payment, a replacement hook on the resolved spell's move), not
+more Play code.
+
 Not ported, no corpus line affected: `equalsWithGameTimestamp` on targeted cards (a `CardID` is stable across zones),
 `XMin$` on the cast spell under `WithoutManaCost$` (`:365`), `getAbilityToPlay`'s cancel (`:327-333`).
 
@@ -99,3 +106,76 @@ Not ported, no corpus line affected: `equalsWithGameTimestamp` on targeted cards
 
 **Forge bug (PORT-8).** `PlayEffect.java:312`/`:389` `AllowRepeats$` re-offer loop, latent
 ([`forge-java-defects.md`](../../forge-java-defects.md)).
+
+## CopySpellAbility lands
+
+`copyspellabilityeffect.go`, `CopySpellAbilityEffect.java:65-210`, `CardFactory.java:80-167` (`copySpellHost`,
+`copySpellAbilityAndPossiblyHost`). Each copy is a new stack object (own `StackItemID`) on a new card, pushed above the
+resolving ability, so it resolves next. Not cast (CR 707.10): no `SpellCast` event, no `SpellsCastThisTurn`, no cast
+triggers, no cost. Corpus: 255 lines.
+
+| Param / shape                                                 | Resolved as                                                                                                                                               |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Defined$ TriggeredSpellAbility` (164 lines)                  | stack item the `Mode$ SpellCast` trigger recorded (`triggeredObjects.spellAbility`)                                                                       |
+| `ValidTgts$` + `TargetType$ Spell` (42), no `TargetType$` (8) | targets scanned on the stack (`stackSpellCandidates`); each targeted card → its spell item (`spellItemsOf`)                                               |
+| `Defined$ Targeted` (8)                                       | same mapping over the ability's targets                                                                                                                   |
+| `MayChooseTarget$` (207)                                      | per targeting part: `ConfirmEffect` ("new targets?"), then `ChooseTargets` over `targetChoiceFor`'s scan for the copier; Aura copy: `ChooseEnchantTarget` |
+| `Amount$` (34, default 1)                                     | `optionalAmount`; that many copies per spell per copier                                                                                                   |
+| `Controller$` (35, default `You`)                             | `definedPlayers`; each player copies under their own control, owns the copy card                                                                          |
+| `Optional$` (11)                                              | `ConfirmEffect` per copier per spell, before its copies (Java `confirmAction`, `:97`)                                                                     |
+| `RememberNewCard$` (6)                                        | each copy's card remembered on the host (`CardFactory.java:113-115`)                                                                                      |
+| `CantCopy$` on the original                                   | spell dropped (`SpellAbility.cantBeCopied`, `:460-462`)                                                                                                   |
+| `IgnoreFreeze$` (3), `Secondary$`                             | no-op: this port never freezes the stack; `Secondary$` is description-only                                                                                |
+| Charm original                                                | chosen modes and their targets carried over, never re-chosen (CR 707.10)                                                                                  |
+| permanent spell original                                      | copy resolves as a token (`copyBecomesToken`, CR 111.11); Aura copy attaches to its own (possibly new) target                                             |
+
+Copy card: `NewCard` from the original's `Def`, owned by the copier, straight into `Stack`, `IsCopiedSpell` set. The
+original's `Def` is its copiable values: a card on the stack carries no Layer 1 copy effect (`endCopiesOnLeave`).
+Leaving the stack by any move it ceases to exist (`ceaseCopiedSpell`), unless it resolves as a permanent.
+
+**Trigger order.** Every copy of one resolution goes on the stack before any `BecomesTarget` trigger a copy's targets
+raise. Reason: `MagicStack.add` only hands those to the trigger handler; they reach the stack when a player next
+receives priority (`addSimultaneousStackEntry`), so under `Amount$ 2` both copies sit below both triggers. Test:
+`TestCopySpellCopiesGoOnTheStackBeforeTheirTargetTriggers`.
+
+**Copy order.** One copier's copies go on the stack in spell order, then copy order, no ordering decision. Java hands
+them to `orderAndPlaySimultaneousSa` (`PlayerControllerAi.java:1296`), where a human orders them. Affects only several
+distinct spells for one copier: Display of Power (1 line, `TargetMax$ X`). Same deterministic-order simplification
+`pushTriggeredAbilities` (`trigger.go`) documents for simultaneous triggers.
+
+**X.** Java carries X onto the copy (`copySpellHost`, `setXManaCostPaidByColor`). This port records no X on any spell;
+`xPaid` is not a `resolveAmount` shape, so a copy of an X spell fails where the original does, never resolves with 0.
+
+Decisions: `ConfirmEffect` (`Optional$`, `MayChooseTarget$`), `ChooseTargets`, `ChooseEnchantTarget`. No new
+`PlayerController` method, no new engine state beyond the shared pieces above.
+
+Rejected before acting (`copySpellUnresolvedParams`, plus shape checks):
+
+| Param / shape                                                                                                         | Reason                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `CopyForEachCanTarget$` (11), `ChooseOnlyOne$` (3)                                                                    | CR 707.10d: one copy per other legal target, a per-target copy loop not built                                              |
+| `DefinedTarget$` (3)                                                                                                  | CR 707.10e: copy's target set by the effect, `changeToLegalTarget`                                                         |
+| `NonLegendary$` (7), `SetPower$`/`SetToughness$` (2), `AddTypes$` (2), `SetColor$` (1)                                | Layer 1 changes to the copy's copiable values (`getCloneStates`), not built for copies                                     |
+| `RememberCopies$` (3)                                                                                                 | remembers `SpellAbility` objects; `Memory` holds entities only                                                             |
+| `TargetValidTargeting$` (3), `SingleChoice$`, `Epic$`, `UseOriginalHost$` (1)                                         | each its own mechanic                                                                                                      |
+| `ConditionDefined$` (6), `Condition$`                                                                                 | `subAbilityConditionMet` reads either as never met, silently                                                               |
+| `Defined$ Parent` (10)                                                                                                | needs the resolving root spell, which a chained sub-ability does not carry                                                 |
+| `Defined$ ValidStack` (3), `Remembered` (3), `Imprinted` (2), `TriggeredSourceSA` (2), `Spawner>…` (1), `Self`, `You` | other `getDefinedSpellAbilities` shapes, none built                                                                        |
+| `TargetType$` other than `Spell` (17: `Activated`, `Triggered`, `SpellAbility.numTargets`, `Spell.numTargets`)        | ability copies (CR 707.10b) and targeting-count restrictions                                                               |
+| triggering or targeted spell no longer on the stack                                                                   | Java copies from the `SpellAbility` it still holds (last-known information); this port keeps no stack item after it leaves |
+| `Mode$ SpellCopy`/`SpellCastOrCopy`/`SpellAbilityCopy` trigger on a trait host                                        | `MagicStack.java:442-450` fires them for a copy; none built. `SpellCastOrCopy` covers Magecraft                            |
+| `ReplacementType.CopySpell` replacement or `Mode$ CantBeCopied` static on the battlefield                             | copy-count replacement (`:177-202`) and `StaticAbilityCantBeCopied` not built                                              |
+
+A targeted card that is no longer a spell on the stack (resolved, left) is skipped: nothing to copy. A new target
+outside the legal candidates is an error (`checkChoice`), never set on the copy.
+
+| Test                                                    | Proves                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| scenario `copy-spell-swarm-intelligence-retargets-bolt` | Swarm Intelligence's optional trigger copies Lightning Bolt; copy retargeted to Grizzly Bears kills it and ceases; original hits ai for 3                                                                                                                                 |
+| `spellcopy_test.go`                                     | not cast, ceases on any move, new targets or kept, illegal new target, trigger order, `Amount$`/`Controller$`/`Optional$`/`RememberNewCard$`, token copy, Aura retarget, stack targeting with and without `TargetType$`, Charm modes, `CantCopy$`, rejections, spell gone |
+
+Scenario verb added: `queue optionaltrigger <bool>` (`internal/fixture/actions.go`, `ConfirmOptionalTrigger`), for an
+`OptionalDecider$` trigger such as Swarm Intelligence's.
+
+No Forge defect found in `CopySpellAbilityEffect.java` or `CardFactory.java`'s copy path. `PlayerControllerAi.java:1314`
+(`FIXME`: AI uses `chooseNewTargetsForCopy`, not `setupNewTargets`) is an AI-only difference, not a rules defect.

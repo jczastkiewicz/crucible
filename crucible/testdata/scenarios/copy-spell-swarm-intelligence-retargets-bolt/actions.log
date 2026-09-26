@@ -1,0 +1,18 @@
+# CopySpellAbilityEffect.java: Swarm Intelligence's Mode$ SpellCast trigger
+# (OptionalDecider$ You) resolves DB$ CopySpellAbility | Defined$
+# TriggeredSpellAbility | MayChooseTarget$ True. Human casts Lightning Bolt
+# at ai and accepts the trigger; the copy goes on the stack above the
+# resolving trigger, not cast (CR 707.10), and its controller chooses a new
+# target for it (CR 707.10c): ai's Grizzly Bears. The copy resolves first
+# and kills the Bears, then ceases to exist instead of reaching a graveyard
+# (CR 707.10a); the original Bolt deals 3 to ai and goes to human's
+# graveyard.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets ai
+queue optionaltrigger true
+queue confirmeffect true
+queue targets 4
+castspell human 1
+resolvestack

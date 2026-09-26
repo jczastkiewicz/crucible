@@ -65,6 +65,8 @@ import (
 //	queue paycolorlesshybrid <bool>      ScriptedController.QueuePayColorlessHybrid
 //	queue payphyrexian <bool>            ScriptedController.QueuePayPhyrexian
 //	queue payhybridphyrexian <color|life> ScriptedController.QueuePayHybridPhyrexian, "life" for the zero mana.Colors answer
+//	queue confirmeffect <bool>           ScriptedController.QueueConfirmEffect, an effect's yes/no prompt
+//	queue optionaltrigger <bool>         ScriptedController.QueueConfirmOptionalTrigger, an OptionalDecider$ trigger's "you may"
 //
 // A scenario that needs a decision point no verb here reaches -- choosing
 // modes, anything an instant or sorcery resolves into -- cannot be written
@@ -437,6 +439,16 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return fmt.Errorf("queue confirmeffect %q: %w", value, err)
 		}
 		c.QueueConfirmEffect(v)
+
+	case "optionaltrigger":
+		// An OptionalDecider$ trigger's "you may" (ConfirmOptionalTrigger),
+		// asked as the trigger goes on the stack: Swarm Intelligence's
+		// "you may copy that spell."
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue optionaltrigger %q: %w", value, err)
+		}
+		c.QueueConfirmOptionalTrigger(v)
 
 	default:
 		return fmt.Errorf("unknown queue kind %q", kind)

@@ -129,6 +129,12 @@ type Ability struct {
 	// onto every sub-ability it chains the way TriggerRemembered is: Java
 	// reads it off the root ability. Zero for any ability no trigger made.
 	triggered triggeredObjects
+	// targetStamps is each card target's zoneStamp as the ability went on
+	// the stack (stampTargets, targeting.go) -- Java's
+	// equalsWithGameTimestamp identity (MagicStack.java:716-722): a card
+	// that changed zones since is a new object (CR 400.7) and no longer a
+	// legal target. A Charm mode carries its own.
+	targetStamps []targetStamp
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
@@ -239,4 +245,22 @@ type triggeredObjects struct {
 	// will. A value, so a stacked Ability copies it with no aliasing. Zero
 	// amount when unset.
 	produced producedMana
+}
+
+// targetStamp is one card target's zoneStamp as recorded by stampTargets.
+type targetStamp struct {
+	card  CardID
+	stamp uint64
+}
+
+// stampOf is the zoneStamp stampTargets recorded for card, if any. An
+// ability resolved without going on the stack (a test calling
+// Registry.Resolve directly) has none, and only the other checks apply.
+func (a *Ability) stampOf(card CardID) (uint64, bool) {
+	for _, s := range a.targetStamps {
+		if s.card == card {
+			return s.stamp, true
+		}
+	}
+	return 0, false
 }

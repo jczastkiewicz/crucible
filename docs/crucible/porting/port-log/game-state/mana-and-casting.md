@@ -316,19 +316,10 @@ monotonic counter, on `Card.Timestamp`'s own "never reused within a game" terms.
 
 `ResolveStack` (`stack.go`) gained two things after popping the top ability and before/after dispatching it:
 
-- **`targetsStillLegal`** (`targeting.go`), CR 608.2b's own fizzle check — narrowed to the one shape re-checkable
-  without breaking an existing, load-bearing contract: an Aura's own single `Target`. `resolveTargets`' own push-time
-  candidate scan (`targetCandidates`) is built to find _new_ candidates, not to confirm an already-chosen one is still
-  among them, and `Ability`'s own doc comment already states a chosen `Targets` answer is "NOT re-checked... trust the
-  controller's answer" — every `PlayerController` decision method in `control.go` documents the identical stance for its
-  own return value. Recomputing and intersecting that scan against the general `Ability.Targets` shape was tried and
-  reverted: `TestRemoveFromGameSpellOnStack` (`pack3shapes_test.go`) already relies on a `RemoveFromGame` ability
-  legally targeting a spell still on the `Stack` zone through a plain `ValidTgts$ Card` line with no `TargetType$ Spell`
-  at all — legal at push time only because some _other_ battlefield card satisfied the nonempty-candidates gate, with
-  the actually-chosen target trusted separately and never re-scanned. `auraTargetStillLegal` re-runs `enchantTargets`'s
-  own two checks (`Matches` against the `Enchant` spec, `hostRefusesEnchant`) instead, sound because that scan was
-  already scoped to the Aura's own real domain. A general `ValidTgts$` fizzle check needs its own design and is not part
-  of this ADR.
+- **`targetsStillLegal`** (`targeting.go`), CR 608.2b's fizzle check: every chosen target re-checked on its own
+  ([`## CR 608.2b`](targeting-and-chaining.md#cr-6082b-every-target-re-checked-at-resolution)). An Aura's own single
+  `Target` keeps its own check, `auraTargetStillLegal`, which re-runs `enchantTargets`'s two checks (`Matches` against
+  the `Enchant` spec, `hostRefusesEnchant`).
 - **`moveResolvedSpellToGraveyard`** (`stack.go`), CR 608.2m's own "then it's put into its owner's graveyard," run after
   dispatch (fizzled or resolved) whenever the ability's own `Source` card is still in the `Stack` zone —
   `permanentEffect`/`attachEffect` already move their own source to the battlefield as part of what they resolve into,
@@ -372,10 +363,9 @@ defense-counter branch, both already shared with combat damage), `dealPlayerDama
 an `AsCard`/`AsPlayer` check, `DamageDealEffect.java`'s own identical shape (a single `instanceof`-checked loop over
 `getTargetEntities`, not two separate `getTargetCards`/`getTargetPlayers` passes, those existing only for
 `getStackDescription`). `dealDamageTargets` (below `Resolve`) skips a card target that already left the battlefield
-between targeting and resolution -- `DamageDealEffect.java`'s own per-target liveness check, not a general CR 608.2b
-fizzle (ADR-0018's own fizzle check stays scoped to an Aura's single target; this is a narrower, DealDamage-specific
-loop Java itself does not delegate to a shared check either) -- while every other target in the same resolution still
-takes its damage. No such check exists for a player target in Java's own loop, so none was added here.
+between targeting and resolution -- `DamageDealEffect.java`'s own per-target liveness check, which Java runs inside the
+effect on top of the shared CR 608.2b check -- while every other target in the same resolution still takes its damage.
+No such check exists for a player target in Java's own loop, so none was added here.
 
 `DividedAsYouChoose$` (Forked Bolt's own uneven-split shape, 74 real lines) is explicitly not ported: Java records the
 allocation at target-choosing time (`SpellAbility.addDividedAllocation`), a decision this port's own

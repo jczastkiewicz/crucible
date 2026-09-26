@@ -56,9 +56,9 @@ phased-in card reads `phasedOut*` false and `phasedIn*` true (`:1051-1057`). Thr
 need were added with it: `Permanent` (`:90`), `token` (`:1336`, exact form) and `EffectSource` (`:424`, the card that
 created an effect card).
 
-**Targets (CR 608.2b).** A chosen target is a per-card reference, not an enumeration. `dropPhasedOutTargets`
-(`targeting.go`) is `MagicStack.hasFizzled` (`MagicStack.java:704-752`) for the one cause this port re-checks: a card
-target that phased out after it was chosen, which `canBeTargetedBy` refuses (`Card.java:6829-6831`). Such targets are
+**Targets (CR 608.2b).** A chosen target is a per-card reference, not an enumeration. `dropIllegalTargets`
+(`targeting.go`) is `MagicStack.hasFizzled` (`MagicStack.java:704-752`); a card target that phased out after it was
+chosen is one of the causes it re-checks, since `canBeTargetedBy` refuses it (`Card.java:6829-6831`). Such targets are
 removed from the ability's `Targets` and from each Charm mode's; the ability fizzles when at least one target was chosen
 and none is left, unless it or a chosen mode names `CantFizzle$`. `auraTargetStillLegal` refuses a phased-out host.
 Guardian of Faith or Slip Out the Back in response to removal now counters the removal.
@@ -73,19 +73,19 @@ mods stay as they were when it phased out -- hidden while it is out, rebuilt by 
 
 Guarded here, each citing the Java line it mirrors:
 
-| Go site                                        | Java guard                              |
-| ---------------------------------------------- | --------------------------------------- |
-| `canBeDestroyed` (`destroyeffect.go`)          | `Card.canBeDestroyed`, `Card.java:6816` |
-| `sacrificeEffect` self, `sacrificeCards`       | `Card.canBeSacrificedBy`, `:6909`       |
-| `changeZoneKnown` (`changezoneeffect.go`)      | `ChangeZoneEffect.java:557`             |
-| `tapEffect`                                    | `TapEffect.java:56`                     |
-| `untapEffect`                                  | `UntapEffect.java:57`                   |
-| `animateCards` (`animate.go`)                  | `AnimateEffect.java:168`, `:176`        |
-| `applyPumpEffects`, `applyAnimateEffects`      | see "By-ID re-adders"                   |
-| `auraTargetStillLegal`, `dropPhasedOutTargets` | `Card.canBeTargetedBy`, `:6829`         |
+| Go site                                    | Java guard                              |
+| ------------------------------------------ | --------------------------------------- |
+| `canBeDestroyed` (`destroyeffect.go`)      | `Card.canBeDestroyed`, `Card.java:6816` |
+| `sacrificeEffect` self, `sacrificeCards`   | `Card.canBeSacrificedBy`, `:6909`       |
+| `changeZoneKnown` (`changezoneeffect.go`)  | `ChangeZoneEffect.java:557`             |
+| `tapEffect`                                | `TapEffect.java:56`                     |
+| `untapEffect`                              | `UntapEffect.java:57`                   |
+| `animateCards` (`animate.go`)              | `AnimateEffect.java:168`, `:176`        |
+| `applyPumpEffects`, `applyAnimateEffects`  | see "By-ID re-adders"                   |
+| `auraTargetStillLegal`, `targetStillLegal` | `Card.canBeTargetedBy`, `:6829`         |
 
-Not guarded yet. A targeted reference is covered by `dropPhasedOutTargets`; these matter only for a `Defined$` that
-names a phased-out card without targeting it (`Remembered`, `Self`, `Enchanted`, ...):
+Not guarded yet. A targeted reference is covered by `targetStillLegal`; these matter only for a `Defined$` that names a
+phased-out card without targeting it (`Remembered`, `Self`, `Enchanted`, ...):
 
 | Java guard                                                                      | Go site                                                                                                                                  |
 | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

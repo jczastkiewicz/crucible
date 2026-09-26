@@ -121,6 +121,35 @@ newly needing to call into groups their own files had not referenced before this
 
 ---
 
+## CR 608.2b: every target re-checked at resolution
+
+`targetsStillLegal` (`targeting.go`, called by `resolveTop`) is `MagicStack.hasFizzled` (`MagicStack.java:704-752`).
+Each chosen target is checked on its own (`targetStillLegal`); an illegal one is removed from the ability's `Targets`,
+or its Charm mode's, before the effect runs (`MagicStack.java:748-750`). The ability fizzles — no effect, no
+sub-ability, no `AbilityResolved` — when at least one target was chosen and none is left, unless it or a chosen mode
+names `CantFizzle$`. A fizzled spell still goes to its owner's graveyard (`moveResolvedSpellToGraveyard`).
+
+| Target | Illegal when                                                                                             | Java                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Card   | it changed zones since targeted (its `zoneStamp` differs from the one `stampTargets` recorded; CR 400.7) | `equalsWithGameTimestamp`, `:716-722`                  |
+| Card   | it is phased out (CR 702.26b)                                                                            | `Card.canBeTargetedBy`, `Card.java:6829-6831`          |
+| Card   | it no longer matches the ability's `ValidTgts$`                                                          | `canTarget`'s `isValid`, `SpellAbility.java:1591-1594` |
+| Player | they left the game, or no longer match `ValidTgts$`                                                      | `Player.canBeTargetedBy`, `Player.java:1033-1043`      |
+| other  | never (an ability targeted by `ChangeTargets`)                                                           | —                                                      |
+
+`zoneStamp` (`card.go`) is Java's `gameTimestamp`: set only as a card enters a zone (`put`/`putFront`), so a transform
+(which restamps `Timestamp` for layer order) does not fizzle a spell targeting the transformed permanent. `PushAbility`
+records the stamps; `ChangeTargets` records them again for the targets it rewrites.
+
+Per entity, never by recomputing the candidate scan and intersecting it: `TestRemoveFromGameSpellOnStack`
+(`pack3shapes_test.go`) targets a spell on the stack through a plain `ValidTgts$ Card` that `targetCandidates`'
+battlefield scan would never list. The check is held to what choosing a target checks, no more: hexproof, shroud,
+protection and ward are checked at neither point (`game-state.md`, `Not ported yet`). Java re-runs the whole `canTarget`
+gauntlet (`TargetUnique`, `SameController`, ...); none of those params is resolvable in this port yet.
+
+Fixtures: `fizzle-helix-countered-on-resolution-gains-no-life`; `fizzle_test.go` for zone change, partial targets,
+`ValidTgts$` no longer matching, and a player who lost.
+
 ## SubAbility chaining itself lands
 
 `SubAbility$` sits in every M6 effect's own "not resolved" list built so far -- this port's own second-most-cited gap

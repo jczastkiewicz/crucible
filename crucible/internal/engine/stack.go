@@ -29,6 +29,7 @@ func (g *Game) PushAbility(a Ability) {
 	}
 	g.nextStackItemID++
 	a.ID = g.nextStackItemID
+	g.stampTargets(&a)
 	g.stack = append(g.stack, a)
 	g.sink.Emit(Event{Kind: AbilityActivated, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
 }

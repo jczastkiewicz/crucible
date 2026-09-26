@@ -643,7 +643,7 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = kind, owner
 	g.timestamp++
-	c.Timestamp = g.timestamp
+	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	g.Zone(kind, owner).cards.Add(id)
 }
 
@@ -654,7 +654,7 @@ func (g *Game) putFront(id CardID, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = Library, owner
 	g.timestamp++
-	c.Timestamp = g.timestamp
+	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	g.Zone(Library, owner).cards.Prepend(id)
 }
 

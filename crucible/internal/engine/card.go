@@ -73,6 +73,12 @@ type Card struct {
 	// otherwise simultaneous events. Assigned from the game's counter on every
 	// zone change, never reused.
 	Timestamp uint64
+	// zoneStamp is Java's gameTimestamp (Card.java:274): set only as the
+	// card enters a zone (put/putFront, game.go; GameAction.java:370), so
+	// unlike Timestamp a transform does not change it. It is the object
+	// identity CR 608.2b's target re-check compares (targetStillLegal,
+	// targeting.go; CR 400.7).
+	zoneStamp uint64
 
 	// The mutable detail, split by concern rather than flattened onto Card:
 	// 8,105 lines of Java's Card has to land somewhere, and these are the

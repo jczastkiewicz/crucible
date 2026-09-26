@@ -154,11 +154,8 @@ on. `PassPriority` is the one caller that cannot treat that `false` as an ordina
 controller answering a priority ask rather than a test calling a cast function speculatively: it turns a `false` there
 into an error naming the player, the card and (for an activate) its ability index (GO-7).
 
-The general CR 608.2b fizzle check is still Aura-only (ADR-0018) — a response resolving above a targeted spell can now
-actually remove its target, and this port has no general re-check for that yet. Named as the next real unit, not solved
-here: Java's own mechanism is a per-entity `canTarget(entity, fizzleCheck=true)` (`SpellAbility.java:1591`), not a
-recompute-and-intersect of the candidate list, the shape that already broke `TestRemoveFromGameSpellOnStack` once
-(ADR-0018).
+A response can make a spell's target illegal before it resolves; CR 608.2b's per-target re-check handles it
+([`## CR 608.2b`](targeting-and-chaining.md#cr-6082b-every-target-re-checked-at-resolution)).
 
 ---
 

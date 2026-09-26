@@ -1,0 +1,16 @@
+# CR 608.2b: a spell whose every target is illegal as it resolves does not
+# resolve at all -- none of its effects happen, the "you gain 3 life"
+# sub-ability included (MagicStack.hasFizzled). human casts Lightning Helix
+# at ai's Grizzly Bears and, keeping priority, Lightning Bolt at the same
+# Bears. Bolt resolves first and the Bears die; Helix then has no legal
+# target, so human stays at 20 and Helix goes to the graveyard.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 W
+tapformana human 5 R
+queue targets 6
+queue targets 6
+queue action human cast 1
+queue action human cast 2
+passpriority

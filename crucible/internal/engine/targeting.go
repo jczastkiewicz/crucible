@@ -446,28 +446,22 @@ func subChainTargets(p *compile.Ability) bool {
 	return false
 }
 
-// targetsStillLegal is CR 608.2b, checked by ResolveStack (ADR-0018) right
-// before an ability would resolve -- narrowed to two shapes this port can
-// re-check soundly: a target that has phased out since it was chosen
-// (dropPhasedOutTargets, below), and an Aura's own single cast-time Target
-// (castAura, castspell.go). Past those, every ability keeps resolveTargets'
-// own contract unrevisited: a's own doc comment already says a chosen
-// Targets answer "is
-// NOT re-checked... trust the controller's answer" (ability.go), the same
-// stance every decision method in control.go documents for its own return
-// value, and targetCandidates' own scan (below) is scoped for finding NEW
-// candidates at push time, not for confirming an already-chosen one is still
-// among them: TestRemoveFromGameSpellOnStack (pack3shapes_test.go) targets a
-// spell still on the Stack zone through a plain ValidTgts$ Card line with no
-// TargetType$ Spell at all -- legal at push time only because
-// targetCandidates found some OTHER Battlefield card matching "Card" to
-// satisfy resolveTargets' own nonempty-candidates gate, with the actually
-// chosen target trusted separately. Recomputing that same scan here and
-// intersecting it against a.Targets would wrongly fizzle a real, already
-// passing case; a general re-check needs its own design, not a reuse of
-// resolveTargets' own push-time helpers.
+// targetsStillLegal is CR 608.2b, checked by resolveTop (stack.go) right
+// before an ability would resolve: MagicStack.hasFizzled
+// (MagicStack.java:704-752). Every chosen target is re-checked on its own
+// (targetStillLegal); an illegal one is removed from a's Targets, or its
+// Charm mode's, so the effect never sees it (MagicStack.java:748-750). The
+// ability fizzles -- reports false -- when at least one target was chosen
+// and none is left, unless it or a chosen mode names CantFizzle$. An
+// Aura's own single cast-time Target (castAura, castspell.go) keeps its own
+// check (auraTargetStillLegal).
+//
+// Per entity, never by recomputing the candidate scan and intersecting:
+// TestRemoveFromGameSpellOnStack (pack3shapes_test.go) targets a spell on
+// the stack through a plain ValidTgts$ Card that targetCandidates' own
+// battlefield scan would never list.
 func (g *Game) targetsStillLegal(a *Ability) bool {
-	if !g.dropPhasedOutTargets(a) {
+	if !g.dropIllegalTargets(a) {
 		return false
 	}
 	if a.API != APIAttach || a.Target == NoCard {
@@ -476,23 +470,18 @@ func (g *Game) targetsStillLegal(a *Ability) bool {
 	return g.auraTargetStillLegal(a)
 }
 
-// dropPhasedOutTargets is MagicStack.hasFizzled (MagicStack.java:704-752)
-// for the one cause of an illegal target this port re-checks: a card target
-// that has phased out since it was chosen, which canBeTargetedBy refuses
-// (Card.java:6829-6831, CR 702.26b) -- the per-target half of ADR-0021's
-// decision 3, since a chosen target is a per-card reference, not an
-// enumeration. Each such target is removed from a's own Targets and from
-// each Charm mode's (a Charm's modes are its sub-abilities in Java, which
-// hasFizzled recurses into). It reports false -- the ability fizzles --
-// when at least one target was chosen and none is left, unless the ability
-// or a chosen mode carries CantFizzle$.
-func (g *Game) dropPhasedOutTargets(a *Ability) bool {
+// dropIllegalTargets removes every target of a, and of each chosen Charm
+// mode (a Charm's modes are its sub-abilities in Java, which hasFizzled
+// recurses into), that is no longer legal. It reports false -- the ability
+// fizzles -- when at least one target was chosen and none is left, unless
+// the ability or a chosen mode carries CantFizzle$.
+func (g *Game) dropIllegalTargets(a *Ability) bool {
 	chosen, kept := 0, 0
 	cantFizzle := hasCantFizzle(a)
-	a.Targets = g.withoutPhasedOut(a.Targets, &chosen, &kept)
+	a.Targets = g.withoutIllegal(a, a.Targets, &chosen, &kept)
 	for i := range a.Modes {
 		m := &a.Modes[i]
-		m.Targets = g.withoutPhasedOut(m.Targets, &chosen, &kept)
+		m.Targets = g.withoutIllegal(m, m.Targets, &chosen, &kept)
 		cantFizzle = cantFizzle || hasCantFizzle(m)
 	}
 	return chosen == 0 || kept > 0 || cantFizzle
@@ -508,13 +497,14 @@ func hasCantFizzle(a *Ability) bool {
 	return ok
 }
 
-// withoutPhasedOut is targets less every phased-out card, counting what it
-// saw and what it kept. The slice is rebuilt only when something is dropped.
-func (g *Game) withoutPhasedOut(targets []EntityID, chosen, kept *int) []EntityID {
+// withoutIllegal is targets less every one owner can no longer target,
+// counting what it saw and what it kept. The slice is rebuilt only when
+// something is dropped.
+func (g *Game) withoutIllegal(owner *Ability, targets []EntityID, chosen, kept *int) []EntityID {
 	*chosen += len(targets)
 	drop := 0
 	for _, e := range targets {
-		if id, ok := e.AsCard(); ok && g.Card(id).IsPhasedOut() {
+		if !g.targetStillLegal(owner, e) {
 			drop++
 		}
 	}
@@ -524,10 +514,89 @@ func (g *Game) withoutPhasedOut(targets []EntityID, chosen, kept *int) []EntityI
 	}
 	out := make([]EntityID, 0, len(targets)-drop)
 	for _, e := range targets {
-		if id, ok := e.AsCard(); ok && g.Card(id).IsPhasedOut() {
-			continue
+		if g.targetStillLegal(owner, e) {
+			out = append(out, e)
 		}
-		out = append(out, e)
+	}
+	return out
+}
+
+// targetStillLegal is SpellAbility.canTarget(entity, fizzleCheck=true)
+// (SpellAbility.java:1398-1609) cut to the checks this port runs when a
+// target is chosen, so a target is never held to a rule it was not chosen
+// under:
+//
+//   - a card target is the same object it was (its zoneStamp, recorded by
+//     stampTargets, has not changed -- CR 400.7), is not phased out
+//     (Card.canBeTargetedBy, Card.java:6829-6831, CR 702.26b), and still
+//     matches owner's ValidTgts$;
+//   - a player target has not left the game (Player.canBeTargetedBy,
+//     Player.java:1033-1043) and still matches owner's ValidTgts$;
+//   - anything else (an ability on the stack, ChangeTargets) is kept.
+//
+// Hexproof, shroud, protection and ward (StaticAbilityCantTarget) are not
+// checked here because targetCandidates does not check them either; that
+// gap is logged once, for both, in game-state.md's Not ported yet.
+func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
+	spec, hasSpec := targetSpec(owner)
+	if pid, ok := e.AsPlayer(); ok {
+		if g.Player(pid).Lost {
+			return false
+		}
+		if !hasSpec {
+			return true
+		}
+		matched, _ := matchesPlayerSpec(g, pid, owner.Controller, owner.Source, spec)
+		return matched
+	}
+	id, ok := e.AsCard()
+	if !ok {
+		return true
+	}
+	c := g.Card(id)
+	if stamp, ok := owner.stampOf(id); ok && stamp != c.zoneStamp {
+		return false
+	}
+	if c.IsPhasedOut() {
+		return false
+	}
+	if !hasSpec {
+		return true
+	}
+	return Matches(g, c, valid.Parse(spec), owner.Controller, owner.Source)
+}
+
+// targetSpec is the ValidTgts$ a's targets were chosen against
+// (targetChoiceFor's own reading, Earthbend's implicit one included).
+func targetSpec(a *Ability) (string, bool) {
+	if a.Params == nil {
+		return "", false
+	}
+	if spec, ok := a.Params.Param("ValidTgts"); ok {
+		return spec, true
+	}
+	if a.API == APIEarthbend {
+		return "Land.YouCtrl", true
+	}
+	return "", false
+}
+
+// stampTargets records the zoneStamp of every card a and each of its Charm
+// modes target now: PushAbility calls it as a goes on the stack, and
+// ChangeTargets again after it rewrites an item's targets.
+func (g *Game) stampTargets(a *Ability) {
+	a.targetStamps = g.stampsOf(a.Targets)
+	for i := range a.Modes {
+		a.Modes[i].targetStamps = g.stampsOf(a.Modes[i].Targets)
+	}
+}
+
+func (g *Game) stampsOf(targets []EntityID) []targetStamp {
+	var out []targetStamp
+	for _, e := range targets {
+		if id, ok := e.AsCard(); ok && id != NoCard && int(id) < len(g.cards) {
+			out = append(out, targetStamp{card: id, stamp: g.Card(id).zoneStamp})
+		}
 	}
 	return out
 }

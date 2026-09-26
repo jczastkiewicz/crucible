@@ -15,13 +15,13 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                              | Defect                                                                 | Crucible meanwhile                       | Upstream  |
-| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`   | `tgtPlayers.get(0)` unguarded; throws once the player list is empty    | `TargetControls$` rejected               | Not filed |
-| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser has picked hangs the game          | `error` for the chooser left empty       | Not filed |
-| `Player.java:3435`                | `getMonarchSet` ternary condition inverted                             | No counterpart: no set codes in Crucible | Not filed |
-| `GameAction.java:2568-2573`       | `takeInitiative` has no `return` after passing a lost player's take on | Reproduced (oracle parity)               | Not filed |
-| `CardUtil.java:345`               | Recursive frame resolves `Valid$` against the reflecting host          | None: `ManaReflected` deferred           | Not filed |
+| Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
+| `ChooseSourceEffect.java:131-133`    | Pool exhausted before every chooser has picked hangs the game                                                          | `error` for the chooser left empty                      | Not filed |
+| `Player.java:3435`                   | `getMonarchSet` ternary condition inverted                                                                             | No counterpart: no set codes in Crucible                | Not filed |
+| `GameAction.java:2568-2573`          | `takeInitiative` has no `return` after passing a lost player's take on                                                 | Reproduced (oracle parity)                              | Not filed |
+| `CardUtil.java:345`                  | Recursive frame resolves `Valid$` against the reflecting host                                                          | None: `ManaReflected` deferred                          | Not filed |
 | Site                                 | Defect                                                                                                                 | Crucible meanwhile                                      | Upstream  |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------- |
 | `ChooseSourceEffect.java:84-89`      | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                    | `TargetControls$` rejected                              | Not filed |
@@ -232,6 +232,7 @@ added to `reflectAbilities` (`:333`).
 **Crucible meanwhile:** no counterpart. `ManaReflected` is deferred
 ([`effects-manareflected.md`](port-log/game-state/effects-manareflected.md)); whoever ports the `Produce` walk decides
 between reproducing it (oracle parity) and carrying the fix upstream first.
+
 ### `FlipOntoBattlefieldEffect.java:109` — neighbor filter always matches
 
 ```java

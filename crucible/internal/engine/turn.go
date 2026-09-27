@@ -241,6 +241,8 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		priority = false // CR 502.4, PhaseHandler.java:251
 	case Draw:
 		g.drawStep(controller)
+	case Main1:
+		g.archenemyMain1(controller)
 	case CombatBegin:
 		g.combatsThisTurn++
 	case DeclareAttackers:

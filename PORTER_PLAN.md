@@ -11,3 +11,5 @@ Scratch file; deleted in the final commit.
 | 5    | Tests, registry regen, docs `effects-setinmotion.md`, index row, counts                                        | tests, docs                                |
 
 Commit after each step that builds and passes `gates.sh fast`.
+
+Status: steps 1-5 committed; remaining: rules review, fix findings, delete this file.

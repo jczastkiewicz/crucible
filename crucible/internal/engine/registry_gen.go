@@ -171,6 +171,7 @@ func NewRegistry() *Registry {
 	r[APISacrificeAll] = sacrificeAllEffect{}
 	r[APIScry] = scryEffect{}
 	r[APISeek] = seekEffect{}
+	r[APISetInMotion] = setInMotionEffect{}
 	r[APISetLife] = setLifeEffect{}
 	r[APISetState] = setStateEffect{}
 	r[APIShuffle] = shuffleEffect{}

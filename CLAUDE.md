@@ -202,12 +202,17 @@ Instants/Sorceries through the stack (ADR-0018), trigger firing, replacement eff
 across all eight layers (partial), targeting, SubAbility chaining, last-known information, activated abilities.
 
 M6 in progress: 170 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`. Largest gaps (corpus lines, `scripts/unported-apis.sh`):
-`Planeswalk` (30), `ChangeText` (17), `ControlPlayer` (11).
+`registry_gen.go`); the rest return `ErrUnimplemented`. Of the other 33, 18 have real corpus lines and are listed by
+`scripts/unported-apis.sh` as deliberately deferred (Planechase/Archenemy/Un-set/Alchemy shapes, plus
+`ChangeText`/`ControlPlayer`/`Meld`/`ControlSpell`); the rest (`Mutate`, `Haunt`, `Bond`, `Encode`,
+`InternalIgnoreEffect`/`InternalLegendaryRule`/`InternalRadiation`, ...) have zero real `AB$`/`SP$`/`DB$` lines under
+that exact name and never surface in `unported-apis.sh`'s corpus-driven listing at all. Largest gaps (corpus lines,
+`scripts/unported-apis.sh`): `Planeswalk` (30), `ChangeText` (17), `ControlPlayer` (11).
 
 Thin or missing: Layer 1 past `Clone`'s "becomes a copy" (no "enters as a copy"); most of Layers 3-8 past their literal
-shapes; hexproof, shroud, protection and ward as targeting restrictions. Full list: `port-log/game-state.md`, "Not
-ported yet".
+shapes; Ward's own non-mana cost shapes (`PayLife`/`Discard`/`Sac`/`Ward:X`) and ability-source/retargeted Ward — the
+mana-cost shape against a directly cast spell is ported (ADR-0028), alongside Hexproof/Shroud/Protection. Full list:
+`port-log/game-state.md`, "Not ported yet".
 
 **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
 SBA," Plan Section 3.2) not.

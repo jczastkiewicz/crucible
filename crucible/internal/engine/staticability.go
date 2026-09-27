@@ -44,7 +44,7 @@ import (
 // Protection is not here either, for the same per-card reason Landwalk
 // is not: its own ValidBlocker is built from the keyword's own argument
 // (Protection.getProtectionValid), a different value per card, not a fixed
-// string every carrier shares. protectionValid (below) reads it directly.
+// string every carrier shares. protectionEach (below) reads it directly.
 //
 // Skulk is not here either, but for a third reason: its own
 // ValidBlocker$ Creature.powerGTX names a Compare property whose operand
@@ -127,8 +127,9 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 				applyCantBlockBy(g, h, "Creature.Self", "", false, "Player.controls"+typ, true, attacker, blocker) {
 				return true
 			}
-			if vb, hasVB, ok := protectionValid(h); ok &&
-				applyCantBlockBy(g, h, "Creature.Self", vb, hasVB, "", false, attacker, blocker) {
+			if refused, _ := protectionEach(h.KeywordLines(), func(vb string, hasVB bool) bool {
+				return applyCantBlockBy(g, h, "Creature.Self", vb, hasVB, "", false, attacker, blocker)
+			}); refused {
 				return true
 			}
 			if h.ID == attacker && h.HasKeyword("Skulk") && skulkBlocks(g, h, blocker) {
@@ -223,7 +224,7 @@ func landwalkType(h *Card) (string, bool) {
 	return "", false
 }
 
-// protectionValid reports h's own Protection keyword's CantBlockBy
+// protectionEach reports h's own Protection keyword's CantBlockBy
 // restriction, ported from CardFactoryUtil.java's `keyword.startsWith("Protection")`
 // branch and Protection.getProtectionValid(keyword, false) (damage=false,
 // the block-legality call, not the damage-prevention one) -- the natural
@@ -238,33 +239,77 @@ func landwalkType(h *Card) (string, bool) {
 // keyword.Parse already tells them apart (Details is "from red" for the
 // first, the characteristic itself for the second, keyword.go's own doc
 // comment on the space-vs-colon split). ok is false only when h carries no
-// Protection keyword at all. hasValidBlocker is false for "protection from
-// everything" (1 real line): Java's own getProtectionValid returns an empty
-// string there, which CardFactoryUtil reads as "omit ValidBlocker$
-// entirely," an unconditional CantBlockBy -- applyCantBlockBy's own
-// contract for hasValidBlocker=false already gives this for free. Read off
-// KeywordLines (card.go), printed and continuously granted alike, the same
-// as landwalkType.
-func protectionValid(h *Card) (validBlocker string, hasValidBlocker, ok bool) {
-	for _, line := range h.KeywordLines() {
+// recognized Protection keyword at all. hasValidBlocker is false for
+// "protection from everything" (1 real line): Java's own getProtectionValid
+// returns an empty string there, which CardFactoryUtil reads as "omit
+// ValidBlocker$ entirely," an unconditional CantBlockBy -- applyCantBlockBy's
+// own contract for hasValidBlocker=false already gives this for free. Read
+// off KeywordLines (card.go), printed and continuously granted alike, the
+// same as landwalkType.
+//
+// lines can carry more than one recognized Protection line -- 22 corpus
+// cards do, Mirran Crusader's own "Protection from black" and "Protection
+// from green" among them -- each refusing independently (CR 702.16b: "a
+// source with two or more protection abilities... [applies] each
+// individually"). fn is called once per recognized line, in order, and
+// protectionEach reports true the first time fn does (the block/attach/
+// target is refused) -- a single-line version of this port used to report
+// only the first recognized line, missing every card with a second one;
+// every caller now loops here instead.
+//
+// lines is a *Card's or a *Player's own KeywordLines -- Absolute Virtue's
+// own "Protection:Player.Opponent:each of your opponents" (`AddKeyword$`
+// naming a player, `Affected$ You`, so lines is Player.KeywordLines when it
+// reaches here) is the reason this reads lines rather than a *Card
+// directly: Gor Muldrak, Amphinologist's identically-shaped
+// "Protection:Salamander" already resolves whether it is printed on a card
+// or granted to a player through continuous.go's own player branch, the
+// same characteristic split either way.
+func protectionEach(lines []string, fn func(validBlocker string, hasValidBlocker bool) bool) (refused, ok bool) {
+	for _, line := range lines {
 		k := keyword.Parse(line)
 		if k.Name != "Protection" {
 			continue
 		}
+		var vb string
+		var hasVB bool
 		if rest, isColor := strings.CutPrefix(k.Details, "from "); isColor {
-			valid, hasVB, recognized := protectionColorValid(rest)
+			valid, hvb, recognized := protectionColorValid(rest)
 			if !recognized {
 				continue
 			}
-			return valid, hasVB, true
+			vb, hasVB = valid, hvb
+		} else {
+			characteristic, _, _ := strings.Cut(k.Details, ":")
+			if characteristic == "" {
+				continue
+			}
+			// A player-relative characteristic ("Player.Opponent", Absolute
+			// Virtue's own line; "Player.PlayerUID_ChosenPlayerUID", True
+			// -Name Nemesis/Guardian Archon/Courageous Resolve/Noble
+			// Heritage/Eon Frolicker's own "protection from the chosen
+			// player"; "Player.OpponentOf...", Cliffside Rescuer -- 10 real
+			// corpus lines total, both printed and Pump-granted) is not a
+			// Card spec at all -- Matches only ever evaluates a *Card, and
+			// nothing here turns "controlled by an opponent"/"controlled by
+			// the chosen player" into the ValidSource$-shaped card spec
+			// Java's own "ControlledBy " + characteristic would
+			// (Protection.java:13-27). Refused rather than passed to Matches
+			// as a bare characteristic it was never meant to be (GO-7):
+			// matching "Player.Opponent" as if it were a card type/subtype
+			// word would be a wrong answer, not a coverage gap (Not ported
+			// yet).
+			if strings.HasPrefix(characteristic, "Player.") {
+				continue
+			}
+			vb, hasVB = characteristic, true
 		}
-		characteristic, _, _ := strings.Cut(k.Details, ":")
-		if characteristic == "" {
-			continue
+		ok = true
+		if fn(vb, hasVB) {
+			return true, true
 		}
-		return characteristic, true, true
 	}
-	return "", false, false
+	return false, ok
 }
 
 // protectionColorValid is Protection.getProtectionValid's own color branch
@@ -295,49 +340,108 @@ func protectionColorValid(protectType string) (valid string, hasValidBlocker, re
 	return "", false, false
 }
 
-// hostRefusesEnchant reports whether host's own Protection or bare Hexproof
-// keyword makes it illegal for aura to enchant it -- CR 702.16e/702.11h,
-// the "cleanup aura" gap game-state.md's own "State-based actions" section
-// names: an Aura's own Enchant-restriction check (enchantSpec/Matches,
-// action.go/castspell.go) is a card-TYPE question ("enchant a creature"),
-// this is a completely separate one (does the specific host refuse THIS
-// specific aura), so both callers -- enchantTargets (castspell.go, CR
-// 601.2c's own legal-target set at cast time) and
-// cleanupDanglingAttachments (action.go, CR 704.5m's own ongoing legality
-// re-check) -- call this in addition to, not instead of, their own Matches
-// call.
+// hostRefusesAttach reports whether host's own Protection keyword makes it
+// illegal for aura to remain attached to it -- CR 704.5m's own ongoing
+// re-check (cleanupDanglingAttachments, action.go), Java's
+// GameEntity.cantBeAttachedMsg -> StaticAbilityCantAttach.cantAttach
+// (GameEntity.java:270): host's Enchant-restriction match
+// (enchantSpec/Matches, action.go/castspell.go) is a card-TYPE question
+// ("enchant a creature"), checked separately by the caller; this is "does
+// THIS host, specifically, refuse to stay attached to aura" -- Protection's
+// own CantAttach half only. Hexproof and Shroud generate no CantAttach
+// ability in Java (cantBeEnchantedByMsg, GameEntity.java:292-304, checks
+// only the Enchant restriction itself, never StaticAbilityCantTarget) --
+// hexproof or shroud gained by an already-enchanted host after the Aura
+// attached does not make it fall off; the Aura was a legal target when it
+// targeted the host (cardCantBeTargetedBy, below, ran then), and CR 704.5m
+// never re-runs that check. Do not add Hexproof/Shroud here.
 //
-// Protection is ported from CardFactoryUtil.java's own Protection branch,
-// which synthesizes a `Mode$ CantAttach | Target$ Card.Self | ValidCard$
-// <valid>` line alongside CantBlockBy's `ValidBlocker$ <valid>` -- the
-// identical `valid` string protectionValid (above) already extracts, just
-// matched against aura itself here (StaticAbilityCantAttach's own `card`
-// parameter) rather than a candidate blocker. "Protection from everything"
+// Ported from CardFactoryUtil.java's own Protection branch, which
+// synthesizes a `Mode$ CantAttach | Target$ Card.Self | ValidCard$ <valid>`
+// line alongside CantBlockBy's `ValidBlocker$ <valid>` -- the identical
+// `valid` string protectionEach (above) already extracts, just matched
+// against aura itself here (StaticAbilityCantAttach's own `card` parameter)
+// rather than a candidate blocker. "Protection from everything"
 // (hasValidBlocker false) refuses unconditionally, the same contract
-// protectionValid's own doc comment already gives applyCantBlockBy.
-//
-// Hexproof is ported from CardFactoryUtil.java's own Hexproof branch, which
-// synthesizes `Mode$ CantTarget | ValidTarget$ Card.Self | Activator$
-// Opponent` plus, when the keyword names a type (hexproofValidSource,
-// below), a `ValidSource$ <type>` on top -- checked here directly (aura's
-// controller vs host's for Activator$ Opponent, aura itself against
-// ValidSource$ when there is one) rather than through a general CantTarget
-// mode this port does not build, Protection's own precedent just above and
-// Menace's own hardcoded-check precedent (block.go). Bare `K:Hexproof` (80
-// of 110 real lines) carries no type at all and refuses unconditionally,
-// the identical "no ValidSource$ line at all" contract protectionValid's
-// own `hasVB` gives Protection from everything.
-func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
+// protectionEach's own doc comment already gives applyCantBlockBy. Each of
+// host's own recognized Protection lines is checked independently
+// (CR 702.16b), the reason this loops through protectionEach rather than
+// asking for one line's answer.
+func hostRefusesAttach(g *Game, aura *Card, host CardID) bool {
 	h := g.Card(host)
-	if vb, hasVB, ok := protectionValid(h); ok {
-		if !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller(), h.ID) {
+	refused, _ := protectionEach(h.KeywordLines(), func(vb string, hasVB bool) bool {
+		return !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller(), h.ID)
+	})
+	return refused
+}
+
+// cardCantBeTargetedBy reports whether target refuses to be the target of
+// an ability controlled by activator, sourced from source -- CR 702.11b/e
+// (Hexproof), 702.18a/b (Shroud) and 702.16e (Protection's targeting half),
+// Java's Card.canBeTargetedBy/Player.canBeTargetedBy ->
+// StaticAbilityCantTarget.cantTarget (Card.java:6820-6838,
+// StaticAbilityCantTarget.java:37-51), narrowed the same way protectionEach
+// and hexproofValidSource already are, to the keyword-generated CantTarget
+// abilities alone -- a hand-written `S:Mode$ CantTarget` line (Gaea's
+// Revenge) is not read. Called identically at target selection
+// (targetCandidates) and at the CR 608.2b resolution re-check
+// (targetStillLegal), since Java's own SpellAbility.canTarget runs the exact
+// same entity.canBeTargetedBy(this) at both call sites regardless of its
+// fizzleCheck argument (SpellAbility.java:1608) -- no asymmetry to
+// reproduce.
+//
+// Every one of these keyword-generated abilities carries no `AffectedZone$`
+// (CardFactoryUtil.java's own Hexproof/Shroud/Protection branches never set
+// one), so `applyCantTargetAbility`'s own default zone gate applies:
+// `card.isInPlay()` (StaticAbilityCantTarget.java:70-72) -- target refuses
+// nothing while it is anywhere but the battlefield. This is why Counterspell
+// can still target an opposing creature spell printed with Hexproof: the
+// spell on the stack is not in play, so its printed Hexproof's CantTarget
+// ability does not apply to it there at all.
+//
+// Protection is checked first and unconditionally (no Activator$ line at
+// all in Java's own Protection branch, CardFactoryUtil.java:3966-3971) --
+// ValidSource$ is protectionEach's own string, matched here against
+// source, the ability's own host card, exactly as hostRefusesAttach matches
+// it against aura instead. Shroud next, also unconditional (no
+// Activator$, no "Shroud from X" variant Keyword.java ever parses -- base
+// Shroud refuses every spell/ability, the controller's own included, CR
+// 702.18a). Hexproof last, gated on `Activator$ Opponent`
+// (CardFactoryUtil.java:3920-3931) -- matchesPlayerSpec's own "Opponent"
+// base already is that check, activator against target's controller as
+// You; bare `K:Hexproof` (80 of 110 real lines) then refuses
+// unconditionally, a qualified `Hexproof from <type>`
+// (hexproofValidSource) matches source the same way ValidSource$ does for
+// Protection. "Hexproof from triggered/activated abilities" (2 real
+// lines) is not resolved -- hexproofValidSource's own `ok=false` for
+// `Triggered`/`Activated` (Java's ValidSA$, not ValidSource$; Matches only
+// ever takes a *Card) -- so it never refuses here (GO-7): a
+// Counterspell-shaped ChangeTargets or the initial cast of an instant
+// naming one of these two cards as ValidTgts$ incorrectly lets the target
+// through; logged in game-state.md's Not ported yet.
+//
+// A Player target is playerCantBeTargetedBy's own job (below) -- Player has
+// no `protectionEach`/battlefield zone, so the two do not share a body, only
+// the Shroud/Hexproof shape.
+func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source CardID) bool {
+	if target.Zone != Battlefield {
+		return false
+	}
+	src := g.Card(source)
+	if refused, _ := protectionEach(target.KeywordLines(), func(vb string, hasVB bool) bool {
+		return !hasVB || Matches(g, src, valid.Parse(vb), target.Controller(), target.ID)
+	}); refused {
+		return true
+	}
+	for _, line := range target.KeywordLines() {
+		if keyword.Parse(line).Name == "Shroud" {
 			return true
 		}
 	}
-	if aura.Controller() == h.Controller() {
+	if matched, _ := matchesPlayerSpec(g, activator, target.Controller(), target.ID, "Opponent"); !matched {
 		return false
 	}
-	for _, line := range h.KeywordLines() {
+	for _, line := range target.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Hexproof" {
 			continue
@@ -346,7 +450,77 @@ func hostRefusesEnchant(g *Game, aura *Card, host CardID) bool {
 			return true
 		}
 		if vs, ok := hexproofValidSource(k.Details); ok {
-			if vs == "" || Matches(g, aura, valid.Parse(vs), h.Controller(), h.ID) {
+			if vs == "" || Matches(g, src, valid.Parse(vs), target.Controller(), target.ID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// playerCantBeTargetedBy is cardCantBeTargetedBy's own Player-entity
+// counterpart -- Java's Player.canBeTargetedBy -> StaticAbilityCantTarget.
+// cantTarget (Player.java:1030-1041), ported from PlayerFactoryUtil.java's
+// own Hexproof/Shroud/Protection branches (`ValidTarget$ Player.You`,
+// `EffectZone$ Command`, otherwise identical to the Card branches
+// CardFactoryUtil.java synthesizes).
+//
+// Protection is checked first and unconditionally, `protectionEach` shared
+// with the Card branch (above) unchanged: Gor Muldrak, Amphinologist's own
+// `Protection:Salamander` (a plain colon-structured characteristic) resolves
+// against `Player.KeywordLines` exactly the way it would against a card's --
+// the one shape among the corpus's named player-Protection cards that does.
+// The other three still refuse nothing -- Runed Halo's `Protection:ChosenName`
+// and Serra's Emissary's `Protection:ChosenType` never even reach
+// `Player.KeywordMod` (keywordTokens' own dynamic-marker skip, continuous.go)
+// -- and Absolute Virtue's `Protection:Player.Opponent:...` (one of 10 real
+// corpus `Protection:Player...` lines, printed and Pump-granted alike --
+// `protectionEach`'s own doc comment) reaches it but `protectionEach` itself
+// refuses to read a player-relative characteristic; logged in game-state.md's
+// Not ported yet.
+//
+// target's own KeywordLines (player.go) is entirely Layer 6's doing --
+// applyOneContinuousKeyword's own player branch (continuous.go), the one
+// source of a Player's keyword lines, since a player has no printed face
+// to fold onto the way a card does. Shroud next and unconditional, same as
+// the Card branch; Hexproof last, gated on `Activator$ Opponent`, matched
+// the same way.
+func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source CardID) bool {
+	p := g.Player(target)
+	src := g.Card(source)
+	// Matches' own source parameter is "the card the spec is written on,"
+	// for a host-relative property (Self/Other/HostCard...) to resolve
+	// against -- the Card branch passes the protected card itself (its
+	// closest equivalent of Java's player.getKeywordCard()); a player has no
+	// such card, so NoCard here, not source (the ATTACKING card): passing
+	// source would resolve a host-relative property against the wrong side
+	// entirely. Unreached today -- Salamander names no property, and every
+	// other player-Protection line above is either skipped by keywordTokens
+	// or refused by protectionEach itself before fn ever runs -- but wrong
+	// the moment a future corpus line needs one.
+	if refused, _ := protectionEach(p.KeywordLines(), func(vb string, hasVB bool) bool {
+		return !hasVB || Matches(g, src, valid.Parse(vb), target, NoCard)
+	}); refused {
+		return true
+	}
+	for _, line := range p.KeywordLines() {
+		if keyword.Parse(line).Name == "Shroud" {
+			return true
+		}
+	}
+	if matched, _ := matchesPlayerSpec(g, activator, target, source, "Opponent"); !matched {
+		return false
+	}
+	for _, line := range p.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Hexproof" {
+			continue
+		}
+		if k.Details == "" {
+			return true
+		}
+		if vs, ok := hexproofValidSource(k.Details); ok {
+			if vs == "" || Matches(g, src, valid.Parse(vs), target, source) {
 				return true
 			}
 		}

@@ -130,13 +130,14 @@ fizzles — no effect, no sub-ability, no `AbilityResolved` — when at least on
 it or a chosen mode names `CantFizzle$`. A fizzled spell still goes to its owner's graveyard
 (`moveResolvedSpellToGraveyard`).
 
-| Target | Illegal when                                                                                             | Java                                                   |
-| ------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Card   | it changed zones since targeted (its `zoneStamp` differs from the one `stampTargets` recorded; CR 400.7) | `equalsWithGameTimestamp`, `:716-722`                  |
-| Card   | it is phased out (CR 702.26b)                                                                            | `Card.canBeTargetedBy`, `Card.java:6829-6831`          |
-| Card   | it no longer matches the ability's `ValidTgts$`                                                          | `canTarget`'s `isValid`, `SpellAbility.java:1591-1594` |
-| Player | they left the game, or no longer match `ValidTgts$`                                                      | `Player.canBeTargetedBy`, `Player.java:1033-1043`      |
-| other  | never (an ability targeted by `ChangeTargets`)                                                           | —                                                      |
+| Target | Illegal when                                                                                             | Java                                                         |
+| ------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Card   | it changed zones since targeted (its `zoneStamp` differs from the one `stampTargets` recorded; CR 400.7) | `equalsWithGameTimestamp`, `:716-722`                        |
+| Card   | it is phased out (CR 702.26b)                                                                            | `Card.canBeTargetedBy`, `Card.java:6829-6831`                |
+| Card   | it no longer matches the ability's `ValidTgts$`                                                          | `canTarget`'s `isValid`, `SpellAbility.java:1591-1594`       |
+| Card   | Hexproof, Shroud or Protection refuses activator/source (`cardCantBeTargetedBy`, below)                  | `Card.canBeTargetedBy`, `StaticAbilityCantTarget.java:37-51` |
+| Player | they left the game, or no longer match `ValidTgts$`                                                      | `Player.canBeTargetedBy`, `Player.java:1033-1043`            |
+| other  | never (an ability targeted by `ChangeTargets`)                                                           | —                                                            |
 
 `zoneStamp` (`card.go`) is Java's `gameTimestamp`: set only as a card enters a zone (`put`/`putFront`), so a transform
 (which restamps `Timestamp` for layer order) does not fizzle a spell targeting the transformed permanent. `PushAbility`
@@ -146,12 +147,99 @@ targets.
 
 Per entity, never by recomputing the candidate scan and intersecting it: `TestRemoveFromGameSpellOnStack`
 (`pack3shapes_test.go`) targets a spell on the stack through a plain `ValidTgts$ Card` that `targetCandidates`'
-battlefield scan would never list. The check is held to what choosing a target checks, no more: hexproof, shroud,
-protection and ward are checked at neither point (`game-state.md`, `Not ported yet`). Java re-runs the whole `canTarget`
-gauntlet (`TargetUnique`, `SameController`, ...); none of those params is resolvable in this port yet.
+battlefield scan would never list. The check is held to what choosing a target checks, no more: Hexproof, Shroud and
+Protection are checked at both points now (below); Ward is not, and `canTarget`'s multi-target params (`TargetUnique`,
+`SameController`, ...) are not resolvable in this port yet (`game-state.md`, `Not ported yet`).
 
 Fixtures: `fizzle-helix-countered-on-resolution-gains-no-life`; `fizzle_test.go` for zone change, partial targets,
 `ValidTgts$` no longer matching, and a player who lost.
+
+## Hexproof, Shroud and Protection refuse a target
+
+`cardCantBeTargetedBy` (`staticability.go`) is `Card.canBeTargetedBy`/`Player.canBeTargetedBy` ->
+`StaticAbilityCantTarget.cantTarget` (`Card.java:6820-6838`, `StaticAbilityCantTarget.java:37-51`), narrowed to the
+three keywords that generate a `Mode$ CantTarget` ability with no `AffectedZone$`: Hexproof, Shroud, Protection. Called
+identically at target selection (`targetCandidates`) and at the CR 608.2b resolution re-check (`targetStillLegal`,
+`auraTargetStillLegal`) — Java's own `SpellAbility.canTarget` runs `entity.canBeTargetedBy(this)` at both call sites
+regardless of `fizzleCheck` (`SpellAbility.java:1608`), no asymmetry to reproduce.
+
+| Keyword    | Refuses when                                                                                         | Activator gate | CR        |
+| ---------- | ---------------------------------------------------------------------------------------------------- | -------------- | --------- |
+| Protection | source (the ability's own host card) matches `protectionEach`'s spec                                 | none           | 702.16e   |
+| Shroud     | always                                                                                               | none           | 702.18a   |
+| Hexproof   | activator is an opponent of target's controller, and (bare, or source matches `hexproofValidSource`) | Opponent       | 702.11b/e |
+
+`hexproofValidSource` (`staticability.go`, built for an Aura's own attach check) is reused unchanged — the same
+`"Card.<color>,Emblem.<color>"` spec Java's `Protection.getProtectionValid` produces, matched here against `source`
+instead of the Aura itself. `protectionEach` (`staticability.go`, built for `CantBlockBy`) is reused too, but its own
+single-line bug (below) is fixed as part of this pack, so every caller of the old `protectionValid` — `CantBlockBy`,
+`hostRefusesAttach`, and this function — picked up the fix at once. No `AffectedZone$` on any of the three means Java's
+own default zone gate applies (`StaticAbilityCantTarget.java:70-72`, `card.isInPlay()`): `cardCantBeTargetedBy` returns
+false outright for anything not on the battlefield, so a Counterspell can still target a Hexproof creature's own spell
+on the stack — the spell is not in play, so its printed Hexproof does not apply to it there.
+
+`protectionEach` replaces the old `protectionValid`, which reported only the first recognized `K:Protection` line on a
+card (`strings.CutPrefix`/`strings.Cut` inside a loop that `return`s on the first match). 22 corpus cards carry two or
+more — Mirran Crusader's own "Protection from black" then "Protection from green" — and CR 702.16b requires each to
+apply independently. `protectionValid`'s bug reached only `CantBlockBy` and the Aura attach check before this pack;
+wiring `cardCantBeTargetedBy` into ordinary targeting made it reach every targeted spell or ability too, which is why it
+is fixed now rather than carried forward as a further Not-ported-yet row: `protectionEach` calls its own callback once
+per recognized line and reports refused the first time the callback does, so a card needs every one of its Protection
+lines to let a source through, not just the first the port happened to read.
+
+`hostRefusesEnchant` (staticability.go) split in two, since the old single function conflated two different Java checks:
+`hostRefusesAttach` is `StaticAbilityCantAttach.cantAttach` (Protection's own CantAttach half) alone, called from
+`cleanupDanglingAttachments` (CR 704.5m's ongoing re-check) the way `GameEntity.cantBeAttachedMsg` calls it
+(`GameEntity.java:270`) — Hexproof and Shroud generate no CantAttach ability in Java at all (`cantBeEnchantedByMsg`,
+`GameEntity.java:292-304`, checks only the `Enchant` restriction), so a host gaining Hexproof or Shroud after an Aura
+already attached does not make it fall off; the old function's Hexproof branch there was a bug, fixed by the split
+rather than reproduced (PORT-8 does not apply — no card script depends on the old behavior, it was never exercised by a
+real corpus interaction, only by this port's own prior scope limit). `enchantTargets` (cast-time, CR 601.2c) and
+`auraTargetStillLegal` (the CR 608.2b re-check) call `cardCantBeTargetedBy` instead, picking up Shroud for an Aura's own
+target for the first time too.
+
+A Player entity's Hexproof/Shroud/Protection now refuse too — Leyline of Sanctity's own
+`Affected$ You | AddKeyword$ Hexproof` line (`PlayerFactoryUtil.java`'s own continuous-grant precedent), Ivory Mask/True
+Believer's `Affected$ You | AddKeyword$ Shroud` (16 lines whose `Affected$` includes `You`, 12 of them bare `You`, for
+Hexproof; 4 for Shroud) and Gor Muldrak, Amphinologist's
+`Affected$ You,Permanent.YouCtrl | AddKeyword$ Protection:Salamander` all write to `Player.KeywordMod` (player.go)
+through `applyOneContinuousKeyword`'s own player branch (continuous.go) exactly the way a card's own `KeywordMod` is
+written, folded into `Player.KeywordLines` the identical way `KeywordMod.fold` folds a card's. `playerCantBeTargetedBy`
+(staticability.go) is `cardCantBeTargetedBy`'s own Player-entity counterpart — the same Protection-then-Shroud-then
+-gated-Hexproof shape, matched against `Player.KeywordLines` instead of `Card.KeywordLines`, `protectionEach` itself
+shared unchanged between the two (its own colon-structured characteristic branch needed nothing new to resolve
+`Protection:Salamander` against a player), with no battlefield zone gate on any of the three (a player has no zone).
+
+Three of the corpus's four named player-Protection lines still refuse nothing: Runed Halo's `Protection:ChosenName` and
+Serra's Emissary's `Protection:ChosenType` are skipped outright by `keywordTokens`' own dynamic-marker list
+(continuous.go), never reaching `Player.KeywordMod` at all. Absolute Virtue's
+`Protection:Player.Opponent:each of your opponents` — 1 of 10 real corpus `Protection:Player...` lines, printed and
+Pump-granted alike, True-Name Nemesis, Guardian Archon, Courageous Resolve, Noble Heritage, Eon Frolicker and Cliffside
+Rescuer among the rest — does reach it, but `protectionEach` refuses to read a player-relative characteristic (its own
+doc comment, staticability.go) rather than mismatch it as a bare card type/subtype word — logged in game-state.md's Not
+ported yet rather than guessed at.
+
+Not resolved: "Hexproof from triggered/activated abilities" (2 real corpus lines, card and player alike) —
+`hexproofValidSource`'s own `ok=false` for `Triggered`/`Activated` (Java's `ValidSA$`, not `ValidSource$`; `Matches`
+only ever takes a `*Card`) — so it never refuses. Ward is not a targeting restriction at all, and is covered separately,
+in [`turn-stack-combat.md`](turn-stack-combat.md#ward-a-natively-constructed-triggered-ability) — a Warded permanent is
+targeted successfully; its own trigger counters the triggering spell afterward if the cost goes unpaid (ADR-0028).
+
+Fixtures use `Lightning Bolt` (`DealDamage`), not `Pump`, to prove a target was accepted or refused — a Pump's own
+`+3/+3` marks no state `fixture.Dump` carries, so a fizzled Pump and a resolved one dump identically; Bolt's damage does
+not. `hexproof-refuses-opponents-bolt-on-resolution`, `hexproof-allows-controllers-own-bolt`,
+`shroud-refuses-controllers-own-bolt-on-resolution`, `protection-from-red-refuses-bolt-on-resolution` cover the four
+Card-entity keyword/gate combinations; `leyline-of-sanctity-refuses-opponents-bolt`,
+`leyline-of-sanctity-allows-controllers-own-bolt`, `leyline-of-sanctity-hexproof-does-not-extend-to-opponent` and
+`true-believer-shroud-refuses-controllers-own-bolt` cover the same four for a Player entity;
+`gor-muldrak-protection-does-not-refuse-unrelated-bolt` covers Protection's own player half's non-matching side -- no
+real corpus card combines the Salamander subtype with a targeted ability, so the matching side is
+`TestTargetCandidatesPlayerProtectionExcludesMatchingTypeIncludesOthers` (`cantbetargeted_internal_test.go`) instead;
+`counterspell-targets-hexproof-creatures-own-spell` covers the zone gate; `pacifism-stays-attached-to-hexproof-host`
+covers the `hostRefusesAttach` split's own regression. `cantbetargeted_internal_test.go` (package `engine`, TEST-2's
+"not observable from outside" row) holds `targetCandidates`' own choice-time filter to the same rule directly, Card and
+Player alike — every "-on-resolution"/"-refuses-" fixture above would still pass with that filter deleted, since
+`ScriptedController.ChooseTargets` never validates its answer against the candidates it was offered.
 
 ## SubAbility chaining itself lands
 

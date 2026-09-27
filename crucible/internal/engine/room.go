@@ -289,6 +289,20 @@ func (g *Game) unlockDoor(controller PlayerController, id CardID, p PlayerID, d 
 	return true
 }
 
+// LoadUnlockedDoor unlocks d of the Room permanent id with no trigger: a
+// fixture's UnlockedRoom: (GameState.java:1419), applied while GameState
+// suppresses every trigger (GameState.java:617). Reports false, doing
+// nothing, when id is not a Room permanent.
+func (g *Game) LoadUnlockedDoor(id CardID, d Door) bool {
+	c := g.Card(id)
+	if !c.IsRoomPermanent() {
+		return false
+	}
+	c.doors |= 1 << d
+	c.refreshRoom()
+	return true
+}
+
 // lockDoor is Card.lockRoom (Card.java:8032): d of the Room permanent id
 // locks again. No trigger mode watches a door locking.
 func (g *Game) lockDoor(id CardID, d Door) bool {

@@ -189,6 +189,7 @@ func NewRegistry() *Registry {
 	r[APIToken] = tokenEffect{}
 	r[APITwoPiles] = twoPilesEffect{}
 	r[APIUnattach] = unattachEffect{}
+	r[APIUnlockDoor] = unlockDoorEffect{}
 	r[APIUntap] = untapEffect{}
 	r[APIUntapAll] = untapAllEffect{}
 	r[APIVenture] = ventureEffect{}

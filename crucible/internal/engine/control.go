@@ -497,6 +497,15 @@ type PlayerController interface {
 	// answer (GO-7).
 	ChooseSector(g *Game, decider PlayerID, assignee CardID, sectors []string) int
 
+	// ChooseRoomDoor picks one of doors, doors of the Room room -- Java's
+	// chooseSingleCardState over the Room's LeftSplit/RightSplit states,
+	// asked by UnlockDoor's Mode$ Unlock ("Choose Room to unlock") and Mode$
+	// LockOrUnlock (unlockdooreffect.go). doors always has two entries,
+	// left then right: with one the effect takes it without asking,
+	// PlayerControllerHuman.chooseSingleCardState's own shortcut. The caller
+	// checks the answer is one of doors (GO-7).
+	ChooseRoomDoor(g *Game, decider PlayerID, room CardID, doors []Door) Door
+
 	// TakeAction is CR 117's own priority ask (ADR-0019): what, if anything,
 	// pid does with priority right now. The zero value, ActionPass, is a
 	// pass -- Java's chooseSpellAbilityToPlay returning null
@@ -575,6 +584,7 @@ type ScriptedController struct {
 	binary           []bool
 	option           []int
 	sector           []int
+	roomDoor         []Door
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
 	// by PlayerID like Game.players already is -- not a map, GO-12. A slot
 	// left nil means "nothing queued for this player yet," the same as an
@@ -1237,6 +1247,14 @@ func (c *ScriptedController) QueueSector(i int) { c.sector = append(c.sector, i)
 // ChooseSector returns the next answer QueueSector queued.
 func (c *ScriptedController) ChooseSector(_ *Game, _ PlayerID, _ CardID, _ []string) int {
 	return popQueue(&c.sector, "sector")
+}
+
+// QueueRoomDoor appends the answer to the next ChooseRoomDoor call.
+func (c *ScriptedController) QueueRoomDoor(d Door) { c.roomDoor = append(c.roomDoor, d) }
+
+// ChooseRoomDoor returns the next answer QueueRoomDoor queued.
+func (c *ScriptedController) ChooseRoomDoor(_ *Game, _ PlayerID, _ CardID, _ []Door) Door {
+	return popQueue(&c.roomDoor, "room door")
 }
 
 // QueueAction appends a to pid's own priority-answer queue, consumed by

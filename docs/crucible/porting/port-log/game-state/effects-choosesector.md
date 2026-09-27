@@ -15,6 +15,8 @@ telemetry no diff against the oracle would explain (PORT-8's own reasoning, one 
 chain for a `ValidCards$`/`ValidTgts$` naming `Creature.ChosenSector`/`DifferentSector`, and rejects loudly if found,
 the same as any other unresolved shape. The write side itself (below) is correct and fully tested; it is reachable only
 from a chain that does not read the sector back — no real corpus line does that yet.
+`effects-abandon-switchblock-choosesector.md` and `effects-batch-c.md` (closed files, left as written). Those rows defer
+on the read side, and the read side is still missing; this file lands only the write.
 
 ---
 
@@ -24,6 +26,7 @@ Space Beleren's -1 and -5: "the sector of your choice". Ported from
 `forge-game/src/main/java/forge/game/ability/effects/ChooseSectorEffect.java`'s `resolve` (`:10-14`). Corpus: 2 real
 lines, both on one card (`forge-gui/res/cardsfolder/s/space_beleren.txt`); both are rejected today (both chain into a
 `Creature.ChosenSector` read — see below), which is correct until the read side lands.
+lines, both on one card (`forge-gui/res/cardsfolder/s/space_beleren.txt`); both resolve.
 
 | Step           | Go                                                                                | Java                                                                            |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -94,6 +97,20 @@ resolving, for real this time -- when the read side lands. The +1 is unchanged: 
 Tests: `sectorchoice_test.go`, all three picks, decider is the host's controller not the activator, options and
 `assignee`, last pick wins, `Ultimate$`/`AILogic$` accepted, out-of-range answer, `Condition$` rejected, a failing
 `ConditionCheckSVar$`, `Game.Clone` independence, and both of the real card's real lines rejected end to end.
+| CR 704.5u sector assignment SBA | `stateBasedAction704_5u` (`GameAction.java:1801-1825`)                | no rule in `CheckStateBasedActions`                                        |
+| `Creature.ChosenSector`         | source's chosen sector vs card's sector (`CardProperty.java:119-122`) | no case in `valid.go`: falls through to a type check, false for every card |
+| `Creature.DifferentSector`      | `CardProperty.java:123-127`                                           | `blockerRelativeMatches` (`staticability.go`) skips the static             |
+
+**Registering `ChooseSector` changes how the card fails.** Before, both lines stopped at `ErrUnimplemented`. Now the
+chain resolves: the -1's `DB$ PutCounterAll | ValidCards$ Creature.ChosenSector` puts its counter on nothing, and the
+-5's `DB$ DestroyAll | ValidCards$ Creature.ChosenSector` destroys nothing, with no error. That silent no-op is
+`valid.go`'s general unknown-property behavior, not something this effect can see: the property sits on the sub-ability,
+not on `ChooseSector`. `TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted` (`sectorchoice_test.go`) pins it and
+must flip when the read side lands. The +1 is unchanged: its `Effect` static is skipped by `blockerRelativeMatches`.
+
+Tests: `sectorchoice_test.go`, all three picks, decider is the host's controller not the activator, options and
+`assignee`, last pick wins, `Ultimate$`/`AILogic$` accepted, out-of-range answer, `Condition$` rejected, a failing
+`ConditionCheckSVar$`, `Game.Clone` independence, and the real card's -1 activated end to end.
 
 No scenario fixture: no combat, SBA, layer or trigger behavior changes.
 

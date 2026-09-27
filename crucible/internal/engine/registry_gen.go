@@ -7,7 +7,7 @@ package engine
 // Resolve(*Game, *Ability, PlayerController) error, under the API its name
 // gives or the API its //crucible:register lines name (ADR-0017).
 //
-// 183 APIs. Explicit construction, not an init() populating a package-level
+// 180 APIs. Explicit construction, not an init() populating a package-level
 // Registry: a caller that wants fewer APIs builds its own Registry.
 //
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
@@ -171,14 +171,12 @@ func NewRegistry() *Registry {
 	r[APISacrificeAll] = sacrificeAllEffect{}
 	r[APIScry] = scryEffect{}
 	r[APISeek] = seekEffect{}
-	r[APISetInMotion] = setInMotionEffect{}
 	r[APISetLife] = setLifeEffect{}
 	r[APISetState] = setStateEffect{}
 	r[APIShuffle] = shuffleEffect{}
 	r[APISkipPhase] = skipPhaseEffect{}
 	r[APISkipTurn] = skipTurnEffect{}
 	r[APIStoreSVar] = storeSVarEffect{}
-	r[APISubgame] = subgameEffect{}
 	r[APISurveil] = surveilEffect{}
 	r[APITakeInitiative] = takeInitiativeEffect{}
 	r[APITap] = tapEffect{}
@@ -189,7 +187,6 @@ func NewRegistry() *Registry {
 	r[APIToken] = tokenEffect{}
 	r[APITwoPiles] = twoPilesEffect{}
 	r[APIUnattach] = unattachEffect{}
-	r[APIUnlockDoor] = unlockDoorEffect{}
 	r[APIUntap] = untapEffect{}
 	r[APIUntapAll] = untapAllEffect{}
 	r[APIVenture] = ventureEffect{}

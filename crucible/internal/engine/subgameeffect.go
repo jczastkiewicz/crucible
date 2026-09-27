@@ -61,9 +61,13 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 //     puts the archenemy first (determineFirstTurnPlayer, :2393-2400) and
 //     turns a plane face up (initPlane, :2358-2363) for those variants, and
 //     this port's game start has neither.
-//   - A card with Companion among a player's outside-the-game cards:
-//     Player.assignCompanion (Player.java:3109) checks each companion's deck
-//     restriction and asks the controller; this port has no companion setup.
+//
+// Rejected while the subgame is built, before it plays: a card with
+// Companion among a player's outside-the-game cards. Player.assignCompanion
+// (Player.java:3109) checks each companion's deck restriction and asks the
+// controller; this port has no companion setup. Earlier seats' shuffles have
+// already advanced the shared random stream by then; the error ends the
+// game regardless.
 //
 // Rejected after the subgame, before the main game is touched: a card that
 // left the subgame's Sideboard (a Wish or Learn fetching it). CR 720.4a moves

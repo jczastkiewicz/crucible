@@ -95,6 +95,8 @@ Every real `Subgame` follow-up names its players `Player.IsRemembered` (153 real
 | `Defined$ Player.<property>`   | `definedPlayers` default branch: every player filtered by `matchesPlayerSpec` | `getDefinedPlayers` fallthrough plus restriction (`AbilityUtils.java:1186-1198`) |
 | Player property `IsRemembered` | `matchesPlayerProperty`: host's `Memory.Remembered` holds the player          | `PlayerProperty.java:209-212`, `source.isRemembered(player)`                     |
 
+Supersedes the `NewController$ Player.IsRemembered` half of Sudden Substitution's row in `effects-controlspell.md`
+(closed file, left as written): that `Defined$` now resolves; the card still fails closed on its `ConditionDefined$`.
 Only a single property resolves. A comma list (`Player.A,B`) or a property `matchesPlayerProperty` does not recognize
 (`Player.withMostLife`, `Player.Chosen`) stays `Defined$ "..." not resolvable yet`. `definedPlayers` joins `valid` in
 its enginelint allow list for `matchesPlayerSpec`. The replacement side (`ValidTarget$ Player.IsRemembered`) reads the

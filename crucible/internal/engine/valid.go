@@ -231,6 +231,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return g.isRingBearer(c)
 	case name == "IsSolved":
 		return c.Solved
+	case name == "FullyUnlocked":
+		// CardProperty.java:1863: both doors of a Room permanent unlocked.
+		return len(c.UnlockedDoors()) == 2
 	case name == "NamedCard":
 		sc, ok := sourceCard(g, source)
 		if !ok || c.Def == nil {

@@ -244,6 +244,16 @@ type Card struct {
 	frontDef   *compile.Card
 	Transforms int
 
+	// roomDef is a Room's printed split card while it is a permanent or a
+	// spell cast as one of its halves (room.go, CR 709.5): its own
+	// characteristics (Def, or faceUpDef/uncopiedDef under a face-down or
+	// copy effect) then hold the view of its unlocked doors, or of the half
+	// it was cast as. doors is Card.unlockedRooms; castDoor is the half a
+	// Room spell was cast as, which unlocks as it enters (permanentEffect).
+	roomDef  *compile.Card
+	doors    doorSet
+	castDoor Door
+
 	// copies are the Layer 1 copy effects on this permanent (CR 613.2a,
 	// 707.2), ascending Timestamp: Java's Card.clonedStates. The last one's
 	// definition is Def; uncopiedDef is what Def was before the first of

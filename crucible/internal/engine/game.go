@@ -444,6 +444,11 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		controller: owner,
 	})
 	g.put(id, zone, owner)
+	if zone == Battlefield {
+		// A fixture seating a Room on the battlefield: both doors locked
+		// until the loader unlocks the ones it names.
+		g.cards[id].enterRoom()
+	}
 	if zone == PlanarDeck {
 		// Setup seating a planar deck is what makes this a Planechase
 		// game (ADR-0029); real play only ever moves cards there.
@@ -605,12 +610,18 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
+		c.leaveRoom()
 		g.dropPreventShields(id)
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
 		g.loseRingBearer(id)
+	case from == Stack && kind != Stack && kind != Battlefield:
+		// A Room spell that does not resolve into a permanent goes back to
+		// its printed split card.
+		c.leaveRoom()
 	case from != Battlefield && kind == Battlefield:
+		c.enterRoom()
 		c.SummonSick = true
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
 			c.Counters.Add(Loyalty, loyalty)
@@ -698,11 +709,15 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.Sprocket = 0
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
+		c.leaveRoom()
 		g.dropPreventShields(id)
 		g.Unattach(id)
 		g.clearPumps(id)
 		g.clearAnimates(id)
 		g.loseRingBearer(id)
+	}
+	if from == Stack {
+		c.leaveRoom()
 	}
 
 	g.sink.Emit(Event{

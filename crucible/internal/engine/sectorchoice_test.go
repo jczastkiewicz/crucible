@@ -198,15 +198,17 @@ func spaceBelerenDef(t *testing.T) *compile.Card {
 	return c
 }
 
-// TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted pins where Space
-// Beleren's -1 stands: ChooseSector resolves and records the sector, but
-// nothing reads it yet. Creature.ChosenSector (CardProperty.java:119-122) has
-// no case in valid.go, so it falls through to a type check that no card
-// passes, and PutCounterAll puts its counter on nothing. Java would put one
-// on every creature whose own sector (Card.getSector, assigned by
-// CR 704.5u, GameAction.java:1801-1828) matches. This test must change when
-// the sector read side lands (port-log effects-choosesector.md).
-func TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted(t *testing.T) {
+// TestSpaceBelerenMinusOneRejectsWhileSectorReadIsNotPorted pins where Space
+// Beleren's -1 stands: Creature.ChosenSector (CardProperty.java:119-122) has
+// no case in valid.go, so PutCounterAll would put its counter on nothing --
+// resolving anyway would silently turn a real effect into a no-op (GO-7).
+// chooseSectorReadUnbuilt catches this ahead of time (choosesectoreffect.go):
+// the whole ability fails closed, the sector is never asked or recorded, and
+// loyalty is never paid (the cost is paid before Resolve runs; the failed
+// resolve does not refund it, matching how any other rejected effect leaves
+// its already-paid cost spent). This test must change when the sector read
+// side lands (port-log effects-choosesector.md).
+func TestSpaceBelerenMinusOneRejectsWhileSectorReadIsNotPorted(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
@@ -217,33 +219,34 @@ func TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted(t *testing.T) {
 	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 
 	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
-	c.QueueSector(0)
 	if !g.ActivateAbility(p, pw, 1, c) {
 		t.Fatal("ActivateAbility(-1) returned false, want true")
 	}
-	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
-		t.Fatalf("ResolveStack: %v", err)
+	err := g.ResolveStack(engine.NewRegistry(), c)
+	if err == nil || !strings.Contains(err.Error(), "not resolvable yet") {
+		t.Fatalf("ResolveStack = %v, want a not-resolvable-yet error", err)
 	}
 	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 2 {
-		t.Errorf("loyalty = %d, want 2", got)
+		t.Errorf("loyalty = %d, want 2 (cost already paid before the reject)", got)
 	}
-	if len(c.asks) != 1 || c.asks[0].decider != p {
-		t.Errorf("asks = %+v, want one ask of Space Beleren's controller", c.asks)
+	if len(c.asks) != 0 {
+		t.Errorf("asks = %+v, want none: the sector is never asked for a chain that can't use it", c.asks)
 	}
-	if got := g.Card(pw).Memory.ChosenSector(); got != "Alpha" {
-		t.Errorf("chosen sector = %q, want Alpha", got)
+	if got := g.Card(pw).Memory.ChosenSector(); got != "" {
+		t.Errorf("chosen sector = %q, want none recorded", got)
 	}
 	for _, id := range []engine.CardID{mine, theirs} {
 		if n := g.Card(id).Counters.Count(engine.P1P1); n != 0 {
-			t.Errorf("creature %v P1P1 = %d, want 0 while Creature.ChosenSector is unported", id, n)
+			t.Errorf("creature %v P1P1 = %d, want 0", id, n)
 		}
 	}
 }
 
-// TestSpaceBelerenMinusFiveRecordsSectorButItsReadIsNotPorted is the -5's
-// twin of the -1 test above: DestroyAll with Creature.ChosenSector destroys
-// nothing while the read side is unported. Must change when it lands.
-func TestSpaceBelerenMinusFiveRecordsSectorButItsReadIsNotPorted(t *testing.T) {
+// TestSpaceBelerenMinusFiveRejectsWhileSectorReadIsNotPorted is the -5's twin
+// of the -1 test above: DestroyAll with Creature.ChosenSector is rejected the
+// same way, before anything is destroyed. Must change when the sector read
+// side lands.
+func TestSpaceBelerenMinusFiveRejectsWhileSectorReadIsNotPorted(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
@@ -254,19 +257,19 @@ func TestSpaceBelerenMinusFiveRecordsSectorButItsReadIsNotPorted(t *testing.T) {
 	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	c.QueueSector(2)
 	if !g.ActivateAbility(p, pw, 2, c) {
 		t.Fatal("ActivateAbility(-5) returned false, want true")
 	}
-	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
-		t.Fatalf("ResolveStack: %v", err)
+	err := g.ResolveStack(engine.NewRegistry(), c)
+	if err == nil || !strings.Contains(err.Error(), "not resolvable yet") {
+		t.Fatalf("ResolveStack = %v, want a not-resolvable-yet error", err)
 	}
-	if got := g.Card(pw).Memory.ChosenSector(); got != "Gamma" {
-		t.Errorf("chosen sector = %q, want Gamma", got)
+	if got := g.Card(pw).Memory.ChosenSector(); got != "" {
+		t.Errorf("chosen sector = %q, want none recorded", got)
 	}
 	for _, id := range []engine.CardID{mine, theirs} {
 		if z := g.Card(id).Zone; z != engine.Battlefield {
-			t.Errorf("creature %v zone = %v, want Battlefield while Creature.ChosenSector is unported", id, z)
+			t.Errorf("creature %v zone = %v, want Battlefield", id, z)
 		}
 	}
 }

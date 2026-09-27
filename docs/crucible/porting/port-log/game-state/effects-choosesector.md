@@ -5,8 +5,16 @@
   (`ChooseSector`), `memory.go` (`chosenSector`)
 
 Batch file for `ChooseSector`. Supersedes `ChooseSector`'s deferred rows in
-`effects-abandon-switchblock-choosesector.md` and `effects-batch-c.md` (closed files, left as written). Those rows defer
-on the read side, and the read side is still missing; this file lands only the write.
+`effects-abandon-switchblock-choosesector.md` and `effects-batch-c.md` (closed files, left as written). Those rows
+deferred it for exactly the reason a rules-review of this file's first commit re-raised: registering the write side
+alone would let Space Beleren's only two real corpus lines resolve successfully while silently affecting zero creatures
+(`Creature.ChosenSector` has no `valid.go` case yet — see "Space Beleren is still not functional", below). That is worse
+than the `ErrUnimplemented` it replaces (GO-7): a resolved ability with no visible effect is wrong deck-improvement
+telemetry no diff against the oracle would explain (PORT-8's own reasoning, one layer up). Fixed by
+`chooseSectorReadUnbuilt` (`choosesectoreffect.go`): before choosing, `ChooseSector` inspects its own `SubAbility$`
+chain for a `ValidCards$`/`ValidTgts$` naming `Creature.ChosenSector`/`DifferentSector`, and rejects loudly if found,
+the same as any other unresolved shape. The write side itself (below) is correct and fully tested; it is reachable only
+from a chain that does not read the sector back — no real corpus line does that yet.
 
 ---
 
@@ -14,7 +22,8 @@ on the read side, and the read side is still missing; this file lands only the w
 
 Space Beleren's -1 and -5: "the sector of your choice". Ported from
 `forge-game/src/main/java/forge/game/ability/effects/ChooseSectorEffect.java`'s `resolve` (`:10-14`). Corpus: 2 real
-lines, both on one card (`forge-gui/res/cardsfolder/s/space_beleren.txt`); both resolve.
+lines, both on one card (`forge-gui/res/cardsfolder/s/space_beleren.txt`); both are rejected today (both chain into a
+`Creature.ChosenSector` read — see below), which is correct until the read side lands.
 
 | Step           | Go                                                                                | Java                                                                            |
 | -------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -70,16 +79,21 @@ The write happens; nothing reads it yet. Missing, all out of this API's scope:
 | `Creature.ChosenSector`         | source's chosen sector vs card's sector (`CardProperty.java:119-122`) | no case in `valid.go`: falls through to a type check, false for every card |
 | `Creature.DifferentSector`      | `CardProperty.java:123-126`                                           | `blockerRelativeMatches` (`staticability.go`) skips the static             |
 
-**Registering `ChooseSector` changes how the card fails.** Before, both lines stopped at `ErrUnimplemented`. Now the
-chain resolves: the -1's `DB$ PutCounterAll | ValidCards$ Creature.ChosenSector` puts its counter on nothing, and the
--5's `DB$ DestroyAll | ValidCards$ Creature.ChosenSector` destroys nothing, with no error. That silent no-op is
-`valid.go`'s general unknown-property behavior, not something this effect can see: the property sits on the sub-ability,
-not on `ChooseSector`. `TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted` (`sectorchoice_test.go`) pins it and
-must flip when the read side lands. The +1 is unchanged: its `Effect` static is skipped by `blockerRelativeMatches`.
+**Both real corpus lines are rejected, not silently resolved.** Without a guard, registering `ChooseSector` would have
+let both lines resolve: the -1's `DB$ PutCounterAll | ValidCards$ Creature.ChosenSector` would put its counter on
+nothing, and the -5's `DB$ DestroyAll | ValidCards$ Creature.ChosenSector` would destroy nothing, with no error --
+`valid.go`'s general unknown-property fallthrough, invisible to `ChooseSector` itself since the property sits on the
+sub-ability, not on this API's own params. `chooseSectorReadUnbuilt` (`choosesectoreffect.go`) checks the `SubAbility$`
+chain for exactly this before asking anything, so both lines now fail with `not resolvable yet` instead -- cost already
+paid (loyalty is spent before `Resolve` runs, same as any other ability whose resolve later errors), sector never asked
+or recorded. `TestSpaceBelerenMinusOneRejectsWhileSectorReadIsNotPorted` and
+`TestSpaceBelerenMinusFiveRejectsWhileSectorReadIsNotPorted` (`sectorchoice_test.go`) pin this and must flip -- back to
+resolving, for real this time -- when the read side lands. The +1 is unchanged: its `Effect` static is skipped by
+`blockerRelativeMatches`.
 
 Tests: `sectorchoice_test.go`, all three picks, decider is the host's controller not the activator, options and
 `assignee`, last pick wins, `Ultimate$`/`AILogic$` accepted, out-of-range answer, `Condition$` rejected, a failing
-`ConditionCheckSVar$`, `Game.Clone` independence, and the real card's -1 activated end to end.
+`ConditionCheckSVar$`, `Game.Clone` independence, and both of the real card's real lines rejected end to end.
 
 No scenario fixture: no combat, SBA, layer or trigger behavior changes.
 

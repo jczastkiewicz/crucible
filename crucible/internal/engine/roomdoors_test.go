@@ -284,3 +284,37 @@ func TestRoomSpellLeavingTheStackIsItsPrintedCard(t *testing.T) {
 		t.Errorf("countered Room is %q, want its printed card", g.Card(room).Def.Name)
 	}
 }
+
+// TestRoomCopiesCopyBothHalvesNotTheDoors proves a Room permanent's
+// copiable values are its whole printed card (CardFactory.java:535-542): a
+// token copy of a half-unlocked Room enters with both doors locked and can
+// unlock either. A permanent becoming a copy of a Room is rejected: its own
+// door state (CloneEffect.java:146) is not modeled.
+func TestRoomCopiesCopyBothHalvesNotTheDoors(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := testRoomDef(t)
+	room := castRoom(t, g, p, def, engine.DoorRight)
+	c := engine.NewScriptedController()
+	populate := g.NewCard(copyTestDef(t, "Populate", "Artifact", "", "",
+		"A:AB$ CopyPermanent | ValidTgts$ Enchantment | RememberTokens$ True"), p, engine.Battlefield)
+	mustActivate(t, g, p, c, populate, room)
+	made, _ := g.Card(populate).Memory.Remembered()[0].AsCard()
+	tc := g.Card(made)
+	if tc.PrintedDef() != def || len(tc.LockedDoors()) != 2 || tc.Def.Name != "" {
+		t.Fatalf("token copy %q locked %v, want an empty Room over the printed card", tc.Def.Name, tc.LockedDoors())
+	}
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	if !g.UnlockDoor(p, made, engine.DoorLeft, c) {
+		t.Error("the token copy's left door could not be unlocked")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	host := shifter(t, g, p, "Clone | ValidTgts$ Enchantment")
+	if err := activate(g, p, c, host, room); err == nil || !strings.Contains(err.Error(), "copy of a Room not resolvable yet") {
+		t.Errorf("Clone of a Room: err %v, want it rejected", err)
+	}
+}

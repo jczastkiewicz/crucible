@@ -391,8 +391,9 @@ func doorTriggerZoneMatches(h *Card, t *compile.Ability, zone ZoneType) bool {
 // any time they could cast a sorcery, and that door unlocks -- no stack,
 // and pid keeps priority. Java synthesizes it per locked door as `ST$
 // UnlockDoor | Cost$ <that half's mana cost> | Unlock$ True`
-// (CardFactoryUtil.java:124), offered while the Room is in play, face up,
-// phased in and its controller can cast a sorcery (Card.java:7414-7421);
+// (CardFactoryUtil.java:124), offered while the Room is in play in one of
+// its Room states (not face down, not a copy of something else), phased
+// in, and its controller can cast a sorcery (Card.java:7414-7421);
 // resolving it is UnlockDoorEffect's default Mode$ ThisDoor, unlocking the
 // half the ability belongs to.
 //
@@ -403,7 +404,7 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 	if d != DoorLeft && d != DoorRight {
 		return false
 	}
-	if !c.IsRoomPermanent() || c.doors.has(d) || c.Controller() != pid || c.IsFaceDown() || c.IsPhasedOut() {
+	if !c.IsRoomPermanent() || c.doors.has(d) || c.Controller() != pid || c.IsFaceDown() || c.IsCopy() || c.IsPhasedOut() {
 		return false
 	}
 	if !g.canActSorcerySpeed(pid) {

@@ -221,6 +221,27 @@ func TestRoomUnlockSpecialActionIsSorcerySpeedForItsController(t *testing.T) {
 	}
 }
 
+// TestRoomUnlockRefusedUnderAnUnlockCostStatic proves the special action
+// fails closed while Inquisitive Glimmer's "Unlock costs you pay cost {1}
+// less" is on the battlefield: no cost-changing static is applied, so
+// charging the printed cost would be wrong (GO-7). LoadUnlockedDoor refuses
+// a value that names no door.
+func TestRoomUnlockRefusedUnderAnUnlockCostStatic(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	room := g.NewCard(testRoomDef(t), p, engine.Battlefield)
+	if g.LoadUnlockedDoor(room, engine.Door(5)) || len(g.Card(room).UnlockedDoors()) != 0 {
+		t.Fatal("LoadUnlockedDoor accepted a door that does not exist")
+	}
+	g.NewCard(copyTestDef(t, "Glimmer", "Creature Elf", "2", "2",
+		"S:Mode$ ReduceCost | ValidSpell$ Static.Unlock | Activator$ You | Amount$ 1"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	if g.UnlockDoor(p, room, engine.DoorLeft, engine.NewScriptedController()) {
+		t.Error("UnlockDoor paid the printed cost under an unlock cost reduction")
+	}
+}
+
 // TestRoomEnteringUncastHasBothDoorsLocked proves GameAction.java:148: a
 // Room put onto the battlefield without being cast is an unnamed
 // Enchantment Room with no mana cost and no abilities, and it becomes its

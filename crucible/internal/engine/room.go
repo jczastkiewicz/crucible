@@ -295,7 +295,7 @@ func (g *Game) unlockDoor(controller PlayerController, id CardID, p PlayerID, d 
 // nothing, when id is not a Room permanent.
 func (g *Game) LoadUnlockedDoor(id CardID, d Door) bool {
 	c := g.Card(id)
-	if !c.IsRoomPermanent() {
+	if (d != DoorLeft && d != DoorRight) || !c.IsRoomPermanent() {
 		return false
 	}
 	c.doors |= 1 << d
@@ -315,12 +315,6 @@ func (g *Game) lockDoor(id CardID, d Door) bool {
 	return true
 }
 
-// doorTriggerZones is every zone a Mode$ UnlockDoor/FullyUnlock trigger's
-// host can sit in: the battlefield (every UnlockDoor line, 16 of 17
-// FullyUnlock lines), an effect card's Command zone, and the graveyard (1
-// FullyUnlock line, TriggerZones$ Graveyard).
-var doorTriggerZones = [...]ZoneType{Battlefield, Command, Graveyard}
-
 // doorTriggerMatches is TriggerUnlockDoor/TriggerFullyUnlock.performTest
 // against every trigger host: ValidCard$ matches the Room, ValidPlayer$ the
 // player who unlocked it, and UnlockDoor's ThisDoor$ requires the host be
@@ -330,8 +324,12 @@ var doorTriggerZones = [...]ZoneType{Battlefield, Command, Graveyard}
 func (g *Game) doorTriggerMatches(mode string, room CardID, p PlayerID, d Door) []Ability {
 	var matches []Ability
 	rc := g.Card(room)
+	// Every zone a host can sit in: the battlefield (every UnlockDoor line,
+	// 16 of 17 FullyUnlock lines), an effect card's Command zone, and the
+	// graveyard (1 FullyUnlock line, TriggerZones$ Graveyard).
+	zones := [...]ZoneType{Battlefield, Command, Graveyard}
 	for _, pid := range g.Players() {
-		for _, z := range doorTriggerZones {
+		for _, z := range zones {
 			for _, host := range g.Zone(z, pid).Cards() {
 				h := g.Card(host)
 				if h.Def == nil {
@@ -407,7 +405,7 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 	if !c.IsRoomPermanent() || c.doors.has(d) || c.Controller() != pid || c.IsFaceDown() || c.IsCopy() || c.IsPhasedOut() {
 		return false
 	}
-	if !g.canActSorcerySpeed(pid) {
+	if !g.canActSorcerySpeed(pid) || unlockCostModified(g) {
 		return false
 	}
 	if _, paid := g.payManaCostX(pid, c.roomDef.Faces[d].ManaCost, controller); !paid {
@@ -415,4 +413,31 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 	}
 	g.unlockDoor(controller, card, pid, d)
 	return true
+}
+
+// unlockCostModified reports whether a permanent's static changes what
+// unlocking a door costs: `S:Mode$ ReduceCost | ValidSpell$ Static.Unlock`
+// (Inquisitive Glimmer; SpellAbilityProperty.java:95 matches the
+// synthesized ability's Unlock$ param). This port applies no cost-changing
+// static, so UnlockDoor refuses rather than charging the printed cost
+// (GO-7).
+func unlockCostModified(g *Game) bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Def == nil {
+				continue
+			}
+			for _, face := range c.Def.Faces {
+				for _, st := range face.Statics {
+					mode, _ := st.Param("Mode")
+					spell, _ := st.Param("ValidSpell")
+					if (mode == "ReduceCost" || mode == "RaiseCost") && strings.Contains(spell, "Unlock") {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

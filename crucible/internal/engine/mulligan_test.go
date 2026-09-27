@@ -508,6 +508,10 @@ func (c *scriptedMulliganController) ChooseOption(_ *engine.Game, _ engine.Playe
 	panic("scriptedMulliganController: ChooseOption was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseSector(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []string) int {
+	panic("scriptedMulliganController: ChooseSector was not expected to be called")
+}
+
 func (c *scriptedMulliganController) CallCoinFlip(_ *engine.Game, _ engine.PlayerID, _ engine.CardID) bool {
 	panic("scriptedMulliganController: CallCoinFlip was not expected to be called")
 }

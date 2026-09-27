@@ -486,6 +486,17 @@ type PlayerController interface {
 	// pile choices, each a pick from a list of strings.
 	ChooseOption(g *Game, decider PlayerID, source CardID, options []string) int
 
+	// ChooseSector picks one of sectors ("Alpha", "Beta", "Gamma", in that
+	// order -- PlayerController.java:254-256), answering with its index --
+	// Java's chooseSector. assignee is the creature being assigned a sector
+	// by CR 704.5u's state-based action (GameAction.java:1815), or NoCard
+	// when ChooseSectorEffect asks for the host's own chosen sector
+	// (ChooseSectorEffect.java:12 passes null). Only the effect calls it
+	// today; the parameter keeps Java's own shape so the SBA caller lands
+	// without changing every implementation again. The caller checks the
+	// answer (GO-7).
+	ChooseSector(g *Game, decider PlayerID, assignee CardID, sectors []string) int
+
 	// TakeAction is CR 117's own priority ask (ADR-0019): what, if anything,
 	// pid does with priority right now. The zero value, ActionPass, is a
 	// pass -- Java's chooseSpellAbilityToPlay returning null
@@ -563,6 +574,7 @@ type ScriptedController struct {
 	cardOnTop        []bool
 	binary           []bool
 	option           []int
+	sector           []int
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
 	// by PlayerID like Game.players already is -- not a map, GO-12. A slot
 	// left nil means "nothing queued for this player yet," the same as an
@@ -1216,6 +1228,15 @@ func (c *ScriptedController) QueueOption(i int) { c.option = append(c.option, i)
 // ChooseOption returns the next answer QueueOption queued.
 func (c *ScriptedController) ChooseOption(_ *Game, _ PlayerID, _ CardID, _ []string) int {
 	return popQueue(&c.option, "option")
+}
+
+// QueueSector appends the answer to the next ChooseSector call: an index
+// into the sectors offered (0 Alpha, 1 Beta, 2 Gamma).
+func (c *ScriptedController) QueueSector(i int) { c.sector = append(c.sector, i) }
+
+// ChooseSector returns the next answer QueueSector queued.
+func (c *ScriptedController) ChooseSector(_ *Game, _ PlayerID, _ CardID, _ []string) int {
+	return popQueue(&c.sector, "sector")
 }
 
 // QueueAction appends a to pid's own priority-answer queue, consumed by

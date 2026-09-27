@@ -334,3 +334,25 @@ func TestSchemeStateBasedAction(t *testing.T) {
 		t.Error("once its ability has left the stack, the scheme returns to the deck")
 	}
 }
+
+// TestOngoingSchemePhaseTriggerFiresFromCommand proves a face-up Ongoing
+// scheme's own Mode$ Phase line (17 real lines on Ongoing schemes) fires
+// from the Command zone: checkPhaseTriggers walks phaseTriggerZones, which
+// include Command, not traitHosts.
+func TestOngoingSchemePhaseTriggerFiresFromCommand(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Untap)
+	g.NewCard(planarDef(t, "Ongoing Upkeep", "Ongoing Scheme",
+		[]string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ TrigGain"}, nil,
+		"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 2"), p, engine.Command)
+	c := engine.NewScriptedController()
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 22 {
+		t.Errorf("life = %d, want 22: the Ongoing scheme's upkeep trigger must fire from Command", got)
+	}
+}

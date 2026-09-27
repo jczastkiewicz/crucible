@@ -405,7 +405,7 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 	if !c.IsRoomPermanent() || c.doors.has(d) || c.Controller() != pid || c.IsFaceDown() || c.IsCopy() || c.IsPhasedOut() {
 		return false
 	}
-	if !g.canActSorcerySpeed(pid) || unlockCostModified(g) {
+	if !g.canActSorcerySpeed(pid) || unlockCostModified(g, pid) {
 		return false
 	}
 	if _, paid := g.payManaCostX(pid, c.roomDef.Faces[d].ManaCost, controller); !paid {
@@ -421,7 +421,15 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 // synthesized ability's Unlock$ param). This port applies no cost-changing
 // static, so UnlockDoor refuses rather than charging the printed cost
 // (GO-7).
-func unlockCostModified(g *Game) bool {
+// unlockCostModified reports whether a live cost-changing static applies to
+// unlocker's own unlock special action (Inquisitive Glimmer's own real line,
+// "S:Mode$ ReduceCost | ValidSpell$ Static.Unlock | Activator$ You" --
+// Activator$ restricts the static to its own controller's unlocks, not every
+// player's). A static naming no Activator$ applies to everyone, Java's own
+// default. Ignoring Activator$ here previously let one player's Glimmer
+// abort every other player's legal unlock (rules-review finding on the
+// merged commit).
+func unlockCostModified(g *Game, unlocker PlayerID) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
@@ -432,9 +440,16 @@ func unlockCostModified(g *Game) bool {
 				for _, st := range face.Statics {
 					mode, _ := st.Param("Mode")
 					spell, _ := st.Param("ValidSpell")
-					if (mode == "ReduceCost" || mode == "RaiseCost") && strings.Contains(spell, "Unlock") {
-						return true
+					if (mode != "ReduceCost" && mode != "RaiseCost") || !strings.Contains(spell, "Unlock") {
+						continue
 					}
+					if activator, ok := st.Param("Activator"); ok {
+						matched, recognized := matchesPlayerSpec(g, unlocker, c.Controller(), id, activator)
+						if !recognized || !matched {
+							continue
+						}
+					}
+					return true
 				}
 			}
 		}

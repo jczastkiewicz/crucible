@@ -82,8 +82,16 @@ func (g *Game) CastSpell(pid PlayerID, card CardID, controller PlayerController)
 // CastRoomDoor is CastSpell for a Room card cast as its half d (CR 709.3,
 // Card.setSplitStateToPlayAbility): the spell has that half's
 // characteristics and cost, and that door unlocks as the Room enters
-// (permanentEffect). Reports false for a card that is not a Room.
+// (permanentEffect). Reports false for a card that is not a Room or for any
+// d besides DoorLeft/DoorRight -- applyAction (priority.go) hands this an
+// unvalidated controller answer, and doorView (room.go) indexes
+// printed.Faces[d] directly, so an out-of-range d must be refused here
+// rather than reaching that index (GO-7: a controller's wrong answer errors,
+// never panics).
 func (g *Game) CastRoomDoor(pid PlayerID, card CardID, d Door, controller PlayerController) bool {
+	if d != DoorLeft && d != DoorRight {
+		return false
+	}
 	if !isRoomDef(g.Card(card).Def) {
 		return false
 	}

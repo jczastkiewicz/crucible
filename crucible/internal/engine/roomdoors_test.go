@@ -242,6 +242,43 @@ func TestRoomUnlockRefusedUnderAnUnlockCostStatic(t *testing.T) {
 	}
 }
 
+// TestRoomUnlockCostStaticOnlyAppliesToItsOwnActivator proves Activator$ is
+// checked against unlockCostModified's own caller, not every player's
+// battlefield indiscriminately: an opponent's Glimmer (Activator$ You, that
+// opponent) does not touch your own unlock. Before this fix, one player's
+// Glimmer refused every player's legal unlock (rules-review finding on the
+// merged commit).
+func TestRoomUnlockCostStaticOnlyAppliesToItsOwnActivator(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	room := g.NewCard(testRoomDef(t), p, engine.Battlefield)
+	g.NewCard(copyTestDef(t, "Glimmer", "Creature Elf", "2", "2",
+		"S:Mode$ ReduceCost | ValidSpell$ Static.Unlock | Activator$ You | Amount$ 1"), other, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Blue, 1)
+	if !g.UnlockDoor(p, room, engine.DoorLeft, engine.NewScriptedController()) {
+		t.Error("an opponent's Glimmer refused a legal unlock it does not apply to")
+	}
+}
+
+// TestCastRoomDoorRejectsAnInvalidDoor proves a Door outside
+// DoorLeft/DoorRight is refused before it ever reaches doorView's own
+// printed.Faces[d] index -- applyAction (priority.go) hands CastRoomDoor an
+// unvalidated controller answer, and an out-of-range Door there panicked
+// before this fix (rules-review finding on the merged commit; GO-7).
+func TestCastRoomDoorRejectsAnInvalidDoor(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	room := g.NewCard(testRoomDef(t), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 3)
+	for _, d := range []engine.Door{2, 6, 200} {
+		if g.CastRoomDoor(p, room, d, engine.NewScriptedController()) {
+			t.Errorf("CastRoomDoor(%d) succeeded, want refused", d)
+		}
+	}
+}
+
 // TestRoomEnteringUncastHasBothDoorsLocked proves GameAction.java:148: a
 // Room put onto the battlefield without being cast is an unnamed
 // Enchantment Room with no mana cost and no abilities, and it becomes its

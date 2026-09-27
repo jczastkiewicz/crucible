@@ -409,6 +409,24 @@ func (g *Game) Players() []PlayerID {
 	return out
 }
 
+// playersInTurnOrder is Java's getPlayersInTurnOrder(): Players() reversed
+// when turn order has been reversed (ReverseTurnOrder), forward otherwise.
+// Read by definedPlayers' own "Player"/"Opponent"/"Player.<property>"
+// fallthrough cases (AbilityUtils.java:1188) -- rotation to start from the
+// active player, if Java's own callers ever depend on that rather than just
+// the direction, is not modeled here; no real corpus caller found needing it
+// (defined.go).
+func (g *Game) playersInTurnOrder() []PlayerID {
+	out := g.Players()
+	if !g.turnOrderReversed {
+		return out
+	}
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out
+}
+
 // NumCards is how many handles have been allocated, NoCard excluded. It is the
 // arena's high-water mark, not a count of cards in play.
 func (g *Game) NumCards() int { return len(g.cards) - 1 }

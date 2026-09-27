@@ -53,9 +53,9 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 	case "You":
 		candidates = []PlayerID{controller}
 	case "Player":
-		candidates = g.Players()
+		candidates = g.playersInTurnOrder()
 	case "Opponent", "Player.Opponent":
-		for _, pid := range g.Players() {
+		for _, pid := range g.playersInTurnOrder() {
 			if pid != controller {
 				candidates = append(candidates, pid)
 			}
@@ -123,7 +123,7 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		if !ok || strings.Contains(prop, ",") {
 			return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 		}
-		for _, pid := range g.Players() {
+		for _, pid := range g.playersInTurnOrder() {
 			matched, recognized := matchesPlayerSpec(g, pid, controller, host, defined)
 			if !recognized {
 				return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)

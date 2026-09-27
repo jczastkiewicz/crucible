@@ -27,8 +27,11 @@ import (
 // has not ended by it is an error rather than a guessed outcome (GO-7): the
 // main game's own driver can only stop between its steps, and the whole
 // subgame is one step of it. A subgame nobody wins ends by decking in about
-// twice its larger library's size in turns, so the cap sits well past a
-// 250-card Battle of Wits library.
+// one library's size in turns per seat (each seat draws once per its own
+// turn), so an N-seat subgame needs roughly N times its largest library's
+// size; the cap sits well past a 2-seat, 250-card Battle of Wits library, and
+// should scale with len(seats) if a real corpus card ever runs Subgame with
+// more players and larger decks than that.
 const subgameTurnCap = 1000
 
 // subgameOutsideZones is prepareAllZonesSubgame's outsideZones

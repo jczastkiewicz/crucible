@@ -99,7 +99,22 @@ Supersedes the `NewController$ Player.IsRemembered` half of Sudden Substitution'
 (closed file, left as written): that `Defined$` now resolves; the card still fails closed on its `ConditionDefined$`.
 Only a single property resolves. A comma list (`Player.A,B`) or a property `matchesPlayerProperty` does not recognize
 (`Player.withMostLife`, `Player.Chosen`) stays `Defined$ "..." not resolvable yet`. `definedPlayers` joins `valid` in
-its enginelint allow list for `matchesPlayerSpec`. The replacement side (`ValidTarget$ Player.IsRemembered`) reads the
-same property through `matchesPlayerSpec`.
+its enginelint allow list for `matchesPlayerSpec`.
+
+The new generic branch iterates players in seat order; a rules review caught that this and the pre-existing `"Player"`/
+`"Opponent"` cases both ignored `ReverseTurnOrder` (Java's own fallthrough reads `game.getPlayersInTurnOrder()`,
+`AbilityUtils.java:1188`). Fixed for all three: `Game.playersInTurnOrder()` (`game.go`) reverses `Players()` when
+`turnOrderReversed` is set, used by all three `definedPlayers` cases now. Rotation to start from the active player, if
+Java's own callers ever depend on that rather than just direction, is not modeled — no real corpus caller found needing
+it.
+
+`IsRemembered` becoming a recognized `matchesPlayerSpec` property reaches every one of that function's ~35 callers, not
+only `Defined$` and the replacement side: trigger `ValidTarget$`/`ValidPlayer$` (`trigger.go`), `targeting.go`
+(`ValidTgts$` naming a player property), `continuous.go`'s own affected-player filters, `delayedtrigger.go`, and every
+other site that was silently skipping or erroring on `Player.IsRemembered` before. `MustAttack$ Player.Other` and
+`MustAttack$ Player.IsRemembered` (4 real lines, `effects-mustblock.md`) resolve now for the identical reason:
+`definedEntities` reaches `definedPlayers`' own generic branch the same way every other `Defined$` caller does. Only
+`Defined$`/`DefinedPlayer$`/`RememberObjects$`, the replacement side and `MustAttack$` have tests here; the rest match
+Java by construction (one shared `matchesPlayerSpec`), not by a test per call site.
 
 Scenario harness: `queue cardchoice <id>[,...]` answers `ChooseCardsForEffect` (`game-state-fixture.md` grammar).

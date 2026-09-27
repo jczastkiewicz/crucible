@@ -705,7 +705,9 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 // this port needing only the boolean "at all" question every real corpus
 // line asks), and VenturedThisTurn (Player.VenturedThisTurn, at least one
 // venture this turn -- PlayerProperty.java:482's getVenturedThisTurn() < 1,
-// Keen-Eared Sentry's CantVenture).
+// Keen-Eared Sentry's CantVenture), and IsRemembered (the source card
+// remembers the candidate, PlayerProperty.java:209-212 -- what Subgame's
+// RememberPlayers$ feeds, subgameeffect.go).
 //
 // Every other real property (EnchantedBy and Chosen on a *player* -- an
 // Aura enchanting a player directly, CR 303.4h, and a ChosenPlayer memory
@@ -739,6 +741,11 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 		return g.Player(candidate).DescendedThisTurn, true
 	case "VenturedThisTurn":
 		return g.Player(candidate).VenturedThisTurn > 0, true
+	case "IsRemembered":
+		// PlayerProperty.java:209-212: source.isRemembered(player). No
+		// source recognizes the property and matches nobody.
+		sc, ok := sourceCard(g, source)
+		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(candidate)), true
 	}
 	return false, false
 }

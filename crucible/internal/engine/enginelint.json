@@ -318,7 +318,7 @@
       "defined"
     ],
     "playerstate": ["id", "zone", "card", "game"],
-    "defined": ["id", "game", "player", "card", "ability", "parts"],
+    "defined": ["id", "game", "player", "card", "ability", "parts", "valid"],
     "condition": ["id", "card", "game", "ability", "trigger", "phase"],
     "pumpeffect": [
       "id",

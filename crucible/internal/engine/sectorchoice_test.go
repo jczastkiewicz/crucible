@@ -204,7 +204,7 @@ func spaceBelerenDef(t *testing.T) *compile.Card {
 // no case in valid.go, so it falls through to a type check that no card
 // passes, and PutCounterAll puts its counter on nothing. Java would put one
 // on every creature whose own sector (Card.getSector, assigned by
-// CR 704.5u, GameAction.java:1801-1825) matches. This test must change when
+// CR 704.5u, GameAction.java:1801-1828) matches. This test must change when
 // the sector read side lands (port-log effects-choosesector.md).
 func TestSpaceBelerenMinusOneRecordsSectorButItsReadIsNotPorted(t *testing.T) {
 	t.Parallel()

@@ -11,8 +11,8 @@ import "fmt"
 // AchievementTracker.java:23, so neither changes how this resolves.
 //
 // Only the write is ported: the Creature.ChosenSector/DifferentSector reads
-// (CardProperty.java:119-127) and the per-creature sector that
-// CR 704.5u's state-based action assigns (GameAction.java:1801-1825) do not
+// (CardProperty.java:119-126) and the per-creature sector that
+// CR 704.5u's state-based action assigns (GameAction.java:1801-1828) do not
 // exist yet (port-log effects-choosesector.md).
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/ChooseSectorEffect.java's resolve.

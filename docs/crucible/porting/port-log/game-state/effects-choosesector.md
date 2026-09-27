@@ -66,9 +66,9 @@ The write happens; nothing reads it yet. Missing, all out of this API's scope:
 | Piece                           | Java                                                                  | Crucible today                                                             |
 | ------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Per-creature sector             | `Card.sector`, `assignSector` (`Card.java:2335-2344`)                 | no field                                                                   |
-| CR 704.5u sector assignment SBA | `stateBasedAction704_5u` (`GameAction.java:1801-1825`)                | no rule in `CheckStateBasedActions`                                        |
+| CR 704.5u sector assignment SBA | `stateBasedAction704_5u` (`GameAction.java:1801-1828`)                | no rule in `CheckStateBasedActions`                                        |
 | `Creature.ChosenSector`         | source's chosen sector vs card's sector (`CardProperty.java:119-122`) | no case in `valid.go`: falls through to a type check, false for every card |
-| `Creature.DifferentSector`      | `CardProperty.java:123-127`                                           | `blockerRelativeMatches` (`staticability.go`) skips the static             |
+| `Creature.DifferentSector`      | `CardProperty.java:123-126`                                           | `blockerRelativeMatches` (`staticability.go`) skips the static             |
 
 **Registering `ChooseSector` changes how the card fails.** Before, both lines stopped at `ErrUnimplemented`. Now the
 chain resolves: the -1's `DB$ PutCounterAll | ValidCards$ Creature.ChosenSector` puts its counter on nothing, and the

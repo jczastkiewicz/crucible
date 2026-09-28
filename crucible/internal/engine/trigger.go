@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cost"
@@ -2572,15 +2573,31 @@ func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 	return o
 }
 
+// liveFaces is how many of def's faces are its current state's. A
+// transforming, modal, melded or specialize card's other face is a state it
+// is not in (Card.getTriggers reads currentState alone), and this port's
+// current face of such a card is always Faces[0] -- a transformed or melded
+// card's Def is its back face (cloneDef, cloneeffect.go, reads it the same
+// way) -- so only Faces[0] is live. Every other definition keeps all its
+// faces: a flip, split, adventure, omen or prepare card's, and a Room
+// permanent's both-doors view (roomView, room.go).
+func liveFaces(def *compile.Card) int {
+	switch def.SplitType {
+	case carddb.SplitTransform, carddb.SplitMeld, carddb.SplitModal, carddb.SplitSpecialize:
+		return 1
+	}
+	return len(def.Faces)
+}
+
 // triggerFaces yields every source of c's triggers, ADR-0023 decision 3's
-// accessor: each face of the current definition in Def.Faces order, then
+// accessor: each live face of the current definition (liveFaces) in Def.Faces order, then
 // each grant row in ascending id -- the definition then Layer-6 timestamp
 // order Java merges them in (Card.java:4913-4920). Every trigger scan ranges
 // over this rather than Def.Faces, so a granted trigger is visible to all of
 // them at once. With no grant it yields exactly Def.Faces.
 func (c *Card) triggerFaces(yield func(triggerFace) bool) {
 	if c.Def != nil {
-		for i := range c.Def.Faces {
+		for i := range c.Def.Faces[:liveFaces(c.Def)] {
 			f := &c.Def.Faces[i]
 			if !yield(triggerFace{Triggers: f.Triggers, Amounts: f.Amounts, slot: i}) {
 				return

@@ -5,11 +5,12 @@ the effect before either can activate, target or resolve. Each lands as a shared
 
 ## Combat and activation pieces SwitchBlock needs
 
-| Piece                        | Where                                                          | Java                                                    | Why SwitchBlock needs it                                                                                                  |
-| ---------------------------- | -------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `blocked` valid property     | `valid.go` `propertyMatches`                                   | `CardProperty.java:1591-1592`                           | Jarkeld's `ValidTgts$ Creature.attacking+blocked` matched nothing: the tap was paid, then no target, ability never pushed |
-| `ActivationPhases$` enforced | `activateability.go` `inActivationPhases`                      | `SpellAbilityRestriction.java:131-132,294-297`          | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes   |
-| `TargetsWithSameController$` | `targeting.go` `withSameControllerPartner`, `targetStillLegal` | `CardLists.java:201-217`, `SpellAbility.java:1543-1549` | Sorrow's Path's two targets must share a controller; 35 corpus files named it, all silently ignored                       |
+| Piece                        | Where                                                            | Java                                                                             | Why SwitchBlock needs it                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `blocked` valid property     | `valid.go` `propertyMatches`                                     | `CardProperty.java:1591-1592`                                                    | Jarkeld's `ValidTgts$ Creature.attacking+blocked` matched nothing: the tap was paid, then no target, ability never pushed |
+| `ActivationPhases$` enforced | `activateability.go` `inActivationPhases`                        | `SpellAbilityRestriction.java:131-132,294-297`                                   | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes   |
+| `TargetsWithSameController$` | `targeting.go` `withSameControllerPartner`, `targetStillLegal`   | `CardLists.java:201-217`, `SpellAbility.java:1543-1549`                          | Sorrow's Path's two targets must share a controller; 35 corpus files named it, all silently ignored                       |
+| Per-turn blocked-by history  | `card.go` `Card.blockedByThisTurn`, `block.go` `recordBlockedBy` | `Card.java:112,1658-1666`, `PhaseHandler.java:804-805`, `BlockEffect.java:60-61` | Sorrow's Path's `DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted` reads it                                |
 
 - `blocked` is exact-matched: `combat.isBlocked(card)`, an attacker with a blocker or one an effect made blocked
   (`Combat.ForcedBlocked`). `blockedBySource*`/`blockedThisTurn`/`blockedValidThisTurn` are distinct Java branches, stay
@@ -28,6 +29,12 @@ the effect before either can activate, target or resolve. Each lands as a shared
   ported: re-validating the one `ChooseTargets` answer (Java checks each click); no other `ChooseTargets` answer is
   re-validated either, and a split answer fizzles at resolution anyway. A copy's retargeting
   (`copyspellabilityeffect.go`) gets the pre-filter through `targetChoiceFor`.
+- Blocked-by history: new engine state, a `[]CardID` per `Card` (Java's `List<Card>` of LKI copies, compared by id). Per
+  turn, not per combat, so it cannot live on `Combat`. Written only at Java's two sites: `DeclareCombatBlockers` and the
+  Block effect. Cleared in `cleanupStep` next to `AttacksThisTurn` (`Card.onCleanupPhase`, `Card.java:7152`) and on
+  leaving the battlefield (`Game.Move`/`MoveToLibraryTop`), where Java's card becomes a new object. Copied by
+  `Game.Clone`; a nil slice copies without allocating. Not added to the LKI snapshot's deep copy: nothing reads a
+  snapshot's history, and `Move` replaces the live slice with nil rather than mutating it, so no aliasing.
 
 | Test                                                    | Proves                                                                  |
 | ------------------------------------------------------- | ----------------------------------------------------------------------- |

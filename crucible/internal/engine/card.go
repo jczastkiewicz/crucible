@@ -159,6 +159,19 @@ type Card struct {
 	// turn.go) alongside AttacksThisTurn.
 	BecameTargetThisTurn bool
 
+	// blockedByThisTurn is Card.getBlockedByThisTurn (Card.java:112,
+	// 1658-1666): every creature that blocked this card this turn, in the
+	// order recorded. Written where Java writes it -- blockers declared
+	// (DeclareCombatBlockers, block.go; PhaseHandler.java:804-805) and a
+	// Block effect adding a blocker (blockeffect.go; BlockEffect.java:60-61)
+	// -- and nowhere else: SwitchBlock's re-added blocks are not recorded,
+	// as SwitchBlockEffect.java's own addBlocker calls do not record them.
+	// Cleared every cleanup (cleanupStep, turn.go; Card.onCleanupPhase,
+	// Card.java:7152) and on leaving the battlefield (Game.Move), where
+	// Java's card becomes a new object. Read by SwitchBlock's
+	// `blockedByValidThisTurn Targeted` (switchblockeffect.go).
+	blockedByThisTurn []CardID
+
 	// LoyaltyAbilityActivated is CR 606.3's own once-per-turn marker
 	// (Card.planeswalkerAbilityActivated in Java, collapsed from an int to a
 	// bool -- StaticAbilityNumLoyaltyAct's own limit-raising static ability,

@@ -602,6 +602,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.mustBlock = nil
+		c.blockedByThisTurn = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		// Layer 3's text change ends with the object (CR 400.7), before the
 		// copy and face-down restores below read or replace Def.
@@ -701,6 +702,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.mustBlock = nil
+		c.blockedByThisTurn = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
 		// Layer 3's text change ends with the object (CR 400.7), before the
 		// copy and face-down restores below read or replace Def.
@@ -954,6 +956,7 @@ func (g *Game) Clone() *Game {
 		c.goadedBy = append([]goad(nil), g.cards[i].goadedBy...)
 		c.mustBlock = append([]mustBlockReq(nil), g.cards[i].mustBlock...)
 		c.hiddenKeywords = append([]string(nil), g.cards[i].hiddenKeywords...)
+		c.blockedByThisTurn = append([]CardID(nil), g.cards[i].blockedByThisTurn...)
 		c.PT = g.cards[i].PT.clone()
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()

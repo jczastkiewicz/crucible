@@ -514,3 +514,65 @@ func TestMeldFaceTriggersAreNotLiveOnTheFrontFace(t *testing.T) {
 		t.Errorf("Mishra in %v as %q, want Mishra, Claimed by Gix still on the battlefield", mc.Zone, mc.Def.Name)
 	}
 }
+
+// TestFlipFaceTriggersAreNotLiveOnTheFrontFace proves liveFaces (trigger.go)
+// restricts a Flip card the identical way it restricts Meld, Transform,
+// Modal and Specialize: Nezumi Shortfang unflipped controls no printed
+// upkeep trigger, so its opponent's upkeep beginning must not fire Stabwhisker
+// the Odious's own "each opponent's upkeep, that player loses life" --
+// printed on the flip face Nezumi Shortfang is not (rules review on the
+// merged Meld commit: liveFaces originally restricted Transform/Meld/Modal/
+// Specialize only, leaving every Flip card's back-face triggers live on the
+// front face, unflipped).
+func TestFlipFaceTriggersAreNotLiveOnTheFrontFace(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Nezumi Shortfang"), p, engine.Battlefield)
+	g.SetTurnState(1, other, engine.Untap)
+
+	g.AdvancePhase(engine.NewScriptedController())
+
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life; got != 20 {
+		t.Errorf("opponent life = %d, want 20 -- Stabwhisker the Odious's trigger must not fire off the front face", got)
+	}
+}
+
+// TestRemoveFromMatchSkipsAMeldedSecondary proves RemoveType$'s own raw
+// CardID scan (removefrommatcheffect.go), which does not walk a zone's own
+// Cards() set the way most effects do, skips a melded secondary by its own
+// Melded flag instead of sweeping it in -- rules review on the merged Meld
+// commit: Java's own scan reads each zone's own getCards(), which
+// PlayerZoneBattlefield.addToMelded already excludes it from.
+func TestRemoveFromMatchSkipsAMeldedSecondary(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	secondary := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	g.Card(secondary).Melded = true
+
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ RemoveFromMatch | RemoveType$ Creature.YouOwn")
+
+	if g.Card(secondary).Zone != engine.Battlefield {
+		t.Errorf("melded secondary zone = %v, want Battlefield (untouched)", g.Card(secondary).Zone)
+	}
+}
+
+// TestIntensifySkipsAMeldedSecondary is TestRemoveFromMatchSkipsAMeldedSecondary's
+// twin for AllDefined$ (intensifyeffect.go), the same raw-scan pattern.
+func TestIntensifySkipsAMeldedSecondary(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	secondary := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	g.Card(secondary).Melded = true
+
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Intensify | AllDefined$ Creature.YouOwn")
+
+	if got := g.Card(secondary).Intensity; got != 0 {
+		t.Errorf("melded secondary Intensity = %d, want 0 (untouched)", got)
+	}
+}

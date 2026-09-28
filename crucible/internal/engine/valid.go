@@ -1039,6 +1039,11 @@ func operatorPrefix(s string) (string, bool) {
 // named name. Java's on-the-battlefield branch, a Room's unlocked door
 // names, is not read: a Room permanent's Def already is the view of its
 // unlocked doors (room.go), and no corpus named<Name> property names a door.
+// Not ported: Card.hasNonLegendaryCreatureNames()'s own tail
+// (Card.java:5864-5868, SpyKit's own text-changing ability) -- this port
+// does model HasNonLegendaryCreatureNames (card.go), so this is a real,
+// disclosed gap, not a forced omission; 0 real corpus named<Name> lines
+// reach a SpyKit-shaped card today.
 func sharesName(c *Card, name string) bool {
 	if name == "" || c.Def == nil {
 		return false

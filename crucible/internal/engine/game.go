@@ -828,8 +828,9 @@ func (g *Game) Shuffle(kind ZoneType, owner PlayerID) {
 }
 
 // put appends a card to a zone and records the reverse index on the card. It
-// does not remove the card from wherever it was, so only [Game.Move] and
-// [Game.NewCard] may call it.
+// does not remove the card from wherever it was, so only [Game.Move],
+// [Game.NewCard] and unmeld (a melded pair splitting apart, ADR-0032) may
+// call it.
 func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = kind, owner
@@ -840,7 +841,7 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 
 // putFront is put's mirror for the library's own top instead of a zone's
 // end: it does not remove the card from wherever it was, so only
-// [Game.MoveToLibraryTop] may call it.
+// [Game.MoveToLibraryTop] and unmeld may call it.
 func (g *Game) putFront(id CardID, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = Library, owner

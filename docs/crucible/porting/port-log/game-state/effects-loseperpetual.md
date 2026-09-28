@@ -95,10 +95,10 @@ affected: effects that evaluate conditions without rejecting `ConditionDefined$`
 `ConditionDefined$ Remembered` lines (`Discard` 14, `SetState` 6, `MakeCard` 6, `Scry` 5, ...) move from silently unmet
 to evaluated. `LosePerpetual` itself rejects `Condition$` and every other `ConditionDefined$` (GO-7).
 
-| Card           | Status                                                                                                                                                                                                          |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Racketeer Boss | End to end: scenario `perpetual-cast-trigger-racketeer-boss-treasure-once` (grant in hand, fires from the stack, Treasure, lost; recast makes none)                                                             |
-| Pass the Torch | Its `Animate` fails closed: `TrigPlay` targets `TgtZone$ Graveyard` and `Card.namedPass the Torch`, and neither graveyard targeting nor the `named` property exists (`playUnportedProperties`, `playeffect.go`) |
+| Card           | Status                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Racketeer Boss | End to end: scenario `perpetual-cast-trigger-racketeer-boss-treasure-once` (grant in hand, fires from the stack, Treasure, lost; recast makes none)          |
+| Pass the Torch | Its `Animate` fails closed: `TrigPlay` targets `TgtZone$ Graveyard`, and Play's graveyard targeting does not exist (`playUnresolvedParams`, `playeffect.go`) |
 
 Other `Duration$ Perpetual | Triggers$` lines no longer rejected on the grant itself (whether the trigger then fires is
 the scans' existing zone coverage — a granted "when you draw this card" in hand is as unscanned as a printed one):

@@ -2249,15 +2249,20 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 // (host's own controller only), anything else -- "Any", the corpus's own
 // overwhelming default, or absent -- every player, Java's own three
 // additive You/Opponent/Allies blocks collapsed to the one partition they
-// produce for a single-valued param. PresentDefined$ skips the whole line:
-// no Defined$-to-cards resolver exists for an arbitrary reference yet.
+// produce for a single-valued param. definedKey (PresentDefined$/
+// ConditionDefined$) Remembered counts the host's remembered objects instead
+// (rememberedPresentMatches); any other value skips the whole line: no
+// Defined$-to-cards resolver exists for an arbitrary reference yet.
 func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, isKey, compareKey, definedKey, zoneKey, playerKey string) bool {
 	spec, ok := t.Param(isKey)
 	if !ok {
 		return true
 	}
-	if _, ok := t.Param(definedKey); ok {
-		return false
+	if defined, ok := t.Param(definedKey); ok {
+		if defined != "Remembered" {
+			return false
+		}
+		return rememberedPresentMatches(g, host, amounts, t, spec, compareKey)
 	}
 	var zones []ZoneType
 	if zoneList, ok := t.Param(zoneKey); ok {
@@ -2291,6 +2296,40 @@ func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 			n++
 		}
 	}
+	return presentCountMatches(g, host, amounts, t, compareKey, n)
+}
+
+// rememberedPresentMatches is the Defined$ Remembered branch of
+// isPresentMatches: the candidates are what the host card remembers, not a
+// zone scan -- SpellAbilityCondition.java:350-351's
+// AbilityUtils.getDefinedObjects(host, "Remembered", sa), whose restriction
+// filter (GameObjectPredicates.restriction, :365) counts a remembered player
+// too when the spec names players (3 real lines: ConditionPresent$ Player).
+// Pass the Torch's "if you do" (ConditionDefined$ Remembered |
+// ConditionPresent$ Card after RememberPlayed$) is the shape. Remembered is
+// the one Defined$ value read here; every other one still reads as unmet.
+func rememberedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, spec, compareKey string) bool {
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, e := range host.Memory.Remembered() {
+		if id, ok := e.AsCard(); ok {
+			if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+				n++
+			}
+			continue
+		}
+		if pid, ok := e.AsPlayer(); ok {
+			if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); recognized && matched {
+				n++
+			}
+		}
+	}
+	return presentCountMatches(g, host, amounts, t, compareKey, n)
+}
+
+// presentCountMatches compares n, the count of present objects, against
+// compareKey (GE1 when absent), its right side a literal or a named SVar.
+func presentCountMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, compareKey string, n int) bool {
 	compare, ok := t.Param(compareKey)
 	if !ok {
 		compare = "GE1"

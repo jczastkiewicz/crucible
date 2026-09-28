@@ -183,7 +183,8 @@ func animateDuration(a *Ability, api string) (bool, error) {
 // ChosenColor or All -- with OverwriteColors$ (Layer 5), and Keywords$/
 // RemoveKeywords$ (" & " lists, Layer 6). Types$ ChosenType and a
 // keyword naming one of the host's SVars (Java substitutes its text) are
-// not resolved.
+// not resolved. The triggers a Duration$ Perpetual Triggers$ grants come
+// back beside the record (animateTriggerGrants), nil when there are none.
 func buildAnimate(g *Game, a *Ability, api string) (animateRecord, []*compile.Ability, error) {
 	var r animateRecord
 	if err := rejectParams(a, api, animateUnresolvedParams[:]...); err != nil {

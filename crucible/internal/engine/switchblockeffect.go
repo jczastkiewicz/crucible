@@ -247,10 +247,12 @@ func (g *Game) planBlockersSwitch(attackers, blockers []CardID) (switchPlan, boo
 // with AbilityKey.Attacker, but TriggerBlocks.java:61 reads
 // AbilityKey.Attackers, so under RemoveFromCombat$ a Mode$ Blocks trigger
 // naming ValidBlocked$ sees no attacker and never fires in Java. Firing it
-// here would silently fix the bug; not firing it would copy it. So a
-// switch that would test such a trigger is an error before anything moves.
-// A Blocks trigger without ValidBlocked$ does not read the missing key and
-// fires normally.
+// here would silently fix the bug; not firing it would copy it. So a switch
+// that would test ValidBlocked$ against the new attacker (the key Java's bug
+// nulls) is an error before anything moves, regardless of ValidCard$ (that
+// param is TriggerBlocks.java:58's own, unrelated, unaffected check against
+// the blocker). A Blocks trigger without ValidBlocked$ does not read the
+// missing key and fires normally.
 func (g *Game) checkReblockTriggerKeys(join []Block) error {
 	for _, blk := range join {
 		for _, pid := range g.Players() {
@@ -264,11 +266,8 @@ func (g *Game) checkReblockTriggerKeys(join []Block) error {
 						if !isBlocksTrigger(t) {
 							continue
 						}
-						if _, ok := t.Param("ValidBlocked"); !ok {
-							continue
-						}
-						validCard, ok := t.Param("ValidCard")
-						if ok && Matches(g, g.Card(blk.Blocker), valid.Parse(validCard), h.Controller(), host) {
+						validBlocked, ok := t.Param("ValidBlocked")
+						if ok && Matches(g, g.Card(blk.Attacker), valid.Parse(validBlocked), h.Controller(), host) {
 							return fmt.Errorf("engine: SwitchBlock: RemoveFromCombat$ re-block would test a Mode$ Blocks "+
 								"ValidBlocked$ trigger on card %d that Java never passes an attacker (SwitchBlockEffect.java:24)", host)
 						}

@@ -1788,9 +1788,10 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
 `ReplaceEffect`, `ReplaceDamage`, `ReplaceSplitDamage`, `ReplaceToken`, `ReplaceCounter`, `ReplaceMana`, `Clone`,
 `BecomeMonarch`, `TakeInitiative`, `Venture`, `OpenAttraction`, `AssembleContraption`, `Regeneration`, `Play`,
 `CopySpellAbility`, `RingTemptsYou`, `Abandon`, `ChangeTargets`, `MustBlock`, `Phases`, `ManaReflected`, `ControlSpell`,
-`Planeswalk`, `ChaosEnsues`, `RollPlanarDice`, `RunChaos`, `ChooseSector`, `SetInMotion`, `Subgame`, `SwitchBlock`) —
-see `docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below stay in their
-original plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way M0-M5 are).
+`Planeswalk`, `ChaosEnsues`, `RollPlanarDice`, `RunChaos`, `ChooseSector`, `SetInMotion`, `Subgame`, `UnlockDoor`,
+`SwitchBlock`) — see `docs/crucible/porting/port-log/game-state.md` for the per-API landing notes; items 30-32 below
+stay in their original plan-authoring voice (forward-looking, not yet rewritten as a per-item retrospective the way
+M0-M5 are).
 
 30. Implement APIs in corpus-first, then frequency order (Section 1.5). Keywords, triggers, replacements, cost parts
     alongside.

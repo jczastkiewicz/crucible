@@ -365,6 +365,65 @@ func TestSwitchBlockSorrowsPathValidBlockedTriggerFailsClosed(t *testing.T) {
 	f.wantBlocks(t, engine.Block{Blocker: b1, Attacker: a1}, engine.Block{Blocker: b2, Attacker: a2})
 }
 
+// TestSwitchBlockValidBlockedGuardTestsTheNewAttackerNotValidCard proves
+// checkReblockTriggerKeys evaluates ValidBlocked$ against the switch's new
+// attacker (the key SwitchBlockEffect.java:24 actually nulls), not
+// ValidCard$ against the blocker: ValidCard$ Card.Self trivially matches the
+// trigger's own host regardless of the switch, so a naive guard keyed on it
+// would wrongly error here even though ValidBlocked$'s own property never
+// matches either attacker.
+func TestSwitchBlockValidBlockedGuardTestsTheNewAttackerNotValidCard(t *testing.T) {
+	t.Parallel()
+
+	f := newCombatFixture(t)
+	libraryCards(t, f.g, f.other, 3)
+	a1 := f.creature(f.p, creatureDefPT(t, "2", "2"))
+	a2 := f.creature(f.p, creatureDefPT(t, "4", "4"))
+	path := f.creature(f.p, creatureDefWithAbility(t, "Sorrow's Path", sorrowsPathLine))
+	b1 := f.creature(f.other, creatureDefWithAbilityAndTrigger(t, "Test Blocks Watcher",
+		"AB$ Pump | Cost$ T | Defined$ Self | NumAtt$ 1",
+		"Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature.powerGE5 | Execute$ TrigDraw"))
+	b2 := f.creature(f.other, creatureDefPT(t, "3", "3"))
+	f.fight(t, []engine.CardID{a1, a2}, []engine.Block{{Blocker: b1, Attacker: a1}, {Blocker: b2, Attacker: a2}})
+	if err := f.g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack (declaration triggers): %v", err)
+	}
+
+	if err := f.activate(t, f.p, path, b1, b2); err != nil {
+		t.Fatalf("ResolveStack: %v, want no error: a1 and a2 both have power < 5, so ValidBlocked$ never matches", err)
+	}
+	f.wantBlocks(t, engine.Block{Blocker: b2, Attacker: a1}, engine.Block{Blocker: b1, Attacker: a2})
+}
+
+// TestSwitchBlockValidBlockedGuardAppliesWithoutValidCard proves the guard
+// checks ValidBlocked$ on its own: a Blocks trigger with no ValidCard$ at
+// all still reads AbilityKey.Attackers in Java (TriggerBlocks.java:58 only
+// tests ValidCard$ when the param is present), so it is just as subject to
+// SwitchBlockEffect.java:24's bug as one that also carries ValidCard$.
+func TestSwitchBlockValidBlockedGuardAppliesWithoutValidCard(t *testing.T) {
+	t.Parallel()
+
+	f := newCombatFixture(t)
+	libraryCards(t, f.g, f.other, 3)
+	a1 := f.creature(f.p, creatureDefPT(t, "2", "2"))
+	a2 := f.creature(f.p, creatureDefPT(t, "4", "4"))
+	path := f.creature(f.p, creatureDefWithAbility(t, "Sorrow's Path", sorrowsPathLine))
+	b1 := f.creature(f.other, creatureDefWithAbilityAndTrigger(t, "Test Blocks Watcher",
+		"AB$ Pump | Cost$ T | Defined$ Self | NumAtt$ 1",
+		"Mode$ Blocks | ValidBlocked$ Creature | Execute$ TrigDraw"))
+	b2 := f.creature(f.other, creatureDefPT(t, "3", "3"))
+	f.fight(t, []engine.CardID{a1, a2}, []engine.Block{{Blocker: b1, Attacker: a1}, {Blocker: b2, Attacker: a2}})
+	if err := f.g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack (declaration triggers): %v", err)
+	}
+
+	err := f.activate(t, f.p, path, b1, b2)
+	if err == nil || !strings.Contains(err.Error(), "SwitchBlockEffect.java:24") {
+		t.Fatalf("ResolveStack error = %v, want the ValidBlocked$ error even without ValidCard$", err)
+	}
+	f.wantBlocks(t, engine.Block{Blocker: b1, Attacker: a1}, engine.Block{Blocker: b2, Attacker: a2})
+}
+
 // TestSwitchBlockSorrowsPathIllegalBlockChangesNothing proves the "could
 // block all creatures that the other is blocking" condition: a1 has flying
 // and b2 cannot block it.

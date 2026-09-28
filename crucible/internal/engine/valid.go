@@ -14,8 +14,8 @@
 // membership in source's own Memory lists (sourceCard's own doc comment) --
 // EnchantedBy/EquippedBy/AttachedBy/FortifiedBy, bare form only (one check
 // in Java too, before it ever reaches CardProperty), inZone/inRealZone (c's
-// own Zone, LKI-collapsed the same way YouCtrl already is), attacking and
-// blocking, bare form only (the current Combat's Attackers/Blocks),
+// own Zone, LKI-collapsed the same way YouCtrl already is), attacking,
+// blocking and blocked, bare form only (the current Combat's Attackers/Blocks),
 // HasCounters and counters_<op><n>_<type> (countersMatches' own doc
 // comment), enchanted/equipped/modified (attachedByType/isModified's own
 // doc comments), RememberedPlayerCtrl/RememberedPlayerOwn (membership in
@@ -344,6 +344,12 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return g.Card(cid).Controller() == c.Controller()
 	case name == "blocking":
 		return isBlocking(g.combat.Blocks, c.ID)
+	case name == "blocked":
+		// CardProperty.java:1591-1592: combat.isBlocked(card) -- an attacker
+		// with a blocker, or one an effect made blocked (ForcedBlocked).
+		// Exact-matched: blockedBySource*, blockedThisTurn and the rest are
+		// distinct Java branches this case must not swallow.
+		return g.combat.isBlocked(c.ID)
 	case name == "HasCounters":
 		return c.Counters.Any()
 	case strings.HasPrefix(name, "counters_"):

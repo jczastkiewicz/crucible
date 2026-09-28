@@ -296,7 +296,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
-	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
+	if shape.Tap && (c.Tapped || c.isSick()) {
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {

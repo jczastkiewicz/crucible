@@ -339,6 +339,14 @@ func (c *Card) Type() cardtype.Line {
 	return foldType(c.Def.Faces[0].Type, c.TypeMod.effects)
 }
 
+// isSick is Card.isSick (Card.java:3651-3653): summoning sickness
+// restricts only a creature (CR 302.6), and haste lifts it
+// (Card.hasSickness). A land or artifact that entered this turn can pay a
+// {T} cost.
+func (c *Card) isSick() bool {
+	return c.SummonSick && c.Type().Has(cardtype.Creature) && !c.HasKeyword("Haste")
+}
+
 // HasKeyword reports whether the card currently carries the named keyword:
 // its own printed face, exact match against keyword.Parse's own Name (the
 // head as written -- "Indestructible" for a bare line, "Ward" for

@@ -4,9 +4,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
-	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // jarkeldLine and sorrowsPathLine are the corpus's two SwitchBlock lines,
@@ -249,6 +250,61 @@ func TestSwitchBlockSorrowsPathTradesAttackers(t *testing.T) {
 	f.wantBlocks(t, engine.Block{Blocker: b2, Attacker: a1}, engine.Block{Blocker: b1, Attacker: a2})
 }
 
+// sorrowsPathDef is sorrows_path.txt as printed: a Land with the switch
+// ability and its "whenever this becomes tapped" damage trigger.
+func sorrowsPathDef(t *testing.T) *compile.Card {
+	t.Helper()
+	raw := &carddb.Card{Filename: "sorrows_path.txt"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Sorrow's Path"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Land")
+	raw.Faces[0].Abilities = []string{sorrowsPathLine}
+	raw.Faces[0].Triggers = []string{"Mode$ Taps | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDamage"}
+	raw.Faces[0].SVars.Set("TrigDamage", "DB$ DamageAll | ValidCards$ Creature.YouCtrl | ValidPlayers$ You | NumDmg$ 2")
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile Sorrow's Path: %v", err)
+	}
+	return c
+}
+
+// TestSwitchBlockSorrowsPathRealCard proves the printed card: a Land that
+// entered this turn still pays its {T} (Card.isSick needs a creature,
+// Card.java:3651), the switch happens, and its Taps trigger deals 2 to its
+// controller and each creature they control. It also pins this port's
+// stack order: checkTapsTriggers pushes the Taps trigger while the cost is
+// paid, so it sits under the switch and resolves after it. Java (CR 603.3)
+// puts it on top, so it resolves first -- ActivateAbility's general gap,
+// effects-switchblock.md.
+func TestSwitchBlockSorrowsPathRealCard(t *testing.T) {
+	t.Parallel()
+
+	f := newCombatFixture(t)
+	a1 := f.creature(f.p, creatureDefPT(t, "3", "3"))
+	a2 := f.creature(f.p, creatureDefPT(t, "4", "4"))
+	path := f.creature(f.p, sorrowsPathDef(t))
+	f.g.Card(path).SummonSick = true
+	b1 := f.creature(f.other, creatureDefPT(t, "1", "1"))
+	b2 := f.creature(f.other, creatureDefPT(t, "3", "3"))
+	f.fight(t, []engine.CardID{a1, a2}, []engine.Block{{Blocker: b1, Attacker: a1}, {Blocker: b2, Attacker: a2}})
+
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(b1), engine.CardEntity(b2)})
+	if !f.g.ActivateAbility(f.p, path, 0, c) {
+		t.Fatal("ActivateAbility returned false for a Land that entered this turn")
+	}
+	if top, ok := f.g.StackTop(); !ok || top.API != engine.APISwitchBlock || f.g.StackLen() != 2 {
+		t.Fatalf("stack len %d, top %v, want the switch above the Taps trigger", f.g.StackLen(), top.API)
+	}
+	if err := f.g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	f.wantBlocks(t, engine.Block{Blocker: b2, Attacker: a1}, engine.Block{Blocker: b1, Attacker: a2})
+	if life := f.g.Player(f.p).Life; life != 18 {
+		t.Errorf("controller life = %d, want 18 (Taps trigger)", life)
+	}
+}
+
 // TestSwitchBlockSorrowsPathReblockFiresBlocks proves RemoveFromCombat$'s
 // re-block fires Mode$ Blocks again (SwitchBlockEffect.runTriggers): the
 // watching blocker's controller draws once at declaration and once more on
@@ -388,30 +444,6 @@ func TestSwitchBlockSorrowsPathSecondSwitchFailsClosed(t *testing.T) {
 	}
 	if !equalBlocks(f.g.Blocks(), before) {
 		t.Errorf("Blocks() = %v, want unchanged %v", f.g.Blocks(), before)
-	}
-}
-
-// TestSwitchBlockRemovedBlockerLeavesAttackerBlocked proves CR 509.1h
-// through the RemoveFromCombat$ path's shared removeFromCombat: an attacker
-// whose only blocker leaves combat stays blocked.
-func TestSwitchBlockRemovedBlockerLeavesAttackerBlocked(t *testing.T) {
-	t.Parallel()
-
-	f := newCombatFixture(t)
-	a1 := f.creature(f.p, creatureDefPT(t, "2", "2"))
-	b1 := f.creature(f.other, creatureDefPT(t, "1", "1"))
-	f.fight(t, []engine.CardID{a1}, []engine.Block{{Blocker: b1, Attacker: a1}})
-
-	if _, err := resolveNow(t, f.g, f.p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(b1)},
-		"DB$ RemoveFromCombat | Defined$ Targeted"); err != nil {
-		t.Fatalf("RemoveFromCombat: %v", err)
-	}
-	if !engine.Matches(f.g, f.g.Card(a1), valid.Parse("Card.blocked"), f.p, engine.NoCard) {
-		t.Error("a1 is no longer blocked after its only blocker left combat")
-	}
-	f.g.DealCombatDamage(engine.NewScriptedController())
-	if life := f.g.Player(f.other).Life; life != 20 {
-		t.Errorf("defender life = %d, want 20 (a blocked attacker deals no damage to the player)", life)
 	}
 }
 

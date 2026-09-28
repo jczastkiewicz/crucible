@@ -5,13 +5,14 @@ the effect before either can activate, target or resolve. Each lands as a shared
 
 ## Combat and activation pieces SwitchBlock needs
 
-| Piece                                                      | Where                                                            | Java                                                                             | Why SwitchBlock needs it                                                                                                                            |
-| ---------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `blocked` valid property                                   | `valid.go` `propertyMatches`                                     | `CardProperty.java:1591-1592`                                                    | Jarkeld's `ValidTgts$ Creature.attacking+blocked` matched nothing: the tap was paid, then no target, ability never pushed                           |
-| `ActivationPhases$` enforced                               | `activateability.go` `inActivationPhases`                        | `SpellAbilityRestriction.java:131-132,294-297`                                   | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes                             |
-| `TargetsWithSameController$`                               | `targeting.go` `withSameControllerPartner`, `targetStillLegal`   | `CardLists.java:201-217`, `SpellAbility.java:1543-1549`                          | Sorrow's Path's two targets must share a controller; 35 corpus files named it, all silently ignored                                                 |
-| Per-turn blocked-by history                                | `card.go` `Card.blockedByThisTurn`, `block.go` `recordBlockedBy` | `Card.java:112,1658-1666`, `PhaseHandler.java:804-805`, `BlockEffect.java:60-61` | Sorrow's Path's `DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted` reads it                                                          |
-| Attacker stays blocked when its last blocker leaves combat | `combat.go` `removeFromCombat`                                   | `Combat.java:602-639` (band's blocked flag never cleared)                        | Jarkeld can target a `ForcedBlocked` attacker with no blocker; after the trade the other attacker has none either and must stay blocked (CR 509.1h) |
+| Piece                                                      | Where                                                                   | Java                                                                             | Why SwitchBlock needs it                                                                                                                            |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blocked` valid property                                   | `valid.go` `propertyMatches`                                            | `CardProperty.java:1591-1592`                                                    | Jarkeld's `ValidTgts$ Creature.attacking+blocked` matched nothing: the tap was paid, then no target, ability never pushed                           |
+| `ActivationPhases$` enforced                               | `activateability.go` `inActivationPhases`                               | `SpellAbilityRestriction.java:131-132,294-297`                                   | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes                             |
+| `TargetsWithSameController$`                               | `targeting.go` `withSameControllerPartner`, `targetStillLegal`          | `CardLists.java:201-217`, `SpellAbility.java:1543-1549`                          | Sorrow's Path's two targets must share a controller; 35 corpus files named it, all silently ignored                                                 |
+| Per-turn blocked-by history                                | `card.go` `Card.blockedByThisTurn`, `block.go` `recordBlockedBy`        | `Card.java:112,1658-1666`, `PhaseHandler.java:804-805`, `BlockEffect.java:60-61` | Sorrow's Path's `DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted` reads it                                                          |
+| Attacker stays blocked when its last blocker leaves combat | `combat.go` `removeFromCombat`                                          | `Combat.java:602-639` (band's blocked flag never cleared)                        | Jarkeld can target a `ForcedBlocked` attacker with no blocker; after the trade the other attacker has none either and must stay blocked (CR 509.1h) |
+| Summoning sickness only on creatures                       | `card.go` `Card.isSick`, `activateability.go`, `activatemanaability.go` | `Card.java:3651-3653`                                                            | Sorrow's Path is a Land: played this turn, its {T} was refused (CR 302.6 restricts creatures only)                                                  |
 
 - `blocked` is exact-matched: `combat.isBlocked(card)`, an attacker with a blocker or one an effect made blocked
   (`Combat.ForcedBlocked`). `blockedBySource*`/`blockedThisTurn`/`blockedValidThisTurn` are distinct Java branches, stay
@@ -36,22 +37,27 @@ the effect before either can activate, target or resolve. Each lands as a shared
   leaving the battlefield (`Game.Move`/`MoveToLibraryTop`), where Java's card becomes a new object. Copied by
   `Game.Clone`; a nil slice copies without allocating. Not added to the LKI snapshot's deep copy: nothing reads a
   snapshot's history, and `Move` replaces the live slice with nil rather than mutating it, so no aliasing.
+- `Card.isSick`: `ActivateAbility`/`ActivateManaAbility` refused any `{T}` cost while `SummonSick`, creature or not.
+  Java's `Card.isSick` requires a creature; a nonbasic land's mana ability the turn it was played was refused too.
+  General fix.
 - `removeFromCombat`: a blocker leaving combat now puts each attacker it leaves with no blocker into
   `Combat.ForcedBlocked`, which `isBlocked` and combat damage already read as "blocked, no blocker" (no damage to the
   player unless trample). A general fix, CR 506.4/509.1h: every caller (`RemoveFromCombat`, `ChangeCombatants`,
   `GainControl`, phasing, regeneration, `RemoveFromGame`) had let such an attacker go unblocked, where Java's band stays
   blocked. `Game.Move` still leaves combat untouched (`game-state.md`, "Not ported yet").
 
-| Test                                                    | Proves                                                                                 |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `TestMatchesBlocked`                                    | Blocked attacker matches, unblocked attacker and the blocker do not                    |
-| `TestActivateAbilityActivationPhasesRestrictsTiming`    | Declines in Main1 and Combat Damage, cost unpaid; activates in step                    |
-| `TestActivateAbilityActivationPhasesRange`              | `A->B` range inclusive both ends                                                       |
-| `TestActivateAbilityActivationPhasesUnreadableDeclines` | Unreadable phase list declines (GO-7)                                                  |
-| `TestTargetsWithSameControllerDropsLoneCandidate`       | Three players: lone creature of third player never offered; pair pumped                |
-| `TestTargetsWithSameControllerMixedAnswerFizzles`       | Split answer fizzles whole at resolution                                               |
-| `TestTargetsWithSameControllerFizzlesOnControlChange`   | Control change on stack makes both targets illegal                                     |
-| `TestSwitchBlockRemovedBlockerLeavesAttackerBlocked`    | `RemoveFromCombat` on the only blocker: attacker still blocked, deals no player damage |
+| Test                                                                   | Proves                                                                                 |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `TestMatchesBlocked`                                                   | Blocked attacker matches, unblocked attacker and the blocker do not                    |
+| `TestActivateAbilityActivationPhasesRestrictsTiming`                   | Declines in Main1 and Combat Damage, cost unpaid; activates in step                    |
+| `TestActivateAbilityActivationPhasesRange`                             | `A->B` range inclusive both ends                                                       |
+| `TestActivateAbilityActivationPhasesUnreadableDeclines`                | Unreadable phase list declines (GO-7)                                                  |
+| `TestTargetsWithSameControllerDropsLoneCandidate`                      | Three players: lone creature of third player never offered; pair pumped                |
+| `TestTargetsWithSameControllerMixedAnswerFizzles`                      | Split answer fizzles whole at resolution                                               |
+| `TestTargetsWithSameControllerFizzlesOnControlChange`                  | Control change on stack makes both targets illegal                                     |
+| `TestRemoveFromCombatEffectBlockerLeavesAttackerBlocked`               | `RemoveFromCombat` on the only blocker: attacker still blocked, deals no player damage |
+| `TestSummoningSicknessSparesNonCreatureTapAbility`                     | A Land entered this turn pays {T} for a stack ability and a mana ability               |
+| `combat-blocker-removed-from-combat-attacker-stays-blocked` (scenario) | Labyrinth of Skophos removes the only blocker; attacker stays blocked, no damage       |
 
 ## SwitchBlock lands
 
@@ -77,6 +83,13 @@ the effect before either can activate, target or resolve. Each lands as a shared
   (`SwitchBlockEffect.runTriggers`), through `checkAttackerBlockedByCreatureTriggers`/`checkBlocksTriggers`.
 - `Condition$` rejected (`rejectParams`), as `blockEffect` does.
 
+Known gaps, general to `ActivateAbility`, not SwitchBlock's own (pinned by `TestSwitchBlockSorrowsPathRealCard`):
+
+| Gap                                                                                                                                        | Effect on these two cards                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| A trigger fired by paying the cost (`checkTapsTriggers`) is pushed during payment, under the ability; Java (CR 603.3) puts it on top       | Sorrow's Path's own Taps trigger (2 damage to you and each creature you control) resolves after the switch here, before it in Java              |
+| Cost is paid and cost triggers fire before targets are chosen; `targetChoiceFor` refuses only zero candidates, not fewer than `TargetMin$` | With one legal target, Jarkeld taps and Sorrow's Path taps and deals its damage for nothing; Java refuses the activation (`TargetMin$ 2` unmet) |
+
 No Java counterpart, by design:
 
 | Java                                                                                         | Why nothing to port                                                                                               |
@@ -95,23 +108,24 @@ before anything moves, and only when the divergent case is actually reached:
 | `checkStrayBlocks` (Sorrow's Path) | A targeted blocker blocks an attacker no blocked-by record names (a block an earlier switch added, `:97,:103,:151,:157` never record)                               |
 | `checkReblockTriggerKeys`          | A re-block would test a `Mode$ Blocks` trigger naming `ValidBlocked$`; Java passes the attacker as `Attacker` (`:22-25`), `TriggerBlocks.java:61` reads `Attackers` |
 
-| Test                                                       | Proves                                                                           |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `TestSwitchBlockJarkeldTradesBlockers`                     | Jarkeld's branch: blockers trade attackers, scan order                           |
-| `TestSwitchBlockJarkeldMovesGangBlock`                     | Both blockers of one attacker move together                                      |
-| `TestSwitchBlockJarkeldIllegalBlockChangesNothing`         | Flying attacker, non-reach blocker: no switch                                    |
-| `TestSwitchBlockJarkeldOneTargetLeftChangesNothing`        | One target gone before resolution: no switch                                     |
-| `TestSwitchBlockJarkeldOutsideDeclareBlockersDeclines`     | `ActivationPhases$` holds in the combat damage step                              |
-| `TestSwitchBlockJarkeldStrayBlockFailsClosed`              | Stray block guard, blocks unchanged                                              |
-| `TestSwitchBlockSorrowsPathTradesAttackers`                | Sorrow's Path's branch via blocked-by history                                    |
-| `TestSwitchBlockSorrowsPathReblockFiresBlocks`             | `RemoveFromCombat$` re-block fires `Mode$ Blocks` again                          |
-| `TestSwitchBlockSorrowsPathValidBlockedTriggerFailsClosed` | Trigger key guard, blocks unchanged                                              |
-| `TestSwitchBlockSorrowsPathIllegalBlockChangesNothing`     | Blocker that cannot block the other's attacker: no switch                        |
-| `TestSwitchBlockSorrowsPathOneBlockerLeftChangesNothing`   | One target gone before resolution: no switch                                     |
-| `TestSwitchBlockSorrowsPathSecondSwitchFailsClosed`        | Unrecorded-block guard on a second switch, blocks unchanged                      |
-| `TestSwitchBlockRejectsUnknownDefined`                     | Defined spellings outside the two lines are errors                               |
-| `TestSwitchBlockRejectsCondition`                          | `Condition$` rejected                                                            |
-| `switchblock-general-jarkeld-trades-blockers` (scenario)   | Whole engine: activate in declare blockers, combat damage follows the new blocks |
+| Test                                                       | Proves                                                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `TestSwitchBlockJarkeldTradesBlockers`                     | Jarkeld's branch: blockers trade attackers, scan order                                                             |
+| `TestSwitchBlockJarkeldMovesGangBlock`                     | Both blockers of one attacker move together                                                                        |
+| `TestSwitchBlockJarkeldIllegalBlockChangesNothing`         | Flying attacker, non-reach blocker: no switch                                                                      |
+| `TestSwitchBlockJarkeldOneTargetLeftChangesNothing`        | One target gone before resolution: no switch                                                                       |
+| `TestSwitchBlockJarkeldOutsideDeclareBlockersDeclines`     | `ActivationPhases$` holds in the combat damage step                                                                |
+| `TestSwitchBlockJarkeldStrayBlockFailsClosed`              | Stray block guard, blocks unchanged                                                                                |
+| `TestSwitchBlockSorrowsPathTradesAttackers`                | Sorrow's Path's branch via blocked-by history                                                                      |
+| `TestSwitchBlockSorrowsPathReblockFiresBlocks`             | `RemoveFromCombat$` re-block fires `Mode$ Blocks` again                                                            |
+| `TestSwitchBlockSorrowsPathValidBlockedTriggerFailsClosed` | Trigger key guard, blocks unchanged                                                                                |
+| `TestSwitchBlockSorrowsPathIllegalBlockChangesNothing`     | Blocker that cannot block the other's attacker: no switch                                                          |
+| `TestSwitchBlockSorrowsPathOneBlockerLeftChangesNothing`   | One target gone before resolution: no switch                                                                       |
+| `TestSwitchBlockSorrowsPathSecondSwitchFailsClosed`        | Unrecorded-block guard on a second switch, blocks unchanged                                                        |
+| `TestSwitchBlockRejectsUnknownDefined`                     | Defined spellings outside the two lines are errors                                                                 |
+| `TestSwitchBlockRejectsCondition`                          | `Condition$` rejected                                                                                              |
+| `TestSwitchBlockSorrowsPathRealCard`                       | Printed Sorrow's Path (Land, Taps trigger): activates the turn it entered, switches, deals its 2; pins stack order |
+| `switchblock-general-jarkeld-trades-blockers` (scenario)   | Whole engine: activate in declare blockers, combat damage follows the new blocks                                   |
 
 Supersedes the `SwitchBlock` row of `effects-abandon-switchblock-choosesector.md`'s deferred table and
 `effects-batch-c.md`'s; both files are closed, so the rows stay as written there.

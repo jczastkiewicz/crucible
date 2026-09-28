@@ -282,7 +282,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if fromHand && shape.SelfExileFromGrave {
 		return false
 	}
-	if shape.Tap && (c.Tapped || (c.SummonSick && !c.HasKeyword("Haste"))) {
+	if shape.Tap && (c.Tapped || c.isSick()) {
 		return false
 	}
 	hand := g.Zone(Hand, pid).Cards()

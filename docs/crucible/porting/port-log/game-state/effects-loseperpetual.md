@@ -123,3 +123,13 @@ Collector (`AnimateAll`).
 | `RemoveAllAbilities$` timestamp removal                                                                                    | 49 lines                                                                                        |
 | Perpetual PT/keyword/type/color/mana-cost changes                                                                          | ~220 of 252 real `Duration$ Perpetual` lines; each needs its own zone-surviving store           |
 | Coverage report of unapplicable grants at load (`cmd/crucible/coverage.go`)                                                | Decision 4's second half                                                                        |
+
+Supersedes the `LosePerpetual` row of `effects-batch-c.md`'s "Researched and deferred" table; that file is closed, so
+the row stays as written there.
+
+## A pre-existing GO-7 gap, found here and fixed
+
+`draweffect.go` never called `subAbilityConditionMet` at all — every other M6 effect does — so a `Condition*$` param on
+`DB$ Draw` silently drew anyway regardless of whether the condition held (73 real `ConditionDefined$ Remembered` `Draw`
+lines alone, per the `ConditionDefined$` count above). Found by the porter, fixed directly on rules review rather than
+left deferred: `draweffect.go`'s own doc comment and `TestDrawEffectRespectsConditionCheckSVar` cover it.

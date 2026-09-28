@@ -442,38 +442,60 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	spellID, _ := g.spellItemOf(cast)
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
+			matches = g.appendSpellCastMatches(matches, host, c, activator, spellID, false)
+		}
+	}
+	// The spell's own triggers, from the stack: traitHosts never covers it.
+	if c.Zone == Stack {
+		matches = g.appendSpellCastMatches(matches, cast, c, activator, spellID, true)
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// appendSpellCastMatches appends host's SpellCast triggers that fire for the
+// spell c. onStack marks host as the spell itself, on the stack: CR 603.2's
+// "when you cast this spell" (Racketeer Boss's granted trigger, Abby,
+// Merciless Soldier's printed one) triggers from there. Java needs no special
+// case -- TriggerHandler collects every card's triggers in every zone
+// (TriggerHandler.java:193-201) and TriggerReplacementBase.zonesCheck
+// (TriggerReplacementBase.java:61-65) passes a trigger with no TriggerZones$
+// in any zone -- so a stack host's trigger fires when it names no
+// TriggerZones$ or one naming Stack (phaseTriggerZoneMatches). Battlefield
+// and Command hosts keep the ungated scan they always had.
+func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool) []Ability {
+	h := g.Card(host)
+	if h.Def == nil {
+		return matches
+	}
+	for face := range h.triggerFaces {
+		for _, t := range face.Triggers {
+			if !isSpellCastTrigger(t) {
 				continue
 			}
-			for face := range h.triggerFaces {
-				for _, t := range face.Triggers {
-					if !isSpellCastTrigger(t) {
-						continue
-					}
-					if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
-						"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
-						"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
-						continue
-					}
-					if hasAnyParam(t, "HasXManaCost") && (c.Def == nil || c.Def.Faces[0].ManaCost.CountX() == 0) {
-						continue
-					}
-					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
-						continue
-					}
-					if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
-						continue
-					}
-					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-							triggered: face.objects(triggeredObjects{spellAbility: spellID})})
-					}
-				}
+			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
+				continue
+			}
+			if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
+				"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
+				"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
+				continue
+			}
+			if hasAnyParam(t, "HasXManaCost") && (c.Def == nil || c.Def.Faces[0].ManaCost.CountX() == 0) {
+				continue
+			}
+			if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+				continue
+			}
+			if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
+				continue
+			}
+			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+					triggered: face.objects(triggeredObjects{spellAbility: spellID})})
 			}
 		}
 	}
-	g.pushTriggeredAbilities(controller, matches)
+	return matches
 }
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from

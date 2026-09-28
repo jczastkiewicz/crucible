@@ -50,6 +50,25 @@ func TestSpellsOwnCastTriggerFiresFromTheStack(t *testing.T) {
 	}
 }
 
+// A cast trigger whose Execute$ carries its own Cost$ (Bearer of Silence's
+// "you may pay {1}{C}") stays unfired from the stack: no triggered ability's
+// Cost$ is asked for or paid yet, and firing it would be free.
+func TestSpellsOwnCastTriggerWithExecuteCostStaysUnfired(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := scriptDef(t, "Test Cast Cost", "Creature Elf",
+		"T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TrigGain",
+		"SVar:TrigGain:AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 3")
+	def.Faces[0].ManaCost = mana.MustParse("G")
+	spell := g.NewCard(def, p, engine.Hand)
+	castGreenAndResolve(t, g, p, spell, engine.NewScriptedController())
+
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("life = %d, want 20 -- an unpaid Cost$ must not resolve for free", got)
+	}
+}
+
 // TriggerZones$ naming the Stack keeps it active there; naming only the
 // battlefield does not, so the same trigger stays silent while cast.
 func TestSpellsOwnCastTriggerHonoursTriggerZones(t *testing.T) {

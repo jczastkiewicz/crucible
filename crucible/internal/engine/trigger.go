@@ -462,6 +462,19 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 // in any zone -- so a stack host's trigger fires when it names no
 // TriggerZones$ or one naming Stack (phaseTriggerZoneMatches). Battlefield
 // and Command hosts keep the ungated scan they always had.
+//
+// A stack host's trigger whose Execute$ is an AB$ with its own Cost$ is
+// skipped: a triggered ability's Cost$ is neither asked for nor paid
+// anywhere in this port yet (game-state.md, "Not ported yet"), and firing it
+// would hand out Bearer of Silence's "you may pay {1}{C}" edict, Eldrazi
+// Obligator's steal and 4 more cast triggers for free. They stay unfired,
+// as before the stack was scanned at all.
+//
+// Every face's triggers are read (triggerFaces), where Java reads only the
+// current state's. No real self-cast trigger sits on a face other than the
+// one cast: the 3 multi-face cards among them (Bruna, the Fading Light;
+// Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front face,
+// and their other faces are melded, specialized or a land, never cast.
 func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, activator PlayerID, spellID StackItemID, onStack bool) []Ability {
 	h := g.Card(host)
 	if h.Def == nil {
@@ -472,7 +485,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !isSpellCastTrigger(t) {
 				continue
 			}
-			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
+			if onStack && (!phaseTriggerZoneMatches(h, t, Stack) || executeHasCost(t)) {
 				continue
 			}
 			if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
@@ -2325,6 +2338,18 @@ func rememberedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amoun
 		}
 	}
 	return presentCountMatches(g, host, amounts, t, compareKey, n)
+}
+
+// executeHasCost reports whether t's Execute$ ability names its own Cost$.
+func executeHasCost(t *compile.Ability) bool {
+	for _, sub := range t.Subs {
+		if strings.EqualFold(sub.Key, "Execute") {
+			if _, ok := sub.Ability.Param("Cost"); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // presentCountMatches compares n, the count of present objects, against

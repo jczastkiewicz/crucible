@@ -65,14 +65,19 @@ Refused with an error when applied (ADR-0023 decision 4, GO-7):
 Pre-existing gap this work had to close, separate from the ADR-0023 slice. `checkSpellCastTriggers` walked `traitHosts`
 (Battlefield plus Command-zone effect cards) only, but `castspell.go` moves the card to the Stack before the scan runs,
 so "when you cast this spell" (`Mode$ SpellCast | ValidCard$ Card.Self`, no `TriggerZones$`) never fired: 102 printed
-corpus cards (Abby, Merciless Soldier; Artisan of Kozilek; Bearer of Silence) and Racketeer Boss's granted trigger. Java
-needs no special case — `TriggerHandler` collects every card's triggers in every zone (`TriggerHandler.java:193-201`)
-and `zonesCheck` passes a trigger with no `TriggerZones$` anywhere (`TriggerReplacementBase.java:61-65`).
+corpus cards (Abby, Merciless Soldier; Artisan of Kozilek) and Racketeer Boss's granted trigger. Java needs no special
+case — `TriggerHandler` collects every card's triggers in every zone (`TriggerHandler.java:193-201`) and `zonesCheck`
+passes a trigger with no `TriggerZones$` anywhere (`TriggerReplacementBase.java:61-65`).
 
 Fix scoped to the cast card: after the `traitHosts` walk, the spell on the Stack is scanned too
 (`appendSpellCastMatches`), each trigger gated by `phaseTriggerZoneMatches` (absent, or naming `Stack`). `traitHosts`,
 shared by ~40 scans, is untouched. A trigger with no `TriggerZones$` on a card in hand, library or graveyard watching
 _other_ spells stays unscanned, as before (Java would see it; real scripts name `TriggerZones$ Battlefield` on those).
+
+| Left unfired from the stack                                | Why                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Execute$` is an `AB$` with its own `Cost$` (6 of the 102) | No triggered ability's `Cost$` is asked for or paid yet (`game-state.md`, "Not ported yet"); firing would hand out Bearer of Silence's "you may pay {1}{C}" edict, Eldrazi Obligator's steal, Vile Redeemer's Scions, ... free                                         |
+| A trigger on a face other than the one cast                | Not guarded: `triggerFaces` reads every face, Java only the current state. No real case: the 3 multi-face cards (Bruna, the Fading Light; Lae'zel, Githyanki Warrior; Drowner of Truth) print it on the front, and their other faces are melded, specialized or a land |
 
 ## LosePerpetual lands
 

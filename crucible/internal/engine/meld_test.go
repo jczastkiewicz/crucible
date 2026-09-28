@@ -6,6 +6,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -242,6 +243,40 @@ func TestMeldUrzaEntersWithMeldFaceLoyalty(t *testing.T) {
 	}
 }
 
+// TestMeldUrzaThroughActivation activates Urza, Lord Protector's own
+// {7} AB$ Meld at sorcery speed: the paid Cost$ is the host's own A: line,
+// so the meld resolves rather than being rejected as an unpaid cost.
+func TestMeldUrzaThroughActivation(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	urza := g.NewCard(corpusCard(t, "Urza, Lord Protector"), p, engine.Battlefield)
+	stones := g.NewCard(corpusCard(t, "The Mightstone and Weakstone"), p, engine.Battlefield)
+	g.Player(p).ManaPool.AddColorless(7)
+	c := engine.NewScriptedController()
+	for i := 0; i < 7; i++ {
+		c.QueuePayGeneric(mana.ShardC)
+	}
+	c.QueueCardChoice([]engine.CardID{stones})
+
+	index := -1
+	for i, ab := range g.Card(urza).Def.Faces[0].Abilities {
+		if ab.Name == "Meld" {
+			index = i
+		}
+	}
+	if !g.ActivateAbility(p, urza, index, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if uc := g.Card(urza); uc.Def.Name != "Urza, Planeswalker" || uc.MeldedWith != stones || g.Player(p).ManaPool.Total() != 0 {
+		t.Errorf("Urza face %q melded with %v, pool %d, want Urza, Planeswalker melded with the stones and {7} spent",
+			uc.Def.Name, uc.MeldedWith, g.Player(p).ManaPool.Total())
+	}
+}
+
 // TestMeldTitaniaTakesALandSecondary: SecondaryType$ Land finds Argoth, and
 // Titania, Gaea Incarnate's power and toughness -- the number of lands p
 // controls -- count p's two Forests but not the melded Argoth.
@@ -432,6 +467,25 @@ func TestMeldRejectsVanillesUnpaidTriggeredCost(t *testing.T) {
 		t.Errorf("err = %v, want one naming Cost$", err)
 	}
 	if g.Card(vanille).Zone != engine.Battlefield || g.Card(fang).Zone != engine.Battlefield {
+		t.Error("a card moved before the rejection")
+	}
+}
+
+// TestMeldRejectsHostOffTheBattlefield: Gisela's trigger resolving after
+// Gisela died in response would, in Java, fail its IsPresent$ recheck (CR
+// 603.4); this port has no recheck, so it errors rather than melding Gisela
+// out of the graveyard.
+func TestMeldRejectsHostOffTheBattlefield(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	gis := g.NewCard(corpusCard(t, gisela), p, engine.Graveyard)
+	bru := g.NewCard(corpusCard(t, bruna), p, engine.Battlefield)
+	err := resolveMeldOf(t, g, p, gis, engine.NewScriptedController())
+	if err == nil || !strings.Contains(err.Error(), "603.4") {
+		t.Errorf("err = %v, want one naming CR 603.4", err)
+	}
+	if g.Card(gis).Zone != engine.Graveyard || g.Card(bru).Zone != engine.Battlefield {
 		t.Error("a card moved before the rejection")
 	}
 }

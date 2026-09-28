@@ -22,11 +22,12 @@ spin-off in `GameAction.changeZone` (`GameAction.java:629-642`) and `PlayerZoneB
 
 **Resolution order** (`MeldEffect.java`): secondary candidates = activator's battlefield, owned by activator, name
 `Secondary$`, type `SecondaryType$` (default `Creature`); none → no-op. One pick (`ChooseCardsForEffect`, 1..1). Host
-then secondary exiled from wherever each is (`moveByEffect`, exiled triggers, `ChangesZoneAll` per origin). Gate: both
-in exile, names still `Primary$`/`Secondary$` (a copy effect ended on the way out), neither a token (`cloneOrigin` is
-set only on token copies, `TokenEffectBase.java:176`). Failing the gate leaves both exiled, as Java does. Then the meld
-face swaps in, the secondary is folded in, and the host enters under the activator (`moveByEffect`: ETB replacements and
-triggers from the meld face, starting loyalty from it — Urza, Planeswalker enters with 7).
+must still be on the battlefield (below). Host then secondary exiled (`exileCards`: exiled triggers, one
+`ChangesZoneAll` batch), both removed from combat. Gate: both in exile, names still `Primary$`/`Secondary$` (a copy
+effect ended on the way out), neither a token (`cloneOrigin` is set only on token copies, `TokenEffectBase.java:176`).
+Failing the gate leaves both exiled, as Java does. Then the meld face swaps in, the secondary is folded in, and the host
+enters under the activator (`moveByEffect`: ETB replacements and triggers from the meld face, starting loyalty from it —
+Urza, Planeswalker enters with 7).
 
 **`Name$`** is inert: nothing in `MeldEffect.java` or `MeldAi.java` reads it; it repeats the meld face's name for the
 description.
@@ -56,36 +57,40 @@ meld does not restamp the secondary after its exile.
 the meld face (Brisela's dies triggers read it). After the primary's own `ZoneChanged` event, `unmeld` puts the
 secondary into the same zone kind and owner, appended after the primary (graveyard, hand, exile, library bottom) or over
 it on the library's top -- Java's `changeZone(null, zoneTo, unmeld, position, ...)` at the primary's own position. Java
-moves it from no zone: no leave-the-battlefield cleanup, no LKI, no effect-card watch; its `ZoneChanged` names
-`Battlefield` as `From`. A secondary moved on its own first (a stale reference) drops `Melded` in `leaveMeld`, so the
-split leaves it where it went.
+moves it from no zone: no leave-the-battlefield cleanup, no LKI, no effect-card watch. Crucible's `ZoneChanged` for it
+names `Battlefield` as `From`. A secondary moved on its own first (a stale reference) drops `Melded` in `leaveMeld`, so
+the split leaves it where it went.
 
 **Live faces.** `Card.getTriggers` reads the current state alone. This port's current face is `Faces[0]` for a
-transforming, modal, melded or specialize card (`cloneDef` reads it the same way), so `triggerFaces` now yields only
-`Faces[0]` for those split types. Flip, split, adventure, omen and prepare cards, and a Room's both-doors view, keep
-every face. Before this, every meld front face carried its meld face's triggers: Graf Rats entering fired Chittering
-Host's pump, Titania, Voice of Gaea entering fired Titania, Gaea Incarnate's land return, Vanille dying fired Ragnarok's
-destroy -- and every transform DFC's back-face triggers fired on its front face.
+transforming, modal, melded or specialize card: a transformed or melded card's `Def` is its back face, and no engine
+path puts a modal card's back face into play (`playCastGap` rejects its choice of spells; `cloneDef` reads faces the
+same way). So `triggerFaces` now yields only `Faces[0]` for those split types. Flip, split, adventure, omen and prepare
+cards, and a Room's both-doors view, keep every face. Before this, every meld front face carried its meld face's
+triggers: Graf Rats entering fired Chittering Host's pump, Titania, Voice of Gaea entering fired Titania, Gaea
+Incarnate's land return, Vanille dying fired Ragnarok's destroy -- and every transform DFC's back-face triggers fired on
+its front face. Scenario `meld-face-trigger-not-live-on-front-face` pins it: Titania, Voice of Gaea is cast with a
+Forest in the graveyard, and the Forest stays there.
 
 ## Rejected with an error before acting
 
-| Shape                                       | Why                                                                                                             |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `Cost$` on anything but the host's A:       | Vanille's trigger-executed `AB$ Meld \| Cost$ 3 B G`: no triggered ability's cost is asked for; free meld wrong |
-| `Attacking$` other than `True`, `Blocking$` | `addToCombat`'s defined-defender and blocker branches; 0 corpus lines                                           |
-| `Condition$`                                | `subAbilityConditionMet` would skip it silently                                                                 |
-| No `Primary$`/`Secondary$`                  | Java's `sharesNameWith(null)` fails after exiling both                                                          |
-| Any `Mode$ CantExile` static in play        | `Card.canExiledBy` not modeled (same stance as `heisteffect.go:23`); 1 corpus card                              |
+| Shape                                       | Why                                                                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Cost$` on anything but the host's A:       | Vanille's trigger-executed `AB$ Meld \| Cost$ 3 B G`: no triggered ability's cost is asked for; free meld wrong       |
+| `Attacking$` other than `True`, `Blocking$` | `addToCombat`'s defined-defender and blocker branches; 0 corpus lines                                                 |
+| `Condition$`                                | `subAbilityConditionMet` would skip it silently                                                                       |
+| No `Primary$`/`Secondary$`                  | Java's `sharesNameWith(null)` fails after exiling both                                                                |
+| Host no longer on the battlefield           | Java rechecks a trigger's `IsPresent$` at resolution (CR 603.4); Crucible does not, and would meld from the graveyard |
+| Any `Mode$ CantExile` static in play        | `Card.canExiledBy` not modeled (same stance as `heisteffect.go:23`); 1 corpus card                                    |
 
 ## Not ported
 
-| Gap                                                                                                           | Java                                          |
-| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Melded mana value = sum of both front faces; `CMC()` reads the meld face's `no cost`, 0                       | `Card.java:7244-7250`                         |
-| The secondary joins the caller's `ChangesZoneAll` batch on a split                                            | `storeChangesZoneAll`, `GameAction.java:641`  |
-| `ChangeZone` `Remember$`/exiled-with and `WithCountersType$` reaching the melded card                         | `ChangeZoneEffect.java:790-796`, `:1452-1485` |
-| Fixture `\|Meld:<Name>` dump and load; no scenario fixture for that reason (Transformed is not ported either) | `GameState.java:322-330`, `:1322-1334`        |
-| Commander-ness through the melded card                                                                        | `Card.java:7282`, `:7304`                     |
+| Gap                                                                                                                                 | Java                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Melded mana value = sum of both front faces; `CMC()` reads the meld face's `no cost`, 0                                             | `Card.java:7244-7250`                         |
+| The secondary joins the caller's `ChangesZoneAll` batch on a split                                                                  | `storeChangesZoneAll`, `GameAction.java:641`  |
+| `ChangeZone` `Remember$`/exiled-with and `WithCountersType$` reaching the melded card                                               | `ChangeZoneEffect.java:790-796`, `:1452-1485` |
+| Fixture `\|Meld:<Name>` dump and load; no scenario fixture of a melded permanent for that reason (Transformed is not ported either) | `GameState.java:322-330`, `:1322-1334`        |
+| Commander-ness through the melded card                                                                                              | `Card.java:7282`, `:7304`                     |
 
 **Forge bug** (`forge-java-defects.md`): `GameAction.java:635-640` computes `unmeldPosition` and passes `position`, so
 the comment's "ask controller if it wants to be on top or bottom" never happens. Reproduced for oracle parity.

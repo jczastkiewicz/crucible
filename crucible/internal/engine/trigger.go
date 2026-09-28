@@ -2576,9 +2576,10 @@ func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 // liveFaces is how many of def's faces are its current state's. A
 // transforming, modal, melded or specialize card's other face is a state it
 // is not in (Card.getTriggers reads currentState alone), and this port's
-// current face of such a card is always Faces[0] -- a transformed or melded
-// card's Def is its back face (cloneDef, cloneeffect.go, reads it the same
-// way) -- so only Faces[0] is live. Every other definition keeps all its
+// current face of such a card is always Faces[0]: a transformed or melded
+// card's Def is its back face, and no path puts a modal card's back face
+// into play (playCastGap rejects its choice of spells). cloneDef
+// (cloneeffect.go) reads faces the same way. So only Faces[0] is live. Every other definition keeps all its
 // faces: a flip, split, adventure, omen or prepare card's, and a Room
 // permanent's both-doors view (roomView, room.go).
 func liveFaces(def *compile.Card) int {

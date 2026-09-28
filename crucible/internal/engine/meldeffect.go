@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game zone ability condition control effecthelpers zonemove valid changecombatantseffect combat trigger phase
+//enginelint:allow id card game zone ability condition control effecthelpers zonemove valid changecombatantseffect combat exile phase
 
 import (
 	"fmt"
@@ -55,6 +55,14 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	// Every corpus Meld gates on its host being on the battlefield: an
+	// ability's ConditionPresent$ (checked above) or its trigger's
+	// IsPresent$, which Java checks again as the trigger resolves (CR
+	// 603.4). This port does not recheck a trigger's condition, so a host
+	// that left in response would be exiled from wherever it went and melded.
+	if source.Zone != Battlefield {
+		return fmt.Errorf("engine: Meld: host off the battlefield (no CR 603.4 recheck) not resolvable yet")
+	}
 	secType, ok := a.Params.Param("SecondaryType")
 	if !ok {
 		secType = "Creature"
@@ -75,30 +83,15 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	}
 	primary, secondary := a.Source, picked[0]
 
-	// GameAction.exile on both, the host first, from wherever each is: each
-	// exile fires its own leave-the-battlefield triggers and the batch its
-	// ChangesZoneAll triggers, per origin zone.
-	byOrigin := map[ZoneType][]CardID{}
-	var origins []ZoneType
-	for _, id := range [...]CardID{primary, secondary} {
-		origin := g.Card(id).Zone
-		if origin == Exile {
-			continue
-		}
-		g.moveByEffect(controller, id, Exile, 0, NoPlayer, false)
-		// GameAction.java:424-429: a permanent leaving the battlefield
-		// leaves combat. Game.Move does not (combat.go's removeFromCombat),
-		// and an attacking card melded away must not deal combat damage as
-		// though it were still a permanent.
-		g.removeFromCombat(id)
-		if _, seen := byOrigin[origin]; !seen {
-			origins = append(origins, origin)
-		}
-		byOrigin[origin] = append(byOrigin[origin], id)
-	}
-	for _, origin := range origins {
-		g.checkChangesZoneAllTriggers(controller, byOrigin[origin], origin, Exile)
-	}
+	// GameAction.exile on both, the host first: each exile fires its own
+	// leave-the-battlefield triggers, the pair its ChangesZoneAll triggers.
+	exileCards(g, controller, []CardID{primary, secondary})
+	// GameAction.java:424-429: a permanent leaving the battlefield leaves
+	// combat. Game.Move does not (combat.go's removeFromCombat), and an
+	// attacking card melded away must not deal combat damage as though it
+	// were still a permanent.
+	g.removeFromCombat(primary)
+	g.removeFromCombat(secondary)
 
 	p, s := g.Card(primary), g.Card(secondary)
 	if p.Zone != Exile || s.Zone != Exile {

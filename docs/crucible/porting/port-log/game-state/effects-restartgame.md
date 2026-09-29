@@ -136,5 +136,7 @@ Karn's +4 (`Chooser$ Targeted`) is still rejected by `ChangeZone`'s own unresolv
 
 **Tests.** `restartgame_test.go` (real Karn from the corpus: the whole ultimate, both seatings, an earlier Karn's
 exiles, every driver entry point, a returned permanent's trigger in the new game, the no-carve-out default, each
-rejection), `exiledwithsource_test.go`, `internal/fixture/exiledwith_test.go`, and the scenario
+rejection, an ability still waiting under the resolving `RestartGame` discarded with the old game rather than resolved,
+and a delayed "next upkeep" trigger made before the restart never firing in the restarted game's first upkeep),
+`exiledwithsource_test.go`, `internal/fixture/exiledwith_test.go`, and the scenario
 `testdata/scenarios/restartgame-karn-ultimate-returns-what-karn-exiled` (`resumerestart` through `RunActions`).

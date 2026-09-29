@@ -313,6 +313,64 @@ func TestRestartGameWithoutACarveOut(t *testing.T) {
 	}
 }
 
+// TestRestartGameClearsTheStackUnderIt proves MagicStack.reset
+// (RestartGameEffect.java:53): an ability still waiting under the
+// resolving RestartGame is discarded with the old game, never resolved --
+// ResolveStack stops on the restart, and nothing is left to strand.
+func TestRestartGameClearsTheStackUnderIt(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := etbChainDef(t, "Test Gain", "DB$ GainLife | Defined$ You | LifeAmount$ 5")
+	gainHost := g.NewCard(def, p, engine.Battlefield)
+	g.PushAbility(engine.Ability{API: engine.APIGainLife, Source: gainHost, Controller: p, Params: def.Faces[0].Triggers[0].Subs[0].Ability})
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ RestartGame"); err != nil {
+		t.Fatal(err)
+	}
+	if g.StackLen() != 0 || g.Player(p).Life != 20 {
+		t.Errorf("stack %d, life %d; want the waiting GainLife discarded unresolved (0, 20)", g.StackLen(), g.Player(p).Life)
+	}
+}
+
+// TestRestartGameClearsDelayedTriggers proves
+// TriggerHandler.clearDelayedTrigger (RestartGameEffect.java:40): a
+// delayed "next upkeep" trigger made before the restart never fires in the
+// restarted game's first upkeep. The same trigger without a restart does
+// fire there -- the control that makes the absence mean something.
+func TestRestartGameClearsDelayedTriggers(t *testing.T) {
+	t.Parallel()
+
+	reg := engine.NewRegistry()
+	for _, restart := range []bool{false, true} {
+		g, p, other := newTwoPlayerGame(t)
+		libraryCards(t, g, p, 8)
+		libraryCards(t, g, other, 8)
+		c := engine.NewScriptedController()
+		resolveLine(t, g, p, c, "DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | Execute$ DBGain",
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 5")
+		want := 25
+		if restart {
+			if _, err := resolveNow(t, g, p, c, nil, "DB$ RestartGame"); err != nil {
+				t.Fatal(err)
+			}
+			c.QueueKeepHand(true)
+			c.QueueKeepHand(true)
+			if err := g.ResumeAfterRestart(c); err != nil {
+				t.Fatal(err)
+			}
+			want = 20
+		} else {
+			g.SetTurnState(1, p, engine.Untap)
+		}
+		if err := g.Step(reg, c); err != nil {
+			t.Fatal(err)
+		}
+		if g.ActivePhase() != engine.Upkeep || g.Player(p).Life != want {
+			t.Errorf("restart %v: phase %v life %d, want Upkeep and %d", restart, g.ActivePhase(), g.Player(p).Life, want)
+		}
+	}
+}
+
 // TestRestartGameRejectsWhatItCannotReset pins each fail-closed shape: an
 // error before any card moves.
 func TestRestartGameRejectsWhatItCannotReset(t *testing.T) {

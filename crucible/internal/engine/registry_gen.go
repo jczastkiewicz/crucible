@@ -7,7 +7,7 @@ package engine
 // Resolve(*Game, *Ability, PlayerController) error, under the API its name
 // gives or the API its //crucible:register lines name (ADR-0017).
 //
-// 186 APIs. Explicit construction, not an init() populating a package-level
+// 187 APIs. Explicit construction, not an init() populating a package-level
 // Registry: a caller that wants fewer APIs builds its own Registry.
 //
 // Regenerate with "go generate -run genregistry ./internal/engine" after adding an effect.
@@ -58,6 +58,7 @@ func NewRegistry() *Registry {
 	r[APICloak] = manifestEffect{api: "Cloak", cloak: true, remember: "RememberCloaked"}
 	r[APIClone] = cloneEffect{}
 	r[APIConnive] = conniveEffect{}
+	r[APIControlPlayer] = controlPlayerEffect{}
 	r[APIControlSpell] = controlSpellEffect{}
 	r[APICopyPermanent] = copyPermanentEffect{}
 	r[APICopySpellAbility] = copySpellAbilityEffect{}

@@ -8,6 +8,9 @@
   `PhaseHandler.java:301,515-518,1261-1263,1296-1322`, `Game.java:1014-1017`
 - **ADR:** [ADR-0030](../../../adr/0030-controlplayer-scheduled-control-redirect.md)
 
+Supersedes the `ControlPlayer` row of `effects-batch-b.md`'s deferred table; that file is closed, so the row stays as
+written there.
+
 ## ControlPlayer lands
 
 CR 800.4b: Mindslaver's "you control target player during that player's next turn." `ControlPlayerEffect.java` changes

@@ -58,6 +58,7 @@
 package engine
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -1580,6 +1581,105 @@ func (g *Game) runReplaceWith(controller PlayerController, h *Card, amounts map[
 		return false
 	}
 	return ev.result != replacementNotReplaced
+}
+
+// runReplaceWithEffect resolves sub, a replacement's ReplaceWith$ ability,
+// through the Registry with ev as its replacing object: runCopyReplacement's
+// dispatch (entersascopy.go) for an event whose ReplaceWith$ names an
+// ordinary DB$ API rather than a Replace* one (ADR-0035). Unlike
+// runReplaceWith, an error is returned rather than swallowed: the caller
+// replaces a whole step with what sub does, so a sub that cannot resolve
+// must stop the step, not fall back to the event it was meant to replace
+// (GO-7). Kept apart from runReplaceWith on purpose: that function's callers
+// (DamageDone, GainLife, AddCounter, CreateToken, ProduceMana) read
+// ev.result to learn whether their event changed, and an ordinary DB$ API
+// leaves it at replacementNotReplaced, so routing one through there would
+// run the ability and then let the event happen anyway. A chained
+// SubAbility$ is refused, runReplaceWith's own reason: ReplacementHandler
+// buffers that chain to run after the event, a step this port does not
+// model.
+func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amounts map[string]expr.Amount, sub *compile.Ability, ev *replacementEvent) error {
+	name := h.Def.Name
+	api, ok := APIByName(sub.Name)
+	if !ok {
+		return fmt.Errorf("engine: %q: ReplaceWith$ names unknown API %q", name, sub.Name)
+	}
+	if _, chained := sub.Param("SubAbility"); chained {
+		return fmt.Errorf("engine: %q: ReplaceWith$ %s: SubAbility$ not resolvable yet", name, sub.Name)
+	}
+	if g.registry == nil {
+		return fmt.Errorf("engine: %q: ReplaceWith$ %s: no Registry on this Game", name, sub.Name)
+	}
+	a := Ability{API: api, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: amounts, replacing: ev}
+	if err := g.registry.Resolve(g, &a, controller); err != nil {
+		return fmt.Errorf("engine: %q: ReplaceWith$ %s: %w", name, sub.Name, err)
+	}
+	return nil
+}
+
+// declareBlockersReplaced is ReplacementType.DeclareBlocker's run for
+// defender (PhaseHandler.java:663-672, ReplaceDeclareBlocker.java), called
+// by DeclareCombatBlockers (block.go) before it asks the controller. blocks
+// is the combat so far, earlier defenders' blocks included.
+//
+// handled false: no DeclareBlocker replacement applies, declare normally.
+// handled true: out is the combat after the replacement, which took the
+// place of defender's declaration -- or, when CombatUtil.canBlock(p,
+// combat) is false (canBlockPlayer, blockvalidation.go), blocks unchanged:
+// Java checks that guard before running the handler and skips both the
+// replacement and the normal declaration. The guard is only computed once a
+// line matches, so a game without a DeclareBlocker replacement never pays
+// for it or meets its errors.
+//
+// The one real line (camouflage.txt) names Event$, ValidPlayer$, ReplaceWith$
+// and Description$. ValidPlayer$ is matched against defender, the event's
+// Affected. Any param past those and replacementRequirementsCheck's own is
+// an error rather than this file's usual skip: a skipped line here would
+// silently hand the declaration back to the controller, the one outcome the
+// replacement exists to prevent (GO-7).
+//
+// ReplacedPlayer is whoever declares defender's blocks: Java's
+// Player.getDeclaresBlockers() ?: p (PhaseHandler.java:661), Odric, Master
+// Tactician's redirect. Nothing in this port sets such a redirect, so it is
+// defender itself.
+func (g *Game) declareBlockersReplaced(controller PlayerController, defender PlayerID, blocks []Block) (out []Block, handled bool, err error) {
+	g.eachReplacement("DeclareBlocker", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
+		if !onlyParams(r, "validplayer") {
+			err = fmt.Errorf("engine: %q: Event$ DeclareBlocker line names a param not resolvable yet", h.Def.Name)
+			return true
+		}
+		if v, ok := r.Param("ValidPlayer"); ok {
+			matched, recognized := matchesPlayerSpec(g, defender, h.Controller(), h.ID, v)
+			if !recognized {
+				err = fmt.Errorf("engine: %q: Event$ DeclareBlocker: ValidPlayer$ %q not resolvable yet", h.Def.Name, v)
+				return true
+			}
+			if !matched {
+				return false
+			}
+		}
+		if !replacementRequirementsCheck(g, h, amounts, r) {
+			return false
+		}
+		sub := replaceWithSub(r)
+		if sub == nil {
+			err = fmt.Errorf("engine: %q: Event$ DeclareBlocker without ReplaceWith$ not resolvable yet", h.Def.Name)
+			return true
+		}
+		handled = true
+		canBlock, cerr := g.canBlockPlayer(defender, blocks)
+		if cerr != nil || !canBlock {
+			out, err = blocks, cerr
+			return true
+		}
+		ev := replacementEvent{result: replacementReplaced, player: defender, defendingPlayer: defender,
+			blocks: append([]Block(nil), blocks...)}
+		if err = g.runReplaceWithEffect(controller, h, amounts, sub, &ev); err == nil {
+			out = ev.blocks
+		}
+		return true
+	})
+	return out, handled, err
 }
 
 // eachReplacement walks every replacement of Event$ event whose host is

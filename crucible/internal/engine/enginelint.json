@@ -318,7 +318,8 @@
       "phase",
       "replaceeffect",
       "effecthelpers",
-      "defined"
+      "defined",
+      "combat"
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card", "ability", "parts", "valid"],

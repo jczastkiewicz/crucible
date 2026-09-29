@@ -109,15 +109,18 @@ The Wish reader needed `Origin$ Sideboard` itself, which `changezoneeffect.go` r
 
 20 of those 26 lines now resolve (`ChangeZone` was registered already; API count unchanged). The other 6 stay rejected:
 `Exactly$` 2, `Chooser$` 2, `AtRandom$` 1, `ConditionDefined$` 1. Still silently ignored, pre-existing: `Reveal$`, the
-`fetchList.sort()` at `:1097`. Tests: `controlledoutsidegame_test.go`; scenario
-`controlplayer-mindslaved-player-cannot-wish-from-sideboard` (real Mindslaver, then ai's Coax from the Blind Eternities
-on the controlled turn searches Exile only).
+`fetchList.sort()` at `:1097`. A resolving line is not a working card: the six sorcery Wishes (Burning, Cunning, Death,
+Glittering, Golden, Living) chain `SubAbility$ DBChange | Origin$ Stack | Destination$ Exile`, which
+`changezoneeffect.go` still rejects, so each fails loudly after its fetch; the other 18 cards carry no such sub-ability.
+Tests: `controlledoutsidegame_test.go`; scenario `controlplayer-mindslaved-player-cannot-wish-from-sideboard` (real
+Mindslaver, then ai's Coax from the Blind Eternities on the controlled turn searches Exile only).
 
 ## Not ported
 
-| Piece                                    | Reason                                                                                                            |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `GameEventPlayerControl`                 | UI event only (`Player.java:2545`); ADR-0013 has no kind for it and ADR-0030 adds none                            |
-| `clearController` on game over / restart | `Game.java:583` game over: nothing reads control after; `RestartGameEffect.java:74` belongs to that effect's port |
-| Control state in `GameState` fixtures    | Forge's `GameState` format has no key for it; the scenario observes it through the Wish instead                   |
-| Per-seat brain routing                   | engine does none (ADR-0030); a harness reads `Game.ControllingPlayer`                                             |
+| Piece                                 | Reason                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GameEventPlayerControl`              | UI event only (`Player.java:2545`); ADR-0013 has no kind for it and ADR-0030 adds none                                                                                                                                                                                                                                        |
+| `clearController` on game over        | `Game.java:583`: nothing reads control after the game ends                                                                                                                                                                                                                                                                    |
+| `clearController` on restart          | `RestartGameEffect.java:74` belongs to that effect's port: clear every `Player.controlledBy`, and drop `Game.scheduled` entries at `boundaryCleanup`/`boundaryEndCombat` (`:49`, `:51` clear those `Phase` lists). `:47-51` leaves `getBeginOfCombat()`'s list alone, so a pending `Combat$` grant survives a restart in Java |
+| Control state in `GameState` fixtures | Forge's `GameState` format has no key for it; the scenario observes it through the Wish instead                                                                                                                                                                                                                               |
+| Per-seat brain routing                | engine does none (ADR-0030); a harness reads `Game.ControllingPlayer`                                                                                                                                                                                                                                                         |

@@ -126,3 +126,19 @@ func libraryPosition(g *Game, a *Ability, host *Card) (int, error) {
 	}
 	return n, nil
 }
+
+// markExiledWith is SpellAbilityEffect.handleExiledWith
+// (SpellAbilityEffect.java:1087-1116) for an ability of host that has just
+// moved id: a nontoken card that ended up in exile is marked as exiled with
+// host's object (hostObjectStamp, game.go), read back by the
+// ExiledWithSource valid property (valid.go). A card a replacement sent
+// elsewhere is not marked. Called only by the effects Java calls it from:
+// ChangeZone, ChangeZoneAll, Dig, DigUntil, Heist and Airbend (ADR-0034).
+func (g *Game) markExiledWith(id, host CardID) {
+	c := g.Card(id)
+	if c.Zone != Exile || c.IsToken || host == NoCard {
+		return
+	}
+	stamp, listed := g.hostObjectStamp(host)
+	c.exiledWith = exiledWithMark{host: host, stamp: stamp, listed: listed}
+}

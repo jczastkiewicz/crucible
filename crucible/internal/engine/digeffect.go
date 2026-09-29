@@ -168,6 +168,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		}
 		for _, id := range chosen {
 			g.moveByEffect(controller, id, dest1, libPos1, NoPlayer, tapped)
+			if dest1 == Exile {
+				g.markExiledWith(id, a.Source)
+			}
 			moved1 = append(moved1, id)
 			if _, ok := a.Params.Param("Imprint"); ok {
 				source.Memory.Imprint(id)
@@ -204,6 +207,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		}
 		for _, id := range rest {
 			g.moveByEffect(controller, id, dest2, libPos2, NoPlayer, false)
+			if dest2 == Exile {
+				g.markExiledWith(id, a.Source)
+			}
 			moved2 = append(moved2, id)
 			if remZone2 {
 				source.Memory.Remember(CardEntity(id))

@@ -84,6 +84,7 @@ func (airbendEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			continue
 		}
 		g.moveByEffect(controller, id, Exile, 0, NoPlayer, false)
+		g.markExiledWith(id, a.Source)
 		if c.Zone != Exile {
 			continue
 		}

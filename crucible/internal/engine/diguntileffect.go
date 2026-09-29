@@ -163,6 +163,9 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 					continue
 				}
 				g.moveByEffect(controller, id, dest, foundLibPos, newController, tapped && dest == Battlefield)
+				if dest == Exile {
+					g.markExiledWith(id, a.Source)
+				}
 			}
 			g.checkChangesZoneAllTriggers(controller, kept, Library, dest)
 			revealed = withoutCards(revealed, found)
@@ -196,6 +199,9 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 			for _, id := range revealed {
 				g.moveByEffect(controller, id, finalDest, finalPos, NoPlayer, false)
+				if finalDest == Exile {
+					g.markExiledWith(id, a.Source)
+				}
 			}
 			g.checkChangesZoneAllTriggers(controller, revealed, Library, finalDest)
 		}

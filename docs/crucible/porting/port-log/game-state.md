@@ -334,6 +334,10 @@ Sections live in topic files under [`game-state/`](game-state/). Other docs cite
 | [ControlPlayer lands (ADR-0030)](game-state/effects-controlplayer.md#controlplayer-lands)                                                                                                                                                                                                                                                                                                                                                                                                                    | [`effects-controlplayer.md`](game-state/effects-controlplayer.md)                                       |
 | [Readers: a controlled player cannot reach outside the game](game-state/effects-controlplayer.md#readers-a-controlled-player-cannot-reach-outside-the-game)                                                                                                                                                                                                                                                                                                                                                  | [`effects-controlplayer.md`](game-state/effects-controlplayer.md)                                       |
 
+| [Meld engine pieces: pair state, split back, `named<Name>`, live faces](game-state/effects-meld.md#engine-pieces) |
+[ExiledWithSource lands (ADR-0034)](game-state/effects-restartgame.md#exiledwithsource-lands) |
+[`effects-meld.md`](game-state/effects-meld.md) |
+
 ---
 
 ## Not ported yet

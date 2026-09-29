@@ -500,6 +500,46 @@ func (g *Game) traitHosts(pid PlayerID) []CardID {
 	return out
 }
 
+// hostObjectStamp is the zoneStamp of host as the object an ability of
+// it sees, and whether that object counts as in play, on the stack or in
+// the Command zone (SpellAbilityEffect.java:1100-1104's own zone test).
+// While host is on the battlefield, the stack or in Command that is its
+// current object. Once it has left the battlefield it is its last
+// battlefield object (Card.battlefieldStamp): Java's ability keeps the host
+// object it was created on (CardProperty.java:401-407 reads the ability's
+// getHostCard), which for a host that has since moved is the old object --
+// a leaves-the-battlefield trigger's host, and RestartGame's own host once
+// the restart has shuffled it into its library (restartgameeffect.go,
+// ADR-0034). A host that never was on the battlefield is its current
+// object, not in play.
+//
+// An Ability carries no host object of its own, so an ability a moved
+// card's new object activates from its graveyard or hand reads the old
+// battlefield object too, where Java would compare its new one: no real
+// ExiledWithSource line reads the property from such an ability.
+func (g *Game) hostObjectStamp(host CardID) (uint64, bool) {
+	h := g.Card(host)
+	switch h.Zone {
+	case Battlefield, Stack, Command:
+		return h.zoneStamp, true
+	}
+	if h.battlefieldStamp != 0 {
+		return h.battlefieldStamp, true
+	}
+	return h.zoneStamp, false
+}
+
+// SetExiledWith records card as exiled with host's current object, the
+// way GameState's own "ExiledWith:<id>" annotation does
+// (GameState.java:771-781, which also lists card on host whatever zone
+// host is in) -- fixture loading's tool, the same relationship
+// SetTurnState has to real play. Real play sets it through an effect's
+// own exile move (markExiledWith, zonemove.go).
+func (g *Game) SetExiledWith(card, host CardID) {
+	stamp, _ := g.hostObjectStamp(host)
+	g.Card(card).exiledWith = exiledWithMark{host: host, stamp: stamp, listed: true}
+}
+
 // LKI returns id's frozen last-known-information snapshot -- Move's own
 // battlefield-leaving branch, below -- or nil if id has never left the
 // battlefield. checkDiesTriggers/otherDiesTriggerMatches (trigger.go) are its
@@ -562,6 +602,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 		c.tempControllers = nil
 	}
 	isPermanent := c.Type().IsPermanent()
+	leftStamp := c.zoneStamp
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
 
@@ -587,6 +628,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	melded := NoCard
 	switch {
 	case from == Battlefield && kind != Battlefield:
+		c.battlefieldStamp = leftStamp
 		snap := *c
 		g.lki[id] = &snap
 		// After the snapshot: last-known information keeps a phased-out
@@ -691,11 +733,13 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 		c.controller = c.Owner
 		c.tempControllers = nil
 	}
+	leftStamp := c.zoneStamp
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
 
 	melded := NoCard
 	if from == Battlefield {
+		c.battlefieldStamp = leftStamp
 		c.phasedOut, c.directlyPhasedOut, c.wontPhaseInNormal = NoPlayer, false, false
 		melded = c.leaveMeld()
 		c.Counters = Counters{}
@@ -840,6 +884,7 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c.Zone, c.ZoneOwner = kind, owner
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
+	c.exiledWith = exiledWithMark{}
 	g.Zone(kind, owner).cards.Add(id)
 }
 
@@ -851,6 +896,7 @@ func (g *Game) putFront(id CardID, owner PlayerID) {
 	c.Zone, c.ZoneOwner = Library, owner
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
+	c.exiledWith = exiledWithMark{}
 	g.Zone(Library, owner).cards.Prepend(id)
 }
 

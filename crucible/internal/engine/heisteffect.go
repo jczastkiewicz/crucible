@@ -76,6 +76,7 @@ func (heistEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		}
 		id := picked[0]
 		g.moveByEffect(controller, id, Exile, 0, NoPlayer, false)
+		g.markExiledWith(id, a.Source)
 		c := g.Card(id)
 		if c.faceUpDef == nil {
 			c.faceUpDef = c.Def

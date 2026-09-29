@@ -3,6 +3,9 @@
 Karn Liberated's ultimate (`karn_liberated.txt:7`) and the per-card "exiled with" state its
 `SubAbility$ ReturnFromExile` reads. Design: `docs/crucible/adr/0034-restartgame-driver-restart-signal.md`.
 
+Supersedes the `RestartGame` row of `effects-batch-d.md`'s deferred table; that file is closed, so the row stays as
+written there.
+
 ## ExiledWithSource lands
 
 `Card.exiledWith` (`card.go`) is Java's `Card.exiledWith` (`Card.java:326`): which host object exiled the card.
@@ -42,6 +45,19 @@ graveyard ability does not read it).
 `listed` is Java's `exilingSource.addExiledCard(movedCard)` guard (`SpellAbilityEffect.java:1100-1104`): only a host in
 play, on the stack or in the Command zone lists the card, and the property requires `source.hasExiledCard(card)` too.
 `Game.SetExiledWith` (fixture loading) always lists, as `GameState`'s own `addExiledCard` does.
+
+**Melded partner marked too.** `Move`/`MoveToLibraryTop` now return the melded permanent's other card when they unmeld
+one along with the card the caller moved -- `game.go`'s own `unmeld` follows the primary card into the same zone, but
+fired no effect-driven path of its own for a caller to hang a second `markExiledWith` on. `moveByEffect` (`zonemove.go`)
+propagates that return; all six setting sites check it and mark the partner too when present, matching
+`ChangeZoneEffect.java`'s own `handleExiledWith(meld, sa)` call alongside its primary one
+(`TestChangeZoneExilingAMeldedPermanentMarksBothHalves`).
+
+**The mark survives onto the stack.** `put` (`game.go`) clears `exiledWith` on every zone entry but the Stack
+(`GameAction.java:576-579`'s own `if (!zoneTo.is(Stack))` guard on `cleanupExiledWith`): a card cast or activated
+straight out of the exile a host put it in keeps the mark while its own spell or ability is on the stack
+(`TestExiledWithSourceSurvivesOntoTheStack`). `putFront` needs no matching guard -- it only ever moves a card onto a
+library's top, never the stack.
 
 **Rejected, before acting.**
 
@@ -127,10 +143,16 @@ Stack rejection is unreachable for Karn's line (a loyalty ability needs an empty
 Stack zone would be a Java gap, not modelled. `Ultimate$` is not rejected: it feeds only `AchievementTracker`
 (`AchievementTracker.java:23`).
 
-Not reset, no counterpart here: commander stats, city's blessing, player controller (`ControlPlayer`, ADR-0030, has not
-landed on this branch -- once it adds `scheduledAction`/controlling-player state, the reset must clear it like
-`delayedTrigger`), `runPreOpeningHandActions`/`runOpeningHandActions` (not ported for a normal game start either),
-`GameEventGameRestarted` (no event kind; the new game's `TurnBegan` turn 1 follows).
+Not reset, no counterpart here: commander stats, city's blessing, `runPreOpeningHandActions`/`runOpeningHandActions`
+(not ported for a normal game start either), `GameEventGameRestarted` (no event kind; the new game's `TurnBegan` turn 1
+follows).
+
+**`ControlPlayer` integration (ADR-0030), added on merge.** `resetPlayerForRestart` clears `p.controlledBy` per player
+(`p.clearController()`, `RestartGameEffect.java:74`) and `resetForRestart` drops `g.scheduled` entries at the cleanup
+and end-of-combat boundaries -- but not the begin-of-combat one, reproducing a real Forge bug (`forge-java-defects.md`):
+`RestartGameEffect.java:47-51` clears five phase command lists, never `game.getBeginOfCombat()`'s, so a pending
+`Combat$` grant survives a restart in Java too.
+`TestRestartGameClearsActiveControlGrant`/`TestRestartGamePreservesAPendingBeginCombatGrant` pin both halves.
 
 Karn's +4 (`Chooser$ Targeted`) is still rejected by `ChangeZone`'s own unresolved-param list; the -3 exiles and marks.
 

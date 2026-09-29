@@ -19,15 +19,22 @@ const libraryBottom = -1
 // libPos: 0 is the top, libraryBottom the bottom. A card leaving the
 // battlefield fires the dies/exiled/returned trigger matching its
 // destination. The batch-level ChangesZoneAll check is the caller's.
-func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneType, libPos int, newController PlayerID, tapped bool) {
+//
+// Returns the melded partner [Game.Move]/[Game.MoveToLibraryTop] unmelded
+// along with id, NoCard if id was not a melded permanent -- a caller
+// marking id with markExiledWith on a dest == Exile move checks this to
+// mark the partner too (ChangeZoneEffect.java's own handleExiledWith(meld,
+// sa) call alongside its primary one).
+func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneType, libPos int, newController PlayerID, tapped bool) CardID {
 	c := g.Card(id)
 	origin := c.Zone
+	var melded CardID
 	switch dest {
 	case Battlefield:
 		if newController == NoPlayer {
 			newController = c.Controller()
 		}
-		g.Move(id, Battlefield, newController)
+		melded = g.Move(id, Battlefield, newController)
 		c.controller = newController
 		if tapped {
 			c.Tapped = true
@@ -36,15 +43,15 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		g.checkETBTriggers(controller, id, origin)
 	case Library:
 		if libPos == 0 {
-			g.MoveToLibraryTop(id, c.Owner)
+			melded = g.MoveToLibraryTop(id, c.Owner)
 		} else {
-			g.Move(id, Library, c.Owner)
+			melded = g.Move(id, Library, c.Owner)
 		}
 	default:
-		g.Move(id, dest, c.Owner)
+		melded = g.Move(id, dest, c.Owner)
 	}
 	if origin != Battlefield {
-		return
+		return melded
 	}
 	switch dest {
 	case Graveyard:
@@ -54,6 +61,7 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 	case Hand:
 		g.checkReturnedTriggers(controller, id)
 	}
+	return melded
 }
 
 // orderCardsByTheirOwners is GameActionUtil.orderCardsByTheirOwners (CR

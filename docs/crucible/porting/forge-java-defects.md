@@ -15,23 +15,24 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 ## Status
 
-| Site                                    | Defect                                                                                                                                    | Crucible meanwhile                                                | Upstream  |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------- |
-| `ChooseSourceEffect.java:84-89`         | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                                       | `TargetControls$` rejected                                        | Not filed |
-| `ChooseSourceEffect.java:131-133`       | Pool exhausted before every chooser has picked hangs the game                                                                             | `error` for the chooser left empty                                | Not filed |
-| `Player.java:3435`                      | `getMonarchSet` ternary condition inverted                                                                                                | No counterpart: no set codes in Crucible                          | Not filed |
-| `GameAction.java:2568-2573`             | `takeInitiative` has no `return` after passing a lost player's take on                                                                    | Reproduced (oracle parity)                                        | Not filed |
-| `CardUtil.java:345`                     | Recursive frame resolves `Valid$` against the reflecting host                                                                             | None: `ManaReflected` deferred                                    | Not filed |
-| `FlipOntoBattlefieldEffect.java:109`    | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot                    | `flipCandidates` rejects that one shape with an `error`           | Not filed |
-| `PlayEffect.java:312`, `:389`           | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                                            | `playRepeatLoop` returns an `error`                               | Not filed |
-| `StaticAbilityCantAttackBlock.java:269` | `cantBlockBy(attacker, null)` always false, so `CombatUtil.canBeBlocked`'s unblockable check (`CombatUtil.java:533`) never fires          | Check not ported; no validator outcome depends on it              | Not filed |
-| `Player.java:2642`                      | `planeswalk`'s `getZone(PlanarDeck).get(0)` unguarded; throws on an empty planar deck, after every plane has already left                 | `error` before anything moves                                     | Not filed |
-| `TriggerChaosEnsues.java:43-48`         | Suspected: `Affected` iterable must be all host, so chaos ensuing for two planes fires neither                                            | `Defined$` naming two planes returns an `error`                   | Not filed |
-| `RunChaosEffect.java:25-31`             | `setOptionalTrigger(true)` hits the RunChaos ability, not the copy; decider never null, so every copy asks `confirmTrigger`               | `OptionalDecider$`/`Cost$` chaos trigger: `error`                 | Not filed |
-| `GameAction.java:635-640`               | `unmeldPosition` computed, never used: the melded card goes to the primary's own `position`, so the owner never orders the two (CR 401.4) | Reproduced (oracle parity): secondary over primary on library top | Not filed |
-| `SwitchBlockEffect.java:22-25`          | `Blocks` trigger run with `AbilityKey.Attacker`; `TriggerBlocks.java:61` reads `Attackers`, so a re-block never matches `ValidBlocked$`   | That re-block: `error` before anything moves                      | Not filed |
-| `SwitchBlockEffect.java:97,103,151,157` | `addBlocker` never records `addBlockedByThisTurn`; Sorrow's Path's history-based `DefinedAttacker$` then misses a switched block          | That switch: `error` before anything moves                        | Not filed |
-| `SwitchBlockEffect.java:88`             | Jarkeld's `removeFromCombat(blocker)` drops the blocker's block on a third attacker too; card text moves only the switched block          | That switch: `error` before anything moves                        | Not filed |
+| Site                                    | Defect                                                                                                                                                          | Crucible meanwhile                                                  | Upstream  |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------- |
+| `ChooseSourceEffect.java:84-89`         | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                                                             | `TargetControls$` rejected                                          | Not filed |
+| `ChooseSourceEffect.java:131-133`       | Pool exhausted before every chooser has picked hangs the game                                                                                                   | `error` for the chooser left empty                                  | Not filed |
+| `Player.java:3435`                      | `getMonarchSet` ternary condition inverted                                                                                                                      | No counterpart: no set codes in Crucible                            | Not filed |
+| `GameAction.java:2568-2573`             | `takeInitiative` has no `return` after passing a lost player's take on                                                                                          | Reproduced (oracle parity)                                          | Not filed |
+| `CardUtil.java:345`                     | Recursive frame resolves `Valid$` against the reflecting host                                                                                                   | None: `ManaReflected` deferred                                      | Not filed |
+| `FlipOntoBattlefieldEffect.java:109`    | Neighbor filter re-tests the landing spot instead of the candidate; "always true" only for a non-Aura-enchantment spot                                          | `flipCandidates` rejects that one shape with an `error`             | Not filed |
+| `PlayEffect.java:312`, `:389`           | `continue` without `amount--` under `AllowRepeats$` re-offers the same unplayable card forever                                                                  | `playRepeatLoop` returns an `error`                                 | Not filed |
+| `StaticAbilityCantAttackBlock.java:269` | `cantBlockBy(attacker, null)` always false, so `CombatUtil.canBeBlocked`'s unblockable check (`CombatUtil.java:533`) never fires                                | Check not ported; no validator outcome depends on it                | Not filed |
+| `Player.java:2642`                      | `planeswalk`'s `getZone(PlanarDeck).get(0)` unguarded; throws on an empty planar deck, after every plane has already left                                       | `error` before anything moves                                       | Not filed |
+| `TriggerChaosEnsues.java:43-48`         | Suspected: `Affected` iterable must be all host, so chaos ensuing for two planes fires neither                                                                  | `Defined$` naming two planes returns an `error`                     | Not filed |
+| `RunChaosEffect.java:25-31`             | `setOptionalTrigger(true)` hits the RunChaos ability, not the copy; decider never null, so every copy asks `confirmTrigger`                                     | `OptionalDecider$`/`Cost$` chaos trigger: `error`                   | Not filed |
+| `GameAction.java:635-640`               | `unmeldPosition` computed, never used: the melded card goes to the primary's own `position`, so the owner never orders the two (CR 401.4)                       | Reproduced (oracle parity): secondary over primary on library top   | Not filed |
+| `SwitchBlockEffect.java:22-25`          | `Blocks` trigger run with `AbilityKey.Attacker`; `TriggerBlocks.java:61` reads `Attackers`, so a re-block never matches `ValidBlocked$`                         | That re-block: `error` before anything moves                        | Not filed |
+| `SwitchBlockEffect.java:97,103,151,157` | `addBlocker` never records `addBlockedByThisTurn`; Sorrow's Path's history-based `DefinedAttacker$` then misses a switched block                                | That switch: `error` before anything moves                          | Not filed |
+| `SwitchBlockEffect.java:88`             | Jarkeld's `removeFromCombat(blocker)` drops the blocker's block on a third attacker too; card text moves only the switched block                                | That switch: `error` before anything moves                          | Not filed |
+| `RestartGameEffect.java:47-51`          | Clears untap/upkeep/end-of-combat/end-of-turn/cleanup command lists, never `getBeginOfCombat()`'s; a pending `Combat$` `ControlPlayer` grant survives a restart | Reproduced (oracle parity): the boundary-begin-combat entry is kept | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -406,3 +407,27 @@ third block and only gets the switched one back.
 
 **Crucible meanwhile:** `checkStrayBlocks` returns an `error` before any block moves when a switching blocker also
 blocks a live attacker outside the two targets (`TestSwitchBlockJarkeldStrayBlockFailsClosed`).
+
+### `RestartGameEffect.java:47-51` — a pending begin-of-combat command survives a restart
+
+```java
+game.getUntap().clearCommands();
+game.getUpkeep().clearCommands();
+game.getEndOfCombat().clearCommands();
+game.getEndOfTurn().clearCommands();
+game.getCleanup().clearCommands();
+```
+
+Five phase-command lists, cleared as part of Karn Liberated's `-14` reset. `game.getBeginOfCombat()` is not among them,
+nor does `PhaseHandler.restart()` (`:826-829`, only `extraPhases`/`extraTurns`/`turn`) or the `RestartedByKarn` exit
+branch (`:1149-1154`, only phase and an event) touch it either. A `ControlPlayerEffect`
+(`ControlPlayerEffect.java:34,44`) that scheduled its `Combat$` grant onto `getBeginOfCombat()` and has not yet fired it
+keeps that command through the restart: the grant still activates at the target's own next combat, in the new game, with
+no card on the battlefield or anywhere else recording that it is coming.
+
+**Proposed fix:** add `game.getBeginOfCombat().clearCommands();` alongside the other five.
+
+**Crucible meanwhile:** reproduced. `resetForRestart` (`restartgameeffect.go`) filters `g.scheduled` down to entries at
+`boundaryBeginCombat` only, dropping `boundaryCleanup`/`boundaryEndCombat` ones exactly as the five real
+`clearCommands()` calls do, and leaving a pending begin-of-combat grant in place
+(`TestRestartGamePreservesAPendingBeginCombatGrant`).

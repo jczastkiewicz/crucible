@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability condition control zone zonemove parts phase combat effecthelpers effecteffect ventureeffect subgameeffect daytimeeffect mulligan
+//enginelint:allow id card game player ability condition control zone zonemove parts phase combat effecthelpers effecteffect ventureeffect subgameeffect daytimeeffect mulligan scheduledaction
 
 import "fmt"
 
@@ -168,6 +168,15 @@ func restartRefusals(g *Game) error {
 // grants), the stack, monarch, initiative and day/night. Every effect and
 // designation card and every dungeon leaves its Command zone for None
 // (exileEffect), Java's removeAllCards.
+//
+// g.scheduled (ADR-0030's ControlPlayer, landed after this effect's own
+// original design) is Java's own getCleanup()/getEndOfCombat() command
+// lists in this port's shape -- both cleared here, matching
+// RestartGameEffect.java:47-51's clearCommands calls. getBeginOfCombat()'s
+// own list is not among those five clearCommands calls -- a Forge bug
+// (forge-java-defects.md): a pending Combat$ ControlPlayer grant survives
+// a restart in Java, so a boundaryBeginCombat entry is left in g.scheduled
+// here too, reproduced rather than fixed (PORT-8).
 func (g *Game) resetForRestart() {
 	for _, pid := range g.Players() {
 		for _, id := range append([]CardID(nil), g.Zone(Command, pid).CardsIncludingPhasedOut()...) {
@@ -189,14 +198,30 @@ func (g *Game) resetForRestart() {
 	g.initiative = NoPlayer
 	g.dayTime = DayNeither
 	g.previousPlayer, g.previousPlayerSpells = NoPlayer, 0
+	kept := g.scheduled[:0]
+	for _, sa := range g.scheduled {
+		if sa.At == boundaryBeginCombat {
+			kept = append(kept, sa)
+		}
+	}
+	g.scheduled = kept
 }
 
 // resetPlayerForRestart is RestartGameEffect.java:61-74's per-player half:
 // starting life, player counters, spells cast this game, the per-turn
 // counts onCleanupPhase clears and the "last turn" ones, completed
 // dungeons, the Ring's temptation count and bearer, and skipped turns (an
-// effect card in Java). Commander stats, blessing and controlling player
-// have no counterpart here.
+// effect card in Java). p.controlledBy = nil is p.clearController() (`:74`,
+// ADR-0030's ControlPlayer, landed after this effect's own original
+// design): every grant naming pid as the controlled player ends. Called
+// once per non-lost player in the caller's own loop (restartRefusals'
+// !g.Player(pid).Lost check, matching Java's own ingamePlayers,
+// Game.java:397-399), so by the time every one of them has been reset, no
+// grant naming a non-lost player as controller or controlled remains --
+// releaseControlBy (scheduledaction.go) needs no separate call here. A
+// lost player's own stale controlledBy, if any, is left as is: Java never
+// resets a player who has already left the game either. Commander stats
+// and blessing have no counterpart here.
 func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p := g.Player(pid)
 	p.Life = startingLife
@@ -212,6 +237,7 @@ func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p.completedDungeons = nil
 	p.ringTempted = 0
 	p.ringBearer = NoCard
+	p.controlledBy = nil
 }
 
 // restartToLibrary is RestartGameEffect.java:90-94's per-card step: the

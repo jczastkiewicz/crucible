@@ -156,6 +156,52 @@ func TestExiledWithSourceSkipsTokens(t *testing.T) {
 	}
 }
 
+// TestChangeZoneExilingAMeldedPermanentMarksBothHalves is
+// ChangeZoneEffect.java's own handleExiledWith(meld, sa) call alongside its
+// primary one: exiling a melded permanent moves its other card along
+// (unmeld, game.go), and Java marks that card too, not only the one the
+// effect explicitly chose.
+func TestChangeZoneExilingAMeldedPermanentMarksBothHalves(t *testing.T) {
+	t.Parallel()
+
+	g, p, _, gis, bru := meldedPair(t, gisela, bruna)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(gis)},
+		"DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(gis).ExiledWith(); got != host {
+		t.Errorf("Gisela exiled with %v, want host %v", got, host)
+	}
+	if got := g.Card(bru).ExiledWith(); got != host {
+		t.Errorf("Bruna (unmeld's own partner move) exiled with %v, want host %v too", got, host)
+	}
+}
+
+// TestExiledWithSourceSurvivesOntoTheStack pins GameAction.java:576-579's
+// own "if (!zoneTo.is(Stack))" guard on cleanupExiledWith: a card cast or
+// activated straight out of the exile a host put it in keeps the mark while
+// its own spell or ability sits on the stack -- the one zone a card leaves
+// exile for without losing it.
+func TestExiledWithSourceSurvivesOntoTheStack(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	host := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	card := g.NewCard(gainInstant(t, "Gain", "W", "1"), p, engine.Exile)
+	g.SetExiledWith(card, host)
+
+	g.Move(card, engine.Stack, p)
+	if got := g.Card(card).ExiledWith(); got != host {
+		t.Errorf("card on the stack exiled with %v, want the mark kept (%v)", got, host)
+	}
+
+	g.Move(card, engine.Graveyard, p)
+	if got := g.Card(card).ExiledWith(); got != engine.NoCard {
+		t.Errorf("card exiled with %v after leaving the stack, want the mark cleared", got)
+	}
+}
+
 // TestChangeZoneRejectsExiledWithEffectSource proves the one exiler
 // override this port does not honour errors before anything moves.
 func TestChangeZoneRejectsExiledWithEffectSource(t *testing.T) {

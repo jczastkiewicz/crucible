@@ -243,9 +243,10 @@ type Card struct {
 	// exiledWith is Card.exiledWith (Card.java:326): which host object
 	// exiled this card, read by the ExiledWithSource valid property
 	// (valid.go). The zero value means exiled with nothing. Every zone
-	// entry clears it (put/putFront, game.go), Card.cleanupExiledWith's
-	// own reset on a move (GameAction.java:576-579), and markExiledWith
-	// (zonemove.go) sets it after an effect's own exile move, ADR-0034.
+	// entry but one to the Stack clears it (put's own "kind != Stack"
+	// guard, game.go, Card.cleanupExiledWith's own reset on a move,
+	// GameAction.java:576-579), and markExiledWith (zonemove.go) sets it
+	// after an effect's own exile move, ADR-0034.
 	exiledWith exiledWithMark
 	// battlefieldStamp is the zoneStamp this card had as its most recent
 	// battlefield object, set as it leaves the battlefield (Move,

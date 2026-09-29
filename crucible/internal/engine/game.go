@@ -602,9 +602,17 @@ func (g *Game) LKI(id CardID) *Card {
 // Every call emits a ZoneChanged event, for the same reason NewCard does
 // not: this is real play, and NewCard is setup nothing downstream should
 // see as something happening.
-func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
+//
+// Returns the melded permanent's other card, NoCard if id was not one --
+// the same card [Game.unmeld] then follows id into kind. A caller that
+// marks id afterward (markExiledWith, zonemove.go) checks this return
+// for the same reason SpellAbilityEffect.handleExiledWith takes an explicit
+// "meld" card alongside its own moved one (SpellAbilityEffect.java:1087):
+// unmeld's own move fires no effect-driven path of its own for the caller
+// to hang a second mark on.
+func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if g.ceaseCopiedSpell(id) {
-		return
+		return NoCard
 	}
 	c := g.Card(id)
 	from := c.Zone
@@ -725,6 +733,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 	if melded != NoCard {
 		g.unmeld(melded, kind, owner, false)
 	}
+	return melded
 }
 
 // MoveToLibraryTop moves id to the top of owner's library -- library index
@@ -739,10 +748,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) {
 // other than the library itself (a tutor effect's own
 // "Destination$ Library | LibraryPosition$ 0" shape, not built yet) gets
 // that cleanup for free rather than a scry-only shortcut that silently
-// skips it.
-func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
+// skips it. Returns the melded partner it unmelds along with id, same as
+// [Game.Move].
+func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	if g.ceaseCopiedSpell(id) {
-		return
+		return NoCard
 	}
 	c := g.Card(id)
 	from := c.Zone
@@ -810,6 +820,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) {
 	if melded != NoCard {
 		g.unmeld(melded, Library, owner, true)
 	}
+	return melded
 }
 
 // leaveMeld clears c's side of a meld as c leaves the battlefield and
@@ -895,13 +906,21 @@ func (g *Game) Shuffle(kind ZoneType, owner PlayerID) {
 // put appends a card to a zone and records the reverse index on the card. It
 // does not remove the card from wherever it was, so only [Game.Move],
 // [Game.NewCard] and unmeld (a melded pair splitting apart, ADR-0032) may
-// call it.
+// call it. The ExiledWithSource mark clears on every move but one to the
+// Stack (GameAction.java:576-579's own "if (!zoneTo.is(Stack))" guard on its
+// cleanupExiledWith call) -- a card cast or activated straight out of the
+// exile an ability put it in keeps the mark while its own spell/ability is
+// on the stack, the one zone this port's callers ever move an exiled,
+// marked card into without going through this clearing branch first
+// (castspell.go's own g.Move(card, Stack, pid)).
 func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = kind, owner
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
-	c.exiledWith = exiledWithMark{}
+	if kind != Stack {
+		c.exiledWith = exiledWithMark{}
+	}
 	g.Zone(kind, owner).cards.Add(id)
 }
 

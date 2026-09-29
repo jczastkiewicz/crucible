@@ -371,6 +371,54 @@ func TestRestartGameClearsDelayedTriggers(t *testing.T) {
 	}
 }
 
+// TestRestartGameClearsActiveControlGrant proves p.clearController()
+// (RestartGameEffect.java:74, ADR-0030's ControlPlayer): a control grant
+// already in force when the game restarts ends immediately, the same as
+// every other per-player restart field this effect resets.
+func TestRestartGameClearsActiveControlGrant(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	resolveLine(t, g, p, c, "DB$ ControlPlayer | ValidTgts$ Player")
+	advanceToPhase(t, g, c, 2, engine.Untap)
+	wantControl(t, g, other, p)
+
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ RestartGame"); err != nil {
+		t.Fatal(err)
+	}
+	wantControl(t, g, other, engine.NoPlayer)
+}
+
+// TestRestartGamePreservesAPendingBeginCombatGrant reproduces a Forge bug
+// (forge-java-defects.md, PORT-8): RestartGameEffect.java:47-51 clears the
+// untap/upkeep/end-of-combat/end-of-turn/cleanup command lists but never
+// game.getBeginOfCombat()'s, so a Combat$ ControlPlayer grant not yet
+// active survives a restart and still fires at the target's own next
+// combat, in the new game.
+func TestRestartGamePreservesAPendingBeginCombatGrant(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	resolveLine(t, g, p, c, "DB$ ControlPlayer | ValidTgts$ Opponent | Combat$ True")
+	wantControl(t, g, other, engine.NoPlayer)
+
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ RestartGame"); err != nil {
+		t.Fatal(err)
+	}
+	c.QueueKeepHand(true)
+	c.QueueKeepHand(true)
+	if err := g.ResumeAfterRestart(c); err != nil {
+		t.Fatal(err)
+	}
+
+	advanceToPhase(t, g, c, 2, engine.CombatBegin)
+	wantControl(t, g, other, p)
+}
+
 // TestRestartGameRejectsWhatItCannotReset pins each fail-closed shape: an
 // error before any card moves.
 func TestRestartGameRejectsWhatItCannotReset(t *testing.T) {

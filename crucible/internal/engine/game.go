@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -73,6 +74,15 @@ type Game struct {
 	// a win, a loss, or a draw. Nothing unsets it: a game that has ended
 	// stays ended (action.go).
 	over bool
+
+	// restarted is Java's GameStage.RestartedByKarn (RestartGameEffect.java:105):
+	// a RestartGame effect has reset the game mid-resolution and the turn
+	// driver has stopped on it (ADR-0034). restartedBy is the activator,
+	// whose first turn the restarted game begins with
+	// (RestartGameEffect.java:107). Both cleared by ResumeAfterRestart
+	// (driver.go), the caller's own obligation.
+	restarted   bool
+	restartedBy PlayerID
 
 	// turn, activePlayer and activePhase are the turn structure: whose turn
 	// it is, what step or phase it is in, and how many turns have passed.
@@ -277,6 +287,13 @@ type zoneKey struct {
 	kind  ZoneType
 	owner PlayerID
 }
+
+// errRestartPending is the GO-7 stop for driving a game a RestartGame
+// effect has restarted before its caller ran ResumeAfterRestart
+// (driver.go, ADR-0034): the reset broke every invariant the driver,
+// priority and stack loops read (turn count, opening hands, whose turn it
+// is).
+var errRestartPending = errors.New("engine: game restarted (RestartGame); call ResumeAfterRestart before driving it again")
 
 // NewGame builds an empty game with the given players.
 //
@@ -1002,6 +1019,8 @@ func (g *Game) Clone() *Game {
 		pendingErr:   g.pendingErr,
 		timestamp:    g.timestamp,
 		over:         g.over,
+		restarted:    g.restarted,
+		restartedBy:  g.restartedBy,
 		turn:         g.turn,
 		activePlayer: g.activePlayer,
 		activePhase:  g.activePhase,

@@ -117,6 +117,10 @@ type Game struct {
 	// delayed is every registered delayed trigger (delayedtrigger.go), in
 	// registration order.
 	delayed []delayedTrigger
+	// scheduled is every engine action waiting on a phase boundary
+	// (scheduledaction.go, ADR-0030) -- ControlPlayer's grants and
+	// revokes -- in scheduling order.
+	scheduled []scheduledAction
 	// extraPhases is PhaseHandler.extraPhases: for each phase, the stack of
 	// phases an AddPhase effect queued to follow it instead of the normal
 	// next one (last entry first). Cleared when the turn ends.
@@ -967,9 +971,10 @@ func (g *Game) Clone() *Game {
 		combat:          g.combat.clone(),
 		pumps:           append([]pumpRecord(nil), g.pumps...),
 
-		animates: append([]animateRecord(nil), g.animates...),
-		delayed:  append([]delayedTrigger(nil), g.delayed...),
-		skips:    append([]skipPhase(nil), g.skips...),
+		animates:  append([]animateRecord(nil), g.animates...),
+		delayed:   append([]delayedTrigger(nil), g.delayed...),
+		scheduled: append([]scheduledAction(nil), g.scheduled...),
+		skips:     append([]skipPhase(nil), g.skips...),
 
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
@@ -1004,6 +1009,7 @@ func (g *Game) Clone() *Game {
 		if g.players[i].completedDungeons != nil {
 			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
 		}
+		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
 	}
 
 	copy(out.cards, g.cards)

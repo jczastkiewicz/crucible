@@ -98,7 +98,8 @@
       "effecteffect",
       "cloneeffect",
       "registry",
-      "mustblockeffect"
+      "mustblockeffect",
+      "scheduledaction"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
@@ -134,7 +135,8 @@
       "trigger",
       "effecteffect",
       "mustblockeffect",
-      "phasing"
+      "phasing",
+      "scheduledaction"
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],

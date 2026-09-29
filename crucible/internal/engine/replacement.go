@@ -1618,7 +1618,7 @@ func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amount
 }
 
 // declareBlockersReplaced is ReplacementType.DeclareBlocker's run for
-// defender (PhaseHandler.java:663-672, ReplaceDeclareBlocker.java), called
+// defender (PhaseHandler.java:664-672, ReplaceDeclareBlocker.java), called
 // by DeclareCombatBlockers (block.go) before it asks the controller. blocks
 // is the combat so far, earlier defenders' blocks included.
 //
@@ -1639,7 +1639,7 @@ func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amount
 // replacement exists to prevent (GO-7).
 //
 // ReplacedPlayer is whoever declares defender's blocks: Java's
-// Player.getDeclaresBlockers() ?: p (PhaseHandler.java:661), Odric, Master
+// Player.getDeclaresBlockers() ?: p (PhaseHandler.java:662), Odric, Master
 // Tactician's redirect. Nothing in this port sets such a redirect, so it is
 // defender itself.
 func (g *Game) declareBlockersReplaced(controller PlayerController, defender PlayerID, blocks []Block) (out []Block, handled bool, err error) {

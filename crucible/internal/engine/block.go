@@ -139,7 +139,7 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 }
 
 // repairReplacedBlocks is PhaseHandler.declareBlockersTurnBasedAction's
-// steady-state loop (PhaseHandler.java:694-722), run on defender's blockers
+// steady-state loop (PhaseHandler.java:693-723), run on defender's blockers
 // after a DeclareBlocker replacement declared them: each pass drops every
 // blocker breaking a can't-block-alone rule against that pass's snapshot of
 // defender's blockers, until a pass drops none. The if/else-if order is
@@ -154,7 +154,7 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 // validateBlocks. Java runs this loop on the normal path too; there,
 // validateBlocks has already rejected every violation it would repair.
 //
-// PhaseHandler.java:683-692's block-cost pass before it is not ported: this
+// PhaseHandler.java:681-691's block-cost pass before it is not ported: this
 // port has no block costs (blockvalidation.go's absent-default list).
 func (g *Game) repairReplacedBlocks(defender PlayerID, blocks []Block) ([]Block, error) {
 	for {

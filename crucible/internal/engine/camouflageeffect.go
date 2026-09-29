@@ -23,7 +23,7 @@ import "fmt"
 // defends (default "You", AbilityUtils.getDefinedPlayers(null)). Either
 // resolving to nobody is an error, Java's .get(0) on an empty list.
 //
-// Java's AI branch (CamouflageEffect.java:63-73, declarer.isAI()) is a
+// Java's AI branch (CamouflageEffect.java:64-74, declarer.isAI()) is a
 // controller-implementation split, not a rules difference: this port's
 // PlayerController has no "is AI" and runs the human branch for every
 // controller, one ChooseCardsForEffect per attacker. AILogic$ is that
@@ -79,7 +79,7 @@ func (camouflageEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	return nil
 }
 
-// camouflagePiles is CamouflageEffect.java:74-100, the human branch: one
+// camouflagePiles is CamouflageEffect.java:75-101, the human branch: one
 // ChooseCardsForEffect per attacker (every attacker in combat, not only
 // defender's), 0 to all of what is left in the pool. A chosen creature
 // leaves the pool unless it can block more attackers than it has been piled

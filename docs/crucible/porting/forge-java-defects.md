@@ -33,6 +33,7 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `SwitchBlockEffect.java:97,103,151,157` | `addBlocker` never records `addBlockedByThisTurn`; Sorrow's Path's history-based `DefinedAttacker$` then misses a switched block                                | That switch: `error` before anything moves                          | Not filed |
 | `SwitchBlockEffect.java:88`             | Jarkeld's `removeFromCombat(blocker)` drops the blocker's block on a third attacker too; card text moves only the switched block                                | That switch: `error` before anything moves                          | Not filed |
 | `RestartGameEffect.java:47-51`          | Clears untap/upkeep/end-of-combat/end-of-turn/cleanup command lists, never `getBeginOfCombat()`'s; a pending `Combat$` `ControlPlayer` grant survives a restart | Reproduced (oracle parity): the boundary-begin-combat entry is kept | Not filed |
+| `CamouflageEffect.java:78-80`           | Pool filter removes from the list it iterates: `ConcurrentModificationException` once the defender has a creature that can't block                              | `error` before any pile is chosen (ADR-0035)                        | Not filed |
 
 ### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
 
@@ -431,3 +432,28 @@ no card on the battlefield or anywhere else recording that it is coming.
 `boundaryBeginCombat` only, dropping `boundaryCleanup`/`boundaryEndCombat` ones exactly as the five real
 `clearCommands()` calls do, and leaving a pending begin-of-combat grant in place
 (`TestRestartGamePreservesAPendingBeginCombatGrant`).
+
+### `CamouflageEffect.java:78-80` — pool filter throws on a creature that can't block
+
+```java
+CardCollection pool = new CardCollection(defender.getCreaturesInPlay());
+for (final Card blocker : pool) {
+    if (!CombatUtil.canBlock(blocker)) {
+        pool.remove(blocker);
+    }
+}
+```
+
+`FCollection.iterator()` is its backing `ArrayList`'s (`FCollection.java:231-233`); `remove` changes that list
+(`:288-292`). The next `next()` throws `ConcurrentModificationException`. Only a removed creature sitting second-to-last
+escapes: `hasNext()` is then false, so the loop ends early and the last creature goes unchecked. `getCreaturesInPlay`
+includes tapped creatures, so any defender with a tapped, "can't block", detained or suspected creature reaches it. This
+is the human branch, the one every non-AI declarer takes.
+
+**Proposed fix:** `pool.removeIf(blocker -> !CombatUtil.canBlock(blocker));`, or `CardLists.filter`.
+
+**Crucible meanwhile:** `camouflagePiles` (`camouflageeffect.go`) returns an `error` naming the creature before the
+declarer is offered any pile, when `canBlockAtAll` rejects one of the defender's creatures
+(`TestCamouflageFailsClosedOnACreatureThatCannotBlock`). That includes Java's second-to-last case, which does not crash
+but leaves the last creature unchecked. Filtering silently would play a game state Java never reaches; ADR-0035 has the
+reasoning.

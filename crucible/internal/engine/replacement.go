@@ -33,9 +33,12 @@
 // already-built leaf ability with no SubAbility$ of its own (3 of Draw's
 // own 36 real ReplaceWith$ lines; 4 of GainLife's own 20, once
 // ReplaceCount$LifeGained -- "the amount of life that would have been
-// gained" -- resolves too). Every other Event$ value (Counter, ...) is a
-// gap game-state.md's own trigger-firing-style account names, not a reason
-// to have skipped the shapes that do resolve.
+// gained" -- resolves too). AddCounter, CreateToken and ProduceMana resolve
+// their Replace* ReplaceWith$ lines through eachReplacement/runReplaceWith,
+// and DeclareBlocker (camouflage.txt's 1 real line, ADR-0035) through
+// declareBlockersReplaced, all below. Every other Event$ value (Counter, ...)
+// is a gap game-state.md's own trigger-firing-style account names, not a
+// reason to have skipped the shapes that do resolve.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/replacement/{ReplacementHandler,ReplaceMoved,ReplaceUntap,ReplaceDamage,ReplacementEffect}.java,

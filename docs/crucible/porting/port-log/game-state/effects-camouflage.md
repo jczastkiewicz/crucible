@@ -129,3 +129,8 @@ duration) and its replacement applies whenever an opponent would declare blocker
 | `TestCamouflageRejectsWhatItCannotResolve`             | Bad answer, empty/unknown `Defined$`/`Defender$`, unknown line param, chained, no context  |
 | `TestCamouflageRejectsABadMaxBlockerPick`              | Max-branch pick outside the pile: `error`                                                  |
 | `TestCamouflageSurfacesAnUnresolvableBlockerLimit`     | Unresolvable `Max$`: `error`, no guessed limit                                             |
+
+`camouflage_internal_test.go` (`package engine`, TEST-2): `ReplacedPlayer` and `ReplacedDefendingPlayer` always name the
+same player through the public API (no declares-blockers redirect), so a swap of the two reads would pass every test
+above. `TestReplacedPlayerAndReplacedDefendingPlayerReadTheirOwnObjects` builds the replacing event with two distinct
+players and holds each keyword, and Camouflage's declarer/pool split, to its own value.

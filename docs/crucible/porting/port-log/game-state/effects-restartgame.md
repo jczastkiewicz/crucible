@@ -133,3 +133,8 @@ landed on this branch -- once it adds `scheduledAction`/controlling-player state
 `GameEventGameRestarted` (no event kind; the new game's `TurnBegan` turn 1 follows).
 
 Karn's +4 (`Chooser$ Targeted`) is still rejected by `ChangeZone`'s own unresolved-param list; the -3 exiles and marks.
+
+**Tests.** `restartgame_test.go` (real Karn from the corpus: the whole ultimate, both seatings, an earlier Karn's
+exiles, every driver entry point, a returned permanent's trigger in the new game, the no-carve-out default, each
+rejection), `exiledwithsource_test.go`, `internal/fixture/exiledwith_test.go`, and the scenario
+`testdata/scenarios/restartgame-karn-ultimate-returns-what-karn-exiled` (`resumerestart` through `RunActions`).

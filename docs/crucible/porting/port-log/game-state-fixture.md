@@ -119,6 +119,7 @@ startturn <player>            Game.StartTurn(player, controller)
 advance [n]                   Game.AdvancePhase(controller), n times (default 1)
 dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
 declareattackers              Game.DeclareCombatAttackers(controller)
 declareblockers               Game.DeclareCombatBlockers(controller)
 firststrikedamage             Game.DealFirstStrikeDamage(controller)

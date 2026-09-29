@@ -340,6 +340,26 @@ func TestControlPlayerRejectsUnportedShapes(t *testing.T) {
 	}
 }
 
+// TestSorinMarkovUltimateControlsTheTarget activates the real Sorin
+// Markov's -7 loyalty ability, the planeswalker host of the same line.
+func TestSorinMarkovUltimateControlsTheTarget(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	sorin := g.NewCard(corpusCard(t, "Sorin Markov"), p, engine.Battlefield)
+	g.Card(sorin).Counters.Add(engine.CounterType("LOYALTY"), 7)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	if !g.ActivateAbility(p, sorin, 2, c) {
+		t.Fatal("Sorin Markov's -7 did not activate")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	advanceToPhase(t, g, c, 2, engine.Upkeep)
+	wantControl(t, g, other, p)
+}
+
 // TestMindslaverControlsTheTargetFromTheRealScript activates the real
 // corpus Mindslaver ({4}, {T}, sacrifice: "You control target player during
 // that player's next turn").

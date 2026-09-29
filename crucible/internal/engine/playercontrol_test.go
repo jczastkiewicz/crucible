@@ -267,14 +267,17 @@ func TestControlPlayerGrantSkippedForAControllerWhoLeft(t *testing.T) {
 
 // TestControllerLeavingTheGameFreesTheirMindslaves proves Game.onPlayerLost's
 // "free any mindslaves" (Game.java:1014-1017): a controller who loses
-// mid-turn stops controlling at once.
+// mid-turn stops controlling at once, and an older grant by someone still in
+// the game decides again.
 func TestControllerLeavingTheGameFreesTheirMindslaves(t *testing.T) {
 	t.Parallel()
 
-	g, _, other, third := newThreePlayerGame(t)
+	g, p, other, third := newThreePlayerGame(t)
 	c := engine.NewScriptedController()
-	if _, err := resolveNow(t, g, third, c, []engine.EntityID{engine.PlayerEntity(other)}, "DB$ ControlPlayer | ValidTgts$ Player"); err != nil {
-		t.Fatal(err)
+	for _, controller := range []engine.PlayerID{p, third} {
+		if _, err := resolveNow(t, g, controller, c, []engine.EntityID{engine.PlayerEntity(other)}, "DB$ ControlPlayer | ValidTgts$ Player"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	advanceToPhase(t, g, c, 2, engine.Main1)
 	wantControl(t, g, other, third)
@@ -282,6 +285,9 @@ func TestControllerLeavingTheGameFreesTheirMindslaves(t *testing.T) {
 		t.Fatal(err)
 	}
 	engine.CheckStateBasedActions(g, c)
+	// third's grant is gone; p's older one, still in force, decides again.
+	wantControl(t, g, other, p)
+	advanceToPhase(t, g, c, 3, engine.Main1)
 	wantControl(t, g, other, engine.NoPlayer)
 }
 

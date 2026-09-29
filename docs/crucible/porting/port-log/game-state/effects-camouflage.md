@@ -35,16 +35,20 @@ must not start meeting `newBlockCheck`'s static errors.
 Any other is an `error`, not this file's usual skip; so are an unrecognized `ValidPlayer$` and a missing `ReplaceWith$`.
 Reason: a skipped line hands the declaration back to the controller, the one outcome the replacement exists to prevent.
 
-**`runReplaceWithEffect`, not `runReplaceWith`.** ADR-0035 says "`runReplaceWith` extended". Built as a sibling in the
-same file instead: `runReplaceWith`'s callers (DamageDone, GainLife, AddCounter, CreateToken, ProduceMana) read
-`ev.result` to learn whether their event changed. An ordinary `DB$` API leaves it at `replacementNotReplaced`, so
-routing one through there would act and then let the event happen anyway. The sibling dispatches through the `Registry`
-like `runCopyReplacement` (`entersascopy.go`) and returns the error. `SubAbility$` on the `ReplaceWith$` ability:
-`error` (`ReplacementHandler` buffers that chain past the event, not modeled).
+**`runReplaceWithEffect`, a sibling of `runReplaceWith`, not that function extended.** `runReplaceWith`'s callers
+(DamageDone, GainLife, AddCounter, CreateToken, ProduceMana) read `ev.result` to learn whether their event changed. An
+ordinary `DB$` API leaves it at `replacementNotReplaced`, so routing one through there would act and then let the event
+happen anyway. The sibling dispatches through the `Registry` like `runCopyReplacement` (`entersascopy.go`) and returns
+the error. `SubAbility$` on the `ReplaceWith$` ability: `error` (`ReplacementHandler` buffers that chain past the event,
+not modeled).
 
-**`ReplacedPlayer`.** Java's `whoDeclaresBlockers = p.getDeclaresBlockers() ?: p` (`PhaseHandler.java:662`), Odric,
-Master Tactician's redirect. Nothing in this port sets one, so it is the defender. No new field.
-`ReplacedDefendingPlayer` is `Affected`, the defender. Unset outside a `DeclareBlocker` replacement: `error`.
+**`ReplacedPlayer`.** Java's `whoDeclaresBlockers = p.getDeclaresBlockers() ?: p` (`PhaseHandler.java:662`): Odric,
+Master Tactician's redirect. `continuous.go`'s `eachReplacement` hook skips any `DeclaresAttackers$`/`DeclaresBlockers$`
+static (`:809`), so nothing in this port ever sets that redirect -- `ReplacedPlayer` resolves to the defender for every
+corpus line today because the redirect is unread, not because this port has ruled the shape out. No `ReplacedPlayer`
+field of its own: `replacementEvent.player` carries it, the same field an unredirected declaration also reads.
+`ReplacedDefendingPlayer` is `Affected`, the defender (`replacementEvent.defendingPlayer`). Unset outside a
+`DeclareBlocker` replacement: `error`.
 
 **Repair, not validation (ADR-0024 Decision 2 exception).** Java's replaced path never calls
 `CombatUtil.validateBlocks`. After the replacement it only runs the steady-state loop: each pass snapshots the

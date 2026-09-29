@@ -1643,8 +1643,11 @@ func (g *Game) runReplaceWithEffect(controller PlayerController, h *Card, amount
 //
 // ReplacedPlayer is whoever declares defender's blocks: Java's
 // Player.getDeclaresBlockers() ?: p (PhaseHandler.java:662), Odric, Master
-// Tactician's redirect. Nothing in this port sets such a redirect, so it is
-// defender itself.
+// Tactician's redirect. continuous.go's eachReplacement hook skips any
+// DeclaresAttackers$/DeclaresBlockers$ static (:809), so no card in this
+// port ever sets that redirect -- ReplacedPlayer resolves to defender for
+// every corpus line today because the redirect goes unread, not because
+// this port has ruled the shape out.
 func (g *Game) declareBlockersReplaced(controller PlayerController, defender PlayerID, blocks []Block) (out []Block, handled bool, err error) {
 	g.eachReplacement("DeclareBlocker", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		if !onlyParams(r, "validplayer") {

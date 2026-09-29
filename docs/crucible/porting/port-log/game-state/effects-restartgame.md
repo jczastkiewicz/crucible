@@ -19,10 +19,10 @@ Karn Liberated's ultimate (`karn_liberated.txt:7`) and the per-card "exiled with
 | Setting sites               | six effects        | `ChangeZone`, `ChangeZoneAll`, `Dig`, `DigUntil`, `Heist`, `Airbend` -- Java's own callers  |
 | Reject lists lifted         | `playeffect.go`    | `Play`'s `Valid$ Card.ExiledWithSource`; `Clone`'s `cloneUnportedProperties` entry went too |
 
-**Identity is the host object, not the `CardID`.** ADR-0034 proposed a plain `CardID` match because this port's IDs are
-stable across zone moves. That over-matches: Java compares `equalsWithGameTimestamp`, so a host that left the
-battlefield and came back is a new object that exiled nothing. The mark stores the host's `zoneStamp` at exile time; the
-property compares it against the stamp of the host object an ability of the host sees (`hostObjectStamp`, `game.go`):
+**Identity is the host object, not the `CardID` alone.** This port's IDs are stable across zone moves, so a plain
+`CardID` match over-matches: Java compares `equalsWithGameTimestamp`, and a host that left the battlefield and came back
+is a new object that exiled nothing. The mark stores the host's `zoneStamp` at exile time; the property compares it
+against the stamp of the host object an ability of the host sees (`hostObjectStamp`, `game.go`):
 
 | Host is in                          | Object an ability sees                       | Reason                                                           |
 | ----------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
@@ -56,3 +56,80 @@ Not set: cost exiles (`CostExile`, `CostExileFromStack`, `CostBeholdExile`, `Cos
 `Card.java:1571-1572`). This port's exile costs are self-exile only (`exile.go`, `exilefromgrave.go`), so the mark Java
 sets there names the card itself; a later `ExiledWithSource` check by that same card reads false here. Casting-time
 sites have no port to hang the mark on (no Adventure/craft casting).
+
+`Spell` as a card base read false for every card before (`baseMatches`' old coverage-gap case); it now follows
+`Card.isSpell` for every card valid string `Matches` evaluates, not only RestartGame's carve-out. The corpus's `Spell.`
+valid strings mostly sit on ability-side params (`Valid$ Spell.Creature` on mana and cost restrictions), which a
+different evaluator reads; on a card, Java's own `Card.isValid` gives the same answer this now does.
+
+## RestartGame lands (ADR-0034)
+
+`restartgameeffect.go`, `RestartGameEffect.java`. One real corpus line, `karn_liberated.txt:7`:
+`RestrictFromZone$ Exile | RestrictFromValid$ Card.!ExiledWithSource,Spell,Card.Aura | SubAbility$ ReturnFromExile`.
+
+**Resolution order** is Java's, per player in seat order (`game.getPlayers`, lost players skipped):
+
+1. Player reset: life to `startingLife` (`setStartingLife`), player counters, spells cast, lands played this and last
+   turn, cards drawn, descended, ventured, life-gain count, turns to skip, completed dungeons, Ring temptation count and
+   bearer (`RestartGameEffect.java:61-74`).
+2. New library, in `restartZones` order (`:29-30`): cards the player controls on the battlefield (phased out included),
+   then library, graveyard, hand and exile, skipping the `RestrictFromZone$` zone; then that zone's cards matching
+   `RestrictFromValid$` (default `Card`) with the player as the valid string's controller (`:76-80`).
+3. Each to the top of its owner's library (`moveToLibrary(c, 0)`, `:90-94`), intensity reset; a card already there is
+   moved to the top without a zone change. Then the player's library shuffles (`:98`).
+
+Game-wide, before the loop: delayed triggers, extra phases and turns, the stack, monarch, initiative, day/night, combat,
+prevention shields, skipped phases, exile play grants, the previous-turn record; every Command-zone card leaves for
+`None` (`exileEffect`) -- effect, designation (monarch, initiative, the Ring) and dungeon cards alike (`:39-57`, `:88`).
+After: turn order unreversed, turn 0, `activePlayer` the activator, `Game.restarted`/`restartedBy` set (`:104-107`).
+`SubAbility$ ReturnFromExile` then resolves against that state in the same resolution.
+
+**No triggers fire during the reset.** Java suppresses `ChangesZone` and `Shuffled` (`:42-44`, `:101-102`). This port
+moves through `Game.Move`/`Game.Shuffle`, which fire none (only `moveByEffect` does); every effect card is gone before
+any card moves, so no effect card's own zone watch (`effectCardsSeeMove`) sees one either. No replacement effect runs on
+the moves; Java's `moveToLibrary` does consult `ReplaceMoved`.
+
+**Driver restart signal.** Java leaves its game loop (`GameStage.RestartedByKarn`, `PhaseHandler.java:1034`,
+`:1150-1155`) and reruns `GameAction.startGame`'s loop body (`GameAction.java:2326-2381`). Here:
+
+| Entry point                             | On a restart during it                              | Called while restarted    |
+| --------------------------------------- | --------------------------------------------------- | ------------------------- |
+| `resolveTop`                            | returns right after `AbilityResolved`, no SBA check | --                        |
+| `priorityRound`/`PassPriority`          | ends the round                                      | `errRestartPending`       |
+| `Step`/`Run`                            | return nil, `Over()` false                          | `errRestartPending`       |
+| `ResolveStack`                          | stops, rest of the stack kept                       | `errRestartPending`       |
+| `ResumeAfterRestart` (new)              | --                                                  | the resume; else an error |
+| Subgame driver, fixture `resumerestart` | resume and run on                                   | --                        |
+
+`ResumeAfterRestart` (`driver.go`) is Java's loop body for a restart: each live player draws an opening hand
+(`drawOpeningHand`, no shuffle), London mulligans from the activator, flag cleared, `StartTurn(activator)`. Not
+`DealOpeningHands`: that flips a coin, asks `ChooseStartingPlayer` and shuffles again, three random-stream and
+controller calls Java's restart never makes (`first` carries over as the activator, `GameAction.java:2380`). Skipping
+SBA between the reset and the new opening hands is Java's order too: its next `checkStateEffects` is after mulligans
+(`:2366`), so a token shuffled into a library can be drawn and then ceases to exist.
+
+Anything `ReturnFromExile` put on the stack -- a returned permanent's own enters trigger -- waits through the restart
+and resolves in the new game's first priority window (the activator's upkeep). Java instead collects it in the trigger
+handler's waiting list and puts it on the stack at that same first priority check.
+
+**Rejected, before anything changes (PORT-8, GO-7):**
+
+| Shape                                          | Reason                                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| A card in any Stack zone                       | `restartZones` has no Stack; `MagicStack.reset` (`MagicStack.java:97-109`) clears entries, not the cards |
+| A Command-zone card neither effect nor dungeon | commander to library and `Player.initVariantsZones` rebuild, neither ported                              |
+| Planechase game, any card in a variant deck    | `initVariantsZones` (`Player.java:2918`) rebuilds planar/scheme/attraction/contraption decks             |
+| `RestrictFromZone$` outside `restartZones`     | 0 real lines; Java would still add that zone's matching cards to the library                             |
+
+`NewGame` triggers are not built: every real one (5 lines) has `TriggerZones$ Command` on a vanguard/conspiracy-style
+card, which the Command-zone rejection already refuses, so `ResumeAfterRestart` skipping the trigger drops nothing. The
+Stack rejection is unreachable for Karn's line (a loyalty ability needs an empty stack to activate); a card left on the
+Stack zone would be a Java gap, not modelled. `Ultimate$` is not rejected: it feeds only `AchievementTracker`
+(`AchievementTracker.java:23`).
+
+Not reset, no counterpart here: commander stats, city's blessing, player controller (`ControlPlayer`, ADR-0030, has not
+landed on this branch -- once it adds `scheduledAction`/controlling-player state, the reset must clear it like
+`delayedTrigger`), `runPreOpeningHandActions`/`runOpeningHandActions` (not ported for a normal game start either),
+`GameEventGameRestarted` (no event kind; the new game's `TurnBegan` turn 1 follows).
+
+Karn's +4 (`Chooser$ Targeted`) is still rejected by `ChangeZone`'s own unresolved-param list; the -3 exiles and marks.

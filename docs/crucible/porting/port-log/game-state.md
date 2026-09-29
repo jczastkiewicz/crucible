@@ -337,6 +337,8 @@ Sections live in topic files under [`game-state/`](game-state/). Other docs cite
 | [Meld engine pieces: pair state, split back, `named<Name>`, live faces](game-state/effects-meld.md#engine-pieces) |
 [ExiledWithSource lands (ADR-0034)](game-state/effects-restartgame.md#exiledwithsource-lands) |
 [`effects-meld.md`](game-state/effects-meld.md) |
+| [ExiledWithSource lands (ADR-0034)](game-state/effects-restartgame.md#exiledwithsource-lands)                                                                                                                                                                                                                                                                                                                                                                                                                | [`effects-restartgame.md`](game-state/effects-restartgame.md)                                           |
+| [RestartGame lands (ADR-0034)](game-state/effects-restartgame.md#restartgame-lands-adr-0034)                                                                                                                                                                                                                                                                                                                                                                                                                 | [`effects-restartgame.md`](game-state/effects-restartgame.md)                                           |
 
 ---
 

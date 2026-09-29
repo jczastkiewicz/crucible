@@ -120,7 +120,7 @@ func (g *Game) RestartedBy() PlayerID { return g.restartedBy }
 // restarted game: each live player draws an opening hand from the library
 // the restart already shuffled -- no coin flip, no starting-player choice
 // and no second shuffle, since Java's loop carries `first` over as the
-// activator (GameAction.java:2379) and draws with drawCards alone
+// activator (GameAction.java:2380) and draws with drawCards alone
 // (:2341) -- then London mulligans starting with the activator, then the
 // activator's first turn (PhaseHandler.startFirstTurn). DealOpeningHands
 // is the wrong entry point here: it flips a coin, asks

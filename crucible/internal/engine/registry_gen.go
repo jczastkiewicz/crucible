@@ -163,6 +163,7 @@ func NewRegistry() *Registry {
 	r[APIReplaceMana] = replaceManaEffect{}
 	r[APIReplaceSplitDamage] = replaceSplitDamageEffect{}
 	r[APIReplaceToken] = replaceTokenEffect{}
+	r[APIRestartGame] = restartGameEffect{}
 	r[APIReveal] = revealEffect{}
 	r[APIRevealHand] = revealHandEffect{}
 	r[APIReverseTurnOrder] = reverseTurnOrderEffect{}

@@ -114,6 +114,31 @@ func TestExiledWithSourceMarksEveryJavaExilePath(t *testing.T) {
 	}
 }
 
+// TestExiledWithSourceNeedsAListingHost proves the property's
+// source.hasExiledCard half: a host that has never been on the battlefield
+// and exiles from its graveyard marks the card but does not list it
+// (SpellAbilityEffect.java:1100-1104), so the card never reads as exiled
+// with it.
+func TestExiledWithSourceNeedsAListingHost(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	def := etbChainDef(t, "Graveyard Exiler", "DB$ ChangeZoneAll | ChangeType$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Exile")
+	host := g.NewCard(def, p, engine.Graveyard)
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	g.PushAbility(engine.Ability{API: engine.APIChangeZoneAll, Source: host, Controller: p, Params: sub, Amounts: def.Faces[0].Amounts})
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(bear).ExiledWith(); got != host {
+		t.Fatalf("bear exiled with %v, want host %v", got, host)
+	}
+	if exiledWithSource(g, bear, host) {
+		t.Error("bear reads as exiled with a host that was never in play to list it")
+	}
+}
+
 // TestExiledWithSourceSkipsTokens proves handleExiledWith's isToken early
 // return: a token exiled by its host is never marked.
 func TestExiledWithSourceSkipsTokens(t *testing.T) {

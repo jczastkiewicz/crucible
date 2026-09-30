@@ -46,10 +46,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0033](0033-restartgame-mid-resolution-reset.md)            | RestartGame: mid-resolution reset                        | Superseded by 0034 |
 | [0034](0034-restartgame-driver-restart-signal.md)           | RestartGame: driver restart signal                       | Accepted           |
 | [0035](0035-camouflage-declareblocker-no-revalidation.md)   | Camouflage: the replaced declaration is not re-validated | Accepted           |
+| [0036](0036-declaration-redirects.md)                       | Declaration redirects: who declares is rules state       | Accepted           |
 
 ## Numbering
 
-No gap and no missing number: 0001-0035, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0036, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

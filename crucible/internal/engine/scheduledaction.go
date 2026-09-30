@@ -10,7 +10,7 @@
 
 package engine
 
-//enginelint:allow id game player
+//enginelint:allow id game player parts
 
 // scheduledBoundary is the phase boundary a scheduledAction waits for --
 // which of Java's Phase objects the command was added to.
@@ -79,6 +79,28 @@ func (g *Game) ControllingPlayer(pid PlayerID) PlayerID {
 		return NoPlayer
 	}
 	return grants[len(grants)-1].Controller
+}
+
+// AttackDeclarer is `Objects.requireNonNullElse(playerTurn.getDeclaresAttackers(),
+// playerTurn)` (PhaseHandler.java:535): the player who makes pid's attack
+// declaration, pid unless a DeclaresAttackers$ static redirects it
+// (ADR-0036). The engine still asks with pid as decider; this is for a
+// harness routing a different brain per seat, ControllingPlayer's own use.
+func (g *Game) AttackDeclarer(pid PlayerID) PlayerID {
+	return g.declarerOr(pid, func(e RulesEffect) PlayerID { return e.DeclaresAttackers })
+}
+
+// BlockDeclarer is `Objects.requireNonNullElse(p.getDeclaresBlockers(), p)`
+// (PhaseHandler.java:662): the player who makes pid's block declaration.
+func (g *Game) BlockDeclarer(pid PlayerID) PlayerID {
+	return g.declarerOr(pid, func(e RulesEffect) PlayerID { return e.DeclaresBlockers })
+}
+
+func (g *Game) declarerOr(pid PlayerID, field func(RulesEffect) PlayerID) PlayerID {
+	if d := g.Player(pid).Rules.declarer(field); d != NoPlayer {
+		return d
+	}
+	return pid
 }
 
 // IsControlled is Player.isControlled: another player controls pid now.

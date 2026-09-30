@@ -152,12 +152,34 @@ on an Effect card in the Command zone, not the battlefield, so a controlled vote
 themselves, and nobody may vote for the controller. That combination returns an error citing the line instead.
 
 Not resolved (skipped, `applyOneContinuousRules`' doc comment): `ControlOpponentsSearchingLibrary$` (1 real line) — no
-search effect hands its decisions to another controller; `DeclaresAttackers$`/`DeclaresBlockers$` (1 `S:` line, 5 Effect
-SVars) — `DeclareCombatAttackers`/`DeclareCombatBlockers` ask the attacking/defending player only; `IgnoreEffectCost$`
-(4) — a cost-paid exemption from another static, its own mechanic.
+search effect hands its decisions to another controller; `IgnoreEffectCost$` (4) — a cost-paid exemption from another
+static, its own mechanic.
 
 Tests: `extravotes_test.go` (each param from its real line; `ControlVote$` through a controller that records who is
 asked; the `VotePlayer$ Other` refusal).
+
+## Layer 8: `DeclaresAttackers$` and `DeclaresBlockers$` land
+
+Java: `StaticAbilityContinuous.java:555-565` puts the first `Defined$`-style player into a timestamp-keyed map on each
+affected player (`Player.java:4045-4066`); `PhaseHandler.java:535,662` asks that player's controller to declare.
+Decision: [ADR-0036](../../../adr/0036-declaration-redirects.md). 1 `S:` line (Odric, Master Tactician), 5 Effect SVars
+(Invasion Plans, Melee, Berserker's Frenzy, Brutal Hordechief, Master Warcraft).
+
+| Piece                                              | Where                                                                                           |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `RulesEffect.DeclaresAttackers`/`DeclaresBlockers` | `rulesmod.go`; filled by `rulesEffect` through `definedPlayers` (`You`, `AttackingPlayer`, ...) |
+| `Game.AttackDeclarer(pid)`/`BlockDeclarer(pid)`    | `scheduledaction.go` beside `ControllingPlayer`; newest `Timestamp` wins, `pid` when none       |
+| `Defined$ AttackingPlayer`                         | `defined.go`; the active player during combat, nobody outside it                                |
+| Camouflage's `ReplacedPlayer`                      | `declareBlockersReplaced` (`replacement.go`): `BlockDeclarer(defender)`                         |
+
+`DeclareCombatAttackers`/`DeclareCombatBlockers` still ask with `decider` = the attacking/defending player; the redirect
+changes whose brain answers, so a harness reads the two queries (ADR-0030's `ControllingPlayer` use). Attack targets,
+exert and enlist stay with that one declaration. The effect is rebuilt every pass, so it ends with its source, as Java's
+`StaticEffect.java:204-205` removal does.
+
+Tests (`declarationredirects_test.go`): default declarers; blocks-only and attacks-only redirects; newest timestamp wins
+(three players); the redirect ends when its source leaves; `AttackingPlayer` in and out of combat; Camouflage asks the
+redirected declarer.
 
 ## Layer 8: `MayPlay$` lands, and `MayLookAt$` needs nothing
 

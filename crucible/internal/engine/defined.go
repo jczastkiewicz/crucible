@@ -74,6 +74,13 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 				candidates = append(candidates, pid)
 			}
 		}
+	case "AttackingPlayer":
+		// AbilityUtils.java:1122-1125: the combat's attacking player, nobody
+		// outside combat (a static reads this on every recompute, so outside
+		// combat is an empty answer, not an error).
+		if g.activePhase.IsCombat() {
+			candidates = []PlayerID{g.activePlayer}
+		}
 	case "ChosenPlayer":
 		if pid := g.Card(host).Memory.ChosenPlayer(); pid != NoPlayer {
 			candidates = []PlayerID{pid}

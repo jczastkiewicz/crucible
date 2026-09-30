@@ -806,12 +806,11 @@ func applyContinuousRules(g *Game) {
 //     state in an omniscient engine.
 //   - ControlOpponentsSearchingLibrary$ (1 real line) -- a library search
 //     handing its decisions to another player's controller, which no
-//     search effect here can do; DeclaresAttackers$/DeclaresBlockers$ (1
-//     S: line, 5 Effect SVars) -- handing a declaration to another
-//     player, which DeclareCombatAttackers/DeclareCombatBlockers cannot.
-//     The vote params (AdditionalVote$, AdditionalOptionalVote$,
-//     AdditionalVillainousChoice$, ControlVote$) do resolve here, into
-//     RulesEffect fields Vote/VillainousChoice read.
+//     search effect here can do. The vote params (AdditionalVote$,
+//     AdditionalOptionalVote$, AdditionalVillainousChoice$, ControlVote$)
+//     do resolve here, into RulesEffect fields Vote/VillainousChoice read,
+//     and so do DeclaresAttackers$/DeclaresBlockers$ (1 S: line, 5 Effect
+//     SVars), into the fields AttackDeclarer/BlockDeclarer read (ADR-0036).
 //   - IgnoreEffectCost$ (4) -- a cost-ignoring ability grant, its own
 //     separate mechanic. AddHiddenKeyword$ is not this function's:
 //     applyOneContinuousHiddenKeyword (below) resolves it per card.
@@ -852,7 +851,7 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 
 // rulesEffect reads s's own SetMaxHandSize$/RaiseMaxHandSize$/
 // AdjustLandPlays$/AdditionalVote$/AdditionalOptionalVote$/
-// AdditionalVillainousChoice$/ControlVote$ params into one RulesEffect. "Unlimited" (Java's own
+// AdditionalVillainousChoice$/ControlVote$/DeclaresAttackers$/DeclaresBlockers$ params into one RulesEffect. "Unlimited" (Java's own
 // literal sentinel for `p.setUnlimitedHandSize(true)`/
 // `p.addMaxLandPlaysInfinite`) is checked before falling to ptParam (above)
 // for the numeric case, since ptParam itself would just report it
@@ -911,6 +910,28 @@ func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile
 	}
 	if _, ok := s.Param("ControlVote"); ok {
 		e.ControlVote, hasEffect = true, true
+	}
+	for _, v := range [...]struct {
+		key string
+		dst *PlayerID
+	}{
+		{"DeclaresAttackers", &e.DeclaresAttackers},
+		{"DeclaresBlockers", &e.DeclaresBlockers},
+	} {
+		spec, ok := s.Param(v.key)
+		if !ok {
+			continue
+		}
+		// StaticAbilityContinuous.java:555-565: the first defined player, and
+		// nothing at all when the param names nobody (AttackingPlayer outside
+		// combat), which leaves the effect unrecorded.
+		players, err := definedPlayers(g, host.Controller(), host.ID, spec, abilityRefs{})
+		if err != nil {
+			return RulesEffect{}, false
+		}
+		if len(players) > 0 {
+			*v.dst, hasEffect = players[0], true
+		}
 	}
 	return e, hasEffect
 }

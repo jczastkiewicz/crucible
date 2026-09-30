@@ -77,7 +77,7 @@ func blocksOf(blocks []engine.Block, attacker engine.CardID) []engine.CardID {
 
 // TestCamouflageReplacesTheBlockerDeclaration proves the replacement takes
 // the normal declaration's place: the controller is never asked to declare
-// blockers, the defender (ReplacedPlayer, no redirect in this port) is
+// blockers, the defender (ReplacedPlayer, no redirect in force) is
 // asked for one pile of its own creatures, and the pile blocks the only
 // attacker.
 func TestCamouflageReplacesTheBlockerDeclaration(t *testing.T) {

@@ -61,6 +61,14 @@ type RulesEffect struct {
 	// chooses how every player votes. Game.getControlVote picks the player
 	// holding the latest such effect by Timestamp.
 	ControlVote bool
+
+	// DeclaresAttackers and DeclaresBlockers are DeclaresAttackers$/
+	// DeclaresBlockers$ (Player.addDeclaresAttackers/addDeclaresBlockers,
+	// ADR-0036): the first player the param names, who makes this player's
+	// attack or block declaration. NoPlayer is "this effect redirects
+	// neither". AttackDeclarer/BlockDeclarer pick the newest by Timestamp.
+	DeclaresAttackers PlayerID
+	DeclaresBlockers  PlayerID
 }
 
 // additionalVotes sums every effect's AdditionalVotes
@@ -104,6 +112,20 @@ func (r RulesMod) controlVote() (uint64, bool) {
 		}
 	}
 	return best, found
+}
+
+// declarer is Player.getDeclaresAttackers/getDeclaresBlockers: the player
+// field names on the effect with the newest Timestamp among those that set
+// it, or NoPlayer.
+func (r RulesMod) declarer(field func(RulesEffect) PlayerID) PlayerID {
+	var best uint64
+	who := NoPlayer
+	for _, e := range r.effects {
+		if p := field(e); p != NoPlayer && (who == NoPlayer || e.Timestamp > best) {
+			best, who = e.Timestamp, p
+		}
+	}
+	return who
 }
 
 // Add records one continuous effect. Order does not matter here for the

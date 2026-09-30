@@ -38,13 +38,12 @@ way.
 declarer defaults to the defending player. Java's actual source: the declarer is
 `getDefinedPlayersOrTargeted(sa).get(0)` reading `Defined$ ReplacedPlayer`, which `ReplaceDeclareBlocker`'s own
 `setReplacingObjects` sets to `AbilityKey.Player` — `whoDeclaresBlockers = p.getDeclaresBlockers() ?: p`
-(`PhaseHandler.java:662`), the same Odric-style "someone else declares blockers for you" redirect this port's
-`eachReplacement` hook does not read yet (`continuous.go:809` skips any `DeclaresAttackers$`/`DeclaresBlockers$` static;
-`Defined$ ReplacedPlayer` therefore always resolves to the defender in this port today, not because no such redirect
-exists in the corpus, but because nothing sets it). The defending player is a _separate_ value,
-`Defender$ ReplacedDefendingPlayer` (the replacement's own `Affected`) — the real line names both params because they
-can differ. If `Defined$` is absent (not true for the real line, but worth stating since a future card could omit it),
-Java's own default is `"You"`, the ability's caster, not the defender (`SpellAbilityEffect.java:340`).
+(`PhaseHandler.java:662`), the same Odric-style "someone else declares blockers for you" redirect, which this port reads
+as `Game.BlockDeclarer` (ADR-0036; `Defined$ ReplacedPlayer` is the defender unless a `DeclaresBlockers$` static names
+someone else). The defending player is a _separate_ value, `Defender$ ReplacedDefendingPlayer` (the replacement's own
+`Affected`) — the real line names both params because they can differ. If `Defined$` is absent (not true for the real
+line, but worth stating since a future card could omit it), Java's own default is `"You"`, the ability's caster, not the
+defender (`SpellAbilityEffect.java:340`).
 
 **3. The min/max branches are reached by board state, not by a param this line carries.** ADR-0031 said to skip
 `CombatUtil.getMinNumBlockersForAttacker`/the max-blocker carve-out "if the corpus line's own shape does not need it."
@@ -131,10 +130,9 @@ source of truth for every other declaration path — this is a named, narrow exc
 replacement is active" from ADR-0031): "and when one is active, the result is repaired by Camouflage's own steady-state
 loop, not validated by ADR-0024's check." A reviewer must know both exceptions exist. `runReplaceWithEffect` is new
 surface any future `ReplaceWith$` line naming a `DB$`-style API can reach, not scoped to `Camouflage` alone — a later
-such line inherits both the dispatch mechanism and the burden of getting its own replacing-object reads right. Neither
-`Defined$ ReplacedPlayer` nor the normal declaration path honours a `DeclaresAttackers$`/`DeclaresBlockers$` redirect
-(`continuous.go:809` skips it): `ReplacedPlayer` resolves to the defender for every corpus line today only because
-nothing sets one, not because the port has ruled the shape out.
+such line inherits both the dispatch mechanism and the burden of getting its own replacing-object reads right.
+`Defined$ ReplacedPlayer` honours a `DeclaresBlockers$` redirect (ADR-0036); the normal declaration path asks `decider`
+as before.
 
 **Neutral:** `ReplacedPlayer`/`ReplacedDefendingPlayer` are two more `defined.go` keywords, the same shape as every
 other `Defined$` reader already has.

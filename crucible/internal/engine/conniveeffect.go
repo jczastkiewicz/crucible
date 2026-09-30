@@ -35,13 +35,12 @@ import (
 
 // conniveUnresolvedParams names ConniveEffect's own params this port does
 // not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// PlayerTurn$ (1) -- an unclear-semantics restriction on a resolving line,
-// tapAllEffect's own identical gap; Condition$/ConditionDefined$ (0/0,
+// Condition$/ConditionDefined$ (0/0,
 // defensive) -- condition.go's own subAbilityConditionMet would otherwise
 // silently no-op a card naming either without ConditionPresent$ alongside
 // it, dealDamageEffect's own identical reasoning.
 var conniveUnresolvedParams = [...]string{
-	"PlayerTurn",
+
 	"Condition", "ConditionDefined",
 }
 

@@ -230,7 +230,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
-	if !g.inActivationPhases(ability) {
+	if !g.timingRestrictionsMet(pid, ability) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
@@ -395,17 +395,49 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	return true
 }
 
-// inActivationPhases is SpellAbilityRestriction.checkTimingRestrictions'
-// ActivationPhases$ check (SpellAbilityRestriction.java:131-132,294-297):
-// the current step must be in the named phase set (PhaseType.parseRange --
-// parsePhaseRange, phase.go). No ActivationPhases$ means no restriction. A
-// value parsePhaseRange cannot read refuses the activation rather than
-// ignoring the restriction (GO-7).
-func (g *Game) inActivationPhases(ability *compile.Ability) bool {
-	phases, ok := ability.Param("ActivationPhases")
-	if !ok {
-		return true
+// timingRestrictionsMet is SpellAbilityRestriction.checkTimingRestrictions
+// (SpellAbilityRestriction.java:282-315) for pid activating or casting an
+// ability, shared by activated abilities, mana abilities and A:SP$ spells:
+//
+//   - PlayerTurn$ needs pid to be the active player; OpponentTurn$ needs
+//     someone else to be (Player.isOpponentOf collapses to "not pid" with no
+//     teams, the same reading matchesPlayerBase already makes).
+//   - ActivationPhases$ needs the current step in the named set
+//     (PhaseType.parseRange -- parsePhaseRange, phase.go). A value
+//     parsePhaseRange cannot read refuses the attempt rather than ignoring
+//     the restriction (GO-7).
+//   - ActivationFirstCombat$ needs the turn's first combat: Java compares
+//     the combats begun so far with 1 inside a combat step and 0 outside one
+//     (PhaseHandler.inCombat is true from beginning of combat to end of combat).
+//   - ActivationAfterBlockers$ (CR 506.7f) fails once the declare blockers
+//     step was skipped for lack of attackers.
+//
+// None of the keys' values is read, as Java does not read them. Sneak's
+// declare-blockers-only timing is not ported: Crucible has no Sneak cast.
+func (g *Game) timingRestrictionsMet(pid PlayerID, ability *compile.Ability) bool {
+	if _, ok := ability.Param("PlayerTurn"); ok && pid != g.activePlayer {
+		return false
 	}
-	set, ok := parsePhaseRange(phases)
-	return ok && set.has(g.activePhase)
+	if _, ok := ability.Param("OpponentTurn"); ok && pid == g.activePlayer {
+		return false
+	}
+	if phases, ok := ability.Param("ActivationPhases"); ok {
+		set, ok := parsePhaseRange(phases)
+		if !ok || !set.has(g.activePhase) {
+			return false
+		}
+	}
+	if _, ok := ability.Param("ActivationFirstCombat"); ok {
+		allowed := 0
+		if g.activePhase.IsCombat() {
+			allowed = 1
+		}
+		if g.combatsThisTurn > allowed {
+			return false
+		}
+	}
+	if _, ok := ability.Param("ActivationAfterBlockers"); ok && g.skipDamageSteps {
+		return false
+	}
+	return true
 }

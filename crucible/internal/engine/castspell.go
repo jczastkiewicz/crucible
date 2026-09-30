@@ -60,6 +60,15 @@ func castableAsInstantOrSorcery(c *Card) bool {
 // "declined, not a bug" (GO-7); only the reason surfaced can differ, and
 // only when a card the corpus never combines this way is scripted to.
 //
+// An Instant or Sorcery's own A:SP$ line adds its printed "cast only..."
+// restrictions on top of that (timingRestrictionsMet, activateability.go:
+// ActivationPhases$, PlayerTurn$, OpponentTurn$, ActivationFirstCombat$,
+// ActivationAfterBlockers$), checked the same way for any cast from hand or
+// a MayPlay$ grant. An effect that casts during its own resolution skips the
+// sorcery-speed timing (CR 608.2g) but not these: Play offers such a spell
+// only while they hold (playOptionsOf), Java's "extra timing restrictions
+// still apply" (AbilityUtils.java:2944).
+//
 // Reports whether the spell was cast. false covers every legal-but-declined
 // case: wrong timing, the card is neither in pid's hand nor granted,
 // castableAsPermanent says no, or the cost could not be paid -- the same
@@ -112,6 +121,11 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 	}
 	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.canActSorcerySpeed(pid) {
 		return false
+	}
+	if castableAsInstantOrSorcery(c) {
+		if spell := firstSpellAbility(c); spell != nil && !g.timingRestrictionsMet(pid, spell) {
+			return false
+		}
 	}
 	return g.castSpell(controller, pid, card, castOpts{withoutManaCost: play.WithoutManaCost, door: d})
 }

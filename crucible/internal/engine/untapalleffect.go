@@ -31,9 +31,8 @@ import (
 // untapAllUnresolvedParams names UntapAllEffect's own params this port does
 // not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
 // Planeswalker$ (3) -- an unclear-semantics restriction on a resolving
-// line, tapAllEffect's own identical gap; ModeCost$/ActivationLimit$/
-// ActivationPhases$ (2/2/1) -- each its own further activation-time
-// restriction, unclear semantics on a resolving (not triggering) line;
+// line, tapAllEffect's own identical gap; ModeCost$/ActivationLimit$
+// (2/2) -- each its own further activation-time restriction, unclear semantics on a resolving (not triggering) line;
 // ConditionPlayerTurn$/ConditionManaSpent$ (1/1) -- SpellAbilityCondition's
 // own shapes subAbilityConditionMet does not cover, putCounterEffect's own
 // identical ConditionZone$/ConditionPlayerTurn$ gap; Condition$/
@@ -42,7 +41,7 @@ import (
 // ConditionPresent$ alongside it, dealDamageEffect's own identical
 // reasoning.
 var untapAllUnresolvedParams = [...]string{
-	"Planeswalker", "ModeCost", "ActivationLimit", "ActivationPhases",
+	"Planeswalker", "ModeCost", "ActivationLimit",
 	"ConditionPlayerTurn", "ConditionManaSpent",
 	"Condition", "ConditionDefined",
 }

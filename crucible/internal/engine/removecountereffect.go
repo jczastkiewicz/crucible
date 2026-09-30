@@ -36,7 +36,7 @@ import (
 // gap, putCounterEffect's own identical scope; Choices$/ChoiceOptional$/
 // TgtZone$ (9/5/4) -- an interactive battlefield-wide pick, no
 // PlayerController hook; UpTo$ (5) -- chooseNumber's own interactive
-// prompt, the identical gap; Activator$/ActivationPhases$ (3/3) -- unclear
+// prompt, the identical gap; Activator$ (3) -- unclear
 // semantics on a resolving (not triggering) line, not worth guessing at;
 // Optional$ (2) -- an interactive "would you like to remove" confirm, the
 // identical gap Sacrifice's/Discard's/Mill's own Optional$ already
@@ -52,7 +52,7 @@ import (
 var removeCounterUnresolvedParams = [...]string{
 	"ValidTgts", "TargetMin", "TargetMax",
 	"Choices", "ChoiceOptional", "TgtZone", "UpTo",
-	"Activator", "ActivationPhases", "Optional",
+	"Activator", "Optional",
 	"RememberRemoved", "RememberAmount",
 	"Condition", "ConditionDefined",
 }

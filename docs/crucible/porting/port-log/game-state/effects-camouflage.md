@@ -109,10 +109,11 @@ so a defender with any tapped creature reaches it. Crucible fails closed per ADR
 `error` before the declarer is offered anything, second-to-last case included. Common, not an edge case: Camouflage is
 an `error` whenever the defender has a tapped creature, until the upstream fix lands.
 
-**Cast-time restrictions not enforced.** `ActivationPhases$ Declare Attackers` and `PlayerTurn$ True` are on the `SP$`
-line, and `castInstantOrSorcery` (`castspell.go`) checks neither for any spell. Pre-existing casting gap, not a
-Camouflage param: the scenario casts it in the right window. The effect card itself lasts the turn (`Effect`'s default
-duration) and its replacement applies whenever an opponent would declare blockers.
+**Cast-time restrictions.** `ActivationPhases$ Declare Attackers` and `PlayerTurn$ True` are on the `SP$` line;
+`castFromHand` enforces both through `timingRestrictionsMet`
+([`## A spell's printed timing restrictions`](mana-and-casting.md#a-spells-printed-timing-restrictions)). The effect
+card itself lasts the turn (`Effect`'s default duration) and its replacement applies whenever an opponent would declare
+blockers.
 
 **Rejected.** Resolving outside a `DeclareBlocker` replacement; `Defined$`/`Defender$` naming nobody; any
 `Event$ DeclareBlocker` param past the four above; a chained `SubAbility$`.

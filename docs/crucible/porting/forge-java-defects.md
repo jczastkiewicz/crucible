@@ -66,11 +66,14 @@ how `sourcesToChooseFrom.isEmpty()` is later treated as a no-op rather than an e
 if (sa.hasParam("TargetControls") && !tgtPlayers.isEmpty()) {
 ```
 
+**Upstream:** [Card-Forge/forge#12083](https://github.com/Card-Forge/forge/pull/12083), branch
+`upstream-pr/choosesource-bugs`. `ChooseSourceEffectShould` throws `IndexOutOfBoundsException` without the guard.
+
 **Crucible meanwhile:** `internal/engine/choosesourceeffect.go` rejects `TargetControls$` outright with an `error` — Go
 has no card in the corpus exercising it, and reproducing an upstream crash as a Go `panic` would violate GO-7 (a bad
 card script must not kill a batch).
 
-### `ChooseSourceEffect.java:131-133` — exhausted pool hangs the game
+### `ChooseSourceEffect.java:131-133` — a pool of only section headers hangs the game
 
 ```java
 Card o = null;
@@ -79,32 +82,41 @@ do {
 } while (o == null || o.getName().startsWith("--"));
 ```
 
-`sourcesToChooseFrom` is mutated by `sourcesToChooseFrom.remove(o)` (line 135) after every pick, once per chooser, up to
-`validAmount` times per player. The loop's only valid exit is a controller returning a non-null, non-divider card. If
-the pool empties before every chooser has picked their `validAmount` (a card with `Amount$` > 1 and few valid sources,
-or several `tgtPlayers` competing for the same short pool), `chooseSingleEntityForEffect` has nothing left to return but
-`null`, and the `do`/`while` spins forever — the controller is asked to choose from an empty list on every iteration
-with no way to signal "no valid choice." This is a real hang, not a slow path: nothing bounds the iteration count or
-breaks on an empty `sourcesToChooseFrom`.
+`sourcesToChooseFrom` holds the section headers (`--PERMANENTS:--`, `--SPELLS ON THE STACK:--`,
+`--OBJECTS REFERRED TO ON THE STACK:--`, `--CARDS IN THE COMMAND ZONE:--`) next to the real sources. Only the picked
+source is removed (`sourcesToChooseFrom.remove(o)`, line 135); the headers stay. The loop's only exit is a controller
+returning a non-null card that is not a header. If `Amount$` exceeds the number of real sources, or several `tgtPlayers`
+compete for a short pool, the pool ends up holding only headers, the loop rejects each one, and it asks again forever.
+The pool is never empty, so an `isEmpty()` check does not catch it. This is a real hang: nothing bounds the iteration
+count.
 
-**Proposed fix:** break out (and let the ability under-deliver, matching how `sourcesToChooseFrom.isEmpty()` at the top
-of `resolve` is already treated as a no-op) when the pool is empty before a pick:
+**Proposed fix:** stop asking once no real source is left, and let the ability choose fewer cards than `Amount$`:
 
 ```java
-do {
-    if (sourcesToChooseFrom.isEmpty()) {
+for (int i = 0; i < validAmount; i++) {
+    if (!hasSourceLeft(sourcesToChooseFrom)) {
         break;
     }
-    o = p.getController().chooseSingleEntityForEffect(sourcesToChooseFrom, sa, choiceTitle, null);
-} while (o == null || o.getName().startsWith("--"));
-if (o == null) {
-    continue;
+    // ...
+}
+
+private static boolean hasSourceLeft(final CardCollectionView pool) {
+    for (final Card c : pool) {
+        if (!c.getName().startsWith("--")) {
+            return true;
+        }
+    }
+    return false;
 }
 ```
 
+**Upstream:** [Card-Forge/forge#12083](https://github.com/Card-Forge/forge/pull/12083), branch
+`upstream-pr/choosesource-bugs`. `ChooseSourceEffectShould` fails without the change (the chooser is asked 26 times) and
+passes with it.
+
 **Crucible meanwhile:** `choosesourceeffect.go` returns an `error` —
-`engine: ChooseSource: no source left for chooser %d` — the moment a chooser's pool is empty, rather than reproducing
-the hang.
+`engine: ChooseSource: no source left for chooser %d` — the moment a chooser's pool has no real source left, rather than
+reproducing the hang.
 
 ### `Player.java:3435` — `getMonarchSet` ternary is inverted
 

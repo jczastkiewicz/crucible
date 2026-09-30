@@ -49,7 +49,8 @@ Surface:
 State option 1, surface option 1. `rulesEffect` reads both params through `Defined$`-style player resolution (`You`,
 `AttackingPlayer`, ...); `DeclareCombatAttackers` and `DeclareCombatBlockers` keep asking with `decider` unchanged. The
 declarer is read by Camouflage: `ReplacedPlayer` resolves to `BlockDeclarer(defender)`, `ReplacedDefendingPlayer` stays
-the defender. `Defined$ AttackingPlayer` (the combat's attacking player, an error outside combat, GO-7) is added to
+the defender. `Defined$ AttackingPlayer` (the active player during combat, nobody outside it,
+`AbilityUtils.java:1122-1125`; a static reads it on every recompute, so an error there would fail the card) is added to
 resolve Odric's line.
 
 ## Consequences

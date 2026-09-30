@@ -11,7 +11,7 @@ import "fmt"
 type branchEffect struct{}
 
 func (branchEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	for _, key := range [...]string{"Condition", "ConditionDefined", "PlayerTurn"} {
+	for _, key := range [...]string{"Condition", "ConditionDefined"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Branch: %s$ not resolvable yet", key)
 		}

@@ -382,3 +382,54 @@ Battle, a player, the identical path through `ActivateAbility`, the already-left
 
 Closes the M5 "Not ported yet" row for non-combat damage to a planeswalker or a Battle
 (`docs/crucible/porting/port-log/game-state.md`).
+
+## A spell's printed timing restrictions
+
+`SpellAbilityRestriction.checkTimingRestrictions` (`SpellAbilityRestriction.java:282-315`) is `timingRestrictionsMet`
+(`activateability.go`), one check shared by `ActivateAbility`, `ActivateManaAbility` and `CastSpell`. Reason: Java reads
+these keys off any ability's restriction, so one function per entry point would let them drift.
+
+| Key                        | Reading                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `PlayerTurn$`              | activator is the active player                                                       |
+| `OpponentTurn$`            | activator is not the active player (`Player.isOpponentOf`; no teams)                 |
+| `ActivationPhases$`        | current step in `parsePhaseRange`'s set; an unreadable value declines (GO-7)         |
+| `ActivationFirstCombat$`   | `combatsThisTurn` at most 1 inside a combat step, 0 outside one (`getNumCombat`)     |
+| `ActivationAfterBlockers$` | `skipDamageSteps` false (CR 506.7f); set only by the turn driver (`Game.Step`/`Run`) |
+
+Values are never read, as Java does not read them. Sneak's declare-blockers-only timing is not ported: Crucible has no
+Sneak cast.
+
+`castFromHand` applies the check to an Instant's or Sorcery's own `A:SP$` line (`firstSpellAbility`) after the
+sorcery-speed gate, so `ActivationPhases$` only narrows a Sorcery's window, never widens it. A declined cast pays
+nothing and leaves the card in hand. An effect that casts during its own resolution skips the sorcery-speed timing (CR
+608.2g) but not these: `Play` offers an Instant or Sorcery only while they hold (`playOptionsOf`), Java's "extra timing
+restrictions still apply" (`AbilityUtils.java:2944`, through `Spell.canPlayFromHost`). `Discover` casts permanents only,
+which have no `SP$` line. A permanent spell has no `SP$` line and is unaffected.
+
+Activated abilities gained `PlayerTurn$`, `OpponentTurn$`, `ActivationFirstCombat$` and `ActivationAfterBlockers$` with
+this change; `ActivationPhases$` was already enforced there. `ActivateManaAbility` runs the same check and admits all
+five keys in `manaAbilityAllowedParams`; `mana_cache.txt`'s `Upkeep->Main2` line stays unreachable because it also names
+`Activator$`.
+
+The effects that rejected `PlayerTurn$` or `ActivationPhases$` at resolve because nothing enforced them
+(`brancheffect.go`, `changezoneeffect.go`, `changezonealleffect.go`, `choosecardeffect.go`, `conniveeffect.go`,
+`damagealleffect.go`, `destroyalleffect.go`, `destroyeffect.go`, `digeffect.go`, `diguntileffect.go`,
+`endturneffect.go`, `gaincontroleffect.go`, `pumpeffect.go`, `putcounteralleffect.go`, `removecountereffect.go`,
+`revealeffect.go`, `untapalleffect.go`) no longer do: the restriction is cast-time only, and a resolving line ignores it
+the way Java does. The fail-closed tests that used those keys (`failclosed_test.go`, `conniveeffect_test.go`) now use
+`Condition$`.
+
+Tests (`casttiming_test.go`, `package engine_test`):
+
+| Test                                                         | Proves                                                                                               |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `TestCastInstantHonoursPrintedTimingRestrictions`            | Phases (single, range), `PlayerTurn$`, `OpponentTurn$` and a combination; declined cast pays nothing |
+| `TestCastSorceryHonoursPrintedPhases`                        | `ActivationPhases$` narrows a Sorcery's window                                                       |
+| `TestCastInstantUnreadableActivationPhasesDeclines`          | Unreadable phase list declines                                                                       |
+| `TestActivateAbilityHonoursPlayerAndOpponentTurn`            | The same keys on an activated ability                                                                |
+| `TestCastInstantFirstCombatOnly`                             | First combat allowed, an `AddPhase` extra combat refused                                             |
+| `TestCastInstantAfterBlockersRefusedOnceBlockersWereSkipped` | Refused after a combat with no attackers skipped declare blockers                                    |
+| `TestPlayDoesNotOfferASpellOutsideItsPrintedTiming`          | `Play` leaves a spell in exile outside its window and casts it inside                                |
+| `TestActivateManaAbilityHonoursPlayerTurn`                   | A mana ability naming `PlayerTurn$` is admitted and limited to its controller's turn                 |
+| `TestTimedSpellResolvesOnceCast`                             | A `DestroyAll` spell naming both keys casts and resolves                                             |

@@ -41,7 +41,6 @@ import (
 // damageAllEffect's own identical gap; IsCurse$ (5) -- a display-only flag
 // on a Curse-subtype enchantment's own SpellDescription, never read by
 // resolve itself, listed anyway rather than silently assuming so;
-// PlayerTurn$ (1) -- an unclear-semantics restriction on a resolving line;
 // Ultimate$/ModeCost$ (3/1) -- tapAllEffect's/untapAllEffect's own
 // identical gaps; Condition$/ConditionDefined$/ConditionPlayerTurn$/
 // ConditionPhases$ (2/5/1/1) -- ConditionZone$'s/ConditionPlayerTurn$'s own
@@ -49,7 +48,7 @@ import (
 // subAbilityConditionMet does not cover.
 var putCounterAllUnresolvedParams = [...]string{
 	"ValidZone", "Placer", "ValidCards2", "CounterType2", "CounterNum2",
-	"AmountByChosenMap", "TargetUnique", "IsCurse", "PlayerTurn",
+	"AmountByChosenMap", "TargetUnique", "IsCurse",
 	"Ultimate", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionPlayerTurn", "ConditionPhases",
 }

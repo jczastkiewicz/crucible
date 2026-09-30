@@ -316,7 +316,8 @@ type playOption struct {
 
 // playOptionsOf is AbilityUtils.getSpellsFromPlayEffect for card: a land's
 // play when caster could play a land now (their turn, a land drop left, CR
-// 305.3), else its one spell. ok is false for a card whose spell this port
+// 305.3), else its one spell -- an Instant or Sorcery only while its printed
+// timing restrictions hold (timingRestrictionsMet). ok is false for a card whose spell this port
 // cannot cast honestly (playCastGap): Java would offer it, so the ValidSA$
 // pre-filter keeps it and choosing it is an error.
 func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
@@ -331,7 +332,15 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 			return []playOption{{land: true}}, true
 		}
 		return nil, true
-	case t.HasSubtype("Aura") || castableAsPermanent(c) || castableAsInstantOrSorcery(c):
+	case castableAsInstantOrSorcery(c):
+		// "extra timing restrictions still apply" (AbilityUtils.java:2944):
+		// the spell's printed ActivationPhases$/PlayerTurn$/... are checked,
+		// only the zone and the sorcery-speed timing are waived.
+		if !g.timingRestrictionsMet(caster, firstSpellAbility(c)) {
+			return nil, true
+		}
+		return []playOption{{}}, true
+	case t.HasSubtype("Aura") || castableAsPermanent(c):
 		return []playOption{{}}, true
 	}
 	return nil, true

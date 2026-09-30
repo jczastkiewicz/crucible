@@ -13,7 +13,7 @@ import "fmt"
 type endTurnEffect struct{}
 
 func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "EndTurn", "Condition", "PlayerTurn"); err != nil {
+	if err := rejectParams(a, "EndTurn", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

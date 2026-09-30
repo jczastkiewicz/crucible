@@ -28,8 +28,7 @@ import (
 // of it and guessing at the rest (PORT-8/GO-7): Condition$/ConditionDefined$/ConditionZone$/
 // ConditionPlayerTurn$/ConditionActivationLimit$ (0/19/0/0/4) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
-// the identical DealDamage/GainLife-shaped gap; PlayerTurn$ (2) -- unclear
-// semantics on a Pump line, not worth guessing at from two real lines;
+// the identical DealDamage/GainLife-shaped gap;
 // CanBlockAmount$/CanBlockAny$ (4/0) -- an additional-blocker grant this
 // port's own block-legality gate
 // (staticability.go) has nowhere to consult a one-shot record from;
@@ -76,7 +75,7 @@ import (
 // spell's targets resolve (ADR-0018).
 var pumpUnresolvedParams = [...]string{
 	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
-	"ConditionActivationLimit", "PlayerTurn",
+	"ConditionActivationLimit",
 	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
 	"DefinedLandwalk", "ForgetObjects", "RememberObjects", "RememberPumped", "LeaveBattlefield",

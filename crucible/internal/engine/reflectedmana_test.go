@@ -37,6 +37,8 @@ func scriptDef(t *testing.T, name, typeLine string, lines ...string) *compile.Ca
 			f.Abilities = append(f.Abilities, body)
 		case "K":
 			f.Keywords = append(f.Keywords, body)
+		case "S":
+			f.Statics = append(f.Statics, body)
 		case "SVar":
 			k, v, _ := strings.Cut(body, ":")
 			f.SVars.Set(k, v)

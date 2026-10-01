@@ -775,3 +775,62 @@ func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
 	}
 	return false
 }
+
+// netCombatDamage is Card.getNetCombatDamage (Card.java:4537): how much combat
+// damage c assigns. A Mode$ AssignNoCombatDamage static naming c makes it 0;
+// else a Mode$ CombatDamageToughness static naming c makes it c's toughness;
+// else c's power, negated by Mode$ CombatDamageNegatePower (Loot, the Anomaly:
+// "if his power is negative, he assigns combat damage as though it were
+// positive"). ok is false when the value read is unresolvable (a "*" power or
+// toughness this port has no evaluator for), propagated like Power/Toughness.
+func netCombatDamage(g *Game, c *Card) (int, bool) {
+	switch {
+	case combatDamageStatic(g, c, "AssignNoCombatDamage"):
+		return 0, true
+	case combatDamageStatic(g, c, "CombatDamageToughness"):
+		return c.Toughness()
+	}
+	power, ok := c.Power()
+	if combatDamageStatic(g, c, "CombatDamageNegatePower") {
+		power = -power
+	}
+	return power, ok
+}
+
+// combatDamageStatic reports whether some static of the given Mode$ names c.
+// All three modes share one body (StaticAbilityAssignNoCombatDamage,
+// StaticAbilityCombatDamageToughness, StaticAbilityCombatDamageNegatePower):
+// the source's Condition$ holds (StaticAbility.checkConditions) and c matches
+// ValidCard$. Like ignoreLegendRule, a line carrying IsPresent$ or a Condition$
+// continuousConditionMet does not resolve is skipped, never assumed met.
+//
+// Hosts come from traitHosts, so an Effect-card static in the Command zone
+// (EffectZone$ Command) and a delayed "this turn" effect's static both count.
+func combatDamageStatic(g *Game, c *Card, mode string) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, mode) {
+						continue
+					}
+					if _, ok := s.Param("IsPresent"); ok {
+						continue
+					}
+					if !continuousConditionMet(g, h, s) {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(validCard), h.Controller(), h.ID) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}

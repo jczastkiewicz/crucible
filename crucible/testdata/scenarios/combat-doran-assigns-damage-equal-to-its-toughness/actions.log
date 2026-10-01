@@ -1,0 +1,13 @@
+# Doran's S:Mode$ CombatDamageToughness | ValidCard$ Creature makes every
+# creature assign combat damage equal to its toughness (Card.getNetCombatDamage,
+# Card.java:4537). Doran is 0/5 and unblocked, so he deals 5, not 0.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

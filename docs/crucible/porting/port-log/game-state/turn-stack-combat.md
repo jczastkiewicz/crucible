@@ -571,6 +571,24 @@ restriction for the creature it names: `applyCantBlockBy` asks `canBlockIfShadow
 applies that override per comma alternative; every shadow `ValidBlocker$` here is a single alternative. Tests:
 `shadow_test.go`; scenario `combat-shadow-attacker-cannot-be-blocked-by-a-plain-creature`.
 
+## Static combat-damage modes
+
+`Card.getNetCombatDamage` (`Card.java:4537`) is what `Combat.java:724,781` asks for how much damage a blocker or
+attacker assigns: 0 under a `Mode$ AssignNoCombatDamage` static naming the creature, else its toughness under
+`Mode$ CombatDamageToughness` (Doran, Assault Formation, Sumo Spirit), else its power, negated under
+`Mode$ CombatDamageNegatePower` (Loot, the Anomaly). The precedence is Java's: no-damage beats toughness beats power.
+`netCombatDamage` (`staticability.go`) ports it; `dealCombatDamageStep` and `combatDamageAssigned` (`combatdamage.go`)
+call it where they read `Power()` before, so first-strike and regular steps, blockers and attackers all agree.
+
+All three modes share one body in Java (`ValidCard$` match, `StaticAbility.checkConditions`); `combatDamageStatic` walks
+`traitHosts` (Command-zone Effect cards included) and applies `continuousConditionMet` for `Condition$ PlayerTurn` and
+the rest of its vocabulary. A line carrying `IsPresent$` is skipped like `ignoreLegendRule`'s. An unresolvable power or
+toughness (`*`) propagates as `ok == false`, so the creature deals nothing rather than a guessed amount.
+
+Pinned by `combatdamagestatics_test.go` (table over each mode, `ValidCard$` scope, `Condition$`, precedence, negative
+power) and the `combat-doran-assigns-damage-equal-to-its-toughness` scenario. Not reached: a `ValidCard$` operand that
+is not a plain integer (`Creature.powerLTtoughness`, 4 real lines) matches nothing, `compareMatches`' standing gap.
+
 ## CR 508.1c: exerting an attacker as it attacks
 
 `compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`

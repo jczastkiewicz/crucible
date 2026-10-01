@@ -216,7 +216,8 @@
       "combat",
       "attack",
       "trigger",
-      "valid"
+      "valid",
+      "staticability"
     ],
     "manapay": ["id", "game", "player", "control", "event"],
     "manaability": [

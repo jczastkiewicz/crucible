@@ -97,7 +97,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		}
 
 		if dealsInStep(atk, firstStrike) {
-			if power, ok := atk.Power(); ok && power > 0 {
+			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
 				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
 			}
 		}
@@ -105,7 +105,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		for _, blkID := range blockers {
 			blk := g.Card(blkID)
 			if dealsInStep(blk, firstStrike) {
-				if bp, ok := blk.Power(); ok && bp > 0 {
+				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
 					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
 				}
 			}
@@ -126,7 +126,7 @@ func (g *Game) combatDamageAssigned(firstStrike bool) bool {
 		if !g.alive(id) || !dealsInStep(c, firstStrike) {
 			continue
 		}
-		if power, ok := c.Power(); ok && power > 0 {
+		if power, ok := netCombatDamage(g, c); ok && power > 0 {
 			return true
 		}
 	}

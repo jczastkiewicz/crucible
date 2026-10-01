@@ -511,3 +511,17 @@ or `Player` another player may activate a battlefield permanent; the permanent's
 `SP$` lines name `CheckSVar$`, four `IsPresent$`. Thirteen effects stopped rejecting `Activator$`, `CheckSVar$`,
 `SVarCompare$`, `IsPresent$` or `PresentCompare$` at resolve, since no effect reads them. Tests:
 `activationrestrictions_test.go`.
+
+## Flash and `Mode$ CastWithFlash`
+
+`SpellAbility.withFlash` (`SpellAbility.java:2608`) lets a spell be cast at instant speed when its card is an instant,
+carries the Flash keyword (638 `K:Flash` lines), or a `Mode$ CastWithFlash` static says so. `castFromHand` asks
+`castsWithFlash` (`staticability.go`) beside the Instant type and `MayPlayWithFlash$` before it falls back to
+`canActSorcerySpeed`.
+
+`StaticAbilityCastWithFlash` is ported for its plain shape (about 30 of the 57 lines): `ValidSA$ Spell`, `ValidCard$`
+matched against the spell's card, `Caster$` matched against the caster (absent matches anyone), `Condition$`, hosts from
+the battlefield, the Command zone and the card itself (`EffectZone$ All`). A line naming another `ValidSA$`
+(`Activated.Equip`, `Activated.Loyalty`, `Spell.XCostLE3`, `Spell.IsTargeting ...`), `IsPresent$` or `CheckSVar$` is
+skipped, never assumed met (GO-7). `MayFlashCost` and `MayFlashSac` (keywords granting flash for a price) are not read.
+Tests: `castflash_test.go`.

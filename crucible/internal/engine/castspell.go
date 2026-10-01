@@ -119,7 +119,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 	if !fromHand && !granted {
 		return false
 	}
-	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.canActSorcerySpeed(pid) {
+	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
 	if castableAsInstantOrSorcery(c) {

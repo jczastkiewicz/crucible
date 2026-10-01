@@ -834,3 +834,60 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 	}
 	return false
 }
+
+// castsWithFlash reports whether pid may cast card as though it had flash
+// (SpellAbility.withFlash, SpellAbility.java:2608): the printed or granted
+// Flash keyword, or a Mode$ CastWithFlash static (StaticAbilityCastWithFlash)
+// whose ValidCard$ matches the card, whose Caster$ matches pid and that is
+// about plain spells (ValidSA$ Spell). A line with any other ValidSA$ (an
+// activated ability, IsTargeting, XCost, a spell-cost shape), IsPresent$ or
+// CheckSVar$ is skipped, never assumed to hold (GO-7). The card's own statics
+// count wherever it is (EffectZone$ All, Card.Self lines).
+func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
+	c := g.Card(card)
+	if c.HasKeyword("Flash") {
+		return true
+	}
+	hosts := []CardID{card}
+	for _, p := range g.Players() {
+		hosts = append(hosts, g.traitHosts(p)...)
+	}
+	for _, host := range hosts {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.Def.Faces {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s) {
+					continue
+				}
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// castWithFlashApplies is one CastWithFlash line's own test, see castsWithFlash.
+func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
+	if sa, _ := s.Param("ValidSA"); sa != "Spell" {
+		return false
+	}
+	for _, key := range [...]string{"IsPresent", "CheckSVar"} {
+		if _, ok := s.Param(key); ok {
+			return false
+		}
+	}
+	if !continuousConditionMet(g, host, s) {
+		return false
+	}
+	if caster, ok := s.Param("Caster"); ok {
+		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, caster)
+		if !recognized || !matched {
+			return false
+		}
+	}
+	validCard, ok := s.Param("ValidCard")
+	return !ok || Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID)
+}

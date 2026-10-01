@@ -589,6 +589,24 @@ Pinned by `combatdamagestatics_test.go` (table over each mode, `ValidCard$` scop
 power) and the `combat-doran-assigns-damage-equal-to-its-toughness` scenario. Not reached: a `ValidCard$` operand that
 is not a plain integer (`Creature.powerLTtoughness`, 4 real lines) matches nothing, `compareMatches`' standing gap.
 
+## Lifelink
+
+CR 702.15: damage dealt by a source with lifelink makes its controller gain that much life. Java applies it in
+`GameAction.dealDamage` (`GameAction.java:2733-2736`): for each source in the damage map, the damage actually dealt
+(past prevention and replacement) is summed, and a positive sum from a lifelinker is **one** `gainLife` call. A
+lifelinker split across two blockers is one gain and one "whenever you gain life" trigger, not two. `applyLifelink`
+(`lifelink.go`) is that loop over the batch's `damageTable`, called first in `checkDamageTableTriggers` (`trigger.go`)
+so the gain lands before any damage trigger and before state-based actions. Every damage path already builds a table and
+ends there: combat, `DealDamage`, `DamageAll`, `EachDamage`, `DamageResolve`, `Fight` and a `DamageYou` unless-cost.
+
+`gainLife` (`gainlifeeffect.go`) is `Player.gainLife` factored out of `GainLife`: `Lost`, prevention, replacement, the
+per-turn counter, the `LifeChanged` event and the `LifeGained` triggers, so lifelink and `GainLife` cannot drift. The
+source's keywords are read live: every caller runs before the state-based actions that could remove the source, which is
+what Java's last-known-information copy preserves. Tests: `lifelink_test.go`, scenario
+`combat-lifelink-attacker-gains-life-equal-to-damage-dealt`. Not ported: `S:Mode$ CantGainLife` (see
+[`Not ported yet`](../game-state.md#not-ported-yet)); the `test-port-matrix.md` row for CR 104.3b with lifelink needs a
+two-sided combat scenario.
+
 ## CR 508.1c: exerting an attacker as it attacks
 
 `compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`

@@ -963,6 +963,7 @@ type damageTable []damageEntry
 // rather than each dispatch separately, so a further table-driven mode has
 // one call site to add, not every damage-dealing action's own caller.
 func (g *Game) checkDamageTableTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	g.applyLifelink(controller, table)
 	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
 	g.checkDamageDoneOnceByControllerTriggers(controller, table, isCombat)
 	g.checkDamageDealtOnceTriggers(controller, table, isCombat)

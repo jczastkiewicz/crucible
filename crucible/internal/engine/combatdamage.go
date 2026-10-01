@@ -33,20 +33,18 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // (`firstStrike` selects which). A creature deals damage in a step per
 // `dealsInStep`'s doc comment.
 //
-// All of a step's damage is simultaneous (CR 510.2), but no lifelink exists
-// yet and nothing cares about the order two life totals change in, so
-// applying one attacker's exchange at a time produces the same result as
-// computing every amount first and applying them together --
-// checkDamageDoneTriggersToCard/ToPlayer (trigger.go), dealt with below,
-// fire per exchange rather than once for the whole step for the identical
-// reason: nothing here can tell the difference yet. Mode$ DamageDoneOnce
-// (checkDamageDoneOnceTriggers, trigger.go) is the one place the
-// simultaneity genuinely does matter: every exchange in this one step
-// records into a shared damageTable, consulted once after the whole step
-// finishes, so a target hit by more than one source in the same step (a
-// gang-blocked attacker, several unblocked attackers hitting the same
-// player) sees the combined total in one trigger firing rather than one per
-// source.
+// All of a step's damage is simultaneous (CR 510.2). Applying one attacker's
+// exchange at a time produces the same life totals as computing every amount
+// first and applying them together, since no state-based action runs between
+// exchanges; checkDamageDoneTriggersToCard/ToPlayer (trigger.go) fire per
+// exchange for the identical reason. The two places simultaneity does matter
+// run off the step's shared damageTable, consulted once after the whole step
+// finishes (checkDamageTableTriggers, trigger.go): Mode$ DamageDoneOnce, where
+// a target hit by more than one source in the same step (a gang-blocked
+// attacker, several unblocked attackers hitting the same player) sees the
+// combined total in one trigger firing rather than one per source, and
+// lifelink (applyLifelink, lifelink.go), one gain per source for everything it
+// dealt in the step.
 //
 // An unblocked attacker deals its power to whatever it's attacking (CR
 // 508.1d) -- a player, planeswalker or battle, via dealAttackTargetDamage.

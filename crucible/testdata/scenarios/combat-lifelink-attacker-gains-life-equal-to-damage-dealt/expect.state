@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=22
+humanbattlefield=Mesa Unicorn|Tapped
+ailife=18

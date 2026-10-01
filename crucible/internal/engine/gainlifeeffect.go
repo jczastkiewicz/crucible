@@ -94,24 +94,29 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return fmt.Errorf("engine: GainLife: %w", err)
 	}
 	for _, pid := range players {
-		// LifeGainEffect.java: a player no longer in the game gains nothing.
-		if g.Player(pid).Lost {
-			continue
-		}
-		if g.gainLifePrevented(pid) {
-			continue
-		}
-		gain := g.gainLifeReplaced(controller, pid, amount)
-		if gain <= 0 {
-			continue
-		}
-		firstGain := g.Player(pid).LifeGainedTimesThisTurn == 0
-		g.Player(pid).LifeGainedTimesThisTurn++
-		g.Player(pid).Life += gain
-		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: int32(gain)})
-		g.checkLifeGainedTriggers(controller, pid, firstGain)
+		g.gainLife(controller, pid, amount, a.Source)
 	}
 	return nil
+}
+
+// gainLife is the step LifeGainEffect.resolve and lifelink (GameAction.java
+// dealDamage, CR 702.15e) share, Player.gainLife: a player no longer in the
+// game gains nothing, a prevention or replacement can stop or change the
+// amount, and a gain that survives updates the life total, the event and
+// the LifeGained triggers.
+func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, source CardID) {
+	if g.Player(pid).Lost || g.gainLifePrevented(pid) {
+		return
+	}
+	gain := g.gainLifeReplaced(controller, pid, amount)
+	if gain <= 0 {
+		return
+	}
+	firstGain := g.Player(pid).LifeGainedTimesThisTurn == 0
+	g.Player(pid).LifeGainedTimesThisTurn++
+	g.Player(pid).Life += gain
+	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(pid), Amount: int32(gain)})
+	g.checkLifeGainedTriggers(controller, pid, firstGain)
 }
 
 // gainLifePlayers is LifeGainEffect.resolve's getTargetPlayersWithDuplicates

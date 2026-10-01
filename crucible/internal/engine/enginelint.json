@@ -287,7 +287,8 @@
       "targeting",
       "statictrigger",
       "replaceeffect",
-      "unlesscost"
+      "unlesscost",
+      "lifelink"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [

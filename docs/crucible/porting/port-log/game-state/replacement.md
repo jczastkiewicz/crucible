@@ -790,3 +790,23 @@ zone name skipping the whole line the identical contract `validCountZones` (amou
 shape name a Command-zone host -- and now `damageAmountMatches` (trigger firing, above), the identical operator/operand
 split a trigger's own `DamageAmount$` reads, reused by `damagePreventionMatches` and `damageReplacementMatches` alike
 against the ORIGINAL amount before either decides whether its own line applies at all.
+
+## `Event$ Moved` to the graveyard
+
+CR 614.1, `ReplaceMoved.java`. 91 real `R:` lines name `Event$ Moved | Destination$ Graveyard` (Rest in Peace, Leyline
+of the Void, Binding Geist, Wheel of Sun and Moon, ...); the port applied none, only the battlefield-entry "enters
+tapped" shapes. `Game.Move` cannot reach replacements (`game.go` cannot depend on `replacement.go`), so every "put into
+a graveyard" site calls `moveToGraveyard` (`replacement.go`) instead: 17 sites in `action.go`, `turn.go`, `stack.go` and
+the destroy, sacrifice, discard, mill and surveil effects, plus `moveByEffect` for a `ChangeZone` to the graveyard.
+
+`movedGraveyardDestination` finds the first `Event$ Moved` replacement in play (`eachReplacement`, CR 616's
+simplification) naming `Destination$ Graveyard` whose `Origin$`, `ValidCard$` and `ValidLKI$` match the card (each
+absent is a pass; `ValidLKI$`, 28 real lines, is matched against the card as it is, since this runs before the move) and
+whose requirements hold. It applies the `ReplaceWith$` when that is a bare `DB$ ChangeZone | Defined$ ReplacedCard` to
+Exile or Hand (79 of 91 lines). Any other param, a `SubAbility$` (Kalitas' Zombie token), a Library destination's
+position and shuffle, or `Cycling$` is an unmodelled consequence: the line is not applied and `Game.recordPendingError`
+names the card (GO-7), never a half-replacement.
+
+`checkDiesTriggers` returns at once for a card that is not in the graveyard: an exiled card did not die, and an exile
+trigger fires instead (`checkExiledTriggers`). Tests: `movedtograveyard_test.go`; scenarios
+`replacement-rest-in-peace-...` and `replacement-leyline-of-the-void-...`.

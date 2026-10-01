@@ -129,6 +129,90 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 	}
 }
 
+// moveToGraveyard is Game.Move to the card's owner's graveyard through CR
+// 614's replacement of that destination (ReplaceMoved.java): the zone the
+// card ended in, Graveyard unless a Moved replacement sent it elsewhere, and
+// the melded partner Move unmelded, NoCard for none. Every
+// real "put into a graveyard" site calls it instead of Move, since
+// Game.Move itself cannot reach replacements (game.go cannot depend on this
+// file, see checkMovedReplacement's own doc comment).
+func (g *Game) moveToGraveyard(id CardID) (ZoneType, CardID) {
+	dest := g.movedGraveyardDestination(id)
+	return dest, g.Move(id, dest, g.Card(id).Owner)
+}
+
+// movedGraveyardDestination is where a card about to go to the graveyard goes
+// instead: the first Event$ Moved replacement in play that names Destination$
+// Graveyard, whose Origin$ and ValidCard$ (each absent a pass) match and whose
+// requirements hold, applies its ReplaceWith$. The shape resolved is a bare
+// DB$ ChangeZone | Defined$ ReplacedCard with a Destination$ of Exile or
+// Hand (Rest in Peace, Leyline of the Void, Binding Geist: 79 of the 91 real
+// lines), under Origin$, ValidCard$ and ValidLKI$ only; any further param -- a SubAbility$, a Library destination's
+// position and shuffle -- is an unmodelled consequence, so the line is not
+// applied and the game's pending error is set (GO-7), never a half-replacement.
+// The first match wins, CR 616's simplification this file already makes.
+func (g *Game) movedGraveyardDestination(id CardID) ZoneType {
+	c := g.Card(id)
+	dest := Graveyard
+	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
+		if _, ok := r.Param("Destination"); !ok || !replacementZoneMatches(r, "Destination", Graveyard) {
+			return false
+		}
+		if !replacementZoneMatches(r, "Origin", c.Zone) {
+			return false
+		}
+		if !onlyParams(r, "destination", "origin", "validcard", "validlki") {
+			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: a param not resolvable yet", h.Def.Name))
+			return false
+		}
+		// ValidLKI$ (28 real lines) is matched against the card as it was on the
+		// battlefield; this runs before the move, so that is the card as it is.
+		for _, key := range [...]string{"ValidCard", "ValidLKI"} {
+			if vc, ok := r.Param(key); ok && !Matches(g, c, valid.Parse(vc), h.Controller(), h.ID) {
+				return false
+			}
+		}
+		if !replacementRequirementsCheck(g, h, amounts, r) {
+			return false
+		}
+		sub := replaceWithSub(r)
+		if sub == nil || !strings.EqualFold(sub.Name, "ChangeZone") || !onlyKeys(sub, "DB", "Hidden", "Origin", "Destination", "Defined") {
+			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: ReplaceWith$ shape not resolvable yet", h.Def.Name))
+			return false
+		}
+		if d, _ := sub.Param("Defined"); d != "ReplacedCard" {
+			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Defined$ %q not resolvable yet", h.Def.Name, d))
+			return false
+		}
+		to, _ := sub.Param("Destination")
+		z, ok := ZoneByName(to)
+		if !ok || (z != Exile && z != Hand) {
+			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
+			return false
+		}
+		dest = z
+		return true
+	})
+	return dest
+}
+
+// onlyKeys reports whether every param of a is one of keys (folded).
+func onlyKeys(a *compile.Ability, keys ...string) bool {
+	for _, p := range a.Params {
+		found := false
+		for _, k := range keys {
+			if strings.EqualFold(k, p.Key) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // replacementRequirementsCheck ports ReplacementEffect.requirementsCheck --
 // a general gate every replacement carries regardless of what Event$ it
 // names, checked before its own shape-specific canReplace, mirroring

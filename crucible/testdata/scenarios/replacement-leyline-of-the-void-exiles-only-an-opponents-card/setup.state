@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Leyline of the Void|Id:1;Grizzly Bears|Id:3|Damage:2
+aibattlefield=Grizzly Bears|Id:2|Damage:2

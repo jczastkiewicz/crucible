@@ -1,0 +1,6 @@
+# CR 614.1: a replacement effect. Rest in Peace's
+# R:Event$ Moved | Destination$ Graveyard | ValidCard$ Card | ReplaceWith$ Exile
+# applies as the state-based action CR 704.5g destroys the damaged Grizzly
+# Bears: the creature is exiled instead of put into the graveyard, so it does
+# not die (no "dies" trigger) and the AI's graveyard stays empty.
+startturn human

@@ -172,6 +172,14 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 // g.LKI (game.go) is exactly the frozen copy CR 603.6d asks for, taken the
 // instant before Move reset any of it.
 func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
+	// A Moved replacement (Rest in Peace) sent the card elsewhere: it did not
+	// die, it was exiled, which is what its leave triggers see.
+	if z := g.Card(left).Zone; z != Graveyard {
+		if z == Exile {
+			g.checkExiledTriggers(controller, left)
+		}
+		return
+	}
 	var matches []Ability
 	c := g.Card(left)
 	if snap := g.LKI(left); snap != nil {

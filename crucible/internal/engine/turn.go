@@ -511,7 +511,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(MaxHandSize); hasLimit && len(hand) > limit {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
-			g.Move(id, Graveyard, g.Card(id).Owner)
+			g.moveToGraveyard(id)
 			g.checkDiscardedTriggers(controller, id, g.activePlayer)
 		}
 	}

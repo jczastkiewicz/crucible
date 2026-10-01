@@ -1777,6 +1777,45 @@ func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+// checkChangesControllerTriggers is Mode$ ChangesController
+// (TriggerChangesController.performTest, 12 real lines): card's controller
+// changed from original, as correctControllerZone just moved it. ValidCard$
+// matches the card and ValidOriginalController$ the player it left (each
+// absent a pass; a player spec matchesPlayerSpec cannot read skips the
+// line). TriggerController$ (the trigger's own controller changing, Sigil of
+// Corruption) and ThisTurn$ skip the line (GO-7).
+func (g *Game) checkChangesControllerTriggers(controller PlayerController, card CardID, original PlayerID) {
+	var matches []Ability
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for face := range h.triggerFaces {
+				for _, t := range face.Triggers {
+					if !strings.EqualFold(t.Name, "ChangesController") || hasAnyParam(t, "TriggerController", "ThisTurn") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+						continue
+					}
+					if spec, ok := t.Param("ValidOriginalController"); ok {
+						if matched, recognized := matchesPlayerSpec(g, original, h.Controller(), host, spec); !recognized || !matched {
+							continue
+						}
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: card})})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
 // isUntapsTrigger reports whether t is CR 603's "becomes untapped" shape:
 // Mode$ Untaps.
 func isUntapsTrigger(t *compile.Ability) bool {

@@ -132,7 +132,7 @@ func (gainControlVariantEffect) Resolve(g *Game, a *Ability, controller PlayerCo
 		if g.Card(gr.card).Zone != Battlefield {
 			continue
 		}
-		g.changeControllerAt(gr.card, gr.to, ts)
+		g.changeControllerAt(controller, gr.card, gr.to, ts)
 	}
 	return nil
 }

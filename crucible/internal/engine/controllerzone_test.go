@@ -134,3 +134,36 @@ func TestStolenCreatureBlocksForItsController(t *testing.T) {
 		t.Errorf("blocks = %v, want %v: the thief %v blocks with the stolen creature", got, want, p)
 	}
 }
+
+// TestChangesControllerTriggerFiresWhenControlMoves proves Mode$
+// ChangesController (12 real lines): a watcher naming ValidOriginalController$
+// You fires when a creature of the watcher's controller changes hands, and not
+// when the creature was already the other player's.
+func TestChangesControllerTriggerFiresWhenControlMoves(t *testing.T) {
+	t.Parallel()
+
+	g, p, other, aura, _, _ := stolenCreatureGame(t)
+	// The watcher belongs to the owner: "when you lose control of a creature".
+	g.NewCard(triggerWatcherDef(t, "Test Loss Watcher",
+		"Mode$ ChangesController | ValidCard$ Creature | ValidOriginalController$ You | TriggerZones$ Battlefield | Execute$ TrigGain",
+		"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life; got != 21 {
+		t.Errorf("owner's life = %d, want 21: the creature left them", got)
+	}
+
+	// Control returning is a change too, but from the thief: not "You" for the owner's watcher.
+	g.Move(aura, engine.Graveyard, p)
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life; got != 21 {
+		t.Errorf("owner's life = %d after control returned, want 21 still", got)
+	}
+}

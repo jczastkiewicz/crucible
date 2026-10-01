@@ -66,10 +66,10 @@ func (exchangeControlVariantEffect) Resolve(g *Game, a *Ability, controller Play
 	g.timestamp++
 	ts := g.timestamp
 	for _, id := range chosen1 {
-		g.changeControllerAt(id, players[1], ts)
+		g.changeControllerAt(controller, id, players[1], ts)
 	}
 	for _, id := range chosen2 {
-		g.changeControllerAt(id, players[0], ts)
+		g.changeControllerAt(controller, id, players[0], ts)
 	}
 	return nil
 }

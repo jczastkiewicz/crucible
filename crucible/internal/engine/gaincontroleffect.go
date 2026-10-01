@@ -61,7 +61,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			continue
 		}
-		g.changeController(id, newController)
+		g.changeController(controller, id, newController)
 		c := g.Card(id)
 		if untap && c.Tapped {
 			c.Tapped = false
@@ -81,19 +81,19 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 // addTempController plus controllerChangeZoneCorrection): when that is a
 // real change the permanent moves to its controller's battlefield list,
 // leaves combat and is summoning sick again (correctControllerZone).
-func (g *Game) changeController(id CardID, to PlayerID) {
+func (g *Game) changeController(controller PlayerController, id CardID, to PlayerID) {
 	g.timestamp++
-	g.changeControllerAt(id, to, g.timestamp)
+	g.changeControllerAt(controller, id, to, g.timestamp)
 }
 
 // changeControllerAt is changeController under a timestamp the caller took
 // -- several permanents changing controller in one event share it.
-func (g *Game) changeControllerAt(id CardID, to PlayerID, ts uint64) {
+func (g *Game) changeControllerAt(controller PlayerController, id CardID, to PlayerID, ts uint64) {
 	c := g.Card(id)
 	before := c.Controller()
 	c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: to})
 	if c.Zone == Battlefield {
-		g.correctControllerZone(id)
+		g.correctControllerZone(controller, id)
 	} else if c.Controller() != before {
 		// A spell on the stack (ControlSpell) has no battlefield list to
 		// move between; it only takes the flags.
@@ -112,9 +112,10 @@ func (g *Game) changeControllerAt(id CardID, to PlayerID, ts uint64) {
 // ChangesZone trigger -- Java suppresses the latter -- and a phased-out card
 // stays phased out. The permanent leaves combat, is summoning sick under its
 // new controller and stops being its old controller's Ring-bearer, for a
-// Layer 2 change as for a one-shot one. The ChangesController trigger
-// (game-state.md, "Not ported yet") is not fired.
-func (g *Game) correctControllerZone(id CardID) {
+// Layer 2 change as for a one-shot one, then Mode$ ChangesController triggers
+// fire (checkChangesControllerTriggers). Java's runChangeControllerCommands
+// and the Soulbond unpairing (game-state.md, "Not ported yet") are not done.
+func (g *Game) correctControllerZone(controller PlayerController, id CardID) {
 	c := g.Card(id)
 	if c.Zone != Battlefield {
 		return
@@ -123,6 +124,7 @@ func (g *Game) correctControllerZone(id CardID) {
 	if to == c.ZoneOwner {
 		return
 	}
+	original := c.ZoneOwner
 	g.Zone(Battlefield, c.ZoneOwner).remove(id)
 	c.ZoneOwner = to
 	g.Zone(Battlefield, to).cards.Add(id)
@@ -132,6 +134,7 @@ func (g *Game) correctControllerZone(id CardID) {
 	c.SummonSick = true
 	g.removeFromCombat(id)
 	g.loseRingBearer(id)
+	g.checkChangesControllerTriggers(controller, id, original)
 }
 
 // correctControllerZones runs correctControllerZone over every battlefield
@@ -141,7 +144,7 @@ func (g *Game) correctControllerZone(id CardID) {
 // re-homed while the Aura's static is off). It collects first and moves after, so
 // no list is changed while it is being read. CheckStateBasedActions runs it
 // right after applyContinuousControl.
-func (g *Game) correctControllerZones() {
+func (g *Game) correctControllerZones(controller PlayerController) {
 	var moved []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -151,6 +154,6 @@ func (g *Game) correctControllerZones() {
 		}
 	}
 	for _, id := range moved {
-		g.correctControllerZone(id)
+		g.correctControllerZone(controller, id)
 	}
 }

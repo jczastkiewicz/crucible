@@ -63,8 +63,8 @@ func (exchangeControlEffect) Resolve(g *Game, a *Ability, controller PlayerContr
 		return nil
 	}
 	p1, p2 := g.Card(object1).Controller(), g.Card(object2).Controller()
-	g.changeController(object2, p1)
-	g.changeController(object1, p2)
+	g.changeController(controller, object2, p1)
+	g.changeController(controller, object1, p2)
 	if _, ok := a.Params.Param("RememberExchanged"); ok {
 		source.Memory.Remember(CardEntity(object1))
 		source.Memory.Remember(CardEntity(object2))

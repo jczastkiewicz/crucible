@@ -641,8 +641,11 @@ from the eligible attackers, so a controller with no able creature is not asked.
 
 Not applied, never assumed (GO-7): a line with an unlisted param (`DefenderNotNearestToYouInChosenDirection$`,
 `CheckSVar$`, `IsPresent$`), and an `UnlessDefender$` or `Target$` property `matchesPlayerSpec` does not recognize
-(`controlsIsland`, `attackedBySourceThisTurn`: 26 and 2 lines), which leaves such a creature free to attack. Tests:
-`cantattack_test.go`.
+(`controlsIsland`, `attackedBySourceThisTurn`: 26 and 2 lines), which leaves such a creature free to attack.
+
+`Mode$ CantBlock` (141 lines, 93 of them `Card.Self`) is its blocking twin: `cantBlock` (`cantattack.go`, hosts the
+blocker itself plus the static-source zones) joins the keyword texts in `canBlockAtAll` (`block.go`); `IsPresent$` and
+`CheckSVar$` lines are not applied. Tests: `cantattack_test.go`.
 
 ## CR 508.1c: exerting an attacker as it attacks
 

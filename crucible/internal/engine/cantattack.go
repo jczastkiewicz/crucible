@@ -161,3 +161,36 @@ func (g *Game) canAttackDefender(c *Card, target EntityID) bool {
 	}
 	return false
 }
+
+var cantBlockParams = map[string]bool{
+	"mode": true, "validcard": true, "effectzone": true,
+	"condition": true, "phases": true, "playerturn": true,
+	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+}
+
+// cantBlock is StaticAbilityCantAttackBlock.cantBlock for the statics:
+// some Mode$ CantBlock static names the blocker (ValidCard$ matches it; an
+// absent ValidCard$ names every creature). Hosts are the blocker itself and
+// the static-ability source zones. Detention, suspicion and the keyword texts
+// are canBlockAtAll's own. A line with an unlisted param (IsPresent$,
+// CheckSVar$ ...) is not applied (GO-7).
+func (g *Game) cantBlock(blocker CardID) bool {
+	b := g.Card(blocker)
+	for _, host := range g.staticHostsWith(blocker) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.Def.Faces {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CantBlock") || !paramsResolvable(s, cantBlockParams) || !g.staticConditionsMet(h, s) {
+					continue
+				}
+				if v, ok := s.Param("ValidCard"); !ok || Matches(g, b, valid.Parse(v), h.Controller(), h.ID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}

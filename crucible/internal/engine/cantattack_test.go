@@ -92,3 +92,36 @@ func TestCreatureThatCannotAttackAnyoneIsNotEligible(t *testing.T) {
 		t.Errorf("DeclareCombatAttackers = %v, %v; want no attackers and no error", attackers, err)
 	}
 }
+
+// Mode$ CantBlock (141 cards): "CARDNAME can't block", Pacifism's enchanted
+// creature, Threshold-conditioned lines.
+func TestCantBlockStatics(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"no static", "", true},
+		{"the creature itself", "S:Mode$ CantBlock | ValidCard$ Card.Self", false},
+		{"every creature", "S:Mode$ CantBlock | ValidCard$ Creature", false},
+		{"only white creatures", "S:Mode$ CantBlock | ValidCard$ Creature.White", true},
+		{"a condition that fails", "S:Mode$ CantBlock | ValidCard$ Card.Self | Condition$ Threshold", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, a, b := combatGame(t)
+			attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
+			def := scriptDef(t, "Test Blocker", "Creature Elf")
+			if tc.line != "" {
+				def.Faces[0].Statics = append(def.Faces[0].Statics, scriptDef(t, "x", "Enchantment", tc.line).Faces[0].Statics...)
+			}
+			blocker := g.NewCard(def, b, engine.Battlefield)
+			if got := g.CanBlock(attacker, blocker); got != tc.want {
+				t.Errorf("CanBlock = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

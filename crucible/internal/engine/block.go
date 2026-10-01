@@ -249,7 +249,7 @@ func (g *Game) canBlockAtAll(blocker CardID) bool {
 	if !b.Type().Has(cardtype.Creature) || b.Tapped || b.isDetained() || b.Suspected {
 		return false
 	}
-	if b.hasKeywordText("CARDNAME can't block.") || b.hasKeywordText("CARDNAME can't attack or block.") {
+	if b.hasKeywordText("CARDNAME can't block.") || b.hasKeywordText("CARDNAME can't attack or block.") || g.cantBlock(blocker) {
 		return false
 	}
 	if b.hasKeywordText("CARDNAME can't attack or block alone.") || b.hasKeywordText("CARDNAME can't block alone.") {

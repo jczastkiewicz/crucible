@@ -458,9 +458,9 @@ Tests: `activationlimits_test.go`.
 tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14), one `Sac<N/Type>` (88, 5;
 `CARDNAME` sacrifices the source), one `Return<N/Type>` (`CARDNAME` or a valid string; `returnTypeCandidates` and
 `returnCards`, the activation-cost twins), `DamageYou<N>` (18; `dealPlayerDamage` from the source, always payable as
-`CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, unpayable under a draw prevention). `Reveal`, `ExileFromGrave`,
-`tapXType`, `AddCounter`, `Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and an `X` still
-error.
+`CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, which applies a draw replacement during payment; `CostDraw.canPay`
+reads `S:Mode$ CantDraw`, which this port does not read yet). `Reveal`, `ExileFromGrave`, `tapXType`, `AddCounter`,
+`Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and an `X` still error.
 
 | Step                     | Rule                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |

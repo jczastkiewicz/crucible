@@ -118,6 +118,10 @@ type Ability struct {
 	// subability.go) -- neither is ever optional on its own, a trigger's own
 	// OptionalDecider$ never carrying onto what it chains into.
 	Optional bool
+	// costPaid marks an activated ability whose Cost$ ActivateAbility already
+	// paid. An AB$ line reaching the stack any other way -- a trigger's
+	// Execute$ -- is paid when it resolves (resolveTriggeredCost).
+	costPaid bool
 	// TriggerRemembered is what a delayed or reflexive trigger remembered when
 	// it was created (RememberObjects$, Java's Trigger.addRemembered),
 	// carried onto the ability it runs and every sub-ability that ability

@@ -8,7 +8,6 @@ package engine
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
@@ -26,10 +25,8 @@ import (
 //
 // ConditionDefined$ is rejected: subAbilityConditionMet reads a line naming
 // it as unmet, which would silently skip the effect. A Mode$ RingTemptsYou
-// trigger in play whose Execute$ carries a Cost$ is rejected too, before
-// anything happens: this port's trigger resolution does not ask for or pay
-// a triggered ability's own cost, so resolving one would hand out its
-// effect for free.
+// trigger whose Execute$ carries a Cost$ (Call of the Ring's PayLife<2>) pays
+// it as it resolves (Registry.payTriggeredCost).
 //
 // Ported from forge-game/src/main/java/forge/game/ability/effects/RingTemptsYouEffect.java's
 // resolve.
@@ -44,9 +41,6 @@ func (ringTemptsYouEffect) Resolve(g *Game, a *Ability, c PlayerController) erro
 		return nil
 	}
 	p := a.Controller
-	if err := g.ringTemptsYouTriggersResolvable(p); err != nil {
-		return fmt.Errorf("engine: RingTemptsYou: %w", err)
-	}
 	g.temptWithRing(p, g.Player(p).ringTempted+1)
 
 	candidates := g.ringBearerCandidates(p)
@@ -183,44 +177,6 @@ func (g *Game) checkRingTemptsYouTriggers(c PlayerController, p PlayerID, bearer
 		}
 		return bearer != NoCard && Matches(g, g.Card(bearer), valid.Parse(spec), h.Controller(), h.ID)
 	}, "RingTemptsYou"))
-}
-
-// ringTemptsYouTriggersResolvable is the effect's pre-check: an error when
-// a Mode$ RingTemptsYou trigger that could fire for p (host in a zone its
-// TriggerZones$ names, ValidPlayer$ matching p) runs an Execute$ carrying a
-// Cost$ (Call of the Ring's PayLife<2>, Sauron's Discard<1/Hand>).
-func (g *Game) ringTemptsYouTriggersResolvable(p PlayerID) error {
-	for _, pid := range g.Players() {
-		for _, z := range phaseTriggerZones {
-			for _, host := range g.Zone(z, pid).Cards() {
-				h := g.Card(host)
-				if h.Def == nil {
-					continue
-				}
-				for face := range h.triggerFaces {
-					for _, t := range face.Triggers {
-						if !strings.EqualFold(t.Name, "RingTemptsYou") || !phaseTriggerZoneMatches(h, t, z) {
-							continue
-						}
-						if vp, ok := t.Param("ValidPlayer"); ok {
-							if matched, recognized := matchesPlayerSpec(g, p, h.Controller(), host, vp); recognized && !matched {
-								continue
-							}
-						}
-						if vc, ok := t.Param("ValidCard"); ok && !g.anyRingBearerCandidateMatches(p, h, vc) {
-							continue
-						}
-						for _, sub := range additionalAbilities(t, "Execute") {
-							if _, ok := sub.Ability.Param("Cost"); ok {
-								return fmt.Errorf("%s's RingTemptsYou trigger: Execute$ with Cost$ not resolvable yet", h.Def.Name)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // anyRingBearerCandidateMatches reports whether spec, read from host,

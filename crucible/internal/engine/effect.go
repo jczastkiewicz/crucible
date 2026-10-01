@@ -7,6 +7,8 @@ package engine
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // Effect resolves one ability.
@@ -92,6 +94,9 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
 		return nil
 	}
+	if paid, err := r.payTriggeredCost(g, a, controller); err != nil || !paid {
+		return err
+	}
 	if int(a.API) >= numAPITypes {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
@@ -113,6 +118,36 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 		return nil
 	}
 	return r.resolveSubAbility(g, a, controller)
+}
+
+// payTriggeredCost is the Cost$ half of WrappedAbility.resolve's
+// playSpellAbilityNoStack (WrappedAbility.java:440): a trigger whose Execute$
+// is an AB$ line with a Cost$ pays it as the ability resolves, and the
+// ability does nothing when the cost is not paid. Java makes such a trigger
+// optional -- "triggers with a cost can't be mandatory"
+// (TriggerHandler.java:511) -- unless the cost says Mandatory or is 0, so the
+// controller is asked once (ConfirmOptionalTrigger) unless an OptionalDecider$
+// already did. An ability whose cost ActivateAbility already paid
+// (Ability.costPaid), one of the host's own printed A: lines, and every DB$
+// line skip this. A cost parseUnlessCost does
+// not read is an error rather than a free resolution (GO-7). paid reports
+// whether the ability goes on to resolve.
+func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerController) (paid bool, err error) {
+	if a.costPaid || a.Params == nil || a.Params.Record != compile.Activated || isOwnActivatedAbility(g.Card(a.Source), a.Params) {
+		return true, nil
+	}
+	text, ok := a.Params.Param("Cost")
+	if !ok || text == "0" {
+		return true, nil
+	}
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		return false, fmt.Errorf("engine: triggered AB$ Cost$ %q not resolvable yet", text)
+	}
+	if !a.Optional && !uc.mandatory && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
+		return false, nil
+	}
+	return g.payUnlessCost(controller, a, a.Controller, uc), nil
 }
 
 // resolveUnlessCost is CR's own "unless a cost is paid" gate --
@@ -175,7 +210,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 
 	paid := false
 	for _, pid := range payers {
-		if controller.ConfirmPayCost(g, pid, uc.parsed, a.Source) && g.payUnlessCost(controller, a, pid, uc) {
+		if (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, a.Source)) && g.payUnlessCost(controller, a, pid, uc) {
 			paid = true
 		}
 	}
@@ -205,3 +240,18 @@ func (r *Registry) Implemented() int {
 
 // NumAPIs is how many ability APIs Forge declares.
 func NumAPIs() int { return numAPITypes }
+
+// isOwnActivatedAbility reports whether ab is one of host's own printed A:
+// lines -- abilities whose Cost$ ActivateAbility (activateability.go) pays
+// before they reach the stack, however they were pushed.
+func isOwnActivatedAbility(host *Card, ab *compile.Ability) bool {
+	if host.Def == nil {
+		return false
+	}
+	for _, own := range host.Def.Faces[0].Abilities {
+		if own == ab {
+			return true
+		}
+	}
+	return false
+}

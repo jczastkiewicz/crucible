@@ -484,7 +484,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !isSpellCastTrigger(t) {
 				continue
 			}
-			if onStack && (!phaseTriggerZoneMatches(h, t, Stack) || executeHasCost(t)) {
+			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
 				continue
 			}
 			if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
@@ -2337,18 +2337,6 @@ func rememberedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amoun
 		}
 	}
 	return presentCountMatches(g, host, amounts, t, compareKey, n)
-}
-
-// executeHasCost reports whether t's Execute$ ability names its own Cost$.
-func executeHasCost(t *compile.Ability) bool {
-	for _, sub := range t.Subs {
-		if strings.EqualFold(sub.Key, "Execute") {
-			if _, ok := sub.Ability.Param("Cost"); ok {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // presentCountMatches compares n, the count of present objects, against

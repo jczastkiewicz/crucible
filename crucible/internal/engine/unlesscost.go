@@ -3,7 +3,7 @@
 // and Sac<N/Type> beside mana tokens are the shapes that need no mid-payment
 // decision beyond which cards.
 
-//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid
+//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts
 
 package engine
 
@@ -27,17 +27,21 @@ type unlessCost struct {
 	// "CARDNAME" for the source itself.
 	lifeN, discardN, sacN int
 	sacSpec               string
+	// energyN is PayEnergy<N>; mandatory is the Mandatory token, which makes
+	// the cost unskippable (CostPart's isMandatory): nobody is asked.
+	energyN   int
+	mandatory bool
 }
 
 // parseUnlessCost reads text into an unlessCost, false for a shape past
-// mana, PayLife, Discard<N/Card> and one Sac part (Tap, Mandatory, an X,
-// energy, Reveal, ...), each its own further mechanic (GO-7).
+// mana, PayLife, PayEnergy, Discard<N/Card> and one Sac part (Tap, an X,
+// Reveal, ...), each its own further mechanic (GO-7).
 func parseUnlessCost(text string) (unlessCost, bool) {
 	parsed := cost.Parse(text)
-	if parsed.Tap || parsed.Untap || parsed.Mandatory || parsed.XMin != "" {
+	if parsed.Tap || parsed.Untap || parsed.XMin != "" {
 		return unlessCost{}, false
 	}
-	uc := unlessCost{parsed: parsed}
+	uc := unlessCost{parsed: parsed, mandatory: parsed.Mandatory}
 	for _, p := range parsed.Parts {
 		n, err := strconv.Atoi(p.Field(0))
 		if err != nil || n <= 0 {
@@ -46,6 +50,8 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 		switch {
 		case p.Name == "PayLife":
 			uc.lifeN += n
+		case p.Name == "PayEnergy":
+			uc.energyN += n
 		case p.Name == "Discard" && p.Field(1) == "Card":
 			uc.discardN += n
 		case p.Name == "Sac" && uc.sacN == 0 && p.Field(1) != "":
@@ -99,7 +105,8 @@ func (g *Game) unlessSacCandidates(pid PlayerID, source CardID, uc unlessCost) [
 func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) bool {
 	hand := g.Zone(Hand, pid).Cards()
 	candidates := g.unlessSacCandidates(pid, a.Source, uc)
-	if uc.lifeN > g.Player(pid).Life || uc.discardN > len(hand) || uc.sacN > len(candidates) {
+	if uc.lifeN > g.Player(pid).Life || uc.energyN > g.Player(pid).Counters.Count(Energy) ||
+		uc.discardN > len(hand) || uc.sacN > len(candidates) {
 		return false
 	}
 	if uc.hasMana && !g.PayManaCost(pid, uc.mana, controller) {
@@ -108,6 +115,10 @@ func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid Player
 	if uc.lifeN > 0 {
 		g.Player(pid).Life -= uc.lifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
+	}
+	if uc.energyN > 0 {
+		g.Player(pid).Counters.Add(Energy, -uc.energyN)
+		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), Energy, -uc.energyN)
 	}
 	if uc.discardN > 0 {
 		discardCards(g, controller, controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN), pid)

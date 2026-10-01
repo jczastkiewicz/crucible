@@ -456,8 +456,8 @@ Tests: `activationlimits_test.go`.
 
 `resolveUnlessCost` (`effect.go`) pays "unless" costs through `parseUnlessCost`/`payUnlessCost` (`unlesscost.go`): mana
 tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14) and one `Sac<N/Type>` (88, 5;
-`CARDNAME` sacrifices the source). `Reveal`, `Return`, `PayEnergy`, `DamageYou`, `ExileFromGrave`, `Draw`, `tapXType`,
-`AddCounter`, `Mandatory` and an `X` still error.
+`CARDNAME` sacrifices the source). `Reveal`, `Return`, `DamageYou`, `ExileFromGrave`, `Draw`, `tapXType`, `AddCounter`
+and an `X` still error.
 
 | Step                     | Rule                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -470,6 +470,21 @@ tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>`
 `Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,
 `CollectEvidence`, `Blight`, `AddCounterYou` and `Ward:X` are skipped before reaching the stack. Tests:
 `unlesscostparts_test.go`, `ward_test.go`.
+
+## Triggered `AB$` costs
+
+A trigger whose `Execute$` is an `AB$` line with a `Cost$` (884 real triggers on 828 cards: "you may pay {1}. If you do,
+...", `Discard<1/Card>`, `Sac<1/CARDNAME>`, `PayEnergy<2>`) used to resolve its effect for free.
+`WrappedAbility.resolve` plays the ability with its cost (`WrappedAbility.java:440`) and `TriggerHandler.java:511` makes
+it optional unless the cost is `0` or says `Mandatory`. `Registry.payTriggeredCost` (`effect.go`) is that: after the
+`OptionalDecider$` confirm, an ability of record `Activated` that is not one of its host's own printed `A:` lines, nor
+flagged `costPaid` by `ActivateAbility`, asks `ConfirmOptionalTrigger` (unless `Mandatory`) and pays the cost through
+`payUnlessCost`; unpaid, it does nothing. A cost `parseUnlessCost` does not read (`Draw<1/You>`, an `X`, ...) is an
+error, never a free resolution (GO-7). `PayEnergy<N>` and `Mandatory` joined `parseUnlessCost` for this.
+
+Guards that existed for the gap are gone: Meld's own `Cost$` rejection, the RingTemptsYou pre-check, and the spell-cast
+scan that left a cost trigger unfired on the stack (`executeHasCost`). Tests: `TestRingTemptsYouTriggerPaysItsCost`,
+`TestMeldVanillePaysItsTriggeredCost`, `TestSpellsOwnCastTriggerWithExecuteCostPaysIt`.
 
 ## `Activator$`, `IsPresent$`, `LifeTotal$`, `Activation$` and `CheckSVar$`
 

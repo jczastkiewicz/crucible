@@ -13,15 +13,15 @@ there.
 
 **Corpus.** 7 real lines, one per meld pair. 6 resolve, 1 rejected.
 
-| Card (primary + secondary)                          | Shape                                                                    | Status                                 |
-| --------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
-| Gisela, the Broken Blade + Bruna, the Fading Light  | End-step trigger, `IsPresent2$ Creature...+namedBruna; the Fading Light` | Resolves (`TestMeldGiselaAndBruna...`) |
-| Graf Rats + Midnight Scavengers                     | Begin-combat trigger, same `IsPresent2$` shape                           | Resolves                               |
-| Titania, Voice of Gaea + Argoth, Sanctum of Nature  | Upkeep trigger, `CheckSVar$`, `SecondaryType$ Land`                      | Resolves (`TestMeldTitania...`)        |
-| Hanweir Battlements + Hanweir Garrison              | `AB$ Meld`, `Cost$ 3 R R T`, `ConditionPresent$` + `ConditionCheckSVar$` | Resolves (`TestMeldHanweir...`)        |
-| Urza, Lord Protector + The Mightstone and Weakstone | `AB$ Meld`, `Cost$ 7`, `SecondaryType$ Artifact`, `SorcerySpeed$`        | Resolves (`TestMeldUrza...`)           |
-| Mishra, Claimed by Gix + Phyrexian Dragon Engine    | `AttackersDeclared` chain, `Tapped$ True`, `Attacking$ True`             | Resolves (`TestMeldMishra...`)         |
-| Vanille, Cheerful l'Cie + Fang, Fearless l'Cie      | Main1 trigger executing `AB$ Meld \| Cost$ 3 B G`                        | Rejected: triggered `Cost$` never paid |
+| Card (primary + secondary)                          | Shape                                                                    | Status                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Gisela, the Broken Blade + Bruna, the Fading Light  | End-step trigger, `IsPresent2$ Creature...+namedBruna; the Fading Light` | Resolves (`TestMeldGiselaAndBruna...`)                    |
+| Graf Rats + Midnight Scavengers                     | Begin-combat trigger, same `IsPresent2$` shape                           | Resolves                                                  |
+| Titania, Voice of Gaea + Argoth, Sanctum of Nature  | Upkeep trigger, `CheckSVar$`, `SecondaryType$ Land`                      | Resolves (`TestMeldTitania...`)                           |
+| Hanweir Battlements + Hanweir Garrison              | `AB$ Meld`, `Cost$ 3 R R T`, `ConditionPresent$` + `ConditionCheckSVar$` | Resolves (`TestMeldHanweir...`)                           |
+| Urza, Lord Protector + The Mightstone and Weakstone | `AB$ Meld`, `Cost$ 7`, `SecondaryType$ Artifact`, `SorcerySpeed$`        | Resolves (`TestMeldUrza...`)                              |
+| Mishra, Claimed by Gix + Phyrexian Dragon Engine    | `AttackersDeclared` chain, `Tapped$ True`, `Attacking$ True`             | Resolves (`TestMeldMishra...`)                            |
+| Vanille, Cheerful l'Cie + Fang, Fearless l'Cie      | Main1 trigger executing `AB$ Meld \| Cost$ 3 B G`                        | Resolves, cost paid as it resolves (`TestMeldVanille...`) |
 
 **Resolution order** (`MeldEffect.java`): secondary candidates = activator's battlefield, owned by activator, name
 `Secondary$`, type `SecondaryType$` (default `Creature`); none → no-op. One pick (`ChooseCardsForEffect`, 1..1). Host
@@ -86,7 +86,6 @@ trigger unflipped; `TestFlipFaceTriggersAreNotLiveOnTheFrontFace` pins the fix.
 
 | Shape                                       | Why                                                                                                                   |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `Cost$` on anything but the host's A:       | Vanille's trigger-executed `AB$ Meld \| Cost$ 3 B G`: no triggered ability's cost is asked for; free meld wrong       |
 | `Attacking$` other than `True`, `Blocking$` | `addToCombat`'s defined-defender and blocker branches; 0 corpus lines                                                 |
 | `Condition$`                                | `subAbilityConditionMet` would skip it silently                                                                       |
 | No `Primary$`/`Secondary$`                  | Java's `sharesNameWith(null)` fails after exiling both                                                                |

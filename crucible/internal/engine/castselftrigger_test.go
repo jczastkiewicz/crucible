@@ -51,22 +51,48 @@ func TestSpellsOwnCastTriggerFiresFromTheStack(t *testing.T) {
 }
 
 // A cast trigger whose Execute$ carries its own Cost$ (Bearer of Silence's
-// "you may pay {1}{C}") stays unfired from the stack: no triggered ability's
-// Cost$ is asked for or paid yet, and firing it would be free.
-func TestSpellsOwnCastTriggerWithExecuteCostStaysUnfired(t *testing.T) {
+// "you may pay {1}{C}") fires from the stack and asks: declined, the cost is not
+// paid and the effect does not happen; confirmed and paid, it does.
+func TestSpellsOwnCastTriggerWithExecuteCostPaysIt(t *testing.T) {
 	t.Parallel()
 
-	g, p, _ := newTwoPlayerGame(t)
-	def := scriptDef(t, "Test Cast Cost", "Creature Elf",
-		"T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TrigGain",
-		"SVar:TrigGain:AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 3")
-	def.Faces[0].ManaCost = mana.MustParse("G")
-	spell := g.NewCard(def, p, engine.Hand)
-	castGreenAndResolve(t, g, p, spell, engine.NewScriptedController())
+	for _, tc := range []struct {
+		name     string
+		confirm  bool
+		wantLife int
+	}{
+		{"declined", false, 20},
+		{"paid", true, 23},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	if got := g.Player(p).Life; got != 20 {
-		t.Errorf("life = %d, want 20 -- an unpaid Cost$ must not resolve for free", got)
+			g, p, _ := newTwoPlayerGame(t)
+			def := scriptDef(t, "Test Cast Cost", "Creature Elf",
+				"T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TrigGain",
+				"SVar:TrigGain:AB$ GainLife | Cost$ G | Defined$ You | LifeAmount$ 3")
+			def.Faces[0].ManaCost = mana.MustParse("G")
+			spell := g.NewCard(def, p, engine.Hand)
+			c := engine.NewScriptedController()
+			c.QueueConfirmOptionalTrigger(tc.confirm)
+			g.Player(p).ManaPool.Add(mana.Green, 1) // pays the trigger's {G}; castGreenAndResolve adds the spell's
+			castGreenAndResolve(t, g, p, spell, c)
+
+			if got := g.Player(p).Life; got != tc.wantLife {
+				t.Errorf("life = %d, want %d", got, tc.wantLife)
+			}
+			if got := g.Player(p).ManaPool.Total(); got != 1-boolToInt(tc.confirm) {
+				t.Errorf("mana left = %d, want %d: the trigger's cost is paid only when confirmed", got, 1-boolToInt(tc.confirm))
+			}
+		})
 	}
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // TriggerZones$ naming the Stack keeps it active there; naming only the

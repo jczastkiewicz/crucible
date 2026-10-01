@@ -43,12 +43,10 @@ the error. `SubAbility$` on the `ReplaceWith$` ability: `error` (`ReplacementHan
 not modeled).
 
 **`ReplacedPlayer`.** Java's `whoDeclaresBlockers = p.getDeclaresBlockers() ?: p` (`PhaseHandler.java:662`): Odric,
-Master Tactician's redirect. `continuous.go`'s `eachReplacement` hook skips any `DeclaresAttackers$`/`DeclaresBlockers$`
-static (`:809`), so nothing in this port ever sets that redirect -- `ReplacedPlayer` resolves to the defender for every
-corpus line today because the redirect is unread, not because this port has ruled the shape out. No `ReplacedPlayer`
-field of its own: `replacementEvent.player` carries it, the same field an unredirected declaration also reads.
-`ReplacedDefendingPlayer` is `Affected`, the defender (`replacementEvent.defendingPlayer`). Unset outside a
-`DeclareBlocker` replacement: `error`.
+Master Tactician's redirect: `Game.BlockDeclarer(defender)` ([ADR-0036](../../../adr/0036-declaration-redirects.md)),
+the defender unless a `DeclaresBlockers$` static names someone else. No `ReplacedPlayer` field of its own:
+`replacementEvent.player` carries it, the same field an unredirected declaration also reads. `ReplacedDefendingPlayer`
+is `Affected`, the defender (`replacementEvent.defendingPlayer`). Unset outside a `DeclareBlocker` replacement: `error`.
 
 **Repair, not validation (ADR-0024 Decision 2 exception).** Java's replaced path never calls
 `CombatUtil.validateBlocks`. After the replacement it only runs the steady-state loop: each pass snapshots the

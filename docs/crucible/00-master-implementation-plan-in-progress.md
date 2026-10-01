@@ -1643,9 +1643,10 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     `CastSpell`/`PlayLand` consult (421 of 660 real lines; `MayLookAt$` is a no-op in an omniscient engine);
     `AddHiddenKeyword$` resolves per card for the four keyword lines something reads (41 of 53 real lines,
     `port-log/game-state/layers-text-and-rules.md`); the four vote/villainous-choice params resolve into `RulesEffect`
-    fields Vote/VillainousChoice read; `ControlOpponentsSearchingLibrary$`/`DeclaresAttackers$`/`DeclaresBlockers$` hand
-    a decision to another player's controller, which nothing here can; a qualified `Affected$` `matchesPlayerSpec`
-    cannot resolve (`Player.NotedForGreenAnchor`/`Player.Chosen`, 1 real line each).
+    fields Vote/VillainousChoice read; `DeclaresAttackers$`/`DeclaresBlockers$` resolve into `RulesEffect` fields
+    `Game.AttackDeclarer`/`BlockDeclarer` read (ADR-0036); `ControlOpponentsSearchingLibrary$` hands a decision to
+    another player's controller, which no search effect here can do; a qualified `Affected$` `matchesPlayerSpec` cannot
+    resolve (`Player.NotedForGreenAnchor`/`Player.Chosen`, 1 real line each).
 
     The legend rule's own `ignoreLegendRule` exemption (item 25) and `CantBlockBy` (item 28's own combat note) already
     showed a static-ability mode can be independently buildable when it needs no layer-folding of its own —

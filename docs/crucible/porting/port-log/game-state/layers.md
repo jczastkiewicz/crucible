@@ -282,8 +282,9 @@ mode this port checks has an evaluator for.
 (`AdditionalVote$`, `AdditionalOptionalVote$`, `AdditionalVillainousChoice$`, `ControlVote$`) resolve into `RulesEffect`
 fields:
 [Layer 8: vote and villainous-choice params land](layers-text-and-rules.md#layer-8-vote-and-villainous-choice-params-land).
-`ControlOpponentsSearchingLibrary$`, `DeclaresAttackers$` and `DeclaresBlockers$` (1-6 real lines each) hand a decision
-to another player's controller, which no effect or combat step here can do.
+`ControlOpponentsSearchingLibrary$` (1 real line) hands a decision to another player's controller, which no search
+effect here can do. `DeclaresAttackers$`/`DeclaresBlockers$` resolve
+([Layer 8: `DeclaresAttackers$` and `DeclaresBlockers$` land](layers-text-and-rules.md#layer-8-declaresattackers-and-declaresblockers-land)).
 
 `TestApplyContinuousRulesSetsUnlimitedHandSize`, `TestApplyContinuousRulesSetsFixedHandSize`,
 `TestApplyContinuousRulesRaisesHandSize`, `TestApplyContinuousRulesAdjustsLandPlays`,

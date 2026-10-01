@@ -3,7 +3,12 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/cardtype"
+import (
+	"strconv"
+
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+)
 
 // DealFirstStrikeDamage is CR 510.4's first sub-step: only creatures with
 // first strike or double strike deal damage. A safe no-op when nothing in
@@ -302,7 +307,20 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		emitCounterChanged(g.sink, source, CardEntity(target), Defense, -amount)
 	}
 	if t.Has(cardtype.Creature) {
-		c.Damage.Mark(amount, deathtouch)
+		if g.witherDamage(source) {
+			// CR 120.3d: damage from a source with wither or infect is
+			// dealt as -1/-1 counters, not marked damage; the deathtouch flag
+			// is set either way (Card.addDamageAfterPrevention).
+			if n := g.countersReplaced(controller, g.Card(source).Controller(), CardEntity(target), M1M1, amount); n > 0 {
+				c.Counters.Add(M1M1, n)
+				emitCounterChanged(g.sink, source, CardEntity(target), M1M1, n)
+			}
+			if deathtouch {
+				c.Damage.Deathtouch = true
+			}
+		} else {
+			c.Damage.Mark(amount, deathtouch)
+		}
 	}
 	var flags EventFlags
 	if isCombat {
@@ -354,9 +372,28 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	if isCombat {
 		flags = FlagCombat
 	}
-	g.Player(target).Life -= amount
+	// CR 120.3b: infect damage to a player is that many poison counters
+	// instead of life loss, and CR 702.164c's toxic adds its magnitude in
+	// poison counters to combat damage (Player.addDamageAfterPrevention).
+	poison := 0
+	if g.Card(source).HasKeyword("Infect") {
+		poison += amount
+	} else {
+		g.Player(target).Life -= amount
+	}
+	if isCombat {
+		poison += toxicMagnitude(g.Card(source))
+	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
-	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
+	if !g.Card(source).HasKeyword("Infect") {
+		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
+	}
+	if poison > 0 {
+		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {
+			g.Player(target).Counters.Add(Poison, n)
+			emitCounterChanged(g.sink, source, PlayerEntity(target), Poison, n)
+		}
+	}
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
 	if table != nil {
 		*table = append(*table, damageEntry{Source: source, Target: PlayerEntity(target), Amount: amount})
@@ -379,4 +416,30 @@ func (g *Game) dealRedirectedDamage(controller PlayerController, source CardID, 
 	if pid, ok := to.AsPlayer(); ok {
 		g.dealPlayerDamage(controller, source, pid, amount, isCombat, table)
 	}
+}
+
+// witherDamage is Card.isWitherDamage (CR 120.3d): a source with wither or
+// infect deals damage to a creature as -1/-1 counters. Mode$ WitherDamage, the
+// static that grants it, is not read.
+func (g *Game) witherDamage(source CardID) bool {
+	c := g.Card(source)
+	return c.HasKeyword("Wither") || c.HasKeyword("Infect")
+}
+
+// toxicMagnitude is Card.getKeywordMagnitude(Keyword.TOXIC): the sum of every
+// Toxic:N line c currently carries, each its own instance (CR 702.164b).
+func toxicMagnitude(c *Card) int {
+	total := 0
+	for _, line := range c.KeywordLines() {
+		kw := keyword.Parse(line)
+		if kw.Name != "Toxic" {
+			continue
+		}
+		if args := kw.Args(); len(args) > 0 {
+			if n, err := strconv.Atoi(args[0]); err == nil {
+				total += n
+			}
+		}
+	}
+	return total
 }

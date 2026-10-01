@@ -607,6 +607,25 @@ what Java's last-known-information copy preserves. Tests: `lifelink_test.go`, sc
 [`Not ported yet`](../game-state.md#not-ported-yet)); the `test-port-matrix.md` row for CR 104.3b with lifelink needs a
 two-sided combat scenario.
 
+## Infect, wither and toxic
+
+`Card.addDamageAfterPrevention` (`Card.java:6201`) and `Player.addDamageAfterPrevention` (`Player.java:656`) decide what
+damage that survived prevention does. `dealPermanentDamage` and `dealPlayerDamage` (`combatdamage.go`) port both:
+
+| Source has | Target creature (CR 120.3d)                | Target player (CR 120.3b)                  |
+| ---------- | ------------------------------------------ | ------------------------------------------ |
+| Wither     | that many -1/-1 counters, no marked damage | life loss as normal                        |
+| Infect     | as Wither                                  | that many poison counters, no life loss    |
+| Toxic N    | marked damage as normal                    | combat damage only: N more poison counters |
+
+Counters go through `countersReplaced` (a Doubling Season-style replacement applies, as for `PutCounter`) and emit
+`CounterChanged`. The deathtouch flag is set whether the damage is marked or dealt as counters, and infect damage still
+counts as dealt for lifelink and the `damageTable`. A player's poison total is checked by the existing CR 704.5c
+state-based action. `toxicMagnitude` sums every `Toxic:N` line the source carries (`getKeywordMagnitude`). Tests:
+`infectwither_test.go`, scenario `combat-infect-attacker-gives-poison-counters-not-life-loss`. Not ported:
+`S:Mode$ WitherDamage` and `Mode$ InfectDamage` (the statics that grant these), and the commander-damage half of
+`Player.addDamageAfterPrevention`.
+
 ## CR 508.1c: exerting an attacker as it attacks
 
 `compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`

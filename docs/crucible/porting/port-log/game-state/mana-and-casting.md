@@ -452,6 +452,25 @@ A mana ability and an `SP$` spell with a limit are not checked (0 real `SP$` lin
 refuses the mana lines). `charmeffect.go`, `untapalleffect.go` and `destroyalleffect.go` no longer reject the two keys.
 Tests: `activationlimits_test.go`.
 
+## `UnlessCost$` past mana, and Ward
+
+`resolveUnlessCost` (`effect.go`) pays "unless" costs through `parseUnlessCost`/`payUnlessCost` (`unlesscost.go`): mana
+tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14) and one `Sac<N/Type>` (88, 5;
+`CARDNAME` sacrifices the source). `Reveal`, `Return`, `PayEnergy`, `DamageYou`, `ExileFromGrave`, `Draw`, `tapXType`,
+`AddCounter`, `Mandatory` and an `X` still error.
+
+| Step                     | Rule                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| decide                   | `ConfirmPayCost(g, payer, cost.Cost, source)`: the parsed cost replaces the mana-only argument   |
+| payable first            | life at least `PayLife` (CR 119.4), enough cards to discard, enough permanents to sacrifice      |
+| mana                     | `PayManaCost`, which fails atomically, so a cost that cannot be met pays none of its other parts |
+| life, discard, sacrifice | the `LifeChanged` event as `loseLifeEffect`; the payer chooses discards and sacrifices           |
+
+`checkWardTriggers` pushes a Ward trigger for any cost `parseUnlessCost` reads, so `Ward:PayLife<N>`,
+`Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,
+`CollectEvidence`, `Blight`, `AddCounterYou` and `Ward:X` are skipped before reaching the stack. Tests:
+`unlesscostparts_test.go`, `ward_test.go`.
+
 ## `Activator$`, `IsPresent$`, `LifeTotal$`, `Activation$` and `CheckSVar$`
 
 `SpellAbilityRestriction.checkActivatorRestrictions` and `checkOtherRestrictions`

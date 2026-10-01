@@ -7,6 +7,7 @@ package engine
 import (
 	"fmt"
 
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -387,10 +388,11 @@ type PlayerController interface {
 	// needs PayManaCost (manapay.go) to actually succeed, exactly the
 	// two-step "decide, then pay" split every other mana decision on this
 	// interface already has (ChoosePayMonocoloredHybrid, ...). cost is the
-	// UnlessCost$ line's own parsed mana cost, source the ability's own
+	// UnlessCost$ line's own parsed cost -- mana, PayLife<N>, Discard<N/Card>
+	// and Sac<N/Type> parts (unlesscost.go) -- source the ability's own
 	// host card, carried so a real controller could describe what it is
 	// paying to prevent.
-	ConfirmPayCost(g *Game, decider PlayerID, cost mana.Cost, source CardID) bool
+	ConfirmPayCost(g *Game, decider PlayerID, price cost.Cost, source CardID) bool
 
 	// ChooseManaColor decides which color a Produced$ Any or Produced$ Combo
 	// mana ability adds (CR 605.3b, ActivateManaAbility,
@@ -1076,7 +1078,7 @@ func (c *ScriptedController) QueueConfirmPayCost(pay bool) {
 }
 
 // ConfirmPayCost returns the next answer QueueConfirmPayCost queued.
-func (c *ScriptedController) ConfirmPayCost(_ *Game, _ PlayerID, _ mana.Cost, _ CardID) bool {
+func (c *ScriptedController) ConfirmPayCost(_ *Game, _ PlayerID, _ cost.Cost, _ CardID) bool {
 	if len(c.payCost) == 0 {
 		panic(scriptExhausted("confirm pay cost"))
 	}

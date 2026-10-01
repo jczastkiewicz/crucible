@@ -285,7 +285,8 @@
       "playerstate",
       "targeting",
       "statictrigger",
-      "replaceeffect"
+      "replaceeffect",
+      "unlesscost"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [

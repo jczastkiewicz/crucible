@@ -2,15 +2,11 @@
 
 package engine
 
-//enginelint:allow id zone parts card player game ability control subability defined manapay
+//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost
 
 import (
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/jczastkiewicz/crucible/internal/cost"
-	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // Effect resolves one ability.
@@ -139,15 +135,13 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 // SubAbility$ still runs regardless (absent, Java's own "Always") or only
 // on one particular outcome ("WhenPaid"/"WhenNotPaid").
 //
-// Trimmed to the corpus's own one resolvable shape, and further to what is
-// actually reachable at all: a pure-mana UnlessCost$ (cost.Parse's own Mana
-// tokens alone -- no Sac<.../Discard<.../PayLife<.../... cost Part, no
-// Tap/Untap/Mandatory/XMin token, and no X shard once parsed, each its own
-// further mechanic with nowhere to route a mid-resolution "decide, then
-// pay" question through) and an explicit UnlessPayer$ naming
-// You/Player/Opponent/Player.Opponent (definedPlayers, reused). 56 of the
-// corpus's 727 real UnlessCost$ lines resolve past this gate and are
-// actually reachable by this port at all -- an activated ability's own
+// Trimmed to what parseUnlessCost (unlesscost.go) reads: mana tokens,
+// PayLife<N>, Discard<N/Card> and one Sac<N/Type> part -- no Tap/Untap/
+// Mandatory/XMin token and no X shard, each its own further mechanic -- and
+// an explicit UnlessPayer$ naming You/Player/Opponent/Player.Opponent
+// (definedPlayers, reused). A cost this port cannot read fails loudly here.
+// Of the corpus's 727 real UnlessCost$ lines, those with a readable cost are
+// reachable by this port at all -- an activated ability's own
 // Cost$-gated UnlessCost$ line composes with ActivateAbility
 // (activateability.go) too, now that general activated-ability casting is
 // built, an instant/sorcery's own top-level UnlessCost$ line still does not
@@ -160,12 +154,8 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 // "skip the whole line" applied at whichever link in the chain the actual
 // gap sits.
 func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerController, e Effect, unlessCostText string) error {
-	parsed := cost.Parse(unlessCostText)
-	if !parsed.IsPureMana() {
-		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
-	}
-	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
-	if err != nil || manaCost.CountX() > 0 {
+	uc, ok := parseUnlessCost(unlessCostText)
+	if !ok {
 		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
 	}
 
@@ -185,7 +175,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 
 	paid := false
 	for _, pid := range payers {
-		if controller.ConfirmPayCost(g, pid, manaCost, a.Source) && g.PayManaCost(pid, manaCost, controller) {
+		if controller.ConfirmPayCost(g, pid, uc.parsed, a.Source) && g.payUnlessCost(controller, a, pid, uc) {
 			paid = true
 		}
 	}

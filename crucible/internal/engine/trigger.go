@@ -21,10 +21,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
-	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
-	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -3374,9 +3372,9 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 // Built natively (ADR-0028 Decision point 4/5), not read off any card's
 // Def.Faces[].Triggers the way checkBecomesTargetTriggers' own scan is: no
 // script text names Ward's Execute$, so there is nothing to scan. Scoped to
-// the mana-cost shape only (Decision point 2) -- cost.Parse/mana.Parse's
-// own pre-check here mirrors resolveUnlessCost's (effect.go) exactly, so a
-// shape that would error there is never pushed here at all.
+// the costs parseUnlessCost reads -- mana, PayLife<N>, Discard<N/Card> and
+// Sac<N/Type> parts -- the identical pre-check resolveUnlessCost (effect.go)
+// makes, so a shape that would error there is never pushed here at all.
 //
 // Controller is the warded card's own controller (CR 603.3a: a triggered
 // ability's controller is its source's controller), not spellController --
@@ -3416,12 +3414,7 @@ func (g *Game) checkWardTriggers(targets []EntityID, spell CardID, spellControll
 			if k.Name != "Ward" || k.Details == "" {
 				continue
 			}
-			parsed := cost.Parse(k.Details)
-			if !parsed.IsPureMana() {
-				continue
-			}
-			manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
-			if err != nil || manaCost.CountX() > 0 {
+			if _, ok := parseUnlessCost(k.Details); !ok {
 				continue
 			}
 			params := &compile.Ability{Record: compile.SubAbility, Name: "Counter", Params: []vocab.Param{

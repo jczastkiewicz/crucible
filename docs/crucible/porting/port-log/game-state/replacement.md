@@ -829,3 +829,13 @@ not recognize (`Player.EnchantedBy`), is skipped, never assumed to hold (GO-7).
 reaches it. `setPlayerLife` now calls `gainLife` for its gain half, which also gives it Java's `isInGame` check. Tests:
 `cantgaindraw_test.go`. Not ported: `CantPutCounter`, `CantSacrifice`, `CantPayLife`, `CantPlayLand`, `CantBeActivated`,
 `CantBeCast` (see `Not ported yet`).
+
+## `CantPutCounter`
+
+`StaticAbilityCantPutCounter` (10 cards) stops counters of a kind being put on a card or a player. `cantPutCounter`
+(`staticability.go`) is its `anyCantPutCounter`: `countersReplaced` (`replacement.go`) asks it first, before any
+`AddCounter` replacement, so `PutCounter`, wither and infect damage, and every other counter placement that goes through
+that funnel are covered. A card is named by `ValidCard$` (a line with `ValidPlayer$` is the player half), a player by
+`ValidPlayer$`; an absent `CounterType$` names every kind; `AffectedZone$` is ignored, as Java ignores it outside
+`Continuous`. Placements that write `Counters.Add` directly (a permanent entering with counters, loyalty and defense
+counters, `Proliferate`, move/double effects) do not ask it yet. Tests: `cantputcounter_test.go`.

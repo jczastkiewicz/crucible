@@ -989,3 +989,75 @@ func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
 	}
 	return true
 }
+
+// cantPutCounterParams are the params a CantPutCounter line may carry that
+// this port evaluates (AffectedZone$ is read by Java for Continuous only, and
+// ignored here as there).
+var cantPutCounterParams = map[string]bool{
+	"mode": true, "validcard": true, "validplayer": true, "countertype": true, "affectedzone": true,
+	"condition": true, "phases": true, "playerturn": true, "effectzone": true,
+	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+}
+
+// cantPutCounter is Card.canReceiveCounters / Player.canReceiveCounters
+// (StaticAbilityCantPutCounter.anyCantPutCounter): some Mode$ CantPutCounter
+// static names object and counter kind ct. A card is named by ValidCard$ (a
+// line with ValidPlayer$ is the player half), a player by ValidPlayer$
+// (a line with ValidCard$ is the card half); an absent CounterType$ names
+// every kind. Unresolvable lines are not applied (GO-7).
+func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
+	cid, isCard := object.AsCard()
+	pid, isPlayer := object.AsPlayer()
+	if !isCard && !isPlayer {
+		return false
+	}
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantPutCounter") || !paramsResolvable(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if kind, ok := s.Param("CounterType"); ok && !strings.EqualFold(kind, string(ct)) {
+						continue
+					}
+					_, hasCard := s.Param("ValidCard")
+					_, hasPlayer := s.Param("ValidPlayer")
+					switch {
+					case isCard && hasPlayer, isPlayer && hasCard:
+						continue
+					case isCard:
+						v, _ := s.Param("ValidCard")
+						if !hasCard || Matches(g, g.Card(cid), valid.Parse(v), h.Controller(), h.ID) {
+							return true
+						}
+					default:
+						v, _ := s.Param("ValidPlayer")
+						matched, recognized := true, true
+						if hasPlayer {
+							matched, recognized = matchesPlayerSpec(g, pid, h.Controller(), h.ID, v)
+						}
+						if recognized && matched {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// paramsResolvable reports whether every key s carries is in known.
+func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
+	for _, p := range s.Params {
+		if !known[strings.ToLower(p.Key)] {
+			return false
+		}
+	}
+	return true
+}

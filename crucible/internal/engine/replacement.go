@@ -1832,8 +1832,13 @@ func onlyParams(r *compile.Ability, keys ...string) bool {
 // receiving), ValidPlayer$ (a player receiving), ValidObject$ (either),
 // ValidCounterType$, ValidSource$ (placer) and EffectOnly$ (every caller is
 // an effect). ValidCause$ skips the line: this port does not track what
-// caused a placement.
+// caused a placement. A Mode$ CantPutCounter static naming the object and
+// kind (cantPutCounter, staticability.go) puts none at all, before any
+// replacement is asked: Card.canReceiveCounters.
 func (g *Game) countersReplaced(controller PlayerController, placer PlayerID, object EntityID, ct CounterType, n int) int {
+	if g.cantPutCounter(object, ct) {
+		return 0
+	}
 	g.eachReplacement("AddCounter", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		if !onlyParams(r, "validcard", "validplayer", "validobject", "validcountertype", "validsource", "effectonly") {
 			return false

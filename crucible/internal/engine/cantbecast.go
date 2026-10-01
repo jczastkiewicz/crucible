@@ -118,16 +118,6 @@ var (
 	}
 )
 
-// paramsResolvable reports whether every key s carries is in known.
-func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
-	for _, p := range s.Params {
-		if !known[strings.ToLower(p.Key)] {
-			return false
-		}
-	}
-	return true
-}
-
 // cantBeActivated reports whether some Mode$ CantBeActivated static stops pid
 // activating ability, one of card's (StaticAbilityCantBeCast
 // .cantBeActivatedAbility/applyCantBeActivatedAbility): ValidCard$ on the

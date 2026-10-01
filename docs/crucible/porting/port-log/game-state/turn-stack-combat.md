@@ -560,6 +560,17 @@ runs as a second filter on top, once `CanBlock` has already narrowed a defender'
 
 ---
 
+## Shadow and `CanBlockIfShadow`
+
+CR 702.28. `K:Shadow` (39 real cards) synthesizes two `Mode$ CantBlockBy` statics (`CardFactoryUtil.java:3994-4002`):
+the carrier cannot be blocked by creatures without shadow (a `cantBlockByKeywords` entry, `staticability.go`), and
+cannot block attackers without shadow (a second check in `cantBlockBy`, `ValidBlocker$ Creature.Self`).
+`Mode$ CanBlockIfShadow` (Heartwood Dryad, Wall of Diffusion, Aetherflame Wall, Aether Web) lifts the "without shadow"
+restriction for the creature it names: `applyCantBlockBy` asks `canBlockIfShadow`
+(`StaticAbilityCantAttackBlock.java:250,304-326`) whenever the `ValidBlocker$` contains `withoutShadow`. Java also
+applies that override per comma alternative; every shadow `ValidBlocker$` here is a single alternative. Tests:
+`shadow_test.go`; scenario `combat-shadow-attacker-cannot-be-blocked-by-a-plain-creature`.
+
 ## CR 508.1c: exerting an attacker as it attacks
 
 `compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`
@@ -601,11 +612,12 @@ sites that name an actual spell (`castAura`, `castInstantOrSorcery`). Each of a 
 spell's own controller is an opponent of the warded card's (`matchesPlayerSpec`'s "Opponent" base, the identical check
 `cardCantBeTargetedBy`'s own Hexproof gate already makes).
 
-Scoped to the mana-cost shape only (~252 of ~262 real corpus lines, `K:Ward:`/`AddKeyword$ Ward:` combined):
-`cost.Parse(details).IsPureMana()` plus `mana.Parse` with no `X`, the identical pre-check `resolveUnlessCost`
-(effect.go) runs at resolution -- checked again here, before pushing, so a shape this port cannot pay for is never
-pushed rather than pushed and then erroring. `PayLife`/`Discard`/`Sac`/`Ward:X`/Alchemy shapes are skipped (GO-7),
-logged in `game-state.md`'s Not ported yet.
+Scoped to the costs `parseUnlessCost` reads (`unlesscost.go`): mana tokens, `PayLife<N>`, `Discard<N/Card>` and one
+`Sac<N/Type>` part ([`## UnlessCost$ past mana, and Ward`](mana-and-casting.md#unlesscost-past-mana-and-ward)) -- the
+identical pre-check `resolveUnlessCost` (effect.go) runs at resolution, checked again here before pushing, so a shape
+this port cannot pay for is never pushed rather than pushed and then erroring. `Ward:X` and the Alchemy shapes
+(`Waterbend`, `CollectEvidence`, `Blight`, `AddCounterYou`) are skipped (GO-7), logged in `game-state.md`'s Not ported
+yet.
 
 No new `compile.Ability`-from-script-text machinery: the built `Ability` has `API: APICounter`, `Controller` the warded
 card's own controller (CR 603.3a: a triggered ability's controller is its source's controller), `Source` the warded

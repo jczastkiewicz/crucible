@@ -75,6 +75,11 @@ var cantBlockByKeywords = []struct {
 	{"Fear", "Creature.nonArtifact+nonBlack"},
 	{"Horsemanship", "Creature.withoutHorsemanship"},
 	{"Intimidate", "Creature.nonArtifact+!SharesColorWith"},
+	// Shadow's attacker half (CardFactoryUtil.java:3996): a creature with
+	// shadow can be blocked only by creatures with shadow. The blocker half
+	// (effect2, "can block only creatures with shadow") is checked in
+	// cantBlockBy beside this table, since its ValidBlocker$ is Creature.Self.
+	{"Shadow", "Creature.withoutShadow"},
 }
 
 // cantBlockBy reports whether attacker cannot legally be blocked by blocker,
@@ -117,6 +122,9 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 					}
 					return true
 				}
+			}
+			if h.HasKeyword("Shadow") && applyCantBlockBy(g, h, "Creature.withoutShadow", "Creature.Self", true, "", false, attacker, blocker) {
+				return true
 			}
 			for _, kb := range cantBlockByKeywords {
 				if h.HasKeyword(kb.keyword) && applyCantBlockBy(g, h, "Creature.Self", kb.validBlocker, true, "", false, attacker, blocker) {
@@ -599,10 +607,49 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 	if hasValidBlocker && !Matches(g, g.Card(blocker), valid.Parse(validBlocker), host.Controller(), host.ID) {
 		return false
 	}
+	// Heartwood Dryad / Wall of Diffusion / Aetherflame Wall / Aether Web
+	// (StaticAbilityCantAttackBlock.java:250): a Mode$ CanBlockIfShadow static
+	// lets the blocker block as though it had shadow, lifting a "without
+	// shadow" restriction.
+	if hasValidBlocker && strings.Contains(validBlocker, "withoutShadow") && canBlockIfShadow(g, attacker, blocker) {
+		return false
+	}
 	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller(), validDefender, host) {
 		return false
 	}
 	return true
+}
+
+// canBlockIfShadow is StaticAbilityCantAttackBlock.canBlockIfShadow
+// (StaticAbilityCantAttackBlock.java:304-326): some Mode$ CanBlockIfShadow
+// static in play has its ValidAttacker$ and ValidBlocker$ (each absent is a
+// pass) match the pair, evaluated against that static's own host. Only
+// battlefield and Command hosts are walked (traitHosts), the trimming
+// cantBlockBy's own doc comment justifies.
+func canBlockIfShadow(g *Game, attacker, blocker CardID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CanBlockIfShadow") || !continuousConditionMet(g, h, s) {
+						continue
+					}
+					if va, ok := s.Param("ValidAttacker"); ok && !Matches(g, g.Card(attacker), valid.Parse(va), h.Controller(), h.ID) {
+						continue
+					}
+					if vb, ok := s.Param("ValidBlocker"); ok && !Matches(g, g.Card(blocker), valid.Parse(vb), h.Controller(), h.ID) {
+						continue
+					}
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // matchesValidDefender is ValidDefender's own check

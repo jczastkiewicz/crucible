@@ -923,9 +923,10 @@ func playerStaticApplies(g *Game, pid PlayerID, host *Card, s *compile.Ability) 
 
 // cantGainLife is Player.canGainLife (StaticAbilityCantGainLosePayLife
 // .anyCantGainLife): a player out of the game, or named by a Mode$ CantGainLife
-// static, gains no life.
+// or CantChangeLife static, gains no life. CantChangeLife's losing half
+// (anyCantLoseLife, anyCantPayLife) is not read.
 func (g *Game) cantGainLife(pid PlayerID) bool {
-	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil)
+	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
 }
 
 // cantDraw is Player.canDraw, cantDrawAmount for one card.
@@ -967,6 +968,9 @@ var unresolvedStaticConditions = [...]string{
 // caller's job: hosts come from traitHosts. A line carrying a condition in
 // unresolvedStaticConditions does not hold.
 func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
+	if !staticHostZoneOK(host, s) {
+		return false
+	}
 	for _, key := range unresolvedStaticConditions {
 		if _, ok := s.Param(key); ok {
 			return false
@@ -1060,4 +1064,23 @@ func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
 		}
 	}
 	return true
+}
+
+// staticHostZoneOK is StaticAbility.zonesCheck (StaticAbility.java:337): the
+// host's own zone must be one the line is active in. EffectZone$ names them
+// ("All", or a comma list); without it the default is in play. The Command
+// zone is accepted by default too, since the effect-like hosts traitHosts walks
+// there carry their statics without an EffectZone$ of their own. This is what
+// keeps a card's own statics (a host the callers add for EffectZone$ All lines)
+// from applying while it sits in hand.
+func staticHostZoneOK(host *Card, s *compile.Ability) bool {
+	zones, ok := s.Param("EffectZone")
+	if !ok {
+		return host.Zone == Battlefield || host.Zone == Command
+	}
+	if strings.EqualFold(zones, "All") {
+		return true
+	}
+	list, err := parseZoneList(zones)
+	return err == nil && slices.Contains(list, host.Zone)
 }

@@ -542,10 +542,11 @@ Command-zone statics plus the card itself (`staticHostsWith`; `EffectZone$ All` 
 Any other param (`cmcGT$`, `CheckSVar$`, `IsPresent$`, ...) or an unrecognized `Caster$` makes the line unresolvable and
 it is not applied (GO-7).
 
-`staticConditionsMet` (`staticability.go`) is `StaticAbility.checkConditions` for every static mode that reads it:
-`Condition$` (`continuousConditionMet`), `Phases$` (`parsePhaseRange`) and `PlayerTurn$` (`definedPlayers`). A line
-naming a condition in `unresolvedStaticConditions` (`IsPresent$`, `CheckSVar$`, `LifeTotal$`, `Threshold$`, ...) does
-not hold. `combatDamageStatic`, `castWithFlashApplies` and `playerStaticApplies` use it, so the three share one
+`staticConditionsMet` (`staticability.go`) is `StaticAbility.checkConditions` for every static mode that reads it: the
+host's own zone (`staticHostZoneOK`, `zonesCheck`: `EffectZone$` or in play, so a card's own battlefield static is off
+in hand), `Condition$` (`continuousConditionMet`), `Phases$` (`parsePhaseRange`) and `PlayerTurn$` (`definedPlayers`). A
+line naming a condition in `unresolvedStaticConditions` (`IsPresent$`, `CheckSVar$`, `LifeTotal$`, `Threshold$`, ...)
+does not hold. `combatDamageStatic`, `castWithFlashApplies` and `playerStaticApplies` use it, so the three share one
 definition of "the static is on". Tests: `cantbecast_test.go`.
 
 The same file holds the two siblings `StaticAbilityCantBeCast` carries. `CantBeActivated` (34 cards; `cantBeActivated`,

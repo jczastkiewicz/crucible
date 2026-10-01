@@ -203,18 +203,21 @@ func validActivatedSA(spec string, isMana, isLoyalty bool) (matched, recognized 
 // playing land card (StaticAbilityCantBeCast.cantPlayLandAbility/
 // applyCantPlayLandAbility): ValidCard$ on the land, Origin$ the zone it is
 // played from, Player$ the player. A Player$ with no ValidCard$ names every
-// land, as Java's absent-param match does.
+// land, as Java's absent-param match does. Hosts are the static-ability source
+// zones only: unlike CantBeCast, Java's loop does not add the land itself.
 func (g *Game) cantPlayLand(pid PlayerID, card CardID) bool {
 	c := g.Card(card)
-	for _, host := range g.staticHostsWith(card) {
-		h := g.Card(host)
-		if h.Def == nil {
-			continue
-		}
-		for _, face := range h.Def.Faces {
-			for _, s := range face.Statics {
-				if strings.EqualFold(s.Name, "CantPlayLand") && g.cantPlayLandApplies(pid, c, h, s) {
-					return true
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if strings.EqualFold(s.Name, "CantPlayLand") && g.cantPlayLandApplies(pid, c, h, s) {
+						return true
+					}
 				}
 			}
 		}

@@ -80,3 +80,33 @@ func TestCastWithFlashStaticSkipsShapesItCannotEvaluate(t *testing.T) {
 		t.Error("a conditional CastWithFlash line granted flash")
 	}
 }
+
+// A card's own static applies from hand only when its EffectZone$ says so
+// (StaticAbility.zonesCheck): Leyline of Anticipation's battlefield static
+// gives a card in hand nothing, but a Card.Self line with EffectZone$ All does.
+func TestCastWithFlashSelfHostHonoursEffectZone(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"default zone is the battlefield", "S:Mode$ CastWithFlash | ValidCard$ Card | ValidSA$ Spell | Caster$ You", false},
+		{"EffectZone$ All", "S:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ All", true},
+		{"EffectZone$ Hand", "S:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ Hand", true},
+		{"EffectZone$ Graveyard", "S:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ Graveyard", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGame(t)
+			def := creatureDefCost(t, "Self Flash", "G")
+			def.Faces[0].Statics = append(def.Faces[0].Statics, scriptDef(t, "x", "Enchantment", tc.line).Faces[0].Statics...)
+			card := g.NewCard(def, p, engine.Hand)
+			if got := castOnOpponentsTurn(t, g, p, other, card); got != tc.want {
+				t.Errorf("CastSpell on the opponent's turn = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

@@ -813,12 +813,13 @@ trigger fires instead (`checkExiledTriggers`). Tests: `movedtograveyard_test.go`
 
 ## `CantGainLife` and `CantDraw` statics
 
-Two player-restriction statics, ported from `StaticAbilityCantGainLosePayLife.anyCantGainLife` and
-`StaticAbilityCantDraw.canDrawThisAmount`, next to the `Prevent$` replacements for the same events. They share
-`playerStatic` (`staticability.go`): a static of the Mode on a battlefield or Command-zone host whose `Condition$` holds
-(`continuousConditionMet`) and whose `ValidPlayer$` names the player (`matchesPlayerSpec`; absent means everyone, as
-`matchesValidParam` does). A line carrying `IsPresent$` or `CheckSVar$`, or a `ValidPlayer$` `matchesPlayerSpec` does
-not recognize (`Player.EnchantedBy`), is skipped, never assumed to hold (GO-7).
+Two player-restriction statics (plus `CantChangeLife`'s gaining half), ported from
+`StaticAbilityCantGainLosePayLife.anyCantGainLife` and `StaticAbilityCantDraw.canDrawThisAmount`, next to the `Prevent$`
+replacements for the same events. They share `playerStatic` (`staticability.go`): a static of the Mode on a battlefield
+or Command-zone host whose `Condition$` holds (`continuousConditionMet`) and whose `ValidPlayer$` names the player
+(`matchesPlayerSpec`; absent means everyone, as `matchesValidParam` does). A line carrying `IsPresent$` or `CheckSVar$`,
+or a `ValidPlayer$` `matchesPlayerSpec` does not recognize (`Player.EnchantedBy`), is skipped, never assumed to hold
+(GO-7).
 
 | Static                       | Where it bites                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |

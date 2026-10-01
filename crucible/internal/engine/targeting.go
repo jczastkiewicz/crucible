@@ -257,12 +257,12 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 }
 
 // specCanTargetPlayer is TargetRestrictions.canTgtPlayer for a ValidTgts$
-// spec: some comma alternative names a player base (You, Opponent, Player,
-// Any), alone or with a property ("Player.Opponent").
+// spec: some comma alternative starts with "Player", "Opponent" or "Any"
+// (TargetRestrictions.java:454-461 tests exactly those three prefixes, so "You"
+// alone does not count).
 func specCanTargetPlayer(spec string) bool {
 	for _, alt := range strings.Split(spec, ",") {
-		base, _, _ := strings.Cut(alt, ".")
-		if _, ok := matchesPlayerBase(NoPlayer, NoPlayer, base); ok {
+		if strings.HasPrefix(alt, "Player") || strings.HasPrefix(alt, "Opponent") || strings.HasPrefix(alt, "Any") {
 			return true
 		}
 	}

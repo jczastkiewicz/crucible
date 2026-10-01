@@ -169,7 +169,8 @@
       "ability",
       "defined",
       "phase",
-      "parts"
+      "parts",
+      "zonemove"
     ],
     "block": [
       "id",

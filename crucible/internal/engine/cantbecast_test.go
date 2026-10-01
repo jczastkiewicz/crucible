@@ -179,3 +179,26 @@ func TestCantPlayLandRefusesTheNamedPlayersAndZones(t *testing.T) {
 		})
 	}
 }
+
+// Rule of Law in hand does not restrict its own cast: its battlefield static is
+// not active from hand (StaticAbility.zonesCheck).
+func TestCantBeCastSelfInHandDoesNotApplyItsBattlefieldStatic(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	first := g.NewCard(creatureDefCost(t, "First", "G"), p, engine.Hand)
+	def := scriptDef(t, "Test Rule of Law", "Enchantment",
+		"S:Mode$ CantBeCast | ValidCard$ Card | Caster$ Player | NumLimitEachTurn$ 1")
+	def.Faces[0].ManaCost = mana.MustParse("G")
+	rule := g.NewCard(def, p, engine.Hand)
+
+	if !castWithG(g, p, first) {
+		t.Fatal("the first spell was refused")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !castWithG(g, p, rule) {
+		t.Error("Rule of Law in hand refused its own cast with a static that is only active on the battlefield")
+	}
+}

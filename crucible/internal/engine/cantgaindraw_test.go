@@ -35,6 +35,7 @@ func TestCantGainLifeStopsOnlyTheNamedPlayers(t *testing.T) {
 		{"everyone", "S:Mode$ CantGainLife | ValidPlayer$ Player", 20},
 		{"opponents of the static's controller", "S:Mode$ CantGainLife | ValidPlayer$ Player.Opponent", 23},
 		{"no ValidPlayer names every player", "S:Mode$ CantGainLife", 20},
+		{"CantChangeLife also stops gains", "S:Mode$ CantChangeLife | ValidPlayer$ You", 20},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

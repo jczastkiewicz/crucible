@@ -1191,11 +1191,11 @@ func applyContinuousControl(g *Game) {
 //     whole line is skipped (PORT-8/GO-7) rather than guessing "the
 //     controller" and being wrong for every game that ever changes hands.
 //
-// Affected$ on these 44 lines is overwhelmingly Card.EnchantedBy/
-// Permanent.EnchantedBy/Creature.EnchantedBy (42 of 44, Control Magic's own
-// shape -- the Aura's host) -- already the identical valid-string
-// evaluation applyOneContinuousPT's own Matches call uses, needing nothing
-// new here.
+// The affected set on these lines is AffectedDefined$ Enchanted (35 of 42
+// Mode$ Continuous lines, Control Magic's own shape -- the Aura's host,
+// resolved by layerAffectedCards), or an Affected$ valid-string (7:
+// Permanent/Creature), the identical evaluation applyOneContinuousPT's own
+// Matches call uses.
 func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
@@ -1203,7 +1203,7 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 	if !continuousConditionMet(g, host, s) {
 		return
 	}
-	for _, key := range [...]string{"AffectedDefined", "AffectedZone", "CharacteristicDefining"} {
+	for _, key := range [...]string{"AffectedZone", "CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
@@ -1212,11 +1212,27 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 	if !ok || !strings.EqualFold(gain, "You") {
 		return
 	}
+	gainer := host.Controller()
+	if _, ok := s.Param("AffectedDefined"); ok {
+		// AffectedDefined$ Enchanted/Equipped/Self (Control Magic's own shape
+		// since the upstream move off Affected$ ...EnchantedBy, #11932):
+		// layerAffectedCards, the resolver Layers 4-8 share. An unresolvable
+		// defined set skips the line (GO-7).
+		ids, ok := layerAffectedCards(g, host, s)
+		if !ok {
+			return
+		}
+		for _, id := range ids {
+			if g.Card(id).Zone == Battlefield {
+				g.Card(id).ControlMod.Add(ControlEffect{Timestamp: host.Timestamp, Controller: gainer})
+			}
+		}
+		return
+	}
 	affected, ok := s.Param("Affected")
 	if !ok {
 		return
 	}
-	gainer := host.Controller()
 	spec := valid.Parse(affected)
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {

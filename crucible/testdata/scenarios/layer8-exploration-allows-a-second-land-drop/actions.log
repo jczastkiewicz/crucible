@@ -1,0 +1,8 @@
+# Layer 8, AdjustLandPlays$ 1. The default is one land per turn
+# (land-play-limit-one-per-turn); Exploration's
+# S:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1 makes it two, so both
+# playland actions succeed.
+startturn human
+advance 3
+playland human 1
+playland human 2

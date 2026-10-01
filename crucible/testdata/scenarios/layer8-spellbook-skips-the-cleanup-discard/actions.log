@@ -1,0 +1,7 @@
+# Layer 8, SetMaxHandSize$ Unlimited. Eight cards in hand exceed the default
+# maximum of seven (cleanup-discards-to-hand-size, where two must go), but
+# Spellbook's S:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited
+# removes the limit, so cleanup asks for no discard and the controller queues
+# none (an unqueued discard would fail the run).
+startturn human
+advance 12

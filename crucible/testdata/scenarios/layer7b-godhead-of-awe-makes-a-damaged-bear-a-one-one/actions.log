@@ -1,0 +1,6 @@
+# Layer 7b (CR 613.4b), SetPower$/SetToughness$. Godhead of Awe's
+# S:Mode$ Continuous | Affected$ Creature.Other | SetPower$ 1 | SetToughness$ 1
+# makes Grizzly Bears (printed 2/2) a 1/1. One damage is not lethal to a 2/2
+# but is to a 1/1, so the first state-based-action pass destroys the Bears
+# (CR 704.5g). Godhead itself is "other"-exempt and stays a 4/4.
+startturn human

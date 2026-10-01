@@ -118,8 +118,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 // that targets, needs at least one target and has no candidate cannot be
 // chosen.
 func (g *Game) modeHasLegalTargets(mode *Ability) bool {
-	validTgts, ok := mode.Params.Param("ValidTgts")
-	if !ok {
+	if _, ok := mode.Params.Param("ValidTgts"); !ok {
 		return true
 	}
 	minStr, ok := mode.Params.Param("TargetMin")
@@ -140,7 +139,8 @@ func (g *Game) modeHasLegalTargets(mode *Ability) bool {
 		_, _, ok := g.targetChoiceFor(mode)
 		return ok
 	}
-	return len(g.targetCandidates(mode.Controller, mode.Source, validTgts)) > 0
+	_, _, ok = g.targetChoiceFor(mode)
+	return ok
 }
 
 // checkModeChoice rejects a controller answer that is not lo..hi distinct

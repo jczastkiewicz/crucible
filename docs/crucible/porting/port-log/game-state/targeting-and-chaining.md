@@ -172,6 +172,27 @@ targeting another zone" case is gone with it: that shape no longer fails. `engin
 
 ---
 
+## ChangeZone targets cards in its `Origin$` zones
+
+`AbilityFactory.adjustChangeZoneTarget` (called from `ChangeZoneEffect`'s `buildSpellAbility`,
+`ChangeZoneEffect.java:47`) rewrites a ChangeZone/ChangeZoneAll line that does not target players so its target zone is
+the line's `Origin$` zones, not the battlefield. Raise Dead
+(`SP$ ChangeZone | Origin$ Graveyard | ValidTgts$ Creature.YouCtrl`) carries no `TgtZone$` at all and needs this to be
+castable. `targetChoiceFor` (`targeting.go`) now derives the zones from `Origin$` for `APIChangeZone`/`APIChangeZoneAll`
+when `specCanTargetPlayer` (`TargetRestrictions.canTgtPlayer`: some `ValidTgts$` alternative names
+`You`/`Opponent`/`Player`/`Any`) is false. `Origin$` replaces the battlefield default instead of widening it: a
+battlefield creature is not a Raise Dead target. Only `Battlefield`, `Graveyard` and `Exile` are scanned; any other
+`Origin$` zone (`Hand`, `Library`, `Stack`, ...) is a deferred `targetChoice.err` (GO-7). A line with an explicit
+`TgtZone$` keeps that value. `modeHasLegalTargets` (`charmeffect.go`) asks `targetChoiceFor` instead of a
+battlefield-only scan, so a Charm mode of this shape is offered under the same rule it resolves under.
+
+Pinned by `changezonetargets_test.go` (graveyard target, fizzle once the card left, battlefield creature rejected) and
+the `cast-raise-dead-returns-a-creature-from-the-graveyard` scenario. The other `TgtZone$`-carrying APIs (Pump,
+PutCounter, Effect, MakeCard, Clone, ...) still ignore the key: each `Resolve` was written against battlefield targets
+only (see the Pass the Torch section above).
+
+---
+
 ## CR 608.2b: every target re-checked at resolution
 
 `targetsStillLegal` (`targeting.go`, called by `resolveTop`; ADR-0027) is `MagicStack.hasFizzled`

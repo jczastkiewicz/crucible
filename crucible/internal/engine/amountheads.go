@@ -108,23 +108,14 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	return 0, false
 }
 
-// battlefieldControlledBy is Player.getCardsIn(Battlefield) filtered to what
-// pid actually controls: g.Zone(Battlefield, pid) is keyed by owner, not
-// controller (zone.go), so a stolen permanent sits in its owner's zone while
-// GainControl$/ExchangeControl$ move who controls it. Every xCount head that
-// reads "permanents pid controls" -- Domain, Devotion, Chroma among them --
-// has to walk every player's own battlefield and filter on Controller,
-// never trust the zone's owner key alone.
+// battlefieldControlledBy is Player.getCardsIn(Battlefield): what pid
+// controls. g.Zone(Battlefield, pid) is keyed by controller (ADR-0037,
+// correctControllerZone), so a permanent GainControl$/ExchangeControl$ moved
+// is already in its new controller's list. Every xCount head that reads
+// "permanents pid controls" -- Domain, Devotion, Chroma among them -- reads
+// it through here.
 func battlefieldControlledBy(g *Game, pid PlayerID) []CardID {
-	var out []CardID
-	for _, owner := range g.Players() {
-		for _, id := range g.Zone(Battlefield, owner).Cards() {
-			if g.Card(id).Controller() == pid {
-				out = append(out, id)
-			}
-		}
-	}
-	return out
+	return append([]CardID(nil), g.Zone(Battlefield, pid).Cards()...)
 }
 
 // domainCount is xCount's own Count$Domain: how many of the five basic land

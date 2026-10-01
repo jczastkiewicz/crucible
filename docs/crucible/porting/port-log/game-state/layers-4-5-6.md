@@ -106,3 +106,13 @@ remainder is the "Still not resolved" table below.
 `forge-gui/res/cardsfolder/p/phyrexian_adapter.txt:6` writes `AddType$ Food,Blood,Clue,Treasure,Powerstone`: a comma
 list where every other line uses `" & "`. Java's `CardType.add` stores it as one subtype named with the commas, and so
 does this port (PORT-8, reported, not compensated).
+
+## Changeling
+
+`K:Changeling` (63 cards, plus grants) expands in Java to a characteristic-defining
+`S:Mode$ Continuous | EffectZone$ All | Affected$ Card.Self | AddType$ AllCreatureTypes` (`CardFactoryUtil.java:3791`).
+`applyChangelings` (`continuouslayers.go`), called at the end of `applyContinuousType`, adds a Layer 4 `TypeEffect`
+carrying every creature type (`Registry.Members(CategoryCreature)`) to each card holding the keyword in any zone, so
+`Matches` and `HasSubtype` see a Goblin in hand or in a graveyard too. `cardtype.Line` has no "every creature type" flag
+(Java's `CardType` does), so the subtypes are materialized for the few cards that need them; the effect is recomputed
+each state-based pass, like the others. `AddAllCreatureTypes$` (8 lines) is still not read. Test: `changeling_test.go`.

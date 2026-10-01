@@ -265,6 +265,7 @@ func applyContinuousType(g *Game) {
 			}
 		}
 	}
+	applyChangelings(g)
 }
 
 // applyOneContinuousType is Layer 4 for one Mode$ Continuous line: when the

@@ -287,3 +287,29 @@ func TestUnlessCostReturnsAChosenPermanent(t *testing.T) {
 		}
 	})
 }
+
+// TestUnlessCostReveal proves Reveal<N/Type> (22 real lines): the payer needs N
+// matching cards in hand; revealing them moves nothing.
+func TestUnlessCostReveal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("paid", func(t *testing.T) {
+		t.Parallel()
+		g, p, c, cast := unlessCostGame(t, "Reveal<1/Elf>")
+		held := g.NewCard(creatureDef(t), p, engine.Hand)
+		c.QueueConfirmPayCost(true)
+		creature := cast()
+		if g.Card(creature).Zone != engine.Battlefield || g.Card(held).Zone != engine.Hand {
+			t.Errorf("creature %v, revealed card %v, want Battlefield and Hand", g.Card(creature).Zone, g.Card(held).Zone)
+		}
+	})
+	t.Run("no matching card", func(t *testing.T) {
+		t.Parallel()
+		g, p, c, cast := unlessCostGame(t, "Reveal<1/Giant>")
+		g.NewCard(creatureDef(t), p, engine.Hand)
+		c.QueueConfirmPayCost(true)
+		if creature := cast(); g.Card(creature).Zone != engine.Graveyard {
+			t.Errorf("creature zone = %v, want Graveyard: no Giant in hand", g.Card(creature).Zone)
+		}
+	})
+}

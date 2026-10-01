@@ -239,7 +239,7 @@ func TestSacrificeEffectChainsIntoSubAbility(t *testing.T) {
 
 // TestSacrificeEffectRejectsUnlessCost proves a real, representative
 // non-pure-mana UnlessCost$ shape (resolveUnlessCost's own gate, effect.go
-// -- a Reveal<1/Card> cost among them) fails the whole line loudly rather than silently
+// -- a tapXType<1/Creature> cost among them) fails the whole line loudly rather than silently
 // sacrificing unconditionally (PORT-8/GO-7). A pure-mana UnlessCost$ paired
 // with a resolvable UnlessPayer$ is a real, resolved shape now --
 // TestSacrificeEffectResolvesUnlessCostWhenNotPaid/WhenPaid cover it.
@@ -252,7 +252,7 @@ func TestSacrificeEffectRejectsUnlessCost(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBSacrifice(t, g, p, etbSacrificeTriggerDefParams(t, "Test UnlessCost", "UnlessCost$ Reveal<1/Card> | UnlessPayer$ You", nil), c)
+	_, err := castETBSacrifice(t, g, p, etbSacrificeTriggerDefParams(t, "Test UnlessCost", "UnlessCost$ tapXType<1/Creature> | UnlessPayer$ You", nil), c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming UnlessCost")
 	}

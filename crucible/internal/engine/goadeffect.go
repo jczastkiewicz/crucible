@@ -84,9 +84,11 @@ func (g *Game) endGoads(p PlayerID) {
 	}
 }
 
-// goadTargets narrows an attacker's eligible attack targets to players who
+// goadTargets narrows an attacker's eligible attack targets to the ones it can
+// attack at all (attackableTargets: CantAttack statics, Defender), then to players who
 // did not goad it, when it is goaded and any such player can be attacked.
 func (g *Game) goadTargets(attacker CardID, eligible []EntityID) []EntityID {
+	eligible = g.attackableTargets(attacker, eligible)
 	c := g.Card(attacker)
 	if !c.IsGoaded() {
 		return eligible

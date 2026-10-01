@@ -626,6 +626,24 @@ state-based action. `toxicMagnitude` sums every `Toxic:N` line the source carrie
 `S:Mode$ WitherDamage` and `Mode$ InfectDamage` (the statics that grant these), and the commander-damage half of
 `Player.addDamageAfterPrevention`.
 
+## Defender and `Mode$ CantAttack`
+
+`StaticAbilityCantAttackBlock.cantAttack` (`StaticAbilityCantAttackBlock.java:38`) decides whether a creature may attack
+a given defender. Until now nothing read the Defender keyword (310 cards) or `Mode$ CantAttack` (204 lines:
+Pacifism-style "enchanted creature can't attack", Ghostly Prison's `Target$ You`, Moat-style `withoutFlying`).
+`cantAttack` (`cantattack.go`) ports it: the Defender keyword (Java synthesizes it as a `CantAttack` static) unless a
+`Mode$ CanAttackDefender` static names the creature (`ValidCard$`) and defender (`ValidAttacked$`); and a `CantAttack`
+static whose `ValidCard$` matches the creature, whose `Target$` matches the defender (a player by `matchesPlayerSpec`, a
+planeswalker or battle by `Matches`, per alternative) and whose `UnlessDefender$` property the defending player does not
+have. `attackableTargets` filters a creature's attack targets through it, inside `goadTargets` (so `chooseAttackTargets`
+and the attack-requirement search see the same options), and `canAttackAtAll` drops a creature with no attackable target
+from the eligible attackers, so a controller with no able creature is not asked.
+
+Not applied, never assumed (GO-7): a line with an unlisted param (`DefenderNotNearestToYouInChosenDirection$`,
+`CheckSVar$`, `IsPresent$`), and an `UnlessDefender$` or `Target$` property `matchesPlayerSpec` does not recognize
+(`controlsIsland`, `attackedBySourceThisTurn`: 26 and 2 lines), which leaves such a creature free to attack. Tests:
+`cantattack_test.go`.
+
 ## CR 508.1c: exerting an attacker as it attacks
 
 `compile.go`'s own `subAbilityKeys` gains a new entry, `"trigger"` -- `S:Mode$ OptionalAttackCost`'s own `Trigger$`

@@ -122,7 +122,10 @@ func (g *Game) canAttackAtAll(id CardID) bool {
 	if c.SummonSick && !c.HasKeyword("Haste") {
 		return false
 	}
-	return !c.isDetained()
+	if c.isDetained() {
+		return false
+	}
+	return len(g.attackableTargets(id, g.eligibleAttackTargets())) > 0
 }
 
 // exertDeclaredAttackers is CR 508.1c: after tapping, before target

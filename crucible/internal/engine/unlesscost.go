@@ -173,7 +173,7 @@ func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid Player
 	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
 	if uc.lifeN > g.Player(pid).Life || uc.energyN > g.Player(pid).Counters.Count(Energy) ||
 		uc.discardN > len(hand) || uc.sacN > len(candidates) || uc.returnN > len(returnable) ||
-		!g.unlessRevealable(pid, a.Source, uc) {
+		(uc.drawN > 0 && g.cantDrawAmount(pid, uc.drawN)) || !g.unlessRevealable(pid, a.Source, uc) {
 		return false
 	}
 	if uc.hasMana && !g.PayManaCost(pid, uc.mana, controller) {

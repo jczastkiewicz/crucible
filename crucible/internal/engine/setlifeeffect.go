@@ -90,18 +90,7 @@ func setPlayerLife(g *Game, controller PlayerController, source CardID, pid Play
 	p := g.Player(pid)
 	switch {
 	case newLife > p.Life:
-		if g.gainLifePrevented(pid) {
-			return
-		}
-		gain := g.gainLifeReplaced(controller, pid, newLife-p.Life)
-		if gain <= 0 {
-			return
-		}
-		firstGain := p.LifeGainedTimesThisTurn == 0
-		p.LifeGainedTimesThisTurn++
-		p.Life += gain
-		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(pid), Amount: int32(gain)})
-		g.checkLifeGainedTriggers(controller, pid, firstGain)
+		g.gainLife(controller, pid, newLife-p.Life, source)
 	case newLife < p.Life:
 		lost := p.Life - newLife
 		p.Life = newLife

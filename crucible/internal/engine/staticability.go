@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -890,4 +891,79 @@ func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Abil
 	}
 	validCard, ok := s.Param("ValidCard")
 	return !ok || Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID)
+}
+
+// playerStatic reports whether some static of the given Mode$ names pid and
+// satisfies keep: its Condition$ holds (StaticAbility.checkConditions) and its
+// ValidPlayer$ matches pid (an absent one matches everyone, as
+// matchesValidParam does). The player-restriction modes (CantGainLife,
+// CantDraw, ...) share this body in Java. A line carrying IsPresent$ or
+// CheckSVar$, or a ValidPlayer$ this port cannot recognize (matchesPlayerSpec),
+// is skipped, never assumed to hold (GO-7).
+func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Ability) bool) bool {
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, mode) || !playerStaticApplies(g, pid, h, s) {
+						continue
+					}
+					if keep == nil || keep(s) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func playerStaticApplies(g *Game, pid PlayerID, host *Card, s *compile.Ability) bool {
+	for _, key := range [...]string{"IsPresent", "CheckSVar"} {
+		if _, ok := s.Param(key); ok {
+			return false
+		}
+	}
+	if !continuousConditionMet(g, host, s) {
+		return false
+	}
+	spec, ok := s.Param("ValidPlayer")
+	if !ok {
+		return true
+	}
+	matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec)
+	return recognized && matched
+}
+
+// cantGainLife is Player.canGainLife (StaticAbilityCantGainLosePayLife
+// .anyCantGainLife): a player out of the game, or named by a Mode$ CantGainLife
+// static, gains no life.
+func (g *Game) cantGainLife(pid PlayerID) bool {
+	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil)
+}
+
+// cantDraw is Player.canDraw, cantDrawAmount for one card.
+func (g *Game) cantDraw(pid PlayerID) bool { return g.cantDrawAmount(pid, 1) }
+
+// cantDrawAmount is the negation of StaticAbilityCantDraw.canDrawThisAmount: a
+// Mode$ CantDraw static allows DrawLimit$ (default 0) draws a turn, so with
+// the player having drawn some already it allows max(limit - drawn, 0) more,
+// and n cards are refused when that is fewer.
+func (g *Game) cantDrawAmount(pid PlayerID, n int) bool {
+	drawn := g.Player(pid).CardsDrawnThisTurn
+	return g.playerStatic(pid, "CantDraw", func(s *compile.Ability) bool {
+		limit := 0
+		if raw, ok := s.Param("DrawLimit"); ok {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil {
+				return false
+			}
+			limit = parsed
+		}
+		return n > max(limit-drawn, 0)
+	})
 }

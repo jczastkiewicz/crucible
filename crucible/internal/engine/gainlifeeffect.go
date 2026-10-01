@@ -101,11 +101,11 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 
 // gainLife is the step LifeGainEffect.resolve and lifelink (GameAction.java
 // dealDamage, CR 702.15e) share, Player.gainLife: a player no longer in the
-// game gains nothing, a prevention or replacement can stop or change the
-// amount, and a gain that survives updates the life total, the event and
+// game or under a CantGainLife static gains nothing, a prevention or
+// replacement can stop or change the amount, and a gain that survives updates the life total, the event and
 // the LifeGained triggers.
 func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, source CardID) {
-	if g.Player(pid).Lost || g.gainLifePrevented(pid) {
+	if g.cantGainLife(pid) || g.gainLifePrevented(pid) {
 		return
 	}
 	gain := g.gainLifeReplaced(controller, pid, amount)

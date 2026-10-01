@@ -810,3 +810,22 @@ names the card (GO-7), never a half-replacement.
 `checkDiesTriggers` returns at once for a card that is not in the graveyard: an exiled card did not die, and an exile
 trigger fires instead (`checkExiledTriggers`). Tests: `movedtograveyard_test.go`; scenarios
 `replacement-rest-in-peace-...` and `replacement-leyline-of-the-void-...`.
+
+## `CantGainLife` and `CantDraw` statics
+
+Two player-restriction statics, ported from `StaticAbilityCantGainLosePayLife.anyCantGainLife` and
+`StaticAbilityCantDraw.canDrawThisAmount`, next to the `Prevent$` replacements for the same events. They share
+`playerStatic` (`staticability.go`): a static of the Mode on a battlefield or Command-zone host whose `Condition$` holds
+(`continuousConditionMet`) and whose `ValidPlayer$` names the player (`matchesPlayerSpec`; absent means everyone, as
+`matchesValidParam` does). A line carrying `IsPresent$` or `CheckSVar$`, or a `ValidPlayer$` `matchesPlayerSpec` does
+not recognize (`Player.EnchantedBy`), is skipped, never assumed to hold (GO-7).
+
+| Static                       | Where it bites                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `CantGainLife` (20 cards)    | `Game.gainLife` (`gainlifeeffect.go`): `GainLife`, lifelink, and `SetLife`/exchange gains                                            |
+| `CantDraw` (7), `DrawLimit$` | each iteration of `Game.DrawCards` (`turn.go`), so the draw step and `Draw` obey it; `Draw<N/You>` unless-costs ask `cantDrawAmount` |
+
+`DrawLimit$` defaults to 0 (no draws); `N` allows `N` draws a turn: the next draw is refused once `CardsDrawnThisTurn`
+reaches it. `setPlayerLife` now calls `gainLife` for its gain half, which also gives it Java's `isInGame` check. Tests:
+`cantgaindraw_test.go`. Not ported: `CantPutCounter`, `CantSacrifice`, `CantPayLife`, `CantPlayLand`, `CantBeActivated`,
+`CantBeCast` (see `Not ported yet`).

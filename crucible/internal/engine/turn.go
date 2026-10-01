@@ -407,6 +407,9 @@ func (g *Game) drawStep(controller PlayerController) {
 // effect) are this port's two callers.
 func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
 	for i := 0; i < n; i++ {
+		if g.cantDraw(pid) {
+			return
+		}
 		if g.drawPrevented(pid) {
 			continue
 		}

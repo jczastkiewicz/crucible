@@ -111,3 +111,71 @@ func TestCantBeCastSkipsUnresolvableLines(t *testing.T) {
 		t.Error("an unresolvable CantBeCast line refused the cast")
 	}
 }
+
+// Mode$ CantBeActivated: ValidCard$/ValidSA$/Activator$/AffectedZone$ pick
+// which activated abilities are off. Here "activated abilities of artifacts
+// can't be activated" (Null Rod), with mana abilities spared by !ManaAbility.
+func TestCantBeActivatedRefusesTheNamedAbilities(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"no static", "", true},
+		{"all activated abilities of creatures", "S:Mode$ CantBeActivated | ValidCard$ Creature | ValidSA$ Activated | AffectedZone$ Battlefield", false},
+		{"only opposing creatures'", "S:Mode$ CantBeActivated | ValidCard$ Creature.OppCtrl | ValidSA$ Activated", true},
+		{"only for opposing activators", "S:Mode$ CantBeActivated | ValidCard$ Creature | ValidSA$ Activated | Activator$ Opponent", true},
+		{"a loyalty-only static spares ordinary abilities", "S:Mode$ CantBeActivated | ValidCard$ Creature | ValidSA$ Activated.Loyalty", true},
+		{"nonmana abilities only", "S:Mode$ CantBeActivated | ValidCard$ Creature | ValidSA$ Activated.!ManaAbility", false},
+		{"an unrecognized ValidSA$ is not applied", "S:Mode$ CantBeActivated | ValidCard$ Creature | ValidSA$ Activated.Cycling", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			if tc.line != "" {
+				g.NewCard(scriptDef(t, "Test Null Rod", "Artifact", tc.line), p, engine.Battlefield)
+			}
+			def := scriptDef(t, "Test Healer", "Creature Elf", "A:AB$ GainLife | Cost$ T | Defined$ You | LifeAmount$ 3")
+			healer := g.NewCard(def, p, engine.Battlefield)
+			g.Card(healer).SummonSick = false
+			if got := g.ActivateAbility(p, healer, 0, engine.NewScriptedController()); got != tc.want {
+				t.Errorf("ActivateAbility = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Mode$ CantPlayLand: "you can't play lands" (Worms of the Earth shape), by
+// Player$ and Origin$.
+func TestCantPlayLandRefusesTheNamedPlayersAndZones(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"no static", "", true},
+		{"you can't play lands", "S:Mode$ CantPlayLand | Player$ You", false},
+		{"opponents can't play lands", "S:Mode$ CantPlayLand | Player$ Opponent", true},
+		{"lands from the graveyard only", "S:Mode$ CantPlayLand | Player$ You | Origin$ Graveyard", true},
+		{"lands from hand", "S:Mode$ CantPlayLand | Player$ You | Origin$ Hand", false},
+		{"players can't play lands", "S:Mode$ CantPlayLand", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			if tc.line != "" {
+				g.NewCard(scriptDef(t, "Test Worms", "Enchantment", tc.line), p, engine.Battlefield)
+			}
+			land := g.NewCard(scriptDef(t, "Test Land", "Land"), p, engine.Hand)
+			if got := g.PlayLand(p, land, engine.NewScriptedController()); got != tc.want {
+				t.Errorf("PlayLand = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

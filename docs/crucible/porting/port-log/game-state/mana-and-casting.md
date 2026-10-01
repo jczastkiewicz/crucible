@@ -546,4 +546,11 @@ it is not applied (GO-7).
 `Condition$` (`continuousConditionMet`), `Phases$` (`parsePhaseRange`) and `PlayerTurn$` (`definedPlayers`). A line
 naming a condition in `unresolvedStaticConditions` (`IsPresent$`, `CheckSVar$`, `LifeTotal$`, `Threshold$`, ...) does
 not hold. `combatDamageStatic`, `castWithFlashApplies` and `playerStaticApplies` use it, so the three share one
-definition of "the static is on". Tests: `cantbecast_test.go`. Not ported: `CantBeActivated`, `CantPlayLand`.
+definition of "the static is on". Tests: `cantbecast_test.go`.
+
+The same file holds the two siblings `StaticAbilityCantBeCast` carries. `CantBeActivated` (34 cards; `cantBeActivated`,
+asked by `ActivateAbility` and `ActivateManaAbility`) reads `ValidCard$` on the ability's source, `ValidSA$`
+(`validActivatedSA`: `Activated` with `ManaAbility` and `Loyalty`, each negatable), `AffectedZone$` and `Activator$`,
+over the static-ability source zones only. `CantPlayLand` (11; `cantPlayLand`, asked by `PlayLand` and by `Play`'s land
+option) reads `ValidCard$`, `Origin$` and `Player$`. A `ValidSA$` naming `Cycling`, `Equip` or any other property is
+unrecognized, and the line is not applied; so is any param outside the lists in `cantbecast.go`.

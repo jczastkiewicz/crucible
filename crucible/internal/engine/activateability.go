@@ -226,6 +226,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	_, isLoyaltyAbility := ability.Param("Planeswalker")
+	if g.cantBeActivated(pid, c, false, isLoyaltyAbility) {
+		return false
+	}
 	_, sorcerySpeed := ability.Param("SorcerySpeed")
 	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
 		return false

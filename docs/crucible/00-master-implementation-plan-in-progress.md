@@ -1753,7 +1753,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     player each turn by `cleanupStep`. The first card this port moves from hand to the battlefield through a real game
     action rather than `setup.state` placing it there directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
-    harness runs (`TestScenarios`, `testdata/scenarios/`), and 411 fixtures exist today, past the ≥300 floor: combat and
+    harness runs (`TestScenarios`, `testdata/scenarios/`), and 415 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
     against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each permanent
     type including an Aura), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario
@@ -1765,9 +1765,12 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     Layer 7b (`layer7b-godhead-of-awe-...`, `SetPower$`/`SetToughness$`), Layer 7c's plain-integer subset
     (`equipment-falls-off-without-destroying`) and Layer 8 (`layer8-spellbook-...` `SetMaxHandSize$`,
     `layer8-exploration-...` `AdjustLandPlays$`) and Layer 2 (`layer2-control-magic-...`, a stolen creature moving to
-    its thief's battlefield, ADR-0037). Replacement effects and every trigger mode but
-    "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell"
-    remain gaps too. **Partially reached** — blocked on the rest of M5 landing, not on writing more fixtures.
+    its thief's battlefield, ADR-0037). Replacement effects have `DamageDone` fixtures
+    (`replacement-furnace-of-rath-...` doubles, `replacement-bubble-matrix-...` prevents) and the `Mode$ Phase` trigger
+    has one (`trigger-phase-juzam-djinn-...`); `Event$ Moved` to the graveyard is not applied at all (`game-state.md`,
+    "Not ported yet"), and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is
+    discarded"/"becomes tapped"/"taps for mana"/"casts a spell"/"upkeep" still lacks a fixture. **Partially reached** —
+    blocked on the rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

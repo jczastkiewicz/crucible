@@ -1,0 +1,7 @@
+# CR 503.1 / 603.2: "at the beginning of your upkeep". Juzám Djinn's
+# T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You (TriggerPhase.performTest)
+# fires as the Upkeep step begins; the DealDamage it executes hits its own
+# controller for 1 once the stack resolves.
+startturn human
+advance 2
+resolvestack

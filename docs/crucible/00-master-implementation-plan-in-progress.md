@@ -1753,7 +1753,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     player each turn by `cleanupStep`. The first card this port moves from hand to the battlefield through a real game
     action rather than `setup.state` placing it there directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
-    harness runs (`TestScenarios`, `testdata/scenarios/`), and 407 fixtures exist today, past the ≥300 floor: combat and
+    harness runs (`TestScenarios`, `testdata/scenarios/`), and 410 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
     against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each permanent
     type including an Aura), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario
@@ -1761,9 +1761,12 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     count and the step-transition/SBA breadth are met; "every layer" is not. Fixtures now exercise Layer 1
     (`clone-enters-as-copy-*`), Layer 3 (`layer3-*`), Layer 4 (`layer4-blanket-of-night-...`, `AddType$` read by a
     land's intrinsic mana ability), Layer 5 (`layer5-darkest-hour-...`, `SetColor$` read by Fear's block legality),
-    Layer 6 (`layer6-knighthood-...`, `AddKeyword$` First Strike through a whole combat), Layer 7a (`tarmogoyf-*`) and
-    Layer 7b/7c's plain-integer subset (`equipment-falls-off-without-destroying`). Layer 2 (`GainControl$`) and Layer 8
-    have none, and replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is
+    Layer 6 (`layer6-knighthood-...`, `AddKeyword$` First Strike through a whole combat), Layer 7a (`tarmogoyf-*`),
+    Layer 7b (`layer7b-godhead-of-awe-...`, `SetPower$`/`SetToughness$`), Layer 7c's plain-integer subset
+    (`equipment-falls-off-without-destroying`) and Layer 8 (`layer8-spellbook-...` `SetMaxHandSize$`,
+    `layer8-exploration-...` `AdjustLandPlays$`). Layer 2 has Go module tests only: a stolen permanent stays in its
+    owner's battlefield zone, so combat eligibility and the untap step ignore it (`game-state.md`, "Not ported yet").
+    Replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is
     discarded"/"becomes tapped"/"taps for mana"/"casts a spell" remain gaps too. **Partially reached** — blocked on the
     rest of M5 landing, not on writing more fixtures.
 

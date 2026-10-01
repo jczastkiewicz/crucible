@@ -329,10 +329,13 @@ effect, entirely unrelated to this layer and part of M6's own remaining 202 scri
 `Mode$ Continuous` lines, 43 name `GainControl$ You`; the last, `GainControl$ Player.isMonarch`, is a qualified
 `getDefinedPlayers` form (the `else` branch's own `game.getPlayersInTurnOrder()` filtered by
 `PlayerPredicates.restriction`) this port has no monarch mechanic to filter by, so the whole line is skipped
-(PORT-8/GO-7) rather than guessing "the controller" and being wrong the instant any game actually changes hands.
-`Affected$` on the 44 real lines is overwhelmingly `Card.EnchantedBy`/`Permanent.EnchantedBy`/`Creature.EnchantedBy` (42
-of 44, Control Magic's own shape -- the Aura's own host), needing nothing new: the identical `Matches`-driven
-valid-string match `applyOneContinuousPT`'s own `Affected$` already does.
+(PORT-8/GO-7) rather than guessing "the controller" and being wrong the instant any game actually changes hands. The
+affected set on the real lines is `AffectedDefined$ Enchanted` in 35 of 42 (Control Magic's own shape since upstream PR
+11932 moved `Self`/`Enchanted`/`Equipped` statics off `Affected$ ...EnchantedBy`; resolved by `layerAffectedCards`, the
+resolver Layers 4-8 share) and an `Affected$` valid-string in the other 7 (`Permanent`, `Creature`), the identical
+`Matches`-driven match `applyOneContinuousPT`'s own `Affected$` already does.
+`TestControlMagicShapeGainsControlThroughAffectedDefined` (`layer2control_test.go`) proves the first shape, and that
+control reverts when the Aura leaves.
 
 `applyContinuousControl` runs FIRST among the six appliers (`CheckStateBasedActions`, action.go), ahead of
 `applyContinuousPT`/`Type`/`Color`/`Keyword`/`Rules`: CR 613.1 puts the control layer before every one of them, and

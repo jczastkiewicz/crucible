@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Cleanup
+humanlife=20
+humanbattlefield=Spellbook
+humanhand=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+ailife=20

@@ -433,3 +433,21 @@ Tests (`casttiming_test.go`, `package engine_test`):
 | `TestPlayDoesNotOfferASpellOutsideItsPrintedTiming`          | `Play` leaves a spell in exile outside its window and casts it inside                                |
 | `TestActivateManaAbilityHonoursPlayerTurn`                   | A mana ability naming `PlayerTurn$` is admitted and limited to its controller's turn                 |
 | `TestTimedSpellResolvesOnceCast`                             | A `DestroyAll` spell naming both keys casts and resolves                                             |
+
+## `ActivationLimit$` and `GameActivationLimit$`
+
+`SpellAbilityRestriction.canPlay` (`SpellAbilityRestriction.java:583-598`) refuses an ability activated as often as its
+limit this turn (`ActivationLimit$`, 140 real `AB$` lines) or this game (`GameActivationLimit$`, 25).
+`activationLimitsMet` (`activateability.go`) is that check, run by `ActivateAbility` beside `timingRestrictionsMet`. The
+limit is an amount, `X` through the card's own SVars; one that cannot be resolved refuses the activation (GO-7).
+
+| State                             | Java                                      | Go                                        |
+| --------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| counts per `A:` line              | `Card.numberTurnActivations`/`...Game...` | `Card.activations`, keyed by line index   |
+| incremented when it goes on stack | `MagicStack.java:229,305`                 | `ActivateAbility`, after the cost is paid |
+| turn count reset                  | every card, cleanup (`Game.java:1239`)    | every card in the arena, `cleanupStep`    |
+| both counts reset                 | the card is a new object (CR 400.7)       | any zone change (`put`, `putFront`)       |
+
+A mana ability and an `SP$` spell with a limit are not checked (0 real `SP$` lines name one; `manaAbilityAllowedParams`
+refuses the mana lines). `charmeffect.go`, `untapalleffect.go` and `destroyalleffect.go` no longer reject the two keys.
+Tests: `activationlimits_test.go`.

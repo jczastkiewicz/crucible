@@ -22,11 +22,11 @@ import (
 // ChoiceRestriction$ (Card.getChosenModes' once-per-turn/-game bookkeeping),
 // CanRepeatModes$, Optional$, Chooser$ (an opponent chooses), Random$
 // Compare, Defined$ (never read by CharmEffect; its six lines lean on a
-// mode reading it), and the activation-limit params whose restriction the
-// port's activation path does not enforce.
+// mode reading it). ActivationLimit$/GameActivationLimit$ are enforced at
+// activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
 	"ChoiceRestriction", "CanRepeatModes", "Optional", "Chooser", "RandomCompare",
-	"RandomCompareSVar", "Defined", "GameActivationLimit", "ActivationLimit",
+	"RandomCompareSVar", "Defined",
 }
 
 // chooseCharmModes is makeChoices, run from pushTriggeredAbilities before

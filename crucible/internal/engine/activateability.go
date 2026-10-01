@@ -230,7 +230,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
-	if !g.timingRestrictionsMet(pid, ability) {
+	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(c, index, ability) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
@@ -391,7 +391,31 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if isLoyaltyAbility {
 		c.LoyaltyAbilityActivated = true
 	}
+	c.activations.note(index)
 	g.pushTriggeredAbilities(controller, []Ability{activated})
+	return true
+}
+
+// activationLimitsMet is SpellAbilityRestriction.canPlay's
+// ActivationLimit$/GameActivationLimit$ half (SpellAbilityRestriction.java:
+// 583-598): fewer activations of the A: line at index this turn (this game)
+// than the limit. The limit is an amount, X through the card's own SVars. One
+// that cannot be resolved refuses the activation (GO-7).
+func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability) bool {
+	turn, game := c.activations.of(index)
+	for _, k := range [...]struct {
+		key   string
+		count int
+	}{{"ActivationLimit", turn}, {"GameActivationLimit", game}} {
+		raw, ok := ability.Param(k.key)
+		if !ok {
+			continue
+		}
+		limit, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, raw)
+		if !ok || k.count >= limit {
+			return false
+		}
+	}
 	return true
 }
 

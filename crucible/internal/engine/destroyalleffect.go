@@ -15,7 +15,6 @@ import (
 var destroyAllUnresolvedParams = [...]string{
 	"Optional", "RememberAllObjects", "Zone", "Hidden",
 	"Condition", "ConditionDefined", "SorcerySpeed", "ModeCost",
-	"GameActivationLimit",
 }
 
 // destroyAllEffect is DestroyAllEffect.java: every battlefield permanent

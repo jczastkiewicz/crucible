@@ -13,7 +13,8 @@
       "colormod.go",
       "keywordmod.go",
       "rulesmod.go",
-      "controlmod.go"
+      "controlmod.go",
+      "activationmod.go"
     ],
     "card": ["card.go"],
     "player": ["player.go"],
@@ -263,7 +264,8 @@
       "pumpeffect",
       "sacrificeeffect",
       "facedown",
-      "room"
+      "room",
+      "amount"
     ],
     "trigger": [
       "id",

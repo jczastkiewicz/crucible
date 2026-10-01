@@ -516,6 +516,11 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 
+	// Card.resetActivationsPerTurn for every card in the game
+	// (Game.java:1239-1241), not only the battlefield's.
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].activations.resetTurn()
+	}
 	// Phased-out permanents too: CR 514.2's damage removal and
 	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
 	// (PhaseHandler.java:400, Game.java:1236) -- ADR-0021's cleanup opt-in.

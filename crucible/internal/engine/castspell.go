@@ -149,6 +149,9 @@ type castOpts struct {
 // castWithoutPaying) calls it with timing ignored (CR 608.2g). Reports false
 // for every legal-but-declined case the three branches name.
 func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
+	if g.cantBeCast(pid, card) {
+		return false
+	}
 	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller, opts)

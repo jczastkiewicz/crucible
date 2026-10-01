@@ -158,7 +158,7 @@
       "attackconstraints",
       "blockvalidation"
     ],
-    "staticability": ["id", "zone", "card", "game", "valid", "player", "continuous"],
+    "staticability": ["id", "zone", "card", "game", "valid", "player", "continuous", "ability", "defined", "phase"],
     "block": [
       "id",
       "zone",

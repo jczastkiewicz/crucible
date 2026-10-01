@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -801,9 +802,7 @@ func netCombatDamage(g *Game, c *Card) (int, bool) {
 // combatDamageStatic reports whether some static of the given Mode$ names c.
 // All three modes share one body (StaticAbilityAssignNoCombatDamage,
 // StaticAbilityCombatDamageToughness, StaticAbilityCombatDamageNegatePower):
-// the source's Condition$ holds (StaticAbility.checkConditions) and c matches
-// ValidCard$. Like ignoreLegendRule, a line carrying IsPresent$ or a Condition$
-// continuousConditionMet does not resolve is skipped, never assumed met.
+// the source's conditions hold (staticConditionsMet) and c matches ValidCard$.
 //
 // Hosts come from traitHosts, so an Effect-card static in the Command zone
 // (EffectZone$ Command) and a delayed "this turn" effect's static both count.
@@ -819,10 +818,7 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 					if !strings.EqualFold(s.Name, mode) {
 						continue
 					}
-					if _, ok := s.Param("IsPresent"); ok {
-						continue
-					}
-					if !continuousConditionMet(g, h, s) {
+					if !g.staticConditionsMet(h, s) {
 						continue
 					}
 					validCard, ok := s.Param("ValidCard")
@@ -841,19 +837,15 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 // Flash keyword, or a Mode$ CastWithFlash static (StaticAbilityCastWithFlash)
 // whose ValidCard$ matches the card, whose Caster$ matches pid and that is
 // about plain spells (ValidSA$ Spell). A line with any other ValidSA$ (an
-// activated ability, IsTargeting, XCost, a spell-cost shape), IsPresent$ or
-// CheckSVar$ is skipped, never assumed to hold (GO-7). The card's own statics
+// activated ability, IsTargeting, XCost, a spell-cost shape) or a condition
+// staticConditionsMet cannot resolve is skipped, never assumed to hold (GO-7). The card's own statics
 // count wherever it is (EffectZone$ All, Card.Self lines).
 func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 	c := g.Card(card)
 	if c.HasKeyword("Flash") {
 		return true
 	}
-	hosts := []CardID{card}
-	for _, p := range g.Players() {
-		hosts = append(hosts, g.traitHosts(p)...)
-	}
-	for _, host := range hosts {
+	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)
 		if h.Def == nil {
 			continue
@@ -875,12 +867,7 @@ func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Abil
 	if sa, _ := s.Param("ValidSA"); sa != "Spell" {
 		return false
 	}
-	for _, key := range [...]string{"IsPresent", "CheckSVar"} {
-		if _, ok := s.Param(key); ok {
-			return false
-		}
-	}
-	if !continuousConditionMet(g, host, s) {
+	if !g.staticConditionsMet(host, s) {
 		return false
 	}
 	if caster, ok := s.Param("Caster"); ok {
@@ -897,9 +884,9 @@ func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Abil
 // satisfies keep: its Condition$ holds (StaticAbility.checkConditions) and its
 // ValidPlayer$ matches pid (an absent one matches everyone, as
 // matchesValidParam does). The player-restriction modes (CantGainLife,
-// CantDraw, ...) share this body in Java. A line carrying IsPresent$ or
-// CheckSVar$, or a ValidPlayer$ this port cannot recognize (matchesPlayerSpec),
-// is skipped, never assumed to hold (GO-7).
+// CantDraw, ...) share this body in Java. A line whose ValidPlayer$ this port
+// cannot recognize (matchesPlayerSpec) is skipped, never assumed to hold
+// (GO-7).
 func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Ability) bool) bool {
 	for _, p := range g.Players() {
 		for _, host := range g.traitHosts(p) {
@@ -923,12 +910,7 @@ func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Abil
 }
 
 func playerStaticApplies(g *Game, pid PlayerID, host *Card, s *compile.Ability) bool {
-	for _, key := range [...]string{"IsPresent", "CheckSVar"} {
-		if _, ok := s.Param(key); ok {
-			return false
-		}
-	}
-	if !continuousConditionMet(g, host, s) {
+	if !g.staticConditionsMet(host, s) {
 		return false
 	}
 	spec, ok := s.Param("ValidPlayer")
@@ -966,4 +948,44 @@ func (g *Game) cantDrawAmount(pid PlayerID, n int) bool {
 		}
 		return n > max(limit-drawn, 0)
 	})
+}
+
+// unresolvedStaticConditions are the generic condition params
+// StaticAbility.checkConditions and CardTraitBase.meetsCommonRequirements read
+// that this port does not evaluate for a static of any mode: a line carrying
+// one is not applied (GO-7).
+var unresolvedStaticConditions = [...]string{
+	"IsPresent", "IsPresent2", "CheckSVar", "CheckSecondSVar", "LifeTotal", "CheckDefinedPlayer",
+	"TopCardOfLibraryIs", "Metalcraft", "Delirium", "Threshold", "Hellbent", "Bloodthirst", "FatefulHour",
+	"Monarch", "Revolt", "Blessing", "EnduringStory", "DayTime", "Adamant",
+}
+
+// staticConditionsMet is StaticAbility.checkConditions (StaticAbility.java:362)
+// for the conditions every static mode shares: Condition$ (continuousConditionMet),
+// Phases$ (the current step in the named range, parsePhaseRange) and PlayerTurn$
+// (the active player among the defined players). The source's own zone is the
+// caller's job: hosts come from traitHosts. A line carrying a condition in
+// unresolvedStaticConditions does not hold.
+func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
+	for _, key := range unresolvedStaticConditions {
+		if _, ok := s.Param(key); ok {
+			return false
+		}
+	}
+	if !continuousConditionMet(g, host, s) {
+		return false
+	}
+	if phases, ok := s.Param("Phases"); ok {
+		set, ok := parsePhaseRange(phases)
+		if !ok || !set.has(g.activePhase) {
+			return false
+		}
+	}
+	if turn, ok := s.Param("PlayerTurn"); ok {
+		players, err := definedPlayers(g, host.Controller(), host.ID, turn, abilityRefs{})
+		if err != nil || !slices.Contains(players, g.activePlayer) {
+			return false
+		}
+	}
+	return true
 }

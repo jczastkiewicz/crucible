@@ -525,3 +525,25 @@ the battlefield, the Command zone and the card itself (`EffectZone$ All`). A lin
 (`Activated.Equip`, `Activated.Loyalty`, `Spell.XCostLE3`, `Spell.IsTargeting ...`), `IsPresent$` or `CheckSVar$` is
 skipped, never assumed met (GO-7). `MayFlashCost` and `MayFlashSac` (keywords granting flash for a price) are not read.
 Tests: `castflash_test.go`.
+
+## `Mode$ CantBeCast` and the shared static conditions
+
+`StaticAbilityCantBeCast.cantBeCastAbility` stops a player casting a card. `castSpell` (`castspell.go`), the one cast
+path for hand casts, `Play` and `Discover`, asks `cantBeCast` (`cantbecast.go`) first. Hosts are the battlefield and
+Command-zone statics plus the card itself (`staticHostsWith`; `EffectZone$ All` lines such as "can't be cast unless X").
+
+| Param                   | Reading (`applyCantBeCastAbility`)                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ValidCard$`, `Caster$` | `Matches` on the card, `matchesPlayerSpec` on the caster; absent matches anything                                                               |
+| `OnlySorcerySpeed$`     | applies only when the caster could not cast a sorcery (`canActSorcerySpeed`)                                                                    |
+| `Origin$`               | applies only to a card cast from one of the listed zones                                                                                        |
+| `NumLimitEachTurn$`     | applies once the caster cast that many spells; `Player.SpellsCastThisTurn` counts all spells, so only a `ValidCard$` of `Card` or none resolves |
+
+Any other param (`cmcGT$`, `CheckSVar$`, `IsPresent$`, ...) or an unrecognized `Caster$` makes the line unresolvable and
+it is not applied (GO-7).
+
+`staticConditionsMet` (`staticability.go`) is `StaticAbility.checkConditions` for every static mode that reads it:
+`Condition$` (`continuousConditionMet`), `Phases$` (`parsePhaseRange`) and `PlayerTurn$` (`definedPlayers`). A line
+naming a condition in `unresolvedStaticConditions` (`IsPresent$`, `CheckSVar$`, `LifeTotal$`, `Threshold$`, ...) does
+not hold. `combatDamageStatic`, `castWithFlashApplies` and `playerStaticApplies` use it, so the three share one
+definition of "the static is on". Tests: `cantbecast_test.go`. Not ported: `CantBeActivated`, `CantPlayLand`.

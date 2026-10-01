@@ -1,0 +1,17 @@
+# Layer 6 (CR 613.1f), AddKeyword$ through the whole combat. Knighthood's
+# S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ First Strike
+# gives Silvercoat Lion (2/2) first strike. Grizzly Bears (2/2) blocks: without
+# the keyword both would die in the one regular damage step; with it the Lion
+# deals its 2 damage in the first-strike step, the state-based-action check
+# kills the Bears, and they never deal damage back.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

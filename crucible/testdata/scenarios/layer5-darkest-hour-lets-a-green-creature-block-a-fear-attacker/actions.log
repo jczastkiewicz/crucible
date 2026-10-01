@@ -1,0 +1,19 @@
+# Layer 5 (CR 613.1e), SetColor$ read by block legality. Jhessian Zombies has
+# Fear: it can't be blocked except by artifact and/or black creatures. Grizzly
+# Bears is green, so on its own it could not block. Darkest Hour's
+# S:Mode$ Continuous | Affected$ Creature | SetColor$ Black makes every creature
+# black, so the declaration queue blocks 2=1 is legal and the Bears (2/2) take
+# 2 damage from the Zombies (2/4) and die once the state-based actions run (the
+# trailing advance); the Zombies survive.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage
+advance

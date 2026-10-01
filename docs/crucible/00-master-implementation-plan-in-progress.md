@@ -1753,19 +1753,19 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     player each turn by `cleanupStep`. The first card this port moves from hand to the battlefield through a real game
     action rather than `setup.state` placing it there directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
-    harness runs (`TestScenarios`, `testdata/scenarios/`), and 342 fixtures exist today, past the ≥300 floor: combat and
+    harness runs (`TestScenarios`, `testdata/scenarios/`), and 407 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
     against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each permanent
     type including an Aura), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario
     suite green (met) on ≥300 fixtures covering every step transition, every layer, every SBA (Plan Section 3.2). The
-    count and the step-transition/SBA breadth are met; "every layer" is not — only Layer 7b/7c's own plain-integer
-    subset (`applyContinuousPT`, item 27) has a scenario fixture exercising it
-    (`equipment-falls-off-without-destroying`, via Sword of Body and Mind's real `AddPower$`/`AddToughness$`); Layer 4's
-    own literal-token subset, Layer 5's own and Layer 6's own (`applyContinuousType`/`applyContinuousColor`/
-    `applyContinuousKeyword`, item 27) are proven only at the Go module level (`continuous_test.go`), not yet by a
-    scenario fixture, and replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals
-    damage"/"is discarded"/"becomes tapped"/"taps for mana"/"casts a spell" remain gaps too. **Partially reached** —
-    blocked on the rest of M5 landing, not on writing more fixtures.
+    count and the step-transition/SBA breadth are met; "every layer" is not. Fixtures now exercise Layer 1
+    (`clone-enters-as-copy-*`), Layer 3 (`layer3-*`), Layer 4 (`layer4-blanket-of-night-...`, `AddType$` read by a
+    land's intrinsic mana ability), Layer 5 (`layer5-darkest-hour-...`, `SetColor$` read by Fear's block legality),
+    Layer 6 (`layer6-knighthood-...`, `AddKeyword$` First Strike through a whole combat), Layer 7a (`tarmogoyf-*`) and
+    Layer 7b/7c's plain-integer subset (`equipment-falls-off-without-destroying`). Layer 2 (`GainControl$`) and Layer 8
+    have none, and replacement effects and every trigger mode but "enters"/"dies"/"attacks"/"blocks"/"deals damage"/"is
+    discarded"/"becomes tapped"/"taps for mana"/"casts a spell" remain gaps too. **Partially reached** — blocked on the
+    rest of M5 landing, not on writing more fixtures.
 
 ### M6 — Effects, corpus-gated — 6–12 wks _(parallelizable; the long tail)_
 

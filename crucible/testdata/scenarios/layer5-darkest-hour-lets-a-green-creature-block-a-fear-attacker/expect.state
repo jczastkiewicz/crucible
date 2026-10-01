@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Jhessian Zombies|Tapped|Damage:2
+ailife=20
+aibattlefield=Darkest Hour
+aigraveyard=Grizzly Bears

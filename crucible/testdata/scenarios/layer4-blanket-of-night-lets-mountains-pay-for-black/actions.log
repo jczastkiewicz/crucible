@@ -1,0 +1,11 @@
+# Layer 4 (CR 613.1d), AddType$ read by the intrinsic mana ability. Blanket of
+# Night's S:Mode$ Continuous | Affected$ Land | AddType$ Swamp makes each
+# Mountain a Swamp in addition, and a Swamp taps for {B} (CR 305.6), so two
+# Mountains pay for Walking Corpse ({1}{B}), which Mountains alone could not.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+queue paygeneric B
+castspell human 1
+resolvestack

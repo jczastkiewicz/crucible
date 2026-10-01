@@ -1084,3 +1084,41 @@ func staticHostZoneOK(host *Card, s *compile.Ability) bool {
 	list, err := parseZoneList(zones)
 	return err == nil && slices.Contains(list, host.Zone)
 }
+
+// canDamagePrevented is Card.canDamagePrevented: damage from source is
+// preventable unless a Mode$ CantPreventDamage static names it
+// (StaticAbilityCantPreventDamage). IsCombat$ must equal isCombat when present
+// and ValidSource$ must match source; the source's own statics count too
+// (Spell.Self lines on the stack), through staticHostsWith. A line with a
+// param outside that list is not applied (GO-7). Prevention shields and
+// Prevent$ replacements are skipped by the callers when this is false.
+func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
+	c := g.Card(source)
+	for _, host := range g.staticHostsWith(source) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.Def.Faces {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CantPreventDamage") || !paramsResolvable(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
+					continue
+				}
+				if raw, ok := s.Param("IsCombat"); ok && strings.EqualFold(raw, "True") != isCombat {
+					continue
+				}
+				if v, ok := s.Param("ValidSource"); ok && !Matches(g, c, valid.Parse(v), h.Controller(), h.ID) {
+					continue
+				}
+				return false
+			}
+		}
+	}
+	return true
+}
+
+var cantPreventDamageParams = map[string]bool{
+	"mode": true, "iscombat": true, "validsource": true, "effectzone": true,
+	"condition": true, "phases": true, "playerturn": true,
+	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+}

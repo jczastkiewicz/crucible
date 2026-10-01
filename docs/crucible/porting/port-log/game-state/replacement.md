@@ -840,3 +840,14 @@ that funnel are covered. A card is named by `ValidCard$` (a line with `ValidPlay
 `ValidPlayer$`; an absent `CounterType$` names every kind; `AffectedZone$` is ignored, as Java ignores it outside
 `Continuous`. Placements that write `Counters.Add` directly (a permanent entering with counters, loyalty and defense
 counters, `Proliferate`, move/double effects) do not ask it yet. Tests: `cantputcounter_test.go`.
+
+## `CantPreventDamage`
+
+`Card.canDamagePrevented` (`Card.java:6116`) asks `StaticAbilityCantPreventDamage` before any prevention applies
+(`GameEntity.staticDamagePrevention`, `ReplacementHandler.java:399`). `canDamagePrevented` (`staticability.go`) ports it
+(11 cards: Leyline of Punishment, Everlasting Torment, Rampaging Wurm-style "can't be prevented"): a static whose
+`IsCombat$` equals the damage's combat flag and whose `ValidSource$` matches the source, the source's own statics
+included (`Spell.Self` lines on the stack). `dealPermanentDamage` and `dealPlayerDamage` (`combatdamage.go`) then skip
+the `Prevent$` replacements, `Fog`'s combat prevention and prevention shields; `damageReplaced` (redirects, splits) is
+not prevention and still runs. A line with `CheckSVar$` or another unlisted param is not applied. Tests:
+`cantpreventdamage_test.go`.

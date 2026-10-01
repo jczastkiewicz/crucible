@@ -285,11 +285,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if amount <= 0 {
 		return
 	}
-	if g.damagePrevented(source, target, isCombat, amount) {
+	preventable := g.canDamagePrevented(source, isCombat)
+	if preventable && g.damagePrevented(source, target, isCombat, amount) {
 		return
 	}
-	if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
-		return
+	if preventable {
+		if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
+			return
+		}
 	}
 	amount, redirect, redirected := g.damageReplaced(source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
@@ -357,11 +360,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // own doc comment gives. table is dealPermanentDamage's own doc comment,
 // the identical contract for a player-shaped target.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
-	if g.damagePreventedPlayer(source, target, isCombat, amount) {
+	preventable := g.canDamagePrevented(source, isCombat)
+	if preventable && g.damagePreventedPlayer(source, target, isCombat, amount) {
 		return
 	}
-	if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
-		return
+	if preventable {
+		if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
+			return
+		}
 	}
 	amount, redirect, redirected := g.damageReplacedPlayer(source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)

@@ -21,7 +21,7 @@ var digUnresolvedParams = [...]string{
 	"WithCounters", "WithCountersAmount", "Attacking", "Blocking",
 	"ExileFaceDown", "ExileWithCounters", "DefinedExiler", "StaticEffect",
 	"Pawprint", "Boast", "UnlessResolveSubs",
-	"Condition", "ConditionDefined", "SorcerySpeed", "PlayerTurn", "Ultimate", "ModeCost", "CheckSVar",
+	"Condition", "ConditionDefined", "SorcerySpeed", "Ultimate", "ModeCost", "CheckSVar",
 }
 
 // digEffect is DigEffect.java: each Defined$/ValidTgts$ player (default

@@ -37,8 +37,8 @@ import (
 // does not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
 // ValidTgts$/TargetMin$/TargetMax$/TargetUnique$ (9/-/-/1) --
 // getFirstTargetedPlayer's own extra battlefield-ownership filter, this
-// file has nowhere to route it through; Activator$/ActivationPhases$/
-// ModeCost$ (3/-/5) -- unclear semantics on a resolving (not triggering)
+// file has nowhere to route it through; Activator$/
+// ModeCost$ (3/5) -- unclear semantics on a resolving (not triggering)
 // line, not worth guessing at; Ultimate$ (4) -- a planeswalker-ultimate-
 // specific flag, its own further mechanic; Remembered$/SVar$/XColor$/
 // TriggeredSpellAbility$ (1 each) -- each its own further reference this
@@ -46,7 +46,7 @@ import (
 // condition.go's own subAbilityConditionMet would otherwise silently no-op
 // a card naming either, dealDamageEffect's own identical reasoning.
 var damageAllUnresolvedParams = [...]string{
-	"ValidTgts", "TargetUnique", "Activator", "ActivationPhases", "ModeCost",
+	"ValidTgts", "TargetUnique", "Activator", "ModeCost",
 	"Ultimate", "Remembered", "SVar", "XColor", "TriggeredSpellAbility",
 	"Condition", "ConditionDefined",
 }

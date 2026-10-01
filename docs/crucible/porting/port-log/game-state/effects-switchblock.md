@@ -8,7 +8,7 @@ the effect before either can activate, target or resolve. Each lands as a shared
 | Piece                                                      | Where                                                                   | Java                                                                             | Why SwitchBlock needs it                                                                                                                            |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `blocked` valid property                                   | `valid.go` `propertyMatches`                                            | `CardProperty.java:1591-1592`                                                    | Jarkeld's `ValidTgts$ Creature.attacking+blocked` matched nothing: the tap was paid, then no target, ability never pushed                           |
-| `ActivationPhases$` enforced                               | `activateability.go`, `activatemanaability.go` `inActivationPhases`     | `SpellAbilityRestriction.java:131-132,294-297`                                   | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes                             |
+| `ActivationPhases$` enforced                               | `activateability.go`, `activatemanaability.go` `timingRestrictionsMet`  | `SpellAbilityRestriction.java:131-132,294-297`                                   | Jarkeld is "declare blockers step only"; unenforced it could switch blocks after first-strike damage, changing outcomes                             |
 | `TargetsWithSameController$`                               | `targeting.go` `withSameControllerPartner`, `targetStillLegal`          | `CardLists.java:201-217`, `SpellAbility.java:1543-1549`                          | Sorrow's Path's two targets must share a controller; 35 corpus files named it, all silently ignored                                                 |
 | Per-turn blocked-by history                                | `card.go` `Card.blockedByThisTurn`, `block.go` `recordBlockedBy`        | `Card.java:112,1658-1666`, `PhaseHandler.java:804-805`, `BlockEffect.java:60-61` | Sorrow's Path's `DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted` reads it                                                          |
 | Attacker stays blocked when its last blocker leaves combat | `combat.go` `removeFromCombat`                                          | `Combat.java:602-639` (band's blocked flag never cleared)                        | Jarkeld can target a `ForcedBlocked` attacker with no blocker; after the trade the other attacker has none either and must stay blocked (CR 509.1h) |
@@ -19,15 +19,14 @@ the effect before either can activate, target or resolve. Each lands as a shared
   unported and fall through to "matches nothing".
 - `ActivationPhases$` is a general activation restriction, not SwitchBlock's own: every `AB$ Activated` (non-`Mana`)
   line naming it (150 corpus files) now activates only in its phase set through `ActivateAbility`. `ActivateManaAbility`
-  gained the identical `inActivationPhases` check too, and `activationphases` is now admitted by
+  gained the identical `timingRestrictionsMet` check too, and `activationphases` is now admitted by
   `manaAbilityAllowedParams`; the sole real `AB$ Mana` line naming it, `mana_cache.txt`'s `Upkeep->Main2`, still cannot
   activate end to end, because that same line also names `Activator$`/`PlayerTurn$`, neither admitted there (rules
   review on the merged commit; those two remain a separate, open gap). Parsed by `parsePhaseRange`
   (`PhaseType.parseRange`) against the current step; all 17 distinct corpus values parse. An unreadable value declines
   the activation (GO-7) rather than dropping the restriction.
-- `destroyalleffect.go`, `damagealleffect.go`, `removecountereffect.go`, `untapalleffect.go` still reject
-  `ActivationPhases$` at resolve. Now enforced at activation, those rejects are stale; left for their own owners to
-  lift.
+- `destroyalleffect.go`, `damagealleffect.go`, `removecountereffect.go`, `untapalleffect.go` no longer reject
+  `ActivationPhases$` at resolve: it is a cast/activation-time restriction only.
 - `TargetsWithSameController$`: two of Java's three halves. Candidate pre-filter (`targetChoiceFor`, min targets >= 2):
   a card whose controller controls no other candidate is not offered. Fizzle check (`targetStillLegal`): a card target
   whose controller differs from any other chosen card target is illegal; every target is checked against the full chosen

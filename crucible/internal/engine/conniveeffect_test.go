@@ -142,8 +142,8 @@ func TestConniveEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBConnive(t, g, p, etbConniveTriggerDefParams(t, "Test Connive PlayerTurn", "Defined$ Self | PlayerTurn$ True"), c)
+	_, err := castETBConnive(t, g, p, etbConniveTriggerDefParams(t, "Test Connive Condition", "Defined$ Self | Condition$ Kicked"), c)
 	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved PlayerTurn$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Condition$")
 	}
 }

@@ -35,9 +35,7 @@ import (
 // the wrong permanent or silently dropping half of what it asked for
 // (PORT-8/GO-7): Condition$/ConditionDefined$ (0/16) -- condition.go's own
 // subAbilityConditionMet would otherwise silently no-op a card naming
-// either, dealDamageEffect's own identical reasoning; PlayerTurn$ (7) --
-// unclear semantics on a Destroy line, not worth guessing at, pumpEffect's
-// own identical reasoning; SorcerySpeed$ (9) -- a cost-restriction flag with
+// either, dealDamageEffect's own identical reasoning; SorcerySpeed$ (9) -- a cost-restriction flag with
 // no cost-payment site to attach to, sacrificeEffect's own identical
 // reasoning; Ultimate$ (11) -- a planeswalker-ultimate-specific flag, its
 // own further mechanic; ModeCost$ (7) -- Charm's own per-mode cost linkage,
@@ -53,7 +51,7 @@ import (
 // resolveUnlessCost (effect.go) gates the whole ability before Registry.
 // Resolve ever reaches it.
 var destroyUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "PlayerTurn", "SorcerySpeed", "Ultimate",
+	"Condition", "ConditionDefined", "SorcerySpeed", "Ultimate",
 	"ModeCost", "RememberLKI",
 }
 

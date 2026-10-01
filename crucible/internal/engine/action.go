@@ -198,6 +198,7 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	// pass's apply right after it (clearContinuousText's own doc comment).
 	clearContinuousText(g)
 	applyContinuousControl(g)
+	g.correctControllerZones()
 	g.dropStolenRingBearers()
 	applyContinuousText(g)
 	applyContinuousPT(g)

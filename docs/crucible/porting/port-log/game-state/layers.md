@@ -337,6 +337,14 @@ resolver Layers 4-8 share) and an `Affected$` valid-string in the other 7 (`Perm
 `TestControlMagicShapeGainsControlThroughAffectedDefined` (`layer2control_test.go`) proves the first shape, and that
 control reverts when the Aura leaves.
 
+A controller change also moves the permanent: `correctControllerZones` (`gaincontroleffect.go`) runs right after
+`applyContinuousControl` and re-homes every battlefield card whose `Controller()` is not the owner of its list, so
+`Zone(Battlefield, pid)` is what `pid` controls ([ADR-0037](../../../adr/0037-battlefield-zone-keyed-by-controller.md);
+Java's `controllerChangeZoneCorrection`). The card keeps its timestamps, is summoning sick under the new controller,
+leaves combat and stops being its old controller's Ring-bearer; `changeControllerAt` calls the same correction for
+one-shot effects. `controllerzone_test.go` covers the list move and its return, attacking, and the untap step;
+`layer2-control-magic-...` is the scenario.
+
 `applyContinuousControl` runs FIRST among the six appliers (`CheckStateBasedActions`, action.go), ahead of
 `applyContinuousPT`/`Type`/`Color`/`Keyword`/`Rules`: CR 613.1 puts the control layer before every one of them, and
 concretely, several of their own `Affected$` specs can themselves read `Controller()` (a `"YouCtrl"` property) -- a

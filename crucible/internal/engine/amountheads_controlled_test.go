@@ -8,9 +8,9 @@ import (
 
 // TestDomainCountUsesControllerNotOwner is a regression test for a bug the
 // Layer 7a review caught before merge: domainCount (amountheads.go) read
-// g.Zone(Battlefield, pid).Cards(), which is keyed by owner (zone.go), not
-// controller. A GainControl'd land sits in its owner's battlefield zone, so
-// Count$Domain undercounted a controller's stolen basic lands and would
+// g.Zone(Battlefield, pid).Cards(), which was keyed by owner, not controller
+// (it is keyed by controller since ADR-0037). A GainControl'd land sat in its
+// owner's battlefield zone, so Count$Domain undercounted a controller's stolen basic lands and would
 // have overcounted the owner's own domain after losing control of one.
 func TestDomainCountUsesControllerNotOwner(t *testing.T) {
 	t.Parallel()
@@ -47,8 +47,8 @@ func TestDomainCountUsesControllerNotOwner(t *testing.T) {
 
 // TestDevotionAndChromaCountUseControllerNotOwner is the same regression for
 // devotionCount and Count$Chroma: both summed mana symbols over
-// g.Zone(Battlefield, pid).Cards(), the owner's zone, instead of walking
-// every player's battlefield and filtering on Controller.
+// g.Zone(Battlefield, pid).Cards(), then the owner's zone, instead of what
+// pid controls.
 func TestDevotionAndChromaCountUseControllerNotOwner(t *testing.T) {
 	t.Parallel()
 

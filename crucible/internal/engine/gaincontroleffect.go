@@ -79,7 +79,8 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 
 // changeController gives id a new timestamped controller (Java's
 // addTempController plus controllerChangeZoneCorrection): when that is a
-// real change the permanent leaves combat and is summoning sick again.
+// real change the permanent moves to its controller's battlefield list,
+// leaves combat and is summoning sick again (correctControllerZone).
 func (g *Game) changeController(id CardID, to PlayerID) {
 	g.timestamp++
 	g.changeControllerAt(id, to, g.timestamp)
@@ -91,9 +92,65 @@ func (g *Game) changeControllerAt(id CardID, to PlayerID, ts uint64) {
 	c := g.Card(id)
 	before := c.Controller()
 	c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: to})
-	if c.Controller() != before {
+	if c.Zone == Battlefield {
+		g.correctControllerZone(id)
+	} else if c.Controller() != before {
+		// A spell on the stack (ControlSpell) has no battlefield list to
+		// move between; it only takes the flags.
 		c.SummonSick = true
 		g.removeFromCombat(id)
 		g.loseRingBearer(id)
+	}
+}
+
+// correctControllerZone is GameAction.controllerChangeZoneCorrection
+// (GameAction.java:994-1033, ADR-0037): a battlefield permanent whose
+// Controller() is no longer the owner of the list it sits in moves to the end
+// of its controller's battlefield list, so Zone(Battlefield, pid) is the
+// permanents pid controls. The card keeps its Timestamp and zoneStamp (CR
+// 400.7: the same object) and fires neither a ZoneChanged event nor a
+// ChangesZone trigger -- Java suppresses the latter -- and a phased-out card
+// stays phased out. The permanent leaves combat, is summoning sick under its
+// new controller and stops being its old controller's Ring-bearer, for a
+// Layer 2 change as for a one-shot one. The ChangesController trigger
+// (game-state.md, "Not ported yet") is not fired.
+func (g *Game) correctControllerZone(id CardID) {
+	c := g.Card(id)
+	if c.Zone != Battlefield {
+		return
+	}
+	to := c.Controller()
+	if to == c.ZoneOwner {
+		return
+	}
+	g.Zone(Battlefield, c.ZoneOwner).remove(id)
+	c.ZoneOwner = to
+	g.Zone(Battlefield, to).cards.Add(id)
+	if c.phasedOut != NoPlayer {
+		g.setPhasedOut(id, c.phasedOut)
+	}
+	c.SummonSick = true
+	g.removeFromCombat(id)
+	g.loseRingBearer(id)
+}
+
+// correctControllerZones runs correctControllerZone over every battlefield
+// phased-in permanent whose controller differs from its list's owner, in
+// Java's walk order (each player's list in turn, p.getCardsIn(Battlefield)
+// skipping phased-out cards: a permanent that phased out with its Aura is not
+// re-homed while the Aura's static is off). It collects first and moves after, so
+// no list is changed while it is being read. CheckStateBasedActions runs it
+// right after applyContinuousControl.
+func (g *Game) correctControllerZones() {
+	var moved []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if g.Card(id).Controller() != pid {
+				moved = append(moved, id)
+			}
+		}
+	}
+	for _, id := range moved {
+		g.correctControllerZone(id)
 	}
 }

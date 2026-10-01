@@ -451,3 +451,25 @@ limit is an amount, `X` through the card's own SVars; one that cannot be resolve
 A mana ability and an `SP$` spell with a limit are not checked (0 real `SP$` lines name one; `manaAbilityAllowedParams`
 refuses the mana lines). `charmeffect.go`, `untapalleffect.go` and `destroyalleffect.go` no longer reject the two keys.
 Tests: `activationlimits_test.go`.
+
+## `Activator$`, `IsPresent$`, `LifeTotal$`, `Activation$` and `CheckSVar$`
+
+`SpellAbilityRestriction.checkActivatorRestrictions` and `checkOtherRestrictions`
+(`SpellAbilityRestriction.java:331-346,361-486`) become `activatorValid` and `otherRestrictionsMet`
+(`activateability.go`). `ActivateAbility` runs both; `castFromHand` runs `otherRestrictionsMet` on an Instant's or
+Sorcery's `SP$` line. They reuse the trigger-side evaluators (`isPresentMatches`, `lifeTotalMatches`,
+`checkSVarMatches`), so the two cannot drift.
+
+| Param (real `AB$` lines)                                        | Reading                                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `Activator$` (53)                                               | `matchesPlayerSpec` against the permanent's controller; default `You`        |
+| `IsPresent$` (112), `PresentCompare$` (29), `PresentZone$` (13) | count of matching cards, default `GE1`, default zone Battlefield             |
+| `LifeTotal$`, `LifeAmount$` (281)                               | `You` or `ActivePlayer` life against the compare                             |
+| `Activation$` (44)                                              | Threshold, Metalcraft, Delirium, Hellbent; Blessing and Solved refuse (GO-7) |
+| `CheckSVar$` (95), `SVarCompare$` (60)                          | one SVar chain link, default `GE1`; `CheckSecondSVar$` is not read, as Java  |
+
+`PresentPlayer$` and `IsPresent2$` are not read either: the restriction does not read them. With `Activator$ Opponent`
+or `Player` another player may activate a battlefield permanent; the permanent's own zone checks are unchanged. Sixteen
+`SP$` lines name `CheckSVar$`, four `IsPresent$`. Thirteen effects stopped rejecting `Activator$`, `CheckSVar$`,
+`SVarCompare$`, `IsPresent$` or `PresentCompare$` at resolve, since no effect reads them. Tests:
+`activationrestrictions_test.go`.

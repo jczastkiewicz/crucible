@@ -42,8 +42,7 @@ import "fmt"
 // checks a trigger at all.
 //
 // Not ported (every one fails loudly rather than draining the wrong amount
-// from the wrong player, PORT-8/GO-7): IsPresent$/
-// PresentCompare$/NumCards$/ModeCost$ (unclear semantics or each its own
+// from the wrong player, PORT-8/GO-7): NumCards$/ModeCost$ (unclear semantics or each its own
 // further mechanic, not worth guessing at from a handful of real lines);
 // Condition$ itself and ConditionDefined$/ConditionZone$
 // (SpellAbilityCondition's own separate flag switch and shapes
@@ -84,7 +83,7 @@ import "fmt"
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"IsPresent", "PresentCompare", "NumCards", "ModeCost",
+	"NumCards", "ModeCost",
 	"Condition", "ConditionDefined", "ConditionZone",
 }
 

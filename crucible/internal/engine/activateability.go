@@ -230,13 +230,13 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
-	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(c, index, ability) {
+	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(c, index, ability) || !g.otherRestrictionsMet(c, ability) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
 	switch zone, _ := ability.Param("ActivationZone"); zone {
 	case "", "Battlefield":
-		if c.Controller() != pid || c.Zone != Battlefield {
+		if !g.activatorValid(pid, c, ability) || c.Zone != Battlefield {
 			return false
 		}
 	case "Graveyard":
@@ -394,6 +394,53 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	c.activations.note(index)
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	return true
+}
+
+// activatorValid is SpellAbilityRestriction.checkActivatorRestrictions
+// (SpellAbilityRestriction.java:331-346): pid may activate the A: line when
+// Activator$ (default "You") matches them against the permanent's controller.
+// A spec matchesPlayerSpec does not recognize refuses (GO-7).
+func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) bool {
+	spec, ok := ability.Param("Activator")
+	if !ok {
+		return c.Controller() == pid
+	}
+	matched, recognized := matchesPlayerSpec(g, pid, c.Controller(), c.ID, spec)
+	return recognized && matched
+}
+
+// otherRestrictionsMet is SpellAbilityRestriction.checkOtherRestrictions'
+// player-state and board checks for an A: or SP$ line of c
+// (SpellAbilityRestriction.java:361-437,474-486): Activation$ (Threshold,
+// Metalcraft, Delirium, Hellbent), IsPresent$ with PresentCompare$/
+// PresentZone$, LifeTotal$ with LifeAmount$, and one CheckSVar$ with
+// SVarCompare$. PresentPlayer$, IsPresent2$ and CheckSecondSVar$ are not read
+// here, as Java's restriction does not read them. An Activation$ value that
+// names a state this port does not track (Blessing, Solved) refuses (GO-7).
+func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
+	amounts := c.Def.Faces[0].Amounts
+	you := c.Controller()
+	if act, ok := ability.Param("Activation"); ok {
+		var has bool
+		switch act {
+		case "Threshold":
+			has = len(g.Zone(Graveyard, you).Cards()) >= 7
+		case "Metalcraft":
+			has = battlefieldArtifactCount(g, you) >= 3
+		case "Delirium":
+			has = graveyardCoreTypeCount(g, you) >= 4
+		case "Hellbent":
+			has = len(g.Zone(Hand, you).Cards()) == 0
+		default:
+			return false
+		}
+		if !has {
+			return false
+		}
+	}
+	return isPresentMatches(g, c, amounts, ability, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "") &&
+		lifeTotalMatches(g, c, amounts, ability) &&
+		checkSVarMatches(g, c, amounts, ability, "CheckSVar", "SVarCompare", "")
 }
 
 // activationLimitsMet is SpellAbilityRestriction.canPlay's

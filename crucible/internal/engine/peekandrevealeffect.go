@@ -6,9 +6,10 @@ import "fmt"
 
 // peekAndRevealUnresolvedParams are PeekAndRevealEffect.java's params this
 // port cannot honour yet: SourceZone$ (1 real line; everything else peeks at
-// the library) and a bare CheckSVar$ activation gate (1).
+// the library); a bare CheckSVar$ is an activation gate otherRestrictionsMet
+// enforces.
 var peekAndRevealUnresolvedParams = [...]string{
-	"SourceZone", "CheckSVar",
+	"SourceZone",
 	"Condition", "ConditionDefined",
 }
 

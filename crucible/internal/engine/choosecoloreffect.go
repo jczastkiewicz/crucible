@@ -11,10 +11,10 @@ import (
 
 // chooseColorUnresolvedParams are ChooseColorEffect.java's params this port
 // cannot honour yet: Random$ (Aggregates.random), ColorsFrom$ (the colors of
-// a defined card set), and the bare CheckSVar$/SVarCompare$ activation gate
-// on 1 line each.
+// a defined card set); a bare CheckSVar$/SVarCompare$ is the activation gate
+// activationLimitsMet's sibling otherRestrictionsMet enforces.
 var chooseColorUnresolvedParams = [...]string{
-	"Random", "ColorsFrom", "CheckSVar", "SVarCompare",
+	"Random", "ColorsFrom",
 	"Condition", "ConditionDefined", "SorcerySpeed", "InstantSpeed", "Forecast",
 }
 

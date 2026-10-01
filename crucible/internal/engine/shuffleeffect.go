@@ -21,14 +21,11 @@ import "fmt"
 // not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
 // Optional$ (1) -- an interactive "would you like to shuffle" confirm, the
 // identical gap Sacrifice's/Discard's/Mill's own Optional$ already
-// document; IsPresent$/PresentCompare$ (1/1) -- unclear semantics on a
-// resolving (not triggering) Shuffle line, not worth guessing at from one
-// real line, pumpEffect's own identical reasoning for its own IsPresent$;
-// Condition$/ConditionDefined$ (0/1) -- condition.go's own
+// document; Condition$/ConditionDefined$ (0/1) -- condition.go's own
 // subAbilityConditionMet would otherwise silently no-op a card naming
 // either, dealDamageEffect's own identical reasoning.
 var shuffleUnresolvedParams = [...]string{
-	"Optional", "IsPresent", "PresentCompare", "Condition", "ConditionDefined",
+	"Optional", "Condition", "ConditionDefined",
 }
 
 // shuffleEffect resolves Mode$/DB$/AB$ Shuffle. ConditionPresent$/

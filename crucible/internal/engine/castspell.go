@@ -123,7 +123,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		return false
 	}
 	if castableAsInstantOrSorcery(c) {
-		if spell := firstSpellAbility(c); spell != nil && !g.timingRestrictionsMet(pid, spell) {
+		if spell := firstSpellAbility(c); spell != nil && (!g.timingRestrictionsMet(pid, spell) || !g.otherRestrictionsMet(c, spell)) {
 			return false
 		}
 	}

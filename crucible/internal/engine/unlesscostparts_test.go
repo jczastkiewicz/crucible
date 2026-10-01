@@ -217,3 +217,73 @@ func TestWardDiscardCountersUnlessPaid(t *testing.T) {
 			g.Card(held).Zone, g.Card(target).Zone)
 	}
 }
+
+// TestUnlessCostDamageYou proves DamageYou<N> (18 real lines): paying deals the
+// payer N noncombat damage from the source and prevents the ability; it is
+// payable at any life total (CostDamage.canPay is always true).
+func TestUnlessCostDamageYou(t *testing.T) {
+	t.Parallel()
+
+	t.Run("paid", func(t *testing.T) {
+		t.Parallel()
+		g, p, c, cast := unlessCostGame(t, "DamageYou<4>")
+		c.QueueConfirmPayCost(true)
+		creature := cast()
+		if g.Card(creature).Zone != engine.Battlefield || g.Player(p).Life != 16 {
+			t.Errorf("zone %v life %d, want Battlefield and 16", g.Card(creature).Zone, g.Player(p).Life)
+		}
+	})
+	t.Run("declined", func(t *testing.T) {
+		t.Parallel()
+		g, p, c, cast := unlessCostGame(t, "DamageYou<4>")
+		c.QueueConfirmPayCost(false)
+		creature := cast()
+		if g.Card(creature).Zone != engine.Graveyard || g.Player(p).Life != 20 {
+			t.Errorf("zone %v life %d, want Graveyard and 20", g.Card(creature).Zone, g.Player(p).Life)
+		}
+	})
+}
+
+// TestUnlessCostDraw proves Draw<N/You> (CostDraw): the payer draws N cards.
+func TestUnlessCostDraw(t *testing.T) {
+	t.Parallel()
+
+	g, p, c, cast := unlessCostGame(t, "Draw<2/You>")
+	first := g.NewCard(creatureDef(t), p, engine.Library)
+	second := g.NewCard(creatureDef(t), p, engine.Library)
+	c.QueueConfirmPayCost(true)
+	creature := cast()
+	if g.Card(creature).Zone != engine.Battlefield {
+		t.Errorf("creature zone = %v, want Battlefield: the cost was paid", g.Card(creature).Zone)
+	}
+	if g.Card(first).Zone != engine.Hand || g.Card(second).Zone != engine.Hand {
+		t.Errorf("library cards in %v and %v, want both in Hand", g.Card(first).Zone, g.Card(second).Zone)
+	}
+}
+
+// TestUnlessCostReturnsAChosenPermanent proves Return<N/Type> (CostReturn): the
+// payer returns a matching permanent they choose to its owner's hand; with
+// nothing matching they cannot pay.
+func TestUnlessCostReturnsAChosenPermanent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("paid", func(t *testing.T) {
+		t.Parallel()
+		g, p, c, cast := unlessCostGame(t, "Return<1/Creature.Other/other creature>")
+		other := g.NewCard(creatureDef(t), p, engine.Battlefield)
+		c.QueueConfirmPayCost(true)
+		c.QueueReturnChoice([]engine.CardID{other})
+		creature := cast()
+		if g.Card(creature).Zone != engine.Battlefield || g.Card(other).Zone != engine.Hand {
+			t.Errorf("creature %v, returned %v, want Battlefield and Hand", g.Card(creature).Zone, g.Card(other).Zone)
+		}
+	})
+	t.Run("nothing matches", func(t *testing.T) {
+		t.Parallel()
+		g, _, c, cast := unlessCostGame(t, "Return<1/Land>")
+		c.QueueConfirmPayCost(true)
+		if creature := cast(); g.Card(creature).Zone != engine.Graveyard {
+			t.Errorf("creature zone = %v, want Graveyard: no land to return", g.Card(creature).Zone)
+		}
+	})
+}

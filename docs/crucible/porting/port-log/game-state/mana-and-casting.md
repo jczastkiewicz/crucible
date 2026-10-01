@@ -455,9 +455,12 @@ Tests: `activationlimits_test.go`.
 ## `UnlessCost$` past mana, and Ward
 
 `resolveUnlessCost` (`effect.go`) pays "unless" costs through `parseUnlessCost`/`payUnlessCost` (`unlesscost.go`): mana
-tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14) and one `Sac<N/Type>` (88, 5;
-`CARDNAME` sacrifices the source). `Reveal`, `Return`, `DamageYou`, `ExileFromGrave`, `Draw`, `tapXType`, `AddCounter`
-and an `X` still error.
+tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14), one `Sac<N/Type>` (88, 5;
+`CARDNAME` sacrifices the source), one `Return<N/Type>` (`CARDNAME` or a valid string; `returnTypeCandidates` and
+`returnCards`, the activation-cost twins), `DamageYou<N>` (18; `dealPlayerDamage` from the source, always payable as
+`CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, unpayable under a draw prevention). `Reveal`, `ExileFromGrave`,
+`tapXType`, `AddCounter`, `Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and an `X` still
+error.
 
 | Step                     | Rule                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -465,6 +468,7 @@ and an `X` still error.
 | payable first            | life at least `PayLife` (CR 119.4), enough cards to discard, enough permanents to sacrifice      |
 | mana                     | `PayManaCost`, which fails atomically, so a cost that cannot be met pays none of its other parts |
 | life, discard, sacrifice | the `LifeChanged` event as `loseLifeEffect`; the payer chooses discards and sacrifices           |
+| return, damage, draw     | the payer chooses the permanents returned; damage and draws run last, as `CostDamage`/`CostDraw` |
 
 `checkWardTriggers` pushes a Ward trigger for any cost `parseUnlessCost` reads, so `Ward:PayLife<N>`,
 `Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,
@@ -479,7 +483,7 @@ A trigger whose `Execute$` is an `AB$` line with a `Cost$` (884 real triggers on
 it optional unless the cost is `0` or says `Mandatory`. `Registry.payTriggeredCost` (`effect.go`) is that: after the
 `OptionalDecider$` confirm, an ability of record `Activated` that is not one of its host's own printed `A:` lines, nor
 flagged `costPaid` by `ActivateAbility`, asks `ConfirmOptionalTrigger` (unless `Mandatory`) and pays the cost through
-`payUnlessCost`; unpaid, it does nothing. A cost `parseUnlessCost` does not read (`Draw<1/You>`, an `X`, ...) is an
+`payUnlessCost`; unpaid, it does nothing. A cost `parseUnlessCost` does not read (`Reveal<N/Type>`, an `X`, ...) is an
 error, never a free resolution (GO-7). `PayEnergy<N>` and `Mandatory` joined `parseUnlessCost` for this.
 
 Guards that existed for the gap are gone: Meld's own `Cost$` rejection, the RingTemptsYou pre-check, and the spell-cast

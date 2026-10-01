@@ -1,9 +1,10 @@
 // UnlessCost$ past plain mana: the cost parts a player may pay to prevent an
-// effect (AbilityUtils.handleUnlessCost, Ward). PayLife<N>, Discard<N/Card>
-// and Sac<N/Type> beside mana tokens are the shapes that need no mid-payment
-// decision beyond which cards.
+// effect (AbilityUtils.handleUnlessCost, Ward). PayLife<N>, PayEnergy<N>,
+// DamageYou<N>, Draw<N/You>, Discard<N/Card>, Sac<N/Type> and Return<N/Type>
+// beside mana tokens are the shapes that need no mid-payment decision beyond
+// which cards.
 
-//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts
+//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger
 
 package engine
 
@@ -31,11 +32,17 @@ type unlessCost struct {
 	// the cost unskippable (CostPart's isMandatory): nobody is asked.
 	energyN   int
 	mandatory bool
+	// damageN is DamageYou<N> (the payer is dealt N noncombat damage by the
+	// source), drawN is Draw<N/You>, and returnN/returnSpec are Return<N/Type>
+	// (a valid string, or "CARDNAME" for the source itself); 0 for no such part.
+	damageN, drawN, returnN int
+	returnSpec              string
 }
 
 // parseUnlessCost reads text into an unlessCost, false for a shape past
-// mana, PayLife, PayEnergy, Discard<N/Card> and one Sac part (Tap, an X,
-// Reveal, ...), each its own further mechanic (GO-7).
+// mana, PayLife, PayEnergy, DamageYou<N>, Draw<N/You>, Discard<N/Card> and one
+// Sac or Return part (Tap, an X, Reveal, ...), each its own further mechanic
+// (GO-7).
 func parseUnlessCost(text string) (unlessCost, bool) {
 	parsed := cost.Parse(text)
 	if parsed.Tap || parsed.Untap || parsed.XMin != "" {
@@ -56,6 +63,12 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 			uc.discardN += n
 		case p.Name == "Sac" && uc.sacN == 0 && p.Field(1) != "":
 			uc.sacN, uc.sacSpec = n, p.Field(1)
+		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":
+			uc.returnN, uc.returnSpec = n, p.Field(1)
+		case p.Name == "DamageYou":
+			uc.damageN += n
+		case p.Name == "Draw" && p.Field(1) == "You":
+			uc.drawN += n
 		default:
 			return unlessCost{}, false
 		}
@@ -95,6 +108,24 @@ func (g *Game) unlessSacCandidates(pid PlayerID, source CardID, uc unlessCost) [
 	return out
 }
 
+// unlessReturnCandidates is what pid may return to hand for the Return part:
+// the source itself for CARDNAME/NICKNAME (CostReturn's self shape, when pid
+// controls it on the battlefield), else pid's permanents matching the valid
+// string (returnTypeCandidates, the activation-cost Return<N/Type> twin).
+func (g *Game) unlessReturnCandidates(pid PlayerID, source CardID, uc unlessCost) []CardID {
+	if uc.returnN == 0 {
+		return nil
+	}
+	if uc.returnSpec == "CARDNAME" || uc.returnSpec == "NICKNAME" {
+		c := g.Card(source)
+		if c.Zone == Battlefield && c.Controller() == pid {
+			return []CardID{source}
+		}
+		return nil
+	}
+	return returnTypeCandidates(g, pid, source, uc.returnSpec)
+}
+
 // payUnlessCost pays uc for pid, reporting whether it was paid. Every part is
 // checked payable first -- life at least PayLife (CR 119.4), enough cards to
 // discard, enough permanents to sacrifice -- and the mana is paid next, which
@@ -105,8 +136,10 @@ func (g *Game) unlessSacCandidates(pid PlayerID, source CardID, uc unlessCost) [
 func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) bool {
 	hand := g.Zone(Hand, pid).Cards()
 	candidates := g.unlessSacCandidates(pid, a.Source, uc)
+	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
 	if uc.lifeN > g.Player(pid).Life || uc.energyN > g.Player(pid).Counters.Count(Energy) ||
-		uc.discardN > len(hand) || uc.sacN > len(candidates) {
+		uc.discardN > len(hand) || uc.sacN > len(candidates) || uc.returnN > len(returnable) ||
+		(uc.drawN > 0 && g.drawPrevented(pid)) {
 		return false
 	}
 	if uc.hasMana && !g.PayManaCost(pid, uc.mana, controller) {
@@ -125,6 +158,17 @@ func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.sacN > 0 {
 		sacrificeCards(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN))
+	}
+	if uc.returnN > 0 {
+		returnCards(g, controller, controller.ChoosePermanentsToReturn(g, pid, returnable, uc.returnN))
+	}
+	if uc.damageN > 0 {
+		var table damageTable
+		g.dealPlayerDamage(controller, a.Source, pid, uc.damageN, false, &table)
+		g.checkDamageTableTriggers(controller, table, false)
+	}
+	if uc.drawN > 0 {
+		g.DrawCards(pid, uc.drawN, controller)
 	}
 	return true
 }

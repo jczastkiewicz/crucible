@@ -1235,3 +1235,52 @@ var cantPreventDamageParams = map[string]bool{
 	"condition": true, "phases": true, "playerturn": true,
 	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
+
+// maxCounterParams are the params a MaxCounter line may carry that this port
+// evaluates.
+var maxCounterParams = map[string]bool{
+	"mode": true, "validcard": true, "countertype": true, "maxnum": true, "condition": true,
+	"effectzone": true, "description": true, "secondary": true,
+}
+
+// maxCounter is StaticAbilityMaxCounter.maxCounter: the smallest MaxNum$ of
+// every Mode$ MaxCounter static naming card id and counter kind ct, with ok
+// false when none does. Java asks only for Dream counters (Card.getCounterMax,
+// Card.java:1744); the caller passes ct through the same gate. MaxNum$ is read
+// as a literal -- the one real line writes 7 -- and a line with another form,
+// or a param this port does not evaluate, is not applied (GO-7).
+func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
+	if ct != "DREAM" {
+		return 0, false
+	}
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "MaxCounter") || !paramsResolvable(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if kind, has := s.Param("CounterType"); has && !strings.EqualFold(kind, string(ct)) {
+						continue
+					}
+					if v, has := s.Param("ValidCard"); has && !Matches(g, g.Card(id), valid.Parse(v), h.Controller(), h.ID) {
+						continue
+					}
+					raw, _ := s.Param("MaxNum")
+					n, err := strconv.Atoi(raw)
+					if err != nil {
+						continue
+					}
+					if !ok || n < limit {
+						limit, ok = n, true
+					}
+				}
+			}
+		}
+	}
+	return limit, ok
+}

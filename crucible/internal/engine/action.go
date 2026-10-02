@@ -249,6 +249,7 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			performed = annihilateCounters(g, id) || performed
+			performed = trimDreamCounters(g, id) || performed
 		}
 	}
 	performed = destroyLethalToughness(g, controller) || performed
@@ -284,6 +285,26 @@ func annihilateCounters(g *Game, id CardID) bool {
 	c.Counters.Add(M1M1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), P1P1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), M1M1, -remove)
+	return true
+}
+
+// trimDreamCounters is CR 704.5r (stateBasedAction704_5r, GameAction.java:
+// 1867): a card holding more Dream counters than a Mode$ MaxCounter static
+// allows loses the excess. Java asks the Dream kind only, and skips the trim
+// when canRemoveCounters says no -- that guard is not ported (704.5q's own
+// is not either).
+func trimDreamCounters(g *Game, id CardID) bool {
+	c := g.Card(id)
+	have := c.Counters.Count("DREAM")
+	if have <= 0 {
+		return false
+	}
+	limit, capped := g.maxCounter(id, "DREAM")
+	if !capped || have <= limit {
+		return false
+	}
+	c.Counters.Add("DREAM", limit-have)
+	emitCounterChanged(g.sink, id, CardEntity(id), "DREAM", limit-have)
 	return true
 }
 

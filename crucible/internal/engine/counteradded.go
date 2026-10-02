@@ -26,6 +26,14 @@ func (g *Game) addCardCounters(controller PlayerController, source CardID, id Ca
 	}
 	c := g.Card(id)
 	old := c.Counters.Count(ct)
+	// Card.addCounterInternal (Card.java:1760): a Mode$ MaxCounter static
+	// caps the new total, CR 704.5r's Dream counters.
+	if limit, capped := g.maxCounter(id, ct); capped {
+		n = min(n, limit-old)
+		if n <= 0 {
+			return
+		}
+	}
 	c.Counters.Add(ct, n)
 	emitCounterChanged(g.sink, source, CardEntity(id), ct, n)
 	var matches []Ability

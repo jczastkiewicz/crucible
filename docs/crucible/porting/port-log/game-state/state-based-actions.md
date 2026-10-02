@@ -336,6 +336,10 @@ the first defined card (`tokenAttachHost`); an Aura token that cannot attach (`t
 host in play) is not created (CR 303.4i). The token enters first and is attached right after, so an ETB trigger of the
 token does not see the attachment (`AttachAfter$` reads the same way); a player host is not resolvable.
 
-Not ported: 704.5r (Dream counter maximum, `StaticAbilityMaxCounter`; 2 cards), the Contraption sprocket rule, Commander
-damage. Scenarios: `sba-saga-at-its-final-chapter-...`, `sba-equipment-attached-to-a-non-creature-...`; Go tests
-`roles_test.go`, `sbaspeed_test.go`.
+704.5r is `trimDreamCounters` (`action.go`), and the same cap applies as counters are put (`addCardCounters`): both read
+`Game.maxCounter` (`staticability.go`, `StaticAbilityMaxCounter.maxCounter`, smallest `MaxNum$` among matching
+`Mode$ MaxCounter` statics). Java asks the Dream kind only. `MaxNum$` is read as a literal (the one real line writes 7),
+and the `canRemoveCounters` guard on the trim is not ported.
+
+Not ported: the Contraption sprocket rule, Commander damage. Scenarios: `sba-saga-at-its-final-chapter-...`,
+`sba-equipment-attached-to-a-non-creature-...`; Go tests `roles_test.go`, `sbaspeed_test.go`, `maxcounter_test.go`.

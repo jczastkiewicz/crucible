@@ -625,6 +625,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 			kind, owner = Exile, c.Owner
 		}
 	}
+	if (from == Stack && kind != Battlefield) || (from == Battlefield && kind != Battlefield) {
+		c.kicker = 0
+	}
 	if from == Stack && kind != Battlefield {
 		// CR 108.4a: only a permanent or a spell has a controller. A spell
 		// leaving the stack for anywhere but the battlefield goes back to

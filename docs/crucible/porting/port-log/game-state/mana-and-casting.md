@@ -571,3 +571,18 @@ Not applied, never assumed (GO-7): `ValidTarget$` (the spell's targets are chose
 lines), `Color$`/`IgnoreGeneric$`, `Relative$`, `UpTo$`, `OnlyFirstSpell$`, `ValidSpell$`, `ForEachShard$`,
 `Type$ Ability` (activated-ability costs: Equip's `ReduceCost`), `SetCost` (Trinisphere), `CheckSVar$`/`IsPresent$`
 conditions, and the keyword reductions (Affinity, Convoke, Delve, Improvise, Assist, Emerge). Tests: `costmod_test.go`.
+
+## Kicker
+
+CR 702.33. A card with `K:Kicker:<cost>[:<cost>]` (239 cards) is offered each kicker as it is cast: `castSpell`
+(`castspell.go`) calls `chooseKicker` (`kicker.go`), which asks the caster `ConfirmPayCost` -- the question an unless
+cost asks -- once per kicker cost, and records the answer as `Card.kicker` bits (`kicker1`, `kicker2`, Java's
+`OptionalCost.Kicker1/Kicker2`). `payCastCost` pays the cost plus every chosen kicker (`withKicker`) before
+`spellCost`'s reductions, as Java adds the optional costs to the spell's cost first. A cast that fails clears the bits;
+`Game.Move` clears them when the card leaves the stack for anywhere but the battlefield, or leaves the battlefield.
+
+Readers: `Count$Kicked.<yes>.<no>` and `Count$TimesKicked` (`Card.kickerMagnitude`: 0, 1 or 2 as
+`Card.getKickerMagnitude`), the `kicked`/`kicked 1`/`kicked 2` valid properties (`valid.go`), and `Condition$ Kicked` /
+`Kicked 1` / `Kicked 2` (`condition.go`; any other `Condition$` value still skips the ability). Not offered: a kicker
+whose cost is not a plain mana cost (`Sac<..>`), Multikicker, and `Spell.Kicked` as a spell-ability property. Tests:
+`kicker_test.go`.

@@ -41,6 +41,11 @@ type Card struct {
 	// any time it would leave the stack it is exiled instead (CR 702.34a,
 	// Game.Move). Cleared when it leaves.
 	flashbackCast bool
+
+	// kicker is which of the card's kicker costs were paid casting it (kicker.go),
+	// read while it is on the stack or the battlefield; Move clears it when the
+	// card leaves either for another zone.
+	kicker uint8
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move
@@ -805,3 +810,24 @@ type exiledWithMark struct {
 // ExiledWith is the card that exiled c, NoCard if nothing did since c last
 // changed zones (Card.getExiledWith).
 func (c *Card) ExiledWith() CardID { return c.exiledWith.host }
+
+// Kicker1 and Kicker2 are the bits Card.kicker records: which of a card's two
+// kicker costs were paid (Java's OptionalCost.Kicker1/Kicker2).
+const (
+	kicker1 uint8 = 1 << iota
+	kicker2
+)
+
+// kickerMagnitude is Card.getKickerMagnitude for a kicker (not multikicker)
+// card: how many kicker costs were paid, 0 to 2 -- one when exactly one of the
+// two was, as Java computes it.
+func (c *Card) kickerMagnitude() int {
+	k1, k2 := c.kicker&kicker1 != 0, c.kicker&kicker2 != 0
+	switch {
+	case k1 && k2:
+		return 2
+	case k1 || k2:
+		return 1
+	}
+	return 0
+}

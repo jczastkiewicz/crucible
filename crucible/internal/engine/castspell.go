@@ -187,6 +187,9 @@ type castOpts struct {
 	// flashback cost, CR 702.34a).
 	altCost    mana.Cost
 	hasAltCost bool
+	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
+	// of the cost (CR 601.2b, 702.33a).
+	kickers uint8
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -200,6 +203,20 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	if g.cantBeCast(pid, card) {
 		return false
 	}
+	// Kicker is chosen as the spell is announced; the card carries the choice
+	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
+	// forgets it.
+	opts.kickers = g.chooseKicker(controller, pid, g.Card(card), opts.withoutManaCost)
+	g.Card(card).kicker = opts.kickers
+	if !g.castSpellChosen(controller, pid, card, opts) {
+		g.Card(card).kicker = 0
+		return false
+	}
+	return true
+}
+
+// castSpellChosen is castSpell once the kicker choice is made.
+func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
 	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller, opts)
@@ -248,7 +265,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if opts.hasAltCost {
 		base = opts.altCost
 	}
-	return g.payManaCostX(pid, g.spellCost(pid, c.ID, base), controller)
+	return g.payManaCostX(pid, g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base)), controller)
 }
 
 // setOn records x on a as the X its cost was paid with; announced false

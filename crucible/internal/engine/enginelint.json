@@ -255,6 +255,7 @@
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
       "discardeffect",
+      "kicker",
       "id",
       "zone",
       "parts",

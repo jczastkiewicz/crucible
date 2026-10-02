@@ -58,6 +58,25 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return c.Counters.Total(), true
 		}
 		return c.Counters.Count(CounterType(strings.ToUpper(count.Parameters[0]))), true
+	case "Kicked":
+		// Count$Kicked.<n if kicked>.<n if not> (AbilityUtils.java:1691).
+		if source == NoCard || len(count.Parameters) != 2 {
+			return 0, false
+		}
+		yes, errYes := strconv.Atoi(count.Parameters[0])
+		no, errNo := strconv.Atoi(count.Parameters[1])
+		if errYes != nil || errNo != nil {
+			return 0, false
+		}
+		if g.Card(source).kickerMagnitude() > 0 {
+			return yes, true
+		}
+		return no, true
+	case "TimesKicked":
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).kickerMagnitude(), true
 	case "ChosenNumber":
 		if source == NoCard {
 			return 0, false

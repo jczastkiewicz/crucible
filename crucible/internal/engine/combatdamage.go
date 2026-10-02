@@ -385,7 +385,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	poison := 0
 	if g.Card(source).HasKeyword("Infect") {
 		poison += amount
-	} else {
+	} else if !g.cantLoseLife(target) {
 		g.Player(target).Life -= amount
 	}
 	if isCombat {

@@ -929,6 +929,119 @@ func (g *Game) cantGainLife(pid PlayerID) bool {
 	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
 }
 
+// cantLoseLife is Player.canLoseLife (StaticAbilityCantGainLosePayLife.
+// anyCantLoseLife): a player out of the game, or named by a Mode$ CantLoseLife
+// or CantChangeLife static, loses no life.
+func (g *Game) cantLoseLife(pid PlayerID) bool {
+	return g.Player(pid).Lost || g.playerStatic(pid, "CantLoseLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
+}
+
+// causeMatches is StaticAbility.matchesValidParam("ValidCause", cause) for the
+// kinds it names: a comma list of Spell, Activated, Triggered or SpellAbility
+// (any), each with +/. properties among ManaAbility and its negation (an
+// activated mana ability is both Activated and ManaAbility) and YouCtrl/OppCtrl
+// (the cause's controller against the static's host's, when known). Anything
+// else does not match.
+func causeMatches(spec, kind string, cause, host PlayerID) bool {
+	for _, alt := range strings.Split(spec, ",") {
+		head, props, _ := strings.Cut(alt, ".")
+		isActivated := kind == causeActivated || kind == causeManaAbil
+		switch head {
+		case "SpellAbility":
+		case causeSpell:
+			if kind != causeSpell {
+				continue
+			}
+		case causeActivated:
+			if !isActivated {
+				continue
+			}
+		case causeTriggered:
+			if kind != causeTriggered {
+				continue
+			}
+		default:
+			continue
+		}
+		ok := true
+		for _, p := range strings.Split(props, "+") {
+			switch p {
+			case "":
+			case "ManaAbility":
+				ok = ok && kind == causeManaAbil
+			case "!ManaAbility":
+				ok = ok && kind != causeManaAbil
+			case "YouCtrl":
+				ok = ok && cause != NoPlayer && cause == host
+			case "OppCtrl":
+				ok = ok && cause != NoPlayer && cause != host
+			default:
+				ok = false
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// cantPayLife is Player.canPayLife's static half (anyCantPayLife): a
+// CantPayLife, CantLoseLife or CantChangeLife static naming the player stops a
+// payment of life, ForCost$ narrowing it to a cost (True) or an effect (False)
+// and ValidCause$ to the kind of ability paying (cause). effect says which this
+// payment is.
+func (g *Game) cantPayLife(pid PlayerID, effect bool, cause string) bool {
+	keep := func(s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidCause"); ok && !causeMatches(spec, cause, pid, pid) {
+			return false
+		}
+		if forCost, ok := s.Param("ForCost"); ok && strings.EqualFold(forCost, "True") == effect {
+			return false
+		}
+		return true
+	}
+	return g.playerStatic(pid, "CantPayLife", keep) || g.playerStatic(pid, "CantLoseLife", keep) || g.playerStatic(pid, "CantChangeLife", keep)
+}
+
+// cantSacrifice is StaticAbilityCantSacrifice.cantSacrifice: a Mode$
+// CantSacrifice static whose ValidCard$ matches c. ForCost$ narrows it to a
+// cost (True) or an effect (False); effect says which this sacrifice is. A line
+// naming ValidCause$ is matched against cause's controller when there is a
+// cause (SpellAbility.OppCtrl, YouCtrl), and not applied without one (GO-7).
+func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantSacrifice") || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if spec, ok := s.Param("ValidCause"); ok {
+						// Only an ability this port can name the controller of
+						// is matched; without one the line is not applied.
+						if cause == nil || !causeMatches(spec, causeNone, cause.Controller, h.Controller()) {
+							continue
+						}
+					}
+					if forCost, ok := s.Param("ForCost"); ok && strings.EqualFold(forCost, "True") == effect {
+						continue
+					}
+					spec, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(spec), h.Controller(), host) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // cantDraw is Player.canDraw, cantDrawAmount for one card.
 func (g *Game) cantDraw(pid PlayerID) bool { return g.cantDrawAmount(pid, 1) }
 

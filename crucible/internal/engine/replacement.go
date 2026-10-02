@@ -1623,6 +1623,9 @@ func applyGainLifeReplacementLoseLife(g *Game, host *Card, a *compile.Ability, a
 	if !ok {
 		return false
 	}
+	if g.cantLoseLife(player) {
+		return true
+	}
 	g.Player(player).Life -= amount
 	g.sink.Emit(Event{Kind: LifeChanged, Source: host.ID, Target: PlayerEntity(player), Amount: -int32(amount)})
 	return true

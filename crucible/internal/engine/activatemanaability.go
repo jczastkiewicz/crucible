@@ -383,7 +383,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		g.checkTapsTriggers(controller, card, pid, false)
 	}
 	if shape.SelfSac {
-		sacrificeCards(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card})
+		sacrificeCardsFor(g, controller, &Ability{Source: card, Controller: pid, Params: ability}, []CardID{card}, false)
 	}
 	if shape.SelfExile {
 		exileCards(g, controller, []CardID{card})

@@ -1194,3 +1194,13 @@ func cloneMayPlayUses(m map[mayPlayLimitKey]mayPlayUse) map[mayPlayLimitKey]mayP
 	}
 	return out
 }
+
+// Kinds of ability a payment is made for, what a static's ValidCause$ is matched
+// against (causeNone: not a spell or ability this port classifies).
+const (
+	causeNone      = ""
+	causeSpell     = "Spell"
+	causeActivated = "Activated"
+	causeManaAbil  = "ManaAbility"
+	causeTriggered = "Triggered"
+)

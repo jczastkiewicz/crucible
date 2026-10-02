@@ -63,7 +63,16 @@ func (g *Game) chooseCostCards(controller PlayerController, pid PlayerID, source
 	}
 	var ok bool
 	if chosen.sac, ok = pick(shape.SacTypeN, shape.SacTypeSpec, Battlefield, func(c []CardID) []CardID {
-		return controller.ChoosePermanentsToSacrifice(g, pid, c, shape.SacTypeN)
+		var allowed []CardID
+		for _, id := range c {
+			if !g.cantSacrifice(g.Card(id), false, nil) { // Card.canBeSacrificedBy
+				allowed = append(allowed, id)
+			}
+		}
+		if len(allowed) < shape.SacTypeN {
+			return nil
+		}
+		return controller.ChoosePermanentsToSacrifice(g, pid, allowed, shape.SacTypeN)
 	}); !ok {
 		return chosenCosts{}, false
 	}
@@ -100,7 +109,7 @@ func (g *Game) payCostCards(controller PlayerController, pid PlayerID, chosen ch
 		return out
 	}
 	if sac := in(Battlefield, chosen.sac); len(sac) > 0 {
-		sacrificeCards(g, controller, a, sac)
+		sacrificeCardsFor(g, controller, a, sac, false)
 		a.paid.sacrificed = append(a.paid.sacrificed, sac...)
 	}
 	if exile := in(Battlefield, chosen.exile); len(exile) > 0 {

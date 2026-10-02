@@ -123,6 +123,10 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	lifeLost := 0
 	for _, pid := range players {
+		if amount > 0 && g.cantLoseLife(pid) {
+			// Player.loseLife loses nothing when a static stops it.
+			continue
+		}
 		if amount > 0 && !g.Player(pid).Lost {
 			lifeLost += amount
 		}

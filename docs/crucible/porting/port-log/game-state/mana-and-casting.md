@@ -555,3 +555,19 @@ asked by `ActivateAbility` and `ActivateManaAbility`) reads `ValidCard$` on the 
 over the static-ability source zones only. `CantPlayLand` (11; `cantPlayLand`, asked by `PlayLand` and by `Play`'s land
 option) reads `ValidCard$`, `Origin$` and `Player$`. A `ValidSA$` naming `Cycling`, `Equip` or any other property is
 unrecognized, and the line is not applied; so is any param outside the lists in `cantbecast.go`.
+
+## Spell cost modification: `ReduceCost` and `RaiseCost`
+
+CR 601.2f. `payCastCost` (`castspell.go`) pays `spellCost` (`costmod.go`) instead of the bare printed (or flashback)
+cost: `CostAdjustment.getSpellCostChange` adds every `Mode$ RaiseCost` static's `Cost$` (default `{1}`) `Amount$` times,
+then `CostAdjustment.adjust` takes every `Mode$ ReduceCost` static's `Amount$` off the generic part, each capped so the
+total reduction stays within the converted cost less `MinMana$` (`applyReduceCostAbility`). Hosts are the battlefield
+and Command zone plus the card itself (`EffectZone$ All`: "this spell costs {1} less for each ..."). A line applies when
+`staticConditionsMet` holds, `Type$` is `Spell`, `ValidCard$` matches the card, `Activator$` the caster and
+`AffectedZone$` the card's zone; `Amount$` is a number or an SVar of the host's face (`resolveNamedAmount`, so
+`Count$Valid ...` resolves). An X in the cost is untouched.
+
+Not applied, never assumed (GO-7): `ValidTarget$` (the spell's targets are chosen after the cost in this port; about 25
+lines), `Color$`/`IgnoreGeneric$`, `Relative$`, `UpTo$`, `OnlyFirstSpell$`, `ValidSpell$`, `ForEachShard$`,
+`Type$ Ability` (activated-ability costs: Equip's `ReduceCost`), `SetCost` (Trinisphere), `CheckSVar$`/`IsPresent$`
+conditions, and the keyword reductions (Affinity, Convoke, Delve, Improvise, Assist, Emerge). Tests: `costmod_test.go`.

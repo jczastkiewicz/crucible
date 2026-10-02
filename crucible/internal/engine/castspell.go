@@ -244,10 +244,11 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if opts.withoutManaCost {
 		return xAnnounced{}, true
 	}
+	base := c.Def.Faces[0].ManaCost
 	if opts.hasAltCost {
-		return g.payManaCostX(pid, opts.altCost, controller)
+		base = opts.altCost
 	}
-	return g.payManaCostX(pid, c.Def.Faces[0].ManaCost, controller)
+	return g.payManaCostX(pid, g.spellCost(pid, c.ID, base), controller)
 }
 
 // setOn records x on a as the X its cost was paid with; announced false

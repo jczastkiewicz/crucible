@@ -122,6 +122,11 @@ type Ability struct {
 	// paid. An AB$ line reaching the stack any other way -- a trigger's
 	// Execute$ -- is paid when it resolves (resolveTriggeredCost).
 	costPaid bool
+	// evolve is the creature that entered for a trigger naming Condition$
+	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
+	// ability resolves, against the creatures' values by then. NoCard for
+	// every other ability.
+	evolve CardID
 	// TriggerRemembered is what a delayed or reflexive trigger remembered when
 	// it was created (RememberObjects$, Java's Trigger.addRemembered),
 	// carried onto the ability it runs and every sub-ability that ability

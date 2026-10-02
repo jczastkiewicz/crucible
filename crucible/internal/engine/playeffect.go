@@ -283,9 +283,9 @@ func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 }
 
 // playSpecGap names the first property of a card valid string Matches
-// cannot answer: a numeric comparison against a non-literal operand
-// (compareMatches reads only a plain integer) or a playUnportedProperties
-// prefix.
+// cannot answer: a numeric comparison against a non-literal operand (kept
+// refused here: Play checks specs without the SVar context compareOperand
+// reads) or a playUnportedProperties prefix.
 func playSpecGap(spec string) (string, bool) {
 	for _, alt := range valid.Parse(spec).Alternatives {
 		for _, p := range alt.Properties {

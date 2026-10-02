@@ -792,8 +792,11 @@ an unresolved `Affected$`/`Condition$` value already has elsewhere in this port)
 `Game.leftBattlefieldThisTurn`-equivalent tracked anywhere; `WerewolfTransformCondition$`/
 `WerewolfUntransformCondition$` (65) -- Innistrad's own day/night mechanic, keyed off a "spells cast last turn" list
 this port tracks nowhere; `CheckDefinedPlayer$` (20) -- every real line qualifies it with `isMonarch`, `hasInitiative`,
-`withMostLife` or `withMostType`, mechanics this port has none of, not a shape a general Defined$-to-players resolver
-could close on its own even if one existed.
+`withMostLife` or `withMostType`, mechanics this port has none of, not a shape a general
+Defined$-to-players resolver
+could close on its own even if one existed (`Player.withMostLife` as a valid string resolves now, in `matchesPlayerProperty`,
+but `CheckDefinedPlayer$`
+is a different reader).
 
 `ManaSpent$`/`ManaNotSpent$` (8) -- no paying-colors-by-cast tracked; `Adamant$` (1); `Bloodthirst$`, `Monarch$`,
 `EnduringStory$`, `DayTime$` and `ClassLevel$` (0 real `T:` lines each, dormant rather than actively skipped).
@@ -803,3 +806,23 @@ ways plus its `PresentZone$`/`PresentDefined$` variants, `CheckSVar$` both ways,
 both ways, and `Revolt$`'s own unresolved skip -- each driven through a real `Game.PlayLand` rather than a synthetic
 call, `commonReqTriggerLandDef`'s own new helper mirroring `continuousDef`'s reasoning (a land needs no mana cost to
 move, so the setup stays about the common-requirements param under test).
+
+## Keyword triggers (ADR-0038)
+
+The triggers a printed keyword expands to need these in the trigger layer:
+
+- **`Mode$ AttackerBlocked` and `AttackerBlockedByCreature` record the attacker** (`triggeredObjects.attacker`), as
+  `TriggerAttackerBlocked`/`TriggerAttackerBlockedByCreature.setTriggeringObjects` do, so
+  `Defined$ TriggeredDefendingPlayer` (Afflict) and `TriggeredAttacker` resolve on them.
+- **`Attacked$ Player.withMostLife`** (Dethrone) matches through `matchesPlayerProperty`'s `withMostLife`: no player in
+  the game has more life (`PlayerProperty.java:353`; a lost player is not counted).
+- **`Condition$ Evolve`** on a `Mode$ ChangesZone` trigger is `Trigger.meetsRequirementsOnTriggeredObjects`' CR 702.100c
+  branch (`Trigger.java:377`), which Java also runs for the Evolve keyword itself: the entering creature has greater
+  power or toughness than the host, both creatures. `evolveCheck` (`trigger.go`) runs it when the trigger is matched and
+  `Ability.evolve` keeps the entering creature so `Registry.resolve` runs `evolveMet` again against current values, as
+  `WrappedAbility.resolve` does. Before this, `Condition$ Evolve` on the two cards that script it by hand was ignored
+  and the trigger fired for every creature. `TestEvolveChecksAgainOnResolution` pins the second check.
+- **`Count$CardPower`/`CardToughness`** are amount heads: the source's net power or toughness (`countValue`).
+
+`WrappedAbility.resolve`'s general `requirementsCheck` (the rest of the intervening "if": `IsPresent$`, `CheckSVar$`,
+and so on, skipped by `NoResolvingCheck$`) is still not re-run at resolution; only Evolve's own check is.

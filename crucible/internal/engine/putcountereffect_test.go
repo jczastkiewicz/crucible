@@ -240,14 +240,11 @@ func TestPutCounterEffectChainsIntoSubAbility(t *testing.T) {
 	}
 }
 
-// TestPutCounterEffectRejectsValidTgts proves putCounterEffect itself still
-// rejects a real target: resolveTargets (targeting.go) now resolves
-// ValidTgts$ generically before this ability is even pushed, so the target
-// (the casting creature itself, the only "Creature" on the battlefield at
-// push time) is chosen without issue, but putCounterEffect has not been
-// extended to consume Targeted (defined.go) yet -- its own blocked-param
-// list still names ValidTgts$, and this proves that check still fires.
-func TestPutCounterEffectRejectsValidTgts(t *testing.T) {
+// TestPutCounterEffectPutsCountersOnItsTarget proves a ValidTgts$ PutCounter
+// puts its counters on what the controller chose (CountersPutEffect's
+// getDefinedOrTargeted): the creature's own enters trigger targets the only
+// creature on the battlefield, itself.
+func TestPutCounterEffectPutsCountersOnItsTarget(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -263,12 +260,11 @@ func TestPutCounterEffectRejectsValidTgts(t *testing.T) {
 	if !g.CastSpell(p, creature, c) {
 		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ValidTgts") {
-		t.Errorf("ResolveStack error = %q, want it to name ValidTgts$", err.Error())
+	if n := g.Card(creature).Counters.Count("P1P1"); n != 1 {
+		t.Errorf("P1P1 counters on the target = %d, want 1", n)
 	}
 }
 

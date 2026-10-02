@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -830,4 +831,48 @@ func (c *Card) kickerMagnitude() int {
 		return 1
 	}
 	return 0
+}
+
+// liveFaces is how many of def's faces are its current state's. A
+// transforming, flipping, melded, modal or specialize card's other face is a
+// state it is not in (Card.getTriggers reads currentState alone), and this
+// port's current face of such a card is always Faces[0]: a transformed or
+// melded card's Def is its back face, no path flips a flip card yet
+// (setstateeffect.go's own "Flip... not resolved" gap -- an unflipped card's
+// Def still carries both faces' real data, so its back face's triggers must
+// stay unread the identical way an untransformed DFC's did before this fix),
+// and no path puts a modal card's back face into play (playCastGap rejects
+// its choice of spells). cloneDef (cloneeffect.go) reads faces the same way.
+// Prepare joins the restricted set for the identical reason and for
+// consistency with Java's own classification (CardSplitType.java:7-16 groups
+// Flip and Prepare under USE_ACTIVE_FACE with Transform/Meld/Modal/
+// Specialize), though 0 real corpus Prepare lines carry a trigger on their
+// alternate face today -- corpus-inert, not exempted on principle. Every
+// other definition keeps all its faces: a split, adventure or omen card's,
+// and a Room permanent's both-doors view (roomView, room.go).
+func liveFaces(def *compile.Card) int {
+	switch def.SplitType {
+	case carddb.SplitTransform, carddb.SplitFlip, carddb.SplitMeld, carddb.SplitModal, carddb.SplitSpecialize,
+		carddb.SplitPrepare:
+		return 1
+	}
+	return len(def.Faces)
+}
+
+// evolvedBy is Trigger.meetsRequirementsOnTriggeredObjects' CR 702.100c check
+// (Trigger.java:377): entering is a creature with greater power or greater
+// toughness than c, which is a creature too. False when either value does not
+// resolve (GO-7).
+func (c *Card) evolvedBy(entering *Card) bool {
+	if !entering.Type().Has(cardtype.Creature) || !c.Type().Has(cardtype.Creature) {
+		return false
+	}
+	ep, okEP := entering.Power()
+	et, okET := entering.Toughness()
+	cp, okCP := c.Power()
+	ct, okCT := c.Toughness()
+	if !okEP || !okET || !okCP || !okCT {
+		return false
+	}
+	return ep > cp || et > ct
 }

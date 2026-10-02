@@ -57,10 +57,11 @@ does not itself do the extending.
 corpus's own 623 real SVar-defined `PutCounter` lines naming `SubAbility$` chain to an already-built leaf ability and
 resolve end to end.
 
-Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `ValidTgts$`/`TargetMin$`/`TargetMax$`
-(807/162/162) -- a real target; targeting itself now exists
-(["Targeting itself lands"](targeting-and-chaining.md#targeting-itself-lands),), `PutCounter` just has not been extended
-to read `Targeted` back yet; `ETB$` (154, above); `Choices$` and its own six further params (46 combined, above);
+`ValidTgts$` resolves: the counters go on each chosen target, a card or a player (`getDefinedOrTargeted`; Mentor's
+synthesized trigger is the first user, `TestMentorTargetsAnAttackerWithLesserPower`).
+
+Not resolved, each failing loudly by name rather than guessing (PORT-8/GO-7): `TargetMin$`/`TargetMax$` (162 each) -- a
+target count other than one; `ETB$` (154, above); `Choices$` and its own six further params (46 combined, above);
 `DividedAsYouChoose$`/`DividedRandomly$`/`SplitAmount$` (above);
 `Monstrosity$`/`Adapt$`/`Bolster$`/`Support$`/`PowerUp$`/`Exhaust$` (above);
 `EachFromSource$`/`PutOnEachOther$`/`PutOnDefined$`/`ChooseDifferent$`/

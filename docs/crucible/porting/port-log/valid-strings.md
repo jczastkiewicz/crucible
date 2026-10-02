@@ -18,8 +18,8 @@
   (`YouCtrl`, `YouDontCtrl`, `OppCtrl`, `YouOwn`, `YouDontOwn`, `OppOwn`); identity relative to `source` (`Self`,
   `Other`, `StrictlyOther`); the five colors plus `Colorless`/`MultiColor`; a keyword check under three spellings
   (`with`/`without`/`hasKeyword`); `tapped`/`untapped`; the numeric comparisons (`power`, `basePower`, `toughness`,
-  `baseToughness`, `cmc`, `totalPT`, `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for a
-  plain-integer operand; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
+  `baseToughness`, `cmc`, `totalPT`, `numColors`, `numTypes`, crossed with `LT`/`LE`/`EQ`/`GE`/`GT`/`NE`/`M2`) for an
+  integer or source-SVar operand; the generic `non<Type>` fallback (`CardStateProperty`'s own chain); and the bare
   type/supertype/subtype fallthrough every property chain shares. The other ~880 property names are M5-M6, corpus
   frequency order (`tools/vocabscan -kind validProperty`) — a rough figure, not a precisely tracked count (the "Numeric
   comparisons" section below already explains why a batch like that one does not move it by a countable amount)
@@ -177,7 +177,7 @@ checking the longer, more specific prefix first.
 **`tapped`/`untapped` read `Card.Tapped` directly** — the same battlefield-only field `Game.Move` already clears on
 leaving it (game-state.md's "The card's mutable parts").
 
-## Numeric comparisons land in `engine.Matches`, plain-integer operands only
+## Numeric comparisons land in `engine.Matches`
 
 `internal/valid` already split `powerGE1` into `Compare{Field: "power", Operator: "GE", Operand: "1"}` at parse time
 (this doc's own "Numeric comparisons" section, M3). `propertyMatches` (`valid.go`) checks `p.Compare` first, before its
@@ -186,12 +186,17 @@ one-off branches, is the same shape `effect.go`'s `Registry` grows in (ADR-0011)
 (`compareFieldValue`) and one operator table (`compareOp`, `Expressions.compare` ported operator for operator, including
 `M2`'s modulo-2 equality) cover every field/operator combination at once.
 
-**Only a plain base-10 `Operand` is handled.** Java resolves it with `AbilityUtils.calculateAmount`, which also accepts
-`X`, `Chosen` (`source.getChosenNumber()`), and an SVar name — none of which this port can resolve without an
-ability-context evaluator `internal/expr` does not have yet (`compare.go`'s own doc comment: "resolving any of them
-needs a game"). `strconv.Atoi` failing is the signal: the property matches nothing, the same "false for every card"
-answer any other unimplemented property gives, not a wrong one — `powerGEX` and `powerGEChosen` are both this gap, not
-special cases of it.
+**`Operand` is an integer or a value SVar of the source card.** Java resolves it with
+`AbilityUtils.calculateAmount(source, operand)`. `compareOperand` reads a base-10 integer directly, otherwise looks the
+name up in the amounts of the source card's live faces and resolves it with `resolveAmount` (`powerLTKWPower0` for
+Mentor's synthesized `Count$CardPower`; a card's own `powerGTX` with `SVar:X:Count$...`). A name no face of the source
+defines, no source at all (`NoCard`), or an amount that does not resolve matches nothing: the same "false for every
+card" answer any other unimplemented property gives, not a wrong one. `Chosen` (`source.getChosenNumber()`) is not
+resolved.
+
+`valid.go` therefore references `amount.go` (the `enginelint.json` allow list), and `amount.go` already references
+`valid.go` through the `Count$Valid` family: the two groups are mutually dependent, Java's own `CardProperty` →
+`AbilityUtils.calculateAmount` → `Card.isValid` cycle, the kind ADR-0003 names as the reason the engine is one package.
 
 **`basePower`/`baseToughness` measure Java's `getCurrentPower`/`getCurrentToughness` (`Card.java:4407,4450`), not
 `getBasePower`/`getBaseToughness`.** The names are Java's own trap: `getCurrentPower` is base folded with Layer 7's
@@ -338,11 +343,8 @@ switches on, copied locally since `internal/valid`'s own list is unexported and 
 table at all — `CounterType("P1P1")` is the whole conversion, unlike `ZoneByName` or `colorMatches`, which both have a
 closed vocabulary to check against.
 
-**The operand stays plain-integer only, the same scope line `compareMatches` already drew.**
-`AbilityUtils.calculateAmount` resolves the operand in Java, same as the plain numeric comparisons' own `Operand` — `X`,
-`Chosen`, an SVar name are all still a gap this port cannot resolve without an ability-context evaluator
-(`compareMatches`' own doc comment). One corpus card writes `counters_LTX_P1P1`; it reads as "no match" like every other
-non-numeric operand does.
+**The operand stays plain-integer only.** `counters_LTX_P1P1` is a separate shape from `compareMatches` and keeps its
+own `strconv.Atoi`: the one corpus card that writes it reads as "no match" like every other non-numeric operand does.
 
 **The four-part `ReceivedThisTurn` form never reaches the three-part split at all.** Java's own property spells that
 segment with no underscore of its own — `countersReceivedThisTurn_GE1_P1P1_You`,

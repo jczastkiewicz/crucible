@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -85,8 +84,12 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
 					continue
 				}
+				evolve, ok := evolveCheck(g, c, t, entered)
+				if !ok {
+					continue
+				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{})})
 				}
 			}
 		}
@@ -143,14 +146,33 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
+					evolve, ok := evolveCheck(g, w, t, entered)
+					if !ok {
+						continue
+					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{})})
 					}
 				}
 			}
 		}
 	}
 	return matches
+}
+
+// evolveCheck is Trigger.meetsRequirementsOnTriggeredObjects' CR 702.100c
+// branch (Trigger.java:377), run for a ChangesZone trigger naming Condition$
+// Evolve (CardFactoryUtil's Evolve keyword spelled as script text): the
+// entering creature must have greater power or greater toughness than the
+// host. ok false means the trigger does not fire; tracked is the entering
+// card to re-check when the ability resolves (WrappedAbility.resolve runs the
+// same check again against the current values), NoCard for a trigger with no
+// such condition.
+func evolveCheck(g *Game, host *Card, t *compile.Ability, moved CardID) (tracked CardID, ok bool) {
+	if cond, has := t.Param("Condition"); !has || cond != "Evolve" {
+		return NoCard, true
+	}
+	return moved, host.evolvedBy(g.Card(moved))
 }
 
 // checkDiesTriggers is CR 603.6d's "look back in time" for a card that just
@@ -673,7 +695,8 @@ func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacke
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: face.objects(triggeredObjects{attacker: attacker})})
 					}
 				}
 			}
@@ -732,7 +755,7 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerControlle
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-							triggered: face.objects(triggeredObjects{blocker: blk.Blocker})})
+							triggered: face.objects(triggeredObjects{attacker: blk.Attacker, blocker: blk.Blocker})})
 					}
 				}
 			}
@@ -2605,32 +2628,6 @@ type triggerFace struct {
 func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 	o.grant = f.grant
 	return o
-}
-
-// liveFaces is how many of def's faces are its current state's. A
-// transforming, flipping, melded, modal or specialize card's other face is a
-// state it is not in (Card.getTriggers reads currentState alone), and this
-// port's current face of such a card is always Faces[0]: a transformed or
-// melded card's Def is its back face, no path flips a flip card yet
-// (setstateeffect.go's own "Flip... not resolved" gap -- an unflipped card's
-// Def still carries both faces' real data, so its back face's triggers must
-// stay unread the identical way an untransformed DFC's did before this fix),
-// and no path puts a modal card's back face into play (playCastGap rejects
-// its choice of spells). cloneDef (cloneeffect.go) reads faces the same way.
-// Prepare joins the restricted set for the identical reason and for
-// consistency with Java's own classification (CardSplitType.java:7-16 groups
-// Flip and Prepare under USE_ACTIVE_FACE with Transform/Meld/Modal/
-// Specialize), though 0 real corpus Prepare lines carry a trigger on their
-// alternate face today -- corpus-inert, not exempted on principle. Every
-// other definition keeps all its faces: a split, adventure or omen card's,
-// and a Room permanent's both-doors view (roomView, room.go).
-func liveFaces(def *compile.Card) int {
-	switch def.SplitType {
-	case carddb.SplitTransform, carddb.SplitFlip, carddb.SplitMeld, carddb.SplitModal, carddb.SplitSpecialize,
-		carddb.SplitPrepare:
-		return 1
-	}
-	return len(def.Faces)
 }
 
 // triggerFaces yields every source of c's triggers, ADR-0023 decision 3's

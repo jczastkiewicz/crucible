@@ -41,6 +41,17 @@ func TestExpand(t *testing.T) {
 		{"Persist", true, "counters_EQ0_M1M1"},
 		{"Undying", true, "counters_EQ0_P1P1"},
 		{"Undying:1", false, ""},
+		{"Battle cry", true, "Mode$ Attacks | ValidCard$ Card.Self"},
+		{"Battle cry:1", false, ""},
+		{"Dethrone", true, "Attacked$ Player.withMostLife"},
+		{"Flanking", true, "ValidBlocker$ Creature.withoutFlanking"},
+		{"Afflict:2", true, "Mode$ AttackerBlocked | ValidCard$ Card.Self"},
+		{"Afflict", false, ""},
+		{"Soulshift:3", true, "OptionalDecider$ You"},
+		{"Soulshift:x", false, ""},
+		{"Mentor", true, "Mode$ Attacks | ValidCard$ Card.Self"},
+		{"Training", true, "IsPresent$ Creature.attacking+Other+powerGTKWPower"},
+		{"Evolve", true, "Condition$ Evolve"},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

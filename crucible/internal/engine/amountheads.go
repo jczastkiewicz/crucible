@@ -58,6 +58,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return c.Counters.Total(), true
 		}
 		return c.Counters.Count(CounterType(strings.ToUpper(count.Parameters[0]))), true
+	case "CardPower", "CardToughness":
+		// AbilityUtils.java: the source's own net power/toughness.
+		if source == NoCard {
+			return 0, false
+		}
+		if count.Head == "CardPower" {
+			return g.Card(source).Power()
+		}
+		return g.Card(source).Toughness()
 	case "Kicked":
 		// Count$Kicked.<n if kicked>.<n if not> (AbilityUtils.java:1691).
 		if source == NoCard || len(count.Parameters) != 2 {

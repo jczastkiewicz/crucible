@@ -130,6 +130,89 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ Attacks | ValidCard$ Creature.YouCtrl | Alone$ True | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWExalted" + Slot},
 			SVars:    []SVarDef{{"KWExalted" + Slot, "DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ +1 | NumDef$ +1"}},
 		}, true
+	case "Battle cry":
+		// CardFactoryUtil.java:677.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWBattleCry" + Slot},
+			SVars:    []SVarDef{{"KWBattleCry" + Slot, "DB$ PumpAll | ValidCards$ Creature.attacking+Other | NumAtt$ 1"}},
+		}, true
+	case "Dethrone":
+		// CardFactoryUtil.java:934.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Attacked$ Player.withMostLife | Secondary$ True | TriggerZones$ Battlefield | Execute$ KWDethrone" + Slot},
+			SVars:    []SVarDef{{"KWDethrone" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"}},
+		}, true
+	case "Flanking":
+		// CardFactoryUtil.java:1096.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature.withoutFlanking | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWFlanking" + Slot},
+			SVars:    []SVarDef{{"KWFlanking" + Slot, "DB$ Pump | Defined$ TriggeredBlockerLKICopy | NumAtt$ -1 | NumDef$ -1"}},
+		}, true
+	case "Evolve":
+		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
+		// check CR 702.100c; the script spelling of that check is Condition$
+		// Evolve, which the two cards that script it by hand already use.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Creature.YouCtrl+Other | Condition$ Evolve | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWEvolve" + Slot},
+			SVars:    []SVarDef{{"KWEvolve" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"}},
+		}, true
+	case "Mentor":
+		// CardFactoryUtil.java:1434: put a +1/+1 counter on target attacking
+		// creature with lesser power. Java scopes SVar X to the ability; here
+		// it is a slotted name, so the card's own X is never shadowed.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWMentor" + Slot},
+			SVars:    []SVarDef{{"KWMentor" + Slot, "DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature.attacking+powerLTKWPower" + Slot}},
+			Amounts:  []SVarDef{{"KWPower" + Slot, "Count$CardPower"}},
+		}, true
+	case "Training":
+		// CardFactoryUtil.java:1874: when this attacks with another creature
+		// with greater power, put a +1/+1 counter on it. The ability's own
+		// Training$ param is read by nothing in Forge and is dropped.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | IsPresent$ Creature.attacking+Other+powerGTKWPower" + Slot + " | NoResolvingCheck$ True | Execute$ KWTraining" + Slot},
+			SVars:    []SVarDef{{"KWTraining" + Slot, "DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | Defined$ Self"}},
+			Amounts:  []SVarDef{{"KWPower" + Slot, "Count$CardPower"}},
+		}, true
+	case "Afflict":
+		// CardFactoryUtil.java:588.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ AttackerBlocked | ValidCard$ Card.Self | TriggerZones$ Battlefield | ValidBlocker$ Creature | Secondary$ True | Execute$ KWAfflict" + Slot},
+			SVars:    []SVarDef{{"KWAfflict" + Slot, "DB$ LoseLife | Defined$ TriggeredDefendingPlayer | LifeAmount$ " + n}},
+		}, true
+	case "Soulshift":
+		// CardFactoryUtil.java:1763: when this dies, you may return target
+		// Spirit card with mana value N or less from your graveyard to hand.
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | Secondary$ True | OptionalDecider$ You | ValidCard$ Card.Self | Execute$ KWSoulshift" + Slot},
+			SVars:    []SVarDef{{"KWSoulshift" + Slot, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Spirit.YouOwn+cmcLE" + n}},
+		}, true
 	}
 	return Expansion{}, false
 }

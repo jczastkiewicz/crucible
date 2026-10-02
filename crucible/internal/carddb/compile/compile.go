@@ -332,13 +332,20 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 				out.Amounts = map[string]expr.Amount{}
 			}
 			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+			if _, taken := out.Amounts[strings.ToLower(name)]; taken {
+				return fmt.Errorf("keyword %q: synthesized SVar %q collides with an existing one", line, name)
+			}
 			out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
 		}
 		for _, sv := range exp.SVars {
 			if c.extra == nil {
 				c.extra = map[string]string{}
 			}
-			c.extra[strings.ReplaceAll(sv.Name, keyword.Slot, slot)] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
+			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+			if _, own := c.face.SVars.Get(name); own {
+				return fmt.Errorf("keyword %q: synthesized SVar %q collides with the card's own", line, name)
+			}
+			c.extra[name] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
 		}
 		for _, group := range []struct {
 			lines  []string

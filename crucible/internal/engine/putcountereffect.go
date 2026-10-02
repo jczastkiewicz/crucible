@@ -29,8 +29,8 @@ import (
 
 // putCounterUnresolvedParams names CountersPutEffect's own params past
 // CounterType$/CounterNum$/Defined$ this port does not evaluate. Every one
-// fails the whole line loudly: ValidTgts$/TargetMin$/TargetMax$
-// (807/162/162) -- a real target, this port's own targeting gap; ETB$
+// fails the whole line loudly: TargetMin$/TargetMax$ (162 each) -- a target
+// count other than exactly one, this port's own targeting gap; ETB$
 // (154) -- CR 614's own counters-added-simultaneously replacement table
 // (GameEntityCounterTable), the identical batching risk ChangesZoneAll's
 // own gap already documents (Not ported yet); Choices$ and its own
@@ -64,7 +64,7 @@ import (
 // naming SubAbility$ chain to an already-built leaf ability and resolve
 // end to end.
 var putCounterUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax", "ETB",
+	"TargetMin", "TargetMax", "ETB",
 	"Choices", "ChoiceTitle", "ChoiceAmount", "MinChoiceAmount", "ChoicesDesc", "ChoiceZone", "ChoiceOptional",
 	"DividedAsYouChoose", "DividedRandomly", "SplitAmount",
 	"Monstrosity", "Adapt", "Bolster", "Support", "PowerUp", "Exhaust",
@@ -109,10 +109,23 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		return fmt.Errorf("engine: PutCounter: CounterNum$ %q is not resolvable", counterNum)
 	}
 
-	defined, _ := a.Params.Param("Defined")
-	cards, players, err := definedCounterTargets(g, a.Controller, source, defined, a.refs())
-	if err != nil {
-		return fmt.Errorf("engine: PutCounter: %w", err)
+	var cards []CardID
+	var players []PlayerID
+	if _, targeted := a.Params.Param("ValidTgts"); targeted {
+		// getDefinedOrTargeted: the chosen targets, a card or a player each.
+		for _, e := range a.Targets {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			} else if pid, ok := e.AsPlayer(); ok {
+				players = append(players, pid)
+			}
+		}
+	} else {
+		defined, _ := a.Params.Param("Defined")
+		cards, players, err = definedCounterTargets(g, a.Controller, source, defined, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: PutCounter: %w", err)
+		}
 	}
 
 	for _, cid := range cards {

@@ -143,7 +143,7 @@
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],
     "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
     "driver": ["id", "game", "phase", "control", "effect", "mulligan"],
-    "valid": ["id", "zone", "card", "parts", "game", "combat", "player", "effecthelpers"],
+    "valid": ["id", "zone", "card", "parts", "game", "combat", "player", "effecthelpers", "amount"],
     "attack": [
       "id",
       "zone",

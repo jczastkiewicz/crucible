@@ -79,3 +79,17 @@ func TestSelfReduceCostFromHand(t *testing.T) {
 		t.Error("a {3}{G} spell with two creatures in play (reduction 2) was not castable for 2 mana")
 	}
 }
+
+// Affinity for artifacts (CR 702.41a) expands to a self ReduceCost whose
+// amount counts the caster's artifacts: Frogmite ({4}) costs {2} with two.
+func TestAffinityReducesTheCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Bonesplitter"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Bonesplitter"), p, engine.Battlefield)
+	frog := g.NewCard(corpusCard(t, "Frogmite"), p, engine.Hand)
+	if !castWithGreen(g, p, frog, 2) {
+		t.Error("Frogmite with two artifacts in play was not castable for 2 mana")
+	}
+}

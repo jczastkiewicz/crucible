@@ -12,6 +12,10 @@ import (
 type Expansion struct {
 	Abilities, Triggers, Statics, Replacements []string
 	SVars                                      []SVarDef
+	// Amounts are SVars that are values (Count$ ...), not abilities: the
+	// compiler parses them into the face's Amounts, where a param such as
+	// Amount$ KWAffinity{n} finds them.
+	Amounts []SVarDef
 }
 
 // SVarDef is one SVar an Expansion defines.
@@ -53,6 +57,21 @@ func Expand(k Keyword) (Expansion, bool) {
 			line += " | " + args[1]
 		}
 		return Expansion{Abilities: []string{line}}, true
+	case "Affinity":
+		// Affinity:<type>, CardFactoryUtil.java:3753: this spell costs {1} less
+		// for each <type> you control.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		sep := "."
+		if strings.Contains(args[0], ".") {
+			sep = "+"
+		}
+		return Expansion{
+			Statics: []string{"Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ KWAffinity" + Slot + " | EffectZone$ All"},
+			Amounts: []SVarDef{{"KWAffinity" + Slot, "Count$Valid " + args[0] + sep + "YouCtrl"}},
+		}, true
 	case "Prowess":
 		if k.Details != "" {
 			return Expansion{}, false

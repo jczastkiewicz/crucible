@@ -36,6 +36,8 @@ func TestExpand(t *testing.T) {
 		{"TypeCycling:Basic", false, ""},
 		{"Crew:2", true, "AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE2> | Defined$ Self | Types$ Artifact,Creature"},
 		{"Crew", false, ""},
+		{"Affinity:Artifact", true, ""},
+		{"Affinity", false, ""},
 		{"Persist", true, "counters_EQ0_M1M1"},
 		{"Undying", true, "counters_EQ0_P1P1"},
 		{"Undying:1", false, ""},
@@ -51,7 +53,7 @@ func TestExpand(t *testing.T) {
 			if !ok {
 				return
 			}
-			lines := append(append([]string(nil), exp.Abilities...), exp.Triggers...)
+			lines := append(append(append([]string(nil), exp.Abilities...), exp.Triggers...), exp.Statics...)
 			if len(lines) == 0 || !strings.Contains(lines[0], tc.contains) {
 				t.Errorf("first line %q does not contain %q", lines, tc.contains)
 			}

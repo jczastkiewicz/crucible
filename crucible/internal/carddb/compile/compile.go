@@ -308,10 +308,10 @@ func compileFace(face *carddb.Face) (Face, error) {
 		}
 		out.Triggers = append(out.Triggers, triggers...)
 	}
+	out.Amounts = compileAmounts(face)
 	if err := c.expandKeywords(&out); err != nil {
 		return Face{}, err
 	}
-	out.Amounts = compileAmounts(face)
 	out.Amounts = addInlineAmounts(out.Amounts, out.Statics)
 	return out, nil
 }
@@ -327,6 +327,13 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 			continue
 		}
 		slot := strconv.Itoa(i)
+		for _, sv := range exp.Amounts {
+			if out.Amounts == nil {
+				out.Amounts = map[string]expr.Amount{}
+			}
+			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+			out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+		}
 		for _, sv := range exp.SVars {
 			if c.extra == nil {
 				c.extra = map[string]string{}

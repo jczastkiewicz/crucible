@@ -101,18 +101,19 @@ keyword line (`KWProwess<n>`, so two keywords never collide) and tags each synth
 the line it came from. `ok == false` leaves the keyword inert: no template, or details this port does not translate
 (GO-7).
 
-| Keyword          | Lines (corpus) | Expands to                                                                                                                                 |
-| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                          |
-| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                     |
-| TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>` |
-| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                         |
-| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                  |
-| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                 |
-| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                         |
-| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                                                    |
-| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                                        |
-| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one                                |
+| Keyword          | Lines (corpus) | Expands to                                                                                                                                                         |
+| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                                                  |
+| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                                             |
+| TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>`                         |
+| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                                                 |
+| Affinity         |             77 | `S:Mode$ ReduceCost \| ValidCard$ Card.Self \| Type$ Spell \| Amount$ KWAffinity<n> \| EffectZone$ All`, the amount `Count$Valid <type>.YouCtrl` in `Face.Amounts` |
+| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                                          |
+| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                                         |
+| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                                                 |
+| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                                                                            |
+| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                                                                |
+| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one                                                        |
 
 Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an

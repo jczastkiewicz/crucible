@@ -52,6 +52,13 @@ func TestExpand(t *testing.T) {
 		{"Mentor", true, "Mode$ Attacks | ValidCard$ Card.Self"},
 		{"Training", true, "IsPresent$ Creature.attacking+Other+powerGTKWPower"},
 		{"Evolve", true, "Condition$ Evolve"},
+		{"Fabricate:2", true, "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self"},
+		{"Fabricate", false, ""},
+		{"Extort", true, "Mode$ SpellCast | ValidActivatingPlayer$ You"},
+		{"Echo:1 R", true, "IsPresent$ Card.Self+cameUnderControlSinceLastUpkeep"},
+		{"Echo", false, ""},
+		{"Cumulative upkeep:PayLife<1>", true, "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You"},
+		{"Cumulative upkeep", false, ""},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

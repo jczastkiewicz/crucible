@@ -71,6 +71,9 @@ func (g *Game) AdvancePhase(controller PlayerController) {
 // driver back to bookkeeping mode. It returns the entered step's priority
 // grant (beginStep).
 func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, error) {
+	if g.activePhase == Upkeep {
+		g.endUpkeep()
+	}
 	var next PhaseType
 	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
 		next = st[len(st)-1]
@@ -605,3 +608,17 @@ func (g *Game) endSkipsAtCleanup() {
 // through SetTurnState never passed a CombatBegin, and that combat is still
 // the turn's first.
 func (g *Game) isFirstCombat() bool { return g.combatsThisTurn <= 1 }
+
+// endUpkeep is PhaseHandler.onPhaseEnd's UPKEEP case (PhaseHandler.java:476-484):
+// a permanent its controller has held since an earlier turn is no longer new to
+// them, so Echo does not trigger for it again.
+func (g *Game) endUpkeep() {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Controller() == g.activePlayer && c.enteredTurn < g.turn {
+				c.cameUnderControl = false
+			}
+		}
+	}
+}

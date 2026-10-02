@@ -50,11 +50,16 @@ import (
 // GameAction call and a different Mode$ trigger entirely; StrictAmount$
 // (2) -- "sacrifice nothing rather than fewer than Amount$," the opposite
 // of this port's own "sacrifice as many of the chosen kind as exist"
-// clamp, below; Echo$/CumulativeUpkeep$ -- SacrificeEffect.java's own two
-// leading special-cased branches, each a whole further upkeep-cost
-// mechanic ahead of the ordinary sacrifice this port ports, 0 real
-// (AB|DB)$ Sacrifice lines combining either with SacValid$/Defined$/Amount$
-// at all.
+// clamp, below.
+//
+// Echo$ and CumulativeUpkeep$ are SacrificeEffect.java's two leading branches,
+// "sacrifice unless you pay" for an upkeep trigger (CR 702.30, 702.24): the
+// controller is asked to pay the cost (Cumulative upkeep's, multiplied by the
+// AGE counters it now holds, one more each time) and the permanent is
+// sacrificed when it is not paid, unless its controller has changed since the
+// trigger. Not ported: the PayEcho/PayCumulativeUpkeep triggers each fires (5
+// corpus cards), and the player keyword "You may pay 0 rather than pay the
+// echo cost" (1 card).
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes,
@@ -80,7 +85,6 @@ var sacrificeUnresolvedParams = [...]string{
 	"Optional", "ConditionDefined", "ConditionActivationLimit",
 	"ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
-	"Echo", "CumulativeUpkeep",
 }
 
 type sacrificeEffect struct{}
@@ -94,6 +98,9 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if proceed, err := g.upkeepCostPaid(controller, a, source); err != nil || !proceed {
+		return err
 	}
 
 	sacValid, hasSacValid := a.Params.Param("SacValid")

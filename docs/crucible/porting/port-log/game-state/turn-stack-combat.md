@@ -204,6 +204,17 @@ result is discarded); `dealsInStep` reads keywords held now, not Java's "dealt f
 
 ---
 
+### Echo's flag: `cameUnderControlSinceLastUpkeep`
+
+`Card.cameUnderControl` is Java's `cameUnderControlSinceLastUpkeep` (`Card.java:202`): true when a card is created, when
+a card enters the battlefield (`Game.Move`) and when its controller changes (`correctControllerZone`). `advanceStep`
+ends the Upkeep step through `endUpkeep` (`PhaseHandler.onPhaseEnd`, `PhaseHandler.java:476-484`), which clears the flag
+of every permanent the active player controls that entered on an earlier turn (`Card.enteredTurn`, Java's
+`getTurnInZone`), so Echo's `IsPresent$ Card.Self+cameUnderControlSinceLastUpkeep` is true for exactly one upkeep. The
+valid property is `cameUnderControlSinceLastUpkeep` (`valid.go`). `Card.getTurnInZone` is not changed by a control
+change, so a permanent taken during its new controller's own upkeep has the flag cleared again when that upkeep ends, as
+in Java.
+
 ## Mulligans
 
 `PerformMulligans` (`mulligan.go`) is `MulliganService` plus `LondonMulligan` — one rule, not the five-class strategy

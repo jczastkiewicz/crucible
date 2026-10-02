@@ -459,8 +459,10 @@ tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>`
 `CARDNAME` sacrifices the source), one `Return<N/Type>` (`CARDNAME` or a valid string; `returnTypeCandidates` and
 `returnCards`, the activation-cost twins), `DamageYou<N>` (18; `dealPlayerDamage` from the source, always payable as
 `CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, which applies a draw replacement during payment; `CostDraw.canPay`
-reads `S:Mode$ CantDraw`, which this port does not read yet). `Reveal`, `ExileFromGrave`, `tapXType`, `AddCounter`,
-`Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and an `X` still error.
+reads `S:Mode$ CantDraw`, which this port does not read yet) and `AddCounter<N/Type>` on the source (Fabricate; payable
+while it is on the battlefield and may receive the counters, `CostPutCounter.canPay`; `countersReplaced` applies).
+`Reveal`, `ExileFromGrave`, `tapXType`, `Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and
+an `X` still error.
 
 | Step                     | Rule                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -469,6 +471,19 @@ reads `S:Mode$ CantDraw`, which this port does not read yet). `Reveal`, `ExileFr
 | mana                     | `PayManaCost`, which fails atomically, so a cost that cannot be met pays none of its other parts |
 | life, discard, sacrifice | the `LifeChanged` event as `loseLifeEffect`; the payer chooses discards and sacrifices           |
 | return, damage, draw     | the payer chooses the permanents returned; damage and draws run last, as `CostDamage`/`CostDraw` |
+
+### Echo and Cumulative upkeep
+
+`SacrificeEffect`'s `Echo$` and `CumulativeUpkeep$` branches (`upkeepCostPaid`, `unlesscost.go`) are "sacrifice unless
+you pay" over the same cost vocabulary: the controller is asked through `ConfirmPayCost`, the cost is paid with
+`payUnlessCost`, and the permanent is sacrificed when it is not paid unless its controller changed since the trigger
+(`!host.getController().equals(activator)`). Cumulative upkeep first puts an AGE counter on the permanent (through
+`countersReplaced`) and pays its cost once per counter: `unlessCost.times(n)` multiplies every amount and repeats the
+mana (`Cost.mergeTo`). A cost `parseUnlessCost` does not read is an error. The expansions are in
+[`keywords.md`](../keywords.md#expansion-adr-0038); the "came under your control since your last upkeep" flag is in
+[`turn-stack-combat.md`](turn-stack-combat.md#echos-flag-cameundercontrolsincelastupkeep). Not ported: the
+`Mode$ PayEcho`/`PayCumulativeUpkeep` triggers they fire (5 corpus cards) and the player keyword "You may pay 0 rather
+than pay the echo cost" (1). Tests: `upkeepcosts_test.go`.
 
 `checkWardTriggers` pushes a Ward trigger for any cost `parseUnlessCost` reads, so `Ward:PayLife<N>`,
 `Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,

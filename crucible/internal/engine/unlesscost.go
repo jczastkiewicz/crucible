@@ -9,6 +9,7 @@
 package engine
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -42,12 +43,16 @@ type unlessCost struct {
 	// them to exist (CostReveal.canPay).
 	revealN    int
 	revealSpec string
+	// addCounterN/addCounterType are AddCounter<N/Type>: put N counters of a
+	// kind on the source itself (CostPutCounter's CARDNAME shape, Fabricate).
+	addCounterN    int
+	addCounterType CounterType
 }
 
 // parseUnlessCost reads text into an unlessCost, false for a shape past
-// mana, PayLife, PayEnergy, DamageYou<N>, Draw<N/You>, Discard<N/Card> and one
-// Sac, Return or Reveal part (Tap, an X, ...), each its own further mechanic
-// (GO-7).
+// mana, PayLife, PayEnergy, DamageYou<N>, Draw<N/You>, Discard<N/Card>,
+// AddCounter<N/Type> on the source and one Sac, Return or Reveal part (Tap, an
+// X, ...), each its own further mechanic (GO-7).
 func parseUnlessCost(text string) (unlessCost, bool) {
 	parsed := cost.Parse(text)
 	if parsed.Tap || parsed.Untap || parsed.XMin != "" {
@@ -72,6 +77,8 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 			uc.returnN, uc.returnSpec = n, p.Field(1)
 		case p.Name == "Reveal" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec = n, p.Field(1)
+		case p.Name == "AddCounter" && uc.addCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME"):
+			uc.addCounterN, uc.addCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
 		case p.Name == "DamageYou":
 			uc.damageN += n
 		case p.Name == "Draw" && p.Field(1) == "You":
@@ -187,7 +194,17 @@ func (g *Game) unlessPayable(pid PlayerID, source CardID, uc unlessCost) bool {
 	returnable := g.unlessReturnCandidates(pid, source, uc)
 	return uc.lifeN <= g.Player(pid).Life && uc.energyN <= g.Player(pid).Counters.Count(Energy) &&
 		uc.discardN <= len(hand) && uc.sacN <= len(candidates) && uc.returnN <= len(returnable) &&
-		(uc.drawN == 0 || !g.cantDrawAmount(pid, uc.drawN)) && g.unlessRevealable(pid, source, uc)
+		(uc.drawN == 0 || !g.cantDrawAmount(pid, uc.drawN)) && g.unlessRevealable(pid, source, uc) &&
+		g.unlessCounterable(source, uc)
+}
+
+// unlessCounterable is CostPutCounter.canPay for the source itself: it is on the
+// battlefield and may receive the counters.
+func (g *Game) unlessCounterable(source CardID, uc unlessCost) bool {
+	if uc.addCounterN == 0 {
+		return true
+	}
+	return g.Card(source).Zone == Battlefield && !g.cantPutCounter(CardEntity(source), uc.addCounterType)
 }
 
 // payUnlessParts pays uc's non-mana parts, after unlessPayable said they can
@@ -222,6 +239,12 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 	if uc.drawN > 0 {
 		g.DrawCards(pid, uc.drawN, controller)
 	}
+	if uc.addCounterN > 0 {
+		if n := g.countersReplaced(controller, pid, CardEntity(a.Source), uc.addCounterType, uc.addCounterN); n > 0 {
+			g.Card(a.Source).Counters.Add(uc.addCounterType, n)
+			emitCounterChanged(g.sink, a.Source, CardEntity(a.Source), uc.addCounterType, n)
+		}
+	}
 }
 
 // handWithout is hand less source: a spell being cast cannot be discarded to pay
@@ -234,4 +257,66 @@ func handWithout(hand []CardID, source CardID) []CardID {
 		}
 	}
 	return out
+}
+
+// times is uc paid n times over, Cost.mergeTo(cost, n, sa) for Cumulative
+// upkeep: every amount multiplied, the mana repeated. False when the mana does
+// not parse again.
+func (uc unlessCost) times(n int) (unlessCost, bool) {
+	uc.lifeN *= n
+	uc.discardN *= n
+	uc.sacN *= n
+	uc.energyN *= n
+	uc.damageN *= n
+	uc.drawN *= n
+	uc.returnN *= n
+	uc.revealN *= n
+	uc.addCounterN *= n
+	if uc.hasMana {
+		var tokens []string
+		for range n {
+			tokens = append(tokens, uc.parsed.Mana...)
+		}
+		mc, err := mana.Parse(strings.Join(tokens, " "))
+		if err != nil {
+			return unlessCost{}, false
+		}
+		uc.mana = mc
+	}
+	return uc, true
+}
+
+// upkeepCostPaid is the Echo$ and CumulativeUpkeep$ branches of
+// SacrificeEffect.resolve: pay the cost or lose the permanent. proceed is true
+// when the sacrifice goes ahead -- the cost was not paid and the permanent is
+// still its activator's -- and false for an ability with neither param
+// (ordinary sacrifice, proceed true), a paid cost, or a permanent that
+// changed controller since the trigger.
+func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *Card) (proceed bool, err error) {
+	echo, isEcho := a.Params.Param("Echo")
+	cumulative, isCumulative := a.Params.Param("CumulativeUpkeep")
+	if !isEcho && !isCumulative {
+		return true, nil
+	}
+	text, n := echo, 1
+	if isCumulative {
+		text = cumulative
+		// One more AGE counter, through any AddCounter replacement, before
+		// the cost is built from how many there are.
+		if added := g.countersReplaced(controller, a.Controller, CardEntity(source.ID), Age, 1); added > 0 {
+			source.Counters.Add(Age, added)
+			emitCounterChanged(g.sink, source.ID, CardEntity(source.ID), Age, added)
+		}
+		n = source.Counters.Count(Age)
+	}
+	uc, ok := parseUnlessCost(text)
+	if ok && n > 1 {
+		uc, ok = uc.times(n)
+	}
+	if !ok {
+		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q not resolvable yet", text)
+	}
+	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&
+		g.payUnlessCost(controller, a, a.Controller, uc)
+	return !paid && source.Controller() == a.Controller, nil
 }

@@ -132,6 +132,7 @@ func (g *Game) correctControllerZone(controller PlayerController, id CardID) {
 		g.setPhasedOut(id, c.phasedOut)
 	}
 	c.SummonSick = true
+	c.cameUnderControl = true
 	g.removeFromCombat(id)
 	g.loseRingBearer(id)
 	g.checkChangesControllerTriggers(controller, id, original)

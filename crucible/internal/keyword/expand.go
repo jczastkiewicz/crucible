@@ -174,6 +174,57 @@ func Expand(k Keyword) (Expansion, bool) {
 			Replacements: []string{line},
 			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
 		}, true
+	case "Fabricate":
+		// CardFactoryUtil.java:1034: when this enters, put N +1/+1 counters on
+		// it unless you create N 1/1 Servo artifact creature tokens -- as
+		// scripted, create the tokens unless you pay "put the counters".
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Secondary$ True | Execute$ KWFabricate" + Slot},
+			SVars:    []SVarDef{{"KWFabricate" + Slot, "DB$ Token | TokenAmount$ " + n + " | TokenScript$ c_1_1_a_servo | UnlessCost$ AddCounter<" + n + "/P1P1> | UnlessPayer$ You"}},
+		}, true
+	case "Extort":
+		// CardFactoryUtil.java:1016: whenever you cast a spell, you may pay
+		// {W/B}; if you do, each opponent loses 1 life and you gain that much.
+		// Java scopes AFLifeLost to the ability and defaults it to 0; the
+		// default never reads, since the gain only runs after the loss.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWExtort" + Slot},
+			SVars: []SVarDef{
+				{"KWExtort" + Slot, "AB$ LoseLife | Cost$ WB | Defined$ Player.Opponent | LifeAmount$ 1 | SubAbility$ KWExtortGain" + Slot},
+				{"KWExtortGain" + Slot, "DB$ GainLife | Defined$ You | LifeAmount$ AFLifeLost"},
+			},
+		}, true
+	case "Echo":
+		// CardFactoryUtil.java:963: at the beginning of your upkeep, if this
+		// came under your control since your last upkeep, sacrifice it unless
+		// you pay its echo cost (SacrificeEffect's Echo$).
+		cost := costDetail(k)
+		if cost == "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+cameUnderControlSinceLastUpkeep | Secondary$ True | Execute$ KWEcho" + Slot},
+			SVars:    []SVarDef{{"KWEcho" + Slot, "DB$ Sacrifice | SacValid$ Self | Echo$ " + cost}},
+		}, true
+	case "Cumulative upkeep":
+		// CardFactoryUtil.java:860: at the beginning of your upkeep, put an age
+		// counter on this, then sacrifice it unless you pay its cost once for
+		// each age counter (SacrificeEffect's CumulativeUpkeep$).
+		cost := costDetail(k)
+		if cost == "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self | Secondary$ True | Execute$ KWCumulativeUpkeep" + Slot},
+			SVars:    []SVarDef{{"KWCumulativeUpkeep" + Slot, "DB$ Sacrifice | SacValid$ Self | CumulativeUpkeep$ " + cost}},
+		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
 		// check CR 702.100c; the script spelling of that check is Condition$
@@ -284,4 +335,14 @@ func amountDetail(k Keyword) (string, bool) {
 		return "", false
 	}
 	return args[0], true
+}
+
+// costDetail is the cost an Echo-shaped keyword names: its first detail, the
+// whole text up to the next colon.
+func costDetail(k Keyword) string {
+	args := k.Args()
+	if len(args) < 1 {
+		return ""
+	}
+	return args[0]
 }

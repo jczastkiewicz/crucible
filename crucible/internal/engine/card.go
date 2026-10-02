@@ -51,6 +51,13 @@ type Card struct {
 	// over getCastSA), kept while it is on the stack or the battlefield, 0
 	// for a card cast without an X or never cast; Move clears it with kicker.
 	castX int
+	// cameUnderControl is Card.cameUnderControlSinceLastUpkeep (Echo): true
+	// from entering the battlefield or changing controller until the end of
+	// its controller's next upkeep. enteredTurn is the turn it entered the
+	// battlefield (Card.getTurnInZone), which keeps that upkeep from clearing
+	// the flag on the turn the permanent arrived.
+	cameUnderControl bool
+	enteredTurn      int
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move

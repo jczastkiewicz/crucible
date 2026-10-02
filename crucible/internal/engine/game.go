@@ -467,6 +467,8 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		Def:        def,
 		Owner:      owner,
 		controller: owner,
+		// Card.java:202: every card starts as new to its controller.
+		cameUnderControl: true,
 	})
 	g.put(id, zone, owner)
 	if zone == Battlefield {
@@ -715,6 +717,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	case from != Battlefield && kind == Battlefield:
 		c.enterRoom()
 		c.SummonSick = true
+		c.cameUnderControl, c.enteredTurn = true, g.turn
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
 			c.Counters.Add(Loyalty, loyalty)
 			emitCounterChanged(g.sink, id, CardEntity(id), Loyalty, loyalty)

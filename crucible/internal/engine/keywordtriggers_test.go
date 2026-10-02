@@ -7,6 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // creatureWithKeywords compiles a vanilla creature carrying the given K: lines
@@ -301,5 +302,98 @@ func TestEvolveChecksAgainOnResolution(t *testing.T) {
 	}
 	if got := g.Card(twice).Counters.Count(engine.P1P1); got != 1 {
 		t.Errorf("+1/+1 counters = %d, want 1: the second trigger's condition fails on resolution", got)
+	}
+}
+
+// Fabricate (CR 702.123a): the creature puts N +1/+1 counters on itself or
+// its controller creates N 1/1 Servo artifact creature tokens.
+func TestFabricateCountersOrServos(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name         string
+		counters     bool
+		wantCounters int
+		wantServos   int
+	}{
+		{"counters", true, 1, 0},
+		{"servo", false, 0, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			steed := g.NewCard(corpusCard(t, "Iron League Steed"), p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Red, 4)
+			c := engine.NewScriptedController()
+			queueXPayGeneric(c, mana.ShardR, 4)
+			c.QueueConfirmPayCost(tc.counters)
+			if !g.CastSpell(p, steed, c) {
+				t.Fatal("cast failed")
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Card(steed).Counters.Count(engine.P1P1); got != tc.wantCounters {
+				t.Errorf("+1/+1 counters = %d, want %d", got, tc.wantCounters)
+			}
+			servos := 0
+			for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+				if g.Card(id).IsToken && g.Card(id).Type().HasSubtype("Servo") {
+					servos++
+				}
+			}
+			if servos != tc.wantServos {
+				t.Errorf("Servo tokens = %d, want %d", servos, tc.wantServos)
+			}
+		})
+	}
+}
+
+// Extort (CR 702.101a): whenever you cast a spell you may pay {W/B}; if you do,
+// each opponent loses 1 life and you gain that much life.
+func TestExtortDrainsWhenPaid(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		pay  bool
+		mine int
+		them int
+	}{
+		{"paid", true, 21, 19},
+		{"declined", false, 20, 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(p).Life, g.Player(other).Life = 20, 20
+			g.NewCard(corpusCard(t, "Basilica Screecher"), p, engine.Battlefield)
+			bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Red, 1)
+			g.Player(p).ManaPool.Add(mana.White, 1)
+			c := engine.NewScriptedController()
+			c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+			c.QueueConfirmOptionalTrigger(tc.pay)
+			if tc.pay {
+				c.QueueHybridManaColor(mana.White)
+			}
+			if !g.CastSpell(p, bolt, c) {
+				t.Fatal("cast failed")
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			// Bolt hit its own caster for 3, so compare against that.
+			if got, want := g.Player(p).Life, tc.mine-3; got != want {
+				t.Errorf("caster life = %d, want %d", got, want)
+			}
+			if got := g.Player(other).Life; got != tc.them {
+				t.Errorf("opponent life = %d, want %d", got, tc.them)
+			}
+		})
 	}
 }

@@ -1105,7 +1105,7 @@ ChangeText	ValidTgts	8	-	amount:1,valid:2	token:7,prose:1
 ChangeX	DB	2	-	-	token:2
 ChangeX	Defined	2	-	defined:66	token:2
 ChangeX	Value	2	amount:1	-	amount:1,int:1
-ChangeZone	AB	1159	-	-	token:1159
+ChangeZone	AB	1264	-	-	token:1264
 ChangeZone	AILifeThreshold	1	-	int:1	int:1
 ChangeZone	AILogic	149	-	-	token:149
 ChangeZone	AIManaPref	2	-	-	token:2
@@ -1117,7 +1117,7 @@ ChangeZone	Activation	7	-	-	token:7
 ChangeZone	ActivationFirstCombat	6	-	-	bool:6
 ChangeZone	ActivationLimit	2	-	int:1	int:2
 ChangeZone	ActivationPhases	28	-	-	token:24,prose:4
-ChangeZone	ActivationZone	166	-	-	token:166
+ChangeZone	ActivationZone	271	-	-	token:271
 ChangeZone	Activator	3	-	-	token:3
 ChangeZone	AdditionalActivationZone	1	-	-	token:1
 ChangeZone	AlreadyRevealed	11	-	-	bool:11
@@ -1138,7 +1138,7 @@ ChangeZone	Blocking	1	-	-	token:1
 ChangeZone	Boast	3	-	-	bool:3
 ChangeZone	ChangeNum	1394	amount:2	amount:1	int:1171,token:218,amount:5
 ChangeZone	ChangeNumDesc	3	-	-	prose:2,token:1
-ChangeZone	ChangeType	1953	-	-	token:1824,prose:129
+ChangeZone	ChangeType	2058	-	-	token:1929,prose:129
 ChangeZone	ChangeTypeDesc	371	-	-	prose:356,token:15
 ChangeZone	CheckSVar	25	-	amount:1	token:24,amount:1
 ChangeZone	ChoiceZone	2	-	zone:2	token:2
@@ -1159,7 +1159,7 @@ ChangeZone	ConditionPlayerTurn	2	-	-	bool:2
 ChangeZone	ConditionPresent	174	-	valid:1	token:169,prose:5
 ChangeZone	ConditionSVarCompare	87	-	-	token:87
 ChangeZone	ConditionZone	4	-	-	token:4
-ChangeZone	Cost	1196	-	-	prose:810,token:312,int:74
+ChangeZone	Cost	1301	-	-	prose:915,token:312,int:74
 ChangeZone	CostDesc	21	-	text:1	prose:18,token:3
 ChangeZone	DB	4316	-	-	token:4316
 ChangeZone	Defined	1742	-	defined:66	token:1718,prose:24
@@ -1167,7 +1167,7 @@ ChangeZone	DefinedDesc	4	text:1	-	prose:3,token:1
 ChangeZone	DefinedPlayer	321	defined:2	defined:1	token:321
 ChangeZone	DestAltSVar	6	-	-	amount:3,prose:2,token:1
 ChangeZone	DestAltSVarCompare	1	-	-	token:1
-ChangeZone	Destination	6557	zone:3	zone:10	token:6557
+ChangeZone	Destination	6662	zone:3	zone:10	token:6662
 ChangeZone	DestinationAlternative	48	zone:1	-	token:48
 ChangeZone	DifferentCMC	1	-	-	bool:1
 ChangeZone	DifferentNames	21	-	-	bool:21
@@ -1212,7 +1212,7 @@ ChangeZone	OpponentTurn	1	-	-	bool:1
 ChangeZone	Optional	233	-	-	bool:192,token:41
 ChangeZone	OptionalPrompt	3	-	-	prose:3
 ChangeZone	OrOtherConditionSVarCompare	2	-	-	token:2
-ChangeZone	Origin	6543	zone:3	zone:11	token:6543
+ChangeZone	Origin	6648	zone:3	zone:11	token:6648
 ChangeZone	OriginAlternative	62	zone:1,text:1	-	token:62
 ChangeZone	Pawprint	2	-	amount:3	int:2
 ChangeZone	Planeswalker	97	-	-	bool:97

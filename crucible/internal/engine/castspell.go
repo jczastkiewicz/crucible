@@ -10,6 +10,9 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -118,8 +121,15 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		g.recordPendingError(err)
 		return false
 	}
+	var opts castOpts
 	if !fromHand && !granted {
-		return false
+		// Flashback (CR 702.34a): the owner may cast the card from their
+		// graveyard for its flashback cost.
+		cost, ok := g.flashbackCost(pid, c)
+		if !ok {
+			return false
+		}
+		opts.altCost, opts.hasAltCost = cost, true
 	}
 	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
 		return false
@@ -129,7 +139,39 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			return false
 		}
 	}
-	return g.castSpell(controller, pid, card, castOpts{withoutManaCost: play.WithoutManaCost, door: d})
+	opts.withoutManaCost, opts.door = play.WithoutManaCost, d
+	if !g.castSpell(controller, pid, card, opts) {
+		return false
+	}
+	if opts.hasAltCost {
+		g.Card(card).flashbackCast = true
+	}
+	return true
+}
+
+// flashbackCost is the mana cost of c's Flashback keyword when pid may cast it
+// from the graveyard: pid owns it and it is there. A Flashback whose cost is
+// not a plain mana cost (Sac<..>, PayLife<..>, a non-mana part) is not offered
+// (GO-7).
+func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
+	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
+		return mana.Cost{}, false
+	}
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Flashback" || k.Details == "" {
+			continue
+		}
+		if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
+			return mana.Cost{}, false
+		}
+		mc, err := mana.Parse(k.Details)
+		if err != nil || mc.CountX() > 0 {
+			return mana.Cost{}, false
+		}
+		return mc, true
+	}
+	return mana.Cost{}, false
 }
 
 // castOpts is how an effect's "cast it" differs from casting it normally
@@ -141,6 +183,10 @@ type castOpts struct {
 	withoutManaCost bool
 	// door is the half a Room card is cast as; ignored for anything else.
 	door Door
+	// altCost, when hasAltCost, is paid instead of the printed mana cost (a
+	// flashback cost, CR 702.34a).
+	altCost    mana.Cost
+	hasAltCost bool
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -197,6 +243,9 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
 	if opts.withoutManaCost {
 		return xAnnounced{}, true
+	}
+	if opts.hasAltCost {
+		return g.payManaCostX(pid, opts.altCost, controller)
 	}
 	return g.payManaCostX(pid, c.Def.Faces[0].ManaCost, controller)
 }

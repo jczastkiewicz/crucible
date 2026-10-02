@@ -35,6 +35,11 @@ type Card struct {
 	// IsToken marks a card a Token effect created (CR 111.1): it ceases to
 	// exist once it is anywhere but the battlefield (CR 704.5d, action.go).
 	IsToken bool
+
+	// flashbackCast marks a spell cast from a graveyard for its flashback cost:
+	// any time it would leave the stack it is exiled instead (CR 702.34a,
+	// Game.Move). Cleared when it leaves.
+	flashbackCast bool
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move

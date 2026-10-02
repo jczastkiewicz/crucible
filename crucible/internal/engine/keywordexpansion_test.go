@@ -254,3 +254,61 @@ func TestAnnihilatorMakesTheDefenderSacrifice(t *testing.T) {
 			g.Card(first).Zone, g.Card(second).Zone, g.Card(third).Zone)
 	}
 }
+
+// TypeCycling (CR 702.29e): pay the cost and discard the card to search the
+// library for a card of the type and put it in hand.
+func TestTypeCyclingFetchesALandOfTheType(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	dragon := g.NewCard(corpusCard(t, "Timeless Dragon"), p, engine.Hand)
+	plains := g.NewCard(corpusCard(t, "Plains"), p, engine.Library)
+	forest := g.NewCard(corpusCard(t, "Forest"), p, engine.Library)
+	g.Player(p).ManaPool.Add(mana.White, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueuePayGeneric(mana.ShardW)
+	c.QueueCardChoice([]engine.CardID{plains})
+	if !g.ActivateAbility(p, dragon, 0, c) {
+		t.Fatal("Plainscycling could not be activated from hand")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(dragon).Zone != engine.Graveyard || g.Card(plains).Zone != engine.Hand || g.Card(forest).Zone != engine.Library {
+		t.Errorf("dragon %v, Plains %v, Forest %v; want Graveyard, Hand, Library",
+			g.Card(dragon).Zone, g.Card(plains).Zone, g.Card(forest).Zone)
+	}
+}
+
+// Flashback (CR 702.34a): the owner may cast the card from their graveyard for
+// its flashback cost, and it is exiled as it leaves the stack. Firebolt is
+// {R} sorcery, flashback {4}{R}, 2 damage to any target.
+func TestFlashbackCastsFromTheGraveyardAndExiles(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	bolt := g.NewCard(corpusCard(t, "Firebolt"), p, engine.Graveyard)
+	plain := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Graveyard)
+	g.Player(p).ManaPool.Add(mana.Red, 5)
+	c := engine.NewScriptedController()
+	for range 4 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	if g.CastSpell(p, plain, c) {
+		t.Fatal("a graveyard card without flashback was cast")
+	}
+	if !g.CastSpell(p, bolt, c) {
+		t.Fatal("Firebolt could not be flashed back")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(bolt).Zone != engine.Exile {
+		t.Errorf("flashed-back Firebolt in %v, want Exile", g.Card(bolt).Zone)
+	}
+	if got := g.Player(other).Life; got != 18 {
+		t.Errorf("target life = %d, want 18", got)
+	}
+}

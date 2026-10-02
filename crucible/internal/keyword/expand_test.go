@@ -32,6 +32,8 @@ func TestExpand(t *testing.T) {
 		{"Bushido:1", true, "Mode$ Blocks | ValidCard$ Card.Self"},
 		{"Bushido:x", false, ""},
 		{"Afterlife:2", true, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard"},
+		{"TypeCycling:Plains:2", true, "Cost$ 2 Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ Plains"},
+		{"TypeCycling:Basic", false, ""},
 		{"Persist", true, "counters_EQ0_M1M1"},
 		{"Undying", true, "counters_EQ0_P1P1"},
 		{"Undying:1", false, ""},

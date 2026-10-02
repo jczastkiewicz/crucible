@@ -1,6 +1,6 @@
 # ADR-0038 — Keyword Expansion: Script-Expressible Keywords Compile Into Traits, the Rest Stay Rules Reads
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-01
 - **Deciders:** Crucible session (M5/M6 rules kernel)
 

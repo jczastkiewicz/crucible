@@ -17,10 +17,10 @@ each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and none �
 the source for this letter), CR 704.5f (a creature at zero or less toughness dies, Layer 7 and counters folded in —
 `GameAction.java`'s own comment on this check, not 704.5g), CR 704.5g and 704.5h together (a creature dealt lethal
 damage, or any deathtouch damage at all, dies — indestructible creatures excepted,
-[`## Lethal and deathtouch damage`](#lethal-and-deathtouch-damage-and-the-one-keyword-this-port-checks), below), a
-partial CR 704.5v (a Battle at zero or less defense dies, its own trigger-on-the-stack exception checked and always
-false today — [`## Loyalty is not a layer`](#loyalty-is-not-a-layer)'s Battle paragraph, below), CR 704.5w/704.5x (a
-Battle's protector — `assignBattleProtector`,
+[`## Lethal and deathtouch damage`](#lethal-and-deathtouch-damage-and-the-one-keyword-this-port-checks), below), a CR
+704.5v (a Battle at zero or less defense dies unless it is the source of a trigger still on the stack —
+[`## Loyalty is not a layer`](#loyalty-is-not-a-layer)'s Battle paragraph, below), CR 704.5w/704.5x (a Battle's
+protector — `assignBattleProtector`,
 [`## Combat`](turn-stack-combat.md#combat-declaring-attackers-declaring-blockers-and-dealing-damage)'s own paragraph on
 it, below), CR 704.5m (more than one permanent with the World supertype on the battlefield at once, across every player,
 destroys every one but the newest by `Card.Timestamp` — `resolveWorldRule`, the same field
@@ -158,9 +158,9 @@ same as `destroyLethalToughness` was real before `Power`/`Toughness` folded in L
 `carddb.Face.Defense` mirror `BaseLoyalty` exactly, `Move` grants it on entry the same way, and `destroyZeroDefense` (CR
 704.5v, `GameAction.java`'s own comment) reads `Card.Counters.Count(Defense)` directly, the same story. One extra piece
 of 704.5v is here too: Java's own version does not destroy a Battle at zero defense if it is the source of a trigger
-that has fired but not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is checked, not
-skipped — `destroyZeroDefense`'s own doc comment explains why it always reads false today (nothing puts a trigger on the
-stack yet) rather than being silently dropped. CR 704.5w/704.5x, a Battle's protector assignment, is a separate
+that has fired but not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is
+`hasSourceOnStack`, which reads `Ability.isTrigger` (set by `pushTriggeredAbilities`, the only pusher of a trigger), as
+`MagicStack` skips every item that is not a trigger. CR 704.5w/704.5x, a Battle's protector assignment, is a separate
 state-based action now too (`assignBattleProtector`,
 [`## Combat`](turn-stack-combat.md#combat-declaring-attackers-declaring-blockers-and-dealing-damage)'s own paragraph on
 it, below) — never a prerequisite for 704.5v's own defense check to be correct on its own terms, which is why the two

@@ -453,27 +453,6 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 	return len(dead) > 0
 }
 
-// destroyZeroDefense is CR 704.5v: a Battle at defense zero or less goes to
-// its owner's graveyard, unless it is the source of a triggered ability
-// that has triggered but not yet left the stack (`hasSourceOnStack` in
-// Java) -- CR 704.5v's own exception exists so a Battle's own "when this
-// reaches 0 defense" trigger still gets to resolve. This port checks the
-// exception exactly, not by skipping it: `g.StackTop`'s kind of lookup
-// would need to inspect every item, not just the top, since anything could
-// be pushed above the Battle's own trigger by the time this runs, and CR
-// 613.6-613.8's ordering makes "is it still there" the only question that
-// matters. Today it is always answered no -- nothing puts a trigger on the
-// stack yet (`## Stack`), so every Battle is checked as if the exception
-// never applies, which is the exception's own correct answer whenever it
-// genuinely does not.
-//
-// Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
-// doc comment): entering the battlefield with printed-defense-many Defense
-// counters is CR 704.5v's own prerequisite, and Move sets exactly that on
-// real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
-// comment) -- a setup.state-placed Battle still needs its own explicit
-// Counters:DEFENSE= if it wants one.
-//
 // assignBattleProtector is CR 704.5w/704.5x, checked (and, per Java's own
 // combined stateBasedAction_Battle, applied) before destroyZeroDefense
 // below -- a Battle destroyed here for having no eligible protector never
@@ -539,14 +518,9 @@ func assignBattleProtector(g *Game, controller PlayerController) bool {
 // that has triggered but not yet left the stack (`hasSourceOnStack` in
 // Java) -- CR 704.5v's own exception exists so a Battle's own "when this
 // reaches 0 defense" trigger still gets to resolve. This port checks the
-// exception exactly, not by skipping it: `g.StackTop`'s kind of lookup
-// would need to inspect every item, not just the top, since anything could
-// be pushed above the Battle's own trigger by the time this runs, and CR
-// 613.6-613.8's ordering makes "is it still there" the only question that
-// matters. Today it is always answered no -- nothing puts a trigger on the
-// stack yet (`## Stack`), so every Battle is checked as if the exception
-// never applies, which is the exception's own correct answer whenever it
-// genuinely does not.
+// exception through hasSourceOnStack, which looks at every stack item, not
+// just the top: anything could be pushed above the Battle's own trigger by
+// the time this runs.
 //
 // Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
 // doc comment): entering the battlefield with printed-defense-many Defense
@@ -559,7 +533,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
-			if c.Type().Has(cardtype.Battle) && c.Counters.Count(Defense) <= 0 {
+			if c.Type().Has(cardtype.Battle) && c.Counters.Count(Defense) <= 0 && !g.hasSourceOnStack(id) {
 				dead = append(dead, id)
 			}
 		}

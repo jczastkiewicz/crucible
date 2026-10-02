@@ -318,3 +318,24 @@ job, not `Move`'s — it is an SBA, checked continuously, not something a zone c
 stays untouched by any of this: it is the arena-allocation primitive fixture loading uses to seat a board mid-game,
 where a battlefield card's starting `Tapped`/`SummonSick` is exactly what the fixture says, not a rule this port applies
 at construction time.
+
+## The repeated check and the rest of CR 704.5
+
+`checkStateBasedActions` repeats `checkStateBasedActionsPass` until a pass does nothing, at most nine times
+(`maxSBAPasses`, `GameAction.java:1417`; CR 704.3). Each pass rebuilds the continuous effects the last one's moves
+changed, so a creature that dies with its anthem, or a Role that goes to the graveyard, is reflected in the same call.
+
+| CR     | Rule                                                                                                                   | Where                        |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 704.5n | Equipment on a non-creature, Fortification on a non-land, a creature or battle attached to anything becomes unattached | `cleanupDanglingAttachments` |
+| 704.5y | two Roles of one controller on a permanent: the older goes                                                             | `resolveRoleRule`            |
+| 704.5z | no speed and a "Start your engines!" permanent: speed 1                                                                | `startYourEngines`           |
+
+Token `AttachedTo$` (about 50 corpus lines, the Role tokens among them) attaches each created Aura or Equipment token to
+the first defined card (`tokenAttachHost`); an Aura token that cannot attach (`tokenCanAttach`: Enchant restriction,
+host in play) is not created (CR 303.4i). The token enters first and is attached right after, so an ETB trigger of the
+token does not see the attachment (`AttachAfter$` reads the same way); a player host is not resolvable.
+
+Not ported: 704.5r (Dream counter maximum, `StaticAbilityMaxCounter`; 2 cards), the Contraption sprocket rule, Commander
+damage. Scenarios: `sba-saga-at-its-final-chapter-...`, `sba-equipment-attached-to-a-non-creature-...`; Go tests
+`roles_test.go`, `sbaspeed_test.go`.

@@ -1,0 +1,5 @@
+# CR 714.4 (704.5s): a Saga with as many lore counters as its final chapter
+# number is sacrificed once no chapter ability of it is on the stack. The Flame
+# of Keld carries three lore counters and has no chapter ability waiting, so the
+# next state-based check sacrifices it.
+startturn human

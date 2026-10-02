@@ -6,6 +6,7 @@ package engine
 import (
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -121,6 +122,28 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
 // reads performed (beginStep, turn.go).
 func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
+	// CR 704.3: the check repeats until a pass does nothing. GameAction.
+	// checkStateEffects caps it at nine passes (GameAction.java:1417); each
+	// pass also rebuilds the continuous effects the last one's moves changed.
+	for range maxSBAPasses {
+		o, p := checkStateBasedActionsPass(g, controller)
+		performed = performed || p
+		if o {
+			return true, performed
+		}
+		if !p {
+			break
+		}
+	}
+	return false, performed
+}
+
+// maxSBAPasses is the cap on repeated state-based-action passes, Java's
+// `for (int q = 0; q < 9; q++)`.
+const maxSBAPasses = 9
+
+// checkStateBasedActionsPass is one pass of every state-based action.
+func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, performed bool) {
 	if g.over {
 		return true, false
 	}
@@ -236,6 +259,8 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	performed = sacrificeCompletedSagas(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
 	performed = resolveWorldRule(g, controller) || performed
+	performed = resolveRoleRule(g, controller) || performed
+	performed = startYourEngines(g) || performed
 	performed = cleanupDanglingAttachments(g, controller) || performed
 	return false, performed
 }
@@ -728,6 +753,21 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 			c := g.Card(id)
 			host, attached := c.AttachedTo()
 			legal := attached && g.Card(host).Zone == Battlefield
+			// CR 704.5n/704.5p: an Equipment attached to anything but a creature,
+			// a Fortification to anything but a land, or a creature or battle
+			// attached to anything at all, becomes unattached
+			// (GameAction.stateBasedAction704_attach).
+			if legal && !c.Type().HasSubtype("Aura") {
+				ht := g.Card(host).Type()
+				switch {
+				case c.Type().Has(cardtype.Creature) || c.Type().Has(cardtype.Battle):
+					legal = false
+				case c.Type().HasSubtype("Equipment") && !ht.Has(cardtype.Creature):
+					legal = false
+				case c.Type().HasSubtype("Fortification") && !ht.Has(cardtype.Land):
+					legal = false
+				}
+			}
 			if legal && c.Type().HasSubtype("Aura") {
 				if spec, ok := enchantSpec(c); ok {
 					legal = Matches(g, g.Card(host), spec, c.Controller(), id)
@@ -756,6 +796,70 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	return len(toGraveyard) > 0 || len(toUnattach) > 0
 }
 
+// startYourEngines is CR 704.5z (GameAction.java:1548): a player with no speed
+// who controls a permanent with "Start your engines!" gets speed 1.
+func startYourEngines(g *Game) bool {
+	performed := false
+	for _, pid := range g.Players() {
+		if g.Player(pid).Speed != 0 {
+			continue
+		}
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if g.Card(id).HasKeyword("Start your engines") {
+				g.Player(pid).Speed = 1
+				performed = true
+				break
+			}
+		}
+	}
+	return performed
+}
+
+// resolveRoleRule is CR 704.5y (stateBasedAction_Role, GameAction.java:1714):
+// a permanent with two or more Role Auras controlled by the same player keeps
+// only that player's newest one; the older ones go to the graveyard.
+func resolveRoleRule(g *Game, controller PlayerController) bool {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			byController := map[PlayerID][]CardID{}
+			var order []PlayerID
+			for _, att := range g.Card(id).Attachments() {
+				r := g.Card(att)
+				if !r.Type().HasSubtype("Role") {
+					continue
+				}
+				if _, seen := byController[r.Controller()]; !seen {
+					order = append(order, r.Controller())
+				}
+				byController[r.Controller()] = append(byController[r.Controller()], att)
+			}
+			for _, owner := range order {
+				roles := byController[owner]
+				if len(roles) < 2 {
+					continue
+				}
+				newest := roles[0]
+				for _, r := range roles[1:] {
+					if g.Card(r).Timestamp > g.Card(newest).Timestamp {
+						newest = r
+					}
+				}
+				for _, r := range roles {
+					if r != newest {
+						dead = append(dead, r)
+					}
+				}
+			}
+		}
+	}
+	for _, id := range dead {
+		g.moveToGraveyard(id)
+		g.checkDiesTriggers(controller, id)
+	}
+	return len(dead) > 0
+}
+
 // enchantSpec parses c's own `Enchant` keyword (CR 303.4a) into a valid.Spec,
 // reporting whether it found a checkable one. `Enchant`'s value is a
 // KeywordWithType, whose written form is "<validString>:<display text>"
@@ -772,10 +876,15 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 // player" at all, so those two report no checkable spec rather than being
 // misread as a card-type restriction no permanent could ever match.
 func enchantSpec(c *Card) (valid.Spec, bool) {
-	if c.Def == nil {
+	return enchantSpecOf(c.Def)
+}
+
+// enchantSpecOf is enchantSpec for a definition (a token not yet created).
+func enchantSpecOf(def *compile.Card) (valid.Spec, bool) {
+	if def == nil {
 		return valid.Spec{}, false
 	}
-	for _, line := range c.Def.Faces[0].Keywords {
+	for _, line := range def.Faces[0].Keywords {
 		k := keyword.Parse(line)
 		if k.Name != "Enchant" {
 			continue

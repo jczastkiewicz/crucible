@@ -1,22 +1,24 @@
 package engine
 
-//enginelint:allow ability animate card condition control defined effecthelpers game id parts player token zone
+//enginelint:allow ability action animate card condition control defined effecthelpers game id parts player token valid zone
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // tokenUnresolvedParams are TokenEffect/TokenEffectBase params this port
 // does not model: putting the token into combat (TokenAttacking$/
-// TokenBlocking$), attaching it (AttachedTo$/AttachAfter$), a counter
+// TokenBlocking$), a counter
 // table on entry (WithCountersType$), copied triggers (AddTriggersFrom$),
 // chosen-type/-color prototypes (TokenTypes$/TokenColors$), what the token
 // remembers (TokenRemembered$/CleanupForEach$/RememberOriginalTokens$), a
 // shared zone table (ChangeZoneTable$) and the end-of-turn delayed
 // sacrifice/exile (AtEOT$/AtEOTTrig$).
 var tokenUnresolvedParams = [...]string{
-	"TokenAttacking", "TokenBlocking", "AttachedTo", "AttachAfter", "WithCountersType",
+	"TokenAttacking", "TokenBlocking", "WithCountersType",
 	"WithCountersAmount", "AddTriggersFrom", "TokenTypes", "TokenColors", "TokenRemembered",
 	"CleanupForEach", "RememberOriginalTokens", "ChangeZoneTable", "AtEOT", "AtEOTTrig",
 	"Condition"}
@@ -82,10 +84,26 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			}
 		}
 	}
+	attachTo := NoCard
+	hasAttach := false
+	if raw, ok := a.Params.Param("AttachedTo"); ok {
+		hasAttach = true
+		if attachTo, err = tokenAttachHost(g, a, source, raw); err != nil {
+			return err
+		}
+	}
 	var created []CardID
 	for _, spec := range specs {
+		// CR 303.4i: an Aura token that cannot be attached to its host is not
+		// created (TokenEffectBase.java:136).
+		if hasAttach && attachTo != NoCard && !tokenCanAttach(g, a, spec, attachTo) && isAuraDef(spec.Def) {
+			continue
+		}
 		id := g.createToken(controller, spec)
 		created = append(created, id)
+		if hasAttach && attachTo != NoCard && tokenCanAttach(g, a, spec, attachTo) && g.Card(id).Zone == Battlefield {
+			g.Attach(id, attachTo)
+		}
 		if pump != nil {
 			g.timestamp++
 			g.addAnimate(animateRecord{
@@ -150,4 +168,51 @@ func tokenPumpKeywords(a *Ability) (*tokenPump, error) {
 		p.permanent = false
 	}
 	return p, nil
+}
+
+// tokenAttachHost is the first card AttachedTo$ names (attachTokenTo reads the
+// first defined entity); NoCard when it names none. A player host (an Aura on
+// a player) is not resolvable here.
+func tokenAttachHost(g *Game, a *Ability, source *Card, raw string) (CardID, error) {
+	objects, err := definedEntities(g, a.Controller, source, raw, a.refs())
+	if err != nil {
+		return NoCard, fmt.Errorf("engine: Token: AttachedTo$: %w", err)
+	}
+	if len(objects) == 0 {
+		return NoCard, nil
+	}
+	id, ok := objects[0].AsCard()
+	if !ok {
+		return NoCard, fmt.Errorf("engine: Token: AttachedTo$ %q names a player, not resolvable yet", raw)
+	}
+	return id, nil
+}
+
+// isAuraDef reports whether def is an Aura.
+func isAuraDef(def *compile.Card) bool {
+	return def != nil && def.Faces[0].Type.HasSubtype("Aura")
+}
+
+// tokenCanAttach is attachTokenTo's check: the token is an attachment, and an
+// Aura's Enchant restriction and the host's protection allow it.
+func tokenCanAttach(g *Game, a *Ability, spec tokenSpec, host CardID) bool {
+	def := spec.Def
+	if def == nil {
+		return false
+	}
+	t := def.Faces[0].Type
+	if !t.HasSubtype("Aura") && !t.HasSubtype("Equipment") && !t.HasSubtype("Fortification") {
+		return false
+	}
+	if !t.HasSubtype("Aura") {
+		return true
+	}
+	h := g.Card(host)
+	if h.Zone != Battlefield {
+		return false
+	}
+	if restriction, ok := enchantSpecOf(def); ok && !Matches(g, h, restriction, spec.Owner, a.Source) {
+		return false
+	}
+	return true
 }

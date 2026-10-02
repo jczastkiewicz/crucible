@@ -120,6 +120,8 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return 0, false
 	}
 	switch count.Head {
+	case "BloodthirstAmount":
+		return g.bloodthirstAmount(sourceController), true
 	case "YourLifeTotal":
 		return g.Player(sourceController).Life, true
 	case "OppGreatestLifeTotal":

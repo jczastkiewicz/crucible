@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humangraveyard=Blaze
+humanbattlefield=Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped
+ailife=17

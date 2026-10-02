@@ -374,6 +374,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	if amount <= 0 {
 		return
 	}
+	g.Player(target).DamageReceivedThisTurn += amount
 	var flags EventFlags
 	if isCombat {
 		flags = FlagCombat

@@ -2287,7 +2287,7 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 	for _, key := range [...]string{
 		"Revolt", "WerewolfTransformCondition", "WerewolfUntransformCondition",
 		"CheckDefinedPlayer", "ManaSpent", "ManaNotSpent", "Adamant",
-		"Bloodthirst", "Monarch", "EnduringStory", "DayTime", "ClassLevel",
+		"Monarch", "EnduringStory", "DayTime", "ClassLevel",
 	} {
 		if _, ok := t.Param(key); ok {
 			return false
@@ -2300,6 +2300,9 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 		return false
 	}
 	if !checkSVarMatches(g, host, amounts, t, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+		return false
+	}
+	if !boolFlagMatches(t, "Bloodthirst", func() bool { return g.opponentWasDamaged(host.Controller()) }) {
 		return false
 	}
 	if !boolFlagMatches(t, "Metalcraft", func() bool { return battlefieldArtifactCount(g, host.Controller()) >= 3 }) {

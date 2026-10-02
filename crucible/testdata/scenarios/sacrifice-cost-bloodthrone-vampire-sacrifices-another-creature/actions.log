@@ -1,0 +1,8 @@
+# CR 602.2, 118.3: Sac<1/Creature> is a cost with a choice. The controller picks
+# the creature before anything is paid; Grizzly Bears is sacrificed and the
+# ability gives the Vampire +2/+2 until end of turn.
+startturn human
+advance 3
+queue sacrificechoice 2
+queue action human activate 1 0
+passpriority

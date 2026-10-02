@@ -437,3 +437,68 @@ func TestRenownTriggersOnlyOnce(t *testing.T) {
 		t.Errorf("+1/+1 counters after the second hit = %d, want 1: it is renowned", got)
 	}
 }
+
+// Bloodthirst (CR 702.54a): the creature enters with N +1/+1 counters if an
+// opponent was dealt damage this turn, and without them if not.
+func TestBloodthirstNeedsDamageToAnOpponentThisTurn(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		damage bool
+		want   int
+	}{
+		{"opponent was damaged", true, 1},
+		{"nobody was damaged", false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(other).Life = 20
+			c := engine.NewScriptedController()
+			if tc.damage {
+				bolt := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+				g.Player(p).ManaPool.Add(mana.Red, 1)
+				c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+				castThenResolve(t, g, p, bolt, c)
+			}
+			lancer := g.NewCard(corpusCard(t, "Bogardan Lancer"), p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Red, 2)
+			queueXPayGeneric(c, mana.ShardR, 1)
+			castThenResolve(t, g, p, lancer, c)
+			if got := g.Card(lancer).Counters.Count(engine.P1P1); got != tc.want {
+				t.Errorf("+1/+1 counters = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Modular (CR 702.43a): it enters with N +1/+1 counters, and when it dies its
+// controller may put that many counters on target artifact creature.
+func TestModularMovesItsCountersToAnArtifactCreature(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	worker := g.NewCard(corpusCard(t, "Arcbound Worker"), p, engine.Hand)
+	pest := g.NewCard(corpusCard(t, "Signal Pest"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Red, 1)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardR)
+	castThenResolve(t, g, p, worker, c)
+	if got := g.Card(worker).Counters.Count(engine.P1P1); got != 1 {
+		t.Fatalf("Arcbound Worker entered with %d counters, want 1", got)
+	}
+	g.Card(worker).Damage.Mark(9, false)
+	c.QueueConfirmOptionalTrigger(true)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(pest)})
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(pest).Counters.Count(engine.P1P1); got != 1 {
+		t.Errorf("Signal Pest has %d +1/+1 counters, want 1 from the dying Worker", got)
+	}
+}

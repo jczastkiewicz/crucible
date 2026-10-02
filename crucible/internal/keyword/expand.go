@@ -261,6 +261,41 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | IsPresent$ Card.Self+!IsRenowned | CombatDamage$ True | Secondary$ True | Execute$ KWRenown" + Slot},
 			SVars:    []SVarDef{{"KWRenown" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ " + n}},
 		}, true
+	case "Bloodthirst":
+		// CardFactoryUtil.java:2119: enters with N +1/+1 counters if an opponent
+		// was dealt damage this turn; Bloodthirst X counts that damage.
+		args := k.Args()
+		if len(args) < 1 || args[0] == "" {
+			return Expansion{}, false
+		}
+		n := args[0]
+		exp := Expansion{Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWBloodthirst" + Slot + " | Bloodthirst$ True"}}
+		if n == "X" {
+			n = "KWBloodthirstX" + Slot
+			exp.Amounts = []SVarDef{{n, "Count$BloodthirstAmount"}}
+		} else if strings.Trim(n, "0123456789") != "" {
+			return Expansion{}, false
+		}
+		exp.SVars = []SVarDef{{"KWBloodthirst" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n}}
+		return exp, true
+	case "Modular":
+		// CardFactoryUtil.java:1490 and :2377: enters with N +1/+1 counters, and
+		// when it dies you may put a +1/+1 counter on target artifact creature for
+		// each +1/+1 counter on it. Java's decider is the triggered card's
+		// controller, which for this trigger on the dying card itself is "You".
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Replacements: []string{"Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWModularEtb" + Slot},
+			Triggers:     []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | OptionalDecider$ You | Secondary$ True | Execute$ KWModular" + Slot},
+			SVars: []SVarDef{
+				{"KWModularEtb" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ " + n},
+				{"KWModular" + Slot, "DB$ PutCounter | ValidTgts$ Artifact.Creature | TgtPrompt$ Select target artifact creature | CounterType$ P1P1 | CounterNum$ KWModularX" + Slot},
+			},
+			Amounts: []SVarDef{{"KWModularX" + Slot, "TriggeredCard$CardCounters.P1P1"}},
+		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
 		// check CR 702.100c; the script spelling of that check is Condition$

@@ -69,3 +69,11 @@ unported property such as `escaped`) does not apply: the permanent enters withou
 Not covered: tokens (`Token` creates them without `enterBattlefieldReplacements`), `CounterTypes$`, a replacement the
 player may decline. Tests: `entercounters_test.go` (Big Mother Mouser enters 0/0 with two counters and survives,
 Broodguard Elite with X = 3, Grumgully adding one to Grizzly Bears).
+
+### Bloodthirst
+
+`Bloodthirst$ True` on a replacement or trigger is `Player.hasBloodthirst`: an opponent has been dealt damage this turn.
+`Player.DamageReceivedThisTurn` (reset each turn; `dealPlayerDamage` adds the damage left after prevention and
+replacement, as `GameEntity.damageReceivedThisTurn` records it) feeds the flag in `triggerCommonRequirementsMet`
+(`opponentWasDamaged`) and `Count$BloodthirstAmount` (`bloodthirstAmount`, the opponents' damage together). A line this
+file cannot evaluate past the flags `triggerCommonRequirementsMet` reads still records a pending error.

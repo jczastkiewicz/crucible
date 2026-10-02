@@ -57,6 +57,9 @@ func TestExpand(t *testing.T) {
 		{"Chapter:x:A", false, ""},
 		{"Chapter:2:A,", false, ""},
 		{"Chapter", false, ""},
+		{"Modular:1", true, "OptionalDecider$ You"},
+		{"Modular:Sunburst", false, ""},
+		{"Modular", false, ""},
 		{"Renown:2", true, "IsPresent$ Card.Self+!IsRenowned"},
 		{"Renown", false, ""},
 		{"Dethrone:1", false, ""},
@@ -104,6 +107,10 @@ func TestExpandReplacements(t *testing.T) {
 		{"etbCounter:P1P1:X:no Condition:CARDNAME enters with X counters.", true, "ReplaceWith$ KWEtbCounter{n}"},
 		{"etbCounter:P1P1:X:CheckSVar$ WasKicked:desc", true, "ReplaceWith$ KWEtbCounter{n} | CheckSVar$ WasKicked"},
 		{"etbCounter:EACH :1", false, ""},
+		{"Bloodthirst:2", true, "Bloodthirst$ True"},
+		{"Bloodthirst:X", true, "ReplaceWith$ KWBloodthirst{n} | Bloodthirst$ True"},
+		{"Bloodthirst:y", false, ""},
+		{"Bloodthirst", false, ""},
 		{"etbCounter:P1P1", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

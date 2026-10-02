@@ -138,6 +138,7 @@ queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker p
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID
+queue sacrificechoice <id>[,...]  ScriptedController.QueueSacrificeChoice, the permanents a Sac<N/Type> cost or a sacrifice effect picks, ids from Loaded.CardByFixtureID
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID

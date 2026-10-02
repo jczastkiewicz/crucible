@@ -1204,3 +1204,17 @@ const (
 	causeManaAbil  = "ManaAbility"
 	causeTriggered = "Triggered"
 )
+
+// causeKind is what kind of spell or ability a is, the vocabulary a static's
+// ValidSA$/ValidCause$ is matched against: a spell on the stack, a trigger
+// (isTrigger), or otherwise an activated ability.
+func (a *Ability) causeKind() string {
+	switch {
+	case a.spell:
+		return causeSpell
+	case a.isTrigger:
+		return causeTriggered
+	default:
+		return causeActivated
+	}
+}

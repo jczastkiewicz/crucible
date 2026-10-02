@@ -54,6 +54,10 @@ func TestForetoldCardIsCastableOnlyByItsOwnerOnALaterTurn(t *testing.T) {
 	if got := g.Card(victim).Zone; got != engine.Graveyard {
 		t.Errorf("Grizzly Bears is in %v, want Graveyard (4 damage)", got)
 	}
+	// Foretell has no exile replacement (only Flashback and Beam me up do).
+	if got := g.Card(bolt).Zone; got != engine.Graveyard {
+		t.Errorf("the foretold Demon Bolt is in %v after resolving, want Graveyard", got)
+	}
 }
 
 // Foretelling needs a Foretell card in your hand, on your own turn, and {2}.

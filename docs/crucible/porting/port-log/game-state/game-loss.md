@@ -28,9 +28,9 @@ outcome, not winners.
 `Game.Concede(pid)` is `Player.concede` ("No cantLose checks - just lose"): `Player.Conceded` marks it, and
 `gameEventCantHappen` never applies to a conceded player. The fixture verb is `concede <player>`.
 
-Not ported: the `ReplaceWith$` GameLoss lines (Lich's Mirror and Lich's Mastery's `DrawSeven`/`ExileSetLife`), which
-need a controller decision; `Mode$ InfectDamage` (Phyrexian Unlife's second line) is inert, so its life-0
-damage-as-poison half does not happen.
+Not ported: the `ReplaceWith$` GameLoss lines (Lich's Mirror, Exquisite Archangel, ...: 7 corpus lines), which need a
+controller decision. While one covers the player the loss is not applied and a pending error is recorded;
+`Mode$ InfectDamage` (Phyrexian Unlife's second line) is inert, so its life-0 damage-as-poison half does not happen.
 
 ## Starting life
 

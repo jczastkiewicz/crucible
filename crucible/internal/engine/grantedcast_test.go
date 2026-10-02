@@ -204,3 +204,25 @@ func TestAGrantThatReachesTheZoneStillWorks(t *testing.T) {
 		t.Fatal("could not cast the exiled Bolt with blue mana")
 	}
 }
+
+// Two limited grants are two options: a cast through one uses up only that
+// static, so two As Foretolds allow two discounted casts in a turn.
+func TestTwoLimitedGrantsAllowTwoDiscountedCasts(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	for range 2 {
+		af := g.NewCard(corpusCard(t, "As Foretold"), p, engine.Battlefield)
+		g.Card(af).Counters.Add(engine.CounterType("TIME"), 5)
+	}
+	first := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+	second := g.NewCard(corpusCard(t, "Lightning Bolt"), p, engine.Hand)
+	sba(g)
+	// Options: the normal cast, then each As Foretold's {0}.
+	if !castFree(t, g, p, first, 1, engine.PlayerEntity(other)) {
+		t.Fatal("the first discounted cast failed")
+	}
+	if !castFree(t, g, p, second, 1, engine.PlayerEntity(other)) {
+		t.Error("the second As Foretold did not allow a second discounted cast")
+	}
+}

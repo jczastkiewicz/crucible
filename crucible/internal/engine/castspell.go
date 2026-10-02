@@ -123,6 +123,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		// Flashback (CR 702.34a), foretell and Beam me up: the owner may cast
 		// the card from their graveyard or exile for a keyword's cost.
 		cost, ok := g.flashbackCost(pid, c)
+		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
 		if !ok {
 			cost, ok = g.foretellCost(pid, c)
 		}
@@ -132,12 +133,19 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 				return false
 			}
 			opts.hasExtra = true
+			opts.fromKeyword = true
 		}
 		opts.altCost, opts.hasAltCost = cost, true
-		opts.fromKeyword = true
 	} else {
+		// Only the options playable under their own timing are offered.
+		var timed []castOption
+		for _, o := range options {
+			if c.Type().Has(cardtype.Instant) || o.flash || g.castsWithFlash(pid, card) || g.canActSorcerySpeed(pid) {
+				timed = append(timed, o)
+			}
+		}
 		var ok bool
-		if way, ok = g.chooseCastOption(controller, pid, card, options); !ok {
+		if way, ok = g.chooseCastOption(controller, pid, card, timed); !ok {
 			return false
 		}
 		opts.withoutManaCost, opts.anyType = way.withoutMana, way.anyType

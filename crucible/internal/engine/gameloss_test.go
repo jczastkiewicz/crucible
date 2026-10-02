@@ -60,3 +60,21 @@ func TestCantLoseStopsALosesGameEffectButNotAConcession(t *testing.T) {
 		t.Error("a concession did not lose the game")
 	}
 }
+
+// A GameLoss replacement that is not "can't happen" (Exquisite Archangel: exile
+// it, set life to your starting life) is not applied; the loss is not applied
+// either, and a pending error says why (GO-7).
+func TestAGameLossReplacementThisPortCannotApplyEndsNoGame(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.NewCard(corpusCard(t, "Exquisite Archangel"), p, engine.Battlefield)
+	g.Player(p).Life = 0
+	sba(g)
+	if g.Player(p).Lost {
+		t.Error("the player lost despite a live GameLoss replacement")
+	}
+	if err := g.TakePendingError(); err == nil {
+		t.Error("no pending error for the unresolvable replacement")
+	}
+}

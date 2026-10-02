@@ -1085,6 +1085,7 @@ func (g *Game) Clone() *Game {
 		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
 		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
 		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
+		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
 		dayTime:               g.dayTime,
 		previousPlayer:        g.previousPlayer,
 		previousPlayerSpells:  g.previousPlayerSpells,

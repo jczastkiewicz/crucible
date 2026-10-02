@@ -48,3 +48,8 @@ leaves the stack mid-resolution and `moveResolvedSpellToGraveyard` finds nothing
 fails closed.
 
 Tests: `grantedcast_test.go`, `foretell_test.go`, `mayplay_test.go` (`TestMayPlayHandChoiceOffersBothWays`).
+
+Known limits: `Count$ThisTurnCast_*` matches a card's present state with the cast-time controller, not a full last-known
+copy; a condition evaluated for a host whose other ability is resolving reads that ability's references
+(`definedPresentMatches` infers the ability from `Game.resolving`); only options playable under their own timing are
+offered, so a controller is never asked about a cast that then fails on timing.

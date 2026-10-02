@@ -76,7 +76,9 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 	for _, o := range grants {
 		merged := false
 		for i := range out {
-			if out[i].sameWay(o) {
+			// A limited grant stays its own option: a cast uses up only the
+			// static it went through (two of them allow two casts a turn).
+			if out[i].sameWay(o) && len(out[i].limits) == 0 && len(o.limits) == 0 {
 				out[i].flash = out[i].flash || o.flash
 				out[i].limits = append(out[i].limits, o.limits...)
 				merged = true

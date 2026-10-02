@@ -7,13 +7,14 @@
 // checks - just lose").
 //
 // Only the CantHappen layer resolves. The other GameLoss replacements
-// (ReplaceWith$ DrawSeven, ExileSetLife: Lich's Mirror, Lich's Mastery) need
-// a controller decision and a resolving ability, and are skipped, never
-// guessed at (GO-7).
+// (ReplaceWith$ DrawSeven, ExileSetLife: Lich's Mirror, Exquisite Archangel)
+// need a controller decision and a resolving ability: while one covers the
+// player the loss is not applied and a pending error is recorded (GO-7).
 
 package engine
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -32,7 +33,16 @@ const (
 // loseConditionMet is Player.loseConditionMet: pid loses the game for reason
 // unless a CantHappen GameLoss replacement stops it. False when it did.
 func (g *Game) loseConditionMet(pid PlayerID, reason string) bool {
-	if g.gameEventCantHappen("GameLoss", pid, reason) {
+	cant, unresolved := g.gameEventCantHappen("GameLoss", pid, reason)
+	if unresolved {
+		// A live GameLoss replacement this port cannot apply (Lich's Mirror,
+		// Exquisite Archangel): Java replaces the loss, so ending the game
+		// here would be a guess (GO-7). The player stays in and the pending
+		// error names why.
+		g.recordPendingError(fmt.Errorf("engine: player %d would lose the game (%s) under a GameLoss replacement not resolvable yet", pid, reason))
+		return false
+	}
+	if cant {
 		return false
 	}
 	g.Player(pid).Lost = true
@@ -41,7 +51,8 @@ func (g *Game) loseConditionMet(pid PlayerID, reason string) bool {
 
 // cantWin is Player.cantWin: a CantHappen GameWin replacement covers pid.
 func (g *Game) cantWin(pid PlayerID) bool {
-	return g.gameEventCantHappen("GameWin", pid, "")
+	cant, _ := g.gameEventCantHappen("GameWin", pid, "")
+	return cant
 }
 
 // Concede is Player.concede: pid loses at once, whatever stops them losing
@@ -53,9 +64,9 @@ func (g *Game) Concede(pid PlayerID) {
 
 // gameEventCantHappen is ReplacementHandler.cantHappenCheck over Event$ event
 // for pid, reason being the GameLossReason name ("" for a win).
-func (g *Game) gameEventCantHappen(event string, pid PlayerID, reason string) bool {
+func (g *Game) gameEventCantHappen(event string, pid PlayerID, reason string) (cant, unresolved bool) {
 	if g.Player(pid).Conceded {
-		return false
+		return false, false
 	}
 	for _, owner := range g.Players() {
 		for _, z := range replacementZones {
@@ -66,16 +77,37 @@ func (g *Game) gameEventCantHappen(event string, pid PlayerID, reason string) bo
 				}
 				for _, face := range h.Def.Faces {
 					for _, r := range face.Replacements {
-						if !gameEventMatches(g, r, event, host, z, reason, pid, face.Amounts) {
-							continue
+						if gameEventMatches(g, r, event, host, z, reason, pid, face.Amounts) {
+							return true, false
 						}
-						return true
+						if gameEventApplies(g, r, event, host, z, reason, pid) {
+							unresolved = true
+						}
 					}
 				}
 			}
 		}
 	}
-	return false
+	return false, unresolved
+}
+
+// gameEventApplies is whether r is a live replacement of event covering pid
+// and reason, whatever its layer or other params: one gameEventMatches could
+// not resolve is a replacement this port cannot apply.
+func gameEventApplies(g *Game, r *compile.Ability, event string, host CardID, hostZone ZoneType, reason string, pid PlayerID) bool {
+	if !strings.EqualFold(r.Name, event) {
+		return false
+	}
+	h := g.Card(host)
+	if spec, ok := r.Param("ValidPlayer"); ok {
+		if matched, recognized := matchesPlayerSpec(g, pid, h.Controller(), host, spec); recognized && !matched {
+			return false
+		}
+	}
+	if spec, ok := r.Param("ValidLoseReason"); ok && !containsString(strings.Split(spec, ","), reason) {
+		return false
+	}
+	return hostInActiveZones(h, r, hostZone)
 }
 
 // gameEventMatches is ReplaceGameLoss/ReplaceGameWin.canReplace for a CantHappen

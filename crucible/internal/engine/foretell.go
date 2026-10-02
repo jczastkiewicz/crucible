@@ -18,11 +18,12 @@ import (
 // foretellActionCost is the {2} the special action costs.
 const foretellActionCost = "2"
 
-// hasForetell reports whether c carries a Foretell keyword at all, with or
-// without a cost.
+// hasForetell reports whether c carries K:Foretell:<cost>: a cost-less
+// Foretell (granted by an effect, castable for its mana cost less {2}) is not
+// ported, so the action is not offered for it rather than stranding the card.
 func hasForetell(c *Card) bool {
 	for _, line := range c.KeywordLines() {
-		if keyword.Parse(line).Name == "Foretell" {
+		if k := keyword.Parse(line); k.Name == "Foretell" && k.Details != "" {
 			return true
 		}
 	}
@@ -42,9 +43,10 @@ func (g *Game) Foretell(pid PlayerID, card CardID, controller PlayerController) 
 	if _, paid := g.payManaCostX(pid, mana.MustParse(foretellActionCost), controller); !paid {
 		return false
 	}
-	g.Move(card, Exile, c.Owner)
+	g.moveByEffect(controller, card, Exile, 0, NoPlayer, false)
 	c = g.Card(card)
 	c.foretold, c.foretoldTurn = true, g.turn
+	g.checkChangesZoneAllTriggers(controller, []CardID{card}, Hand, Exile)
 	return true
 }
 

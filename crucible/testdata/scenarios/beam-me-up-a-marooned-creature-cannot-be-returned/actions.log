@@ -1,0 +1,9 @@
+# Marooned's `S:Mode$ CantBeBeamedUp` makes the enchanted creature ineligible
+# for Beam me up's return (the canBeBeamedUp valid property), so a board whose
+# only creature is Marooned cannot pay the cost.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+castspell human 1

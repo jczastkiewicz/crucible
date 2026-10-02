@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Grizzly Bears|Id:5;Marooned|Id:6|AttachedTo:5
+humanmanapool=U U U
+humangraveyard=Open Communications
+ailife=20

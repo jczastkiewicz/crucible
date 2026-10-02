@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=0
+humancounters=POISON=10
+humanlost=true
+humanbattlefield=Phyrexian Unlife
+ailife=20
+aiwon=true
+over=true

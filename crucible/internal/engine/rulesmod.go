@@ -4,6 +4,8 @@
 
 package engine
 
+import "github.com/jczastkiewicz/crucible/internal/mana"
+
 // RulesMod is the Layer 8 continuous effects currently affecting one
 // player -- CR 613's own rule-changing catch-all layer, which carries no CR
 // number of its own (layer.go's own doc comment), trimmed to the corpus's
@@ -163,4 +165,27 @@ type mayPlayGrant struct {
 	WithoutManaCost bool
 	WithFlash       bool
 	ZonePermission  bool
+	// AltCost is MayPlayAltManaCost$, paid instead of the mana cost when
+	// HasAltCost; AnyType is MayPlayIgnoreType$ (mana of any type may be
+	// spent); Limit is MayPlayLimit$ (casts per turn through this static, 0
+	// for no limit), counted under LimitKey.
+	AltCost    mana.Cost
+	HasAltCost bool
+	AnyType    bool
+	Limit      int
+	LimitKey   mayPlayLimitKey
+}
+
+// mayPlayLimitKey names one static ability for MayPlayLimit$'s per-turn count:
+// the host card and the static's index on its face.
+type mayPlayLimitKey struct {
+	Host  CardID
+	Index int
+}
+
+// mayPlayUse is how many times a limited grant has been used, and in which
+// turn (StaticAbility.getMayPlayTurn).
+type mayPlayUse struct {
+	Turn int
+	N    int
 }

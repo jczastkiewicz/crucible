@@ -1,0 +1,15 @@
+# Beam me up {2}{U}: cast this from your graveyard for that cost if you also
+# return a creature you control to its owner's hand, then exile the spell
+# (GameActionUtil.java:176-180; the exile is Flashback's replacement). human
+# pays {2}{U} with three Islands and returns Grizzly Bears; Open Communications
+# draws a card and is exiled.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+queue paygeneric U
+queue returnchoice 5
+castspell human 1
+resolvestack

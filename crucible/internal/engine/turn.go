@@ -86,6 +86,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
 			for _, pid := range g.Players() {
 				g.Player(pid).SpellsCastThisTurn = 0
+				g.castThisTurn = nil
 				g.Player(pid).DamageReceivedThisTurn = 0
 			}
 			g.extraPhases = [numPhaseTypes][]PhaseType{}

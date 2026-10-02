@@ -1,0 +1,17 @@
+# CR 510.2, 704.3: combat damage is dealt simultaneously and state-based
+# actions wait for it all. ai, at 2 life, takes 3 from the unblocked Hill Giant
+# (-1) while Ajani's Sunstriker (2/2 lifelink) blocks Grizzly Bears and gains
+# its controller 2 in the same damage event: the net is 1, so ai survives. The
+# Bears and the Sunstriker trade.
+startturn human
+advance 5
+queue attackers 1,2
+declareattackers
+advance
+queue blocks 3=2
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that kills both.
+advance

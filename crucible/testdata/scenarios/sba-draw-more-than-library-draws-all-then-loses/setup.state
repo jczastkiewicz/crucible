@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Tidings|Id:1
+humanlibrary=Island|Id:2;Mountain|Id:3
+humanbattlefield=Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7;Island|Id:8

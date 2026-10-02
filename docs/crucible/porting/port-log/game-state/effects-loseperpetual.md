@@ -132,3 +132,13 @@ the row stays as written there.
 `DB$ Draw` silently drew anyway regardless of whether the condition held (73 real `ConditionDefined$ Remembered` `Draw`
 lines alone, per the `ConditionDefined$` count above). Found by the porter, fixed directly on rules review rather than
 left deferred: `draweffect.go`'s own doc comment and `TestDrawEffectRespectsConditionCheckSVar` cover it.
+
+## Perpetual `Replacements$`
+
+`Animate`/`AnimateAll` with `Duration$ Perpetual` and `Replacements$` compile each named SVar into a `Replacement`
+record beside the `Triggers$` ones (`isAnimateGrant`) and grant it in the same row (`grantedTriggers.replacements`).
+Only the enters-tapped shape is granted (`perpetualReplacementSupported`: `Event$ Moved`, `ValidCard$ Card.Self`,
+`Destination$ Battlefield`, `ReplaceWith$ DB$ Tap`): `checkMovedReplacement` reads those rows for the entering card, so
+Boareskyr Tollkeeper's "perpetually gains 'this permanent enters tapped'" works from the card's hand onward. Any other
+granted replacement would be inert and fails when applied (GO-7); 18 corpus cards name `Replacements$`. Test:
+`perpetualentersttapped_test.go`.

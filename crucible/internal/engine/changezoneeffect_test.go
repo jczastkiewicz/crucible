@@ -145,7 +145,7 @@ func TestChangeZoneEffectRejectsUnresolvedShapes(t *testing.T) {
 
 	for _, line := range []string{
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand | Transformed$ True",
-		"DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Hand",
+		"DB$ ChangeZone | Defined$ Self | Origin$ Flashback | Destination$ Hand",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Command",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Library | LibraryPosition$ 2",
 		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Creature",

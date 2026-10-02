@@ -147,14 +147,15 @@ func subtypeCategoryDrop(g *Game, land, creature, artifact, enchantment bool) (f
 
 // animateUnresolvedParams are the doAnimate/AnimateEffect params this port
 // does not model: granted abilities, replacements, statics and SVars (none is
-// compiled at load yet, PORT-2 -- Triggers$ is, animateTriggerGrants),
+// compiled at load yet, PORT-2 -- Triggers$ and Replacements$ are,
+// animateTriggerGrants),
 // hidden keywords,
 // "can't have" keywords, removing abilities, all creature types, a
 // renaming, mana-cost changes, a revert cost, a leave-the-battlefield
 // replacement, what the animated card remembers or imprints, an Optional$
 // confirmation, and the end-of-turn delayed trigger (AtEOT$).
 var animateUnresolvedParams = [...]string{
-	"Abilities", "Replacements", "staticAbilities", "sVars", "HiddenKeywords",
+	"Abilities", "staticAbilities", "sVars", "HiddenKeywords",
 	"CantHaveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "RemoveThisAbility",
 	"AddAllCreatureTypes", "Name", "ManaCost", "Incorporate", "RevertCost", "LeaveBattlefield",
 	"RememberObjects", "ImprintCards", "Optional", "OptionQuestion", "AtEOT", "TgtZone",
@@ -329,33 +330,62 @@ func (g *Game) animateCards(template animateRecord, cards []CardID) {
 // (targeting.go) reads TgtZone$ there the same way any other pushed
 // ability's targeting would.
 func animateTriggerGrants(a *Ability, api string) ([]*compile.Ability, error) {
-	raw, ok := a.Params.Param("Triggers")
-	if !ok {
-		return nil, nil
-	}
-	if d, _ := a.Params.Param("Duration"); d != "Perpetual" {
-		return nil, fmt.Errorf("engine: %s: Triggers$ not resolvable yet", api)
-	}
-	var subs []compile.SubRef
-	for _, sub := range a.Params.Subs {
-		if strings.EqualFold(sub.Key, "Triggers") {
-			subs = append(subs, sub)
+	var out []*compile.Ability
+	for _, key := range [...]string{"Triggers", "Replacements"} {
+		raw, ok := a.Params.Param(key)
+		if !ok {
+			continue
 		}
-	}
-	names := 0
-	for _, name := range strings.Split(raw, ",") {
-		if strings.TrimSpace(name) != "" {
-			names++
+		if d, _ := a.Params.Param("Duration"); d != "Perpetual" {
+			return nil, fmt.Errorf("engine: %s: %s$ not resolvable yet", api, key)
 		}
-	}
-	if len(subs) != names {
-		return nil, fmt.Errorf("engine: %s: Triggers$ %q grants a trigger that regrants itself, not resolvable yet", api, raw)
-	}
-	out := make([]*compile.Ability, 0, len(subs))
-	for _, sub := range subs {
-		out = append(out, sub.Ability)
+		var subs []compile.SubRef
+		for _, sub := range a.Params.Subs {
+			if strings.EqualFold(sub.Key, key) {
+				subs = append(subs, sub)
+			}
+		}
+		names := 0
+		for _, name := range strings.Split(raw, ",") {
+			if strings.TrimSpace(name) != "" {
+				names++
+			}
+		}
+		if len(subs) != names {
+			return nil, fmt.Errorf("engine: %s: %s$ %q grants a trait that regrants itself, not resolvable yet", api, key, raw)
+		}
+		for _, sub := range subs {
+			if key == "Replacements" && !perpetualReplacementSupported(sub.Ability) {
+				return nil, fmt.Errorf("engine: %s: Replacements$ %q is not an enters-tapped replacement, not resolvable yet", api, raw)
+			}
+			out = append(out, sub.Ability)
+		}
 	}
 	return out, nil
+}
+
+// perpetualReplacementSupported reports whether r is the one granted
+// replacement shape something reads: "this permanent enters tapped" (Event$
+// Moved, ValidCard$ Card.Self, Destination$ Battlefield, ReplaceWith$ a DB$
+// Tap), which checkMovedReplacement applies from the entering card's own
+// grant rows. Any other granted replacement would be inert, so it is refused
+// when granted (GO-7).
+func perpetualReplacementSupported(r *compile.Ability) bool {
+	if !strings.EqualFold(r.Name, "Moved") {
+		return false
+	}
+	if v, ok := r.Param("ValidCard"); !ok || v != "Card.Self" {
+		return false
+	}
+	if v, ok := r.Param("Destination"); !ok || v != "Battlefield" {
+		return false
+	}
+	for _, sub := range r.Subs {
+		if strings.EqualFold(sub.Key, "ReplaceWith") {
+			return strings.EqualFold(sub.Ability.Name, "Tap")
+		}
+	}
+	return false
 }
 
 // grantPerpetualTriggers gives each of cards one grant row holding triggers,
@@ -364,14 +394,22 @@ func animateTriggerGrants(a *Ability, api string) ([]*compile.Ability, error) {
 // shares the resolution's one new timestamp (AnimateEffect.java:57) as its
 // id; amounts is the granting face's SVars (grantedTriggers' own doc
 // comment).
-func (g *Game) grantPerpetualTriggers(cards []CardID, triggers []*compile.Ability, amounts map[string]expr.Amount) {
+func (g *Game) grantPerpetualTriggers(cards []CardID, traits []*compile.Ability, amounts map[string]expr.Amount) {
 	g.timestamp++
 	id := g.timestamp
+	var triggers, replacements []*compile.Ability
+	for _, t := range traits {
+		if t.Record == compile.Replacement {
+			replacements = append(replacements, t)
+		} else {
+			triggers = append(triggers, t)
+		}
+	}
 	for _, cid := range cards {
 		c := g.Card(cid)
 		if c.IsPhasedOut() {
 			continue
 		}
-		c.grants = c.withGrant(grantedTriggers{id: id, triggers: triggers, amounts: amounts})
+		c.grants = c.withGrant(grantedTriggers{id: id, triggers: triggers, replacements: replacements, amounts: amounts})
 	}
 }

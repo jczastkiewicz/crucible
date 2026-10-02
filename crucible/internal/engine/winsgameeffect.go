@@ -52,7 +52,10 @@ func (winsGameEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return fmt.Errorf("engine: WinsGame: %w", err)
 	}
 	for _, pid := range players {
-		g.Player(pid).Won = true
+		// Player.altWinBySpellEffect: nothing happens when the player cannot win.
+		if !g.cantWin(pid) {
+			g.Player(pid).Won = true
+		}
 	}
 	return nil
 }

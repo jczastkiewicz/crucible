@@ -419,6 +419,23 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "RememberedPlayerOwn":
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Owner))
+	// TargetedPlayerCtrl/TargetedPlayerOwn: c's controller/owner is a player
+	// the resolving ability targets (AbilityUtils.getDefinedPlayers(source,
+	// "TargetedPlayer", spellAbility)). The ability is Game.resolving when it
+	// is source's own; outside one nothing is targeted and the property is
+	// false, as Java's null spellAbility gives an empty list.
+	// ControlledBy <player spec>: c's controller matches the spec from the
+	// source's point of view (CardProperty.java's ControlledBy branch).
+	case strings.HasPrefix(name, "ControlledBy "):
+		matched, ok := matchesPlayerSpec(g, c.Controller(), sourceController, source, strings.TrimPrefix(name, "ControlledBy "))
+		return ok && matched
+	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned).
+	case name == "canBeBeamedUp":
+		return !g.cantBeBeamedUp(c)
+	case name == "TargetedPlayerCtrl":
+		return g.targetsPlayer(source, c.Controller())
+	case name == "TargetedPlayerOwn":
+		return g.targetsPlayer(source, c.Owner)
 	// ActivePlayerCtrl is c's controller relative to whose turn it is, not
 	// relative to sourceController -- Game.ActivePlayer already exists
 	// (turn.go); nothing new to build.
@@ -1115,4 +1132,39 @@ func sharesName(c *Card, name string) bool {
 		return false
 	}
 	return c.Def.Faces[0].Name == name || c.Def.Faces[carddb.FaceAlternate].Name == name
+}
+
+// targetsPlayer reports whether the ability resolving from source has pid
+// among its chosen targets.
+func (g *Game) targetsPlayer(source CardID, pid PlayerID) bool {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source {
+		return false
+	}
+	return containsEntity(a.Targets, PlayerEntity(pid))
+}
+
+// cantBeBeamedUp is StaticAbilityCantBeBeamedUp.cantBeBeamedUp: a battlefield
+// Mode$ CantBeBeamedUp static whose ValidCard$ matches c.
+func (g *Game) cantBeBeamedUp(c *Card) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces[:liveFaces(h.Def)] {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantBeBeamedUp") {
+						continue
+					}
+					spec, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(spec), h.Controller(), host) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

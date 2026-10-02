@@ -51,6 +51,12 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	if expr.IsValidHead(count.Head) {
 		return validFamilyValue(g, sourceController, source, count)
 	}
+	if spec, ok := strings.CutPrefix(count.Head, "ThisTurnCast_"); ok {
+		if count.Argument != "" {
+			spec += " " + count.Argument // a valid string with a space in it (ControlledBy Player.Active)
+		}
+		return g.thisTurnCastCount(source, spec)
+	}
 	switch count.Head {
 	case "CardCounters":
 		if source == NoCard || len(count.Parameters) == 0 {

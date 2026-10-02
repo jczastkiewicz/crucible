@@ -17,10 +17,13 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -789,10 +792,10 @@ func applyContinuousRules(g *Game) {
 				continue
 			}
 			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
+				for i, s := range face.Statics {
 					applyOneContinuousRules(g, h, face.Amounts, s)
 					applyOneContinuousHiddenKeyword(g, h, s)
-					applyOneContinuousMayPlay(g, h, s)
+					applyOneContinuousMayPlay(g, h, face.Amounts, s, i)
 				}
 			}
 		}
@@ -1070,7 +1073,7 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 //
 // MayLookAt$ on the same line needs nothing: the engine is omniscient
 // (lookateffect.go), so "may look at" changes no state.
-func applyOneContinuousMayPlay(g *Game, host *Card, s *compile.Ability) {
+func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability, index int) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
@@ -1082,24 +1085,22 @@ func applyOneContinuousMayPlay(g *Game, host *Card, s *compile.Ability) {
 	}
 	// Params that change what the grant allows or when it holds in a way
 	// this does not model, so a line naming any of them grants nothing
-	// (GO-7): MayPlayLimit$ (a per-static, per-turn use count,
-	// stAb.getMayPlayTurn), the mana-spending relaxations
-	// (MayPlayIgnoreType$/IgnoreColor$/SnowIgnoreColor$), an alternative or
-	// raised cost (MayPlayAltManaCost$, RaiseCost$), a grant for someone
-	// other than the host's controller (MayPlayPlayer$), a single-face
-	// restriction (MayPlayText$), the SVar/presence conditions
-	// continuousConditionMet does not evaluate (CheckSVar$ and siblings,
-	// IsPresent$), and the spell-ability restrictions (ValidSA$,
-	// ValidAfterStack$, ReplaceGraveyard$).
+	// (GO-7): the colour-only mana relaxations (MayPlayIgnoreColor$,
+	// MayPlaySnowIgnoreColor$), a raised cost (RaiseCost$), a single-face
+	// restriction (MayPlayText$), the presence conditions and the third SVar
+	// check continuousConditionMet does not evaluate, and the spell-ability
+	// restrictions (ValidSA$, ValidAfterStack$, ReplaceGraveyard$).
 	for _, key := range [...]string{
-		"MayPlayLimit", "MayPlayIgnoreType", "MayPlayIgnoreColor", "MayPlaySnowIgnoreColor",
-		"MayPlayAltManaCost", "RaiseCost", "MayPlayPlayer", "MayPlayText",
-		"CheckSVar", "CheckSecondSVar", "CheckThirdSVar", "IsPresent",
+		"MayPlayIgnoreColor", "MayPlaySnowIgnoreColor", "RaiseCost", "MayPlayText",
+		"CheckThirdSVar", "IsPresent",
 		"ValidSA", "ValidAfterStack", "ReplaceGraveyard", "CharacteristicDefining",
 	} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
+	}
+	if !checkSVarMatches(g, host, amounts, s, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+		return
 	}
 	if zone, ok := s.Param("EffectZone"); ok && !host.IsEffect &&
 		!strings.EqualFold(zone, "Battlefield") && !strings.EqualFold(zone, "All") {
@@ -1115,7 +1116,12 @@ func applyOneContinuousMayPlay(g *Game, host *Card, s *compile.Ability) {
 	}
 	var zones []ZoneType
 	for _, name := range strings.Split(rawZones, ",") {
-		z, ok := ZoneByName(strings.TrimSpace(name))
+		name = strings.TrimSpace(name)
+		if strings.EqualFold(name, "All") {
+			zones = append(zones, Hand, Graveyard, Library, Exile, Command)
+			continue
+		}
+		z, ok := ZoneByName(name)
 		if !ok {
 			return
 		}
@@ -1123,23 +1129,50 @@ func applyOneContinuousMayPlay(g *Game, host *Card, s *compile.Ability) {
 			zones = append(zones, z)
 		}
 	}
-	_, withoutManaCost := s.Param("MayPlayWithoutManaCost")
-	_, withFlash := s.Param("MayPlayWithFlash")
+	grant := mayPlayGrant{LimitKey: mayPlayLimitKey{Host: host.ID, Index: index}}
+	_, grant.WithoutManaCost = s.Param("MayPlayWithoutManaCost")
+	_, grant.WithFlash = s.Param("MayPlayWithFlash")
 	_, noZonePermission := s.Param("MayPlayDontGrantZonePermissions")
-	player := host.Controller()
-	spec := valid.Parse(affected)
-	for _, z := range zones {
+	grant.ZonePermission = !noZonePermission
+	_, grant.AnyType = s.Param("MayPlayIgnoreType")
+	if raw, ok := s.Param("MayPlayAltManaCost"); ok {
+		mc, err := mana.Parse(raw)
+		if err != nil || mc.CountX() > 0 || !cost.Parse(raw).IsPureMana() {
+			return
+		}
+		grant.AltCost, grant.HasAltCost = mc, true
+	}
+	if raw, ok := s.Param("MayPlayLimit"); ok {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return
+		}
+		grant.Limit = n
+	}
+	grantees := []PlayerID{host.Controller()}
+	if spec, ok := s.Param("MayPlayPlayer"); ok {
+		grantees = nil
 		for _, pid := range g.Players() {
-			for _, id := range g.Zone(z, pid).Cards() {
-				c := g.Card(id)
-				if !Matches(g, c, spec, player, host.ID) {
-					continue
+			if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); !recognized {
+				return
+			} else if matched {
+				grantees = append(grantees, pid)
+			}
+		}
+	}
+	parsed := valid.Parse(affected)
+	for _, player := range grantees {
+		for _, z := range zones {
+			for _, pid := range g.Players() {
+				for _, id := range g.Zone(z, pid).Cards() {
+					c := g.Card(id)
+					if !Matches(g, c, parsed, host.Controller(), host.ID) {
+						continue
+					}
+					gr := grant
+					gr.CardID, gr.Timestamp, gr.Grantee = id, c.Timestamp, player
+					g.mayPlay = append(g.mayPlay, gr)
 				}
-				g.mayPlay = append(g.mayPlay, mayPlayGrant{
-					CardID: id, Timestamp: c.Timestamp, Grantee: player,
-					WithoutManaCost: withoutManaCost, WithFlash: withFlash,
-					ZonePermission: !noZonePermission,
-				})
 			}
 		}
 	}

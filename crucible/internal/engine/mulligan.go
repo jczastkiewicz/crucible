@@ -8,14 +8,6 @@ package engine
 // invented ahead of a caller that would set it.
 const startingHandSize = 7
 
-// startingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's own
-// default (RegisteredPlayer.java:25), what Game's constructor hands every
-// seat when no StartingLife was forced (Game.java:347-351). The variants
-// that raise it (Commander, Archenemy, Vanguard, RegisteredPlayer.java:137-171)
-// have no game setup in this port, so it is a constant for the same reason
-// startingHandSize is. Subgame's seats start at it (subgameeffect.go).
-const startingLife = 20
-
 // DealOpeningHands is CR 103.1-103.4's procedure up to the point
 // PerformMulligans, below, can run: decide who plays first and deal each
 // seated player an opening hand of startingHandSize, shuffled library first.

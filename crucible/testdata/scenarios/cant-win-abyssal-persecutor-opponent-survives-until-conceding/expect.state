@@ -1,0 +1,9 @@
+turn=1
+activeplayer=human
+activephase=Upkeep
+humanlife=20
+humanbattlefield=Abyssal Persecutor
+humanwon=true
+ailife=0
+ailost=true
+over=true

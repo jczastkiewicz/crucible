@@ -74,6 +74,9 @@ const (
 	// ActionUnlockDoor unlocks Door of the Room Card via UnlockDoor: a
 	// special action (CR 116.2, 709.5), after which the player keeps priority.
 	ActionUnlockDoor
+	// ActionForetell foretells Card via Foretell: a special action
+	// (CR 116.2h), after which the player keeps priority.
+	ActionForetell
 )
 
 // canActSorcerySpeed is CR 307.1's own timing restriction (Player.java's
@@ -236,6 +239,10 @@ func (g *Game) applyAction(pid PlayerID, a Action, controller PlayerController) 
 	case ActionUnlockDoor:
 		if !g.UnlockDoor(pid, a.Card, a.Door, controller) {
 			return &actionError{pid: pid, kind: fmt.Sprintf("unlock door %s of", a.Door), card: a.Card}
+		}
+	case ActionForetell:
+		if !g.Foretell(pid, a.Card, controller) {
+			return &actionError{pid: pid, kind: "foretell", card: a.Card}
 		}
 	case ActionActivate:
 		if !g.ActivateAbility(pid, a.Card, a.AbilityIndex, controller) {

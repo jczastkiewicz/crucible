@@ -117,6 +117,7 @@ line-oriented the same way `setup.state` is:
 ```text
 startturn <player>            Game.StartTurn(player, controller)
 advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+concede <player>              Game.Concede(player): a loss no replacement stops (Player.concede)
 dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
@@ -139,6 +140,7 @@ queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID
 queue sacrificechoice <id>[,...]  ScriptedController.QueueSacrificeChoice, the permanents a Sac<N/Type> cost or a sacrifice effect picks, ids from Loaded.CardByFixtureID
+queue returnchoice <id>[,...]     ScriptedController.QueueReturnChoice, the permanents a Return<N/Type> cost picks, ids from Loaded.CardByFixtureID
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID

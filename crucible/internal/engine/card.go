@@ -42,6 +42,12 @@ type Card struct {
 	// any time it would leave the stack it is exiled instead (CR 702.34a,
 	// Game.Move). Cleared when it leaves.
 	flashbackCast bool
+	// castFrom is the zone the card was last cast from (castrecord.go).
+	castFrom ZoneType
+	// foretold marks a card exiled by the Foretell special action, and
+	// foretoldTurn the turn it happened (foretell.go).
+	foretold     bool
+	foretoldTurn int
 
 	// kicker is which of the card's kicker costs were paid casting it (kicker.go),
 	// read while it is on the stack or the battlefield; Move clears it when the
@@ -392,9 +398,10 @@ type Card struct {
 // (AbilityUtils.getSVar(sa, s), AnimateEffectBase.java:173) and reads its
 // amounts there.
 type grantedTriggers struct {
-	id       uint64
-	triggers []*compile.Ability
-	amounts  map[string]expr.Amount
+	id           uint64
+	triggers     []*compile.Ability
+	replacements []*compile.Ability
+	amounts      map[string]expr.Amount
 }
 
 // traitGrant is the traits one continuous static granted to a card, compiled

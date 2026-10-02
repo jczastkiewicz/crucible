@@ -127,7 +127,8 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 
 	winner, wins := NoPlayer, 0
 	for _, id := range g.Players() {
-		if g.Player(id).Won {
+		// Player.hasWon: a win that cantWin covers does not count.
+		if g.Player(id).Won && !g.cantWin(id) {
 			winner, wins = id, wins+1
 		}
 	}
@@ -149,8 +150,12 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 		if p.Lost {
 			continue
 		}
-		if drewFromEmpty || p.Life <= 0 || p.Counters.Count(Poison) >= 10 {
-			p.Lost = true
+		// Player.checkLoseCondition's order: the empty-library draw first
+		// (Lich's Mirror), then life, then poison; each can be stopped.
+		switch {
+		case drewFromEmpty && g.loseConditionMet(id, lossMilled):
+		case p.Life <= 0 && g.loseConditionMet(id, lossLifeReachedZero):
+		case p.Counters.Count(Poison) >= 10 && g.loseConditionMet(id, lossPoisoned):
 		}
 	}
 	g.onPlayersLost(controller)

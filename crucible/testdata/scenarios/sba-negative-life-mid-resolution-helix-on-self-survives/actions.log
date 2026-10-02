@@ -1,0 +1,11 @@
+# CR 704.3: state-based actions are checked only when a player would receive
+# priority, never mid-resolution. human, at 2 life, casts Lightning Helix on
+# themself: the 3 damage drops them to -1, but the same resolution's "you gain
+# 3 life" brings them back to 2 before any check runs, so they never lose.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 W
+queue targets human
+queue action human cast 1
+passpriority

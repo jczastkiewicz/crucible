@@ -116,22 +116,55 @@ func (g *Game) CastRoomDoor(pid PlayerID, card CardID, d Door, controller Player
 func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller PlayerController) bool {
 	c := g.Card(card)
 	fromHand := c.Controller() == pid && c.Zone == Hand
-	play, granted, err := g.mayPlayOption(pid, card, fromHand)
-	if err != nil {
-		g.recordPendingError(err)
-		return false
-	}
+	options := g.castOptions(pid, card, fromHand)
 	var opts castOpts
-	if !fromHand && !granted {
-		// Flashback (CR 702.34a): the owner may cast the card from their
-		// graveyard for its flashback cost.
+	var way castOption
+	if len(options) == 0 {
+		// Flashback (CR 702.34a), foretell and Beam me up: the owner may cast
+		// the card from their graveyard or exile for a keyword's cost.
 		cost, ok := g.flashbackCost(pid, c)
+		opts.fromKeyword = ok // Flashback and Beam me up exile the spell as it leaves the stack
 		if !ok {
-			return false
+			cost, ok = g.foretellCost(pid, c)
+		}
+		if !ok {
+			cost, opts.extra, ok = g.beamMeUpCost(pid, c)
+			if !ok {
+				return false
+			}
+			opts.hasExtra = true
+			opts.fromKeyword = true
 		}
 		opts.altCost, opts.hasAltCost = cost, true
+	} else {
+		// Only the options playable under their own timing are offered.
+		var timed []castOption
+		for _, o := range options {
+			if c.Type().Has(cardtype.Instant) || o.flash || g.castsWithFlash(pid, card) || g.canActSorcerySpeed(pid) {
+				timed = append(timed, o)
+			}
+		}
+		var ok bool
+		if way, ok = g.chooseCastOption(controller, pid, card, timed); !ok {
+			return false
+		}
+		opts.withoutManaCost, opts.anyType = way.withoutMana, way.anyType
+		if way.hasAlt {
+			opts.altCost, opts.hasAltCost = way.alt, true
+		}
 	}
-	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
+	if c.Zone == Exile && c.IsFaceDown() {
+		// A face-down exiled card (Heist) is cast face up; a cast that does
+		// not happen leaves it as it was.
+		blank := c.Def
+		c.turnFaceUp()
+		defer func() {
+			if now := g.Card(card); now.Zone == Exile {
+				now.faceUpDef, now.Def = now.Def, blank
+			}
+		}()
+	}
+	if !c.Type().Has(cardtype.Instant) && !way.flash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
 	if castableAsInstantOrSorcery(c) {
@@ -139,14 +172,44 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			return false
 		}
 	}
-	opts.withoutManaCost, opts.door = play.WithoutManaCost, d
+	opts.door = d
 	if !g.castSpell(controller, pid, card, opts) {
 		return false
 	}
-	if opts.hasAltCost {
+	if opts.fromKeyword {
 		g.Card(card).flashbackCast = true
 	}
+	g.noteMayPlayUse(way)
 	return true
+}
+
+// beamMeUpCost is Beam me up's graveyard cast (GameActionUtil.java:176-180):
+// c's keyword cost plus returning a creature you control that can be beamed
+// up. ok is false when pid does not own c in the graveyard, the keyword is
+// absent or its cost is not plain mana, or no such creature exists.
+func (g *Game) beamMeUpCost(pid PlayerID, c *Card) (mana.Cost, unlessCost, bool) {
+	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
+		return mana.Cost{}, unlessCost{}, false
+	}
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Beam me up" || k.Details == "" {
+			continue
+		}
+		if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
+			return mana.Cost{}, unlessCost{}, false
+		}
+		mc, err := mana.Parse(k.Details)
+		if err != nil || mc.CountX() > 0 {
+			return mana.Cost{}, unlessCost{}, false
+		}
+		extra, ok := parseUnlessCost("Return<1/Creature.YouCtrl+canBeBeamedUp/creature you control>")
+		if !ok || !g.unlessPayable(pid, c.ID, extra) {
+			return mana.Cost{}, unlessCost{}, false
+		}
+		return mc, extra, true
+	}
+	return mana.Cost{}, unlessCost{}, false
 }
 
 // flashbackCost is the mana cost of c's Flashback keyword when pid may cast it
@@ -199,6 +262,15 @@ type castOpts struct {
 	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
 	// of the cost (CR 601.2b, 702.33a).
 	kickers uint8
+	// extra, when hasExtra, is a cost the way the spell is cast adds to the
+	// printed one: Beam me up's returned creature.
+	extra    unlessCost
+	hasExtra bool
+	// anyType is MayPlayIgnoreType$: mana of any type pays the cost.
+	anyType bool
+	// fromKeyword marks a cast from a graveyard or exile through a keyword's
+	// own cost (Flashback, Foretell, Beam me up), exiled as it leaves the stack.
+	fromKeyword bool
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -215,6 +287,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	// Kicker is chosen as the spell is announced; the card carries the choice
 	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
 	// forgets it.
+	g.Card(card).castFrom = g.Card(card).Zone
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	if !g.castSpellChosen(controller, pid, card, opts) {
@@ -238,13 +311,9 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	if !castableAsPermanent(c) {
 		return false
 	}
-	var extra unlessCost
-	hasExtra := false
-	if line := firstSpellAbility(c); line != nil {
-		var ok bool
-		if extra, hasExtra, ok = g.spellAdditionalCost(pid, c, line); !ok {
-			return false
-		}
+	extra, hasExtra, ok := g.castExtraCost(pid, c, firstSpellAbility(c), opts)
+	if !ok {
+		return false
 	}
 	room := isRoomDef(c.Def)
 	if room {
@@ -270,7 +339,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.Player(pid).SpellsCastThisTurn++
+	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid)
 	return true
 }
@@ -287,7 +356,11 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) 
 	case opts.hasAltCost:
 		base = opts.altCost
 	}
-	return g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	total, ok := g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	if opts.anyType {
+		total = anyTypeCost(total)
+	}
+	return total, ok
 }
 
 // announceX is CR 601.2b: a spell with {X} in its cost has its X announced
@@ -397,7 +470,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.Player(pid).SpellsCastThisTurn++
+	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid)
 	tgts := []EntityID{CardEntity(target)}
 	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
@@ -448,7 +521,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !g.resolveTargets(controller, &a) {
 		return false
 	}
-	extra, hasExtra, ok := g.spellAdditionalCost(pid, c, spellAbility)
+	extra, hasExtra, ok := g.castExtraCost(pid, c, spellAbility, opts)
 	if !ok {
 		return false
 	}
@@ -464,7 +537,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	g.Card(card).castX = x.value
 	g.PushAbility(a)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
-	g.Player(pid).SpellsCastThisTurn++
+	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid)
 	tgts := allTargetsOf(a)
 	matches := g.checkBecomesTargetTriggers(tgts, false, pid)
@@ -490,6 +563,25 @@ func (g *Game) spellAdditionalCost(pid PlayerID, c *Card, line *compile.Ability)
 		return unlessCost{}, false, false
 	}
 	return uc, true, true
+}
+
+// castExtraCost is the additional cost casting c under opts pays beyond its
+// mana: the A:SP$ line's own (spellAdditionalCost, line may be nil) or the one
+// the way it is cast adds. ok is false when either cannot be paid, or both
+// exist (no corpus card has both, and paying two is not modelled).
+func (g *Game) castExtraCost(pid PlayerID, c *Card, line *compile.Ability, opts castOpts) (extra unlessCost, has, ok bool) {
+	if line != nil {
+		if extra, has, ok = g.spellAdditionalCost(pid, c, line); !ok {
+			return unlessCost{}, false, false
+		}
+	}
+	if !opts.hasExtra {
+		return extra, has, true
+	}
+	if has || !g.unlessPayable(pid, c.ID, opts.extra) {
+		return unlessCost{}, false, false
+	}
+	return opts.extra, true, true
 }
 
 // allTargetsOf gathers a's own top-level Targets plus every one of a

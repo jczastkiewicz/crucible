@@ -1,0 +1,16 @@
+# CR 121.4, 704.5b: a player told to draw more cards than their library holds
+# draws what is there, and loses at the next state-based check. human casts
+# Tidings (draw four) with a two-card library: both cards reach the hand, the
+# attempt to draw the other two empties the library, and human loses.
+startturn human
+advance 3
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+tapformana human 7 U
+tapformana human 8 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue action human cast 1
+passpriority

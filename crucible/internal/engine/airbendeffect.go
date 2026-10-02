@@ -16,11 +16,9 @@ import (
 // timestamp as it was exiled, so any later zone change (being cast
 // included) ends the grant.
 //
-// CastSpell (castspell.go) casts from outside the hand only under a Layer 8
-// MayPlay$ grant (mayPlayOption, game.go), and does not read these: using
-// one needs its alternative {2} cost (AltGeneric) and any-type mana
-// (AnyManaType), which castOpts cannot express yet. MayPlayFromExile is
-// the query that path will ask.
+// CastSpell (castspell.go) reads these through castOptions (castoptions.go):
+// the alternative {2} cost (AltGeneric) and any-type mana (AnyManaType) are
+// castOpts' altCost and anyType. MayPlayFromExile is the query.
 type ExilePlayGrant struct {
 	Card      CardID
 	Timestamp uint64

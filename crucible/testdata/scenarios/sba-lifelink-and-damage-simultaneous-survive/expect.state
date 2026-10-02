@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humanbattlefield=Hill Giant|Tapped
+humangraveyard=Grizzly Bears
+ailife=1
+aigraveyard=Ajani's Sunstriker

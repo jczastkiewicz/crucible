@@ -1,0 +1,3 @@
+# CR 704.5c: a player with ten or more poison counters loses. "Ten or more",
+# not "exactly ten": poison-loss covers ten, this proves eleven also loses.
+startturn human

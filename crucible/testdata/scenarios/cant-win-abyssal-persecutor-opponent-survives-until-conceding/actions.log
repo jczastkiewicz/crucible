@@ -1,0 +1,8 @@
+# CR 104.2a, 104.3a: Abyssal Persecutor means ai, at 0 life, can't lose, and
+# human can't win. The game goes on past the Untap step's check. When ai
+# concedes (Player.concede: "No cantLose checks - just lose"), the last player
+# left wins at the next state-based check even though a permanent says human
+# can't win.
+startturn human
+concede ai
+advance

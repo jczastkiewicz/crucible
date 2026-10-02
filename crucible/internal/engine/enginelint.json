@@ -58,6 +58,10 @@
     "returncost": ["returncost.go"],
     "exertcost": ["exertcost.go"],
     "exploit": ["exploit.go"],
+    "gameloss": ["gameloss.go"],
+    "castoptions": ["castoptions.go"],
+    "castrecord": ["castrecord.go"],
+    "foretell": ["foretell.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"],
     "zonemove": ["zonemove.go"],
@@ -121,7 +125,8 @@
       "continuous",
       "token",
       "animate",
-      "saga"
+      "saga",
+      "gameloss"
     ],
     "turn": [
       "id",
@@ -285,7 +290,8 @@
       "facedown",
       "room",
       "amount",
-      "playerstate"
+      "playerstate",
+      "castoptions"
     ],
     "trigger": [
       "id",
@@ -323,7 +329,8 @@
       "amount",
       "playerstate",
       "continuouslayers",
-      "defined"
+      "defined",
+      "trigger"
     ],
     "amount": ["id", "zone", "card", "game", "valid", "parts", "player", "ability"],
     "replacement": [
@@ -384,6 +391,10 @@
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "exertcost": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
     "exploit": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
+    "gameloss": ["id", "zone", "card", "game", "player", "valid", "replacement", "parts", "effecthelpers"],
+    "castoptions": ["id", "zone", "card", "game", "control", "parts", "airbendeffect", "rulesmod"],
+    "castrecord": ["id", "zone", "card", "game", "valid"],
+    "foretell": ["id", "zone", "card", "game", "control", "parts", "mana"],
     "targeting": [
       "id",
       "card",

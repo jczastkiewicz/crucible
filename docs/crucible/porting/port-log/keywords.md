@@ -3,9 +3,9 @@
 - **Java source:** `forge-game/src/main/java/forge/game/keyword/Keyword.java` (354, its enum and `getKeywordDetails`),
   the 27 `KeywordInstance` subclasses beside it
 - **Go target:** `crucible/internal/keyword`
-- **Status:** Parsing and the definition table done — M3 slice F. Expansion into triggers, statics and abilities needs
-  the effect layer. `engine.Card.HasKeyword` (M5) is the first engine consumer, and only ever asks "is the bare word
-  present" — it does not expand a keyword into what it grants
+- **Status:** Parsing and the definition table done — M3 slice F. Expansion into triggers, statics and abilities is
+  `keyword.Expand` (ADR-0038), below. `engine.Card.HasKeyword` (M5) is the first engine consumer, and only ever asks "is
+  the bare word present" — it does not expand a keyword into what it grants
 
 ## What it does
 
@@ -90,3 +90,29 @@ the keyword is expanded.
 | `CardFactoryUtil.setupKeywordedAbilities` — expansion into traits | M3, after the effect registry exists |
 | The 23 bespoke `KeywordInstance` parsers                          | M5, with the keywords they implement |
 | Reminder text formatting                                          | Never. Display only (PORT-6)         |
+
+## Expansion (ADR-0038)
+
+`keyword.Expand(Keyword) (Expansion, bool)` (`expand.go`) ports the `CardFactoryUtil` branches that build a trait from
+script text. It returns the `A:`/`T:`/`S:`/`R:` lines and the SVars they name, minus the display params (`PrecostDesc$`,
+`CostDesc$`, `SpellDescription$`, `TriggerDescription$`). `compileFace` calls it for each printed `K:` line after the
+card's own lines (`CardFactory.getCard` runs `setupKeywordedAbilities` after the face's abilities), stores the SVars per
+keyword line (`KWProwess<n>`, so two keywords never collide) and tags each synthesized `compile.Ability` with `Keyword`,
+the line it came from. `ok == false` leaves the keyword inert: no template, or details this port does not translate
+(GO-7).
+
+| Keyword | Lines (corpus) | Expands to                                                                                 |
+| ------- | -------------: | ------------------------------------------------------------------------------------------ |
+| Equip   |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`          |
+| Cycling |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                     |
+| Prowess |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                  |
+| Exalted |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1 |
+
+Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
+(about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
+activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
+protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
+`AffectedDefined$ Equipped/Enchanted` (`layers.md`). Granted keywords (`AddKeyword$ Prowess`) do not expand yet: they
+need ADR-0023's trait overlay. Tests: `keywordexpansion_test.go`, scenario
+`equip-bonesplitter-attaches-to-a-creature-at-sorcery-speed`. Golden: `TestCorpusAST` changed for the 1,055 cards
+carrying these keywords.

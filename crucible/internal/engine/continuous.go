@@ -125,9 +125,11 @@ func applyContinuousPT(g *Game) {
 //     comment has the full account); the resolvable values (PlayerTurn,
 //     Threshold, Metalcraft, Delirium, Hellbent, FatefulHour) no longer skip
 //     the line here.
-//   - AffectedDefined$/AffectedZone$ (0 and 24) -- a targeted or
-//     Remembered-driven affected set (AbilityUtils.getDefinedCards) rather
-//     than a blanket valid-string match against the whole battlefield.
+//   - AffectedZone$ (24) -- a card outside the battlefield. AffectedDefined$
+//     Self/Enchanted/Equipped/"AttachedBy Self" resolve (layerAffectedCards:
+//     Pacifism-style auras, every Equipment's "equipped creature gets +N/+N");
+//     any other AffectedDefined$ (a targeted or Remembered-driven set) skips
+//     the line.
 //   - A non-numeric, non-resolvable AddPower$/AddToughness$/SetPower$/
 //     SetToughness$ -- a plain integer or a named SVar resolveAmount
 //     (amount.go) evaluates resolves (ptParam, below); only a value it
@@ -143,17 +145,16 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	if !continuousConditionMet(g, host, s) {
 		return
 	}
-	for _, key := range [...]string{"AffectedDefined", "AffectedZone"} {
-		if _, ok := s.Param(key); ok {
-			return
-		}
+	if _, ok := s.Param("AffectedZone"); ok {
+		return
 	}
 	if _, ok := s.Param("CharacteristicDefining"); ok {
 		applyOneCharacteristicDefiningPT(g, host, amounts, s)
 		return
 	}
+	_, hasDefined := s.Param("AffectedDefined")
 	affected, ok := s.Param("Affected")
-	if !ok {
+	if !ok && !hasDefined {
 		return
 	}
 	addP, hasAddP := ptParam(g, amounts, host, s, "AddPower")
@@ -164,23 +165,36 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 		return
 	}
 
-	spec := valid.Parse(affected)
-	for _, pid := range g.Players() {
-		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
-				continue
+	// AffectedDefined$ (Enchanted, Equipped, Self, "AttachedBy Self") names
+	// the cards layerAffectedCards resolves, Affected$ then filtering them;
+	// without it every battlefield permanent matching Affected$ is affected.
+	var ids []CardID
+	if hasDefined {
+		var ok bool
+		if ids, ok = layerAffectedCards(g, host, s); !ok {
+			return
+		}
+	} else {
+		spec := valid.Parse(affected)
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(Battlefield, pid).Cards() {
+				if Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
+					ids = append(ids, id)
+				}
 			}
-			c := g.Card(id)
-			if hasSetP || hasSetT {
-				c.PT.Add(PTEffect{
-					Layer: LayerSetPT, Timestamp: host.Timestamp,
-					Power: setP, Toughness: setT,
-					HasPower: hasSetP, HasToughness: hasSetT,
-				})
-			}
-			if hasAddP || hasAddT {
-				c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: host.Timestamp, Power: addP, Toughness: addT})
-			}
+		}
+	}
+	for _, id := range ids {
+		c := g.Card(id)
+		if hasSetP || hasSetT {
+			c.PT.Add(PTEffect{
+				Layer: LayerSetPT, Timestamp: host.Timestamp,
+				Power: setP, Toughness: setT,
+				HasPower: hasSetP, HasToughness: hasSetT,
+			})
+		}
+		if hasAddP || hasAddT {
+			c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: host.Timestamp, Power: addP, Toughness: addT})
 		}
 	}
 }

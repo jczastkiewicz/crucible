@@ -59,8 +59,9 @@ func (drawEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	defined, _ := a.Params.Param("Defined")
-	players, err := definedPlayers(g, a.Controller, a.Source, defined, a.refs())
+	// DrawEffect.resolve's getTargetPlayers(sa): ValidTgts$ targets, else
+	// Defined$, which defaults to You (the Cycling keyword's own Draw has none).
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return err
 	}

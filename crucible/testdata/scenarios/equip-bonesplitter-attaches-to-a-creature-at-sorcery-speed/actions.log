@@ -1,0 +1,10 @@
+# CR 702.6a: K:Equip:1 expands (ADR-0038) to AB$ Attach | Cost$ 1 | ValidTgts$
+# Creature.YouCtrl | SorcerySpeed$ True. human pays {1} in Main1 and equips the
+# Bears; the ability resolves and Bonesplitter is attached.
+startturn human
+advance 3
+tapformana human 3 R
+queue paygeneric R
+queue targets 2
+queue action human activate 1 0
+passpriority

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Bonesplitter|Id:1|AttachedTo:2;Grizzly Bears|Id:2;Mountain|Tapped
+ailife=20

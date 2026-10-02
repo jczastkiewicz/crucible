@@ -6,6 +6,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -421,12 +423,47 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 type attachEffect struct{}
 
 func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if !a.spell {
+		return g.attachActivated(a)
+	}
 	origin := g.Card(a.Source).Zone
 	copyBecomesToken(g.Card(a.Source))
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
+	return nil
+}
+
+// attachActivated is AttachEffect.resolve for an activated AB$ Attach (Equip,
+// CR 702.6a): the source permanent attaches to the first card its targets
+// name, moving off what it was attached to. Nothing is attached when the
+// source has left the battlefield, the target is gone or is not a creature,
+// or the host's protection refuses the attachment (CR 702.16c). Params
+// choosing the attachment or the host without targeting (Object$, Choices$,
+// Defined$, PlayerChoices$, Optional$, Chooser$) are not read: such a line is
+// an error, never an attachment to the wrong thing (GO-7).
+func (g *Game) attachActivated(a *Ability) error {
+	for _, key := range [...]string{"Object", "Choices", "Defined", "PlayerChoices", "Optional", "Chooser", "Move"} {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: Attach: %s$ not resolvable yet", key)
+		}
+	}
+	source := g.Card(a.Source)
+	if source.Zone != Battlefield {
+		return nil
+	}
+	for _, e := range a.Targets {
+		host, ok := e.AsCard()
+		if !ok || host == a.Source || g.Card(host).Zone != Battlefield || !g.Card(host).Type().Has(cardtype.Creature) {
+			continue
+		}
+		if hostRefusesAttach(g, source, host) {
+			return nil
+		}
+		g.Attach(a.Source, host)
+		return nil
+	}
 	return nil
 }
 

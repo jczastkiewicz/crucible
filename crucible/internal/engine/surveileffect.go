@@ -84,7 +84,7 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 
 		toTop, toGraveyard := controller.ArrangeForSurveil(g, pid, topN)
 		for _, id := range toGraveyard {
-			g.Move(id, Graveyard, g.Card(id).Owner)
+			g.moveToGraveyard(id)
 		}
 		for i := len(toTop) - 1; i >= 0; i-- {
 			g.MoveToLibraryTop(toTop[i], pid)

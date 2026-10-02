@@ -1,0 +1,16 @@
+# CR 614.1 / 615: a prevention replacement. Bubble Matrix's
+# R:Event$ DamageDone | ValidTarget$ Creature | Prevent$ True stops all damage
+# that would be dealt to creatures. Silvercoat Lion (2/2) is blocked by Grizzly
+# Bears (2/2): without the artifact both would die in the regular damage step;
+# with it neither is damaged and both survive.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

@@ -15,7 +15,6 @@ import (
 var destroyAllUnresolvedParams = [...]string{
 	"Optional", "RememberAllObjects", "Zone", "Hidden",
 	"Condition", "ConditionDefined", "SorcerySpeed", "ModeCost",
-	"GameActivationLimit",
 }
 
 // destroyAllEffect is DestroyAllEffect.java: every battlefield permanent
@@ -90,7 +89,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if !cantRegen && g.regenerate(controller, id) {
 			continue
 		}
-		g.Move(id, Graveyard, c.Owner)
+		g.moveToGraveyard(id)
 		g.checkDiesTriggers(controller, id)
 		if remember {
 			source.Memory.Remember(CardEntity(id))

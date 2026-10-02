@@ -328,7 +328,7 @@ func playOptionsOf(g *Game, caster PlayerID, card CardID) ([]playOption, bool) {
 	t := c.Type()
 	switch {
 	case t.Has(cardtype.Land):
-		if g.activePlayer == caster && g.hasLandDrop(caster) {
+		if g.activePlayer == caster && g.hasLandDrop(caster) && !g.cantPlayLand(caster, card) {
 			return []playOption{{land: true}}, true
 		}
 		return nil, true

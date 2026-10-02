@@ -1,0 +1,11 @@
+# Raise Dead's SP$ ChangeZone | Origin$ Graveyard | ValidTgts$ Creature.YouCtrl
+# targets a card in the graveyard: Java sets the target zone from Origin$
+# (AbilityFactory.adjustChangeZoneTarget, called from ChangeZoneEffect's
+# buildSpellAbility), so the spell is castable at the Grizzly Bears in the
+# human's graveyard and returns it to hand on resolution.
+startturn human
+advance 3
+tapformana human 3 B
+queue targets 2
+castspell human 1
+resolvestack

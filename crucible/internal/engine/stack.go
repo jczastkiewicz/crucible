@@ -154,7 +154,7 @@ func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
 	if c.Zone != Stack {
 		return
 	}
-	g.Move(a.Source, Graveyard, c.Owner)
+	g.moveToGraveyard(a.Source)
 }
 
 // stackItem is the item on the stack whose ID is id, and whether one is --

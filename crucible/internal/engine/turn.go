@@ -407,6 +407,9 @@ func (g *Game) drawStep(controller PlayerController) {
 // effect) are this port's two callers.
 func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
 	for i := 0; i < n; i++ {
+		if g.cantDraw(pid) {
+			return
+		}
 		if g.drawPrevented(pid) {
 			continue
 		}
@@ -511,11 +514,16 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	if limit, hasLimit := g.Player(g.activePlayer).HandSizeLimit(MaxHandSize); hasLimit && len(hand) > limit {
 		discard := controller.DiscardToHandSize(g, g.activePlayer, hand, len(hand)-limit)
 		for _, id := range discard {
-			g.Move(id, Graveyard, g.Card(id).Owner)
+			g.moveToGraveyard(id)
 			g.checkDiscardedTriggers(controller, id, g.activePlayer)
 		}
 	}
 
+	// Card.resetActivationsPerTurn for every card in the game
+	// (Game.java:1239-1241), not only the battlefield's.
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].activations.resetTurn()
+	}
 	// Phased-out permanents too: CR 514.2's damage removal and
 	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
 	// (PhaseHandler.java:400, Game.java:1236) -- ADR-0021's cleanup opt-in.

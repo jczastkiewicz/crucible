@@ -21,10 +21,8 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
-	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
-	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -174,6 +172,14 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 // g.LKI (game.go) is exactly the frozen copy CR 603.6d asks for, taken the
 // instant before Move reset any of it.
 func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
+	// A Moved replacement (Rest in Peace) sent the card elsewhere: it did not
+	// die, it was exiled, which is what its leave triggers see.
+	if z := g.Card(left).Zone; z != Graveyard {
+		if z == Exile {
+			g.checkExiledTriggers(controller, left)
+		}
+		return
+	}
 	var matches []Ability
 	c := g.Card(left)
 	if snap := g.LKI(left); snap != nil {
@@ -486,7 +492,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if !isSpellCastTrigger(t) {
 				continue
 			}
-			if onStack && (!phaseTriggerZoneMatches(h, t, Stack) || executeHasCost(t)) {
+			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
 				continue
 			}
 			if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
@@ -957,6 +963,7 @@ type damageTable []damageEntry
 // rather than each dispatch separately, so a further table-driven mode has
 // one call site to add, not every damage-dealing action's own caller.
 func (g *Game) checkDamageTableTriggers(controller PlayerController, table damageTable, isCombat bool) {
+	g.applyLifelink(controller, table)
 	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
 	g.checkDamageDoneOnceByControllerTriggers(controller, table, isCombat)
 	g.checkDamageDealtOnceTriggers(controller, table, isCombat)
@@ -1771,6 +1778,45 @@ func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+// checkChangesControllerTriggers is Mode$ ChangesController
+// (TriggerChangesController.performTest, 12 real lines): card's controller
+// changed from original, as correctControllerZone just moved it. ValidCard$
+// matches the card and ValidOriginalController$ the player it left (each
+// absent a pass; a player spec matchesPlayerSpec cannot read skips the
+// line). TriggerController$ (the trigger's own controller changing, Sigil of
+// Corruption) and ThisTurn$ skip the line (GO-7).
+func (g *Game) checkChangesControllerTriggers(controller PlayerController, card CardID, original PlayerID) {
+	var matches []Ability
+	c := g.Card(card)
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for face := range h.triggerFaces {
+				for _, t := range face.Triggers {
+					if !strings.EqualFold(t.Name, "ChangesController") || hasAnyParam(t, "TriggerController", "ThisTurn") {
+						continue
+					}
+					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
+						continue
+					}
+					if spec, ok := t.Param("ValidOriginalController"); ok {
+						if matched, recognized := matchesPlayerSpec(g, original, h.Controller(), host, spec); !recognized || !matched {
+							continue
+						}
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: card})})
+					}
+				}
+			}
+		}
+	}
+	g.pushTriggeredAbilities(controller, matches)
+}
+
 // isUntapsTrigger reports whether t is CR 603's "becomes untapped" shape:
 // Mode$ Untaps.
 func isUntapsTrigger(t *compile.Ability) bool {
@@ -2339,18 +2385,6 @@ func rememberedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amoun
 		}
 	}
 	return presentCountMatches(g, host, amounts, t, compareKey, n)
-}
-
-// executeHasCost reports whether t's Execute$ ability names its own Cost$.
-func executeHasCost(t *compile.Ability) bool {
-	for _, sub := range t.Subs {
-		if strings.EqualFold(sub.Key, "Execute") {
-			if _, ok := sub.Ability.Param("Cost"); ok {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // presentCountMatches compares n, the count of present objects, against
@@ -3374,9 +3408,9 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 // Built natively (ADR-0028 Decision point 4/5), not read off any card's
 // Def.Faces[].Triggers the way checkBecomesTargetTriggers' own scan is: no
 // script text names Ward's Execute$, so there is nothing to scan. Scoped to
-// the mana-cost shape only (Decision point 2) -- cost.Parse/mana.Parse's
-// own pre-check here mirrors resolveUnlessCost's (effect.go) exactly, so a
-// shape that would error there is never pushed here at all.
+// the costs parseUnlessCost reads -- mana, PayLife<N>, Discard<N/Card> and
+// Sac<N/Type> parts -- the identical pre-check resolveUnlessCost (effect.go)
+// makes, so a shape that would error there is never pushed here at all.
 //
 // Controller is the warded card's own controller (CR 603.3a: a triggered
 // ability's controller is its source's controller), not spellController --
@@ -3416,12 +3450,7 @@ func (g *Game) checkWardTriggers(targets []EntityID, spell CardID, spellControll
 			if k.Name != "Ward" || k.Details == "" {
 				continue
 			}
-			parsed := cost.Parse(k.Details)
-			if !parsed.IsPureMana() {
-				continue
-			}
-			manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
-			if err != nil || manaCost.CountX() > 0 {
+			if _, ok := parseUnlessCost(k.Details); !ok {
 				continue
 			}
 			params := &compile.Ability{Record: compile.SubAbility, Name: "Counter", Params: []vocab.Param{

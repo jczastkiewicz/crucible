@@ -8,7 +8,7 @@ import "fmt"
 // the shield is used), RememberObjects$ (extra remembered objects on the
 // shield effect), and bare activation gates.
 var regenerateUnresolvedParams = [...]string{
-	"RegenerationAbility", "RememberObjects", "CheckSVar", "SVarCompare", "IsPresent",
+	"RegenerationAbility", "RememberObjects",
 	"Condition", "ConditionDefined",
 }
 

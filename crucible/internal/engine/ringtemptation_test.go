@@ -358,9 +358,8 @@ func TestRingTemptsYouTriggerMode(t *testing.T) {
 	}
 }
 
-// TestRingTemptsYouRejectsUnresolvedShapes proves the rejections, before
-// anything happens: ConditionDefined$, and a RingTemptsYou trigger in play
-// whose Execute$ carries a Cost$ (Call of the Ring's PayLife<2>).
+// TestRingTemptsYouRejectsUnresolvedShapes proves the rejection, before
+// anything happens: ConditionDefined$.
 func TestRingTemptsYouRejectsUnresolvedShapes(t *testing.T) {
 	t.Parallel()
 
@@ -370,43 +369,47 @@ func TestRingTemptsYouRejectsUnresolvedShapes(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ConditionDefined$ not resolvable yet") {
 		t.Errorf("err = %v, want ConditionDefined$ rejected", err)
 	}
-
-	g.NewCard(triggerWatcherDef(t, "Paid Draw",
-		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
-		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), p, engine.Battlefield)
-	g.NewCard(creatureDef(t), p, engine.Battlefield)
-	err = pushAndResolveErr(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou")
-	if err == nil || !strings.Contains(err.Error(), "Cost$ not resolvable yet") {
-		t.Errorf("err = %v, want the Cost$ trigger rejected", err)
-	}
-	if n := g.RingTemptedYou(p); n != 0 {
-		t.Errorf("RingTemptedYou = %d after a rejected temptation, want 0", n)
-	}
 }
 
-// TestRingTemptsYouIgnoresACostTriggerThatCannotFire proves the Cost$
-// rejection is narrow: an opponent's Call of the Ring (ValidCard$
-// Creature.YouCtrl, read against its own controller) can never fire on
-// your temptation, so it does not stop it; your own does, once you have a
-// creature it matches.
-func TestRingTemptsYouIgnoresACostTriggerThatCannotFire(t *testing.T) {
+// TestRingTemptsYouTriggerPaysItsCost proves a RingTemptsYou trigger whose
+// Execute$ carries a Cost$ (Call of the Ring's PayLife<2>) asks and pays as it
+// resolves: confirmed, the life is paid and the card drawn; declined, neither.
+func TestRingTemptsYouTriggerPaysItsCost(t *testing.T) {
 	t.Parallel()
 
-	g, p, other := newTwoPlayerGame(t)
-	g.NewCard(triggerWatcherDef(t, "Their Paid Draw",
-		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
-		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), other, engine.Battlefield)
-	g.NewCard(creatureDef(t), p, engine.Battlefield)
-	pushAndResolve(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou")
-	if n := g.RingTemptedYou(p); n != 1 {
-		t.Fatalf("RingTemptedYou = %d, want 1", n)
-	}
+	for _, tc := range []struct {
+		name     string
+		confirm  bool
+		wantLife int
+		wantHand int
+	}{
+		{"paid", true, 18, 1},
+		{"declined", false, 20, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	g.NewCard(triggerWatcherDef(t, "My Paid Draw",
-		"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
-		"TrigDraw", "AB$ Draw | Cost$ PayLife<2>"), p, engine.Battlefield)
-	if err := pushAndResolveErr(t, g, p, engine.NewScriptedController(), "DB$ RingTemptsYou"); err == nil {
-		t.Error("tempting with your own Cost$ trigger able to fire resolved, want an error")
+			g, p, _ := newTwoPlayerGame(t)
+			g.NewCard(triggerWatcherDef(t, "Paid Draw",
+				"Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw",
+				"TrigDraw", "AB$ Draw | Cost$ PayLife<2> | Defined$ You"), p, engine.Battlefield)
+			g.NewCard(creatureDef(t), p, engine.Battlefield)
+			g.NewCard(creatureDef(t), p, engine.Library)
+			c := engine.NewScriptedController()
+			c.QueueConfirmOptionalTrigger(tc.confirm)
+
+			pushAndResolve(t, g, p, c, "DB$ RingTemptsYou")
+
+			if n := g.RingTemptedYou(p); n != 1 {
+				t.Errorf("RingTemptedYou = %d, want 1", n)
+			}
+			if got := g.Player(p).Life; got != tc.wantLife {
+				t.Errorf("life = %d, want %d", got, tc.wantLife)
+			}
+			if got := len(g.Zone(engine.Hand, p).Cards()); got != tc.wantHand {
+				t.Errorf("hand = %d, want %d", got, tc.wantHand)
+			}
+		})
 	}
 }
 

@@ -675,3 +675,34 @@ func (k *layerKeywords) layerKeywordsFor(c *Card) []string {
 	}
 	return add
 }
+
+// applyChangelings gives every card with the Changeling keyword, wherever it
+// is, a Layer 4 effect adding every creature type. Java expands the keyword
+// into `S:Mode$ Continuous | CharacteristicDefining$ True | EffectZone$ All |
+// Affected$ Card.Self | AddType$ AllCreatureTypes` (CardFactoryUtil.java:3791),
+// which applies from any zone, so the effect is added for the cards of
+// every zone, after applyContinuousType has cleared the previous pass's.
+// cardtype.Line has no "every creature type" flag (Java's CardType keeps
+// one), so the types are materialized from the registry, for the few cards
+// that carry the keyword. Nothing is added without a registry.
+func applyChangelings(g *Game) {
+	reg := g.db.Types()
+	if reg == nil {
+		return
+	}
+	var all cardtype.Line
+	built := false
+	for i := 1; i < len(g.cards); i++ {
+		c := &g.cards[i]
+		if c.Def == nil || !c.HasKeyword("Changeling") {
+			continue
+		}
+		if !built {
+			for _, name := range reg.Members(cardtype.CategoryCreature) {
+				all = all.Union(cardtype.ParseToken(name))
+			}
+			built = true
+		}
+		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all})
+	}
+}

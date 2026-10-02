@@ -10,7 +10,7 @@ import "fmt"
 // the ShuffleCondition$ values other than NoneFound.
 var digUntilUnresolvedParams = [...]string{
 	"DigZone", "MinTotalCMC", "AttachedTo", "Attacking", "Blocking", "ValidPlayer",
-	"Condition", "ConditionDefined", "SorcerySpeed", "CheckSVar",
+	"Condition", "ConditionDefined", "SorcerySpeed",
 }
 
 // digUntilEffect is DigUntilEffect.java: each target player (default You)

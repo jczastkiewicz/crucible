@@ -1,0 +1,12 @@
+# CR 120.3b: Glistener Elf (1/1 infect) is unblocked, so the AI gets a poison
+# counter and loses no life (Player.addDamageAfterPrevention, Player.java:661).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -94,7 +94,7 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		// slice -- scryEffect's own identical defensive copy (scryeffect.go).
 		topN := append([]CardID(nil), lib[:n]...)
 		for _, id := range topN {
-			g.Move(id, Graveyard, pid)
+			g.moveToGraveyard(id)
 			milled = append(milled, id)
 			if remember {
 				source.Memory.Remember(CardEntity(id))

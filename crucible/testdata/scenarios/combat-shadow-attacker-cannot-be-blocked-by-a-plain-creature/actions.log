@@ -1,0 +1,15 @@
+# CR 702.28: Shadow. Dauthi Slayer's K:Shadow synthesizes Mode$ CantBlockBy |
+# ValidBlocker$ Creature.withoutShadow (CardFactoryUtil.java:3994-4002), so the
+# AI's Grizzly Bears, which has no shadow, cannot block it and the declare
+# blockers declaration is empty (a block queued as 2=1 would be illegal). The
+# Slayer's 2 damage reaches the AI.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -3,7 +3,12 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/cardtype"
+import (
+	"strconv"
+
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+)
 
 // DealFirstStrikeDamage is CR 510.4's first sub-step: only creatures with
 // first strike or double strike deal damage. A safe no-op when nothing in
@@ -33,20 +38,18 @@ func (g *Game) DealCombatDamage(controller PlayerController) {
 // (`firstStrike` selects which). A creature deals damage in a step per
 // `dealsInStep`'s doc comment.
 //
-// All of a step's damage is simultaneous (CR 510.2), but no lifelink exists
-// yet and nothing cares about the order two life totals change in, so
-// applying one attacker's exchange at a time produces the same result as
-// computing every amount first and applying them together --
-// checkDamageDoneTriggersToCard/ToPlayer (trigger.go), dealt with below,
-// fire per exchange rather than once for the whole step for the identical
-// reason: nothing here can tell the difference yet. Mode$ DamageDoneOnce
-// (checkDamageDoneOnceTriggers, trigger.go) is the one place the
-// simultaneity genuinely does matter: every exchange in this one step
-// records into a shared damageTable, consulted once after the whole step
-// finishes, so a target hit by more than one source in the same step (a
-// gang-blocked attacker, several unblocked attackers hitting the same
-// player) sees the combined total in one trigger firing rather than one per
-// source.
+// All of a step's damage is simultaneous (CR 510.2). Applying one attacker's
+// exchange at a time produces the same life totals as computing every amount
+// first and applying them together, since no state-based action runs between
+// exchanges; checkDamageDoneTriggersToCard/ToPlayer (trigger.go) fire per
+// exchange for the identical reason. The two places simultaneity does matter
+// run off the step's shared damageTable, consulted once after the whole step
+// finishes (checkDamageTableTriggers, trigger.go): Mode$ DamageDoneOnce, where
+// a target hit by more than one source in the same step (a gang-blocked
+// attacker, several unblocked attackers hitting the same player) sees the
+// combined total in one trigger firing rather than one per source, and
+// lifelink (applyLifelink, lifelink.go), one gain per source for everything it
+// dealt in the step.
 //
 // An unblocked attacker deals its power to whatever it's attacking (CR
 // 508.1d) -- a player, planeswalker or battle, via dealAttackTargetDamage.
@@ -97,7 +100,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		}
 
 		if dealsInStep(atk, firstStrike) {
-			if power, ok := atk.Power(); ok && power > 0 {
+			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
 				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
 			}
 		}
@@ -105,7 +108,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		for _, blkID := range blockers {
 			blk := g.Card(blkID)
 			if dealsInStep(blk, firstStrike) {
-				if bp, ok := blk.Power(); ok && bp > 0 {
+				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
 					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
 				}
 			}
@@ -126,7 +129,7 @@ func (g *Game) combatDamageAssigned(firstStrike bool) bool {
 		if !g.alive(id) || !dealsInStep(c, firstStrike) {
 			continue
 		}
-		if power, ok := c.Power(); ok && power > 0 {
+		if power, ok := netCombatDamage(g, c); ok && power > 0 {
 			return true
 		}
 	}
@@ -282,11 +285,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if amount <= 0 {
 		return
 	}
-	if g.damagePrevented(source, target, isCombat, amount) {
+	preventable := g.canDamagePrevented(source, isCombat)
+	if preventable && g.damagePrevented(source, target, isCombat, amount) {
 		return
 	}
-	if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
-		return
+	if preventable {
+		if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
+			return
+		}
 	}
 	amount, redirect, redirected := g.damageReplaced(source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
@@ -304,7 +310,20 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		emitCounterChanged(g.sink, source, CardEntity(target), Defense, -amount)
 	}
 	if t.Has(cardtype.Creature) {
-		c.Damage.Mark(amount, deathtouch)
+		if g.witherDamage(source) {
+			// CR 120.3d: damage from a source with wither or infect is
+			// dealt as -1/-1 counters, not marked damage; the deathtouch flag
+			// is set either way (Card.addDamageAfterPrevention).
+			if n := g.countersReplaced(controller, g.Card(source).Controller(), CardEntity(target), M1M1, amount); n > 0 {
+				c.Counters.Add(M1M1, n)
+				emitCounterChanged(g.sink, source, CardEntity(target), M1M1, n)
+			}
+			if deathtouch {
+				c.Damage.Deathtouch = true
+			}
+		} else {
+			c.Damage.Mark(amount, deathtouch)
+		}
 	}
 	var flags EventFlags
 	if isCombat {
@@ -341,11 +360,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // own doc comment gives. table is dealPermanentDamage's own doc comment,
 // the identical contract for a player-shaped target.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
-	if g.damagePreventedPlayer(source, target, isCombat, amount) {
+	preventable := g.canDamagePrevented(source, isCombat)
+	if preventable && g.damagePreventedPlayer(source, target, isCombat, amount) {
 		return
 	}
-	if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
-		return
+	if preventable {
+		if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
+			return
+		}
 	}
 	amount, redirect, redirected := g.damageReplacedPlayer(source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
@@ -356,9 +378,28 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	if isCombat {
 		flags = FlagCombat
 	}
-	g.Player(target).Life -= amount
+	// CR 120.3b: infect damage to a player is that many poison counters
+	// instead of life loss, and CR 702.164c's toxic adds its magnitude in
+	// poison counters to combat damage (Player.addDamageAfterPrevention).
+	poison := 0
+	if g.Card(source).HasKeyword("Infect") {
+		poison += amount
+	} else {
+		g.Player(target).Life -= amount
+	}
+	if isCombat {
+		poison += toxicMagnitude(g.Card(source))
+	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
-	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
+	if !g.Card(source).HasKeyword("Infect") {
+		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
+	}
+	if poison > 0 {
+		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {
+			g.Player(target).Counters.Add(Poison, n)
+			emitCounterChanged(g.sink, source, PlayerEntity(target), Poison, n)
+		}
+	}
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)
 	if table != nil {
 		*table = append(*table, damageEntry{Source: source, Target: PlayerEntity(target), Amount: amount})
@@ -381,4 +422,30 @@ func (g *Game) dealRedirectedDamage(controller PlayerController, source CardID, 
 	if pid, ok := to.AsPlayer(); ok {
 		g.dealPlayerDamage(controller, source, pid, amount, isCombat, table)
 	}
+}
+
+// witherDamage is Card.isWitherDamage (CR 120.3d): a source with wither or
+// infect deals damage to a creature as -1/-1 counters. Mode$ WitherDamage, the
+// static that grants it, is not read.
+func (g *Game) witherDamage(source CardID) bool {
+	c := g.Card(source)
+	return c.HasKeyword("Wither") || c.HasKeyword("Infect")
+}
+
+// toxicMagnitude is Card.getKeywordMagnitude(Keyword.TOXIC): the sum of every
+// Toxic:N line c currently carries, each its own instance (CR 702.164b).
+func toxicMagnitude(c *Card) int {
+	total := 0
+	for _, line := range c.KeywordLines() {
+		kw := keyword.Parse(line)
+		if kw.Name != "Toxic" {
+			continue
+		}
+		if args := kw.Args(); len(args) > 0 {
+			if n, err := strconv.Atoi(args[0]); err == nil {
+				total += n
+			}
+		}
+	}
+	return total
 }

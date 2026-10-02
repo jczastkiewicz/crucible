@@ -89,7 +89,7 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if remember {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
-		g.Move(id, Graveyard, c.Owner)
+		g.moveToGraveyard(id)
 		g.checkDiesTriggers(controller, id)
 		destroyed = append(destroyed, id)
 	}

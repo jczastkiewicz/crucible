@@ -47,6 +47,8 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		} else {
 			melded = g.Move(id, Library, c.Owner)
 		}
+	case Graveyard:
+		dest, melded = g.moveToGraveyard(id)
 	default:
 		melded = g.Move(id, dest, c.Owner)
 	}

@@ -45,13 +45,6 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return fmt.Errorf("engine: Meld: CantExile statics not resolvable yet")
 	}
 	source := g.Card(a.Source)
-	// A Cost$ is paid only by activating one of the host's own A: lines.
-	// Vanille, Cheerful l'Cie's trigger executes AB$ Meld | Cost$ 3 B G,
-	// a "you may pay" no triggered ability asks for yet (game-state.md,
-	// "Not ported yet"); melding without it would be free.
-	if _, ok := a.Params.Param("Cost"); ok && !isOwnActivatedAbility(source, a.Params) {
-		return fmt.Errorf("engine: Meld: triggered Cost$ not resolvable yet")
-	}
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
@@ -134,19 +127,4 @@ func (meldEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return fmt.Errorf("engine: Meld: %w", err)
 	}
 	return nil
-}
-
-// isOwnActivatedAbility reports whether ab is one of host's own printed
-// A: lines -- the only abilities whose Cost$ activateability.go pays before
-// they reach the stack.
-func isOwnActivatedAbility(host *Card, ab *compile.Ability) bool {
-	if host.Def == nil {
-		return false
-	}
-	for _, own := range host.Def.Faces[0].Abilities {
-		if own == ab {
-			return true
-		}
-	}
-	return false
 }

@@ -916,6 +916,7 @@ func (g *Game) Shuffle(kind ZoneType, owner PlayerID) {
 func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = kind, owner
+	c.activations = nil
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	if kind != Stack {
@@ -930,6 +931,7 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 func (g *Game) putFront(id CardID, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = Library, owner
+	c.activations = nil
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	c.exiledWith = exiledWithMark{}
@@ -1106,6 +1108,7 @@ func (g *Game) Clone() *Game {
 		c.mustBlock = append([]mustBlockReq(nil), g.cards[i].mustBlock...)
 		c.hiddenKeywords = append([]string(nil), g.cards[i].hiddenKeywords...)
 		c.blockedByThisTurn = append([]CardID(nil), g.cards[i].blockedByThisTurn...)
+		c.activations = g.cards[i].activations.clone()
 		c.PT = g.cards[i].PT.clone()
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()

@@ -13,7 +13,8 @@
       "colormod.go",
       "keywordmod.go",
       "rulesmod.go",
-      "controlmod.go"
+      "controlmod.go",
+      "activationmod.go"
     ],
     "card": ["card.go"],
     "player": ["player.go"],
@@ -157,7 +158,20 @@
       "attackconstraints",
       "blockvalidation"
     ],
-    "staticability": ["id", "zone", "card", "game", "valid", "player"],
+    "staticability": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "valid",
+      "player",
+      "continuous",
+      "ability",
+      "defined",
+      "phase",
+      "parts",
+      "zonemove"
+    ],
     "block": [
       "id",
       "zone",
@@ -215,7 +229,8 @@
       "combat",
       "attack",
       "trigger",
-      "valid"
+      "valid",
+      "staticability"
     ],
     "manapay": ["id", "game", "player", "control", "event"],
     "manaability": [
@@ -263,7 +278,9 @@
       "pumpeffect",
       "sacrificeeffect",
       "facedown",
-      "room"
+      "room",
+      "amount",
+      "playerstate"
     ],
     "trigger": [
       "id",
@@ -282,7 +299,9 @@
       "playerstate",
       "targeting",
       "statictrigger",
-      "replaceeffect"
+      "replaceeffect",
+      "unlesscost",
+      "lifelink"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [

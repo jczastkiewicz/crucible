@@ -189,7 +189,7 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 		if remember {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
-		g.Move(id, Graveyard, g.Card(id).Owner)
+		g.moveToGraveyard(id)
 		g.checkDiesTriggers(controller, id)
 		sacrificed = append(sacrificed, id)
 	}

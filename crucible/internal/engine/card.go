@@ -189,6 +189,14 @@ type Card struct {
 	// alongside AttacksThisTurn/BecameTargetThisTurn.
 	LoyaltyAbilityActivated bool
 
+	// activations counts how often each of the card's A: lines was
+	// activated: Card.numberTurnActivations/numberGameActivations
+	// (Card.java:363-364), read by ActivationLimit$/GameActivationLimit$
+	// (SpellAbilityRestriction.canPlay) and reset like Java's: the turn count
+	// every cleanup (Game.java:1239-1241), both on any zone change, which
+	// makes the card a new object (CR 400.7).
+	activations activationCounts
+
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a
 	// Battle that has not been assigned one yet (assignBattleProtector,

@@ -15,6 +15,8 @@
 package engine
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -75,6 +77,11 @@ var cantBlockByKeywords = []struct {
 	{"Fear", "Creature.nonArtifact+nonBlack"},
 	{"Horsemanship", "Creature.withoutHorsemanship"},
 	{"Intimidate", "Creature.nonArtifact+!SharesColorWith"},
+	// Shadow's attacker half (CardFactoryUtil.java:3996): a creature with
+	// shadow can be blocked only by creatures with shadow. The blocker half
+	// (effect2, "can block only creatures with shadow") is checked in
+	// cantBlockBy beside this table, since its ValidBlocker$ is Creature.Self.
+	{"Shadow", "Creature.withoutShadow"},
 }
 
 // cantBlockBy reports whether attacker cannot legally be blocked by blocker,
@@ -117,6 +124,9 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 					}
 					return true
 				}
+			}
+			if h.HasKeyword("Shadow") && applyCantBlockBy(g, h, "Creature.withoutShadow", "Creature.Self", true, "", false, attacker, blocker) {
+				return true
 			}
 			for _, kb := range cantBlockByKeywords {
 				if h.HasKeyword(kb.keyword) && applyCantBlockBy(g, h, "Creature.Self", kb.validBlocker, true, "", false, attacker, blocker) {
@@ -599,10 +609,49 @@ func applyCantBlockBy(g *Game, host *Card, validAttacker, validBlocker string, h
 	if hasValidBlocker && !Matches(g, g.Card(blocker), valid.Parse(validBlocker), host.Controller(), host.ID) {
 		return false
 	}
+	// Heartwood Dryad / Wall of Diffusion / Aetherflame Wall / Aether Web
+	// (StaticAbilityCantAttackBlock.java:250): a Mode$ CanBlockIfShadow static
+	// lets the blocker block as though it had shadow, lifting a "without
+	// shadow" restriction.
+	if hasValidBlocker && strings.Contains(validBlocker, "withoutShadow") && canBlockIfShadow(g, attacker, blocker) {
+		return false
+	}
 	if hasValidDefender && !matchesValidDefender(g, g.Card(blocker).Controller(), validDefender, host) {
 		return false
 	}
 	return true
+}
+
+// canBlockIfShadow is StaticAbilityCantAttackBlock.canBlockIfShadow
+// (StaticAbilityCantAttackBlock.java:304-326): some Mode$ CanBlockIfShadow
+// static in play has its ValidAttacker$ and ValidBlocker$ (each absent is a
+// pass) match the pair, evaluated against that static's own host. Only
+// battlefield and Command hosts are walked (traitHosts), the trimming
+// cantBlockBy's own doc comment justifies.
+func canBlockIfShadow(g *Game, attacker, blocker CardID) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CanBlockIfShadow") || !continuousConditionMet(g, h, s) {
+						continue
+					}
+					if va, ok := s.Param("ValidAttacker"); ok && !Matches(g, g.Card(attacker), valid.Parse(va), h.Controller(), h.ID) {
+						continue
+					}
+					if vb, ok := s.Param("ValidBlocker"); ok && !Matches(g, g.Card(blocker), valid.Parse(vb), h.Controller(), h.ID) {
+						continue
+					}
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // matchesValidDefender is ValidDefender's own check
@@ -727,4 +776,349 @@ func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
 		}
 	}
 	return false
+}
+
+// netCombatDamage is Card.getNetCombatDamage (Card.java:4537): how much combat
+// damage c assigns. A Mode$ AssignNoCombatDamage static naming c makes it 0;
+// else a Mode$ CombatDamageToughness static naming c makes it c's toughness;
+// else c's power, negated by Mode$ CombatDamageNegatePower (Loot, the Anomaly:
+// "if his power is negative, he assigns combat damage as though it were
+// positive"). ok is false when the value read is unresolvable (a "*" power or
+// toughness this port has no evaluator for), propagated like Power/Toughness.
+func netCombatDamage(g *Game, c *Card) (int, bool) {
+	switch {
+	case combatDamageStatic(g, c, "AssignNoCombatDamage"):
+		return 0, true
+	case combatDamageStatic(g, c, "CombatDamageToughness"):
+		return c.Toughness()
+	}
+	power, ok := c.Power()
+	if combatDamageStatic(g, c, "CombatDamageNegatePower") {
+		power = -power
+	}
+	return power, ok
+}
+
+// combatDamageStatic reports whether some static of the given Mode$ names c.
+// All three modes share one body (StaticAbilityAssignNoCombatDamage,
+// StaticAbilityCombatDamageToughness, StaticAbilityCombatDamageNegatePower):
+// the source's conditions hold (staticConditionsMet) and c matches ValidCard$.
+//
+// Hosts come from traitHosts, so an Effect-card static in the Command zone
+// (EffectZone$ Command) and a delayed "this turn" effect's static both count.
+func combatDamageStatic(g *Game, c *Card, mode string) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, mode) {
+						continue
+					}
+					if !g.staticConditionsMet(h, s) {
+						continue
+					}
+					validCard, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(validCard), h.Controller(), h.ID) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// castsWithFlash reports whether pid may cast card as though it had flash
+// (SpellAbility.withFlash, SpellAbility.java:2608): the printed or granted
+// Flash keyword, or a Mode$ CastWithFlash static (StaticAbilityCastWithFlash)
+// whose ValidCard$ matches the card, whose Caster$ matches pid and that is
+// about plain spells (ValidSA$ Spell). A line with any other ValidSA$ (an
+// activated ability, IsTargeting, XCost, a spell-cost shape) or a condition
+// staticConditionsMet cannot resolve is skipped, never assumed to hold (GO-7). The card's own statics
+// count wherever it is (EffectZone$ All, Card.Self lines).
+func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
+	c := g.Card(card)
+	if c.HasKeyword("Flash") {
+		return true
+	}
+	for _, host := range g.staticHostsWith(card) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.Def.Faces {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s) {
+					continue
+				}
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// castWithFlashApplies is one CastWithFlash line's own test, see castsWithFlash.
+func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
+	if sa, _ := s.Param("ValidSA"); sa != "Spell" {
+		return false
+	}
+	if !g.staticConditionsMet(host, s) {
+		return false
+	}
+	if caster, ok := s.Param("Caster"); ok {
+		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, caster)
+		if !recognized || !matched {
+			return false
+		}
+	}
+	validCard, ok := s.Param("ValidCard")
+	return !ok || Matches(g, c, valid.Parse(validCard), host.Controller(), host.ID)
+}
+
+// playerStatic reports whether some static of the given Mode$ names pid and
+// satisfies keep: its Condition$ holds (StaticAbility.checkConditions) and its
+// ValidPlayer$ matches pid (an absent one matches everyone, as
+// matchesValidParam does). The player-restriction modes (CantGainLife,
+// CantDraw, ...) share this body in Java. A line whose ValidPlayer$ this port
+// cannot recognize (matchesPlayerSpec) is skipped, never assumed to hold
+// (GO-7).
+func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Ability) bool) bool {
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, mode) || !playerStaticApplies(g, pid, h, s) {
+						continue
+					}
+					if keep == nil || keep(s) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func playerStaticApplies(g *Game, pid PlayerID, host *Card, s *compile.Ability) bool {
+	if !g.staticConditionsMet(host, s) {
+		return false
+	}
+	spec, ok := s.Param("ValidPlayer")
+	if !ok {
+		return true
+	}
+	matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec)
+	return recognized && matched
+}
+
+// cantGainLife is Player.canGainLife (StaticAbilityCantGainLosePayLife
+// .anyCantGainLife): a player out of the game, or named by a Mode$ CantGainLife
+// or CantChangeLife static, gains no life. CantChangeLife's losing half
+// (anyCantLoseLife, anyCantPayLife) is not read.
+func (g *Game) cantGainLife(pid PlayerID) bool {
+	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
+}
+
+// cantDraw is Player.canDraw, cantDrawAmount for one card.
+func (g *Game) cantDraw(pid PlayerID) bool { return g.cantDrawAmount(pid, 1) }
+
+// cantDrawAmount is the negation of StaticAbilityCantDraw.canDrawThisAmount: a
+// Mode$ CantDraw static allows DrawLimit$ (default 0) draws a turn, so with
+// the player having drawn some already it allows max(limit - drawn, 0) more,
+// and n cards are refused when that is fewer.
+func (g *Game) cantDrawAmount(pid PlayerID, n int) bool {
+	drawn := g.Player(pid).CardsDrawnThisTurn
+	return g.playerStatic(pid, "CantDraw", func(s *compile.Ability) bool {
+		limit := 0
+		if raw, ok := s.Param("DrawLimit"); ok {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil {
+				return false
+			}
+			limit = parsed
+		}
+		return n > max(limit-drawn, 0)
+	})
+}
+
+// unresolvedStaticConditions are the generic condition params
+// StaticAbility.checkConditions and CardTraitBase.meetsCommonRequirements read
+// that this port does not evaluate for a static of any mode: a line carrying
+// one is not applied (GO-7).
+var unresolvedStaticConditions = [...]string{
+	"IsPresent", "IsPresent2", "CheckSVar", "CheckSecondSVar", "LifeTotal", "CheckDefinedPlayer",
+	"TopCardOfLibraryIs", "Metalcraft", "Delirium", "Threshold", "Hellbent", "Bloodthirst", "FatefulHour",
+	"Monarch", "Revolt", "Blessing", "EnduringStory", "DayTime", "Adamant",
+}
+
+// staticConditionsMet is StaticAbility.checkConditions (StaticAbility.java:362)
+// for the conditions every static mode shares: Condition$ (continuousConditionMet),
+// Phases$ (the current step in the named range, parsePhaseRange) and PlayerTurn$
+// (the active player among the defined players). The source's own zone is the
+// caller's job: hosts come from traitHosts. A line carrying a condition in
+// unresolvedStaticConditions does not hold.
+func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
+	if !staticHostZoneOK(host, s) {
+		return false
+	}
+	for _, key := range unresolvedStaticConditions {
+		if _, ok := s.Param(key); ok {
+			return false
+		}
+	}
+	if !continuousConditionMet(g, host, s) {
+		return false
+	}
+	if phases, ok := s.Param("Phases"); ok {
+		set, ok := parsePhaseRange(phases)
+		if !ok || !set.has(g.activePhase) {
+			return false
+		}
+	}
+	if turn, ok := s.Param("PlayerTurn"); ok {
+		players, err := definedPlayers(g, host.Controller(), host.ID, turn, abilityRefs{})
+		if err != nil || !slices.Contains(players, g.activePlayer) {
+			return false
+		}
+	}
+	return true
+}
+
+// cantPutCounterParams are the params a CantPutCounter line may carry that
+// this port evaluates (AffectedZone$ is read by Java for Continuous only, and
+// ignored here as there).
+var cantPutCounterParams = map[string]bool{
+	"mode": true, "validcard": true, "validplayer": true, "countertype": true, "affectedzone": true,
+	"condition": true, "phases": true, "playerturn": true, "effectzone": true,
+	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+}
+
+// cantPutCounter is Card.canReceiveCounters / Player.canReceiveCounters
+// (StaticAbilityCantPutCounter.anyCantPutCounter): some Mode$ CantPutCounter
+// static names object and counter kind ct. A card is named by ValidCard$ (a
+// line with ValidPlayer$ is the player half), a player by ValidPlayer$
+// (a line with ValidCard$ is the card half); an absent CounterType$ names
+// every kind. Unresolvable lines are not applied (GO-7).
+func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
+	cid, isCard := object.AsCard()
+	pid, isPlayer := object.AsPlayer()
+	if !isCard && !isPlayer {
+		return false
+	}
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantPutCounter") || !paramsResolvable(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if kind, ok := s.Param("CounterType"); ok && !strings.EqualFold(kind, string(ct)) {
+						continue
+					}
+					_, hasCard := s.Param("ValidCard")
+					_, hasPlayer := s.Param("ValidPlayer")
+					switch {
+					case isCard && hasPlayer, isPlayer && hasCard:
+						continue
+					case isCard:
+						v, _ := s.Param("ValidCard")
+						if !hasCard || Matches(g, g.Card(cid), valid.Parse(v), h.Controller(), h.ID) {
+							return true
+						}
+					default:
+						v, _ := s.Param("ValidPlayer")
+						matched, recognized := true, true
+						if hasPlayer {
+							matched, recognized = matchesPlayerSpec(g, pid, h.Controller(), h.ID, v)
+						}
+						if recognized && matched {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// paramsResolvable reports whether every key s carries is in known.
+func paramsResolvable(s *compile.Ability, known map[string]bool) bool {
+	for _, p := range s.Params {
+		if !known[strings.ToLower(p.Key)] {
+			return false
+		}
+	}
+	return true
+}
+
+// staticHostZoneOK is StaticAbility.zonesCheck (StaticAbility.java:337): the
+// host's own zone must be one the line is active in. EffectZone$ names them
+// ("All", or a comma list); without it the default is in play. The Command
+// zone is accepted by default too, since the effect-like hosts traitHosts walks
+// there carry their statics without an EffectZone$ of their own. This is what
+// keeps a card's own statics (a host the callers add for EffectZone$ All lines)
+// from applying while it sits in hand.
+func staticHostZoneOK(host *Card, s *compile.Ability) bool {
+	zones, ok := s.Param("EffectZone")
+	if !ok {
+		return host.Zone == Battlefield || host.Zone == Command
+	}
+	if strings.EqualFold(zones, "All") {
+		return true
+	}
+	list, err := parseZoneList(zones)
+	return err == nil && slices.Contains(list, host.Zone)
+}
+
+// canDamagePrevented is Card.canDamagePrevented: damage from source is
+// preventable unless a Mode$ CantPreventDamage static names it
+// (StaticAbilityCantPreventDamage). IsCombat$ must equal isCombat when present
+// and ValidSource$ must match source; the source's own statics count too
+// (Spell.Self lines on the stack), through staticHostsWith. A line with a
+// param outside that list is not applied (GO-7). Prevention shields and
+// Prevent$ replacements are skipped by the callers when this is false.
+func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
+	c := g.Card(source)
+	for _, host := range g.staticHostsWith(source) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.Def.Faces {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CantPreventDamage") || !paramsResolvable(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
+					continue
+				}
+				if raw, ok := s.Param("IsCombat"); ok && strings.EqualFold(raw, "True") != isCombat {
+					continue
+				}
+				if v, ok := s.Param("ValidSource"); ok && !Matches(g, c, valid.Parse(v), h.Controller(), h.ID) {
+					continue
+				}
+				return false
+			}
+		}
+	}
+	return true
+}
+
+var cantPreventDamageParams = map[string]bool{
+	"mode": true, "iscombat": true, "validsource": true, "effectzone": true,
+	"condition": true, "phases": true, "playerturn": true,
+	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }

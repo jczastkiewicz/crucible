@@ -226,6 +226,25 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				zones = parsed
 			}
 		}
+		if a.API == APIChangeZone || a.API == APIChangeZoneAll {
+			// AbilityFactory.adjustChangeZoneTarget (ChangeZoneEffect.java:47,
+			// buildSpellAbility): a ChangeZone that does not target players
+			// targets cards in its Origin$ zones, not the battlefield by default
+			// (Raise Dead: Origin$ Graveyard | ValidTgts$ Creature.YouCtrl).
+			if raw, ok := a.Params.Param("Origin"); ok && !specCanTargetPlayer(validTgts) {
+				parsed, err := parseZoneList(raw)
+				if err != nil {
+					return targetChoice{min: targetMin, max: targetMax, err: fmt.Errorf("ChangeZone Origin$: %w", err)}, true, true
+				}
+				for _, z := range parsed {
+					if z != Battlefield && z != Graveyard && z != Exile {
+						return targetChoice{min: targetMin, max: targetMax,
+							err: fmt.Errorf("ChangeZone Origin$ %q: targeting a card in %v not resolvable yet", raw, z)}, true, true
+					}
+				}
+				zones = parsed
+			}
+		}
 		candidates = g.targetCandidatesInZones(a.Controller, a.Source, validTgts, zones)
 	}
 	if targetMin >= 2 && hasSameControllerRestriction(a) {
@@ -235,6 +254,19 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		return targetChoice{}, true, false
 	}
 	return targetChoice{candidates: candidates, min: targetMin, max: targetMax}, true, true
+}
+
+// specCanTargetPlayer is TargetRestrictions.canTgtPlayer for a ValidTgts$
+// spec: some comma alternative starts with "Player", "Opponent" or "Any"
+// (TargetRestrictions.java:454-461 tests exactly those three prefixes, so "You"
+// alone does not count).
+func specCanTargetPlayer(spec string) bool {
+	for _, alt := range strings.Split(spec, ",") {
+		if strings.HasPrefix(alt, "Player") || strings.HasPrefix(alt, "Opponent") || strings.HasPrefix(alt, "Any") {
+			return true
+		}
+	}
+	return false
 }
 
 // targetCandidates is targetCandidatesInZones scoped to the battlefield --

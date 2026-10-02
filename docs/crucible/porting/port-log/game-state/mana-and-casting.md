@@ -433,3 +433,125 @@ Tests (`casttiming_test.go`, `package engine_test`):
 | `TestPlayDoesNotOfferASpellOutsideItsPrintedTiming`          | `Play` leaves a spell in exile outside its window and casts it inside                                |
 | `TestActivateManaAbilityHonoursPlayerTurn`                   | A mana ability naming `PlayerTurn$` is admitted and limited to its controller's turn                 |
 | `TestTimedSpellResolvesOnceCast`                             | A `DestroyAll` spell naming both keys casts and resolves                                             |
+
+## `ActivationLimit$` and `GameActivationLimit$`
+
+`SpellAbilityRestriction.canPlay` (`SpellAbilityRestriction.java:583-598`) refuses an ability activated as often as its
+limit this turn (`ActivationLimit$`, 140 real `AB$` lines) or this game (`GameActivationLimit$`, 25).
+`activationLimitsMet` (`activateability.go`) is that check, run by `ActivateAbility` beside `timingRestrictionsMet`. The
+limit is an amount, `X` through the card's own SVars; one that cannot be resolved refuses the activation (GO-7).
+
+| State                             | Java                                      | Go                                        |
+| --------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| counts per `A:` line              | `Card.numberTurnActivations`/`...Game...` | `Card.activations`, keyed by line index   |
+| incremented when it goes on stack | `MagicStack.java:229,305`                 | `ActivateAbility`, after the cost is paid |
+| turn count reset                  | every card, cleanup (`Game.java:1239`)    | every card in the arena, `cleanupStep`    |
+| both counts reset                 | the card is a new object (CR 400.7)       | any zone change (`put`, `putFront`)       |
+
+A mana ability and an `SP$` spell with a limit are not checked (0 real `SP$` lines name one; `manaAbilityAllowedParams`
+refuses the mana lines). `charmeffect.go`, `untapalleffect.go` and `destroyalleffect.go` no longer reject the two keys.
+Tests: `activationlimits_test.go`.
+
+## `UnlessCost$` past mana, and Ward
+
+`resolveUnlessCost` (`effect.go`) pays "unless" costs through `parseUnlessCost`/`payUnlessCost` (`unlesscost.go`): mana
+tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>` (83, 14), one `Sac<N/Type>` (88, 5;
+`CARDNAME` sacrifices the source), one `Return<N/Type>` (`CARDNAME` or a valid string; `returnTypeCandidates` and
+`returnCards`, the activation-cost twins), `DamageYou<N>` (18; `dealPlayerDamage` from the source, always payable as
+`CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, which applies a draw replacement during payment; `CostDraw.canPay`
+reads `S:Mode$ CantDraw`, which this port does not read yet). `Reveal`, `ExileFromGrave`, `tapXType`, `AddCounter`,
+`Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and an `X` still error.
+
+| Step                     | Rule                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| decide                   | `ConfirmPayCost(g, payer, cost.Cost, source)`: the parsed cost replaces the mana-only argument   |
+| payable first            | life at least `PayLife` (CR 119.4), enough cards to discard, enough permanents to sacrifice      |
+| mana                     | `PayManaCost`, which fails atomically, so a cost that cannot be met pays none of its other parts |
+| life, discard, sacrifice | the `LifeChanged` event as `loseLifeEffect`; the payer chooses discards and sacrifices           |
+| return, damage, draw     | the payer chooses the permanents returned; damage and draws run last, as `CostDamage`/`CostDraw` |
+
+`checkWardTriggers` pushes a Ward trigger for any cost `parseUnlessCost` reads, so `Ward:PayLife<N>`,
+`Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,
+`CollectEvidence`, `Blight`, `AddCounterYou` and `Ward:X` are skipped before reaching the stack. Tests:
+`unlesscostparts_test.go`, `ward_test.go`.
+
+## Triggered `AB$` costs
+
+A trigger whose `Execute$` is an `AB$` line with a `Cost$` (884 real triggers on 828 cards: "you may pay {1}. If you do,
+...", `Discard<1/Card>`, `Sac<1/CARDNAME>`, `PayEnergy<2>`) used to resolve its effect for free.
+`WrappedAbility.resolve` plays the ability with its cost (`WrappedAbility.java:440`) and `TriggerHandler.java:511` makes
+it optional unless the cost is `0` or says `Mandatory`. `Registry.payTriggeredCost` (`effect.go`) is that: after the
+`OptionalDecider$` confirm, an ability of record `Activated` that is not one of its host's own printed `A:` lines, nor
+flagged `costPaid` by `ActivateAbility`, asks `ConfirmOptionalTrigger` (unless `Mandatory`) and pays the cost through
+`payUnlessCost`; unpaid, it does nothing. A cost `parseUnlessCost` does not read (`Reveal<N/Type>`, an `X`, ...) is an
+error, never a free resolution (GO-7). `PayEnergy<N>` and `Mandatory` joined `parseUnlessCost` for this.
+
+Guards that existed for the gap are gone: Meld's own `Cost$` rejection, the RingTemptsYou pre-check, and the spell-cast
+scan that left a cost trigger unfired on the stack (`executeHasCost`). Tests: `TestRingTemptsYouTriggerPaysItsCost`,
+`TestMeldVanillePaysItsTriggeredCost`, `TestSpellsOwnCastTriggerWithExecuteCostPaysIt`.
+
+## `Activator$`, `IsPresent$`, `LifeTotal$`, `Activation$` and `CheckSVar$`
+
+`SpellAbilityRestriction.checkActivatorRestrictions` and `checkOtherRestrictions`
+(`SpellAbilityRestriction.java:331-346,361-486`) become `activatorValid` and `otherRestrictionsMet`
+(`activateability.go`). `ActivateAbility` runs both; `castFromHand` runs `otherRestrictionsMet` on an Instant's or
+Sorcery's `SP$` line. They reuse the trigger-side evaluators (`isPresentMatches`, `lifeTotalMatches`,
+`checkSVarMatches`), so the two cannot drift.
+
+| Param (real `AB$` lines)                                        | Reading                                                                      |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `Activator$` (53)                                               | `matchesPlayerSpec` against the permanent's controller; default `You`        |
+| `IsPresent$` (112), `PresentCompare$` (29), `PresentZone$` (13) | count of matching cards, default `GE1`, default zone Battlefield             |
+| `LifeTotal$`, `LifeAmount$` (281)                               | `You` or `ActivePlayer` life against the compare                             |
+| `Activation$` (44)                                              | Threshold, Metalcraft, Delirium, Hellbent; Blessing and Solved refuse (GO-7) |
+| `CheckSVar$` (95), `SVarCompare$` (60)                          | one SVar chain link, default `GE1`; `CheckSecondSVar$` is not read, as Java  |
+
+`PresentPlayer$` and `IsPresent2$` are not read either: the restriction does not read them. With `Activator$ Opponent`
+or `Player` another player may activate a battlefield permanent; the permanent's own zone checks are unchanged. Sixteen
+`SP$` lines name `CheckSVar$`, four `IsPresent$`. Thirteen effects stopped rejecting `Activator$`, `CheckSVar$`,
+`SVarCompare$`, `IsPresent$` or `PresentCompare$` at resolve, since no effect reads them. Tests:
+`activationrestrictions_test.go`.
+
+## Flash and `Mode$ CastWithFlash`
+
+`SpellAbility.withFlash` (`SpellAbility.java:2608`) lets a spell be cast at instant speed when its card is an instant,
+carries the Flash keyword (638 `K:Flash` lines), or a `Mode$ CastWithFlash` static says so. `castFromHand` asks
+`castsWithFlash` (`staticability.go`) beside the Instant type and `MayPlayWithFlash$` before it falls back to
+`canActSorcerySpeed`.
+
+`StaticAbilityCastWithFlash` is ported for its plain shape (about 30 of the 57 lines): `ValidSA$ Spell`, `ValidCard$`
+matched against the spell's card, `Caster$` matched against the caster (absent matches anyone), `Condition$`, hosts from
+the battlefield, the Command zone and the card itself (`EffectZone$ All`). A line naming another `ValidSA$`
+(`Activated.Equip`, `Activated.Loyalty`, `Spell.XCostLE3`, `Spell.IsTargeting ...`), `IsPresent$` or `CheckSVar$` is
+skipped, never assumed met (GO-7). `MayFlashCost` and `MayFlashSac` (keywords granting flash for a price) are not read.
+Tests: `castflash_test.go`.
+
+## `Mode$ CantBeCast` and the shared static conditions
+
+`StaticAbilityCantBeCast.cantBeCastAbility` stops a player casting a card. `castSpell` (`castspell.go`), the one cast
+path for hand casts, `Play` and `Discover`, asks `cantBeCast` (`cantbecast.go`) first. Hosts are the battlefield and
+Command-zone statics plus the card itself (`staticHostsWith`; `EffectZone$ All` lines such as "can't be cast unless X").
+
+| Param                   | Reading (`applyCantBeCastAbility`)                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ValidCard$`, `Caster$` | `Matches` on the card, `matchesPlayerSpec` on the caster; absent matches anything                                                               |
+| `OnlySorcerySpeed$`     | applies only when the caster could not cast a sorcery (`canActSorcerySpeed`)                                                                    |
+| `Origin$`               | applies only to a card cast from one of the listed zones                                                                                        |
+| `NumLimitEachTurn$`     | applies once the caster cast that many spells; `Player.SpellsCastThisTurn` counts all spells, so only a `ValidCard$` of `Card` or none resolves |
+
+Any other param (`cmcGT$`, `CheckSVar$`, `IsPresent$`, ...) or an unrecognized `Caster$` makes the line unresolvable and
+it is not applied (GO-7).
+
+`staticConditionsMet` (`staticability.go`) is `StaticAbility.checkConditions` for every static mode that reads it: the
+host's own zone (`staticHostZoneOK`, `zonesCheck`: `EffectZone$` or in play, so a card's own battlefield static is off
+in hand), `Condition$` (`continuousConditionMet`), `Phases$` (`parsePhaseRange`) and `PlayerTurn$` (`definedPlayers`). A
+line naming a condition in `unresolvedStaticConditions` (`IsPresent$`, `CheckSVar$`, `LifeTotal$`, `Threshold$`, ...)
+does not hold. `combatDamageStatic`, `castWithFlashApplies` and `playerStaticApplies` use it, so the three share one
+definition of "the static is on". Tests: `cantbecast_test.go`.
+
+The same file holds the two siblings `StaticAbilityCantBeCast` carries. `CantBeActivated` (34 cards; `cantBeActivated`,
+asked by `ActivateAbility` and `ActivateManaAbility`) reads `ValidCard$` on the ability's source, `ValidSA$`
+(`validActivatedSA`: `Activated` with `ManaAbility` and `Loyalty`, each negatable), `AffectedZone$` and `Activator$`,
+over the static-ability source zones only. `CantPlayLand` (11; `cantPlayLand`, asked by `PlayLand` and by `Play`'s land
+option) reads `ValidCard$`, `Origin$` and `Player$`. A `ValidSA$` naming `Cycling`, `Equip` or any other property is
+unrecognized, and the line is not applied; so is any param outside the lists in `cantbecast.go`.

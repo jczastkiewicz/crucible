@@ -42,8 +42,7 @@ import (
 // ImprintCards$/ForgetImprinted$ (0/0/0/0/0/1/0) -- each its own further
 // tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/
 // NoteNumber$ (0/0/0/0) -- Player.noteNumberForName's own tracking, nothing
-// downstream reads yet; IsPresent$ (6) -- unclear semantics on a resolving
-// (not triggering) Pump line, skipped rather than assumed harmless;
+// downstream reads yet;
 // Optional$/OptionQuestion$ (0/0) -- a "may" confirmation this port's own
 // PlayerController has no hook for; Radiance$ (0) -- CardUtil.getRadiance's
 // own "and everything else that shares a color" fan-out.
@@ -80,7 +79,7 @@ var pumpUnresolvedParams = [...]string{
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
 	"DefinedLandwalk", "ForgetObjects", "RememberObjects", "RememberPumped", "LeaveBattlefield",
 	"ImprintCards", "ForgetImprinted", "NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
-	"NoteNumber", "IsPresent", "Optional", "OptionQuestion", "Radiance",
+	"NoteNumber", "Optional", "OptionQuestion", "Radiance",
 }
 
 // pumpEffect resolves SP$/DB$/AB$ Pump on its Defined$ cards (Self by

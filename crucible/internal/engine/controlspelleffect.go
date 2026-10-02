@@ -54,7 +54,7 @@ type namedSpell struct {
 	card CardID
 }
 
-func (controlSpellEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (controlSpellEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if a.targetsErr != nil {
 		return a.targetsErr
 	}
@@ -105,7 +105,7 @@ func (controlSpellEffect) Resolve(g *Game, a *Ability, _ PlayerController) error
 				source.Memory.Remember(CardEntity(a.Source))
 			}
 			newController = source.Controller()
-			g.changeControllerAt(a.Source, item.Controller, ts)
+			g.changeControllerAt(controller, a.Source, item.Controller, ts)
 		}
 		if !onStack {
 			// ControlSpellEffect.java:99 dereferences the missing stack

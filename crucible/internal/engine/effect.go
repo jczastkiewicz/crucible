@@ -2,15 +2,13 @@
 
 package engine
 
-//enginelint:allow id zone parts card player game ability control subability defined manapay
+//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost
 
 import (
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/cost"
-	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
 // Effect resolves one ability.
@@ -96,6 +94,9 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
 		return nil
 	}
+	if paid, err := r.payTriggeredCost(g, a, controller); err != nil || !paid {
+		return err
+	}
 	if int(a.API) >= numAPITypes {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
@@ -119,6 +120,36 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	return r.resolveSubAbility(g, a, controller)
 }
 
+// payTriggeredCost is the Cost$ half of WrappedAbility.resolve's
+// playSpellAbilityNoStack (WrappedAbility.java:440): a trigger whose Execute$
+// is an AB$ line with a Cost$ pays it as the ability resolves, and the
+// ability does nothing when the cost is not paid. Java makes such a trigger
+// optional -- "triggers with a cost can't be mandatory"
+// (TriggerHandler.java:511) -- unless the cost says Mandatory or is 0, so the
+// controller is asked once (ConfirmOptionalTrigger) unless an OptionalDecider$
+// already did. An ability whose cost ActivateAbility already paid
+// (Ability.costPaid), one of the host's own printed A: lines, and every DB$
+// line skip this. A cost parseUnlessCost does
+// not read is an error rather than a free resolution (GO-7). paid reports
+// whether the ability goes on to resolve.
+func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerController) (paid bool, err error) {
+	if a.costPaid || a.Params == nil || a.Params.Record != compile.Activated || isOwnActivatedAbility(g.Card(a.Source), a.Params) {
+		return true, nil
+	}
+	text, ok := a.Params.Param("Cost")
+	if !ok || text == "0" {
+		return true, nil
+	}
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		return false, fmt.Errorf("engine: triggered AB$ Cost$ %q not resolvable yet", text)
+	}
+	if !a.Optional && !uc.mandatory && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
+		return false, nil
+	}
+	return g.payUnlessCost(controller, a, a.Controller, uc), nil
+}
+
 // resolveUnlessCost is CR's own "unless a cost is paid" gate --
 // AbilityUtils.handleUnlessCost, ported apart from the ordinary
 // Resolve/resolveSubAbility pairing above because Java's own version
@@ -139,15 +170,13 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 // SubAbility$ still runs regardless (absent, Java's own "Always") or only
 // on one particular outcome ("WhenPaid"/"WhenNotPaid").
 //
-// Trimmed to the corpus's own one resolvable shape, and further to what is
-// actually reachable at all: a pure-mana UnlessCost$ (cost.Parse's own Mana
-// tokens alone -- no Sac<.../Discard<.../PayLife<.../... cost Part, no
-// Tap/Untap/Mandatory/XMin token, and no X shard once parsed, each its own
-// further mechanic with nowhere to route a mid-resolution "decide, then
-// pay" question through) and an explicit UnlessPayer$ naming
-// You/Player/Opponent/Player.Opponent (definedPlayers, reused). 56 of the
-// corpus's 727 real UnlessCost$ lines resolve past this gate and are
-// actually reachable by this port at all -- an activated ability's own
+// Trimmed to what parseUnlessCost (unlesscost.go) reads: mana tokens,
+// PayLife<N>, Discard<N/Card> and one Sac<N/Type> part -- no Tap/Untap/
+// Mandatory/XMin token and no X shard, each its own further mechanic -- and
+// an explicit UnlessPayer$ naming You/Player/Opponent/Player.Opponent
+// (definedPlayers, reused). A cost this port cannot read fails loudly here.
+// Of the corpus's 727 real UnlessCost$ lines, those with a readable cost are
+// reachable by this port at all -- an activated ability's own
 // Cost$-gated UnlessCost$ line composes with ActivateAbility
 // (activateability.go) too, now that general activated-ability casting is
 // built, an instant/sorcery's own top-level UnlessCost$ line still does not
@@ -160,12 +189,8 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 // "skip the whole line" applied at whichever link in the chain the actual
 // gap sits.
 func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerController, e Effect, unlessCostText string) error {
-	parsed := cost.Parse(unlessCostText)
-	if !parsed.IsPureMana() {
-		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
-	}
-	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
-	if err != nil || manaCost.CountX() > 0 {
+	uc, ok := parseUnlessCost(unlessCostText)
+	if !ok {
 		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
 	}
 
@@ -185,7 +210,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 
 	paid := false
 	for _, pid := range payers {
-		if controller.ConfirmPayCost(g, pid, manaCost, a.Source) && g.PayManaCost(pid, manaCost, controller) {
+		if (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, a.Source)) && g.payUnlessCost(controller, a, pid, uc) {
 			paid = true
 		}
 	}
@@ -215,3 +240,18 @@ func (r *Registry) Implemented() int {
 
 // NumAPIs is how many ability APIs Forge declares.
 func NumAPIs() int { return numAPITypes }
+
+// isOwnActivatedAbility reports whether ab is one of host's own printed A:
+// lines -- abilities whose Cost$ ActivateAbility (activateability.go) pays
+// before they reach the stack, however they were pushed.
+func isOwnActivatedAbility(host *Card, ab *compile.Ability) bool {
+	if host.Def == nil {
+		return false
+	}
+	for _, own := range host.Def.Faces[0].Abilities {
+		if own == ab {
+			return true
+		}
+	}
+	return false
+}

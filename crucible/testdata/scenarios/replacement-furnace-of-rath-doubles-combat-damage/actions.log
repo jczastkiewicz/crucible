@@ -1,0 +1,13 @@
+# CR 614.1: Furnace of Rath's R:Event$ DamageDone | ReplaceWith$ DmgTwice
+# doubles the damage a source would deal to a player: an unblocked Grizzly
+# Bears (2 power) deals 4 combat damage to the AI.
+startturn human
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

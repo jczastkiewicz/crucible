@@ -1,0 +1,6 @@
+# Leyline of the Void's R:Event$ Moved | Destination$ Graveyard |
+# ValidCard$ Card.!token+OppOwn: only a card an opponent of the Leyline's
+# controller owns is exiled instead. Both damaged Grizzly Bears die in the same
+# state-based-action pass; the AI's is exiled, the human's goes to the
+# graveyard.
+startturn human

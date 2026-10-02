@@ -452,22 +452,23 @@ func TestMeldHanweirConditionNeedsGarrisonYouOwn(t *testing.T) {
 	}
 }
 
-// TestMeldRejectsVanillesUnpaidTriggeredCost: Vanille, Cheerful l'Cie's
-// trigger executes AB$ Meld | Cost$ 3 B G, a cost no triggered ability asks
-// for yet; resolving it would meld for free, so it errors before anything
-// moves.
-func TestMeldRejectsVanillesUnpaidTriggeredCost(t *testing.T) {
+// TestMeldVanillePaysItsTriggeredCost: Vanille, Cheerful l'Cie's trigger
+// executes AB$ Meld | Cost$ 3 B G, which Registry.payTriggeredCost asks for as
+// the trigger resolves. Declined, nothing is paid and nothing melds.
+func TestMeldVanillePaysItsTriggeredCost(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
 	vanille := g.NewCard(corpusCard(t, "Vanille, Cheerful l'Cie"), p, engine.Battlefield)
 	fang := g.NewCard(corpusCard(t, "Fang, Fearless l'Cie"), p, engine.Battlefield)
-	err := resolveMeldOf(t, g, p, vanille, engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "Cost$") {
-		t.Errorf("err = %v, want one naming Cost$", err)
+	c := engine.NewScriptedController()
+	c.QueueConfirmOptionalTrigger(false)
+
+	if err := resolveMeldOf(t, g, p, vanille, c); err != nil {
+		t.Fatalf("Meld: %v", err)
 	}
 	if g.Card(vanille).Zone != engine.Battlefield || g.Card(fang).Zone != engine.Battlefield {
-		t.Error("a card moved before the rejection")
+		t.Error("a card moved though the controller declined to pay")
 	}
 }
 

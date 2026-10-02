@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Combat Damage
+humanlife=20
+humanbattlefield=Furnace of Rath;Grizzly Bears|Tapped
+ailife=16

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -158,7 +159,7 @@ func (c *scriptedMulliganController) ConfirmOptionalTrigger(_ *engine.Game, _ en
 	panic("scriptedMulliganController: ConfirmOptionalTrigger was not expected to be called")
 }
 
-func (c *scriptedMulliganController) ConfirmPayCost(_ *engine.Game, _ engine.PlayerID, _ mana.Cost, _ engine.CardID) bool {
+func (c *scriptedMulliganController) ConfirmPayCost(_ *engine.Game, _ engine.PlayerID, _ cost.Cost, _ engine.CardID) bool {
 	panic("scriptedMulliganController: ConfirmPayCost was not expected to be called")
 }
 

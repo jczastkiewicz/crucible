@@ -1,0 +1,13 @@
+# CR 702.15b: Mesa Unicorn (2/2 lifelink) is unblocked, so it deals 2 to the AI
+# and its controller gains 2 (GameAction.dealDamage sums each source's damage
+# and gains once, GameAction.java:2733-2736).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

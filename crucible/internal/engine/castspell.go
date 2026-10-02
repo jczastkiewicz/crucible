@@ -119,11 +119,11 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 	if !fromHand && !granted {
 		return false
 	}
-	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.canActSorcerySpeed(pid) {
+	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
 		return false
 	}
 	if castableAsInstantOrSorcery(c) {
-		if spell := firstSpellAbility(c); spell != nil && !g.timingRestrictionsMet(pid, spell) {
+		if spell := firstSpellAbility(c); spell != nil && (!g.timingRestrictionsMet(pid, spell) || !g.otherRestrictionsMet(c, spell)) {
 			return false
 		}
 	}
@@ -149,6 +149,9 @@ type castOpts struct {
 // castWithoutPaying) calls it with timing ignored (CR 608.2g). Reports false
 // for every legal-but-declined case the three branches name.
 func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
+	if g.cantBeCast(pid, card) {
+		return false
+	}
 	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller, opts)

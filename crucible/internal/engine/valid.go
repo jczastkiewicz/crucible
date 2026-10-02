@@ -424,6 +424,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// "TargetedPlayer", spellAbility)). The ability is Game.resolving when it
 	// is source's own; outside one nothing is targeted and the property is
 	// false, as Java's null spellAbility gives an empty list.
+	// ControlledBy <player spec>: c's controller matches the spec from the
+	// source's point of view (CardProperty.java's ControlledBy branch).
+	case strings.HasPrefix(name, "ControlledBy "):
+		matched, ok := matchesPlayerSpec(g, c.Controller(), sourceController, source, strings.TrimPrefix(name, "ControlledBy "))
+		return ok && matched
 	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned).
 	case name == "canBeBeamedUp":
 		return !g.cantBeBeamedUp(c)

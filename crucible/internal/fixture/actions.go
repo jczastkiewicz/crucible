@@ -128,6 +128,23 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		l.Game.StartTurn(pid, c)
 
+	case "foretell":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if len(args) < 2 {
+			return fmt.Errorf("foretell: want a player and a card id, got %q", strings.Join(args, " "))
+		}
+		ids, err := resolveCardIDs(l, args[1])
+		if err != nil {
+			return fmt.Errorf("foretell: %w", err)
+		}
+		if len(ids) != 1 {
+			return fmt.Errorf("foretell: want exactly one card id, got %q", args[1])
+		}
+		l.Game.Foretell(pid, ids[0], c)
+
 	case "concede":
 		pid, err := resolveActionPlayer(l, args, 1)
 		if err != nil {
@@ -628,6 +645,11 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 			return engine.Action{Kind: kind, Card: ids[0], Door: d}, pid, nil
 		}
 		return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes a card id and a door, got %q", args[1], strings.Join(args[2:], " "))
+	case "foretell":
+		if len(args) != 3 {
+			return engine.Action{}, engine.NoPlayer, fmt.Errorf("foretell takes one card id, got %q", strings.Join(args[2:], " "))
+		}
+		return engine.Action{Kind: engine.ActionForetell, Card: ids[0]}, pid, nil
 	case "playland":
 		if len(args) != 3 {
 			return engine.Action{}, engine.NoPlayer, fmt.Errorf("%s takes one card id, got %q", args[1], strings.Join(args[2:], " "))
@@ -656,7 +678,7 @@ func resolveAction(l *Loaded, args []string) (engine.Action, engine.PlayerID, er
 		}
 		return engine.Action{Kind: engine.ActionTapForMana, Card: ids[0], Color: color}, pid, nil
 	default:
-		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want pass, cast, activate, playland, tapformana, manaability or unlockdoor, got %q", args[1])
+		return engine.Action{}, engine.NoPlayer, fmt.Errorf("want pass, cast, activate, playland, tapformana, manaability, foretell or unlockdoor, got %q", args[1])
 	}
 }
 

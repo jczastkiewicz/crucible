@@ -109,6 +109,11 @@ type Game struct {
 	activePlayer PlayerID
 	activePhase  PhaseType
 
+	// castThisTurn is every spell cast this turn, in order, with who cast it
+	// and from where (Count$ThisTurnCast_<valid>, castrecord.go); cleared when
+	// a new turn starts.
+	castThisTurn []castRecord
+
 	// sink is where this game's events go. DiscardSink by default: most
 	// callers -- every test, fixture loading -- have nothing listening and
 	// should not have to construct a sink just to build a game.
@@ -179,6 +184,9 @@ type Game struct {
 	// continuous effect is, and read by CastSpell/PlayLand through
 	// mayPlayOption.
 	mayPlay []mayPlayGrant
+	// mayPlayUses counts the casts this turn through each MayPlayLimit$
+	// grant (castoptions.go).
+	mayPlayUses map[mayPlayLimitKey]mayPlayUse
 
 	// dayTime is Game.daytime: DayNeither until something makes it day or
 	// night (DayTime, CR 726.2), then Day or Night.
@@ -366,45 +374,7 @@ func (g *Game) TakePendingError() error {
 	return err
 }
 
-// mayPlayOption is the MayPlay$ side of SpellAbilityRestriction's zone
-// check (SpellAbilityRestriction.java:231-255) for pid about to cast or
-// play card: the one option every live grant for it agrees on, and whether
-// pid may use it. fromHand says card is already castable from pid's own
-// hand, which alone supplies the zone permission a
-// MayPlayDontGrantZonePermissions$ grant lacks.
-//
-// Java offers each grant as its own spell ability for the player to pick
-// between, and casting from hand stays an option beside them. This port
-// has no PlayerController decision for that pick, so it errors (GO-7)
-// rather than choosing whenever the pick would matter: two live grants
-// that differ in cost or timing, or a cost-changing grant on a card pid
-// could also cast normally from hand. A grant that only adds flash leaves
-// nothing to pick and is used as is.
-func (g *Game) mayPlayOption(pid PlayerID, card CardID, fromHand bool) (mayPlayGrant, bool, error) {
-	c := g.Card(card)
-	var found mayPlayGrant
-	n, zonePermission := 0, fromHand
-	for _, gr := range g.mayPlay {
-		if gr.CardID != card || gr.Grantee != pid || gr.Timestamp != c.Timestamp {
-			continue
-		}
-		if n > 0 && (gr.WithoutManaCost != found.WithoutManaCost || gr.WithFlash != found.WithFlash) {
-			return mayPlayGrant{}, false, fmt.Errorf("engine: card %d: choosing between MayPlay$ options not resolvable yet", card)
-		}
-		zonePermission = zonePermission || gr.ZonePermission
-		found = gr
-		n++
-	}
-	if n == 0 || !zonePermission {
-		return mayPlayGrant{}, false, nil
-	}
-	if fromHand && found.WithoutManaCost {
-		return mayPlayGrant{}, false, fmt.Errorf("engine: card %d: choosing between casting from hand and MayPlay$ without its mana cost not resolvable yet", card)
-	}
-	return found, true, nil
-}
-
-// mayPlayLand is mayPlayOption for a land outside pid's hand: a land has no
+// mayPlayLand is castOptions for a land outside pid's hand: a land has no
 // cost or timing option to choose between, so any live grant with the zone
 // permission lets pid play it.
 func (g *Game) mayPlayLand(pid PlayerID, card CardID) bool {
@@ -643,6 +613,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	if from == Exile && kind != Exile {
+		c.foretold = false
+	}
 	if from == Stack && c.flashbackCast {
 		// CR 702.34a, Flashback's replacement (CardFactoryUtil.java:2252:
 		// Event$ Moved | Origin$ Stack | ExcludeDestination$ Exile): a spell
@@ -1111,6 +1084,7 @@ func (g *Game) Clone() *Game {
 		preventShields:        append([]preventShield(nil), g.preventShields...),
 		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
 		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
+		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
 		dayTime:               g.dayTime,
 		previousPlayer:        g.previousPlayer,
 		previousPlayerSpells:  g.previousPlayerSpells,
@@ -1198,4 +1172,24 @@ type xContext struct {
 	// source is the card the ability belongs to: the X is that ability's, not
 	// that of a card an effect of it puts onto the battlefield.
 	source CardID
+}
+
+// castRecord is one spell cast: the card, its caster (who controlled it on
+// the stack) and the zone it was cast from.
+type castRecord struct {
+	card       CardID
+	controller PlayerID
+	from       ZoneType
+}
+
+// cloneMayPlayUses copies the counter map for Game.Clone.
+func cloneMayPlayUses(m map[mayPlayLimitKey]mayPlayUse) map[mayPlayLimitKey]mayPlayUse {
+	if m == nil {
+		return nil
+	}
+	out := make(map[mayPlayLimitKey]mayPlayUse, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }

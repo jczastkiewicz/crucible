@@ -1,0 +1,9 @@
+# CR 702.143a: foretell is a special action -- pay {2} on your turn and exile the
+# card from your hand. Demon Bolt ends up in exile and both Mountains are tapped.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+queue paygeneric R
+queue paygeneric R
+foretell human 1

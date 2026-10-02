@@ -726,7 +726,7 @@ Shared engine pieces:
 - **`ExilePlayGrant`** (`airbendeffect.go`, `Game.exileGrants`, copied by `Clone`): the `MayPlay$` static on the
   command-zone effect card `AirbendEffect.java:95-104` and `HeistEffect.java:58-67` create. Their forget-on-moved and
   forget-on-cast triggers fold into the card's exile timestamp: any later zone change ends the grant.
-  `Game.MayPlayFromExile` is the query; `CastSpell` still casts only from hand, so nothing consumes it yet.
+  `Game.MayPlayFromExile` is the query; `castOptions` (`cast-options.md`) offers it as a cast option.
 - **Delayed battlefield-leaving triggers** (`delayedtrigger.go`, `delayedLeftBattlefieldMatches`): a delayed
   `Mode$ ChangesZone` (Origin Battlefield, Destination the zone) or `Mode$ Exiled` trigger with
   `ValidCard$ Card.IsTriggerRemembered`, checked from `checkDiesTriggers` and `checkExiledTriggers`. Fires once and is

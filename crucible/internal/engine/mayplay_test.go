@@ -179,20 +179,34 @@ func TestMayPlayWithoutZonePermissionGrantsNothingAlone(t *testing.T) {
 }
 
 // Omniscience: casting from hand stays an option beside the free MayPlay$
-// one, and this port has no decision to pick between them, so the cast is
-// refused with a pending error rather than a guess (GO-7).
-func TestMayPlayHandChoiceFailsClosed(t *testing.T) {
+// one, and the controller picks between them (ChooseOption): index 0 is the
+// normal cast, which needs the mana, index 1 the free one.
+func TestMayPlayHandChoiceOffersBothWays(t *testing.T) {
 	t.Parallel()
-	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
-	g.NewCard(corpusCard(t, "Omniscience"), p, engine.Battlefield)
-	bear := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
-	sba(g)
-
-	g.Player(p).ManaPool.Add(mana.Green, 2)
-	if g.CastSpell(p, bear, engine.NewScriptedController()) {
-		t.Error("CastSpell picked between hand and Omniscience on its own")
-	}
-	if err := g.TakePendingError(); err == nil {
-		t.Error("no pending error for the unresolvable choice")
+	for _, tc := range []struct {
+		name   string
+		pick   int
+		pool   int
+		wantOK bool
+	}{
+		{"free", 1, 0, true},
+		{"normal with the mana", 0, 2, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			g.NewCard(corpusCard(t, "Omniscience"), p, engine.Battlefield)
+			bear := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Hand)
+			sba(g)
+			c := engine.NewScriptedController()
+			c.QueueOption(tc.pick)
+			if tc.pool > 0 {
+				g.Player(p).ManaPool.Add(mana.Green, tc.pool)
+				c.QueuePayGeneric(mana.ShardG)
+			}
+			if got := g.CastSpell(p, bear, c); got != tc.wantOK {
+				t.Fatalf("CastSpell = %v, want %v", got, tc.wantOK)
+			}
+		})
 	}
 }

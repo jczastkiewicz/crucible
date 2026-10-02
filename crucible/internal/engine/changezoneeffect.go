@@ -69,7 +69,9 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if z == Command && dest == Exile {
 				continue
 			}
-			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Sideboard {
+			// Stack only for a spell exiling itself ("Exile CARDNAME", Mnemonic
+			// Betrayal): the loop below refuses any other spell.
+			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Sideboard && z != Stack {
 				return fmt.Errorf("engine: ChangeZone: Origin$ %v not resolvable yet", z)
 			}
 		}
@@ -195,6 +197,9 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		}
 	}
 	for _, id := range cards {
+		if c := g.Card(id); c.Zone == Stack && zoneIn(Stack, origin) && id != a.Source {
+			return fmt.Errorf("engine: ChangeZone: Origin$ Stack for a spell other than its own host not resolvable yet")
+		}
 		if c := g.Card(id); c.Zone == Command && zoneIn(Command, origin) && !c.IsEffect {
 			return fmt.Errorf("engine: ChangeZone: Origin$ Command for a card that is not an effect not resolvable yet")
 		}

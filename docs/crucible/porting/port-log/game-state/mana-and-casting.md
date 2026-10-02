@@ -567,10 +567,12 @@ and Command zone plus the card itself (`EffectZone$ All`: "this spell costs {1} 
 `AffectedZone$` the card's zone; `Amount$` is a number or an SVar of the host's face (`resolveNamedAmount`, so
 `Count$Valid ...` resolves). An X in the cost is untouched.
 
-Not applied, never assumed (GO-7): `ValidTarget$` (the spell's targets are chosen after the cost in this port; about 25
-lines), `Color$`/`IgnoreGeneric$`, `Relative$`, `UpTo$`, `OnlyFirstSpell$`, `ValidSpell$`, `ForEachShard$`,
-`Type$ Ability` (activated-ability costs: Equip's `ReduceCost`), `SetCost` (Trinisphere), `CheckSVar$`/`IsPresent$`
-conditions, and the keyword reductions (Affinity, Convoke, Delve, Improvise, Assist, Emerge). Tests: `costmod_test.go`.
+A `ReduceCost` line with a shape below is left unapplied; a `RaiseCost` line naming this card and caster with such a
+shape refuses the cast (`spellCost` returns false), since casting for less than Java charges is the wrong error. Shapes:
+`ValidTarget$` (the spell's targets are chosen after the cost in this port; about 25 lines), `Color$`/`IgnoreGeneric$`,
+`Relative$`, `UpTo$`, `OnlyFirstSpell$`, `ValidSpell$`, `ForEachShard$`, `Type$ Ability` (activated-ability costs:
+Equip's `ReduceCost`), `SetCost` (Trinisphere), `CheckSVar$`/`IsPresent$` conditions, and the keyword reductions
+(Affinity, Convoke, Delve, Improvise, Assist, Emerge). Tests: `costmod_test.go`.
 
 ## Kicker
 
@@ -583,9 +585,9 @@ cost asks -- once per kicker cost, and records the answer as `Card.kicker` bits 
 
 Readers: `Count$Kicked.<yes>.<no>` and `Count$TimesKicked` (`Card.kickerMagnitude`: 0, 1 or 2 as
 `Card.getKickerMagnitude`), the `kicked`/`kicked 1`/`kicked 2` valid properties (`valid.go`), and `Condition$ Kicked` /
-`Kicked 1` / `Kicked 2` (`condition.go`; any other `Condition$` value still skips the ability). Not offered: a kicker
-whose cost is not a plain mana cost (`Sac<..>`), Multikicker, and `Spell.Kicked` as a spell-ability property. Tests:
-`kicker_test.go`.
+`Kicked 1` / `Kicked 2` (`condition.go`; any other `Condition$` value still skips the ability). A free cast (`Play`'s
+`WithoutManaCost$`) still asks and pays the kicker (CR 118.9d). Not offered: a kicker whose cost is not a plain mana
+cost (`Sac<..>`), Multikicker, and `Spell.Kicked` as a spell-ability property. Tests: `kicker_test.go`.
 
 ## Convoke, Improvise and Delve
 

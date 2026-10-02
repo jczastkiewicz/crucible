@@ -33,9 +33,9 @@ var costModParams = map[string]bool{
 // against the converted cost). Hosts are the battlefield and Command-zone
 // statics and the card itself (EffectZone$ All). An X in the cost is
 // untouched: only the generic part shrinks.
-func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) mana.Cost {
+func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) (mana.Cost, bool) {
 	if base.IsNoCost() {
-		return base
+		return base, true
 	}
 	c := g.Card(card)
 	generic := base.Generic()
@@ -56,9 +56,17 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) mana.Cost {
 			face := &h.Def.Faces[i]
 			for _, s := range face.Statics {
 				switch {
-				case strings.EqualFold(s.Name, "RaiseCost") && g.costModApplies(pid, c, h, s):
-					raises = append(raises, line{h, s, face})
-				case strings.EqualFold(s.Name, "ReduceCost") && g.costModApplies(pid, c, h, s):
+				case strings.EqualFold(s.Name, "RaiseCost"):
+					switch g.costModStatus(pid, c, h, s) {
+					case costModApplies:
+						raises = append(raises, line{h, s, face})
+					case costModUnresolvable:
+						// A raise this port cannot evaluate: casting for less
+						// than Java would charge is wrong, so the cast is
+						// refused (GO-7).
+						return base, false
+					}
+				case strings.EqualFold(s.Name, "ReduceCost") && g.costModStatus(pid, c, h, s) == costModApplies:
 					reduces = append(reduces, line{h, s, face})
 				}
 			}
@@ -69,7 +77,7 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) mana.Cost {
 		if raw, ok := r.s.Param("Amount"); ok {
 			n, ok := costModAmount(g, r.face, r.host, raw)
 			if !ok {
-				continue
+				return base, false
 			}
 			count = n
 		}
@@ -79,7 +87,7 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) mana.Cost {
 		}
 		add, err := mana.Parse(text)
 		if err != nil || add.CountX() > 0 {
-			continue
+			return base, false
 		}
 		for range max(count, 0) {
 			generic += add.Generic()
@@ -105,36 +113,52 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) mana.Cost {
 			reduced += min(value, maxReduction)
 		}
 	}
-	return mana.FromShards(shards, max(generic-reduced, 0))
+	return mana.FromShards(shards, max(generic-reduced, 0)), true
 }
 
-// costModApplies is CostAdjustment.checkRequirement for a spell: the static's
-// conditions hold, Type$ is Spell, ValidCard$ matches the card, Activator$ the
-// caster, AffectedZone$ the zone the card is in, and every param is one this
-// port reads.
-func (g *Game) costModApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
-	if !paramsResolvable(s, costModParams) || !g.staticConditionsMet(host, s) {
-		return false
-	}
+// costModResult is how a RaiseCost/ReduceCost line stands against a cast.
+type costModResult int
+
+const (
+	costModSkips costModResult = iota
+	costModApplies
+	// costModUnresolvable: the line names this card, caster and a spell, but
+	// carries a param or condition this port does not evaluate.
+	costModUnresolvable
+)
+
+// costModStatus is CostAdjustment.checkRequirement for a spell: Type$ is Spell,
+// ValidCard$ matches the card, Activator$ the caster and AffectedZone$ the
+// zone the card is in -- else the line skips. A line that passes those but has a
+// param outside costModParams, or whose conditions do not hold, is applied only
+// when everything is evaluable; with an unlisted param it is
+// costModUnresolvable.
+func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability) costModResult {
 	if t, ok := s.Param("Type"); !ok || t != "Spell" {
-		return false
+		return costModSkips
 	}
 	if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), host.Controller(), host.ID) {
-		return false
+		return costModSkips
 	}
 	if v, ok := s.Param("Activator"); ok {
 		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, v)
 		if !recognized || !matched {
-			return false
+			return costModSkips
 		}
 	}
 	if v, ok := s.Param("AffectedZone"); ok {
 		zones, err := parseZoneList(v)
 		if err != nil || !zoneIn(c.Zone, zones) {
-			return false
+			return costModSkips
 		}
 	}
-	return true
+	if !paramsResolvable(s, costModParams) {
+		return costModUnresolvable
+	}
+	if !g.staticConditionsMet(host, s) {
+		return costModSkips
+	}
+	return costModApplies
 }
 
 // costModAmount is a line's Amount$: a plain number, or an SVar of the host's

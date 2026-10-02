@@ -219,3 +219,17 @@ func TestPermanentSpellAdditionalCostIsPaid(t *testing.T) {
 		t.Errorf("the discarded card is in %v, want Graveyard", g.Card(pitch).Zone)
 	}
 }
+
+// A RaiseCost this port cannot evaluate refuses the cast rather than casting
+// for less than Java charges (GO-7).
+func TestUnresolvableRaiseCostRefusesTheCast(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(scriptDef(t, "Test Tax", "Enchantment",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ValidTarget$ Creature"), p, engine.Battlefield)
+	card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
+	if castWithGreen(g, p, card, 9) {
+		t.Error("a spell was cast under a RaiseCost the engine cannot evaluate")
+	}
+}

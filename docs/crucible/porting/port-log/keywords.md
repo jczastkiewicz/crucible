@@ -120,10 +120,10 @@ Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability th
 activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
 protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
 `AffectedDefined$ Equipped/Enchanted` (`layers.md`). Granted keywords (`AddKeyword$ Prowess`) do not expand yet: they
-need ADR-0023's trait overlay. Persist and Undying needed `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the
-permanent enters with the counters before its enter replacements, `moveByEffect`'s `enterCounters`) and
-`Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters trigger recorded); Annihilator needed
-`Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario
+need ADR-0023's trait overlay. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying
+needed `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the permanent enters with the counters before its enter
+replacements, `moveByEffect`'s `enterCounters`) and `Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters
+trigger recorded); Annihilator needed `Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario
 `equip-bonesplitter-attaches-to-a-creature-at-sorcery-speed`. Golden: `TestCorpusAST` changed for the 1,055 cards
 carrying these keywords.
 

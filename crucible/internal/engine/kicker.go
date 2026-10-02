@@ -48,11 +48,11 @@ func kickerCosts(c *Card) []kickerOption {
 
 // chooseKicker asks pid, for each kicker cost c has, whether to pay it
 // (ConfirmPayCost, the same "pay this optional cost?" question an unless cost
-// asks), and returns the bits chosen. Nothing is asked of a card with no
-// kicker or a spell cast without paying its cost.
-func (g *Game) chooseKicker(controller PlayerController, pid PlayerID, c *Card, withoutCost bool) uint8 {
+// asks), and returns the bits chosen -- also for a free cast, which still pays
+// the optional costs (CR 118.9d; PlaySpellAbility.chooseOptionalAdditionalCosts).
+func (g *Game) chooseKicker(controller PlayerController, pid PlayerID, c *Card) uint8 {
 	options := kickerCosts(c)
-	if len(options) == 0 || withoutCost || c.Def.Faces[0].ManaCost.IsNoCost() {
+	if len(options) == 0 {
 		return 0
 	}
 	var bits uint8

@@ -87,16 +87,18 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	return changeZoneKnown(g, a, controller, source, origin, dest, newController)
 }
 
-// changeZoneEnter reads WithCountersType$ and WithCountersAmount$ (default 1):
-// the counters a permanent entering the battlefield gets. A kind list or "Any"
-// is an interactive choice this port does not make (GO-7).
-func changeZoneEnter(g *Game, a *Ability) ([]enterCounters, error) {
+// changeZoneEnter reads WithCountersType$ (a comma list, each kind added) and
+// WithCountersAmount$ (default 1): the counters a permanent entering the
+// battlefield gets (ChangeZoneEffect.java:614). "Any" is a choice this port does
+// not make, and counters on a destination other than the battlefield are not
+// applied, so either is an error rather than a silent omission (GO-7).
+func changeZoneEnter(g *Game, a *Ability, dest ZoneType) ([]enterCounters, error) {
 	raw, ok := a.Params.Param("WithCountersType")
 	if !ok {
 		return nil, nil
 	}
-	if strings.ContainsAny(raw, ", ") || strings.EqualFold(raw, "Any") {
-		return nil, fmt.Errorf("engine: ChangeZone: WithCountersType$ %q not resolvable yet", raw)
+	if dest != Battlefield {
+		return nil, fmt.Errorf("engine: ChangeZone: WithCountersType$ with Destination$ %v not resolvable yet", dest)
 	}
 	n := 1
 	if amount, ok := a.Params.Param("WithCountersAmount"); ok {
@@ -106,7 +108,15 @@ func changeZoneEnter(g *Game, a *Ability) ([]enterCounters, error) {
 		}
 		n = v
 	}
-	return []enterCounters{{kind: CounterType(strings.ToUpper(raw)), n: n}}, nil
+	var out []enterCounters
+	for _, kind := range strings.Split(raw, ",") {
+		kind = strings.TrimSpace(kind)
+		if kind == "" || strings.EqualFold(kind, "Any") {
+			return nil, fmt.Errorf("engine: ChangeZone: WithCountersType$ %q not resolvable yet", raw)
+		}
+		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(kind)), n: n})
+	}
+	return out, nil
 }
 
 // changeZoneGainControl reads GainControl$: "True" is the activator,
@@ -160,7 +170,7 @@ func changeZonePreMemory(a *Ability, source *Card) {
 // cards heading into a library are ordered by their owners first (CR
 // 401.4) unless Shuffle$ True will shuffle them anyway.
 func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID) error {
-	enter, err := changeZoneEnter(g, a)
+	enter, err := changeZoneEnter(g, a, dest)
 	if err != nil {
 		return err
 	}
@@ -264,7 +274,7 @@ type hiddenChoice struct {
 // before the move when the destination is the library itself, so a fetched
 // card placed on top stays there.
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID) error {
-	enter, err := changeZoneEnter(g, a)
+	enter, err := changeZoneEnter(g, a, dest)
 	if err != nil {
 		return err
 	}

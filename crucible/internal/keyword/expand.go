@@ -40,7 +40,7 @@ func Expand(k Keyword) (Expansion, bool) {
 	case "TypeCycling":
 		// TypeCycling:<type>:<cost>, CardFactoryUtil.java:3733.
 		args := k.Args()
-		if len(args) != 2 || args[0] == "" || args[1] == "" {
+		if len(args) < 2 || args[0] == "" || args[1] == "" {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + args[1] + " Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ " + args[0]}}, true

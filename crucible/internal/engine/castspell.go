@@ -159,13 +159,22 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
-		if k.Name != "Flashback" || k.Details == "" {
+		if k.Name != "Flashback" {
 			continue
 		}
-		if parsed := cost.Parse(k.Details); !parsed.IsPureMana() {
+		text := k.Details
+		if text == "" {
+			// A bare Flashback (granted by AddKeyword$) is cast for the card's
+			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword).
+			if c.Def.Faces[0].ManaCost.IsNoCost() {
+				return mana.Cost{}, false
+			}
+			return c.Def.Faces[0].ManaCost, true
+		}
+		if parsed := cost.Parse(text); !parsed.IsPureMana() {
 			return mana.Cost{}, false
 		}
-		mc, err := mana.Parse(k.Details)
+		mc, err := mana.Parse(text)
 		if err != nil || mc.CountX() > 0 {
 			return mana.Cost{}, false
 		}
@@ -206,7 +215,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	// Kicker is chosen as the spell is announced; the card carries the choice
 	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
 	// forgets it.
-	opts.kickers = g.chooseKicker(controller, pid, g.Card(card), opts.withoutManaCost)
+	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	if !g.castSpellChosen(controller, pid, card, opts) {
 		g.Card(card).kicker = 0
@@ -269,14 +278,21 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 // cast announces none: its cost has no X part left, and
 // PlaySpellAbility.announceValuesLikeX leaves xManaCostPaid null then.
 func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
-	if opts.withoutManaCost {
-		return xAnnounced{}, true
-	}
 	base := c.Def.Faces[0].ManaCost
-	if opts.hasAltCost {
+	switch {
+	case opts.withoutManaCost && opts.kickers == 0:
+		return xAnnounced{}, true
+	case opts.withoutManaCost:
+		// A free cast still pays the optional costs chosen (CR 118.9d).
+		base = mana.Cost{}
+	case opts.hasAltCost:
 		base = opts.altCost
 	}
-	total, assist := g.assistCost(controller, pid, c, g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base)))
+	total, ok := g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	if !ok {
+		return xAnnounced{}, false
+	}
+	total, assist := g.assistCost(controller, pid, c, total)
 	x, paid := g.payManaCostX(pid, total, controller)
 	if paid {
 		assist.settle(g, controller)
@@ -559,7 +575,7 @@ func (g *Game) attachActivated(a *Ability) error {
 		}
 	}
 	source := g.Card(a.Source)
-	if source.Zone != Battlefield {
+	if source.Zone != Battlefield || !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
 	for _, e := range a.Targets {

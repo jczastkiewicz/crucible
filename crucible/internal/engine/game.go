@@ -59,6 +59,10 @@ type Game struct {
 	// ability's xManaCostPaid that Count$xPaid reads first
 	// (AbilityUtils.java:1631); hasX false reads the source card's castX.
 	xctx xContext
+	// resolving is the ability Registry.resolve is running, which the amounts
+	// that name its targets, triggering objects and paid cards read
+	// (amountcontext.go); nil outside a resolution.
+	resolving *Ability
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID

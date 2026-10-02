@@ -89,6 +89,7 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		// SpellAbility.getRootAbility: a sub-ability reads its root's X.
 		xManaCostPaid:    parent.xManaCostPaid,
 		hasXManaCostPaid: parent.hasXManaCostPaid,
+		paid:             parent.paid,
 		// ReplacementHandler.executeReplacement sets the replacing objects
 		// on every ability of the ReplaceWith$ chain, not the head alone.
 		replacing: parent.replacing,

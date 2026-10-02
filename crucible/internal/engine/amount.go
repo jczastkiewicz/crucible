@@ -131,6 +131,8 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 		return amt.Value, amt.Numeric
 	case amt.Head == "SVar":
 		return namedAmount(g, amounts, sourceController, source, amt.Body, depth)
+	case contextHeads[amt.Head]:
+		return g.contextValue(amt.Head, amt.Body)
 	case strings.HasPrefix(amt.Head, "PlayerCount"):
 		// playerXCount's own Highest/Lowest branch hands the whole
 		// "HighestX/Op" string down to playerXProperty, which applies the
@@ -306,6 +308,14 @@ func countValid(g *Game, zones []ZoneType, spec valid.Spec, sourceController Pla
 func resolveNamedAmount(g *Game, amounts map[string]expr.Amount, host *Card, value string) (int, bool) {
 	if n, err := strconv.Atoi(value); err == nil {
 		return n, true
+	}
+	// calculateAmount strips a leading sign and applies it last ("+X", "-X").
+	if rest, ok := strings.CutPrefix(value, "+"); ok && rest != "" {
+		return resolveNamedAmount(g, amounts, host, rest)
+	}
+	if rest, ok := strings.CutPrefix(value, "-"); ok && rest != "" {
+		n, ok := resolveNamedAmount(g, amounts, host, rest)
+		return -n, ok
 	}
 	if n, ok := host.svars[strings.ToLower(value)]; ok {
 		return n, true

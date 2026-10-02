@@ -269,7 +269,8 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	nonBattlefield := fromGraveyard || fromHand
 	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
 		shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
-		shape.AddCounterType != "" || shape.SubCounterType != "") {
+		shape.AddCounterType != "" || shape.SubCounterType != "" ||
+		shape.SacTypeN > 0 || shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0) {
 		return false
 	}
 	if !fromGraveyard && shape.SelfExileFromGrave {
@@ -329,6 +330,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 			return false
 		}
 	}
+	chosen, ok := g.chooseCostCards(controller, pid, card, shape)
+	if !ok {
+		return false
+	}
 	manaCost, err := mana.Parse(strings.Join(parsed.Mana, " "))
 	if err != nil {
 		return false
@@ -385,6 +390,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		chosen := controller.ChoosePermanentsToReturn(g, pid, returnCandidates, shape.ReturnTypeN)
 		returnCards(g, controller, chosen)
 	}
+	g.payCostCards(controller, pid, chosen, &activated)
 	if shape.AddCounterType != "" {
 		ct := CounterType(strings.ToUpper(shape.AddCounterType))
 		c.Counters.Add(ct, shape.AddCounterN)

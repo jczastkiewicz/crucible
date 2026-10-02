@@ -122,6 +122,9 @@ type Ability struct {
 	// paid. An AB$ line reaching the stack any other way -- a trigger's
 	// Execute$ -- is paid when it resolves (resolveTriggeredCost).
 	costPaid bool
+	// paid are the cards the activation cost used up, read back by Sacrificed$,
+	// Exiled$ and Discarded$ amounts. Sub-abilities inherit them.
+	paid paidLists
 	// evolve is the creature that entered for a trigger naming Condition$
 	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
 	// ability resolves, against the creatures' values by then. NoCard for
@@ -334,4 +337,11 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// paidLists are the cards an ability's cost used up, which its effects read
+// back as `Sacrificed$`, `Exiled$` and `Discarded$` (SpellAbility.getPaidList).
+// They are IDs: a sacrificed card is read from its last-known information.
+type paidLists struct {
+	sacrificed, exiled, discarded []CardID
 }

@@ -204,7 +204,7 @@ func TestActivateAbilityDeclinesForManaAPI(t *testing.T) {
 }
 
 // TestActivateAbilityDeclinesForNonPureManaCost proves a Cost$ naming
-// anything past mana and Tap -- a Sac<.../Discard<.../... part, here --
+// anything past the parts ActivationShape reads -- a Sac<X/...> part, here --
 // fails loudly by returning false rather than silently paying the mana
 // half and ignoring the rest (PORT-8/GO-7).
 func TestActivateAbilityDeclinesForNonPureManaCost(t *testing.T) {
@@ -215,12 +215,12 @@ func TestActivateAbilityDeclinesForNonPureManaCost(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
-	def := creatureDefWithAbility(t, "Test Sac Cost", "AB$ Pump | Cost$ Sac<1/Creature> | Defined$ Self | NumAtt$ 1 | NumDef$ 1")
+	def := creatureDefWithAbility(t, "Test Sac Cost", "AB$ Pump | Cost$ Sac<X/Creature> | Defined$ Self | NumAtt$ 1 | NumDef$ 1")
 	creature := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
 	if g.ActivateAbility(p, creature, 0, c) {
-		t.Error("ActivateAbility returned true for a Sac<...> cost, want false")
+		t.Error("ActivateAbility returned true for a Sac<X/...> cost, want false")
 	}
 }
 

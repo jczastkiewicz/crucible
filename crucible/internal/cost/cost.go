@@ -201,6 +201,35 @@ type ActivationShape struct {
 	// own sibling for "exile this card" rather than "discard this card,"
 	// both real corpus shapes an ActivationZone$ Hand ability pays with.
 	SelfExileFromHand bool
+	// The four chosen-card parts: N cards the payer picks among those matching
+	// a type, each with its spec verbatim (a semicolon-separated OR list, as
+	// TapTypeSpec is) and empty exactly when its N is 0. SacTypeN is
+	// Sac<N/Type> past the self-reference token, a permanent the payer
+	// controls; ExileTypeN is Exile<N/Type>, from the battlefield;
+	// ExileGraveN is ExileFromGrave<N/Type>, from the payer's graveyard;
+	// DiscardTypeN is Discard<N/Type> for a type that is not "Card" (that is
+	// DiscardN) or one of CostDiscard's special words.
+	SacTypeN        int
+	SacTypeSpec     string
+	ExileTypeN      int
+	ExileTypeSpec   string
+	ExileGraveN     int
+	ExileGraveSpec  string
+	DiscardTypeN    int
+	DiscardTypeSpec string
+}
+
+// chosenCardSpec reports whether field names a type to pick cards of: not the
+// self-reference tokens, not "Card" (Discard's own plain shape), and none of the
+// words CostDiscard, CostSacrifice and CostExile read as something other than
+// a valid string ("Hand", "Random", "LastDrawn", "DifferentNames", "SameName",
+// "All", "Any").
+func chosenCardSpec(field string) bool {
+	switch field {
+	case "", "Card", "Hand", "Random", "LastDrawn", "DifferentNames", "SameName", "All", "Any":
+		return false
+	}
+	return !isSelfReferenceField(field)
 }
 
 // isSelfReferenceField reports whether field is one of the two literal
@@ -255,6 +284,30 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 				return ActivationShape{}, false
 			}
 			shape.DiscardN = n
+		case p.Name == "Discard" && shape.DiscardTypeN == 0 && chosenCardSpec(p.Field(1)):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.DiscardTypeN, shape.DiscardTypeSpec = n, p.Field(1)
+		case p.Name == "Sac" && !shape.SelfSac && shape.SacTypeN == 0 && chosenCardSpec(p.Field(1)):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.SacTypeN, shape.SacTypeSpec = n, p.Field(1)
+		case p.Name == "Exile" && !shape.SelfExile && shape.ExileTypeN == 0 && chosenCardSpec(p.Field(1)):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.ExileTypeN, shape.ExileTypeSpec = n, p.Field(1)
+		case p.Name == "ExileFromGrave" && !shape.SelfExileFromGrave && shape.ExileGraveN == 0 && chosenCardSpec(p.Field(1)):
+			n, err := strconv.Atoi(p.Field(0))
+			if err != nil || n <= 0 {
+				return ActivationShape{}, false
+			}
+			shape.ExileGraveN, shape.ExileGraveSpec = n, p.Field(1)
 		case p.Name == "PayLife" && shape.PayLifeN == 0:
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {

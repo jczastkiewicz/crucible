@@ -293,11 +293,12 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
-	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard {
+	if !ok || shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.SelfReturn || shape.ReturnTypeN > 0 || shape.SelfDiscard ||
+		shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0 {
 		return false
 	}
 	nonBattlefield := fromGraveyard || fromHand
-	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfExert ||
+	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfExert || shape.SacTypeN > 0 ||
 		shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.AddCounterType != "" || shape.SubCounterType != "") {
 		return false
 	}
@@ -370,6 +371,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if err != nil {
 		return false
 	}
+	chosen, ok := g.chooseCostCards(controller, pid, card, shape)
+	if !ok {
+		return false
+	}
 	if !g.PayManaCost(pid, costMana, controller) {
 		return false
 	}
@@ -383,6 +388,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if shape.SelfExile {
 		exileCards(g, controller, []CardID{card})
 	}
+	g.payCostCards(controller, pid, chosen, &Ability{Source: card, Controller: pid, Params: ability})
 	if shape.SelfExert {
 		c.Exerted = true
 		g.checkExertedTriggers(controller, card)

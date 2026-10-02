@@ -639,3 +639,13 @@ parts (`payUnlessParts`; the controller chooses what to sacrifice or discard). A
 refused rather than guessed, and `Play`'s `playCastGap` no longer rejects the shapes that now resolve. Not read:
 `K:AlternateAdditionalCost`, `S:Mode$ OptionalCost`, Aura spells' `Cost$`, `X`, and `ExileFromGrave`/`tapXType` parts.
 Tests: `TestSpellAdditionalCostIsPaid`, `TestPermanentSpellAdditionalCostIsPaid`.
+
+## Beam me up
+
+`K:Beam me up:<cost>` (1 corpus card, Open Communications) is Flashback's sibling (`CardFactoryUtil.java:2252`): cast
+from your graveyard for `<cost>` if you also return a creature you control to its owner's hand
+(`Return<1/Creature.YouCtrl+canBeBeamedUp/...>`, `GameActionUtil.java:176-180`), then exile the spell.
+`Game.beamMeUpCost` offers the cast only when that return can be paid; `castOpts.extra` carries the cost into
+`castExtraCost`, which the instant/sorcery and permanent branches pay through `payUnlessParts`. The exile reuses
+`Card.flashbackCast`. The `canBeBeamedUp` valid property is false for a card covered by a battlefield
+`S:Mode$ CantBeBeamedUp` static (`Game.cantBeBeamedUp`; Marooned's enchanted creature). Scenarios: `beam-me-up-*`.

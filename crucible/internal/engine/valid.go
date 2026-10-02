@@ -424,6 +424,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// "TargetedPlayer", spellAbility)). The ability is Game.resolving when it
 	// is source's own; outside one nothing is targeted and the property is
 	// false, as Java's null spellAbility gives an empty list.
+	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned).
+	case name == "canBeBeamedUp":
+		return !g.cantBeBeamedUp(c)
 	case name == "TargetedPlayerCtrl":
 		return g.targetsPlayer(source, c.Controller())
 	case name == "TargetedPlayerOwn":
@@ -1134,4 +1137,29 @@ func (g *Game) targetsPlayer(source CardID, pid PlayerID) bool {
 		return false
 	}
 	return containsEntity(a.Targets, PlayerEntity(pid))
+}
+
+// cantBeBeamedUp is StaticAbilityCantBeBeamedUp.cantBeBeamedUp: a battlefield
+// Mode$ CantBeBeamedUp static whose ValidCard$ matches c.
+func (g *Game) cantBeBeamedUp(c *Card) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.Zone(Battlefield, pid).Cards() {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces[:liveFaces(h.Def)] {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantBeBeamedUp") {
+						continue
+					}
+					spec, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(spec), h.Controller(), host) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

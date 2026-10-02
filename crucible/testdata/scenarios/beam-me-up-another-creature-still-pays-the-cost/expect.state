@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Runeclaw Bear;Forest
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Grizzly Bears|Id:5;Marooned|Id:7|AttachedTo:5
+humanexile=Open Communications
+ailife=20

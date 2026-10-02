@@ -1,0 +1,8 @@
+# The return is an additional cost, not an option: with no creature to return
+# the graveyard cast is not offered, so the three Islands' mana goes unspent.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+castspell human 1

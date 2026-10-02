@@ -1,0 +1,12 @@
+# Marooned stops only the creature it enchants: the unenchanted Runeclaw Bear
+# can still be returned, so the graveyard cast is offered and paid.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+queue paygeneric U
+queue returnchoice 6
+castspell human 1
+resolvestack

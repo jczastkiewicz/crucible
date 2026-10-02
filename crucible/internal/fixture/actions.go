@@ -446,6 +446,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueSacrificeChoice(ids)
 
+	case "returnchoice":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue returnchoice: %w", err)
+		}
+		c.QueueReturnChoice(ids)
+
 	case "battleprotector":
 		pid, err := resolveActionPlayer(l, args[1:], 1)
 		if err != nil {

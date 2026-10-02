@@ -1,12 +1,8 @@
 # Layer 2 (CR 613.1b) with ADR-0037's zone correction. Control Magic's
 # S:Mode$ Continuous | AffectedDefined$ Enchanted | GainControl$ You makes the
-# human the controller of the AI's Grizzly Bears. The first state-based-action
-# pass of StartTurn applies it and moves the Bears to the human's battlefield
+# human the controller of the AI's Grizzly Bears. Load-time state effects
+# (Loaded.ApplyStateEffects) apply it and move the Bears to the human's battlefield
 # (GameAction.controllerChangeZoneCorrection): the human controls them, the AI
 # still owns them (Owner:ai), and they are summoning sick under their new
 # controller. Without the layer they would stay on the AI's side.
-# It is the AI's turn on purpose: Java applies a preexisting steal at load,
-# before any untap step, while this port applies it at the first pass after
-# the untap step, so only the non-active controller gives the same result in
-# both (an active thief's untap step would clear the sickness in Java).
 startturn ai

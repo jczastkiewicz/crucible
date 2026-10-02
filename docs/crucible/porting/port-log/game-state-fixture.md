@@ -504,6 +504,17 @@ planeswalker or Battle its starting counters, which stopped being true once `Mov
 (`game-state.md`'s "Loyalty is not a layer" section) — fixed in place rather than left to mislead the next reader
 (DOC-16).
 
+## Load-time state effects
+
+`Game.applyToGame` ends with `checkStateEffects(true)` (`GameState.java:687`) and only then sets a zero or negative life
+(`:695-702`). `Load` stays inert, because `expect.state` is read back through it and must not be altered by a pass.
+`Loaded.ApplyStateEffects(controller)` is that tail: `RunActions` runs it once, before the first verb that is not a
+`queue` line, so a decision it asks for (a Battle's protector) is queued ahead of it. Effect: a steal already in
+`setup.state` is applied, the permanent re-homed, before the first untap step, and an active thief's untap and sickness
+clearing see it (`layer2-control-magic-in-setup-is-applied-before-the-active-thiefs-untap`). A player at zero or
+negative life is seen at 1 by the pass and restored after it. A one-player fixture is a won game for that pass, so tests
+that push a stack object need both players named.
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |

@@ -384,9 +384,31 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !g.resolveTargets(controller, &a) {
 		return false
 	}
+	// The A:SP$ line's Cost$ is the spell's additional cost (CR 118.8): its
+	// mana is paid with the rest, its other parts once the mana is. A shape
+	// parseUnlessCost does not read is not cast free of it (GO-7).
+	var extra unlessCost
+	hasExtra := false
+	if costText, ok := spellAbility.Param("Cost"); ok {
+		uc, ok := parseUnlessCost(costText)
+		if !ok || !g.unlessPayable(pid, card, uc) {
+			return false
+		}
+		// Cost$ is the spell's whole cost, mana included: Forge writes the
+		// printed mana cost into it beside the additional parts, so a line
+		// whose mana differs from the card's (an alternative or cleave cost)
+		// is not one this port reads.
+		if uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost) {
+			return false
+		}
+		extra, hasExtra = uc, true
+	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
 		return false
+	}
+	if hasExtra {
+		g.payUnlessParts(controller, &a, pid, extra)
 	}
 	x.setOn(&a)
 	g.putSpellOnStack(card, pid)

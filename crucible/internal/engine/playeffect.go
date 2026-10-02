@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger valid zone zonemove
+//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger unlesscost valid zone zonemove
 
 import (
 	"fmt"
@@ -373,8 +373,10 @@ func playCastGap(c *Card) string {
 	if n > 1 {
 		return "a choice between its A:SP$ lines"
 	}
-	if _, ok := sp.Param("Cost"); ok {
-		return "its A:SP$ Cost$ additional cost"
+	if costText, ok := sp.Param("Cost"); ok {
+		if uc, ok := parseUnlessCost(costText); !ok || (uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost)) {
+			return "its A:SP$ Cost$ additional cost"
+		}
 	}
 	return ""
 }

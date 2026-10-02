@@ -163,3 +163,34 @@ func TestConvokeTapsNothingWhenTheCastFails(t *testing.T) {
 		t.Error("a creature stayed tapped after the cast failed")
 	}
 }
+
+// An instant's A:SP$ Cost$ is an additional cost (CR 118.8): Village Rites
+// ({B}, sacrifice a creature) cannot be cast without a creature to sacrifice,
+// and sacrifices the chosen one when it is.
+func TestSpellAdditionalCostIsPaid(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	rites := g.NewCard(corpusCard(t, "Village Rites"), p, engine.Hand)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	g.Player(p).ManaPool.Add(mana.Black, 1)
+	c := engine.NewScriptedController()
+	if g.CastSpell(p, rites, c) {
+		t.Fatal("Village Rites was cast with no creature to sacrifice")
+	}
+	fodder := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	c.QueueSacrificeChoice([]engine.CardID{fodder})
+	if !g.CastSpell(p, rites, c) {
+		t.Fatal("Village Rites could not be cast with a creature to sacrifice")
+	}
+	if g.Card(fodder).Zone != engine.Graveyard {
+		t.Errorf("the sacrificed creature is in %v, want Graveyard", g.Card(fodder).Zone)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 2 {
+		t.Errorf("cards in hand = %d, want 2 drawn", got)
+	}
+}

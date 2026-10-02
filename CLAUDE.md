@@ -216,8 +216,9 @@ past their literal shapes; Ward's own non-mana cost shapes (`PayLife`/`Discard`/
 ability-source/retargeted Ward — the mana-cost shape against a directly cast spell is ported (ADR-0028), alongside
 Hexproof/Shroud/Protection. Full list: `port-log/game-state.md`, "Not ported yet".
 
-**P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`); qualitative half ("every layer, every
-SBA," Plan Section 3.2) not.
+**M5 exit gate:** the test-port matrix is green (every `M5? yes` row `ported` or `superseded`,
+`porting/test-port-matrix.md`). **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`);
+qualitative half ("every layer, every SBA," Plan Section 3.2) not.
 
 Keep this section short — it loads every session. Every primitive, corpus count, design decision and Java citation goes
 in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and

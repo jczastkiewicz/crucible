@@ -598,3 +598,18 @@ declined whole. The reduced cost is paid first and only then are the creatures t
 (`costAssist.settle`), so a cast that cannot be paid taps and exiles nothing. A convoke tap counts as a tap for "becomes
 tapped" triggers, not as a `{T}` ability, so a summoning-sick creature may convoke. Not read: hybrid colored shards (a
 creature never pays one), a convoking creature that could also tap for mana, and `Waterbend`. Tests: `costmod_test.go`.
+
+## A spell's additional cost (`A:SP$ Cost$`)
+
+An instant, sorcery or permanent spell's `A:SP$` line carries `Cost$` when the spell has an additional cost (236 lines
+on instants and sorceries, 29 permanent spells: Village Rites' `B Sac<1/Creature>`, `Discard<1/Card>`, `PayLife<N>`).
+Forge writes the printed mana cost into it beside the extra parts, so it is the spell's whole cost.
+`castInstantOrSorcery` and the permanent branch of `castSpell` (`castspell.go`) used to cast such a spell without paying
+the extra part. They now read `Cost$` through `spellAdditionalCost`, which uses `parseUnlessCost` (the part vocabulary
+an unless cost pays: PayLife, PayEnergy, Discard, Sac, Return, DamageYou, Draw, Reveal), refuses the cast when a part is
+unpayable (`unlessPayable`) or the shape is not read, lets the card's mana be paid as usual, and then pays the non-mana
+parts (`payUnlessParts`; the controller chooses what to sacrifice or discard). A card in hand is never its own discard
+(`handWithout`). A `Cost$` whose mana differs from the card's printed cost (an alternative or cleave cost, 61 lines) is
+refused rather than guessed, and `Play`'s `playCastGap` no longer rejects the shapes that now resolve. Not read:
+`K:AlternateAdditionalCost`, `S:Mode$ OptionalCost`, Aura spells' `Cost$`, `X`, and `ExileFromGrave`/`tapXType` parts.
+Tests: `TestSpellAdditionalCostIsPaid`, `TestPermanentSpellAdditionalCostIsPaid`.

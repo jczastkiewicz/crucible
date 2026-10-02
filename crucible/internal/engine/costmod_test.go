@@ -194,3 +194,28 @@ func TestSpellAdditionalCostIsPaid(t *testing.T) {
 		t.Errorf("cards in hand = %d, want 2 drawn", got)
 	}
 }
+
+// A permanent spell's A:SP$ PermanentCreature | Cost$ line is its additional
+// cost too ("as an additional cost to cast this spell, discard a card").
+func TestPermanentSpellAdditionalCostIsPaid(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := scriptDef(t, "Test Discarder", "Creature Elf", "A:SP$ PermanentCreature | Cost$ 1 B Discard<1/Card>")
+	def.Faces[0].ManaCost = mana.MustParse("1 B")
+	card := g.NewCard(def, p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 2)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardB)
+	if g.CastSpell(p, card, c) {
+		t.Fatal("the creature was cast with no card to discard")
+	}
+	pitch := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	c.QueueDiscardChoice([]engine.CardID{pitch})
+	if !g.CastSpell(p, card, c) {
+		t.Fatal("the creature could not be cast with a card to discard")
+	}
+	if g.Card(pitch).Zone != engine.Graveyard {
+		t.Errorf("the discarded card is in %v, want Graveyard", g.Card(pitch).Zone)
+	}
+}

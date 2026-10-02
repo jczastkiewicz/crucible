@@ -1258,3 +1258,60 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 		}
 	}
 }
+
+// applyContinuousTraits is Layer 6's trait half (ADR-0023): every Mode$
+// Continuous static that names AddTrigger$ or AddAbility$ writes the compiled
+// SVars it names onto each card it affects, rebuilt from scratch each pass
+// like the other appliers (the previous pass's grants are cleared first,
+// off-battlefield cards included). AddStaticAbility$ and AddReplacementEffect$
+// grants are not applied yet, and RemoveAllAbilities$'s removal of a granted
+// trait is not ordered against them (GO-7: those lines grant only what they
+// name).
+func applyContinuousTraits(g *Game) {
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].traitGrants = nil
+	}
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					applyOneContinuousTraits(g, h, face.Amounts, s)
+				}
+			}
+		}
+	}
+}
+
+func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return
+	}
+	var grant traitGrant
+	for _, sub := range s.Subs {
+		switch {
+		case strings.EqualFold(sub.Key, "AddTrigger"):
+			grant.triggers = append(grant.triggers, sub.Ability)
+		case strings.EqualFold(sub.Key, "AddAbility"):
+			grant.abilities = append(grant.abilities, sub.Ability)
+		}
+	}
+	if len(grant.triggers) == 0 && len(grant.abilities) == 0 {
+		return
+	}
+	if !layerStaticApplies(g, host, amounts, s) {
+		return
+	}
+	affected, ok := layerAffectedCards(g, host, s)
+	if !ok {
+		return
+	}
+	grant.amounts = amounts
+	for _, id := range affected {
+		c := g.Card(id)
+		c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), grant)
+	}
+}

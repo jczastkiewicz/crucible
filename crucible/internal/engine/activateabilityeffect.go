@@ -94,7 +94,11 @@ func manaChoices(c *Card) []manaChoice {
 	if c.Def == nil {
 		return out
 	}
-	for i, ab := range c.Def.Faces[0].Abilities {
+	for i := 0; ; i++ {
+		ab, _, ok := c.abilityAt(i)
+		if !ok {
+			break
+		}
 		if ab.Record == compile.Activated && ab.Name == "Mana" {
 			out = append(out, manaChoice{index: i})
 		}

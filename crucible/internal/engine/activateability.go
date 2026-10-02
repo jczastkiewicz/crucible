@@ -213,11 +213,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if c.isDetained() {
 		return false
 	}
-	abilities := c.Def.Faces[0].Abilities
-	if index < 0 || index >= len(abilities) {
+	ability, _, ok := c.abilityAt(index)
+	if !ok {
 		return false
 	}
-	ability := abilities[index]
 	// A:AB$ ManaReflected (Reflecting Pool, Exotic Orchard) is a mana
 	// ability too, same as Mana -- never on the stack, ActivateManaAbility's
 	// job, not this one's, even though the Produce walk it would need there
@@ -340,7 +339,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	activated := Ability{
 		API: apiType, Source: card, Controller: pid,
-		Params: ability, Amounts: c.Def.Faces[0].Amounts, costPaid: true,
+		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true,
 	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	if !paid {
@@ -435,7 +434,7 @@ func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) b
 // here, as Java's restriction does not read them. An Activation$ value that
 // names a state this port does not track (Blessing, Solved) refuses (GO-7).
 func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
-	amounts := c.Def.Faces[0].Amounts
+	amounts := c.abilityAmounts(ability)
 	you := c.Controller()
 	if act, ok := ability.Param("Activation"); ok {
 		var has bool
@@ -475,7 +474,7 @@ func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability)
 		if !ok {
 			continue
 		}
-		limit, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, raw)
+		limit, ok := resolveNamedAmount(g, c.abilityAmounts(ability), c, raw)
 		if !ok || k.count >= limit {
 			return false
 		}

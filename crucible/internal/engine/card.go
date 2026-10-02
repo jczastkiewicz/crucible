@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 
@@ -346,6 +347,13 @@ type Card struct {
 	// last-known-information snapshot shares the backing array.
 	grants []grantedTriggers
 
+	// traitGrants is the Layer 6 trait overlay Mode$ Continuous statics write
+	// (AddTrigger$, AddAbility$; ADR-0023): rebuilt from scratch every
+	// state-based pass by applyContinuousTraits, like every other continuous
+	// effect, so a grant ends the pass its source stops granting. Triggers are
+	// read through triggerFaces, abilities through abilityAt.
+	traitGrants []traitGrant
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.
@@ -366,6 +374,47 @@ type grantedTriggers struct {
 	id       uint64
 	triggers []*compile.Ability
 	amounts  map[string]expr.Amount
+}
+
+// traitGrant is the traits one continuous static granted to a card, compiled
+// from the SVars its AddTrigger$/AddAbility$ named; amounts is the granting
+// face's, where those traits' SVar amounts live.
+type traitGrant struct {
+	triggers  []*compile.Ability
+	abilities []*compile.Ability
+	amounts   map[string]expr.Amount
+}
+
+// abilityAt is the index'th activated ability c has: its printed A: lines,
+// then the abilities continuous statics grant it (traitGrants), with the
+// amounts those lines read their SVars from.
+func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, bool) {
+	if c.Def == nil || index < 0 {
+		return nil, nil, false
+	}
+	printed := c.Def.Faces[0].Abilities
+	if index < len(printed) {
+		return printed[index], c.Def.Faces[0].Amounts, true
+	}
+	index -= len(printed)
+	for _, grant := range c.traitGrants {
+		if index < len(grant.abilities) {
+			return grant.abilities[index], grant.amounts, true
+		}
+		index -= len(grant.abilities)
+	}
+	return nil, nil, false
+}
+
+// abilityAmounts is the amounts table ability reads its SVars from: the
+// granting face's for a granted ability, else c's own printed face's.
+func (c *Card) abilityAmounts(ability *compile.Ability) map[string]expr.Amount {
+	for _, grant := range c.traitGrants {
+		if slices.Contains(grant.abilities, ability) {
+			return grant.amounts
+		}
+	}
+	return c.Def.Faces[0].Amounts
 }
 
 // withGrant returns c's grants plus g, in a fresh slice (grants' own

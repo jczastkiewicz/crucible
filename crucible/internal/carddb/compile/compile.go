@@ -634,7 +634,7 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	// like a trigger's, and only the naming key says they are continuous
 	// effects (EffectEffect.java adds them through addStaticAbility).
 	want := SubAbility
-	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") {
+	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") || strings.EqualFold(key, "AddStaticAbility") {
 		want = StaticEffect
 	}
 	ability, err := c.line(body, want)
@@ -706,6 +706,13 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 		return splitTrim(p.Value, ","), true
 	case isAnimateGrant(a, p):
 		return splitTrim(p.Value, ","), true
+	case continuousGrantKeys[strings.ToLower(p.Key)] && a.Record == StaticEffect:
+		// StaticAbilityContinuous.java's AddAbility/AddTrigger/
+		// AddStaticAbility/AddReplacementEffect branches split the value on
+		// " & " and parse each name with AbilityUtils.getSVar (ADR-0023
+		// decision 1): compiled here so a granted trait is never script text
+		// parsed when the grant applies (PORT-2).
+		return splitTrim(p.Value, "&"), true
 	case strings.EqualFold(p.Key, "GainTextAbilities") && a.Record == StaticEffect:
 		// StaticAbilityContinuous.java's own GainTextOf$ branch splits on
 		// " & " and parses each name with AbilityUtils.getSVar: the
@@ -820,6 +827,16 @@ var cloneTraitKeys = map[string]bool{
 	"addtriggers":        true,
 	"addabilities":       true,
 	"addstaticabilities": true,
+}
+
+// continuousGrantKeys are the params through which a Mode$ Continuous static
+// names the SVars holding the abilities, triggers, statics and replacement
+// effects it grants (StaticAbilityContinuous.java).
+var continuousGrantKeys = map[string]bool{
+	"addability":           true,
+	"addtrigger":           true,
+	"addstaticability":     true,
+	"addreplacementeffect": true,
 }
 
 // animateAPIs are the APIs whose `Triggers$` names the SVars holding the

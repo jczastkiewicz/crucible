@@ -58,9 +58,9 @@ An edit whose whole purpose is to disappear goes here: the same change open as a
 [Card-Forge/forge](https://github.com/Card-Forge/forge), with the row and the local edit both deleted once upstream
 merges it and a sync brings the identical content back.
 
-| Date | Path | Change    | Upstream |
-| ---- | ---- | --------- | -------- |
-| —    | —    | none open | —        |
+| Date       | Path                                                       | Change                                                                                                                                                                                                                                                                                                                                                         | Upstream       |
+| ---------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 2026-10-02 | `forge-gui/res/cardsfolder/p/phenomenon_investigators.txt` | `TrigReturn`: drop `ChoiceOptional$ True` from a `DB$ ChangeZone`. `ChangeZoneEffect.java` never reads it (it is a `CountersPut`/`CountersRemove`/`Clone` param); a hidden-origin ChangeZone is already optional unless `Mandatory$` is set, so behavior is unchanged. Surfaced when ADR-0023's `AddTrigger$` made the SVar reachable to `apiscan -check -api` | not yet opened |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

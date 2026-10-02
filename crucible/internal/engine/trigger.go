@@ -2653,6 +2653,14 @@ func (c *Card) triggerFaces(yield func(triggerFace) bool) {
 			return
 		}
 	}
+	for _, g := range c.traitGrants {
+		if len(g.triggers) == 0 {
+			continue
+		}
+		if !yield(triggerFace{Triggers: g.triggers, Amounts: g.amounts, slot: -1}) {
+			return
+		}
+	}
 }
 
 func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) (*compile.Ability, APIType, bool, bool) {

@@ -88,7 +88,7 @@ var subgameExtraDecks = [...]ZoneType{SchemeDeck, PlanarDeck, AttractionDeck, Co
 type subgameEffect struct{}
 
 func (subgameEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "Subgame", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Subgame", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

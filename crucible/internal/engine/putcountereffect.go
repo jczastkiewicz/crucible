@@ -74,7 +74,7 @@ var putCounterUnresolvedParams = [...]string{
 	"CounterTypes", "ForColor", "SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter", "Placer",
 	"RememberCards", "RemovePhase", "Optional", "UpTo", "UpToMin",
-	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn", "ConditionActivationLimit",
+	"Condition", "ConditionZone", "ConditionPlayerTurn", "ConditionActivationLimit",
 	"ConditionPresent2", "ConditionCompare2",
 }
 

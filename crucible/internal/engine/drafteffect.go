@@ -25,7 +25,7 @@ import (
 type draftEffect struct{}
 
 func (draftEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Draft", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Draft", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -296,14 +296,13 @@ func TestSetMonarchRestoresTheDesignation(t *testing.T) {
 }
 
 // TestBecomeMonarchFailsClosed proves the rejected shapes error before
-// acting: ConditionDefined$, Defined$ TriggeredTarget, a Defined$
+// acting: Defined$ TriggeredTarget, a Defined$
 // Triggered* no trigger recorded, and a CantBecomeMonarch static carrying a
 // param it cannot read.
 func TestBecomeMonarchFailsClosed(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
-		"DB$ BecomeMonarch | ConditionDefined$ Remembered | ConditionPresent$ Card",
 		"DB$ BecomeMonarch | Defined$ TriggeredTarget",
 		"DB$ BecomeMonarch | Defined$ TriggeredSourceController",
 		"DB$ BecomeMonarch | Defined$ TriggeredSource",

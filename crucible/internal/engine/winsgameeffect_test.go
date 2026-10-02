@@ -117,8 +117,8 @@ func TestWinsGameEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBWinsGame(t, g, p, etbWinsGameTriggerDefParams(t, "Test WinsGame Condition", "Defined$ You | ConditionDefined$ Targeted"), c)
+	_, err := castETBWinsGame(t, g, p, etbWinsGameTriggerDefParams(t, "Test WinsGame Condition", "Defined$ You | Condition$ Threshold"), c)
 	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ConditionDefined$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Condition$")
 	}
 }

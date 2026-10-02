@@ -7,8 +7,7 @@ import "fmt"
 // rearrangeTopOfLibraryUnresolvedParams: RearrangePlayer$ (1 real line) has
 // someone other than the activator order the cards.
 var rearrangeTopOfLibraryUnresolvedParams = [...]string{
-	"RearrangePlayer", "Condition", "ConditionDefined",
-}
+	"RearrangePlayer", "Condition"}
 
 // rearrangeTopOfLibraryEffect is RearrangeTopOfLibraryEffect.java: for each
 // target player (default You) the activator orders the top NumCards$ cards

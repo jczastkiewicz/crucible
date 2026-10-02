@@ -51,7 +51,7 @@ import (
 // resolveUnlessCost (effect.go) gates the whole ability before Registry.
 // Resolve ever reaches it.
 var destroyUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "SorcerySpeed", "Ultimate",
+	"Condition", "SorcerySpeed", "Ultimate",
 	"ModeCost", "RememberLKI",
 }
 

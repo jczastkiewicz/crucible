@@ -28,8 +28,7 @@ import "fmt"
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var unattachUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // unattachEffect resolves Mode$/DB$/AB$ Unattach. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

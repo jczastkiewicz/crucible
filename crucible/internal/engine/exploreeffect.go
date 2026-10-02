@@ -11,7 +11,7 @@ import (
 // exploreUnresolvedParams are ExploreEffect.java's params this port cannot
 // honour yet.
 var exploreUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "SorcerySpeed",
+	"Condition", "SorcerySpeed",
 }
 
 // exploreEffect is ExploreEffect.java (CR 701.44): each exploring permanent

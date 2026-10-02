@@ -43,8 +43,7 @@ type controlSpellEffect struct{}
 // subAbilityConditionMet reads as never met, which would skip the steal
 // silently.
 var controlSpellUnresolvedParams = [...]string{
-	"RememberTargets", "TargetValidTargeting", "DefinedExchange", "Condition", "ConditionDefined",
-}
+	"RememberTargets", "TargetValidTargeting", "DefinedExchange", "Condition"}
 
 // namedSpell is one spell getTargetSpells names: its stack item, or
 // NoStackItem once it has left the stack (Java's null stack instance), and

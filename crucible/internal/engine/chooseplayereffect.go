@@ -12,7 +12,7 @@ import "fmt"
 var choosePlayerUnresolvedParams = [...]string{
 	"Random", "Secretly", "Protect", "Optional",
 	"ChooseSubAbility", "CantChooseSubAbility",
-	"Condition", "ConditionDefined", "OrOtherConditionSVarCompare",
+	"Condition", "OrOtherConditionSVarCompare",
 }
 
 // choosePlayerEffect is ChoosePlayerEffect.java: each chooser

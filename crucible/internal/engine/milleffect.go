@@ -40,8 +40,7 @@ import "fmt"
 // SpellDescription$/TgtPrompt$ already get everywhere.
 var millUnresolvedParams = [...]string{
 	"Destination", "Optional", "Ultimate", "SorcerySpeed", "ReduceCost",
-	"ModeCost", "Condition", "ConditionDefined",
-}
+	"ModeCost", "Condition"}
 
 // millEffect resolves Mode$/DB$/AB$ Mill. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

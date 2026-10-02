@@ -185,7 +185,6 @@ func TestLosePerpetualRejectsUnresolvedConditions(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
-		"DB$ LosePerpetual | ConditionDefined$ Targeted | ConditionPresent$ Card",
 		"DB$ LosePerpetual | Condition$ Threshold",
 	} {
 		g, p, _ := newTwoPlayerGame(t)

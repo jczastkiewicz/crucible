@@ -41,8 +41,7 @@ import (
 var fightUnresolvedParams = [...]string{
 	"ReplaceDyingDefined", "ReplaceDyingExiledWith", "Optional",
 	"ExcessSVarCondition", "ExcessSVar", "TargetsAtRandom", "SorcerySpeed",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // fightEffect resolves Mode$/DB$/AB$ Fight. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

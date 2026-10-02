@@ -79,6 +79,7 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		Controller:        parent.Controller,
 		Target:            parent.Target,
 		Targets:           parent.Targets,
+		parentTargets:     parentTargetsOf(parent),
 		Params:            sub.Ability,
 		Amounts:           parent.Amounts,
 		TriggerRemembered: parent.TriggerRemembered,
@@ -107,4 +108,15 @@ func findSubAbility(a *compile.Ability) (compile.SubRef, bool) {
 		}
 	}
 	return compile.SubRef{}, false
+}
+
+// parentTargetsOf is what Defined$ ParentTarget names for a child of parent:
+// parent's own targets, or the ones its own ParentTarget names when it chose
+// none (SpellAbility.getParentTargetingCard walks up to the first ancestor
+// that targets).
+func parentTargetsOf(parent *Ability) []EntityID {
+	if len(parent.Targets) > 0 {
+		return parent.Targets
+	}
+	return parent.parentTargets
 }

@@ -746,7 +746,7 @@ func TestCloneRejectsUnportedShapes(t *testing.T) {
 		{"Clone | ValidTgts$ Creature | SetColor$ Plaid", `SetColor$ "Plaid" names no color`},
 		{"Clone | ValidTgts$ Creature | SetPower$ Z", `SetPower$ "Z" is not resolvable`},
 		{"Clone | ValidTgts$ Creature | SetToughness$ Z", `SetToughness$ "Z" is not resolvable`},
-		{"Clone | ValidTgts$ Creature | CloneTarget$ ParentTarget", `Defined$ "ParentTarget" not resolvable yet`},
+		{"Clone | ValidTgts$ Creature | CloneTarget$ ParentTarget", `Defined$ "ParentTarget": no ancestor`},
 		{"Clone | Defined$ TriggeredCardLKICopy", `Defined$ "TriggeredCardLKICopy" not resolvable yet`},
 		{"Clone | Choices$ Creature | ChoiceZone$ Nowhere", `ChoiceZone$ "Nowhere" not resolvable`},
 		{"Clone | ValidTgts$ Creature | CloneZone$ Nowhere", `CloneZone$ "Nowhere" not resolvable`},

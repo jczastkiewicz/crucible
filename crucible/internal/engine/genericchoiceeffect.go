@@ -11,7 +11,7 @@ import "fmt"
 var genericChoiceUnresolvedParams = [...]string{
 	"AtRandom", "NumRandomChoices", "Secretly", "SetChosenMode", "Guess",
 	"DamageMap", "ChangeZoneTable", "LockInText",
-	"Condition", "ConditionDefined", "Ultimate",
+	"Condition", "Ultimate",
 }
 
 // genericChoiceEffect is ChooseGenericEffect.java: each Defined$/ValidTgts$

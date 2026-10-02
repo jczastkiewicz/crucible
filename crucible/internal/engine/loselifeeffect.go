@@ -84,7 +84,7 @@ type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
 	"NumCards", "ModeCost",
-	"Condition", "ConditionDefined", "ConditionZone",
+	"Condition", "ConditionZone",
 }
 
 func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {

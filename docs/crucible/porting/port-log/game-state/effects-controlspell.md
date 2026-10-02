@@ -49,30 +49,26 @@ the Ring-bearer designation, is already in `changeControllerAt`.
 | `RememberTargets$`                                       | `AbilityUtils.java:1517`'s generic pre-resolve remember; not run by this port                                                                                                                    |
 | `TargetValidTargeting$`                                  | `targetChoiceFor` reads it for ChangeTargets only                                                                                                                                                |
 | `DefinedExchange$`                                       | an exchange object other than the host; no corpus line                                                                                                                                           |
-| `Condition$`, `ConditionDefined$`                        | `subAbilityConditionMet` reads `ConditionDefined$` as never met (`isPresentMatches`, `trigger.go`): a silent skip                                                                                |
+| `Condition$`                                             | `subAbilityConditionMet` reads it as never met: a silent skip                                                                                                                                    |
 | missing `Mode$`; `Mode$` other than `Gain`/`Exchange`    | Java NPEs on the missing param (`ControlSpellEffect.java:58`) and reads any other value as Gain; every corpus line says `Gain` or `Exchange`, so an unknown value is refused rather than guessed |
 | `Defined$` other than `Targeted`/`TriggeredSpellAbility` | `getDefinedSpellAbilities` shapes not built (`Remembered`, `ValidStack`, ...)                                                                                                                    |
 | `CantGainControl` static in play, Exchange mode          | `Card.canBeControlledBy`'s static half                                                                                                                                                           |
 | Gain mode, spell no longer on the stack                  | Java dereferences the null stack instance (`ControlSpellEffect.java:99`); no corpus chain reaches it, every Gain spell being a target its parent fizzles without                                 |
 
-`ChangeTargets` now rejects `ConditionDefined$` too (`changeTargetsUnresolvedParams`): Perplexing Chimera's retarget is
-gated on `ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE2`, which read as never met and
-skipped silently.
+Perplexing Chimera's `ChangeTargets` is gated on
+`ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE2` (the host and the spell, both
+remembered), which `subAbilityConditionMet` evaluates ([`condition-defined.md`](condition-defined.md)).
 
 ### Per card
 
-| Card                | Status                                                                                                                                                                 |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Aethersnatch        | Full, retarget included                                                                                                                                                |
-| Commandeer          | Full (alternative cost `ExileFromHand` aside)                                                                                                                          |
-| Invert Polarity     | Win branch full; lose branch fails closed in `Counter` (`Defined$` rejected, `countereffect.go`)                                                                       |
-| Perplexing Chimera  | Exchange resolves; the chained `ChangeTargets` then fails closed on `ConditionDefined$`                                                                                |
-| Sudden Substitution | Fails closed: `ConditionDefined$` on the ControlSpell line; also a `SubAbility$` with its own `ValidTgts$` and `NewController$ Player.IsRemembered` (`definedPlayers`) |
-| Chef's Kiss         | Never cast: `TargetType$ Spell.numTargets EQ1` takes `targetChoiceFor`'s literal-`Spell` branch, which has no candidates; its chain also needs `RandomTarget$`         |
-
-Unblocking item for Chimera and Sudden Substitution: `ConditionDefined$` in `subAbilityConditionMet`
-(`SpellAbilityCondition.areMet`'s `getDefinedCards` count). Shared by ~485 corpus lines of the
-`ConditionDefined$ Remembered | ConditionPresent$ Card` shape, so it is its own change, not this one.
+| Card                | Status                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aethersnatch        | Full, retarget included                                                                                                                                        |
+| Commandeer          | Full (alternative cost `ExileFromHand` aside)                                                                                                                  |
+| Invert Polarity     | Win branch full; lose branch fails closed in `Counter` (`Defined$` rejected, `countereffect.go`)                                                               |
+| Perplexing Chimera  | Full: the exchange resolves, then `ChangeTargets` asks its optional retarget once both cards are remembered                                                    |
+| Sudden Substitution | Fails closed: a `SubAbility$` with its own `ValidTgts$` and `NewController$ Player.IsRemembered` (`definedPlayers`)                                            |
+| Chef's Kiss         | Never cast: `TargetType$ Spell.numTargets EQ1` takes `targetChoiceFor`'s literal-`Spell` branch, which has no candidates; its chain also needs `RandomTarget$` |
 
 ### Tests
 

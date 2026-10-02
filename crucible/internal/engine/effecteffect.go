@@ -28,7 +28,7 @@ var effectUnresolvedParams = [...]string{
 	"Abilities", "RememberSpell", "RememberLKI", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
 	"ForgetCounter", "ExileOnCounter", "NoteCounterDefined", "ExileOnLost",
 	"Boon", "AtEOT", "ImprintOnHost", "Adventure",
-	"Condition", "ConditionDefined", "ConditionZone",
+	"Condition", "ConditionZone",
 }
 
 // effectEffect is EffectEffect.java: for each EffectOwner$ player (default

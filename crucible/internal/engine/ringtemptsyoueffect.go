@@ -33,7 +33,7 @@ import (
 type ringTemptsYouEffect struct{}
 
 func (ringTemptsYouEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "RingTemptsYou", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "RingTemptsYou"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

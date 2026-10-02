@@ -35,7 +35,7 @@ import "fmt"
 // loudly here rather than silently untap-without-a-trigger the wrong
 // permanent.
 var untapUnresolvedParams = [...]string{
-	"UntapUpTo", "UntapExactly", "UntapType", "Amount", "Condition", "ConditionDefined", "ETB",
+	"UntapUpTo", "UntapExactly", "UntapType", "Amount", "Condition", "ETB",
 }
 
 // untapEffect resolves Mode$/DB$/AB$ Untap for the plain ValidTgts$/

@@ -82,7 +82,7 @@ import (
 // is not a built continuous-effect param, so the trigger it would grant
 // never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
-	"Optional", "ConditionDefined", "ConditionActivationLimit",
+	"Optional", "ConditionActivationLimit",
 	"ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
 }

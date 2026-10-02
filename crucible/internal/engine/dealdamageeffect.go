@@ -95,8 +95,7 @@ import "fmt"
 type dealDamageEffect struct{}
 
 var dealDamageUnresolvedParams = [...]string{
-	"DamageSource", "Condition", "ConditionDefined",
-	"TriggeredSpellAbility", "CounterNum",
+	"DamageSource", "Condition", "TriggeredSpellAbility", "CounterNum",
 	"NoPrevention", "Optional", "DividedAsYouChoose",
 }
 

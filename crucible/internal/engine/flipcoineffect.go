@@ -25,7 +25,7 @@ type flipCoinEffect struct{}
 
 func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectParams(a, "FlipCoin", "ForEachPlayer", "RememberResult", "RememberNumber",
-		"Condition", "ConditionDefined"); err != nil {
+		"Condition"); err != nil {
 		return err
 	}
 	if flipCoinModInPlay(g) {

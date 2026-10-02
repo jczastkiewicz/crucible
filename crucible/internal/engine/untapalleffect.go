@@ -43,8 +43,7 @@ import (
 var untapAllUnresolvedParams = [...]string{
 	"Planeswalker", "ModeCost",
 	"ConditionPlayerTurn", "ConditionManaSpent",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // untapAllEffect resolves Mode$/DB$/AB$ UntapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

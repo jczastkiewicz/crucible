@@ -73,7 +73,7 @@ import (
 // wild_might.txt's own spell-level ValidTgts$, reachable since a cast
 // spell's targets resolve (ADR-0018).
 var pumpUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
+	"Condition", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionActivationLimit",
 	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",

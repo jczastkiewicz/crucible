@@ -11,8 +11,7 @@ import "fmt"
 var cleanupUnresolvedParams = [...]string{
 	"Defined", "ForgetDefined", "ClearTriggered", "ClearCoinFlips",
 	"Log",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // cleanupEffect is CleanUpEffect.java: it wipes the host card's own Memory
 // lists (memory.go) at the end of a chain that wrote to them. 3,011 real

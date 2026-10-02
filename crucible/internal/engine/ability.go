@@ -125,6 +125,10 @@ type Ability struct {
 	// paid are the cards the activation cost used up, read back by Sacrificed$,
 	// Exiled$ and Discarded$ amounts. Sub-abilities inherit them.
 	paid paidLists
+	// parentTargets are the targets of the nearest ancestor ability that chose
+	// some (Defined$ ParentTarget); a sub-ability that chooses its own keeps
+	// the parent's here while Targets holds its own.
+	parentTargets []EntityID
 	// evolve is the creature that entered for a trigger naming Condition$
 	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
 	// ability resolves, against the creatures' values by then. NoCard for
@@ -217,8 +221,10 @@ type Ability struct {
 // ability, what that trigger remembered.
 type abilityRefs struct {
 	targets           []EntityID
+	parentTargets     []EntityID
 	triggerRemembered []EntityID
 	triggered         triggeredObjects
+	paid              paidLists
 	// replaced is the card a Moved replacement's ReplaceWith$ ability is
 	// replacing the entry of (Defined$ ReplacedCard); NoCard otherwise.
 	replaced CardID
@@ -231,8 +237,8 @@ type abilityRefs struct {
 
 // refs is a's own abilityRefs.
 func (a *Ability) refs() abilityRefs {
-	r := abilityRefs{targets: a.Targets, triggerRemembered: a.TriggerRemembered, triggered: a.triggered,
-		replaced: a.replacedCard()}
+	r := abilityRefs{targets: a.Targets, parentTargets: a.parentTargets, triggerRemembered: a.TriggerRemembered,
+		triggered: a.triggered, paid: a.paid, replaced: a.replacedCard()}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
 	}

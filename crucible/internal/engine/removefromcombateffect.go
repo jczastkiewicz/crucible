@@ -31,8 +31,7 @@ import "fmt"
 // it, dealDamageEffect's own identical reasoning.
 var removeFromCombatUnresolvedParams = [...]string{
 	"UnblockCreaturesBlockedOnlyBy",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // removeFromCombatEffect resolves Mode$/DB$/AB$ RemoveFromCombat.
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/

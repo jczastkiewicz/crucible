@@ -42,8 +42,7 @@ import (
 // identical reasoning.
 var removeCounterAllUnresolvedParams = [...]string{
 	"ValidZone", "AllCounterTypes",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // removeCounterAllEffect resolves Mode$/DB$/AB$ RemoveCounterAll.
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/

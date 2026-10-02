@@ -11,7 +11,7 @@ import "fmt"
 type protectionAllEffect struct{}
 
 func (protectionAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "ProtectionAll", "ValidPlayers", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "ProtectionAll", "ValidPlayers", "Condition"); err != nil {
 		return err
 	}
 	permanent, err := animateDuration(a, "ProtectionAll")

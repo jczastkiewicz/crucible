@@ -53,8 +53,7 @@ var removeCounterUnresolvedParams = [...]string{
 	"Choices", "ChoiceOptional", "TgtZone", "UpTo",
 	"Optional",
 	"RememberRemoved", "RememberAmount",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // removeCounterEffect resolves Mode$/DB$/AB$ RemoveCounter for the Defined$
 // Self/Enchanted/Equipped/You shape. ConditionPresent$/ConditionCompare$/

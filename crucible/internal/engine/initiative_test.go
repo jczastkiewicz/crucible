@@ -212,7 +212,7 @@ func TestInitiativeSurvivesCloneAndRestores(t *testing.T) {
 	}
 }
 
-// TestTakeInitiativeFailsClosedAndSkips proves the rejected ConditionDefined$,
+// TestTakeInitiativeFailsClosedAndSkips proves a rejected Defined$,
 // a Defined$ the port cannot read, an unmet condition and a lost target.
 func TestTakeInitiativeFailsClosedAndSkips(t *testing.T) {
 	t.Parallel()
@@ -221,7 +221,6 @@ func TestTakeInitiativeFailsClosedAndSkips(t *testing.T) {
 	a, b := g.Players()[0], g.Players()[1]
 	c := engine.NewScriptedController()
 	for _, line := range []string{
-		"DB$ TakeInitiative | ConditionDefined$ Remembered | ConditionPresent$ Card",
 		"DB$ TakeInitiative | Defined$ TriggeredSource",
 	} {
 		if err := resolveWith(t, g, a, c, line); err == nil {

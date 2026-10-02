@@ -9,8 +9,7 @@ import "fmt"
 // shield effect), and bare activation gates.
 var regenerateUnresolvedParams = [...]string{
 	"RegenerationAbility", "RememberObjects",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // regenerateEffect is RegenerateEffect.java: each targeted or Defined$
 // permanent (default Self) still on the battlefield gets one regeneration

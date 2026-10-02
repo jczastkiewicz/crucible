@@ -305,7 +305,8 @@
       "statictrigger",
       "replaceeffect",
       "unlesscost",
-      "lifelink"
+      "lifelink",
+      "defined"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [

@@ -41,8 +41,7 @@ import (
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var multiplyCounterUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // multiplyCounterEffect resolves Mode$/DB$/AB$ MultiplyCounter.
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/

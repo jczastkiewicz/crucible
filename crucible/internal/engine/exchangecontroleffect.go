@@ -10,7 +10,7 @@ var exchangeControlUnresolvedParams = [...]string{
 	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TargetsWithSameCardType",
 	"TargetsWithRelatedProperty", "TargetsWithDefinedController", "TargetsWithDifferentControllers",
 	"TargetsAtRandom", "TargetingPlayer", "ModeCost",
-	"Condition", "ConditionDefined", "SorcerySpeed",
+	"Condition", "SorcerySpeed",
 }
 
 // exchangeControlEffect is ControlExchangeEffect.java: two permanents trade

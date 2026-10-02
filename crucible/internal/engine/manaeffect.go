@@ -50,8 +50,7 @@ import (
 // own identical reasoning.
 var manaUnresolvedParams = [...]string{
 	"RestrictValid", "Each", "CombatMana", "Optional",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // manaEffect resolves Mode$/DB$/SP$ Mana. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

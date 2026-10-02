@@ -68,7 +68,7 @@ import "fmt"
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
+	"Condition", "ConditionZone", "ConditionOptionalPaid",
 }
 
 func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

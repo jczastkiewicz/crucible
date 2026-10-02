@@ -19,7 +19,7 @@ Ported from `forge-game/src/main/java/forge/game/ability/effects/SetInMotionEffe
 
 | Step           | Go                                                                                         | Java                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Condition gate | `definedPresentConditionMet` (below)                                                       | `SpellAbilityCondition.areMet`                                               |
+| Condition gate | `subAbilityConditionMet` (below)                                                           | `SpellAbilityCondition.areMet`                                               |
 | Player         | host's controller                                                                          | `source.getController()` (`:18`), not the activator                          |
 | Repeats        | `RepeatNum$` through `optionalAmount`, default 1                                           | `calculateAmount(RepeatNum)` (`:21-24`)                                      |
 | Which scheme   | top of player's `SchemeDeck`, or with `Again$` the triggering scheme (`AbilityKey.Scheme`) | `getZone(SchemeDeck).get(0)` / root ability's triggering `Scheme` (`:27-31`) |
@@ -47,16 +47,10 @@ repeat). `Again$` with no recorded triggering scheme (Java would dereference nul
 | Plots That Span Centuries' effect card (`PlotPower`, `ReplaceWith$ PlotRep`)                         | `PlotRep` chains `SubAbility$ ExilePlot`; `runReplaceWith` (`replacement.go`) refuses a chained `ReplaceWith$`         |
 | `AddTurnEffect.createCantSetSchemesInMotionEffect` (`AddTurnEffect.java:69-83`, `Layer$ CantHappen`) | Unreachable: `addturneffect.go` already rejects `NoSchemes$`, the only param that creates it (`PhaseHandler.java:888`) |
 
-### `ConditionDefined$`: `definedPresentConditionMet`
+### `ConditionDefined$`
 
-My Laughter Echoes' `DB$ SetInMotion | Again$ True | ConditionDefined$ Remembered | ConditionPresent$ Card` needs
-`ConditionDefined$`. `subAbilityConditionMet`'s `isPresentMatches` (`trigger.go`) treats any `ConditionDefined$` as
-never met, silently; every other M6 effect rejects the key. Evaluated in the effect file instead, ported from
-`SpellAbilityCondition.java:348-373`'s `getPresentDefined` branch: count `ConditionPresent$` matches among the
-`ConditionDefined$` objects (`definedCards`, cards only), compare against `ConditionCompare$` (default `GE1`). Any other
-`Condition*` key beside `ConditionDefined$` is refused rather than half-checked; without `ConditionDefined$` it is
-`subAbilityConditionMet` unchanged. Kept local, not in `isPresentMatches`: that function's fail-closed answer is what
-every other effect's rejection list is written against. Reusable by any effect that wants the same shape.
+My Laughter Echoes' `DB$ SetInMotion | Again$ True | ConditionDefined$ Remembered | ConditionPresent$ Card` is gated by
+`subAbilityConditionMet` like every other effect ([`condition-defined.md`](condition-defined.md)).
 
 ### Main1 turn-based action
 

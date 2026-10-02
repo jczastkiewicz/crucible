@@ -84,13 +84,13 @@ func TestUnattachEffectRejectsUnresolvedParam(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	aura := g.NewCard(etbUnattachAuraDef(t, "Test Unattach Condition", "Defined$ Self | ConditionDefined$ Targeted"), p, engine.Hand)
+	aura := g.NewCard(etbUnattachAuraDef(t, "Test Unattach Condition", "Defined$ Self | Condition$ Threshold"), p, engine.Hand)
 
 	c := engine.NewScriptedController()
 	if !g.CastSpell(p, aura, c) {
 		t.Fatal("CastSpell failed casting an Aura with exactly one legal target")
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ConditionDefined$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Condition$")
 	}
 }

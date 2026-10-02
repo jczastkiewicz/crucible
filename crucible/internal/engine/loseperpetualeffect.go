@@ -2,8 +2,6 @@ package engine
 
 //enginelint:allow ability card condition control effecthelpers game
 
-import "fmt"
-
 // losePerpetualEffect is LosePerpetualEffect.java: a granted trigger that,
 // having fired, perpetually loses itself -- Racketeer Boss's "When you cast
 // this spell, create a Treasure token and this spell perpetually loses this
@@ -29,9 +27,6 @@ type losePerpetualEffect struct{}
 func (losePerpetualEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectParams(a, "LosePerpetual", "Condition"); err != nil {
 		return err
-	}
-	if d, ok := a.Params.Param("ConditionDefined"); ok && d != "Remembered" {
-		return fmt.Errorf("engine: LosePerpetual: ConditionDefined$ %q not resolvable yet", d)
 	}
 	host := g.Card(a.Source)
 	if !subAbilityConditionMet(g, host, a.Amounts, a.Params) {

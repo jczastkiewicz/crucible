@@ -19,8 +19,7 @@ var tokenUnresolvedParams = [...]string{
 	"TokenAttacking", "TokenBlocking", "AttachedTo", "AttachAfter", "WithCountersType",
 	"WithCountersAmount", "AddTriggersFrom", "TokenTypes", "TokenColors", "TokenRemembered",
 	"CleanupForEach", "RememberOriginalTokens", "ChangeZoneTable", "AtEOT", "AtEOTTrig",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // tokenEffect is TokenEffect.java: TokenAmount$ (default 1) of every
 // TokenScript$ script for every TokenOwner$ player (getDefinedPlayersOrTargeted:

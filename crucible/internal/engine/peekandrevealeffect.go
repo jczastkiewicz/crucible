@@ -10,8 +10,7 @@ import "fmt"
 // enforces.
 var peekAndRevealUnresolvedParams = [...]string{
 	"SourceZone",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // peekAndRevealEffect is PeekAndRevealEffect.java: the activator looks at
 // the top PeekAmount$ (default 1) cards of each Defined$/ValidTgts$

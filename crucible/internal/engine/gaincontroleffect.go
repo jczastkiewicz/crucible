@@ -14,7 +14,7 @@ var gainControlUnresolvedParams = [...]string{
 	"Choices", "Chooser", "AllValid",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty", "TargetsAtRandom",
 	"TargetingPlayerControls", "TargetingPlayer", "MaxTotalTargetCMC",
-	"Condition", "ConditionDefined", "SorcerySpeed", "Ultimate",
+	"Condition", "SorcerySpeed", "Ultimate",
 }
 
 // gainControlEffect is ControlGainEffect.java's permanent shape: the

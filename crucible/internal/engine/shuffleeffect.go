@@ -25,8 +25,7 @@ import "fmt"
 // subAbilityConditionMet would otherwise silently no-op a card naming
 // either, dealDamageEffect's own identical reasoning.
 var shuffleUnresolvedParams = [...]string{
-	"Optional", "Condition", "ConditionDefined",
-}
+	"Optional", "Condition"}
 
 // shuffleEffect resolves Mode$/DB$/AB$ Shuffle. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

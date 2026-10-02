@@ -24,7 +24,7 @@ import (
 type earthbendEffect struct{}
 
 func (earthbendEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Earthbend", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Earthbend", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

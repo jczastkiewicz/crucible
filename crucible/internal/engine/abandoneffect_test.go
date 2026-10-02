@@ -110,25 +110,6 @@ func TestAbandonEffectConditionUnmetLeavesSchemeInCommand(t *testing.T) {
 	}
 }
 
-// TestAbandonEffectRejectsConditionDefined proves i_am_duskmourn.txt's own
-// real line (`ConditionDefined$ Remembered | ConditionPresent$ Card`) is
-// rejected loudly rather than silently skipped: isPresentMatches
-// (trigger.go) fails closed on ConditionDefined$ -- treating the condition
-// as never met -- which would drop the whole line (and its own
-// SubAbility$) without ever reporting why, the identical reasoning
-// destroyeffect.go/cleanupeffect.go already document for their own
-// ConditionDefined$ rejection.
-func TestAbandonEffectRejectsConditionDefined(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	_, err := resolveAbandonInCommand(t, g, p, engine.NewScriptedController(),
-		"DB$ Abandon | ConditionDefined$ Remembered | ConditionPresent$ Card")
-	if err == nil {
-		t.Fatal("ConditionDefined$ must be rejected, not silently no-op'd")
-	}
-}
-
 // TestAbandonEffectHostNotInCommandIsNoOp proves the host-not-in-Command
 // guard: a DB$ Abandon chained after some other effect moved its own host
 // out of the Command zone first must not move it again or fire the

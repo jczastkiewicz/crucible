@@ -37,8 +37,7 @@ import "fmt"
 // either, dealDamageEffect's own identical reasoning.
 var setLifeUnresolvedParams = [...]string{
 	"Redistribute", "PlayerChoices", "ChoicePrompt", "ChoiceAmount",
-	"Ultimate", "Condition", "ConditionDefined",
-}
+	"Ultimate", "Condition"}
 
 // setLifeEffect resolves Mode$/DB$/AB$ SetLife for the plain, non-
 // Redistribute$ shape. ConditionPresent$/ConditionCompare$/

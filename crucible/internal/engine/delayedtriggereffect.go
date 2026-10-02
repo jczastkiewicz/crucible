@@ -24,7 +24,7 @@ type delayedTriggerEffect struct{}
 
 func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectParams(a, "DelayedTrigger", "RememberNumber", "RememberSVarAmount", "Static",
-		"ValidTgts", "Condition", "ConditionDefined"); err != nil {
+		"ValidTgts", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

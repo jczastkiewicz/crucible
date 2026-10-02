@@ -25,7 +25,7 @@ import (
 type heistEffect struct{}
 
 func (heistEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Heist", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Heist", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -23,7 +23,7 @@ import (
 type amassEffect struct{}
 
 func (amassEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Amass", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Amass", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

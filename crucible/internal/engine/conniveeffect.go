@@ -41,8 +41,7 @@ import (
 // it, dealDamageEffect's own identical reasoning.
 var conniveUnresolvedParams = [...]string{
 
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // conniveEffect resolves Mode$/DB$/AB$ Connive. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

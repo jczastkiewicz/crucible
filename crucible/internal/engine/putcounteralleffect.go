@@ -50,7 +50,7 @@ var putCounterAllUnresolvedParams = [...]string{
 	"ValidZone", "Placer", "ValidCards2", "CounterType2", "CounterNum2",
 	"AmountByChosenMap", "TargetUnique", "IsCurse",
 	"Ultimate", "ModeCost",
-	"Condition", "ConditionDefined", "ConditionPlayerTurn", "ConditionPhases",
+	"Condition", "ConditionPlayerTurn", "ConditionPhases",
 }
 
 // putCounterAllEffect resolves Mode$/DB$/AB$ PutCounterAll. ConditionPresent$/

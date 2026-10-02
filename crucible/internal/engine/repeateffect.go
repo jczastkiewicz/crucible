@@ -9,7 +9,7 @@ import "fmt"
 // hands the "again?" question to another player.
 var repeatUnresolvedParams = [...]string{
 	"RepeatDefined", "RepeatOptionalDecider",
-	"Condition", "ConditionDefined", "Ultimate",
+	"Condition", "Ultimate",
 }
 
 // repeatEffect is RepeatEffect.java: RepeatSubAbility$ resolves at least

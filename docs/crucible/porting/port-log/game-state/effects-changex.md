@@ -58,9 +58,9 @@ Resolution:
 triggering spell's X, which the plain `xPaid` head (the resolving ability's own) does not.
 
 Rejected with an error before acting (GO-7): any other `Defined$` (`Targeted`, `Parent`, `Remembered`, ...);
-`ValidTgts$`/`TargetType$` (a targeted spell, no corpus line); `Condition$`/`ConditionDefined$` (read as never met,
-silently, by `subAbilityConditionMet`); a missing `Value$`; any other `Value$` shape (another `Count$` head, a `doXMath`
-operator it lacks such as `Pow`, an SVar `resolveNamedAmount` cannot resolve such as `Count$Party`).
+`ValidTgts$`/`TargetType$` (a targeted spell, no corpus line); `Condition$` (read as never met, silently, by
+`subAbilityConditionMet`); a missing `Value$`; any other `Value$` shape (another `Count$` head, a `doXMath` operator it
+lacks such as `Pow`, an SVar `resolveNamedAmount` cannot resolve such as `Count$Party`).
 
 Tests: `changexvalue_test.go` (Unbound Flourishing's verbatim lines doubling X = 3 to 6, literal, named SVar, operand
 and sign, unannounced X left alone, a copy keeping the changed X per CR 707.10, spell gone, every rejected shape).

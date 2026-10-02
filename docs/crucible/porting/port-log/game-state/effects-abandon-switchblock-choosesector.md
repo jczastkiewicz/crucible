@@ -20,12 +20,9 @@ shape every other M6 effect already has -- including the port's own 3 real non-p
 (`PayLife<3>`, `Discard<1/Card>`, `Sac<2/Creature>`), which `resolveUnlessCost`'s own `IsPureMana` gate already fails
 loudly on before reaching this file.
 
-**Rejected: `Condition$`/`ConditionDefined$`** (1 real line, `i_am_duskmourn.txt`'s own
-`ConditionDefined$ Remembered | ConditionPresent$ Card`). `subAbilityConditionMet`'s own `isPresentMatches`
-(`trigger.go`) fails closed on `ConditionDefined$` -- treats the condition as never met, silently -- which would quietly
-drop this line's own `SubAbility$` rather than resolving it. Rejected loudly instead (PORT-8/GO-7), the identical
-convention `destroyeffect.go`/`cleanupeffect.go` and most of the rest of M6 already use for the same two params.
-`TestAbandonEffectRejectsConditionDefined` (`abandoneffect_test.go`).
+**`ConditionDefined$`** (1 real line, `i_am_duskmourn.txt`'s own
+`ConditionDefined$ Remembered | ConditionPresent$ Card`) is evaluated by `subAbilityConditionMet`
+([`condition-defined.md`](condition-defined.md)); `Condition$` itself stays rejected.
 
 `Optional$` asks `controller.ConfirmEffect` (Java's `confirmAction`) first; `RememberAbandoned$` remembers the host on
 itself, `changeZoneMemory`'s (`changezoneeffect.go`) identical `RememberX$` shape. Java's own
@@ -79,7 +76,6 @@ exception, cards this port cannot deal from a scheme deck at all yet.
 | `TestAbandonEffectOptionalDeclinedLeavesSchemeInCommand`    | `Optional$ True`, declined -> no-op                                          |
 | `TestAbandonEffectOptionalAcceptedAbandons`                 | `Optional$ True`, accepted                                                   |
 | `TestAbandonEffectConditionUnmetLeavesSchemeInCommand`      | `ConditionCheckSVar$`/`ConditionSVarCompare$` gates the whole ability        |
-| `TestAbandonEffectRejectsConditionDefined`                  | `ConditionDefined$` is rejected loudly, not silently no-op'd                 |
 | `TestAbandonEffectHostNotInCommandIsNoOp`                   | A host not in Command when `DB$ Abandon` resolves is a no-op, not a panic    |
 | `TestAbandonEffectFiresWatchingAbandonedTrigger`            | `checkAbandonedTriggers`' `ValidCard$ Card.IsRemembered` match and non-match |
 | `TestAbandonEffectSkipsStaticTrigger`                       | `Static$ True` is skipped, not pushed onto the stack                         |

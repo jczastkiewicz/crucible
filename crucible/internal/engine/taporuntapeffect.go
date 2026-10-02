@@ -9,8 +9,7 @@ import "fmt"
 // TargetingPlayer$ (1, someone other than the activator picks the target).
 var tapOrUntapUnresolvedParams = [...]string{
 	"Tapper", "TargetingPlayer", "PresentCompare",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // tapOrUntapEffect is TapOrUntapEffect.java: for each target
 // (targetedOrDefinedCards -- 38 of 41 real lines name ValidTgts$) still on

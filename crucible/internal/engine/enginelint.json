@@ -62,6 +62,7 @@
     "castoptions": ["castoptions.go"],
     "castrecord": ["castrecord.go"],
     "foretell": ["foretell.go"],
+    "lifelost": ["lifelost.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"],
     "zonemove": ["zonemove.go"],
@@ -395,6 +396,19 @@
     "castoptions": ["id", "zone", "card", "game", "control", "parts", "airbendeffect", "rulesmod"],
     "castrecord": ["id", "zone", "card", "game", "valid"],
     "foretell": ["id", "zone", "card", "game", "control", "parts", "mana"],
+    "lifelost": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "player",
+      "ability",
+      "control",
+      "trigger",
+      "valid",
+      "parts",
+      "playerstate"
+    ],
     "targeting": [
       "id",
       "card",

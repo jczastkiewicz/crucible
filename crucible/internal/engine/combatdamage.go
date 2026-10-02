@@ -394,6 +394,9 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
 	if !g.Card(source).HasKeyword("Infect") {
 		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
+		if !g.cantLoseLife(target) {
+			g.noteLifeLost(controller, target, amount)
+		}
 	}
 	if poison > 0 {
 		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {

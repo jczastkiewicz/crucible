@@ -116,6 +116,9 @@ type Player struct {
 	// cleanup (cleanupStep, turn.go) the identical way LandsPlayed/
 	// CardsDrawnThisTurn already are.
 	LifeGainedTimesThisTurn int
+	// LifeLostThisTurn is the life this player has lost this turn
+	// (Player.lifeLostThisTurn); the first loss is what FirstTime$ names.
+	LifeLostThisTurn int
 
 	// TurnsToSkip is how many of this player's next turns are skipped
 	// (SkipTurn): Java's BeginTurn replacement effect that counts itself down.

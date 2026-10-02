@@ -386,6 +386,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.PayLifeN > 0 {
 		g.Player(pid).Life -= shape.PayLifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
+		g.noteLifeLost(controller, pid, shape.PayLifeN)
 	}
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)

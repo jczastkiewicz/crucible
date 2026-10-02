@@ -104,3 +104,25 @@ func tapChosenPermanents(g *Game, controller PlayerController, ids []CardID) {
 		g.checkTapsTriggers(controller, id, c.Controller(), false)
 	}
 }
+
+// totalPower is the sum of the power of ids (a power this port cannot resolve
+// counts as 0, never as a guess).
+func totalPower(g *Game, ids []CardID) int {
+	total := 0
+	for _, id := range ids {
+		if p, ok := g.Card(id).Power(); ok && p > 0 {
+			total += p
+		}
+	}
+	return total
+}
+
+// isSubset reports whether every id of sub is in set, and sub has no repeat.
+func isSubset(sub, set []CardID) bool {
+	for i, id := range sub {
+		if !containsCard(set, id) || containsCard(sub[:i], id) {
+			return false
+		}
+	}
+	return true
+}

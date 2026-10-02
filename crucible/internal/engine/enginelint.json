@@ -254,7 +254,10 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "condition",
       "discardeffect",
+      "unlesscost",
+      "kicker",
       "id",
       "zone",
       "parts",
@@ -392,7 +395,7 @@
       "zonemove"
     ],
     "subability": ["id", "game", "ability", "control", "effect"],
-    "zonemove": ["id", "card", "game", "ability", "control", "amount", "zone", "effecthelpers"],
+    "zonemove": ["id", "card", "game", "ability", "control", "amount", "zone", "effecthelpers", "parts", "event"],
     "additional": ["game", "ability", "control"],
     "regeneration": [
       "id",

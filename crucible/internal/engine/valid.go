@@ -291,6 +291,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// "TopLibrary_<valid>"/"BottomLibrary" forms are not resolved.
 		lib := g.Zone(Library, c.Owner).Cards()
 		return len(lib) > 0 && lib[0] == c.ID
+	case name == "kicked", name == "kicked 1", name == "kicked 2":
+		// CardProperty.java:1691: the card was cast with a kicker paid (either,
+		// or the first/second for "kicked 1"/"kicked 2").
+		switch name {
+		case "kicked 1":
+			return c.kicker&kicker1 != 0
+		case "kicked 2":
+			return c.kicker&kicker2 != 0
+		}
+		return c.kickerMagnitude() > 0
 	case name == "IsRemembered":
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), CardEntity(c.ID))

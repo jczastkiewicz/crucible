@@ -63,10 +63,12 @@ would not touch, [`## Not ported yet`](../game-state.md#not-ported-yet)) — rec
 
 Not resolved, each for a specific reason: `Condition$` (116 of 2,426 real lines) — a generic runtime gate
 (`StaticAbility.java`'s own `checkConditions`, no equivalent for any static-ability mode in this port yet);
-`AffectedDefined$`/`AffectedZone$` (0 and 24) — a targeted or `Remembered`-driven affected set, not a blanket
-valid-string match. A non-numeric `AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` naming a named SVar now
-resolves through `resolveAmount` (amount.go, below) when that SVar's own body is one of the shapes it evaluates; per
-missing dimension when it is not, not per whole line.
+`AffectedZone$` (24) — a card off the battlefield; `AffectedDefined$` resolves for `Self`, `Enchanted`, `Equipped` and
+`AttachedBy Self` (`layerAffectedCards`, so Pacifism-style auras and every Equipment's "equipped creature gets +N/+N"
+reach the attached creature) and skips any other value (a targeted or `Remembered`-driven set). A non-numeric
+`AddPower$`/`AddToughness$`/`SetPower$`/`SetToughness$` naming a named SVar now resolves through `resolveAmount`
+(amount.go, below) when that SVar's own body is one of the shapes it evaluates; per missing dimension when it is not,
+not per whole line.
 
 **`compile.Face.Amounts`, `resolveAmount` and Layer 7a (`CharacteristicDefining$`).** `AbilityUtils.calculateAmount`
 itself is 300-some lines dispatching on eighty-some expression heads — not a port this slice attempts whole — but one

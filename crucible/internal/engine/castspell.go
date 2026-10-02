@@ -6,8 +6,13 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -116,8 +121,15 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		g.recordPendingError(err)
 		return false
 	}
+	var opts castOpts
 	if !fromHand && !granted {
-		return false
+		// Flashback (CR 702.34a): the owner may cast the card from their
+		// graveyard for its flashback cost.
+		cost, ok := g.flashbackCost(pid, c)
+		if !ok {
+			return false
+		}
+		opts.altCost, opts.hasAltCost = cost, true
 	}
 	if !c.Type().Has(cardtype.Instant) && !play.WithFlash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
 		return false
@@ -127,7 +139,48 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			return false
 		}
 	}
-	return g.castSpell(controller, pid, card, castOpts{withoutManaCost: play.WithoutManaCost, door: d})
+	opts.withoutManaCost, opts.door = play.WithoutManaCost, d
+	if !g.castSpell(controller, pid, card, opts) {
+		return false
+	}
+	if opts.hasAltCost {
+		g.Card(card).flashbackCast = true
+	}
+	return true
+}
+
+// flashbackCost is the mana cost of c's Flashback keyword when pid may cast it
+// from the graveyard: pid owns it and it is there. A Flashback whose cost is
+// not a plain mana cost (Sac<..>, PayLife<..>, a non-mana part) is not offered
+// (GO-7).
+func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
+	if c.Zone != Graveyard || c.Owner != pid || c.Def == nil {
+		return mana.Cost{}, false
+	}
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "Flashback" {
+			continue
+		}
+		text := k.Details
+		if text == "" {
+			// A bare Flashback (granted by AddKeyword$) is cast for the card's
+			// own mana cost (GameActionUtil.getGraveyardSpellByKeyword).
+			if c.Def.Faces[0].ManaCost.IsNoCost() {
+				return mana.Cost{}, false
+			}
+			return c.Def.Faces[0].ManaCost, true
+		}
+		if parsed := cost.Parse(text); !parsed.IsPureMana() {
+			return mana.Cost{}, false
+		}
+		mc, err := mana.Parse(text)
+		if err != nil || mc.CountX() > 0 {
+			return mana.Cost{}, false
+		}
+		return mc, true
+	}
+	return mana.Cost{}, false
 }
 
 // castOpts is how an effect's "cast it" differs from casting it normally
@@ -139,6 +192,13 @@ type castOpts struct {
 	withoutManaCost bool
 	// door is the half a Room card is cast as; ignored for anything else.
 	door Door
+	// altCost, when hasAltCost, is paid instead of the printed mana cost (a
+	// flashback cost, CR 702.34a).
+	altCost    mana.Cost
+	hasAltCost bool
+	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
+	// of the cost (CR 601.2b, 702.33a).
+	kickers uint8
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -152,6 +212,20 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	if g.cantBeCast(pid, card) {
 		return false
 	}
+	// Kicker is chosen as the spell is announced; the card carries the choice
+	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
+	// forgets it.
+	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
+	g.Card(card).kicker = opts.kickers
+	if !g.castSpellChosen(controller, pid, card, opts) {
+		g.Card(card).kicker = 0
+		return false
+	}
+	return true
+}
+
+// castSpellChosen is castSpell once the kicker choice is made.
+func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
 	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller, opts)
@@ -161,6 +235,14 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	}
 	if !castableAsPermanent(c) {
 		return false
+	}
+	var extra unlessCost
+	hasExtra := false
+	if line := firstSpellAbility(c); line != nil {
+		var ok bool
+		if extra, hasExtra, ok = g.spellAdditionalCost(pid, c, line); !ok {
+			return false
+		}
 	}
 	room := isRoomDef(c.Def)
 	if room {
@@ -172,6 +254,9 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 			c.undoCastAsDoor()
 		}
 		return false
+	}
+	if hasExtra {
+		g.payUnlessParts(controller, &Ability{Source: card, Controller: pid}, pid, extra)
 	}
 	g.putSpellOnStack(card, pid)
 	api := APIPermanentNoncreature
@@ -193,10 +278,26 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 // cast announces none: its cost has no X part left, and
 // PlaySpellAbility.announceValuesLikeX leaves xManaCostPaid null then.
 func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
-	if opts.withoutManaCost {
+	base := c.Def.Faces[0].ManaCost
+	switch {
+	case opts.withoutManaCost && opts.kickers == 0:
 		return xAnnounced{}, true
+	case opts.withoutManaCost:
+		// A free cast still pays the optional costs chosen (CR 118.9d).
+		base = mana.Cost{}
+	case opts.hasAltCost:
+		base = opts.altCost
 	}
-	return g.payManaCostX(pid, c.Def.Faces[0].ManaCost, controller)
+	total, ok := g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	if !ok {
+		return xAnnounced{}, false
+	}
+	total, assist := g.assistCost(controller, pid, c, total)
+	x, paid := g.payManaCostX(pid, total, controller)
+	if paid {
+		assist.settle(g, controller)
+	}
+	return x, paid
 }
 
 // setOn records x on a as the X its cost was paid with; announced false
@@ -310,9 +411,16 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !g.resolveTargets(controller, &a) {
 		return false
 	}
+	extra, hasExtra, ok := g.spellAdditionalCost(pid, c, spellAbility)
+	if !ok {
+		return false
+	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
 		return false
+	}
+	if hasExtra {
+		g.payUnlessParts(controller, &a, pid, extra)
 	}
 	x.setOn(&a)
 	g.putSpellOnStack(card, pid)
@@ -325,6 +433,25 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	g.pushTriggeredAbilities(controller, matches)
 	return true
+}
+
+// spellAdditionalCost reads the A:SP$ line's Cost$ as the spell's additional
+// cost (CR 118.8): its mana is the card's own (paid with the rest), its other
+// parts are paid once the mana is. Forge writes the printed mana cost into Cost$
+// beside the additional parts, so a line whose mana differs from the card's (an
+// alternative or cleave cost) is not one this port reads, and neither is a shape
+// parseUnlessCost does not: ok false means the spell is not cast, never cast
+// free of the cost (GO-7). has is false for a line with no Cost$.
+func (g *Game) spellAdditionalCost(pid PlayerID, c *Card, line *compile.Ability) (extra unlessCost, has, ok bool) {
+	costText, hasCost := line.Param("Cost")
+	if !hasCost {
+		return unlessCost{}, false, true
+	}
+	uc, parsed := parseUnlessCost(costText)
+	if !parsed || !g.unlessPayable(pid, c.ID, uc) || (uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost)) {
+		return unlessCost{}, false, false
+	}
+	return uc, true, true
 }
 
 // allTargetsOf gathers a's own top-level Targets plus every one of a
@@ -421,12 +548,47 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 type attachEffect struct{}
 
 func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if !a.spell {
+		return g.attachActivated(a)
+	}
 	origin := g.Card(a.Source).Zone
 	copyBecomesToken(g.Card(a.Source))
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.Attach(a.Source, a.Target)
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
+	return nil
+}
+
+// attachActivated is AttachEffect.resolve for an activated AB$ Attach (Equip,
+// CR 702.6a): the source permanent attaches to the first card its targets
+// name, moving off what it was attached to. Nothing is attached when the
+// source has left the battlefield, the target is gone or is not a creature,
+// or the host's protection refuses the attachment (CR 702.16c). Params
+// choosing the attachment or the host without targeting (Object$, Choices$,
+// Defined$, PlayerChoices$, Optional$, Chooser$) are not read: such a line is
+// an error, never an attachment to the wrong thing (GO-7).
+func (g *Game) attachActivated(a *Ability) error {
+	for _, key := range [...]string{"Object", "Choices", "Defined", "PlayerChoices", "Optional", "Chooser", "Move"} {
+		if _, ok := a.Params.Param(key); ok {
+			return fmt.Errorf("engine: Attach: %s$ not resolvable yet", key)
+		}
+	}
+	source := g.Card(a.Source)
+	if source.Zone != Battlefield || !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	for _, e := range a.Targets {
+		host, ok := e.AsCard()
+		if !ok || host == a.Source || g.Card(host).Zone != Battlefield || !g.Card(host).Type().Has(cardtype.Creature) {
+			continue
+		}
+		if hostRefusesAttach(g, source, host) {
+			return nil
+		}
+		g.Attach(a.Source, host)
+		return nil
+	}
 	return nil
 }
 

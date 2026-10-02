@@ -213,11 +213,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if c.isDetained() {
 		return false
 	}
-	abilities := c.Def.Faces[0].Abilities
-	if index < 0 || index >= len(abilities) {
+	ability, _, ok := c.abilityAt(index)
+	if !ok {
 		return false
 	}
-	ability := abilities[index]
 	// A:AB$ ManaReflected (Reflecting Pool, Exotic Orchard) is a mana
 	// ability too, same as Mana -- never on the stack, ActivateManaAbility's
 	// job, not this one's, even though the Produce walk it would need there
@@ -301,7 +300,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.SubCounterType != "" && shape.SubCounterN > c.Counters.Count(CounterType(strings.ToUpper(shape.SubCounterType))) {
 		return false
 	}
-	var tapCandidates []CardID
+	var tapCandidates, tapChosen []CardID
 	if shape.TapTypeN > 0 {
 		if !tapTypeResolvable(shape.TapTypeSpec) {
 			return false
@@ -309,6 +308,18 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
 		if len(tapCandidates) < shape.TapTypeN {
 			return false
+		}
+		if shape.TapTypeTotalPower > 0 {
+			// Crew N: the controller picks any number of the candidates whose
+			// total power reaches N (CostTapType's withTotalPowerGE); the pick
+			// is made before anything is paid, so an illegal one costs nothing.
+			if totalPower(g, tapCandidates) < shape.TapTypeTotalPower {
+				return false
+			}
+			tapChosen = controller.ChooseCardsForEffect(g, pid, card, tapCandidates, 1, len(tapCandidates))
+			if !isSubset(tapChosen, tapCandidates) || totalPower(g, tapChosen) < shape.TapTypeTotalPower {
+				return false
+			}
 		}
 	}
 	var returnCandidates []CardID
@@ -328,7 +339,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	activated := Ability{
 		API: apiType, Source: card, Controller: pid,
-		Params: ability, Amounts: c.Def.Faces[0].Amounts, costPaid: true,
+		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true,
 	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	if !paid {
@@ -364,7 +375,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
 		emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
 	}
-	if shape.TapTypeN > 0 {
+	if shape.TapTypeTotalPower > 0 {
+		tapChosenPermanents(g, controller, tapChosen)
+	} else if shape.TapTypeN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
 		tapChosenPermanents(g, controller, chosen)
 	}
@@ -421,7 +434,7 @@ func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) b
 // here, as Java's restriction does not read them. An Activation$ value that
 // names a state this port does not track (Blessing, Solved) refuses (GO-7).
 func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
-	amounts := c.Def.Faces[0].Amounts
+	amounts := c.abilityAmounts(ability)
 	you := c.Controller()
 	if act, ok := ability.Param("Activation"); ok {
 		var has bool
@@ -461,7 +474,7 @@ func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability)
 		if !ok {
 			continue
 		}
-		limit, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, raw)
+		limit, ok := resolveNamedAmount(g, c.abilityAmounts(ability), c, raw)
 		if !ok || k.count >= limit {
 			return false
 		}

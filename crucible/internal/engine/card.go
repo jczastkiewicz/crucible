@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 
@@ -35,6 +36,16 @@ type Card struct {
 	// IsToken marks a card a Token effect created (CR 111.1): it ceases to
 	// exist once it is anywhere but the battlefield (CR 704.5d, action.go).
 	IsToken bool
+
+	// flashbackCast marks a spell cast from a graveyard for its flashback cost:
+	// any time it would leave the stack it is exiled instead (CR 702.34a,
+	// Game.Move). Cleared when it leaves.
+	flashbackCast bool
+
+	// kicker is which of the card's kicker costs were paid casting it (kicker.go),
+	// read while it is on the stack or the battlefield; Move clears it when the
+	// card leaves either for another zone.
+	kicker uint8
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move
@@ -341,6 +352,13 @@ type Card struct {
 	// last-known-information snapshot shares the backing array.
 	grants []grantedTriggers
 
+	// traitGrants is the Layer 6 trait overlay Mode$ Continuous statics write
+	// (AddTrigger$, AddAbility$; ADR-0023): rebuilt from scratch every
+	// state-based pass by applyContinuousTraits, like every other continuous
+	// effect, so a grant ends the pass its source stops granting. Triggers are
+	// read through triggerFaces, abilities through abilityAt.
+	traitGrants []traitGrant
+
 	// attachedTo is the card this one is attached to, and attachments is the
 	// reverse. Both are unexported because they are two representations of one
 	// fact and only Game.Attach and Game.Unattach may write either.
@@ -361,6 +379,47 @@ type grantedTriggers struct {
 	id       uint64
 	triggers []*compile.Ability
 	amounts  map[string]expr.Amount
+}
+
+// traitGrant is the traits one continuous static granted to a card, compiled
+// from the SVars its AddTrigger$/AddAbility$ named; amounts is the granting
+// face's, where those traits' SVar amounts live.
+type traitGrant struct {
+	triggers  []*compile.Ability
+	abilities []*compile.Ability
+	amounts   map[string]expr.Amount
+}
+
+// abilityAt is the index'th activated ability c has: its printed A: lines,
+// then the abilities continuous statics grant it (traitGrants), with the
+// amounts those lines read their SVars from.
+func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, bool) {
+	if c.Def == nil || index < 0 {
+		return nil, nil, false
+	}
+	printed := c.Def.Faces[0].Abilities
+	if index < len(printed) {
+		return printed[index], c.Def.Faces[0].Amounts, true
+	}
+	index -= len(printed)
+	for _, grant := range c.traitGrants {
+		if index < len(grant.abilities) {
+			return grant.abilities[index], grant.amounts, true
+		}
+		index -= len(grant.abilities)
+	}
+	return nil, nil, false
+}
+
+// abilityAmounts is the amounts table ability reads its SVars from: the
+// granting face's for a granted ability, else c's own printed face's.
+func (c *Card) abilityAmounts(ability *compile.Ability) map[string]expr.Amount {
+	for _, grant := range c.traitGrants {
+		if slices.Contains(grant.abilities, ability) {
+			return grant.amounts
+		}
+	}
+	return c.Def.Faces[0].Amounts
 }
 
 // withGrant returns c's grants plus g, in a fresh slice (grants' own
@@ -751,3 +810,24 @@ type exiledWithMark struct {
 // ExiledWith is the card that exiled c, NoCard if nothing did since c last
 // changed zones (Card.getExiledWith).
 func (c *Card) ExiledWith() CardID { return c.exiledWith.host }
+
+// Kicker1 and Kicker2 are the bits Card.kicker records: which of a card's two
+// kicker costs were paid (Java's OptionalCost.Kicker1/Kicker2).
+const (
+	kicker1 uint8 = 1 << iota
+	kicker2
+)
+
+// kickerMagnitude is Card.getKickerMagnitude for a kicker (not multikicker)
+// card: how many kicker costs were paid, 0 to 2 -- one when exactly one of the
+// two was, as Java computes it.
+func (c *Card) kickerMagnitude() int {
+	k1, k2 := c.kicker&kicker1 != 0, c.kicker&kicker2 != 0
+	switch {
+	case k1 && k2:
+		return 2
+	case k1 || k2:
+		return 1
+	}
+	return 0
+}

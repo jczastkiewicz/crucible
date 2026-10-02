@@ -118,6 +118,13 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
 		}
 		candidates = []PlayerID{g.Card(refs.triggered.card).Controller()}
+	case "TriggeredDefendingPlayer":
+		// AbilityKey.DefendingPlayer of Mode$ Attacks: the player defending
+		// against the attacker the trigger recorded (defenderOf).
+		if refs.triggered.attacker == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
+		}
+		candidates = []PlayerID{g.defenderOf(refs.triggered.attacker)}
 	case "TriggeredActivator":
 		if refs.triggered.activator == NoPlayer {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no activator", defined)
@@ -262,6 +269,13 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
 		}
 		return []CardID{refs.triggered.attacker}, nil
+	case "TriggeredNewCard", "TriggeredNewCardLKICopy":
+		// AbilityKey.NewCard of a zone-change trigger: the card as it is now.
+		// A CardID is stable across the move, so it is the card that moved.
+		if refs.triggered.card == NoCard {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
+		}
+		return []CardID{refs.triggered.card}, nil
 	case "ReplacedCard":
 		if refs.replaced == NoCard {
 			return nil, fmt.Errorf("engine: Defined$ %q outside a replacement of a card's entry", defined)

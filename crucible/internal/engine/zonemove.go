@@ -9,6 +9,13 @@ import (
 // library's own end, which Game.Move appends to.
 const libraryBottom = -1
 
+// enterCounters is a counter kind and count a permanent enters the battlefield
+// with (ChangeZone's WithCountersType$/WithCountersAmount$).
+type enterCounters struct {
+	kind CounterType
+	n    int
+}
+
 // moveByEffect is GameAction.moveTo as an effect resolution drives it: id
 // goes to dest, and the zone-change consequences this port models fire. A
 // permanent entering the battlefield goes to newController's side
@@ -25,7 +32,7 @@ const libraryBottom = -1
 // marking id with markExiledWith on a dest == Exile move checks this to
 // mark the partner too (ChangeZoneEffect.java's own handleExiledWith(meld,
 // sa) call alongside its primary one).
-func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneType, libPos int, newController PlayerID, tapped bool) CardID {
+func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneType, libPos int, newController PlayerID, tapped bool, enter ...enterCounters) CardID {
 	c := g.Card(id)
 	origin := c.Zone
 	var melded CardID
@@ -38,6 +45,14 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		c.controller = newController
 		if tapped {
 			c.Tapped = true
+		}
+		// WithCountersType$: the permanent enters with the counters, before its
+		// own enter replacements and triggers see it.
+		for _, e := range enter {
+			if n := g.countersReplaced(controller, newController, CardEntity(id), e.kind, e.n); n > 0 {
+				c.Counters.Add(e.kind, n)
+				emitCounterChanged(g.sink, id, CardEntity(id), e.kind, n)
+			}
 		}
 		g.enterBattlefieldReplacements(controller, id, origin)
 		g.checkETBTriggers(controller, id, origin)

@@ -199,7 +199,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left})})
 				}
 			}
 		}
@@ -255,7 +255,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left})})
 					}
 				}
 			}
@@ -2650,6 +2650,14 @@ func (c *Card) triggerFaces(yield func(triggerFace) bool) {
 	}
 	for _, g := range c.grants {
 		if !yield(triggerFace{Triggers: g.triggers, Amounts: g.amounts, slot: -1, grant: g.id}) {
+			return
+		}
+	}
+	for _, g := range c.traitGrants {
+		if len(g.triggers) == 0 {
+			continue
+		}
+		if !yield(triggerFace{Triggers: g.triggers, Amounts: g.amounts, slot: -1}) {
 			return
 		}
 	}

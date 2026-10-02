@@ -3,9 +3,9 @@
 - **Java source:** `forge-game/src/main/java/forge/game/keyword/Keyword.java` (354, its enum and `getKeywordDetails`),
   the 27 `KeywordInstance` subclasses beside it
 - **Go target:** `crucible/internal/keyword`
-- **Status:** Parsing and the definition table done — M3 slice F. Expansion into triggers, statics and abilities needs
-  the effect layer. `engine.Card.HasKeyword` (M5) is the first engine consumer, and only ever asks "is the bare word
-  present" — it does not expand a keyword into what it grants
+- **Status:** Parsing and the definition table done — M3 slice F. Expansion into triggers, statics and abilities is
+  `keyword.Expand` (ADR-0038), below. `engine.Card.HasKeyword` (M5) is the first engine consumer, and only ever asks "is
+  the bare word present" — it does not expand a keyword into what it grants
 
 ## What it does
 
@@ -90,3 +90,54 @@ the keyword is expanded.
 | `CardFactoryUtil.setupKeywordedAbilities` — expansion into traits | M3, after the effect registry exists |
 | The 23 bespoke `KeywordInstance` parsers                          | M5, with the keywords they implement |
 | Reminder text formatting                                          | Never. Display only (PORT-6)         |
+
+## Expansion (ADR-0038)
+
+`keyword.Expand(Keyword) (Expansion, bool)` (`expand.go`) ports the `CardFactoryUtil` branches that build a trait from
+script text. It returns the `A:`/`T:`/`S:`/`R:` lines and the SVars they name, minus the display params (`PrecostDesc$`,
+`CostDesc$`, `SpellDescription$`, `TriggerDescription$`). `compileFace` calls it for each printed `K:` line after the
+card's own lines (`CardFactory.getCard` runs `setupKeywordedAbilities` after the face's abilities), stores the SVars per
+keyword line (`KWProwess<n>`, so two keywords never collide) and tags each synthesized `compile.Ability` with `Keyword`,
+the line it came from. `ok == false` leaves the keyword inert: no template, or details this port does not translate
+(GO-7).
+
+| Keyword          | Lines (corpus) | Expands to                                                                                                                                                         |
+| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                                                  |
+| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                                             |
+| TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>`                         |
+| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                                                 |
+| Affinity         |             77 | `S:Mode$ ReduceCost \| ValidCard$ Card.Self \| Type$ Spell \| Amount$ KWAffinity<n> \| EffectZone$ All`, the amount `Count$Valid <type>.YouCtrl` in `Face.Amounts` |
+| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                                          |
+| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                                         |
+| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                                                 |
+| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                                                                            |
+| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                                                                |
+| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one                                                        |
+
+Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
+(about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
+activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
+protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
+`AffectedDefined$ Equipped/Enchanted` (`layers.md`). Granted keywords (`AddKeyword$ Prowess`) do not expand yet: they
+need ADR-0023's trait overlay. A bare `Flashback` (no cost) casts for the card's own mana cost. Persist and Undying
+needed `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the permanent enters with the counters before its enter
+replacements, `moveByEffect`'s `enterCounters`) and `Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters
+trigger recorded); Annihilator needed `Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario
+`equip-bonesplitter-attaches-to-a-creature-at-sorcery-speed`. Golden: `TestCorpusAST` changed for the 1,055 cards
+carrying these keywords.
+
+### Flashback is casting infrastructure, not an expansion
+
+Java's `Flashback` keyword builds only the exile replacement (`Event$ Moved | Origin$ Stack`); the alternative cost
+lives in `GameActionUtil`. ADR-0038 puts it with the casting infrastructure, so it is native: `castFromHand`
+(`castspell.go`) offers a graveyard card its owner could cast for the keyword's cost when that cost is a plain mana cost
+(`flashbackCost`; a Sac, PayLife or other non-mana flashback cost is not offered), `castOpts.altCost` replaces the
+printed cost in `payCastCost`, and `Card.flashbackCast` makes `Game.Move` exile the spell wherever it would leave the
+stack (CR 702.34a: a resolved or countered spell, and a permanent entering the battlefield). Timing is the card's own
+(an instant at instant speed). A granted flashback (Snapcaster Mage, `MayPlay` grants) is not offered. Test:
+`TestFlashbackCastsFromTheGraveyardAndExiles`.
+
+Crew needed the cost shape `tapXType<Any/Type+withTotalPowerGEN>` (`cost.ActivationShape.TapTypeTotalPower`): the
+controller picks any number of the untapped candidates through `ChooseCardsForEffect`, and the activation is refused,
+before anything is paid, unless their total power reaches N (`ActivateAbility`, `taptype.go`'s `totalPower`).

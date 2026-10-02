@@ -205,6 +205,7 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	applyContinuousType(g)
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
+	applyContinuousTraits(g)
 	applyContinuousRules(g)
 	applyContinuousNames(g)
 	// applyPumpEffects runs after applyContinuousPT/applyContinuousKeyword,

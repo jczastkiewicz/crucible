@@ -168,17 +168,35 @@ func (g *Game) unlessRevealable(pid PlayerID, source CardID, uc unlessCost) bool
 // loseLifeEffect emits), the controller chooses the discards and the
 // sacrifices.
 func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) bool {
-	hand := g.Zone(Hand, pid).Cards()
-	candidates := g.unlessSacCandidates(pid, a.Source, uc)
-	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
-	if uc.lifeN > g.Player(pid).Life || uc.energyN > g.Player(pid).Counters.Count(Energy) ||
-		uc.discardN > len(hand) || uc.sacN > len(candidates) || uc.returnN > len(returnable) ||
-		(uc.drawN > 0 && g.cantDrawAmount(pid, uc.drawN)) || !g.unlessRevealable(pid, a.Source, uc) {
+	if !g.unlessPayable(pid, a.Source, uc) {
 		return false
 	}
 	if uc.hasMana && !g.PayManaCost(pid, uc.mana, controller) {
 		return false
 	}
+	g.payUnlessParts(controller, a, pid, uc)
+	return true
+}
+
+// unlessPayable reports whether every non-mana part of uc can be paid by pid:
+// life, energy, cards to discard, permanents to sacrifice or return, a card to
+// reveal and a draw (CostPart.canPay for each).
+func (g *Game) unlessPayable(pid PlayerID, source CardID, uc unlessCost) bool {
+	hand := handWithout(g.Zone(Hand, pid).Cards(), source)
+	candidates := g.unlessSacCandidates(pid, source, uc)
+	returnable := g.unlessReturnCandidates(pid, source, uc)
+	return uc.lifeN <= g.Player(pid).Life && uc.energyN <= g.Player(pid).Counters.Count(Energy) &&
+		uc.discardN <= len(hand) && uc.sacN <= len(candidates) && uc.returnN <= len(returnable) &&
+		(uc.drawN == 0 || !g.cantDrawAmount(pid, uc.drawN)) && g.unlessRevealable(pid, source, uc)
+}
+
+// payUnlessParts pays uc's non-mana parts, after unlessPayable said they can
+// be: life (the LifeChanged event loseLifeEffect emits), energy, the controller's
+// discards and sacrifices, returns, damage to the payer and draws.
+func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid PlayerID, uc unlessCost) {
+	hand := handWithout(g.Zone(Hand, pid).Cards(), a.Source)
+	candidates := g.unlessSacCandidates(pid, a.Source, uc)
+	returnable := g.unlessReturnCandidates(pid, a.Source, uc)
 	if uc.lifeN > 0 {
 		g.Player(pid).Life -= uc.lifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(uc.lifeN)})
@@ -204,5 +222,16 @@ func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid Player
 	if uc.drawN > 0 {
 		g.DrawCards(pid, uc.drawN, controller)
 	}
-	return true
+}
+
+// handWithout is hand less source: a spell being cast cannot be discarded to pay
+// for itself (CostDiscard leaves the host out while it is a spell).
+func handWithout(hand []CardID, source CardID) []CardID {
+	out := make([]CardID, 0, len(hand))
+	for _, id := range hand {
+		if id != source {
+			out = append(out, id)
+		}
+	}
+	return out
 }

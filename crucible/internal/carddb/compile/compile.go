@@ -14,12 +14,14 @@ package compile
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -98,6 +100,9 @@ type Ability struct {
 	// Subs are the abilities this one names, resolved. Order is the order the
 	// params appear in, so it is the script's.
 	Subs []SubRef
+	// Keyword is the `K:` line this ability was synthesized from (ADR-0038),
+	// empty for a line the card wrote itself.
+	Keyword string
 }
 
 // SubRef is a resolved reference from one ability to another.
@@ -304,8 +309,58 @@ func compileFace(face *carddb.Face) (Face, error) {
 		out.Triggers = append(out.Triggers, triggers...)
 	}
 	out.Amounts = compileAmounts(face)
+	if err := c.expandKeywords(&out); err != nil {
+		return Face{}, err
+	}
 	out.Amounts = addInlineAmounts(out.Amounts, out.Statics)
 	return out, nil
+}
+
+// expandKeywords appends the traits each printed keyword stands for
+// (keyword.Expand, ADR-0038) after the card's own lines, in keyword order, as
+// CardFactory.getCard runs setupKeywordedAbilities after the face's own
+// abilities. Every synthesized ability records its keyword line.
+func (c *faceCompiler) expandKeywords(out *Face) error {
+	for i, line := range c.face.Keywords {
+		exp, ok := keyword.Expand(keyword.Parse(line))
+		if !ok {
+			continue
+		}
+		slot := strconv.Itoa(i)
+		for _, sv := range exp.Amounts {
+			if out.Amounts == nil {
+				out.Amounts = map[string]expr.Amount{}
+			}
+			name := strings.ReplaceAll(sv.Name, keyword.Slot, slot)
+			out.Amounts[strings.ToLower(name)] = expr.Parse(strings.ReplaceAll(sv.Value, keyword.Slot, slot))
+		}
+		for _, sv := range exp.SVars {
+			if c.extra == nil {
+				c.extra = map[string]string{}
+			}
+			c.extra[strings.ReplaceAll(sv.Name, keyword.Slot, slot)] = strings.ReplaceAll(sv.Value, keyword.Slot, slot)
+		}
+		for _, group := range []struct {
+			lines  []string
+			target *[]*Ability
+			record Record
+		}{
+			{exp.Abilities, &out.Abilities, Spell},
+			{exp.Triggers, &out.Triggers, Trigger},
+			{exp.Statics, &out.Statics, StaticEffect},
+			{exp.Replacements, &out.Replacements, Replacement},
+		} {
+			for _, text := range group.lines {
+				ability, err := c.line(strings.ReplaceAll(text, keyword.Slot, slot), group.record)
+				if err != nil {
+					return fmt.Errorf("keyword %q: %w", line, err)
+				}
+				ability.Keyword = line
+				*group.target = append(*group.target, ability)
+			}
+		}
+	}
+	return nil
 }
 
 // addInlineAmounts parses a static ability's power/toughness value written
@@ -515,6 +570,9 @@ func compileAmounts(face *carddb.Face) map[string]expr.Amount {
 type faceCompiler struct {
 	face *carddb.Face
 	open map[string]bool // SVar names on the current chain, for cycle detection
+	// extra holds the SVars keyword expansions define (ADR-0038), looked up
+	// before the face's own; names are unique per keyword line.
+	extra map[string]string
 }
 
 // line compiles one ability line. The declared record is what the line's own
@@ -559,7 +617,10 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	if c.open[name] {
 		return SubRef{}, &cycleError{key: key, name: name}
 	}
-	body, ok := c.face.SVars.Get(name)
+	body, ok := c.extra[name]
+	if !ok {
+		body, ok = c.face.SVars.Get(name)
+	}
 	if !ok {
 		return SubRef{}, fmt.Errorf("%w: %s names %q", ErrMissingSVar, key, name)
 	}
@@ -573,7 +634,7 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	// like a trigger's, and only the naming key says they are continuous
 	// effects (EffectEffect.java adds them through addStaticAbility).
 	want := SubAbility
-	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") {
+	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") || strings.EqualFold(key, "AddStaticAbility") {
 		want = StaticEffect
 	}
 	ability, err := c.line(body, want)
@@ -645,6 +706,13 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 		return splitTrim(p.Value, ","), true
 	case isAnimateGrant(a, p):
 		return splitTrim(p.Value, ","), true
+	case continuousGrantKeys[strings.ToLower(p.Key)] && a.Record == StaticEffect:
+		// StaticAbilityContinuous.java's AddAbility/AddTrigger/
+		// AddStaticAbility/AddReplacementEffect branches split the value on
+		// " & " and parse each name with AbilityUtils.getSVar (ADR-0023
+		// decision 1): compiled here so a granted trait is never script text
+		// parsed when the grant applies (PORT-2).
+		return splitTrim(p.Value, "&"), true
 	case strings.EqualFold(p.Key, "GainTextAbilities") && a.Record == StaticEffect:
 		// StaticAbilityContinuous.java's own GainTextOf$ branch splits on
 		// " & " and parses each name with AbilityUtils.getSVar: the
@@ -759,6 +827,16 @@ var cloneTraitKeys = map[string]bool{
 	"addtriggers":        true,
 	"addabilities":       true,
 	"addstaticabilities": true,
+}
+
+// continuousGrantKeys are the params through which a Mode$ Continuous static
+// names the SVars holding the abilities, triggers, statics and replacement
+// effects it grants (StaticAbilityContinuous.java).
+var continuousGrantKeys = map[string]bool{
+	"addability":           true,
+	"addtrigger":           true,
+	"addstaticability":     true,
+	"addreplacementeffect": true,
 }
 
 // animateAPIs are the APIs whose `Triggers$` names the SVars holding the

@@ -48,7 +48,7 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0035](0035-camouflage-declareblocker-no-revalidation.md)   | Camouflage: the replaced declaration is not re-validated  | Accepted           |
 | [0036](0036-declaration-redirects.md)                       | Declaration redirects: who declares is rules state        | Accepted           |
 | [0037](0037-battlefield-zone-keyed-by-controller.md)        | The battlefield zone is keyed by controller               | Accepted           |
-| [0038](0038-keyword-expansion.md)                           | Keyword expansion: expressible keywords compile to traits | Proposed           |
+| [0038](0038-keyword-expansion.md)                           | Keyword expansion: expressible keywords compile to traits | Accepted           |
 
 ## Numbering
 

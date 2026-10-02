@@ -251,11 +251,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if c.isDetained() {
 		return false
 	}
-	abilities := c.Def.Faces[0].Abilities
-	if index < 0 || index >= len(abilities) {
+	ability, _, found := c.abilityAt(index)
+	if !found {
 		return false
 	}
-	ability := abilities[index]
 	if ability.Record != compile.Activated || ability.Name != "Mana" {
 		return false
 	}
@@ -362,7 +361,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	amount := 1
 	if amountText, hasAmount := ability.Param("Amount"); hasAmount {
-		amount, ok = resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, amountText)
+		amount, ok = resolveNamedAmount(g, c.abilityAmounts(ability), c, amountText)
 		if !ok || amount <= 0 {
 			return false
 		}

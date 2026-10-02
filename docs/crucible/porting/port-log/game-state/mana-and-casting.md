@@ -555,3 +555,63 @@ asked by `ActivateAbility` and `ActivateManaAbility`) reads `ValidCard$` on the 
 over the static-ability source zones only. `CantPlayLand` (11; `cantPlayLand`, asked by `PlayLand` and by `Play`'s land
 option) reads `ValidCard$`, `Origin$` and `Player$`. A `ValidSA$` naming `Cycling`, `Equip` or any other property is
 unrecognized, and the line is not applied; so is any param outside the lists in `cantbecast.go`.
+
+## Spell cost modification: `ReduceCost` and `RaiseCost`
+
+CR 601.2f. `payCastCost` (`castspell.go`) pays `spellCost` (`costmod.go`) instead of the bare printed (or flashback)
+cost: `CostAdjustment.getSpellCostChange` adds every `Mode$ RaiseCost` static's `Cost$` (default `{1}`) `Amount$` times,
+then `CostAdjustment.adjust` takes every `Mode$ ReduceCost` static's `Amount$` off the generic part, each capped so the
+total reduction stays within the converted cost less `MinMana$` (`applyReduceCostAbility`). Hosts are the battlefield
+and Command zone plus the card itself (`EffectZone$ All`: "this spell costs {1} less for each ..."). A line applies when
+`staticConditionsMet` holds, `Type$` is `Spell`, `ValidCard$` matches the card, `Activator$` the caster and
+`AffectedZone$` the card's zone; `Amount$` is a number or an SVar of the host's face (`resolveNamedAmount`, so
+`Count$Valid ...` resolves). An X in the cost is untouched.
+
+A `ReduceCost` line with a shape below is left unapplied; a `RaiseCost` line naming this card and caster with such a
+shape refuses the cast (`spellCost` returns false), since casting for less than Java charges is the wrong error. Shapes:
+`ValidTarget$` (the spell's targets are chosen after the cost in this port; about 25 lines), `Color$`/`IgnoreGeneric$`,
+`Relative$`, `UpTo$`, `OnlyFirstSpell$`, `ValidSpell$`, `ForEachShard$`, `Type$ Ability` (activated-ability costs:
+Equip's `ReduceCost`), `SetCost` (Trinisphere), `CheckSVar$`/`IsPresent$` conditions, and the keyword reductions
+(Affinity, Convoke, Delve, Improvise, Assist, Emerge). Tests: `costmod_test.go`.
+
+## Kicker
+
+CR 702.33. A card with `K:Kicker:<cost>[:<cost>]` (239 cards) is offered each kicker as it is cast: `castSpell`
+(`castspell.go`) calls `chooseKicker` (`kicker.go`), which asks the caster `ConfirmPayCost` -- the question an unless
+cost asks -- once per kicker cost, and records the answer as `Card.kicker` bits (`kicker1`, `kicker2`, Java's
+`OptionalCost.Kicker1/Kicker2`). `payCastCost` pays the cost plus every chosen kicker (`withKicker`) before
+`spellCost`'s reductions, as Java adds the optional costs to the spell's cost first. A cast that fails clears the bits;
+`Game.Move` clears them when the card leaves the stack for anywhere but the battlefield, or leaves the battlefield.
+
+Readers: `Count$Kicked.<yes>.<no>` and `Count$TimesKicked` (`Card.kickerMagnitude`: 0, 1 or 2 as
+`Card.getKickerMagnitude`), the `kicked`/`kicked 1`/`kicked 2` valid properties (`valid.go`), and `Condition$ Kicked` /
+`Kicked 1` / `Kicked 2` (`condition.go`; any other `Condition$` value still skips the ability). A free cast (`Play`'s
+`WithoutManaCost$`) still asks and pays the kicker (CR 118.9d). Not offered: a kicker whose cost is not a plain mana
+cost (`Sac<..>`), Multikicker, and `Spell.Kicked` as a spell-ability property. Tests: `kicker_test.go`.
+
+## Convoke, Improvise and Delve
+
+`CostAdjustment.adjust` reduces the mana a spell costs by what its controller taps or exiles. `assistCost`
+(`costassist.go`), called by `payCastCost` after `spellCost`, asks the controller (`ChooseCardsForEffect`) which cards
+to use: **Delve** exiles graveyard cards, each paying `{1}` of the generic part (up to what is left); **Convoke** taps
+untapped creatures, each paying one colored shard it shares a color with, else `{1}`; **Improvise** taps untapped
+artifacts, each paying `{1}`. A pick that is not a subset of the candidates, or pays more than the cost holds, is
+declined whole. The reduced cost is paid first and only then are the creatures tapped and the cards exiled
+(`costAssist.settle`), so a cast that cannot be paid taps and exiles nothing. A convoke tap counts as a tap for "becomes
+tapped" triggers, not as a `{T}` ability, so a summoning-sick creature may convoke. Not read: hybrid colored shards (a
+creature never pays one), a convoking creature that could also tap for mana, and `Waterbend`. Tests: `costmod_test.go`.
+
+## A spell's additional cost (`A:SP$ Cost$`)
+
+An instant, sorcery or permanent spell's `A:SP$` line carries `Cost$` when the spell has an additional cost (236 lines
+on instants and sorceries, 29 permanent spells: Village Rites' `B Sac<1/Creature>`, `Discard<1/Card>`, `PayLife<N>`).
+Forge writes the printed mana cost into it beside the extra parts, so it is the spell's whole cost.
+`castInstantOrSorcery` and the permanent branch of `castSpell` (`castspell.go`) used to cast such a spell without paying
+the extra part. They now read `Cost$` through `spellAdditionalCost`, which uses `parseUnlessCost` (the part vocabulary
+an unless cost pays: PayLife, PayEnergy, Discard, Sac, Return, DamageYou, Draw, Reveal), refuses the cast when a part is
+unpayable (`unlessPayable`) or the shape is not read, lets the card's mana be paid as usual, and then pays the non-mana
+parts (`payUnlessParts`; the controller chooses what to sacrifice or discard). A card in hand is never its own discard
+(`handWithout`). A `Cost$` whose mana differs from the card's printed cost (an alternative or cleave cost, 61 lines) is
+refused rather than guessed, and `Play`'s `playCastGap` no longer rejects the shapes that now resolve. Not read:
+`K:AlternateAdditionalCost`, `S:Mode$ OptionalCost`, Aura spells' `Cost$`, `X`, and `ExileFromGrave`/`tapXType` parts.
+Tests: `TestSpellAdditionalCostIsPaid`, `TestPermanentSpellAdditionalCostIsPaid`.

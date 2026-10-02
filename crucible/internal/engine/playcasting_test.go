@@ -377,7 +377,7 @@ func TestPlayRejectsSpellsItCannotCast(t *testing.T) {
 	t.Parallel()
 	split := gainInstant(t, "Split", "W", "1")
 	split.SplitType = carddb.SplitSplit
-	costed := instantDefWithAbility(t, "Costed", "W", "SP$ GainLife | Cost$ W Sac<1/Creature> | Defined$ You | LifeAmount$ 1")
+	costed := instantDefWithAbility(t, "Costed", "W", "SP$ GainLife | Cost$ W tapXType<1/Creature> | Defined$ You | LifeAmount$ 1")
 	twoSpells := gainInstant(t, "Twice", "W", "1")
 	twoSpells.Faces[0].Abilities = append(twoSpells.Faces[0].Abilities, twoSpells.Faces[0].Abilities[0])
 	noSpell := gainInstant(t, "None", "W", "1")

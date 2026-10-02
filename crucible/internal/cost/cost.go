@@ -132,6 +132,11 @@ type ActivationShape struct {
 	// string's own comma-separated OR syntax would collide with), never
 	// itself parsed or validated here. Empty exactly when TapTypeN is 0.
 	TapTypeSpec string
+	// TapTypeTotalPower is the "any number of ... with total power N or more"
+	// form (Crew N: tapXType<Any/Creature.Other+withTotalPowerGEN>): N, with
+	// TapTypeN 1 (at least one permanent) and TapTypeSpec the type with the
+	// withTotalPowerGE suffix removed. 0 for a plain tapXType.
+	TapTypeTotalPower int
 	// ReturnTypeN is Return<N/Type>'s own N for a Type past CARDNAME/
 	// NICKNAME, or 0 when the cost names no such Return part at all (SelfReturn
 	// covers the self-reference shape separately). Never negative, the
@@ -262,6 +267,12 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 				return ActivationShape{}, false
 			}
 			shape.PayEnergyN = n
+		case p.Name == "tapXType" && shape.TapTypeN == 0 && p.Field(0) == "Any" && p.Field(1) != "":
+			spec, power, ok := anyWithTotalPower(p.Field(1))
+			if !ok {
+				return ActivationShape{}, false
+			}
+			shape.TapTypeN, shape.TapTypeSpec, shape.TapTypeTotalPower = 1, spec, power
 		case p.Name == "tapXType" && shape.TapTypeN == 0 && p.Field(1) != "":
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {
@@ -404,3 +415,18 @@ func (c Cost) String() string { return c.Text }
 
 // maxEntries is Java's Integer.MAX_VALUE, meaning no cap.
 const maxEntries = int(^uint(0) >> 1)
+
+// anyWithTotalPower splits "Creature.Other+withTotalPowerGE3" into the type
+// ("Creature.Other") and the power (3), false for any other shape.
+func anyWithTotalPower(spec string) (string, int, bool) {
+	const marker = "+withTotalPowerGE"
+	i := strings.LastIndex(spec, marker)
+	if i < 0 {
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(spec[i+len(marker):])
+	if err != nil || n <= 0 {
+		return "", 0, false
+	}
+	return spec[:i], n, true
+}

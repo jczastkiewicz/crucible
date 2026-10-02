@@ -73,7 +73,10 @@ var subAbilityUnresolvedParams = [...]string{
 // sub-ability's.
 func subAbilityConditionMet(g *Game, host *Card, amounts map[string]expr.Amount, a *compile.Ability) bool {
 	for _, key := range subAbilityUnresolvedParams {
-		if _, ok := a.Param(key); ok {
+		if v, ok := a.Param(key); ok {
+			if key == "Condition" && kickedConditionMet(host, v) {
+				continue
+			}
 			return false
 		}
 	}
@@ -96,4 +99,19 @@ func subAbilityConditionMet(g *Game, host *Card, amounts map[string]expr.Amount,
 		return false
 	}
 	return checkSVarMatches(g, host, amounts, a, "ConditionCheckSVar", "ConditionSVarCompare", "OrOtherConditionSVarCompare")
+}
+
+// kickedConditionMet is SpellAbilityCondition's Condition$ Kicked / Kicked 1 /
+// Kicked 2 (SpellAbilityCondition.java:97-104,274-276): the host was cast with a
+// kicker paid. Any other Condition$ value is false here (GO-7).
+func kickedConditionMet(host *Card, value string) bool {
+	switch value {
+	case "Kicked":
+		return host.kickerMagnitude() > 0
+	case "Kicked 1":
+		return host.kicker&kicker1 != 0
+	case "Kicked 2":
+		return host.kicker&kicker2 != 0
+	}
+	return false
 }

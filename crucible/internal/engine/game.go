@@ -616,6 +616,18 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	if from == Stack && c.flashbackCast {
+		// CR 702.34a, Flashback's replacement (CardFactoryUtil.java:2252:
+		// Event$ Moved | Origin$ Stack | ExcludeDestination$ Exile): a spell
+		// cast for its flashback cost is exiled wherever it would go.
+		c.flashbackCast = false
+		if kind != Exile {
+			kind, owner = Exile, c.Owner
+		}
+	}
+	if (from == Stack && kind != Battlefield) || (from == Battlefield && kind != Battlefield) {
+		c.kicker = 0
+	}
 	if from == Stack && kind != Battlefield {
 		// CR 108.4a: only a permanent or a spell has a controller. A spell
 		// leaving the stack for anywhere but the battlefield goes back to

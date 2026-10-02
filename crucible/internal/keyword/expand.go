@@ -41,6 +41,48 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ KWProwess" + Slot},
 			SVars:    []SVarDef{{"KWProwess" + Slot, "DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1"}},
 		}, true
+	case "Annihilator":
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWAnnihilator" + Slot},
+			SVars:    []SVarDef{{"KWAnnihilator" + Slot, "DB$ Sacrifice | Defined$ TriggeredDefendingPlayer | SacValid$ Permanent | Amount$ " + n}},
+		}, true
+	case "Bushido":
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{
+				"Mode$ Blocks | ValidCard$ Card.Self | Secondary$ True | Execute$ KWBushido" + Slot,
+				"Mode$ AttackerBlocked | ValidCard$ Card.Self | Secondary$ True | Execute$ KWBushido" + Slot,
+			},
+			SVars: []SVarDef{{"KWBushido" + Slot, "DB$ Pump | Defined$ Self | NumAtt$ " + n + " | NumDef$ " + n}},
+		}, true
+	case "Afterlife":
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Secondary$ True | Execute$ KWAfterlife" + Slot},
+			SVars:    []SVarDef{{"KWAfterlife" + Slot, "DB$ Token | TokenAmount$ " + n + " | TokenScript$ wb_1_1_spirit_flying"}},
+		}, true
+	case "Persist", "Undying":
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		counter := "M1M1"
+		if k.Name == "Undying" {
+			counter = "P1P1"
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self+counters_EQ0_" + counter + " | TriggerZones$ Battlefield | Secondary$ True | Execute$ KW" + k.Name + Slot},
+			SVars:    []SVarDef{{"KW" + k.Name + Slot, "DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Battlefield | WithCountersType$ " + counter}},
+		}, true
 	case "Exalted":
 		if k.Details != "" {
 			return Expansion{}, false
@@ -93,4 +135,14 @@ func expandCycling(k Keyword) (Expansion, bool) {
 		return Expansion{}, false
 	}
 	return Expansion{Abilities: []string{"AB$ Draw | Cost$ " + args[0] + " Discard<1/CARDNAME> | ActivationZone$ Hand"}}, true
+}
+
+// amountDetail is the first detail of an Amount-shaped keyword ("Bushido:2"),
+// false when it is missing or not a plain number.
+func amountDetail(k Keyword) (string, bool) {
+	args := k.Args()
+	if len(args) < 1 || args[0] == "" || strings.Trim(args[0], "0123456789") != "" {
+		return "", false
+	}
+	return args[0], true
 }

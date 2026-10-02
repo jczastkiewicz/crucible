@@ -101,18 +101,25 @@ keyword line (`KWProwess<n>`, so two keywords never collide) and tags each synth
 the line it came from. `ok == false` leaves the keyword inert: no template, or details this port does not translate
 (GO-7).
 
-| Keyword | Lines (corpus) | Expands to                                                                                 |
-| ------- | -------------: | ------------------------------------------------------------------------------------------ |
-| Equip   |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`          |
-| Cycling |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                     |
-| Prowess |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                  |
-| Exalted |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1 |
+| Keyword          | Lines (corpus) | Expands to                                                                                                         |
+| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------ |
+| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                  |
+| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                             |
+| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                          |
+| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                         |
+| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N` |
+| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                            |
+| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                |
+| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one        |
 
 Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
 activated `AB$ Attach` (`attachActivated`, `castspell.go`) by attaching the source to its first creature target unless
 protection refuses; `Draw` defaults `Defined$` to You as `getTargetPlayers` does; Layer 7 reads
 `AffectedDefined$ Equipped/Enchanted` (`layers.md`). Granted keywords (`AddKeyword$ Prowess`) do not expand yet: they
-need ADR-0023's trait overlay. Tests: `keywordexpansion_test.go`, scenario
+need ADR-0023's trait overlay. Persist and Undying needed `ChangeZone`'s `WithCountersType$`/`WithCountersAmount$` (the
+permanent enters with the counters before its enter replacements, `moveByEffect`'s `enterCounters`) and
+`Defined$ TriggeredNewCard[LKICopy]` (the card a dies or enters trigger recorded); Annihilator needed
+`Defined$ TriggeredDefendingPlayer`. Tests: `keywordexpansion_test.go`, scenario
 `equip-bonesplitter-attaches-to-a-creature-at-sorcery-speed`. Golden: `TestCorpusAST` changed for the 1,055 cards
 carrying these keywords.

@@ -27,6 +27,14 @@ func TestExpand(t *testing.T) {
 		{"Prowess", true, "Mode$ SpellCast | ValidCard$ Card.nonCreature"},
 		{"Exalted", true, "Mode$ Attacks | ValidCard$ Creature.YouCtrl | Alone$ True"},
 		{"Prowess:1", false, ""},
+		{"Annihilator:2", true, "Mode$ Attacks | ValidCard$ Card.Self"},
+		{"Annihilator", false, ""},
+		{"Bushido:1", true, "Mode$ Blocks | ValidCard$ Card.Self"},
+		{"Bushido:x", false, ""},
+		{"Afterlife:2", true, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard"},
+		{"Persist", true, "counters_EQ0_M1M1"},
+		{"Undying", true, "counters_EQ0_P1P1"},
+		{"Undying:1", false, ""},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

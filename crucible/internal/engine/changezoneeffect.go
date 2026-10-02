@@ -9,7 +9,8 @@ import (
 
 // changeZoneUnresolvedParams are ChangeZoneEffect.java's params this port
 // cannot honour yet, grouped by the mechanism each needs: an entering-state
-// modifier (Transformed$, WithCountersType$, FaceDown$, AttachedTo$ ...),
+// modifier (Transformed$, FaceDown$, AttachedTo$ ...; WithCountersType$ and
+// WithCountersAmount$ resolve, changeZoneEnter),
 // combat insertion (Attacking$/Blocking$), a delayed or duration-scoped
 // follow-up (AtEOT$, Duration$, LeaveBattlefield$, StaticEffect$), an
 // alternative zone prompt (DestinationAlternative$, OriginAlternative$), a
@@ -17,7 +18,7 @@ import (
 // Reorder$), a different chooser (Chooser$), or an LKI copy in Memory
 // (RememberLKI$).
 var changeZoneUnresolvedParams = [...]string{
-	"Duration", "Transformed", "WithCountersType", "WithCountersAmount", "WithNotedCounters",
+	"Duration", "Transformed", "WithNotedCounters",
 	"AttachedTo", "AttachedToPlayer", "AttachAfter", "FaceDown", "ExileFaceDown",
 	"Attacking", "Blocking", "LeaveBattlefield", "AtEOT", "StaticEffect",
 	"DestinationAlternative", "LibraryPositionAlternative", "OriginAlternative",
@@ -86,6 +87,28 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	return changeZoneKnown(g, a, controller, source, origin, dest, newController)
 }
 
+// changeZoneEnter reads WithCountersType$ and WithCountersAmount$ (default 1):
+// the counters a permanent entering the battlefield gets. A kind list or "Any"
+// is an interactive choice this port does not make (GO-7).
+func changeZoneEnter(g *Game, a *Ability) ([]enterCounters, error) {
+	raw, ok := a.Params.Param("WithCountersType")
+	if !ok {
+		return nil, nil
+	}
+	if strings.ContainsAny(raw, ", ") || strings.EqualFold(raw, "Any") {
+		return nil, fmt.Errorf("engine: ChangeZone: WithCountersType$ %q not resolvable yet", raw)
+	}
+	n := 1
+	if amount, ok := a.Params.Param("WithCountersAmount"); ok {
+		v, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), amount)
+		if !ok {
+			return nil, fmt.Errorf("engine: ChangeZone: WithCountersAmount$ %q is not resolvable", amount)
+		}
+		n = v
+	}
+	return []enterCounters{{kind: CounterType(strings.ToUpper(raw)), n: n}}, nil
+}
+
 // changeZoneGainControl reads GainControl$: "True" is the activator,
 // anything else a Defined$ player spec whose first player takes control.
 func changeZoneGainControl(g *Game, a *Ability) (PlayerID, error) {
@@ -137,6 +160,10 @@ func changeZonePreMemory(a *Ability, source *Card) {
 // cards heading into a library are ordered by their owners first (CR
 // 401.4) unless Shuffle$ True will shuffle them anyway.
 func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID) error {
+	enter, err := changeZoneEnter(g, a)
+	if err != nil {
+		return err
+	}
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
@@ -187,7 +214,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			continue
 		}
 		from := c.Zone
-		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped)
+		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
 		if dest == Exile {
 			g.markExiledWith(id, a.Source)
 			if melded != NoCard {
@@ -237,6 +264,10 @@ type hiddenChoice struct {
 // before the move when the destination is the library itself, so a fetched
 // card placed on top stays there.
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID) error {
+	enter, err := changeZoneEnter(g, a)
+	if err != nil {
+		return err
+	}
 	fetchSpec, hasDefinedPlayer := a.Params.Param("DefinedPlayer")
 	if !hasDefinedPlayer {
 		fetchSpec = "You"
@@ -371,7 +402,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		var movedOrigins []ZoneType
 		for _, id := range pick.chosen {
 			from := g.Card(id).Zone
-			melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped)
+			melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
 			if dest == Exile {
 				g.markExiledWith(id, a.Source)
 				if melded != NoCard {

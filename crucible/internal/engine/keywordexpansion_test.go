@@ -122,3 +122,135 @@ func TestExaltedPumpsALoneAttacker(t *testing.T) {
 		t.Errorf("Akrasan Squire power = %d, want 2", power)
 	}
 }
+
+// Bushido (CR 702.45a): a creature that blocks or becomes blocked gets +N/+N.
+func TestBushidoPumpsWhenBlocked(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, a, engine.Main1)
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	samurai := g.NewCard(corpusCard(t, "Devoted Retainer"), a, engine.Battlefield)
+	g.Card(samurai).SummonSick = false
+	wall := g.NewCard(creatureDefPT(t, "0", "4"), b, engine.Battlefield)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{samurai})
+	if _, err := g.DeclareCombatAttackers(ac); err != nil {
+		t.Fatalf("DeclareCombatAttackers: %v", err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: wall, Attacker: samurai}})
+	if _, err := g.DeclareCombatBlockers(bc); err != nil {
+		t.Fatalf("DeclareCombatBlockers: %v", err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if power, _ := g.Card(samurai).Power(); power != 2 {
+		t.Errorf("blocked Devoted Retainer power = %d, want 2", power)
+	}
+}
+
+// Afterlife (CR 702.135a): when the creature dies, create that many 1/1 white
+// and black flying Spirit tokens.
+func TestAfterlifeCreatesSpirits(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	priest := g.NewCard(corpusCard(t, "Ministrant of Obligation"), p, engine.Battlefield)
+	g.Card(priest).Damage.Mark(9, false)
+	c := engine.NewScriptedController()
+	sba(g)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	var spirits int
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if g.Card(id).IsToken && g.Card(id).Type().HasSubtype("Spirit") {
+			spirits++
+		}
+	}
+	if spirits != 2 {
+		t.Errorf("Spirit tokens = %d, want 2", spirits)
+	}
+}
+
+// Persist and Undying (CR 702.79a, 702.93a): a creature with no -1/-1 (+1/+1)
+// counter that dies returns to the battlefield with one; with one it stays dead.
+func TestPersistAndUndyingReturnOnce(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		card    string
+		counter engine.CounterType
+	}{
+		{"persist", "Safehold Elite", engine.M1M1},
+		{"undying", "Strangleroot Geist", engine.P1P1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			creature := g.NewCard(corpusCard(t, tc.card), p, engine.Battlefield)
+			c := engine.NewScriptedController()
+			kill := func() {
+				g.Card(creature).Damage.Mark(20, false)
+				sba(g)
+				if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+					t.Fatalf("ResolveStack: %v", err)
+				}
+			}
+			find := func() (engine.CardID, bool) {
+				for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+					if g.Card(id).Def == g.Card(creature).Def {
+						return id, true
+					}
+				}
+				return engine.NoCard, false
+			}
+			kill()
+			back, ok := find()
+			if !ok {
+				t.Fatal("the creature did not return")
+			}
+			if n := g.Card(back).Counters.Count(tc.counter); n != 1 {
+				t.Errorf("returned with %d counters, want 1", n)
+			}
+			creature = back
+			kill()
+			if _, ok := find(); ok {
+				t.Error("the creature returned a second time with a counter on it")
+			}
+		})
+	}
+}
+
+// Annihilator N (CR 702.86a): whenever the creature attacks, the defending
+// player sacrifices N permanents.
+func TestAnnihilatorMakesTheDefenderSacrifice(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	crusher := g.NewCard(corpusCard(t, "Ulamog's Crusher"), a, engine.Battlefield)
+	g.Card(crusher).SummonSick = false
+	first := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+	third := g.NewCard(creatureDefPT(t, "1", "1"), b, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueAttackers([]engine.CardID{crusher})
+	c.QueueSacrificeChoice([]engine.CardID{first, second})
+	if _, err := g.DeclareCombatAttackers(c); err != nil {
+		t.Fatalf("DeclareCombatAttackers: %v", err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(first).Zone != engine.Graveyard || g.Card(second).Zone != engine.Graveyard || g.Card(third).Zone != engine.Battlefield {
+		t.Errorf("zones %v %v %v, want the first two sacrificed and the third kept",
+			g.Card(first).Zone, g.Card(second).Zone, g.Card(third).Zone)
+	}
+}

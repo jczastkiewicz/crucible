@@ -243,13 +243,14 @@ Amass	SP	10	-	-	token:10
 Amass	SpellDescription	22	-	-	prose:22
 Amass	SubAbility	10	-	-	token:10
 Amass	Type	74	-	-	token:74
-Animate	AB	299	-	-	token:299
+Animate	AB	491	-	-	token:491
 Animate	AILogic	9	-	-	token:9
 Animate	AITgts	6	-	valid:1	token:6
 Animate	AITgtsStrict	1	-	-	bool:1
 Animate	Abilities	39	-	-	token:39
 Animate	Activation	2	-	-	token:2
 Animate	ActivationFirstCombat	2	-	-	bool:2
+Animate	ActivationLimit	1	-	int:1	int:1
 Animate	ActivationPhases	3	-	-	token:3
 Animate	ActivationZone	1	-	-	token:1
 Animate	Activator	1	-	-	token:1
@@ -268,10 +269,10 @@ Animate	ConditionNotPresent	1	-	-	token:1
 Animate	ConditionPresent	38	-	valid:1	token:37,prose:1
 Animate	ConditionPresent2	1	-	-	token:1
 Animate	ConditionSVarCompare	5	-	-	token:5
-Animate	Cost	299	-	-	prose:145,token:98,int:56
+Animate	Cost	491	-	-	token:290,prose:145,int:56
 Animate	CostDesc	2	-	text:1	prose:2
 Animate	DB	602	-	-	token:602
-Animate	Defined	604	-	defined:66	token:596,prose:8
+Animate	Defined	796	-	defined:66	token:788,prose:8
 Animate	DefinedDesc	1	-	-	prose:1
 Animate	Duration	453	-	-	token:453
 Animate	Exhaust	5	-	-	bool:5
@@ -328,7 +329,7 @@ Animate	TgtZone	15	-	zone:4	token:15
 Animate	Toughness	412	amount:2	amount:3	int:368,token:44
 Animate	TransferActivator	1	-	-	bool:1
 Animate	Triggers	131	-	-	token:131
-Animate	Types	510	-	-	token:509,prose:1
+Animate	Types	702	-	-	token:701,prose:1
 Animate	Ultimate	3	-	-	bool:3
 Animate	UnlessCost	2	-	amount:1	token:2
 Animate	UnlessPayer	2	-	-	token:2

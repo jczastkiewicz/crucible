@@ -40,6 +40,19 @@ func Expand(k Keyword) (Expansion, bool) {
 			return Expansion{}, false
 		}
 		return Expansion{Abilities: []string{"AB$ ChangeZone | Cost$ " + args[1] + " Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ " + args[0]}}, true
+	case "Crew":
+		// Crew:<power>[:<extra>], CardFactoryUtil.java:3701: tap any number of
+		// other creatures with total power N or more to make it an artifact
+		// creature until end of turn.
+		args := k.Args()
+		if len(args) < 1 || strings.Trim(args[0], "0123456789") != "" || args[0] == "" {
+			return Expansion{}, false
+		}
+		line := "AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + args[0] + "> | Defined$ Self | Types$ Artifact,Creature"
+		if len(args) > 1 && args[1] != "" {
+			line += " | " + args[1]
+		}
+		return Expansion{Abilities: []string{line}}, true
 	case "Prowess":
 		if k.Details != "" {
 			return Expansion{}, false

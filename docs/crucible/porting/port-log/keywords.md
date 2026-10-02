@@ -106,6 +106,7 @@ the line it came from. `ok == false` leaves the keyword inert: no template, or d
 | Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                          |
 | Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                     |
 | TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>` |
+| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                         |
 | Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                  |
 | Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                 |
 | Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                         |
@@ -135,3 +136,7 @@ printed cost in `payCastCost`, and `Card.flashbackCast` makes `Game.Move` exile 
 stack (CR 702.34a: a resolved or countered spell, and a permanent entering the battlefield). Timing is the card's own
 (an instant at instant speed). A granted flashback (Snapcaster Mage, `MayPlay` grants) is not offered. Test:
 `TestFlashbackCastsFromTheGraveyardAndExiles`.
+
+Crew needed the cost shape `tapXType<Any/Type+withTotalPowerGEN>` (`cost.ActivationShape.TapTypeTotalPower`): the
+controller picks any number of the untapped candidates through `ChooseCardsForEffect`, and the activation is refused,
+before anything is paid, unless their total power reaches N (`ActivateAbility`, `taptype.go`'s `totalPower`).

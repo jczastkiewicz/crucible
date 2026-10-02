@@ -301,7 +301,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.SubCounterType != "" && shape.SubCounterN > c.Counters.Count(CounterType(strings.ToUpper(shape.SubCounterType))) {
 		return false
 	}
-	var tapCandidates []CardID
+	var tapCandidates, tapChosen []CardID
 	if shape.TapTypeN > 0 {
 		if !tapTypeResolvable(shape.TapTypeSpec) {
 			return false
@@ -309,6 +309,18 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		tapCandidates = tapTypeCandidates(g, pid, card, shape.Tap, shape.TapTypeSpec)
 		if len(tapCandidates) < shape.TapTypeN {
 			return false
+		}
+		if shape.TapTypeTotalPower > 0 {
+			// Crew N: the controller picks any number of the candidates whose
+			// total power reaches N (CostTapType's withTotalPowerGE); the pick
+			// is made before anything is paid, so an illegal one costs nothing.
+			if totalPower(g, tapCandidates) < shape.TapTypeTotalPower {
+				return false
+			}
+			tapChosen = controller.ChooseCardsForEffect(g, pid, card, tapCandidates, 1, len(tapCandidates))
+			if !isSubset(tapChosen, tapCandidates) || totalPower(g, tapChosen) < shape.TapTypeTotalPower {
+				return false
+			}
 		}
 	}
 	var returnCandidates []CardID
@@ -364,7 +376,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
 		emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
 	}
-	if shape.TapTypeN > 0 {
+	if shape.TapTypeTotalPower > 0 {
+		tapChosenPermanents(g, controller, tapChosen)
+	} else if shape.TapTypeN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
 		tapChosenPermanents(g, controller, chosen)
 	}

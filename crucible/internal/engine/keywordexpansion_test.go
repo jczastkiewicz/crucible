@@ -3,6 +3,7 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -310,5 +311,49 @@ func TestFlashbackCastsFromTheGraveyardAndExiles(t *testing.T) {
 	}
 	if got := g.Player(other).Life; got != 18 {
 		t.Errorf("target life = %d, want 18", got)
+	}
+}
+
+// Crew N (CR 702.122a): tap any number of other untapped creatures with total
+// power N or more to make the Vehicle an artifact creature until end of turn.
+func TestCrewTapsCreaturesAndAnimatesTheVehicle(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	copter := g.NewCard(corpusCard(t, "Smuggler's Copter"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	sba(g)
+	if g.Card(copter).Type().Has(cardtype.Creature) {
+		t.Fatal("the Vehicle is a creature before it is crewed")
+	}
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{bears})
+	if !g.ActivateAbility(p, copter, 0, c) {
+		t.Fatal("Crew could not be activated")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	sba(g)
+	if !g.Card(bears).Tapped {
+		t.Error("the crewing creature was not tapped")
+	}
+	if !g.Card(copter).Type().Has(cardtype.Creature) {
+		t.Error("the crewed Vehicle is not a creature")
+	}
+}
+
+// Crew needs enough total power: a creature with less power than the Crew
+// number cannot crew alone.
+func TestCrewRefusesInsufficientPower(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	cart := g.NewCard(corpusCard(t, "Smuggler's Copter"), p, engine.Battlefield)
+	weak := g.NewCard(creatureDefPT(t, "0", "1"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{weak})
+	if g.ActivateAbility(p, cart, 0, c) {
+		t.Error("Crew 1 was paid with a 0-power creature")
 	}
 }

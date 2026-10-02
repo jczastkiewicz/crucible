@@ -310,6 +310,14 @@ type zoneKey struct {
 // is).
 var errRestartPending = errors.New("engine: game restarted (RestartGame); call ResumeAfterRestart before driving it again")
 
+// startingLife is CR 103.3's twenty: RegisteredPlayer.startingLife's own
+// default (RegisteredPlayer.java:25), what Game's constructor hands every
+// seat when no StartingLife was forced (Game.java:347-351). The variants
+// that raise it (Commander, Archenemy, Vanguard, RegisteredPlayer.java:137-171)
+// have no game setup in this port, so it is a constant for the same reason
+// startingHandSize is. Subgame's seats start at it (subgameeffect.go).
+const startingLife = 20
+
 // NewGame builds an empty game with the given players.
 //
 // The database and the RNG are injected rather than reached for, which is what
@@ -330,7 +338,7 @@ func NewGame(db *compile.DB, rng *javarand.Rand, names []string) *Game {
 	}
 	for _, name := range names {
 		id := PlayerID(len(g.players))
-		g.players = append(g.players, Player{ID: id, Name: name, CrankCounter: 3})
+		g.players = append(g.players, Player{ID: id, Name: name, Life: startingLife, CrankCounter: 3})
 		for _, z := range []ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Command, Sideboard} {
 			g.zones[zoneKey{z, id}] = &Zone{Type: z, Owner: id, cards: collect.NewOrderedSet[CardID](0)}
 		}

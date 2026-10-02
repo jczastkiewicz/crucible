@@ -128,6 +128,13 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		l.Game.StartTurn(pid, c)
 
+	case "concede":
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		l.Game.Concede(pid)
+
 	case "advance":
 		n := 1
 		if len(args) > 0 {

@@ -1,0 +1,6 @@
+# CR 104.3b/104.3d with a "can't lose the game" replacement (Event$ GameLoss,
+# Layer$ CantHappen; Player.loseConditionMet, Player.java:1974): human is at
+# -2 life with eleven poison counters, which would end the game at the Untap
+# step's state-based check, but Platinum Angel stops every loss, so both
+# checks fail to take effect and the game goes on.
+startturn human

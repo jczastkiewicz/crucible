@@ -15,7 +15,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined condition control
+//enginelint:allow id card game player ability defined condition control gameloss
 
 import "fmt"
 
@@ -50,7 +50,7 @@ func (losesGameEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return fmt.Errorf("engine: LosesGame: %w", err)
 	}
 	for _, pid := range players {
-		g.Player(pid).Lost = true
+		g.loseConditionMet(pid, lossSpellEffect)
 	}
 	return nil
 }

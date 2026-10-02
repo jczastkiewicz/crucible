@@ -1,0 +1,11 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanlost=true
+humanhand=Island;Mountain
+humangraveyard=Tidings
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped
+ailife=20
+aiwon=true
+over=true

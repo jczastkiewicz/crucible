@@ -29,6 +29,8 @@ type Player struct {
 	// it. Both can be false at once; both true is an engine invariant breach.
 	Lost bool
 	Won  bool
+	// Conceded is a loss nothing can replace (Player.concede).
+	Conceded bool
 	// Speed is Player.speed (CR 702.179): 0 until "Start your engines!"
 	// gives the player one, then 1-4, changed by ChangeSpeed.
 	Speed int

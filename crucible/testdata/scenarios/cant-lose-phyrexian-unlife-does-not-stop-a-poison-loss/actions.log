@@ -1,0 +1,4 @@
+# The same Unlife, but a tenth poison counter: the loss reason is Poisoned
+# (CR 704.5c), not LifeReachedZero, so the replacement does not apply and human
+# loses.
+startturn human

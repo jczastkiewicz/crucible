@@ -1,0 +1,4 @@
+humanlife=20
+ailife=2
+humanbattlefield=Hill Giant|Id:1;Grizzly Bears|Id:2
+aibattlefield=Ajani's Sunstriker|Id:3

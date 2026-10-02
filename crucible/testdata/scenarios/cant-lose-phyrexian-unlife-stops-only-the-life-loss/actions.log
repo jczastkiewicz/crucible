@@ -1,0 +1,5 @@
+# ValidLoseReason$ LifeReachedZero (ReplaceGameLoss.canReplace,
+# ReplaceGameLoss.java:28-35): Phyrexian Unlife stops the loss for having 0 or
+# less life and nothing else. human is at 0 life with nine poison counters and
+# survives the Untap step's check.
+startturn human

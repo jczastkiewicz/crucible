@@ -117,6 +117,7 @@ line-oriented the same way `setup.state` is:
 ```text
 startturn <player>            Game.StartTurn(player, controller)
 advance [n]                   Game.AdvancePhase(controller), n times (default 1)
+concede <player>              Game.Concede(player): a loss no replacement stops (Player.concede)
 dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)

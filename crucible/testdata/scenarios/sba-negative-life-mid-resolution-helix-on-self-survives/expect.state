@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=2
+humanbattlefield=Mountain|Tapped;Plains|Tapped
+humangraveyard=Lightning Helix
+ailife=20

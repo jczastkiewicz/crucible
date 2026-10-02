@@ -58,6 +58,7 @@
     "returncost": ["returncost.go"],
     "exertcost": ["exertcost.go"],
     "exploit": ["exploit.go"],
+    "gameloss": ["gameloss.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"],
     "zonemove": ["zonemove.go"],
@@ -121,7 +122,8 @@
       "continuous",
       "token",
       "animate",
-      "saga"
+      "saga",
+      "gameloss"
     ],
     "turn": [
       "id",
@@ -384,6 +386,7 @@
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "exertcost": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
     "exploit": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
+    "gameloss": ["id", "zone", "card", "game", "player", "valid", "replacement", "parts", "effecthelpers"],
     "targeting": [
       "id",
       "card",

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=-2
+humancounters=POISON=11
+humanbattlefield=Platinum Angel
+ailife=20

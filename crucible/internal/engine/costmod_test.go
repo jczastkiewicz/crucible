@@ -93,3 +93,73 @@ func TestAffinityReducesTheCost(t *testing.T) {
 		t.Error("Frogmite with two artifacts in play was not castable for 2 mana")
 	}
 }
+
+// Convoke (CR 702.51a): each creature tapped pays {1} or one mana of its color.
+// Siege Wurm ({5}{G}{G}): two green creatures pay the {G}{G}, leaving {5}.
+func TestConvokeTapsCreaturesToPay(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	wurm := g.NewCard(corpusCard(t, "Siege Wurm"), p, engine.Hand)
+	first := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	second := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Red, 5)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{first, second})
+	for range 5 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	if !g.CastSpell(p, wurm, c) {
+		t.Fatal("Siege Wurm could not be cast with two convoking creatures and five mana")
+	}
+	if !g.Card(first).Tapped || !g.Card(second).Tapped {
+		t.Error("the convoking creatures were not tapped")
+	}
+}
+
+// Delve (CR 702.66a): each card exiled from the graveyard pays {1}.
+func TestDelveExilesCardsToPay(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	cruise := g.NewCard(corpusCard(t, "Treasure Cruise"), p, engine.Hand)
+	var grave []engine.CardID
+	for range 4 {
+		grave = append(grave, g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard))
+	}
+	g.Player(p).ManaPool.Add(mana.Blue, 4)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(grave)
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	if !g.CastSpell(p, cruise, c) {
+		t.Fatal("Treasure Cruise could not be cast delving four cards")
+	}
+	for _, id := range grave {
+		if g.Card(id).Zone != engine.Exile {
+			t.Errorf("a delved card is in %v, want Exile", g.Card(id).Zone)
+		}
+	}
+}
+
+// A convoke cast that cannot be paid taps nothing.
+func TestConvokeTapsNothingWhenTheCastFails(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	wurm := g.NewCard(corpusCard(t, "Siege Wurm"), p, engine.Hand)
+	bear := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{bear})
+	for range 6 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	if g.CastSpell(p, wurm, c) {
+		t.Fatal("Siege Wurm was cast with no mana")
+	}
+	if g.Card(bear).Tapped {
+		t.Error("a creature stayed tapped after the cast failed")
+	}
+}

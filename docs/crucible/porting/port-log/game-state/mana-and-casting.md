@@ -586,3 +586,15 @@ Readers: `Count$Kicked.<yes>.<no>` and `Count$TimesKicked` (`Card.kickerMagnitud
 `Kicked 1` / `Kicked 2` (`condition.go`; any other `Condition$` value still skips the ability). Not offered: a kicker
 whose cost is not a plain mana cost (`Sac<..>`), Multikicker, and `Spell.Kicked` as a spell-ability property. Tests:
 `kicker_test.go`.
+
+## Convoke, Improvise and Delve
+
+`CostAdjustment.adjust` reduces the mana a spell costs by what its controller taps or exiles. `assistCost`
+(`costassist.go`), called by `payCastCost` after `spellCost`, asks the controller (`ChooseCardsForEffect`) which cards
+to use: **Delve** exiles graveyard cards, each paying `{1}` of the generic part (up to what is left); **Convoke** taps
+untapped creatures, each paying one colored shard it shares a color with, else `{1}`; **Improvise** taps untapped
+artifacts, each paying `{1}`. A pick that is not a subset of the candidates, or pays more than the cost holds, is
+declined whole. The reduced cost is paid first and only then are the creatures tapped and the cards exiled
+(`costAssist.settle`), so a cast that cannot be paid taps and exiles nothing. A convoke tap counts as a tap for "becomes
+tapped" triggers, not as a `{T}` ability, so a summoning-sick creature may convoke. Not read: hybrid colored shards (a
+creature never pays one), a convoking creature that could also tap for mana, and `Waterbend`. Tests: `costmod_test.go`.

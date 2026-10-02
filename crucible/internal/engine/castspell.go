@@ -265,7 +265,12 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	if opts.hasAltCost {
 		base = opts.altCost
 	}
-	return g.payManaCostX(pid, g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base)), controller)
+	total, assist := g.assistCost(controller, pid, c, g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base)))
+	x, paid := g.payManaCostX(pid, total, controller)
+	if paid {
+		assist.settle(g, controller)
+	}
+	return x, paid
 }
 
 // setOn records x on a as the X its cost was paid with; announced false

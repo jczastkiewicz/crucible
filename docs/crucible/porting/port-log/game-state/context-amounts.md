@@ -24,14 +24,26 @@ heads in `contextHeads` to `contextValue`, which returns unresolved (never 0) ou
 | `Remembered`, `Imprinted`           | the host's `Memory` lists                                                                                      |
 | `Sacrificed`, `Exiled`, `Discarded` | the cards the cost used up (`Ability.paid`)                                                                    |
 
-A card that left the battlefield (a sacrificed or dying creature) is read from its last-known information (`Game.LKI`),
-which is what Java's copy of it holds. The measure is `Amount` (how many), `Valid <spec>` (how many match, from the
-host), or a per-card measure summed or folded with `Greatest`/`Least`/`Different`: `CardPower`, `CardToughness`,
-`CardManaCost`, `CardCounters.<TYPE>`, `CardNumColors` (`liveCardMeasure`; `perCardMeasure` keeps refusing power and
-toughness because it runs while Layer 7 is rebuilt). Anything else is unresolved. `resolveNamedAmount` also strips a
-leading sign (`NumAtt$ +X`) as `calculateAmount` does, which Pump's `+X` needed.
+`Remembered`/`Imprinted` and `Valid <spec>` read the card the amount is evaluated for (`AbilityUtils.java:512-555`), so
+a trigger or layer check that runs while another ability resolves reads its own host. The ability-carried lists
+(targets, trigger, paid cards) are read only when that card is the resolving ability's own source; any other evaluation
+stays unresolved. A paid list is unresolved unless the cost that paid for the ability recorded it
+(`paidLists.recorded`): activation costs record `Sac`/`Exile`/`Discard` picks and the self parts; a spell's additional
+cost, an unless cost and a trigger's `Cost$` do not yet (`payUnlessParts`), so `Fling`-shaped spells fail closed rather
+than read an empty list as 0.
+
+A card that left the battlefield (a sacrificed, exiled or dying creature) is read from its last-known information
+(`Game.LKI`), which is what Java's copy of it holds. `TriggeredCard` reads the snapshot of its last battlefield
+departure, never one taken when the trigger was recorded (Java's `runParams`): a discarded card that was once on the
+battlefield, or a dies-trigger card that returned before the trigger resolves (persist), reads the wrong state. The
+measure is `Amount` (how many), `Valid <spec>` (how many match, from the host), or a per-card measure summed or folded
+with `Greatest`/`Least`/`Different`: `CardPower`, `CardToughness`, `CardManaCost`, `CardCounters.<TYPE>`,
+`CardNumColors` (`liveCardMeasure`; `perCardMeasure` keeps refusing power and toughness because it runs while Layer 7 is
+rebuilt). Anything else is unresolved. `resolveNamedAmount` also strips a leading sign (`NumAtt$ +X`) as
+`calculateAmount` does, which Pump's `+X` needed.
 
 Not resolved: the player-list heads (`TriggeredPlayer$`, `TriggeredTarget$`, `TargetedPlayer$`,
-`PlayerCountRemembered$`), `Exiled$`/`Revealed$` lists that no cost or effect records yet, the `LKI` spellings
-(`RememberedLKI$`), `AllTargeted$`, `ParentTargeted$`, `TriggerObjects*$`, `TriggeredSpellAbility$CardManaCostLKI`,
-`ThisTargeted$`. Tests: `contextamounts_test.go`, `chosencosts_test.go`.
+`PlayerCountRemembered$`), `Exiled$`/`Revealed$` lists that no cost or effect records yet, an `Exiled$` or `Sacrificed$`
+list from a spell's additional cost, the `LKI` spellings (`RememberedLKI$`), `AllTargeted$`, `ParentTargeted$`,
+`TriggerObjects*$`, `TriggeredSpellAbility$CardManaCostLKI`, `ThisTargeted$`. Tests: `contextamounts_test.go`,
+`chosencosts_test.go`.

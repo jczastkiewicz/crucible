@@ -5,9 +5,14 @@
 // its targets, what it was triggered by, what its host remembers or imprinted,
 // what its cost used up -- and the body measures them (handlePaid).
 //
-// The ability is Game.resolving, set by Registry.resolve: amounts are read
-// while an ability resolves, and a sub-ability reads its root's lists because
-// the chain copies them.
+// What the host remembers or imprinted is read off the card the amount is
+// evaluated for (AbilityUtils.java:512-555 uses its `card` argument), so a
+// trigger or layer check running mid-resolution reads its own host, not the
+// resolving ability's. The lists an ability carries (targets, trigger, paid
+// cost) belong to Game.resolving, set by Registry.resolve -- a sub-ability
+// reads its root's lists because the chain copies them -- and are read only
+// when the evaluated card is that ability's own source; any other evaluation
+// stays unresolved (GO-7).
 
 package engine
 
@@ -26,9 +31,50 @@ var contextHeads = map[string]bool{
 // contextCards is the cards head names for the ability resolving now. A card
 // that left the battlefield (a sacrificed creature) is read from its
 // last-known information.
-func (g *Game) contextCards(head string) ([]*Card, bool) {
+func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
+	var ids []CardID
+	switch head {
+	case "Remembered":
+		if source == NoCard {
+			return nil, false
+		}
+		for _, e := range g.Card(source).Memory.Remembered() {
+			if id, ok := e.AsCard(); ok {
+				ids = append(ids, id)
+			}
+		}
+	case "Imprinted":
+		if source == NoCard {
+			return nil, false
+		}
+		ids = g.Card(source).Memory.Imprinted()
+	default:
+		var ok bool
+		if ids, ok = g.abilityListIDs(source, head); !ok {
+			return nil, false
+		}
+	}
+	cards := make([]*Card, 0, len(ids))
+	for _, id := range ids {
+		c := g.Card(id)
+		if c.Zone != Battlefield {
+			if snap := g.LKI(id); snap != nil && (head == "Sacrificed" || head == "Exiled" || head == "TriggeredCard") {
+				c = snap
+			}
+		}
+		cards = append(cards, c)
+	}
+	return cards, true
+}
+
+// abilityListIDs is the cards of the list head names that the resolving
+// ability carries, when it is source's own ability. A paid list is unresolved
+// unless the cost that paid for the ability recorded it (paidLists.recorded):
+// an empty list would read as 0, which Java's recorded-empty list is but an
+// unrecorded one is not.
+func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 	a := g.resolving
-	if a == nil {
+	if a == nil || source == NoCard || a.Source != source {
 		return nil, false
 	}
 	var ids []CardID
@@ -45,40 +91,22 @@ func (g *Game) contextCards(head string) ([]*Card, bool) {
 		ids = nonNone(a.triggered.attacker)
 	case "TriggeredBlocker":
 		ids = nonNone(a.triggered.blocker)
-	case "Remembered":
-		if a.Source == NoCard {
+	case "Sacrificed", "Exiled", "Discarded":
+		if !a.paid.recorded {
 			return nil, false
 		}
-		for _, e := range g.Card(a.Source).Memory.Remembered() {
-			if id, ok := e.AsCard(); ok {
-				ids = append(ids, id)
-			}
+		switch head {
+		case "Sacrificed":
+			ids = a.paid.sacrificed
+		case "Exiled":
+			ids = a.paid.exiled
+		default:
+			ids = a.paid.discarded
 		}
-	case "Imprinted":
-		if a.Source == NoCard {
-			return nil, false
-		}
-		ids = g.Card(a.Source).Memory.Imprinted()
-	case "Sacrificed":
-		ids = a.paid.sacrificed
-	case "Exiled":
-		ids = a.paid.exiled
-	case "Discarded":
-		ids = a.paid.discarded
 	default:
 		return nil, false
 	}
-	cards := make([]*Card, 0, len(ids))
-	for _, id := range ids {
-		c := g.Card(id)
-		if c.Zone != Battlefield {
-			if snap := g.LKI(id); snap != nil && (head == "Sacrificed" || head == "TriggeredCard") {
-				c = snap
-			}
-		}
-		cards = append(cards, c)
-	}
-	return cards, true
+	return ids, true
 }
 
 func nonNone(id CardID) []CardID {
@@ -92,8 +120,8 @@ func nonNone(id CardID) []CardID {
 // many match a valid string (`Valid <spec>`), or a per-card measure summed
 // (`CardPower`), or its greatest, least or distinct values. false for a
 // measure this port does not read, never a guess (GO-7).
-func (g *Game) contextValue(head, body string) (int, bool) {
-	cards, ok := g.contextCards(head)
+func (g *Game) contextValue(source CardID, head, body string) (int, bool) {
+	cards, ok := g.contextCards(source, head)
 	if !ok {
 		return 0, false
 	}
@@ -101,20 +129,18 @@ func (g *Game) contextValue(head, body string) (int, bool) {
 	case strings.HasPrefix(body, "Amount"):
 		return len(cards), true
 	case strings.HasPrefix(body, "Valid "):
-		var source *Card
-		controller := NoPlayer
-		if g.resolving != nil && g.resolving.Source != NoCard {
-			source = g.Card(g.resolving.Source)
-			controller = g.resolving.Controller
+		if source == NoCard {
+			return 0, false
 		}
+		host := g.Card(source)
 		spec := valid.Parse(strings.TrimPrefix(body, "Valid "))
 		n := 0
 		for _, c := range cards {
-			if source != nil && Matches(g, c, spec, controller, source.ID) {
+			if Matches(g, c, spec, host.Controller(), source) {
 				n++
 			}
 		}
-		return n, source != nil
+		return n, true
 	}
 	fold, perCard := sumFold, body
 	switch {

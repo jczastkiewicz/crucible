@@ -351,14 +351,21 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	x.setOn(&activated)
+	activated.paid.recorded = true
 	if shape.Tap {
 		c.Tapped = true
 		g.checkTapsTriggers(controller, card, pid, false)
 	}
 	if shape.SelfSac {
+		if g.Card(card).Zone == Battlefield {
+			activated.paid.sacrificed = append(activated.paid.sacrificed, card)
+		}
 		sacrificeCards(g, controller, &activated, []CardID{card})
 	}
 	if shape.SelfExile {
+		if g.Card(card).Zone == Battlefield {
+			activated.paid.exiled = append(activated.paid.exiled, card)
+		}
 		exileCards(g, controller, []CardID{card})
 	}
 	if shape.SelfReturn {
@@ -370,6 +377,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.DiscardN > 0 {
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, shape.DiscardN)
+		activated.paid.discarded = append(activated.paid.discarded, chosen...)
 		discardCards(g, controller, chosen, pid)
 	}
 	if shape.PayLifeN > 0 {
@@ -402,12 +410,15 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		emitCounterChanged(g.sink, card, CardEntity(card), ct, -shape.SubCounterN)
 	}
 	if shape.SelfExileFromGrave {
+		activated.paid.exiled = append(activated.paid.exiled, card)
 		exileFromGraveyard(g, card)
 	}
 	if shape.SelfDiscard {
+		activated.paid.discarded = append(activated.paid.discarded, card)
 		discardCards(g, controller, []CardID{card}, pid)
 	}
 	if shape.SelfExileFromHand {
+		activated.paid.exiled = append(activated.paid.exiled, card)
 		exileFromHand(g, card)
 	}
 	if isLoyaltyAbility {

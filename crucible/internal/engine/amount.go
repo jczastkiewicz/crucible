@@ -132,7 +132,7 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 	case amt.Head == "SVar":
 		return namedAmount(g, amounts, sourceController, source, amt.Body, depth)
 	case contextHeads[amt.Head]:
-		return g.contextValue(amt.Head, amt.Body)
+		return g.contextValue(source, amt.Head, amt.Body)
 	case strings.HasPrefix(amt.Head, "PlayerCount"):
 		// playerXCount's own Highest/Lowest branch hands the whole
 		// "HighestX/Op" string down to playerXProperty, which applies the

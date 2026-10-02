@@ -268,9 +268,9 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 		switch {
 		case p.Name == "T":
 			shape.Tap = true
-		case p.Name == "Sac" && !shape.SelfSac && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+		case p.Name == "Sac" && !shape.SelfSac && shape.SacTypeN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfSac = true
-		case p.Name == "Exile" && !shape.SelfExile && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
+		case p.Name == "Exile" && !shape.SelfExile && shape.ExileTypeN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfExile = true
 		case p.Name == "Return" && !shape.SelfReturn && shape.ReturnTypeN == 0 && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfReturn = true

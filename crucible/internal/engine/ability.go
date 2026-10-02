@@ -342,6 +342,12 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 // paidLists are the cards an ability's cost used up, which its effects read
 // back as `Sacrificed$`, `Exiled$` and `Discarded$` (SpellAbility.getPaidList).
 // They are IDs: a sacrificed card is read from its last-known information.
+//
+// recorded is true once the cost that paid for the ability wrote them. A cost
+// path that does not (a spell's additional cost, an unless cost, a trigger's
+// Cost$) leaves them unrecorded, and the amount stays unresolved instead of
+// reading an empty list as 0.
 type paidLists struct {
 	sacrificed, exiled, discarded []CardID
+	recorded                      bool
 }

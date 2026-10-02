@@ -23,13 +23,15 @@ type chosenCosts struct {
 
 // costCandidates is the cards of zone pid owns or controls that spec (a Cost
 // type: OR alternatives separated by ";") matches from source's point of view,
-// source itself left out of a hand pick.
-func (g *Game) costCandidates(pid PlayerID, source CardID, zone ZoneType, spec string) []CardID {
+// source itself left out of a hand pick, and out of a battlefield pick when a
+// self part of the same cost (SelfSac, SelfExile, SelfReturn) already moves
+// it.
+func (g *Game) costCandidates(pid PlayerID, source CardID, selfMoves bool, zone ZoneType, spec string) []CardID {
 	parsed := valid.Parse(strings.ReplaceAll(spec, ";", ","))
 	var out []CardID
 	for _, id := range g.Zone(zone, pid).Cards() {
 		c := g.Card(id)
-		if zone == Battlefield && c.IsPhasedOut() || zone == Hand && id == source {
+		if zone == Battlefield && (c.IsPhasedOut() || selfMoves && id == source) || zone == Hand && id == source {
 			continue
 		}
 		if Matches(g, c, parsed, pid, source) {
@@ -44,11 +46,12 @@ func (g *Game) costCandidates(pid PlayerID, source CardID, zone ZoneType, spec s
 // distinct candidates, or when two parts picked the same card.
 func (g *Game) chooseCostCards(controller PlayerController, pid PlayerID, source CardID, shape cost.ActivationShape) (chosenCosts, bool) {
 	var chosen chosenCosts
+	selfMoves := shape.SelfSac || shape.SelfExile || shape.SelfReturn
 	pick := func(n int, spec string, zone ZoneType, choose func([]CardID) []CardID) ([]CardID, bool) {
 		if n == 0 {
 			return nil, true
 		}
-		candidates := g.costCandidates(pid, source, zone, spec)
+		candidates := g.costCandidates(pid, source, selfMoves, zone, spec)
 		if len(candidates) < n {
 			return nil, false
 		}
@@ -85,21 +88,32 @@ func (g *Game) chooseCostCards(controller PlayerController, pid PlayerID, source
 // payCostCards commits the picks and records them on a, the ability they paid
 // for.
 func (g *Game) payCostCards(controller PlayerController, pid PlayerID, chosen chosenCosts, a *Ability) {
-	if len(chosen.sac) > 0 {
-		sacrificeCards(g, controller, a, chosen.sac)
-		a.paid.sacrificed = append(a.paid.sacrificed, chosen.sac...)
+	// A pick that left its zone since it was made (an earlier part of the same
+	// cost moved it) is skipped by the move and so is not paid, nor recorded.
+	in := func(zone ZoneType, ids []CardID) []CardID {
+		var out []CardID
+		for _, id := range ids {
+			if g.Card(id).Zone == zone {
+				out = append(out, id)
+			}
+		}
+		return out
 	}
-	if len(chosen.exile) > 0 {
-		exileCards(g, controller, chosen.exile)
-		a.paid.exiled = append(a.paid.exiled, chosen.exile...)
+	if sac := in(Battlefield, chosen.sac); len(sac) > 0 {
+		sacrificeCards(g, controller, a, sac)
+		a.paid.sacrificed = append(a.paid.sacrificed, sac...)
 	}
-	for _, id := range chosen.exileGrave {
+	if exile := in(Battlefield, chosen.exile); len(exile) > 0 {
+		exileCards(g, controller, exile)
+		a.paid.exiled = append(a.paid.exiled, exile...)
+	}
+	for _, id := range in(Graveyard, chosen.exileGrave) {
 		exileFromGraveyard(g, id)
 		a.paid.exiled = append(a.paid.exiled, id)
 	}
-	if len(chosen.discard) > 0 {
-		discardCards(g, controller, chosen.discard, pid)
-		a.paid.discarded = append(a.paid.discarded, chosen.discard...)
+	if discard := in(Hand, chosen.discard); len(discard) > 0 {
+		discardCards(g, controller, discard, pid)
+		a.paid.discarded = append(a.paid.discarded, discard...)
 	}
 }
 

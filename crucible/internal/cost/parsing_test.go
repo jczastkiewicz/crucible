@@ -313,6 +313,7 @@ func TestActivationShape(t *testing.T) {
 		{"Sac<All/Creature>", cost.ActivationShape{}, false},
 		{"Sac<1/Creature> Sac<1/Land>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/Creature>", cost.ActivationShape{}, false},
+		{"Sac<1/Creature> Sac<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<2/CARDNAME>", cost.ActivationShape{}, false},
 		{"Sac<1/CARDNAME> Sac<1/CARDNAME>", cost.ActivationShape{}, false},
 		{"Exile<1/Artifact.YouCtrl/an artifact you control>",

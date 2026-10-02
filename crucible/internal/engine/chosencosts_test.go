@@ -3,6 +3,9 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -148,5 +151,71 @@ func TestSacrificedAmountIsTheSacrificedCreaturesPower(t *testing.T) {
 	}
 	if got := g.Player(other).Life; got != 15 {
 		t.Errorf("opponent life = %d, want 15: damage equal to the sacrificed 5/5's power", got)
+	}
+}
+
+// A cost that sacrifices the source itself records it too: Sacrificed$ reads
+// the card's last-known power.
+func TestSelfSacrificeCostIsRecordedForSacrificedAmount(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(other).Life = 20
+	raw := &carddb.Card{Filename: "self-flinger"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Self Flinger"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "3", "3"
+	raw.Faces[0].Abilities = []string{"AB$ DealDamage | Cost$ Sac<1/CARDNAME> | ValidTgts$ Player | NumDmg$ X"}
+	raw.Faces[0].SVars.Set("X", "Sacrificed$CardPower")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	flinger := g.NewCard(def, p, engine.Battlefield)
+	g.Card(flinger).SummonSick = false
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	if !g.ActivateAbility(p, flinger, 0, c) {
+		t.Fatal("could not activate")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life; got != 17 {
+		t.Errorf("opponent life = %d, want 17: the sacrificed 3/3's power", got)
+	}
+}
+
+// A paid list nothing recorded (a spell's additional cost) is unresolved, not
+// an empty list that reads as 0: the ability fails rather than doing nothing.
+func TestPaidListNobodyRecordedIsUnresolved(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(other).Life = 20
+	raw := &carddb.Card{Filename: "unrecorded-flinger"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Unrecorded Flinger"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Instant")
+	raw.Faces[0].Abilities = []string{"SP$ DealDamage | ValidTgts$ Player | NumDmg$ X"}
+	raw.Faces[0].SVars.Set("X", "Sacrificed$CardPower")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	spell := g.NewCard(def, p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	if !g.CastSpell(p, spell, c) {
+		t.Fatal("cast failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err == nil {
+		t.Error("resolved a Sacrificed$ amount no cost recorded")
+	}
+	if got := g.Player(other).Life; got != 20 {
+		t.Errorf("opponent life = %d, want 20", got)
 	}
 }

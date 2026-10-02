@@ -47,6 +47,10 @@ type Card struct {
 	// read while it is on the stack or the battlefield; Move clears it when the
 	// card leaves either for another zone.
 	kicker uint8
+	// castX is the X its caster announced casting it (Card.getXManaCostPaid
+	// over getCastSA), kept while it is on the stack or the battlefield, 0
+	// for a card cast without an X or never cast; Move clears it with kicker.
+	castX int
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move

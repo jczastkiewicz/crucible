@@ -157,6 +157,23 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature.withoutFlanking | TriggerZones$ Battlefield | Secondary$ True | Execute$ KWFlanking" + Slot},
 			SVars:    []SVarDef{{"KWFlanking" + Slot, "DB$ Pump | Defined$ TriggeredBlockerLKICopy | NumAtt$ -1 | NumDef$ -1"}},
 		}, true
+	case "etbCounter":
+		// CardFactoryUtil.makeEtbCounter (545): etbCounter:<type>:<amount>
+		// [:<extra replacement params>|no Condition[:<description>]]. The
+		// description is display only. An EACH type is a different
+		// ability (CounterTypes$) this port does not translate.
+		args := k.Args()
+		if len(args) < 2 || args[0] == "" || args[1] == "" || strings.HasPrefix(args[0], "EACH") {
+			return Expansion{}, false
+		}
+		line := "Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWEtbCounter" + Slot
+		if len(args) > 2 && args[2] != "" && args[2] != "no Condition" {
+			line += " | " + args[2]
+		}
+		return Expansion{
+			Replacements: []string{line},
+			SVars:        []SVarDef{{"KWEtbCounter" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ " + args[0] + " | ETB$ True | CounterNum$ " + args[1]}},
+		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to
 		// check CR 702.100c; the script spelling of that check is Condition$

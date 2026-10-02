@@ -21,9 +21,8 @@ Java keeps the value of X a cost was paid with on the `SpellAbility` itself: `Sp
 `WithoutManaCost$` cast (`castOpts.withoutManaCost`) records none: the cost has no X part left, and
 `announceValuesLikeX` calls `setXManaCostPaid(null)` then. X = 0 announced is recorded as `(0, true)`, not as absent.
 
-Past ChangeX's own `Value$` (below), nothing reads the recorded X yet: `Count$xPaid` (927 corpus files) stays unresolved
-in `resolveAmount` (`amount.go` has no ability context), and `etbCounter:...:X` is unported. A changed X therefore has
-no game consequence yet. Tests: `xannounced_test.go`.
+`Count$xPaid` reads the recorded X ([`x-and-etb-counters.md`](x-and-etb-counters.md)): an ability resolving with an
+announced X reads it, and a changed X reaches every effect that follows. Tests: `xannounced_test.go`.
 
 ## `HasXManaCost$` fires SpellCast triggers
 
@@ -55,13 +54,13 @@ Resolution:
 | Write                 | Only when the spell announced an X (`ChangeXEffect.java:24,27`'s null checks). `Value$` is computed first, as Java does                                                                                                                   |
 | Cast SA vs stack copy | Java writes both `tgtSA` and the host's cast SA (`ChangeXEffect.java:22-29`); they differ only for a `SpellAbilityStackInstance`, which this port lacks: the stack item is the cast ability                                               |
 
-`changeXValue` evaluates the `TriggeredSpellAbility>` context head itself because `resolveAmount` has no `Ability` to
-read an xPaid from; it is the first xPaid reader, not a general `Count$xPaid` port.
+`changeXValue` evaluates the `TriggeredSpellAbility>` context head itself: a context-switched `Count$xPaid` reads the
+triggering spell's X, which the plain `xPaid` head (the resolving ability's own) does not.
 
 Rejected with an error before acting (GO-7): any other `Defined$` (`Targeted`, `Parent`, `Remembered`, ...);
 `ValidTgts$`/`TargetType$` (a targeted spell, no corpus line); `Condition$`/`ConditionDefined$` (read as never met,
 silently, by `subAbilityConditionMet`); a missing `Value$`; any other `Value$` shape (another `Count$` head, a `doXMath`
-operator it lacks such as `Pow`, an SVar `resolveNamedAmount` cannot resolve such as `Count$xPaid`).
+operator it lacks such as `Pow`, an SVar `resolveNamedAmount` cannot resolve such as `Count$Party`).
 
 Tests: `changexvalue_test.go` (Unbound Flourishing's verbatim lines doubling X = 3 to 6, literal, named SVar, operand
 and sign, unannounced X left alone, a copy keeping the changed X per CR 707.10, spell gone, every rejected shape).

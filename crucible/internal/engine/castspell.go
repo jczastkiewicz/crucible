@@ -265,6 +265,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	}
 	cast := Ability{API: api, Source: card, Controller: pid, spell: true}
 	x.setOn(&cast)
+	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++
@@ -361,6 +362,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.putSpellOnStack(card, pid)
 	cast := Ability{API: APIAttach, Source: card, Controller: pid, Target: target, spell: true}
 	x.setOn(&cast)
+	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++
@@ -424,6 +426,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	}
 	x.setOn(&a)
 	g.putSpellOnStack(card, pid)
+	g.Card(card).castX = x.value
 	g.PushAbility(a)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.Player(pid).SpellsCastThisTurn++

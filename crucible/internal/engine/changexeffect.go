@@ -64,6 +64,9 @@ func (changeXEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	if item.hasXManaCostPaid {
 		item.xManaCostPaid = value
+		if item.spell {
+			g.Card(item.Source).castX = value
+		}
 	}
 	return nil
 }

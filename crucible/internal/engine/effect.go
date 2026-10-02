@@ -90,6 +90,9 @@ func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) err
 func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) error {
 	if g != nil {
 		g.registry = r
+		prev := g.xctx
+		g.xctx = xContext{value: a.xManaCostPaid, has: a.hasXManaCostPaid}
+		defer func() { g.xctx = prev }()
 	}
 	if a.evolve != NoCard && !g.Card(a.Source).evolvedBy(g.Card(a.evolve)) {
 		return nil

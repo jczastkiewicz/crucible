@@ -71,3 +71,34 @@ func TestExpand(t *testing.T) {
 		})
 	}
 }
+
+func TestExpandReplacements(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		line string
+		ok   bool
+		want string // the replacement line
+	}{
+		{"etbCounter:P1P1:2", true, "Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWEtbCounter{n}"},
+		{"etbCounter:P1P1:X:no Condition:CARDNAME enters with X counters.", true, "ReplaceWith$ KWEtbCounter{n}"},
+		{"etbCounter:P1P1:X:CheckSVar$ WasKicked:desc", true, "ReplaceWith$ KWEtbCounter{n} | CheckSVar$ WasKicked"},
+		{"etbCounter:EACH :1", false, ""},
+		{"etbCounter:P1P1", false, ""},
+	} {
+		t.Run(tc.line, func(t *testing.T) {
+			t.Parallel()
+
+			exp, ok := keyword.Expand(keyword.Parse(tc.line))
+			if ok != tc.ok {
+				t.Fatalf("Expand ok = %v, want %v", ok, tc.ok)
+			}
+			if !ok {
+				return
+			}
+			if len(exp.Replacements) != 1 || !strings.Contains(exp.Replacements[0], tc.want) {
+				t.Errorf("replacements %q do not contain %q", exp.Replacements, tc.want)
+			}
+		})
+	}
+}

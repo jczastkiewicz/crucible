@@ -149,8 +149,8 @@ them to `orderAndPlaySimultaneousSa` (`PlayerControllerAi.java:1296`), where a h
 distinct spells for one copier: Display of Power (1 line, `TargetMax$ X`). Same deterministic-order simplification
 `pushTriggeredAbilities` (`trigger.go`) documents for simultaneous triggers.
 
-**X.** Java carries X onto the copy (`copySpellHost`, `setXManaCostPaidByColor`). This port records no X on any spell;
-`xPaid` is not a `resolveAmount` shape, so a copy of an X spell fails where the original does, never resolves with 0.
+**X.** Java carries X onto the copy (`copySpellHost`, `setXManaCostPaidByColor`). The copy is a value copy of the
+spell's `Ability`, which carries the announced X (CR 707.10), so `Count$xPaid` reads the original's X on the copy.
 
 Decisions: `ConfirmEffect` (`Optional$`, `MayChooseTarget$`), `ChooseTargets`, `ChooseEnchantTarget`. No new
 `PlayerController` method, no new engine state beyond the shared pieces above.

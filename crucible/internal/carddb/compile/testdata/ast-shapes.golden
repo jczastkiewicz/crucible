@@ -20,6 +20,20 @@ face 0
     param TokenAmount$ "Y"
     param TokenScript$ "g_1_1_snake"
     param SpellDescription$ "Create a 1/1 green Snake creature token for each charge counter on CARDNAME."
+  Replacement Moved
+    param Event$ "Moved"
+    param ValidCard$ "Card.Self"
+    param Destination$ "Battlefield"
+    param Secondary$ "True"
+    param ReplacementResult$ "Updated"
+    param ReplaceWith$ "KWEtbCounter0"
+    sub ReplaceWith KWEtbCounter0
+      SubAbility PutCounter svar=KWEtbCounter0
+        param DB$ "PutCounter"
+        param Defined$ "Self"
+        param CounterType$ "CHARGE"
+        param ETB$ "True"
+        param CounterNum$ "X"
 face 1 empty
 face 2 empty
 face 3 empty

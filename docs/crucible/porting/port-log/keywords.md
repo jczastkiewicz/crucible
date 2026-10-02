@@ -101,27 +101,28 @@ keyword line (`KWProwess<n>`, so two keywords never collide) and tags each synth
 the line it came from. `ok == false` leaves the keyword inert: no template, or details this port does not translate
 (GO-7).
 
-| Keyword          | Lines (corpus) | Expands to                                                                                                                                                         |
-| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                                                  |
-| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                                             |
-| TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>`                         |
-| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                                                 |
-| Affinity         |             77 | `S:Mode$ ReduceCost \| ValidCard$ Card.Self \| Type$ Spell \| Amount$ KWAffinity<n> \| EffectZone$ All`, the amount `Count$Valid <type>.YouCtrl` in `Face.Amounts` |
-| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                                          |
-| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                                         |
-| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                                                 |
-| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                                                                            |
-| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                                                                |
-| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one                                                        |
-| Battle cry       |             13 | `T:Mode$ Attacks` (Self) running `DB$ PumpAll \| ValidCards$ Creature.attacking+Other \| NumAtt$ 1`                                                                |
-| Dethrone         |              9 | `T:Mode$ Attacks` with `Attacked$ Player.withMostLife` putting a +1/+1 counter on Self                                                                             |
-| Flanking         |             30 | `T:Mode$ AttackerBlockedByCreature` (`ValidBlocker$ Creature.withoutFlanking`) pumping `TriggeredBlockerLKICopy` -1/-1                                             |
-| Afflict          |             10 | `T:Mode$ AttackerBlocked` making `TriggeredDefendingPlayer` lose N life                                                                                            |
-| Soulshift        |             26 | `T:Mode$ ChangesZone` (dies, `OptionalDecider$ You`) returning target `Spirit.YouOwn+cmcLEN` from the graveyard to hand                                            |
-| Mentor           |             19 | `T:Mode$ Attacks` putting a +1/+1 counter on target `Creature.attacking+powerLTKWPower<n>`, the amount `Count$CardPower`                                           |
-| Training         |             11 | `T:Mode$ Attacks` with `IsPresent$ Creature.attacking+Other+powerGTKWPower<n>` putting a +1/+1 counter on Self                                                     |
-| Evolve           |             23 | `T:Mode$ ChangesZone` (`Creature.YouCtrl+Other`, `Condition$ Evolve`) putting a +1/+1 counter on Self                                                              |
+| Keyword          | Lines (corpus) | Expands to                                                                                                                                                                                        |
+| ---------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Equip            |            650 | `AB$ Attach \| Cost$ <cost> \| ValidTgts$ Creature.YouCtrl \| SorcerySpeed$ True`                                                                                                                 |
+| Cycling          |            306 | `AB$ Draw \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand`                                                                                                                            |
+| TypeCycling      |            106 | `AB$ ChangeZone \| Cost$ <cost> Discard<1/CARDNAME> \| ActivationZone$ Hand \| Origin$ Library \| Destination$ Hand \| ChangeType$ <type>`                                                        |
+| Crew             |            192 | `AB$ Animate \| Cost$ tapXType<Any/Creature.Other+withTotalPowerGEN> \| Defined$ Self \| Types$ Artifact,Creature`                                                                                |
+| Affinity         |             77 | `S:Mode$ ReduceCost \| ValidCard$ Card.Self \| Type$ Spell \| Amount$ KWAffinity<n> \| EffectZone$ All`, the amount `Count$Valid <type>.YouCtrl` in `Face.Amounts`                                |
+| Prowess          |            104 | `T:Mode$ SpellCast` (noncreature, yours) running `DB$ Pump +1/+1` on Self                                                                                                                         |
+| Exalted          |             35 | `T:Mode$ Attacks` (alone, a creature you control) pumping `TriggeredAttackerLKICopy` +1/+1                                                                                                        |
+| Annihilator      |             14 | `T:Mode$ Attacks` running `DB$ Sacrifice \| Defined$ TriggeredDefendingPlayer \| SacValid$ Permanent \| Amount$ N`                                                                                |
+| Bushido          |             37 | `T:Mode$ Blocks` and `T:Mode$ AttackerBlocked`, both pumping Self +N/+N                                                                                                                           |
+| Afterlife        |             11 | `T:Mode$ ChangesZone` (dies) making N `wb_1_1_spirit_flying` tokens                                                                                                                               |
+| Persist, Undying |         24, 22 | `T:Mode$ ChangesZone` (dies with no -1/-1 resp. +1/+1 counter) returning `TriggeredNewCardLKICopy` with one                                                                                       |
+| etbCounter       |            477 | `R:Event$ Moved \| ValidCard$ Card.Self \| Destination$ Battlefield \| ReplaceWith$ KWEtbCounter<n>` running `DB$ PutCounter \| Defined$ Self \| ETB$ True`; extra params ride on the replacement |
+| Battle cry       |             13 | `T:Mode$ Attacks` (Self) running `DB$ PumpAll \| ValidCards$ Creature.attacking+Other \| NumAtt$ 1`                                                                                               |
+| Dethrone         |              9 | `T:Mode$ Attacks` with `Attacked$ Player.withMostLife` putting a +1/+1 counter on Self                                                                                                            |
+| Flanking         |             30 | `T:Mode$ AttackerBlockedByCreature` (`ValidBlocker$ Creature.withoutFlanking`) pumping `TriggeredBlockerLKICopy` -1/-1                                                                            |
+| Afflict          |             10 | `T:Mode$ AttackerBlocked` making `TriggeredDefendingPlayer` lose N life                                                                                                                           |
+| Soulshift        |             26 | `T:Mode$ ChangesZone` (dies, `OptionalDecider$ You`) returning target `Spirit.YouOwn+cmcLEN` from the graveyard to hand                                                                           |
+| Mentor           |             19 | `T:Mode$ Attacks` putting a +1/+1 counter on target `Creature.attacking+powerLTKWPower<n>`, the amount `Count$CardPower`                                                                          |
+| Training         |             11 | `T:Mode$ Attacks` with `IsPresent$ Creature.attacking+Other+powerGTKWPower<n>` putting a +1/+1 counter on Self                                                                                    |
+| Evolve           |             23 | `T:Mode$ ChangesZone` (`Creature.YouCtrl+Other`, `Condition$ Evolve`) putting a +1/+1 counter on Self                                                                                             |
 
 Equip's `ReduceCost$` and `AlternateCost$` extras are not read by any ability this port resolves, so those Equip lines
 (about 25) stay inert; an `ActivationLimit$` extra is carried as written. The engine side: `attachEffect` resolves an
@@ -138,9 +139,11 @@ carrying these keywords.
 Java scopes the value SVars of Mentor and Training (`X`) to the ability; the expansion names them `KWPower<n>` so they
 never shadow the card's own `X`, and `compileFace` refuses a synthesized SVar whose name the card already defines. A
 numeric valid property resolves a value SVar operand through the source card (`compareOperand`, `valid-strings.md`).
-Training's own `Training$ True` param is read by nothing in Forge and is dropped. Not expanded yet, each for a named
-reason: Rampage (`Count$Valid Creature.blockingTriggeredAttacker` needs `blocking<Defined>` in `CardProperty`) and Melee
-(`TriggeredPlayersDefenders$Amount`). Engine side:
+Training's own `Training$ True` param is read by nothing in Forge and is dropped. `etbCounter` is a Forge pseudo-keyword
+(no `Keyword` enum value); the engine side is
+[`game-state/x-and-etb-counters.md`](game-state/x-and-etb-counters.md#enters-with-counters). Not expanded yet, each for
+a named reason: Rampage (`Count$Valid Creature.blockingTriggeredAttacker` needs `blocking<Defined>` in `CardProperty`)
+and Melee (`TriggeredPlayersDefenders$Amount`). Engine side:
 [`game-state/triggers.md`](game-state/triggers.md#keyword-triggers-adr-0038). Tests: `keywordtriggers_test.go`.
 
 ### Flashback is casting infrastructure, not an expansion

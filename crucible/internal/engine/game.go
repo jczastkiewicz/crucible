@@ -55,6 +55,10 @@ type Game struct {
 	// (TrueSubAbility$, RepeatSubAbility$, Choices$) uses the same dispatch
 	// as the stack object around it (additional.go).
 	registry *Registry
+	// xctx is the X of the ability Registry.resolve is running, the root
+	// ability's xManaCostPaid that Count$xPaid reads first
+	// (AbilityUtils.java:1631); hasX false reads the source card's castX.
+	xctx xContext
 	// pendingErr is a static trigger's error from a site with no error
 	// return (resolveStaticTriggers, statictrigger.go), waiting for the
 	// nearest boundary that has one -- Registry.Resolve, ResolveStack,
@@ -626,7 +630,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		}
 	}
 	if (from == Stack && kind != Battlefield) || (from == Battlefield && kind != Battlefield) {
-		c.kicker = 0
+		c.kicker, c.castX = 0, 0
 	}
 	if from == Stack && kind != Battlefield {
 		// CR 108.4a: only a permanent or a spell has a controller. A spell
@@ -1159,4 +1163,11 @@ func (g *Game) Clone() *Game {
 		out.lki[id] = &s
 	}
 	return out
+}
+
+// xContext is the X announced for the ability being resolved: the value and
+// whether one was announced (SpellAbility.getXManaCostPaid's null).
+type xContext struct {
+	value int
+	has   bool
 }

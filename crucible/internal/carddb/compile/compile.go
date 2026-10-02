@@ -202,10 +202,11 @@ type Face struct {
 	// interpret it downstream" split Type/Power/Toughness/Loyalty already
 	// use. Expanding a keyword into the triggers, statics and abilities it
 	// stands for is a different job entirely (keyword.go's own doc
-	// comment), done here for two keywords only, each because it names an
-	// SVar nothing else would compile: `Dungeon` (its rooms, added to
-	// Triggers) and `ETBReplacement` (its replacement, added to
-	// Replacements). The keyword line itself stays here too.
+	// comment), done here for `Dungeon` (its rooms, added to Triggers) and
+	// `ETBReplacement` (its replacement, added to Replacements), each
+	// because it names an SVar nothing else would compile, and by
+	// keyword.Expand for the rest (ADR-0038). The keyword line itself
+	// stays here too.
 	Keywords []string
 
 	Abilities    []*Ability
@@ -488,12 +489,9 @@ var replacementLayers = [...]string{"CantHappen", "Control", "Copy", "Transform"
 // (ReplacementEffect.java:109-111). Nothing references the SVar through a
 // param, so without this it would compile nowhere (PORT-2).
 //
-// Only the Copy layer (68 cards, "enters as a copy") is expanded; any other
-// layer returns nil. The engine dispatches no other ETBReplacement layer
-// yet, and compiling the Other layer's 353 SVars surfaces two dead params
-// (ListTitle$ on ChooseEvenOdd, ashlings_prerogative.txt and
-// gollum_riddle_master.txt) that the tools/apiscan -api gate would fail on:
-// those belong to whoever ports the Other layer, not to Layer 1.
+// Every layer is expanded: the Other layer's 353 SVars (enters with counters,
+// choose a color or a card name) compile with it, and the engine reads the
+// shapes it resolves and leaves the rest for whoever ports that effect.
 func (c *faceCompiler) etbReplacement(rest string) (*Ability, error) {
 	fields := strings.Split(rest, ":")
 	if len(fields) < 2 {
@@ -507,9 +505,6 @@ func (c *faceCompiler) etbReplacement(rest string) (*Ability, error) {
 	}
 	if layer == "" {
 		return nil, fmt.Errorf("%w: %q names no replacement layer", ErrBadETBReplacement, rest)
-	}
-	if layer != "Copy" {
-		return nil, nil
 	}
 	ref, err := c.reference("ReplaceWith", fields[1])
 	if err != nil {

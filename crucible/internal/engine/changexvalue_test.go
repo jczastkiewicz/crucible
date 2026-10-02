@@ -264,7 +264,7 @@ func TestChangeXRejectsUnresolvedValues(t *testing.T) {
 	}{
 		{"other count head", "Count$CardsInYourHand", "not resolvable yet", nil},
 		{"unknown operator", "TriggeredSpellAbility>Count$xPaid/Pow.2", "operator not resolvable yet", nil},
-		{"unresolvable svar", "Y", "not resolvable yet", []string{"Y", "Count$xPaid"}},
+		{"unresolvable svar", "Y", "not resolvable yet", []string{"Y", "Count$Party"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

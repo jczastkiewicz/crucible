@@ -108,6 +108,16 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 			}
 		}
 	}
+	// Replacements the card perpetually gained (Boareskyr Tollkeeper's "this
+	// permanent enters tapped"), kept in its grant rows across zone changes.
+	for _, grant := range movedCard.grants {
+		for _, r := range grant.replacements {
+			if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, movedCard.Controller(), moved, grant.amounts); matched {
+				movedCard.Tapped = shouldTap
+				return
+			}
+		}
+	}
 	for _, pid := range g.Players() {
 		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
 			if watcher == moved {

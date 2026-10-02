@@ -1,0 +1,10 @@
+# CR 702.34a reads "from your graveyard": only the owner may cast a flashback
+# card. human has {3}{R} available and tries to cast ai's Geistflame out of ai's
+# graveyard; the cast is refused, so the card stays and ai takes nothing.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+castspell human 1

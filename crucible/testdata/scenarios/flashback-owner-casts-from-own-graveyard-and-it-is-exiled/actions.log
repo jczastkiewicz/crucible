@@ -1,0 +1,15 @@
+# CR 702.34a: a card with flashback may be cast from its owner's graveyard for
+# its flashback cost, and is exiled instead of going anywhere else as it leaves
+# the stack. human casts Geistflame ({3}{R}) at ai from their own graveyard.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue targets ai
+castspell human 1
+resolvestack

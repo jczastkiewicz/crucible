@@ -419,6 +419,15 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "RememberedPlayerOwn":
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(c.Owner))
+	// TargetedPlayerCtrl/TargetedPlayerOwn: c's controller/owner is a player
+	// the resolving ability targets (AbilityUtils.getDefinedPlayers(source,
+	// "TargetedPlayer", spellAbility)). The ability is Game.resolving when it
+	// is source's own; outside one nothing is targeted and the property is
+	// false, as Java's null spellAbility gives an empty list.
+	case name == "TargetedPlayerCtrl":
+		return g.targetsPlayer(source, c.Controller())
+	case name == "TargetedPlayerOwn":
+		return g.targetsPlayer(source, c.Owner)
 	// ActivePlayerCtrl is c's controller relative to whose turn it is, not
 	// relative to sourceController -- Game.ActivePlayer already exists
 	// (turn.go); nothing new to build.
@@ -1115,4 +1124,14 @@ func sharesName(c *Card, name string) bool {
 		return false
 	}
 	return c.Def.Faces[0].Name == name || c.Def.Faces[carddb.FaceAlternate].Name == name
+}
+
+// targetsPlayer reports whether the ability resolving from source has pid
+// among its chosen targets.
+func (g *Game) targetsPlayer(source CardID, pid PlayerID) bool {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source {
+		return false
+	}
+	return containsEntity(a.Targets, PlayerEntity(pid))
 }

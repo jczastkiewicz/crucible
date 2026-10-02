@@ -392,9 +392,10 @@ type Card struct {
 // (AbilityUtils.getSVar(sa, s), AnimateEffectBase.java:173) and reads its
 // amounts there.
 type grantedTriggers struct {
-	id       uint64
-	triggers []*compile.Ability
-	amounts  map[string]expr.Amount
+	id           uint64
+	triggers     []*compile.Ability
+	replacements []*compile.Ability
+	amounts      map[string]expr.Amount
 }
 
 // traitGrant is the traits one continuous static granted to a card, compiled

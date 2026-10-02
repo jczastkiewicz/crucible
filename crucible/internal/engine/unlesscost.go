@@ -241,8 +241,7 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 	}
 	if uc.addCounterN > 0 {
 		if n := g.countersReplaced(controller, pid, CardEntity(a.Source), uc.addCounterType, uc.addCounterN); n > 0 {
-			g.Card(a.Source).Counters.Add(uc.addCounterType, n)
-			emitCounterChanged(g.sink, a.Source, CardEntity(a.Source), uc.addCounterType, n)
+			g.addCardCounters(controller, a.Source, a.Source, uc.addCounterType, n)
 		}
 	}
 }
@@ -283,6 +282,13 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 		}
 		uc.mana = mc
 	}
+	// What the payer is asked to confirm is the whole cost: the text n times
+	// over, as Cost.mergeTo adds it.
+	var repeated []string
+	for range n {
+		repeated = append(repeated, uc.parsed.Text)
+	}
+	uc.parsed = cost.Parse(strings.Join(repeated, " "))
 	return uc, true
 }
 
@@ -304,10 +310,13 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 		// One more AGE counter, through any AddCounter replacement, before
 		// the cost is built from how many there are.
 		if added := g.countersReplaced(controller, a.Controller, CardEntity(source.ID), Age, 1); added > 0 {
-			source.Counters.Add(Age, added)
-			emitCounterChanged(g.sink, source.ID, CardEntity(source.ID), Age, added)
+			g.addCardCounters(controller, source.ID, source.ID, Age, added)
 		}
 		n = source.Counters.Count(Age)
+		if n == 0 {
+			// SacrificeEffect.java:57: no age counter, no cost to pay.
+			return false, nil
+		}
 	}
 	uc, ok := parseUnlessCost(text)
 	if ok && n > 1 {

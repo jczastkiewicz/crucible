@@ -119,6 +119,8 @@ the line it came from. `ok == false` leaves the keyword inert: no template, or d
 | Extort            |             18 | `T:Mode$ SpellCast` (yours) running `AB$ LoseLife \| Cost$ WB \| Defined$ Player.Opponent`, then `DB$ GainLife \| LifeAmount$ AFLifeLost`                                                         |
 | Echo              |             52 | `T:Mode$ Phase` (your upkeep, `IsPresent$ Card.Self+cameUnderControlSinceLastUpkeep`) running `DB$ Sacrifice \| Echo$ <cost>`                                                                     |
 | Cumulative upkeep |             80 | `T:Mode$ Phase` (your upkeep) running `DB$ Sacrifice \| CumulativeUpkeep$ <cost>`                                                                                                                 |
+| Renown            |             20 | `T:Mode$ DamageDone` (combat damage to a player, `IsPresent$ Card.Self+!IsRenowned`) running `DB$ PutCounter`; PutCounter then sets the creature renowned                                         |
+| Chapter           |            236 | one `T:Mode$ CounterAdded \| CounterType$ LORE \| CounterAmount$ EQ<i>` per chapter running that chapter's SVar                                                                                   |
 | Battle cry        |             13 | `T:Mode$ Attacks` (Self) running `DB$ PumpAll \| ValidCards$ Creature.attacking+Other \| NumAtt$ 1`                                                                                               |
 | Dethrone          |              9 | `T:Mode$ Attacks` with `Attacked$ Player.withMostLife` putting a +1/+1 counter on Self                                                                                                            |
 | Flanking          |             30 | `T:Mode$ AttackerBlockedByCreature` (`ValidBlocker$ Creature.withoutFlanking`) pumping `TriggeredBlockerLKICopy` -1/-1                                                                            |
@@ -140,9 +142,10 @@ trigger recorded); Annihilator needed `Defined$ TriggeredDefendingPlayer`. Tests
 `equip-bonesplitter-attaches-to-a-creature-at-sorcery-speed`. Golden: `TestCorpusAST` changed for the 1,055 cards
 carrying these keywords.
 
-`LoseLife` records the life actually lost where `AFLifeLost` reads it (`LifeLoseEffect.java:60`): on the source card's
-SVars, since Java's per-ability SVar has no home here. Fabricate's counters-or-Servos choice is the unless cost the way
-Java scripts it; the payer is asked through `ConfirmPayCost`
+`LoseLife` records the life lost (the amount asked for from each player still in the game: this port has no life-loss
+replacement to reduce it) where `AFLifeLost` reads it (`LifeLoseEffect.java:60`): on the source card's SVars, since
+Java's per-ability SVar has no home here. Fabricate's counters-or-Servos choice is the unless cost the way Java scripts
+it; the payer is asked through `ConfirmPayCost`
 ([`mana-and-casting.md`](game-state/mana-and-casting.md#unlesscost-past-mana-and-ward)). Java scopes the value SVars of
 Mentor and Training (`X`) to the ability; the expansion names them `KWPower<n>` so they never shadow the card's own `X`,
 and `compileFace` refuses a synthesized SVar whose name the card already defines. A numeric valid property resolves a

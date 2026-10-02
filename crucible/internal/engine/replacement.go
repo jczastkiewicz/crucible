@@ -1782,7 +1782,7 @@ func (g *Game) eachReplacement(event string, fn func(h *Card, amounts map[string
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.Def.Faces[:liveFaces(h.Def)] {
 					for _, r := range face.Replacements {
 						if !strings.EqualFold(r.Name, event) || !hostInActiveZones(h, r, z) {
 							continue

@@ -10,7 +10,7 @@
 // at the permanent (enterBattlefieldReplacements), through countersReplaced so
 // an AddCounter replacement (Hardened Scales) still changes them.
 
-//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event
+//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event parts
 
 package engine
 
@@ -36,6 +36,16 @@ import (
 // Self or ReplacedCard, an amount that does not resolve.
 func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, origin ZoneType) {
 	movedCard := g.Card(moved)
+	// Java puts every ETB$ counter into one counter table and runs the
+	// AddCounter replacements on it once, so the amounts of one kind are summed
+	// first (Hardened Scales adds one for the lot, not one per line).
+	type pile struct {
+		ct     CounterType
+		n      int
+		source CardID
+		placer PlayerID
+	}
+	var piles []pile
 	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		sub := replaceWithSub(r)
 		if sub == nil || !strings.EqualFold(sub.Name, "PutCounter") {
@@ -48,7 +58,13 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 			return false
 		}
 		validCard, ok := r.Param("ValidCard")
-		if !ok || !Matches(g, movedCard, valid.Parse(validCard), h.Controller(), h.ID) {
+		if !ok {
+			// ReplaceMoved matches any card with no ValidCard$; no corpus line
+			// writes that for counters, so it is not guessed at.
+			g.recordPendingError(fmt.Errorf("engine: %q: ETB$ PutCounter replacement without ValidCard$ not resolvable yet", h.Def.Name))
+			return false
+		}
+		if !Matches(g, movedCard, valid.Parse(validCard), h.Controller(), h.ID) {
 			return false
 		}
 		if !replacementRequirementsCheck(g, h, amounts, r) {
@@ -60,31 +76,49 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 			g.recordPendingError(fmt.Errorf("engine: %q: ETB$ PutCounter replacement: a param past ValidCard$/Destination$/Origin$ not resolvable yet", h.Def.Name))
 			return false
 		}
-		if err := g.putEnterCounters(controller, moved, h, amounts, sub); err != nil {
+		ct, n, err := g.enterCounterAmount(moved, h, amounts, sub)
+		if err != nil {
 			g.recordPendingError(err)
+			return false
 		}
+		if n <= 0 {
+			return false
+		}
+		for i := range piles {
+			if piles[i].ct == ct {
+				piles[i].n += n
+				return false
+			}
+		}
+		piles = append(piles, pile{ct: ct, n: n, source: h.ID, placer: h.Controller()})
 		return false
 	})
+	for _, p := range piles {
+		if n := g.countersReplaced(controller, p.placer, CardEntity(moved), p.ct, p.n); n > 0 {
+			g.addCardCounters(controller, p.source, moved, p.ct, n)
+		}
+	}
 }
 
-// putEnterCounters puts one ETB$ PutCounter's counters on moved.
-func (g *Game) putEnterCounters(controller PlayerController, moved CardID, host *Card, amounts map[string]expr.Amount, sub *compile.Ability) error {
+// enterCounterAmount reads one ETB$ PutCounter's counter kind and amount for
+// moved, 0 amount for a line that puts nothing on it (a watcher's own "Self").
+func (g *Game) enterCounterAmount(moved CardID, host *Card, amounts map[string]expr.Amount, sub *compile.Ability) (CounterType, int, error) {
 	name := host.Def.Name
 	if !onlyKeys(sub, "DB", "Defined", "CounterType", "CounterNum", "ETB", "SpellDescription") {
-		return fmt.Errorf("engine: %q: ETB$ PutCounter: a param past Defined$/CounterType$/CounterNum$ not resolvable yet", name)
+		return "", 0, fmt.Errorf("engine: %q: ETB$ PutCounter: a param past Defined$/CounterType$/CounterNum$ not resolvable yet", name)
 	}
 	defined, _ := sub.Param("Defined")
 	switch {
 	case defined == "Self" && host.ID == moved, defined == "ReplacedCard":
 	case defined == "Self":
 		// A watcher's own "Self" is the watcher, not what entered.
-		return nil
+		return "", 0, nil
 	default:
-		return fmt.Errorf("engine: %q: ETB$ PutCounter: Defined$ %q not resolvable yet", name, defined)
+		return "", 0, fmt.Errorf("engine: %q: ETB$ PutCounter: Defined$ %q not resolvable yet", name, defined)
 	}
 	counterType, err := putCounterType(sub)
 	if err != nil {
-		return fmt.Errorf("engine: %q: %w", name, err)
+		return "", 0, fmt.Errorf("engine: %q: %w", name, err)
 	}
 	counterNum, ok := sub.Param("CounterNum")
 	if !ok {
@@ -92,16 +126,7 @@ func (g *Game) putEnterCounters(controller PlayerController, moved CardID, host 
 	}
 	amount, ok := resolveNamedAmount(g, amounts, host, counterNum)
 	if !ok {
-		return fmt.Errorf("engine: %q: ETB$ PutCounter: CounterNum$ %q is not resolvable", name, counterNum)
+		return "", 0, fmt.Errorf("engine: %q: ETB$ PutCounter: CounterNum$ %q is not resolvable", name, counterNum)
 	}
-	if amount <= 0 {
-		return nil
-	}
-	n := g.countersReplaced(controller, host.Controller(), CardEntity(moved), counterType, amount)
-	if n <= 0 {
-		return nil
-	}
-	g.Card(moved).Counters.Add(counterType, n)
-	emitCounterChanged(g.sink, host.ID, CardEntity(moved), counterType, n)
-	return nil
+	return counterType, amount, nil
 }

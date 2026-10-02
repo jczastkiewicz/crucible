@@ -472,6 +472,13 @@ an `X` still error.
 | life, discard, sacrifice | the `LifeChanged` event as `loseLifeEffect`; the payer chooses discards and sacrifices           |
 | return, damage, draw     | the payer chooses the permanents returned; damage and draws run last, as `CostDamage`/`CostDraw` |
 
+### PORT-2 debt: cost text parsed at resolution
+
+`parseUnlessCost` (`cost.Parse`, `mana.Parse`) runs on the script text each time `UnlessCost$`, `Echo$`,
+`CumulativeUpkeep$`, a spell's additional cost, a Kicker or Flashback cost or a `RaiseCost$` line is used, and
+`unlessCost.times` parses the repeated mana again. PORT-2 wants each compiled once at load into a typed cost; moving
+them into the compiled AST is one follow-up for all of them (per-resolution cost, not behavior).
+
 ### Echo and Cumulative upkeep
 
 `SacrificeEffect`'s `Echo$` and `CumulativeUpkeep$` branches (`upkeepCostPaid`, `unlesscost.go`) are "sacrifice unless
@@ -479,8 +486,10 @@ you pay" over the same cost vocabulary: the controller is asked through `Confirm
 `payUnlessCost`, and the permanent is sacrificed when it is not paid unless its controller changed since the trigger
 (`!host.getController().equals(activator)`). Cumulative upkeep first puts an AGE counter on the permanent (through
 `countersReplaced`) and pays its cost once per counter: `unlessCost.times(n)` multiplies every amount and repeats the
-mana (`Cost.mergeTo`). A cost `parseUnlessCost` does not read is an error. The expansions are in
-[`keywords.md`](../keywords.md#expansion-adr-0038); the "came under your control since your last upkeep" flag is in
+mana (`Cost.mergeTo`); the payer is asked to confirm that whole cost, and with no age counter at all (every placement
+prevented) there is nothing to pay and nothing is sacrificed (`SacrificeEffect.java:57`). A cost `parseUnlessCost` does
+not read is an error. The expansions are in [`keywords.md`](../keywords.md#expansion-adr-0038); the "came under your
+control since your last upkeep" flag is in
 [`turn-stack-combat.md`](turn-stack-combat.md#echos-flag-cameundercontrolsincelastupkeep). Not ported: the
 `Mode$ PayEcho`/`PayCumulativeUpkeep` triggers they fire (5 corpus cards) and the player keyword "You may pay 0 rather
 than pay the echo cost" (1). Tests: `upkeepcosts_test.go`.

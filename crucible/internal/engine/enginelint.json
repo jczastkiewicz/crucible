@@ -119,7 +119,8 @@
       "staticability",
       "continuous",
       "token",
-      "animate"
+      "animate",
+      "saga"
     ],
     "turn": [
       "id",

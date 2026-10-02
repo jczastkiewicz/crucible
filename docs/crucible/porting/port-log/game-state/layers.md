@@ -404,19 +404,19 @@ The corpus's own 317 real `S:Mode$ Continuous | Condition$` lines, tallied direc
 `meetsRequirementsOnTriggeredObjects` and SpellAbilityCondition.java handle separately -- a different switch on the same
 param name, not this port's problem here):
 
-| Value           | Real lines | Resolved | Player state read                                                             |
-| --------------- | ---------: | :------: | ----------------------------------------------------------------------------- |
-| `PlayerTurn`    |        141 |   yes    | `Game.ActivePlayer() == host.Controller()`                                    |
-| `Threshold`     |         61 |   yes    | `len(Zone(Graveyard, controller).Cards()) >= 7` (`Player.hasThreshold`)       |
-| `MaxSpeed`      |         40 |    no    | Alchemy's own speed counter -- tracked nowhere in this port                   |
-| `Delirium`      |         23 |   yes    | four-plus distinct core types unioned across the graveyard (below)            |
-| `Metalcraft`    |         18 |   yes    | three-plus battlefield permanents whose `Type()` carries Artifact             |
-| `Blessing`      |          9 |    no    | City's Blessing (ten-plus permanents, sticky) -- no such flag on `Player` yet |
-| `NotPlayerTurn` |          8 |   yes    | the inverse of `PlayerTurn`                                                   |
-| `Hellbent`      |          8 |   yes    | `len(Zone(Hand, controller).Cards()) == 0` (`Player.hasHellbent`)             |
-| `EnduringStory` |          4 |    no    | a Saga's own lore-counter/chapter state -- Sagas are not ported               |
-| `FatefulHour`   |          3 |   yes    | `Player.Life <= 5`                                                            |
-| `Monarch`       |          2 |    no    | no monarch mechanic (same gap Layer 2's own qualified value has, above)       |
+| Value           | Real lines | Resolved | Player state read                                                                     |
+| --------------- | ---------: | :------: | ------------------------------------------------------------------------------------- |
+| `PlayerTurn`    |        141 |   yes    | `Game.ActivePlayer() == host.Controller()`                                            |
+| `Threshold`     |         61 |   yes    | `len(Zone(Graveyard, controller).Cards()) >= 7` (`Player.hasThreshold`)               |
+| `MaxSpeed`      |         40 |    no    | Alchemy's own speed counter -- tracked nowhere in this port                           |
+| `Delirium`      |         23 |   yes    | four-plus distinct core types unioned across the graveyard (below)                    |
+| `Metalcraft`    |         18 |   yes    | three-plus battlefield permanents whose `Type()` carries Artifact                     |
+| `Blessing`      |          9 |    no    | City's Blessing (ten-plus permanents, sticky) -- no such flag on `Player` yet         |
+| `NotPlayerTurn` |          8 |   yes    | the inverse of `PlayerTurn`                                                           |
+| `Hellbent`      |          8 |   yes    | `len(Zone(Hand, controller).Cards()) == 0` (`Player.hasHellbent`)                     |
+| `EnduringStory` |          4 |    no    | the Storied keyword's own flag; Sagas themselves are ported (`counters-and-sagas.md`) |
+| `FatefulHour`   |          3 |   yes    | `Player.Life <= 5`                                                                    |
+| `Monarch`       |          2 |    no    | no monarch mechanic (same gap Layer 2's own qualified value has, above)               |
 
 262 of 317 resolve. The four that do not (55 lines) are each its own untracked mechanic, so (the identical "cannot
 evaluate, so do not apply" rule an unresolved `Affected$` value already has, GO-7) the whole line is skipped, same as

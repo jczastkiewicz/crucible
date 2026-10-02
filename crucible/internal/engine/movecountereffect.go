@@ -45,7 +45,7 @@ var moveCounterUnresolvedParams = [...]string{
 // one-or-more-destinations shape.
 type moveCounterEffect struct{}
 
-func (moveCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range moveCounterUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: MoveCounter: %s$ not resolvable yet", key)
@@ -112,7 +112,7 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error 
 		if dest == src {
 			continue
 		}
-		moveCounters(g, a.Source, src, dest, counterType, allKinds, allAmount, amount)
+		moveCounters(g, controller, a.Source, src, dest, counterType, allKinds, allAmount, amount)
 	}
 	return nil
 }
@@ -121,18 +121,18 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error 
 // allKinds moves every kind src currently carries (each capped at its own
 // count, CountersRemoveEffect's own identical per-kind independence);
 // otherwise only counterType moves.
-func moveCounters(g *Game, source, src, dest CardID, counterType CounterType, allKinds, allAmount bool, amount int) {
+func moveCounters(g *Game, controller PlayerController, source, src, dest CardID, counterType CounterType, allKinds, allAmount bool, amount int) {
 	srcCounters := &g.Card(src).Counters
 	if allKinds {
 		for _, kind := range srcCounters.Kinds() {
-			moveOneCounterKind(g, source, src, dest, srcCounters, kind, allAmount, amount)
+			moveOneCounterKind(g, controller, source, src, dest, srcCounters, kind, allAmount, amount)
 		}
 		return
 	}
-	moveOneCounterKind(g, source, src, dest, srcCounters, counterType, allAmount, amount)
+	moveOneCounterKind(g, controller, source, src, dest, srcCounters, counterType, allAmount, amount)
 }
 
-func moveOneCounterKind(g *Game, source, src, dest CardID, srcCounters *Counters, kind CounterType, allAmount bool, amount int) {
+func moveOneCounterKind(g *Game, controller PlayerController, source, src, dest CardID, srcCounters *Counters, kind CounterType, allAmount bool, amount int) {
 	cmax := srcCounters.Count(kind)
 	if cmax <= 0 {
 		return
@@ -145,7 +145,6 @@ func moveOneCounterKind(g *Game, source, src, dest CardID, srcCounters *Counters
 		return
 	}
 	srcCounters.Add(kind, -n)
-	g.Card(dest).Counters.Add(kind, n)
 	emitCounterChanged(g.sink, source, CardEntity(src), kind, -n)
-	emitCounterChanged(g.sink, source, CardEntity(dest), kind, n)
+	g.addCardCounters(controller, source, dest, kind, n)
 }

@@ -1,0 +1,121 @@
+// Mode$ CounterAdded and Mode$ CounterAddedOnce: the triggers a counter put on
+// a card sets off (Card.addCounter, Card.java:1780-1822). Every effect that puts
+// counters on a card goes through addCardCounters, so a Saga's chapters, "whenever
+// one or more +1/+1 counters are put on" and the rest see every placement.
+
+//enginelint:allow id zone card game valid ability control event amount parts trigger
+
+package engine
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
+)
+
+// addCardCounters puts n counters of ct on card id, emits the event, then
+// fires the triggers: Mode$ CounterAdded once per counter, with the new total
+// as CounterAmount, and Mode$ CounterAddedOnce once for the whole placement.
+// source is the card the counters came from (NoCard for a turn-based action).
+// n <= 0 does nothing.
+func (g *Game) addCardCounters(controller PlayerController, source CardID, id CardID, ct CounterType, n int) {
+	if n <= 0 {
+		return
+	}
+	c := g.Card(id)
+	old := c.Counters.Count(ct)
+	c.Counters.Add(ct, n)
+	emitCounterChanged(g.sink, source, CardEntity(id), ct, n)
+	var matches []Ability
+	for i := 1; i <= n; i++ {
+		matches = g.counterAddedMatches(matches, "CounterAdded", source, id, ct, old+i)
+	}
+	matches = g.counterAddedMatches(matches, "CounterAddedOnce", source, id, ct, n)
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// counterAddedParams are the params this port reads on each mode; a trigger
+// naming any other is skipped rather than fired without its condition (GO-7).
+// The general ones (TriggerZones$, IsPresent$, OptionalDecider$, ...) are read
+// by triggerEffectAPI.
+var counterAddedParams = map[string][]string{
+	"CounterAdded":     {"ValidCard", "ValidSource", "CounterType", "CounterAmount"},
+	"CounterAddedOnce": {"ValidCard", "ValidSource", "CounterType"},
+}
+
+// counterAddedMatches appends every CounterAdded or CounterAddedOnce trigger
+// (mode) that the placement of amount counters (the new total for
+// CounterAdded) on card id fires.
+func (g *Game) counterAddedMatches(matches []Ability, mode string, source, id CardID, ct CounterType, amount int) []Ability {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for face := range h.triggerFaces {
+				for _, t := range face.Triggers {
+					if !strings.EqualFold(t.Name, mode) || !counterAddedTriggerReadable(t, mode) {
+						continue
+					}
+					if !g.counterAddedTriggerMatches(t, h, host, source, id, ct, amount) {
+						continue
+					}
+					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: face.objects(triggeredObjects{card: id})})
+					}
+				}
+			}
+		}
+	}
+	return matches
+}
+
+// counterAddedTriggerReadable reports whether every param of t is one this
+// port evaluates for mode or one the general trigger gates read.
+func counterAddedTriggerReadable(t *compile.Ability, mode string) bool {
+	for _, p := range t.Params {
+		switch strings.ToLower(p.Key) {
+		case "mode", "execute", "triggerdescription", "secondary", "triggerzones", "chapter",
+			"optionaldecider", "ispresent", "presentcompare", "presentzone", "presentplayer",
+			"checksvar", "svarcompare", "playerturn", "phase", "opponentturn", "notplayerturn":
+			continue
+		}
+		known := false
+		for _, k := range counterAddedParams[mode] {
+			known = known || strings.EqualFold(p.Key, k)
+		}
+		if !known {
+			return false
+		}
+	}
+	return true
+}
+
+func (g *Game) counterAddedTriggerMatches(t *compile.Ability, h *Card, host, source, id CardID, ct CounterType, amount int) bool {
+	if vc, ok := t.Param("ValidCard"); ok && !Matches(g, g.Card(id), valid.Parse(vc), h.Controller(), host) {
+		return false
+	}
+	if vs, ok := t.Param("ValidSource"); ok {
+		if source == NoCard || !Matches(g, g.Card(source), valid.Parse(vs), h.Controller(), host) {
+			return false
+		}
+	}
+	if want, ok := t.Param("CounterType"); ok && !strings.EqualFold(want, string(ct)) {
+		return false
+	}
+	if cmp, ok := t.Param("CounterAmount"); ok {
+		// "EQ2": Expressions.compare of the new total against the operand.
+		if len(cmp) < 3 {
+			return false
+		}
+		operand, err := strconv.Atoi(cmp[2:])
+		if err != nil || !compareOp(amount, cmp[:2], operand) {
+			return false
+		}
+	}
+	return true
+}

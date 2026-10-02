@@ -64,8 +64,13 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	case "xPaid":
 		// AbilityUtils.java:1631: the root ability's announced X when it has
 		// one, else the source card's own (Card.getXManaCostPaid).
-		if g.xctx.has {
+		if g.xctx.has && g.xctx.source == source {
 			return g.xctx.value, true
+		}
+		if source != NoCard && source == g.castPending {
+			// The spell being cast: the X announced before its targets, none
+			// yet for a spell with no targets, which pays before reading it.
+			return g.preX, g.hasPreX
 		}
 		if source == NoCard {
 			return 0, false

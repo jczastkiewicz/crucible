@@ -226,6 +226,8 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 
 // castSpellChosen is castSpell once the kicker choice is made.
 func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
+	g.castPending = card
+	defer func() { g.castPending, g.preX, g.hasPreX = NoCard, 0, false }()
 	c := g.Card(card)
 	if c.Type().HasSubtype("Aura") {
 		return g.castAura(pid, card, c, controller, opts)
@@ -273,23 +275,53 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	return true
 }
 
-// payCastCost pays c's printed mana cost for pid (CR 601.2g-h), or nothing
-// under opts.withoutManaCost, and reports the X it announced for the caller
-// to record on the spell (xAnnounced.setOn, manapay.go). A WithoutManaCost$
-// cast announces none: its cost has no X part left, and
-// PlaySpellAbility.announceValuesLikeX leaves xManaCostPaid null then.
-func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
+// castCost is the mana cost pid pays to cast c under opts: the printed (or
+// alternative) cost with the chosen kicker costs added, then every cost
+// modification applied (spellCost).
+func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) {
 	base := c.Def.Faces[0].ManaCost
 	switch {
-	case opts.withoutManaCost && opts.kickers == 0:
-		return xAnnounced{}, true
 	case opts.withoutManaCost:
 		// A free cast still pays the optional costs chosen (CR 118.9d).
 		base = mana.Cost{}
 	case opts.hasAltCost:
 		base = opts.altCost
 	}
-	total, ok := g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	return g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+}
+
+// announceX is CR 601.2b: a spell with {X} in its cost has its X announced
+// before its targets are chosen, so a restriction on them can name it
+// (Repeal's cmcEQX). payManaCostX takes the announced value instead of asking
+// again. False when the caster declines to announce one.
+func (g *Game) announceX(pid PlayerID, c *Card, controller PlayerController, opts castOpts) bool {
+	if opts.withoutManaCost && opts.kickers == 0 {
+		return true
+	}
+	total, ok := g.castCost(pid, c, opts)
+	if !ok || total.CountX() == 0 {
+		return true
+	}
+	n := controller.ChoosePayX(g, pid, total)
+	if n < 0 {
+		return false
+	}
+	g.preX, g.hasPreX = n, true
+	return true
+}
+
+// payCastCost pays c's printed mana cost for pid (CR 601.2g-h), or nothing
+// under opts.withoutManaCost, and reports the X it announced for the caller
+// to record on the spell (xAnnounced.setOn, manapay.go). A WithoutManaCost$
+// cast announces none: its cost has no X part left, and
+// PlaySpellAbility.announceValuesLikeX leaves xManaCostPaid null then.
+func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
+	// The X is announced here, so from the return on Count$xPaid reads it.
+	defer func() { g.castPending = NoCard }()
+	if opts.withoutManaCost && opts.kickers == 0 {
+		return xAnnounced{}, true
+	}
+	total, ok := g.castCost(pid, c, opts)
 	if !ok {
 		return xAnnounced{}, false
 	}
@@ -402,6 +434,9 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 		return false
 	}
 	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true}
+	if !g.announceX(pid, c, controller, opts) {
+		return false
+	}
 	if a.API == APICharm {
 		modesOK, err := g.chooseCharmModes(controller, &a)
 		if err != nil {

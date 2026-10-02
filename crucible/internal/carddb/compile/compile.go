@@ -364,6 +364,14 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 					return fmt.Errorf("keyword %q: %w", line, err)
 				}
 				ability.Keyword = line
+				// The ability a synthesized trigger or replacement runs is the
+				// keyword's too (SpellAbility.isKeyword over the one the
+				// trigger executes): Renown's counters, a chapter on the stack.
+				for _, ref := range ability.Subs {
+					if strings.EqualFold(ref.Key, "Execute") || strings.EqualFold(ref.Key, "ReplaceWith") {
+						ref.Ability.Keyword = line
+					}
+				}
 				*group.target = append(*group.target, ability)
 			}
 		}

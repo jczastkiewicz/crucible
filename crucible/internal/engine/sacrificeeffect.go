@@ -184,7 +184,10 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 // batch held one card (the plain Sacrifice effect) or several
 // (SacrificeAll).
 func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []CardID) {
-	_, remember := a.Params.Param("RememberSacrificed")
+	remember := false
+	if a.Params != nil { // a state-based sacrifice (a Saga's) has no ability behind it
+		_, remember = a.Params.Param("RememberSacrificed")
+	}
 	var sacrificed []CardID
 	for _, id := range ids {
 		c := g.Card(id)

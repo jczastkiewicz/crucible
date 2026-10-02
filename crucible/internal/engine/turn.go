@@ -250,6 +250,7 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.drawStep(controller)
 	case Main1:
 		g.archenemyMain1(controller)
+		g.sagaLoreCounters(controller)
 	case CombatBegin:
 		g.combatsThisTurn++
 		// PhaseHandler.java:301: getBeginOfCombat().executeUntil(playerTurn),

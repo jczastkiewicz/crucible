@@ -397,3 +397,43 @@ func TestExtortDrainsWhenPaid(t *testing.T) {
 		})
 	}
 }
+
+// Renown (CR 702.112a): the first time it deals combat damage to a player, the
+// creature gets N +1/+1 counters and becomes renowned; later hits do nothing.
+func TestRenownTriggersOnlyOnce(t *testing.T) {
+	t.Parallel()
+
+	g, a, b := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, a, engine.Main1)
+	g.Player(a).Life, g.Player(b).Life = 20, 20
+	freeblade := g.NewCard(corpusCard(t, "Topan Freeblade"), a, engine.Battlefield)
+	hit := func() {
+		g.Card(freeblade).SummonSick = false
+		g.Card(freeblade).Tapped = false
+		ac := engine.NewScriptedController()
+		ac.QueueAttackers([]engine.CardID{freeblade})
+		if _, err := g.DeclareCombatAttackers(ac); err != nil {
+			t.Fatalf("DeclareCombatAttackers: %v", err)
+		}
+		bc := engine.NewScriptedController()
+		bc.QueueBlocks(nil)
+		if _, err := g.DeclareCombatBlockers(bc); err != nil {
+			t.Fatalf("DeclareCombatBlockers: %v", err)
+		}
+		g.DealCombatDamage(bc)
+		if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+	}
+	hit()
+	if got := g.Card(freeblade).Counters.Count(engine.P1P1); got != 1 {
+		t.Fatalf("+1/+1 counters after the first hit = %d, want 1", got)
+	}
+	hit()
+	if got := g.Player(b).Life; got != 15 {
+		t.Fatalf("defender life = %d, want 15: both hits connected, for 2 then 3", got)
+	}
+	if got := g.Card(freeblade).Counters.Count(engine.P1P1); got != 1 {
+		t.Errorf("+1/+1 counters after the second hit = %d, want 1: it is renowned", got)
+	}
+}

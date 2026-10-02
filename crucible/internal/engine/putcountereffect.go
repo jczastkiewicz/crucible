@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 )
 
 // putCounterUnresolvedParams names CountersPutEffect's own params past
@@ -133,8 +134,13 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if n <= 0 {
 			continue
 		}
-		g.Card(cid).Counters.Add(counterType, n)
-		emitCounterChanged(g.sink, a.Source, CardEntity(cid), counterType, n)
+		g.addCardCounters(controller, a.Source, cid, counterType, n)
+	}
+	if keyword.Parse(a.Params.Keyword).Name == "Renown" {
+		// CountersPutEffect.java:553: whatever the counters did.
+		for _, cid := range cards {
+			g.Card(cid).renowned = true
+		}
 	}
 	for _, pid := range players {
 		n := g.countersReplaced(controller, a.Controller, PlayerEntity(pid), counterType, amount)

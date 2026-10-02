@@ -67,8 +67,7 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 				}
 			}
 			if !revealedLand && c.Zone == Battlefield {
-				c.Counters.Add(P1P1, 1)
-				emitCounterChanged(g.sink, a.Source, CardEntity(id), P1P1, 1)
+				g.addCardCounters(controller, a.Source, id, P1P1, 1)
 			}
 		}
 	}

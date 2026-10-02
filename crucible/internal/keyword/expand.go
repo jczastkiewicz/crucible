@@ -1,6 +1,7 @@
 package keyword
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -224,6 +225,41 @@ func Expand(k Keyword) (Expansion, bool) {
 		return Expansion{
 			Triggers: []string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self | Secondary$ True | Execute$ KWCumulativeUpkeep" + Slot},
 			SVars:    []SVarDef{{"KWCumulativeUpkeep" + Slot, "DB$ Sacrifice | SacValid$ Self | CumulativeUpkeep$ " + cost}},
+		}, true
+	case "Chapter":
+		// CardFactoryUtil.java:812: Chapter:<N>:<SVar>,<SVar>,...: one
+		// CounterAdded trigger per chapter, running that chapter's own SVar when
+		// the lore counters reach its number. The Saga's lore counter on entering
+		// and each turn, and its sacrifice, are native (saga.go).
+		args := k.Args()
+		if len(args) < 2 {
+			return Expansion{}, false
+		}
+		final, err := strconv.Atoi(args[0])
+		abilities := strings.Split(args[1], ",")
+		if err != nil || final < 1 || len(abilities) != final {
+			return Expansion{}, false
+		}
+		var triggers []string
+		for i, ability := range abilities {
+			if ability == "" {
+				return Expansion{}, false
+			}
+			n := strconv.Itoa(i + 1)
+			triggers = append(triggers, "Mode$ CounterAdded | ValidCard$ Card.Self | TriggerZones$ Battlefield | Chapter$ "+n+" | CounterType$ LORE | CounterAmount$ EQ"+n+" | Execute$ "+ability)
+		}
+		return Expansion{Triggers: triggers}, true
+	case "Renown":
+		// CardFactoryUtil.java:1655: when this deals combat damage to a player, if
+		// it is not renowned, put N +1/+1 counters on it and it becomes renowned
+		// (PutCounter sets that when its ability is this keyword's).
+		n, ok := amountDetail(k)
+		if !ok {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | IsPresent$ Card.Self+!IsRenowned | CombatDamage$ True | Secondary$ True | Execute$ KWRenown" + Slot},
+			SVars:    []SVarDef{{"KWRenown" + Slot, "DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ " + n}},
 		}, true
 	case "Evolve":
 		// CardFactoryUtil.java:987. Trigger.java:377 reads the keyword to

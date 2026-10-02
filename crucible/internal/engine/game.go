@@ -59,6 +59,13 @@ type Game struct {
 	// ability's xManaCostPaid that Count$xPaid reads first
 	// (AbilityUtils.java:1631); hasX false reads the source card's castX.
 	xctx xContext
+	// castPending is the spell whose cast is in progress and whose X has not
+	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
+	castPending CardID
+	// preX is the X a spell announced before its targets (castspell.go
+	// announceX), waiting for payManaCostX.
+	preX    int
+	hasPreX bool
 	// pendingErr is a static trigger's error from a site with no error
 	// return (resolveStaticTriggers, statictrigger.go), waiting for the
 	// nearest boundary that has one -- Registry.Resolve, ResolveStack,
@@ -467,8 +474,10 @@ func (g *Game) NewCard(def *compile.Card, owner PlayerID, zone ZoneType) CardID 
 		Def:        def,
 		Owner:      owner,
 		controller: owner,
-		// Card.java:202: every card starts as new to its controller.
+		// Card.java:202: every card starts as new to its controller, and
+		// entered its zone this turn.
 		cameUnderControl: true,
+		enteredTurn:      g.turn,
 	})
 	g.put(id, zone, owner)
 	if zone == Battlefield {
@@ -697,6 +706,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.mustBlock = nil
 		c.blockedByThisTurn = nil
 		c.Suspected, c.Solved, c.Harnessed = false, false, false
+		c.renowned = false
 		// Layer 3's text change ends with the object (CR 400.7), before the
 		// copy and face-down restores below read or replace Def.
 		c.clearTextChange()
@@ -1173,4 +1183,7 @@ func (g *Game) Clone() *Game {
 type xContext struct {
 	value int
 	has   bool
+	// source is the card the ability belongs to: the X is that ability's, not
+	// that of a card an effect of it puts onto the battlefield.
+	source CardID
 }

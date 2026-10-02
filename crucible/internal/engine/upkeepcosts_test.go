@@ -7,17 +7,19 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
-// toUpkeep walks g to the next upkeep step of pid and hands them mana before
-// the triggers that step pushed resolve: mana empties between steps, so it has
-// to arrive after the step begins. It resolves the stack at every earlier step.
-func toUpkeep(t *testing.T, g *engine.Game, c engine.PlayerController, pid engine.PlayerID, color mana.Colors, n int) {
+// toStep walks g to the next step of phase for pid and runs before once it has
+// begun (floating mana empties between steps, so it has to arrive after), then
+// resolves the stack. It resolves the stack at every earlier step.
+func toStep(t *testing.T, g *engine.Game, c engine.PlayerController, pid engine.PlayerID, phase engine.PhaseType, before func()) {
 	t.Helper()
-	for i := 0; i < 80; i++ {
+	for i := 0; i < 120; i++ {
 		g.AdvancePhase(c)
-		if g.ActivePhase() == engine.Upkeep && g.ActivePlayer() == pid {
-			g.Player(pid).ManaPool.Add(color, n)
+		if g.ActivePhase() == phase && g.ActivePlayer() == pid {
+			if before != nil {
+				before()
+			}
 			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
-				t.Fatalf("ResolveStack at upkeep: %v", err)
+				t.Fatalf("ResolveStack at %v: %v", phase, err)
 			}
 			return
 		}
@@ -25,7 +27,14 @@ func toUpkeep(t *testing.T, g *engine.Game, c engine.PlayerController, pid engin
 			t.Fatalf("ResolveStack at %v: %v", g.ActivePhase(), err)
 		}
 	}
-	t.Fatal("never reached the upkeep")
+	t.Fatalf("never reached %v", phase)
+}
+
+// toUpkeep walks g to pid's next upkeep and hands them mana before the triggers
+// that step pushed resolve.
+func toUpkeep(t *testing.T, g *engine.Game, c engine.PlayerController, pid engine.PlayerID, color mana.Colors, n int) {
+	t.Helper()
+	toStep(t, g, c, pid, engine.Upkeep, func() { g.Player(pid).ManaPool.Add(color, n) })
 }
 
 // Echo (CR 702.30a): at the beginning of the first upkeep after it came under

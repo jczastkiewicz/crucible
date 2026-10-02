@@ -340,6 +340,8 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// c.Zone.
 		zone, ok := ZoneByName(strings.TrimPrefix(name, "inZone"))
 		return ok && c.Zone == zone
+	case name == "IsRenowned":
+		return c.renowned
 	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
 		// CardProperty.java:1082.
 		return c.cameUnderControl

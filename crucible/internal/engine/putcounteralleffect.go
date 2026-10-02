@@ -59,7 +59,7 @@ var putCounterAllUnresolvedParams = [...]string{
 // other M6 effect's own does.
 type putCounterAllEffect struct{}
 
-func (putCounterAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range putCounterAllUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: PutCounterAll: %s$ not resolvable yet", key)
@@ -112,8 +112,7 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 			if !Matches(g, c, spec, a.Controller, a.Source) {
 				continue
 			}
-			c.Counters.Add(counterType, amount)
-			emitCounterChanged(g.sink, a.Source, CardEntity(cid), counterType, amount)
+			g.addCardCounters(controller, a.Source, cid, counterType, amount)
 		}
 	}
 	return nil

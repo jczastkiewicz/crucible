@@ -228,6 +228,7 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	performed = destroyZeroLoyalty(g, controller) || performed
 	performed = assignBattleProtector(g, controller) || performed
 	performed = destroyZeroDefense(g, controller) || performed
+	performed = sacrificeCompletedSagas(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
 	performed = resolveWorldRule(g, controller) || performed
 	performed = cleanupDanglingAttachments(g, controller) || performed

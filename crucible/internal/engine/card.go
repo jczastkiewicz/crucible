@@ -58,6 +58,10 @@ type Card struct {
 	// the flag on the turn the permanent arrived.
 	cameUnderControl bool
 	enteredTurn      int
+	// renowned is Card.isRenowned (CR 702.112): a Renown creature that has
+	// had its counters put on it; Move clears it when the card leaves the
+	// battlefield.
+	renowned bool
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move

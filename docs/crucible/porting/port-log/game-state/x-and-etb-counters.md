@@ -20,9 +20,16 @@ Hangarback Walker.
 | `ChangeX` rewrites the cast ability's X                 | `changeXEffect` also writes `Card.castX` of a spell                                                            |
 
 A triggered ability of a permanent carries no X of its own, so it reads `castX`: an "enters" trigger of an X spell sees
-the X it was cast with. A static ability or trigger condition outside any resolving ability reads `castX` too; one
-evaluated while an ability with its own X resolves would read that X (`Game.xctx` is not cleared for a nested
-evaluation), which no corpus line does.
+the X it was cast with. `Game.xctx` also records the resolving ability's source, and `xPaid` reads it only for that
+card: a card an X spell puts onto the battlefield (Genesis Wave) reads its own `castX` (0, it was not cast), as Java's
+replacement ability, which has no X, falls back to the card's (`TestXPaidOfAnEnteringCardIsNotTheResolvingSpellsX`). A
+static ability or trigger condition outside any resolving ability reads `castX` too.
+
+**X before targets.** CR 601.2b announces X before the targets of 601.2c, so Repeal's `ValidTgts$ ...cmcEQX` sees the
+chosen X. `castInstantOrSorcery` calls `announceX` first (`ChoosePayX` over `castCost`, the cost with kicker and cost
+modifications), `Game.preX` carries the value, and `payManaCostX` takes it instead of asking again. While a spell is
+being cast (`Game.castPending`), `xPaid` for it reads `preX`, and is unresolved (matches nothing, GO-7) until one is
+announced. Auras and activated abilities with an X in their cost still announce it when they pay.
 
 Tests: `xpaid_test.go` (Blaze), `entercounters_test.go` (X counters), `xannounced_test.go`.
 
@@ -43,8 +50,10 @@ CR 122.6 / 614.1c: "enters with N counters" is a replacement of the entry. Java 
 
 `applyEnterCounters` (`entercounters.go`) runs from `enterBattlefieldReplacements`, after the Copy layer and before
 "enters tapped" and every ETB trigger, for each of the four entry sites (a resolved permanent spell or Aura, a land
-play, `ChangeZone`). Every matching replacement applies, not only the first: counters from separate effects add up. The
-counters go through `countersReplaced`, so Hardened Scales-style `AddCounter` replacements still change them.
+play, `ChangeZone`). Every matching replacement applies, not only the first: counters from separate effects add up. Java
+puts them all into one counter table and applies the `AddCounter` replacements once, so the amounts of one kind are
+summed first and `countersReplaced` runs once per kind (Hardened Scales adds one for the lot). `eachReplacement` reads
+only the live faces (`liveFaces`), so a front face entering does not pick up its back face's `K:etbCounter`.
 
 | Shape                                                                                                                        | Result                                                                                      |
 | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |

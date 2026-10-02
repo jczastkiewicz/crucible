@@ -82,19 +82,8 @@ func TestSetInMotionErrors(t *testing.T) {
 		{"empty scheme deck", "DB$ SetInMotion", "scheme deck is empty", 0, nil},
 		{"Again$ without a trigger", "DB$ SetInMotion | Again$ True", "no triggering scheme", 1, nil},
 		{"RepeatNum$ unresolvable", "DB$ SetInMotion | RepeatNum$ Bogus", "RepeatNum", 1, nil},
-		{"ConditionDefined$ beside another condition",
-			"DB$ SetInMotion | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCheckSVar$ X",
-			"ConditionCheckSVar$ beside ConditionDefined$", 1, nil},
-		{"ConditionDefined$ without ConditionPresent$",
-			"DB$ SetInMotion | ConditionDefined$ Remembered", "without ConditionPresent$", 1, nil},
 		{"ConditionDefined$ unknown", "DB$ SetInMotion | ConditionDefined$ Bogus | ConditionPresent$ Card",
 			"ConditionDefined$", 1, nil},
-		{"ConditionCompare$ too short",
-			"DB$ SetInMotion | ConditionDefined$ Self | ConditionPresent$ Card | ConditionCompare$ GE",
-			"ConditionCompare$", 1, nil},
-		{"ConditionCompare$ unresolvable",
-			"DB$ SetInMotion | ConditionDefined$ Self | ConditionPresent$ Card | ConditionCompare$ GEBogus",
-			"ConditionCompare$", 1, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -24,9 +24,12 @@ import (
 
 // countValue is xCount for a Count$ body already read at load (expr.Count):
 // the Valid family (validFamilyValue, amountpaid.go), then the exact heads
-// below. Any other head -- Party, YourTurns, xPaid and the rest of xCount's
+// below. Any other head -- Party, YourTurns and the rest of xCount's
 // own two hundred-odd branches -- reports false (GO-7).
 //
+//   - xPaid: the X the resolving root ability announced (Game.xctx), else the
+//     source card's own cast X (Card.castX); CardPower/CardToughness: the
+//     source's net power/toughness.
 //   - YourLifeTotal: the controller's life (Player.getLife);
 //     OppGreatestLifeTotal, the highest among its opponents.
 //   - YouDrewThisTurn: cards the controller drew this turn
@@ -58,6 +61,36 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return c.Counters.Total(), true
 		}
 		return c.Counters.Count(CounterType(strings.ToUpper(count.Parameters[0]))), true
+	case "xPaid":
+		// AbilityUtils.java:1631: the root ability's announced X when it has
+		// one, else the source card's own (Card.getXManaCostPaid).
+		if g.xctx.has && g.xctx.source == source {
+			return g.xctx.value, true
+		}
+		if source != NoCard && source == g.castPending {
+			// The spell being cast: the X announced before its targets, none
+			// yet for a spell with no targets, which pays before reading it.
+			return g.preX, g.hasPreX
+		}
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).castX, true
+	case "CardManaCost":
+		// Count$CardManaCost: the source card's own mana value (Cascade's X).
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).CMC(), true
+	case "CardPower", "CardToughness":
+		// AbilityUtils.java: the source's own net power/toughness.
+		if source == NoCard {
+			return 0, false
+		}
+		if count.Head == "CardPower" {
+			return g.Card(source).Power()
+		}
+		return g.Card(source).Toughness()
 	case "Kicked":
 		// Count$Kicked.<n if kicked>.<n if not> (AbilityUtils.java:1691).
 		if source == NoCard || len(count.Parameters) != 2 {
@@ -93,6 +126,8 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return 0, false
 	}
 	switch count.Head {
+	case "BloodthirstAmount":
+		return g.bloodthirstAmount(sourceController), true
 	case "YourLifeTotal":
 		return g.Player(sourceController).Life, true
 	case "OppGreatestLifeTotal":

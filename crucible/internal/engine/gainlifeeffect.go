@@ -68,7 +68,7 @@ import "fmt"
 type gainLifeEffect struct{}
 
 var gainLifeUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "ConditionZone", "ConditionOptionalPaid",
+	"Condition", "ConditionZone", "ConditionOptionalPaid",
 }
 
 func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -116,7 +116,7 @@ func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, s
 	g.Player(pid).LifeGainedTimesThisTurn++
 	g.Player(pid).Life += gain
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(pid), Amount: int32(gain)})
-	g.checkLifeGainedTriggers(controller, pid, firstGain)
+	g.checkLifeGainedTriggers(controller, pid, gain, firstGain)
 }
 
 // gainLifePlayers is LifeGainEffect.resolve's getTargetPlayersWithDuplicates

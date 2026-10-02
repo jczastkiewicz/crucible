@@ -17,7 +17,7 @@ import (
 var repeatEachUnresolvedParams = [...]string{
 	"RepeatSpellAbilities", "RepeatTypesFrom", "NextTurnForEachPlayer", "AmountFromVotes",
 	"DamageMap", "ChangeZoneTable", "LoseLifeMap", "ChooseOrder", "StartingWith",
-	"Condition", "ConditionDefined", "Ultimate",
+	"Condition", "Ultimate",
 }
 
 // repeatEachEffect is RepeatEachEffect.java: RepeatSubAbility$ resolves

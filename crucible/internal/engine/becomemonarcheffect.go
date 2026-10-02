@@ -26,7 +26,7 @@ import (
 type becomeMonarchEffect struct{}
 
 func (becomeMonarchEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "BecomeMonarch", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "BecomeMonarch"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

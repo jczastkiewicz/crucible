@@ -41,6 +41,46 @@ func TestExpand(t *testing.T) {
 		{"Persist", true, "counters_EQ0_M1M1"},
 		{"Undying", true, "counters_EQ0_P1P1"},
 		{"Undying:1", false, ""},
+		{"Battle cry", true, "Mode$ Attacks | ValidCard$ Card.Self"},
+		{"Battle cry:1", false, ""},
+		{"Dethrone", true, "Attacked$ Player.withMostLife"},
+		{"Flanking", true, "ValidBlocker$ Creature.withoutFlanking"},
+		{"Afflict:2", true, "Mode$ AttackerBlocked | ValidCard$ Card.Self"},
+		{"Afflict", false, ""},
+		{"Soulshift:3", true, "OptionalDecider$ You"},
+		{"Soulshift:x", false, ""},
+		{"Mentor", true, "Mode$ Attacks | ValidCard$ Card.Self"},
+		{"Training", true, "IsPresent$ Creature.attacking+Other+powerGTKWPower"},
+		{"Evolve", true, "Condition$ Evolve"},
+		{"Chapter:3:A,B,C", true, "Chapter$ 1 | CounterType$ LORE | CounterAmount$ EQ1 | Execute$ A"},
+		{"Chapter:3:A,B", false, ""},
+		{"Chapter:x:A", false, ""},
+		{"Chapter:2:A,", false, ""},
+		{"Chapter", false, ""},
+		{"Modular:1", true, "OptionalDecider$ You"},
+		{"Modular:Sunburst", false, ""},
+		{"Modular", false, ""},
+		{"Renown:2", true, "IsPresent$ Card.Self+!IsRenowned"},
+		{"Renown", false, ""},
+		{"Dethrone:1", false, ""},
+		{"Flanking:1", false, ""},
+		{"Mentor:1", false, ""},
+		{"Training:1", false, ""},
+		{"Evolve:1", false, ""},
+		{"Extort:1", false, ""},
+		{"Fabricate:2", true, "Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self"},
+		{"Fabricate", false, ""},
+		{"Extort", true, "Mode$ SpellCast | ValidActivatingPlayer$ You"},
+		{"Echo:1 R", true, "IsPresent$ Card.Self+cameUnderControlSinceLastUpkeep"},
+		{"Echo", false, ""},
+		{"Cumulative upkeep:PayLife<1>", true, "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You"},
+		{"Cumulative upkeep", false, ""},
+		{"Cascade", true, "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack"},
+		{"Cascade:1", false, ""},
+		{"Storm", true, "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack"},
+		{"Storm:1", false, ""},
+		{"Exploit", true, "Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield"},
+		{"Exploit:1", false, ""},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {
@@ -56,6 +96,41 @@ func TestExpand(t *testing.T) {
 			lines := append(append(append([]string(nil), exp.Abilities...), exp.Triggers...), exp.Statics...)
 			if len(lines) == 0 || !strings.Contains(lines[0], tc.contains) {
 				t.Errorf("first line %q does not contain %q", lines, tc.contains)
+			}
+		})
+	}
+}
+
+func TestExpandReplacements(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		line string
+		ok   bool
+		want string // the replacement line
+	}{
+		{"etbCounter:P1P1:2", true, "Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | ReplacementResult$ Updated | ReplaceWith$ KWEtbCounter{n}"},
+		{"etbCounter:P1P1:X:no Condition:CARDNAME enters with X counters.", true, "ReplaceWith$ KWEtbCounter{n}"},
+		{"etbCounter:P1P1:X:CheckSVar$ WasKicked:desc", true, "ReplaceWith$ KWEtbCounter{n} | CheckSVar$ WasKicked"},
+		{"etbCounter:EACH :1", false, ""},
+		{"Bloodthirst:2", true, "Bloodthirst$ True"},
+		{"Bloodthirst:X", true, "ReplaceWith$ KWBloodthirst{n} | Bloodthirst$ True"},
+		{"Bloodthirst:y", false, ""},
+		{"Bloodthirst", false, ""},
+		{"etbCounter:P1P1", false, ""},
+	} {
+		t.Run(tc.line, func(t *testing.T) {
+			t.Parallel()
+
+			exp, ok := keyword.Expand(keyword.Parse(tc.line))
+			if ok != tc.ok {
+				t.Fatalf("Expand ok = %v, want %v", ok, tc.ok)
+			}
+			if !ok {
+				return
+			}
+			if len(exp.Replacements) != 1 || !strings.Contains(exp.Replacements[0], tc.want) {
+				t.Errorf("replacements %q do not contain %q", exp.Replacements, tc.want)
 			}
 		})
 	}

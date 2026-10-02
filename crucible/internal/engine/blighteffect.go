@@ -42,8 +42,7 @@ func (blightEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		if err := checkChoice(chosen, options, 1, 1); err != nil {
 			return fmt.Errorf("engine: Blight: %w", err)
 		}
-		g.Card(chosen[0]).Counters.Add(M1M1, n)
-		emitCounterChanged(g.sink, a.Source, CardEntity(chosen[0]), M1M1, n)
+		g.addCardCounters(controller, a.Source, chosen[0], M1M1, n)
 	}
 	return nil
 }

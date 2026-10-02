@@ -59,7 +59,7 @@ import (
 // RememberedController and a non-mana UnlessCost$ (Mandatory PayEnergy<X>),
 // neither resolvable here regardless.
 var pumpAllUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "ConditionZone", "ConditionPlayerTurn",
+	"Condition", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionManaSpent", "ConditionManaNotSpent", "ValidTgts",
 	"RememberPumped", "SharedKeywordsZone", "SharedRestrictions",
 	"ModeCost", "Exhaust", "AtEOT",

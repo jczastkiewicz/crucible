@@ -43,8 +43,7 @@ type copySpellAbilityEffect struct{}
 var copySpellUnresolvedParams = [...]string{
 	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice", "NonLegendary", "SetPower",
 	"SetToughness", "SetColor", "AddTypes", "Epic", "UseOriginalHost", "RememberCopies", "TargetValidTargeting",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectParams(a, "CopySpellAbility", copySpellUnresolvedParams[:]...); err != nil {

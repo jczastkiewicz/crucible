@@ -30,7 +30,7 @@ import "fmt"
 // SubAbility$ rather than resolving it, the identical reasoning every other
 // M6 effect naming these two already has (destroyeffect.go, cleanupeffect.go,
 // ...). Rejected loudly instead (PORT-8/GO-7).
-var abandonUnresolvedParams = [...]string{"Condition", "ConditionDefined"}
+var abandonUnresolvedParams = [...]string{"Condition"}
 
 // abandonEffect resolves Mode$/DB$/AB$ Abandon. SubAbility$ chains through
 // resolveSubAbility (subability.go) once this effect's own body finishes;

@@ -36,8 +36,7 @@ import (
 // identical reasoning.
 var revealHandUnresolvedParams = [...]string{
 	"Optional", "ImprintRevealed",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // revealHandEffect resolves Mode$/DB$/AB$ RevealHand. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

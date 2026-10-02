@@ -21,7 +21,7 @@ import (
 type storeSVarEffect struct{}
 
 func (storeSVarEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
-	if err := rejectParams(a, "StoreSVar", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "StoreSVar", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

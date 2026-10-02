@@ -21,7 +21,7 @@ import (
 type protectionEffect struct{}
 
 func (protectionEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Protection", "Choser", "Radiance", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Protection", "Choser", "Radiance", "Condition"); err != nil {
 		return err
 	}
 	permanent, err := animateDuration(a, "Protection")

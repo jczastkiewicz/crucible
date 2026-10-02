@@ -41,8 +41,7 @@ import (
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var multiplyCounterUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // multiplyCounterEffect resolves Mode$/DB$/AB$ MultiplyCounter.
 // ConditionPresent$/ConditionCompare$/ConditionCheckSVar$/
@@ -50,7 +49,7 @@ var multiplyCounterUnresolvedParams = [...]string{
 // (condition.go), the identical way every other M6 effect's own does.
 type multiplyCounterEffect struct{}
 
-func (multiplyCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (multiplyCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range multiplyCounterUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: MultiplyCounter: %s$ not resolvable yet", key)
@@ -94,8 +93,7 @@ func (multiplyCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) er
 				if n <= 0 {
 					continue
 				}
-				c.Counters.Add(kind, n)
-				emitCounterChanged(g.sink, a.Source, CardEntity(cid), kind, n)
+				g.addCardCounters(controller, a.Source, cid, kind, n)
 			}
 			continue
 		}
@@ -103,8 +101,7 @@ func (multiplyCounterEffect) Resolve(g *Game, a *Ability, _ PlayerController) er
 		if n <= 0 {
 			continue
 		}
-		c.Counters.Add(counterType, n)
-		emitCounterChanged(g.sink, a.Source, CardEntity(cid), counterType, n)
+		g.addCardCounters(controller, a.Source, cid, counterType, n)
 	}
 	return nil
 }

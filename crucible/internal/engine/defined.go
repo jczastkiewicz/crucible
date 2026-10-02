@@ -243,7 +243,23 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			}
 		}
 		return cards, nil
-	case "Remembered", "RememberedCard":
+	case "ParentTarget":
+		var cards []CardID
+		for _, e := range refs.parentTargets {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		if len(refs.parentTargets) == 0 {
+			return nil, fmt.Errorf("engine: Defined$ %q: no ancestor ability chose targets", defined)
+		}
+		return cards, nil
+	case "Sacrificed":
+		if !refs.paid.recorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it sacrificed", defined)
+		}
+		return append([]CardID(nil), refs.paid.sacrificed...), nil
+	case "Remembered", "RememberedCard", "RememberedLKI":
 		var cards []CardID
 		for _, e := range host.Memory.Remembered() {
 			if id, ok := e.AsCard(); ok {

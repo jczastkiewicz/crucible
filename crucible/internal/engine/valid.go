@@ -182,7 +182,7 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		name = rest
 	} else if p.Compare != nil {
-		return compareMatches(c, *p.Compare)
+		return compareMatches(g, c, *p.Compare, sourceController, source)
 	}
 	switch {
 	case strings.HasPrefix(name, "phasedOut"):
@@ -340,6 +340,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// c.Zone.
 		zone, ok := ZoneByName(strings.TrimPrefix(name, "inZone"))
 		return ok && c.Zone == zone
+	case name == "IsRenowned":
+		return c.renowned
+	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
+		// CardProperty.java:1082.
+		return c.cameUnderControl
 	case name == "attacking":
 		// Java checks combat != nil before card.isAttacking(); this port has
 		// no nil combat, only a zero-valued one, but Attackers is empty
@@ -781,6 +786,14 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 			return false, true
 		}
 		return candidate == g.Card(enchanting).Controller(), true
+	case "withMostLife":
+		// PlayerProperty.java:353: nobody in the game has more life.
+		for _, pid := range g.Players() {
+			if !g.Player(pid).Lost && g.Player(pid).Life > g.Player(candidate).Life {
+				return false, true
+			}
+		}
+		return true, true
 	case "descended":
 		return g.Player(candidate).DescendedThisTurn, true
 	case "VenturedThisTurn":
@@ -923,17 +936,14 @@ func isModified(g *Game, c *Card) bool {
 // Operator and Operand at load time (that package's own doc comment says
 // evaluation waits here).
 //
-// Operand is only handled when it is a plain base-10 integer. Java resolves
-// it with AbilityUtils.calculateAmount, which also accepts "X", "Chosen"
-// (source.getChosenNumber()) and an SVar name -- none of which this port can
-// resolve without an ability-context evaluator internal/expr does not have
-// yet (compare.go's own doc comment: "resolving it needs a game"). A
-// non-numeric Operand is a coverage gap, so the property matches nothing,
-// the same as any other unimplemented property -- not a wrong answer for
-// the common numeric case, which is what the corpus mostly uses these for.
-func compareMatches(c *Card, cmp valid.Compare) bool {
-	operand, err := strconv.Atoi(cmp.Operand)
-	if err != nil {
+// Operand is Java's AbilityUtils.calculateAmount(source, operand): a plain
+// base-10 integer, or the name of a value SVar on the source card ("X" in
+// Creature.powerGTX), resolved against that card's own faces
+// (compareOperand). A name no face of the source defines, or one that does
+// not resolve, matches nothing: coverage gap, never a wrong answer.
+func compareMatches(g *Game, c *Card, cmp valid.Compare, sourceController PlayerID, source CardID) bool {
+	operand, ok := compareOperand(g, cmp.Operand, sourceController, source)
+	if !ok {
 		return false
 	}
 	value, ok := compareFieldValue(c, cmp.Field)
@@ -941,6 +951,28 @@ func compareMatches(c *Card, cmp valid.Compare) bool {
 		return false
 	}
 	return compareOp(value, cmp.Operator, operand)
+}
+
+// compareOperand resolves a Compare operand: an integer literal, or an SVar
+// name read from the source card's live faces. Chosen numbers ("Chosen") and
+// the other calculateAmount shapes that are not a card's own SVar are not
+// resolved.
+func compareOperand(g *Game, operand string, sourceController PlayerID, source CardID) (int, bool) {
+	if n, err := strconv.Atoi(operand); err == nil {
+		return n, true
+	}
+	sc, ok := sourceCard(g, source)
+	if !ok || sc.Def == nil {
+		return 0, false
+	}
+	key := strings.ToLower(operand)
+	for i := range sc.Def.Faces[:liveFaces(sc.Def)] {
+		f := &sc.Def.Faces[i]
+		if amt, ok := f.Amounts[key]; ok {
+			return resolveAmount(g, f.Amounts, sourceController, source, amt)
+		}
+	}
+	return 0, false
 }
 
 // compareFieldValue reads the measured field CardProperty.java:1432-1451

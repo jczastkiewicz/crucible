@@ -1,0 +1,16 @@
+# CR 122.6, 614.1c: "enters with two +1/+1 counters" (K:etbCounter:P1P1:2) is a
+# replacement of the entry, so the 0/0 Big Mother Mouser has its counters before
+# the state-based check that follows resolution and is not put into the
+# graveyard.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack

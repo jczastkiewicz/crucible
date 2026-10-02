@@ -30,13 +30,9 @@ import (
 // sacrificeUnresolvedParams names SacrificeEffect.resolve's own params this
 // port does not evaluate. Every one fails the whole line loudly rather than
 // sacrificing the wrong permanent, the wrong count, or silently skipping a
-// choice (PORT-8/GO-7): Optional$ (46) -- an interactive "may sacrifice"
-// confirm, the identical ability-body-level gap Discard's own Optional$/
-// Pump's own Optional$ already document, distinct from CR 603.3d's own
-// OptionalDecider$ a trigger carries (Ability.Optional's own doc comment);
-// ConditionDefined$ (19) and ConditionActivationLimit$ (0) --
-// SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
-// the identical GainLife/LoseLife-shaped gap; ChangeNum$ (5) --
+// choice (PORT-8/GO-7): ConditionActivationLimit$ (0) --
+// SpellAbilityCondition's own shape subAbilityConditionMet does not cover;
+// ChangeNum$ (5) --
 // SacrificeAll's own param, never read by this ApiType at all, so its
 // presence marks a line this port would misclassify rather than one it can
 // safely ignore; ValidCard$ (3) -- SacrificeEffect.java
@@ -50,11 +46,16 @@ import (
 // GameAction call and a different Mode$ trigger entirely; StrictAmount$
 // (2) -- "sacrifice nothing rather than fewer than Amount$," the opposite
 // of this port's own "sacrifice as many of the chosen kind as exist"
-// clamp, below; Echo$/CumulativeUpkeep$ -- SacrificeEffect.java's own two
-// leading special-cased branches, each a whole further upkeep-cost
-// mechanic ahead of the ordinary sacrifice this port ports, 0 real
-// (AB|DB)$ Sacrifice lines combining either with SacValid$/Defined$/Amount$
-// at all.
+// clamp, below.
+//
+// Echo$ and CumulativeUpkeep$ are SacrificeEffect.java's two leading branches,
+// "sacrifice unless you pay" for an upkeep trigger (CR 702.30, 702.24): the
+// controller is asked to pay the cost (Cumulative upkeep's, multiplied by the
+// AGE counters it now holds, one more each time) and the permanent is
+// sacrificed when it is not paid, unless its controller has changed since the
+// trigger. Not ported: the PayEcho/PayCumulativeUpkeep triggers each fires (5
+// corpus cards), and the player keyword "You may pay 0 rather than pay the
+// echo cost" (1 card).
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes,
@@ -77,10 +78,9 @@ import (
 // is not a built continuous-effect param, so the trigger it would grant
 // never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
-	"Optional", "ConditionDefined", "ConditionActivationLimit",
+	"ConditionActivationLimit",
 	"ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
-	"Echo", "CumulativeUpkeep",
 }
 
 type sacrificeEffect struct{}
@@ -95,12 +95,19 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	if proceed, err := g.upkeepCostPaid(controller, a, source); err != nil || !proceed {
+		return err
+	}
 
 	sacValid, hasSacValid := a.Params.Param("SacValid")
+	_, optional := a.Params.Param("Optional")
 	if !hasSacValid || sacValid == "Self" {
 		// Card.canBeSacrificedBy refuses a phased-out permanent
 		// (Card.java:6909).
 		if source.Zone != Battlefield || source.IsPhasedOut() || source.Controller() != a.Controller {
+			return nil
+		}
+		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			return nil
 		}
 		sacrificeCards(g, controller, a, []CardID{source.ID})
@@ -143,6 +150,13 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 				candidates = append(candidates, cid)
 			}
 		}
+		// Optional$: the player is asked first (Java asks even with no
+		// candidate), then sacrifices Amount$ of the candidates, or all of
+		// them when fewer -- the one choice ChoosePermanentsToSacrifice
+		// offers, so a player who confirms cannot then sacrifice fewer.
+		if optional && !controller.ConfirmEffect(g, pid, a.Source) {
+			continue
+		}
 		n := amount
 		if n > len(candidates) {
 			n = len(candidates)
@@ -177,7 +191,10 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 // batch held one card (the plain Sacrifice effect) or several
 // (SacrificeAll).
 func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []CardID) {
-	_, remember := a.Params.Param("RememberSacrificed")
+	remember := false
+	if a.Params != nil { // a state-based sacrifice (a Saga's) has no ability behind it
+		_, remember = a.Params.Param("RememberSacrificed")
+	}
 	var sacrificed []CardID
 	for _, id := range ids {
 		c := g.Card(id)
@@ -192,6 +209,9 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 		g.moveToGraveyard(id)
 		g.checkDiesTriggers(controller, id)
 		sacrificed = append(sacrificed, id)
+		if isExploitAbility(a) {
+			g.checkExploitedTriggers(controller, a.Source, id)
+		}
 	}
 	g.checkChangesZoneAllTriggers(controller, sacrificed, Battlefield, Graveyard)
 }

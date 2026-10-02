@@ -30,8 +30,7 @@ import "fmt"
 // alongside it, dealDamageEffect's own identical reasoning.
 var radiationUnresolvedParams = [...]string{
 	"TriggeredCard",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // radiationEffect resolves Mode$/DB$/AB$ Radiation. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

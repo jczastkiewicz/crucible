@@ -14,7 +14,7 @@ import (
 // regeneration shield (regeneration.go) from replacing the destruction.
 var destroyAllUnresolvedParams = [...]string{
 	"Optional", "RememberAllObjects", "Zone", "Hidden",
-	"Condition", "ConditionDefined", "SorcerySpeed", "ModeCost",
+	"Condition", "SorcerySpeed", "ModeCost",
 }
 
 // destroyAllEffect is DestroyAllEffect.java: every battlefield permanent

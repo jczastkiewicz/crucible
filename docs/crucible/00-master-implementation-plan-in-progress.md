@@ -1753,7 +1753,7 @@ Milestones M5-M6, currently underway. Roadmap overview and completed milestones 
     player each turn by `cleanupStep`. The first card this port moves from hand to the battlefield through a real game
     action rather than `setup.state` placing it there directly.
 29. Scenario-parity harness (Layer 2) + ≥300 fixtures. **Fixture count met, coverage still bounded by M5 itself** — the
-    harness runs (`TestScenarios`, `testdata/scenarios/`), and 417 fixtures exist today, past the ≥300 floor: combat and
+    harness runs (`TestScenarios`, `testdata/scenarios/`), and 426 fixtures exist today, past the ≥300 floor: combat and
     mana-payment breadth across the real corpus (single-block trades, Vigilance/Haste/First Strike/ Deathtouch/Trample
     against fresh cards, every mana-payment hybrid and Phyrexian branch, every basic land color, casting each permanent
     type including an Aura), on top of the earlier turn-structure/SBA/mulligan set. **Exit gate:** P4 gate — scenario

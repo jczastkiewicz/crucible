@@ -16,7 +16,7 @@ import "fmt"
 type clashEffect struct{}
 
 func (clashEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Clash", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Clash", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

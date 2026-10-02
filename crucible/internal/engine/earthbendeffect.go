@@ -24,7 +24,7 @@ import (
 type earthbendEffect struct{}
 
 func (earthbendEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Earthbend", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Earthbend", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -57,8 +57,7 @@ func (earthbendEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 			AddKeywords: []string{"Haste"},
 			HasPower:    true, HasToughness: true,
 		})
-		g.Card(id).Counters.Add(P1P1, num)
-		emitCounterChanged(g.sink, a.Source, CardEntity(id), P1P1, num)
+		g.addCardCounters(controller, a.Source, id, P1P1, num)
 		for _, zone := range [...]ZoneType{Graveyard, Exile} {
 			g.delayed = append(g.delayed, delayedTrigger{
 				Trigger: earthbendReturnTrigger(zone), Host: a.Source, Controller: a.Controller,

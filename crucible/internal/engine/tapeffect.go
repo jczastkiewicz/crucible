@@ -39,7 +39,7 @@ import "fmt"
 // way, rather than silently tapping-without-a-trigger the wrong permanent.
 var tapUnresolvedParams = [...]string{
 	"CardChoices", "ChoiceAmount", "ChoicePrompt", "AnyNumber", "Tapper",
-	"Condition", "ConditionDefined", "ETB",
+	"Condition", "ETB",
 }
 
 // tapEffect resolves Mode$/DB$/AB$ Tap. ConditionPresent$/ConditionCompare$/

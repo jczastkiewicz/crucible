@@ -12,7 +12,7 @@ import (
 // (a parent RepeatEach/GenericChoice collecting damage) and the planeswalker
 // ultimate gate.
 var eachDamageUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "Ultimate",
+	"Condition", "Ultimate",
 }
 
 // eachDamageEffect is DamageEachEffect.java: every damage source --

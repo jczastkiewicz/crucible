@@ -24,7 +24,7 @@ import (
 type takeInitiativeEffect struct{}
 
 func (takeInitiativeEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "TakeInitiative", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "TakeInitiative"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

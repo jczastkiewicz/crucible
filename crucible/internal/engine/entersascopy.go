@@ -27,6 +27,8 @@ import (
 // with an ETB trigger has that trigger when checkETBTriggers looks.
 func (g *Game) enterBattlefieldReplacements(controller PlayerController, moved CardID, origin ZoneType) {
 	g.applyCopyReplacements(controller, moved, origin)
+	g.applyEnterCounters(controller, moved, origin)
+	g.applySagaCounter(controller, moved)
 	g.checkMovedReplacement(moved, origin)
 }
 

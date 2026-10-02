@@ -7,7 +7,7 @@ import "fmt"
 // proliferateUnresolvedParams are CountersProliferateEffect.java's params
 // this port cannot honour yet.
 var proliferateUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "SorcerySpeed",
+	"Condition", "SorcerySpeed",
 }
 
 // proliferateEffect is CountersProliferateEffect.java: Amount$ times

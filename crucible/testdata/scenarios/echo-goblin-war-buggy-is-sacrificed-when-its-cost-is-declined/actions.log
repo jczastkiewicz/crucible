@@ -1,0 +1,7 @@
+# CR 702.30a: at the beginning of the first upkeep after it came under its
+# controller's control, a permanent with echo is sacrificed unless its
+# controller pays the echo cost. The controller declines, so Goblin War Buggy
+# goes to the graveyard.
+startturn human
+queue confirmpaycost false
+step

@@ -41,8 +41,7 @@ import (
 // it, dealDamageEffect's own identical reasoning.
 var conniveUnresolvedParams = [...]string{
 
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // conniveEffect resolves Mode$/DB$/AB$ Connive. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -97,8 +96,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		discardCards(g, controller, chosen, pid)
 
 		if nonLands > 0 && g.Card(id).Zone == Battlefield {
-			g.Card(id).Counters.Add(P1P1, nonLands)
-			emitCounterChanged(g.sink, a.Source, CardEntity(id), P1P1, nonLands)
+			g.addCardCounters(controller, a.Source, id, P1P1, nonLands)
 		}
 	}
 	return nil

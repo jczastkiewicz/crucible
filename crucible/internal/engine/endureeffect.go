@@ -40,8 +40,7 @@ func (endureEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 		c := g.Card(id)
 		pl := c.Controller()
 		if c.Zone == Battlefield && controller.ConfirmEffect(g, pl, a.Source) {
-			c.Counters.Add(P1P1, n)
-			emitCounterChanged(g.sink, a.Source, CardEntity(id), P1P1, n)
+			g.addCardCounters(controller, a.Source, id, P1P1, n)
 			continue
 		}
 		def, err := tokenScript(g, "w_x_x_spirit")

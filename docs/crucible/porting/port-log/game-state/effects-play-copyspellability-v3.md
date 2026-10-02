@@ -69,7 +69,7 @@ Rejected before acting (`playUnresolvedParams`):
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `ReplaceGraveyard$`/`ReplaceGraveyardValid$` (35 lines)                                 | effect-card replacement on the spell's own Stack → Graveyard move, which has no hook (ADR-0018 point 3) |
 | `TgtZone$` (33)                                                                         | `resolveTargets` scans the battlefield only, so a pushed target came from the wrong zone                |
-| `ConditionDefined$` (20), `Condition$` (1)                                              | `subAbilityConditionMet` reads either as never met, silently                                            |
+| `Condition$` (1)                                                                        | `subAbilityConditionMet` reads it as never met, silently                                                |
 | `CopyFromChosenName$`, `AnySupportedCard$`, `RandomCopied$`, `RandomNum$`, `ChoiceNum$` | card built from outside the game                                                                        |
 | `CastFaceDown$`, `CastTransformed$`, `ReplaceIlluMask$`                                 | alternate states                                                                                        |
 | `PlayCost$`, `PlayReduceCost$`, `PlayRaiseCost$`, `ManaConversion$`                     | alternative or modified costs                                                                           |
@@ -149,8 +149,8 @@ them to `orderAndPlaySimultaneousSa` (`PlayerControllerAi.java:1296`), where a h
 distinct spells for one copier: Display of Power (1 line, `TargetMax$ X`). Same deterministic-order simplification
 `pushTriggeredAbilities` (`trigger.go`) documents for simultaneous triggers.
 
-**X.** Java carries X onto the copy (`copySpellHost`, `setXManaCostPaidByColor`). This port records no X on any spell;
-`xPaid` is not a `resolveAmount` shape, so a copy of an X spell fails where the original does, never resolves with 0.
+**X.** Java carries X onto the copy (`copySpellHost`, `setXManaCostPaidByColor`). The copy is a value copy of the
+spell's `Ability`, which carries the announced X (CR 707.10), so `Count$xPaid` reads the original's X on the copy.
 
 Decisions: `ConfirmEffect` (`Optional$`, `MayChooseTarget$`), `ChooseTargets`, `ChooseEnchantTarget`. No new
 `PlayerController` method, no new engine state beyond the shared pieces above.
@@ -164,7 +164,7 @@ Rejected before acting (`copySpellUnresolvedParams`, plus shape checks):
 | `NonLegendary$` (7), `SetPower$`/`SetToughness$` (2), `AddTypes$` (2), `SetColor$` (1)                                | Layer 1 changes to the copy's copiable values (`getCloneStates`), not built for copies                                     |
 | `RememberCopies$` (3)                                                                                                 | remembers `SpellAbility` objects; `Memory` holds entities only                                                             |
 | `TargetValidTargeting$` (3), `SingleChoice$`, `Epic$`, `UseOriginalHost$` (1)                                         | each its own mechanic                                                                                                      |
-| `ConditionDefined$` (6), `Condition$`                                                                                 | `subAbilityConditionMet` reads either as never met, silently                                                               |
+| `Condition$`                                                                                                          | `subAbilityConditionMet` reads it as never met, silently                                                                   |
 | `Defined$ Parent` (10)                                                                                                | needs the resolving root spell, which a chained sub-ability does not carry                                                 |
 | `Defined$ ValidStack` (3), `Remembered` (3), `Imprinted` (2), `TriggeredSourceSA` (2), `Spawner>…` (1), `Self`, `You` | other `getDefinedSpellAbilities` shapes, none built                                                                        |
 | `TargetType$` other than `Spell` (17: `Activated`, `Triggered`, `SpellAbility.numTargets`, `Spell.numTargets`)        | ability copies (CR 707.10b) and targeting-count restrictions                                                               |

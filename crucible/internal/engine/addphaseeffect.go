@@ -17,7 +17,7 @@ type addPhaseEffect struct{}
 
 func (addPhaseEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectParams(a, "AddPhase", "ExtraPhaseDelayedTrigger", "BeforeFirstPostCombatMainEnd",
-		"Condition", "ConditionDefined"); err != nil {
+		"Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -18,7 +18,7 @@ import (
 type seekEffect struct{}
 
 func (seekEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Seek", "DefinedCards", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Seek", "DefinedCards", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

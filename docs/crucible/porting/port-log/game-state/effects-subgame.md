@@ -58,7 +58,7 @@ Rejected, each an `error` naming the shape:
 
 | Shape                                               | When                                               | Reason                                                                                                                                                                                                                                                                          |
 | --------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Condition$`/`ConditionDefined$`                    | before acting                                      | `subAbilityConditionMet` would pass them silently                                                                                                                                                                                                                               |
+| `Condition$`                                        | before acting                                      | `subAbilityConditionMet` would pass it silently                                                                                                                                                                                                                                 |
 | `RememberPlayers$` other than `Win`/`NotWin`        | before acting                                      | Java ignores it silently (`:174-181`); no corpus line                                                                                                                                                                                                                           |
 | `StartingLife$` not an integer                      | before acting                                      | Java `Integer.parseInt` throws                                                                                                                                                                                                                                                  |
 | Main-game `SchemeDeck`/`PlanarDeck` nonempty        | before acting                                      | `startGame` puts the archenemy first (`GameAction.java:2393-2400`) and turns a plane up (`:2358-2363`); this port's game start has neither                                                                                                                                      |
@@ -98,8 +98,8 @@ Every real `Subgame` follow-up names its players `Player.IsRemembered` (153 real
 Supersedes the `NewController$ Player.IsRemembered` half of Sudden Substitution's row in `effects-controlspell.md`
 (closed file, left as written): that `Defined$` now resolves; the card still fails closed on its `ConditionDefined$`.
 Only a single property resolves. A comma list (`Player.A,B`) or a property `matchesPlayerProperty` does not recognize
-(`Player.withMostLife`, `Player.Chosen`) stays `Defined$ "..." not resolvable yet`. `definedPlayers` joins `valid` in
-its enginelint allow list for `matchesPlayerSpec`.
+(`Player.withMostCardsInHand`, `Player.Chosen`) stays `Defined$ "..." not resolvable yet`. `definedPlayers` joins
+`valid` in its enginelint allow list for `matchesPlayerSpec`.
 
 The new generic branch iterates players in seat order; a rules review caught that this and the pre-existing `"Player"`/
 `"Opponent"` cases both ignored `ReverseTurnOrder` (Java's own fallthrough reads `game.getPlayersInTurnOrder()`,

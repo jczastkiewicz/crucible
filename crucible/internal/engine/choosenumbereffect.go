@@ -16,8 +16,7 @@ var chooseNumberUnresolvedParams = [...]string{
 	"MatchedAbility", "UnmatchedAbility", "Guesser", "GuessCorrect",
 	"GuessWrong", "RememberHighest", "RemoveChoices", "RememberChosen",
 	"ChooseNumberSubAbility",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // chooseNumberEffect is ChooseNumberEffect.java's open (non-secret) shape:
 // each chooser (Defined$, default You) picks an integer between Min$

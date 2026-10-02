@@ -15,10 +15,10 @@
 package engine
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -85,8 +85,12 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 				if !Matches(g, c, valid.Parse(validCard), c.Controller(), entered) {
 					continue
 				}
+				evolve, ok := evolveCheck(g, c, t, entered)
+				if !ok {
+					continue
+				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered})})
 				}
 			}
 		}
@@ -143,14 +147,33 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 					if !Matches(g, g.Card(entered), valid.Parse(validCard), w.Controller(), watcher) {
 						continue
 					}
+					evolve, ok := evolveCheck(g, w, t, entered)
+					if !ok {
+						continue
+					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered})})
 					}
 				}
 			}
 		}
 	}
 	return matches
+}
+
+// evolveCheck is Trigger.meetsRequirementsOnTriggeredObjects' CR 702.100c
+// branch (Trigger.java:377), run for a ChangesZone trigger naming Condition$
+// Evolve (CardFactoryUtil's Evolve keyword spelled as script text): the
+// entering creature must have greater power or greater toughness than the
+// host. ok false means the trigger does not fire; tracked is the entering
+// card to re-check when the ability resolves (WrappedAbility.resolve runs the
+// same check again against the current values), NoCard for a trigger with no
+// such condition.
+func evolveCheck(g *Game, host *Card, t *compile.Ability, moved CardID) (tracked CardID, ok bool) {
+	if cond, has := t.Param("Condition"); !has || cond != "Evolve" {
+		return NoCard, true
+	}
+	return moved, host.evolvedBy(g.Card(moved))
 }
 
 // checkDiesTriggers is CR 603.6d's "look back in time" for a card that just
@@ -511,7 +534,8 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-					triggered: face.objects(triggeredObjects{spellAbility: spellID})})
+					triggered: face.objects(triggeredObjects{spellAbility: spellID,
+						counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}})})
 			}
 		}
 	}
@@ -673,7 +697,8 @@ func (g *Game) checkAttackerBlockedTriggers(controller PlayerController, attacke
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
+							triggered: face.objects(triggeredObjects{attacker: attacker})})
 					}
 				}
 			}
@@ -732,7 +757,7 @@ func (g *Game) checkAttackerBlockedByCreatureTriggers(controller PlayerControlle
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-							triggered: face.objects(triggeredObjects{blocker: blk.Blocker})})
+							triggered: face.objects(triggeredObjects{attacker: blk.Attacker, blocker: blk.Blocker})})
 					}
 				}
 			}
@@ -802,7 +827,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source))})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, amount))})
 					}
 				}
 			}
@@ -831,7 +856,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source))})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, amount))})
 					}
 				}
 			}
@@ -919,8 +944,9 @@ func damageAmountMatches(param string, amount, toughness int, hasToughness bool)
 // copy of the source -- so Defined$ TriggeredSourceController answers the
 // controller at damage time (The Monarch's "its controller becomes the
 // monarch").
-func damageSourceObjects(g *Game, source CardID) triggeredObjects {
-	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller()}
+func damageSourceObjects(g *Game, source CardID, amount int) triggeredObjects {
+	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller(),
+		counts: triggerCounts{damage: amount, set: countDamage}}
 }
 
 // isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:
@@ -1042,7 +1068,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{counts: triggerCounts{damage: amount, set: countDamage}})})
 						}
 					}
 				}
@@ -1151,7 +1177,7 @@ func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table d
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{counts: triggerCounts{damage: amount, set: countDamage}})})
 						}
 					}
 				}
@@ -2264,7 +2290,7 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 	for _, key := range [...]string{
 		"Revolt", "WerewolfTransformCondition", "WerewolfUntransformCondition",
 		"CheckDefinedPlayer", "ManaSpent", "ManaNotSpent", "Adamant",
-		"Bloodthirst", "Monarch", "EnduringStory", "DayTime", "ClassLevel",
+		"Monarch", "EnduringStory", "DayTime", "ClassLevel",
 	} {
 		if _, ok := t.Param(key); ok {
 			return false
@@ -2277,6 +2303,9 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 		return false
 	}
 	if !checkSVarMatches(g, host, amounts, t, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+		return false
+	}
+	if !boolFlagMatches(t, "Bloodthirst", func() bool { return g.opponentWasDamaged(host.Controller()) }) {
 		return false
 	}
 	if !boolFlagMatches(t, "Metalcraft", func() bool { return battlefieldArtifactCount(g, host.Controller()) >= 3 }) {
@@ -2310,19 +2339,18 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 // overwhelming default, or absent -- every player, Java's own three
 // additive You/Opponent/Allies blocks collapsed to the one partition they
 // produce for a single-valued param. definedKey (PresentDefined$/
-// ConditionDefined$) Remembered counts the host's remembered objects instead
-// (rememberedPresentMatches); any other value skips the whole line: no
-// Defined$-to-cards resolver exists for an arbitrary reference yet.
+// ConditionDefined$) names the objects counted instead of a zone scan
+// (definedEntities, against the ability resolving from host when there is
+// one, which is where targets, the triggering card and paid costs live); a
+// spelling it cannot resolve fails the ability that is resolving (GO-7). An LKI spelling counts a
+// card that left the battlefield by its last-known state.
 func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, isKey, compareKey, definedKey, zoneKey, playerKey string) bool {
 	spec, ok := t.Param(isKey)
 	if !ok {
 		return true
 	}
 	if defined, ok := t.Param(definedKey); ok {
-		if defined != "Remembered" {
-			return false
-		}
-		return rememberedPresentMatches(g, host, amounts, t, spec, compareKey)
+		return definedPresentMatches(g, host, amounts, t, spec, definedKey, defined, compareKey)
 	}
 	var zones []ZoneType
 	if zoneList, ok := t.Param(zoneKey); ok {
@@ -2359,21 +2387,51 @@ func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	return presentCountMatches(g, host, amounts, t, compareKey, n)
 }
 
-// rememberedPresentMatches is the Defined$ Remembered branch of
-// isPresentMatches: the candidates are what the host card remembers, not a
-// zone scan -- SpellAbilityCondition.java:350-351's
-// AbilityUtils.getDefinedObjects(host, "Remembered", sa), whose restriction
-// filter (GameObjectPredicates.restriction, :365) counts a remembered player
-// too when the spec names players (3 real lines: ConditionPresent$ Player).
-// Pass the Torch's "if you do" (ConditionDefined$ Remembered |
-// ConditionPresent$ Card after RememberPlayed$) is the shape. Remembered is
-// the one Defined$ value read here; every other one still reads as unmet.
-func rememberedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, spec, compareKey string) bool {
+// definedPresentMatches is the PresentDefined$/ConditionDefined$ branch of
+// isPresentMatches: the candidates are the objects defined names, not a zone
+// scan -- SpellAbilityCondition.java:350-351's
+// AbilityUtils.getDefinedObjects(host, defined, sa), whose restriction filter
+// (GameObjectPredicates.restriction, :365) counts a player too when the spec
+// names players (3 real lines: ConditionPresent$ Player). Pass the Torch's
+// "if you do" (ConditionDefined$ Remembered | ConditionPresent$ Card after
+// RememberPlayed$) is the shape.
+func definedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, spec, definedKey, defined, compareKey string) bool {
+	var refs abilityRefs
+	own := false
+	if a := g.resolving; a != nil && a.Source == host.ID {
+		refs, own = a.refs(), true
+	}
+	var objects []EntityID
+	var err error
+	if defined == "TriggeredCard" || defined == "TriggeredCardLKICopy" {
+		// The card the trigger recorded; only a condition reads it for now
+		// (every other Defined$ reader still refuses it).
+		if refs.triggered.card == NoCard {
+			err = fmt.Errorf("the trigger recorded no card")
+		} else {
+			objects = []EntityID{CardEntity(refs.triggered.card)}
+		}
+	} else {
+		objects, err = definedEntities(g, host.Controller(), host, defined, refs)
+	}
+	if err != nil {
+		if own {
+			// A condition the port cannot read is not an unmet one: the
+			// ability fails instead of silently skipping (GO-7).
+			g.recordPendingError(fmt.Errorf("engine: %s$ %q: %w", definedKey, defined, err))
+		}
+		return false
+	}
+	lki := strings.HasSuffix(defined, "LKI") || strings.HasSuffix(defined, "LKICopy")
 	parsed := valid.Parse(spec)
 	n := 0
-	for _, e := range host.Memory.Remembered() {
+	for _, e := range objects {
 		if id, ok := e.AsCard(); ok {
-			if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			c := g.Card(id)
+			if snap := g.LKI(id); lki && c.Zone != Battlefield && snap != nil {
+				c = snap
+			}
+			if Matches(g, c, parsed, host.Controller(), host.ID) {
 				n++
 			}
 			continue
@@ -2605,32 +2663,6 @@ type triggerFace struct {
 func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 	o.grant = f.grant
 	return o
-}
-
-// liveFaces is how many of def's faces are its current state's. A
-// transforming, flipping, melded, modal or specialize card's other face is a
-// state it is not in (Card.getTriggers reads currentState alone), and this
-// port's current face of such a card is always Faces[0]: a transformed or
-// melded card's Def is its back face, no path flips a flip card yet
-// (setstateeffect.go's own "Flip... not resolved" gap -- an unflipped card's
-// Def still carries both faces' real data, so its back face's triggers must
-// stay unread the identical way an untransformed DFC's did before this fix),
-// and no path puts a modal card's back face into play (playCastGap rejects
-// its choice of spells). cloneDef (cloneeffect.go) reads faces the same way.
-// Prepare joins the restricted set for the identical reason and for
-// consistency with Java's own classification (CardSplitType.java:7-16 groups
-// Flip and Prepare under USE_ACTIVE_FACE with Transform/Meld/Modal/
-// Specialize), though 0 real corpus Prepare lines carry a trigger on their
-// alternate face today -- corpus-inert, not exempted on principle. Every
-// other definition keeps all its faces: a split, adventure or omen card's,
-// and a Room permanent's both-doors view (roomView, room.go).
-func liveFaces(def *compile.Card) int {
-	switch def.SplitType {
-	case carddb.SplitTransform, carddb.SplitFlip, carddb.SplitMeld, carddb.SplitModal, carddb.SplitSpecialize,
-		carddb.SplitPrepare:
-		return 1
-	}
-	return len(def.Faces)
 }
 
 // triggerFaces yields every source of c's triggers, ADR-0023 decision 3's
@@ -3144,7 +3176,7 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // Trigger.getResolvedThisTurn's own separate per-trigger resolution
 // counter, a different mechanic `ActivationLimit$`'s own per-trigger
 // activation counter is too.
-func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, firstTime bool) {
+func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, amount int, firstTime bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -3176,7 +3208,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{player: gainer, counts: triggerCounts{life: amount, set: countLife}})})
 						}
 					}
 				}

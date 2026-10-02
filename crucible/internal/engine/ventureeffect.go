@@ -25,7 +25,7 @@ import (
 type ventureEffect struct{}
 
 func (ventureEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
-	if err := rejectParams(a, "Venture", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Venture"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -434,7 +434,6 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 	}{
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | CopyForEachCanTarget$ Creature", "CopyForEachCanTarget$"},
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | NonLegendary$ True", "NonLegendary$"},
-		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | ConditionDefined$ Self | ConditionPresent$ Card", "ConditionDefined$"},
 		{"DB$ CopySpellAbility | Defined$ Parent", "Parent"},
 		{"DB$ CopySpellAbility", `Defined$ ""`},
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ Bogus", "Amount"},

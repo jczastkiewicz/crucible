@@ -48,8 +48,7 @@ import (
 var damageAllUnresolvedParams = [...]string{
 	"ValidTgts", "TargetUnique", "ModeCost",
 	"Ultimate", "Remembered", "SVar", "XColor", "TriggeredSpellAbility",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // damageAllEffect resolves Mode$/DB$/AB$ DamageAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

@@ -34,7 +34,7 @@ type changeXEffect struct{}
 // corpus line uses, each rejected before acting (PORT-8, GO-7): a targeted
 // spell (ValidTgts$/TargetType$) and Condition$/ConditionDefined$, which
 // subAbilityConditionMet reads as never met, silently.
-var changeXUnresolvedParams = [...]string{"ValidTgts", "TargetType", "Condition", "ConditionDefined"}
+var changeXUnresolvedParams = [...]string{"ValidTgts", "TargetType", "Condition"}
 
 func (changeXEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectParams(a, "ChangeX", changeXUnresolvedParams[:]...); err != nil {
@@ -64,6 +64,9 @@ func (changeXEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	if item.hasXManaCostPaid {
 		item.xManaCostPaid = value
+		if item.spell {
+			g.Card(item.Source).castX = value
+		}
 	}
 	return nil
 }

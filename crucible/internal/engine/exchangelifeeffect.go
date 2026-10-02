@@ -34,8 +34,7 @@ import "fmt"
 // otherwise silently no-op a card naming either, dealDamageEffect's own
 // identical reasoning.
 var exchangeLifeUnresolvedParams = [...]string{
-	"RememberOwnLoss", "RememberDifference", "Condition", "ConditionDefined",
-}
+	"RememberOwnLoss", "RememberDifference", "Condition"}
 
 // exchangeLifeEffect resolves Mode$/DB$/AB$ ExchangeLife. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

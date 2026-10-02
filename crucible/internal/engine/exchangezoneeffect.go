@@ -18,7 +18,7 @@ import "fmt"
 type exchangeZoneEffect struct{}
 
 func (exchangeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "ExchangeZone", "Type", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "ExchangeZone", "Type", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

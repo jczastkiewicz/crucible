@@ -53,7 +53,12 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 	// paid, and every X symbol the cost carries stands for that same
 	// announced value -- not one value each.
 	if countX := cost.CountX(); countX > 0 {
-		n := controller.ChoosePayX(g, decider, cost)
+		var n int
+		if g.hasPreX {
+			n, g.preX, g.hasPreX = g.preX, 0, false
+		} else {
+			n = controller.ChoosePayX(g, decider, cost)
+		}
 		if n < 0 {
 			return xAnnounced{}, false
 		}

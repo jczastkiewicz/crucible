@@ -9,7 +9,7 @@ import "fmt"
 type healDamageEffect struct{}
 
 func (healDamageEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
-	for _, key := range [...]string{"Condition", "ConditionDefined"} {
+	for _, key := range [...]string{"Condition"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: HealDamage: %s$ not resolvable yet", key)
 		}

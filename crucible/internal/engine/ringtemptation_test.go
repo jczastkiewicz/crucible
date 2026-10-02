@@ -358,19 +358,6 @@ func TestRingTemptsYouTriggerMode(t *testing.T) {
 	}
 }
 
-// TestRingTemptsYouRejectsUnresolvedShapes proves the rejection, before
-// anything happens: ConditionDefined$.
-func TestRingTemptsYouRejectsUnresolvedShapes(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	err := pushAndResolveErr(t, g, p, engine.NewScriptedController(),
-		"DB$ RingTemptsYou | ConditionDefined$ Targeted | ConditionPresent$ Spell.Legendary")
-	if err == nil || !strings.Contains(err.Error(), "ConditionDefined$ not resolvable yet") {
-		t.Errorf("err = %v, want ConditionDefined$ rejected", err)
-	}
-}
-
 // TestRingTemptsYouTriggerPaysItsCost proves a RingTemptsYou trigger whose
 // Execute$ carries a Cost$ (Call of the Ring's PayLife<2>) asks and pays as it
 // resolves: confirmed, the life is paid and the card drawn; declined, neither.

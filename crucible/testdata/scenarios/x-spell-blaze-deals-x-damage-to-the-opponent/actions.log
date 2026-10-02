@@ -1,0 +1,16 @@
+# CR 107.3, 601.2b: Blaze costs {X}{R}. The caster announces X = 3 and pays it;
+# the spell's `SVar:X:Count$xPaid` reads that value when it resolves, so the
+# opponent takes 3.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue payx 3
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue targets ai
+castspell human 1
+resolvestack

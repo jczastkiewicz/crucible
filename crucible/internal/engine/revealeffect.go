@@ -9,7 +9,7 @@ import "fmt"
 // BecomeStartingPlayer$ (1 line each).
 var revealUnresolvedParams = [...]string{
 	"Random", "OptionalDecider", "BecomeStartingPlayer",
-	"Condition", "ConditionDefined", "SorcerySpeed",
+	"Condition", "SorcerySpeed",
 }
 
 // revealEffect is RevealEffect.java: each player (Defined$/ValidTgts$,

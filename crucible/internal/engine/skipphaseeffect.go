@@ -16,7 +16,7 @@ import (
 type skipPhaseEffect struct{}
 
 func (skipPhaseEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
-	if err := rejectParams(a, "SkipPhase", "Start", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "SkipPhase", "Start", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -258,10 +258,12 @@ func TestControlSpellExchangeSwapsHostAndSpell(t *testing.T) {
 	}
 }
 
-// TestControlSpellPerplexingChimeraRetargetFailsClosed proves the real
-// card: the exchange happens, then its ChangeTargets, gated on
-// ConditionDefined$ Remembered, fails closed rather than skipping.
-func TestControlSpellPerplexingChimeraRetargetFailsClosed(t *testing.T) {
+// TestControlSpellPerplexingChimeraOffersARetarget proves the real card: the
+// exchange happens, then its ChangeTargets, gated on ConditionDefined$
+// Remembered | ConditionPresent$ Card | ConditionCompare$ GE2 (the host and
+// the spell, both remembered), asks the optional question; declining it
+// leaves the spell's target alone.
+func TestControlSpellPerplexingChimeraOffersARetarget(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGame(t)
 	chimera := g.NewCard(chimeraDef(t), other, engine.Battlefield)
@@ -269,10 +271,10 @@ func TestControlSpellPerplexingChimeraRetargetFailsClosed(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
 	c.QueueConfirmOptionalTrigger(true)
+	c.QueueConfirmEffect(false)
 	castOn(t, g, p, bolt, c)
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "ChangeTargets: ConditionDefined$ not resolvable yet") {
-		t.Errorf("err = %v, want ChangeTargets' ConditionDefined$ error", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if got := g.Card(chimera).Controller(); got != p {
 		t.Errorf("Chimera controller %d, want the Bolt's caster %d", got, p)
@@ -385,8 +387,7 @@ func TestControlSpellFailsClosed(t *testing.T) {
 		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Lose", `Mode$ "Lose" not resolvable yet`},
 		{"DB$ ControlSpell | Defined$ Remembered | Mode$ Gain", `Defined$ "Remembered" not resolvable yet`},
 		{"DB$ ControlSpell | Defined$ TriggeredSpellAbility | Mode$ Gain", "no triggering spell recorded"},
-		{"DB$ ControlSpell | Defined$ Targeted | NewController$ Player.withMostLife | Mode$ Gain", `NewController$: engine: Defined$ "Player.withMostLife"`},
-		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Gain | ConditionDefined$ Remembered | ConditionPresent$ Card", "ConditionDefined$ not resolvable yet"},
+		{"DB$ ControlSpell | Defined$ Targeted | NewController$ Player.withMostCardsInHand | Mode$ Gain", `NewController$: engine: Defined$ "Player.withMostCardsInHand"`},
 		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Gain | Condition$ Kicked", "Condition$ not resolvable yet"},
 	} {
 		g, p, _ := newTwoPlayerGame(t)

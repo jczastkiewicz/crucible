@@ -13,7 +13,7 @@ import "fmt"
 type fogEffect struct{}
 
 func (fogEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
-	for _, key := range [...]string{"Condition", "ConditionDefined"} {
+	for _, key := range [...]string{"Condition"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Fog: %s$ not resolvable yet", key)
 		}

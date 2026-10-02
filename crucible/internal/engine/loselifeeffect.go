@@ -84,7 +84,7 @@ type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
 	"NumCards", "ModeCost",
-	"Condition", "ConditionDefined", "ConditionZone",
+	"Condition", "ConditionZone",
 }
 
 func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
@@ -121,9 +121,20 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			return fmt.Errorf("engine: LoseLife: %w", err)
 		}
 	}
+	lifeLost := 0
 	for _, pid := range players {
+		if amount > 0 && !g.Player(pid).Lost {
+			lifeLost += amount
+		}
 		g.Player(pid).Life -= amount
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(amount)})
 	}
+	// LifeLoseEffect.java:60: the sum, for a sub-ability's LifeAmount$
+	// AFLifeLost (Extort, "gain that much life"). Java sets it on the
+	// ability; the card carries it here, as StoreSVar does.
+	if source.svars == nil {
+		source.svars = map[string]int{}
+	}
+	source.svars["aflifelost"] = lifeLost
 	return nil
 }

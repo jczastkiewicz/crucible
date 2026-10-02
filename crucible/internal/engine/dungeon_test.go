@@ -372,8 +372,7 @@ func TestVentureStateSurvivesClone(t *testing.T) {
 }
 
 // TestVentureFailsClosed proves the shapes that error: no dungeon in the
-// database, a dungeon choice out of range, a room choice out of range, and
-// ConditionDefined$.
+// database, a dungeon choice out of range, and a room choice out of range.
 func TestVentureFailsClosed(t *testing.T) {
 	t.Parallel()
 
@@ -399,9 +398,5 @@ func TestVentureFailsClosed(t *testing.T) {
 	c.QueueAbilityChoice([]int{5})
 	if err := resolveWith(t, g, p, c, "DB$ Venture"); err == nil {
 		t.Error("room choice 5: err = nil")
-	}
-
-	if err := resolveWith(t, g, p, c, "DB$ Venture | ConditionDefined$ Remembered | ConditionPresent$ Card"); err == nil {
-		t.Error("ConditionDefined$: err = nil")
 	}
 }

@@ -14,8 +14,7 @@ import (
 // the per-roll sub-abilities.
 var rollDiceUnresolvedParams = [...]string{
 	"RerollResults", "ToVisitYourAttractions", "StoreResults", "ChosenSVar", "OtherSVar",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // rollDiceEffect is RollDiceEffect.java (CR 706): each target or Defined$
 // player (default You) rolls Amount$ (default 1) Sides$-sided dice (default

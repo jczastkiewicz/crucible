@@ -8,6 +8,24 @@ package engine
 
 import "github.com/jczastkiewicz/crucible/internal/cardtype"
 
+// opponentWasDamaged is Player.hasBloodthirst: an opponent of pid has been dealt
+// damage this turn.
+func (g *Game) opponentWasDamaged(pid PlayerID) bool {
+	return g.bloodthirstAmount(pid) > 0
+}
+
+// bloodthirstAmount is Player.getBloodthirstAmount: the damage pid's opponents
+// have been dealt this turn, together.
+func (g *Game) bloodthirstAmount(pid PlayerID) int {
+	n := 0
+	for _, other := range g.Players() {
+		if other != pid && !g.Player(other).Lost {
+			n += g.Player(other).DamageReceivedThisTurn
+		}
+	}
+	return n
+}
+
 // battlefieldArtifactCount is Metalcraft's own CardLists.count(..., ARTIFACTS)
 // -- every battlefield permanent controller controls whose current (Layer
 // 4-folded) type line carries Artifact.
@@ -31,4 +49,14 @@ func graveyardCoreTypeCount(g *Game, controller PlayerID) int {
 		seen = seen.Union(g.Card(id).Type())
 	}
 	return len(seen.CoreTypes())
+}
+
+// spellsCastThisTurn is every spell cast this turn by any player
+// (MagicStack.getSpellsCastThisTurn, Storm's CurrentStormCount).
+func (g *Game) spellsCastThisTurn() int {
+	n := 0
+	for _, pid := range g.Players() {
+		n += g.Player(pid).SpellsCastThisTurn
+	}
+	return n
 }

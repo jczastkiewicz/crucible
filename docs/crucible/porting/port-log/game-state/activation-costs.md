@@ -27,10 +27,10 @@ itself).
 
 `cost.Cost.ActivationShape` (`internal/cost/cost.go`) replaces all three: one method returning a small struct
 (`Tap bool`, `SelfSac bool`, `DiscardN int`) and a second `ok bool` result, false for anything the struct's three fields
-cannot represent -- Untap/Mandatory/XMin, a chosen or SVar-sized `Sac<...>`, a `Discard<...>` past the literal
-`"N/Card"` shape, or any other named `Part`, the identical rejection set the three predicates it replaces already had
-between them, just unified into one walk over `Cost.Parts` instead of three separate ones. `IsPureMana` itself is
-untouched -- `resolveUnlessCost`'s own "unless a cost is paid" gate (effect.go) needs a genuinely different question (no
+cannot represent -- Untap/Mandatory/XMin, an SVar-sized `Sac<...>`, a `Discard<...>` past the literal `"N/Card"` shape,
+or any other named `Part`, the identical rejection set the three predicates it replaces already had between them, just
+unified into one walk over `Cost.Parts` instead of three separate ones. `IsPureMana` itself is untouched --
+`resolveUnlessCost`'s own "unless a cost is paid" gate (effect.go) needs a genuinely different question (no
 Tap/SelfSac/Discard allowed at all, not even optionally), so it stays its own predicate rather than folding into
 `ActivationShape` too.
 
@@ -838,3 +838,27 @@ running the existing suite after landing this primitive rather than by any dedic
 extended `TestActivationShape` with accept cases for both primitives (alone, combined with mana) and reject cases (a
 duplicate, a chosen count, a chosen type) -- and turned the pre-existing `"Discard<1/CARDNAME>"` reject case into an
 accept case, the one existing test this landing's own new parsing logic changed the answer to.
+
+## Chosen-card parts: `Sac<N/Type>`, `Exile<N/Type>`, `ExileFromGrave<N/Type>`, `Discard<N/Type>`
+
+`ActivationShape` reads four more parts (`SacTypeN`/`SacTypeSpec`, `ExileTypeN`, `ExileGraveN`, `DiscardTypeN`, each
+with its type verbatim, a `;`-separated OR list): N cards the payer picks among those matching a type. About 860 `A:AB$`
+lines write them (`Sac<1/Creature>` 160, `Sac<1/Creature.Other>` 88, `Sac<1/Artifact>` 77, `Sac<1/Land>` 55, ...). A
+type that is `Card` (`DiscardN`'s plain shape), a self-reference, a special word of the Java classes (`Hand`, `Random`,
+`LastDrawn`, `DifferentNames`, `SameName`, `All`, `Any`) or an `N` that is not a positive literal stays unread, so the
+line is refused whole as before.
+
+`chooseCostCards` (`chosencosts.go`) runs before anything is paid: it finds the candidates (`costCandidates`: the
+payer's battlefield permanents for a sacrifice or an exile, not phased out; their graveyard; their hand without the
+source), has the controller pick (`ChoosePermanentsToSacrifice`, `ChooseCardsForEffect`, `ChooseCardsToDiscard`) and
+refuses the activation, paying nothing, when there are fewer than N candidates, the pick is not N distinct candidates,
+or a sacrifice and an exile name the same card. `payCostCards` commits the picks after the mana (`sacrificeCards`,
+`exileCards`, `exileFromGraveyard`, `discardCards`), and records them on the ability as `Ability.paid`, which
+sub-abilities inherit and `Sacrificed$`/`Exiled$`/`Discarded$` amounts read
+([`context-amounts.md`](context-amounts.md)). `ActivateManaAbility` takes the sacrifice only (Phyrexian Altar); an
+ability activated from the graveyard or hand still refuses all four. A triggered ability's `Cost$` and a spell's
+additional cost use `parseUnlessCost`, which reads one `Sac`/`Return`/`Reveal` part and the other shapes in
+`unlesscost.go`; they do not share this.
+
+Tests: `chosencosts_test.go` (Bloodthrone Vampire, an illegal pick, Phyrexian Altar, Borborygmos Enraged, Balduvian
+Dead, Bloodshot Cyclops), `internal/cost/parsing_test.go`.

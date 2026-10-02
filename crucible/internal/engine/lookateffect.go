@@ -12,7 +12,7 @@ import "fmt"
 type lookAtEffect struct{}
 
 func (lookAtEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
-	for _, key := range [...]string{"Condition", "ConditionDefined"} {
+	for _, key := range [...]string{"Condition"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: LookAt: %s$ not resolvable yet", key)
 		}

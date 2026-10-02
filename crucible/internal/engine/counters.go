@@ -25,6 +25,7 @@ const (
 	Stun    CounterType = "STUN"
 	Shield  CounterType = "SHIELD"
 	Time    CounterType = "TIME"
+	Age     CounterType = "AGE"
 	// Poison is a player-level counter. Ten or more is a state-based loss
 	// (CR 704.5c) -- the only rule that currently reads a player's Counters.
 	Poison CounterType = "POISON"

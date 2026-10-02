@@ -9,7 +9,7 @@ import "fmt"
 // Archenemy scheme restriction (NoSchemes$).
 var addTurnUnresolvedParams = [...]string{
 	"ExtraTurnDelayedTrigger", "ExtraTurnDelayedTriggerExecute", "SkipUntap", "NoSchemes",
-	"Condition", "ConditionDefined", "Ultimate",
+	"Condition", "Ultimate",
 }
 
 // addTurnEffect is AddTurnEffect.java: each target player (default You)

@@ -26,8 +26,7 @@ import "fmt"
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var losesGameUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // losesGameEffect resolves Mode$/DB$/AB$ LosesGame. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

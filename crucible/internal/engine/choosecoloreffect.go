@@ -15,7 +15,7 @@ import (
 // activationLimitsMet's sibling otherRestrictionsMet enforces.
 var chooseColorUnresolvedParams = [...]string{
 	"Random", "ColorsFrom",
-	"Condition", "ConditionDefined", "SorcerySpeed", "InstantSpeed", "Forecast",
+	"Condition", "SorcerySpeed", "InstantSpeed", "Forecast",
 }
 
 // chooseColorEffect is ChooseColorEffect.java: each chooser (Defined$,

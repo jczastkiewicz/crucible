@@ -38,7 +38,7 @@ import (
 //
 // The two real lines: My Laughter Echoes' `DB$ SetInMotion | Again$ True |
 // ConditionDefined$ Remembered | ConditionPresent$ Card` resolves, its
-// ConditionDefined$ evaluated by definedPresentConditionMet (below).
+// ConditionDefined$ evaluated by subAbilityConditionMet.
 // Plots That Span Centuries' `DB$ SetInMotion | RepeatNum$ 3` is the
 // ReplaceWith$ of an Event$ SetInMotion replacement, which
 // setSchemeInMotion refuses (setInMotionReplacement), so RepeatNum$
@@ -47,9 +47,8 @@ type setInMotionEffect struct{}
 
 func (setInMotionEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	source := g.Card(a.Source)
-	met, err := definedPresentConditionMet(g, source, a, "SetInMotion")
-	if err != nil || !met {
-		return err
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
 	}
 	// Java reads source.getController(), not the activator.
 	player := source.Controller()
@@ -75,61 +74,6 @@ func (setInMotionEffect) Resolve(g *Game, a *Ability, c PlayerController) error 
 		}
 	}
 	return nil
-}
-
-// definedPresentConditionMet is subAbilityConditionMet (condition.go) for an
-// ability that may name ConditionDefined$: SpellAbilityCondition.areMet's
-// getIsPresent branch with getPresentDefined set
-// (SpellAbilityCondition.java:348-373) counts the ConditionPresent$ matches
-// among the ConditionDefined$ objects instead of a zone scan.
-// subAbilityConditionMet's own isPresentMatches treats any ConditionDefined$
-// as never met, so a line naming it is evaluated here instead: Defined$
-// through definedCards (cards only; every real ConditionPresent$ beside
-// ConditionDefined$ on a SetInMotion line is `Card`), ConditionCompare$
-// defaulting to GE1. Any other Condition-family key beside ConditionDefined$
-// is refused rather than half-checked (GO-7). Without ConditionDefined$ this
-// is subAbilityConditionMet unchanged.
-func definedPresentConditionMet(g *Game, host *Card, a *Ability, api string) (bool, error) {
-	defined, ok := a.Params.Param("ConditionDefined")
-	if !ok {
-		return subAbilityConditionMet(g, host, a.Amounts, a.Params), nil
-	}
-	for _, p := range a.Params.Params {
-		switch strings.ToLower(p.Key) {
-		case "conditiondefined", "conditionpresent", "conditioncompare":
-			continue
-		}
-		if strings.HasPrefix(strings.ToLower(p.Key), "condition") {
-			return false, fmt.Errorf("engine: %s: %s$ beside ConditionDefined$ not resolvable yet", api, p.Key)
-		}
-	}
-	present, ok := a.Params.Param("ConditionPresent")
-	if !ok {
-		return false, fmt.Errorf("engine: %s: ConditionDefined$ without ConditionPresent$ not resolvable yet", api)
-	}
-	cards, err := definedCards(host, defined, a.refs())
-	if err != nil {
-		return false, fmt.Errorf("engine: %s: ConditionDefined$: %w", api, err)
-	}
-	spec := valid.Parse(present)
-	n := 0
-	for _, id := range cards {
-		if Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
-			n++
-		}
-	}
-	compare, ok := a.Params.Param("ConditionCompare")
-	if !ok {
-		compare = "GE1"
-	}
-	if len(compare) < 3 {
-		return false, fmt.Errorf("engine: %s: ConditionCompare$ %q not resolvable", api, compare)
-	}
-	right, ok := resolveNamedAmount(g, a.Amounts, host, compare[2:])
-	if !ok {
-		return false, fmt.Errorf("engine: %s: ConditionCompare$ %q not resolvable", api, compare)
-	}
-	return compareOp(n, compare[:2], right), nil
 }
 
 // setSchemeInMotion is Player.setSchemeInMotion (Player.java:275-292):

@@ -122,6 +122,18 @@ type Ability struct {
 	// paid. An AB$ line reaching the stack any other way -- a trigger's
 	// Execute$ -- is paid when it resolves (resolveTriggeredCost).
 	costPaid bool
+	// paid are the cards the activation cost used up, read back by Sacrificed$,
+	// Exiled$ and Discarded$ amounts. Sub-abilities inherit them.
+	paid paidLists
+	// parentTargets are the targets of the nearest ancestor ability that chose
+	// some (Defined$ ParentTarget); a sub-ability that chooses its own keeps
+	// the parent's here while Targets holds its own.
+	parentTargets []EntityID
+	// evolve is the creature that entered for a trigger naming Condition$
+	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
+	// ability resolves, against the creatures' values by then. NoCard for
+	// every other ability.
+	evolve CardID
 	// TriggerRemembered is what a delayed or reflexive trigger remembered when
 	// it was created (RememberObjects$, Java's Trigger.addRemembered),
 	// carried onto the ability it runs and every sub-ability that ability
@@ -209,8 +221,10 @@ type Ability struct {
 // ability, what that trigger remembered.
 type abilityRefs struct {
 	targets           []EntityID
+	parentTargets     []EntityID
 	triggerRemembered []EntityID
 	triggered         triggeredObjects
+	paid              paidLists
 	// replaced is the card a Moved replacement's ReplaceWith$ ability is
 	// replacing the entry of (Defined$ ReplacedCard); NoCard otherwise.
 	replaced CardID
@@ -223,8 +237,8 @@ type abilityRefs struct {
 
 // refs is a's own abilityRefs.
 func (a *Ability) refs() abilityRefs {
-	r := abilityRefs{targets: a.Targets, triggerRemembered: a.TriggerRemembered, triggered: a.triggered,
-		replaced: a.replacedCard()}
+	r := abilityRefs{targets: a.Targets, parentTargets: a.parentTargets, triggerRemembered: a.TriggerRemembered,
+		triggered: a.triggered, paid: a.paid, replaced: a.replacedCard()}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
 	}
@@ -311,6 +325,44 @@ type triggeredObjects struct {
 	// chain with the rest of the triggering objects, as Java's getTrigger
 	// walks up getParent to the root (SpellAbility.java:1354-1359).
 	grant uint64
+	// counts are the integers the trigger mode recorded, read by
+	// TriggerCount$<Key> (AbilityUtils.java:638).
+	counts triggerCounts
+}
+
+// triggerCounts is the integer half of Java's triggering-objects map: the
+// keys a ported trigger mode records (DamageAmount, LifeAmount, Amount, the
+// storm count). A key a mode did not record is unresolved, not 0, so a mode
+// that never learned it fails loudly instead of counting nothing (GO-7).
+type triggerCounts struct {
+	damage, life, amount, storm int
+	set                         triggerCountKeys
+}
+
+// triggerCountKeys is which triggerCounts fields were recorded.
+type triggerCountKeys uint8
+
+const (
+	countDamage triggerCountKeys = 1 << iota
+	countLife
+	countAmount
+	countStorm
+)
+
+// count is the value of the AbilityKey name, and whether the trigger recorded
+// it.
+func (c triggerCounts) count(name string) (int, bool) {
+	switch name {
+	case "DamageAmount":
+		return c.damage, c.set&countDamage != 0
+	case "LifeAmount":
+		return c.life, c.set&countLife != 0
+	case "Amount":
+		return c.amount, c.set&countAmount != 0
+	case "CurrentStormCount":
+		return c.storm, c.set&countStorm != 0
+	}
+	return 0, false
 }
 
 // targetStamp is one card target's zoneStamp as recorded by stampTargets.
@@ -329,4 +381,17 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// paidLists are the cards an ability's cost used up, which its effects read
+// back as `Sacrificed$`, `Exiled$` and `Discarded$` (SpellAbility.getPaidList).
+// They are IDs: a sacrificed card is read from its last-known information.
+//
+// recorded is true once the cost that paid for the ability wrote them. A cost
+// path that does not (a spell's additional cost, an unless cost, a trigger's
+// Cost$) leaves them unrecorded, and the amount stays unresolved instead of
+// reading an empty list as 0.
+type paidLists struct {
+	sacrificed, exiled, discarded []CardID
+	recorded                      bool
 }

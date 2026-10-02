@@ -11,7 +11,7 @@ import (
 // exploreUnresolvedParams are ExploreEffect.java's params this port cannot
 // honour yet.
 var exploreUnresolvedParams = [...]string{
-	"Condition", "ConditionDefined", "SorcerySpeed",
+	"Condition", "SorcerySpeed",
 }
 
 // exploreEffect is ExploreEffect.java (CR 701.44): each exploring permanent
@@ -67,8 +67,7 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 				}
 			}
 			if !revealedLand && c.Zone == Battlefield {
-				c.Counters.Add(P1P1, 1)
-				emitCounterChanged(g.sink, a.Source, CardEntity(id), P1P1, 1)
+				g.addCardCounters(controller, a.Source, id, P1P1, 1)
 			}
 		}
 	}

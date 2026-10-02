@@ -39,8 +39,7 @@ import (
 // identical reasoning.
 var tapAllUnresolvedParams = [...]string{
 	"TapperController", "Ultimate", "Planeswalker",
-	"Condition", "ConditionDefined",
-}
+	"Condition"}
 
 // tapAllEffect resolves Mode$/DB$/AB$ TapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

@@ -23,7 +23,7 @@ import (
 type amassEffect struct{}
 
 func (amassEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
-	if err := rejectParams(a, "Amass", "Condition", "ConditionDefined"); err != nil {
+	if err := rejectParams(a, "Amass", "Condition"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -71,8 +71,7 @@ func (amassEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if hasParam(a, "RememberAmass") {
 		source.Memory.Remember(CardEntity(army))
 	}
-	g.Card(army).Counters.Add(P1P1, num)
-	emitCounterChanged(g.sink, a.Source, CardEntity(army), P1P1, num)
+	g.addCardCounters(controller, a.Source, army, P1P1, num)
 	if !g.Card(army).Type().HasSubtype(kind) {
 		g.timestamp++
 		g.addAnimate(animateRecord{

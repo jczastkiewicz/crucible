@@ -50,3 +50,13 @@ func graveyardCoreTypeCount(g *Game, controller PlayerID) int {
 	}
 	return len(seen.CoreTypes())
 }
+
+// spellsCastThisTurn is every spell cast this turn by any player
+// (MagicStack.getSpellsCastThisTurn, Storm's CurrentStormCount).
+func (g *Game) spellsCastThisTurn() int {
+	n := 0
+	for _, pid := range g.Players() {
+		n += g.Player(pid).SpellsCastThisTurn
+	}
+	return n
+}

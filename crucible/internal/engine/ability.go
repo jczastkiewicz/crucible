@@ -325,6 +325,44 @@ type triggeredObjects struct {
 	// chain with the rest of the triggering objects, as Java's getTrigger
 	// walks up getParent to the root (SpellAbility.java:1354-1359).
 	grant uint64
+	// counts are the integers the trigger mode recorded, read by
+	// TriggerCount$<Key> (AbilityUtils.java:638).
+	counts triggerCounts
+}
+
+// triggerCounts is the integer half of Java's triggering-objects map: the
+// keys a ported trigger mode records (DamageAmount, LifeAmount, Amount, the
+// storm count). A key a mode did not record is unresolved, not 0, so a mode
+// that never learned it fails loudly instead of counting nothing (GO-7).
+type triggerCounts struct {
+	damage, life, amount, storm int
+	set                         triggerCountKeys
+}
+
+// triggerCountKeys is which triggerCounts fields were recorded.
+type triggerCountKeys uint8
+
+const (
+	countDamage triggerCountKeys = 1 << iota
+	countLife
+	countAmount
+	countStorm
+)
+
+// count is the value of the AbilityKey name, and whether the trigger recorded
+// it.
+func (c triggerCounts) count(name string) (int, bool) {
+	switch name {
+	case "DamageAmount":
+		return c.damage, c.set&countDamage != 0
+	case "LifeAmount":
+		return c.life, c.set&countLife != 0
+	case "Amount":
+		return c.amount, c.set&countAmount != 0
+	case "CurrentStormCount":
+		return c.storm, c.set&countStorm != 0
+	}
+	return 0, false
 }
 
 // targetStamp is one card target's zoneStamp as recorded by stampTargets.

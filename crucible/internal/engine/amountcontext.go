@@ -187,3 +187,14 @@ func liveCardMeasure(head string) (func(*Card) (int, bool), bool) {
 	}
 	return nil, false
 }
+
+// triggerCount is `TriggerCount$<Key>`: the integer the trigger that put the
+// resolving ability on the stack recorded under key (AbilityUtils.java:638).
+// Unresolved outside that ability and for a key its mode did not record.
+func (g *Game) triggerCount(source CardID, key string) (int, bool) {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source {
+		return 0, false
+	}
+	return a.triggered.counts.count(key)
+}

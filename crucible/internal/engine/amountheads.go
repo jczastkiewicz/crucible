@@ -76,6 +76,12 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		return g.Card(source).castX, true
+	case "CardManaCost":
+		// Count$CardManaCost: the source card's own mana value (Cascade's X).
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).CMC(), true
 	case "CardPower", "CardToughness":
 		// AbilityUtils.java: the source's own net power/toughness.
 		if source == NoCard {

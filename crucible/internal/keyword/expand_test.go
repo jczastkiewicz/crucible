@@ -75,6 +75,12 @@ func TestExpand(t *testing.T) {
 		{"Echo", false, ""},
 		{"Cumulative upkeep:PayLife<1>", true, "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You"},
 		{"Cumulative upkeep", false, ""},
+		{"Cascade", true, "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack"},
+		{"Cascade:1", false, ""},
+		{"Storm", true, "Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack"},
+		{"Storm:1", false, ""},
+		{"Exploit", true, "Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield"},
+		{"Exploit:1", false, ""},
 		{"Flying", false, ""},
 	} {
 		t.Run(tc.line, func(t *testing.T) {

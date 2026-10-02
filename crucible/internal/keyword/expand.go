@@ -202,6 +202,47 @@ func Expand(k Keyword) (Expansion, bool) {
 				{"KWExtortGain" + Slot, "DB$ GainLife | Defined$ You | LifeAmount$ AFLifeLost"},
 			},
 		}, true
+	case "Cascade":
+		// CardFactoryUtil.java:711: when you cast this spell, exile cards from
+		// the top of your library until a nonland card with lesser mana value;
+		// you may cast it without paying its mana cost, then the exiled cards
+		// go to the bottom in a random order.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | Execute$ KWCascade" + Slot},
+			SVars: []SVarDef{
+				{"KWCascade" + Slot, "DB$ DigUntil | Defined$ You | Amount$ 1 | Valid$ Card.nonLand+cmcLTKWCascadeX" + Slot + " | FoundDestination$ Exile | RevealedDestination$ Exile | ImprintFound$ True | RememberRevealed$ True | SubAbility$ KWCascadeCast" + Slot},
+				{"KWCascadeCast" + Slot, "DB$ Play | Defined$ Imprinted | WithoutManaCost$ True | Optional$ True | ValidSA$ Spell.cmcLTKWCascadeX" + Slot + " | SubAbility$ KWCascadeLib" + Slot},
+				{"KWCascadeLib" + Slot, "DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered,Card.IsImprinted | Origin$ Exile | Destination$ Library | RandomOrder$ True | LibraryPosition$ -1 | SubAbility$ KWCascadeClean" + Slot},
+				{"KWCascadeClean" + Slot, "DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True"},
+			},
+			Amounts: []SVarDef{{"KWCascadeX" + Slot, "Count$CardManaCost"}},
+		}, true
+	case "Storm":
+		// CardFactoryUtil.java:1814: when you cast this spell, copy it for each
+		// spell cast before it this turn; you may choose new targets.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Stack | Secondary$ True | Execute$ KWStorm" + Slot},
+			SVars: []SVarDef{
+				{"KWStorm" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ KWStormCount" + Slot + " | MayChooseTarget$ True"},
+			},
+			Amounts: []SVarDef{{"KWStormCount" + Slot, "TriggerCount$CurrentStormCount/Minus.1"}},
+		}, true
+	case "Exploit":
+		// CardFactoryUtil.java:1006: when this enters, you may sacrifice a
+		// creature.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Secondary$ True | Execute$ KWExploit" + Slot},
+			SVars:    []SVarDef{{"KWExploit" + Slot, "DB$ Sacrifice | SacValid$ Creature | Optional$ True"}},
+		}, true
 	case "Echo":
 		// CardFactoryUtil.java:963: at the beginning of your upkeep, if this
 		// came under your control since your last upkeep, sacrifice it unless

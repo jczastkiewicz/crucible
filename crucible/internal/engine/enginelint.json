@@ -57,6 +57,7 @@
     "taptype": ["taptype.go"],
     "returncost": ["returncost.go"],
     "exertcost": ["exertcost.go"],
+    "exploit": ["exploit.go"],
     "targeting": ["targeting.go"],
     "subability": ["subability.go"],
     "zonemove": ["zonemove.go"],
@@ -374,13 +375,15 @@
       "control",
       "zone",
       "valid",
-      "parts"
+      "parts",
+      "exploit"
     ],
     "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "exilefromgrave": ["id", "zone", "card", "game"],
     "taptype": ["id", "zone", "card", "game", "control", "valid", "trigger"],
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
     "exertcost": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
+    "exploit": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
     "targeting": [
       "id",
       "card",

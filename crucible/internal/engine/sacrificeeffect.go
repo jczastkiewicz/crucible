@@ -30,13 +30,9 @@ import (
 // sacrificeUnresolvedParams names SacrificeEffect.resolve's own params this
 // port does not evaluate. Every one fails the whole line loudly rather than
 // sacrificing the wrong permanent, the wrong count, or silently skipping a
-// choice (PORT-8/GO-7): Optional$ (46) -- an interactive "may sacrifice"
-// confirm, the identical ability-body-level gap Discard's own Optional$/
-// Pump's own Optional$ already document, distinct from CR 603.3d's own
-// OptionalDecider$ a trigger carries (Ability.Optional's own doc comment);
-// ConditionDefined$ (19) and ConditionActivationLimit$ (0) --
-// SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
-// the identical GainLife/LoseLife-shaped gap; ChangeNum$ (5) --
+// choice (PORT-8/GO-7): ConditionActivationLimit$ (0) --
+// SpellAbilityCondition's own shape subAbilityConditionMet does not cover;
+// ChangeNum$ (5) --
 // SacrificeAll's own param, never read by this ApiType at all, so its
 // presence marks a line this port would misclassify rather than one it can
 // safely ignore; ValidCard$ (3) -- SacrificeEffect.java
@@ -82,7 +78,7 @@ import (
 // is not a built continuous-effect param, so the trigger it would grant
 // never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
-	"Optional", "ConditionActivationLimit",
+	"ConditionActivationLimit",
 	"ChangeNum", "ValidCard",
 	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
 }
@@ -104,10 +100,14 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	}
 
 	sacValid, hasSacValid := a.Params.Param("SacValid")
+	_, optional := a.Params.Param("Optional")
 	if !hasSacValid || sacValid == "Self" {
 		// Card.canBeSacrificedBy refuses a phased-out permanent
 		// (Card.java:6909).
 		if source.Zone != Battlefield || source.IsPhasedOut() || source.Controller() != a.Controller {
+			return nil
+		}
+		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			return nil
 		}
 		sacrificeCards(g, controller, a, []CardID{source.ID})
@@ -149,6 +149,13 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
 				candidates = append(candidates, cid)
 			}
+		}
+		// Optional$: the player is asked first (Java asks even with no
+		// candidate), then sacrifices Amount$ of the candidates, or all of
+		// them when fewer -- the one choice ChoosePermanentsToSacrifice
+		// offers, so a player who confirms cannot then sacrifice fewer.
+		if optional && !controller.ConfirmEffect(g, pid, a.Source) {
+			continue
 		}
 		n := amount
 		if n > len(candidates) {
@@ -202,6 +209,9 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 		g.moveToGraveyard(id)
 		g.checkDiesTriggers(controller, id)
 		sacrificed = append(sacrificed, id)
+		if isExploitAbility(a) {
+			g.checkExploitedTriggers(controller, a.Source, id)
+		}
 	}
 	g.checkChangesZoneAllTriggers(controller, sacrificed, Battlefield, Graveyard)
 }

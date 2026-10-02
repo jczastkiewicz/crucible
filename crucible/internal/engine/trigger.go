@@ -534,7 +534,8 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-					triggered: face.objects(triggeredObjects{spellAbility: spellID})})
+					triggered: face.objects(triggeredObjects{spellAbility: spellID,
+						counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}})})
 			}
 		}
 	}
@@ -826,7 +827,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source))})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, amount))})
 					}
 				}
 			}
@@ -855,7 +856,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 						}
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source))})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageSourceObjects(g, source, amount))})
 					}
 				}
 			}
@@ -943,8 +944,9 @@ func damageAmountMatches(param string, amount, toughness int, hasToughness bool)
 // copy of the source -- so Defined$ TriggeredSourceController answers the
 // controller at damage time (The Monarch's "its controller becomes the
 // monarch").
-func damageSourceObjects(g *Game, source CardID) triggeredObjects {
-	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller()}
+func damageSourceObjects(g *Game, source CardID, amount int) triggeredObjects {
+	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller(),
+		counts: triggerCounts{damage: amount, set: countDamage}}
 }
 
 // isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:
@@ -1066,7 +1068,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{counts: triggerCounts{damage: amount, set: countDamage}})})
 						}
 					}
 				}
@@ -1175,7 +1177,7 @@ func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table d
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{counts: triggerCounts{damage: amount, set: countDamage}})})
 						}
 					}
 				}
@@ -3174,7 +3176,7 @@ func isDrawnTrigger(t *compile.Ability) bool {
 // Trigger.getResolvedThisTurn's own separate per-trigger resolution
 // counter, a different mechanic `ActivationLimit$`'s own per-trigger
 // activation counter is too.
-func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, firstTime bool) {
+func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer PlayerID, amount int, firstTime bool) {
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, z := range phaseTriggerZones {
@@ -3206,7 +3208,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{player: gainer, counts: triggerCounts{life: amount, set: countLife}})})
 						}
 					}
 				}

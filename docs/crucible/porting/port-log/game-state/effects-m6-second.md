@@ -378,22 +378,24 @@ through `Defined$ Remembered` (`defined.go`).
 once `Sacrifice`'s own body finishes, whether or not `subAbilityConditionMet` let that body run at all, the identical
 shape every other M6 effect already has.
 
+`Optional$` (46) asks the sacrificing player first (`ConfirmEffect`, Java asks even with no candidate), then sacrifices
+`Amount$` of the candidates or all of them when fewer: `ChoosePermanentsToSacrifice` offers exactly `n`, so a player who
+confirms cannot then sacrifice fewer (Java's `minTargets` is 0). A Sacrifice ability tagged with the Exploit keyword
+fires `Mode$ Exploited` (`exploit.go`).
+
 Not resolved, each failing loudly by name rather than sacrificing the wrong permanent, the wrong count, or silently
-skipping a choice (PORT-8/GO-7): `Optional$` (46) -- an interactive "may sacrifice" confirm, the identical
-ability-body-level gap `Discard`'s own `Optional$`/`Pump`'s own `Optional$` already document, distinct from CR 603.3d's
-own `OptionalDecider$` a trigger carries; `ConditionDefined$` (19) and `ConditionActivationLimit$` (0) --
-`SpellAbilityCondition`'s own shapes `subAbilityConditionMet` does not cover, the identical `GainLife`/`LoseLife`-shaped
-gap; `Planeswalker$` (11) -- unclear semantics on a `Sacrifice` line, not worth guessing at; `ChangeNum$` (5) --
-`SacrificeAll`'s own param, never read by this `ApiType` at all, so its presence marks a line this port would
-misclassify rather than one it can safely ignore; `ValidCard$` (3) -- `SacrificeEffect.java` never reads this key at
-all, so its real meaning on the handful of lines naming it is unclear; `SorcerySpeed$` (1) -- a cost-restriction flag
-with no cost-payment site to attach to; `SacEachValid$` (1) -- a comma-list of several `SacValid$` specs sacrificed
-independently, a distribution mechanic; `Random$` (1) -- `Aggregates.random`, a randomized choice this port's own
-`ChoosePermanentsToSacrifice` contract does not carry; `Destroy$` (2) -- CR 701.7's own destroy rather than sacrifice, a
-different `GameAction` call and a different `Mode$` trigger entirely; `StrictAmount$` (2) -- the clamp's own opposite,
-above; `Echo$`/`CumulativeUpkeep$` -- `SacrificeEffect.java`'s own two leading special-cased branches, each a whole
-further upkeep-cost mechanic ahead of the ordinary sacrifice this port ports, 0 real lines combining either with
-`SacValid$`/`Defined$`/`Amount$` at all. `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/
+skipping a choice (PORT-8/GO-7): `ConditionActivationLimit$` (0) -- `SpellAbilityCondition`'s own shape
+`subAbilityConditionMet` does not cover; `Planeswalker$` (11) -- unclear semantics on a `Sacrifice` line, not worth
+guessing at; `ChangeNum$` (5) -- `SacrificeAll`'s own param, never read by this `ApiType` at all, so its presence marks
+a line this port would misclassify rather than one it can safely ignore; `ValidCard$` (3) -- `SacrificeEffect.java`
+never reads this key at all, so its real meaning on the handful of lines naming it is unclear; `SorcerySpeed$` (1) -- a
+cost-restriction flag with no cost-payment site to attach to; `SacEachValid$` (1) -- a comma-list of several `SacValid$`
+specs sacrificed independently, a distribution mechanic; `Random$` (1) -- `Aggregates.random`, a randomized choice this
+port's own `ChoosePermanentsToSacrifice` contract does not carry; `Destroy$` (2) -- CR 701.7's own destroy rather than
+sacrifice, a different `GameAction` call and a different `Mode$` trigger entirely; `StrictAmount$` (2) -- the clamp's
+own opposite, above; `Echo$`/`CumulativeUpkeep$` -- `SacrificeEffect.java`'s own two leading special-cased branches,
+each a whole further upkeep-cost mechanic ahead of the ordinary sacrifice this port ports, 0 real lines combining either
+with `SacValid$`/`Defined$`/`Amount$` at all. `ConditionPresent$`/`ConditionCompare$`/`ConditionCheckSVar$`/
 `ConditionSVarCompare$` resolve through `subAbilityConditionMet` exactly as `Scry`'s/`Discard`'s/`PutCounter`'s own
 already do. `SacrificeAll` (140 real lines, `SacrificeAllEffect.java`) is built too now ("M6's thirteenth effect:
 SacrificeAll," below).

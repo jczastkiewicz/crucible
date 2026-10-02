@@ -47,3 +47,15 @@ Not resolved: the player-list heads (`TriggeredPlayer$`, `TriggeredTarget$`, `Ta
 list from a spell's additional cost, the `LKI` spellings (`RememberedLKI$`), `AllTargeted$`, `ParentTargeted$`,
 `TriggerObjects*$`, `TriggeredSpellAbility$CardManaCostLKI`, `ThisTargeted$`. Tests: `contextamounts_test.go`,
 `chosencosts_test.go`.
+
+## `TriggerCount$<Key>`
+
+`TriggerCount$DamageAmount` (236 corpus lines), `LifeAmount` (40), `Amount` (32), the storm count: the integer the
+trigger that put the ability on the stack recorded (`AbilityUtils.java:638`). `triggeredObjects.counts`
+(`triggerCounts`, a typed struct with a set bitmask, never a map) is filled by the modes that record a key:
+`DamageDone`, `DamageDoneOnce` and `DamageDealtOnce` (`DamageAmount`), `LifeGained` (`LifeAmount`, also `Player`),
+`CounterAddedOnce` (`Amount`), `SpellCast` (`CurrentStormCount`, every spell cast this turn including this one; Storm
+subtracts one). `Game.triggerCount` reads it for the resolving ability's own source and returns unresolved for a key the
+mode did not record, not 0. Not recorded: `LifeAmount` of `LifeLost` (the mode is not ported), `Amount` of
+`DiscardedAll`/`ChangesZoneAll`, `Result` of rolled dice, `ScryNum`. `Count$CardManaCost` (the source's own mana value)
+is a count head too. Tests: `triggercount_test.go`.

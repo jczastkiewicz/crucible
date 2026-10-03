@@ -1,0 +1,5 @@
+# Declining the 2 life leaves Temple Garden tapped and the life total alone.
+queue confirmpaycost false
+startturn human
+advance 3
+playland human 1

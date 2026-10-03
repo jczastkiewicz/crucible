@@ -225,18 +225,10 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	// clearContinuousText/applyContinuousText bracket Layer 2 for Layer 3:
 	// last pass's text changes end before control is recomputed, and this
 	// pass's apply right after it (clearContinuousText's own doc comment).
-	clearContinuousText(g)
-	applyContinuousControl(g)
-	g.correctControllerZones(controller)
-	g.dropStolenRingBearers()
-	applyContinuousText(g)
-	applyContinuousType(g)
-	applyContinuousColor(g)
-	applyContinuousKeyword(g)
-	applyContinuousTraits(g)
-	applyContinuousRules(g)
-	applyContinuousNames(g)
-	applyContinuousPT(g)
+	applyContinuousLayers(g, func() {
+		g.correctControllerZones(controller)
+		g.dropStolenRingBearers()
+	})
 
 	// CR 704.5q
 	for _, pid := range g.Players() {
@@ -884,4 +876,35 @@ func enchantSpecOf(def *compile.Card) (valid.Spec, bool) {
 		return valid.Parse(typ), true
 	}
 	return valid.Spec{}, false
+}
+
+// applyContinuousLayers rebuilds every continuous effect from scratch in
+// CR 613's layer order (the pass's own comment above has the order and the
+// reason). afterControl runs between Layer 2 and Layer 3: the state-based
+// action pass moves a permanent a control effect re-homed there; a
+// refresh for an entering permanent (refreshLayers) has nothing to move.
+func applyContinuousLayers(g *Game, afterControl func()) {
+	clearContinuousText(g)
+	applyContinuousControl(g)
+	afterControl()
+	applyContinuousText(g)
+	applyContinuousType(g)
+	applyContinuousColor(g)
+	applyContinuousKeyword(g)
+	applyContinuousTraits(g)
+	applyContinuousRules(g)
+	applyContinuousNames(g)
+	applyContinuousPT(g)
+}
+
+// refreshLayers recomputes every continuous effect now, without any
+// state-based action. A permanent that has just entered the battlefield has
+// no layer effects yet, and CR 614.12 has its own entry replacements look at
+// it as it would exist there: a nonbasic land under Blood Moon is a
+// Mountain without its "enters tapped unless" replacement
+// (ReplacementHandler.getReplacementList's LKI look-ahead,
+// ReplacementHandler.java:79-98, which this replaces by running the layers
+// with the card already in place).
+func (g *Game) refreshLayers() {
+	applyContinuousLayers(g, func() {})
 }

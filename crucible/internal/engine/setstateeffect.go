@@ -97,6 +97,10 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		} else if c.IsFaceDown() {
 			if c.faceUpDef.Faces[0].Type.IsPermanent() {
 				c.turnFaceUp()
+				// CR 613.7f: a permanent turned face up gets a new timestamp
+				// (Card.java:891).
+				g.timestamp++
+				c.Timestamp = g.timestamp
 				changed = true
 			}
 		}

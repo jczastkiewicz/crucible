@@ -502,11 +502,11 @@ func TestExchangeZoneOnTheBattlefieldFiltersByController(t *testing.T) {
 	}
 }
 
-// TestElementalBendTriggersSkipWrongModeLimitAndPlayer proves
-// checkPlayerActionTriggers' filters: a differently-named trigger, an
-// ActivationLimit$ line and a ValidPlayer$ that does not match the bender
-// are all passed over, leaving only the real ElementalBend watcher to fire.
-func TestElementalBendTriggersSkipWrongModeLimitAndPlayer(t *testing.T) {
+// TestElementalBendTriggersSkipWrongModeAndPlayer proves
+// checkPlayerActionTriggers' filters: a differently-named trigger and a
+// ValidPlayer$ that does not match the bender are passed over, leaving only
+// the ElementalBend watcher (an ActivationLimit$ 1 line fires its first time).
+func TestElementalBendTriggersSkipWrongModeAndPlayer(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
@@ -517,8 +517,8 @@ func TestElementalBendTriggersSkipWrongModeLimitAndPlayer(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueTargets([]engine.EntityID{engine.CardEntity(land)})
 	resolveLine(t, g, p, c, "DB$ Earthbend")
-	if got := g.Player(p).Life; got != 20 {
-		t.Errorf("bender life = %d, want 20 (Discover mode, the limit and the other player's watcher all skipped)", got)
+	if got := g.Player(p).Life; got != 25 {
+		t.Errorf("bender life = %d, want 25 (only the ElementalBend watcher fires, once)", got)
 	}
 	if got := g.Player(other).Life; got != 20 {
 		t.Errorf("other player life = %d, want 20 (their watcher's ValidPlayer$ You does not match the bender)", got)

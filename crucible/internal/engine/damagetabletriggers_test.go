@@ -129,10 +129,9 @@ func TestDamageDealtOnceValidTargetFiltersTheSummedAmount(t *testing.T) {
 	}
 }
 
-// TestDamageDealtOnceSkipsLineNamingActivationLimit proves a real,
-// unresolved param (ActivationLimit$, 1 of the corpus's own 49 real lines)
-// is skipped rather than firing unconditionally (PORT-8/GO-7).
-func TestDamageDealtOnceSkipsLineNamingActivationLimit(t *testing.T) {
+// TestDamageDealtOnceFiresALineNamingActivationLimitOnce proves the
+// ActivationLimit$ 1 line fires for the first damage of the turn.
+func TestDamageDealtOnceFiresALineNamingActivationLimitOnce(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -155,8 +154,8 @@ func TestDamageDealtOnceSkipsLineNamingActivationLimit(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
-	if g.Player(a).Life != 20 {
-		t.Errorf("a's life = %d, want unchanged 20 -- ActivationLimit$ must skip the whole line rather than firing unconditionally", g.Player(a).Life)
+	if g.Player(a).Life != 25 {
+		t.Errorf("a's life = %d, want 25 -- the ActivationLimit$ 1 line fires once", g.Player(a).Life)
 	}
 }
 

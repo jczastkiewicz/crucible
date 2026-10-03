@@ -315,12 +315,13 @@ Player alike — every "-on-resolution"/"-refuses-" fixture above would still pa
 
 A card's own `S:Mode$ CantTarget` line is read too (`cantTargetStatic`, `cantTargetApplies`, `staticability.go`;
 `StaticAbilityCantTarget.applyCantTargetAbility`), from `cardCantBeTargetedBy`/`playerCantBeTargetedBy` ahead of the
-keyword shapes. Every caller now says what kind of ability is targeting (`Ability.causeKind`: a cast spell, a trigger,
-else an activated ability), which `ValidSA$` matches (`saKindMatches`) and which "Hexproof from activated/triggered
-abilities" (Volatile Stormdrake, `hexproofValidSA`) needs. `ValidTarget$`, `ValidSource$`, `Activator$` and
-`AffectedZone$` (Ground Seal, Silent Gravestone: a graveyard card) are evaluated; `SourceCanOnlyTarget$` and an
-`EffectZone$` naming the Stack skip the line (GO-7). Tests: `cantbetargetedstatic_test.go` (Gaea's Revenge by source
-color, Ground Seal, Volatile Stormdrake).
+keyword shapes. Every caller now says what kind of ability is targeting (`Ability.causeKind`: a cast spell, a trigger
+(`isTrigger`; `ActivateAbility` pushes through `pushTriggeredAbilities` too and marks its ability `activated`), else an
+activated ability), which `ValidSA$` matches (`saKindMatches`) and which "Hexproof from activated/triggered abilities"
+(Volatile Stormdrake, `hexproofValidSA`) needs. `ValidTarget$`, `ValidSource$`, `Activator$` and `AffectedZone$` (Ground
+Seal, Silent Gravestone: a graveyard card) are evaluated; `SourceCanOnlyTarget$` and an `EffectZone$` naming the Stack
+skip the line (GO-7). Tests: `cantbetargetedstatic_test.go` (Gaea's Revenge by source color, Ground Seal, Volatile
+Stormdrake).
 
 ## SubAbility chaining itself lands
 

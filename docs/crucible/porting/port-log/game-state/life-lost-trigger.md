@@ -17,6 +17,6 @@ is one trigger firing, not one per point.
 | `combatdamage.go`                     | combat damage to player |
 | `activateability.go` (`PayLife` cost) | life paid as a cost     |
 
-Not ported: `ValidCause$`, `ResolvedLimit$`, `ActivationLimit$` on a `LifeLost` line (skipped, not applied);
-`LifeLostAll` (the batch mode); loss from non-combat damage paths other than the ones above. Test: `lifelost_test.go`
-(Vengeful Warchief gets one counter after losing 2 then 3 life in one turn).
+Not ported: `ValidCause$` and `ResolvedLimit$` on a `LifeLost` line (skipped, not applied); `LifeLostAll` (the batch
+mode); loss from non-combat damage paths other than the ones above. Test: `lifelost_test.go` (Vengeful Warchief gets one
+counter after losing 2 then 3 life in one turn).

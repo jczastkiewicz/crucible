@@ -851,3 +851,15 @@ included (`Spell.Self` lines on the stack). `dealPermanentDamage` and `dealPlaye
 the `Prevent$` replacements, `Fog`'s combat prevention and prevention shields; `damageReplaced` (redirects, splits) is
 not prevention and still runs. A line with `CheckSVar$` or another unlisted param is not applied. Tests:
 `cantpreventdamage_test.go`.
+
+## "Enters tapped unless" costs (shock lands, reveal lands)
+
+`DB$ Tap | ETB$ True | UnlessCost$ ... | UnlessPayer$ You` (47 real lines: 27 `PayLife<2>`, 19 `Reveal<1/...>`, 1
+`Behold`) is `tapAbilityResolvesTap`'s third shape (`replacement.go`), beside the bare tap and the Condition-gated
+checkland tap. `payEntersTappedUnless` is `AbilityUtils.handleUnlessCost` for it: the payer is the host's controller
+(`UnlessPayer$ You` only), is asked `ConfirmPayCost` when the cost is payable (`unlessPayable`: life at least 2, a
+matching card in hand), and pays through `payUnlessCost`. Paying keeps the land untapped. A cost `parseUnlessCost` does
+not read (`Behold`), or another payer, records a pending error and the land enters untapped (GO-7). Before this shape
+was read these lines matched nothing and every shock land entered untapped without a question. `checkMovedReplacement`
+takes the controller for the decision. Tests: `enterstappedunless_test.go`, scenarios
+`shock-land-paid-enters-untapped-and-costs-two-life`, `shock-land-declined-enters-tapped`.

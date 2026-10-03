@@ -426,16 +426,17 @@ running first (its own doc comment works through why), kept anyway because Forge
 reachable given today's engine, but a fully specified rule" reason (Forge's own comment: "unless range of influence gets
 implemented").
 
-**`endCombat` (turn.go) is CR 511.3, wired as the End of Combat step's body.** `beginPhase`'s switch picked up a fourth
-case ([`## Turn structure`](#turn-structure)): the other bookkeeping-only steps (Upkeep, Main1, the rest) stay empty
-because they need the stack, triggers or `SpellAbility` to do anything, but CombatEnd's real action — every creature and
-planeswalker/battle stops being attacking/blocking — needs none of that, just resetting `g.combat` to its zero value the
-same way Java's `PhaseHandler.endCombat` sets its `Combat` field to `null`. Before this landed, nothing cleared
-`Combat.Attackers`/`AttackTargets`/`Blocks` between combats at all: `DeclareCombatAttackers` and `DeclareCombatBlockers`
-only overwrite `g.combat` on the branch where something is actually declared, and both return early without touching it
-when nothing is eligible (the same "nothing meaningful to decide" shortcut that makes them cheap to call
-unconditionally) — a real combat's data would have silently survived into a later turn that never attacked with
-anything, latent because no fixture or test happened to play two turns of combat in the same game before this one.
+**`endCombat` (turn.go) is CR 511.3, run as the End of Combat step ends** (`advanceStep`, Java's `onPhaseEnd` COMBAT_END
+case, `PhaseHandler.java:492-501`), so the step's own triggers and spells still see who attacked and blocked
+(`attackedThisCombat`, `blockedThisCombat` read `g.combat`, `valid.go`). The other bookkeeping-only steps (Upkeep,
+Main1, the rest) stay empty because they need the stack, triggers or `SpellAbility` to do anything, but CombatEnd's real
+action — every creature and planeswalker/battle stops being attacking/blocking — needs none of that, just resetting
+`g.combat` to its zero value the same way Java's `PhaseHandler.endCombat` sets its `Combat` field to `null`. Before this
+landed, nothing cleared `Combat.Attackers`/`AttackTargets`/`Blocks` between combats at all: `DeclareCombatAttackers` and
+`DeclareCombatBlockers` only overwrite `g.combat` on the branch where something is actually declared, and both return
+early without touching it when nothing is eligible (the same "nothing meaningful to decide" shortcut that makes them
+cheap to call unconditionally) — a real combat's data would have silently survived into a later turn that never attacked
+with anything, latent because no fixture or test happened to play two turns of combat in the same game before this one.
 
 Not here yet: block legality beyond "untapped creature the defending player controls" — Flying/reach, menace,
 protection, "must be blocked by" — waits on the general static-ability engine, above.

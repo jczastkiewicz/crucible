@@ -132,9 +132,6 @@ func (g *Game) playerActionTriggerMatches(actor PlayerID, gate func(h *Card, t *
 							if !strings.EqualFold(t.Name, mode) || !phaseTriggerZoneMatches(h, t, z) {
 								continue
 							}
-							if hasAnyParam(t, "ActivationLimit", "ResolvedLimit") {
-								continue
-							}
 							if vp, ok := t.Param("ValidPlayer"); ok {
 								matched, recognized := matchesPlayerSpec(g, actor, h.Controller(), host, vp)
 								if !recognized || !matched {

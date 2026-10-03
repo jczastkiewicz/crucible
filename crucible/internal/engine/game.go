@@ -931,6 +931,8 @@ func (g *Game) put(id CardID, kind ZoneType, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = kind, owner
 	c.activations = nil
+	c.trigActs = nil
+	c.trigResolved = nil
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	if kind != Stack {
@@ -946,6 +948,8 @@ func (g *Game) putFront(id CardID, owner PlayerID) {
 	c := &g.cards[id]
 	c.Zone, c.ZoneOwner = Library, owner
 	c.activations = nil
+	c.trigActs = nil
+	c.trigResolved = nil
 	g.timestamp++
 	c.Timestamp, c.zoneStamp = g.timestamp, g.timestamp
 	c.exiledWith = exiledWithMark{}
@@ -965,6 +969,11 @@ func (g *Game) Attach(attachment, host CardID) {
 	}
 	a, h := g.Card(attachment), g.Card(host)
 	g.Unattach(attachment)
+	// CR 613.7e: an Aura, Equipment or Fortification gets a new timestamp each
+	// time it becomes attached (Card.java:3938), so its continuous effects
+	// order after what existed before.
+	g.timestamp++
+	a.Timestamp = g.timestamp
 	a.attachedTo = host
 	if h.attachments == nil {
 		h.attachments = collect.NewOrderedSet[CardID](2)
@@ -1125,6 +1134,8 @@ func (g *Game) Clone() *Game {
 		c.hiddenKeywords = append([]string(nil), g.cards[i].hiddenKeywords...)
 		c.blockedByThisTurn = append([]CardID(nil), g.cards[i].blockedByThisTurn...)
 		c.activations = g.cards[i].activations.clone()
+		c.trigActs = g.cards[i].trigActs.clone()
+		c.trigResolved = g.cards[i].trigResolved.clone()
 		c.PT = g.cards[i].PT.clone()
 		c.TypeMod = g.cards[i].TypeMod.clone()
 		c.ColorMod = g.cards[i].ColorMod.clone()

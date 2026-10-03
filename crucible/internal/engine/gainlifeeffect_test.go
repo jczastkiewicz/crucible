@@ -377,12 +377,10 @@ func TestGainLifeEffectSkipsLifeGainedTriggerFirstTimeOnSecondGain(t *testing.T)
 	}
 }
 
-// TestGainLifeEffectSkipsLifeGainedTriggerWithActivationLimit proves the
-// ActivationLimit$ correctness fix: a line naming it (4 real corpus lines,
-// this port's own per-trigger resolution counter not built) must skip the
-// whole line rather than firing every single time -- a wrong answer, not a
-// coverage gap, since this port never checked the key at all before.
-func TestGainLifeEffectSkipsLifeGainedTriggerWithActivationLimit(t *testing.T) {
+// TestGainLifeEffectHonorsLifeGainedActivationLimit proves Trigger.
+// checkActivationLimit: a watcher naming ActivationLimit$ 1 fires for the
+// first life gain of the turn and not for the second.
+func TestGainLifeEffectHonorsLifeGainedActivationLimit(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -391,13 +389,25 @@ func TestGainLifeEffectSkipsLifeGainedTriggerWithActivationLimit(t *testing.T) {
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 	g.NewCard(lifeGainedTriggerCreatureDefPTWithExtra(t, "Test Activation Limit Watcher", "ActivationLimit$ 1"), p, engine.Battlefield)
 	top := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	second := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
 
 	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
-
-	if g.Card(top).Zone != engine.Library {
-		t.Errorf("library card zone = %v, want unchanged Library -- ActivationLimit$ is not resolved, so the whole line must skip", g.Card(top).Zone)
+	if g.Card(top).Zone != engine.Hand && g.Card(second).Zone != engine.Hand {
+		t.Fatal("the first life gain did not fire the ActivationLimit$ 1 watcher")
+	}
+	if err := castETBGainLife(t, g, p, etbGainLifeTriggerDefParams(t, "Test Second Gainer", "Defined$ You | LifeAmount$ 3", nil)); err != nil {
+		t.Fatalf("ResolveStack (second): %v", err)
+	}
+	inHand := 0
+	for _, id := range []engine.CardID{top, second} {
+		if g.Card(id).Zone == engine.Hand {
+			inHand++
+		}
+	}
+	if inHand != 1 {
+		t.Errorf("%d library cards drawn after two life gains, want 1 -- ActivationLimit$ 1 fires once a turn", inHand)
 	}
 }
 

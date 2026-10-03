@@ -27,9 +27,17 @@ CR 613.8a's existence test reads the same flag (`staticExists`): Urborg, Tomb of
 removes its ability, so Blood Moon applies first whatever the timestamps and Urborg's static is skipped once its host
 has lost it (Java's `applyContinuousAbilityBefore` returning null).
 
-Not ported: a land entering under Blood Moon still has its own "as this enters" replacement (shock lands, tapped duals)
-checked against its printed text. CR 614.12 looks at the permanent as it would exist on the battlefield; Java builds
-that look-ahead copy with the statics applied. `RemoveAllAbilities$`/`RemoveNonManaAbilities$` remove keywords only, not
-statics, triggers or abilities (Humility, Layer 6). Tests: `landabilityremoval_test.go` (Crystal Vein's printed mana
-ability, Darksteel Citadel's printed keyword, Urborg in both timestamp orders, Chromatic Lantern's granted mana ability
-surviving and offered by `ActivateAbility`'s `manaChoices`).
+Entering lands (CR 614.12): `enterBattlefieldReplacements` (`entersascopy.go`) calls `refreshLayers` (`action.go`: the
+state-based-action pass's layer sequence without its control corrections) before any entry replacement runs, so the card
+already on the battlefield is the permanent as it would exist there: under Blood Moon Gruul Guildgate and Temple Garden
+are Mountains without their "enters tapped" replacements (`ReplacementHandler.getReplacementList`'s LKI look-ahead,
+`ReplacementHandler.java:79-98`, which this replaces). The moving card's own copy replacements and enter-tapped
+replacements read `traitDef`/`traitFaces`.
+
+Not ported: `RemoveAllAbilities$`/`RemoveNonManaAbilities$` remove keywords only, not statics, triggers or abilities
+(Humility, Layer 6).
+
+Tests: `landabilityremoval_test.go`, `enterstappedunless_test.go`, scenarios
+`blood-moon-removes-a-shock-lands-replacement-on-entering` (Crystal Vein's printed mana ability, Darksteel Citadel's
+printed keyword, Urborg in both timestamp orders, Chromatic Lantern's granted mana ability surviving and offered by
+`ActivateAbility`'s `manaChoices`).

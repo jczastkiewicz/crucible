@@ -74,6 +74,12 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 	if g.activePhase == Upkeep {
 		g.endUpkeep()
 	}
+	if g.activePhase == CombatEnd {
+		// PhaseHandler.onPhaseEnd's COMBAT_END case (PhaseHandler.java:492-501):
+		// combat ends as the step does, so its triggers and spells still see
+		// who attacked and blocked.
+		g.endCombat()
+	}
 	var next PhaseType
 	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
 		next = st[len(st)-1]
@@ -280,8 +286,6 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 				g.dealCombatDamageStep(controller, firstStrike)
 			}
 		}
-	case CombatEnd:
-		g.endCombat()
 	case Cleanup:
 		g.cleanupStep(controller)
 		priority = false // CR 514.3, PhaseHandler.java:422
@@ -463,8 +467,8 @@ func (g *Game) drawOneCard(controller PlayerController, pid PlayerID) bool {
 // SetMaxHandSize$ lines).
 const MaxHandSize = 7
 
-// endCombat is CR 511.3: at the beginning of the end of combat step, every
-// creature and planeswalker/battle is removed from combat. Java's
+// endCombat is CR 511.3: as the end of combat step ends, every creature and
+// planeswalker/battle is removed from combat (advanceStep). Java's
 // PhaseHandler.endCombat sets its Combat field to null; this port's
 // `Game.combat` is a value, not a pointer, so the zero value is the
 // equivalent -- a fresh `Combat{}` has no Attackers, AttackTargets or
@@ -529,6 +533,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	// (Game.java:1239-1241), not only the battlefield's.
 	for i := 1; i < len(g.cards); i++ {
 		g.cards[i].activations.resetTurn()
+		g.cards[i].trigActs.resetTurn()
+		g.cards[i].trigResolved.resetTurn()
 	}
 	// Phased-out permanents too: CR 514.2's damage removal and
 	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
@@ -550,6 +556,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 		p.LifeLostThisTurn = 0
+		p.CyclingThisTurn = 0
+		p.discardedThisTurn = nil
 	}
 
 	g.combatDamagePrevented = false

@@ -1,0 +1,7 @@
+# CR 614.12 and CR 305.7: Temple Garden enters as a Mountain under Blood Moon,
+# without the replacement its text gave it, so nobody is asked and it enters
+# untapped at full life. The queued answer is never consumed.
+queue confirmpaycost true
+startturn human
+advance 3
+playland human 1

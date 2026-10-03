@@ -47,3 +47,27 @@ func TestLayerStaticsEvaluateInTimestampOrder(t *testing.T) {
 		t.Error("Forest is not a creature: Kormus Bell was evaluated before the earlier Urborg made it a Swamp")
 	}
 }
+
+// CR 613.7e: an Equipment gets a new timestamp each time it becomes attached,
+// so of two power-setting Equipment the one attached last wins; re-attaching
+// the first puts it ahead again.
+func TestEquipmentIsRestampedWhenItBecomesAttached(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	four := g.NewCard(scriptDef(t, "Four Blade", "Artifact Equipment", "S:Mode$ Continuous | AffectedDefined$ Equipped | SetPower$ 4"), p, engine.Battlefield)
+	two := g.NewCard(scriptDef(t, "Two Blade", "Artifact Equipment", "S:Mode$ Continuous | AffectedDefined$ Equipped | SetPower$ 2"), p, engine.Battlefield)
+	g.Attach(four, bears)
+	g.Attach(two, bears)
+	sba(g)
+	if got, _ := g.Card(bears).Power(); got != 2 {
+		t.Fatalf("power = %d, want 2: the second Equipment attached wins", got)
+	}
+	g.Attach(four, bears)
+	sba(g)
+	if got, _ := g.Card(bears).Power(); got != 4 {
+		t.Errorf("power = %d, want 4: re-attaching Four Blade restamps it", got)
+	}
+}

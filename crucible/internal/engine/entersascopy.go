@@ -26,10 +26,11 @@ import (
 // of a tapland enters tapped, and a Clone entering as a copy of a creature
 // with an ETB trigger has that trigger when checkETBTriggers looks.
 func (g *Game) enterBattlefieldReplacements(controller PlayerController, moved CardID, origin ZoneType) {
+	g.refreshLayers()
 	g.applyCopyReplacements(controller, moved, origin)
 	g.applyEnterCounters(controller, moved, origin)
 	g.applySagaCounter(controller, moved)
-	g.checkMovedReplacement(moved, origin)
+	g.checkMovedReplacement(controller, moved, origin)
 }
 
 // copyReplacement is one Copy-layer replacement that applies to an entry:
@@ -103,14 +104,15 @@ func (g *Game) applyCopyReplacements(controller PlayerController, moved CardID, 
 func (g *Game) copyReplacementCandidates(moved CardID, origin ZoneType, applied []copyReplacement) ([]copyReplacement, error) {
 	var out []copyReplacement
 	consider := func(h *Card, self bool) error {
-		if h.Def == nil {
+		def := h.traitDef()
+		if def == nil {
 			return nil
 		}
 		gen := 0
 		if self {
 			gen = len(h.copies)
 		}
-		face := &h.Def.Faces[0]
+		face := &def.Faces[0]
 		for _, r := range face.Replacements {
 			c := copyReplacement{host: h.ID, r: r, amounts: face.Amounts, gen: gen}
 			if wasApplied(applied, c) {

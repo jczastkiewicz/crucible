@@ -50,6 +50,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
@@ -347,7 +348,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	activated := Ability{
 		API: apiType, Source: card, Controller: pid,
-		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true,
+		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	if !paid {
@@ -430,6 +431,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	c.activations.note(index)
 	g.pushTriggeredAbilities(controller, []Ability{activated})
+	g.checkAbilityCastTriggers(controller, &activated)
+	if isCycling(ability) {
+		pl := g.Player(pid)
+		pl.CyclingThisTurn++
+		g.checkCycledTriggers(controller, card, pid, pl.CyclingThisTurn == 1)
+	}
 	return true
 }
 
@@ -548,4 +555,11 @@ func (g *Game) timingRestrictionsMet(pid PlayerID, ability *compile.Ability) boo
 		return false
 	}
 	return true
+}
+
+// isCycling is SpellAbility.isCycling: the ability was built from a Cycling or
+// TypeCycling keyword.
+func isCycling(ability *compile.Ability) bool {
+	name := keyword.Parse(ability.Keyword).Name
+	return name == "Cycling" || name == "TypeCycling"
 }

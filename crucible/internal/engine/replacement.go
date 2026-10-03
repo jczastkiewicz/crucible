@@ -96,12 +96,12 @@ import (
 // either loop) is applied directly and the search stops -- CR 616's own
 // "which one applies" choice has no observable answer to get wrong when
 // every candidate would produce the identical result.
-func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
+func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, origin ZoneType) {
 	movedCard := g.Card(moved)
 	if movedCard.Def != nil {
-		for _, face := range movedCard.Def.Faces {
+		for _, face := range movedCard.traitFaces() {
 			for _, r := range face.Replacements {
-				if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, movedCard.Controller(), moved, face.Amounts); matched {
+				if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, movedCard.Controller(), moved, face.Amounts); matched {
 					movedCard.Tapped = shouldTap
 					return
 				}
@@ -112,7 +112,7 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 	// permanent enters tapped"), kept in its grant rows across zone changes.
 	for _, grant := range movedCard.grants {
 		for _, r := range grant.replacements {
-			if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, movedCard.Controller(), moved, grant.amounts); matched {
+			if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, movedCard.Controller(), moved, grant.amounts); matched {
 				movedCard.Tapped = shouldTap
 				return
 			}
@@ -129,7 +129,7 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 			}
 			for _, face := range w.traitFaces() {
 				for _, r := range face.Replacements {
-					if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, w.Controller(), watcher, face.Amounts); matched {
+					if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, w.Controller(), watcher, face.Amounts); matched {
 						movedCard.Tapped = shouldTap
 						return
 					}
@@ -292,7 +292,7 @@ func replacementRequirementsCheck(g *Game, host *Card, amounts map[string]expr.A
 // actually holds, since CR 616's own "which replacement applies" choice is
 // decided by ReplaceWith$ naming a resolvable shape at all, not by what that
 // shape's own resolution produces.
-func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (shouldTap, matched bool) {
+func replacementTapsOnMove(g *Game, controller PlayerController, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (shouldTap, matched bool) {
 	if !strings.EqualFold(r.Name, "Moved") {
 		return false, false
 	}
@@ -314,7 +314,7 @@ func replacementTapsOnMove(g *Game, r *compile.Ability, movedCard *Card, origin 
 	}
 	for _, sub := range r.Subs {
 		if strings.EqualFold(sub.Key, "ReplaceWith") {
-			return tapAbilityResolvesTap(g, sub.Ability, g.Card(host), amounts)
+			return tapAbilityResolvesTap(g, controller, sub.Ability, g.Card(host), amounts)
 		}
 	}
 	return false, false
@@ -1158,7 +1158,7 @@ func gainLifePreventionMatches(g *Game, r *compile.Ability, host CardID, hostZon
 	return hostInActiveZones(g.Card(host), r, hostZone) && replacementRequirementsCheck(g, g.Card(host), amounts, r)
 }
 
-func tapAbilityResolvesTap(g *Game, a *compile.Ability, host *Card, amounts map[string]expr.Amount) (shouldTap, recognized bool) {
+func tapAbilityResolvesTap(g *Game, controller PlayerController, a *compile.Ability, host *Card, amounts map[string]expr.Amount) (shouldTap, recognized bool) {
 	if !strings.EqualFold(a.Name, "Tap") {
 		return false, false
 	}
@@ -1168,13 +1168,46 @@ func tapAbilityResolvesTap(g *Game, a *compile.Ability, host *Card, amounts map[
 	}
 	for _, p := range a.Params {
 		switch strings.ToLower(p.Key) {
-		case "db", "defined", "etb",
+		case "db", "defined", "etb", "stackdescription", "unlesscost", "unlesspayer",
 			"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare":
 		default:
 			return false, false
 		}
 	}
-	return subAbilityConditionMet(g, host, amounts, a), true
+	if !subAbilityConditionMet(g, host, amounts, a) {
+		return false, true
+	}
+	if text, ok := a.Param("UnlessCost"); ok {
+		return !g.payEntersTappedUnless(controller, a, host, text), true
+	}
+	return true, true
+}
+
+// payEntersTappedUnless is AbilityUtils.handleUnlessCost for an "enters
+// tapped unless" replacement (Temple Garden's "you may pay 2 life", Port
+// Town's "unless you reveal an Island or a Plains card"): the payer is asked
+// and, on a yes, pays. It reports whether the cost was paid, which keeps the
+// permanent untapped. A cost parseUnlessCost does not read, or a payer other
+// than You, is a pending error and the permanent enters untapped, as it did
+// before this shape was read (GO-7).
+func (g *Game) payEntersTappedUnless(controller PlayerController, a *compile.Ability, host *Card, text string) bool {
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		g.recordPendingError(fmt.Errorf("engine: %q: UnlessCost$ %q on an enters-tapped replacement not resolvable yet", host.Def.Name, text))
+		return true
+	}
+	if payer, ok := a.Param("UnlessPayer"); !ok || !strings.EqualFold(payer, "You") {
+		g.recordPendingError(fmt.Errorf("engine: %q: UnlessPayer$ on an enters-tapped replacement not resolvable yet", host.Def.Name))
+		return true
+	}
+	payer := host.Controller()
+	if !g.unlessPayable(payer, host.ID, uc) {
+		return false
+	}
+	if !uc.mandatory && !controller.ConfirmPayCost(g, payer, uc.parsed, host.ID) {
+		return false
+	}
+	return g.payUnlessCost(controller, &Ability{Source: host.ID, Controller: payer}, payer, uc)
 }
 
 // drawReplaced is CR 616's own "the event is replaced by a different one"

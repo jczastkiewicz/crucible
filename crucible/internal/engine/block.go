@@ -135,6 +135,7 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 	for _, attacker := range blockedAttackers {
 		g.checkAttackerBlockedTriggers(controller, attacker, blockersByAttacker[attacker])
 	}
+	g.checkUnblockedTriggers(controller)
 	return blocks, nil
 }
 

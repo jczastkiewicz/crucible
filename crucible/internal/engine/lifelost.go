@@ -38,7 +38,7 @@ func (g *Game) noteLifeLost(controller PlayerController, pid PlayerID, amount in
 				}
 				for face := range h.triggerFaces {
 					for _, t := range face.Triggers {
-						if !isLifeLostTrigger(t) || hasAnyParam(t, "ValidCause", "ResolvedLimit", "ActivationLimit") {
+						if !isLifeLostTrigger(t) || hasAnyParam(t, "ValidCause") {
 							continue
 						}
 						if !phaseTriggerZoneMatches(h, t, z) {

@@ -218,6 +218,10 @@ type Ability struct {
 	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
 	// "source of an ability that has triggered but not yet left the stack").
 	isTrigger bool
+	// activated marks an ability put on the stack by ActivateAbility, which
+	// pushes through pushTriggeredAbilities for its targets: it is not a
+	// trigger (isTrigger stays false).
+	activated bool
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the
@@ -332,6 +336,9 @@ type triggeredObjects struct {
 	// counts are the integers the trigger mode recorded, read by
 	// TriggerCount$<Key> (AbilityUtils.java:638).
 	counts triggerCounts
+	// cards is AbilityKey.Cards: the batch a Mode$ DiscardedAll trigger
+	// fired for, read by Defined$ TriggeredCards.
+	cards []CardID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

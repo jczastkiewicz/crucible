@@ -228,6 +228,7 @@ func TestEffectCardUntilEndOfCombat(t *testing.T) {
 	eff := commandEffects(g, p)[0]
 	g.SetTurnState(1, p, engine.CombatDamage)
 	g.AdvancePhase(c)
+	g.AdvancePhase(c) // combat ends as the end of combat step does
 	if z := g.Card(eff).Zone; z != engine.None {
 		t.Errorf("effect zone at end of combat = %v, want None (removed from the game)", z)
 	}

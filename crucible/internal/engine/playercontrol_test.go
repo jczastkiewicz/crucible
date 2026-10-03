@@ -127,6 +127,8 @@ func TestControlPlayerCombatLastsForTheTargetsNextCombat(t *testing.T) {
 	advanceToPhase(t, g, c, 2, engine.CombatDamage)
 	wantControl(t, g, other, p)
 	advanceToPhase(t, g, c, 2, engine.CombatEnd)
+	wantControl(t, g, other, p) // combat ends as the step does
+	advanceToPhase(t, g, c, 2, engine.Main2)
 	wantControl(t, g, other, engine.NoPlayer)
 	advanceToPhase(t, g, c, 4, engine.CombatBegin)
 	wantControl(t, g, other, engine.NoPlayer)
@@ -192,6 +194,8 @@ func TestControlPlayerNestedGrantsRevertToTheNextMostRecent(t *testing.T) {
 	advanceToPhase(t, g, c, 2, engine.CombatBegin)
 	wantControl(t, g, other, third)
 	advanceToPhase(t, g, c, 2, engine.CombatEnd)
+	wantControl(t, g, other, third) // combat ends as the step does
+	advanceToPhase(t, g, c, 2, engine.Main2)
 	wantControl(t, g, other, p)
 	advanceToPhase(t, g, c, 3, engine.Untap)
 	wantControl(t, g, other, engine.NoPlayer)

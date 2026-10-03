@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -231,6 +232,8 @@ type Card struct {
 	activations activationCounts
 	// trigActs is the same for the card's triggers, keyed by Execute$ ability.
 	trigActs triggerActivations
+	// abilityRemoval is this pass's Layer 6 removal of the card's own text.
+	abilityRemoval abilityRemoval
 	// trigResolved counts, this turn, how often each of the card's triggers
 	// resolved (Card.numberAbilityResolved, ResolvedLimit$).
 	trigResolved triggerActivations
@@ -427,7 +430,32 @@ type traitGrant struct {
 // still apply on top and the basic land type's own mana ability comes from
 // the new subtype (TapLandForMana).
 func (c *Card) printedTraitsRemoved() bool {
-	return c.TypeMod.removesLandAbilities()
+	return c.TypeMod.removesLandAbilities() || c.abilityRemoval != removalNone
+}
+
+// abilityRemoval is how much of a card's own text a Layer 6
+// RemoveAllAbilities$/RemoveNonManaAbilities$ effect has taken away this pass
+// (StaticAbilityContinuous.java:327-331, CardTraitChanges' remove predicate):
+// every static, trigger, replacement effect, activated ability and keyword,
+// or all of them but the mana abilities. It is rebuilt each pass
+// (applyContinuousLayers) and read by printedTraitsRemoved and abilityAt.
+type abilityRemoval uint8
+
+const (
+	removalNone abilityRemoval = iota
+	removalNonMana
+	removalAll
+)
+
+// hidesPrintedAbility reports whether ab, one of c's own printed A: lines, is
+// not an ability c has: gone to a land subtype setter (CR 305.7) or to a
+// RemoveAllAbilities$ effect, or, under RemoveNonManaAbilities$, not a mana
+// ability.
+func (c *Card) hidesPrintedAbility(ab *compile.Ability) bool {
+	if c.TypeMod.removesLandAbilities() || c.abilityRemoval == removalAll {
+		return true
+	}
+	return c.abilityRemoval == removalNonMana && !strings.EqualFold(ab.Name, "Mana")
 }
 
 // traitDef is c's definition as a source of its own printed traits, nil
@@ -466,9 +494,9 @@ func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, b
 	}
 	printed := c.Def.Faces[0].Abilities
 	if index < len(printed) {
-		// CR 305.7 hides the printed lines without renumbering the granted
-		// ones after them.
-		if c.printedTraitsRemoved() {
+		// CR 305.7 and RemoveAllAbilities$ hide the printed lines without
+		// renumbering the granted ones after them.
+		if c.hidesPrintedAbility(printed[index]) {
 			return nil, nil, false
 		}
 		return printed[index], c.Def.Faces[0].Amounts, true

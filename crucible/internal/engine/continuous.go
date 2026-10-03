@@ -89,7 +89,9 @@ type layerStatic struct {
 	amounts map[string]expr.Amount
 }
 
-// continuousStatics is every static ability on every trait host in Java's
+// continuousStatics is every static ability printed on every trait host (a
+// host that has lost them still lists them: a static already applying in an
+// earlier layer keeps applying, CR 613.6 -- each applier asks staticLive) in Java's
 // effectOrder (GameAction.java:82-83): characteristic-defining lines first
 // (CR 613.3), then by the host's timestamp (CR 613.7), ties kept in the
 // battlefield's own order. Each applier walks this order, so an Affected$
@@ -101,7 +103,7 @@ func continuousStatics(g *Game) []layerStatic {
 	var out []layerStatic
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
-			def := g.Card(host).traitDef()
+			def := g.Card(host).Def
 			if def == nil {
 				continue
 			}
@@ -149,6 +151,9 @@ func applyContinuousPT(g *Game) {
 	animatePT(g)
 	pumpPT(g)
 	for _, ls := range continuousStatics(g) {
+		if !g.staticLive(g.Card(ls.host), ls.s) {
+			continue
+		}
 		applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
@@ -194,8 +199,8 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 		return
 	}
 	_, hasDefined := s.Param("AffectedDefined")
-	affected, ok := s.Param("Affected")
-	if !ok && !hasDefined {
+	_, hasAffected := s.Param("Affected")
+	if !hasAffected && !hasDefined {
 		return
 	}
 	addP, hasAddP := ptParam(g, amounts, host, s, "AddPower")
@@ -209,21 +214,9 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	// AffectedDefined$ (Enchanted, Equipped, Self, "AttachedBy Self") names
 	// the cards layerAffectedCards resolves, Affected$ then filtering them;
 	// without it every battlefield permanent matching Affected$ is affected.
-	var ids []CardID
-	if hasDefined {
-		var ok bool
-		if ids, ok = layerAffectedCards(g, host, s); !ok {
-			return
-		}
-	} else {
-		spec := valid.Parse(affected)
-		for _, pid := range g.Players() {
-			for _, id := range g.Zone(Battlefield, pid).Cards() {
-				if Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
-					ids = append(ids, id)
-				}
-			}
-		}
+	ids, ok := g.staticAffected(host, s)
+	if !ok {
+		return
 	}
 	for _, id := range ids {
 		c := g.Card(id)
@@ -329,7 +322,7 @@ func applyOneContinuousType(g *Game, host *Card, amounts map[string]expr.Amount,
 	if !ok || !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
-	affected, ok := layerAffectedCards(g, host, s)
+	affected, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
@@ -350,6 +343,9 @@ func applyContinuousColor(g *Game) {
 	forEachOffBattlefieldCard(g, func(c *Card) { c.ColorMod.Clear() })
 	animateColors(g)
 	for _, ls := range continuousStatics(g) {
+		if !g.staticLive(g.Card(ls.host), ls.s) {
+			continue
+		}
 		applyOneContinuousColor(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
@@ -366,7 +362,7 @@ func applyOneContinuousColor(g *Game, host *Card, amounts map[string]expr.Amount
 	if !ok || !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
-	affected, ok := layerAffectedCards(g, host, s)
+	affected, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
@@ -380,6 +376,9 @@ func applyOneContinuousColor(g *Game, host *Card, amounts map[string]expr.Amount
 // in play -- applyContinuousType's own reasoning, off-battlefield clear
 // included.
 func applyContinuousKeyword(g *Game) {
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].traitGrants = nil
+	}
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).KeywordMod.Clear()
@@ -389,7 +388,7 @@ func applyContinuousKeyword(g *Game) {
 	forEachOffBattlefieldCard(g, func(c *Card) { c.KeywordMod.Clear() })
 	animateKeywords(g)
 	pumpLayerKeywords(g)
-	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), keywordLayerKeys...), keywordLayerOps(g))
+	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), keywordLayerKeys...), abilitiesLayerOps(g))
 }
 
 // applyOneContinuousKeyword is Layer 6's keyword half for one Mode$
@@ -417,7 +416,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 	if !ok || !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
-	affected, ok := layerAffectedCards(g, host, s)
+	affected, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
@@ -464,6 +463,9 @@ func applyContinuousNames(g *Game) {
 		}
 	}
 	for _, ls := range continuousStatics(g) {
+		if !g.staticLive(g.Card(ls.host), ls.s) {
+			continue
+		}
 		applyOneContinuousNames(g, g.Card(ls.host), ls.s)
 	}
 }
@@ -555,6 +557,9 @@ func clearContinuousText(g *Game) {
 // shape) swaps that very Def mid-walk.
 func applyContinuousText(g *Game) {
 	for _, ls := range continuousStatics(g) {
+		if !g.staticLive(g.Card(ls.host), ls.s) {
+			continue
+		}
 		applyOneContinuousText(g, g.Card(ls.host), ls.s, textChange{owner: ls.def, face: ls.face, static: ls.index})
 	}
 }
@@ -796,6 +801,9 @@ func applyContinuousRules(g *Game) {
 	clearHiddenKeywords(g)
 	g.mayPlay = nil
 	for _, ls := range continuousStatics(g) {
+		if !g.staticLive(g.Card(ls.host), ls.s) {
+			continue
+		}
 		h := g.Card(ls.host)
 		applyOneContinuousRules(g, h, ls.amounts, ls.s)
 		applyOneContinuousHiddenKeyword(g, h, ls.s)
@@ -1250,54 +1258,30 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 		return
 	}
 	gainer := host.Controller()
-	if _, ok := s.Param("AffectedDefined"); ok {
-		// AffectedDefined$ Enchanted/Equipped/Self (Control Magic's own shape
-		// since the upstream move off Affected$ ...EnchantedBy, #11932):
-		// layerAffectedCards, the resolver Layers 4-8 share. An unresolvable
-		// defined set skips the line (GO-7).
-		ids, ok := layerAffectedCards(g, host, s)
-		if !ok {
+	// AffectedDefined$ Enchanted/Equipped/Self (Control Magic's own shape since
+	// the upstream move off Affected$ ...EnchantedBy, #11932) or an Affected$
+	// valid string: staticAffected, the resolver Layers 4-8 share. An
+	// unresolvable defined set skips the line (GO-7).
+	if _, ok := s.Param("AffectedDefined"); !ok {
+		if _, ok := s.Param("Affected"); !ok {
 			return
 		}
-		for _, id := range ids {
-			if g.Card(id).Zone == Battlefield {
-				g.Card(id).ControlMod.Add(ControlEffect{Timestamp: host.Timestamp, Controller: gainer})
-			}
-		}
-		return
 	}
-	affected, ok := s.Param("Affected")
+	ids, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
-	spec := valid.Parse(affected)
-	for _, pid := range g.Players() {
-		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
-				continue
-			}
+	for _, id := range ids {
+		if g.Card(id).Zone == Battlefield {
 			g.Card(id).ControlMod.Add(ControlEffect{Timestamp: host.Timestamp, Controller: gainer})
 		}
 	}
 }
 
-// applyContinuousTraits is Layer 6's trait half (ADR-0023): every Mode$
-// Continuous static that names AddTrigger$ or AddAbility$ writes the compiled
-// SVars it names onto each card it affects, rebuilt from scratch each pass
-// like the other appliers (the previous pass's grants are cleared first,
-// off-battlefield cards included). AddStaticAbility$ and AddReplacementEffect$
-// grants are not applied yet, and RemoveAllAbilities$'s removal of a granted
-// trait is not ordered against them (GO-7: those lines grant only what they
-// name).
-func applyContinuousTraits(g *Game) {
-	for i := 1; i < len(g.cards); i++ {
-		g.cards[i].traitGrants = nil
-	}
-	for _, ls := range continuousStatics(g) {
-		applyOneContinuousTraits(g, g.Card(ls.host), ls.amounts, ls.s)
-	}
-}
-
+// applyOneContinuousTraits is Layer 6's trait half (ADR-0023) for one static: AddTrigger$/AddAbility$ write the
+// compiled SVars they name onto each card they affect, and RemoveAllAbilities$/RemoveNonManaAbilities$ take away the
+// card's own text and every trait granted before it (applyOneContinuousRemoval). AddStaticAbility$ and
+// AddReplacementEffect$ grants are not applied yet (GO-7: those lines grant only what they name).
 func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
@@ -1311,19 +1295,63 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 			grant.abilities = append(grant.abilities, sub.Ability)
 		}
 	}
-	if len(grant.triggers) == 0 && len(grant.abilities) == 0 {
+	removal := removalNone
+	switch {
+	case hasParamOn(s, "RemoveAllAbilities"):
+		removal = removalAll
+	case hasParamOn(s, "RemoveNonManaAbilities"):
+		removal = removalNonMana
+	}
+	if len(grant.triggers) == 0 && len(grant.abilities) == 0 && removal == removalNone {
 		return
 	}
 	if !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
-	affected, ok := layerAffectedCards(g, host, s)
+	affected, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
 	grant.amounts = amounts
 	for _, id := range affected {
 		c := g.Card(id)
-		c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), grant)
+		// CardTraitChanges.applySpellAbility and its siblings: the effect's own
+		// removal first, over everything accumulated so far (the printed text
+		// and every earlier grant), then its own additions.
+		if removal != removalNone {
+			c.removeTraits(removal)
+		}
+		if len(grant.triggers) > 0 || len(grant.abilities) > 0 {
+			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), grant)
+		}
 	}
+}
+
+// removeTraits is a RemoveAllAbilities$ (every trait) or
+// RemoveNonManaAbilities$ (every trait but mana abilities) effect reaching c:
+// the printed text goes (abilityRemoval, read by printedTraitsRemoved) and so
+// does every trait granted before it, keeping the granted mana abilities under
+// the second form. A grant with a later timestamp is added after this runs.
+func (c *Card) removeTraits(kind abilityRemoval) {
+	if kind > c.abilityRemoval {
+		c.abilityRemoval = kind
+	}
+	if kind == removalAll {
+		c.traitGrants = nil
+		return
+	}
+	var kept []traitGrant
+	for _, g := range c.traitGrants {
+		var mana []*compile.Ability
+		for _, ab := range g.abilities {
+			if strings.EqualFold(ab.Name, "Mana") {
+				mana = append(mana, ab)
+			}
+		}
+		if len(mana) > 0 {
+			g.triggers, g.abilities = nil, mana
+			kept = append(kept, g)
+		}
+	}
+	c.traitGrants = kept
 }

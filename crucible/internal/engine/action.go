@@ -884,6 +884,10 @@ func enchantSpecOf(def *compile.Card) (valid.Spec, bool) {
 // action pass moves a permanent a control effect re-homed there; a
 // refresh for an entering permanent (refreshLayers) has nothing to move.
 func applyContinuousLayers(g *Game, afterControl func()) {
+	g.layerAffected = nil
+	for i := 1; i < len(g.cards); i++ {
+		g.cards[i].abilityRemoval = removalNone
+	}
 	clearContinuousText(g)
 	applyContinuousControl(g)
 	afterControl()
@@ -891,7 +895,6 @@ func applyContinuousLayers(g *Game, afterControl func()) {
 	applyContinuousType(g)
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
-	applyContinuousTraits(g)
 	applyContinuousRules(g)
 	applyContinuousNames(g)
 	applyContinuousPT(g)

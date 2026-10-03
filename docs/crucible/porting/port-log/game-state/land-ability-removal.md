@@ -34,8 +34,8 @@ are Mountains without their "enters tapped" replacements (`ReplacementHandler.ge
 `ReplacementHandler.java:79-98`, which this replaces). The moving card's own copy replacements and enter-tapped
 replacements read `traitDef`/`traitFaces`.
 
-Not ported: `RemoveAllAbilities$`/`RemoveNonManaAbilities$` remove keywords only, not statics, triggers or abilities
-(Humility, Layer 6).
+`RemoveAllAbilities$` uses the same hiding (`abilityRemoval`,
+[`layers.md`](layers.md#cr-613-6-carried-sets-and-removeallabilities)).
 
 Tests: `landabilityremoval_test.go`, `enterstappedunless_test.go`, scenarios
 `blood-moon-removes-a-shock-lands-replacement-on-entering` (Crystal Vein's printed mana ability, Darksteel Citadel's

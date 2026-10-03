@@ -5,6 +5,7 @@
 package engine
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
@@ -16,8 +17,8 @@ import (
 type layerOps struct {
 	apply    func(ls layerStatic)
 	affected func(ls layerStatic) ([]CardID, bool)
-	mark     func() []int
-	undo     func(mark []int)
+	mark     func() layerMark
+	undo     func(mark layerMark)
 }
 
 // applyInDependencyOrder applies statics -- one layer's, already in
@@ -87,6 +88,7 @@ func findStaticToApply(g *Game, remaining []layerStatic, ops layerOps) int {
 				continue
 			}
 			mark := ops.mark()
+			carried := maps.Clone(g.layerAffected)
 			ops.apply(o)
 			dependent := existed != staticExists(g, s)
 			if !dependent && hasAffected {
@@ -94,6 +96,7 @@ func findStaticToApply(g *Game, remaining []layerStatic, ops layerOps) int {
 				dependent = ok && !slices.Equal(before, after)
 			}
 			ops.undo(mark)
+			g.layerAffected = carried
 			if dependent {
 				deps[i][j] = true
 				anyEdge = true
@@ -134,7 +137,7 @@ func findStaticToApply(g *Game, remaining []layerStatic, ops layerOps) int {
 // .contains(stAb)`: every static a layer walks is printed or text-gained
 // (traitDef), and those go away when the host's printed traits do.
 func staticExists(g *Game, ls layerStatic) bool {
-	return !g.Card(ls.host).printedTraitsRemoved()
+	return g.staticLive(g.Card(ls.host), ls.s)
 }
 
 // resolvedStatic is Java's isResolved: a static on an effect card (an
@@ -196,9 +199,18 @@ var (
 		"RemoveSuperTypes", "RemoveLandTypes", "RemoveCreatureTypes", "RemoveArtifactTypes",
 		"RemoveEnchantmentTypes",
 	}
-	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities"}
+	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "AddTrigger", "AddAbility"}
 	controlLayerKeys = []string{"GainControl"}
 )
+
+// layerMark is what a trial application can change and must give back: the
+// effect-list sizes of every card (and player), and the trait grants and
+// removal state of every card.
+type layerMark struct {
+	sizes   []int
+	grants  [][]traitGrant
+	removal []abilityRemoval
+}
 
 // markCards records size(c) for every card in the arena.
 func markCards(g *Game, size func(c *Card) int) []int {
@@ -215,36 +227,50 @@ func typeLayerOps(g *Game) layerOps {
 	return layerOps{
 		apply: func(ls layerStatic) { applyOneContinuousType(g, g.Card(ls.host), ls.amounts, ls.s) },
 		affected: func(ls layerStatic) ([]CardID, bool) {
-			return layerAffectedCards(g, g.Card(ls.host), ls.s)
+			return g.staticPeekAffected(g.Card(ls.host), ls.s)
 		},
-		mark: func() []int { return markCards(g, func(c *Card) int { return c.TypeMod.size() }) },
-		undo: func(m []int) {
-			for i := 1; i < len(m); i++ {
-				g.cards[i].TypeMod.truncate(m[i])
+		mark: func() layerMark { return layerMark{sizes: markCards(g, func(c *Card) int { return c.TypeMod.size() })} },
+		undo: func(m layerMark) {
+			for i := 1; i < len(m.sizes); i++ {
+				g.cards[i].TypeMod.truncate(m.sizes[i])
 			}
 		},
 	}
 }
 
-func keywordLayerOps(g *Game) layerOps {
+// abilitiesLayerOps is the whole of Layer 6: keyword grants and removals,
+// trait grants (AddTrigger$, AddAbility$) and RemoveAllAbilities$ /
+// RemoveNonManaAbilities$, applied together so one timestamp order governs
+// them (StaticAbility.generateLayer's ABILITIES set).
+func abilitiesLayerOps(g *Game) layerOps {
 	return layerOps{
-		apply: func(ls layerStatic) { applyOneContinuousKeyword(g, g.Card(ls.host), ls.amounts, ls.s) },
-		affected: func(ls layerStatic) ([]CardID, bool) {
-			return layerAffectedCards(g, g.Card(ls.host), ls.s)
+		apply: func(ls layerStatic) {
+			h := g.Card(ls.host)
+			applyOneContinuousKeyword(g, h, ls.amounts, ls.s)
+			applyOneContinuousTraits(g, h, ls.amounts, ls.s)
 		},
-		mark: func() []int {
-			m := markCards(g, func(c *Card) int { return c.KeywordMod.size() })
+		affected: func(ls layerStatic) ([]CardID, bool) {
+			return g.staticPeekAffected(g.Card(ls.host), ls.s)
+		},
+		mark: func() layerMark {
+			m := layerMark{sizes: markCards(g, func(c *Card) int { return c.KeywordMod.size() })}
 			for _, pid := range g.Players() {
-				m = append(m, g.Player(pid).KeywordMod.size())
+				m.sizes = append(m.sizes, g.Player(pid).KeywordMod.size())
+			}
+			m.grants = make([][]traitGrant, len(g.cards))
+			m.removal = make([]abilityRemoval, len(g.cards))
+			for i := 1; i < len(g.cards); i++ {
+				m.grants[i], m.removal[i] = g.cards[i].traitGrants, g.cards[i].abilityRemoval
 			}
 			return m
 		},
-		undo: func(m []int) {
+		undo: func(m layerMark) {
 			for i := 1; i < len(g.cards); i++ {
-				g.cards[i].KeywordMod.truncate(m[i])
+				g.cards[i].KeywordMod.truncate(m.sizes[i])
+				g.cards[i].traitGrants, g.cards[i].abilityRemoval = m.grants[i], m.removal[i]
 			}
 			for k, pid := range g.Players() {
-				g.Player(pid).KeywordMod.truncate(m[len(g.cards)+k])
+				g.Player(pid).KeywordMod.truncate(m.sizes[len(g.cards)+k])
 			}
 		},
 	}
@@ -254,12 +280,14 @@ func controlLayerOps(g *Game) layerOps {
 	return layerOps{
 		apply: func(ls layerStatic) { applyOneContinuousControl(g, g.Card(ls.host), ls.s) },
 		affected: func(ls layerStatic) ([]CardID, bool) {
-			return layerAffectedCards(g, g.Card(ls.host), ls.s)
+			return g.staticPeekAffected(g.Card(ls.host), ls.s)
 		},
-		mark: func() []int { return markCards(g, func(c *Card) int { return c.ControlMod.size() }) },
-		undo: func(m []int) {
-			for i := 1; i < len(m); i++ {
-				g.cards[i].ControlMod.truncate(m[i])
+		mark: func() layerMark {
+			return layerMark{sizes: markCards(g, func(c *Card) int { return c.ControlMod.size() })}
+		},
+		undo: func(m layerMark) {
+			for i := 1; i < len(m.sizes); i++ {
+				g.cards[i].ControlMod.truncate(m.sizes[i])
 			}
 		},
 	}

@@ -1,0 +1,17 @@
+# CR 303.4h/601.2c: an Aura with "Enchant player" targets a player as it is
+# cast (castPlayerAura, castspell.go). Both players are legal, so human is asked
+# through ChooseTargets and picks ai. On resolution the Curse enters and attaches
+# to ai (attachEffect -> AttachToPlayer): EnchantingPlayer, Java's own spelling.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+tapformana human 6 R
+queue targets ai
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+castspell human 1
+resolvestack

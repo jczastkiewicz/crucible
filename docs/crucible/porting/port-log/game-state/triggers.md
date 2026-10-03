@@ -94,15 +94,16 @@ than `Matches` (valid.go): a `Player`, not a `Card`. Three bare values cover 1,1
 A qualified form (`Player.Opponent`, `Player.EnchantedBy`, `Player.NonActive`, `Player.Active`, `Player.Other`,
 `Player.Chosen` — 25 lines) resolves 19 of those through `matchesPlayerSpec`'s own dotted-property layer:
 `Player.Opponent` (12), `Player.NonActive` (4), `Player.Active` (2), `Player.Other` (1) and `Opponent.NonActive` (1).
-`Player.EnchantedBy` (5) and `Player.Chosen` (1) stay unresolved — a player-attached Aura and a `ChosenPlayer` memory
-slot this port tracks nothing for — the identical "skip rather than fire unconditionally" contract `hasAnyParam` already
-gives `checkAttacksTriggers`' own five unresolved params. Also skipped via `hasAnyParam`: `ValidSA`/`ValidSAonCard` (a
-`SpellAbility`, not a `Card` — `Matches` cannot evaluate one), `TargetsValid`/`CanTargetOtherCondition` (no per-trigger
-target-inspection hook), `HasXManaCost`/`NoColoredMana`/ `SnowSpentForCardsColor` (no mana-payment-detail tracking past
-whether the cost was paid), `IsSingleTarget` (no generic target-count reader) and
-`ActivatorThisTurnCast`/`ActivatorThisTurnCastEach` (a per-turn cast-history count this port tracks nothing for). 1,163
-of 1,435 real lines carry none of these. Fired from both `CastSpell` branches (castspell.go) right where `SpellCast`
-(the event) already fires — cast time, not resolution, the same place Java's own `checkTriggerEffects` call sits.
+`Player.EnchantedBy` (5) resolves from `Player.Attachments` ([`player-attachment.md`](player-attachment.md));
+`Player.Chosen` (1) stays unresolved — a `ChosenPlayer` memory slot this port tracks nothing for — the identical "skip
+rather than fire unconditionally" contract `hasAnyParam` already gives `checkAttacksTriggers`' own five unresolved
+params. Also skipped via `hasAnyParam`: `ValidSA`/`ValidSAonCard` (a `SpellAbility`, not a `Card` — `Matches` cannot
+evaluate one), `TargetsValid`/`CanTargetOtherCondition` (no per-trigger target-inspection hook),
+`HasXManaCost`/`NoColoredMana`/ `SnowSpentForCardsColor` (no mana-payment-detail tracking past whether the cost was
+paid), `IsSingleTarget` (no generic target-count reader) and `ActivatorThisTurnCast`/`ActivatorThisTurnCastEach` (a
+per-turn cast-history count this port tracks nothing for). 1,163 of 1,435 real lines carry none of these. Fired from
+both `CastSpell` branches (castspell.go) right where `SpellCast` (the event) already fires — cast time, not resolution,
+the same place Java's own `checkTriggerEffects` call sits.
 
 `checkDamageDoneTriggersToCard`/`checkDamageDoneTriggersToPlayer` are CR 603's own "whenever ~ deals damage" mode,
 `Mode$ DamageDone`, ported from `TriggerDamageDone.performTest` — split in two because Java's own `DamageTarget` is a

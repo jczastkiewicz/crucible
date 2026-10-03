@@ -731,6 +731,19 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
+			if pid, onPlayer := c.AttachedToPlayer(); onPlayer {
+				// CR 303.4h/704.5m: an Aura enchanting a player stays while the
+				// player is in the game and still fits "Enchant player/opponent";
+				// anything else attached to a player (CR 704.5n) comes off.
+				switch {
+				case c.Type().HasSubtype("Aura") && g.playerEnchantLegal(c, id, pid):
+				case c.Type().HasSubtype("Aura"):
+					toGraveyard = append(toGraveyard, id)
+				default:
+					toUnattach = append(toUnattach, id)
+				}
+				continue
+			}
 			host, attached := c.AttachedTo()
 			legal := attached && g.Card(host).Zone == Battlefield
 			// CR 704.5n/704.5p: an Equipment attached to anything but a creature,
@@ -774,6 +787,20 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 		g.checkDiesTriggers(controller, id)
 	}
 	return len(toGraveyard) > 0 || len(toUnattach) > 0
+}
+
+// playerEnchantLegal reports whether aura (id) may keep enchanting pid:
+// GameEntity.cantBeEnchantedByMsg's isValid check of the Aura's own `Enchant`
+// type -- "Player" or "Opponent", relative to the Aura's controller -- plus the
+// player still being in the game. An Aura whose Enchant keyword is not a
+// player type cannot enchant a player at all.
+func (g *Game) playerEnchantLegal(aura *Card, id CardID, pid PlayerID) bool {
+	kind, ok := enchantPlayerSpec(aura)
+	if !ok || g.Player(pid).Lost {
+		return false
+	}
+	matched, _ := matchesPlayerSpec(g, pid, aura.Controller(), id, kind)
+	return matched
 }
 
 // startYourEngines is CR 704.5z (GameAction.java:1548): a player with no speed
@@ -851,12 +878,30 @@ func resolveRoleRule(g *Game, controller PlayerController) bool {
 // "Player" and "Opponent" (`K:Enchant:Player`, `K:Enchant:Opponent` --
 // Tenuous Truce, Archenemy, Overencumbered, Psychic Possession) are Java's
 // own literal forms for an Aura that enchants a player rather than a
-// permanent, not a card-type restriction valid.Parse can express -- and
-// this port's AttachedTo (card.go) has no representation for "attached to a
-// player" at all, so those two report no checkable spec rather than being
+// permanent, not a card-type restriction valid.Parse can express: they report
+// no spec here and are read by enchantPlayerSpec instead, rather than being
 // misread as a card-type restriction no permanent could ever match.
 func enchantSpec(c *Card) (valid.Spec, bool) {
 	return enchantSpecOf(c.Def)
+}
+
+// enchantPlayerSpec is the player restriction of an Aura's `Enchant`
+// keyword -- "Player" or "Opponent" (`K:Enchant:Player`, 46 cards;
+// `K:Enchant:Opponent`, 4) -- for an Aura that enchants a player rather than
+// a permanent (CR 303.4h). ok is false for every other Aura.
+func enchantPlayerSpec(c *Card) (string, bool) {
+	if c.Def == nil {
+		return "", false
+	}
+	for _, line := range c.Def.Faces[0].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Enchant" {
+			continue
+		}
+		typ, _, _ := strings.Cut(k.Details, ":")
+		return typ, typ == "Player" || typ == "Opponent"
+	}
+	return "", false
 }
 
 // enchantSpecOf is enchantSpec for a definition (a token not yet created).

@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanhand=Shock|Id:1
+humanbattlefield=Mountain|Id:2;Curse of Bloodletting|Id:3|EnchantingPlayer:P1

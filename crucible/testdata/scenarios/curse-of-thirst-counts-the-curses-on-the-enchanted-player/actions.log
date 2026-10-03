@@ -1,0 +1,8 @@
+# Curse of Thirst: at the beginning of the enchanted player's upkeep it deals
+# damage to that player equal to the number of Curses attached to them
+# (Count$Valid Curse.AttachedTo Player.EnchantedBy). ai is enchanted by Thirst
+# and Vitality, so Thirst deals 2; the Thirst on human enchants human, so it
+# stays silent on ai's upkeep (ValidPlayer$ Player.EnchantedBy).
+startturn ai
+advance
+resolvestack

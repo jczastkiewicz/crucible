@@ -347,20 +347,19 @@ func TestCastSpellAuraFailsWithNoLegalTarget(t *testing.T) {
 	}
 }
 
-// "Enchant Player"/"Enchant Opponent" has no checkable valid.Spec
-// (enchantSpec's own doc comment) -- this port cannot tell a legal host from
-// an illegal one, so it declines rather than guessing.
-func TestCastSpellAuraFailsForEnchantPlayer(t *testing.T) {
+// "Enchant Opponent" needs an opponent to target (CR 601.2c): with a single
+// player in the game there is none, so the Aura is not cast.
+func TestCastSpellAuraFailsForEnchantOpponentWithNoOpponent(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
-	aura := g.NewCard(auraDefWithEnchant(t, "Player"), p, engine.Hand)
+	aura := g.NewCard(auraDefWithEnchant(t, "Opponent"), p, engine.Hand)
 	c := engine.NewScriptedController()
 
 	if g.CastSpell(p, aura, c) {
-		t.Fatal("CastSpell succeeded casting an Enchant Player Aura")
+		t.Fatal("CastSpell succeeded casting an Enchant Opponent Aura with no opponent")
 	}
 }
 

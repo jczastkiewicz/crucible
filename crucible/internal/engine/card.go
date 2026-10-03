@@ -394,6 +394,12 @@ type Card struct {
 	// fact and only Game.Attach and Game.Unattach may write either.
 	attachedTo  CardID
 	attachments *collect.OrderedSet[CardID]
+	// attachedPlayer is the player this card is attached to (an Aura with
+	// "Enchant player", CR 303.4h), NoPlayer when none. At most one of
+	// attachedTo and attachedPlayer is set (Card.getEntityAttachedTo is one
+	// field in Java); Game.Attach, AttachToPlayer and Unattach are the only
+	// writers.
+	attachedPlayer PlayerID
 }
 
 // grantedTriggers is one row of a card's grant overlay: the triggers one
@@ -897,6 +903,13 @@ func (c *Card) AttachedTo() (CardID, bool) {
 		return NoCard, false
 	}
 	return c.attachedTo, true
+}
+
+// AttachedToPlayer is the player this card is attached to, and whether it is
+// attached to one at all (Card.getPlayerAttachedTo). An Aura with "Enchant
+// player" -- a Curse -- is the one real shape.
+func (c *Card) AttachedToPlayer() (PlayerID, bool) {
+	return c.attachedPlayer, c.attachedPlayer != NoPlayer
 }
 
 // Attachments returns what is attached to this card, in the order it was

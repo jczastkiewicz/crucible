@@ -275,11 +275,10 @@ neighbor section, above — the same helper `cleanupDanglingAttachments` already
 `self` (`Matches`'s own `source` parameter) being the Aura's own id — the identical convention
 `cleanupDanglingAttachments` already established for re-checking an attached Aura's restriction after the fact. Two
 things decline the cast outright, both CR 601.2c's own "a spell requiring a target with none legal is illegal to cast":
-`enchantSpec` finding nothing checkable at all (an `Enchant Player`/`Enchant Opponent` Aura — `enchantSpec`'s own doc
-comment already names this gap, since `AttachedTo` has no representation for "attached to a player"), or a checkable
-spec matching zero battlefield permanents. A lone eligible target is assigned automatically, `assignAttackTargets`'s own
-"nothing meaningful to decide" reasoning; more than one asks `ChooseEnchantTarget`, the new twentieth `PlayerController`
-method ([`## Controller`](../game-state.md#controller)).
+no legal target: a checkable spec matching zero battlefield permanents, or an `Enchant Player`/`Enchant Opponent` Aura
+with no legal player (`castPlayerAura`, [`player-attachment.md`](player-attachment.md)). A lone eligible target is
+assigned automatically, `assignAttackTargets`'s own "nothing meaningful to decide" reasoning; more than one asks
+`ChooseEnchantTarget`, the new twentieth `PlayerController` method ([`## Controller`](../game-state.md#controller)).
 
 `Ability` (`ability.go`) gained a `Target CardID` field for this — its own doc comment had already reserved the shape
 ("once casting or targeting exists to fill them") before this landed. `attachEffect` reads it back at resolution: `Move`

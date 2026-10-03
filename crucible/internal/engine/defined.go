@@ -75,6 +75,25 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 				candidates = append(candidates, pid)
 			}
 		}
+	case "EnchantedPlayer":
+		// AbilityUtils.java:1109: the player the host enchants.
+		if pid, ok := g.Card(host).AttachedToPlayer(); ok {
+			candidates = []PlayerID{pid}
+		}
+	case "Enchanted", "EnchantedController", "EnchantedOwner":
+		// AbilityUtils.java:1113 (addPlayer): what the host is attached to,
+		// as a player -- itself, or the controller/owner of an enchanted
+		// card. An enchanted card under plain "Enchanted" names no player.
+		if pid, ok := g.Card(host).AttachedToPlayer(); ok {
+			candidates = []PlayerID{pid}
+		} else if id, ok := g.Card(host).AttachedTo(); ok {
+			switch defined {
+			case "EnchantedController":
+				candidates = []PlayerID{g.Card(id).Controller()}
+			case "EnchantedOwner":
+				candidates = []PlayerID{g.Card(id).Owner}
+			}
+		}
 	case "AttackingPlayer":
 		// AbilityUtils.java:1122-1125: the combat's attacking player, nobody
 		// outside combat (a static reads this on every recompute, so outside

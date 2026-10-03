@@ -448,6 +448,9 @@ func (g *Game) putSpellOnStack(card CardID, pid PlayerID) {
 // that could ever reach it (a targeted Instant/Sorcery is not built yet,
 // checkBecomesTargetTriggers' own doc comment).
 func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts) bool {
+	if kind, ok := enchantPlayerSpec(c); ok {
+		return g.castPlayerAura(pid, card, c, controller, opts, kind)
+	}
 	spec, ok := enchantSpec(c)
 	if !ok {
 		return false
@@ -473,6 +476,59 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.recordSpellCast(pid, card)
 	g.checkSpellCastTriggers(controller, card, pid)
 	tgts := []EntityID{CardEntity(target)}
+	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
+	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
+	g.pushTriggeredAbilities(controller, matches)
+	return true
+}
+
+// castPlayerAura is castAura for an Aura that enchants a player (CR 303.4h,
+// "Enchant player"/"Enchant opponent": the Curses). The player is its target
+// (CR 601.2c), carried on Ability.Targets like any other player target, so
+// hexproof, shroud, protection and "can't be the target" statics refuse it
+// the way they refuse a spell aimed at that player, and the spell fizzles if
+// the player is no longer a legal target when it resolves. The choice is one
+// ChooseTargets question over the legal players, skipped when only one is
+// left. Java's own check is GameEntity.cantBeEnchantedByMsg -- isValid of the
+// Enchant keyword's type ("Player" or "Opponent") against the player.
+func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller PlayerController, opts castOpts, kind string) bool {
+	var eligible []EntityID
+	for _, cand := range g.Players() {
+		if g.Player(cand).Lost {
+			continue
+		}
+		if matched, _ := matchesPlayerSpec(g, cand, pid, card, kind); !matched {
+			continue
+		}
+		if playerCantBeTargetedBy(g, cand, pid, card, causeSpell) {
+			continue
+		}
+		eligible = append(eligible, PlayerEntity(cand))
+	}
+	if len(eligible) == 0 {
+		return false
+	}
+	target := eligible[0]
+	if len(eligible) > 1 {
+		chosen := controller.ChooseTargets(g, pid, eligible, 1, 1)
+		if len(chosen) != 1 {
+			return false
+		}
+		target = chosen[0]
+	}
+	x, paid := g.payCastCost(pid, c, controller, opts)
+	if !paid {
+		return false
+	}
+	g.putSpellOnStack(card, pid)
+	cast := Ability{API: APIAttach, Source: card, Controller: pid, Targets: []EntityID{target}, spell: true}
+	x.setOn(&cast)
+	g.Card(card).castX = x.value
+	g.PushAbility(cast)
+	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
+	g.recordSpellCast(pid, card)
+	g.checkSpellCastTriggers(controller, card, pid)
+	tgts := []EntityID{target}
 	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
 	g.pushTriggeredAbilities(controller, matches)
@@ -684,10 +740,27 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	origin := g.Card(a.Source).Zone
 	copyBecomesToken(g.Card(a.Source))
 	g.Move(a.Source, Battlefield, a.Controller)
-	g.Attach(a.Source, a.Target)
+	if a.Target == NoCard {
+		// castPlayerAura: the Aura enchants the player it targeted.
+		if pid, ok := firstPlayerTarget(a.Targets); ok {
+			g.AttachToPlayer(a.Source, pid)
+		}
+	} else {
+		g.Attach(a.Source, a.Target)
+	}
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
 	return nil
+}
+
+// firstPlayerTarget is the first player among targets.
+func firstPlayerTarget(targets []EntityID) (PlayerID, bool) {
+	for _, e := range targets {
+		if pid, ok := e.AsPlayer(); ok {
+			return pid, true
+		}
+	}
+	return NoPlayer, false
 }
 
 // attachActivated is AttachEffect.resolve for an activated AB$ Attach (Equip,

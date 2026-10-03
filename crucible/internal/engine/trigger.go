@@ -442,9 +442,10 @@ func attacksMultiplePlayers(g *Game, attacked EntityID) bool {
 // Active/NonActive/Other dotted property, covering Player.Opponent (12),
 // Player.NonActive (4), Player.Active (2), Player.Other (1) and
 // Opponent.NonActive (1) -- 19 more of the 25 qualified lines. The
-// remaining 6 (Player.EnchantedBy, 5; Player.Chosen, 1) stay unresolved
-// (matchesPlayerSpec's own doc comment, valid.go): a trigger carrying one
-// never fires, rather than firing unconditionally (GO-7).
+// remaining one (Player.Chosen) stays unresolved (matchesPlayerSpec's own doc
+// comment, valid.go): a trigger carrying it never fires, rather than firing
+// unconditionally (GO-7). Player.EnchantedBy (5) resolves from
+// Player.Attachments.
 //
 // Not resolved, skipped via hasAnyParam below: ValidSA/ValidSAonCard (a
 // SpellAbility, not a Card, Matches (valid.go) only evaluates one of
@@ -558,9 +559,9 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 // checkSpellCastTriggers' own doc comment counts (Player.Opponent,
 // Player.NonActive, Player.Active, Player.Other, Opponent.NonActive).
 // Missing entirely is a pass, the same CardTraitBase.matchesValidParam
-// contract ValidCard's own absence gets above. Player.EnchantedBy (5) and
-// Player.Chosen (1) stay unrecognized -- matchesPlayerSpec's own doc comment
-// has the reason.
+// contract ValidCard's own absence gets above. Player.EnchantedBy (5)
+// resolves; Player.Chosen (1) stays unrecognized -- matchesPlayerSpec's own
+// doc comment has the reason.
 func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostController PlayerID, host CardID) bool {
 	v, ok := t.Param("ValidActivatingPlayer")
 	if !ok {
@@ -1925,10 +1926,9 @@ func isTapsForManaTrigger(t *compile.Ability) bool {
 // whole-table comparison no other trigger mode needs) -- 2 and 1 real lines.
 // A trigger carrying either of these is skipped entirely, not fired
 // unconditionally (GO-7). The qualified ValidPlayer$ forms matchesPlayerSpec
-// cannot resolve (Player.EnchantedBy, 14; Player.Chosen, 3;
-// Opponent.EnchantedBy, 2; Player.isMonarch, 1) stay unresolved for the
-// identical reason SpellCast's own Player.EnchantedBy/Player.Chosen do
-// (matchesPlayerSpec's own doc comment); Player.EnchantedController (34) and
+// cannot resolve (Player.Chosen, 3; Player.isMonarch, 1) stay unresolved
+// (matchesPlayerSpec's own doc comment); Player.EnchantedBy (14) and
+// Opponent.EnchantedBy (2) resolve from Player.Attachments; Player.EnchantedController (34) and
 // You.descended (10) resolve now too, matchesPlayerProperty's own new cases
 // (valid.go).
 func (g *Game) checkPhaseTriggers(controller PlayerController) {
@@ -3026,9 +3026,9 @@ func attackedTargetsOf(g *Game) []EntityID {
 // valid.Parse building a Spec no real card or player ever has the base type
 // of, for the reverse mismatch).
 //
-// A qualified player token matchesPlayerSpec cannot resolve (Player
-// .EnchantedBy, 9 of 63 real AttackedTarget$ lines; Player.hasInitiative,
-// Player.IsPoisoned, Opponent.lifeGTX, 1 each) never matches through either
+// A qualified player token matchesPlayerSpec cannot resolve (Player.hasInitiative,
+// Player.IsPoisoned, Opponent.lifeGTX, 1 each; Player.EnchantedBy, 9 of 63
+// real AttackedTarget$ lines, resolves) never matches through either
 // branch, so a trigger naming one of these never fires -- GO-7's usual
 // "skip rather than guess" outcome, reached here by simply never matching
 // rather than a separate hasAnyParam skip, since the two are observably

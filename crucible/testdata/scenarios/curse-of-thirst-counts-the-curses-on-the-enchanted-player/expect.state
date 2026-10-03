@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=Upkeep
+humanlife=20
+humanbattlefield=Curse of Thirst|EnchantingPlayer:P1;Curse of Vitality|EnchantingPlayer:P1;Curse of Thirst|EnchantingPlayer:P0
+ailife=18

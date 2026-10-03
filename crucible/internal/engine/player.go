@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
 
 // Player is one player in one game.
@@ -45,6 +46,11 @@ type Player struct {
 	// prevention (GameEntity.getAssignedDamage over damageReceivedThisTurn),
 	// which Bloodthirst reads.
 	DamageReceivedThisTurn int
+	// attachments is what is attached to this player (GameEntity's
+	// attachedCards, for a player): the Curses enchanting them, in the order
+	// they were attached. Written only by Game.AttachToPlayer and
+	// Game.Unattach, which keep it equal to every card's attachedPlayer.
+	attachments *collect.OrderedSet[CardID]
 	// Counters is player-level counters -- poison chief among them, which is
 	// what CR 704.5c checks. The same type as a card's, because nothing about
 	// "a count that is never stored at zero" is specific to what holds it.
@@ -307,4 +313,13 @@ type controlGrant struct {
 	// Controller is the player making this player's decisions while the
 	// grant is the newest one in force.
 	Controller PlayerID
+}
+
+// Attachments is what is attached to this player (GameEntity.getAttachedCards
+// for a player), in the order it was attached.
+func (p *Player) Attachments() []CardID {
+	if p.attachments == nil {
+		return nil
+	}
+	return p.attachments.All()
 }

@@ -1,0 +1,10 @@
+# Curse of Bloodletting: "If a source would deal damage to enchanted player, it
+# deals double that damage to that player instead." Its replacement matches
+# ValidTarget$ Player.EnchantedBy, which resolves through Player.Attachments.
+# Shock's 2 damage to ai (the enchanted player) is doubled to 4.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets ai
+castspell human 1
+resolvestack

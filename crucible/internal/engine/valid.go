@@ -307,6 +307,36 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "IsImprinted":
 		sc, ok := sourceCard(g, source)
 		return ok && containsCard(sc.Memory.Imprinted(), c.ID)
+	case strings.HasPrefix(name, "AttachedTo "):
+		// CardProperty.java:441: c is attached to something that is itself
+		// valid for the restriction after the space -- a player through
+		// matchesPlayerSpec ("Curse.AttachedTo Player.EnchantedBy",
+		// "Curse.AttachedTo You"), a card through Matches. Java's fallback to
+		// the ability's defined cards/players ("Targeted", "ParentTarget")
+		// needs an ability this evaluator is not given, so those match nothing.
+		restriction := strings.TrimPrefix(name, "AttachedTo ")
+		if pid, ok := c.AttachedToPlayer(); ok {
+			matched, _ := matchesPlayerSpec(g, pid, sourceController, source, restriction)
+			return matched
+		}
+		host, ok := c.AttachedTo()
+		return ok && Matches(g, g.Card(host), valid.Parse(restriction), sourceController, source)
+	case name == "EnchantedPlayer", name == "EnchantedPlayerCtrl":
+		// CardProperty.java:238: the card's owner (or, with Ctrl, its
+		// controller) is the player source enchants; a source enchanting
+		// anything else matches nothing.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		pid, attached := sc.AttachedToPlayer()
+		if !attached {
+			return false
+		}
+		if name == "EnchantedPlayerCtrl" {
+			return c.Controller() == pid
+		}
+		return c.Owner == pid
 	case name == "EnchantedBy", name == "EquippedBy", name == "AttachedBy", name == "FortifiedBy":
 		// All four are one check in Java too: GameEntity.isEnchantedBy,
 		// isEquippedBy and isFortifiedBy each just call hasCardAttachment,
@@ -794,13 +824,13 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 // remembers the candidate, PlayerProperty.java:209-212 -- what Subgame's
 // RememberPlayers$ feeds, subgameeffect.go).
 //
-// Every other real property (EnchantedBy and Chosen on a *player* -- an
-// Aura enchanting a player directly, CR 303.4h, and a ChosenPlayer memory
-// slot -- distinct from Matches' own *card*-side EnchantedBy, which this
-// port already resolves) needs state this port does not track at all yet,
-// and is left unrecognized here, ok=false, the same "skip rather than
-// guess" contract every other unresolved param in this port already has
-// (GO-7).
+// EnchantedBy (the source is among the candidate's own attachments -- an Aura
+// enchanting a player directly, CR 303.4h -- distinct from Matches' own
+// *card*-side EnchantedBy) is resolved from Player.Attachments. Every other
+// real property (Chosen, a ChosenPlayer memory slot) needs state this port
+// does not track at all yet, and is left unrecognized here, ok=false, the same
+// "skip rather than guess" contract every other unresolved param in this port
+// already has (GO-7).
 func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, property string) (matched, ok bool) {
 	if matched, ok := matchesPlayerBase(candidate, host, property); ok {
 		return matched, true
@@ -812,6 +842,10 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 		return candidate != g.ActivePlayer(), true
 	case "Other":
 		return candidate != host, true
+	case "EnchantedBy":
+		// PlayerProperty.java:249: source is among the player's attachments
+		// (GameEntity.isEnchantedBy -- any attachment counts, CR 303.4k).
+		return containsCard(g.Player(candidate).Attachments(), source), true
 	case "EnchantedController":
 		sc, ok := sourceCard(g, source)
 		if !ok {

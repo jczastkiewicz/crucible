@@ -185,13 +185,21 @@ type loader struct {
 	// order the fixture declared them: two auras naming the same host must
 	// attach in that order, because it is what breaks a tie between their
 	// continuous effects when both share a timestamp (GO-12).
-	attaches  []attachRef
-	remembers []refList
-	imprints  []refList
+	attaches []attachRef
+	// enchantsPlayer pairs a card with the seat it enchants
+	// (EnchantingPlayer:), resolved with the rest.
+	enchantsPlayer []playerAttachRef
+	remembers      []refList
+	imprints       []refList
 	// exiledWith pairs a card with the fixture id of the host it was
 	// exiled with (ExiledWith:), resolved with the rest.
 	exiledWith []attachRef
 	unapplied  []string
+}
+
+type playerAttachRef struct {
+	card engine.CardID
+	seat int
 }
 
 type attachRef struct {
@@ -280,6 +288,15 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: attach %q: %w", name, info, err)
 			}
 			ld.attaches = append(ld.attaches, attachRef{id, n})
+		case strings.HasPrefix(info, "EnchantingPlayer:"):
+			// GameState.java:1388: the player an Aura enchants (CR 303.4h),
+			// in parsePlayerString's vocabulary (seatOf).
+			_, value, _ := strings.Cut(info, ":")
+			seat, ok := seatOf(value)
+			if !ok {
+				return fmt.Errorf("%s: enchanting player %q: no such player", name, info)
+			}
+			ld.enchantsPlayer = append(ld.enchantsPlayer, playerAttachRef{id, seat})
 		case strings.HasPrefix(info, "Owner:"):
 			slot, ok := playerSlot(strings.ToLower(strings.TrimSpace(strings.TrimPrefix(info, "Owner:"))))
 			if !ok {
@@ -358,20 +375,27 @@ func (ld *loader) phasedOut(id engine.CardID, kind engine.ZoneType, info string)
 		return nil
 	}
 	_, value, _ := strings.Cut(info, ":")
-	seat := -1
-	switch {
-	case strings.EqualFold(value, "HUMAN"):
-		seat = 0
-	case strings.EqualFold(value, "AI"):
-		seat = 1
-	case len(value) >= 2 && value[0] == 'P' && value[1] >= '0' && value[1] <= '9':
-		seat = int(value[1] - '0')
-	}
+	seat, _ := seatOf(value)
 	players := ld.game.Players()
 	if seat < 0 || seat >= len(players) {
 		return fmt.Errorf("phased out %q: no such player", info)
 	}
 	return ld.game.SetPhasedOut(id, players[seat])
+}
+
+// seatOf is parsePlayerString's vocabulary (GameState.java:242-249): HUMAN and
+// AI for the first and second seat, P<digit> for a seat index. ok is false
+// for anything else, where Java silently falls back to seat 0.
+func seatOf(value string) (seat int, ok bool) {
+	switch {
+	case strings.EqualFold(value, "HUMAN"):
+		return 0, true
+	case strings.EqualFold(value, "AI"):
+		return 1, true
+	case len(value) >= 2 && value[0] == 'P' && value[1] >= '0' && value[1] <= '9':
+		return int(value[1] - '0'), true
+	}
+	return -1, false
 }
 
 // resolveRefs applies every cross-reference collected while cards were being
@@ -384,6 +408,13 @@ func (ld *loader) resolveRefs() error {
 			return fmt.Errorf("attachedto %d: no card has that id", a.hostID)
 		}
 		ld.game.Attach(a.card, host)
+	}
+	for _, e := range ld.enchantsPlayer {
+		players := ld.game.Players()
+		if e.seat >= len(players) {
+			return fmt.Errorf("enchantingplayer P%d: no such player", e.seat)
+		}
+		ld.game.AttachToPlayer(e.card, players[e.seat])
 	}
 	for _, r := range ld.remembers {
 		for _, refID := range r.ids {

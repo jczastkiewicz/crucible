@@ -497,31 +497,17 @@ func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
 		}
 	}
 
-	var targets []CardID
-	if affectedDefined, ok := s.Param("AffectedDefined"); ok {
-		if !strings.EqualFold(affectedDefined, "Equipped") {
-			return
-		}
-		equipped, attached := host.AttachedTo()
-		if !attached {
-			return
-		}
-		targets = []CardID{equipped}
-	} else {
-		for _, pid := range g.Players() {
-			targets = append(targets, g.Zone(Battlefield, pid).Cards()...)
-		}
+	if affectedDefined, ok := s.Param("AffectedDefined"); ok && !strings.EqualFold(affectedDefined, "Equipped") {
+		return
 	}
-
-	affected, ok := s.Param("Affected")
+	if _, ok := s.Param("Affected"); !ok {
+		return
+	}
+	targets, ok := g.staticAffected(host, s)
 	if !ok {
 		return
 	}
-	spec := valid.Parse(affected)
 	for _, id := range targets {
-		if !Matches(g, g.Card(id), spec, host.Controller(), host.ID) {
-			continue
-		}
 		g.Card(id).HasNonLegendaryCreatureNames = true
 	}
 }

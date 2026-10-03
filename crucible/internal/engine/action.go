@@ -892,12 +892,12 @@ func applyContinuousLayers(g *Game, afterControl func()) {
 	applyContinuousControl(g)
 	afterControl()
 	applyContinuousText(g)
+	applyContinuousNames(g)
 	applyContinuousType(g)
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
-	applyContinuousRules(g)
-	applyContinuousNames(g)
 	applyContinuousPT(g)
+	applyContinuousRules(g)
 }
 
 // refreshLayers recomputes every continuous effect now, without any

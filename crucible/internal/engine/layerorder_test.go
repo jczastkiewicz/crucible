@@ -71,3 +71,26 @@ func TestEquipmentIsRestampedWhenItBecomesAttached(t *testing.T) {
 		t.Errorf("power = %d, want 4: re-attaching Four Blade restamps it", got)
 	}
 }
+
+// CR 613.6: an effect that starts to apply in one layer applies to the same
+// objects in every other layer. The later "creatures with power 2 or less gain
+// flying and have power 4" starts in Layer 6, when the Bears are 2/2; by Layer 7b
+// the earlier "creatures have power 5" has already made them 5/2, and the effect
+// still applies to them, ending on top at 4.
+func TestAnEffectAppliesToTheSameObjectsInEveryLayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(scriptDef(t, "Test Five", "Enchantment", "S:Mode$ Continuous | Affected$ Creature | SetPower$ 5"), p, engine.Battlefield)
+	g.NewCard(scriptDef(t, "Test Four", "Enchantment", "S:Mode$ Continuous | Affected$ Creature.powerLE2 | AddKeyword$ Flying | SetPower$ 4"), p, engine.Battlefield)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	sba(g)
+
+	if !g.Card(bears).HasKeyword("Flying") {
+		t.Error("the Bears did not gain flying in Layer 6")
+	}
+	if got, _ := g.Card(bears).Power(); got != 4 {
+		t.Errorf("power = %d, want 4: the effect keeps applying to the Bears it started on", got)
+	}
+}

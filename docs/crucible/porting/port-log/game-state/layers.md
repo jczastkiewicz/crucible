@@ -492,5 +492,9 @@ activated abilities (`printedTraitsRemoved`, `hidesPrintedAbility`: the second f
 every trait granted earlier (`traitGrants`) is dropped, a later grant surviving. The flag is cleared at the start of
 each pass, so Layers 2-5 still see the text. Humility with a static that makes it a creature sets the Angel to 1/1
 whichever entered first (`TestAnEffectKeepsApplyingAfterItsSourceLosesItsAbilities`);
-`TestHumilityRemovesEveryKindOfPrintedAbility`, `TestRemoveNonManaAbilitiesKeepsManaAbilities`. Not ported:
-`AddStaticAbility$`/`AddReplacementEffect$` grants, so a removal has no such grant to drop.
+`TestHumilityRemovesEveryKindOfPrintedAbility`, `TestRemoveNonManaAbilitiesKeepsManaAbilities`. The carried set itself:
+`TestAnEffectAppliesToTheSameObjectsInEveryLayer` (an effect that starts in Layer 6 against 2/2 Bears still applies in
+7b after an earlier effect made them 5/2). Every Layer 2-6 and 7 applier and `AddNames$` read `staticAffected`; Layer
+8's player and per-card grants (`applyOneContinuousRules`, `AddHiddenKeyword$`, `MayPlay$`) compute their set once, as
+the only layer their lines name. The appliers run in Java's order: control, text and names, type, color, abilities, P/T,
+rules. Not ported: `AddStaticAbility$`/`AddReplacementEffect$` grants, so a removal has no such grant to drop.

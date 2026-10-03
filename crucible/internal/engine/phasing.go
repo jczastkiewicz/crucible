@@ -217,7 +217,7 @@ func (g *Game) cantPhase(id CardID, mode string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue

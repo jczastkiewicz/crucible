@@ -54,7 +54,7 @@ func (g *Game) cantAttack(attacker CardID, target EntityID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "CantAttack") && g.cantAttackApplies(c, target, h, s) {
 						return true
@@ -143,7 +143,7 @@ func (g *Game) canAttackDefender(c *Card, target EntityID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CanAttackDefender") || !paramsResolvable(s, canAttackDefenderParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -181,7 +181,7 @@ func (g *Game) cantBlock(blocker CardID) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.Def.Faces {
+		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantBlock") || !paramsResolvable(s, cantBlockParams) || !g.staticConditionsMet(h, s) {
 					continue

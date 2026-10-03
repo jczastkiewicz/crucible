@@ -413,6 +413,45 @@ type traitGrant struct {
 	amounts   map[string]expr.Amount
 }
 
+// printedTraitsRemoved is CR 305.7 (Card.hasRemoveIntrinsic): an effect
+// that sets a land's subtype -- RemoveLandTypes$, Blood Moon's "nonbasic
+// lands are Mountains" -- takes away every ability the land's own text gave
+// it. Java clears them in Layer 4 (CardState.LandTraitChanges): the printed
+// and Layer 3 text-gained statics, triggers, replacement effects, activated
+// abilities and keywords, while Layer 6 grants (traitGrants, KeywordMod)
+// still apply on top and the basic land type's own mana ability comes from
+// the new subtype (TapLandForMana).
+func (c *Card) printedTraitsRemoved() bool {
+	return c.TypeMod.removesLandAbilities()
+}
+
+// traitDef is c's definition as a source of its own printed traits, nil
+// while printedTraitsRemoved. Every scan for a host's static abilities,
+// replacement effects, triggers, activated abilities and keywords reads its
+// printed lines through this (or traitFaces), never Def directly.
+func (c *Card) traitDef() *compile.Card {
+	if c.printedTraitsRemoved() {
+		return nil
+	}
+	return c.Def
+}
+
+// traitFaces is traitDef's faces, nil when it is nil.
+func (c *Card) traitFaces() []compile.Face {
+	if d := c.traitDef(); d != nil {
+		return d.Faces[:]
+	}
+	return nil
+}
+
+// liveTraitFaces is traitFaces cut to liveFaces.
+func (c *Card) liveTraitFaces() []compile.Face {
+	if d := c.traitDef(); d != nil {
+		return d.Faces[:liveFaces(d)]
+	}
+	return nil
+}
+
 // abilityAt is the index'th activated ability c has: its printed A: lines,
 // then the abilities continuous statics grant it (traitGrants), with the
 // amounts those lines read their SVars from.
@@ -422,6 +461,11 @@ func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, b
 	}
 	printed := c.Def.Faces[0].Abilities
 	if index < len(printed) {
+		// CR 305.7 hides the printed lines without renumbering the granted
+		// ones after them.
+		if c.printedTraitsRemoved() {
+			return nil, nil, false
+		}
 		return printed[index], c.Def.Faces[0].Amounts, true
 	}
 	index -= len(printed)
@@ -538,8 +582,8 @@ func (c *Card) HasKeyword(name string) bool {
 // protection (staticability.go) as a printed one.
 func (c *Card) KeywordLines() []string {
 	var lines []string
-	if c.Def != nil {
-		lines = append(lines, c.Def.Faces[0].Keywords...)
+	if d := c.traitDef(); d != nil {
+		lines = append(lines, d.Faces[0].Keywords...)
 	}
 	return c.KeywordMod.fold(lines)
 }

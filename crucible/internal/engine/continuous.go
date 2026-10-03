@@ -101,7 +101,7 @@ func continuousStatics(g *Game) []layerStatic {
 	var out []layerStatic
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
-			def := g.Card(host).Def
+			def := g.Card(host).traitDef()
 			if def == nil {
 				continue
 			}

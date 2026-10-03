@@ -52,8 +52,8 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost) (mana.Cost, 
 		if h.Def == nil {
 			continue
 		}
-		for i := range h.Def.Faces {
-			face := &h.Def.Faces[i]
+		for i := range h.traitFaces() {
+			face := &h.traitFaces()[i]
 			for _, s := range face.Statics {
 				switch {
 				case strings.EqualFold(s.Name, "RaiseCost"):

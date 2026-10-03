@@ -35,7 +35,12 @@ func applyInDependencyOrder(g *Game, statics []layerStatic, ops layerOps) {
 		}
 		next := remaining[i]
 		remaining = slices.Delete(remaining, i, i+1)
-		ops.apply(next)
+		// A static whose host lost its printed abilities to an effect
+		// already applied in this layer no longer exists
+		// (applyContinuousAbilityBefore returns null for it).
+		if staticExists(g, next) {
+			ops.apply(next)
+		}
 	}
 }
 
@@ -43,12 +48,12 @@ func applyInDependencyOrder(g *Game, statics []layerStatic, ops layerOps) {
 // the static to apply next.
 //
 // CR 613.8a, as Java tests it: a static depends on another when applying the
-// other, on trial, changes what the first applies to (its affected cards,
-// compared in order, as Iterators.elementsEqual does). Java's other two
-// tests are not ported: "changes its existence" needs a static that a Layer
-// 4 or 6 effect can remove (CR 305.7, RemoveAllAbilities$), which nothing
-// here models yet, and "changes what it does" is Java's for GainControl$
-// player lists only, where this port resolves only You.
+// other, on trial, changes whether the first still exists (its host losing
+// its printed abilities, CR 305.7: Blood Moon on Urborg) or what it applies
+// to (its affected cards, compared in order, as Iterators.elementsEqual
+// does). Java's third test, "changes what it does", is for GainControl$
+// player lists only, where this port resolves only You. RemoveAllAbilities$
+// removes keywords here, not statics, so it never changes existence.
 //
 // The edges are S -> O for "S depends on O". Every edge on a cycle is
 // dropped (CR 613.8b: a dependency loop is ignored; Java removes the edges
@@ -75,19 +80,23 @@ func findStaticToApply(g *Game, remaining []layerStatic, ops layerOps) int {
 		if resolvedStatic(g, s) {
 			continue
 		}
-		if before, ok := ops.affected(s); ok {
-			for j, o := range remaining {
-				if i == j {
-					continue
-				}
-				mark := ops.mark()
-				ops.apply(o)
+		existed := staticExists(g, s)
+		before, hasAffected := ops.affected(s)
+		for j, o := range remaining {
+			if i == j {
+				continue
+			}
+			mark := ops.mark()
+			ops.apply(o)
+			dependent := existed != staticExists(g, s)
+			if !dependent && hasAffected {
 				after, ok := ops.affected(s)
-				ops.undo(mark)
-				if ok && !slices.Equal(before, after) {
-					deps[i][j] = true
-					anyEdge = true
-				}
+				dependent = ok && !slices.Equal(before, after)
+			}
+			ops.undo(mark)
+			if dependent {
+				deps[i][j] = true
+				anyEdge = true
 			}
 		}
 		if i == 0 && !anyEdge {
@@ -119,6 +128,13 @@ func findStaticToApply(g *Game, remaining []layerStatic, ops layerOps) int {
 		return 0
 	}
 	return best
+}
+
+// staticExists is Java's `stAb.getHostCard().getStaticAbilities()
+// .contains(stAb)`: every static a layer walks is printed or text-gained
+// (traitDef), and those go away when the host's printed traits do.
+func staticExists(g *Game, ls layerStatic) bool {
+	return !g.Card(ls.host).printedTraitsRemoved()
 }
 
 // resolvedStatic is Java's isResolved: a static on an effect card (an

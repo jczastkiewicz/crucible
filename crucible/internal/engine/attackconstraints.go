@@ -225,7 +225,7 @@ func (g *Game) rejectUnportedAttackRequirements() error {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "AttackRequirement") || strings.EqualFold(s.Name, "PlayerMustAttack") {
 						return fmt.Errorf("engine: Mode$ %s static not resolvable yet", s.Name)
@@ -351,8 +351,8 @@ func (g *Game) eachCombatStatic(mode string, f func(h *Card, face *compile.Face,
 			if h.Def == nil {
 				continue
 			}
-			for fi := range h.Def.Faces {
-				face := &h.Def.Faces[fi]
+			for fi := range h.traitFaces() {
+				face := &h.traitFaces()[fi]
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue

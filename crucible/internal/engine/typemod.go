@@ -30,6 +30,10 @@ type TypeEffect struct {
 	RemoveSuperTypes      bool
 	RemoveSubTypes        bool
 	DropSubtype           func(string) bool
+	// RemoveLandTypes is CardChangedType.isRemoveLandTypes: the effect sets
+	// a land's subtype (Blood Moon, Evil Presence), so the land loses every
+	// ability its printed text gave it (CR 305.7, Card.hasRemoveIntrinsic).
+	RemoveLandTypes bool
 }
 
 // Add records one continuous effect. Order does not matter here: folding
@@ -42,6 +46,18 @@ func (tm *TypeMod) Add(e TypeEffect) { tm.effects = append(tm.effects, e) }
 // and this port has no duration tracking for one that would need to
 // outlast the leaving (game-state.md's "Not ported yet").
 func (tm *TypeMod) Clear() { tm.effects = nil }
+
+// removesLandAbilities reports whether any effect on tm sets a land's
+// subtype: Card.hasRemoveIntrinsic (Card.java:3416-3422), which looks at
+// every Layer 4 change, whatever its timestamp.
+func (tm *TypeMod) removesLandAbilities() bool {
+	for _, e := range tm.effects {
+		if e.RemoveLandTypes {
+			return true
+		}
+	}
+	return false
+}
 
 // size is how many effects tm holds, a mark truncate returns to: the
 // dependency search (dependency.go) applies another static on trial and then

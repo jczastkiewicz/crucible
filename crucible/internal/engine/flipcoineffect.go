@@ -131,7 +131,7 @@ func flipCoinModInPlay(g *Game) bool {
 				if c.Def == nil {
 					continue
 				}
-				for _, face := range c.Def.Faces {
+				for _, face := range c.traitFaces() {
 					for _, s := range face.Statics {
 						if strings.EqualFold(s.Name, "FlipCoinMod") || strings.EqualFold(s.Name, "FlipCoinDoubler") {
 							return true

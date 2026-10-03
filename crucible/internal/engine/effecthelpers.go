@@ -147,11 +147,11 @@ func withAmount(amounts map[string]expr.Amount, name string, n int) map[string]e
 func battlefieldStaticNames(g *Game, key string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(id)
-			if c.Def == nil {
+			def := g.Card(id).traitDef()
+			if def == nil {
 				continue
 			}
-			for _, s := range c.Def.Faces[0].Statics {
+			for _, s := range def.Faces[0].Statics {
 				if _, ok := s.Param(key); ok {
 					return true
 				}
@@ -166,11 +166,11 @@ func battlefieldStaticNames(g *Game, key string) bool {
 func battlefieldStaticMode(g *Game, mode string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(id)
-			if c.Def == nil {
+			def := g.Card(id).traitDef()
+			if def == nil {
 				continue
 			}
-			for _, s := range c.Def.Faces[0].Statics {
+			for _, s := range def.Faces[0].Statics {
 				if v, ok := s.Param("Mode"); ok && v == mode {
 					return true
 				}
@@ -185,11 +185,11 @@ func battlefieldStaticMode(g *Game, mode string) bool {
 func battlefieldReplacementEvent(g *Game, event string) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(id)
-			if c.Def == nil {
+			def := g.Card(id).traitDef()
+			if def == nil {
 				continue
 			}
-			for _, r := range c.Def.Faces[0].Replacements {
+			for _, r := range def.Faces[0].Replacements {
 				if v, ok := r.Param("Event"); ok && v == event {
 					return true
 				}

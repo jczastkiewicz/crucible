@@ -40,7 +40,7 @@ func (g *Game) cantBeCast(pid PlayerID, card CardID) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.Def.Faces {
+		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
 				if strings.EqualFold(s.Name, "CantBeCast") && g.cantBeCastApplies(pid, c, h, s) {
 					return true
@@ -132,7 +132,7 @@ func (g *Game) cantBeActivated(pid PlayerID, card *Card, isMana, isLoyalty bool)
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "CantBeActivated") && g.cantBeActivatedApplies(pid, card, h, s, isMana, isLoyalty) {
 						return true
@@ -213,7 +213,7 @@ func (g *Game) cantPlayLand(pid PlayerID, card CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if strings.EqualFold(s.Name, "CantPlayLand") && g.cantPlayLandApplies(pid, c, h, s) {
 						return true

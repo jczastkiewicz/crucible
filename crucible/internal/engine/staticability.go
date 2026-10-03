@@ -103,7 +103,7 @@ func cantBlockBy(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantBlockBy") {
 						continue
@@ -646,7 +646,7 @@ func canBlockIfShadow(g *Game, attacker, blocker CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CanBlockIfShadow") || !continuousConditionMet(g, h, s) {
 						continue
@@ -732,7 +732,7 @@ func ignoreLegendRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnoreLegendRule") {
 						continue
@@ -770,7 +770,7 @@ func ignorePlaneswalkerZeroLoyaltyRule(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "IgnorePlaneswalkerZeroLoyaltyRule") {
 						continue
@@ -824,7 +824,7 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) {
 						continue
@@ -861,7 +861,7 @@ func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.Def.Faces {
+		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s) {
 					continue
@@ -905,7 +905,7 @@ func (g *Game) playerStatic(pid PlayerID, mode string, keep func(s *compile.Abil
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, mode) || !playerStaticApplies(g, pid, h, s) {
 						continue
@@ -1027,7 +1027,7 @@ func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantSacrifice") || !g.staticConditionsMet(h, s) {
 						continue
@@ -1145,7 +1145,7 @@ func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantPutCounter") || !paramsResolvable(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1223,7 +1223,7 @@ func (g *Game) canDamagePrevented(source CardID, isCombat bool) bool {
 		if h.Def == nil {
 			continue
 		}
-		for _, face := range h.Def.Faces {
+		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
 				if !strings.EqualFold(s.Name, "CantPreventDamage") || !paramsResolvable(s, cantPreventDamageParams) || !g.staticConditionsMet(h, s) {
 					continue
@@ -1270,7 +1270,7 @@ func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "MaxCounter") || !paramsResolvable(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
 						continue
@@ -1319,7 +1319,7 @@ func (g *Game) cantTargetStatic(entity EntityID, activator PlayerID, source Card
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantTarget") || !paramsResolvable(s, cantTargetParams) || !g.staticConditionsMet(h, s) {
 						continue

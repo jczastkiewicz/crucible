@@ -240,6 +240,7 @@ in `docs/crucible/00-master-implementation-plan-in-progress.md` items 24-32 and
 | skill    | `port-java-unit`     | Any other Java unit, PORT-3 order                                                      |
 | skill    | `add-scenario`       | Rules test as a `testdata/scenarios/` fixture                                          |
 | skill    | `sync-upstream`      | Merge `Card-Forge/forge`, verify the port still agrees with what moved                 |
+| skill    | `check-card`         | Audit a card script against Oracle text and the Java that runs it; upstream fix branch |
 
 Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`; `game-state.md` is the index plus
 `Not ported yet`. Each new M6 batch gets its own `game-state/effects-<batch>.md`; existing `effects-*.md` files are

@@ -986,11 +986,35 @@ func (g *Game) Attach(attachment, host CardID) {
 	h.attachments.Add(attachment)
 }
 
+// AttachToPlayer is Attach for a player host (Card.attachToEntity with a
+// Player, CR 303.4h): an Aura with "Enchant player" enchants the player until
+// it leaves the battlefield or the player leaves the game. Like Attach it
+// detaches from the previous host first and restamps (CR 613.7e).
+func (g *Game) AttachToPlayer(attachment CardID, host PlayerID) {
+	a := g.Card(attachment)
+	g.Unattach(attachment)
+	g.timestamp++
+	a.Timestamp = g.timestamp
+	a.attachedPlayer = host
+	p := g.Player(host)
+	if p.attachments == nil {
+		p.attachments = collect.NewOrderedSet[CardID](2)
+	}
+	p.attachments.Add(attachment)
+}
+
 // Unattach detaches a card from whatever it is attached to. Detaching an
 // unattached card is a no-op, because the callers that clean up after a zone
 // change do not track whether there was anything to clean.
 func (g *Game) Unattach(attachment CardID) {
 	a := g.Card(attachment)
+	if a.attachedPlayer != NoPlayer {
+		if p := g.Player(a.attachedPlayer); p.attachments != nil {
+			p.attachments.Remove(attachment)
+		}
+		a.attachedPlayer = NoPlayer
+		return
+	}
 	if a.attachedTo == NoCard {
 		return
 	}
@@ -1120,6 +1144,9 @@ func (g *Game) Clone() *Game {
 
 	for i := range out.players {
 		out.players[i].Counters = g.players[i].Counters.clone()
+		if g.players[i].attachments != nil {
+			out.players[i].attachments = g.players[i].attachments.Clone()
+		}
 		out.players[i].Rules = g.players[i].Rules.clone()
 		out.players[i].KeywordMod = g.players[i].KeywordMod.clone()
 		if g.players[i].completedDungeons != nil {

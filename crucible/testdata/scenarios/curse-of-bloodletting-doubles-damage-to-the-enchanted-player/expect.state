@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Mountain|Tapped;Curse of Bloodletting|EnchantingPlayer:P1
+humangraveyard=Shock
+ailife=16

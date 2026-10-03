@@ -64,11 +64,9 @@ type Ability struct {
 	Controller PlayerID
 	// Target is the single card this ability was announced against at cast
 	// time (CR 601.2c) -- NoCard when the ability has none. An Aura's own
-	// APIAttach entry is the only thing that sets it today; this port has no
-	// representation for a target that is a player (enchantSpec's own doc
-	// comment) or for more than one target (no ability needing that shape
-	// exists yet), so a single CardID is enough rather than a slice or an
-	// EntityID.
+	// APIAttach entry is the only thing that sets it today, and only for an
+	// Aura that enchants a permanent: an Aura that enchants a player
+	// (castPlayerAura) carries it in Targets instead and leaves this NoCard.
 	Target CardID
 	// Targets is the general CR 601.2c/603.3b "choose targets" answer --
 	// resolveTargets (targeting.go) fills it from a ValidTgts$/TargetMin$/

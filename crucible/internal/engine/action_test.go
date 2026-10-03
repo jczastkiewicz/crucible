@@ -677,11 +677,12 @@ func TestCheckStateBasedActionsAuraGoesToGraveyardWhenEnchantPropertyStopsMatchi
 
 // "Player" and "Opponent" (K:Enchant:Player, K:Enchant:Opponent -- real
 // corpus cards, Tenuous Truce among them) name an Aura that enchants a
-// player, not a permanent -- a shape this port's AttachedTo cannot even
-// represent. enchantSpec reports no checkable spec for either rather than
-// reading the literal word as a card-type restriction, which would
-// incorrectly destroy the aura on every call: no permanent's type line ever
-// contains the string "Opponent".
+// player, not a permanent (enchantPlayerSpec). enchantSpec reports no
+// checkable spec for either rather than reading the literal word as a
+// card-type restriction, which would incorrectly destroy the aura on every
+// call: no permanent's type line ever contains the string "Opponent". Such
+// an Aura attached to a card is left alone; only one attached to a player is
+// checked, against the player (TestEnchantOpponentAuraOnItsOwnController...).
 func TestCheckStateBasedActionsAuraWithPlayerEnchantIsNotCheckedAgainstHost(t *testing.T) {
 	t.Parallel()
 

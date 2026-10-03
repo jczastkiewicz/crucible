@@ -91,9 +91,9 @@ comment already named as this rule's eventual caller, with no `Ability` in sight
 `"Opponent"` (`K:Enchant:Player`, `K:Enchant:Opponent` — Tenuous Truce, Archenemy, Overencumbered, Psychic Possession)
 are Java's own literal forms for an Aura that enchants a player rather than a permanent; `enchantSpec` reports no
 checkable spec for either rather than reading the bare word as a card-type restriction no permanent's type line could
-ever contain, which would silently destroy every such Aura on the very next `CheckStateBasedActions` call. This port's
-`AttachedTo` (`CardID`-only) has no representation for "attached to a player" at all, so a player-target Aura is a gap
-this specific check does not close — a distinct, larger one from the type-restriction check it does close.
+ever contain, which would silently destroy every such Aura on the very next `CheckStateBasedActions` call.
+`enchantPlayerSpec` reads them instead, and `cleanupDanglingAttachments` checks an Aura attached to a player against the
+player (`playerEnchantLegal`, [`player-attachment.md`](player-attachment.md)).
 
 **Two different Java checks share this rule's "does the specific host refuse THIS specific Aura" question, a
 card-property question `enchantSpec`'s own type-restriction check (above) is not, and this port keeps them in two

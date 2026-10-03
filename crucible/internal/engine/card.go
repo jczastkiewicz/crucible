@@ -478,6 +478,22 @@ func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, b
 	return nil, nil, false
 }
 
+// abilityCount is how many indices abilityAt answers for, printed lines and
+// granted ones alike. Under CR 305.7 the printed indices answer not-found
+// while the granted ones after them still answer, so a walk over c's
+// abilities runs to abilityCount and skips a not-found index rather than
+// stopping at it.
+func (c *Card) abilityCount() int {
+	if c.Def == nil {
+		return 0
+	}
+	n := len(c.Def.Faces[0].Abilities)
+	for _, grant := range c.traitGrants {
+		n += len(grant.abilities)
+	}
+	return n
+}
+
 // abilityAmounts is the amounts table ability reads its SVars from: the
 // granting face's for a granted ability, else c's own printed face's.
 func (c *Card) abilityAmounts(ability *compile.Ability) map[string]expr.Amount {

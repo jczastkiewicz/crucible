@@ -30,4 +30,6 @@ has lost it (Java's `applyContinuousAbilityBefore` returning null).
 Not ported: a land entering under Blood Moon still has its own "as this enters" replacement (shock lands, tapped duals)
 checked against its printed text. CR 614.12 looks at the permanent as it would exist on the battlefield; Java builds
 that look-ahead copy with the statics applied. `RemoveAllAbilities$`/`RemoveNonManaAbilities$` remove keywords only, not
-statics, triggers or abilities (Humility, Layer 6). Tests: `landabilityremoval_test.go`.
+statics, triggers or abilities (Humility, Layer 6). Tests: `landabilityremoval_test.go` (Crystal Vein's printed mana
+ability, Darksteel Citadel's printed keyword, Urborg in both timestamp orders, Chromatic Lantern's granted mana ability
+surviving and offered by `ActivateAbility`'s `manaChoices`).

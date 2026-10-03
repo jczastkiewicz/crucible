@@ -110,10 +110,6 @@ rather than reproduced.
 
 ### Known limits (not new, now load-bearing)
 
-- **Layer order.** `CheckStateBasedActions` (action.go:197) runs `applyContinuousPT` before `applyContinuousType`/
-  `applyContinuousColor`, so a CDA that reads `Type()` or `Colors()` (Domain, CardTypes, Colors, any Valid spec on a
-  type) sees the previous pass's Layer 4/5 result. CR 613 puts Layers 4/5 first. The reorder belongs with the Layer
-  4/5/6 work.
 - **Unrecognized valid property.** `Matches` treats a property it does not know as a non-match, so a Valid-family count
   over such a spec (`Creature.ChosenCtrl`, Lost Order of Jarkeld) undercounts rather than failing to resolve.
 - **`IsPresent$` on a continuous line** is not evaluated by any applier; Grand Master of Flowers' CDA `SetPower$ 7`

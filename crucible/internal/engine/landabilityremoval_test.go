@@ -81,3 +81,52 @@ func TestBloodMoonRemovesPrintedKeywordsButNotGrantedOnes(t *testing.T) {
 		t.Error("Darksteel Citadel lost the hexproof a Layer 6 static grants")
 	}
 }
+
+// CR 305.7 removes only what the land's own text gave it: Chromatic Lantern's
+// Layer 6 grant ("Lands you control have {T}: Add one mana of any color")
+// still applies on top. Under Blood Moon, Crystal Vein's two printed mana
+// abilities (indices 0 and 1) are gone and the granted one (index 2) taps.
+func TestBloodMoonKeepsAGrantedManaAbility(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Blood Moon"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Chromatic Lantern"), p, engine.Battlefield)
+	vein := g.NewCard(corpusCard(t, "Crystal Vein"), p, engine.Battlefield)
+	sba(g)
+	c := engine.NewScriptedController()
+	for _, printed := range []int{0, 1} {
+		if g.ActivateManaAbility(p, vein, printed, c) {
+			t.Fatalf("printed mana ability %d activated under Blood Moon", printed)
+		}
+	}
+	c.QueueManaColor(mana.Green)
+	if !g.ActivateManaAbility(p, vein, 2, c) {
+		t.Error("Chromatic Lantern's granted mana ability did not activate under Blood Moon")
+	}
+}
+
+// The mana abilities a permanent offers (ActivateAbility | ManaAbility$, Rain
+// of Filth-style) under CR 305.7: the Mountain's intrinsic {R} and the
+// granted "any color" are offered, the printed ones are not, and the walk
+// reaches the granted ability past the hidden printed indices.
+func TestBloodMoonedLandOffersItsSubtypeAndGrantedManaAbilities(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(corpusCard(t, "Blood Moon"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Chromatic Lantern"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Crystal Vein"), p, engine.Battlefield)
+	sba(g)
+	rec := &optionRecorder{ScriptedController: engine.NewScriptedController()}
+	rec.QueueOption(1)
+	rec.QueueManaColor(mana.Green)
+	if err := resolveWith(t, g, p, rec, "DB$ ActivateAbility | Defined$ You | Type$ Land.nonBasic | ManaAbility$ True"); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if len(rec.offers) != 1 || len(rec.offers[0]) != 2 {
+		t.Fatalf("offers = %v, want one choice between the Mountain's {R} and the granted ability", rec.offers)
+	}
+}

@@ -218,6 +218,10 @@ type Ability struct {
 	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
 	// "source of an ability that has triggered but not yet left the stack").
 	isTrigger bool
+	// activated marks an ability put on the stack by ActivateAbility, which
+	// pushes through pushTriggeredAbilities for its targets: it is not a
+	// trigger (isTrigger stays false).
+	activated bool
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the

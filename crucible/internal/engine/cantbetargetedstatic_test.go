@@ -88,3 +88,28 @@ func TestHexproofFromActivatedAbilitiesAdmitsSpells(t *testing.T) {
 		t.Errorf("an activated ability put %d counters on a creature with hexproof from activated abilities", got)
 	}
 }
+
+// A real activation is an activated ability, not a trigger: the ability an
+// opponent's creature activates cannot choose a creature with hexproof from
+// activated abilities, and hasSourceOnStack's "a trigger" test does not count
+// it either (the ability is pushed through the same path as a trigger).
+func TestHexproofFromActivatedAbilitiesRefusesARealActivation(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	drake := g.NewCard(scriptDef(t, "Test Drake", "Creature Bird", "K:Hexproof:Activated:activated abilities"), other, engine.Battlefield)
+	pinger := g.NewCard(creatureDefWithAbility(t, "Test Pinger",
+		"AB$ PutCounter | Cost$ 0 | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1"), p, engine.Battlefield)
+	g.Card(pinger).SummonSick = false
+	sba(g)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(drake)})
+	g.ActivateAbility(p, pinger, 0, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(drake).Counters.Count(engine.P1P1); got != 0 {
+		t.Errorf("an activated ability put %d counters on a creature with hexproof from activated abilities", got)
+	}
+}

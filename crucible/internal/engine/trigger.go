@@ -2088,7 +2088,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 			if !g.resolveTargets(controller, &matches[i]) {
 				continue
 			}
-			matches[i].isTrigger = true
+			matches[i].isTrigger = !matches[i].activated
 			g.PushAbility(matches[i])
 			g.pushTriggeredAbilities(controller, g.checkBecomesTargetTriggers(matches[i].Targets, false, matches[i].Controller))
 		}

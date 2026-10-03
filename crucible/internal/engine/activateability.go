@@ -347,7 +347,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	activated := Ability{
 		API: apiType, Source: card, Controller: pid,
-		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true,
+		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	if !paid {

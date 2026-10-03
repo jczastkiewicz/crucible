@@ -1065,7 +1065,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 						if !isDamageDoneOnceTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "ResolvedLimit", "ActiveZones", "DamageSource") {
+						if hasAnyParam(t, "ActiveZones", "DamageSource") {
 							continue
 						}
 						if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
@@ -1462,7 +1462,7 @@ func sacrificedTriggerMatches(g *Game, t *compile.Ability, sacrificed *Card, sou
 	if !isSacrificedTrigger(t) {
 		return false
 	}
-	if hasAnyParam(t, "ValidCause", "WhileKeyword", "ResolvedLimit") {
+	if hasAnyParam(t, "ValidCause", "WhileKeyword") {
 		return false
 	}
 	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, sacrificed, valid.Parse(validCard), sourceController, source) {
@@ -1583,7 +1583,7 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 					if !isChangesZoneAllTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "ValidCause", "ResolvedLimit", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
+					if hasAnyParam(t, "ValidCause", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
 						continue
 					}
 					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
@@ -2744,6 +2744,14 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 // integers, as Integer.parseInt reads them; one that is not refuses, GO-7).
 // pushTriggeredAbilities counts a firing as the trigger goes on the stack.
 func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
+	// CR 603.2i: ResolvedLimit$ counts resolutions this turn (Trigger.
+	// checkResolvedLimit), where ActivationLimit$ counts firings.
+	if raw, ok := t.Param("ResolvedLimit"); ok {
+		limit, err := strconv.Atoi(raw)
+		if resolved, _ := host.trigResolved.of(execute); err != nil || resolved >= limit {
+			return false
+		}
+	}
 	turn, game := host.trigActs.of(execute)
 	for _, k := range [...]struct {
 		key   string
@@ -3235,7 +3243,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if !isLifeGainedTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "ValidSource", "Spell", "ResolvedLimit") {
+						if hasAnyParam(t, "ValidSource", "Spell") {
 							continue
 						}
 						if !phaseTriggerZoneMatches(h, t, z) {

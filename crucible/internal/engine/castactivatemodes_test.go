@@ -251,3 +251,29 @@ func TestTriggerActivationLimitFiresOnceATurn(t *testing.T) {
 		t.Errorf("life = %d, want 23: two activations, one trigger", got)
 	}
 }
+
+// CR 603.2i: ResolvedLimit$ 1 counts resolutions. The trigger resolved for the
+// first activation, so it does not trigger for the second.
+func TestTriggerResolvedLimitCountsResolutions(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(scriptDef(t, "Test Watcher", "Enchantment",
+		"T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ResolvedLimit$ 1 | TriggerZones$ Battlefield | Execute$ TrigGain", gainThreeSVar), p, engine.Battlefield)
+	pinger := g.NewCard(creatureDefWithAbility(t, "Test Pinger", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 0"), p, engine.Battlefield)
+	g.Card(pinger).SummonSick = false
+	sba(g)
+	c := engine.NewScriptedController()
+	for i := 0; i < 2; i++ {
+		if !g.ActivateAbility(p, pinger, 0, c) {
+			t.Fatalf("activation %d failed", i)
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23: two activations, the trigger resolved once", got)
+	}
+}

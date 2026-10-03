@@ -231,6 +231,9 @@ type Card struct {
 	activations activationCounts
 	// trigActs is the same for the card's triggers, keyed by Execute$ ability.
 	trigActs triggerActivations
+	// trigResolved counts, this turn, how often each of the card's triggers
+	// resolved (Card.numberAbilityResolved, ResolvedLimit$).
+	trigResolved triggerActivations
 
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a

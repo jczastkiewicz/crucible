@@ -112,6 +112,11 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if e == nil {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
+	if g != nil && a.isTrigger && a.Params != nil {
+		// AbilityUtils.resolve counts each resolution of a non-wrapper ability
+		// (AbilityUtils.java:1313-1319): ResolvedLimit$'s state.
+		g.Card(a.Source).trigResolved.note(a.Params)
+	}
 	if a.Params != nil {
 		if unlessCost, ok := a.Params.Param("UnlessCost"); ok {
 			return r.resolveUnlessCost(g, a, controller, e, unlessCost)

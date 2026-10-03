@@ -389,10 +389,10 @@ already gets.
 
 118 of the corpus's own 126 real `T:Mode$ ChangesZoneAll` lines resolve (`ActivationLimit$`, 41, through
 [Trigger activation limits](#trigger-activation-limits)). Not resolved: `ValidCause$` (4) -- a `SpellAbility`, not a
-`Card`, `Matches` cannot evaluate one; `ResolvedLimit$` (3) -- the identical unresolved family several other dispatches
-already skip; `NoResolvingCheck$`/`InvertValidCause$` (1 each) -- each unclear semantics, not worth guessing at from one
-real line; `FirstTime$` (1) -- `CardUtil.getThisTurnEntered`, a further "already entered earlier this turn" mechanic
-this port does not build. A trigger carrying any of these six is skipped entirely, not fired unconditionally (GO-7).
+`Card`, `Matches` cannot evaluate one; `NoResolvingCheck$`/`InvertValidCause$` (1 each) -- each unclear semantics, not
+worth guessing at from one real line; `FirstTime$` (1) -- `CardUtil.getThisTurnEntered`, a further "already entered
+earlier this turn" mechanic this port does not build. A trigger carrying any of these six is skipped entirely, not fired
+unconditionally (GO-7).
 
 `destroyLethalToughness` and `destroyDamagedCreatures` each fire their own separate `ChangesZoneAll` batch: a real,
 narrow gap against CR 704.3's own "all applicable state-based actions are performed simultaneously as a single event" --
@@ -478,11 +478,11 @@ own move, this runs before any SBA has had a chance to.
 
 `PlayerTurn$`/`OptionalDecider$`/the whole `IsPresent$`/`CheckSVar$`/... family all resolve too, but generically,
 through `triggerEffectAPI`'s own shared gate, the identical free ride every other trigger mode reaching that chokepoint
-already gets. 200 of the corpus's own 206 real lines resolve. Not resolved: `ResolvedLimit$` (2) and `ActiveZones$` (2)
--- neither read by `TriggerDamageDoneOnce.performTest` at all, real meaning on the handful of lines naming either
-unclear; `DamageSource$` (1) -- an object reference this port has no resolver for; `FirstTime$` (1) --
-`GameEntity.getAssignedDamage`, a per-target running total across the whole turn this port tracks nowhere. A trigger
-carrying any of these four is skipped entirely, not fired unconditionally (GO-7).
+already gets. 200 of the corpus's own 206 real lines resolve. Not resolved: `ActiveZones$` (2) -- not read by
+`TriggerDamageDoneOnce.performTest` at all, real meaning on the handful of lines naming either unclear; `DamageSource$`
+(1) -- an object reference this port has no resolver for; `FirstTime$` (1) -- `GameEntity.getAssignedDamage`, a
+per-target running total across the whole turn this port tracks nowhere. A trigger carrying any of these four is skipped
+entirely, not fired unconditionally (GO-7).
 
 6 new tests (`damagedoneonce_test.go`) drive the dispatch through the real combat-damage and cast-and-resolve pipelines,
 `checkDamageDoneOnceTriggers` itself being unexported (TEST-1): a double-blocked attacker firing once for its combined
@@ -492,8 +492,8 @@ player firing once for their combined 3+4, `ValidSource$` filtering an Elf-and-G
 down to the Elf blocker's 1 before `DamageAmount$ EQ1` is checked against it (an unfiltered sum of 2 would fail that
 check and never fire, so a pass proves the filter genuinely ran first), a `DealDamage` hitting every player firing once
 per player rather than merging every player into one shared batch, `CombatDamage$ True` rejecting a non-combat
-`DealDamage`, and `ResolvedLimit$` skipping the whole line. Regression-verified by temporarily removing the new call
-from `dealCombatDamageStep` and confirming the double-block test fails exactly as expected, then restoring it.
+`DealDamage`, and `ResolvedLimit$ 1` firing once. Regression-verified by temporarily removing the new call from
+`dealCombatDamageStep` and confirming the double-block test fails exactly as expected, then restoring it.
 
 ---
 
@@ -563,10 +563,13 @@ positive test in this chunk fails exactly as expected, then restoring it.
 `Trigger.checkActivationLimit` (`Trigger.java:362-372`): the trigger has fired fewer than N times this turn (this game).
 `triggerEffectAPI` (`trigger.go`), the gate every mode already passes through, applies `triggerActivationLimitMet`, and
 `pushTriggeredAbilities` counts a firing as the trigger goes on the stack (`Trigger.triggerRun`, `Card.trigActs`, keyed
-by the Execute$ ability as Java keys it by its overriding ability). The count resets each cleanup, clears on any zone
+by the `Execute$` ability as Java keys it by its overriding ability). The count resets each cleanup, clears on any zone
 change (a new object, CR 400.7) and clones with the game (`activationmod.go`). Every dispatch that skipped such a line
-now fires it within the limit; before, a `ChangesZone` line with a limit fired every time. `ResolvedLimit$` (34) still
-skips the line. The limit must be a literal integer, as `Integer.parseInt` reads it.
+now fires it within the limit; before, a `ChangesZone` line with a limit fired every time. `ResolvedLimit$ N` (34, CR
+603.2i) is `Trigger.checkResolvedLimit`: fewer than N resolutions of the trigger's ability this turn
+(`Card.trigResolved`, noted in `Registry.Resolve`). Java checks it again when the trigger resolves
+(`WrappedAbility.java:417`); this port checks it only when the trigger would go on the stack, so two triggers already on
+the stack both resolve. Both limits must be literal integers, as Java's integer parse reads them.
 
 ## `AbilityCast`, `SpellAbilityCast`, `SpellCastOrCopy`, `Cycled`, `AttackerUnblocked`, `DiscardedAll`
 

@@ -250,10 +250,9 @@ func TestDamageDoneOnceSkipsCombatDamageMismatch(t *testing.T) {
 	}
 }
 
-// TestDamageDoneOnceSkipsLineNamingResolvedLimit proves a real, unresolved
-// param (ResolvedLimit$, 2 of the corpus's own 206 real lines) is skipped
-// rather than firing unconditionally (PORT-8/GO-7).
-func TestDamageDoneOnceSkipsLineNamingResolvedLimit(t *testing.T) {
+// TestDamageDoneOnceFiresALineNamingResolvedLimitOnce proves ResolvedLimit$ 1
+// (CR 603.2i) lets a line fire for the first damage event of the turn.
+func TestDamageDoneOnceFiresALineNamingResolvedLimitOnce(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -277,7 +276,7 @@ func TestDamageDoneOnceSkipsLineNamingResolvedLimit(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
-	if g.Player(a).Life != 20 {
-		t.Errorf("a's life = %d, want unchanged 20 -- ResolvedLimit$ must skip the whole line rather than firing unconditionally", g.Player(a).Life)
+	if g.Player(a).Life != 25 {
+		t.Errorf("a's life = %d, want 25 -- the ResolvedLimit$ 1 line fires once", g.Player(a).Life)
 	}
 }

@@ -38,7 +38,7 @@ func (g *Game) appendTriggerMatches(matches []Ability, h *Card, zone ZoneType, m
 	}
 	for face := range h.triggerFaces {
 		for _, t := range face.Triggers {
-			if !modeIn(t, modes) || !phaseTriggerZoneMatches(h, t, zone) || hasAnyParam(t, "ResolvedLimit") {
+			if !modeIn(t, modes) || !phaseTriggerZoneMatches(h, t, zone) {
 				continue
 			}
 			objs, ok := test(h, face, t)

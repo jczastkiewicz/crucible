@@ -192,7 +192,7 @@ func (g *Game) unlessPayable(pid PlayerID, source CardID, uc unlessCost) bool {
 	hand := handWithout(g.Zone(Hand, pid).Cards(), source)
 	candidates := g.unlessSacCandidates(pid, source, uc)
 	returnable := g.unlessReturnCandidates(pid, source, uc)
-	return uc.lifeN <= g.Player(pid).Life && uc.energyN <= g.Player(pid).Counters.Count(Energy) &&
+	return uc.lifeN <= g.Player(pid).Life && (uc.lifeN == 0 || !g.cantPayLife(pid, false, causeNone)) && uc.energyN <= g.Player(pid).Counters.Count(Energy) &&
 		uc.discardN <= len(hand) && uc.sacN <= len(candidates) && uc.returnN <= len(returnable) &&
 		(uc.drawN == 0 || !g.cantDrawAmount(pid, uc.drawN)) && g.unlessRevealable(pid, source, uc) &&
 		g.unlessCounterable(source, uc)
@@ -226,7 +226,7 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 		discardCards(g, controller, controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN), pid)
 	}
 	if uc.sacN > 0 {
-		sacrificeCards(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN))
+		sacrificeCardsFor(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN), false)
 	}
 	if uc.returnN > 0 {
 		returnCards(g, controller, controller.ChoosePermanentsToReturn(g, pid, returnable, uc.returnN))

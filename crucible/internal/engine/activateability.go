@@ -292,7 +292,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.DiscardN > len(hand) {
 		return false
 	}
-	if shape.PayLifeN > g.Player(pid).Life {
+	if shape.SelfSac && g.cantSacrifice(c, false, nil) {
+		return false
+	}
+	if shape.PayLifeN > g.Player(pid).Life || (shape.PayLifeN > 0 && g.cantPayLife(pid, false, causeActivated)) {
 		return false
 	}
 	if shape.PayEnergyN > g.Player(pid).Counters.Count(Energy) {
@@ -360,7 +363,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		if g.Card(card).Zone == Battlefield {
 			activated.paid.sacrificed = append(activated.paid.sacrificed, card)
 		}
-		sacrificeCards(g, controller, &activated, []CardID{card})
+		sacrificeCardsFor(g, controller, &activated, []CardID{card}, false)
 	}
 	if shape.SelfExile {
 		if g.Card(card).Zone == Battlefield {
@@ -383,6 +386,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if shape.PayLifeN > 0 {
 		g.Player(pid).Life -= shape.PayLifeN
 		g.sink.Emit(Event{Kind: LifeChanged, Source: card, Target: PlayerEntity(pid), Amount: -int32(shape.PayLifeN)})
+		g.noteLifeLost(controller, pid, shape.PayLifeN)
 	}
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)

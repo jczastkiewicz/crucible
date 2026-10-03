@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=20
+humanbattlefield=Control Magic|AttachedTo:2;Grizzly Bears|Id:2|Owner:ai
+ailife=20

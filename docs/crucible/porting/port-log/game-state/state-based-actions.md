@@ -17,10 +17,10 @@ each, in equal number — five +1/+1 and two -1/-1 leaves three +1/+1 and none �
 the source for this letter), CR 704.5f (a creature at zero or less toughness dies, Layer 7 and counters folded in —
 `GameAction.java`'s own comment on this check, not 704.5g), CR 704.5g and 704.5h together (a creature dealt lethal
 damage, or any deathtouch damage at all, dies — indestructible creatures excepted,
-[`## Lethal and deathtouch damage`](#lethal-and-deathtouch-damage-and-the-one-keyword-this-port-checks), below), a
-partial CR 704.5v (a Battle at zero or less defense dies, its own trigger-on-the-stack exception checked and always
-false today — [`## Loyalty is not a layer`](#loyalty-is-not-a-layer)'s Battle paragraph, below), CR 704.5w/704.5x (a
-Battle's protector — `assignBattleProtector`,
+[`## Lethal and deathtouch damage`](#lethal-and-deathtouch-damage-and-the-one-keyword-this-port-checks), below), a CR
+704.5v (a Battle at zero or less defense dies unless it is the source of a trigger still on the stack —
+[`## Loyalty is not a layer`](#loyalty-is-not-a-layer)'s Battle paragraph, below), CR 704.5w/704.5x (a Battle's
+protector — `assignBattleProtector`,
 [`## Combat`](turn-stack-combat.md#combat-declaring-attackers-declaring-blockers-and-dealing-damage)'s own paragraph on
 it, below), CR 704.5m (more than one permanent with the World supertype on the battlefield at once, across every player,
 destroys every one but the newest by `Card.Timestamp` — `resolveWorldRule`, the same field
@@ -158,9 +158,9 @@ same as `destroyLethalToughness` was real before `Power`/`Toughness` folded in L
 `carddb.Face.Defense` mirror `BaseLoyalty` exactly, `Move` grants it on entry the same way, and `destroyZeroDefense` (CR
 704.5v, `GameAction.java`'s own comment) reads `Card.Counters.Count(Defense)` directly, the same story. One extra piece
 of 704.5v is here too: Java's own version does not destroy a Battle at zero defense if it is the source of a trigger
-that has fired but not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is checked, not
-skipped — `destroyZeroDefense`'s own doc comment explains why it always reads false today (nothing puts a trigger on the
-stack yet) rather than being silently dropped. CR 704.5w/704.5x, a Battle's protector assignment, is a separate
+that has fired but not yet left the stack, `hasSourceOnStack` in `GameAction.java`. That exception is
+`hasSourceOnStack`, which reads `Ability.isTrigger` (set by `pushTriggeredAbilities`, the only pusher of a trigger), as
+`MagicStack` skips every item that is not a trigger. CR 704.5w/704.5x, a Battle's protector assignment, is a separate
 state-based action now too (`assignBattleProtector`,
 [`## Combat`](turn-stack-combat.md#combat-declaring-attackers-declaring-blockers-and-dealing-damage)'s own paragraph on
 it, below) — never a prerequisite for 704.5v's own defense check to be correct on its own terms, which is why the two
@@ -318,3 +318,28 @@ job, not `Move`'s — it is an SBA, checked continuously, not something a zone c
 stays untouched by any of this: it is the arena-allocation primitive fixture loading uses to seat a board mid-game,
 where a battlefield card's starting `Tapped`/`SummonSick` is exactly what the fixture says, not a rule this port applies
 at construction time.
+
+## The repeated check and the rest of CR 704.5
+
+`checkStateBasedActions` repeats `checkStateBasedActionsPass` until a pass does nothing, at most nine times
+(`maxSBAPasses`, `GameAction.java:1417`; CR 704.3). Each pass rebuilds the continuous effects the last one's moves
+changed, so a creature that dies with its anthem, or a Role that goes to the graveyard, is reflected in the same call.
+
+| CR     | Rule                                                                                                                   | Where                        |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 704.5n | Equipment on a non-creature, Fortification on a non-land, a creature or battle attached to anything becomes unattached | `cleanupDanglingAttachments` |
+| 704.5y | two Roles of one controller on a permanent: the older goes                                                             | `resolveRoleRule`            |
+| 704.5z | no speed and a "Start your engines!" permanent: speed 1                                                                | `startYourEngines`           |
+
+Token `AttachedTo$` (about 50 corpus lines, the Role tokens among them) attaches each created Aura or Equipment token to
+the first defined card (`tokenAttachHost`); an Aura token that cannot attach (`tokenCanAttach`: Enchant restriction,
+host in play) is not created (CR 303.4i). The token enters first and is attached right after, so an ETB trigger of the
+token does not see the attachment (`AttachAfter$` reads the same way); a player host is not resolvable.
+
+704.5r is `trimDreamCounters` (`action.go`), and the same cap applies as counters are put (`addCardCounters`): both read
+`Game.maxCounter` (`staticability.go`, `StaticAbilityMaxCounter.maxCounter`, smallest `MaxNum$` among matching
+`Mode$ MaxCounter` statics). Java asks the Dream kind only. `MaxNum$` is read as a literal (the one real line writes 7),
+and the `canRemoveCounters` guard on the trim is not ported.
+
+Not ported: the Contraption sprocket rule, Commander damage. Scenarios: `sba-saga-at-its-final-chapter-...`,
+`sba-equipment-attached-to-a-non-creature-...`; Go tests `roles_test.go`, `sbaspeed_test.go`, `maxcounter_test.go`.

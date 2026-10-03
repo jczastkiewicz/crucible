@@ -1,0 +1,8 @@
+# GameState.applyToGame ends with checkStateEffects(true) (GameState.java:687),
+# so the steal in setup.state is applied before any untap step: the Bears are
+# already the human's when the human's turn begins. Their CR 502.3 untap and
+# the end of their summoning sickness (CR 302.6, a creature the controller has
+# controlled continuously since the turn began) both follow. Applying the
+# steal at the first pass after the untap step instead leaves the Bears tapped
+# and sick on the thief's own turn.
+startturn human

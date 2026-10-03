@@ -41,6 +41,9 @@ type Loaded struct {
 	// say, a Monstrous creature pass while testing something other than what
 	// it says.
 	Unapplied []string
+
+	// settled is set once RunActions has applied ApplyStateEffects.
+	settled bool
 }
 
 // Load builds a game from a parsed fixture.
@@ -467,4 +470,28 @@ func parseIDList(value string) ([]int, error) {
 		ids[i] = n
 	}
 	return ids, nil
+}
+
+// ApplyStateEffects is the tail of GameState.applyToGame: one
+// checkStateEffects(true) over the loaded game (GameState.java:687), so a
+// steal, a static pump or an already-lethal permanent in the fixture is
+// settled before the first step instead of at the first pass after it.
+//
+// Java sets a zero or negative life after that pass "for puzzles that rely on
+// pre-setting negative life" (GameState.java:695-702); the same here, the
+// pass seeing such a player at 1 life. Load itself stays inert so that
+// expect.state, which is read back through Load, is never altered by it.
+func (l *Loaded) ApplyStateEffects(controller engine.PlayerController) {
+	g := l.Game
+	saved := map[engine.PlayerID]int{}
+	for _, pid := range g.Players() {
+		if p := g.Player(pid); p.Life <= 0 {
+			saved[pid] = p.Life
+			p.Life = 1
+		}
+	}
+	engine.CheckStateBasedActions(g, controller)
+	for pid, life := range saved {
+		g.Player(pid).Life = life
+	}
 }

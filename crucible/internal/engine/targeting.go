@@ -245,7 +245,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				zones = parsed
 			}
 		}
-		candidates = g.targetCandidatesInZones(a.Controller, a.Source, validTgts, zones)
+		candidates = g.targetCandidatesInZones(a.Controller, a.Source, validTgts, zones, a.causeKind())
 	}
 	if targetMin >= 2 && hasSameControllerRestriction(a) {
 		candidates = g.withSameControllerPartner(candidates)
@@ -272,8 +272,8 @@ func specCanTargetPlayer(spec string) bool {
 // targetCandidates is targetCandidatesInZones scoped to the battlefield --
 // CR's own implicit "target creature" scope, and every real corpus
 // ValidTgts$ line's default when it names no TgtZone$ of its own.
-func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string) []EntityID {
-	return g.targetCandidatesInZones(controller, source, spec, []ZoneType{Battlefield})
+func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string, kind string) []EntityID {
+	return g.targetCandidatesInZones(controller, source, spec, []ZoneType{Battlefield}, kind)
 }
 
 // targetCandidatesInZones is the union of spec evaluated against every
@@ -309,13 +309,13 @@ func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string)
 // probed once regardless of how many card zones are named: TgtZone$ names
 // where a card candidate may sit, never a player-shaped alternative's own
 // scope, so naming two zones does not double the player half.
-func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec string, zones []ZoneType) []EntityID {
+func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec string, zones []ZoneType, kind string) []EntityID {
 	var candidates []EntityID
 	for _, pid := range g.Players() {
 		if g.Player(pid).Lost {
 			continue
 		}
-		if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched && !playerCantBeTargetedBy(g, pid, controller, source) {
+		if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched && !playerCantBeTargetedBy(g, pid, controller, source, kind) {
 			candidates = append(candidates, PlayerEntity(pid))
 		}
 	}
@@ -325,7 +325,7 @@ func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec 
 		for _, pid := range g.Players() {
 			for _, id := range g.Zone(zone, pid).Cards() {
 				c := g.Card(id)
-				if Matches(g, c, parsed, controller, source) && !cardCantBeTargetedBy(g, c, controller, source) {
+				if Matches(g, c, parsed, controller, source) && !cardCantBeTargetedBy(g, c, controller, source, kind) {
 					candidates = append(candidates, CardEntity(id))
 				}
 			}
@@ -676,7 +676,7 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 		if g.Player(pid).Lost {
 			return false
 		}
-		if playerCantBeTargetedBy(g, pid, owner.Controller, owner.Source) {
+		if playerCantBeTargetedBy(g, pid, owner.Controller, owner.Source, owner.causeKind()) {
 			return false
 		}
 		if !hasSpec {
@@ -696,7 +696,7 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 	if c.IsPhasedOut() {
 		return false
 	}
-	if cardCantBeTargetedBy(g, c, owner.Controller, owner.Source) {
+	if cardCantBeTargetedBy(g, c, owner.Controller, owner.Source, owner.causeKind()) {
 		return false
 	}
 	if hasSameControllerRestriction(owner) {
@@ -792,7 +792,7 @@ func (g *Game) auraTargetStillLegal(a *Ability) bool {
 	if stamp, ok := a.stampOf(a.Target); ok && stamp != target.zoneStamp {
 		return false
 	}
-	if cardCantBeTargetedBy(g, target, a.Controller, a.Source) {
+	if cardCantBeTargetedBy(g, target, a.Controller, a.Source, causeSpell) {
 		return false
 	}
 	spec, ok := enchantSpec(c)

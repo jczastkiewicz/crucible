@@ -291,10 +291,10 @@ Rescuer among the rest — does reach it, but `protectionEach` refuses to read a
 doc comment, staticability.go) rather than mismatch it as a bare card type/subtype word — logged in game-state.md's Not
 ported yet rather than guessed at.
 
-Not resolved: "Hexproof from triggered/activated abilities" (2 real corpus lines, card and player alike) —
-`hexproofValidSource`'s own `ok=false` for `Triggered`/`Activated` (Java's `ValidSA$`, not `ValidSource$`; `Matches`
-only ever takes a `*Card`) — so it never refuses. Ward is not a targeting restriction at all, and is covered separately,
-in [`turn-stack-combat.md`](turn-stack-combat.md#ward-a-natively-constructed-triggered-ability) — a Warded permanent is
+"Hexproof from triggered/activated abilities" (2 real corpus lines, card and player alike) is Java's `ValidSA$`, not
+`ValidSource$`: `hexproofValidSA` reads it against the targeting ability's kind (see below). Ward is not a targeting
+restriction at all, and is covered separately, in
+[`turn-stack-combat.md`](turn-stack-combat.md#ward-a-natively-constructed-triggered-ability) — a Warded permanent is
 targeted successfully; its own trigger counters the triggering spell afterward if the cost goes unpaid (ADR-0028).
 
 Fixtures use `Lightning Bolt` (`DealDamage`), not `Pump`, to prove a target was accepted or refused — a Pump's own
@@ -312,6 +312,15 @@ covers the `hostRefusesAttach` split's own regression. `cantbetargeted_internal_
 "not observable from outside" row) holds `targetCandidates`' own choice-time filter to the same rule directly, Card and
 Player alike — every "-on-resolution"/"-refuses-" fixture above would still pass with that filter deleted, since
 `ScriptedController.ChooseTargets` never validates its answer against the candidates it was offered.
+
+A card's own `S:Mode$ CantTarget` line is read too (`cantTargetStatic`, `cantTargetApplies`, `staticability.go`;
+`StaticAbilityCantTarget.applyCantTargetAbility`), from `cardCantBeTargetedBy`/`playerCantBeTargetedBy` ahead of the
+keyword shapes. Every caller now says what kind of ability is targeting (`Ability.causeKind`: a cast spell, a trigger,
+else an activated ability), which `ValidSA$` matches (`saKindMatches`) and which "Hexproof from activated/triggered
+abilities" (Volatile Stormdrake, `hexproofValidSA`) needs. `ValidTarget$`, `ValidSource$`, `Activator$` and
+`AffectedZone$` (Ground Seal, Silent Gravestone: a graveyard card) are evaluated; `SourceCanOnlyTarget$` and an
+`EffectZone$` naming the Stack skip the line (GO-7). Tests: `cantbetargetedstatic_test.go` (Gaea's Revenge by source
+color, Ground Seal, Volatile Stormdrake).
 
 ## SubAbility chaining itself lands
 

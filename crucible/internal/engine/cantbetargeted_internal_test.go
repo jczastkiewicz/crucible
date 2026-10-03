@@ -81,10 +81,10 @@ func TestTargetCandidatesHexproofExcludesOpponentIncludesController(t *testing.T
 	target := g.NewCard(targetCandidatesTestCreature(t, "Hexproof"), p, Battlefield)
 	src := g.NewCard(targetCandidatesTestCreature(t), opp, Hand)
 
-	if got := g.targetCandidates(opp, src, "Creature"); hasCardCandidate(got, target) {
+	if got := g.targetCandidates(opp, src, "Creature", causeActivated); hasCardCandidate(got, target) {
 		t.Errorf("opponent's targetCandidates includes a Hexproof creature, want excluded")
 	}
-	if got := g.targetCandidates(p, src, "Creature"); !hasCardCandidate(got, target) {
+	if got := g.targetCandidates(p, src, "Creature", causeActivated); !hasCardCandidate(got, target) {
 		t.Errorf("controller's own targetCandidates excludes their own Hexproof creature, want included")
 	}
 }
@@ -99,7 +99,7 @@ func TestTargetCandidatesShroudExcludesEvenTheController(t *testing.T) {
 	target := g.NewCard(targetCandidatesTestCreature(t, "Shroud"), p, Battlefield)
 	src := g.NewCard(targetCandidatesTestCreature(t), p, Hand)
 
-	if got := g.targetCandidates(p, src, "Creature"); hasCardCandidate(got, target) {
+	if got := g.targetCandidates(p, src, "Creature", causeActivated); hasCardCandidate(got, target) {
 		t.Errorf("targetCandidates includes a Shroud creature for its own controller, want excluded")
 	}
 }
@@ -118,10 +118,10 @@ func TestTargetCandidatesProtectionExcludesMatchingColorIncludesOthers(t *testin
 	red := g.NewCard(redSrc, opp, Hand)
 	green := g.NewCard(targetCandidatesTestCreature(t), opp, Hand)
 
-	if got := g.targetCandidates(opp, red, "Creature"); hasCardCandidate(got, target) {
+	if got := g.targetCandidates(opp, red, "Creature", causeActivated); hasCardCandidate(got, target) {
 		t.Errorf("targetCandidates includes a Protection-from-red creature against a red source, want excluded")
 	}
-	if got := g.targetCandidates(opp, green, "Creature"); !hasCardCandidate(got, target) {
+	if got := g.targetCandidates(opp, green, "Creature", causeActivated); !hasCardCandidate(got, target) {
 		t.Errorf("targetCandidates excludes a Protection-from-red creature against a colorless source, want included")
 	}
 }
@@ -142,7 +142,7 @@ func TestTargetCandidatesProtectionChecksEveryLine(t *testing.T) {
 	greenSrc.Faces[0].ManaCost = mana.MustParse("G")
 	green := g.NewCard(greenSrc, opp, Hand)
 
-	if got := g.targetCandidates(opp, green, "Creature"); hasCardCandidate(got, target) {
+	if got := g.targetCandidates(opp, green, "Creature", causeActivated); hasCardCandidate(got, target) {
 		t.Errorf("targetCandidates includes a creature with Protection from green against a green source (second Protection line), want excluded")
 	}
 }
@@ -161,10 +161,10 @@ func TestTargetCandidatesPlayerHexproofExcludesOpponentIncludesSelf(t *testing.T
 	g.Player(p).KeywordMod.Add(KeywordEffect{AddKeywords: []string{"Hexproof"}})
 	src := g.NewCard(targetCandidatesTestCreature(t), opp, Hand)
 
-	if got := g.targetCandidates(opp, src, "Player"); hasPlayerCandidate(got, p) {
+	if got := g.targetCandidates(opp, src, "Player", causeActivated); hasPlayerCandidate(got, p) {
 		t.Errorf("opponent's targetCandidates includes a Hexproof player, want excluded")
 	}
-	if got := g.targetCandidates(p, src, "Player"); !hasPlayerCandidate(got, p) {
+	if got := g.targetCandidates(p, src, "Player", causeActivated); !hasPlayerCandidate(got, p) {
 		t.Errorf("controller's own targetCandidates excludes their own Hexproof player, want included")
 	}
 }
@@ -180,7 +180,7 @@ func TestTargetCandidatesPlayerShroudExcludesEvenTheController(t *testing.T) {
 	g.Player(p).KeywordMod.Add(KeywordEffect{AddKeywords: []string{"Shroud"}})
 	src := g.NewCard(targetCandidatesTestCreature(t), p, Hand)
 
-	if got := g.targetCandidates(p, src, "Player"); hasPlayerCandidate(got, p) {
+	if got := g.targetCandidates(p, src, "Player", causeActivated); hasPlayerCandidate(got, p) {
 		t.Errorf("targetCandidates includes a Shroud player for its own controller, want excluded")
 	}
 }
@@ -202,10 +202,10 @@ func TestTargetCandidatesPlayerProtectionExcludesMatchingTypeIncludesOthers(t *t
 	salamander := g.NewCard(targetCandidatesTestCreatureOfType(t, "Creature Salamander"), opp, Hand)
 	elf := g.NewCard(targetCandidatesTestCreature(t), opp, Hand)
 
-	if got := g.targetCandidates(opp, salamander, "Player"); hasPlayerCandidate(got, p) {
+	if got := g.targetCandidates(opp, salamander, "Player", causeActivated); hasPlayerCandidate(got, p) {
 		t.Errorf("targetCandidates includes a Protection-from-Salamander player against a Salamander source, want excluded")
 	}
-	if got := g.targetCandidates(opp, elf, "Player"); !hasPlayerCandidate(got, p) {
+	if got := g.targetCandidates(opp, elf, "Player", causeActivated); !hasPlayerCandidate(got, p) {
 		t.Errorf("targetCandidates excludes a Protection-from-Salamander player against a non-Salamander source, want included")
 	}
 }

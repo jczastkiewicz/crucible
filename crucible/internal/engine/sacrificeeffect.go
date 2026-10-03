@@ -104,7 +104,7 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	if !hasSacValid || sacValid == "Self" {
 		// Card.canBeSacrificedBy refuses a phased-out permanent
 		// (Card.java:6909).
-		if source.Zone != Battlefield || source.IsPhasedOut() || source.Controller() != a.Controller {
+		if source.Zone != Battlefield || source.IsPhasedOut() || source.Controller() != a.Controller || g.cantSacrifice(source, true, a) {
 			return nil
 		}
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
@@ -146,7 +146,7 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	for _, pid := range players {
 		var candidates []CardID
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
+			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) && !g.cantSacrifice(g.Card(cid), true, a) {
 				candidates = append(candidates, cid)
 			}
 		}
@@ -191,6 +191,13 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 // batch held one card (the plain Sacrifice effect) or several
 // (SacrificeAll).
 func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []CardID) {
+	sacrificeCardsFor(g, controller, a, ids, true)
+}
+
+// sacrificeCardsFor is sacrificeCards for a sacrifice paid as a cost (effect
+// false) or done by an effect (true): a card a CantSacrifice static covers is
+// not sacrificed (Card.canBeSacrificedBy).
+func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []CardID, effect bool) {
 	remember := false
 	if a.Params != nil { // a state-based sacrifice (a Saga's) has no ability behind it
 		_, remember = a.Params.Param("RememberSacrificed")
@@ -198,7 +205,7 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 	var sacrificed []CardID
 	for _, id := range ids {
 		c := g.Card(id)
-		if c.Zone != Battlefield || c.IsPhasedOut() {
+		if c.Zone != Battlefield || c.IsPhasedOut() || g.cantSacrifice(c, effect, a) {
 			continue
 		}
 		pid := c.Controller()

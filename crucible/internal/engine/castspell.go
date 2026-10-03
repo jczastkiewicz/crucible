@@ -621,7 +621,7 @@ func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID)
 	var eligible []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(id), spec, controller, self) && !cardCantBeTargetedBy(g, g.Card(id), controller, self) {
+			if Matches(g, g.Card(id), spec, controller, self) && !cardCantBeTargetedBy(g, g.Card(id), controller, self, causeSpell) {
 				eligible = append(eligible, id)
 			}
 		}

@@ -214,6 +214,10 @@ type Ability struct {
 	// "left the stack already" answer Forge's own
 	// getInstanceMatchingSpellAbilityID null-check gives.
 	wardCounters EntityID
+	// isTrigger is SpellAbility.isTrigger: pushTriggeredAbilities, the only
+	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
+	// "source of an ability that has triggered but not yet left the stack").
+	isTrigger bool
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the

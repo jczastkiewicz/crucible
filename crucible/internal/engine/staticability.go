@@ -392,8 +392,8 @@ func hostRefusesAttach(g *Game, aura *Card, host CardID) bool {
 // StaticAbilityCantTarget.cantTarget (Card.java:6820-6838,
 // StaticAbilityCantTarget.java:37-51), narrowed the same way protectionEach
 // and hexproofValidSource already are, to the keyword-generated CantTarget
-// abilities alone -- a hand-written `S:Mode$ CantTarget` line (Gaea's
-// Revenge) is not read. Called identically at target selection
+// abilities, plus a card's own hand-written `S:Mode$ CantTarget` line
+// (cantTargetStatic, Gaea's Revenge). Called identically at target selection
 // (targetCandidates) and at the CR 608.2b resolution re-check
 // (targetStillLegal), since Java's own SpellAbility.canTarget runs the exact
 // same entity.canBeTargetedBy(this) at both call sites regardless of its
@@ -433,7 +433,10 @@ func hostRefusesAttach(g *Game, aura *Card, host CardID) bool {
 // A Player target is playerCantBeTargetedBy's own job (below) -- Player has
 // no `protectionEach`/battlefield zone, so the two do not share a body, only
 // the Shroud/Hexproof shape.
-func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source CardID) bool {
+func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source CardID, kind string) bool {
+	if g.cantTargetStatic(CardEntity(target.ID), activator, source, kind) {
+		return true
+	}
 	if target.Zone != Battlefield {
 		return false
 	}
@@ -458,6 +461,12 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 		}
 		if k.Details == "" {
 			return true
+		}
+		if sa, ok := hexproofValidSA(k.Details); ok {
+			if matched, _ := saKindMatches(sa, kind); matched {
+				return true
+			}
+			continue
 		}
 		if vs, ok := hexproofValidSource(k.Details); ok {
 			if vs == "" || Matches(g, src, valid.Parse(vs), target.Controller(), target.ID) {
@@ -495,7 +504,10 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 // to fold onto the way a card does. Shroud next and unconditional, same as
 // the Card branch; Hexproof last, gated on `Activator$ Opponent`, matched
 // the same way.
-func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source CardID) bool {
+func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source CardID, kind string) bool {
+	if g.cantTargetStatic(PlayerEntity(target), activator, source, kind) {
+		return true
+	}
 	p := g.Player(target)
 	src := g.Card(source)
 	// Matches' own source parameter is "the card the spec is written on,"
@@ -529,6 +541,12 @@ func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source
 		if k.Details == "" {
 			return true
 		}
+		if sa, ok := hexproofValidSA(k.Details); ok {
+			if matched, _ := saKindMatches(sa, kind); matched {
+				return true
+			}
+			continue
+		}
 		if vs, ok := hexproofValidSource(k.Details); ok {
 			if vs == "" || Matches(g, src, valid.Parse(vs), target, source) {
 				return true
@@ -554,17 +572,10 @@ func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source
 // `Card.nonColorless`, 5 real lines) is already qualified in the corpus
 // text itself and needs no transformation either.
 //
-// Not resolved: `Triggered`/`Activated` (2 real lines, "Hexproof from
-// triggered/activated abilities") -- Java's own branch would synthesize
-// `ValidSA$`, not `ValidSource$`, for these (`getTypeDescription().
-// contains("abilities")`), and Matches (valid.go) only ever evaluates a
-// *Card, never a SpellAbility -- refused rather than passed through
-// unchanged, which would silently mean "never blocks" for these two real
-// cards specifically (GO-7): an Aura's own cast-time targeting is not
-// itself a triggered or activated ability doing the targeting, so treating
-// these as "no restriction" would have produced the same observable
-// behavior here regardless, but explicit refusal is the correct reason,
-// not an accident of what Matches happens to never match.
+// `Triggered`/`Activated` (2 real lines, "Hexproof from triggered/activated
+// abilities") are not a ValidSource$ at all: Java synthesizes `ValidSA$`
+// for them (`getTypeDescription().contains("abilities")`), which
+// hexproofValidSA reads, so this reports ok=false for them.
 func hexproofValidSource(details string) (validSource string, ok bool) {
 	validType, _, hasColon := strings.Cut(details, ":")
 	if validType == "" || validType == "Triggered" || validType == "Activated" {
@@ -929,6 +940,119 @@ func (g *Game) cantGainLife(pid PlayerID) bool {
 	return g.Player(pid).Lost || g.playerStatic(pid, "CantGainLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
 }
 
+// cantLoseLife is Player.canLoseLife (StaticAbilityCantGainLosePayLife.
+// anyCantLoseLife): a player out of the game, or named by a Mode$ CantLoseLife
+// or CantChangeLife static, loses no life.
+func (g *Game) cantLoseLife(pid PlayerID) bool {
+	return g.Player(pid).Lost || g.playerStatic(pid, "CantLoseLife", nil) || g.playerStatic(pid, "CantChangeLife", nil)
+}
+
+// causeMatches is StaticAbility.matchesValidParam("ValidCause", cause) for the
+// kinds it names: a comma list of Spell, Activated, Triggered or SpellAbility
+// (any), each with +/. properties among ManaAbility and its negation (an
+// activated mana ability is both Activated and ManaAbility) and YouCtrl/OppCtrl
+// (the cause's controller against the static's host's, when known). Anything
+// else does not match.
+func causeMatches(spec, kind string, cause, host PlayerID) bool {
+	for _, alt := range strings.Split(spec, ",") {
+		head, props, _ := strings.Cut(alt, ".")
+		isActivated := kind == causeActivated || kind == causeManaAbil
+		switch head {
+		case "SpellAbility":
+		case causeSpell:
+			if kind != causeSpell {
+				continue
+			}
+		case causeActivated:
+			if !isActivated {
+				continue
+			}
+		case causeTriggered:
+			if kind != causeTriggered {
+				continue
+			}
+		default:
+			continue
+		}
+		ok := true
+		for _, p := range strings.Split(props, "+") {
+			switch p {
+			case "":
+			case "ManaAbility":
+				ok = ok && kind == causeManaAbil
+			case "!ManaAbility":
+				ok = ok && kind != causeManaAbil
+			case "YouCtrl":
+				ok = ok && cause != NoPlayer && cause == host
+			case "OppCtrl":
+				ok = ok && cause != NoPlayer && cause != host
+			default:
+				ok = false
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// cantPayLife is Player.canPayLife's static half (anyCantPayLife): a
+// CantPayLife, CantLoseLife or CantChangeLife static naming the player stops a
+// payment of life, ForCost$ narrowing it to a cost (True) or an effect (False)
+// and ValidCause$ to the kind of ability paying (cause). effect says which this
+// payment is.
+func (g *Game) cantPayLife(pid PlayerID, effect bool, cause string) bool {
+	keep := func(s *compile.Ability) bool {
+		if spec, ok := s.Param("ValidCause"); ok && !causeMatches(spec, cause, pid, pid) {
+			return false
+		}
+		if forCost, ok := s.Param("ForCost"); ok && strings.EqualFold(forCost, "True") == effect {
+			return false
+		}
+		return true
+	}
+	return g.playerStatic(pid, "CantPayLife", keep) || g.playerStatic(pid, "CantLoseLife", keep) || g.playerStatic(pid, "CantChangeLife", keep)
+}
+
+// cantSacrifice is StaticAbilityCantSacrifice.cantSacrifice: a Mode$
+// CantSacrifice static whose ValidCard$ matches c. ForCost$ narrows it to a
+// cost (True) or an effect (False); effect says which this sacrifice is. A line
+// naming ValidCause$ is matched against cause's controller when there is a
+// cause (SpellAbility.OppCtrl, YouCtrl), and not applied without one (GO-7).
+func (g *Game) cantSacrifice(c *Card, effect bool, cause *Ability) bool {
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantSacrifice") || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if spec, ok := s.Param("ValidCause"); ok {
+						// Only an ability this port can name the controller of
+						// is matched; without one the line is not applied.
+						if cause == nil || !causeMatches(spec, causeNone, cause.Controller, h.Controller()) {
+							continue
+						}
+					}
+					if forCost, ok := s.Param("ForCost"); ok && strings.EqualFold(forCost, "True") == effect {
+						continue
+					}
+					spec, ok := s.Param("ValidCard")
+					if !ok || Matches(g, c, valid.Parse(spec), h.Controller(), host) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // cantDraw is Player.canDraw, cantDrawAmount for one card.
 func (g *Game) cantDraw(pid PlayerID) bool { return g.cantDrawAmount(pid, 1) }
 
@@ -1121,4 +1245,175 @@ var cantPreventDamageParams = map[string]bool{
 	"mode": true, "iscombat": true, "validsource": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true,
 	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+}
+
+// maxCounterParams are the params a MaxCounter line may carry that this port
+// evaluates.
+var maxCounterParams = map[string]bool{
+	"mode": true, "validcard": true, "countertype": true, "maxnum": true, "condition": true,
+	"effectzone": true, "description": true, "secondary": true,
+}
+
+// maxCounter is StaticAbilityMaxCounter.maxCounter: the smallest MaxNum$ of
+// every Mode$ MaxCounter static naming card id and counter kind ct, with ok
+// false when none does. Java asks only for Dream counters (Card.getCounterMax,
+// Card.java:1744); the caller passes ct through the same gate. MaxNum$ is read
+// as a literal -- the one real line writes 7 -- and a line with another form,
+// or a param this port does not evaluate, is not applied (GO-7).
+func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
+	if ct != "DREAM" {
+		return 0, false
+	}
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "MaxCounter") || !paramsResolvable(s, maxCounterParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if kind, has := s.Param("CounterType"); has && !strings.EqualFold(kind, string(ct)) {
+						continue
+					}
+					if v, has := s.Param("ValidCard"); has && !Matches(g, g.Card(id), valid.Parse(v), h.Controller(), h.ID) {
+						continue
+					}
+					raw, _ := s.Param("MaxNum")
+					n, err := strconv.Atoi(raw)
+					if err != nil {
+						continue
+					}
+					if !ok || n < limit {
+						limit, ok = n, true
+					}
+				}
+			}
+		}
+	}
+	return limit, ok
+}
+
+// cantTargetParams are the params a hand-written CantTarget line may carry
+// that this port evaluates. SourceCanOnlyTarget$ and an EffectZone$ naming
+// the Stack (Enthralling Hold) are not read, so a line with either is not
+// applied (GO-7).
+var cantTargetParams = map[string]bool{
+	"mode": true, "validtarget": true, "validsa": true, "validsource": true, "activator": true,
+	"affectedzone": true, "effectzone": true, "condition": true, "description": true,
+	"secondary": true, "spelldescription": true, "stackdescription": true,
+}
+
+// cantTargetStatic is StaticAbilityCantTarget.cantTarget for the lines a card
+// writes itself (Gaea's Revenge, Ground Seal, Silent Gravestone, ...): some
+// Mode$ CantTarget static names entity as a target of an ability of the given
+// kind (causeSpell, causeActivated, causeTriggered) that activator controls
+// and source is the host of. The keyword-generated Hexproof, Shroud and
+// Protection lines are read by cardCantBeTargetedBy itself.
+func (g *Game) cantTargetStatic(entity EntityID, activator PlayerID, source CardID, kind string) bool {
+	for _, p := range g.Players() {
+		for _, host := range g.traitHosts(p) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.Def.Faces {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "CantTarget") || !paramsResolvable(s, cantTargetParams) || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if zone, ok := s.Param("EffectZone"); ok && strings.Contains(zone, "Stack") {
+						continue
+					}
+					if g.cantTargetApplies(s, h, entity, activator, source, kind) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// cantTargetApplies is StaticAbilityCantTarget.applyCantTargetAbility for one
+// line s on host h.
+func (g *Game) cantTargetApplies(s *compile.Ability, h *Card, entity EntityID, activator PlayerID, source CardID, kind string) bool {
+	zoneSpec, hasAffected := s.Param("AffectedZone")
+	if id, isCard := entity.AsCard(); isCard {
+		c := g.Card(id)
+		if hasAffected {
+			zones, err := parseZoneList(zoneSpec)
+			if err != nil || !slices.Contains(zones, c.Zone) {
+				return false
+			}
+		} else if c.Zone != Battlefield {
+			return false
+		}
+		if v, ok := s.Param("ValidTarget"); ok && !Matches(g, c, valid.Parse(v), h.Controller(), h.ID) {
+			return false
+		}
+	} else if pid, isPlayer := entity.AsPlayer(); isPlayer {
+		if hasAffected {
+			return false
+		}
+		if v, ok := s.Param("ValidTarget"); ok {
+			if matched, recognized := matchesPlayerSpec(g, pid, h.Controller(), h.ID, v); !matched || !recognized {
+				return false
+			}
+		}
+	} else {
+		return false
+	}
+	if v, ok := s.Param("ValidSA"); ok {
+		matched, recognized := saKindMatches(v, kind)
+		if !matched || !recognized {
+			return false
+		}
+	}
+	if v, ok := s.Param("ValidSource"); ok {
+		if source == NoCard || !Matches(g, g.Card(source), valid.Parse(v), h.Controller(), h.ID) {
+			return false
+		}
+	}
+	if v, ok := s.Param("Activator"); ok {
+		if matched, recognized := matchesPlayerSpec(g, activator, h.Controller(), h.ID, v); !matched || !recognized {
+			return false
+		}
+	}
+	return true
+}
+
+// saKindMatches is StaticAbility.matchesValidParam("ValidSA", ability) for a
+// comma list of Spell, Activated, Triggered and SpellAbility (any). An
+// activated mana ability is Activated too. recognized is false when the list
+// holds a token this port does not classify.
+func saKindMatches(spec, kind string) (matched, recognized bool) {
+	recognized = true
+	for _, tok := range strings.Split(spec, ",") {
+		switch tok {
+		case "SpellAbility":
+			matched = true
+		case causeSpell, causeTriggered:
+			matched = matched || kind == tok
+		case causeActivated:
+			matched = matched || kind == causeActivated || kind == causeManaAbil
+		default:
+			recognized = false
+		}
+	}
+	return matched, recognized
+}
+
+// hexproofValidSA is the ValidSA$ half of CardFactoryUtil's Hexproof branch:
+// "Hexproof from triggered abilities" and "from activated abilities"
+// (Triggered, Activated -- 2 real lines) name the kind of ability, not a
+// source, and are matched against the ability's kind (saKindMatches).
+func hexproofValidSA(details string) (sa string, ok bool) {
+	validType, _, _ := strings.Cut(details, ":")
+	if validType == "Triggered" || validType == "Activated" {
+		return validType, true
+	}
+	return "", false
 }

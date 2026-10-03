@@ -549,6 +549,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.DescendedThisTurn = false
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
+		p.LifeLostThisTurn = 0
 	}
 
 	g.combatDamagePrevented = false

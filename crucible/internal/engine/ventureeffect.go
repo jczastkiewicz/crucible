@@ -264,10 +264,11 @@ func (g *Game) completeFinishedDungeons(c PlayerController) {
 }
 
 // hasSourceOnStack is MagicStack.hasSourceOnStack with no predicate: some
-// stack item comes from source.
+// triggered ability on the stack comes from source (the method skips every
+// item that is not a trigger, MagicStack.java:969).
 func (g *Game) hasSourceOnStack(source CardID) bool {
 	for i := range g.stack {
-		if g.stack[i].Source == source {
+		if g.stack[i].isTrigger && g.stack[i].Source == source {
 			return true
 		}
 	}

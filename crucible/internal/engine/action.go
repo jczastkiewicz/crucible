@@ -6,6 +6,7 @@ package engine
 import (
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -121,6 +122,28 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
 // reads performed (beginStep, turn.go).
 func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
+	// CR 704.3: the check repeats until a pass does nothing. GameAction.
+	// checkStateEffects caps it at nine passes (GameAction.java:1417); each
+	// pass also rebuilds the continuous effects the last one's moves changed.
+	for range maxSBAPasses {
+		o, p := checkStateBasedActionsPass(g, controller)
+		performed = performed || p
+		if o {
+			return true, performed
+		}
+		if !p {
+			break
+		}
+	}
+	return false, performed
+}
+
+// maxSBAPasses is the cap on repeated state-based-action passes, Java's
+// `for (int q = 0; q < 9; q++)`.
+const maxSBAPasses = 9
+
+// checkStateBasedActionsPass is one pass of every state-based action.
+func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, performed bool) {
 	if g.over {
 		return true, false
 	}
@@ -226,6 +249,7 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			performed = annihilateCounters(g, id) || performed
+			performed = trimDreamCounters(g, id) || performed
 		}
 	}
 	performed = destroyLethalToughness(g, controller) || performed
@@ -236,6 +260,8 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	performed = sacrificeCompletedSagas(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
 	performed = resolveWorldRule(g, controller) || performed
+	performed = resolveRoleRule(g, controller) || performed
+	performed = startYourEngines(g) || performed
 	performed = cleanupDanglingAttachments(g, controller) || performed
 	return false, performed
 }
@@ -259,6 +285,26 @@ func annihilateCounters(g *Game, id CardID) bool {
 	c.Counters.Add(M1M1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), P1P1, -remove)
 	emitCounterChanged(g.sink, id, CardEntity(id), M1M1, -remove)
+	return true
+}
+
+// trimDreamCounters is CR 704.5r (stateBasedAction704_5r, GameAction.java:
+// 1867): a card holding more Dream counters than a Mode$ MaxCounter static
+// allows loses the excess. Java asks the Dream kind only, and skips the trim
+// when canRemoveCounters says no -- that guard is not ported (704.5q's own
+// is not either).
+func trimDreamCounters(g *Game, id CardID) bool {
+	c := g.Card(id)
+	have := c.Counters.Count("DREAM")
+	if have <= 0 {
+		return false
+	}
+	limit, capped := g.maxCounter(id, "DREAM")
+	if !capped || have <= limit {
+		return false
+	}
+	c.Counters.Add("DREAM", limit-have)
+	emitCounterChanged(g.sink, id, CardEntity(id), "DREAM", limit-have)
 	return true
 }
 
@@ -407,27 +453,6 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 	return len(dead) > 0
 }
 
-// destroyZeroDefense is CR 704.5v: a Battle at defense zero or less goes to
-// its owner's graveyard, unless it is the source of a triggered ability
-// that has triggered but not yet left the stack (`hasSourceOnStack` in
-// Java) -- CR 704.5v's own exception exists so a Battle's own "when this
-// reaches 0 defense" trigger still gets to resolve. This port checks the
-// exception exactly, not by skipping it: `g.StackTop`'s kind of lookup
-// would need to inspect every item, not just the top, since anything could
-// be pushed above the Battle's own trigger by the time this runs, and CR
-// 613.6-613.8's ordering makes "is it still there" the only question that
-// matters. Today it is always answered no -- nothing puts a trigger on the
-// stack yet (`## Stack`), so every Battle is checked as if the exception
-// never applies, which is the exception's own correct answer whenever it
-// genuinely does not.
-//
-// Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
-// doc comment): entering the battlefield with printed-defense-many Defense
-// counters is CR 704.5v's own prerequisite, and Move sets exactly that on
-// real entry the same way it does for Loyalty (destroyZeroLoyalty's own doc
-// comment) -- a setup.state-placed Battle still needs its own explicit
-// Counters:DEFENSE= if it wants one.
-//
 // assignBattleProtector is CR 704.5w/704.5x, checked (and, per Java's own
 // combined stateBasedAction_Battle, applied) before destroyZeroDefense
 // below -- a Battle destroyed here for having no eligible protector never
@@ -493,14 +518,9 @@ func assignBattleProtector(g *Game, controller PlayerController) bool {
 // that has triggered but not yet left the stack (`hasSourceOnStack` in
 // Java) -- CR 704.5v's own exception exists so a Battle's own "when this
 // reaches 0 defense" trigger still gets to resolve. This port checks the
-// exception exactly, not by skipping it: `g.StackTop`'s kind of lookup
-// would need to inspect every item, not just the top, since anything could
-// be pushed above the Battle's own trigger by the time this runs, and CR
-// 613.6-613.8's ordering makes "is it still there" the only question that
-// matters. Today it is always answered no -- nothing puts a trigger on the
-// stack yet (`## Stack`), so every Battle is checked as if the exception
-// never applies, which is the exception's own correct answer whenever it
-// genuinely does not.
+// exception through hasSourceOnStack, which looks at every stack item, not
+// just the top: anything could be pushed above the Battle's own trigger by
+// the time this runs.
 //
 // Defense, like Loyalty, is entirely counter-based (Card.BaseDefense's own
 // doc comment): entering the battlefield with printed-defense-many Defense
@@ -513,7 +533,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
-			if c.Type().Has(cardtype.Battle) && c.Counters.Count(Defense) <= 0 {
+			if c.Type().Has(cardtype.Battle) && c.Counters.Count(Defense) <= 0 && !g.hasSourceOnStack(id) {
 				dead = append(dead, id)
 			}
 		}
@@ -728,6 +748,21 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 			c := g.Card(id)
 			host, attached := c.AttachedTo()
 			legal := attached && g.Card(host).Zone == Battlefield
+			// CR 704.5n/704.5p: an Equipment attached to anything but a creature,
+			// a Fortification to anything but a land, or a creature or battle
+			// attached to anything at all, becomes unattached
+			// (GameAction.stateBasedAction704_attach).
+			if legal && !c.Type().HasSubtype("Aura") {
+				ht := g.Card(host).Type()
+				switch {
+				case c.Type().Has(cardtype.Creature) || c.Type().Has(cardtype.Battle):
+					legal = false
+				case c.Type().HasSubtype("Equipment") && !ht.Has(cardtype.Creature):
+					legal = false
+				case c.Type().HasSubtype("Fortification") && !ht.Has(cardtype.Land):
+					legal = false
+				}
+			}
 			if legal && c.Type().HasSubtype("Aura") {
 				if spec, ok := enchantSpec(c); ok {
 					legal = Matches(g, g.Card(host), spec, c.Controller(), id)
@@ -756,6 +791,70 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	return len(toGraveyard) > 0 || len(toUnattach) > 0
 }
 
+// startYourEngines is CR 704.5z (GameAction.java:1548): a player with no speed
+// who controls a permanent with "Start your engines!" gets speed 1.
+func startYourEngines(g *Game) bool {
+	performed := false
+	for _, pid := range g.Players() {
+		if g.Player(pid).Speed != 0 {
+			continue
+		}
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if g.Card(id).HasKeyword("Start your engines") {
+				g.Player(pid).Speed = 1
+				performed = true
+				break
+			}
+		}
+	}
+	return performed
+}
+
+// resolveRoleRule is CR 704.5y (stateBasedAction_Role, GameAction.java:1714):
+// a permanent with two or more Role Auras controlled by the same player keeps
+// only that player's newest one; the older ones go to the graveyard.
+func resolveRoleRule(g *Game, controller PlayerController) bool {
+	var dead []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			byController := map[PlayerID][]CardID{}
+			var order []PlayerID
+			for _, att := range g.Card(id).Attachments() {
+				r := g.Card(att)
+				if !r.Type().HasSubtype("Role") {
+					continue
+				}
+				if _, seen := byController[r.Controller()]; !seen {
+					order = append(order, r.Controller())
+				}
+				byController[r.Controller()] = append(byController[r.Controller()], att)
+			}
+			for _, owner := range order {
+				roles := byController[owner]
+				if len(roles) < 2 {
+					continue
+				}
+				newest := roles[0]
+				for _, r := range roles[1:] {
+					if g.Card(r).Timestamp > g.Card(newest).Timestamp {
+						newest = r
+					}
+				}
+				for _, r := range roles {
+					if r != newest {
+						dead = append(dead, r)
+					}
+				}
+			}
+		}
+	}
+	for _, id := range dead {
+		g.moveToGraveyard(id)
+		g.checkDiesTriggers(controller, id)
+	}
+	return len(dead) > 0
+}
+
 // enchantSpec parses c's own `Enchant` keyword (CR 303.4a) into a valid.Spec,
 // reporting whether it found a checkable one. `Enchant`'s value is a
 // KeywordWithType, whose written form is "<validString>:<display text>"
@@ -772,10 +871,15 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 // player" at all, so those two report no checkable spec rather than being
 // misread as a card-type restriction no permanent could ever match.
 func enchantSpec(c *Card) (valid.Spec, bool) {
-	if c.Def == nil {
+	return enchantSpecOf(c.Def)
+}
+
+// enchantSpecOf is enchantSpec for a definition (a token not yet created).
+func enchantSpecOf(def *compile.Card) (valid.Spec, bool) {
+	if def == nil {
 		return valid.Spec{}, false
 	}
-	for _, line := range c.Def.Faces[0].Keywords {
+	for _, line := range def.Faces[0].Keywords {
 		k := keyword.Parse(line)
 		if k.Name != "Enchant" {
 			continue

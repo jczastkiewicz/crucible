@@ -828,8 +828,8 @@ or a `ValidPlayer$` `matchesPlayerSpec` does not recognize (`Player.EnchantedBy`
 
 `DrawLimit$` defaults to 0 (no draws); `N` allows `N` draws a turn: the next draw is refused once `CardsDrawnThisTurn`
 reaches it. `setPlayerLife` now calls `gainLife` for its gain half, which also gives it Java's `isInGame` check. Tests:
-`cantgaindraw_test.go`. Not ported: `CantPutCounter`, `CantSacrifice`, `CantPayLife`, `CantPlayLand`, `CantBeActivated`,
-`CantBeCast` (see `Not ported yet`).
+`cantgaindraw_test.go`. Not ported: `CantPutCounter`, `CantPlayLand`, `CantBeActivated`, `CantBeCast` (see
+`Not ported yet`).
 
 ## `CantPutCounter`
 

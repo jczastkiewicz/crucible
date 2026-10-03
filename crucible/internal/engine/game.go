@@ -1194,3 +1194,27 @@ func cloneMayPlayUses(m map[mayPlayLimitKey]mayPlayUse) map[mayPlayLimitKey]mayP
 	}
 	return out
 }
+
+// Kinds of ability a payment is made for, what a static's ValidCause$ is matched
+// against (causeNone: not a spell or ability this port classifies).
+const (
+	causeNone      = ""
+	causeSpell     = "Spell"
+	causeActivated = "Activated"
+	causeManaAbil  = "ManaAbility"
+	causeTriggered = "Triggered"
+)
+
+// causeKind is what kind of spell or ability a is, the vocabulary a static's
+// ValidSA$/ValidCause$ is matched against: a spell on the stack, a trigger
+// (isTrigger), or otherwise an activated ability.
+func (a *Ability) causeKind() string {
+	switch {
+	case a.spell:
+		return causeSpell
+	case a.isTrigger:
+		return causeTriggered
+	default:
+		return causeActivated
+	}
+}

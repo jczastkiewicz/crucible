@@ -302,13 +302,19 @@ func TestSchemeStateBasedAction(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	under := schemeDeck(t, g, p, 1)[0]
-	def := planarDef(t, "Test Scheme", "Scheme", nil, nil)
-	busy := g.NewCard(def, p, engine.Command)
-	idle := g.NewCard(def, p, engine.Command)
+	g.SetTurnState(1, p, engine.Untap)
+	// The busy scheme's own upkeep trigger is what keeps it in Command:
+	// hasSourceOnStack counts triggered abilities only (MagicStack.java:969).
+	busy := g.NewCard(planarDef(t, "Busy Scheme", "Scheme",
+		[]string{"Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ TrigGain"}, nil,
+		"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Command)
+	idle := g.NewCard(planarDef(t, "Test Scheme", "Scheme", nil, nil), p, engine.Command)
 	ongoing := g.NewCard(planarDef(t, "Ongoing Test", "Ongoing Scheme", nil, nil), p, engine.Command)
-	gain := etbChainDef(t, "Gain", "DB$ GainLife | Defined$ You | LifeAmount$ 1").Faces[0].Triggers[0].Subs[0].Ability
-	g.PushAbility(engine.Ability{API: engine.APIGainLife, Source: busy, Controller: p, Params: gain})
 	c := engine.NewScriptedController()
+	g.AdvancePhase(c)
+	if g.StackLen() != 1 {
+		t.Fatalf("stack = %d, want the busy scheme's upkeep trigger", g.StackLen())
+	}
 	engine.CheckStateBasedActions(g, c)
 	if g.Card(busy).Zone != engine.Command || g.Card(ongoing).Zone != engine.Command {
 		t.Error("a scheme with an ability on the stack, and an Ongoing scheme, stay in Command")

@@ -103,6 +103,13 @@ func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) e
 		if text == "" || strings.HasPrefix(text, "#") {
 			continue
 		}
+		// The load-time state-effects pass waits for the first verb that is
+		// not a `queue`: the decisions it may ask for (a battle's protector)
+		// are queued ahead of it, the way a Java test script answers them.
+		if !l.settled && !strings.HasPrefix(text, "queue ") {
+			l.settled = true
+			l.ApplyStateEffects(controller)
+		}
 		if err := runAction(text, l, controller); err != nil {
 			return fmt.Errorf("line %d: %w", line, err)
 		}

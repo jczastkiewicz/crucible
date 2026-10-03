@@ -87,7 +87,7 @@ var loseLifeUnresolvedParams = [...]string{
 	"Condition", "ConditionZone",
 }
 
-func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (loseLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, key := range loseLifeUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: LoseLife: %s$ not resolvable yet", key)
@@ -123,11 +123,16 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	lifeLost := 0
 	for _, pid := range players {
+		if amount > 0 && g.cantLoseLife(pid) {
+			// Player.loseLife loses nothing when a static stops it.
+			continue
+		}
 		if amount > 0 && !g.Player(pid).Lost {
 			lifeLost += amount
 		}
 		g.Player(pid).Life -= amount
 		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(amount)})
+		g.noteLifeLost(controller, pid, amount)
 	}
 	// LifeLoseEffect.java:60: the sum, for a sub-ability's LifeAmount$
 	// AFLifeLost (Extort, "gain that much life"). Java sets it on the

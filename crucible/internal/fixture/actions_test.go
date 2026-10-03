@@ -1459,7 +1459,7 @@ func TestRunActionsResolveStackSurfacesAnUnimplementedAPI(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	l := load(t, db, "humanlife=20\n")
+	l := load(t, db, "humanlife=20\nailife=20\n")
 	c := engine.NewScriptedController()
 	l.Game.PushAbility(engine.Ability{API: engine.APIType(math.MaxUint16)})
 

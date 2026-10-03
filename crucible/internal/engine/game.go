@@ -969,6 +969,11 @@ func (g *Game) Attach(attachment, host CardID) {
 	}
 	a, h := g.Card(attachment), g.Card(host)
 	g.Unattach(attachment)
+	// CR 613.7e: an Aura, Equipment or Fortification gets a new timestamp each
+	// time it becomes attached (Card.java:3938), so its continuous effects
+	// order after what existed before.
+	g.timestamp++
+	a.Timestamp = g.timestamp
 	a.attachedTo = host
 	if h.attachments == nil {
 		h.attachments = collect.NewOrderedSet[CardID](2)

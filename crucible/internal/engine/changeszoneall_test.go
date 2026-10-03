@@ -137,12 +137,11 @@ func TestChangesZoneAllFiresOnceForSimultaneousSBADeath(t *testing.T) {
 	}
 }
 
-// TestChangesZoneAllSkipsLineNamingActivationLimit proves a real,
-// unresolved param (ActivationLimit$, 41 of the corpus's own 126 real
-// lines) is skipped rather than firing unconditionally (PORT-8/GO-7),
-// the identical per-turn-cap gap LifeGained's own ActivationLimit$
-// already documents.
-func TestChangesZoneAllSkipsLineNamingActivationLimit(t *testing.T) {
+// TestChangesZoneAllFiresALineNamingActivationLimitOnce proves the
+// ActivationLimit$ 1 line (41 of the corpus's own 126 real lines) fires once
+// for the turn: two creatures sacrificed in one batch are one event, and a
+// later batch the same turn does not fire it again.
+func TestChangesZoneAllFiresALineNamingActivationLimitOnce(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -158,7 +157,7 @@ func TestChangesZoneAllSkipsLineNamingActivationLimit(t *testing.T) {
 	if _, err := castETBSacrifice(t, g, p, def, c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}
-	if g.Player(p).Life != 20 {
-		t.Errorf("p's life = %d, want unchanged 20 -- ActivationLimit$ must skip the whole line rather than firing unconditionally", g.Player(p).Life)
+	if g.Player(p).Life != 25 {
+		t.Errorf("p's life = %d, want 25 -- the ActivationLimit$ 1 line fires once", g.Player(p).Life)
 	}
 }

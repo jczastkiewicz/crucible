@@ -518,7 +518,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
 				continue
 			}
-			if hasAnyParam(t, "ValidSA", "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
+			if hasAnyParam(t, "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
 				"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
 				"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
 				continue
@@ -531,6 +531,15 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			}
 			if !matchesActivatingPlayer(g, t, activator, h.Controller(), host) {
 				continue
+			}
+			if spec, ok := t.Param("ValidSA"); ok {
+				spell, found := g.stackItem(spellID)
+				if !found {
+					continue
+				}
+				if m, known := g.spellAbilityMatches(spell, spec, h, h.Controller(), face.Amounts); !known || !m {
+					continue
+				}
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
@@ -564,8 +573,14 @@ func matchesActivatingPlayer(g *Game, t *compile.Ability, activator, hostControl
 // isSpellCastTrigger reports whether t is CR 603's "a player casts a spell"
 // shape: Mode$ SpellCast.
 func isSpellCastTrigger(t *compile.Ability) bool {
-	return strings.EqualFold(t.Name, "SpellCast")
+	return modeIn(t, spellCastModes)
 }
+
+// spellCastModes are the modes a cast spell fires, in MagicStack.java's order
+// (:331-400): SpellAbilityCast (spells and abilities), SpellCast, then
+// SpellCastOrCopy. A copy fires SpellCopy and SpellCastOrCopy; no copy is
+// handled here.
+var spellCastModes = []string{"SpellAbilityCast", "SpellCast", "SpellCastOrCopy"}
 
 // checkBlocksTriggers is CR 509.2's own "whenever ~ blocks" trigger, ported
 // from TriggerBlocks.performTest at the one param this port can resolve:
@@ -1162,7 +1177,7 @@ func (g *Game) checkDamageDealtOnceTriggers(controller PlayerController, table d
 						if !isDamageDealtOnceTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "ActivationLimit", "AtLeastOneInstance") {
+						if hasAnyParam(t, "AtLeastOneInstance") {
 							continue
 						}
 						if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
@@ -1447,7 +1462,7 @@ func sacrificedTriggerMatches(g *Game, t *compile.Ability, sacrificed *Card, sou
 	if !isSacrificedTrigger(t) {
 		return false
 	}
-	if hasAnyParam(t, "ValidCause", "WhileKeyword", "ActivationLimit", "ResolvedLimit") {
+	if hasAnyParam(t, "ValidCause", "WhileKeyword", "ResolvedLimit") {
 		return false
 	}
 	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, sacrificed, valid.Parse(validCard), sourceController, source) {
@@ -1568,7 +1583,7 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 					if !isChangesZoneAllTrigger(t) {
 						continue
 					}
-					if hasAnyParam(t, "ActivationLimit", "ValidCause", "ResolvedLimit", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
+					if hasAnyParam(t, "ValidCause", "ResolvedLimit", "NoResolvingCheck", "InvertValidCause", "Count", "FirstTime") {
 						continue
 					}
 					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
@@ -2089,6 +2104,9 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 				continue
 			}
 			matches[i].isTrigger = !matches[i].activated
+			if matches[i].isTrigger && matches[i].Params != nil {
+				g.Card(matches[i].Source).trigActs.note(matches[i].Params)
+			}
 			g.PushAbility(matches[i])
 			g.pushTriggeredAbilities(controller, g.checkBecomesTargetTriggers(matches[i].Targets, false, matches[i].Controller))
 		}
@@ -2711,10 +2729,36 @@ func triggerEffectAPI(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 		if !strings.EqualFold(sub.Key, "Execute") {
 			continue
 		}
+		if !triggerActivationLimitMet(host, t, sub.Ability) {
+			return nil, 0, false, false
+		}
 		api, ok := APIByName(sub.Ability.Name)
 		return sub.Ability, api, optional, ok
 	}
 	return nil, 0, false, false
+}
+
+// triggerActivationLimitMet is Trigger.checkActivationLimit
+// (Trigger.java:362-372): fewer firings of the trigger this turn than
+// ActivationLimit$ and this game than GameActivationLimit$ (both literal
+// integers, as Integer.parseInt reads them; one that is not refuses, GO-7).
+// pushTriggeredAbilities counts a firing as the trigger goes on the stack.
+func triggerActivationLimitMet(host *Card, t, execute *compile.Ability) bool {
+	turn, game := host.trigActs.of(execute)
+	for _, k := range [...]struct {
+		key   string
+		count int
+	}{{"ActivationLimit", turn}, {"GameActivationLimit", game}} {
+		raw, ok := t.Param(k.key)
+		if !ok {
+			continue
+		}
+		limit, err := strconv.Atoi(raw)
+		if err != nil || k.count >= limit {
+			return false
+		}
+	}
+	return true
 }
 
 // triggerIsOptional is CR 603.3d's own "may" trigger, WrappedAbility.java's
@@ -3191,7 +3235,7 @@ func (g *Game) checkLifeGainedTriggers(controller PlayerController, gainer Playe
 						if !isLifeGainedTrigger(t) {
 							continue
 						}
-						if hasAnyParam(t, "ValidSource", "Spell", "ResolvedLimit", "ActivationLimit") {
+						if hasAnyParam(t, "ValidSource", "Spell", "ResolvedLimit") {
 							continue
 						}
 						if !phaseTriggerZoneMatches(h, t, z) {
@@ -3525,7 +3569,7 @@ func isBecomesTargetTrigger(t *compile.Ability) bool {
 	if _, ok := t.Param("ValidTarget"); !ok {
 		return false
 	}
-	return !hasAnyParam(t, "Valiant", "ActivationLimit", "Static")
+	return !hasAnyParam(t, "Valiant", "Static")
 }
 
 // becomesTargetSourceMatches is TriggerBecomesTarget.performTest's own

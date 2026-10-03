@@ -336,6 +336,9 @@ type triggeredObjects struct {
 	// counts are the integers the trigger mode recorded, read by
 	// TriggerCount$<Key> (AbilityUtils.java:638).
 	counts triggerCounts
+	// cards is AbilityKey.Cards: the batch a Mode$ DiscardedAll trigger
+	// fired for, read by Defined$ TriggeredCards.
+	cards []CardID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

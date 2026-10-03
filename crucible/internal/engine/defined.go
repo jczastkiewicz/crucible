@@ -13,6 +13,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -285,6 +286,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
 		}
 		return []CardID{refs.triggered.attacker}, nil
+	case "TriggeredCards", "TriggeredCardsLKICopy":
+		if len(refs.triggered.cards) == 0 {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no cards", defined)
+		}
+		return slices.Clone(refs.triggered.cards), nil
 	case "TriggeredNewCard", "TriggeredNewCardLKICopy":
 		// AbilityKey.NewCard of a zone-change trigger: the card as it is now.
 		// A CardID is stable across the move, so it is the card that moved.

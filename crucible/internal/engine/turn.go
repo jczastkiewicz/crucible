@@ -529,6 +529,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	// (Game.java:1239-1241), not only the battlefield's.
 	for i := 1; i < len(g.cards); i++ {
 		g.cards[i].activations.resetTurn()
+		g.cards[i].trigActs.resetTurn()
 	}
 	// Phased-out permanents too: CR 514.2's damage removal and
 	// Card.onCleanupPhase's resets walk getCardsIncludePhasingIn
@@ -550,6 +551,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 		p.LifeLostThisTurn = 0
+		p.CyclingThisTurn = 0
+		p.discardedThisTurn = nil
 	}
 
 	g.combatDamagePrevented = false

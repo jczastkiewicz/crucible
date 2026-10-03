@@ -126,4 +126,5 @@ func discardCards(g *Game, controller PlayerController, ids []CardID, pid Player
 		g.moveToGraveyard(id)
 		g.checkDiscardedTriggers(controller, id, pid)
 	}
+	g.checkDiscardedAllTriggers(controller, pid, ids)
 }

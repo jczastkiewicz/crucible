@@ -229,6 +229,8 @@ type Card struct {
 	// every cleanup (Game.java:1239-1241), both on any zone change, which
 	// makes the card a new object (CR 400.7).
 	activations activationCounts
+	// trigActs is the same for the card's triggers, keyed by Execute$ ability.
+	trigActs triggerActivations
 
 	// ProtectingPlayer is CR 122.1/704.5w's protector: the opponent
 	// defending a Battle. NoPlayer for anything that is not a Battle, or a

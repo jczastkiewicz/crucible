@@ -119,6 +119,13 @@ type Player struct {
 	// LifeLostThisTurn is the life this player has lost this turn
 	// (Player.lifeLostThisTurn); the first loss is what FirstTime$ names.
 	LifeLostThisTurn int
+	// CyclingThisTurn is how many Cycling or TypeCycling abilities the player
+	// has activated this turn (FirstTime$ of Mode$ Cycled).
+	CyclingThisTurn int
+	// discardedThisTurn is every card the player has discarded this turn, in
+	// order (Player.discardedThisTurn): TriggerDiscardedAll's FirstTime$ looks
+	// at what came before the batch.
+	discardedThisTurn []CardID
 
 	// TurnsToSkip is how many of this player's next turns are skipped
 	// (SkipTurn): Java's BeginTurn replacement effect that counts itself down.

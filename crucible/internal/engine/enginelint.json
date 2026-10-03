@@ -46,6 +46,8 @@
     "statictrigger": ["statictrigger.go"],
     "continuous": ["continuous.go"],
     "dependency": ["dependency.go"],
+    "saspec": ["saspec.go"],
+    "triggerscan": ["triggerscan.go"],
     "amount": ["amount.go", "amountheads.go", "amountpaid.go", "amountcontext.go"],
     "replacement": ["replacement.go"],
     "playerstate": ["playerstate.go"],
@@ -315,7 +317,8 @@
       "replaceeffect",
       "unlesscost",
       "lifelink",
-      "defined"
+      "defined",
+      "triggerscan"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [
@@ -337,6 +340,21 @@
       "dependency"
     ],
     "dependency": ["id", "card", "game", "continuous", "continuouslayers"],
+    "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone"],
+    "triggerscan": [
+      "id",
+      "card",
+      "game",
+      "ability",
+      "valid",
+      "trigger",
+      "combat",
+      "saspec",
+      "condition",
+      "staticability",
+      "zone",
+      "control"
+    ],
     "amount": ["id", "zone", "card", "game", "valid", "parts", "player", "ability"],
     "replacement": [
       "id",

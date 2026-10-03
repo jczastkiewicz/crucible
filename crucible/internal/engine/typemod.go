@@ -43,6 +43,14 @@ func (tm *TypeMod) Add(e TypeEffect) { tm.effects = append(tm.effects, e) }
 // outlast the leaving (game-state.md's "Not ported yet").
 func (tm *TypeMod) Clear() { tm.effects = nil }
 
+// size is how many effects tm holds, a mark truncate returns to: the
+// dependency search (dependency.go) applies another static on trial and then
+// undoes it.
+func (tm *TypeMod) size() int { return len(tm.effects) }
+
+// truncate drops every effect added since size returned n.
+func (tm *TypeMod) truncate(n int) { tm.effects = tm.effects[:n] }
+
 // clone is TypeMod's half of Game.Clone -- PT.clone's own reasoning: a
 // shared backing array would let a push on the clone alias the original.
 func (tm TypeMod) clone() TypeMod {

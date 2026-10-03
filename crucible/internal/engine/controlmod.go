@@ -37,6 +37,14 @@ func (m *ControlMod) Add(e ControlEffect) { m.effects = append(m.effects, e) }
 // pass (continuous.go), PT.Clear's own reasoning applied to Layer 2.
 func (m *ControlMod) Clear() { m.effects = nil }
 
+// size is how many effects m holds, a mark truncate returns to: the
+// dependency search (dependency.go) applies another static on trial and then
+// undoes it.
+func (m *ControlMod) size() int { return len(m.effects) }
+
+// truncate drops every effect added since size returned n.
+func (m *ControlMod) truncate(n int) { m.effects = m.effects[:n] }
+
 // clone is ControlMod's half of Game.Clone, PT.clone's own reasoning: a
 // shared backing array would let a push on the clone alias the original.
 func (m ControlMod) clone() ControlMod {

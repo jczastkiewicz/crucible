@@ -49,6 +49,14 @@ func (km *KeywordMod) Add(e KeywordEffect) { km.effects = append(km.effects, e) 
 // reason applies identically here).
 func (km *KeywordMod) Clear() { km.effects = nil }
 
+// size is how many effects km holds, a mark truncate returns to: the
+// dependency search (dependency.go) applies another static on trial and then
+// undoes it.
+func (km *KeywordMod) size() int { return len(km.effects) }
+
+// truncate drops every effect added since size returned n.
+func (km *KeywordMod) truncate(n int) { km.effects = km.effects[:n] }
+
 // clone is KeywordMod's half of Game.Clone -- PT.clone's own reasoning: a
 // shared backing array would let a push on the clone alias the original.
 func (km KeywordMod) clone() KeywordMod {

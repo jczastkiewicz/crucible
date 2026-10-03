@@ -2673,9 +2673,9 @@ func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 // over this rather than Def.Faces, so a granted trigger is visible to all of
 // them at once. With no grant it yields exactly Def.Faces.
 func (c *Card) triggerFaces(yield func(triggerFace) bool) {
-	if c.Def != nil {
-		for i := range c.Def.Faces[:liveFaces(c.Def)] {
-			f := &c.Def.Faces[i]
+	if d := c.traitDef(); d != nil {
+		for i := range d.Faces[:liveFaces(d)] {
+			f := &d.Faces[i]
 			if !yield(triggerFace{Triggers: f.Triggers, Amounts: f.Amounts, slot: i}) {
 				return
 			}

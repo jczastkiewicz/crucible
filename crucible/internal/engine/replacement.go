@@ -127,7 +127,7 @@ func (g *Game) checkMovedReplacement(moved CardID, origin ZoneType) {
 			if w.Def == nil {
 				continue
 			}
-			for _, face := range w.Def.Faces {
+			for _, face := range w.traitFaces() {
 				for _, r := range face.Replacements {
 					if shouldTap, matched := replacementTapsOnMove(g, r, movedCard, origin, w.Controller(), watcher, face.Amounts); matched {
 						movedCard.Tapped = shouldTap
@@ -444,7 +444,7 @@ func (g *Game) untapBlocked(card *Card) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if untapReplacementMatches(g, r, card, h.Controller(), host, z, face.Amounts) {
 							return true
@@ -523,7 +523,7 @@ func (g *Game) damagePrevented(source, target CardID, isCombat bool, amount int)
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, toughness, hasToughness) {
 							continue
@@ -556,7 +556,7 @@ func (g *Game) damagePreventedPlayer(source CardID, target PlayerID, isCombat bo
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !damagePreventionMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, 0, false) {
 							continue
@@ -708,7 +708,7 @@ func (g *Game) damageReplaced(source, target CardID, isCombat bool, amount int) 
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, toughness, hasToughness) {
 							continue
@@ -752,7 +752,7 @@ func (g *Game) damageReplacedPlayer(source CardID, target PlayerID, isCombat boo
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, 0, false) {
 							continue
@@ -1039,7 +1039,7 @@ func (g *Game) drawPrevented(player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !drawPreventionMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1110,7 +1110,7 @@ func (g *Game) gainLifePrevented(player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !gainLifePreventionMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1250,7 +1250,7 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !drawReplacementMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1484,7 +1484,7 @@ func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, am
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if !gainLifeReplacementMatches(g, r, host, z, face.Amounts) {
 							continue
@@ -1795,7 +1795,7 @@ func (g *Game) eachReplacement(event string, fn func(h *Card, amounts map[string
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces[:liveFaces(h.Def)] {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						if !strings.EqualFold(r.Name, event) || !hostInActiveZones(h, r, z) {
 							continue

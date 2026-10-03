@@ -166,7 +166,7 @@ func optionalAttackCostExert(c *Card) (*compile.Ability, bool) {
 	if c.Def == nil {
 		return nil, false
 	}
-	for _, face := range c.Def.Faces {
+	for _, face := range c.traitFaces() {
 		for _, s := range face.Statics {
 			if !strings.EqualFold(s.Name, "OptionalAttackCost") {
 				continue

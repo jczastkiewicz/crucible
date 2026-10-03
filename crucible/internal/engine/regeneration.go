@@ -69,7 +69,7 @@ func cardCantRegenerate(g *Game, id CardID) bool {
 			if h.Def == nil {
 				continue
 			}
-			for _, face := range h.Def.Faces {
+			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantRegenerate") {
 						continue
@@ -132,7 +132,7 @@ func destroyReplacedByRegeneration(g *Game, controller PlayerController, host *C
 	if host.Def == nil {
 		return false
 	}
-	for _, face := range host.Def.Faces {
+	for _, face := range host.traitFaces() {
 		for _, r := range face.Replacements {
 			if !regenerationReplacementMatches(g, r, host, face.Amounts) {
 				continue

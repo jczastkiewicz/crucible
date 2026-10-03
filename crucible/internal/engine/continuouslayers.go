@@ -343,6 +343,7 @@ func layerTypeChange(g *Game, host *Card, s *compile.Ability) (TypeEffect, bool)
 			return TypeEffect{}, false
 		}
 		e.DropSubtype = drop
+		e.RemoveLandTypes = land
 		flags = e.RemoveCardTypes || e.RemoveSuperTypes || e.RemoveSubTypes || drop != nil
 	}
 	if len(addWords) == 0 && removeCount == 0 && !flags {

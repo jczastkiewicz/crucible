@@ -75,7 +75,7 @@ func (g *Game) gameEventCantHappen(event string, pid PlayerID, reason string) (c
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.Def.Faces {
+				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
 						if gameEventMatches(g, r, event, host, z, reason, pid, face.Amounts) {
 							return true, false

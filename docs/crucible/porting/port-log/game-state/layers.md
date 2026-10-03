@@ -183,16 +183,18 @@ an effect is evaluated against, never the fold.
 
 Kormus Bell ("All Swamps are 1/1 creatures") with an earlier timestamp than Urborg, Tomb of Yawgmoth ("each land is a
 Swamp") depends on it, so a Forest becomes a creature (`TestDependentLayerFourEffectAppliesAfterItsDependency`,
-`dependency_test.go`); `TestDependencyLoopIsIgnoredButNotTheEffectsDependingOnIt` breaks only the loop.
+`dependency_test.go`); `TestDependencyLoopIsIgnoredButNotTheEffectsDependingOnIt` breaks only the loop. Existence is CR
+305.7's (`staticExists`, [`land-ability-removal.md`](land-ability-removal.md)): Urborg depends on the Blood Moon that
+removes its ability (`TestBloodMoonRemovesUrborgsAbilityWhateverTheTimestamps`). `RemoveAllAbilities$` removes no static
+here, so it changes no existence.
 
 Not ported:
 
-| Gap                                                                   | Why                                                                                                                                  |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| "Changes its existence" (613.8a)                                      | Needs a static that a Layer 4/6 effect removes: CR 305.7 (`Card.hasRemoveIntrinsic`) and `RemoveAllAbilities$` remove no static here |
-| "Changes what it does"                                                | Java tests only `GainControl$`'s player list; this port resolves only `You`                                                          |
-| CR 613.6: an effect keeps the objects it started applying to          | Each applier recomputes `Affected$`; Java's `affectedPerAbility` carries the set across layers                                       |
-| Layers 1, 3, 7a/7b and Layer 6's traits (`AddTrigger$`/`AddAbility$`) | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c                |
+| Gap                                                                   | Why                                                                                                                   |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| "Changes what it does"                                                | Java tests only `GainControl$`'s player list; this port resolves only `You`                                           |
+| CR 613.6: an effect keeps the objects it started applying to          | Each applier recomputes `Affected$`; Java's `affectedPerAbility` carries the set across layers                        |
+| Layers 1, 3, 7a/7b and Layer 6's traits (`AddTrigger$`/`AddAbility$`) | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c |
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip. That clear was

@@ -292,6 +292,7 @@ func buildAnimateCharacteristics(g *Game, a *Ability, api string, r animateRecor
 		return r, fmt.Errorf("engine: %s: a Remove*Types$ category needs the subtype vocabulary, which this game's DB lacks", api)
 	}
 	r.Types.DropSubtype = drop
+	r.Types.RemoveLandTypes = hasParam(a, "RemoveLandTypes")
 
 	if raw, ok := a.Params.Param("Colors"); ok {
 		r.HasColors = true

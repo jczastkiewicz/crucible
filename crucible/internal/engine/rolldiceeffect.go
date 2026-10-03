@@ -213,7 +213,7 @@ func diceModifierInPlay(g *Game) bool {
 				if c.Def == nil {
 					continue
 				}
-				for _, face := range c.Def.Faces {
+				for _, face := range c.traitFaces() {
 					for _, r := range face.Replacements {
 						if strings.EqualFold(r.Name, "RollDice") {
 							return true

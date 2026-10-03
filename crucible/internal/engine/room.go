@@ -437,7 +437,7 @@ func unlockCostModified(g *Game, unlocker PlayerID) bool {
 			if c.Def == nil {
 				continue
 			}
-			for _, face := range c.Def.Faces {
+			for _, face := range c.traitFaces() {
 				for _, st := range face.Statics {
 					mode, _ := st.Param("Mode")
 					spell, _ := st.Param("ValidSpell")

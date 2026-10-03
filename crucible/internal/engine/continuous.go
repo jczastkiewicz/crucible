@@ -308,9 +308,7 @@ func applyContinuousType(g *Game) {
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.TypeMod.Clear() })
 	animateTypes(g)
-	for _, ls := range continuousStatics(g) {
-		applyOneContinuousType(g, g.Card(ls.host), ls.amounts, ls.s)
-	}
+	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), typeLayerKeys...), typeLayerOps(g))
 	applyChangelings(g)
 }
 
@@ -391,9 +389,7 @@ func applyContinuousKeyword(g *Game) {
 	forEachOffBattlefieldCard(g, func(c *Card) { c.KeywordMod.Clear() })
 	animateKeywords(g)
 	pumpLayerKeywords(g)
-	for _, ls := range continuousStatics(g) {
-		applyOneContinuousKeyword(g, g.Card(ls.host), ls.amounts, ls.s)
-	}
+	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), keywordLayerKeys...), keywordLayerOps(g))
 }
 
 // applyOneContinuousKeyword is Layer 6's keyword half for one Mode$
@@ -1199,9 +1195,7 @@ func applyContinuousControl(g *Game) {
 			g.Card(id).ControlMod.Clear()
 		}
 	}
-	for _, ls := range continuousStatics(g) {
-		applyOneContinuousControl(g, g.Card(ls.host), ls.s)
-	}
+	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), controlLayerKeys...), controlLayerOps(g))
 }
 
 // applyOneContinuousControl is Layer 2: s hands control of every battlefield

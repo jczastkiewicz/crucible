@@ -167,9 +167,32 @@ first, then by host timestamp (`TestLayerStaticsEvaluateInTimestampOrder`). The 
 by timestamp at read time, as Java's timestamp-keyed `TreeBasedTable`s do, so the walk order changes only which objects
 an effect is evaluated against, never the fold.
 
-**Not here: CR 613.6-613.8's dependency reordering.** Java sorts effects within a layer by timestamp and then
-re-evaluates whether an unapplied effect has become dependent on or independent of another as each one resolves
-(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`).
+**Dependency ordering (CR 613.8, ADR-0025 Decision 2).** `dependency.go` ports `findStaticAbilityToApply`
+(`GameAction.java:1273-1381`) for Layer 2 (`GainControl$`), Layer 4 (`typeLayerKeys`) and Layer 6's keyword half
+(`keywordLayerKeys`); the params that put a line in a layer are `StaticAbility.generateLayer`'s
+(`StaticAbility.java:139-187`). `applyInDependencyOrder` applies one static at a time and re-chooses after each (CR
+613.8c):
+
+| Step             | Java                                                                              | Go                                                                                |
+| ---------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| "S depends on O" | Apply O on trial; S's affected cards differ, in order (`Iterators.elementsEqual`) | `ops.mark`, `ops.apply(O)`, `ops.affected(S)`, `ops.undo` (each mod's `truncate`) |
+| Loops (613.8b)   | Remove every edge of every simple cycle (jgrapht)                                 | Drop edge S→O when O reaches S (`transitiveClosure`): the same edge set           |
+| Choice           | Earliest timestamp among statics with no edge left                                | Same; ties in effectOrder                                                         |
+| Shortcuts        | One static; first is from a resolved effect; first depends on nothing             | Same (`resolvedStatic`: an `IsEffect` host)                                       |
+| CDAs             | Applied in effectOrder place, no search                                           | Same                                                                              |
+
+Kormus Bell ("All Swamps are 1/1 creatures") with an earlier timestamp than Urborg, Tomb of Yawgmoth ("each land is a
+Swamp") depends on it, so a Forest becomes a creature (`TestDependentLayerFourEffectAppliesAfterItsDependency`,
+`dependency_test.go`); `TestDependencyLoopIsIgnoredButNotTheEffectsDependingOnIt` breaks only the loop.
+
+Not ported:
+
+| Gap                                                                   | Why                                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| "Changes its existence" (613.8a)                                      | Needs a static that a Layer 4/6 effect removes: CR 305.7 (`Card.hasRemoveIntrinsic`) and `RemoveAllAbilities$` remove no static here |
+| "Changes what it does"                                                | Java tests only `GainControl$`'s player list; this port resolves only `You`                                                          |
+| CR 613.6: an effect keeps the objects it started applying to          | Each applier recomputes `Affected$`; Java's `affectedPerAbility` carries the set across layers                                       |
+| Layers 1, 3, 7a/7b and Layer 6's traits (`AddTrigger$`/`AddAbility$`) | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c                |
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip. That clear was
@@ -199,10 +222,10 @@ the game's DB, `compile.DB.Types()`
 
 `TypeMod` (`typemod.go`) is `PT`'s own structure, copied for Layer 4: a `[]TypeEffect` (`Timestamp`, `AddTypes`,
 `RemoveTypes`), a `foldType` that sorts by `Timestamp` and folds each effect's `Union` then `Without` into the running
-line — CR 613.7's tiebreak, the identical simplification `foldPT`'s own doc comment already makes for 613.8's harder
-dependency-reordering case. `Card.Type()` now folds `TypeMod` over the printed `Def.Faces[0].Type` the same way
-`Card.Power`/`Toughness` already fold `PT` over `BasePower`/`BaseToughness`. `Move` calls `TypeMod.Clear()` on leaving
-the battlefield, next to `PT.Clear()`; `Game.Clone` deep-copies it, next to `PT`'s own clone.
+line — CR 613.7's tiebreak; dependency changes evaluation order, never the fold (above). `Card.Type()` now folds
+`TypeMod` over the printed `Def.Faces[0].Type` the same way `Card.Power`/`Toughness` already fold `PT` over
+`BasePower`/`BaseToughness`. `Move` calls `TypeMod.Clear()` on leaving the battlefield, next to `PT.Clear()`;
+`Game.Clone` deep-copies it, next to `PT`'s own clone.
 
 `applyOneContinuousType` skips a whole line, not just the part it cannot resolve: applying "is a Turtle" without the
 `RemoveCreatureTypes$` wipe the line also asks for would leave a card with both its old and new creature types. Which

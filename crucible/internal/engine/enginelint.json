@@ -357,7 +357,8 @@
       "replaceeffect",
       "effecthelpers",
       "defined",
-      "combat"
+      "combat",
+      "unlesscost"
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card", "ability", "parts", "valid"],

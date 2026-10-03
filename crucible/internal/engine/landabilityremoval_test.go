@@ -130,3 +130,27 @@ func TestBloodMoonedLandOffersItsSubtypeAndGrantedManaAbilities(t *testing.T) {
 		t.Fatalf("offers = %v, want one choice between the Mountain's {R} and the granted ability", rec.offers)
 	}
 }
+
+// CR 614.12: an entering permanent's replacements look at it as it would
+// exist on the battlefield. Under Blood Moon Gruul Guildgate is a Mountain
+// without the "enters tapped" replacement its text gives it, so it enters
+// untapped; without Blood Moon it enters tapped.
+func TestBloodMoonRemovesAnEnteringLandsEntersTappedReplacement(t *testing.T) {
+	t.Parallel()
+
+	for _, moon := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		if moon {
+			g.NewCard(corpusCard(t, "Blood Moon"), p, engine.Battlefield)
+		}
+		gate := g.NewCard(corpusCard(t, "Gruul Guildgate"), p, engine.Hand)
+		sba(g)
+		if !g.PlayLand(p, gate, engine.NewScriptedController()) {
+			t.Fatalf("Blood Moon %v: PlayLand failed", moon)
+		}
+		if got := g.Card(gate).Tapped; got == moon {
+			t.Errorf("Blood Moon %v: Gruul Guildgate entered tapped = %v, want %v", moon, got, !moon)
+		}
+	}
+}

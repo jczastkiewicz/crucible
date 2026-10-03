@@ -1,0 +1,7 @@
+# "As Temple Garden enters, you may pay 2 life. If you don't, it enters
+# tapped": the ETBTapped replacement's UnlessCost$ PayLife<2> is the controller's
+# choice (AbilityUtils.handleUnlessCost). Paying keeps the land untapped.
+queue confirmpaycost true
+startturn human
+advance 3
+playland human 1

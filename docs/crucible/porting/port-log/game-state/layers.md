@@ -185,16 +185,15 @@ Kormus Bell ("All Swamps are 1/1 creatures") with an earlier timestamp than Urbo
 Swamp") depends on it, so a Forest becomes a creature (`TestDependentLayerFourEffectAppliesAfterItsDependency`,
 `dependency_test.go`); `TestDependencyLoopIsIgnoredButNotTheEffectsDependingOnIt` breaks only the loop. Existence is CR
 305.7's (`staticExists`, [`land-ability-removal.md`](land-ability-removal.md)): Urborg depends on the Blood Moon that
-removes its ability (`TestBloodMoonRemovesUrborgsAbilityWhateverTheTimestamps`). `RemoveAllAbilities$` removes no static
-here, so it changes no existence.
+removes its ability (`TestBloodMoonRemovesUrborgsAbilityWhateverTheTimestamps`). Layer 6 is one dependency-ordered set
+(`abilitiesLayerOps`): keyword grants, trait grants and `RemoveAllAbilities$` together.
 
 Not ported:
 
-| Gap                                                                   | Why                                                                                                                   |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| "Changes what it does"                                                | Java tests only `GainControl$`'s player list; this port resolves only `You`                                           |
-| CR 613.6: an effect keeps the objects it started applying to          | Each applier recomputes `Affected$`; Java's `affectedPerAbility` carries the set across layers                        |
-| Layers 1, 3, 7a/7b and Layer 6's traits (`AddTrigger$`/`AddAbility$`) | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c |
+| Gap                    | Why                                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| "Changes what it does" | Java tests only `GainControl$`'s player list; this port resolves only `You`                                           |
+| Layers 1, 3 and 7a/7b  | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c |
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip. That clear was
@@ -475,3 +474,23 @@ Ten new tests (`TestApplyContinuousPTAppliesWhen*ConditionMet`/`SkipsWhen*Condit
 each resolvable value both ways, driven through `g.StartTurn` (`PlayerTurn`) or a matching zone/type/life setup
 (`Threshold`/`Hellbent`/`Metalcraft`/`Delirium`/`FatefulHour`) -- `Rules`/`Control` reuse the identical shared function,
 so are not re-proven per value there.
+
+## CR 613.6 carried sets and `RemoveAllAbilities$`
+
+**Carried sets.** `staticAffected` (`continuouslayers.go`) fixes the cards a static applies to the first time a layer
+applier asks, and returns that set to every later layer of the pass (`Game.layerAffected`, Java's `affectedPerAbility`,
+`GameAction.java:1138-1151`), reset at the start of each pass (`applyContinuousLayers`). A key's presence also marks the
+static as started: `staticLive` keeps applying a started static whose host has since lost its printed traits (CR 305.7
+or `RemoveAllAbilities$`), and refuses an unstarted one (`StaticAbility.shouldApplyContinuousAbility`'s `previousRun`).
+`continuousStatics` therefore lists every printed static and each applier gates on `staticLive`. A dependency trial
+snapshots and restores the map.
+
+**Removal.** `RemoveAllAbilities$` and `RemoveNonManaAbilities$` (`StaticAbilityContinuous.java:327-331`,
+`CardTraitChanges`' `remove` predicate) are applied inside the Layer 6 order by `applyOneContinuousTraits`: the card's
+`abilityRemoval` is set (`removeTraits`), which hides its printed statics, triggers, replacements, keywords and
+activated abilities (`printedTraitsRemoved`, `hidesPrintedAbility`: the second form keeps printed mana abilities), and
+every trait granted earlier (`traitGrants`) is dropped, a later grant surviving. The flag is cleared at the start of
+each pass, so Layers 2-5 still see the text. Humility with a static that makes it a creature sets the Angel to 1/1
+whichever entered first (`TestAnEffectKeepsApplyingAfterItsSourceLosesItsAbilities`);
+`TestHumilityRemovesEveryKindOfPrintedAbility`, `TestRemoveNonManaAbilitiesKeepsManaAbilities`. Not ported:
+`AddStaticAbility$`/`AddReplacementEffect$` grants, so a removal has no such grant to drop.

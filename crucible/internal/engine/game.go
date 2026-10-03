@@ -141,6 +141,11 @@ type Game struct {
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord
+	// layerAffected is CR 613.6's carried set for the layer pass in progress:
+	// the cards each continuous static applied to in the first layer it did,
+	// which later layers reuse (affectedPerAbility, GameAction.java:1119). A
+	// key's presence also says the static has started applying.
+	layerAffected map[layerKey][]CardID
 	// animates is every Animate-shaped effect in force (animate.go):
 	// Animate, AnimateAll, Debuff, Protection, ProtectionAll.
 	animates []animateRecord
@@ -1228,4 +1233,10 @@ func (a *Ability) causeKind() string {
 	default:
 		return causeActivated
 	}
+}
+
+// layerKey names one static ability on one host within a layer pass.
+type layerKey struct {
+	host CardID
+	s    *compile.Ability
 }

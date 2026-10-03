@@ -707,3 +707,45 @@ func applyChangelings(g *Game) {
 		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all})
 	}
 }
+
+// staticAffected is the cards the static s of host applies to in this layer
+// pass. CR 613.6: an effect that starts applying in one layer keeps applying
+// to the same objects in every other layer, even if its source loses the
+// ability meanwhile, so the first call fixes the set (layerAffectedCards) and
+// later calls return it (GameAction.java:1138-1151, `affectedPerAbility`).
+func (g *Game) staticAffected(host *Card, s *compile.Ability) ([]CardID, bool) {
+	key := layerKey{host.ID, s}
+	if ids, ok := g.layerAffected[key]; ok {
+		return ids, true
+	}
+	ids, ok := layerAffectedCards(g, host, s)
+	if !ok {
+		return nil, false
+	}
+	if g.layerAffected == nil {
+		g.layerAffected = map[layerKey][]CardID{}
+	}
+	g.layerAffected[key] = slices.Clone(ids)
+	return ids, true
+}
+
+// staticPeekAffected is staticAffected without fixing the set, for the
+// dependency search's comparison of what a static would apply to.
+func (g *Game) staticPeekAffected(host *Card, s *compile.Ability) ([]CardID, bool) {
+	if ids, ok := g.layerAffected[layerKey{host.ID, s}]; ok {
+		return ids, true
+	}
+	return layerAffectedCards(g, host, s)
+}
+
+// staticLive is StaticAbility.shouldApplyContinuousAbility's host test: the
+// static is still on its host (the host has not lost its printed traits to a
+// land subtype setter, CR 305.7, or a RemoveAllAbilities$ effect), or it has
+// already started applying in an earlier layer of this pass (CR 613.6).
+func (g *Game) staticLive(host *Card, s *compile.Ability) bool {
+	if !host.printedTraitsRemoved() {
+		return true
+	}
+	_, started := g.layerAffected[layerKey{host.ID, s}]
+	return started
+}

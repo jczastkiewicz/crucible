@@ -216,11 +216,12 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	// CR 613: recomputed fresh every pass, before anything below reads
 	// Power()/Toughness() or Type() -- applyContinuousPT's own doc comment
 	// (continuous.go) has the reason this cannot be a one-time push instead.
-	// applyContinuousControl runs first: CR 613.1 puts Layer 2 (control)
-	// before every layer that follows, and several of them evaluate
-	// Affected$ specs that can themselves read Controller() (a "YouCtrl"
-	// property), which must already reflect this pass's own control changes
-	// (applyContinuousControl's own doc comment).
+	// The layers run in Java's CONTINUOUS_LAYERS order (StaticAbilityLayer.
+	// java:46, ADR-0025): control, text, type, color, abilities, P/T, so
+	// each layer's Affected$ sets and conditions see every earlier layer's
+	// result from this pass. Resolved Animate and Pump effects apply at the
+	// start of their own layer (animateTypes, pumpPT, ...), already on the
+	// card when that layer's statics evaluate.
 	// clearContinuousText/applyContinuousText bracket Layer 2 for Layer 3:
 	// last pass's text changes end before control is recomputed, and this
 	// pass's apply right after it (clearContinuousText's own doc comment).
@@ -229,21 +230,13 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	g.correctControllerZones(controller)
 	g.dropStolenRingBearers()
 	applyContinuousText(g)
-	applyContinuousPT(g)
 	applyContinuousType(g)
 	applyContinuousColor(g)
 	applyContinuousKeyword(g)
 	applyContinuousTraits(g)
 	applyContinuousRules(g)
 	applyContinuousNames(g)
-	// applyPumpEffects runs after applyContinuousPT/applyContinuousKeyword,
-	// once their own Clear() has already emptied every battlefield card's PT
-	// and KeywordMod for this pass, so a resolved Pump effect's own
-	// contribution (Game.pumps, game.go) is what re-adds it back rather than
-	// a Mode$ Continuous S: line (applyPumpEffects's own doc comment,
-	// continuous.go).
-	applyPumpEffects(g)
-	applyAnimateEffects(g)
+	applyContinuousPT(g)
 
 	// CR 704.5q
 	for _, pid := range g.Players() {

@@ -155,12 +155,21 @@ outcome was accidentally right for the wrong reason; `setup.state` now marks 4 d
 scenario still demonstrates what it was written for (`cleanupDanglingAttachments`'s Equipment-vs-Aura distinction)
 without depending on a gap this port no longer has.
 
+**Evaluation order (ADR-0025).** `checkStateBasedActionsPass` (`action.go`) runs the appliers in Java's
+`CONTINUOUS_LAYERS` order (`StaticAbilityLayer.java:46`): control, text, type, color, abilities (keywords, traits,
+hidden keywords and rules), names, then P/T. Each layer's `Affected$` sets and conditions therefore see every earlier
+layer's result from this pass: Glorious Anthem counts a Swamp Kormus Bell animated in Layer 4 of the same pass
+(`TestLayerSevenSeesThisPassLayerFourTypes`, `layerorder_test.go`). A resolved Animate or Pump effect is re-added at the
+start of its own layer (`animateTypes`/`animateColors`/`animateKeywords`/`animatePT`, `pumpLayerKeywords`/`pumpPT`),
+before that layer's statics evaluate, as Java's `changed*` tables keep it on the card. Within a layer the statics are
+walked in Java's `effectOrder` (`GameAction.java:82-83`): `continuousStatics` sorts `CharacteristicDefining$` lines
+first, then by host timestamp (`TestLayerStaticsEvaluateInTimestampOrder`). The folds (`foldPT`, `foldType`, ...) sort
+by timestamp at read time, as Java's timestamp-keyed `TreeBasedTable`s do, so the walk order changes only which objects
+an effect is evaluated against, never the fold.
+
 **Not here: CR 613.6-613.8's dependency reordering.** Java sorts effects within a layer by timestamp and then
 re-evaluates whether an unapplied effect has become dependent on or independent of another as each one resolves
-(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`, 1,099-line `StaticAbilityContinuous.java`). Real
-`PTEffect`s exist now, but nothing in the real corpus subset this slice resolves puts two effects on one card that could
-actually disagree about order (an anthem and an equipment bonus stack additively regardless of which applied first) —
-`foldPT`'s plain timestamp sort remains a real port of CR 613.7's tiebreak, not yet a stand-in for 613.8's harder case.
+(`GameAction.checkStaticAbilities`'s `findStaticAbilityToApply`).
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip. That clear was

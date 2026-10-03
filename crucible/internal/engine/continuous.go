@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -75,6 +76,52 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 	}
 }
 
+// layerStatic is one static ability in play, as a layer applier walks it:
+// the host, the face it is printed on and its index there (Layer 3's
+// textChange key, Layer 8's MayPlay grant key), the definition it was read
+// from (Layer 3 swaps the host's own Def mid-walk) and that face's amounts.
+type layerStatic struct {
+	host    CardID
+	def     *compile.Card
+	face    int
+	index   int
+	s       *compile.Ability
+	amounts map[string]expr.Amount
+}
+
+// continuousStatics is every static ability on every trait host in Java's
+// effectOrder (GameAction.java:82-83): characteristic-defining lines first
+// (CR 613.3), then by the host's timestamp (CR 613.7), ties kept in the
+// battlefield's own order. Each applier walks this order, so an Affected$
+// set is evaluated after exactly the effects that precede it in this layer
+// have applied, not after whichever hosts happened to sit earlier on the
+// battlefield. Read fresh per layer: a Layer 3 text change swaps a host's
+// Def, and later layers then see the gained statics (Java's toAdd list).
+func continuousStatics(g *Game) []layerStatic {
+	var out []layerStatic
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			def := g.Card(host).Def
+			if def == nil {
+				continue
+			}
+			for fi, face := range def.Faces {
+				for si, s := range face.Statics {
+					out = append(out, layerStatic{host: host, def: def, face: fi, index: si, s: s, amounts: face.Amounts})
+				}
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		ci, cj := hasParamOn(out[i].s, "CharacteristicDefining"), hasParamOn(out[j].s, "CharacteristicDefining")
+		if ci != cj {
+			return ci
+		}
+		return g.Card(out[i].host).Timestamp < g.Card(out[j].host).Timestamp
+	})
+	return out
+}
+
 // applyContinuousPT recomputes every battlefield permanent's own Layer
 // 7b/7c PTEffects from scratch, from every real Mode$ Continuous S: line
 // currently in play. CR 613's own continuous effects are not stored and
@@ -91,27 +138,18 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 // safe because the one other source of a PTEffect, a resolved Pump effect
 // (pumpeffect.go), is not rebuilt from a card script here at all: it re-adds
 // its own duration-scoped record fresh every pass too, from Game.pumps
-// rather than from a card's own Statics, via applyPumpEffects (below),
-// called from the identical CheckStateBasedActions sequence right after this
-// function and applyContinuousKeyword.
+// rather than from a card's own Statics, via pumpPT (below), right after the
+// clear and before the statics, as animatePT re-adds a resolved Animate.
 func applyContinuousPT(g *Game) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).PT.Clear()
 		}
 	}
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousPT(g, h, face.Amounts, s)
-				}
-			}
-		}
+	animatePT(g)
+	pumpPT(g)
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
 
@@ -269,18 +307,9 @@ func applyContinuousType(g *Game) {
 		}
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.TypeMod.Clear() })
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousType(g, h, face.Amounts, s)
-				}
-			}
-		}
+	animateTypes(g)
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousType(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 	applyChangelings(g)
 }
@@ -321,18 +350,9 @@ func applyContinuousColor(g *Game) {
 		}
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.ColorMod.Clear() })
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousColor(g, h, face.Amounts, s)
-				}
-			}
-		}
+	animateColors(g)
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousColor(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
 
@@ -369,18 +389,10 @@ func applyContinuousKeyword(g *Game) {
 		g.Player(pid).KeywordMod.Clear()
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.KeywordMod.Clear() })
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousKeyword(g, h, face.Amounts, s)
-				}
-			}
-		}
+	animateKeywords(g)
+	pumpLayerKeywords(g)
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousKeyword(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
 
@@ -455,18 +467,8 @@ func applyContinuousNames(g *Game) {
 			g.Card(id).HasNonLegendaryCreatureNames = false
 		}
 	}
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousNames(g, h, s)
-				}
-			}
-		}
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousNames(g, g.Card(ls.host), ls.s)
 	}
 }
 
@@ -556,19 +558,8 @@ func clearContinuousText(g *Game) {
 // applying the line to the host itself (AffectedDefined$ Self, the one real
 // shape) swaps that very Def mid-walk.
 func applyContinuousText(g *Game) {
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			def := h.Def
-			if def == nil {
-				continue
-			}
-			for fi, face := range def.Faces {
-				for si, s := range face.Statics {
-					applyOneContinuousText(g, h, s, textChange{owner: def, face: fi, static: si})
-				}
-			}
-		}
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousText(g, g.Card(ls.host), ls.s, textChange{owner: ls.def, face: ls.face, static: ls.index})
 	}
 }
 
@@ -708,18 +699,41 @@ func textChangedDef(src *compile.Card, gained []*compile.Ability) *compile.Card 
 // more copy of the pump every pass. It applies again once the card phases
 // back in, as Java's own pump -- a boost stored on the card itself -- does.
 func applyPumpEffects(g *Game) {
-	for _, p := range g.pumps {
+	pumpLayerKeywords(g)
+	pumpPT(g)
+}
+
+// livePumps calls fn for every pump record whose card is on the
+// battlefield and phased in.
+func livePumps(g *Game, fn func(c *Card, p *pumpRecord)) {
+	for i := range g.pumps {
+		p := &g.pumps[i]
 		c := g.Card(p.Card)
 		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
-		if p.Power != 0 || p.Toughness != 0 {
-			c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: p.Timestamp, Power: p.Power, Toughness: p.Toughness})
-		}
+		fn(c, p)
+	}
+}
+
+// pumpLayerKeywords is applyPumpEffects' Layer 6 half, called at the start of
+// applyContinuousKeyword.
+func pumpLayerKeywords(g *Game) {
+	livePumps(g, func(c *Card, p *pumpRecord) {
 		if len(p.Keywords) > 0 {
 			c.KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
 		}
-	}
+	})
+}
+
+// pumpPT is applyPumpEffects' Layer 7c half, called at the start of
+// applyContinuousPT.
+func pumpPT(g *Game) {
+	livePumps(g, func(c *Card, p *pumpRecord) {
+		if p.Power != 0 || p.Toughness != 0 {
+			c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: p.Timestamp, Power: p.Power, Toughness: p.Toughness})
+		}
+	})
 }
 
 // keywordTokens reads key (Pump's KW$, pumpKeywords -- its one caller; a static
@@ -785,20 +799,11 @@ func applyContinuousRules(g *Game) {
 	}
 	clearHiddenKeywords(g)
 	g.mayPlay = nil
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for i, s := range face.Statics {
-					applyOneContinuousRules(g, h, face.Amounts, s)
-					applyOneContinuousHiddenKeyword(g, h, s)
-					applyOneContinuousMayPlay(g, h, face.Amounts, s, i)
-				}
-			}
-		}
+	for _, ls := range continuousStatics(g) {
+		h := g.Card(ls.host)
+		applyOneContinuousRules(g, h, ls.amounts, ls.s)
+		applyOneContinuousHiddenKeyword(g, h, ls.s)
+		applyOneContinuousMayPlay(g, h, ls.amounts, ls.s, ls.index)
 	}
 }
 
@@ -1194,18 +1199,8 @@ func applyContinuousControl(g *Game) {
 			g.Card(id).ControlMod.Clear()
 		}
 	}
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousControl(g, h, s)
-				}
-			}
-		}
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousControl(g, g.Card(ls.host), ls.s)
 	}
 }
 
@@ -1304,18 +1299,8 @@ func applyContinuousTraits(g *Game) {
 	for i := 1; i < len(g.cards); i++ {
 		g.cards[i].traitGrants = nil
 	}
-	for _, pid := range g.Players() {
-		for _, host := range g.traitHosts(pid) {
-			h := g.Card(host)
-			if h.Def == nil {
-				continue
-			}
-			for _, face := range h.Def.Faces {
-				for _, s := range face.Statics {
-					applyOneContinuousTraits(g, h, face.Amounts, s)
-				}
-			}
-		}
+	for _, ls := range continuousStatics(g) {
+		applyOneContinuousTraits(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
 }
 

@@ -51,33 +51,70 @@ func (r *animateRecord) changesTypes() bool {
 }
 
 // applyAnimateEffects re-adds every animateRecord into its card's layer
-// mods -- applyPumpEffects' own contract (continuous.go): called from
-// CheckStateBasedActions after the Mode$ Continuous appliers have cleared
-// and rebuilt every battlefield card's mods for this pass. A record whose
-// card is not on the battlefield is skipped, and so is one whose card is
-// phased out, for applyPumpEffects' own reason: the Clear() passes never
-// reach it (ADR-0021), so re-adding would stack.
+// mods, all four layers at once -- addAnimate's immediate application. The
+// state-based-action pass instead calls each layer's half at the start of
+// that layer (animateTypes, animateColors, animateKeywords, animatePT), right
+// after the layer's own clear: a resolved effect is already on the card when
+// the layer's statics evaluate their Affected$ sets, as Java's changed*
+// tables keep it (ADR-0025, Decision 1). A record whose card is not on the
+// battlefield is skipped, and so is one whose card is phased out, for
+// applyPumpEffects' own reason: the Clear() passes never reach it
+// (ADR-0021), so re-adding would stack.
 func applyAnimateEffects(g *Game) {
+	animateTypes(g)
+	animateColors(g)
+	animateKeywords(g)
+	animatePT(g)
+}
+
+// liveAnimates calls fn for every animateRecord whose card is on the
+// battlefield and phased in.
+func liveAnimates(g *Game, fn func(c *Card, r *animateRecord)) {
 	for i := range g.animates {
 		r := &g.animates[i]
 		c := g.Card(r.Card)
 		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
 		}
+		fn(c, r)
+	}
+}
+
+// animateTypes is applyAnimateEffects' Layer 4 half.
+func animateTypes(g *Game) {
+	liveAnimates(g, func(c *Card, r *animateRecord) {
 		if r.changesTypes() {
 			te := r.Types
 			te.Timestamp = r.Timestamp
 			c.TypeMod.Add(te)
 		}
+	})
+}
+
+// animateColors is applyAnimateEffects' Layer 5 half.
+func animateColors(g *Game) {
+	liveAnimates(g, func(c *Card, r *animateRecord) {
 		if r.HasColors {
 			c.ColorMod.Add(ColorEffect{Timestamp: r.Timestamp, Colors: r.Colors, Overwrite: r.OverwriteColors})
 		}
+	})
+}
+
+// animateKeywords is applyAnimateEffects' Layer 6 half.
+func animateKeywords(g *Game) {
+	liveAnimates(g, func(c *Card, r *animateRecord) {
 		if len(r.AddKeywords) > 0 || len(r.RemoveKeywords) > 0 || r.RemoveAllKW {
 			c.KeywordMod.Add(KeywordEffect{
 				Timestamp: r.Timestamp, AddKeywords: r.AddKeywords,
 				RemoveKeywords: r.RemoveKeywords, RemoveAll: r.RemoveAllKW,
 			})
 		}
+	})
+}
+
+// animatePT is applyAnimateEffects' Layer 7b half.
+func animatePT(g *Game) {
+	liveAnimates(g, func(c *Card, r *animateRecord) {
 		if r.HasPower || r.HasToughness {
 			c.PT.Add(PTEffect{
 				Layer: LayerSetPT, Timestamp: r.Timestamp,
@@ -85,7 +122,7 @@ func applyAnimateEffects(g *Game) {
 				HasPower: r.HasPower, HasToughness: r.HasToughness,
 			})
 		}
-	}
+	})
 }
 
 // addAnimate records r and applies it at once, so the card's

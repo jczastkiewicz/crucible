@@ -137,7 +137,7 @@ type Game struct {
 	// a Pump's own contribution is not rederivable from a card script each
 	// pass (there is no S: line behind it to re-read), so it is kept here and
 	// re-added into its target's own PT/KeywordMod every
-	// CheckStateBasedActions pass by applyPumpEffects (continuous.go) instead
+	// CheckStateBasedActions pass by pumpPT/pumpLayerKeywords (continuous.go) instead
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord

@@ -331,7 +331,8 @@
       "playerstate",
       "continuouslayers",
       "defined",
-      "trigger"
+      "trigger",
+      "animate"
     ],
     "amount": ["id", "zone", "card", "game", "valid", "parts", "player", "ability"],
     "replacement": [

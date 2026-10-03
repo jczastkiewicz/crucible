@@ -277,3 +277,33 @@ func TestTriggerResolvedLimitCountsResolutions(t *testing.T) {
 		t.Errorf("life = %d, want 23: two activations, the trigger resolved once", got)
 	}
 }
+
+// CR 511.3 / PhaseHandler.onPhaseEnd: combat ends as the end of combat step
+// ends, so a Mode$ Phase | Phase$ EndCombat trigger still sees who attacked
+// (IsPresent$ Card.Self+attackedThisCombat, 14 real lines).
+func TestEndOfCombatTriggerSeesTheCombat(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	a := g.Players()[0]
+	g.SetTurnState(1, a, engine.Main1)
+	attacker := g.NewCard(scriptDef(t, "Test Attacker", "Creature Elf",
+		"T:Mode$ Phase | Phase$ EndCombat | ValidPlayer$ Player | IsPresent$ Card.Self+attackedThisCombat | TriggerZones$ Battlefield | Execute$ TrigGain",
+		gainThreeSVar), a, engine.Battlefield)
+	g.Card(attacker).SummonSick = false
+	sba(g)
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{attacker})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	declareBlockers(t, g, bc)
+	g.SetTurnState(1, a, engine.CombatDamage)
+	g.AdvancePhase(bc) // -> CombatEnd: its trigger sees the combat
+	if err := g.ResolveStack(engine.NewRegistry(), bc); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(a).Life; got != 23 {
+		t.Errorf("life = %d, want 23: the end of combat trigger saw its attacker", got)
+	}
+}

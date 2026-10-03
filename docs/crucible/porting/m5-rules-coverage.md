@@ -174,7 +174,7 @@ priority round per step grant. Rows about per-step priority cite the driver.
 | 510 — Combat damage: damage triggers                                                       | `PhaseHandler.java:334-344`                         | `combatdamage.go:28`                                   | `monarch-draws-at-end-step-and-passes-by-combat-damage`, `TestInitiativeTakenByCombatDamage`                                                                   | `covered`         |
 | 510 — Combat damage: no damage dealt, no priority                                          | `PhaseHandler.java:339-341`                         | `turn.go:263`, `combatdamage.go:123`                   | missing                                                                                                                                                        | `impl-no-fixture` |
 | 511.1 — End of combat: "at end of combat" triggers                                         | `PhaseHandler.java:346-354`                         | `trigger.go:1781`                                      | `TestFirstCombatOnlyInFirstOfTwoCombats`, `TestEffectCardUntilEndOfCombat`                                                                                     | `covered`         |
-| 511.3 — creatures removed from combat as the step ends (Go: as it begins, before triggers) | `PhaseHandler.java:493-503`                         | `turn.go:268-269`, `:453` (wrong point)                | `TestAdvancePhaseIntoCombatEndClearsCombat` pins the Go timing                                                                                                 | `missing`         |
+| 511.3 — creatures removed from combat as the step ends                                     | `PhaseHandler.java:492-501`                         | `turn.go` (`advanceStep`)                              | `TestEndOfCombatTriggerSeesTheCombat`, `TestAdvancePhaseIntoCombatEndClearsCombat`                                                                             | `covered`         |
 | 505 — Main 2: "at the beginning of your second main phase" triggers                        | `PhaseHandler.java:356-359`                         | `trigger.go:1781`                                      | `TestAdvancePhaseFiresMainSecondTriggerOnMain2`                                                                                                                | `covered`         |
 | 513.1 — End step: "at the beginning of the end step" and delayed triggers                  | `PhaseHandler.java:361-367`                         | `trigger.go:1781`                                      | `monarch-draws-at-end-step-and-passes-by-combat-damage`, `TestDelayedTriggerFiresOnceAtEndStep`                                                                | `covered`         |
 | 514.1 — Cleanup: active player discards to hand size                                       | `PhaseHandler.java:370-397`                         | `turn.go:484-491`                                      | `cleanup-discards-to-hand-size`, `TestCleanupDiscardOnlyAppliesToTheActivePlayer`                                                                              | `covered`         |
@@ -219,15 +219,14 @@ relevance, rules that give a wrong answer today before rules that never fire. Cl
 
 ### Backlog: step transitions
 
-| Row                                      | Why this position                                                      |
-| ---------------------------------------- | ---------------------------------------------------------------------- |
-| 511.3 — removal from combat as step ends | Wrong answer: "at end of combat" triggers see no attackers or blockers |
-| Main 1 — Saga lore counter               | Pairs with 704.5s                                                      |
-| 510 — no combat damage, no priority      | Implemented, unasserted                                                |
-| 502.1 — phasing                          | ADR-0021 accepted; few constructed cards                               |
-| Main 1 — precombat main triggers         | Implemented, unasserted                                                |
-| 507 — beginning of combat triggers       | Implemented, unasserted                                                |
-| Main 1 — Attractions                     | Legacy/Vintage only                                                    |
+| Row                                 | Why this position                        |
+| ----------------------------------- | ---------------------------------------- |
+| Main 1 — Saga lore counter          | Pairs with 704.5s                        |
+| 510 — no combat damage, no priority | Implemented, unasserted                  |
+| 502.1 — phasing                     | ADR-0021 accepted; few constructed cards |
+| Main 1 — precombat main triggers    | Implemented, unasserted                  |
+| 507 — beginning of combat triggers  | Implemented, unasserted                  |
+| Main 1 — Attractions                | Legacy/Vintage only                      |
 
 ---
 

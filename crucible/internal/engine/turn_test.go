@@ -457,6 +457,12 @@ func TestAdvancePhaseIntoCombatEndClearsCombat(t *testing.T) {
 	if g.ActivePhase() != engine.CombatEnd {
 		t.Fatalf("phase %v, want CombatEnd", g.ActivePhase())
 	}
+	// The end of combat step still sees who attacked (PhaseHandler.java:492-501
+	// ends combat as the step ends), so its triggers can read it.
+	if len(g.Attackers()) == 0 {
+		t.Fatal("combat ended as the end of combat step began")
+	}
+	g.AdvancePhase(engine.NewScriptedController()) // -> Main2
 	if got := g.Attackers(); got != nil {
 		t.Errorf("Attackers() = %v, want nil after CombatEnd", got)
 	}
@@ -485,7 +491,8 @@ func TestDeclareCombatAttackersAfterCombatEndSeesNoStaleAttackers(t *testing.T) 
 	ac.QueueAttackers([]engine.CardID{attacker})
 	declareAttackers(t, g, ac)
 	g.SetTurnState(1, a, engine.CombatDamage)
-	g.AdvancePhase(engine.NewScriptedController()) // -> CombatEnd, clears combat
+	g.AdvancePhase(engine.NewScriptedController()) // -> CombatEnd
+	g.AdvancePhase(engine.NewScriptedController()) // -> Main2, clears combat
 
 	// A later turn where the same creature (now tapped from last combat)
 	// has nothing eligible to attack with: DeclareCombatAttackers returns

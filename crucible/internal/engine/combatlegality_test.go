@@ -463,6 +463,7 @@ func TestMustBlockFromAnAttackTriggerEndsWithCombat(t *testing.T) {
 
 	g.SetTurnState(1, a, engine.CombatDamage)
 	g.AdvancePhase(ac)
+	g.AdvancePhase(ac) // combat ends as the end of combat step does
 	if got := g.Card(blocker).MustBlockAttackers(); got != nil {
 		t.Errorf("must block after combat = %v, want none", got)
 	}

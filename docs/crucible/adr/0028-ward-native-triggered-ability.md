@@ -89,16 +89,17 @@ re-check the same as anything else on the stack.
    Hexproof/Shroud/Protection, ADR-0027's own pack), each line fires independently (CR 702.21g) when `sourceController`
    is an opponent of the warded card's controller (`matchesPlayerSpec`, the same "Opponent" check
    `cardCantBeTargetedBy`'s own Hexproof gate already makes) and TriggerZones$'s own Battlefield restriction holds.
-2. **Scope for this pack is the mana-cost shape only** (`cost.Parse(details).IsPureMana()` plus `mana.Parse` with no
-   `X`, the identical pre-check `resolveUnlessCost` runs at resolution — checked again here, before pushing, so a cost
-   this port cannot pay for is never pushed rather than pushed and then erroring at resolution). `PayLife`, `Discard`,
-   `Sac`, `Ward:X` and every Alchemy/rebalanced shape (`Waterbend`, `CollectEvidence`, `Blight`, `AddCounterYou`) are
-   skipped (GO-7), logged in `game-state.md`'s Not ported yet with their own corpus counts.
-3. **Scope for this pack is a targeted spell only**, not a targeted activated or triggered ability. An ability has no
-   `EntityID` (id.go: a card or a player) to hand `counterEffect` as the thing to counter — the identical gap
-   `stackAbilityCandidates` (targeting.go) already names for `ChangeTargets`/`Counter`. `ChangeTargets`'s and
-   `CopySpellAbility`'s own re-targeting call sites are out of scope for the identical reason plus one more: neither
-   names the spell whose targeting just changed to the two call sites Ward reads from.
+2. **Scope is every cost `parseUnlessCost` reads**, checked again here, before pushing, with the identical pre-check
+   `resolveUnlessCost` runs at resolution (`wardCostResolvable`): a cost this port cannot pay is never pushed rather
+   than pushed and then erroring. Mana, `PayLife`, `Discard`, `Sac`, `Reveal`, `ExileFromGrave`, `tapXType`,
+   `Waterbend`, `CollectEvidence`, `Blight`, `AddCounterYou` and an X named by an SVar of the warded card
+   (`Ward:PayLife<X/...>`, `expandUnlessCost`) are read; several costs joined by `:` (`Ward.parse`) are the payer's
+   choice of one (`pickUnlessAlternative`), and none payable counters. A shape past these is skipped (GO-7).
+3. **Scope is a spell or an ability.** `Ability.wardCounters` names a spell (a card on the stack) and `Ability.wardItem`
+   names an activated or triggered ability by its `StackItemID`; `counterEffect` removes just that stack item and moves
+   no card for an ability (`CounterEffect.removeFromStack:270-272`). `pushTriggeredAbilities` (every activated and
+   triggered ability's push), CopySpellAbility's copies and ChangeTargets' retargeted items each call
+   `checkWardTriggers`/`checkWardTriggersForAbility` for their new targets.
 4. **The built `Ability` has `API: APICounter`, `Controller` the warded card's own controller (CR 603.3a: a triggered
    ability's controller is its source's controller), `Source` the warded card, and `wardCounters` (`ability.go`) — a
    dedicated `EntityID` field, not `Targets` — naming the targeting spell.** `wardCounters` is Forge's own

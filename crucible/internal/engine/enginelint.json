@@ -36,6 +36,7 @@
     "attackconstraints": ["attackconstraints.go"],
     "blockvalidation": ["blockvalidation.go"],
     "staticability": ["staticability.go"],
+    "presentcheck": ["presentcheck.go"],
     "combatdamage": ["combatdamage.go"],
     "mana": ["mana.go"],
     "manapay": ["manapay.go"],
@@ -169,6 +170,7 @@
       "attackconstraints",
       "blockvalidation"
     ],
+    "presentcheck": ["id", "zone", "card", "game", "player", "ability", "valid", "defined", "amount"],
     "staticability": [
       "id",
       "zone",
@@ -181,7 +183,8 @@
       "defined",
       "phase",
       "parts",
-      "zonemove"
+      "zonemove",
+      "presentcheck"
     ],
     "block": [
       "id",
@@ -197,6 +200,7 @@
       "blockvalidation"
     ],
     "attackconstraints": [
+      "presentcheck",
       "id",
       "zone",
       "card",
@@ -265,6 +269,7 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "presentcheck",
       "condition",
       "discardeffect",
       "unlesscost",
@@ -298,6 +303,7 @@
       "castoptions"
     ],
     "trigger": [
+      "presentcheck",
       "id",
       "zone",
       "card",
@@ -322,6 +328,7 @@
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [
+      "presentcheck",
       "id",
       "zone",
       "card",
@@ -380,7 +387,7 @@
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card", "ability", "parts", "valid"],
-    "condition": ["id", "card", "game", "ability", "trigger", "phase"],
+    "condition": ["presentcheck", "id", "card", "game", "ability", "trigger", "phase"],
     "pumpeffect": [
       "id",
       "card",

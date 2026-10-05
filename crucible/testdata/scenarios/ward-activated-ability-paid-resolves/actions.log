@@ -1,0 +1,13 @@
+# CR 702.21a: as ward-activated-ability-declined-counters-it, but human pays
+# Ward's {2}. The ability is not countered, resolves, and its 1 damage kills
+# the 3/1 Honor Guard (CR 704.5g).
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+queue targets 2
+queue action human activate 1 0
+queue confirmpaycost true
+queue paygeneric R
+queue paygeneric R
+passpriority

@@ -36,7 +36,7 @@ func TestCastSpellWardEachInstanceFiresIndependently(t *testing.T) {
 
 // TestCastSpellWardDoesNotFireForAnUnsupportedCost proves ADR-0028 Decision
 // point 2's own scope boundary: a Ward line whose cost has a part
-// parseUnlessCost does not read (Waterbend<2> here; mana, PayLife, Discard
+// parseUnlessCost does not read (Mill<2> here; mana, PayLife, Discard
 // and Sac are read) never reaches the stack at all, rather than reaching it
 // and erroring at resolution.
 func TestCastSpellWardDoesNotFireForAnUnsupportedCost(t *testing.T) {
@@ -44,7 +44,7 @@ func TestCastSpellWardDoesNotFireForAnUnsupportedCost(t *testing.T) {
 
 	g := newGame(t, "a", "b")
 	p, opp := g.Players()[0], g.Players()[1]
-	target := g.NewCard(creatureDefPTKeywords(t, "3", "1", "Ward:Waterbend<2>"), p, engine.Battlefield)
+	target := g.NewCard(creatureDefPTKeywords(t, "3", "1", "Ward:Mill<2>"), p, engine.Battlefield)
 	spell := g.NewCard(instantDefWithAbility(t, "Test Bolt", "0", "SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3"), opp, engine.Hand)
 	g.SetTurnState(1, p, engine.Main1)
 
@@ -54,7 +54,7 @@ func TestCastSpellWardDoesNotFireForAnUnsupportedCost(t *testing.T) {
 		t.Fatal("CastSpell failed")
 	}
 	if got := g.StackLen(); got != 1 {
-		t.Errorf("StackLen() = %d, want 1 (the spell alone, Waterbend<2> not resolvable)", got)
+		t.Errorf("StackLen() = %d, want 1 (the spell alone, Mill<2> not resolvable)", got)
 	}
 }
 

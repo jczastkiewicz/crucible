@@ -44,6 +44,11 @@ func (timeTravelEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		for _, id := range chosen {
 			c := g.Card(id)
 			if controller.ChooseBinary(g, a.Controller, a.Source, AddOrRemove) {
+				// Card.addCounter: no placement a CantPutCounter static forbids
+				// (Card.canReceiveCounters).
+				if g.cantPutCounter(CardEntity(id), Time) {
+					continue
+				}
 				c.Counters.Add(Time, 1)
 				emitCounterChanged(g.sink, a.Source, CardEntity(id), Time, 1)
 			} else if c.Counters.Count(Time) > 0 {

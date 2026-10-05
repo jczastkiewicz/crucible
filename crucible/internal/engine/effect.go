@@ -7,6 +7,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
@@ -202,9 +203,20 @@ func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerContro
 // "skip the whole line" applied at whichever link in the chain the actual
 // gap sits.
 func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerController, e Effect, unlessCostText string) error {
-	uc, ok := parseUnlessCost(unlessCostText)
-	if !ok {
-		return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
+	// Ward's several costs ("Ward:Discard<1/Card>:2", Ward.parse) arrive as one
+	// text: the payer picks which to pay (a GenericChoice, CardFactoryUtil's
+	// Ward branch), or none and the spell is countered.
+	var alternatives []unlessCost
+	for _, part := range strings.Split(unlessCostText, ":") {
+		text, err := g.expandUnlessCost(a, part)
+		if err != nil {
+			return err
+		}
+		uc, ok := parseUnlessCost(text)
+		if !ok {
+			return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
+		}
+		alternatives = append(alternatives, uc)
 	}
 
 	payerSpec, ok := a.Params.Param("UnlessPayer")
@@ -223,6 +235,10 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 
 	paid := false
 	for _, pid := range payers {
+		uc, ok := g.pickUnlessAlternative(controller, a, pid, alternatives)
+		if !ok {
+			continue
+		}
 		if (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, a.Source)) && g.payUnlessCost(controller, a, pid, uc) {
 			paid = true
 		}
@@ -237,6 +253,35 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 		return r.resolveSubAbility(g, a, controller)
 	}
 	return nil
+}
+
+// pickUnlessAlternative is the cost pid is asked to pay: the only one, or the
+// one pid picks among those whose non-mana parts they can pay (Ward's
+// GenericChoice; its FallbackAbility counters when none can be). ok is false
+// when there is nothing to pay.
+func (g *Game) pickUnlessAlternative(controller PlayerController, a *Ability, pid PlayerID, alternatives []unlessCost) (unlessCost, bool) {
+	if len(alternatives) == 1 {
+		return alternatives[0], true
+	}
+	var payable []unlessCost
+	var labels []string
+	for _, uc := range alternatives {
+		if g.unlessPayable(pid, a.Source, uc) {
+			payable = append(payable, uc)
+			labels = append(labels, uc.parsed.Text)
+		}
+	}
+	switch len(payable) {
+	case 0:
+		return unlessCost{}, false
+	case 1:
+		return payable[0], true
+	}
+	i := controller.ChooseOption(g, pid, a.Source, labels)
+	if i < 0 || i >= len(payable) {
+		i = 0
+	}
+	return payable[i], true
 }
 
 // Implemented is how many APIs have an effect. The corpus coverage report

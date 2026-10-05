@@ -846,16 +846,34 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 // castsWithFlash reports whether pid may cast card as though it had flash
 // (SpellAbility.withFlash, SpellAbility.java:2608): the printed or granted
 // Flash keyword, or a Mode$ CastWithFlash static (StaticAbilityCastWithFlash)
-// whose ValidCard$ matches the card, whose Caster$ matches pid and that is
-// about plain spells (ValidSA$ Spell). A line with any other ValidSA$ (an
-// activated ability, IsTargeting, XCost, a spell-cost shape) or a condition
-// staticConditionsMet cannot resolve is skipped, never assumed to hold (GO-7). The card's own statics
-// count wherever it is (EffectZone$ All, Card.Self lines).
+// whose ValidCard$ matches the card, whose Caster$ matches pid and whose
+// ValidSA$ matches the spell (a plain Spell, or a property
+// spellAbilityMatches reads). A line whose ValidSA$ names a property this
+// port does not evaluate (IsTargeting, XCost: Java's applyWithFlashNeedsInfo
+// asks them only once targets and X are chosen), or a condition
+// staticConditionsMet cannot resolve, is skipped, never assumed to hold
+// (GO-7). The card's own statics count wherever it is (EffectZone$ All,
+// Card.Self lines).
 func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
-	c := g.Card(card)
-	if c.HasKeyword("Flash") {
+	if g.Card(card).HasKeyword("Flash") {
 		return true
 	}
+	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, spell: true})
+}
+
+// activatesWithFlash is SpellAbility.withFlash for an activated ability
+// (StaticAbilityCastWithFlash with ValidSA$ Activated.Equip or
+// Activated.Loyalty): pid may activate ability of card at instant speed
+// although it is sorcery-speed (Equip, a loyalty ability). ValidCard$ names
+// the ability's host.
+func (g *Game) activatesWithFlash(pid PlayerID, card CardID, ability *compile.Ability) bool {
+	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, Params: ability, activated: true})
+}
+
+// flashStatic is StaticAbilityCastWithFlash.anyWithFlash: some CastWithFlash
+// line applies to the spell or ability sa of card for pid.
+func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability) bool {
+	c := g.Card(card)
 	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)
 		if h.Def == nil {
@@ -863,7 +881,7 @@ func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 		}
 		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
-				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s) {
+				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s, sa) {
 					continue
 				}
 				return true
@@ -873,10 +891,14 @@ func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 	return false
 }
 
-// castWithFlashApplies is one CastWithFlash line's own test, see castsWithFlash.
-func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability) bool {
-	if sa, _ := s.Param("ValidSA"); sa != "Spell" {
-		return false
+// castWithFlashApplies is one CastWithFlash line's own test, see
+// castsWithFlash. An absent ValidSA$ matches any spell or ability
+// (matchesValidParam on a missing key).
+func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability, sa *Ability) bool {
+	if validSA, ok := s.Param("ValidSA"); ok {
+		if matched, recognized := g.spellAbilityMatches(sa, validSA, host, host.Controller(), host.abilityAmounts(s)); !recognized || !matched {
+			return false
+		}
 	}
 	if !g.staticConditionsMet(host, s) {
 		return false
@@ -1078,9 +1100,11 @@ func (g *Game) cantDrawAmount(pid PlayerID, n int) bool {
 // unresolvedStaticConditions are the generic condition params
 // StaticAbility.checkConditions and CardTraitBase.meetsCommonRequirements read
 // that this port does not evaluate for a static of any mode: a line carrying
-// one is not applied (GO-7).
+// one is not applied (GO-7). IsPresent$, IsPresent2$ and CheckSVar$ are
+// evaluated by staticConditionsMet through the trigger side's own
+// isPresentMatches/checkSVarMatches.
 var unresolvedStaticConditions = [...]string{
-	"IsPresent", "IsPresent2", "CheckSVar", "CheckSecondSVar", "LifeTotal", "CheckDefinedPlayer",
+	"CheckSecondSVar", "LifeTotal", "CheckDefinedPlayer",
 	"TopCardOfLibraryIs", "Metalcraft", "Delirium", "Threshold", "Hellbent", "Bloodthirst", "FatefulHour",
 	"Monarch", "Revolt", "Blessing", "EnduringStory", "DayTime", "Adamant",
 }
@@ -1101,6 +1125,12 @@ func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
 		}
 	}
 	if !continuousConditionMet(g, host, s) {
+		return false
+	}
+	amounts := host.abilityAmounts(s)
+	if !isPresentMatches(g, host, amounts, s, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "PresentPlayer") ||
+		!isPresentMatches(g, host, amounts, s, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2", "PresentPlayer2") ||
+		!checkSVarMatches(g, host, amounts, s, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
 		return false
 	}
 	if phases, ok := s.Param("Phases"); ok {

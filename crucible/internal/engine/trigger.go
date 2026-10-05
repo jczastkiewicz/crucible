@@ -15,7 +15,6 @@
 package engine
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -2122,7 +2121,10 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 				g.Card(matches[i].Source).trigActs.note(matches[i].Params)
 			}
 			g.PushAbility(matches[i])
-			g.pushTriggeredAbilities(controller, g.checkBecomesTargetTriggers(matches[i].Targets, false, matches[i].Controller))
+			pushed := g.stack[len(g.stack)-1]
+			batch := g.checkBecomesTargetTriggers(matches[i].Targets, false, matches[i].Controller)
+			batch = append(batch, g.checkWardTriggersForAbility(matches[i].Targets, pushed.ID, pushed.Source, pushed.Controller)...)
+			g.pushTriggeredAbilities(controller, batch)
 		}
 	}
 }
@@ -2360,176 +2362,6 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 		return false
 	}
 	return true
-}
-
-// isPresentMatches is CardTraitBase's own IsPresent$/PresentCompare$/
-// PresentDefined$/PresentZone$/PresentPlayer$ block (isKey absent from t
-// entirely is a pass, the identical "no restriction" contract every other
-// optional gate in this port already has). PresentZone$ defaults to
-// Battlefield, a comma list otherwise (ZoneByName per entry, an
-// unrecognized name skips rather than guesses); PresentPlayer$ is "You"
-// (host's own controller only), anything else -- "Any", the corpus's own
-// overwhelming default, or absent -- every player, Java's own three
-// additive You/Opponent/Allies blocks collapsed to the one partition they
-// produce for a single-valued param. definedKey (PresentDefined$/
-// ConditionDefined$) names the objects counted instead of a zone scan
-// (definedEntities, against the ability resolving from host when there is
-// one, which is where targets, the triggering card and paid costs live); a
-// spelling it cannot resolve fails the ability that is resolving (GO-7). An LKI spelling counts a
-// card that left the battlefield by its last-known state.
-func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, isKey, compareKey, definedKey, zoneKey, playerKey string) bool {
-	spec, ok := t.Param(isKey)
-	if !ok {
-		return true
-	}
-	if defined, ok := t.Param(definedKey); ok {
-		return definedPresentMatches(g, host, amounts, t, spec, definedKey, defined, compareKey)
-	}
-	var zones []ZoneType
-	if zoneList, ok := t.Param(zoneKey); ok {
-		for _, name := range strings.Split(zoneList, ",") {
-			z, ok := ZoneByName(name)
-			if !ok {
-				return false
-			}
-			zones = append(zones, z)
-		}
-	} else {
-		zones = []ZoneType{Battlefield}
-	}
-	onlyYou := false
-	if player, ok := t.Param(playerKey); ok {
-		onlyYou = strings.EqualFold(player, "You")
-	}
-	var candidates []CardID
-	for _, pid := range g.Players() {
-		if onlyYou && pid != host.Controller() {
-			continue
-		}
-		for _, z := range zones {
-			candidates = append(candidates, g.Zone(z, pid).Cards()...)
-		}
-	}
-	parsed := valid.Parse(spec)
-	n := 0
-	for _, id := range candidates {
-		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
-			n++
-		}
-	}
-	return presentCountMatches(g, host, amounts, t, compareKey, n)
-}
-
-// definedPresentMatches is the PresentDefined$/ConditionDefined$ branch of
-// isPresentMatches: the candidates are the objects defined names, not a zone
-// scan -- SpellAbilityCondition.java:350-351's
-// AbilityUtils.getDefinedObjects(host, defined, sa), whose restriction filter
-// (GameObjectPredicates.restriction, :365) counts a player too when the spec
-// names players (3 real lines: ConditionPresent$ Player). Pass the Torch's
-// "if you do" (ConditionDefined$ Remembered | ConditionPresent$ Card after
-// RememberPlayed$) is the shape.
-func definedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, spec, definedKey, defined, compareKey string) bool {
-	var refs abilityRefs
-	own := false
-	if a := g.resolving; a != nil && a.Source == host.ID {
-		refs, own = a.refs(), true
-	}
-	var objects []EntityID
-	var err error
-	if defined == "TriggeredCard" || defined == "TriggeredCardLKICopy" {
-		// The card the trigger recorded; only a condition reads it for now
-		// (every other Defined$ reader still refuses it).
-		if refs.triggered.card == NoCard {
-			err = fmt.Errorf("the trigger recorded no card")
-		} else {
-			objects = []EntityID{CardEntity(refs.triggered.card)}
-		}
-	} else {
-		objects, err = definedEntities(g, host.Controller(), host, defined, refs)
-	}
-	if err != nil {
-		if own {
-			// A condition the port cannot read is not an unmet one: the
-			// ability fails instead of silently skipping (GO-7).
-			g.recordPendingError(fmt.Errorf("engine: %s$ %q: %w", definedKey, defined, err))
-		}
-		return false
-	}
-	lki := strings.HasSuffix(defined, "LKI") || strings.HasSuffix(defined, "LKICopy")
-	parsed := valid.Parse(spec)
-	n := 0
-	for _, e := range objects {
-		if id, ok := e.AsCard(); ok {
-			c := g.Card(id)
-			if snap := g.LKI(id); lki && c.Zone != Battlefield && snap != nil {
-				c = snap
-			}
-			if Matches(g, c, parsed, host.Controller(), host.ID) {
-				n++
-			}
-			continue
-		}
-		if pid, ok := e.AsPlayer(); ok {
-			if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); recognized && matched {
-				n++
-			}
-		}
-	}
-	return presentCountMatches(g, host, amounts, t, compareKey, n)
-}
-
-// presentCountMatches compares n, the count of present objects, against
-// compareKey (GE1 when absent), its right side a literal or a named SVar.
-func presentCountMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, compareKey string, n int) bool {
-	compare, ok := t.Param(compareKey)
-	if !ok {
-		compare = "GE1"
-	}
-	if len(compare) < 3 {
-		return false
-	}
-	right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
-	if !ok {
-		return false
-	}
-	return compareOp(n, compare[:2], right)
-}
-
-// checkSVarMatches is CardTraitBase's own CheckSVar$/SVarCompare$ block,
-// both sides resolved through resolveNamedAmount (ptParam's own shape,
-// continuous.go, factored out once this needed the identical
-// literal-or-named-SVar resolution against a *Card rather than a
-// *compile.Ability's own param). checkKey/compareKey/secondKey are the three
-// param names this exact shape uses under two different names in the real
-// corpus -- CardTraitBase's own CheckSVar$/SVarCompare$/CheckSecondSVar$
-// (triggerCommonRequirementsMet, below) and SpellAbilityCondition's own
-// ConditionCheckSVar$/ConditionSVarCompare$/OrOtherConditionSVarCompare$
-// (subAbilityConditionMet, condition.go) -- generalized once the second
-// caller needed the identical logic under its own param names.
-func checkSVarMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, checkKey, compareKey, secondKey string) bool {
-	checkSVar, ok := t.Param(checkKey)
-	if !ok {
-		return true
-	}
-	if _, ok := t.Param(secondKey); ok {
-		return false
-	}
-	left, ok := resolveNamedAmount(g, amounts, host, checkSVar)
-	if !ok {
-		return false
-	}
-	compare, ok := t.Param(compareKey)
-	if !ok {
-		compare = "GE1"
-	}
-	if len(compare) < 3 {
-		return false
-	}
-	right, ok := resolveNamedAmount(g, amounts, host, compare[2:])
-	if !ok {
-		return false
-	}
-	return compareOp(left, compare[:2], right)
 }
 
 // boolFlagMatches is CardTraitBase's own repeated
@@ -3498,11 +3330,11 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 	return matches
 }
 
-// checkWardTriggers is CR 702.21a's own trigger, fired at the two call
-// sites that name the actual spell being cast (castAura, castInstantOrSorcery
-// -- ADR-0028's own scope: an activated or triggered ability has no
-// EntityID to hand counterEffect, and ChangeTargets/CopySpellAbility name
-// no spell CardID at their own call sites). Each of a newly-targeted
+// checkWardTriggers is CR 702.21a's own trigger for a spell: fired at the
+// call sites that name the spell being cast or copied (castAura,
+// castInstantOrSorcery, CopySpellAbility's copies, ChangeTargets'
+// retargeted spells; ADR-0028). An activated or triggered ability goes
+// through checkWardTriggersForAbility. Each of a newly-targeted
 // battlefield card's own Ward lines fires independently (CR 702.21g,
 // protectionEach's own "check every line" precedent, ADR-0027's implementing
 // pack) when spellController is an opponent of the warded card's own
@@ -3514,10 +3346,11 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 //
 // Built natively (ADR-0028 Decision point 4/5), not read off any card's
 // Def.Faces[].Triggers the way checkBecomesTargetTriggers' own scan is: no
-// script text names Ward's Execute$, so there is nothing to scan. Scoped to
-// the costs parseUnlessCost reads -- mana, PayLife<N>, Discard<N/Card> and
-// Sac<N/Type> parts -- the identical pre-check resolveUnlessCost (effect.go)
-// makes, so a shape that would error there is never pushed here at all.
+// script text names Ward's Execute$, so there is nothing to scan. A Ward
+// line whose cost parseUnlessCost cannot read (after wardCostResolvable
+// evaluates its X) is skipped before the stack, the identical pre-check
+// resolveUnlessCost (effect.go) makes, so a shape that would error there is
+// never pushed here at all.
 //
 // Controller is the warded card's own controller (CR 603.3a: a triggered
 // ability's controller is its source's controller), not spellController --
@@ -3533,6 +3366,30 @@ func (g *Game) checkBecomesTargetTriggers(targets []EntityID, isSpellSource bool
 // other BecomesTarget trigger the same spell caused share one APNAP batch
 // (CR 603.3b) instead of Ward always resolving first in a batch of its own.
 func (g *Game) checkWardTriggers(targets []EntityID, spell CardID, spellController PlayerID) []Ability {
+	return g.wardTriggers(targets, spellController, spell, wardCounter{spell: CardEntity(spell)})
+}
+
+// checkWardTriggersForAbility is checkWardTriggers for an activated or
+// triggered ability item (on the stack, source its host card) targeting
+// targets: CR 702.21a's "spell or ability an opponent controls". The Counter
+// the trigger resolves names the stack item by its StackItemID, not an
+// EntityID (wardCounter.item), and removes just that item: an ability is not
+// a card to move (CounterEffect.removeFromStack:270-272).
+func (g *Game) checkWardTriggersForAbility(targets []EntityID, item StackItemID, source CardID, controller PlayerID) []Ability {
+	return g.wardTriggers(targets, controller, source, wardCounter{item: item})
+}
+
+// wardCounter is what a Ward trigger's Counter names to counter: a spell (a
+// card on the stack) or an ability (its stack item), never both.
+type wardCounter struct {
+	spell EntityID
+	item  StackItemID
+}
+
+// wardTriggers is the walk checkWardTriggers and checkWardTriggersForAbility
+// share. source is the card the spell or ability comes from, what Ward's
+// UnlessPayer$ TriggeredSource... resolves against.
+func (g *Game) wardTriggers(targets []EntityID, sourceController PlayerID, source CardID, counters wardCounter) []Ability {
 	var matches []Ability
 	seen := make(map[EntityID]bool, len(targets))
 	for _, tgt := range targets {
@@ -3549,7 +3406,7 @@ func (g *Game) checkWardTriggers(targets []EntityID, spell CardID, spellControll
 		if c.Zone != Battlefield {
 			continue
 		}
-		if matched, _ := matchesPlayerSpec(g, spellController, c.Controller(), spell, "Opponent"); !matched {
+		if matched, _ := matchesPlayerSpec(g, sourceController, c.Controller(), source, "Opponent"); !matched {
 			continue
 		}
 		for _, line := range c.KeywordLines() {
@@ -3557,21 +3414,40 @@ func (g *Game) checkWardTriggers(targets []EntityID, spell CardID, spellControll
 			if k.Name != "Ward" || k.Details == "" {
 				continue
 			}
-			if _, ok := parseUnlessCost(k.Details); !ok {
-				continue
-			}
 			params := &compile.Ability{Record: compile.SubAbility, Name: "Counter", Params: []vocab.Param{
 				{Key: "DB", Value: "Counter"}, {Key: "TargetType", Value: "Spell"},
 				{Key: "UnlessCost", Value: k.Details}, {Key: "UnlessPayer", Value: "TriggeredSourceController"},
 			}}
-			matches = append(matches, Ability{
+			w := Ability{
 				API: APICounter, Source: cid, Controller: c.Controller(),
-				wardCounters: CardEntity(spell), Params: params,
-				triggered: triggeredObjects{source: CardEntity(spell), sourceController: spellController},
-			})
+				wardCounters: counters.spell, wardItem: counters.item, Params: params,
+				Amounts:   c.abilityAmounts(nil),
+				triggered: triggeredObjects{source: CardEntity(source), sourceController: sourceController},
+			}
+			if !g.wardCostResolvable(&w, k.Details) {
+				continue
+			}
+			matches = append(matches, w)
 		}
 	}
 	return matches
+}
+
+// wardCostResolvable is whether every cost of a Ward line (several joined by
+// ":", Ward.parse) reads after its X is evaluated for w, the warded card's
+// own ability: what resolveUnlessCost will pay. An X that cannot be
+// evaluated, or a part parseUnlessCost refuses, skips the line (GO-7).
+func (g *Game) wardCostResolvable(w *Ability, details string) bool {
+	for _, part := range strings.Split(details, ":") {
+		text, err := g.expandUnlessCost(w, part)
+		if err != nil {
+			return false
+		}
+		if _, ok := parseUnlessCost(text); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // isBecomesTargetTrigger reports whether t is a Mode$ BecomesTarget line

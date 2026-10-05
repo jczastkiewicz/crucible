@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow card game ability condition control amount trigger
+//enginelint:allow card game ability condition control amount trigger presentcheck
 
 import "fmt"
 

@@ -1,0 +1,12 @@
+# CR 702.21a, ADR-0028: Ward also triggers on an activated ability an opponent
+# controls. human taps Prodigal Pyromancer targeting ai's Tomakul Honor Guard
+# (Ward:2); Ward's trigger goes on the stack above the ability. human declines
+# to pay {2}, so the ability (the stack item, not a card) is countered:
+# Pyromancer stays on the battlefield, tapped for its cost, and the 3/1 Honor
+# Guard takes no damage.
+startturn human
+advance 3
+queue targets 2
+queue action human activate 1 0
+queue confirmpaycost false
+passpriority

@@ -230,7 +230,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	_, sorcerySpeed := ability.Param("SorcerySpeed")
-	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) {
+	// A Mode$ CastWithFlash static with ValidSA$ Activated.Equip or
+	// Activated.Loyalty lifts the sorcery-speed timing (SpellAbility.withFlash).
+	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) && !g.activatesWithFlash(pid, card, ability) {
 		return false
 	}
 	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(c, index, ability) || !g.otherRestrictionsMet(c, ability) {
@@ -265,6 +267,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	parsed := cost.Parse(costText)
 	shape, ok := parsed.ActivationShape()
 	if !ok {
+		return false
+	}
+	// CostPutCounter.canPay: the source must be able to receive the counters
+	// (Card.canReceiveCounters: not phased out, no Mode$ CantPutCounter).
+	if shape.AddCounterType != "" && (c.IsPhasedOut() || g.cantPutCounter(CardEntity(card), CounterType(strings.ToUpper(shape.AddCounterType)))) {
 		return false
 	}
 	nonBattlefield := fromGraveyard || fromHand

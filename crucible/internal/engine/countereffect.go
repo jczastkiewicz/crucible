@@ -34,6 +34,19 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if !ok {
 		dest = "Graveyard"
 	}
+	if a.wardItem != 0 {
+		// Ward on an ability: remove that stack item and nothing else. An
+		// ability is not a card to move (CounterEffect.removeFromStack:
+		// 270-272), and a host with several stack items loses only this one.
+		kept := g.stack[:0]
+		for _, s := range g.stack {
+			if s.ID != a.wardItem {
+				kept = append(kept, s)
+			}
+		}
+		g.stack = kept
+		return nil
+	}
 	targets := a.Targets
 	if a.wardCounters != NoEntity {
 		// checkWardTriggers' own Defined$ TriggeredSourceSA stand-in

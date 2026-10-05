@@ -297,6 +297,11 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 		shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0 {
 		return false
 	}
+	// CostPutCounter.canPay: the source must be able to receive the counters
+	// (Card.canReceiveCounters: not phased out, no Mode$ CantPutCounter).
+	if shape.AddCounterType != "" && (c.IsPhasedOut() || g.cantPutCounter(CardEntity(card), CounterType(strings.ToUpper(shape.AddCounterType)))) {
+		return false
+	}
 	nonBattlefield := fromGraveyard || fromHand
 	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfExert || shape.SacTypeN > 0 ||
 		shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.AddCounterType != "" || shape.SubCounterType != "") {

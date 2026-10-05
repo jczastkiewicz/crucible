@@ -62,6 +62,9 @@ func (empowerEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := checkChoice(picked, tokens, 1, 1); err != nil {
 		return fmt.Errorf("engine: Empower: %w", err)
 	}
+	if g.cantPutCounter(CardEntity(picked[0]), Loyalty) {
+		return nil
+	}
 	g.Card(picked[0]).Counters.Add(Loyalty, amount)
 	emitCounterChanged(g.sink, a.Source, CardEntity(picked[0]), Loyalty, amount)
 	return nil

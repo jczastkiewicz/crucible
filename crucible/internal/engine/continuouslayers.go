@@ -13,7 +13,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate
+//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck
 
 import (
 	"slices"

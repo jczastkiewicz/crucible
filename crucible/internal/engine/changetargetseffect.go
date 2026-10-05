@@ -62,6 +62,11 @@ var changeTargetsUnresolvedParams = [...]string{
 type retargeted struct {
 	targets    []EntityID
 	controller PlayerID
+	// id, source and spell name the rewritten stack item for Ward: a retarget
+	// is a new "becomes the target" event for the item's own controller.
+	id     StackItemID
+	source CardID
+	spell  bool
 }
 
 func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -131,14 +136,20 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			break
 		}
 		if len(changed) > 0 {
-			fired = append(fired, retargeted{targets: changed, controller: item.Controller})
+			fired = append(fired, retargeted{targets: changed, controller: item.Controller, id: item.ID, source: item.Source, spell: item.spell})
 		}
 	}
 	for _, f := range fired {
 		// isSpellSource false, as castInstantOrSorcery passes it for the
 		// same spell's own cast-time targets (castspell.go); Aura spells
 		// are refused by retargetParts.
-		g.pushTriggeredAbilities(controller, g.checkBecomesTargetTriggers(f.targets, false, f.controller))
+		matches := g.checkBecomesTargetTriggers(f.targets, false, f.controller)
+		if f.spell {
+			matches = append(matches, g.checkWardTriggers(f.targets, f.source, f.controller)...)
+		} else {
+			matches = append(matches, g.checkWardTriggersForAbility(f.targets, f.id, f.source, f.controller)...)
+		}
+		g.pushTriggeredAbilities(controller, matches)
 	}
 	return nil
 }

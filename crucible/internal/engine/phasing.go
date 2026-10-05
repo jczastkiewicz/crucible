@@ -4,7 +4,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player event combat valid trigger control parts effecteffect ability
+//enginelint:allow id zone card game player event combat valid trigger control parts effecteffect ability presentcheck
 
 import (
 	"strings"

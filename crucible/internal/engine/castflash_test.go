@@ -66,14 +66,15 @@ func TestCastWithFlashStaticGrantsFlashToMatchingSpells(t *testing.T) {
 	}
 }
 
-// A CastWithFlash line this port cannot evaluate (a ValidSA$ past plain
-// Spell, an IsPresent$ condition) grants nothing rather than guessing.
+// A CastWithFlash line this port cannot evaluate (a ValidSA$ naming the X paid
+// or the targets, which Java asks only once they are chosen) grants nothing
+// rather than guessing.
 func TestCastWithFlashStaticSkipsShapesItCannotEvaluate(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
 	g.NewCard(scriptDef(t, "Test Conditional", "Enchantment",
-		"S:Mode$ CastWithFlash | ValidCard$ Creature | ValidSA$ Spell | Caster$ You | IsPresent$ Card.Self+powerOdd"), p, engine.Battlefield)
+		"S:Mode$ CastWithFlash | ValidCard$ Creature | ValidSA$ Spell.XCostLE3 | Caster$ You"), p, engine.Battlefield)
 	card := g.NewCard(creatureDefCost(t, "Mine", "G"), p, engine.Hand)
 
 	if castOnOpponentsTurn(t, g, p, other, card) {

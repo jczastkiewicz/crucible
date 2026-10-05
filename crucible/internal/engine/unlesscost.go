@@ -4,7 +4,7 @@
 // beside mana tokens are the shapes that need no mid-payment decision beyond
 // which cards.
 
-//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger
+//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount
 
 package engine
 
@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -47,6 +48,36 @@ type unlessCost struct {
 	// kind on the source itself (CostPutCounter's CARDNAME shape, Fabricate).
 	addCounterN    int
 	addCounterType CounterType
+	// addCounterSpec is the valid string of the card AddCounter<N/Type/Spec>
+	// puts the counters on (the payer chooses one), or "" for the source
+	// itself. Blight<N> is AddCounter<N/M1M1/Creature.YouCtrl>
+	// (CostBlight extends CostPutCounter).
+	addCounterSpec string
+	// exileGraveN/exileGraveSpec are ExileFromGrave<N/Type>: N cards of the
+	// type exiled from the payer's graveyard (CostExile).
+	exileGraveN    int
+	exileGraveSpec string
+	// tapN/tapSpec are tapXType<N/Type>: N untapped permanents of the type the
+	// payer controls (CostTapType).
+	tapN    int
+	tapSpec string
+	// waterbendN is Waterbend<N>: N generic mana the payer may pay by tapping
+	// untapped artifacts and creatures instead (CostWaterbend, which
+	// CostAdjustment.adjustCostByWaterbend reduces like Convoke). The mana is
+	// in mana already.
+	waterbendN int
+	// evidenceN is CollectEvidence<N>: cards exiled from the payer's graveyard
+	// with total mana value at least N (CostCollectEvidence).
+	evidenceN int
+	// youCounterN/youCounterType are AddCounterYou<N/Type>: the payer gets N
+	// counters (CostPutCounterYou).
+	youCounterN    int
+	youCounterType CounterType
+	// drawSpec is the player spec of a Draw<N/Spec> that is not "You": every
+	// player it names draws N (CostDraw.getPotentialPlayers), "" for You.
+	drawSpec string
+	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
+	manaTokens []string
 }
 
 // parseUnlessCost reads text into an unlessCost, false for a shape past
@@ -79,14 +110,32 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 			uc.revealN, uc.revealSpec = n, p.Field(1)
 		case p.Name == "AddCounter" && uc.addCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME"):
 			uc.addCounterN, uc.addCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
+		case p.Name == "AddCounter" && uc.addCounterN == 0 && p.Field(1) != "" && chosenCardSpecResolvable(p.Field(2)):
+			uc.addCounterN, uc.addCounterType, uc.addCounterSpec = n, CounterType(strings.ToUpper(p.Field(1))), p.Field(2)
+		case p.Name == "Blight" && uc.addCounterN == 0:
+			uc.addCounterN, uc.addCounterType, uc.addCounterSpec = n, M1M1, "Creature.YouCtrl"
+		case p.Name == "ExileFromGrave" && uc.exileGraveN == 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.exileGraveN, uc.exileGraveSpec = n, p.Field(1)
+		case p.Name == "tapXType" && uc.tapN == 0 && p.Field(0) != "Any" && p.Field(1) != "" && tapTypeResolvable(p.Field(1)):
+			uc.tapN, uc.tapSpec = n, p.Field(1)
+		case p.Name == "Waterbend" && uc.waterbendN == 0:
+			uc.waterbendN = n
+			parsed.Mana = append(append([]string(nil), parsed.Mana...), strconv.Itoa(n))
+		case p.Name == "CollectEvidence" && uc.evidenceN == 0:
+			uc.evidenceN = n
+		case p.Name == "AddCounterYou" && uc.youCounterN == 0 && p.Field(1) != "":
+			uc.youCounterN, uc.youCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
 		case p.Name == "DamageYou":
 			uc.damageN += n
 		case p.Name == "Draw" && p.Field(1) == "You":
 			uc.drawN += n
+		case p.Name == "Draw" && uc.drawN == 0 && drawSpecResolvable(p.Field(1)):
+			uc.drawN, uc.drawSpec = n, p.Field(1)
 		default:
 			return unlessCost{}, false
 		}
 	}
+	uc.manaTokens = parsed.Mana
 	if len(parsed.Mana) > 0 {
 		mc, err := mana.Parse(strings.Join(parsed.Mana, " "))
 		if err != nil || mc.CountX() > 0 {
@@ -178,11 +227,41 @@ func (g *Game) payUnlessCost(controller PlayerController, a *Ability, pid Player
 	if !g.unlessPayable(pid, a.Source, uc) {
 		return false
 	}
-	if uc.hasMana && !g.PayManaCost(pid, uc.mana, controller) {
+	mc, taps := uc.mana, []CardID(nil)
+	if uc.waterbendN > 0 {
+		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)
+	}
+	if uc.hasMana && !g.PayManaCost(pid, mc, controller) {
 		return false
 	}
+	tapChosenPermanents(g, controller, taps)
 	g.payUnlessParts(controller, a, pid, uc)
 	return true
+}
+
+// waterbendReduce is CostAdjustment.adjustCostByWaterbend: the payer may tap
+// untapped artifacts and creatures, each paying one generic mana, at most
+// Waterbend's N of them. It returns the mana still to pay and what to tap once
+// that is paid. A pick that is not a subset of the candidates, or longer than
+// the Waterbend part or the generic mana, is declined whole.
+func (g *Game) waterbendReduce(controller PlayerController, pid PlayerID, source CardID, uc unlessCost) (mana.Cost, []CardID) {
+	var candidates []CardID
+	for _, id := range g.Zone(Battlefield, pid).Cards() {
+		c := g.Card(id)
+		if !c.Tapped && (c.Type().Has(cardtype.Artifact) || c.Type().Has(cardtype.Creature)) {
+			candidates = append(candidates, id)
+		}
+	}
+	generic := uc.mana.Generic()
+	limit := min(uc.waterbendN, generic, len(candidates))
+	if limit == 0 {
+		return uc.mana, nil
+	}
+	picks := controller.ChooseCardsForEffect(g, pid, source, candidates, 0, limit)
+	if !isSubset(picks, candidates) || hasDuplicate(picks) || len(picks) > limit {
+		return uc.mana, nil
+	}
+	return mana.FromShards(uc.mana.Shards(), generic-len(picks)), picks
 }
 
 // unlessPayable reports whether every non-mana part of uc can be paid by pid:
@@ -194,17 +273,125 @@ func (g *Game) unlessPayable(pid PlayerID, source CardID, uc unlessCost) bool {
 	returnable := g.unlessReturnCandidates(pid, source, uc)
 	return uc.lifeN <= g.Player(pid).Life && (uc.lifeN == 0 || !g.cantPayLife(pid, false, causeNone)) && uc.energyN <= g.Player(pid).Counters.Count(Energy) &&
 		uc.discardN <= len(hand) && uc.sacN <= len(candidates) && uc.returnN <= len(returnable) &&
-		(uc.drawN == 0 || !g.cantDrawAmount(pid, uc.drawN)) && g.unlessRevealable(pid, source, uc) &&
-		g.unlessCounterable(source, uc)
+		(uc.drawN == 0 || len(g.unlessDrawers(pid, source, uc)) > 0) && g.unlessRevealable(pid, source, uc) &&
+		g.unlessCounterable(source, uc) && g.unlessCardsPayable(pid, source, uc)
 }
 
 // unlessCounterable is CostPutCounter.canPay for the source itself: it is on the
-// battlefield and may receive the counters.
+// battlefield and may receive the counters. An AddCounter naming a card type
+// is unlessCardsPayable's.
 func (g *Game) unlessCounterable(source CardID, uc unlessCost) bool {
-	if uc.addCounterN == 0 {
+	if uc.addCounterN == 0 || uc.addCounterSpec != "" {
 		return true
 	}
-	return g.Card(source).Zone == Battlefield && !g.cantPutCounter(CardEntity(source), uc.addCounterType)
+	return g.Card(source).Zone == Battlefield && !g.Card(source).IsPhasedOut() && !g.cantPutCounter(CardEntity(source), uc.addCounterType)
+}
+
+// unlessDrawers is CostDraw.getPotentialPlayers: the players the Draw part
+// names that may draw its cards, in seating order. A Draw<N/You> names the
+// payer.
+func (g *Game) unlessDrawers(pid PlayerID, source CardID, uc unlessCost) []PlayerID {
+	var out []PlayerID
+	for _, cand := range g.Players() {
+		if uc.drawSpec == "" && cand != pid {
+			continue
+		}
+		if uc.drawSpec != "" && !drawSpecMatches(g, cand, pid, source, uc.drawSpec) {
+			continue
+		}
+		if !g.cantDrawAmount(cand, uc.drawN) {
+			out = append(out, cand)
+		}
+	}
+	return out
+}
+
+// drawSpecResolvable is whether every alternative of a Draw part's player spec
+// is one drawSpecMatches reads: a base (You, Opponent, Player) with at most a
+// property matchesPlayerSpec resolves, or Player.targetedBy.
+func drawSpecResolvable(spec string) bool {
+	if spec == "" || spec == "You" {
+		return false
+	}
+	for _, alt := range strings.Split(spec, ",") {
+		base, prop, hasProp := strings.Cut(alt, ".")
+		switch base {
+		case "You", "Opponent", "Player":
+		default:
+			return false
+		}
+		if hasProp {
+			switch prop {
+			case "targetedBy", "You", "Opponent", "Other", "Active", "NonActive":
+			default:
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// drawSpecMatches is Player.isValid(spec, payer, source, ability) for a Draw
+// part's player spec. Player.targetedBy names a player the ability targeted,
+// which the payment is not handed, so it names every player here: a drawer
+// outside the ability's targets cannot be told apart.
+func drawSpecMatches(g *Game, cand, payer PlayerID, source CardID, spec string) bool {
+	spec = strings.ReplaceAll(spec, ".targetedBy", "")
+	matched, _ := matchesPlayerSpec(g, cand, payer, source, spec)
+	return matched
+}
+
+// chosenCardSpecResolvable is whether a cost part's valid string names cards
+// valid.Parse and Matches evaluate (not the self tokens, not an empty field).
+func chosenCardSpecResolvable(spec string) bool {
+	switch spec {
+	case "", "CARDNAME", "NICKNAME", "Hand", "All", "Any", "Random", "DifferentNames", "SameName", "LastDrawn":
+		return false
+	}
+	return !strings.Contains(spec, "TopGraveyard")
+}
+
+// unlessCardsPayable is whether the chosen-card parts have their cards:
+// graveyard cards to exile, permanents to tap, graveyard mana value for
+// evidence, a card to put the counters on and a player who may get counters.
+func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bool {
+	if uc.exileGraveN > 0 && len(g.costCandidates(pid, source, false, Graveyard, uc.exileGraveSpec)) < uc.exileGraveN {
+		return false
+	}
+	if uc.tapN > 0 && len(tapTypeCandidates(g, pid, source, false, uc.tapSpec)) < uc.tapN {
+		return false
+	}
+	if uc.evidenceN > 0 && graveyardManaValue(g, g.Zone(Graveyard, pid).Cards()) < uc.evidenceN {
+		return false
+	}
+	if uc.youCounterN > 0 && (g.Player(pid).Lost || g.cantPutCounter(PlayerEntity(pid), uc.youCounterType)) {
+		return false
+	}
+	if uc.addCounterSpec != "" && len(g.unlessCounterTargets(pid, source, uc)) == 0 {
+		return false
+	}
+	return true
+}
+
+// unlessCounterTargets is the cards AddCounter<N/Type/Spec> may put counters on
+// (CostPutCounter.canPay: the valid cards that can receive the counters).
+func (g *Game) unlessCounterTargets(pid PlayerID, source CardID, uc unlessCost) []CardID {
+	var out []CardID
+	for _, id := range g.costCandidates(pid, source, false, Battlefield, uc.addCounterSpec) {
+		if !g.cantPutCounter(CardEntity(id), uc.addCounterType) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// graveyardManaValue is the total mana value of ids (CardLists.getTotalCMC).
+func graveyardManaValue(g *Game, ids []CardID) int {
+	total := 0
+	for _, id := range ids {
+		total += g.Card(id).CMC()
+	}
+	return total
 }
 
 // payUnlessParts pays uc's non-mana parts, after unlessPayable said they can
@@ -237,12 +424,61 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 		g.checkDamageTableTriggers(controller, table, false)
 	}
 	if uc.drawN > 0 {
-		g.DrawCards(pid, uc.drawN, controller)
+		for _, drawer := range g.unlessDrawers(pid, a.Source, uc) {
+			g.DrawCards(drawer, uc.drawN, controller)
+		}
+	}
+	if uc.exileGraveN > 0 {
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, g.costCandidates(pid, a.Source, false, Graveyard, uc.exileGraveSpec), uc.exileGraveN, uc.exileGraveN) {
+			exileFromGraveyard(g, id)
+		}
+	}
+	if uc.evidenceN > 0 {
+		g.collectEvidence(controller, pid, a.Source, uc.evidenceN)
+	}
+	if uc.tapN > 0 {
+		tapChosenPermanents(g, controller, controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN))
+	}
+	if uc.youCounterN > 0 {
+		if n := g.countersReplaced(controller, pid, PlayerEntity(pid), uc.youCounterType, uc.youCounterN); n > 0 {
+			g.Player(pid).Counters.Add(uc.youCounterType, n)
+			emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), uc.youCounterType, n)
+		}
 	}
 	if uc.addCounterN > 0 {
-		if n := g.countersReplaced(controller, pid, CardEntity(a.Source), uc.addCounterType, uc.addCounterN); n > 0 {
-			g.addCardCounters(controller, a.Source, a.Source, uc.addCounterType, n)
+		target := a.Source
+		if uc.addCounterSpec != "" {
+			target = g.chosenUnlessCards(controller, pid, a.Source, g.unlessCounterTargets(pid, a.Source, uc), 1, 1)[0]
 		}
+		if n := g.countersReplaced(controller, pid, CardEntity(target), uc.addCounterType, uc.addCounterN); n > 0 {
+			g.addCardCounters(controller, a.Source, target, uc.addCounterType, n)
+		}
+	}
+}
+
+// chosenUnlessCards is the payer's pick of lo..hi of options for a cost part.
+// An illegal pick (not a subset, duplicates, wrong count) is replaced by the
+// first lo options: the cost was checked payable, and a payer cannot back out
+// of a payment already half made.
+func (g *Game) chosenUnlessCards(controller PlayerController, pid PlayerID, source CardID, options []CardID, lo, hi int) []CardID {
+	picks := controller.ChooseCardsForEffect(g, pid, source, options, lo, hi)
+	if !isSubset(picks, options) || hasDuplicate(picks) || len(picks) < lo || len(picks) > hi {
+		return options[:lo]
+	}
+	return picks
+}
+
+// collectEvidence is CostCollectEvidence.payAsDecided: the payer exiles cards
+// from their graveyard with total mana value at least n. A pick short of n is
+// replaced by the whole graveyard, which unlessCardsPayable said is enough.
+func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source CardID, n int) {
+	grave := g.Zone(Graveyard, pid).Cards()
+	picks := controller.ChooseCardsForEffect(g, pid, source, grave, 1, len(grave))
+	if !isSubset(picks, grave) || hasDuplicate(picks) || graveyardManaValue(g, picks) < n {
+		picks = grave
+	}
+	for _, id := range append([]CardID(nil), picks...) {
+		exileFromGraveyard(g, id)
 	}
 }
 
@@ -271,11 +507,17 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.returnN *= n
 	uc.revealN *= n
 	uc.addCounterN *= n
+	uc.exileGraveN *= n
+	uc.tapN *= n
+	uc.waterbendN *= n
+	uc.evidenceN *= n
+	uc.youCounterN *= n
 	if uc.hasMana {
 		var tokens []string
 		for range n {
-			tokens = append(tokens, uc.parsed.Mana...)
+			tokens = append(tokens, uc.manaTokens...)
 		}
+		uc.manaTokens = tokens
 		mc, err := mana.Parse(strings.Join(tokens, " "))
 		if err != nil {
 			return unlessCost{}, false
@@ -328,4 +570,128 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&
 		g.payUnlessCost(controller, a, a.Controller, uc)
 	return !paid && source.Controller() == a.Controller, nil
+}
+
+// expandUnlessCost is AbilityUtils.calculateUnlessCost's SVar handling and the
+// X of a cost part's amount, evaluated for the ability that asks for the cost:
+//
+//   - a cost that is only the name of an SVar (Y, Z; not "X") is that many
+//     mana, generic or of the UnlessColor$ color;
+//   - the mana symbol X is the amount of SVar X (PlaySpellAbility.payManaCost
+//     reads the SVar named X, or XAlternative$);
+//   - a part whose amount is a name (PayLife<X>, PayEnergy<X/...>,
+//     DamageYou<X>) takes that SVar's amount.
+//
+// An SVar this port cannot evaluate is an error, never a free payment (GO-7).
+// Text with none of these shapes is returned as written.
+func (g *Game) expandUnlessCost(a *Ability, text string) (string, error) {
+	text = strings.TrimSpace(text)
+	host := g.Card(a.Source)
+	amount := func(name string) (int, error) {
+		n, ok := resolveNamedAmount(g, a.Amounts, host, name)
+		if !ok {
+			return 0, fmt.Errorf("engine: UnlessCost$ %q: SVar %s not resolvable yet", text, name)
+		}
+		return max(n, 0), nil
+	}
+	if _, isSVar := a.Amounts[strings.ToLower(text)]; isSVar && text != "X" {
+		n, err := amount(text)
+		if err != nil {
+			return "", err
+		}
+		color := "1"
+		if c, ok := a.Params.Param("UnlessColor"); ok {
+			color = c
+		}
+		return unlessManaOf(n, color)
+	}
+	var out strings.Builder
+	depth, start := 0, 0
+	flush := func(end int) error {
+		seg := text[start:end]
+		start = end
+		// Outside <...> a segment is a space-separated token list.
+		if depth == 0 {
+			words := strings.Fields(seg)
+			for i, w := range words {
+				if w == "X" {
+					n, err := amount("X")
+					if err != nil {
+						return err
+					}
+					words[i] = strconv.Itoa(n)
+				}
+			}
+			out.WriteString(strings.Join(words, " "))
+			if strings.HasSuffix(seg, " ") {
+				out.WriteByte(' ')
+			}
+			return nil
+		}
+		out.WriteString(seg)
+		return nil
+	}
+	for i := 0; i < len(text); i++ {
+		switch text[i] {
+		case '<':
+			if depth == 0 {
+				// Part name up to and including '<' is outside; the body follows.
+				if err := flush(i + 1); err != nil {
+					return "", err
+				}
+			}
+			depth++
+		case '>':
+			depth--
+			if depth == 0 {
+				body := text[start:i]
+				field0, rest, hasRest := strings.Cut(body, "/")
+				if _, err := strconv.Atoi(field0); err != nil && field0 != "" {
+					if _, isSVar := a.Amounts[strings.ToLower(field0)]; isSVar || field0 == "X" {
+						n, err := amount(field0)
+						if err != nil {
+							return "", err
+						}
+						field0 = strconv.Itoa(n)
+					}
+				}
+				out.WriteString(field0)
+				if hasRest {
+					out.WriteString("/" + rest)
+				}
+				start = i
+			}
+		}
+	}
+	depth = 0
+	if err := flush(len(text)); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+// unlessManaOf is n mana of color (UnlessColor$, a color name or letter; "1" is
+// generic) as cost text.
+func unlessManaOf(n int, color string) (string, error) {
+	symbol := ""
+	switch strings.ToLower(color) {
+	case "1", "colorless":
+		return strconv.Itoa(n), nil
+	case "w", "white":
+		symbol = "W"
+	case "u", "blue":
+		symbol = "U"
+	case "b", "black":
+		symbol = "B"
+	case "r", "red":
+		symbol = "R"
+	case "g", "green":
+		symbol = "G"
+	default:
+		return "", fmt.Errorf("engine: UnlessColor$ %q not resolvable", color)
+	}
+	if n == 0 {
+		return "0", nil
+	}
+	return strings.TrimSpace(strings.Repeat(symbol+" ", n)), nil
 }

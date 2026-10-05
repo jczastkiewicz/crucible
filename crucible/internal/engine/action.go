@@ -800,7 +800,19 @@ func (g *Game) playerEnchantLegal(aura *Card, id CardID, pid PlayerID) bool {
 		return false
 	}
 	matched, _ := matchesPlayerSpec(g, pid, aura.Controller(), id, kind)
-	return matched
+	return matched && !playerRefusesAttach(g, aura, pid)
+}
+
+// playerRefusesAttach is the CantAttach half of a player's Protection
+// (PlayerFactoryUtil.java:42-52, `Mode$ CantAttach | Target$ Player.You`): an
+// Aura matching one of the player's Protection lines cannot stay attached to
+// them (CR 702.16c). Each line is checked independently, as hostRefusesAttach
+// does for a card host.
+func playerRefusesAttach(g *Game, aura *Card, pid PlayerID) bool {
+	refused, _ := protectionEach(g.Player(pid).KeywordLines(), func(vb string, hasVB bool) bool {
+		return !hasVB || Matches(g, aura, valid.Parse(vb), pid, NoCard)
+	})
+	return refused
 }
 
 // startYourEngines is CR 704.5z (GameAction.java:1548): a player with no speed

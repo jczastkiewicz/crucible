@@ -212,6 +212,10 @@ type Ability struct {
 	// "left the stack already" answer Forge's own
 	// getInstanceMatchingSpellAbilityID null-check gives.
 	wardCounters EntityID
+	// wardItem is the same stand-in for an activated or triggered ability
+	// that targeted the warded permanent (checkWardTriggersForAbility): the
+	// stack item Ward's Counter removes, without moving any card. 0 for none.
+	wardItem StackItemID
 	// isTrigger is SpellAbility.isTrigger: pushTriggeredAbilities, the only
 	// pusher of a trigger, sets it. hasSourceOnStack reads it (CR 704.5v's
 	// "source of an ability that has triggered but not yet left the stack").

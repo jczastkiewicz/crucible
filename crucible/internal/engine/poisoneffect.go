@@ -66,6 +66,11 @@ func (poisonEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 
 	for _, pid := range players {
 		p := g.Player(pid)
+		// Player.addCounter: GameEntity.addCounter refuses a placement a
+		// Mode$ CantPutCounter static forbids (Player.canReceiveCounters).
+		if amount > 0 && g.cantPutCounter(PlayerEntity(pid), Poison) {
+			continue
+		}
 		p.Counters.Add(Poison, amount)
 		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), Poison, amount)
 	}

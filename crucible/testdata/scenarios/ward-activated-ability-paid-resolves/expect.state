@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Prodigal Pyromancer|Id:1|Tapped;Mountain|Id:3|Tapped;Mountain|Id:4|Tapped
+ailife=20
+aigraveyard=Tomakul Honor Guard

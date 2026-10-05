@@ -114,7 +114,9 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		// isSpellSource as castInstantOrSorcery/castAura pass it: true only
 		// for an Aura (becomesTargetSourceMatches reads .Aura as always true
 		// under a spell source).
-		g.pushTriggeredAbilities(controller, g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier))
+		matches := g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier)
+		matches = append(matches, g.checkWardTriggers(tg.targets, tg.host, tg.copier)...)
+		g.pushTriggeredAbilities(controller, matches)
 	}
 	return nil
 }
@@ -125,6 +127,8 @@ type copiedTargets struct {
 	targets []EntityID
 	aura    bool
 	copier  PlayerID
+	// host is the copy's card on the stack, what Ward's Counter counters.
+	host CardID
 }
 
 // copySpellTargets is getTargetSpells(sa): the spells a names, as stack
@@ -276,7 +280,7 @@ func (g *Game) copySpell(controller PlayerController, orig Ability, copier Playe
 	if cp.Target != NoCard {
 		targets = append(targets, CardEntity(cp.Target))
 	}
-	return host, copiedTargets{targets: targets, aura: cp.API == APIAttach, copier: copier}, nil
+	return host, copiedTargets{targets: targets, aura: cp.API == APIAttach, copier: copier, host: host}, nil
 }
 
 // chooseCopyTargets is SpellAbility.setupNewTargets for one targeting part

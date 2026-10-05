@@ -42,21 +42,15 @@
 //
 // Ported from
 // forge-game/src/main/java/forge/game/replacement/{ReplacementHandler,ReplaceMoved,ReplaceUntap,ReplaceDamage,ReplacementEffect}.java,
-// trimmed the same way trigger.go's own checkETBTriggers is: CR 616's own
+// trimmed the same way trigger.go's own checkETBTriggers is. CR 616's own
 // "more than one replacement effect could apply, the affected player
-// chooses" procedure needs a PlayerController hook this port does not have,
-// so it is not built at all. Moot for most outcomes this file produces
-// (Tapped = true, blocked = true, prevented = true), since applying any of
-// those more than once is a no-op, not a wrong answer -- the first real
-// match found is applied (or, for Untap/DamageDone's own Prevent$ half,
-// simply reported) directly and the search stops. Real, if narrow, for
-// damageReplaced's/damageReplacedPlayer's own non-idempotent "prevent N of
-// that damage" reduction (below) and drawReplaced's/gainLifeReplaced's own
-// non-idempotent substitutions: two independent such permanents on one
-// battlefield would only see the first found apply, not both compounding
-// the way a real game lets the affected player choose to stack; not
-// observable against a corpus with no two of any one such shape combined on
-// one battlefield today.
+// chooses" procedure is runReplacements (replacementchoice.go), which
+// drawReplaced, gainLifeReplaced and damageReplaced/damageReplacedPlayer use.
+// Moot for the outcomes the other dispatches here produce (Tapped = true,
+// blocked = true, prevented = true): applying any of those more than once is
+// a no-op, so the first real match found is applied (or, for Untap/
+// DamageDone's own Prevent$ half, simply reported) directly and the search
+// stops.
 
 package engine
 
@@ -698,92 +692,87 @@ func damagePreventionMatches(g *Game, r *compile.Ability, source CardID, hostCon
 // DB$ ReplaceDamage reduction already folds into, since neither caller
 // distinguishes "zero because it was reduced to zero" from "zero because
 // something else happened instead."
-func (g *Game) damageReplaced(source, target CardID, isCombat bool, amount int) (int, EntityID, int) {
+func (g *Game) damageReplaced(controller PlayerController, source, target CardID, isCombat bool, amount int) (int, EntityID, int) {
 	targetCard := g.Card(target)
 	toughness, hasToughness := targetCard.Toughness()
-	for _, pid := range g.Players() {
-		for _, z := range replacementZones {
-			for _, host := range g.Zone(z, pid).Cards() {
-				h := g.Card(host)
-				if h.Def == nil {
-					continue
-				}
-				for _, face := range h.traitFaces() {
-					for _, r := range face.Replacements {
-						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, toughness, hasToughness) {
-							continue
+	return g.damageReplacement(controller, targetCard.Controller(), CardEntity(target), amount,
+		func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool {
+			if !damageReplacementMatches(g, r, source, h.Controller(), h.ID, z, isCombat, amounts, amount, toughness, hasToughness) {
+				return false
+			}
+			if validTarget, ok := r.Param("ValidTarget"); ok &&
+				!Matches(g, targetCard, valid.Parse(validTarget), h.Controller(), h.ID) {
+				return false
+			}
+			return true
+		})
+}
+
+// damageReplacement is damageReplaced's and damageReplacedPlayer's shared
+// CR 616 run: matches says whether a replacement line applies to the
+// damage as it stands (it is asked again after every applied effect, with
+// the amount so far), decider is the affected player or the affected
+// permanent's controller. A line that resized the damage leaves it to the
+// next one, so Furnace of Rath and a "prevent 1 of that damage" shield give
+// 5 or 4 of 3 damage depending on which the player applies first; a
+// redirected half (ReplaceSplitDamage) and a counter change instead of the
+// damage (applyDamageReplaceCounter) are carried along the same way.
+func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, affected EntityID, amount int,
+	matches func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool) (int, EntityID, int) {
+	redirect, redirectAmount := NoEntity, 0
+	res := g.runReplacements(controller, decider, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			if !matches(h, z, amounts, r, amount) || !damageRedirectAllowed(g, r, h, affected) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				for _, sub := range r.Subs {
+					if !strings.EqualFold(sub.Key, "ReplaceWith") {
+						continue
+					}
+					ev := replacementEvent{amountName: "DamageAmount", amount: amount, affected: affected}
+					if g.runReplaceWith(controller, h, amounts, sub.Ability, &ev) {
+						amount = ev.amount
+						if ev.redirectAmount != 0 || ev.redirect != NoEntity {
+							redirect, redirectAmount = ev.redirect, ev.redirectAmount
 						}
-						if validTarget, ok := r.Param("ValidTarget"); ok &&
-							!Matches(g, targetCard, valid.Parse(validTarget), h.Controller(), host) {
-							continue
-						}
-						if !damageRedirectAllowed(g, r, h, CardEntity(target)) {
-							continue
-						}
-						for _, sub := range r.Subs {
-							if !strings.EqualFold(sub.Key, "ReplaceWith") {
-								continue
-							}
-							ev := replacementEvent{amountName: "DamageAmount", amount: amount, affected: CardEntity(target)}
-							if g.runReplaceWith(nil, h, face.Amounts, sub.Ability, &ev) {
-								return ev.amount, ev.redirect, ev.redirectAmount
-							}
-							if applyDamageReplaceCounter(g, host, CardEntity(target), sub.Ability, face.Amounts, amount) {
-								return 0, NoEntity, 0
-							}
-						}
+						return ev.result
+					}
+					if applyDamageReplaceCounter(g, h.ID, affected, sub.Ability, amounts, amount) {
+						amount = 0
+						return replacementReplaced
 					}
 				}
-			}
-		}
+				return replacementNotReplaced
+			}})
+		})
+		return out
+	})
+	if res == replacementReplaced {
+		amount = 0
 	}
-	return amount, NoEntity, 0
+	return amount, redirect, redirectAmount
 }
 
 // damageReplacedPlayer is damageReplaced's own player-target twin, the
 // identical split damagePreventedPlayer already has from damagePrevented:
 // ValidTarget$ matched against a Player through matchesPlayerSpec rather
 // than Matches.
-func (g *Game) damageReplacedPlayer(source CardID, target PlayerID, isCombat bool, amount int) (int, EntityID, int) {
-	for _, pid := range g.Players() {
-		for _, z := range replacementZones {
-			for _, host := range g.Zone(z, pid).Cards() {
-				h := g.Card(host)
-				if h.Def == nil {
-					continue
-				}
-				for _, face := range h.traitFaces() {
-					for _, r := range face.Replacements {
-						if !damageReplacementMatches(g, r, source, h.Controller(), host, z, isCombat, face.Amounts, amount, 0, false) {
-							continue
-						}
-						if validTarget, ok := r.Param("ValidTarget"); ok {
-							matched, recognized := matchesPlayerSpec(g, target, h.Controller(), host, validTarget)
-							if !recognized || !matched {
-								continue
-							}
-						}
-						if !damageRedirectAllowed(g, r, h, PlayerEntity(target)) {
-							continue
-						}
-						for _, sub := range r.Subs {
-							if !strings.EqualFold(sub.Key, "ReplaceWith") {
-								continue
-							}
-							ev := replacementEvent{amountName: "DamageAmount", amount: amount, affected: PlayerEntity(target)}
-							if g.runReplaceWith(nil, h, face.Amounts, sub.Ability, &ev) {
-								return ev.amount, ev.redirect, ev.redirectAmount
-							}
-							if applyDamageReplaceCounter(g, host, PlayerEntity(target), sub.Ability, face.Amounts, amount) {
-								return 0, NoEntity, 0
-							}
-						}
-					}
+func (g *Game) damageReplacedPlayer(controller PlayerController, source CardID, target PlayerID, isCombat bool, amount int) (int, EntityID, int) {
+	return g.damageReplacement(controller, target, PlayerEntity(target), amount,
+		func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability, amount int) bool {
+			if !damageReplacementMatches(g, r, source, h.Controller(), h.ID, z, isCombat, amounts, amount, 0, false) {
+				return false
+			}
+			if validTarget, ok := r.Param("ValidTarget"); ok {
+				matched, recognized := matchesPlayerSpec(g, target, h.Controller(), h.ID, validTarget)
+				if !recognized || !matched {
+					return false
 				}
 			}
-		}
-	}
-	return amount, NoEntity, 0
+			return true
+		})
 }
 
 // damageReplacementMatches is damagePreventionMatches' own ReplaceWith$
@@ -1276,41 +1265,33 @@ func (g *Game) payEntersTappedUnless(controller PlayerController, a *compile.Abi
 // lines resolve end to end too, through gainLifeReplaced (below) --
 // unrelated to this function, which only ever runs for Event$ Draw.
 func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
-	for _, pid := range g.Players() {
-		for _, z := range replacementZones {
-			for _, host := range g.Zone(z, pid).Cards() {
-				h := g.Card(host)
-				if h.Def == nil {
-					continue
-				}
-				for _, face := range h.traitFaces() {
-					for _, r := range face.Replacements {
-						if !drawReplacementMatches(g, r, host, z, face.Amounts) {
-							continue
-						}
-						if validPlayer, ok := r.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
-							if !recognized || !matched {
-								continue
-							}
-						}
-						if notFirstCardInDrawStepExempts(g, r, player) {
-							continue
-						}
-						for _, sub := range r.Subs {
-							if !strings.EqualFold(sub.Key, "ReplaceWith") {
-								continue
-							}
-							if applyDrawReplacement(g, controller, h, sub.Ability, face.Amounts) {
-								return true
-							}
-						}
-					}
+	res := g.runReplacements(controller, player, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			if !drawReplacementMatches(g, r, h.ID, z, amounts) {
+				return
+			}
+			if validPlayer, ok := r.Param("ValidPlayer"); ok {
+				matched, recognized := matchesPlayerSpec(g, player, h.Controller(), h.ID, validPlayer)
+				if !recognized || !matched {
+					return
 				}
 			}
-		}
-	}
-	return false
+			if notFirstCardInDrawStepExempts(g, r, player) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				for _, sub := range r.Subs {
+					if strings.EqualFold(sub.Key, "ReplaceWith") && applyDrawReplacement(g, controller, h, sub.Ability, amounts) {
+						return replacementReplaced
+					}
+				}
+				return replacementNotReplaced
+			}})
+		})
+		return out
+	})
+	return res == replacementReplaced
 }
 
 // drawReplacementMatches is drawReplaced's own shared half: Event$ Draw,
@@ -1510,40 +1491,44 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 // CAUSED the event rather than who it affects, a shape this file's own
 // allow-lists have never needed to check before).
 func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, amount int) int {
-	for _, pid := range g.Players() {
-		for _, z := range replacementZones {
-			for _, host := range g.Zone(z, pid).Cards() {
-				h := g.Card(host)
-				if h.Def == nil {
-					continue
-				}
-				for _, face := range h.traitFaces() {
-					for _, r := range face.Replacements {
-						if !gainLifeReplacementMatches(g, r, host, z, face.Amounts) {
-							continue
-						}
-						if validPlayer, ok := r.Param("ValidPlayer"); ok {
-							matched, recognized := matchesPlayerSpec(g, player, h.Controller(), host, validPlayer)
-							if !recognized || !matched {
-								continue
-							}
-						}
-						for _, sub := range r.Subs {
-							if !strings.EqualFold(sub.Key, "ReplaceWith") {
-								continue
-							}
-							if applyGainLifeReplacement(g, controller, h, sub.Ability, face.Amounts, player, amount) {
-								return 0
-							}
-							ev := replacementEvent{amountName: "LifeGained", amount: amount}
-							if g.runReplaceWith(controller, h, face.Amounts, sub.Ability, &ev) {
-								return ev.amount
-							}
-						}
-					}
+	// An effect that only resizes the gain (ReplaceEffect) leaves the event
+	// to the next one, CR 616.1f: Rhox Faithmender's doubling and Angel of
+	// Vitality's "plus 1" give 5 or 6 for a gain of 2 depending on which the
+	// player applies first.
+	res := g.runReplacements(controller, player, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			if !gainLifeReplacementMatches(g, r, h.ID, z, amounts) {
+				return
+			}
+			if validPlayer, ok := r.Param("ValidPlayer"); ok {
+				matched, recognized := matchesPlayerSpec(g, player, h.Controller(), h.ID, validPlayer)
+				if !recognized || !matched {
+					return
 				}
 			}
-		}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				for _, sub := range r.Subs {
+					if !strings.EqualFold(sub.Key, "ReplaceWith") {
+						continue
+					}
+					if applyGainLifeReplacement(g, controller, h, sub.Ability, amounts, player, amount) {
+						amount = 0
+						return replacementReplaced
+					}
+					ev := replacementEvent{amountName: "LifeGained", amount: amount}
+					if g.runReplaceWith(controller, h, amounts, sub.Ability, &ev) {
+						amount = ev.amount
+						return ev.result
+					}
+				}
+				return replacementNotReplaced
+			}})
+		})
+		return out
+	})
+	if res == replacementReplaced {
+		return 0
 	}
 	return amount
 }

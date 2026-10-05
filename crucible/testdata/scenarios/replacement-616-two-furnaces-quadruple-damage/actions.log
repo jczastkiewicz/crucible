@@ -1,0 +1,15 @@
+# CR 616.1f: two Furnaces of Rath compound. Each is its own permanent, so the
+# player is asked once; whichever goes first, the other still applies to the
+# updated damage, and a lone remaining candidate is not asked about: 2 -> 4
+# -> 8. AI life 20 - 8 = 12.
+queue replacement 0
+startturn human
+advance 5
+queue attackers 3
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

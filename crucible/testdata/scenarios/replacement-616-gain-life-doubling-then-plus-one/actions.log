@@ -1,0 +1,13 @@
+# CR 616.1: Nourish gains 6 life while Rhox Faithmender ("twice that much")
+# and Angel of Vitality ("that much plus 1") both replace the gain. The
+# affected player chooses the order (ReplacementHandler.run, the decider is
+# the Affected player). Candidates are offered in play order, so 0 is the
+# Faithmender. It goes first: 6 -> 12, then CR 616.1f lets the plus-1 apply to
+# what is left of the event: 13. Life 20 + 13 = 33.
+queue replacement 0
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+castspell human 1
+resolvestack

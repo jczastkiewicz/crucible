@@ -607,6 +607,16 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueRoomDoor(d)
 
+	case "replacement":
+		// Which of several replacement effects applies first (CR 616.1,
+		// ChooseReplacementEffect): an index into the candidates, which are
+		// in play order -- players, zones, cards, then each card's own lines.
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return fmt.Errorf("queue replacement %q: want a candidate index", value)
+		}
+		c.QueueReplacementEffect(n)
+
 	case "optionaltrigger":
 		// An OptionalDecider$ trigger's "you may" (ConfirmOptionalTrigger),
 		// asked as the trigger goes on the stack: Swarm Intelligence's

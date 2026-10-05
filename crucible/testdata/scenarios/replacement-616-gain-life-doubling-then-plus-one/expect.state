@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=33
+humanbattlefield=Forest|Tapped;Forest|Tapped;Rhox Faithmender;Angel of Vitality
+humangraveyard=Nourish
+ailife=20

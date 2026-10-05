@@ -1,0 +1,14 @@
+# CR 616.1: the board of replacement-616-damage-doubling-then-plus-one with
+# the other order. Candidate 1 is Thor: 2 -> 3, then Furnace of Rath doubles
+# what is left: 6. AI life 20 - 6 = 14, one less than the other order.
+queue replacement 1
+startturn human
+advance 5
+queue attackers 3
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

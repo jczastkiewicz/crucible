@@ -313,7 +313,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 			return
 		}
 	}
-	amount, redirect, redirected := g.damageReplaced(source, target, isCombat, amount)
+	amount, redirect, redirected := g.damageReplaced(controller, source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
 	if amount <= 0 {
 		return
@@ -388,7 +388,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 			return
 		}
 	}
-	amount, redirect, redirected := g.damageReplacedPlayer(source, target, isCombat, amount)
+	amount, redirect, redirected := g.damageReplacedPlayer(controller, source, target, isCombat, amount)
 	g.dealRedirectedDamage(controller, source, redirect, redirected, isCombat, table)
 	if amount <= 0 {
 		return

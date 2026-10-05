@@ -1,0 +1,16 @@
+# CR 616.1: an unblocked Grizzly Bears (2 power) would deal 2 combat damage to
+# the AI while Furnace of Rath ("double") and Thor, Asgard's Avenger ("another
+# source you control: plus 1") both replace it. Candidate 0 is Furnace of
+# Rath: 2 -> 4, then Thor's plus 1 applies to what is left: 5. AI life
+# 20 - 5 = 15.
+queue replacement 0
+startturn human
+advance 5
+queue attackers 3
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

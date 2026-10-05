@@ -1,0 +1,11 @@
+# CR 616.1: the same board as replacement-616-gain-life-doubling-then-plus-one
+# but the player picks the other order. Candidate 1 is Angel of Vitality: it
+# goes first, 6 -> 7, then Rhox Faithmender doubles what is left: 14. Life
+# 20 + 14 = 34, one more than the other order, so the choice is observable.
+queue replacement 1
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+castspell human 1
+resolvestack

@@ -508,12 +508,37 @@ type PlayerController interface {
 	// checks the answer is one of doors (GO-7).
 	ChooseRoomDoor(g *Game, decider PlayerID, room CardID, doors []Door) Door
 
+	// ChooseReplacementEffect is CR 616.1's own "the affected player
+	// chooses": which of options -- two or more replacement effects that
+	// could each apply to the one event -- applies first. Java's
+	// chooseSingleReplacementEffect (ReplacementHandler.run). decider is the
+	// affected player, or the affected permanent's controller. The return
+	// value is an index into options, which is in play order (players,
+	// zones, cards, then each card's replacements in script order). A lone
+	// candidate is applied without asking, and so are several that all
+	// read the same (one permanent, one Description$ -- two copies of a card
+	// are two permanents and are asked):
+	// PlayerControllerHuman.chooseSingleReplacementEffect takes the first in
+	// both cases. After an applied effect only updated the event (a resized
+	// amount), the remaining ones are asked again. The caller checks the
+	// answer is in range (GO-7). runReplacements (replacementchoice.go) is
+	// the only caller.
+	ChooseReplacementEffect(g *Game, decider PlayerID, options []ReplacementOption) int
+
 	// TakeAction is CR 117's own priority ask (ADR-0019): what, if anything,
 	// pid does with priority right now. The zero value, ActionPass, is a
 	// pass -- Java's chooseSpellAbilityToPlay returning null
 	// (PlayerController.java:278, PlayerControllerHuman.java:1714-1716).
 	// PassPriority (priority.go) is the only caller.
 	TakeAction(g *Game, pid PlayerID) Action
+}
+
+// ReplacementOption is one candidate ChooseReplacementEffect offers: the
+// permanent whose replacement effect it is and that effect's Description$
+// (Java's ReplacementEffect.toString, host plus description).
+type ReplacementOption struct {
+	Host        CardID
+	Description string
 }
 
 // BinaryChoice names a PlayerController.BinaryChoiceType.
@@ -587,6 +612,7 @@ type ScriptedController struct {
 	option           []int
 	sector           []int
 	roomDoor         []Door
+	replacementPick  []int
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
 	// by PlayerID like Game.players already is -- not a map, GO-12. A slot
 	// left nil means "nothing queued for this player yet," the same as an
@@ -1257,6 +1283,18 @@ func (c *ScriptedController) QueueRoomDoor(d Door) { c.roomDoor = append(c.roomD
 // ChooseRoomDoor returns the next answer QueueRoomDoor queued.
 func (c *ScriptedController) ChooseRoomDoor(_ *Game, _ PlayerID, _ CardID, _ []Door) Door {
 	return popQueue(&c.roomDoor, "room door")
+}
+
+// QueueReplacementEffect appends the answer to the next ChooseReplacementEffect
+// call: an index into the options offered.
+func (c *ScriptedController) QueueReplacementEffect(i int) {
+	c.replacementPick = append(c.replacementPick, i)
+}
+
+// ChooseReplacementEffect returns the next answer QueueReplacementEffect
+// queued.
+func (c *ScriptedController) ChooseReplacementEffect(_ *Game, _ PlayerID, _ []ReplacementOption) int {
+	return popQueue(&c.replacementPick, "replacement effect")
 }
 
 // QueueAction appends a to pid's own priority-answer queue, consumed by

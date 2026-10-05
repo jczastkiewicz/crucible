@@ -127,12 +127,17 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			// Player.loseLife loses nothing when a static stops it.
 			continue
 		}
-		if amount > 0 && !g.Player(pid).Lost {
-			lifeLost += amount
+		// Player.loseLife's Event$ LifeReduced replacement run.
+		lose := g.lifeReduced(controller, pid, amount, false)
+		if amount > 0 && lose <= 0 {
+			continue
 		}
-		g.Player(pid).Life -= amount
-		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(amount)})
-		g.noteLifeLost(controller, pid, amount)
+		if lose > 0 && !g.Player(pid).Lost {
+			lifeLost += lose
+		}
+		g.Player(pid).Life -= lose
+		g.sink.Emit(Event{Kind: LifeChanged, Source: a.Source, Target: PlayerEntity(pid), Amount: -int32(lose)})
+		g.noteLifeLost(controller, pid, lose)
 	}
 	// LifeLoseEffect.java:60: the sum, for a sub-ability's LifeAmount$
 	// AFLifeLost (Extort, "gain that much life"). Java sets it on the

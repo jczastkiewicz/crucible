@@ -1,0 +1,4 @@
+# Event$ LoseMana | ValidPlayer$ You | ReplaceWith$ ConvertMana (DB$ ReplaceMana |
+# ReplaceType$ C): Horizon Stone turns unspent mana into colorless instead of
+# emptying the pool when the phase ends.
+advance

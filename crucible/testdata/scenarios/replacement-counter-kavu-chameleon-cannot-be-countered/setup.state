@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanbattlefield=Forest|Id:2;Forest|Id:3;Forest|Id:4;Forest|Id:5;Forest|Id:6
+humanhand=Kavu Chameleon|Id:1
+aibattlefield=Island|Id:8;Island|Id:9
+aihand=Counterspell|Id:10

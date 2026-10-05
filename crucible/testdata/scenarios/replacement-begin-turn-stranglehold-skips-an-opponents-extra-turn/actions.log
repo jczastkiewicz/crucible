@@ -1,0 +1,11 @@
+# Event$ BeginTurn | ValidPlayer$ Opponent | ExtraTurn$ True | Skip$ True:
+# Stranglehold (ai's) makes human skip the extra turn Time Walk grants. When
+# human's turn ends the walk goes to ai's turn 2, not to a second human turn.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+queue paygeneric U
+castspell human 1
+resolvestack
+advance 10

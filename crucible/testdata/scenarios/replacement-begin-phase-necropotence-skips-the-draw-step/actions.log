@@ -1,0 +1,6 @@
+# Event$ BeginPhase | ValidPlayer$ You | Phase$ Draw | Skip$ True: Necropotence
+# skips its controller's draw step, so the step is never begun. ai's Cleanup
+# wraps to human's turn 2: Untap, Upkeep, then Draw is passed over to Main1.
+advance
+advance
+advance

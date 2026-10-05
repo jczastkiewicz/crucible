@@ -407,20 +407,22 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	// instead of life loss, and CR 702.164c's toxic adds its magnitude in
 	// poison counters to combat damage (Player.addDamageAfterPrevention).
 	poison := 0
+	lost := 0
 	if g.Card(source).HasKeyword("Infect") {
 		poison += amount
 	} else if !g.cantLoseLife(target) {
-		g.Player(target).Life -= amount
+		// Player.addDamageAfterPrevention's loseLife(damage, true): the
+		// Event$ LifeReduced replacement run, whose answer is what is lost.
+		lost = g.lifeReduced(controller, target, amount, true)
+		g.Player(target).Life -= lost
 	}
 	if isCombat {
 		poison += toxicMagnitude(g.Card(source))
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
-	if !g.Card(source).HasKeyword("Infect") {
-		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-amount), Flags: flags})
-		if !g.cantLoseLife(target) {
-			g.noteLifeLost(controller, target, amount)
-		}
+	if !g.Card(source).HasKeyword("Infect") && lost > 0 {
+		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-lost), Flags: flags})
+		g.noteLifeLost(controller, target, lost)
 	}
 	if poison > 0 {
 		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {

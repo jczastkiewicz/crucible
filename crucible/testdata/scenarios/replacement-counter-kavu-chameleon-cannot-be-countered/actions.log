@@ -1,0 +1,20 @@
+# Event$ Counter | ValidCard$ Card.Self | ValidSA$ Spell | Layer$ CantHappen:
+# Kavu Chameleon on the stack has no ActiveZones$, so its own line applies
+# from the stack. ai's Counterspell resolves and counters nothing; the
+# Chameleon then resolves onto the battlefield.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+tapformana ai 8 U
+tapformana ai 9 U
+queue targets 1
+castspell ai 10
+resolvestack

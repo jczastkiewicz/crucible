@@ -845,14 +845,16 @@ func damageReplacementMatches(g *Game, r *compile.Ability, source CardID, hostCo
 // unchanged -- lichenthrope.txt's/phytohydra.txt's/most of
 // applyDamageReplaceCounter's own real CounterNum$ X/Y lines, the dominant
 // real shape for THAT dispatch specifically) or carrying one of doXMath's
-// own operators: Twice/Thrice/HalfDown (no operand) or Plus/Minus (a literal
-// digit or a further-resolvable SVar operand, resolveNamedAmount reused the
-// identical way replaceDamageEffect's own Amount$ already is) -- the
-// five suffixed branches every real corpus line pairs with this shape
+// own operators: Twice/Thrice/HalfDown (no operand) or Plus/Minus/LimitMax/
+// LimitMin (a literal digit or a further-resolvable SVar operand,
+// resolveNamedAmount reused the identical way replaceDamageEffect's own
+// Amount$ already is; LimitMax.Difference is Worship's and Sustaining
+// Spirit's "reduces it to 1 instead" on Event$ LifeReduced's Amount) -- the
+// suffixed branches every real corpus line pairs with this shape
 // (rhox_faithmender.txt's own real Twice, angel_of_vitality.txt's own real
 // Plus.1 among LifeGained's own). Every other operator doXMath itself has
-// (HalfUp, ThirdUp/Down, Negative, Times, Pow, Divide*, Mod, Abs,
-// LimitMax/Min) carries 0 real lines here and is refused rather than guessed
+// (HalfUp, ThirdUp/Down, Negative, Times, Pow, Divide*, Mod, Abs) carries 0
+// real lines here and is refused rather than guessed
 // at (GO-7); so are hawkeye_young_avenger.txt's own Plus.Y operand and
 // ojer_axonil_deepest_might_temple_of_power.txt's own bare VarValue$ (no
 // ReplaceCount$ at all -- damage set equal to the host's own power, not
@@ -866,6 +868,11 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 		return n, true
 	}
 	amt, ok := amounts[strings.ToLower(value)]
+	if !ok && strings.HasPrefix(value, "ReplaceCount$") {
+		// The expression written inline in VarValue$ (Bloodletter of
+		// Aclazotz, Fated Firepower) rather than through an SVar.
+		amt, ok = expr.Parse(value), true
+	}
 	if !ok || amt.Kind != expr.Expression || !strings.EqualFold(amt.Head, "ReplaceCount") ||
 		!strings.EqualFold(amt.Body, wantBody) {
 		return 0, false
@@ -880,7 +887,7 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 		return original * 3, true
 	case "HalfDown":
 		return original / 2, true
-	case "Plus", "Minus":
+	case "Plus", "Minus", "LimitMax", "LimitMin":
 		if amt.Op.Operand == "" {
 			return 0, false
 		}
@@ -888,8 +895,14 @@ func resolveReplaceCountAmount(g *Game, amounts map[string]expr.Amount, host *Ca
 		if !ok {
 			return 0, false
 		}
-		if amt.Op.Name == "Plus" {
+		switch amt.Op.Name {
+		case "Plus":
 			return original + operand, true
+		case "LimitMax":
+			// Worship's "reduces it to 1 instead": the loss is at most life minus 1.
+			return min(original, operand), true
+		case "LimitMin":
+			return max(original, operand), true
 		}
 		return original - operand, true
 	}

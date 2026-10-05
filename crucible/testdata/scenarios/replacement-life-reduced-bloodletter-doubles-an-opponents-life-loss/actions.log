@@ -1,0 +1,13 @@
+# Event$ LifeReduced | ValidPlayer$ Opponent | PlayerTurn$ True | ReplaceWith$
+# LoseTwice: on human's turn the 2 damage from Grizzly Bears makes ai lose
+# 4 life.
+startturn human
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

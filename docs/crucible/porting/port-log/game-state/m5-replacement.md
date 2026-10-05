@@ -51,3 +51,55 @@ before these four, which is Java's order; a `Draw`/`GainLife`/`DamageDone` line 
 candidates the player can be asked about one that then declines. `Draw`'s `ReplaceWith$ DB$ Draw` draws directly rather
 than raising a new `Draw` event, so a second draw replacement does not see the replacement's own cards (Java does, with
 the first marked `hasRun`).
+
+## Event$ values past the first shapes
+
+Real R: line counts from the corpus (1,717 lines). Already resolved elsewhere: `AddCounter`, `CreateToken`,
+`ProduceMana`, `DeclareBlocker` (`replacement.go`), `GameLoss`/`GameWin` `CantHappen` (`gameloss.go`), `Destroy` with
+`Regeneration$` (`regeneration.go`). The unresolved rest, in count order, and what `replacementevents.go` ports:
+
+| Event$        | Lines | Shape ported                                                          | Java                                              |
+| ------------- | ----- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| `Counter`     | 118   | `Layer$ CantHappen`, `ValidCard$`, `ValidSA$ Spell[.props]` (117)     | `CounterEffect.removeFromStack`, `ReplaceCounter` |
+| `BeginPhase`  | 21    | `Skip$ True` with `Phase$`, optional `ValidPlayer$`, `Hellbent$` (20) | `PhaseHandler.advanceToNextPhase`                 |
+| `LifeReduced` | 8     | `ReplaceEffect` on `Amount` (limit, double), `CantHappen`, `Result$`  | `Player.loseLife`, `ReplaceLifeReduced`           |
+| `LoseMana`    | 5     | `ReplaceMana` `ReplaceType$` converts the pool instead of emptying it | `ManaPool.clearPool`                              |
+| `BeginTurn`   | 5     | `Skip$ True` with `ExtraTurn$ True` (4)                               | `PhaseHandler.getNextActivePlayer`                |
+
+Details that are not obvious from the Java:
+
+- **Counter hosts.** A line with no `ActiveZones$` applies from any zone (`TriggerReplacementBase.zonesCheck`), which is
+  how a spell's own "can't be countered" works from the stack; `counterCantHappen` always includes the spell itself as a
+  host. `ValidSA$ Spell.Creature+YouCtrl` reads its properties off the spell's card (`YouCtrl` is the host's
+  controller). `CounterEffect` still refuses a `CantBeCountered` static; Guile's `ReplaceWith$` line (and any
+  `ValidCause$`) errors when it is live and no resolvable line stopped the counter.
+- **BeginPhase before one-shot skips.** `advanceStep` checks `beginPhaseSkipped` before `consumeSkip`, so a static skip
+  leaves a `SkipPhase` effect unspent. Java lets the player choose; a skip is a skip either way. Fasting's `Optional$`
+  line records a pending error when it applies.
+- **BeginTurn.** Java's `isExtraTurn` is "the extra-turn stack is not empty after the pop"; the bottom entry is the
+  normal turn. Time Vault's optional skip is a pending error.
+- **LifeReduced** runs from `LoseLife` and from damage to a player (`isDamage`); infect damage is poison, not a loss.
+  `Result$ LT1` compares life minus the loss. Worship's `LimitMax.Difference` needed `LimitMax`/`LimitMin` in
+  `resolveReplaceCountAmount` and an inline `ReplaceCount$` in `VarValue$` (Bloodletter). The player property
+  `lifeGE<n>` (a literal n) joined `matchesPlayerProperty`. `Monarch$ True` in the common requirements is now the host
+  controller being the monarch (it rejected every line before), which Archon of Coronation's `CantHappen` needs.
+- **LoseMana** runs when `emptyManaPools` finds a non-empty pool: `Pool.convertTo` moves every unit to the named type,
+  snow kept as snow.
+- `eachReplacementRule` walks `liveTraitFaces`, so a transformed or modal card's other face is not a host.
+
+| Scenario                                                                       | Proves                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------- |
+| `replacement-counter-kavu-chameleon-cannot-be-countered`                       | self line from the stack                    |
+| `replacement-counter-leyline-of-lifeforce-protects-a-creature-spell`           | battlefield line, no `YouCtrl`              |
+| `replacement-counter-allosaurus-shepherd-protects-only-its-controllers-spells` | `YouCtrl` scopes to the host controller     |
+| `replacement-begin-phase-necropotence-skips-the-draw-step`                     | `Skip$ True`, `ValidPlayer$ You`            |
+| `replacement-begin-phase-eon-hub-skips-every-upkeep`                           | no `ValidPlayer$`, every player             |
+| `replacement-begin-turn-stranglehold-skips-an-opponents-extra-turn`            | extra turn skipped, normal order resumes    |
+| `replacement-life-reduced-worship-leaves-one-life`                             | `Result$`, `lifeGE1`, `LimitMax.Difference` |
+| `replacement-life-reduced-bloodletter-doubles-an-opponents-life-loss`          | `PlayerTurn$`, inline `ReplaceCount$`       |
+| `replacement-lose-mana-horizon-stone-keeps-unspent-mana-as-colorless`          | pool converted, not emptied                 |
+
+Not ported: `Destroy` without `Regeneration$` (Harmonious Emergence), `TurnFaceUp` (8), `Transform` (4), `RollDice` (4),
+`Attached` (3), `Scry`/`Mill`/`DrawCards` (2 each), the `Optional$` ReplaceWith lines (Fasting, Time Vault), and the
+rest at one line each. `LifeReduced` lines whose `ReplaceWith$` is not a `ReplaceEffect` (Enduring Angel's Transform)
+record a pending error when they apply.

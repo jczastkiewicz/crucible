@@ -1,0 +1,6 @@
+# Eon Hub's Event$ BeginPhase | Phase$ Upkeep | Skip$ True has no ValidPlayer$,
+# so it skips every player's upkeep, ai's included. human's Cleanup wraps to
+# ai's turn 2: Untap, then Upkeep is skipped and the walk stops at Draw,
+# where ai draws.
+advance
+advance

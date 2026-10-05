@@ -989,6 +989,14 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 		sc, ok := sourceCard(g, source)
 		return ok && containsEntity(sc.Memory.Remembered(), PlayerEntity(candidate)), true
 	}
+	// PlayerProperty.java's life<op><n> ("lifeGE1": at least 1 life, Worship's
+	// ValidPlayer$ You.lifeGE1). Only a literal n resolves; an SVar n is
+	// left unrecognized (GO-7).
+	if len(property) > 6 && strings.HasPrefix(property, "life") {
+		if n, err := strconv.Atoi(property[6:]); err == nil {
+			return compareOp(g.Player(candidate).Life, property[4:6], n), true
+		}
+	}
 	return false, false
 }
 

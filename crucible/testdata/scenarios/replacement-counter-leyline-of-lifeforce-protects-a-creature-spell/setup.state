@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanbattlefield=Forest|Id:2;Forest|Id:3
+humanhand=Grizzly Bears|Id:1
+aibattlefield=Island|Id:8;Island|Id:9;Leyline of Lifeforce|Id:11
+aihand=Counterspell|Id:10

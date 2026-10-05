@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=BeginCombat
+humanlife=20
+humanbattlefield=Horizon Stone
+humanmanapool=C C
+ailife=20

@@ -10,8 +10,10 @@ import "fmt"
 // default), Exile, Hand, TopOfLibrary or BottomOfLibrary. RememberCountered$
 // and RememberForCounter$ remember the card on the host (the latter even if
 // it could not be countered). Optional$ lets the activator stop first.
-// Countering an ability, Defined$ spells, a Counter replacement effect and
-// a CantBeCountered static are not resolved.
+// A Layer$ CantHappen Counter replacement (counterCantHappen,
+// replacementevents.go) stops the counter. Countering an ability, Defined$
+// spells, any other Counter replacement and a CantBeCountered static are
+// not resolved.
 type counterEffect struct{}
 
 func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -27,8 +29,8 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if tt, _ := a.Params.Param("TargetType"); tt != "Spell" {
 		return fmt.Errorf("engine: Counter: TargetType$ %q not resolvable yet", tt)
 	}
-	if battlefieldReplacementEvent(g, "Counter") || battlefieldStaticMode(g, "CantBeCountered") {
-		return fmt.Errorf("engine: Counter: Counter replacements or CantBeCountered statics not resolvable yet")
+	if battlefieldStaticMode(g, "CantBeCountered") {
+		return fmt.Errorf("engine: Counter: CantBeCountered statics not resolvable yet")
 	}
 	dest, ok := a.Params.Param("Destination")
 	if !ok {
@@ -68,6 +70,14 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		}
 		c := g.Card(id)
 		if c.Zone != Stack || c.HasKeyword("This spell can't be countered.") {
+			continue
+		}
+		// CounterEffect.removeFromStack's cantHappenCheck over Event$ Counter.
+		cant, err := g.counterCantHappen(id)
+		if err != nil {
+			return err
+		}
+		if cant {
 			continue
 		}
 		kept := g.stack[:0]

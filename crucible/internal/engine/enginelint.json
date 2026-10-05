@@ -50,7 +50,7 @@
     "saspec": ["saspec.go"],
     "triggerscan": ["triggerscan.go"],
     "amount": ["amount.go", "amountheads.go", "amountpaid.go", "amountcontext.go"],
-    "replacement": ["replacement.go", "replacementchoice.go"],
+    "replacement": ["replacement.go", "replacementchoice.go", "replacementevents.go"],
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],
     "condition": ["condition.go"],

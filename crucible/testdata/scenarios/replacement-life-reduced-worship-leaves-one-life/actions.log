@@ -1,0 +1,14 @@
+# Event$ LifeReduced | ValidPlayer$ You.lifeGE1 | Result$ LT1 | IsDamage$ True |
+# IsPresent$ Creature.YouCtrl: with a creature, 3 combat damage at 2 life would
+# leave -1, so Worship limits the loss to life minus 1 (LimitMax.Difference).
+# human ends at 1 life and survives.
+startturn ai
+advance 5
+queue attackers 3
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

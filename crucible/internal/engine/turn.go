@@ -115,7 +115,9 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 		}
 	}
 	g.activePhase = next
-	if g.consumeSkip(next) {
+	// Event$ BeginPhase replacements (replacementevents.go) before the
+	// one-shot skips, so a static skip leaves a SkipPhase effect unspent.
+	if g.beginPhaseSkipped(next) || g.consumeSkip(next) {
 		// ReplaceBeginPhase replaced it: a skipped combat phase jumps to its
 		// end step, then the phase walk carries on (advanceToNextPhase).
 		if next == CombatBegin {
@@ -174,6 +176,14 @@ func (g *Game) nextActivePlayer() PlayerID {
 				// nextPlayerAfter only returns a lost player when every
 				// player has lost; the game is over and turn order is moot.
 				return next
+			}
+			continue
+		}
+		// Event$ BeginTurn: Java's isExtraTurn is "the stack is not empty
+		// after the pop", the bottom entry being the normal turn.
+		if g.beginTurnSkipped(next, fromExtra && len(g.extraTurns) > 0) {
+			if !fromExtra {
+				cursor = next
 			}
 			continue
 		}
@@ -249,7 +259,7 @@ func (g *Game) beginPhase(controller PlayerController) {
 // givePriorityToPlayer. Without driven the grant is computed the same way
 // and ignored.
 func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error) {
-	g.emptyManaPools()
+	g.emptyManaPools(controller)
 	g.sink.Emit(Event{Kind: PhaseBegan, Phase: g.activePhase, Active: g.activePlayer, Turn: uint16(g.turn)})
 	priority := true
 	switch g.activePhase {
@@ -315,9 +325,19 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 // Mana burn -- losing life for unspent mana -- is not reproduced: it left
 // the rules in 2010, before any Standard-legal card this port's corpus
 // targets was printed, so there is nothing to carry parity with.
-func (g *Game) emptyManaPools() {
+func (g *Game) emptyManaPools(controller PlayerController) {
 	for _, id := range g.Players() {
-		g.Player(id).ManaPool.Empty()
+		pool := &g.Player(id).ManaPool
+		if pool.Total() == 0 {
+			continue
+		}
+		// Event$ LoseMana (ManaPool.clearPool): Kruphix's "that mana becomes
+		// colorless instead" keeps the mana, as one type.
+		if color, colorless, ok := g.loseManaConversion(controller, id); ok {
+			pool.convertTo(color, colorless)
+			continue
+		}
+		pool.Empty()
 	}
 }
 

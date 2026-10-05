@@ -112,6 +112,42 @@ func (p *Pool) SnowBreakdown() [6]int {
 	return [6]int{p.snowWhite, p.snowBlue, p.snowBlack, p.snowRed, p.snowGreen, p.snowColorless}
 }
 
+// convertTo turns every unit of mana in the pool into one type, snow kept as
+// snow: ManaPool.convertManaColor for each other type, what an Event$
+// LoseMana replacement (Kruphix, God of Horizons) does instead of emptying
+// the pool (loseManaConversion, replacementevents.go). colorless picks {C};
+// otherwise color must be exactly one of the five.
+func (p *Pool) convertTo(color mana.Colors, colorless bool) {
+	plain := [6]*int{&p.white, &p.blue, &p.black, &p.red, &p.green, &p.colorless}
+	snow := [6]*int{&p.snowWhite, &p.snowBlue, &p.snowBlack, &p.snowRed, &p.snowGreen, &p.snowColorless}
+	to := 5
+	if !colorless {
+		switch color {
+		case mana.White:
+			to = 0
+		case mana.Blue:
+			to = 1
+		case mana.Black:
+			to = 2
+		case mana.Red:
+			to = 3
+		case mana.Green:
+			to = 4
+		default:
+			panic("engine: Pool.convertTo wants exactly one color or colorless")
+		}
+	}
+	for i := range plain {
+		if i == to {
+			continue
+		}
+		*plain[to] += *plain[i]
+		*plain[i] = 0
+		*snow[to] += *snow[i]
+		*snow[i] = 0
+	}
+}
+
 // Empty clears the pool -- CR 500.4, run once per phase/step transition
 // (emptyManaPools, turn.go) for every player, not something a card ability
 // triggers.

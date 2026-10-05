@@ -1,0 +1,14 @@
+# Allosaurus Shepherd's "Green spells you control can't be countered" is
+# ValidSA$ Spell.Green+YouCtrl: YouCtrl is the host's controller (ai), so
+# human's green Grizzly Bears is still countered.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 1
+tapformana ai 8 U
+tapformana ai 9 U
+queue targets 1
+castspell ai 10
+resolvestack

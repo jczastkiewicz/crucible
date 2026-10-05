@@ -1,0 +1,14 @@
+# Leyline of Lifeforce (ai's) says "Creature spells can't be countered":
+# Event$ Counter | ValidSA$ Spell.Creature | ActiveZones$ Battlefield. No
+# YouCtrl, so it covers human's Grizzly Bears too; Counterspell does nothing.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 1
+tapformana ai 8 U
+tapformana ai 9 U
+queue targets 1
+castspell ai 10
+resolvestack

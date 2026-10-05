@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20
+humanbattlefield=Necropotence|Id:1
+humanlibrary=Mountain|Id:2;Grizzly Bears|Id:3

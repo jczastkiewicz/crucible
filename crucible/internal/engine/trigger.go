@@ -2319,13 +2319,15 @@ func changesZoneResolvable(t *compile.Ability) bool {
 // it with isMonarch/hasInitiative/withMostLife/withMostType -- a mechanic
 // this port has no state for, not a shape a general Defined$-to-players
 // resolver could close on its own); ManaSpent$/ManaNotSpent$ (8, no
-// paying-colors-by-cast tracked); Adamant$ (1); Bloodthirst$/Monarch$/
-// EnduringStory$/DayTime$/ClassLevel$ (0 real T: lines each, dormant).
+// paying-colors-by-cast tracked); Adamant$ (1); EnduringStory$/DayTime$/
+// ClassLevel$ (0 real T: lines each, dormant). Monarch$ is host's
+// controller being the monarch (Game.monarch), the one R: line naming it
+// Archon of Coronation's.
 func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
 	for _, key := range [...]string{
 		"Revolt", "WerewolfTransformCondition", "WerewolfUntransformCondition",
 		"CheckDefinedPlayer", "ManaSpent", "ManaNotSpent", "Adamant",
-		"Monarch", "EnduringStory", "DayTime", "ClassLevel",
+		"EnduringStory", "DayTime", "ClassLevel",
 	} {
 		if _, ok := t.Param(key); ok {
 			return false
@@ -2338,6 +2340,9 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 		return false
 	}
 	if !checkSVarMatches(g, host, amounts, t, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+		return false
+	}
+	if !boolFlagMatches(t, "Monarch", func() bool { return g.monarch == host.Controller() }) {
 		return false
 	}
 	if !boolFlagMatches(t, "Bloodthirst", func() bool { return g.opponentWasDamaged(host.Controller()) }) {

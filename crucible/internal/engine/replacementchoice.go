@@ -123,7 +123,7 @@ func (g *Game) eachReplacementRule(fn func(h *Card, zone ZoneType, amounts map[s
 				if h.Def == nil {
 					continue
 				}
-				for _, face := range h.traitFaces() {
+				for _, face := range h.liveTraitFaces() {
 					for _, r := range face.Replacements {
 						fn(h, z, face.Amounts, r)
 					}

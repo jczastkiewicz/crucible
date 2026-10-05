@@ -10,6 +10,12 @@ package engine
 // tracks them -- Card.Power/Toughness reads both.
 type PT struct {
 	effects []PTEffect
+	// switches counts the Layer 7d (CR 613.4d) "power and toughness are
+	// switched" effects in force. Forge has no layer value for it
+	// (StaticAbilityLayer's SWITCHPT is commented out): Card.getNetPower
+	// swaps the whole unswitched total when the keyword's amount is odd
+	// (Card.java:4448), so two switches cancel and only the parity matters.
+	switches int
 }
 
 // PTEffect is one continuous effect's contribution to a card's power
@@ -45,11 +51,25 @@ func (pt *PT) Add(e PTEffect) { pt.effects = append(pt.effects, e) }
 // wearing off on its own is a separate, unbuilt mechanic,
 // game-state.md's "Not ported yet"), so leaving the battlefield is the one
 // case this clears today.
-func (pt *PT) Clear() { pt.effects = nil }
+func (pt *PT) Clear() { pt.effects, pt.switches = nil, 0 }
+
+// AddSwitch records one Layer 7d switch of power and toughness.
+func (pt *PT) AddSwitch() { pt.switches++ }
+
+// Switched reports whether power and toughness are currently swapped: an odd
+// number of switch effects.
+func (pt PT) Switched() bool { return pt.switches%2 != 0 }
+
+// size and truncate bracket the dependency search's trial application of a
+// Layer 7b static (typeLayerOps' own reasoning).
+func (pt *PT) size() int { return len(pt.effects) }
+
+// truncate drops every effect added since size returned n.
+func (pt *PT) truncate(n int) { pt.effects = pt.effects[:n] }
 
 // clone is PT's half of Game.Clone: a shared backing array would let a
 // push on the clone alias the original, the same reasoning stack.go's own
 // clone has.
 func (pt PT) clone() PT {
-	return PT{effects: append([]PTEffect(nil), pt.effects...)}
+	return PT{effects: append([]PTEffect(nil), pt.effects...), switches: pt.switches}
 }

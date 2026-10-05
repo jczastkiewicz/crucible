@@ -1,0 +1,5 @@
+# CR 613.7a: two layer 7b effects that both set the Bears' base P/T apply in
+# timestamp order, the later one last. Harmonious Archon (3/3 for non-Archons)
+# entered after Godhead of Awe (1/1 for others), so the Bears are 3/3 and two
+# damage is not lethal. The twin scenario with the order swapped kills them.
+startturn human

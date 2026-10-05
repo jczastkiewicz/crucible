@@ -193,7 +193,7 @@ Not ported:
 | Gap                    | Why                                                                                                                   |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | "Changes what it does" | Java tests only `GainControl$`'s player list; this port resolves only `You`                                           |
-| Layers 1, 3 and 7a/7b  | Still walked in effectOrder: copy is the `Def` swap, text has one real line, 7b shares `applyOneContinuousPT` with 7c |
+| Layers 1 and 3         | Layer 1 has no static in Forge; Layer 3's two real lines cannot depend on each other ([`m5-layers.md`](m5-layers.md)) |
 
 `PT.Clear()` runs from `Move` the moment a card leaves the battlefield, the same list `Counters`, `Damage` and `Tapped`
 already clear there: a continuous effect that only applied on the battlefield does not survive the trip. That clear was

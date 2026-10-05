@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Kormus Bell|Id:1;Urborg, Tomb of Yawgmoth|Id:2
+aibattlefield=Forest|Id:3|Damage:1

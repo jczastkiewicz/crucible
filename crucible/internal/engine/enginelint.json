@@ -339,7 +339,7 @@
       "animate",
       "dependency"
     ],
-    "dependency": ["id", "card", "game", "continuous", "continuouslayers"],
+    "dependency": ["id", "card", "game", "continuous", "continuouslayers", "layer"],
     "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone"],
     "triggerscan": [
       "id",

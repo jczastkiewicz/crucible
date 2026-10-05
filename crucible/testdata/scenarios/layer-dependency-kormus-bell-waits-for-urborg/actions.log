@@ -1,0 +1,7 @@
+# CR 613.8a: Kormus Bell ("All Swamps are 1/1 creatures") has the earlier
+# timestamp, but what it applies to depends on Urborg, Tomb of Yawgmoth ("each
+# land is a Swamp"), so Urborg's layer 4 effect applies first. The Forest
+# becomes a Swamp, then a 1/1 creature, and one damage kills it (CR 704.5g).
+# In plain timestamp order Bell would find no Swamp to change and the Forest
+# would stay a land.
+startturn human

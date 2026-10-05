@@ -121,12 +121,12 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return err
 	}
 
-	keywords, err := pumpKeywords("Pump", a.Params)
+	keywords, switched, err := pumpKeywords("Pump", a.Params)
 	if err != nil {
 		return err
 	}
 
-	if power == 0 && toughness == 0 && len(keywords) == 0 {
+	if power == 0 && toughness == 0 && len(keywords) == 0 && !switched {
 		return nil
 	}
 
@@ -157,7 +157,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		}
 		g.pumps = append(g.pumps, pumpRecord{
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
-			Keywords: keywords, Permanent: permanent,
+			Keywords: keywords, Switched: switched, Permanent: permanent,
 		})
 	}
 	return nil
@@ -199,25 +199,44 @@ func pumpZoneMatches(a *compile.Ability, zone ZoneType) bool {
 	return hasZone(a, "PumpZone", zone.String())
 }
 
+// switchPTKeyword is the hidden keyword Forge's switch effects carry (Card.java:4448,
+// PumpEffect.java:51): Layer 7d (CR 613.4d) has no layer of its own there.
+const switchPTKeyword = "CARDNAME's power and toughness are switched"
+
 // pumpKeywords reads KW$ -- shared between pumpEffect and pumpAllEffect,
 // PumpEffect.java/PumpAllEffect.java's own identical two-line KW$ handling
-// (split on " & ", reject a HIDDEN-prefixed token). effect names the caller
-// (Pump/PumpAll) for the error message. A KW$ token starting with "HIDDEN"
-// (a hidden-keyword phrase, gameCard.addHiddenExtrinsicKeywords -- its own
-// separate mechanic) fails loudly rather than granting a normal keyword
-// named literally "HIDDEN ...". Absent KW$ (a NumAtt$/NumDef$-only line)
-// returns nil, nil -- no keywords granted, not an error.
-func pumpKeywords(effect string, a *compile.Ability) ([]string, error) {
+// (split on " & "). effect names the caller (Pump/PumpAll) for the error
+// message. The one HIDDEN token resolved is switchPTKeyword (Layer 7d),
+// reported as switched rather than a keyword: every other HIDDEN token
+// (gameCard.addHiddenExtrinsicKeywords -- its own separate mechanic) fails
+// loudly rather than granting a normal keyword named literally
+// "HIDDEN ...". Absent KW$ (a NumAtt$/NumDef$-only line) returns nil, false,
+// nil -- no keywords granted, not an error.
+func pumpKeywords(effect string, a *compile.Ability) (keywords []string, switched bool, err error) {
 	raw, ok := a.Param("KW")
 	if !ok {
-		return nil, nil
+		return nil, false, nil
 	}
 	if strings.Contains(raw, "HIDDEN") {
-		return nil, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+		var plain []string
+		for _, tok := range strings.Split(raw, " & ") {
+			switch {
+			case tok == "HIDDEN "+switchPTKeyword:
+				switched = !switched
+			case strings.Contains(tok, "HIDDEN"):
+				return nil, false, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+			default:
+				plain = append(plain, tok)
+			}
+		}
+		if len(plain) > 0 {
+			return nil, false, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+		}
+		return nil, switched, nil
 	}
 	tokens, ok := keywordTokens(a, "KW")
 	if !ok {
-		return nil, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
+		return nil, false, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
 	}
-	return tokens, nil
+	return tokens, false, nil
 }

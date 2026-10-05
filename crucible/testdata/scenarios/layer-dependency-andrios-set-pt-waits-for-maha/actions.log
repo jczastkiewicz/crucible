@@ -1,0 +1,18 @@
+# CR 613.8a: a layer 7b effect depends on another when applying the other
+# changes what it applies to. Andrios, Roaming Explorer (earlier timestamp)
+# gives 16/9 to tapped creatures with base 4/3 while it attacks. Maha (later
+# timestamp) sets the base toughness of Andrios's controller's creatures to 1.
+# Andrios's set depends on Maha's, so Maha applies first, Andrios is a base
+# 4/1, and its own effect no longer reaches it: it deals 4. Applied in
+# timestamp order, Andrios would turn 16/9 first and then 16/1 (the later
+# timestamp's toughness) and deal 16.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

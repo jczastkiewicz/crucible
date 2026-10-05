@@ -802,34 +802,48 @@ func (c *Card) setTextChange(t textChange) {
 // unresolvable printed value ("*") with a computed one, so PT can turn an
 // unresolvable base into a resolvable current value, never the reverse.
 func (c *Card) Power() (int, bool) {
-	v, ok := c.layer7Power()
-	if !ok {
-		return 0, false
+	if c.PT.Switched() {
+		return c.unswitchedToughness()
 	}
-	return v + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+	return c.unswitchedPower()
 }
 
 // Toughness is Power's counterpart; see its doc comment.
 func (c *Card) Toughness() (int, bool) {
+	if c.PT.Switched() {
+		return c.unswitchedPower()
+	}
+	return c.unswitchedToughness()
+}
+
+// unswitchedPower and unswitchedToughness are Java's getUnswitchedPower and
+// getUnswitchedToughness: Layer 7a-7c and counters, before Layer 7d (CR
+// 613.4d) swaps the two totals. The swap takes the whole total, counters
+// included, as getNetPower does (Card.java:4453).
+func (c *Card) unswitchedPower() (int, bool) {
+	v, ok := c.layer7Power()
+	if !ok {
+		return 0, false
+	}
+	return v + c.modifyPT(func(e PTEffect) int { return e.Power }) + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+}
+
+func (c *Card) unswitchedToughness() (int, bool) {
 	v, ok := c.layer7Toughness()
 	if !ok {
 		return 0, false
 	}
-	return v + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+	return v + c.modifyPT(func(e PTEffect) int { return e.Toughness }) + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
 }
 
-// layer7Power and layer7Toughness are Power/Toughness stopped one step
-// early: base folded with Layer 7, counters not yet added. This is Java's
-// own getCurrentPower/getCurrentToughness (Card.java:4407,4450) -- a
-// distinct, more confusingly-named thing than getBasePower/getBaseToughness
-// (this port's BasePower/BaseToughness) -- and it is what
-// CardProperty.java's "basePower"/"baseToughness" valid-string properties
-// actually measure (valid.go's compareFieldValue), not the printed value
-// the names suggest. Neither this port nor Java's own getNetPower folds in
-// the "CARDNAME's power and toughness are switched" keyword here; Power and
-// Toughness don't either, so a switched creature's valid-string comparisons
-// share the same gap every other switch-blind read on this type already has
-// (game-state.md's "Not ported yet").
+// layer7Power and layer7Toughness are Java's getCurrentPower and
+// getCurrentToughness (Card.java:4417,4460): the base folded with the
+// characteristic-defining and setting effects (Layers 7a and 7b) only. Layer
+// 7c's modifiers (Java's temp boost) and counters are not in them, so a
+// +1/+1 anthem does not change what "basePowerEQ3" measures
+// (CardProperty.java's "basePower"/"baseToughness"). This is a distinct, more
+// confusingly-named thing than getBasePower/getBaseToughness (this port's
+// BasePower/BaseToughness). Neither value is switched (Layer 7d).
 func (c *Card) layer7Power() (int, bool) {
 	base, ok := c.BasePower()
 	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Power, e.HasPower })
@@ -838,6 +852,18 @@ func (c *Card) layer7Power() (int, bool) {
 func (c *Card) layer7Toughness() (int, bool) {
 	base, ok := c.BaseToughness()
 	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Toughness, e.HasToughness })
+}
+
+// modifyPT sums the Layer 7c effects' pick, Java's getTempPowerBoost and
+// getTempToughnessBoost.
+func (c *Card) modifyPT(pick func(PTEffect) int) int {
+	total := 0
+	for _, e := range c.PT.effects {
+		if e.Layer == LayerModifyPT {
+			total += pick(e)
+		}
+	}
+	return total
 }
 
 // CMC is the card's printed mana value (CR 202.3), the sum of its mana
@@ -851,16 +877,15 @@ func (c *Card) CMC() int {
 	return c.Def.Faces[0].ManaCost.CMC()
 }
 
-// foldPT applies Layer 7's own sub-layers in order (CR 613.4):
-// LayerCharacteristic and LayerSetPT each replace the running value --
-// unless pick's own bool reports this effect does not set this particular
-// dimension at all (PTEffect's own HasPower/HasToughness doc comment has
-// the reason), in which case the running value is left exactly as it was --
-// LayerModifyPT adds to it, using pick's value regardless of its bool since
-// adding zero is always safe. Ties within a layer break by Timestamp,
-// ascending -- CR 613.7's own tiebreak once dependency reordering (CR
-// 613.8) is not in play, which it cannot be: nothing here has more than one
-// continuous effect on the same card yet to depend on another.
+// foldPT applies Layers 7a and 7b in order (CR 613.4a-b): each effect
+// replaces the running value, unless pick's own bool reports this effect
+// does not set this particular dimension at all (PTEffect's own
+// HasPower/HasToughness doc comment has the reason), in which case the
+// running value is left exactly as it was. Layer 7c effects are
+// Card.modifyPT's. Ties within a layer break by Timestamp, ascending (CR
+// 613.7). Dependency (CR 613.8) changes which cards a Layer 7b static
+// applies to, never this fold: Java keys its own tables by the static's
+// timestamp whatever order the statics were applied in.
 func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) (int, bool)) (int, bool) {
 	sorted := append([]PTEffect(nil), effects...)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -878,9 +903,8 @@ func foldPT(base int, baseOK bool, effects []PTEffect, pick func(PTEffect) (int,
 				value, ok = v, true
 			}
 		case LayerModifyPT:
-			if ok {
-				value += v
-			}
+			// Layer 7c is Card.modifyPT's: it adds after the base is
+			// known, whatever the base is.
 		}
 	}
 	return value, ok

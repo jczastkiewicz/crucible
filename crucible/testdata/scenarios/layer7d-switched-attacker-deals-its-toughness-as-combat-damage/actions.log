@@ -1,0 +1,18 @@
+# CR 613.4d: Giant Spider is a 2/4. About Face switches it for the turn, so
+# the unblocked 4/2 attacker deals 4 combat damage to the opponent, not 2
+# (CR 510.1a reads power through Card.getNetPower).
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 3
+castspell human 1
+resolvestack
+advance 2
+queue attackers 3
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

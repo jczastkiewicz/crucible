@@ -1,0 +1,23 @@
+# CR 613.4d: two switches put power and toughness back where they started.
+# Forge counts the "power and toughness are switched" keyword and swaps only
+# for an odd count (Card.java:4448), so the Spider (2/4) attacks as a 2/4
+# and deals 2. Both spells are cast before either resolves: after one
+# resolution alone the 4/2 would be the real state.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets 5
+castspell human 1
+tapformana human 4 R
+queue targets 5
+castspell human 2
+resolvestack
+advance 2
+queue attackers 5
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

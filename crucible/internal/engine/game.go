@@ -261,6 +261,7 @@ type pumpRecord struct {
 	Timestamp        uint64
 	Power, Toughness int
 	Keywords         []string
+	Switched         bool // KW$ HIDDEN switchPTKeyword: a Layer 7d switch
 	Permanent        bool
 }
 

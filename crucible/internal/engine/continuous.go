@@ -125,7 +125,7 @@ func continuousStatics(g *Game) []layerStatic {
 }
 
 // applyContinuousPT recomputes every battlefield permanent's own Layer
-// 7b/7c PTEffects from scratch, from every real Mode$ Continuous S: line
+// 7a-7c PTEffects from scratch, from every real Mode$ Continuous S: line
 // currently in play. CR 613's own continuous effects are not stored and
 // incrementally updated the way a resolved spell's own damage or a counter
 // is -- Java's own applyContinuousAbility runs fresh from
@@ -136,12 +136,22 @@ func continuousStatics(g *Game) []layerStatic {
 // itself leaves, neither of which a one-time push at either card's own
 // entry could give it.
 //
-// Every battlefield card's own PT.effects is cleared first, then rebuilt --
-// safe because the one other source of a PTEffect, a resolved Pump effect
+// Every battlefield card's own PT is cleared first, then rebuilt -- safe
+// because the one other source of a PTEffect, a resolved Pump effect
 // (pumpeffect.go), is not rebuilt from a card script here at all: it re-adds
 // its own duration-scoped record fresh every pass too, from Game.pumps
 // rather than from a card's own Statics, via pumpPT (below), right after the
 // clear and before the statics, as animatePT re-adds a resolved Animate.
+//
+// The three sublayers run one after another, each over every static, as
+// GameAction.checkStaticAbilities does (GameAction.java:1120): 7a
+// (characteristic-defining lines) in effectOrder with no search, 7b
+// (SetPower$/SetToughness$) in dependency order (CR 613.8; MODIFYPT is not
+// in CONTINUOUS_LAYERS_WITH_DEPENDENCY), 7c (AddPower$/AddToughness$) in
+// effectOrder. A 7c line therefore never evaluates its Affected$ before a
+// later-timestamped 7b line has applied, which one walk over all statics in
+// timestamp order let it do. Layer 7d (a switch) is PT.Switched's, read by
+// Card.Power/Toughness.
 func applyContinuousPT(g *Game) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -150,27 +160,49 @@ func applyContinuousPT(g *Game) {
 	}
 	animatePT(g)
 	pumpPT(g)
-	for _, ls := range continuousStatics(g) {
-		if !g.staticLive(g.Card(ls.host), ls.s) {
-			continue
+	statics := continuousStatics(g)
+	for _, ls := range statics {
+		if hasParamOn(ls.s, "CharacteristicDefining") && g.staticLive(g.Card(ls.host), ls.s) {
+			applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s, LayerCharacteristic)
 		}
-		applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s)
+	}
+	applyInDependencyOrder(g, setPTStatics(statics), setPTLayerOps(g))
+	for _, ls := range statics {
+		if g.staticLive(g.Card(ls.host), ls.s) {
+			applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s, LayerModifyPT)
+		}
 	}
 }
 
-// applyOneContinuousPT applies s to every battlefield permanent its own
+// setPTStatics is Layer 7b's set: the lines naming SetPower$/SetToughness$
+// that are not characteristic-defining (StaticAbility.generateLayer,
+// StaticAbility.java:171).
+func setPTStatics(statics []layerStatic) []layerStatic {
+	var out []layerStatic
+	for _, ls := range staticsWithAny(statics, "SetPower", "SetToughness") {
+		if !hasParamOn(ls.s, "CharacteristicDefining") {
+			out = append(out, ls)
+		}
+	}
+	return out
+}
+
+// applyOneContinuousPT applies the part of s that belongs to one sublayer --
+// layer is LayerCharacteristic (a CharacteristicDefining$ line's
+// SetPower$/SetToughness$, applied to host alone, applyOneCharacteristicDefiningPT
+// below), LayerSetPT (SetPower$/SetToughness$) or LayerModifyPT
+// (AddPower$/AddToughness$) -- to every battlefield permanent its own
 // Affected$ valid-string matches, if s is a Mode$ Continuous line this slice
-// can resolve -- or, when s is CharacteristicDefining$ (Layer 7a), computes
-// host's own power/toughness and applies it to host alone
-// (applyOneCharacteristicDefiningPT, below).
+// can resolve. A line naming both Set and Add keys is applied in two calls,
+// its affected set fixed by the first (staticAffected, CR 613.6).
 //
 // Not resolved, each for a specific reason (game-state.md's "Continuous
 // effects" section has the corpus counts behind every number below):
-//   - A Condition$ value this port has no player-state for (MaxSpeed,
-//     Blessing, EnduringStory, Monarch -- continuousConditionMet's own doc
-//     comment has the full account); the resolvable values (PlayerTurn,
-//     Threshold, Metalcraft, Delirium, Hellbent, FatefulHour) no longer skip
-//     the line here.
+//   - A line layerStaticApplies turns off: a Condition$ value this port has
+//     no player-state for (MaxSpeed, Blessing, EnduringStory, Monarch --
+//     continuousConditionMet's own doc comment has the full account), an
+//     IsPresent$/CheckSVar$ that compares false (a Level Up line applies
+//     only at its own level), a host outside its EffectZone$.
 //   - AffectedZone$ (24) -- a card outside the battlefield. AffectedDefined$
 //     Self/Enchanted/Equipped/"AttachedBy Self" resolve (layerAffectedCards:
 //     Pacifism-style auras, every Equipment's "equipped creature gets +N/+N");
@@ -184,18 +216,20 @@ func applyContinuousPT(g *Game) {
 //     whole line -- a real corpus line naming both a resolvable and an
 //     unresolvable dimension together is not a shape worth losing the
 //     resolvable half over.
-func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability, layer StaticAbilityLayer) {
 	if !strings.EqualFold(s.Name, "Continuous") {
-		return
-	}
-	if !continuousConditionMet(g, host, s) {
 		return
 	}
 	if _, ok := s.Param("AffectedZone"); ok {
 		return
 	}
+	if !layerStaticApplies(g, host, amounts, s) {
+		return
+	}
 	if _, ok := s.Param("CharacteristicDefining"); ok {
-		applyOneCharacteristicDefiningPT(g, host, amounts, s)
+		if layer == LayerCharacteristic {
+			applyOneCharacteristicDefiningPT(g, host, amounts, s)
+		}
 		return
 	}
 	_, hasDefined := s.Param("AffectedDefined")
@@ -203,10 +237,18 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	if !hasAffected && !hasDefined {
 		return
 	}
-	addP, hasAddP := ptParam(g, amounts, host, s, "AddPower")
-	addT, hasAddT := ptParam(g, amounts, host, s, "AddToughness")
-	setP, hasSetP := ptParam(g, amounts, host, s, "SetPower")
-	setT, hasSetT := ptParam(g, amounts, host, s, "SetToughness")
+	var addP, addT, setP, setT int
+	var hasAddP, hasAddT, hasSetP, hasSetT bool
+	switch layer {
+	case LayerSetPT:
+		setP, hasSetP = ptParam(g, amounts, host, s, "SetPower")
+		setT, hasSetT = ptParam(g, amounts, host, s, "SetToughness")
+	case LayerModifyPT:
+		addP, hasAddP = ptParam(g, amounts, host, s, "AddPower")
+		addT, hasAddT = ptParam(g, amounts, host, s, "AddToughness")
+	default:
+		return
+	}
 	if !hasAddP && !hasAddT && !hasSetP && !hasSetT {
 		return
 	}
@@ -719,6 +761,9 @@ func pumpPT(g *Game) {
 	livePumps(g, func(c *Card, p *pumpRecord) {
 		if p.Power != 0 || p.Toughness != 0 {
 			c.PT.Add(PTEffect{Layer: LayerModifyPT, Timestamp: p.Timestamp, Power: p.Power, Toughness: p.Toughness})
+		}
+		if p.Switched {
+			c.PT.AddSwitch()
 		}
 	})
 }

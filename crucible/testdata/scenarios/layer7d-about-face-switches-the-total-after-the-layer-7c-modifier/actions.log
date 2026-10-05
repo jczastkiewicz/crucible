@@ -1,0 +1,13 @@
+# CR 613.4d: layer 7d switches power and toughness after layers 7a-7c. Giant
+# Tortoise (printed 1/1) is untapped, so its own layer 7c "+0/+3" makes it
+# 1/4: three damage is not lethal. About Face then switches the total, 4/1,
+# so the three damage is lethal (CR 704.5g). Switching the printed 1/1 before
+# the +0/+3 would leave a 1/4 and the Tortoise would live. Forge keeps the
+# switch as a hidden keyword whose odd count swaps Card.getNetPower and
+# getNetToughness (Card.java:4448-4458).
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 3
+castspell human 1
+resolvestack

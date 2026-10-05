@@ -292,3 +292,24 @@ func controlLayerOps(g *Game) layerOps {
 		},
 	}
 }
+
+// setPTLayerOps is Layer 7b, the only P/T sublayer in
+// CONTINUOUS_LAYERS_WITH_DEPENDENCY (StaticAbilityLayer.java:49): a line
+// whose Affected$ reads power or toughness (Andrios, Roaming Explorer's
+// basePowerEQ4+baseToughnessEQ3) depends on a setter that changes either.
+func setPTLayerOps(g *Game) layerOps {
+	return layerOps{
+		apply: func(ls layerStatic) {
+			applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s, LayerSetPT)
+		},
+		affected: func(ls layerStatic) ([]CardID, bool) {
+			return g.staticPeekAffected(g.Card(ls.host), ls.s)
+		},
+		mark: func() layerMark { return layerMark{sizes: markCards(g, func(c *Card) int { return c.PT.size() })} },
+		undo: func(m layerMark) {
+			for i := 1; i < len(m.sizes); i++ {
+				g.cards[i].PT.truncate(m.sizes[i])
+			}
+		},
+	}
+}

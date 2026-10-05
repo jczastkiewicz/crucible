@@ -1,0 +1,3 @@
+# CR 704.5g: a creature with toughness greater than 0 and damage marked on it
+# equal to or greater than its toughness is destroyed.
+startturn human

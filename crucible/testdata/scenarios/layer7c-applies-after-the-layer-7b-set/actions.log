@@ -1,0 +1,6 @@
+# CR 613.4: layer 7b (set P/T) applies before 7c (modify P/T), whatever the
+# timestamps. Godhead of Awe sets the AI's Bears to 1/1, then the AI's Glorious
+# Anthem adds +1/+1: 2/2. One damage is not lethal, so the Bears live. If the
+# anthem were applied first (3/3) and the set after (1/1), one damage would be
+# lethal (CR 704.5g) and the Bears would die.
+startturn human

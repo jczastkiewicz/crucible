@@ -1,0 +1,4 @@
+# CR 704.5f: a creature with toughness 0 or less is put into its owner's
+# graveyard, no damage needed and indestructible does not help. Two -1/-1
+# counters make Grizzly Bears 0/0.
+startturn human

@@ -1,0 +1,6 @@
+# Layer 7c (CR 613.4c), Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1.
+# Glorious Anthem gives its controller's creatures +1/+1. The Bears here are
+# the AI's, so the anthem does not touch them: a 2/2 with 2 damage is lethal
+# (CR 704.5g) and dies on the first state-based-action pass. The anthem's
+# controller is the human, which is the point: "YouCtrl" is read per controller.
+startturn human

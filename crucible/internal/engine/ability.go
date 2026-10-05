@@ -318,6 +318,17 @@ type triggeredObjects struct {
 	// will. A value, so a stacked Ability copies it with no aliasing. Zero
 	// amount when unset.
 	produced producedMana
+	// originalController is AbilityKey.OriginalController for Mode$
+	// ChangesController (TriggerChangesController.setTriggeringObjects): the
+	// player the card changed controller away from, read by Defined$
+	// TriggeredOriginalController and TriggerController$. NoPlayer when
+	// unset.
+	originalController PlayerID
+	// attackingPlayer is AbilityKey.AttackingPlayer for Mode$
+	// AttackersDeclared/AttackersDeclaredOneTarget
+	// (TriggerAttackersDeclared.java:98): the player whose creatures attack,
+	// read by Defined$ TriggeredAttackingPlayer. NoPlayer when unset.
+	attackingPlayer PlayerID
 	// scheme is AbilityKey.Scheme for Mode$ SetInMotion
 	// (TriggerSetInMotion.setTriggeringObjects): the scheme just set in
 	// motion, read by SetInMotion's Again$ (setinmotioneffect.go). NoCard

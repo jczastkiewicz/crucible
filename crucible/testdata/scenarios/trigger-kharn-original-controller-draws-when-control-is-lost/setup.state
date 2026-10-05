@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanlibrary=Forest;Mountain
+humanbattlefield=Khârn the Betrayer|Id:2
+aibattlefield=Control Magic|Id:1|AttachedTo:2

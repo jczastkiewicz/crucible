@@ -1,0 +1,6 @@
+# Khârn the Betrayer, T:Mode$ ChangesController | ValidCard$ Card.Self |
+# TriggerController$ TriggeredOriginalController (TriggerHandler.java:494-497):
+# the AI's Control Magic takes Khârn at load, and the trigger's controller
+# becomes the player who lost control, the human, who draws two cards.
+startturn ai
+resolvestack

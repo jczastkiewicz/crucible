@@ -1,0 +1,8 @@
+# The same Opt scried by the human leaves the AI's Chance Met Elves alone:
+# ValidPlayer$ You is relative to the trigger controller.
+startturn human
+advance 3
+tapformana human 2 U
+queue scry 4
+castspell human 3
+resolvestack

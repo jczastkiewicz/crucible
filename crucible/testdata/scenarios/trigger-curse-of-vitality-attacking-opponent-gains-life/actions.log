@@ -1,0 +1,10 @@
+# Curse of Vitality, T:Mode$ AttackersDeclared | AttackedTarget$ Player.EnchantedBy.
+# The AI controls the curse on itself: it gains 2, then Defined$
+# TriggeredAttackingPlayer.Opponent+controlsCreature.attacking Player.EnchantedBy
+# names the human (an opponent of the curse controller, with a creature attacking
+# the enchanted player), who gains 2 too (AbilityUtils.java:1186-1196).
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+resolvestack

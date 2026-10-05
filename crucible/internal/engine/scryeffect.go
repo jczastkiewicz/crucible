@@ -14,10 +14,9 @@
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/ScryEffect.java's
 // resolve and forge-game/src/main/java/forge/game/GameAction.java's own
-// scry, the CR 614's own Scry replacement type and Mode$ Scry trigger both
-// skipped outright: 0 real corpus lines name either, unlike GainLife's own
-// Mode$ LifeGained (98 real lines, checkLifeGainedTriggers) -- there is
-// nothing to wire this into.
+// scry; Mode$ Scry fires per scrying player (checkScryTriggers,
+// triggerpack.go). The CR 614 Scry replacement type is skipped: 0 real corpus
+// lines name it.
 
 package engine
 
@@ -89,6 +88,7 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		for _, id := range toBottom {
 			g.Move(id, Library, pid)
 		}
+		g.checkScryTriggers(controller, pid)
 	}
 	return nil
 }

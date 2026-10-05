@@ -1,0 +1,6 @@
+# CR 704.5g then CR 603.2: the 4/4 Bears (anthem from Command) die to four
+# damage; the scheme's T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard
+# | ValidCard$ Creature.YouCtrl | TriggerZones$ Command fires from Command and
+# its Abandon sends the scheme to the scheme deck (CR 904.9).
+startturn human
+resolvestack

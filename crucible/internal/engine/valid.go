@@ -375,6 +375,26 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
 		// CardProperty.java:1082.
 		return c.cameUnderControl
+	case strings.HasPrefix(name, "attacking "):
+		// CardProperty.java:1529-1535, the generic "attacking [Defined]":
+		// c attacks, and the entity it attacks is among those the Defined
+		// names. Only a player defender against a player spec is read here
+		// (a "Player.EnchantedBy" or "You", all the real lines): this group
+		// cannot reach definedEntities without a cycle, and no real line
+		// names a card there.
+		if !containsCard(g.combat.Attackers, c.ID) {
+			return false
+		}
+		target, ok := g.combat.AttackTargets[c.ID]
+		if !ok {
+			return false
+		}
+		defender, isPlayer := target.AsPlayer()
+		if !isPlayer {
+			return false
+		}
+		matched, _ := matchesPlayerSpec(g, defender, sourceController, source, strings.TrimPrefix(name, "attacking "))
+		return matched
 	case name == "attacking":
 		// Java checks combat != nil before card.isAttacking(); this port has
 		// no nil combat, only a zero-valued one, but Attackers is empty
@@ -520,7 +540,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// identity, the same simplification Self's own doc comment already
 		// makes for YouCtrl/OppCtrl's LKI gap.
 		return c.ID != source
-	case strings.HasPrefix(name, "Self"):
+	case strings.HasPrefix(name, "Self"), name == "StrictlySelf":
+		// StrictlySelf is Self's game-timestamp-aware twin
+		// (Card.equalsWithGameTimestamp); identity here, for the reason
+		// StrictlyOther's own comment above gives.
 		return c.ID == source
 	case name == "tapped":
 		return c.Tapped
@@ -784,7 +807,7 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 			}
 			continue
 		}
-		propMatched, propOK := matchesPlayerProperty(g, candidate, host, source, property)
+		propMatched, propOK := matchesPlayerProperties(g, candidate, host, source, property)
 		if !propOK {
 			sawUnrecognizedProperty = true
 			continue
@@ -797,6 +820,69 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 		return false, false
 	}
 	return false, sawPlayerBase
+}
+
+// matchesPlayerProperties is Player.isValid's own "+"-joined property AND
+// (GameObject.java's incR[1].split("\\+")): every token must hold. The
+// first token that is definitely false decides the answer, as in Java's
+// short-circuit; one matchesPlayerProperty cannot evaluate, reached before
+// any false, leaves the whole conjunction unevaluable. The split is as naive
+// as Java's, so a "controls<Type>" type naming "+" is not supported (Java
+// has the same limit, which is why its Turf War line escapes with "_").
+func matchesPlayerProperties(g *Game, candidate, host PlayerID, source CardID, properties string) (matched, ok bool) {
+	for _, property := range strings.Split(properties, "+") {
+		m, recognized := matchesPlayerProperty(g, candidate, host, source, property)
+		if !recognized {
+			return false, false
+		}
+		if !m {
+			return false, true
+		}
+	}
+	return true, true
+}
+
+// controlsMatches is PlayerProperty.java:297-310's "controls<Type>[_<cmp>]":
+// the candidate's battlefield cards matching the valid string <Type>
+// (backslash-escaped "_" kept literal, Turf War's convention) are counted
+// against "<cmp><n>" (default at least one). A comparator operand other than
+// an integer literal is not evaluated.
+func controlsMatches(g *Game, candidate, host PlayerID, source CardID, property string) (matched, ok bool) {
+	var parts []string
+	var cur strings.Builder
+	for i := 0; i < len(property); i++ {
+		switch {
+		case property[i] == '\\' && i+1 < len(property):
+			cur.WriteByte(property[i])
+			cur.WriteByte(property[i+1])
+			i++
+		case property[i] == '_':
+			parts = append(parts, cur.String())
+			cur.Reset()
+		default:
+			cur.WriteByte(property[i])
+		}
+	}
+	parts = append(parts, cur.String())
+	spec := valid.Parse(strings.ReplaceAll(parts[0], "\\_", "_"))
+	count := 0
+	for _, id := range g.Zone(Battlefield, candidate).Cards() {
+		if Matches(g, g.Card(id), spec, host, source) {
+			count++
+		}
+	}
+	op, operand := "GE", 1
+	if len(parts) > 1 {
+		if len(parts[1]) < 3 {
+			return false, false
+		}
+		n, err := strconv.Atoi(parts[1][2:])
+		if err != nil {
+			return false, false
+		}
+		op, operand = parts[1][:2], n
+	}
+	return compareOp(count, op, operand), true
 }
 
 // matchesPlayerProperty is matchesPlayerSpec's own property half, ported
@@ -834,6 +920,9 @@ func matchesPlayerSpec(g *Game, candidate, host PlayerID, source CardID, spec st
 func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, property string) (matched, ok bool) {
 	if matched, ok := matchesPlayerBase(candidate, host, property); ok {
 		return matched, true
+	}
+	if rest, ok := strings.CutPrefix(property, "controls"); ok {
+		return controlsMatches(g, candidate, host, source, rest)
 	}
 	switch property {
 	case "Active":

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=Untap
+humanlife=20
+humanhand=Forest;Mountain
+ailife=20
+aibattlefield=Control Magic|AttachedTo:2;Khârn the Betrayer|Id:2|Owner:human

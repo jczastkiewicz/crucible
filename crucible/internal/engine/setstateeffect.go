@@ -104,6 +104,13 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				changed = true
 			}
 		}
+		if changed {
+			if mode == "Transform" {
+				g.checkTransformedTriggers(controller, id)
+			} else {
+				g.checkTurnedFaceUpTriggers(controller, id)
+			}
+		}
 		if changed && hasParam(a, "RememberChanged") {
 			source.Memory.Remember(CardEntity(id))
 		}

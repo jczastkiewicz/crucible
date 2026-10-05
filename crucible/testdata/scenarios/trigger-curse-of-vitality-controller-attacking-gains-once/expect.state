@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Declare Attackers
+humanlife=22
+humanbattlefield=Silvercoat Lion|Tapped;Curse of Vitality|EnchantingPlayer:P1
+ailife=20

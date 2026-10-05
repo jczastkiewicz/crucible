@@ -14,6 +14,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // delayedTrigger is one registered delayed trigger: the DelayedTrigger
@@ -106,6 +107,65 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 	}
 	g.delayed = kept
 	return matches
+}
+
+// delayedChangesControllerMatches collects every live delayed Mode$
+// ChangesController trigger (TriggerChangesController.performTest) that
+// card's change from original satisfies, removing each one it collects.
+// ValidCard$ Card.IsTriggerRemembered names a card the trigger remembered
+// (RememberObjects$, 3 of 4 real lines: Ray of Command, Magus of the Unseen,
+// Stolen Uniform); any other ValidCard$ is a valid string against the
+// trigger's own host (Card.StrictlySelf, Seraph and Krovikan Vampire).
+// ValidOriginalController$ is a player spec relative to the trigger's
+// controller. The card is recorded as TriggeredCard and the original
+// controller as TriggeredOriginalController.
+func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "ChangesController") ||
+			!g.delayedChangesControllerSatisfied(d, card, original) {
+			kept = append(kept, d)
+			continue
+		}
+		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, Ability{
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			triggered:      triggeredObjects{card: card, originalController: original},
+			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+		})
+	}
+	g.delayed = kept
+	return matches
+}
+
+// delayedModeIs reports whether d's DelayedTrigger line names Mode$ mode.
+func delayedModeIs(d delayedTrigger, mode string) bool {
+	m, _ := d.Trigger.Param("Mode")
+	return strings.EqualFold(m, mode)
+}
+
+// delayedChangesControllerSatisfied is performTest for one delayed trigger.
+func (g *Game) delayedChangesControllerSatisfied(d delayedTrigger, card CardID, original PlayerID) bool {
+	if validCard, ok := d.Trigger.Param("ValidCard"); ok {
+		if validCard == "Card.IsTriggerRemembered" {
+			if !containsEntity(d.Remembered, CardEntity(card)) {
+				return false
+			}
+		} else if !Matches(g, g.Card(card), valid.Parse(validCard), d.Controller, d.Host) {
+			return false
+		}
+	}
+	if spec, ok := d.Trigger.Param("ValidOriginalController"); ok {
+		matched, recognized := matchesPlayerSpec(g, original, d.Controller, d.Host, spec)
+		return recognized && matched
+	}
+	return true
 }
 
 // delayedLeftBattlefieldMatches collects every live delayed trigger watching

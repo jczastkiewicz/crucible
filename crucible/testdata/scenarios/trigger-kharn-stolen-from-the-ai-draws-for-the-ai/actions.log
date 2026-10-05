@@ -1,0 +1,4 @@
+# The same trigger with the roles swapped: the original controller, the AI,
+# draws the two cards, not the Control Magic's controller.
+startturn ai
+resolvestack

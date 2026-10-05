@@ -631,6 +631,38 @@ func TestRunActionsQueueDiscardBadIDErrors(t *testing.T) {
 	}
 }
 
+// queue scry and queue surveil keep the named library cards on top, in order.
+func TestRunActionsQueueScryAndSurveilResolveFixtureIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t, "Mountain", "Forest")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanlibrary=Mountain|Id:1;Forest|Id:2\n")
+	c := engine.NewScriptedController()
+	if err := runActions(t, l, c, "queue scry 2,1\nqueue surveil 1\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	p := l.Game.Players()[0]
+	top, bottom := c.ArrangeForScry(l.Game, p, nil)
+	if len(top) != 2 || top[0] != l.CardByFixtureID[2] || top[1] != l.CardByFixtureID[1] || len(bottom) != 0 {
+		t.Errorf("scry top %v bottom %v, want [2 1] and none", top, bottom)
+	}
+	top, grave := c.ArrangeForSurveil(l.Game, p, nil)
+	if len(top) != 1 || top[0] != l.CardByFixtureID[1] || len(grave) != 0 {
+		t.Errorf("surveil top %v graveyard %v, want [1] and none", top, grave)
+	}
+}
+
+func TestRunActionsQueueScryAndSurveilBadIDErrors(t *testing.T) {
+	t.Parallel()
+
+	l := load(t, testDB(t), "humanlife=20\n")
+	for _, verb := range []string{"scry", "surveil"} {
+		if err := runActions(t, l, engine.NewScriptedController(), "queue "+verb+" 9\n"); err == nil {
+			t.Errorf("queue %s with an unknown Id did not error", verb)
+		}
+	}
+}
+
 // queue cardchoice answers an effect's ChooseCardsForEffect with the cards
 // setup.state's Id: numbers name.
 func TestRunActionsQueueCardChoiceResolvesFixtureIDs(t *testing.T) {

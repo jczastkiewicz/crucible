@@ -89,6 +89,7 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		for i := len(toTop) - 1; i >= 0; i-- {
 			g.MoveToLibraryTop(toTop[i], pid)
 		}
+		g.checkSurveilTriggers(controller, pid)
 	}
 	return nil
 }

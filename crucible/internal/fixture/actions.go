@@ -477,6 +477,20 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueReturnChoice(ids)
 
+	case "scry":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue scry: %w", err)
+		}
+		c.QueueScry(ids, nil)
+
+	case "surveil":
+		ids, err := resolveCardIDs(l, value)
+		if err != nil {
+			return fmt.Errorf("queue surveil: %w", err)
+		}
+		c.QueueSurveil(ids, nil)
+
 	case "battleprotector":
 		pid, err := resolveActionPlayer(l, args[1:], 1)
 		if err != nil {

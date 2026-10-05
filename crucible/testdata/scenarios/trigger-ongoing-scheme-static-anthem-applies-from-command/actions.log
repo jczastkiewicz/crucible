@@ -1,0 +1,4 @@
+# CR 904.7: an ongoing scheme stays face up in the Command zone. Its
+# S:Mode$ Continuous | EffectZone$ Command line (traitHosts now walks it) makes
+# the controller's Grizzly Bears a 4/4, so three damage is not lethal (CR 704.5g).
+startturn human

@@ -1,0 +1,9 @@
+# The attacker controls the curse on its opponent: "you gain 2" is the only half
+# that applies, because the filter Opponent+controlsCreature.attacking
+# Player.EnchantedBy is relative to the ability controller, who is not its own
+# opponent.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+resolvestack

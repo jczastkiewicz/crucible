@@ -494,30 +494,41 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 }
 
 // traitHosts is every card of pid's whose static abilities and triggers are
-// active: the battlefield's permanents, then pid's effect cards in the
-// Command zone, whose traits EffectEffect.java makes active there alone
-// (setActiveZone(EnumSet.of(ZoneType.Command))). With no effect card it is
-// the battlefield's own slice, so the common case allocates nothing.
+// active: the battlefield's permanents, then pid's Command-zone cards that
+// carry live traits -- effect cards, whose traits EffectEffect.java makes
+// active there alone (setActiveZone(EnumSet.of(ZoneType.Command))), and
+// schemes (CR 904.7's ongoing scheme stays face up in Command), whose
+// printed S: lines and T: lines all name Command (EffectZone$/TriggerZones$,
+// 21 real ongoing schemes). A plane or phenomenon is not walked: every mode
+// planar play fires has its own planeswalkTriggerZones walk. With no such
+// card it is the battlefield's own slice, so the common case allocates
+// nothing.
 func (g *Game) traitHosts(pid PlayerID) []CardID {
 	bf := g.Zone(Battlefield, pid).Cards()
 	cmd := g.Zone(Command, pid).Cards()
-	effects := 0
+	live := 0
 	for _, id := range cmd {
-		if g.cards[id].IsEffect {
-			effects++
+		if g.cards[id].isCommandTraitHost() {
+			live++
 		}
 	}
-	if effects == 0 {
+	if live == 0 {
 		return bf
 	}
-	out := make([]CardID, 0, len(bf)+effects)
+	out := make([]CardID, 0, len(bf)+live)
 	out = append(out, bf...)
 	for _, id := range cmd {
-		if g.cards[id].IsEffect {
+		if g.cards[id].isCommandTraitHost() {
 			out = append(out, id)
 		}
 	}
 	return out
+}
+
+// isCommandTraitHost reports whether c, sitting in the Command zone, has
+// traits traitHosts must walk: an effect card or a scheme.
+func (c *Card) isCommandTraitHost() bool {
+	return c.IsEffect || (c.Def != nil && c.Type().Has(cardtype.Scheme))
 }
 
 // hostObjectStamp is the zoneStamp of host as the object an ability of

@@ -51,6 +51,9 @@ import (
 // longer in the game is skipped, matching Java's own
 // `if (!p.isInGame()) continue`.
 func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, refs abilityRefs) ([]PlayerID, error) {
+	if base, filter, ok := strings.Cut(defined, "."); ok && strings.HasPrefix(base, "Triggered") {
+		return triggeredPlayersFiltered(g, controller, host, base, filter, refs)
+	}
 	var candidates []PlayerID
 	switch defined {
 	case "You":
@@ -145,6 +148,18 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
 		}
 		candidates = []PlayerID{g.defenderOf(refs.triggered.attacker)}
+	case "TriggeredOriginalController":
+		// AbilityUtils.java:1022-1027 (the "OrController"/"OriginalController"
+		// suffix): a Player recorded under OriginalController is itself.
+		if refs.triggered.originalController == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no original controller", defined)
+		}
+		candidates = []PlayerID{refs.triggered.originalController}
+	case "TriggeredAttackingPlayer":
+		if refs.triggered.attackingPlayer == NoPlayer {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacking player", defined)
+		}
+		candidates = []PlayerID{refs.triggered.attackingPlayer}
 	case "TriggeredActivator":
 		if refs.triggered.activator == NoPlayer {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no activator", defined)
@@ -191,6 +206,39 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 	}
 	return players, nil
+}
+
+// triggeredPlayersFiltered is getDefinedPlayers' trailing valid filter
+// (AbilityUtils.java:1186-1196) applied to a Triggered<Key> player: the
+// text after the first "." is a comma list of restrictions, each prefixed
+// "Player." and kept through PlayerPredicates.restriction, so
+// "TriggeredAttackingPlayer.Opponent+controlsCreature.attacking
+// Player.EnchantedBy" (Curse of Vitality and two more) keeps the triggering
+// attacking player only while it is an opponent of the ability's controller
+// controlling a creature that attacks the enchanted player. A filter
+// matchesPlayerSpec cannot evaluate is an error, never an empty answer
+// (GO-7).
+func triggeredPlayersFiltered(g *Game, controller PlayerID, host CardID, base, filter string, refs abilityRefs) ([]PlayerID, error) {
+	players, err := definedPlayers(g, controller, host, base, refs)
+	if err != nil {
+		return nil, err
+	}
+	alts := strings.Split(filter, ",")
+	for i, alt := range alts {
+		alts[i] = "Player." + alt
+	}
+	spec := strings.Join(alts, ",")
+	var out []PlayerID
+	for _, pid := range players {
+		matched, recognized := matchesPlayerSpec(g, pid, controller, host, spec)
+		if !recognized {
+			return nil, fmt.Errorf("engine: Defined$ %q.%q: filter not resolvable yet", base, filter)
+		}
+		if matched {
+			out = append(out, pid)
+		}
+	}
+	return out, nil
 }
 
 // rememberedPlayers is AbilityUtils.addPlayer for the three "Remembered"

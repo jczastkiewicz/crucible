@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Forest
+humanlibrary=Forest
+humanbattlefield=Island|Tapped
+humangraveyard=Opt
+ailife=20
+aibattlefield=Chance-Met Elves

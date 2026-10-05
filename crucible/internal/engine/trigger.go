@@ -1825,11 +1825,16 @@ func (g *Game) checkUntapsTriggers(controller PlayerController, card CardID) {
 // changed from original, as correctControllerZone just moved it. ValidCard$
 // matches the card and ValidOriginalController$ the player it left (each
 // absent a pass; a player spec matchesPlayerSpec cannot read skips the
-// line). TriggerController$ (the trigger's own controller changing, Sigil of
-// Corruption) and ThisTurn$ skip the line (GO-7).
+// line). TriggerController$ (TriggerHandler.java:494-497, Sigil of
+// Corruption's "TriggeredOriginalController") replaces the ability's
+// controller with the first player it names; a Defined it cannot resolve
+// skips the line (GO-7). The live delayed ChangesController triggers
+// (delayedChangesControllerMatches) fire with the card ones. ThisTurn$ is a
+// DelayedTrigger param (clearThisTurnDelayedTrigger), not a T: line one.
 func (g *Game) checkChangesControllerTriggers(controller PlayerController, card CardID, original PlayerID) {
 	var matches []Ability
 	c := g.Card(card)
+	objects := triggeredObjects{card: card, originalController: original}
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
 			h := g.Card(host)
@@ -1838,7 +1843,7 @@ func (g *Game) checkChangesControllerTriggers(controller PlayerController, card 
 			}
 			for face := range h.triggerFaces {
 				for _, t := range face.Triggers {
-					if !strings.EqualFold(t.Name, "ChangesController") || hasAnyParam(t, "TriggerController", "ThisTurn") {
+					if !strings.EqualFold(t.Name, "ChangesController") || hasAnyParam(t, "ThisTurn") {
 						continue
 					}
 					if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), h.Controller(), host) {
@@ -1849,13 +1854,22 @@ func (g *Game) checkChangesControllerTriggers(controller PlayerController, card 
 							continue
 						}
 					}
+					owner := h.Controller()
+					if def, ok := t.Param("TriggerController"); ok {
+						players, err := definedPlayers(g, owner, host, def, abilityRefs{triggered: objects})
+						if err != nil || len(players) == 0 {
+							continue
+						}
+						owner = players[0]
+					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: card})})
+						matches = append(matches, Ability{API: api, Source: host, Controller: owner, Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(objects)})
 					}
 				}
 			}
 		}
 	}
+	matches = append(matches, g.delayedChangesControllerMatches(card, original)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -2875,7 +2889,7 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{attackingPlayer: g.activePlayer})})
 						}
 					}
 				}
@@ -2934,7 +2948,7 @@ func (g *Game) checkAttackersDeclaredOneTargetTrigger(controller PlayerControlle
 								continue
 							}
 							if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
+								matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{attackingPlayer: g.activePlayer})})
 							}
 						}
 					}

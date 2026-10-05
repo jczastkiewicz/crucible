@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Opt|Id:3
+humanlibrary=Forest|Id:4;Forest|Id:5
+humanbattlefield=Island|Id:2
+aibattlefield=Chance-Met Elves|Id:1

@@ -31,7 +31,17 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if mode, _ := a.Params.Param("Mode"); !strings.EqualFold(mode, "Phase") {
+	mode, _ := a.Params.Param("Mode")
+	switch {
+	case strings.EqualFold(mode, "Phase"):
+	case strings.EqualFold(mode, "ChangesController"):
+		// IsPresent$ (Stolen Uniform) reads Card.IsTriggerRemembered, which
+		// no valid-string evaluator resolves; fail closed rather than fire
+		// the trigger without its intervening-if.
+		if err := rejectParams(a, "DelayedTrigger", "IsPresent"); err != nil {
+			return err
+		}
+	default:
 		return fmt.Errorf("engine: DelayedTrigger: Mode$ %q not resolvable yet", mode)
 	}
 	if len(additionalAbilities(a.Params, "Execute")) == 0 {

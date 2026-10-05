@@ -1,0 +1,8 @@
+# Mode$ Scry | ValidPlayer$ You (TriggerScry.performTest, GameAction.java:2652-2655):
+# Opt's scry 1 fires Chance Met Elves' trigger, which puts a +1/+1 counter on it.
+startturn human
+advance 3
+tapformana human 2 U
+queue scry 4
+castspell human 3
+resolvestack

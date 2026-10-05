@@ -114,7 +114,11 @@ func (g *Game) changeControllerAt(controller PlayerController, id CardID, to Pla
 // new controller and stops being its old controller's Ring-bearer, for a
 // Layer 2 change as for a one-shot one, then Mode$ ChangesController triggers
 // fire (checkChangesControllerTriggers). Java's runChangeControllerCommands
-// and the Soulbond unpairing (game-state.md, "Not ported yet") are not done.
+// and the Soulbond unpairing (GameAction.java:1008-1022) have nothing to run
+// on: no ported effect registers a change-controller command (LoseControl$,
+// Duration$ UntilLoseControlOfHost/AsLongAsControl are refused; the Ring-bearer
+// loss is loseRingBearer above) and Soulbond pairing is not modeled
+// (m5-triggers.md).
 func (g *Game) correctControllerZone(controller PlayerController, id CardID) {
 	c := g.Card(id)
 	if c.Zone != Battlefield {

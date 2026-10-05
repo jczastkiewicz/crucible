@@ -1,0 +1,3 @@
+# CR 704.5z: a player with no speed who controls a permanent with "Start your
+# engines!" has speed 1 (startYourEngines).
+startturn human

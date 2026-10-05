@@ -1,0 +1,5 @@
+# CR 704.5r: a permanent with a maximum number of a kind of counter loses the
+# excess. Rasputin Dreamweaver's S:Mode$ MaxCounter | MaxNum$ 7 caps dream
+# counters at seven, so nine written straight into the setup are trimmed to
+# seven by the first state-based-action pass (trimDreamCounters).
+startturn human

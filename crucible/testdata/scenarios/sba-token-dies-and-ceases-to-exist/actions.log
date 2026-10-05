@@ -1,0 +1,6 @@
+# CR 704.5d: a token in a zone other than the battlefield ceases to exist. The
+# Soldier token in the graveyard is removed by the first state-based-action
+# pass. The one on the battlefield with 1 damage is lethal to a 1/1 (CR 704.5g),
+# goes to the graveyard in the same pass and is removed by the next one, so
+# neither shows in the graveyard afterwards.
+startturn human

@@ -470,3 +470,20 @@ func TestDumpAndWriteRoundTripRing(t *testing.T) {
 		t.Errorf("round trip: command zone holds %d cards, want The Ring", n)
 	}
 }
+
+// A token dumps as T:<script> and loads back as a token: the text is the
+// same after a round trip, so a fixture holding a token is byte-stable.
+func TestDumpWritesATokenAsItsScriptName(t *testing.T) {
+	t.Parallel()
+
+	db := tokenDB(t, "w_1_1_soldier")
+	l := load(t, db, "humanlife=20\nailife=20\nhumanbattlefield=T:w_1_1_soldier|Id:1|Tapped\n")
+
+	var buf strings.Builder
+	if err := fixture.Write(&buf, fixture.Dump(l)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if !strings.Contains(buf.String(), "humanbattlefield=T:w_1_1_soldier|Id:1|Tapped") {
+		t.Errorf("dump does not name the token by script:\n%s", buf.String())
+	}
+}

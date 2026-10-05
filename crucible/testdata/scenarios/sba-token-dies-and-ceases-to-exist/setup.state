@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=T:w_1_1_soldier|Id:1|Damage:1
+humangraveyard=T:w_1_1_soldier|Id:2

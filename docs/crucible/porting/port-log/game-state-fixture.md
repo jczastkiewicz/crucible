@@ -520,6 +520,21 @@ clearing see it (`layer2-control-magic-in-setup-is-applied-before-the-active-thi
 negative life is seen at 1 by the pass and restored after it. A one-player fixture is a won game for that pass, so tests
 that push a stack object need both players named.
 
+## Tokens
+
+A token entry is `T:<script>|Id:n|...`, `<script>` a token script's file stem (`role_monster`, `w_1_1_soldier`) looked
+up with `DB.Token`. Java reads the same spelling through `getAllTokens().getToken(name, set)` (`GameState.java:1295`),
+so `T:` loads on both engines. `Load` marks the card `IsToken`, so CR 704.5d applies to it; the other annotations
+(`Tapped`, `Damage`, `AttachedTo`, ...) go through the normal card path. An unknown script fails the load (GO-7).
+
+`Dump` writes a token as `T:<script>`, never Java's `t:` snapshot. Reason: `TokenInfo` keeps only name, base P/T, types,
+keywords and an image key, so a Role's static, a Treasure's mana ability or a Clue's sacrifice cost do not survive `t:`;
+a snapshot dumped from Java cannot be loaded back as the same token (a Forge limitation, PORT-8: reported here, not
+worked around). The image key also depends on a printing, which Crucible drops. Consequence: a fixture holding a token
+runs on Crucible only, the same category as `Protector:` (`## Load builds the game itself`). `t:` entries stay reported
+in `Loaded.Unapplied`. Scenarios: `sba-token-dies-and-ceases-to-exist`,
+`sba-second-role-from-one-controller-replaces-the-older`.
+
 ## Deviations from Java
 
 | Java                                                                                                         | Go                                                                                                                                                                                                                                                                                             |
@@ -547,7 +562,7 @@ that push a stack object need both players named.
 
 | Missing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Lands                                  |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Token cards (`t:`/`T:` entries) — need `TokenInfo`/`AbilityFactory`, neither built                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | M5-M6                                  |
+| Java `t:` token snapshots (`TokenInfo`: name, P/T, types, keywords, image key; no abilities) — reported in `Loaded.Unapplied`, not loaded. `T:<script>` is loaded and dumped (see `## Tokens`)                                                                                                                                                                                                                                                                                                                                                       | M5-M6                                  |
 | The rest of the per-card annotation grammar: `Renowned`, `Solved`, `Saddled`, `Suspected`, `Monstrous`, `PhasedOut`, `FaceDown`, `Transformed`/`Modal`/`Flipped`/`Meld`, `OnAdventure`, `IsCommander`, `Ability:`, `ChosenColor:`/`ChosenType:`/`ChosenType2:`, `ChosenCards:`, `MergedCards:`, `NamedCard:`, `ExecuteScript:`, `ExiledWith:`, `Attacking`, `NoETBTrigs`, `Foretold`/`ForetoldThisTurn`, `IsToken`, `ClassLevel:`, `UnlockedRoom:` — each needs a mechanic or a type (`CardState`, `SpellAbility`, combat) this port has not reached | M5-M6, mechanic by mechanic            |
 | Player-level `PersistentMana:`, `Speed:` — `engine.Player` has neither field yet. `NumRingTemptedYou:` is applied (`Game.SetRingTemptedYou`, since `RingTemptsYou`). `Counters:` is applied (`Player.Counters`, since M5's SBA work), `ManaPool:` (`Player.ManaPool`, `applyManaPool`, since M5's mana-payment work), and `LandsPlayed:`/`LandsPlayedLastTurn:` (`Player.LandsPlayed`/`LandsPlayedLastTurn`, since `PlayLand`) are all applied now                                                                                                   | M5-M6, as each field lands on `Player` |
 | `ability<key>=` string values are stored verbatim in `AbilityStrings`; nothing parses or resolves them (puzzle-mode precast targeting)                                                                                                                                                                                                                                                                                                                                                                                                               | Puzzle mode, if ever                   |

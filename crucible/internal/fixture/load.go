@@ -235,16 +235,35 @@ func (ld *loader) zone(text string, kind engine.ZoneType, owner engine.PlayerID)
 func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID) error {
 	fields := strings.Split(entry, "|")
 	name := fields[0]
-	if strings.HasPrefix(name, "t:") || strings.HasPrefix(name, "T:") {
-		ld.unapplied = append(ld.unapplied, fmt.Sprintf("%s: token cards are not loaded yet", name))
+	if strings.HasPrefix(name, "t:") {
+		// Java's own snapshot form (TokenInfo): name, P/T, types, keywords and
+		// an image key, with no abilities. Crucible writes and reads T: below
+		// instead, so a Role's statics survive the round trip; reading Java's
+		// vanilla t: is not built.
+		ld.unapplied = append(ld.unapplied, fmt.Sprintf("%s: t: token snapshots are not loaded", name))
 		return nil
 	}
-	def, ok := ld.game.DB().Card(name)
-	if !ok {
-		return fmt.Errorf("card %q: not in the database", name)
+	var def *compile.Card
+	isToken := strings.HasPrefix(name, "T:")
+	if isToken {
+		// T:<script> names a token script by file stem, Java's own
+		// getAllTokens().getToken(name, set) key (GameState.java:1295).
+		script := strings.TrimPrefix(name, "T:")
+		tok, ok := ld.game.DB().Token(script)
+		if !ok {
+			return fmt.Errorf("token %q: not in the database", script)
+		}
+		def = tok
+	} else {
+		card, ok := ld.game.DB().Card(name)
+		if !ok {
+			return fmt.Errorf("card %q: not in the database", name)
+		}
+		def = card
 	}
 	id := ld.game.NewCard(def, owner, kind)
 	c := ld.game.Card(id)
+	c.IsToken = isToken
 
 	var remembered, imprinted []int
 	for _, info := range fields[1:] {

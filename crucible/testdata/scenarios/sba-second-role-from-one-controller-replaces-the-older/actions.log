@@ -1,0 +1,14 @@
+# CR 704.5y: if a permanent has two Role Auras controlled by the same player,
+# the one with the later timestamp stays and the other goes to the graveyard.
+# Two Monstrous Rages each create a Monster Role token attached to the Bears
+# (CR 303.4i); after the second resolves only one Role stays.
+startturn human
+advance 3
+tapformana human 3 R
+queue targets 5
+castspell human 1
+resolvestack
+tapformana human 4 R
+queue targets 5
+castspell human 2
+resolvestack

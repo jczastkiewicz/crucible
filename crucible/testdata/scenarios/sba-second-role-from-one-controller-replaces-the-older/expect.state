@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humangraveyard=Monstrous Rage|Id:1;Monstrous Rage|Id:2
+humanbattlefield=Mountain|Id:3|Tapped;Mountain|Id:4|Tapped;Grizzly Bears|Id:5;T:role_monster|Id:7|SummonSick|AttachedTo:5
+ailife=20

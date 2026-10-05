@@ -433,14 +433,14 @@ func TestLoadSetAndArtAreDroppedNotReported(t *testing.T) {
 	}
 }
 
-func TestLoadTokenCardsAreNotLoadedYet(t *testing.T) {
+func TestLoadJavaTokenSnapshotsAreReportedNotLoaded(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
 	l := load(t, db, "humanbattlefield=t:1/1 G Insect\n")
 
 	if got := len(l.Game.Zone(engine.Battlefield, l.Game.Players()[0]).Cards()); got != 0 {
-		t.Errorf("battlefield has %d cards, want 0 -- tokens are not built yet", got)
+		t.Errorf("battlefield has %d cards, want 0 -- a t: snapshot is not loaded", got)
 	}
 	if len(l.Unapplied) != 1 {
 		t.Errorf("Unapplied %v, want one entry naming the dropped token", l.Unapplied)
@@ -532,5 +532,52 @@ func TestLoadActivePlayerAndPhase(t *testing.T) {
 	}
 	if l.Game.ActivePhase() != engine.Main1 {
 		t.Errorf("phase %v, want Main1", l.Game.ActivePhase())
+	}
+}
+
+// tokenDB is testDB plus one compiled token script, named by file stem.
+func tokenDB(t *testing.T, script string) *compile.DB {
+	t.Helper()
+
+	raw := &carddb.Card{
+		Filename: script,
+		Faces:    [carddb.NumFaces]carddb.Face{{Present: true, Name: "Soldier Token"}},
+	}
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", script, err)
+	}
+	return testDB(t).WithTokens(map[string]*compile.Card{script: c})
+}
+
+func TestLoadTokenByScriptNameMakesAToken(t *testing.T) {
+	t.Parallel()
+
+	db := tokenDB(t, "w_1_1_soldier")
+	l := load(t, db, "humanbattlefield=T:w_1_1_soldier|Id:1|Tapped\n")
+
+	human := l.Game.Players()[0]
+	ids := l.Game.Zone(engine.Battlefield, human).Cards()
+	if len(ids) != 1 {
+		t.Fatalf("battlefield has %d cards, want the one token", len(ids))
+	}
+	c := l.Game.Card(ids[0])
+	if !c.IsToken || !c.Tapped {
+		t.Errorf("IsToken = %v, Tapped = %v, want both true", c.IsToken, c.Tapped)
+	}
+	if len(l.Unapplied) != 0 {
+		t.Errorf("Unapplied %v, want none", l.Unapplied)
+	}
+}
+
+func TestLoadTokenNotInTheDatabaseFails(t *testing.T) {
+	t.Parallel()
+
+	st, err := fixture.Parse(strings.NewReader("humanbattlefield=T:no_such_token\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, err := fixture.Load(st, tokenDB(t, "w_1_1_soldier"), javarand.New(1)); err == nil {
+		t.Error("an unknown token script loaded without error")
 	}
 }

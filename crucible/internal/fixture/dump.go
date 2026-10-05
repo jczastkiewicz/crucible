@@ -110,7 +110,14 @@ func dumpZone(g *engine.Game, kind engine.ZoneType, owner engine.PlayerID) strin
 func dumpCard(g *engine.Game, id engine.CardID) string {
 	c := g.Card(id)
 	var b strings.Builder
-	b.WriteString(c.PrintedDef().Name)
+	if c.IsToken {
+		// T:<script>, not Java's t: snapshot: a snapshot drops a token's
+		// abilities, so a Role dumped that way could not be loaded back as one.
+		b.WriteString("T:")
+		b.WriteString(c.PrintedDef().Filename)
+	} else {
+		b.WriteString(c.PrintedDef().Name)
+	}
 	b.WriteString("|Id:")
 	b.WriteString(strconv.FormatUint(uint64(id), 10))
 

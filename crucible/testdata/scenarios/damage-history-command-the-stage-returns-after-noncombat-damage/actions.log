@@ -1,0 +1,13 @@
+# command_the_stage.txt:6-8: at each upkeep, if an opponent was dealt noncombat
+# damage last turn (X = PlayerCountOpponents$HasProperty
+# wasDealtNonCombatDamageLastTurn, PlayerProperty.java:140-175), the card
+# returns from the graveyard to its owner's hand. human bolts the ai in turn 1
+# (3 noncombat damage); when turn 2's upkeep begins "last turn" is turn 1.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets ai
+castspell human 1
+resolvestack
+advance 11
+passpriority

@@ -62,3 +62,14 @@ func parsePT(value string) (int, error) {
 	}
 	return n, nil
 }
+
+// PrintedPT is a written power or toughness as the number the engine's Layer 0
+// starts from, on [parsePT]'s terms: `*` is zero and its sign goes with it. ok
+// is false for an empty value (a card with no P/T) or one that is not a number.
+func PrintedPT(value string) (n int, ok bool) {
+	n, err := parsePT(value)
+	if err != nil || n == PTUnset {
+		return 0, false
+	}
+	return n, true
+}

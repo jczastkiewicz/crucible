@@ -759,11 +759,13 @@ func TestBasePowerToughness(t *testing.T) {
 	}
 
 	star := g.NewCard(creatureDefPT(t, "*", "1+*"), p, engine.Battlefield)
-	if _, ok := g.Card(star).BasePower(); ok {
-		t.Error("BasePower() resolved a \"*\" power")
+	// CardFace.parsePT: "*" is 0 and "1+*" is 1; the characteristic-defining
+	// ability is Layer 7a's job, not the base's.
+	if pw, ok := g.Card(star).BasePower(); !ok || pw != 0 {
+		t.Errorf("BasePower() of \"*\" = (%d, %v), want (0, true)", pw, ok)
 	}
-	if _, ok := g.Card(star).BaseToughness(); ok {
-		t.Error("BaseToughness() resolved a \"1+*\" toughness")
+	if tg, ok := g.Card(star).BaseToughness(); !ok || tg != 1 {
+		t.Errorf("BaseToughness() of \"1+*\" = (%d, %v), want (1, true)", tg, ok)
 	}
 
 	noDef := g.NewCard(nil, p, engine.Battlefield)
@@ -819,10 +821,9 @@ func TestCheckStateBasedActionsLethalToughnessOnlyAppliesToCreatures(t *testing.
 	}
 }
 
-// An unresolvable toughness ("*") is a coverage gap, not a death sentence:
-// the creature survives because this port cannot yet tell what its
-// toughness actually is.
-func TestCheckStateBasedActionsUnresolvableToughnessSurvives(t *testing.T) {
+// A printed "*" toughness with no characteristic-defining ability reads 0
+// (CardFace.parsePT), so CR 704.5f puts the creature into the graveyard.
+func TestCheckStateBasedActionsStarToughnessWithoutACDADies(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -832,8 +833,8 @@ func TestCheckStateBasedActionsUnresolvableToughnessSurvives(t *testing.T) {
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
-	if z := g.Card(star).Zone; z != engine.Battlefield {
-		t.Errorf("a creature with unresolvable toughness zone = %v, want Battlefield", z)
+	if z := g.Card(star).Zone; z != engine.Graveyard {
+		t.Errorf("a */* creature with no CDA zone = %v, want Graveyard", z)
 	}
 }
 
@@ -1088,10 +1089,9 @@ func TestCheckStateBasedActionsSubLethalDamageAndNonCreaturesSurvive(t *testing.
 	}
 }
 
-// A creature whose toughness cannot be resolved (an unresolvable "*") is
-// left alone even under damage, the same coverage-gap reasoning
-// destroyLethalToughness already applies.
-func TestCheckStateBasedActionsUnresolvableToughnessSurvivesDamage(t *testing.T) {
+// A "*" toughness with no characteristic-defining ability is 0 under damage
+// too: it dies, to 704.5f before the damage check matters.
+func TestCheckStateBasedActionsStarToughnessWithoutACDADiesUnderDamage(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -1102,8 +1102,8 @@ func TestCheckStateBasedActionsUnresolvableToughnessSurvivesDamage(t *testing.T)
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
-	if z := g.Card(star).Zone; z != engine.Battlefield {
-		t.Errorf("a creature with unresolvable toughness under damage, zone = %v, want Battlefield", z)
+	if z := g.Card(star).Zone; z != engine.Graveyard {
+		t.Errorf("a */* creature with no CDA under damage, zone = %v, want Graveyard", z)
 	}
 }
 

@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Grizzly Bears
+ailife=20
+aigraveyard=Silvercoat Lion
+aibattlefield=Hill Giant|Id:2;Ironclaw Curse|Id:3|AttachedTo:2

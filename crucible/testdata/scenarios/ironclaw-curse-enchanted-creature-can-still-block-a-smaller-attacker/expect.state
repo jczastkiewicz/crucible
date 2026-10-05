@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=EndCombat
+humanlife=20
+humangraveyard=Llanowar Elves
+ailife=20
+aibattlefield=Hill Giant|Id:2|Damage:1;Ironclaw Curse|Id:3|AttachedTo:2

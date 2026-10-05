@@ -1,0 +1,5 @@
+# CR 704.5f with a printed "*" toughness: Maro is */* with a
+# characteristic-defining SetToughness$ X (Count$ValidHand Card.YouOwn). The
+# printed "*" counts as 0 (CardFace.parsePT) and the CDA replaces it with the
+# hand size; an empty hand makes Maro 0/0, which goes to the graveyard.
+startturn human

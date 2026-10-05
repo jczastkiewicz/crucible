@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,6 +37,7 @@ import (
 //	step [n]                      Game.Step(engine.NewRegistry(), controller), n times (default 1), ADR-0026
 //	run <turns>                   Game.Run(engine.NewRegistry(), controller, turns), ADR-0026
 //	dealopeninghands              DealOpeningHands(game, controller), starting player discarded
+//	dealopeninghands after <p>    DealOpeningHandsAfter(game, controller, p), p lost the last game of the match
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 //	resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
@@ -56,6 +58,7 @@ import (
 //	queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from CardByFixtureID
 //	queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick, ids from CardByFixtureID
 //	queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
+//	queue sector <alpha|beta|gamma>  ScriptedController.QueueSector, a ChooseSector answer (also CR 704.5u's per-creature assignment)
 //	paymanacost <player> <cost>          Game.PayManaCost(player, cost, controller) -- cost is mana.Parse's own text
 //	tapformana <player> <id> <color>     Game.TapLandForMana(player, id, color), id from CardByFixtureID
 //	playland <player> <id>               Game.PlayLand(player, id), id from CardByFixtureID
@@ -200,6 +203,15 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 		}
 
 	case "dealopeninghands":
+		if len(args) == 2 && args[0] == "after" {
+			// A later game of a match: the named loser of the last game decides.
+			loser, err := resolveActionPlayer(l, args[1:], 1)
+			if err != nil {
+				return err
+			}
+			engine.DealOpeningHandsAfter(l.Game, c, loser)
+			break
+		}
 		engine.DealOpeningHands(l.Game, c)
 
 	case "resumerestart":
@@ -497,6 +509,13 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return err
 		}
 		c.QueueBattleProtector(pid)
+
+	case "sector":
+		i := slices.IndexFunc([]string{"alpha", "beta", "gamma"}, func(n string) bool { return strings.EqualFold(n, value) })
+		if i < 0 {
+			return fmt.Errorf("queue sector %q: want alpha, beta or gamma", value)
+		}
+		c.QueueSector(i)
 
 	case "paygeneric":
 		s, err := mana.ParseShard(value)

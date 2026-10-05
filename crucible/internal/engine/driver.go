@@ -29,9 +29,9 @@ var errNoRestart = errors.New("engine: ResumeAfterRestart called on a game that 
 // begins Untap, which grants none, so StartTurn followed by Step or Run
 // plays a whole game.
 //
-// A Cleanup that EndTurn begins during resolution (endturneffect.go) is not
-// repeated: its state-based result is discarded, ADR-0026 Decision 5's named
-// gap. Only a Cleanup this call began itself repeats.
+// A Cleanup that EndTurn begins during resolution (endturneffect.go) repeats
+// too when it wants priority: Step plays that window and begins another
+// Cleanup, as Java's bRepeatCleanup does (PhaseHandler.java:447-449).
 //
 // A RestartGame resolution (restartgameeffect.go) returns at once with
 // Restarted true, the way Java's mainLoopStep returns on
@@ -59,7 +59,18 @@ func (g *Game) Step(reg *Registry, controller PlayerController) error {
 		if err := g.priorityRound(reg, controller); err != nil {
 			return err
 		}
-		if g.over || g.restarted || began != Cleanup || g.activePhase != Cleanup {
+		// A Cleanup an EndTurn resolution began mid-round and that wants
+		// priority: play that window, then repeat it like any other.
+		fromEndTurn := g.endTurnCleanup
+		g.endTurnCleanup = false
+		if g.over || g.restarted || g.activePhase != Cleanup {
+			return nil
+		}
+		if fromEndTurn && began != Cleanup {
+			priority = true
+			continue
+		}
+		if began != Cleanup {
 			return nil
 		}
 		priority, err = g.beginStep(controller, true)

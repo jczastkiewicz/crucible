@@ -244,6 +244,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 			return !c.Type().HasStringType(strings.ToUpper(rest[:1]) + rest[1:])
 		}
 		return c.Type().HasStringType(chosen)
+	case name == "ChosenSector":
+		// CardProperty.java:119: c is in the sector the source's controller
+		// chose (ChooseSector). Java NPEs on a source that chose none; no
+		// card reads this without a ChooseSector chained ahead of it.
+		sc, ok := sourceCard(g, source)
+		return ok && sc.Memory.ChosenSector() != "" && sc.Memory.ChosenSector() == c.Sector
+	case name == "DifferentSector":
+		// CardProperty.java:123: c is not in the source's own sector.
+		sc, ok := sourceCard(g, source)
+		return ok && sc.Sector != c.Sector
 	case name == "IsSuspected":
 		return c.Suspected
 	case name == "IsRingbearer":
@@ -924,6 +934,22 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 	if rest, ok := strings.CutPrefix(property, "controls"); ok {
 		return controlsMatches(g, candidate, host, source, rest)
 	}
+	// PlayerProperty.java:140-175 for the "LastTurn" forms: wasDealtDamageLastTurn,
+	// wasDealtCombatDamageLastTurn and wasDealtNonCombatDamageLastTurn compare
+	// the damage dealt to the player last turn (all, combat or noncombat) with
+	// the default GE1. The "ThisTurn" and "By" forms count damage events a Game
+	// does not keep, and stay unrecognized.
+	if strings.HasPrefix(property, "wasDealt") && strings.HasSuffix(property, "LastTurn") {
+		d := g.Player(candidate).damageLastTurn
+		switch {
+		case strings.Contains(property, "NonCombat"):
+			return d[0] >= 1, true
+		case strings.Contains(property, "CombatDamage"):
+			return d[1] >= 1, true
+		default:
+			return d[0]+d[1] >= 1, true
+		}
+	}
 	switch property {
 	case "Active":
 		return candidate == g.ActivePlayer(), true
@@ -1120,11 +1146,16 @@ func compareOperand(g *Game, operand string, sourceController PlayerID, source C
 	if n, err := strconv.Atoi(operand); err == nil {
 		return n, true
 	}
+	key := strings.ToLower(operand)
+	if f := g.relativeFace; f != nil {
+		if amt, ok := f.Amounts[key]; ok {
+			return resolveAmount(g, f.Amounts, sourceController, source, amt)
+		}
+	}
 	sc, ok := sourceCard(g, source)
 	if !ok || sc.Def == nil {
 		return 0, false
 	}
-	key := strings.ToLower(operand)
 	for i := range sc.Def.Faces[:liveFaces(sc.Def)] {
 		f := &sc.Def.Faces[i]
 		if amt, ok := f.Amounts[key]; ok {

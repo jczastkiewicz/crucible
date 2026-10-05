@@ -18,6 +18,12 @@ type Combat struct {
 	// that became blocked without a blocker (BecomesBlocked, CR 509.1h): it
 	// stays blocked and deals no combat damage unless it has trample.
 	ForcedBlocked []CardID
+	// dealtFirstStrike is Combat.combatantsThatDealtFirstStrikeDamage
+	// (Combat.java:74): every combatant that took part in the first-strike
+	// step, so the regular step can skip it unless it has double strike
+	// (dealsInStep). Cleared when the regular step's damage is dealt, and
+	// with the combat itself.
+	dealtFirstStrike []CardID
 }
 
 // IllegalDeclarationError is a declaration of attackers or blockers that
@@ -136,5 +142,7 @@ func (c Combat) clone() Combat {
 		AttackTargets: targets,
 		Blocks:        append([]Block(nil), c.Blocks...),
 		ForcedBlocked: append([]CardID(nil), c.ForcedBlocked...),
+
+		dealtFirstStrike: append([]CardID(nil), c.dealtFirstStrike...),
 	}
 }

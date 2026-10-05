@@ -221,10 +221,11 @@ func (g *Game) resetForRestart() {
 // releaseControlBy (scheduledaction.go) needs no separate call here. A
 // lost player's own stale controlledBy, if any, is left as is: Java never
 // resets a player who has already left the game either. Commander stats
-// and blessing have no counterpart here.
+// have no counterpart here.
 func (g *Game) resetPlayerForRestart(pid PlayerID) {
 	p := g.Player(pid)
 	p.Life = startingLife
+	p.Blessing = false
 	p.Counters = Counters{}
 	p.SpellsCastThisTurn = 0
 	p.LandsPlayed, p.LandsPlayedLastTurn = 0, 0

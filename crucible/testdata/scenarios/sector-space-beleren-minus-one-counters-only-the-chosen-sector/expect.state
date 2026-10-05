@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanlibrary=Mountain
+humanbattlefield=Space Beleren|Counters:LOYALTY=2;Grizzly Bears|Counters:P1P1=1;Silvercoat Lion
+ailife=20
+aibattlefield=Elvish Archers|Counters:P1P1=1

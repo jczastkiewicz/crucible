@@ -1,0 +1,6 @@
+# CR 514.1 with an unlimited maximum hand size: Reliquary Tower's
+# `SetMaxHandSize$ Unlimited` (Player.setUnlimitedHandSize) means the nine
+# cards in hand are never discarded at cleanup; no discard is queued, so a
+# discard prompt would fail the run.
+startturn human
+advance 12

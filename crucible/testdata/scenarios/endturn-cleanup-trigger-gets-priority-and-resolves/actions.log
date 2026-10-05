@@ -1,0 +1,26 @@
+# CR 723 and CR 514.3a. human casts Time Stop in Beginning of Combat with
+# eight other cards in hand (seven after it leaves). EndTurn resolves: the
+# turn skips to Cleanup, where human discards down to seven. The ai's
+# Sangromancer ("whenever an opponent discards a card, you may gain 3 life")
+# triggers off that discard, so the Cleanup grants priority and repeats
+# (PhaseHandler.java:447-449): the trigger resolves, ai gains 3 life, and a
+# second Cleanup finds nothing more to do. Before Step repeated an
+# EndTurn-begun Cleanup the trigger stayed unresolved on the stack. The mana
+# is tapped inside the step's own priority round: floating mana empties
+# between steps (CR 500.4).
+queue discard 3
+queue optionaltrigger true
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue action human tapformana 11 U
+queue action human tapformana 12 U
+queue action human tapformana 13 U
+queue action human tapformana 14 U
+queue action human tapformana 15 U
+queue action human tapformana 16 U
+queue action human cast 1
+step

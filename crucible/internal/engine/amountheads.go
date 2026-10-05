@@ -380,6 +380,22 @@ func playerCountValue(g *Game, sourceController PlayerID, hType, body string) (i
 		}
 		players = append(players, pid)
 	}
+	// PlayerCount<hType>$HasProperty<property>: how many of those players have
+	// the player property (playerXCount's own "HasProperty" branch). A property
+	// matchesPlayerProperty does not know makes the whole amount unresolved.
+	if prop, ok := strings.CutPrefix(body, "HasProperty"); ok {
+		n := 0
+		for _, pid := range players {
+			matched, known := matchesPlayerProperty(g, pid, sourceController, NoCard, prop)
+			if !known {
+				return 0, false
+			}
+			if matched {
+				n++
+			}
+		}
+		return n, true
+	}
 	var highest bool
 	var property string
 	switch {

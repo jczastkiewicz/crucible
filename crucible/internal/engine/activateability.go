@@ -463,11 +463,12 @@ func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) b
 // otherRestrictionsMet is SpellAbilityRestriction.checkOtherRestrictions'
 // player-state and board checks for an A: or SP$ line of c
 // (SpellAbilityRestriction.java:361-437,474-486): Activation$ (Threshold,
-// Metalcraft, Delirium, Hellbent), IsPresent$ with PresentCompare$/
+// Metalcraft, Delirium, Hellbent, Blessing, Solved), ActivationGameTypes$,
+// ClassLevel$, IsPresent$ with PresentCompare$/
 // PresentZone$, LifeTotal$ with LifeAmount$, and one CheckSVar$ with
 // SVarCompare$. PresentPlayer$, IsPresent2$ and CheckSecondSVar$ are not read
-// here, as Java's restriction does not read them. An Activation$ value that
-// names a state this port does not track (Blessing, Solved) refuses (GO-7).
+// here, as Java's restriction does not read them. An Activation$ value this port
+// does not know refuses (GO-7).
 func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
 	amounts := c.abilityAmounts(ability)
 	you := c.Controller()
@@ -482,12 +483,28 @@ func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
 			has = graveyardCoreTypeCount(g, you) >= 4
 		case "Hellbent":
 			has = len(g.Zone(Hand, you).Cards()) == 0
+		case "Blessing":
+			has = g.Player(you).Blessing
+		case "Solved":
+			has = c.Solved
 		default:
 			return false
 		}
 		if !has {
 			return false
 		}
+	}
+	// ActivationGameTypes$ (SpellAbilityRestriction.java:526): some listed
+	// variant must be applied to the game. A Game here is a plain constructed
+	// game with none, so a line naming only Commander-family variants never
+	// activates.
+	if _, ok := ability.Param("ActivationGameTypes"); ok {
+		return false
+	}
+	// ClassLevel$ compares the host's Class level, and no Class level is
+	// tracked: refuse rather than ignore the restriction (GO-7).
+	if _, ok := ability.Param("ClassLevel"); ok {
+		return false
 	}
 	return isPresentMatches(g, c, amounts, ability, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "") &&
 		lifeTotalMatches(g, c, amounts, ability) &&
@@ -536,6 +553,10 @@ func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability)
 //
 // None of the keys' values is read, as Java does not read them. Sneak's
 // declare-blockers-only timing is not ported: Crucible has no Sneak cast.
+// InstantSpeed$ is read nowhere either: Java reads it for a mana ability being
+// activated while another cost is paid (SpellAbilityRestriction.java:564) --
+// this port never interleaves a mana ability with a payment -- and as
+// "has flash" for a SorcerySpeed$ line no real card pairs it with.
 func (g *Game) timingRestrictionsMet(pid PlayerID, ability *compile.Ability) bool {
 	if _, ok := ability.Param("PlayerTurn"); ok && pid != g.activePlayer {
 		return false

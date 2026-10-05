@@ -1,0 +1,11 @@
+# Game 2 of a match with the human as the loser: human decides and chooses to
+# go first (queue startingplayer human), then the London mulligan runs as in
+# game 1. The ai keeps seven; the human mulligans once and keeps, putting one
+# card on the bottom of the library (CR 103.5, a card back for the mulligan).
+queue startingplayer human
+dealopeninghands after human
+queue keephand false
+queue keephand true
+queue keephand true
+queue tuck 1
+mulligan human

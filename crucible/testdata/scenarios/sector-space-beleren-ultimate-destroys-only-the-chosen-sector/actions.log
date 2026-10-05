@@ -1,0 +1,12 @@
+# Space Beleren's -5 (ability 2, space_beleren.txt:8): after sectors are
+# assigned (ai's Archers beta, human's Bears alpha and Lion beta), ChooseSector
+# picks beta and DestroyAll takes every Creature.ChosenSector -- the Archers
+# and the Lion -- leaving the alpha Bears.
+queue sector beta
+queue sector alpha
+queue sector beta
+startturn human
+advance 3
+queue sector beta
+queue action human activate 1 2
+passpriority

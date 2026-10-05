@@ -533,17 +533,20 @@ func TestMatchesNumericComparisonsExcludeCountersFromBaseForms(t *testing.T) {
 	}
 }
 
-// An unresolvable printed value ("*") is a coverage gap, not a wrong answer:
-// the comparison matches nothing rather than guessing.
-func TestMatchesNumericComparisonUnresolvableFieldIsGap(t *testing.T) {
+// A printed "*" with no characteristic-defining ability is 0, so powerGE0
+// matches it (CardFace.parsePT).
+func TestMatchesNumericComparisonStarPowerIsZero(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
 	p := g.Players()[0]
 	id := g.NewCard(creatureDefPT(t, "*", "2"), p, engine.Battlefield)
 
-	if engine.Matches(g, g.Card(id), valid.Parse("Creature.powerGE0"), p, engine.NoCard) {
-		t.Error("a Creature.powerGE0 matched a card with unresolvable (\"*\") power")
+	if !engine.Matches(g, g.Card(id), valid.Parse("Creature.powerGE0"), p, engine.NoCard) {
+		t.Error("a Creature.powerGE0 did not match a card with printed \"*\" power (0)")
+	}
+	if engine.Matches(g, g.Card(id), valid.Parse("Creature.powerGE1"), p, engine.NoCard) {
+		t.Error("a Creature.powerGE1 matched a card with printed \"*\" power (0)")
 	}
 }
 

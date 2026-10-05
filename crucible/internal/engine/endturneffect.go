@@ -10,6 +10,8 @@ import "fmt"
 // ends, state-based actions are checked, and the turn skips to its cleanup
 // step (PhaseHandler.endTurnByEffect: queued extra phases are dropped and
 // cleanup begins at once). The next AdvancePhase moves on to the next turn.
+// A Cleanup whose state-based actions did something or that put a trigger on
+// the stack is repeated by Step (CR 514.3a, Game.endTurnCleanup).
 type endTurnEffect struct{}
 
 func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -40,7 +42,11 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	CheckStateBasedActions(g, controller)
 	g.extraPhases = [numPhaseTypes][]PhaseType{}
 	g.activePhase = Cleanup
-	g.beginPhase(controller)
+	priority, err := g.beginStep(controller, false)
+	if err != nil {
+		return fmt.Errorf("engine: EndTurn: %w", err)
+	}
+	g.endTurnCleanup = priority
 	return nil
 }
 

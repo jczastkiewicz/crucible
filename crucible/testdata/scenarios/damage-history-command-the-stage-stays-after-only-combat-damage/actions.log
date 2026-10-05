@@ -1,0 +1,16 @@
+# The same trigger as damage-history-command-the-stage-returns-after-
+# noncombat-damage, but the only damage the ai took in turn 1 was combat
+# damage from an unblocked Grizzly Bears, so wasDealtNonCombatDamageLastTurn
+# is false at turn 2's upkeep and Command the Stage stays in the graveyard.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+advance 6
+passpriority

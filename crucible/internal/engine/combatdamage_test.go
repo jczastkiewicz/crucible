@@ -468,7 +468,10 @@ func TestDealCombatDamageTrampleUnresolvableToughnessAssignsFullPowerToBlocker(t
 	g.Player(b).Life = 20
 	g.SetTurnState(1, a, engine.Main1)
 	attacker := g.NewCard(creatureDefPTKeywords(t, "5", "5", "Trample"), a, engine.Battlefield)
-	blocker := g.NewCard(creatureDefPT(t, "1", "*"), b, engine.Battlefield)
+	// A "*" toughness whose characteristic-defining amount (Count$Party)
+	// this port cannot evaluate: the blocker's toughness is unknowable.
+	blocker := g.NewCard(amountDef(t, "Unknowable Blocker", "Creature Elf", "", "1", "*",
+		[]string{"Mode$ Continuous | CharacteristicDefining$ True | SetToughness$ Y"}, svarLine{"Y", "Count$Party"}), b, engine.Battlefield)
 	declareOneAttackerAndBlocker(t, g, attacker, blocker)
 
 	g.DealCombatDamage(engine.NewScriptedController())

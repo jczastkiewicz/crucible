@@ -1,0 +1,8 @@
+# Game 2 of a match (GameAction.java:2421-2441): the ai lost game 1, so the ai
+# decides who goes first -- no coin flip. The answer is queued and consumed
+# by that one ask; both players are dealt seven and keep.
+queue startingplayer human
+dealopeninghands after ai
+queue keephand true
+queue keephand true
+mulligan human

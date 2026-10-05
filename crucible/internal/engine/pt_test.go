@@ -125,9 +125,9 @@ func TestPowerToughnessSetPTAppliesBeforeModifyPT(t *testing.T) {
 	}
 }
 
-// A LayerCharacteristic effect supplies a value even when the printed one
-// is unresolvable -- the whole point of a characteristic-defining ability.
-func TestPowerToughnessCharacteristicResolvesUnresolvableBase(t *testing.T) {
+// A LayerCharacteristic effect replaces the "*" base (read as 0) -- the whole
+// point of a characteristic-defining ability.
+func TestPowerToughnessCharacteristicReplacesStarBase(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -135,8 +135,8 @@ func TestPowerToughnessCharacteristicResolvesUnresolvableBase(t *testing.T) {
 	id := g.NewCard(creatureDefPT(t, "*", "*"), p, engine.Battlefield)
 	c := g.Card(id)
 
-	if _, ok := c.Power(); ok {
-		t.Fatal("setup: an unresolvable base resolved before any effect was added")
+	if pw, ok := c.Power(); !ok || pw != 0 {
+		t.Fatalf("setup: a \"*\" base = (%d, %v), want (0, true) before any effect", pw, ok)
 	}
 
 	c.PT.Add(engine.PTEffect{Layer: engine.LayerCharacteristic, Timestamp: 1, Power: 2, Toughness: 2, HasPower: true, HasToughness: true})

@@ -32,6 +32,12 @@ type Player struct {
 	Won  bool
 	// Conceded is a loss nothing can replace (Player.concede).
 	Conceded bool
+	// Blessing is Player.hasBlessing: the city's blessing (CR 702.131), set
+	// once the player controls ten or more permanents while a permanent with
+	// Ascend is on the battlefield (assignBlessings, action.go). Never lost,
+	// except by a RestartGame (resetPlayerForRestart).
+	Blessing bool
+
 	// Speed is Player.speed (CR 702.179): 0 until "Start your engines!"
 	// gives the player one, then 1-4, changed by ChangeSpeed.
 	Speed int
@@ -46,6 +52,11 @@ type Player struct {
 	// prevention (GameEntity.getAssignedDamage over damageReceivedThisTurn),
 	// which Bloodthirst reads.
 	DamageReceivedThisTurn int
+	// damageThisTurn and damageLastTurn split the damage this player was dealt
+	// by kind, index 0 noncombat and 1 combat: Java's damageReceivedThisTurn
+	// and damageReceivedLastTurn lists (GameEntity.java:57), summed per kind.
+	// The turn rotation moves this turn's into last turn's (turn.go).
+	damageThisTurn, damageLastTurn [2]int
 	// attachments is what is attached to this player (GameEntity's
 	// attachedCards, for a player): the Curses enchanting them, in the order
 	// they were attached. Written only by Game.AttachToPlayer and

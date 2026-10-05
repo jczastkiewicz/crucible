@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Grizzly Bears|Id:1
+aibattlefield=Hill Giant|Id:2;Ironclaw Curse|Id:3|AttachedTo:2;Silvercoat Lion|Id:4

@@ -99,7 +99,8 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			}
 		}
 
-		if dealsInStep(atk, firstStrike) {
+		if g.dealsInStep(atk, firstStrike) {
+			g.noteFirstStrikeDealer(atkID, firstStrike)
 			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
 				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
 			}
@@ -107,7 +108,8 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 
 		for _, blkID := range blockers {
 			blk := g.Card(blkID)
-			if dealsInStep(blk, firstStrike) {
+			if g.dealsInStep(blk, firstStrike) {
+				g.noteFirstStrikeDealer(blkID, firstStrike)
 				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
 					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
 				}
@@ -115,18 +117,31 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		}
 	}
 	g.checkDamageTableTriggers(controller, table, true)
+	if !firstStrike {
+		// Combat.assignCombatDamage(false) clears the list "since it doesn't
+		// matter anymore" (Combat.java:921-923).
+		g.combat.dealtFirstStrike = nil
+	}
+}
+
+// noteFirstStrikeDealer records id as having taken part in the first-strike
+// step (Combat.java:716, 774), once.
+func (g *Game) noteFirstStrikeDealer(id CardID, firstStrike bool) {
+	if firstStrike && !containsCard(g.combat.dealtFirstStrike, id) {
+		g.combat.dealtFirstStrike = append(g.combat.dealtFirstStrike, id)
+	}
 }
 
 // combatDamageAssigned is Combat.assignCombatDamage's return value
 // (Combat.java:919-925), computed before any damage is dealt: some live
 // attacker dealing damage in this step has power above zero, or some live
 // blocker dealing damage in this step still blocks a live attacker.
-// dealsInStep reads keywords held now, not Java's per-combatant "dealt
-// first-strike damage" set (Combat.java:906-917) -- ADR-0026's named gap.
+// dealsInStep reads the per-combatant "dealt first-strike damage" set
+// (Combat.java:906-917).
 func (g *Game) combatDamageAssigned(firstStrike bool) bool {
 	for _, id := range g.combat.Attackers {
 		c := g.Card(id)
-		if !g.alive(id) || !dealsInStep(c, firstStrike) {
+		if !g.alive(id) || !g.dealsInStep(c, firstStrike) {
 			continue
 		}
 		if power, ok := netCombatDamage(g, c); ok && power > 0 {
@@ -134,7 +149,7 @@ func (g *Game) combatDamageAssigned(firstStrike bool) bool {
 		}
 	}
 	for _, b := range g.combat.Blocks {
-		if g.alive(b.Blocker) && g.alive(b.Attacker) && dealsInStep(g.Card(b.Blocker), firstStrike) {
+		if g.alive(b.Blocker) && g.alive(b.Attacker) && g.dealsInStep(g.Card(b.Blocker), firstStrike) {
 			return true
 		}
 	}
@@ -145,12 +160,16 @@ func (g *Game) combatDamageAssigned(firstStrike bool) bool {
 // (firstStrike true) or the regular step (false) -- CR 510.4, 702.4b, 702.7c:
 // double strike acts in both, first strike (alone) only in the first, and
 // everything else only in the regular one.
-func dealsInStep(c *Card, firstStrike bool) bool {
-	fs, ds := c.HasKeyword("First Strike"), c.HasKeyword("Double Strike")
-	if firstStrike {
-		return fs || ds
+func (g *Game) dealsInStep(c *Card, firstStrike bool) bool {
+	if c.HasKeyword("Double Strike") {
+		return true
 	}
-	return !fs || ds
+	if firstStrike {
+		return c.HasKeyword("First Strike")
+	}
+	// Combat.dealDamageThisPhase (Combat.java:906-917): anyone who did not
+	// take part in the first-strike step, whatever keywords they hold now.
+	return !containsCard(g.combat.dealtFirstStrike, c.ID)
 }
 
 // alive reports whether id is still the card it was declared into combat as
@@ -375,6 +394,11 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		return
 	}
 	g.Player(target).DamageReceivedThisTurn += amount
+	kind := 0
+	if isCombat {
+		kind = 1
+	}
+	g.Player(target).damageThisTurn[kind] += amount
 	var flags EventFlags
 	if isCombat {
 		flags = FlagCombat

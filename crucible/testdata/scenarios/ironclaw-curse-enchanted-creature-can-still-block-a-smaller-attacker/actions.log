@@ -1,0 +1,17 @@
+# ironclaw_curse.txt:6: the enchanted creature (Hill Giant 3/3, -0/-1 makes it
+# 3/2) cannot block creatures with power equal to or greater than its
+# toughness (ValidAttackerRelative$ Creature.powerGEIronclawX, X =
+# Count$CardToughness of the enchanted blocker). Llanowar Elves have power 1,
+# below 2, so the block is legal: the Elves die and the Giant takes 1.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that kills the Elves.
+advance

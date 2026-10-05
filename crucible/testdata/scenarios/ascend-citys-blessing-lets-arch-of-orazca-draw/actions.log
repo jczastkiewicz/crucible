@@ -1,0 +1,19 @@
+# K:Ascend (CardFactoryUtil.java:629): human controls ten permanents (Arch of
+# Orazca and nine Forests), so the first state-based pass gives human the
+# city's blessing. Arch's {5},{T} draw (arch_of_orazca.txt:5) carries
+# Activation$ Blessing (SpellAbilityRestriction.java:398), which now holds:
+# five Forests pay the {5}, Arch taps, and the Island is drawn.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue action human activate 1 1
+passpriority

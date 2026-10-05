@@ -183,6 +183,7 @@ func spaceBelerenDef(t *testing.T) *compile.Card {
 	raw.Faces[0].Name = "Space Beleren"
 	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Planeswalker Jace")
 	raw.Faces[0].InitialLoyalty = "3"
+	raw.Faces[0].Keywords = []string{"Space sculptor"}
 	raw.Faces[0].Abilities = []string{
 		"AB$ Effect | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | StaticAbilities$ SectorBlock | SpellDescription$ Creatures in each sector can be blocked this turn only by creatures in the same sector.",
 		"AB$ ChooseSector | Cost$ SubCounter<1/LOYALTY> | Planeswalker$ True | SubAbility$ DBPutCounterAll | AILogic$ Pump | SpellDescription$ Put a +1/+1 counter on each creature in the sector of your choice.",
@@ -198,78 +199,175 @@ func spaceBelerenDef(t *testing.T) *compile.Card {
 	return c
 }
 
-// TestSpaceBelerenMinusOneRejectsWhileSectorReadIsNotPorted pins where Space
-// Beleren's -1 stands: Creature.ChosenSector (CardProperty.java:119-122) has
-// no case in valid.go, so PutCounterAll would put its counter on nothing --
-// resolving anyway would silently turn a real effect into a no-op (GO-7).
-// chooseSectorReadUnbuilt catches this ahead of time (choosesectoreffect.go):
-// the whole ability fails closed, the sector is never asked or recorded, and
-// loyalty is never paid (the cost is paid before Resolve runs; the failed
-// resolve does not refund it, matching how any other rejected effect leaves
-// its already-paid cost spent). This test must change when the sector read
-// side lands (port-log effects-choosesector.md).
-func TestSpaceBelerenMinusOneRejectsWhileSectorReadIsNotPorted(t *testing.T) {
+// assignSectorsTo runs the state-based actions with c answering CR 704.5u's
+// sector assignment: sectors[i] for the i'th creature asked, opponents first.
+func assignSectorsTo(g *engine.Game, c *sectorRecorder, sectors ...int) {
+	for _, i := range sectors {
+		c.QueueSector(i)
+	}
+	engine.CheckStateBasedActions(g, c)
+}
+
+// TestSpaceSculptorAssignsEveryCreatureOpponentsFirst pins CR 704.5u's order
+// (GameAction.java:1531-1558): the sculptor's controller assigns last, and
+// each creature is offered the three sectors in Alpha, Beta, Gamma order.
+func TestSpaceSculptorAssignsEveryCreatureOpponentsFirst(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	g.Card(g.NewCard(spaceBelerenDef(t), p, engine.Battlefield)).Counters.Add(engine.Loyalty, 3)
+	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+
+	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
+	assignSectorsTo(g, c, 2, 1)
+	if len(c.asks) != 2 {
+		t.Fatalf("%d ChooseSector asks, want 2", len(c.asks))
+	}
+	if c.asks[0].assignee != theirs || c.asks[0].decider != other {
+		t.Errorf("first ask = %+v, want the opponent's creature %v decided by %v", c.asks[0], theirs, other)
+	}
+	if c.asks[1].assignee != mine || c.asks[1].decider != p {
+		t.Errorf("second ask = %+v, want the sculptor's own creature %v decided by %v", c.asks[1], mine, p)
+	}
+	if !slices.Equal(c.asks[0].sectors, []string{"Alpha", "Beta", "Gamma"}) {
+		t.Errorf("sectors offered = %v", c.asks[0].sectors)
+	}
+	if got := g.Card(theirs).Sector; got != "Gamma" {
+		t.Errorf("opponent's creature sector = %q, want Gamma", got)
+	}
+	if got := g.Card(mine).Sector; got != "Beta" {
+		t.Errorf("own creature sector = %q, want Beta", got)
+	}
+
+	// A creature that is already assigned is never asked again.
+	assignSectorsTo(g, c)
+	if len(c.asks) != 2 {
+		t.Errorf("%d asks after a second pass, want still 2", len(c.asks))
+	}
+}
+
+// TestSectorIsForgottenWhenACreatureLeavesTheBattlefield: Java builds a new
+// Card object per zone change and never copies the sector.
+func TestSectorIsForgottenWhenACreatureLeavesTheBattlefield(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	g.Card(g.NewCard(spaceBelerenDef(t), p, engine.Battlefield)).Counters.Add(engine.Loyalty, 3)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	assignSectorsTo(g, &sectorRecorder{ScriptedController: engine.NewScriptedController()}, 1)
+	if got := g.Card(bear).Sector; got != "Beta" {
+		t.Fatalf("sector = %q, want Beta", got)
+	}
+	g.Move(bear, engine.Graveyard, p)
+	if got := g.Card(bear).Sector; got != "" {
+		t.Errorf("sector after leaving = %q, want none", got)
+	}
+}
+
+// TestNoSculptorNoSectors: with no Space sculptor in play CR 704.5u assigns
+// nothing and asks nothing.
+func TestNoSculptorNoSectors(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
+	assignSectorsTo(g, c)
+	if len(c.asks) != 0 || g.Card(bear).Sector != "" {
+		t.Errorf("asks = %v, sector = %q, want none", c.asks, g.Card(bear).Sector)
+	}
+}
+
+// TestSpaceBelerenPlusOneBlocksOnlyWithinASector runs the +1's Effect static
+// (CantBlockBy, ValidBlockerRelative$ Creature.DifferentSector): the
+// attacker can be blocked only by a creature in its own sector.
+func TestSpaceBelerenPlusOneBlocksOnlyWithinASector(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
 	g.SetTurnState(1, p, engine.Main1)
 	pw := g.NewCard(spaceBelerenDef(t), p, engine.Battlefield)
 	g.Card(pw).Counters.Add(engine.Loyalty, 3)
-	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	attacker := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	sameSector := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	otherSector := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 
 	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
-	if !g.ActivateAbility(p, pw, 1, c) {
-		t.Fatal("ActivateAbility(-1) returned false, want true")
+	// Opponent's two creatures first (Beta, Alpha), then the attacker (Beta).
+	assignSectorsTo(g, c, 1, 0, 1)
+	if !g.CanBlock(attacker, otherSector) {
+		t.Fatal("before the +1, a creature in another sector can block")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "not resolvable yet") {
-		t.Fatalf("ResolveStack = %v, want a not-resolvable-yet error", err)
+	if !g.ActivateAbility(p, pw, 0, c) {
+		t.Fatal("ActivateAbility(+1) returned false")
 	}
-	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 2 {
-		t.Errorf("loyalty = %d, want 2 (cost already paid before the reject)", got)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if len(c.asks) != 0 {
-		t.Errorf("asks = %+v, want none: the sector is never asked for a chain that can't use it", c.asks)
+	if !g.CanBlock(attacker, sameSector) {
+		t.Error("a creature in the attacker's own sector can still block")
 	}
-	if got := g.Card(pw).Memory.ChosenSector(); got != "" {
-		t.Errorf("chosen sector = %q, want none recorded", got)
-	}
-	for _, id := range []engine.CardID{mine, theirs} {
-		if n := g.Card(id).Counters.Count(engine.P1P1); n != 0 {
-			t.Errorf("creature %v P1P1 = %d, want 0", id, n)
-		}
+	if g.CanBlock(attacker, otherSector) {
+		t.Error("a creature in a different sector cannot block (ValidBlockerRelative$ Creature.DifferentSector)")
 	}
 }
 
-// TestSpaceBelerenMinusFiveRejectsWhileSectorReadIsNotPorted is the -5's twin
-// of the -1 test above: DestroyAll with Creature.ChosenSector is rejected the
-// same way, before anything is destroyed. Must change when the sector read
-// side lands.
-func TestSpaceBelerenMinusFiveRejectsWhileSectorReadIsNotPorted(t *testing.T) {
+// TestSpaceBelerenMinusOneCountersOnlyTheChosenSector and the -5 below run
+// the chained PutCounterAll/DestroyAll against Creature.ChosenSector.
+func TestSpaceBelerenMinusOneCountersOnlyTheChosenSector(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	pw := g.NewCard(spaceBelerenDef(t), p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 3)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
+	assignSectorsTo(g, c, 0, 1)
+
+	c.QueueSector(0)
+	if !g.ActivateAbility(p, pw, 1, c) {
+		t.Fatal("ActivateAbility(-1) returned false")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(theirs).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("Alpha creature P1P1 = %d, want 1", n)
+	}
+	if n := g.Card(mine).Counters.Count(engine.P1P1); n != 0 {
+		t.Errorf("Beta creature P1P1 = %d, want 0", n)
+	}
+}
+
+func TestSpaceBelerenMinusFiveDestroysOnlyTheChosenSector(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
 	g.SetTurnState(1, p, engine.Main1)
 	pw := g.NewCard(spaceBelerenDef(t), p, engine.Battlefield)
 	g.Card(pw).Counters.Add(engine.Loyalty, 6)
-	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	c := &sectorRecorder{ScriptedController: engine.NewScriptedController()}
+	assignSectorsTo(g, c, 0, 1)
 
-	c := engine.NewScriptedController()
+	c.QueueSector(1)
 	if !g.ActivateAbility(p, pw, 2, c) {
-		t.Fatal("ActivateAbility(-5) returned false, want true")
+		t.Fatal("ActivateAbility(-5) returned false")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "not resolvable yet") {
-		t.Fatalf("ResolveStack = %v, want a not-resolvable-yet error", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if got := g.Card(pw).Memory.ChosenSector(); got != "" {
-		t.Errorf("chosen sector = %q, want none recorded", got)
+	if z := g.Card(theirs).Zone; z != engine.Battlefield {
+		t.Errorf("Alpha creature zone = %v, want Battlefield", z)
 	}
-	for _, id := range []engine.CardID{mine, theirs} {
-		if z := g.Card(id).Zone; z != engine.Battlefield {
-			t.Errorf("creature %v zone = %v, want Battlefield", id, z)
-		}
+	if z := g.Card(mine).Zone; z != engine.Graveyard {
+		t.Errorf("Beta creature zone = %v, want Graveyard", z)
 	}
 }

@@ -43,9 +43,9 @@ import (
 // the controller controls), Delirium (23 -- Player.hasDelirium, four-plus
 // distinct core types among cards in the controller's own graveyard,
 // AbilityUtils.countCardTypesFromList's own permanentTypes=false form) and
-// FatefulHour (3 -- the controller's own life at 5 or below). Not resolved:
-// MaxSpeed (40), Blessing (9), EnduringStory (4) and Monarch (2) -- each its
-// own mechanic (Alchemy's speed counter, City's Blessing, Saga chapters,
+// FatefulHour (3 -- the controller's own life at 5 or below) and Blessing (9 -- Player.hasBlessing). Not resolved:
+// MaxSpeed (40), EnduringStory (4) and Monarch (2) -- each its
+// own mechanic (Alchemy's speed counter, Saga chapters,
 // the monarch) this port tracks no state for anywhere yet, so (like an
 // unrecognized Affected$ value already does) the line is skipped rather
 // than treated as met (GO-7); an unrecognized value not in the real corpus
@@ -71,6 +71,8 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 		return graveyardCoreTypeCount(g, controller) >= 4
 	case "FatefulHour":
 		return g.Player(controller).Life <= 5
+	case "Blessing":
+		return g.Player(controller).Blessing
 	default:
 		return false
 	}

@@ -1,0 +1,15 @@
+# Ascend with ten permanents gives human the city's blessing, which turns on
+# Skymarcher Aspirant's `Condition$ Blessing` flying
+# (skymarcher_aspirant.txt:5). The Aspirant attacks and the Lion, which cannot
+# block a flyer, is not offered a block that would be legal: the declaration
+# queue answers "no blocks" and the Aspirant connects for 2.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

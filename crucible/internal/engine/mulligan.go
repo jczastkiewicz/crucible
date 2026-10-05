@@ -8,6 +8,24 @@ package engine
 // invented ahead of a caller that would set it.
 const startingHandSize = 7
 
+// DealOpeningHandsAfter is DealOpeningHands for a game that follows another in
+// a match: the loser of the last game decides who goes first
+// (determineFirstTurnPlayer's non-first-game branch, GameAction.java:2421-2426,
+// then chooseStartingPlayer(false)), so there is no coin flip and g.rand is
+// not consumed for it. Java picks the first player who is not a winner of the
+// last game; with two players that is loser. A match with several losers
+// takes the first in seating order, which the caller expresses by passing
+// that player. The Match loop itself (who won, how many games) is the
+// caller's, as DealOpeningHands's doc comment says.
+func DealOpeningHandsAfter(g *Game, controller PlayerController, loser PlayerID) PlayerID {
+	first := controller.ChooseStartingPlayer(g, loser, false)
+	for _, pid := range g.Players() {
+		g.Shuffle(Library, pid)
+		drawOpeningHand(g, pid)
+	}
+	return first
+}
+
 // DealOpeningHands is CR 103.1-103.4's procedure up to the point
 // PerformMulligans, below, can run: decide who plays first and deal each
 // seated player an opening hand of startingHandSize, shuffled library first.

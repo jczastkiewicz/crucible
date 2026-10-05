@@ -173,6 +173,13 @@ type Card struct {
 	// dial rather than remembering its last one (CR 725.4a).
 	Sprocket int
 
+	// Sector is Card.sector (Card.java:321): the "Alpha", "Beta" or "Gamma"
+	// sector CR 704.5u's state-based action (assignSectors, action.go) gives
+	// a creature while some permanent has Space sculptor, "" until then.
+	// Cleared on leaving the battlefield (Game.Move): Java builds a new Card
+	// object for the new zone and never copies the field.
+	Sector string
+
 	// AttacksThisTurn is CardDamageHistory.getCreatureAttacksThisTurn's own
 	// per-card counter -- incremented once per combat this card is declared
 	// an attacker in (DeclareCombatAttackers, attack.go), reset every cleanup
@@ -649,11 +656,12 @@ func (c *Card) KeywordLines() []string {
 // "base" is a named concept in the rules, distinct from "current"
 // (getNetPower) -- Power/Toughness, below, is this port's getNetPower.
 //
-// ok is false for anything that is not a plain integer: "*", "1+*", a
-// Count$ reference, or a card with no printed toughness at all (an
-// instant, a nil Def). Resolving those needs `internal/expr` and a game,
-// neither of which this reaches yet -- a coverage gap, not a wrong answer,
-// the same category CheckStateBasedActions's own gaps are in.
+// A written "*" counts as zero and the sign binding it goes with it ("1+*"
+// is 1, "7-*" is 7), CardFace.parsePT's rule (carddb.PrintedPT): the
+// characteristic-defining ability that gives such a creature its real value
+// is Layer 7a's job (PT), so a "*" creature with none (or whose amount is
+// not resolvable) reads 0 and dies to CR 704.5f, as in Java. ok is false only
+// for a card with no printed P/T at all (an instant, a nil Def).
 //
 // A token's own override (hasBasePower) is part of its own copiable values,
 // so a copy effect on the token hides it: the copied definition carries the
@@ -665,8 +673,7 @@ func (c *Card) BasePower() (int, bool) {
 	if c.Def == nil {
 		return 0, false
 	}
-	n, err := strconv.Atoi(c.Def.Faces[0].Power)
-	return n, err == nil
+	return carddb.PrintedPT(c.Def.Faces[0].Power)
 }
 
 // BaseToughness is BasePower's counterpart; see its doc comment.
@@ -677,8 +684,7 @@ func (c *Card) BaseToughness() (int, bool) {
 	if c.Def == nil {
 		return 0, false
 	}
-	n, err := strconv.Atoi(c.Def.Faces[0].Toughness)
-	return n, err == nil
+	return carddb.PrintedPT(c.Def.Faces[0].Toughness)
 }
 
 // BaseLoyalty is a planeswalker's printed starting loyalty -- CR 121.5's
@@ -845,11 +851,17 @@ func (c *Card) unswitchedToughness() (int, bool) {
 // confusingly-named thing than getBasePower/getBaseToughness (this port's
 // BasePower/BaseToughness). Neither value is switched (Layer 7d).
 func (c *Card) layer7Power() (int, bool) {
+	if c.starUnresolved(false) {
+		return 0, false
+	}
 	base, ok := c.BasePower()
 	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Power, e.HasPower })
 }
 
 func (c *Card) layer7Toughness() (int, bool) {
+	if c.starUnresolved(true) {
+		return 0, false
+	}
 	base, ok := c.BaseToughness()
 	return foldPT(base, ok, c.PT.effects, func(e PTEffect) (int, bool) { return e.Toughness, e.HasToughness })
 }
@@ -864,6 +876,39 @@ func (c *Card) modifyPT(pick func(PTEffect) int) int {
 		}
 	}
 	return total
+}
+
+// starUnresolved reports a printed "*" power or toughness (toughness when
+// toughness is true) whose characteristic-defining static exists but produced
+// no Layer 7a value -- an amount this port cannot evaluate (BasePower's doc
+// comment). The base then reads 0 only by CardFace.parsePT's convention, and
+// the real value is whatever that amount is, so the creature is left
+// unresolved rather than killed or sized by a guess (GO-7). A "*" with no
+// such static at all is a plain 0, as Java reads it.
+func (c *Card) starUnresolved(toughness bool) bool {
+	if c.Def == nil || len(c.copies) != 0 {
+		return false
+	}
+	printed := c.Def.Faces[0].Power
+	if toughness {
+		printed = c.Def.Faces[0].Toughness
+	}
+	if !strings.Contains(printed, "*") {
+		return false
+	}
+	for _, e := range c.PT.effects {
+		if e.Layer == LayerCharacteristic && (toughness && e.HasToughness || !toughness && e.HasPower) {
+			return false
+		}
+	}
+	for _, face := range c.traitFaces() {
+		for _, st := range face.Statics {
+			if _, cda := st.Param("CharacteristicDefining"); cda && strings.EqualFold(st.Name, "Continuous") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // CMC is the card's printed mana value (CR 202.3), the sum of its mana

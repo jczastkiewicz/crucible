@@ -1,0 +1,16 @@
+# CR 704.5u, Space sculptor (space_beleren.txt:5): once a permanent has it,
+# every creature without a sector is assigned one by its controller, the
+# sculptor's controller last ("opponents assign first"). The ai's Elvish
+# Archers is asked first (alpha), then human's Grizzly Bears (alpha) and
+# Silvercoat Lion (beta) in battlefield order.
+queue sector alpha
+queue sector alpha
+queue sector beta
+startturn human
+advance 3
+# Space Beleren's -1 (ability 1): ChooseSector picks alpha, then PutCounterAll
+# puts a +1/+1 counter on each Creature.ChosenSector -- Bears and Archers, not
+# the beta Lion.
+queue sector alpha
+queue action human activate 1 1
+passpriority

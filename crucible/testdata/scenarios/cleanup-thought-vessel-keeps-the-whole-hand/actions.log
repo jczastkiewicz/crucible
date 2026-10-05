@@ -1,0 +1,4 @@
+# Same rule as cleanup-reliquary-tower-keeps-the-whole-hand through a
+# nonland source: Thought Vessel's own `SetMaxHandSize$ Unlimited` static.
+startturn human
+advance 12

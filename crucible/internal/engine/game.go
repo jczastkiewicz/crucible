@@ -55,6 +55,21 @@ type Game struct {
 	// (TrueSubAbility$, RepeatSubAbility$, Choices$) uses the same dispatch
 	// as the stack object around it (additional.go).
 	registry *Registry
+	// relativeFace is the face whose SVars a CantBlockBy static's
+	// ValidAttackerRelative$/ValidBlockerRelative$ Compare operand names
+	// (Creature.powerGEIronclawX), set only while relativeMatches evaluates it.
+	// Java reads the operand through the static ability, whose SVars are its
+	// host's, while the amount's own card is the property's source
+	// (CardProperty.java's calculateAmount(source, ..., spellAbility)); the
+	// valid-string evaluator has no ability to carry that, so it rides here.
+	// Never copied by Clone: nothing is mid-evaluation across a clone.
+	relativeFace *compile.Face
+	// endTurnCleanup is set when an EndTurn resolution began a Cleanup that
+	// grants priority (CR 514.3a: a state-based action or trigger fired in
+	// it), for Step to play that priority window and repeat the Cleanup
+	// (PhaseHandler.java:447-449 sets bRepeatCleanup and givePriorityToPlayer
+	// from endTurnByEffect's own onPhaseBegin). Step consumes it.
+	endTurnCleanup bool
 	// xctx is the X of the ability Registry.resolve is running, the root
 	// ability's xManaCostPaid that Count$xPaid reads first
 	// (AbilityUtils.java:1631); hasX false reads the source card's castX.
@@ -714,6 +729,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.clearTextChange()
 		g.endCopiesOnLeave(id)
 		c.Sprocket = 0
+		c.Sector = ""
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		c.leaveRoom()
@@ -824,6 +840,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.clearTextChange()
 		g.endCopiesOnLeave(id)
 		c.Sprocket = 0
+		c.Sector = ""
 		c.turnFaceUp()
 		c.turnFrontFaceUp()
 		c.leaveRoom()

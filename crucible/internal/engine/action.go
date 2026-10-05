@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -243,12 +244,92 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	performed = assignBattleProtector(g, controller) || performed
 	performed = destroyZeroDefense(g, controller) || performed
 	performed = sacrificeCompletedSagas(g, controller) || performed
+	performed = assignBlessings(g) || performed
+	performed = assignSectors(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
 	performed = resolveWorldRule(g, controller) || performed
 	performed = resolveRoleRule(g, controller) || performed
 	performed = startYourEngines(g) || performed
 	performed = cleanupDanglingAttachments(g, controller) || performed
 	return false, performed
+}
+
+// assignSectors is CR 704.5u (stateBasedAction704_5u, GameAction.java:
+// 1801-1828), run once a permanent has Space sculptor (Space Beleren): every
+// creature without a sector has its controller assign it Alpha, Beta or
+// Gamma. Java walks the players in turn order skipping the sculptors'
+// controllers, then those controllers last -- "opponents assign first"
+// (GameAction.java:1531-1558). A creature assigned stays assigned until it
+// leaves the battlefield (Card.Sector). Reports whether any creature was
+// assigned, which makes the pass repeat as Java's checkAgain does.
+func assignSectors(g *Game, controller PlayerController) bool {
+	var sculptors []PlayerID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if g.Card(id).hasKeywordText("Space sculptor") {
+				sculptors = append(sculptors, g.Card(id).Controller())
+			}
+		}
+	}
+	if len(sculptors) == 0 {
+		return false
+	}
+	performed := false
+	assign := func(pid PlayerID) {
+		var pending []CardID
+		for _, id := range g.creaturesInPlay(pid) {
+			if g.Card(id).Sector == "" {
+				pending = append(pending, id)
+			}
+		}
+		// PlayerController.chooseSector's fixed list (PlayerController.java:
+		// 253), built per call (GO-2).
+		options := []string{"Alpha", "Beta", "Gamma"}
+		for _, id := range pending {
+			i := controller.ChooseSector(g, pid, id, options)
+			if i < 0 || i >= len(options) {
+				i = 0
+			}
+			g.Card(id).Sector = options[i]
+			performed = true
+		}
+	}
+	for _, pid := range g.Players() {
+		if !slices.Contains(sculptors, pid) {
+			assign(pid)
+		}
+	}
+	// Java loops the collection, so a controller of two sculptors assigns twice;
+	// the second pass finds nothing left to assign.
+	for _, pid := range sculptors {
+		assign(pid)
+	}
+	return performed
+}
+
+// assignBlessings is Ascend's permanent half (CardFactoryUtil.java:629-650,
+// CR 702.131): while a permanent with Ascend is on the battlefield, its
+// controller controlling ten or more permanents gets the city's blessing for
+// the rest of the game. Java builds it as a `Mode$ Always | Static$ True`
+// trigger that resolves without the stack, so it is equivalent to running
+// with the state-based actions. The instant/sorcery half
+// (AbilityUtils.java:1338, checked as the spell resolves) is not ported.
+func assignBlessings(g *Game) (performed bool) {
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			ctrl := g.Player(c.Controller())
+			if ctrl.Blessing || !c.HasKeyword("Ascend") || ctrl.Lost {
+				continue
+			}
+			if len(g.Zone(Battlefield, c.Controller()).Cards()) >= 10 {
+				// CR 702.131d: continuous effects are reapplied, so the pass
+				// repeats.
+				ctrl.Blessing, performed = true, true
+			}
+		}
+	}
+	return performed
 }
 
 // annihilateCounters is CR 704.5q: N +1/+1 and N -1/-1 counters are removed

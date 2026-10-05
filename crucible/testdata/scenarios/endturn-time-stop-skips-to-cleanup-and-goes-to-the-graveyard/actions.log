@@ -1,0 +1,21 @@
+# CR 723: Time Stop in Beginning of Combat ends the turn. EndTurn exiles the
+# rest of the stack (endturneffect.go exileStack), combat ends and the turn
+# jumps to Cleanup; Time Stop itself, already resolving, finishes in the
+# graveyard. human's hand already fits and nothing triggers, so the
+# Cleanup grants no priority and Step stops there (CR 514.3). The mana is
+# tapped inside the step's own priority round: floating mana empties between
+# steps (CR 500.4).
+startturn human
+advance 3
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue action human tapformana 11 U
+queue action human tapformana 12 U
+queue action human tapformana 13 U
+queue action human tapformana 14 U
+queue action human tapformana 15 U
+queue action human tapformana 16 U
+queue action human cast 1
+step

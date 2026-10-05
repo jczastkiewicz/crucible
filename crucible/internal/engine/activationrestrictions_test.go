@@ -3,143 +3,153 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb"
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
-// TestActivatorRestrictsWhoMayActivate proves Activator$ names the players
-// who may activate (SpellAbilityRestriction.checkActivatorRestrictions):
-// by default only the controller, with Activator$ Opponent only the others.
-func TestActivatorRestrictsWhoMayActivate(t *testing.T) {
+// ascendGame seats nine Forests plus extra permanents the caller adds, in a
+// two-player game on the real corpus, human to move in Main1.
+func ascendGame(t *testing.T, forests int) (*engine.Game, engine.PlayerID, engine.PlayerID, []engine.CardID) {
+	t.Helper()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	var lands []engine.CardID
+	for range forests {
+		lands = append(lands, g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield))
+	}
+	return g, p, other, lands
+}
+
+// TestAscendNeedsTenPermanents pins CardFactoryUtil.java:629-650: a permanent
+// with Ascend gives its controller the city's blessing once they control
+// ten permanents, and not before.
+func TestAscendNeedsTenPermanents(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		name       string
-		line       string
-		controller bool
-		opponent   bool
-	}{
-		{"default", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1", true, false},
-		{"Opponent", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | Activator$ Opponent", false, true},
-		{"Player", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | Activator$ Player", true, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			g, p, other := newTwoPlayerGame(t)
-			card := g.NewCard(creatureDefWithAbility(t, "Test Activator", tc.line), p, engine.Battlefield)
-
-			if got := g.ActivateAbility(p, card, 0, engine.NewScriptedController()); got != tc.controller {
-				t.Errorf("controller activation = %v, want %v", got, tc.controller)
-			}
-			if got := g.ActivateAbility(other, card, 0, engine.NewScriptedController()); got != tc.opponent {
-				t.Errorf("opponent activation = %v, want %v", got, tc.opponent)
-			}
-		})
+	g, p, _, _ := ascendGame(t, 8)
+	g.NewCard(corpusCard(t, "Skymarcher Aspirant"), p, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if g.Player(p).Blessing {
+		t.Fatal("nine permanents gave the city's blessing")
+	}
+	g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if !g.Player(p).Blessing {
+		t.Fatal("ten permanents did not give the city's blessing")
 	}
 }
 
-// TestActivationNeedsItsPresentCondition proves IsPresent$ with
-// PresentCompare$ gates an activated ability on the board
-// (SpellAbilityRestriction.java:417-433), default PresentCompare$ GE1.
-func TestActivationNeedsItsPresentCondition(t *testing.T) {
+// TestBlessingTurnsOnSkymarcherAspirantsFlying: `Condition$ Blessing` on a
+// static, and the flyer cannot be blocked by a creature without flying or
+// reach.
+func TestBlessingTurnsOnSkymarcherAspirantsFlying(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		name         string
-		compare      string
-		alone, mated bool // activation without / with another creature
-	}{
-		{"GE1", "", false, true},
-		{"EQ0", " | PresentCompare$ EQ0", true, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			g, p, _ := newTwoPlayerGame(t)
-			card := g.NewCard(creatureDefWithAbility(t, "Test Needs Friend",
-				"AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | IsPresent$ Creature.Other+YouCtrl"+tc.compare), p, engine.Battlefield)
-
-			if got := g.ActivateAbility(p, card, 0, engine.NewScriptedController()); got != tc.alone {
-				t.Errorf("activation with no other creature = %v, want %v", got, tc.alone)
-			}
-			g.NewCard(layer456Creature(t, "G"), p, engine.Battlefield)
-			g.Card(card).Tapped = false
-			if got := g.ActivateAbility(p, card, 0, engine.NewScriptedController()); got != tc.mated {
-				t.Errorf("activation with another creature = %v, want %v", got, tc.mated)
-			}
-		})
+	g, p, other, _ := ascendGame(t, 8)
+	aspirant := g.NewCard(corpusCard(t, "Skymarcher Aspirant"), p, engine.Battlefield)
+	lion := g.NewCard(corpusCard(t, "Silvercoat Lion"), other, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if g.Card(aspirant).HasKeyword("Flying") || !g.CanBlock(aspirant, lion) {
+		t.Fatal("the Aspirant flies without the city's blessing")
+	}
+	g.NewCard(corpusCard(t, "Forest"), p, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	if !g.Card(aspirant).HasKeyword("Flying") {
+		t.Error("the Aspirant does not fly with the city's blessing")
+	}
+	if g.CanBlock(aspirant, lion) {
+		t.Error("a creature without flying or reach blocked the flying Aspirant")
 	}
 }
 
-// TestActivationNeedsItsPlayerState proves Activation$ Threshold, LifeTotal$
-// with LifeAmount$ and CheckSVar$ with SVarCompare$ each gate activation.
-func TestActivationNeedsItsPlayerState(t *testing.T) {
+// TestActivationBlessingRefusesWithoutTheBlessing: Arch of Orazca's draw
+// (Activation$ Blessing) is refused even when payable, until the controller
+// has the blessing. The ten permanents Ascend needs are Arch and nine Forests;
+// the blessing is set by hand in the refused half so the permanent count
+// cannot be what refuses.
+func TestActivationBlessingRefusesWithoutTheBlessing(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Threshold", func(t *testing.T) {
-		t.Parallel()
-		g, p, _ := newTwoPlayerGame(t)
-		card := g.NewCard(creatureDefWithAbility(t, "Test Threshold",
-			"AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | Activation$ Threshold"), p, engine.Battlefield)
-		for i := 0; i < 6; i++ {
-			g.NewCard(creatureDef(t), p, engine.Graveyard)
-		}
-		if g.ActivateAbility(p, card, 0, engine.NewScriptedController()) {
-			t.Error("activated with six cards in the graveyard")
-		}
-		g.NewCard(creatureDef(t), p, engine.Graveyard)
-		if !g.ActivateAbility(p, card, 0, engine.NewScriptedController()) {
-			t.Error("declined with seven cards in the graveyard")
-		}
-	})
-	t.Run("LifeTotal", func(t *testing.T) {
-		t.Parallel()
-		g, p, _ := newTwoPlayerGame(t)
-		card := g.NewCard(creatureDefWithAbility(t, "Test Low Life",
-			"AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | LifeTotal$ You | LifeAmount$ LE5"), p, engine.Battlefield)
-		if g.ActivateAbility(p, card, 0, engine.NewScriptedController()) {
-			t.Error("activated at 20 life")
-		}
-		g.Player(p).Life = 5
-		if !g.ActivateAbility(p, card, 0, engine.NewScriptedController()) {
-			t.Error("declined at 5 life")
-		}
-	})
-	t.Run("CheckSVar", func(t *testing.T) {
-		t.Parallel()
-		g, p, _ := newTwoPlayerGame(t)
-		off := g.NewCard(creatureDefWithAbility(t, "Test Check Off",
-			"AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | CheckSVar$ 0 | SVarCompare$ GE1"), p, engine.Battlefield)
-		on := g.NewCard(creatureDefWithAbility(t, "Test Check On",
-			"AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1 | CheckSVar$ 2 | SVarCompare$ GE2"), p, engine.Battlefield)
-		if g.ActivateAbility(p, off, 0, engine.NewScriptedController()) {
-			t.Error("0 >= 1 activated")
-		}
-		if !g.ActivateAbility(p, on, 0, engine.NewScriptedController()) {
-			t.Error("2 >= 2 declined")
-		}
-	})
+	g, p, _, lands := ascendGame(t, 5)
+	arch := g.NewCard(corpusCard(t, "Arch of Orazca"), p, engine.Battlefield)
+	g.NewCard(corpusCard(t, "Island"), p, engine.Library)
+
+	c := engine.NewScriptedController()
+	green, _ := mana.ParseShard("G")
+	for _, land := range lands {
+		g.TapLandForMana(p, land, mana.Green, c)
+		c.QueuePayGeneric(green)
+	}
+	if g.ActivateAbility(p, arch, 1, c) {
+		t.Fatal("Arch's draw activated without the city's blessing")
+	}
+	if g.Card(arch).Tapped {
+		t.Error("a refused activation tapped Arch")
+	}
 }
 
-// TestSpellNeedsItsPresentCondition proves a spell's own IsPresent$ refuses
-// the cast with nothing paid.
-func TestSpellNeedsItsPresentCondition(t *testing.T) {
+// TestActivationSolvedNeedsASolvedCase: Case of the Uneaten Feast's Solved
+// ability (Activation$ Solved) needs the Case to be solved.
+func TestActivationSolvedNeedsASolvedCase(t *testing.T) {
 	t.Parallel()
 
-	g, p, _ := newTwoPlayerGame(t)
-	g.Player(p).ManaPool.Add(mana.White, 1)
-	spell := g.NewCard(instantDefWithAbility(t, "Test Needs Creature", "W",
-		"SP$ GainLife | Defined$ You | LifeAmount$ 3 | IsPresent$ Creature.YouCtrl"), p, engine.Hand)
+	g, p, _, _ := ascendGame(t, 0)
+	feast := g.NewCard(corpusCard(t, "Case of the Uneaten Feast"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, feast, 0, c) {
+		t.Fatal("the Solved ability activated on an unsolved Case")
+	}
+	g.Card(feast).Solved = true
+	if !g.ActivateAbility(p, feast, 0, c) {
+		t.Error("the Solved ability did not activate on a solved Case")
+	}
+}
 
-	if g.CastSpell(p, spell, engine.NewScriptedController()) {
-		t.Fatal("cast with no creature to satisfy IsPresent$")
+// restrictedLandDef is a land with one A: line.
+func restrictedLandDef(t *testing.T, line string) *compile.Card {
+	t.Helper()
+	raw := &carddb.Card{Filename: "restricted_land"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Restricted Land"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Land")
+	raw.Faces[0].Abilities = []string{line}
+	c, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile %q: %v", line, err)
 	}
-	if n := g.Player(p).ManaPool.Total(); n != 1 {
-		t.Errorf("mana left = %d, want 1: a declined cast pays nothing", n)
+	return c
+}
+
+// TestActivationGameTypesNeedsAVariant: an ability naming only Commander-
+// family variants (ActivationGameTypes$, SpellAbilityRestriction.java:526)
+// never activates in a constructed game, which has none applied; the same
+// line without the key does.
+func TestActivationGameTypesNeedsAVariant(t *testing.T) {
+	t.Parallel()
+
+	g, p, _, _ := ascendGame(t, 0)
+	gated := g.NewCard(restrictedLandDef(t, "AB$ GainLife | Cost$ T | LifeAmount$ 1 | ActivationGameTypes$ Commander,Brawl"), p, engine.Battlefield)
+	open := g.NewCard(restrictedLandDef(t, "AB$ GainLife | Cost$ T | LifeAmount$ 1"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if g.ActivateAbility(p, gated, 0, c) {
+		t.Error("an ActivationGameTypes$ Commander line activated in a game with no variant")
 	}
-	g.NewCard(layer456Creature(t, "G"), p, engine.Battlefield)
-	if !g.CastSpell(p, spell, engine.NewScriptedController()) {
-		t.Error("cast declined with a creature in play")
+	if !g.ActivateAbility(p, open, 0, c) {
+		t.Error("the same line without ActivationGameTypes$ did not activate")
+	}
+}
+
+// TestActivationClassLevelIsRefused: no Class level is tracked, so a
+// ClassLevel$ restriction refuses rather than being ignored (GO-7).
+func TestActivationClassLevelIsRefused(t *testing.T) {
+	t.Parallel()
+
+	g, p, _, _ := ascendGame(t, 0)
+	land := g.NewCard(restrictedLandDef(t, "AB$ GainLife | Cost$ T | LifeAmount$ 1 | ClassLevel$ GE2"), p, engine.Battlefield)
+	if g.ActivateAbility(p, land, 0, engine.NewScriptedController()) {
+		t.Error("a ClassLevel$ line activated with no Class level tracked")
 	}
 }

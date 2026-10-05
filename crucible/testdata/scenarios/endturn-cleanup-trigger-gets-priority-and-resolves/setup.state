@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Time Stop|Id:1;Mountain|Id:3;Mountain|Id:4;Mountain|Id:5;Mountain|Id:6;Mountain|Id:7;Mountain|Id:8;Mountain|Id:9;Mountain|Id:10
+humanbattlefield=Island|Id:11;Island|Id:12;Island|Id:13;Island|Id:14;Island|Id:15;Island|Id:16
+aibattlefield=Sangromancer|Id:20

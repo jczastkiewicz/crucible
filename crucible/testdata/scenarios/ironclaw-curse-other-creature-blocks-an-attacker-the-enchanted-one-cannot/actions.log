@@ -1,0 +1,16 @@
+# The Curse's static is a CantBlockBy with no ValidAttacker$, so it applies to
+# every attacker and restricts only ValidBlocker$ Creature.EnchantedBy. Grizzly
+# Bears (power 2) attack; the enchanted Hill Giant (toughness 2) could not
+# block them, but the unenchanted Silvercoat Lion can, and the 2/2s trade.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 4=1
+declareblockers
+advance
+advance
+combatdamage
+# One more advance for the state-based-action check that kills both.
+advance

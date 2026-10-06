@@ -1571,6 +1571,32 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 	if len(cards) == 0 {
 		return
 	}
+	// A card sent to "the graveyard" that a Moved replacement put elsewhere
+	// (Rest in Peace's exile, Gravebane Zombie's library top) changed zones
+	// to that zone, so the batch names it, not the graveyard.
+	if destination == Graveyard {
+		var stayed []CardID
+		elsewhere := map[ZoneType][]CardID{}
+		var order []ZoneType
+		for _, id := range cards {
+			switch z := g.Card(id).Zone; z {
+			case Exile, Library, Hand, Sideboard, Command:
+				if _, seen := elsewhere[z]; !seen {
+					order = append(order, z)
+				}
+				elsewhere[z] = append(elsewhere[z], id)
+			default:
+				stayed = append(stayed, id)
+			}
+		}
+		if len(order) > 0 {
+			for _, z := range order {
+				g.checkChangesZoneAllTriggers(controller, elsewhere[z], origin, z)
+			}
+			g.checkChangesZoneAllTriggers(controller, stayed, origin, Graveyard)
+			return
+		}
+	}
 	var matches []Ability
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
@@ -2327,9 +2353,17 @@ func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.A
 	for _, key := range [...]string{
 		"Revolt", "WerewolfTransformCondition", "WerewolfUntransformCondition",
 		"CheckDefinedPlayer", "ManaSpent", "ManaNotSpent", "Adamant",
-		"EnduringStory", "DayTime", "ClassLevel",
+		"EnduringStory", "ClassLevel",
 	} {
 		if _, ok := t.Param(key); ok {
+			return false
+		}
+	}
+	// CardTraitBase.requirementsCheck's DayTime$: the game is Day, Night or
+	// Neither (Gavony Dawnguard's "if it's neither day nor night").
+	if v, ok := t.Param("DayTime"); ok {
+		want, known := map[string]DayTime{"Neither": DayNeither, "Day": Day, "Night": Night}[v]
+		if !known || g.dayTime != want {
 			return false
 		}
 	}

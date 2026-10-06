@@ -1,0 +1,17 @@
+# Event$ Counter | ValidSA$ Spell | ValidCause$ SpellAbility.YouCtrl |
+# ReplaceWith$ DBRemove: ai's Counterspell would counter human's Grizzly Bears,
+# but ai controls Guile, so the counter is replaced: the Bears are exiled
+# instead and ai, confirming Play's "may", plays the card from exile without
+# paying its mana cost. It resolves under ai's control.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 1
+tapformana ai 8 U
+tapformana ai 9 U
+queue targets 1
+castspell ai 10
+queue confirmeffect true
+resolvestack

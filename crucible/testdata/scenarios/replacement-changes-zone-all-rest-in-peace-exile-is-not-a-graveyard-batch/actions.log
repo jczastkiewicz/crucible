@@ -1,0 +1,10 @@
+# Same board plus Rest in Peace: the dying Grizzly Bears is exiled instead of
+# put into the graveyard, so no card changed zones from the battlefield to the
+# graveyard and Ghoulish Procession's Destination$ Graveyard batch trigger does
+# not fire: no Zombie. (The batch used to name the graveyard regardless.)
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 4
+castspell human 1
+resolvestack

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20
+humanbattlefield=Time Vault|Id:1|Tapped

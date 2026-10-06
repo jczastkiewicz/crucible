@@ -19,10 +19,13 @@ import (
 // to one whose other face is not a permanent, and a permanent's own
 // ability does nothing if the permanent has transformed since the ability
 // went on the stack (CR 701.28f). TurnFaceUp turns a face-down permanent
-// face up (CR 708.8). Optional$ asks first; RememberChanged$ remembers each
-// changed card. Mode$ Flip (CR 709) is one-way and gives no timestamp and no
-// Transformed trigger (Card.java:716-745, g.flip). TurnFaceDown and
-// Specialize are not resolved.
+// face up (CR 708.8) unless a Layer$ CantHappen Event$ TurnFaceUp
+// replacement forbids it (canBeTurnedFaceUp), and runs the Event$ Transform
+// and TurnFaceUp ReplaceWith$ lines once the face changed
+// (faceChangeReplaced, replacementfaces.go). Optional$ asks first;
+// RememberChanged$ remembers each changed card. Mode$ Flip (CR 709) is
+// one-way and gives no timestamp, no Transformed trigger and no replacement
+// (Card.java:716-745, g.flip). TurnFaceDown and Specialize are not resolved.
 type setStateEffect struct{}
 
 func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -38,8 +41,8 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
-	if mode == "Transform" && (battlefieldStaticMode(g, "CantTransform") || battlefieldReplacementEvent(g, "Transform")) {
-		return fmt.Errorf("engine: SetState: CantTransform statics or Transform replacements not resolvable yet")
+	if mode == "Transform" && battlefieldStaticMode(g, "CantTransform") {
+		return fmt.Errorf("engine: SetState: CantTransform statics not resolvable yet")
 	}
 	var cards []CardID
 	if spec, ok := a.Params.Param("Choices"); ok {
@@ -99,7 +102,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			changed = g.transform(id)
 		case mode == "Flip":
 			changed = g.flip(id)
-		case c.IsFaceDown() && c.faceUpDef.Faces[0].Type.IsPermanent():
+		case c.IsFaceDown() && g.canBeTurnedFaceUp(id) && c.faceUpDef.Faces[0].Type.IsPermanent():
 			c.turnFaceUp()
 			// CR 613.7f: a permanent turned face up gets a new timestamp
 			// (Card.java:891).
@@ -108,10 +111,14 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			changed = true
 		}
 		if changed {
+			// Card.java runs the Event$ Transform / TurnFaceUp replacements
+			// after the new face is in place and before its trigger.
 			switch mode {
 			case "Transform":
+				g.faceChangeReplaced(controller, "Transform", id)
 				g.checkTransformedTriggers(controller, id)
 			case "TurnFaceUp":
+				g.faceChangeReplaced(controller, "TurnFaceUp", id)
 				g.checkTurnedFaceUpTriggers(controller, id, a)
 			}
 		}

@@ -1,0 +1,13 @@
+# Event$ DrawCards | ValidPlayer$ Player.Opponent | Number$ GE2 | ReplaceWith$
+# DrawEach (DB$ Draw | Defined$ You & ReplacedPlayer): ai's Divination would
+# draw two cards, so instead Alms Collector's controller (human) and ai each
+# draw one.
+startturn ai
+advance 3
+tapformana ai 2 U
+tapformana ai 8 U
+tapformana ai 9 U
+queue paygeneric U
+queue paygeneric U
+castspell ai 1
+resolvestack

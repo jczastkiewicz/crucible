@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Mountain|Tapped;Ghoulish Procession;Rest in Peace
+humanexile=Lightning Bolt;Grizzly Bears
+ailife=20

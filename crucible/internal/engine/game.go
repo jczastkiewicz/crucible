@@ -24,6 +24,13 @@ import (
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
+// activeReplacement names one replacement effect: its host and its line.
+// Game.replacing holds the ones whose ReplaceWith$ ability is resolving.
+type activeReplacement struct {
+	host CardID
+	rule *compile.Ability
+}
+
 // Game is one game in progress. It owns every entity in it.
 //
 // The engine runs a goroutine per game and games share only immutable data, so
@@ -91,6 +98,11 @@ type Game struct {
 	// PassPriority, or a caller's own TakePendingError (ADR-0020 decision
 	// 4, GO-7). The first error is kept; nil when none is waiting.
 	pendingErr error
+	// replacing lists the replacement effects whose ReplaceWith$ ability is
+	// resolving right now (ReplacementEffect.hasRun, ReplacementHandler.java:
+	// 227-274): an event the substitute ability raises does not offer them
+	// again. Never copied by Clone: nothing is mid-replacement across a clone.
+	replacing []activeReplacement
 
 	// timestamp is the monotonic counter behind Card.Timestamp. It only ever
 	// increases, so an ordering never repeats within a game.

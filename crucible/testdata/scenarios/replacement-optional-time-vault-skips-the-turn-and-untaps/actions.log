@@ -1,0 +1,6 @@
+# Event$ BeginTurn | IsPresent$ Card.Self+tapped | Optional$ True: the ai's
+# turn ends and human's would begin. Time Vault is tapped, so human may skip
+# that turn; confirming it hands the turn to the ai again and the substitute
+# DB$ Untap untaps the Vault.
+queue confirmreplacement true
+advance

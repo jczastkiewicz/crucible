@@ -1,0 +1,8 @@
+# Event$ Scry | ValidPlayer$ You | ReplaceWith$ Draw (DB$ Draw, NumCards$
+# ReplaceCount$Num): Opt's "scry 1" is replaced by drawing 1 card, so no scry
+# decision is asked (nothing queued), and Opt's own draw takes a second card.
+startturn human
+advance 3
+tapformana human 2 U
+castspell human 1
+resolvestack

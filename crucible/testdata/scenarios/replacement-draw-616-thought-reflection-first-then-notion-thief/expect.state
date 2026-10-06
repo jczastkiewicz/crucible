@@ -1,0 +1,11 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Plains;Plains;Plains;Plains
+humanbattlefield=Island|Tapped;Island|Tapped;Notion Thief
+humangraveyard=Words of Wisdom
+humanlibrary=Plains
+ailife=20
+ailibrary=Swamp;Swamp;Swamp;Swamp
+aibattlefield=Thought Reflection

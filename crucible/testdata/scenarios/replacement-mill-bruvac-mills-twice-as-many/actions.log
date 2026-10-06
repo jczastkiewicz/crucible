@@ -1,0 +1,9 @@
+# Event$ Mill | ValidPlayer$ Player.Opponent | ReplaceWith$ MillTwice
+# (ReplaceEffect, VarName$ Number, ReplaceCount$Number/Twice): Thought Scour
+# targets ai for two cards, Bruvac doubles it to four. Human then draws.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets ai
+castspell human 1
+resolvestack

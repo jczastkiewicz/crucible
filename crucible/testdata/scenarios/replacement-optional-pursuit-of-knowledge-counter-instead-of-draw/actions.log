@@ -1,0 +1,7 @@
+# Event$ Draw | Optional$ True | ReplaceWith$ Counter: human confirms Pursuit of
+# Knowledge's "you may put a study counter on it instead" for the draw step's
+# draw. The draw is replaced: a STUDY counter, no card in hand.
+queue confirmreplacement true
+advance
+advance
+advance

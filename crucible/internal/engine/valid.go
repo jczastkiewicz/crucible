@@ -582,6 +582,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return !strings.HasSuffix(name, "With") || c.PairedWith() == source
 	case name == "tapped":
 		return c.Tapped
+	case name == "faceDown":
+		// CardProperty.java: card.isFaceDown().
+		return c.IsFaceDown()
+	case name == "faceUp":
+		return !c.IsFaceDown()
 	case name == "untapped":
 		return !c.Tapped
 	case name == "SharesColorWith":

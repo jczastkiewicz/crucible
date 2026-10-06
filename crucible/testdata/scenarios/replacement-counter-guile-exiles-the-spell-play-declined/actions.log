@@ -1,0 +1,15 @@
+# Same board as the sibling scenario, but ai declines Play's "may": Guile's
+# replacement still exiled the Bears instead of countering them, and they stay
+# in exile, in their owner's (human's) exile zone.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 1
+tapformana ai 8 U
+tapformana ai 9 U
+queue targets 1
+castspell ai 10
+queue confirmeffect false
+resolvestack

@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Plains
+humanbattlefield=Island|Tapped;Bruvac the Grandiloquent
+humangraveyard=Thought Scour
+ailife=20
+aigraveyard=Swamp;Swamp;Swamp;Swamp
+ailibrary=Swamp;Swamp;Swamp;Swamp

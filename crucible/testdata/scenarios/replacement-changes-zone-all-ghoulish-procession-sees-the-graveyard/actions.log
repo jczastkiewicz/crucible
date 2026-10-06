@@ -1,0 +1,9 @@
+# Mode$ ChangesZoneAll | Origin$ Battlefield | Destination$ Graveyard: Lightning
+# Bolt kills human's own Grizzly Bears, which goes to the graveyard, so
+# Ghoulish Procession's batch trigger fires and makes a Zombie.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets 4
+castspell human 1
+resolvestack

@@ -1,0 +1,8 @@
+# Event$ BeginPhase | Phase$ Draw | Optional$ True | ReplaceWith$ DBGainLife:
+# Fasting's controller confirms the "you may skip that step" (the decider is
+# the affected player, ConfirmReplacementEffect), so the draw step is never
+# begun, nothing is drawn, and the substitute ability gains 2 life.
+queue confirmreplacement true
+advance
+advance
+advance

@@ -197,7 +197,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		}
 	}
 	for _, id := range cards {
-		if c := g.Card(id); c.Zone == Stack && zoneIn(Stack, origin) && id != a.Source {
+		if c := g.Card(id); c.Zone == Stack && zoneIn(Stack, origin) && id != a.Source && (a.replacing == nil || a.replacing.card != id) {
 			return fmt.Errorf("engine: ChangeZone: Origin$ Stack for a spell other than its own host not resolvable yet")
 		}
 		if c := g.Card(id); c.Zone == Command && zoneIn(Command, origin) && !c.IsEffect {

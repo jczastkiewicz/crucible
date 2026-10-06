@@ -517,6 +517,10 @@ func (c *scriptedMulliganController) ChooseRoomDoor(_ *engine.Game, _ engine.Pla
 	panic("scriptedMulliganController: ChooseRoomDoor was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ConfirmReplacementEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ string) bool {
+	panic("scriptedMulliganController: ConfirmReplacementEffect was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseReplacementEffect(_ *engine.Game, _ engine.PlayerID, _ []engine.ReplacementOption) int {
 	panic("scriptedMulliganController: ChooseReplacementEffect was not expected to be called")
 }

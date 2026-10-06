@@ -83,7 +83,7 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if c.Zone != Battlefield || !canBeDestroyed(c) {
 			continue
 		}
-		if !noRegen && g.regenerate(controller, id) {
+		if g.destroyInstead(controller, id) || (!noRegen && g.regenerate(controller, id)) {
 			continue
 		}
 		if remember {

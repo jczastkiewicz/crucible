@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanbattlefield=Alms Collector|Id:3
+humanlibrary=Plains|Id:4;Mountain|Id:5
+aihand=Divination|Id:1
+aibattlefield=Island|Id:2;Island|Id:8;Island|Id:9
+ailibrary=Swamp|Id:10;Swamp|Id:11;Swamp|Id:12

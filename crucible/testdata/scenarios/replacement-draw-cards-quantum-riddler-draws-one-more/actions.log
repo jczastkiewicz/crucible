@@ -1,0 +1,9 @@
+# Event$ DrawCards | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ LE1 |
+# ReplaceWith$ DrawPlusOne (DB$ Draw | NumCards$ ReplaceCount$Number/Plus.1):
+# with Opt cast out of an otherwise empty hand, Opt's draw of 1 becomes 2.
+startturn human
+advance 3
+tapformana human 2 U
+queue scry 4
+castspell human 1
+resolvestack

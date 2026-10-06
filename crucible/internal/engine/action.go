@@ -468,7 +468,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 	}
 	var died []CardID
 	for _, id := range dead {
-		if g.regenerate(controller, id) {
+		if g.destroyInstead(controller, id) || g.regenerate(controller, id) {
 			continue
 		}
 		g.moveToGraveyard(controller, id)

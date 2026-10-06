@@ -36,10 +36,7 @@ type replacementCandidate struct {
 // appliedReplacement is Java's ReplacementEffect.hasRun: a replacement
 // effect applies at most once to one event, so a candidate already chosen is
 // not offered again after the event was updated.
-type appliedReplacement struct {
-	host CardID
-	rule *compile.Ability
-}
+type appliedReplacement = activeReplacement
 
 // runReplacements runs the CR 616 loop for an event whose Affected is
 // decider (the affected player, or the affected permanent's controller).
@@ -54,7 +51,7 @@ func (g *Game) runReplacements(controller PlayerController, decider PlayerID, co
 	for {
 		var cands []replacementCandidate
 		for _, c := range collect() {
-			if !appliedBefore(done, c) {
+			if !appliedBefore(done, c) && !appliedBefore(g.replacing, c) {
 				cands = append(cands, c)
 			}
 		}
@@ -63,7 +60,13 @@ func (g *Game) runReplacements(controller PlayerController, decider PlayerID, co
 		}
 		chosen := cands[g.chooseReplacement(controller, decider, cands)]
 		done = append(done, appliedReplacement{host: chosen.host.ID, rule: chosen.rule})
-		switch chosen.apply() {
+		if !g.confirmOptionalReplacement(controller, decider, chosen) {
+			continue
+		}
+		g.replacing = append(g.replacing, appliedReplacement{host: chosen.host.ID, rule: chosen.rule})
+		res := chosen.apply()
+		g.replacing = g.replacing[:len(g.replacing)-1]
+		switch res {
 		case replacementReplaced:
 			return replacementReplaced
 		case replacementUpdated:
@@ -79,6 +82,30 @@ func appliedBefore(done []appliedReplacement, c replacementCandidate) bool {
 		}
 	}
 	return false
+}
+
+// confirmOptionalReplacement is ReplacementHandler.executeReplacement's
+// Optional$ gate: a "you may" replacement asks its decider (the affected
+// player, or OptionalDecider$) before it applies. A declined one counts as
+// applied -- it is not offered again for this event -- and changes nothing.
+// A nil controller declines: nobody is there to say yes.
+func (g *Game) confirmOptionalReplacement(controller PlayerController, decider PlayerID, c replacementCandidate) bool {
+	if _, optional := c.rule.Param("Optional"); !optional {
+		return true
+	}
+	if controller == nil {
+		return false
+	}
+	if v, ok := c.rule.Param("OptionalDecider"); ok {
+		players, err := definedPlayers(g, c.host.Controller(), c.host.ID, v, abilityRefs{})
+		if err != nil || len(players) == 0 {
+			g.recordPendingError(fmt.Errorf("engine: %q: OptionalDecider$ %q is not resolvable", c.host.Def.Name, v))
+			return false
+		}
+		decider = players[0]
+	}
+	desc, _ := c.rule.Param("Description")
+	return controller.ConfirmReplacementEffect(g, decider, c.host.ID, strings.ReplaceAll(desc, "CARDNAME", c.host.Def.Name))
 }
 
 // chooseReplacement is PlayerController.chooseSingleReplacementEffect's

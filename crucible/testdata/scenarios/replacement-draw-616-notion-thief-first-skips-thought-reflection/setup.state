@@ -1,0 +1,7 @@
+humanlife=20
+ailife=20
+humanhand=Words of Wisdom|Id:1
+humanbattlefield=Island|Id:2;Island|Id:3;Notion Thief|Id:4
+humanlibrary=Plains|Id:5;Plains|Id:6;Plains|Id:7;Plains|Id:8;Plains|Id:9
+ailibrary=Swamp|Id:10;Swamp|Id:11;Swamp|Id:12;Swamp|Id:13
+aibattlefield=Thought Reflection|Id:14

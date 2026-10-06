@@ -92,13 +92,18 @@ import (
 // every candidate would produce the identical result.
 func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, origin ZoneType) {
 	movedCard := g.Card(moved)
+	var cands []replacementCandidate
+	consider := func(host *Card, hostController PlayerID, r *compile.Ability, amounts map[string]expr.Amount) {
+		if sub, ok := movedBattlefieldMatch(g, r, movedCard, origin, hostController, host.ID, amounts); ok {
+			cands = append(cands, replacementCandidate{host: host, rule: r, apply: func() replacementResult {
+				return g.applyMovedBattlefield(controller, movedCard, host, sub, amounts)
+			}})
+		}
+	}
 	if movedCard.Def != nil {
 		for _, face := range movedCard.traitFaces() {
 			for _, r := range face.Replacements {
-				if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, movedCard.Controller(), moved, face.Amounts); matched {
-					movedCard.Tapped = shouldTap
-					return
-				}
+				consider(movedCard, movedCard.Controller(), r, face.Amounts)
 			}
 		}
 	}
@@ -106,10 +111,7 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 	// permanent enters tapped"), kept in its grant rows across zone changes.
 	for _, grant := range movedCard.grants {
 		for _, r := range grant.replacements {
-			if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, movedCard.Controller(), moved, grant.amounts); matched {
-				movedCard.Tapped = shouldTap
-				return
-			}
+			consider(movedCard, movedCard.Controller(), r, grant.amounts)
 		}
 	}
 	for _, pid := range g.Players() {
@@ -123,14 +125,112 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 			}
 			for _, face := range w.traitFaces() {
 				for _, r := range face.Replacements {
-					if shouldTap, matched := replacementTapsOnMove(g, controller, r, movedCard, origin, w.Controller(), watcher, face.Amounts); matched {
-						movedCard.Tapped = shouldTap
-						return
-					}
+					consider(w, w.Controller(), r, face.Amounts)
 				}
 			}
 		}
 	}
+	// Day/night lines act on the game, not the card's tapped state: each runs.
+	// Of the tapped-state lines, one kind alone is idempotent (every "enters
+	// tapped" line says the same), so the first applies; "enters tapped" and
+	// "enters untapped" together disagree, and CR 616.1 has the affected
+	// player pick the order, the last one applied winning.
+	var stateCands []replacementCandidate
+	for _, c := range cands {
+		if sub := replaceWithSub(c.rule); sub != nil && strings.EqualFold(sub.Name, "DayTime") {
+			c.apply()
+			continue
+		}
+		stateCands = append(stateCands, c)
+	}
+	kinds := map[bool]bool{}
+	for _, c := range stateCands {
+		kinds[strings.EqualFold(replaceWithSub(c.rule).Name, "Untap")] = true
+	}
+	switch {
+	case len(kinds) > 1:
+		g.runReplacements(controller, movedCard.Controller(), func() []replacementCandidate { return stateCands })
+	case len(stateCands) > 0:
+		stateCands[0].apply()
+	}
+}
+
+// movedBattlefieldMatch reports whether r is a resolvable Event$ Moved
+// replacement for moved's entry onto the battlefield from origin (Event$
+// Moved, Destination$/Origin$, ValidCard$ matched like a trigger's,
+// requirements) whose ReplaceWith$ ability is one of the shapes
+// applyMovedBattlefield runs: "enters tapped" (DB$ Tap), "enters untapped"
+// (DB$ Untap | Defined$ ReplacedCard, Gond Gate, Spelunking) or "it becomes
+// day" (DB$ DayTime). It returns that ability.
+func movedBattlefieldMatch(g *Game, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (*compile.Ability, bool) {
+	if !strings.EqualFold(r.Name, "Moved") || !replacementZoneMatches(r, "Destination", Battlefield) || !replacementZoneMatches(r, "Origin", origin) {
+		return nil, false
+	}
+	if layer, ok := r.Param("Layer"); ok && !strings.EqualFold(layer, "Other") {
+		return nil, false
+	}
+	validCard, ok := r.Param("ValidCard")
+	if !ok || !Matches(g, movedCard, valid.Parse(validCard), hostController, host) {
+		return nil, false
+	}
+	if !replacementRequirementsCheck(g, g.Card(host), amounts, r) {
+		return nil, false
+	}
+	sub := replaceWithSub(r)
+	if sub == nil {
+		return nil, false
+	}
+	switch {
+	case strings.EqualFold(sub.Name, "Tap"):
+		return sub, tapShapeRecognized(sub)
+	case strings.EqualFold(sub.Name, "Untap"):
+		defined, ok := sub.Param("Defined")
+		return sub, ok && strings.EqualFold(defined, "ReplacedCard") && onlyParamsOf(sub, "db", "defined", "etb")
+	case strings.EqualFold(sub.Name, "DayTime"):
+		return sub, true
+	}
+	return nil, false
+}
+
+// applyMovedBattlefield runs one matched line: Tap taps the entering card
+// when its own condition holds (tapAbilityResolvesTap, an UnlessCost may ask
+// to pay), Untap untaps it, DayTime resolves through the Registry.
+func (g *Game) applyMovedBattlefield(controller PlayerController, movedCard, host *Card, sub *compile.Ability, amounts map[string]expr.Amount) replacementResult {
+	switch {
+	case strings.EqualFold(sub.Name, "Untap"):
+		movedCard.Tapped = false
+	case strings.EqualFold(sub.Name, "DayTime"):
+		if err := g.runReplacementChain(controller, host, amounts, sub, &replacementEvent{result: replacementUpdated, card: movedCard.ID}); err != nil {
+			g.recordPendingError(err)
+		}
+	default:
+		if shouldTap, _ := tapAbilityResolvesTap(g, controller, sub, host, amounts); shouldTap {
+			movedCard.Tapped = true
+		}
+	}
+	return replacementUpdated
+}
+
+// tapShapeRecognized is the side-effect-free half of tapAbilityResolvesTap's
+// recognition: a DB$ Tap of Self or ReplacedCard naming no param past the
+// ones that function reads.
+func tapShapeRecognized(a *compile.Ability) bool {
+	defined, ok := a.Param("Defined")
+	if !ok || (!strings.EqualFold(defined, "Self") && !strings.EqualFold(defined, "ReplacedCard")) {
+		return false
+	}
+	return onlyParamsOf(a, "db", "defined", "etb", "stackdescription", "unlesscost", "unlesspayer",
+		"conditionpresent", "conditioncompare", "conditionchecksvar", "conditionsvarcompare")
+}
+
+// onlyParamsOf reports whether every param of a is one of keys (folded).
+func onlyParamsOf(a *compile.Ability, keys ...string) bool {
+	for _, p := range a.Params {
+		if !containsString(keys, strings.ToLower(p.Key)) {
+			return false
+		}
+	}
+	return true
 }
 
 // moveToGraveyard is Game.Move to the card's owner's graveyard through CR
@@ -1294,19 +1394,12 @@ func (g *Game) payEntersTappedUnless(controller PlayerController, a *compile.Abi
 // a card, draw two cards instead" must never let CR 704.5b's own
 // empty-library loss see the replaced draw at all.
 //
-// The substitute ability's own draws run through drawOneCard directly
-// (turn.go), not back through DrawCards/drawPrevented/drawReplaced itself:
-// Java's own ReplacementHandler guards a replacement effect against
-// reapplying to an event its own resolution produced (the `hasRun` set,
-// ReplacementHandler.java), a per-line recursion guard this port does not
-// build -- thought_reflection.txt's own replaced draw would otherwise
-// recheck thought_reflection.txt's own line against itself, forever.
-// Reusing the unguarded primitive instead sidesteps the need for one, at the
-// cost of a real, narrow simplification: the replacement's own draws are
-// not themselves checked against any OTHER replacement or prevention effect
-// on the battlefield either, not just the one that produced them. No real
-// corpus line combines two Draw-replacing permanents today, so this is not
-// observable against the corpus, but it is not full CR 616 either.
+// The substitute ability's own draws raise a new Draw event (drawEvent,
+// turn.go), as Java's Player.drawCards does: any OTHER Draw replacement or
+// prevention on the battlefield sees them, and CR 616's ordering applies to
+// each. The replacement that produced them is excluded for the length of its
+// own resolution (Game.replacing, Java's ReplacementEffect.hasRun), so
+// thought_reflection.txt's own replaced draw does not recheck itself.
 //
 // 7 of the corpus's own 36 real Event$ Draw lines naming ReplaceWith$
 // resolve end to end: thought_reflection.txt's own bare "if you would draw
@@ -1396,7 +1489,7 @@ func drawReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZone Z
 		case "event", "replacewith", "description", "validplayer", "activezones", "secondary",
 			"playerturn", "activephases", "checksvar", "svarcompare", "hellbent",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined",
-			"notfirstcardindrawstep":
+			"notfirstcardindrawstep", "optional", "optionaldecider":
 		default:
 			return false
 		}
@@ -1433,7 +1526,7 @@ func notFirstCardInDrawStepExempts(g *Game, r *compile.Ability, player PlayerID)
 // putCounterEffect is called: both need a *Registry (effect.go) to chain a
 // SubAbility$ once their own body finishes, which drawReplaced's own caller
 // chain (DrawCards, turn.go) has no way to reach -- reusing the underlying
-// primitives (drawOneCard/Card.Counters.Add) directly instead sidesteps
+// primitives (drawEvent/Card.Counters.Add) directly instead sidesteps
 // that, at the cost of never chaining a SubAbility$ of its own, which is why
 // a is refused outright when it names one rather than run with the chained
 // half silently dropped (GO-7). Reports whether a recognized shape actually
@@ -1487,7 +1580,7 @@ func applyDrawReplacementDraw(g *Game, controller PlayerController, host *Card, 
 		n = parsed
 	}
 	for i := 0; i < n; i++ {
-		if !g.drawOneCard(controller, drawer) {
+		if !g.drawEvent(controller, drawer) {
 			break
 		}
 	}
@@ -1695,7 +1788,7 @@ func applyGainLifeReplacementDraw(g *Game, controller PlayerController, host *Ca
 		n = parsed
 	}
 	for i := 0; i < n; i++ {
-		if !g.drawOneCard(controller, player) {
+		if !g.drawEvent(controller, player) {
 			break
 		}
 	}

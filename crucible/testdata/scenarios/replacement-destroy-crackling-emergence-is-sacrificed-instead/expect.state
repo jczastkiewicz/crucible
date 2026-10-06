@@ -1,0 +1,9 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Mountain
+humangraveyard=Crackling Emergence
+ailife=20
+aibattlefield=Mountain|Tapped;Mountain|Tapped;Mountain|Tapped
+aigraveyard=Stone Rain

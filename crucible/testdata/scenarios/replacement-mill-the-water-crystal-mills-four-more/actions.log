@@ -1,0 +1,9 @@
+# Event$ Mill | ValidPlayer$ Player.Opponent | ReplaceWith$ MillPlus4
+# (ReplaceCount$Number/Plus.4): the two cards Thought Scour mills from ai
+# become six.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets ai
+castspell human 1
+resolvestack

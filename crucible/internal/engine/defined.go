@@ -51,6 +51,23 @@ import (
 // longer in the game is skipped, matching Java's own
 // `if (!p.isInGame()) continue`.
 func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, refs abilityRefs) ([]PlayerID, error) {
+	// AbilityUtils.getDefinedPlayers splits the string on "&" and gathers
+	// the players of each part ("You & ReplacedPlayer"), each once.
+	if strings.Contains(defined, "&") {
+		var all []PlayerID
+		for _, part := range strings.Split(defined, "&") {
+			ps, err := definedPlayers(g, controller, host, strings.TrimSpace(part), refs)
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range ps {
+				if !slices.Contains(all, p) {
+					all = append(all, p)
+				}
+			}
+		}
+		return all, nil
+	}
 	if base, filter, ok := strings.Cut(defined, "."); ok && strings.HasPrefix(base, "Triggered") {
 		return triggeredPlayersFiltered(g, controller, host, base, filter, refs)
 	}

@@ -1,0 +1,13 @@
+# CR 616.1: same board as the sibling scenario, but the AI picks Notion Thief
+# (index 0) first. It replaces the draw with a draw by the human, an event
+# Thought Reflection (the AI's own "You") does not apply to. Thought
+# Reflection never sees the AI's draw, which no longer happens.
+# Human library 5 - 2 (Words of Wisdom) - 1 (diverted) = 2.
+queue replacement 0
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+queue paygeneric U
+castspell human 1
+resolvestack

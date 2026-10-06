@@ -1,0 +1,17 @@
+# CR 616.1: Words of Wisdom makes the AI draw a card while the AI's Thought
+# Reflection ("draw two instead") and the human's Notion Thief ("the opponent
+# skips that draw and you draw a card") both replace it. The affected player
+# (the AI) chooses; candidates come in play order, so 0 is Notion Thief and 1
+# is Thought Reflection.
+# Thought Reflection first: the draw becomes two draws for the AI, each a new
+# Draw event Thought Reflection cannot touch again (hasRun) but Notion Thief
+# still can. Each is diverted: the human draws two instead, the AI none.
+# Human library 5 - 2 (Words of Wisdom) - 2 (diverted) = 1.
+queue replacement 1
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+queue paygeneric U
+castspell human 1
+resolvestack

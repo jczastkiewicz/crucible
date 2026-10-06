@@ -1,0 +1,11 @@
+# Event$ Scry | ValidPlayer$ You | ReplaceWith$ ScryP1 (ReplaceEffect, VarName$
+# Num, ReplaceCount$Num/Plus.1): Opt's "scry 1" becomes a scry of 2. The top
+# two cards, Plains and Mountain, are both offered; the scry puts Mountain on
+# top of Plains, so Opt's draw takes Mountain. (A scry of 1 would offer Plains
+# alone.)
+startturn human
+advance 3
+tapformana human 2 U
+queue scry 5,4
+castspell human 1
+resolvestack

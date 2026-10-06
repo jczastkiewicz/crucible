@@ -51,7 +51,13 @@
     "saspec": ["saspec.go"],
     "triggerscan": ["triggerscan.go"],
     "amount": ["amount.go", "amountheads.go", "amountpaid.go", "amountcontext.go"],
-    "replacement": ["replacement.go", "replacementchoice.go", "replacementevents.go"],
+    "replacement": [
+      "replacement.go",
+      "replacementchoice.go",
+      "replacementevents.go",
+      "replacementfaces.go",
+      "replacementamounts.go"
+    ],
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],
     "condition": ["condition.go"],
@@ -317,6 +323,7 @@
       "castoptions"
     ],
     "trigger": [
+      "daytimeeffect",
       "presentcheck",
       "id",
       "zone",

@@ -352,30 +352,37 @@ func TestRegenerationReplacementRequiresValidCard(t *testing.T) {
 	}
 }
 
-// TestRegenerationReplacementRequiresRegenerationTrue proves a line naming
-// Event$ Destroy but no Regeneration$ True (r.Param("Regeneration")'s own
-// !ok/not-True branches) does not regenerate.
-func TestRegenerationReplacementRequiresRegenerationTrue(t *testing.T) {
+// TestRegenerationFlagOnlyMarksTheLineForRegenerate proves Regeneration$ True
+// is regenerate's own marker, not what makes a ReplaceWith$ Regeneration
+// ability run: Regeneration$ False is skipped by both regenerate and
+// destroyInstead (the creature dies), while a line with no Regeneration$ at
+// all is an ordinary Event$ Destroy replacement (destroyInstead), whose
+// ReplaceWith$ ability -- here a regeneration -- replaces the destruction, as
+// ReplacementHandler runs any ReplaceWith$ ability.
+func TestRegenerationFlagOnlyMarksTheLineForRegenerate(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]string{
-		"Missing": "Event$ Destroy | ValidCard$ Card.Self | ReplaceWith$ DBRegen",
-		"False":   "Event$ Destroy | ValidCard$ Card.Self | Regeneration$ False | ReplaceWith$ DBRegen",
+	cases := map[string]struct {
+		line string
+		want engine.ZoneType
+	}{
+		"Missing": {"Event$ Destroy | ValidCard$ Card.Self | ReplaceWith$ DBRegen", engine.Battlefield},
+		"False":   {"Event$ Destroy | ValidCard$ Card.Self | Regeneration$ False | ReplaceWith$ DBRegen", engine.Graveyard},
 	}
-	for name, replacement := range cases {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			g, p, _ := newTwoPlayerGame(t)
 			c := engine.NewScriptedController()
 			def := regenerationCreatureDef(t, "Test Mossbridge Regen"+name,
-				"DB$ Destroy | Defined$ Self", []string{replacement})
+				"DB$ Destroy | Defined$ Self", []string{tc.line})
 			host, err := castETBChain(t, g, p, def, c)
 			if err != nil {
 				t.Fatalf("ResolveStack: %v", err)
 			}
-			if z := g.Card(host).Zone; z != engine.Graveyard {
-				t.Errorf("zone = %v, want Graveyard", z)
+			if z := g.Card(host).Zone; z != tc.want {
+				t.Errorf("zone = %v, want %v", z, tc.want)
 			}
 		})
 	}

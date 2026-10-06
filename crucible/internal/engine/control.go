@@ -525,6 +525,14 @@ type PlayerController interface {
 	// the only caller.
 	ChooseReplacementEffect(g *Game, decider PlayerID, options []ReplacementOption) int
 
+	// ConfirmReplacementEffect is a replacement effect's own "you may":
+	// whether decider applies host's Optional$ replacement to the event.
+	// Java's confirmReplacementEffect (ReplacementHandler.executeReplacement).
+	// decider is the affected player, or the OptionalDecider$ player.
+	// Declining leaves the event as it was and lets the remaining candidates
+	// be tried. runReplacements (replacementchoice.go) is the only caller.
+	ConfirmReplacementEffect(g *Game, decider PlayerID, host CardID, description string) bool
+
 	// TakeAction is CR 117's own priority ask (ADR-0019): what, if anything,
 	// pid does with priority right now. The zero value, ActionPass, is a
 	// pass -- Java's chooseSpellAbilityToPlay returning null
@@ -563,56 +571,57 @@ const (
 // zero value that would silently pass the scenario for the wrong reason
 // (GO-7).
 type ScriptedController struct {
-	startingPlayers  []PlayerID
-	startingHands    []int
-	keepHand         []bool
-	tucked           [][]CardID
-	legendaryKeep    []CardID
-	attackers        [][]CardID
-	exertAttackers   [][]CardID
-	attackTargets    []EntityID
-	blocks           [][]Block
-	damage           [][]DamageAssignment
-	discards         [][]CardID
-	discardChoices   [][]CardID
-	battleProtector  []PlayerID
-	hybridMana       []mana.Colors
-	monoHybrid       []bool
-	colorlessHybrid  []bool
-	phyrexian        []bool
-	hybridPhyrexian  []mana.Colors
-	genericMana      []mana.Shard
-	xValues          []int
-	snowMana         []mana.Shard
-	enchantTargets   []CardID
-	scryDecisions    []scryDecision
-	surveilDecisions []scryDecision
-	targets          [][]EntityID
-	optionalTrigger  []bool
-	sacrificeChoices [][]CardID
-	payCost          []bool
-	manaColor        []mana.Colors
-	tapChoices       [][]CardID
-	returnChoices    [][]CardID
-	cardChoices      [][]CardID
-	playerChoices    []PlayerID
-	colorChoices     []mana.Colors
-	numberChoices    []int
-	tapOrUntap       []bool
-	entityChoices    [][]EntityID
-	confirmReveal    []bool
-	confirmEffect    []bool
-	cardOrders       [][]CardID
-	abilityChoices   [][]int
-	modeChoices      [][]int
-	protectionChoice []int
-	coinCalls        []bool
-	cardOnTop        []bool
-	binary           []bool
-	option           []int
-	sector           []int
-	roomDoor         []Door
-	replacementPick  []int
+	startingPlayers    []PlayerID
+	startingHands      []int
+	keepHand           []bool
+	tucked             [][]CardID
+	legendaryKeep      []CardID
+	attackers          [][]CardID
+	exertAttackers     [][]CardID
+	attackTargets      []EntityID
+	blocks             [][]Block
+	damage             [][]DamageAssignment
+	discards           [][]CardID
+	discardChoices     [][]CardID
+	battleProtector    []PlayerID
+	hybridMana         []mana.Colors
+	monoHybrid         []bool
+	colorlessHybrid    []bool
+	phyrexian          []bool
+	hybridPhyrexian    []mana.Colors
+	genericMana        []mana.Shard
+	xValues            []int
+	snowMana           []mana.Shard
+	enchantTargets     []CardID
+	scryDecisions      []scryDecision
+	surveilDecisions   []scryDecision
+	targets            [][]EntityID
+	optionalTrigger    []bool
+	sacrificeChoices   [][]CardID
+	payCost            []bool
+	manaColor          []mana.Colors
+	tapChoices         [][]CardID
+	returnChoices      [][]CardID
+	cardChoices        [][]CardID
+	playerChoices      []PlayerID
+	colorChoices       []mana.Colors
+	numberChoices      []int
+	tapOrUntap         []bool
+	entityChoices      [][]EntityID
+	confirmReveal      []bool
+	confirmEffect      []bool
+	cardOrders         [][]CardID
+	abilityChoices     [][]int
+	modeChoices        [][]int
+	protectionChoice   []int
+	coinCalls          []bool
+	cardOnTop          []bool
+	binary             []bool
+	option             []int
+	sector             []int
+	roomDoor           []Door
+	replacementPick    []int
+	replacementConfirm []bool
 	// actionQueue is TakeAction's own per-player queue (ADR-0019), indexed
 	// by PlayerID like Game.players already is -- not a map, GO-12. A slot
 	// left nil means "nothing queued for this player yet," the same as an
@@ -1295,6 +1304,18 @@ func (c *ScriptedController) QueueReplacementEffect(i int) {
 // queued.
 func (c *ScriptedController) ChooseReplacementEffect(_ *Game, _ PlayerID, _ []ReplacementOption) int {
 	return popQueue(&c.replacementPick, "replacement effect")
+}
+
+// QueueConfirmReplacementEffect appends the answer to the next
+// ConfirmReplacementEffect call.
+func (c *ScriptedController) QueueConfirmReplacementEffect(confirm bool) {
+	c.replacementConfirm = append(c.replacementConfirm, confirm)
+}
+
+// ConfirmReplacementEffect returns the next answer
+// QueueConfirmReplacementEffect queued.
+func (c *ScriptedController) ConfirmReplacementEffect(_ *Game, _ PlayerID, _ CardID, _ string) bool {
+	return popQueue(&c.replacementConfirm, "confirm replacement effect")
 }
 
 // QueueAction appends a to pid's own priority-answer queue, consumed by

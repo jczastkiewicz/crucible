@@ -84,8 +84,13 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 
 	var milled []CardID
 	for _, pid := range millers {
+		// Event$ Mill: "they mill twice that many cards instead".
+		pidCards, replaced := g.playerAmountReplaced(controller, "Mill", "Number", pid, numCards)
+		if replaced || pidCards <= 0 {
+			continue
+		}
 		lib := g.Zone(Library, pid).Cards()
-		n := numCards
+		n := pidCards
 		if n > len(lib) {
 			n = len(lib)
 		}

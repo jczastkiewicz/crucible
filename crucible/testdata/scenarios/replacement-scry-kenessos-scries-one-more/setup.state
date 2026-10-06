@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Opt|Id:1
+humanbattlefield=Island|Id:2;Kenessos, Priest of Thassa|Id:3
+humanlibrary=Plains|Id:4;Mountain|Id:5;Forest|Id:6;Swamp|Id:7

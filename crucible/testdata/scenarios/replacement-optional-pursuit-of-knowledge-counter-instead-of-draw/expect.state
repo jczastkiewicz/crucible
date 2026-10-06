@@ -1,0 +1,7 @@
+turn=2
+activeplayer=human
+activephase=Draw
+humanlife=20
+humanbattlefield=Pursuit of Knowledge|Counters:STUDY=1
+humanlibrary=Mountain;Grizzly Bears
+ailife=20

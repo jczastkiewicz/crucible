@@ -1,0 +1,6 @@
+# Same board; human declines the "you may", so the draw happens as printed and
+# no counter is put on Pursuit of Knowledge.
+queue confirmreplacement false
+advance
+advance
+advance

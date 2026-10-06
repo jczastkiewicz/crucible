@@ -1,0 +1,8 @@
+# Same board as the sibling scenario, but the controller declines Fasting's
+# "you may": the event stays as it was, the draw step begins and the card is
+# drawn (no life gained). Drawing a card then triggers Fasting's own "when you
+# draw a card, destroy CARDNAME".
+queue confirmreplacement false
+advance
+advance
+advance

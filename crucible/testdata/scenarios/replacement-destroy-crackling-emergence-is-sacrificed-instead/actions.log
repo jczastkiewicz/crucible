@@ -1,0 +1,11 @@
+# Event$ Destroy | ValidCard$ Card.EnchantedBy | ReplaceWith$ ...Egress: the same replacement on Crackling Emergence: Stone Rain's destruction of the enchanted Mountain becomes the Aura's sacrifice.
+startturn ai
+advance 3
+tapformana ai 4 R
+tapformana ai 5 R
+tapformana ai 6 R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+castspell ai 1
+resolvestack

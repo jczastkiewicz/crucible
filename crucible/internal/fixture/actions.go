@@ -617,6 +617,15 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueReplacementEffect(n)
 
+	case "confirmreplacement":
+		// A replacement effect's own "you may" (Optional$,
+		// ConfirmReplacementEffect): Fasting's "you may skip that step".
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("queue confirmreplacement %q: %w", value, err)
+		}
+		c.QueueConfirmReplacementEffect(v)
+
 	case "optionaltrigger":
 		// An OptionalDecider$ trigger's "you may" (ConfirmOptionalTrigger),
 		// asked as the trigger goes on the stack: Swarm Intelligence's

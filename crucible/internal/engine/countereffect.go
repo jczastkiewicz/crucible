@@ -11,7 +11,8 @@ import "fmt"
 // and RememberForCounter$ remember the card on the host (the latter even if
 // it could not be countered). Optional$ lets the activator stop first.
 // A Layer$ CantHappen Counter replacement (counterCantHappen,
-// replacementevents.go) stops the counter. Countering an ability, Defined$
+// replacementevents.go) stops the counter, and a ReplaceWith$ one replaces it
+// (counterReplaced). Countering an ability, Defined$
 // spells, any other Counter replacement and a CantBeCountered static are
 // not resolved.
 type counterEffect struct{}
@@ -78,6 +79,11 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			return err
 		}
 		if cant {
+			continue
+		}
+		// Event$ Counter with a ReplaceWith$ ability (Guile): the spell is
+		// not countered, the ability acts on it instead.
+		if g.counterReplaced(controller, a, id) {
 			continue
 		}
 		kept := g.stack[:0]

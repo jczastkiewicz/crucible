@@ -1,0 +1,12 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanhand=Plains
+humanbattlefield=Alms Collector
+humanlibrary=Mountain
+ailife=20
+aihand=Swamp
+aibattlefield=Island|Tapped;Island|Tapped;Island|Tapped
+aigraveyard=Divination
+ailibrary=Swamp;Swamp

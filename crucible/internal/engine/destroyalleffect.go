@@ -86,7 +86,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if hasNoRegenValid {
 			cantRegen = Matches(g, c, noRegenSpec, a.Controller, a.Source)
 		}
-		if !cantRegen && g.regenerate(controller, id) {
+		if g.destroyInstead(controller, id) || (!cantRegen && g.regenerate(controller, id)) {
 			continue
 		}
 		g.moveToGraveyard(controller, id)

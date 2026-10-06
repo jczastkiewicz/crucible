@@ -71,8 +71,14 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	}
 
 	for _, pid := range players {
+		// Event$ Scry: Kenessos' "scry that many plus one", Eligeth's "draw
+		// that many cards instead".
+		pidNum, replaced := g.playerAmountReplaced(controller, "Scry", "Num", pid, num)
+		if replaced || pidNum <= 0 {
+			continue
+		}
 		lib := g.Zone(Library, pid).Cards()
-		n := num
+		n := pidNum
 		if n > len(lib) {
 			n = len(lib)
 		}

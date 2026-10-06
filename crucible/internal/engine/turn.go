@@ -100,7 +100,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			}
 			g.extraPhases = [numPhaseTypes][]PhaseType{}
 			g.combatsThisTurn = 0
-			g.activePlayer = g.nextActivePlayer()
+			g.activePlayer = g.nextActivePlayer(controller)
 			g.endDetains(g.activePlayer)
 			g.endGoads(g.activePlayer)
 			// PhaseHandler.java:515-518: the cleanup Phase's until lists,
@@ -118,7 +118,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 	g.activePhase = next
 	// Event$ BeginPhase replacements (replacementevents.go) before the
 	// one-shot skips, so a static skip leaves a SkipPhase effect unspent.
-	if g.beginPhaseSkipped(next) || g.consumeSkip(next) {
+	if g.beginPhaseSkipped(controller, next) || g.consumeSkip(next) {
 		// ReplaceBeginPhase replaced it: a skipped combat phase jumps to its
 		// end step, then the phase walk carries on (advanceToNextPhase).
 		if next == CombatBegin {
@@ -160,7 +160,7 @@ func (g *Game) drivenSkips(next PhaseType) bool {
 // BeginTurn replacement, which counts down); a skipped normal turn still
 // advances the turn-order cursor past them, and the pick repeats. An extra
 // turn belonging to a player who has since lost is dropped.
-func (g *Game) nextActivePlayer() PlayerID {
+func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 	cursor := g.activePlayer
 	for guard := 0; guard < 1000; guard++ {
 		var next PlayerID
@@ -182,7 +182,7 @@ func (g *Game) nextActivePlayer() PlayerID {
 		}
 		// Event$ BeginTurn: Java's isExtraTurn is "the stack is not empty
 		// after the pop", the bottom entry being the normal turn.
-		if g.beginTurnSkipped(next, fromExtra && len(g.extraTurns) > 0) {
+		if g.beginTurnSkipped(controller, next, fromExtra && len(g.extraTurns) > 0) {
 			if !fromExtra {
 				cursor = next
 			}
@@ -442,20 +442,38 @@ func (g *Game) drawStep(controller PlayerController) {
 // drawStep (above) and drawEffect (draweffect.go, CR 120.3/M6's own Draw
 // effect) are this port's two callers.
 func (g *Game) DrawCards(pid PlayerID, n int, controller PlayerController) {
-	for i := 0; i < n; i++ {
-		if g.cantDraw(pid) {
-			return
-		}
-		if g.drawPrevented(pid) {
-			continue
-		}
-		if g.drawReplaced(controller, pid) {
-			continue
-		}
-		if !g.drawOneCard(controller, pid) {
+	// Event$ DrawCards: "if you would draw one or more cards" resizes or
+	// replaces the whole draw (Player.drawCards).
+	if n > 0 {
+		var replaced bool
+		if n, replaced = g.playerAmountReplaced(controller, "DrawCards", "Number", pid, n); replaced {
 			return
 		}
 	}
+	for i := 0; i < n; i++ {
+		if !g.drawEvent(controller, pid) {
+			return
+		}
+	}
+}
+
+// drawEvent is one CR 120.3 draw event: the can't-draw static, Prevent$,
+// the CR 616 replacement walk, then the draw itself. A substitute ability's
+// own draw (applyDrawReplacementDraw) raises it again, as Java's
+// Player.drawCards does, with the replacement that produced it excluded
+// (Game.replacing). It reports false when the draws must stop: a player who
+// cannot draw, or an empty library.
+func (g *Game) drawEvent(controller PlayerController, pid PlayerID) bool {
+	if g.cantDraw(pid) {
+		return false
+	}
+	if g.drawPrevented(pid) {
+		return true
+	}
+	if g.drawReplaced(controller, pid) {
+		return true
+	}
+	return g.drawOneCard(controller, pid)
 }
 
 // drawOneCard is CR 120.3's own primitive: move the top card of pid's

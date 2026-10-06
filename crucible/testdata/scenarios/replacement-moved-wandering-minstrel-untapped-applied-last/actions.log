@@ -1,0 +1,8 @@
+# CR 616.1 for Event$ Moved to the battlefield: two replacements disagree
+# about the tapped state. Candidates are offered in play order: 0 is the
+# land's own "enters tapped", 1 is the Minstrel's "enters untapped".
+# Meandering River's "enters tapped" is applied first, then The Wandering Minstrel's "lands you control enter untapped": the last applied wins and the land enters untapped.
+startturn human
+advance 3
+queue replacement 0
+playland human 1

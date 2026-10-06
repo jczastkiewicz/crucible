@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Mountain|Id:2;Crackling Emergence|Id:3|AttachedTo:2
+aihand=Stone Rain|Id:1
+aibattlefield=Mountain|Id:4;Mountain|Id:5;Mountain|Id:6

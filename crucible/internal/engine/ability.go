@@ -152,6 +152,12 @@ type Ability struct {
 	// Modes is a Charm's chosen modes, each with its own targets, picked as
 	// the Charm was put on the stack (chooseCharmModes, charmeffect.go).
 	Modes []Ability
+	// charmRoot is the Charm line a mode belongs to, nil elsewhere:
+	// SpellAbility.getRootAbility for a mode (askOf, staticability.go).
+	charmRoot *compile.Ability
+	// casting is true only while a spell's targets are being chosen as it is
+	// cast, before it is on the stack (castInstantOrSorcery); askOf reads it.
+	casting bool
 	// spell is SpellAbility.isSpell: this item is a spell (cast, or a copy
 	// of one), not an activated or triggered ability. Set by every cast
 	// path (castSpell, castspell.go; castWithoutPaying, discovereffect.go)

@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Wall of Shadows|Id:1
+aibattlefield=Mountain|Id:2
+aihand=Tunnel|Id:3

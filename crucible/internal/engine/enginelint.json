@@ -454,7 +454,8 @@
       "action",
       "staticability",
       "subability",
-      "zonemove"
+      "zonemove",
+      "defined"
     ],
     "subability": ["id", "game", "ability", "control", "effect"],
     "zonemove": ["id", "card", "game", "ability", "control", "amount", "zone", "effecthelpers", "parts", "event"],

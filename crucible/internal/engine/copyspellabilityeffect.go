@@ -297,7 +297,7 @@ func (g *Game) chooseCopyTargets(controller PlayerController, m *Ability) error 
 		if !ok {
 			return nil
 		}
-		eligible := g.enchantTargets(spec, m.Controller, m.Source)
+		eligible := g.enchantTargets(spec, m.Controller, m.Source, false)
 		if len(eligible) == 0 || !controller.ConfirmEffect(g, m.Controller, m.Source) {
 			return nil
 		}

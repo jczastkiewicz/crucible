@@ -158,6 +158,15 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString("|Damage:")
 			b.WriteString(strconv.Itoa(c.Damage.Marked))
 		}
+		// GameState.java:379-390: after Damage, ChosenType then NamedCard.
+		if t := c.Memory.ChosenType(false); t != "" {
+			b.WriteString("|ChosenType:")
+			b.WriteString(t)
+		}
+		if names := c.Memory.NamedCards(); len(names) > 0 {
+			b.WriteString("|NamedCard:")
+			b.WriteString(strings.Join(names, ","))
+		}
 		if ids := cardRefs(c.Memory.Remembered()); len(ids) > 0 {
 			b.WriteString("|RememberedCards:")
 			b.WriteString(strings.Join(ids, ","))

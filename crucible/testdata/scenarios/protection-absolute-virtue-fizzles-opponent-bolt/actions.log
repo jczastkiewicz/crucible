@@ -1,0 +1,10 @@
+# CR 702.16e: Absolute Virtue's `Protection:Player.Opponent:each of your
+# opponents` is the source test "Card.ControlledBy Player.Opponent"
+# (Protection.java:13-17, 63-65), read from human's side: any source ai
+# controls is refused. ai's Bolt at human fizzles at the CR 608.2b re-check.
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets human
+queue action ai cast 3
+passpriority

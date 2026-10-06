@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+ailife=20
+aibattlefield=Island|Id:2|Tapped;Island|Id:3|Tapped;Island|Id:4|Tapped;Island|Id:5|Tapped;Island|Id:6|Tapped;Enthralling Hold|Id:7|SummonSick|AttachedTo:1;Grizzly Bears|Id:1|Owner:human|Tapped|SummonSick

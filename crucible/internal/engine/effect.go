@@ -216,7 +216,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 		if !ok {
 			return fmt.Errorf("engine: UnlessCost$ %q not resolvable yet", unlessCostText)
 		}
-		alternatives = append(alternatives, uc)
+		alternatives = append(alternatives, uc.withTargets(a))
 	}
 
 	payerSpec, ok := a.Params.Param("UnlessPayer")

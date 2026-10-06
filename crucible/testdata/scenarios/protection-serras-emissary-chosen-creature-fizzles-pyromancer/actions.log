@@ -1,0 +1,10 @@
+# CR 702.16e with ChosenType Creature: the Pyromancer's ping at human is
+# refused (its source is a creature), and so is the ping at Serra's Emissary
+# itself. Only the source type matters, so the ability still goes on the
+# stack and fizzles when the CR 608.2b re-check runs; the Pyromancer is
+# tapped for its cost either way.
+startturn ai
+advance 3
+queue targets human
+queue action ai activate 2 0
+passpriority

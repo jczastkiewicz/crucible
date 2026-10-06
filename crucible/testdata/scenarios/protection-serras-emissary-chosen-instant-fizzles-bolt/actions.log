@@ -1,0 +1,11 @@
+# CR 702.16e: Serra's Emissary's `Affected$ You,Creature.YouCtrl |
+# AddKeyword$ Protection:ChosenType` becomes `Protection:Instant`
+# (layerSubstituteKeyword) on its controller too. A bare card-type
+# characteristic matches the source card by type, so the Instant Lightning
+# Bolt cannot hit human; the CR 608.2b re-check fizzles it.
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets human
+queue action ai cast 3
+passpriority

@@ -1,0 +1,9 @@
+# CR 702.16e: Absolute Virtue only protects from sources its controller's
+# opponents control. human's own Bolt at human is not a "ControlledBy
+# Player.Opponent" source, so it connects.
+startturn human
+advance 3
+tapformana human 2 R
+queue targets human
+queue action human cast 3
+passpriority

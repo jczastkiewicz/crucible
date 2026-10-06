@@ -1,0 +1,9 @@
+# The same spell, both creatures controlled by human. The second target
+# breaks TargetsWithDifferentControllers$ against the first, so only one of
+# the two required targets survives (TargetMin$ 2) and Run Away Together is
+# not cast: it stays in hand. castspell, not a queued action: a declined
+# queued cast is a hard stop in passpriority.
+startturn ai
+advance 3
+queue targets 1,4
+castspell ai 3

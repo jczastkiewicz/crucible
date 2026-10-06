@@ -950,6 +950,25 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 			return d[0]+d[1] >= 1, true
 		}
 	}
+	// PlayerProperty.java:38-49: "OpponentOf <defined>" holds when candidate
+	// is an opponent of every player the Defined (the word after the space,
+	// Java's split(" ")[1]) names; "PlayerUID_<n>" when candidate is player n.
+	// Only the You and PlayerUID_<n> Defineds are evaluated.
+	if rest, ok := strings.CutPrefix(property, "OpponentOf "); ok {
+		word, _, _ := strings.Cut(rest, " ")
+		switch {
+		case word == "You":
+			return candidate != host, true
+		case strings.HasPrefix(word, "PlayerUID_"):
+			n, err := strconv.Atoi(strings.TrimPrefix(word, "PlayerUID_"))
+			return err == nil && candidate != PlayerID(n), err == nil
+		}
+		return false, false
+	}
+	if rest, ok := strings.CutPrefix(property, "PlayerUID_"); ok {
+		n, err := strconv.Atoi(rest)
+		return err == nil && candidate == PlayerID(n), err == nil
+	}
 	switch property {
 	case "Active":
 		return candidate == g.ActivePlayer(), true

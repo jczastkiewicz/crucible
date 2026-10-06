@@ -1,0 +1,9 @@
+# Enthralling Hold's `Mode$ CantTarget | ValidTarget$ Creature.untapped |
+# EffectZone$ Stack | ValidSource$ Spell.Self`: "you can't choose an untapped
+# creature as this spell's target as you cast it". The spell is its own host
+# while it is being cast (StaticAbilityCantTarget.java:63-68), so the only
+# creature, an untapped Grizzly Bears, is no legal Enchant target and the
+# Aura is not cast: it stays in hand (CR 601.2c).
+startturn ai
+advance 3
+castspell ai 7

@@ -455,7 +455,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	if !ok {
 		return false
 	}
-	eligible := g.enchantTargets(spec, pid, card)
+	eligible := g.enchantTargets(spec, pid, card, true)
 	if len(eligible) == 0 {
 		return false
 	}
@@ -500,7 +500,7 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 		if matched, _ := matchesPlayerSpec(g, cand, pid, card, kind); !matched {
 			continue
 		}
-		if playerCantBeTargetedBy(g, cand, pid, card, causeSpell) {
+		if playerCantBeTargetedBy(g, cand, pid, card, targetAsk{kind: causeSpell, enchant: kind, casting: true}) {
 			continue
 		}
 		eligible = append(eligible, PlayerEntity(cand))
@@ -562,7 +562,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	if !ok {
 		return false
 	}
-	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true}
+	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true, casting: true}
 	if !g.announceX(pid, c, controller, opts) {
 		return false
 	}
@@ -576,6 +576,12 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	}
 	if !g.resolveTargets(controller, &a) {
 		return false
+	}
+	// Targets are chosen: from here the spell is "on the stack" for an
+	// EffectZone$ Stack CantTarget line (targetAsk.casting).
+	a.casting = false
+	for i := range a.Modes {
+		a.Modes[i].casting = false
 	}
 	extra, hasExtra, ok := g.castExtraCost(pid, c, spellAbility, opts)
 	if !ok {
@@ -673,11 +679,12 @@ func firstSpellAbility(c *Card) *compile.Ability {
 // source parameter is self, the same "the enchantment's own id, not the
 // host's" convention cleanupDanglingAttachments (action.go) already uses
 // when re-checking an attached Aura's own restriction after the fact.
-func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID) []CardID {
+func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID, casting bool) []CardID {
 	var eligible []CardID
+	ask := targetAsk{kind: causeSpell, enchant: spec.String(), casting: casting}
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(id), spec, controller, self) && !cardCantBeTargetedBy(g, g.Card(id), controller, self, causeSpell) {
+			if Matches(g, g.Card(id), spec, controller, self) && !cardCantBeTargetedBy(g, g.Card(id), controller, self, ask) {
 				eligible = append(eligible, id)
 			}
 		}

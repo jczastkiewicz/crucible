@@ -1,0 +1,14 @@
+# CR 702.16e: Runed Halo's `Affected$ You | AddKeyword$ Protection:ChosenName`
+# becomes `Protection:Card.namedLightning Bolt` once the host has its named
+# card (layerSubstituteKeyword, StaticAbilityContinuous.java:279), and the
+# player's Protection line refuses a source with that name. The scripted
+# controller does not validate its queued target (the same isolation
+# protection-from-red-refuses-bolt-on-resolution uses), so the CR 608.2b
+# re-check (targetStillLegal -> playerCantBeTargetedBy) is what drops human
+# and fizzles the Bolt.
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets human
+queue action ai cast 3
+passpriority

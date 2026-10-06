@@ -1,0 +1,17 @@
+# The same Enthralling Hold against a tapped Grizzly Bears: the line's
+# ValidTarget$ Creature.untapped does not match it, so it is the one legal
+# target. The Aura resolves, attaches, and `GainControl$ You` hands the Bears
+# to ai. Once the Aura is on the stack the Stack-zone line is dead
+# (getSpellMatchingHost), so the resolution re-check does not refuse it.
+startturn ai
+advance 3
+tapformana ai 2 U
+tapformana ai 3 U
+tapformana ai 4 U
+tapformana ai 5 U
+tapformana ai 6 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue action ai cast 7
+passpriority

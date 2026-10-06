@@ -297,24 +297,21 @@ func protectionEach(lines []string, fn func(validBlocker string, hasValidBlocker
 				continue
 			}
 			// A player-relative characteristic ("Player.Opponent", Absolute
-			// Virtue's own line; "Player.PlayerUID_ChosenPlayerUID", True
-			// -Name Nemesis/Guardian Archon/Courageous Resolve/Noble
-			// Heritage/Eon Frolicker's own "protection from the chosen
-			// player"; "Player.OpponentOf...", Cliffside Rescuer -- 10 real
-			// corpus lines total, both printed and Pump-granted) is not a
-			// Card spec at all -- Matches only ever evaluates a *Card, and
-			// nothing here turns "controlled by an opponent"/"controlled by
-			// the chosen player" into the ValidSource$-shaped card spec
-			// Java's own "ControlledBy " + characteristic would
-			// (Protection.java:13-27). Refused rather than passed to Matches
-			// as a bare characteristic it was never meant to be (GO-7):
-			// matching "Player.Opponent" as if it were a card type/subtype
-			// word would be a wrong answer, not a coverage gap (Not ported
-			// yet).
-			if strings.HasPrefix(characteristic, "Player.") {
-				continue
+			// Virtue; "Player.PlayerUID_<n>", True-Name Nemesis and the
+			// other "protection from the chosen player" lines;
+			// "Player.OpponentOf PlayerUID_<n>", Cliffside Rescuer -- 10 real
+			// corpus lines, printed and Pump-granted) names a controller,
+			// not a card type: Protection.getProtectionValid turns it into
+			// "ControlledBy <characteristic>" and then falls through to the
+			// same "Card.<v>,Emblem.<v>" wrap every other characteristic
+			// gets (Protection.java:13-17, 63-65). Matches evaluates it
+			// through the ControlledBy property (valid.go).
+			if strings.HasPrefix(characteristic, "Player") {
+				v := "ControlledBy " + characteristic
+				vb, hasVB = "Card."+v+",Emblem."+v, true
+			} else {
+				vb, hasVB = characteristic, true
 			}
-			vb, hasVB = characteristic, true
 		}
 		ok = true
 		if fn(vb, hasVB) {
@@ -435,8 +432,9 @@ func hostRefusesAttach(g *Game, aura *Card, host CardID) bool {
 // A Player target is playerCantBeTargetedBy's own job (below) -- Player has
 // no `protectionEach`/battlefield zone, so the two do not share a body, only
 // the Shroud/Hexproof shape.
-func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source CardID, kind string) bool {
-	if g.cantTargetStatic(CardEntity(target.ID), activator, source, kind) {
+func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source CardID, ask targetAsk) bool {
+	kind := ask.kind
+	if g.cantTargetStatic(CardEntity(target.ID), activator, source, ask) {
 		return true
 	}
 	if target.Zone != Battlefield {
@@ -490,15 +488,10 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 // with the Card branch (above) unchanged: Gor Muldrak, Amphinologist's own
 // `Protection:Salamander` (a plain colon-structured characteristic) resolves
 // against `Player.KeywordLines` exactly the way it would against a card's --
-// the one shape among the corpus's named player-Protection cards that does.
-// The other three still refuse nothing -- Runed Halo's `Protection:ChosenName`
-// and Serra's Emissary's `Protection:ChosenType` never even reach
-// `Player.KeywordMod` (keywordTokens' own dynamic-marker skip, continuous.go)
-// -- and Absolute Virtue's `Protection:Player.Opponent:...` (one of 10 real
-// corpus `Protection:Player...` lines, printed and Pump-granted alike --
-// `protectionEach`'s own doc comment) reaches it but `protectionEach` itself
-// refuses to read a player-relative characteristic; logged in game-state.md's
-// Not ported yet.
+// Runed Halo's `Protection:ChosenName` and Serra's Emissary's
+// `Protection:ChosenType` arrive substituted (`Card.named<Name>`, the chosen
+// type; layerSubstituteKeyword), and a `Protection:Player.<spec>` line is read
+// as the source test "Card.ControlledBy Player.<spec>" (protectionEach).
 //
 // target's own KeywordLines (player.go) is entirely Layer 6's doing --
 // applyOneContinuousKeyword's own player branch (continuous.go), the one
@@ -506,8 +499,9 @@ func cardCantBeTargetedBy(g *Game, target *Card, activator PlayerID, source Card
 // to fold onto the way a card does. Shroud next and unconditional, same as
 // the Card branch; Hexproof last, gated on `Activator$ Opponent`, matched
 // the same way.
-func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source CardID, kind string) bool {
-	if g.cantTargetStatic(PlayerEntity(target), activator, source, kind) {
+func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source CardID, ask targetAsk) bool {
+	kind := ask.kind
+	if g.cantTargetStatic(PlayerEntity(target), activator, source, ask) {
 		return true
 	}
 	p := g.Player(target)
@@ -518,10 +512,8 @@ func playerCantBeTargetedBy(g *Game, target PlayerID, activator PlayerID, source
 	// closest equivalent of Java's player.getKeywordCard()); a player has no
 	// such card, so NoCard here, not source (the ATTACKING card): passing
 	// source would resolve a host-relative property against the wrong side
-	// entirely. Unreached today -- Salamander names no property, and every
-	// other player-Protection line above is either skipped by keywordTokens
-	// or refused by protectionEach itself before fn ever runs -- but wrong
-	// the moment a future corpus line needs one.
+	// entirely. A ControlledBy line resolves relative to target (the
+	// protected player), which is Matches' sourceController argument.
 	if refused, _ := protectionEach(p.KeywordLines(), func(vb string, hasVB bool) bool {
 		return !hasVB || Matches(g, src, valid.Parse(vb), target, NoCard)
 	}); refused {
@@ -1116,9 +1108,13 @@ var unresolvedStaticConditions = [...]string{
 // caller's job: hosts come from traitHosts. A line carrying a condition in
 // unresolvedStaticConditions does not hold.
 func (g *Game) staticConditionsMet(host *Card, s *compile.Ability) bool {
-	if !staticHostZoneOK(host, s) {
-		return false
-	}
+	return staticHostZoneOK(host, s) && g.staticOtherConditionsMet(host, s)
+}
+
+// staticOtherConditionsMet is staticConditionsMet past the host's zone: a
+// spell being cast (cantTargetHost) is not yet in the Stack zone Go-side, so
+// its EffectZone$ Stack lines skip only the zone test.
+func (g *Game) staticOtherConditionsMet(host *Card, s *compile.Ability) bool {
 	for _, key := range unresolvedStaticConditions {
 		if _, ok := s.Param(key); ok {
 			return false
@@ -1327,13 +1323,80 @@ func (g *Game) maxCounter(id CardID, ct CounterType) (limit int, ok bool) {
 }
 
 // cantTargetParams are the params a hand-written CantTarget line may carry
-// that this port evaluates. SourceCanOnlyTarget$ and an EffectZone$ naming
-// the Stack (Enthralling Hold) are not read, so a line with either is not
-// applied (GO-7).
+// that this port evaluates.
 var cantTargetParams = map[string]bool{
 	"mode": true, "validtarget": true, "validsa": true, "validsource": true, "activator": true,
 	"affectedzone": true, "effectzone": true, "condition": true, "description": true,
 	"secondary": true, "spelldescription": true, "stackdescription": true,
+	"sourcecanonlytarget": true,
+}
+
+// targetAsk is what StaticAbilityCantTarget.applyCantTargetAbility reads off
+// the SpellAbility asking whether an entity can be its target.
+type targetAsk struct {
+	// kind is causeSpell, causeActivated or causeTriggered.
+	kind string
+	// root is the compiled line of the asking ability's root (a Charm mode
+	// asks through its Charm), for SourceCanOnlyTarget$ to walk. nil when
+	// the asker is unknown.
+	root *compile.Ability
+	// enchant is an Aura spell's Enchant restriction, which stands in for
+	// the ValidTgts$ of the Attach ability Java builds for it.
+	enchant string
+	// casting is true while the spell is being cast, before it is on the
+	// stack (CR 601.2c): the one moment an EffectZone$ Stack static of the
+	// spell itself (Enthralling Hold) is live
+	// (StaticAbilityCantTarget.java:63-68).
+	casting bool
+}
+
+// askOf is the targetAsk of an ability already built.
+func askOf(a *Ability) targetAsk {
+	root := a.charmRoot
+	if root == nil {
+		root = a.Params
+	}
+	return targetAsk{kind: a.causeKind(), root: root, casting: a.casting}
+}
+
+// onlyTargets is the SourceCanOnlyTarget$ test (StaticAbilityCantTarget.java:
+// 108-129): every targeting ability under the asking root -- a Charm's every
+// mode chain, or the root's own SubAbility$ chain -- names a ValidTgts$ that
+// contains word, holds no comma and no "non"+word. An ability asked with no
+// known root never qualifies.
+func (t targetAsk) onlyTargets(word string) bool {
+	ok := func(tgts string) bool {
+		return strings.Contains(tgts, word) && !strings.Contains(tgts, ",") && !strings.Contains(tgts, "non"+word)
+	}
+	if t.root == nil {
+		return t.enchant != "" && ok(t.enchant)
+	}
+	var chains []*compile.Ability
+	if strings.EqualFold(t.root.Name, "Charm") {
+		for _, sub := range t.root.Subs {
+			if strings.EqualFold(sub.Key, "Choices") {
+				chains = append(chains, sub.Ability)
+			}
+		}
+	} else {
+		chains = []*compile.Ability{t.root}
+	}
+	for _, c := range chains {
+		for next := c; next != nil; {
+			if tgts, has := next.Param("ValidTgts"); has && !ok(tgts) {
+				return false
+			}
+			var following *compile.Ability
+			for _, sub := range next.Subs {
+				if strings.EqualFold(sub.Key, "SubAbility") {
+					following = sub.Ability
+					break
+				}
+			}
+			next = following
+		}
+	}
+	return true
 }
 
 // cantTargetStatic is StaticAbilityCantTarget.cantTarget for the lines a card
@@ -1342,25 +1405,41 @@ var cantTargetParams = map[string]bool{
 // kind (causeSpell, causeActivated, causeTriggered) that activator controls
 // and source is the host of. The keyword-generated Hexproof, Shroud and
 // Protection lines are read by cardCantBeTargetedBy itself.
-func (g *Game) cantTargetStatic(entity EntityID, activator PlayerID, source CardID, kind string) bool {
+//
+// An EffectZone$ Stack line is live only on the spell being cast, before it
+// is on the stack (ask.casting): Java's game.getCardsIn(STATIC_ABILITIES_
+// SOURCE_ZONES) finds the spell in the Stack zone, and applyCantTargetAbility
+// drops the line for a Card entity once getSpellMatchingHost finds it pushed.
+func (g *Game) cantTargetStatic(entity EntityID, activator PlayerID, source CardID, ask targetAsk) bool {
 	for _, p := range g.Players() {
 		for _, host := range g.traitHosts(p) {
-			h := g.Card(host)
-			if h.Def == nil {
+			if g.cantTargetHost(g.Card(host), false, entity, activator, source, ask) {
+				return true
+			}
+		}
+	}
+	return ask.casting && source != NoCard && g.cantTargetHost(g.Card(source), true, entity, activator, source, ask)
+}
+
+// cantTargetHost is cantTargetStatic's loop over one host's CantTarget lines,
+// the ones whose EffectZone$ names the Stack when onStack, the rest otherwise.
+func (g *Game) cantTargetHost(h *Card, onStack bool, entity EntityID, activator PlayerID, source CardID, ask targetAsk) bool {
+	if h.Def == nil {
+		return false
+	}
+	for _, face := range h.traitFaces() {
+		for _, s := range face.Statics {
+			if !strings.EqualFold(s.Name, "CantTarget") || !paramsResolvable(s, cantTargetParams) {
 				continue
 			}
-			for _, face := range h.traitFaces() {
-				for _, s := range face.Statics {
-					if !strings.EqualFold(s.Name, "CantTarget") || !paramsResolvable(s, cantTargetParams) || !g.staticConditionsMet(h, s) {
-						continue
-					}
-					if zone, ok := s.Param("EffectZone"); ok && strings.Contains(zone, "Stack") {
-						continue
-					}
-					if g.cantTargetApplies(s, h, entity, activator, source, kind) {
-						return true
-					}
-				}
+			if zone, ok := s.Param("EffectZone"); (ok && strings.Contains(zone, "Stack")) != onStack {
+				continue
+			}
+			if onStack && !g.staticOtherConditionsMet(h, s) || !onStack && !g.staticConditionsMet(h, s) {
+				continue
+			}
+			if g.cantTargetApplies(s, h, entity, activator, source, ask) {
+				return true
 			}
 		}
 	}
@@ -1369,7 +1448,8 @@ func (g *Game) cantTargetStatic(entity EntityID, activator PlayerID, source Card
 
 // cantTargetApplies is StaticAbilityCantTarget.applyCantTargetAbility for one
 // line s on host h.
-func (g *Game) cantTargetApplies(s *compile.Ability, h *Card, entity EntityID, activator PlayerID, source CardID, kind string) bool {
+func (g *Game) cantTargetApplies(s *compile.Ability, h *Card, entity EntityID, activator PlayerID, source CardID, ask targetAsk) bool {
+	kind := ask.kind
 	zoneSpec, hasAffected := s.Param("AffectedZone")
 	if id, isCard := entity.AsCard(); isCard {
 		c := g.Card(id)
@@ -1411,6 +1491,9 @@ func (g *Game) cantTargetApplies(s *compile.Ability, h *Card, entity EntityID, a
 		if matched, recognized := matchesPlayerSpec(g, activator, h.Controller(), h.ID, v); !matched || !recognized {
 			return false
 		}
+	}
+	if v, ok := s.Param("SourceCanOnlyTarget"); ok && !ask.onlyTargets(v) {
+		return false
 	}
 	return true
 }

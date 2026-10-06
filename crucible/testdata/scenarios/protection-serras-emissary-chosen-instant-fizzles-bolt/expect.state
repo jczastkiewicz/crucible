@@ -1,0 +1,8 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Serra's Emissary|Id:1|ChosenType:Instant
+ailife=20
+aibattlefield=Mountain|Id:2|Tapped
+aigraveyard=Lightning Bolt

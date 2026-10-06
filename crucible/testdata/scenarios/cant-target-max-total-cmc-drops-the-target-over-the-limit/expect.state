@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+ailife=20
+aibattlefield=Plains|Id:5|Tapped;Plains|Id:6|Tapped;Plains|Id:7|Tapped;Savannah Lions|Id:1|SummonSick;Grizzly Bears|Id:2|SummonSick
+aigraveyard=Grizzly Bears;Patch Up

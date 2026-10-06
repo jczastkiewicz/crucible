@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Runed Halo|Id:1|NamedCard:Shock
+aibattlefield=Mountain|Id:2
+aihand=Lightning Bolt|Id:3

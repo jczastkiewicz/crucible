@@ -1,0 +1,8 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Grizzly Bears|Id:1;Grizzly Bears|Id:4
+ailife=20
+aibattlefield=Island|Id:2;Island|Id:5
+aihand=Run Away Together|Id:3

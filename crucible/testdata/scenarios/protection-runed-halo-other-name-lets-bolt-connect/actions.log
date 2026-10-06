@@ -1,0 +1,9 @@
+# CR 702.16e: the same Runed Halo, naming Shock. `Card.namedShock` matches
+# nothing about Lightning Bolt, so the Bolt still connects: the named-card
+# test is on the source's name, not "any burn spell".
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets human
+queue action ai cast 3
+passpriority

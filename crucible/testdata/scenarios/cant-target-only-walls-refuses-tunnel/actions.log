@@ -1,0 +1,10 @@
+# Wall of Shadows' `Mode$ CantTarget | ValidTarget$ Card.Self |
+# SourceCanOnlyTarget$ Wall` (StaticAbilityCantTarget.java:108-129): Tunnel's
+# only targeting part is `ValidTgts$ Wall` -- it contains Wall, no comma, no
+# "nonWall" -- so Tunnel "can target only Walls" and Wall of Shadows is not a
+# legal target. With no other Wall in play there is no legal target at all
+# (CR 601.2c) and Tunnel is not cast: it stays in hand. castspell, not a
+# queued action: a declined queued cast is a hard stop in passpriority.
+startturn ai
+advance 3
+castspell ai 3

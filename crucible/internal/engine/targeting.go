@@ -11,6 +11,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,9 +23,13 @@ import (
 // targetUnresolvedParams names ValidTgts$'s own structural siblings this
 // port does not parse: Radiance$ (4 real corpus lines -- "and each other
 // permanent that shares a color with it," a second, derived candidate set
-// no single ValidTgts$ evaluation produces), TargetsForEachPlayer$/
-// TargetsWithDefinedController$/TargetUnique$ (0 real lines each) -- every
-// one its own further mechanic. A line naming any of these is treated the
+// no single ValidTgts$ evaluation produces) and TargetsForEachPlayer$ (68
+// real lines, one target per player) -- each its own further mechanic.
+// TargetUnique$ is not here: SpellAbility.getUniqueTargets collects only the
+// ancestors' targets (SpellAbility.java:2040-2050), and a root or Charm mode
+// has none, so on the lines this port targets it excludes nothing; its 131
+// real lines mostly sit on SubAbility$ lines this port never targets
+// separately. A line naming any of these is treated the
 // same as CR 603.3c's own "no legal targets" case (below) rather than
 // erroring: both mean the ability does not do anything, and this port has
 // no way to tell the difference from outside without building the shape
@@ -32,7 +37,7 @@ import (
 // a genuinely empty candidate set already uses since the two are
 // observationally identical).
 var targetUnresolvedParams = [...]string{
-	"Radiance", "TargetsForEachPlayer", "TargetsWithDefinedController", "TargetUnique",
+	"Radiance", "TargetsForEachPlayer",
 }
 
 // resolveTargets is CR 601.2c/603.3b's own "choose targets," and reports
@@ -71,7 +76,14 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 		a.targetsErr = choice.err
 		return true
 	}
-	a.Targets = controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max)
+	chosen := controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max)
+	a.Targets = g.trimTargetSet(a, chosen)
+	if cards := len(a.Targets); cards < len(chosen) && cards < choice.min {
+		// The answer broke a pairwise restriction and fewer than the minimum
+		// survive: no legal set was chosen, CR 603.3c.
+		a.Targets = nil
+		return false
+	}
 	return true
 }
 
@@ -88,6 +100,91 @@ func hasSameControllerRestriction(a *Ability) bool {
 	}
 	_, ok := a.Params.Param("TargetsWithSameController")
 	return ok
+}
+
+// trimTargetSet applies the pairwise restrictions SpellAbility.canTarget
+// asks of each further target (SpellAbility.java:1486-1534) to the answer a
+// controller gave, in order: a target that breaks one against the targets
+// already kept is dropped. Java asks per candidate as targets are picked;
+// this port asks the controller once (ChooseTargets), so the same rule runs
+// over the whole answer. Ported: TargetsWithDifferentControllers,
+// TargetsWithDifferentCMC, TargetsWithDifferentNames,
+// TargetsWithEqualToughness, TargetsWithSameCardType and
+// MaxTotalTargetCMC/MaxTotalTargetPower. Not ported:
+// TargetsWithSameCreatureType/TargetsWithoutSameCreatureType (Changeling and
+// the type registry), TargetsForEachPlayer, TargetsWithSharedCardType,
+// TargetsWithRelatedProperty (sub-ability only, parent targets).
+func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
+	p := a.Params
+	if p == nil {
+		return chosen
+	}
+	has := func(key string) bool { _, ok := p.Param(key); return ok }
+	diffCtl, diffCMC, diffNames := has("TargetsWithDifferentControllers"), has("TargetsWithDifferentCMC"), has("TargetsWithDifferentNames")
+	eqTough, sameType := has("TargetsWithEqualToughness"), has("TargetsWithSameCardType")
+	host := g.Card(a.Source)
+	limit := func(key string) (int, bool) {
+		raw, ok := p.Param(key)
+		if !ok {
+			return 0, false
+		}
+		return resolveNamedAmount(g, a.Amounts, host, raw)
+	}
+	maxCMC, hasMaxCMC := limit("MaxTotalTargetCMC")
+	maxPower, hasMaxPower := limit("MaxTotalTargetPower")
+	if !diffCtl && !diffCMC && !diffNames && !eqTough && !sameType && !hasMaxCMC && !hasMaxPower {
+		return chosen
+	}
+	var kept []EntityID
+	var keptCards []*Card
+	cmcSum, powerSum := 0, 0
+	for _, e := range chosen {
+		id, isCard := e.AsCard()
+		if !isCard {
+			kept = append(kept, e)
+			continue
+		}
+		c := g.Card(id)
+		legal := true
+		for _, o := range keptCards {
+			switch {
+			case diffCtl && o.Controller() == c.Controller(),
+				diffCMC && o.CMC() == c.CMC(),
+				diffNames && o.Def != nil && c.Def != nil && o.Def.Name == c.Def.Name,
+				eqTough && !sameToughness(o, c),
+				sameType && !sharesCardType(o, c):
+				legal = false
+			}
+		}
+		pw, _ := c.Power()
+		if hasMaxCMC && cmcSum+c.CMC() > maxCMC || hasMaxPower && powerSum+pw > maxPower {
+			legal = false
+		}
+		if !legal {
+			continue
+		}
+		kept = append(kept, e)
+		keptCards = append(keptCards, c)
+		cmcSum += c.CMC()
+		powerSum += pw
+	}
+	return kept
+}
+
+// sharesCardType is Card.sharesCardTypeWith: a core type in common.
+func sharesCardType(a, b *Card) bool {
+	for _, t := range a.Type().CoreTypes() {
+		if b.Type().Has(t) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameToughness(a, b *Card) bool {
+	ta, _ := a.Toughness()
+	tb, _ := b.Toughness()
+	return ta == tb
 }
 
 // withSameControllerPartner is CardLists.getTargetableCards' own
@@ -245,7 +342,23 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				zones = parsed
 			}
 		}
-		candidates = g.targetCandidatesInZones(a.Controller, a.Source, validTgts, zones, a.causeKind())
+		candidates = g.targetCandidatesInZones(a.Controller, a.Source, validTgts, zones, askOf(a))
+	}
+	if def, ok := a.Params.Param("TargetsWithDefinedController"); ok {
+		// SpellAbility.canTarget (SpellAbility.java:1410-1416): a card
+		// target's controller must be one of the players Defined names.
+		players, err := definedPlayers(g, a.Controller, a.Source, def, a.refs())
+		if err != nil {
+			return targetChoice{}, true, false
+		}
+		kept := candidates[:0:0]
+		for _, e := range candidates {
+			if id, isCard := e.AsCard(); isCard && !slices.Contains(players, g.Card(id).Controller()) {
+				continue
+			}
+			kept = append(kept, e)
+		}
+		candidates = kept
 	}
 	if targetMin >= 2 && hasSameControllerRestriction(a) {
 		candidates = g.withSameControllerPartner(candidates)
@@ -273,7 +386,7 @@ func specCanTargetPlayer(spec string) bool {
 // CR's own implicit "target creature" scope, and every real corpus
 // ValidTgts$ line's default when it names no TgtZone$ of its own.
 func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string, kind string) []EntityID {
-	return g.targetCandidatesInZones(controller, source, spec, []ZoneType{Battlefield}, kind)
+	return g.targetCandidatesInZones(controller, source, spec, []ZoneType{Battlefield}, targetAsk{kind: kind})
 }
 
 // targetCandidatesInZones is the union of spec evaluated against every
@@ -309,13 +422,13 @@ func (g *Game) targetCandidates(controller PlayerID, source CardID, spec string,
 // probed once regardless of how many card zones are named: TgtZone$ names
 // where a card candidate may sit, never a player-shaped alternative's own
 // scope, so naming two zones does not double the player half.
-func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec string, zones []ZoneType, kind string) []EntityID {
+func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec string, zones []ZoneType, ask targetAsk) []EntityID {
 	var candidates []EntityID
 	for _, pid := range g.Players() {
 		if g.Player(pid).Lost {
 			continue
 		}
-		if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched && !playerCantBeTargetedBy(g, pid, controller, source, kind) {
+		if matched, _ := matchesPlayerSpec(g, pid, controller, source, spec); matched && !playerCantBeTargetedBy(g, pid, controller, source, ask) {
 			candidates = append(candidates, PlayerEntity(pid))
 		}
 	}
@@ -325,7 +438,7 @@ func (g *Game) targetCandidatesInZones(controller PlayerID, source CardID, spec 
 		for _, pid := range g.Players() {
 			for _, id := range g.Zone(zone, pid).Cards() {
 				c := g.Card(id)
-				if Matches(g, c, parsed, controller, source) && !cardCantBeTargetedBy(g, c, controller, source, kind) {
+				if Matches(g, c, parsed, controller, source) && !cardCantBeTargetedBy(g, c, controller, source, ask) {
 					candidates = append(candidates, CardEntity(id))
 				}
 			}
@@ -676,7 +789,7 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 		if g.Player(pid).Lost {
 			return false
 		}
-		if playerCantBeTargetedBy(g, pid, owner.Controller, owner.Source, owner.causeKind()) {
+		if playerCantBeTargetedBy(g, pid, owner.Controller, owner.Source, askOf(owner)) {
 			return false
 		}
 		if !hasSpec {
@@ -696,7 +809,7 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 	if c.IsPhasedOut() {
 		return false
 	}
-	if cardCantBeTargetedBy(g, c, owner.Controller, owner.Source, owner.causeKind()) {
+	if cardCantBeTargetedBy(g, c, owner.Controller, owner.Source, askOf(owner)) {
 		return false
 	}
 	if hasSameControllerRestriction(owner) {
@@ -792,10 +905,14 @@ func (g *Game) auraTargetStillLegal(a *Ability) bool {
 	if stamp, ok := a.stampOf(a.Target); ok && stamp != target.zoneStamp {
 		return false
 	}
-	if cardCantBeTargetedBy(g, target, a.Controller, a.Source, causeSpell) {
+	spec, ok := enchantSpec(c)
+	ask := targetAsk{kind: causeSpell}
+	if ok {
+		ask.enchant = spec.String()
+	}
+	if cardCantBeTargetedBy(g, target, a.Controller, a.Source, ask) {
 		return false
 	}
-	spec, ok := enchantSpec(c)
 	if !ok {
 		return true
 	}

@@ -362,6 +362,16 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 				return fmt.Errorf("%s: %q: %w", name, info, err)
 			}
 			ld.exiledWith = append(ld.exiledWith, attachRef{id, hostID})
+		case strings.HasPrefix(info, "ChosenType:"):
+			// ChosenType2: is its own key, so this never reaches the second
+			// slot.
+			c.Memory.SetChosenType(strings.TrimPrefix(info, "ChosenType:"), false)
+		case strings.HasPrefix(info, "NamedCard:"):
+			// GameState.java:1418-1420, 1073-1077: a comma list, one
+			// addNamedCard per name.
+			for _, n := range strings.Split(strings.TrimPrefix(info, "NamedCard:"), ",") {
+				c.Memory.AddNamedCard(n)
+			}
 		case strings.HasPrefix(info, "Imprinting:"):
 			ids, err := parseIDList(strings.TrimPrefix(info, "Imprinting:"))
 			if err != nil {

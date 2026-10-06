@@ -1,0 +1,8 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Wall of Shadows|Id:1
+ailife=20
+aibattlefield=Mountain|Id:2
+aihand=Tunnel|Id:3

@@ -1,0 +1,10 @@
+# The same Tunnel with a second Wall in play: only Wall of Shadows refuses
+# (SourceCanOnlyTarget$ is a property of the target's static, not of the
+# spell), so Wall of Wood is a legal target and is destroyed while Wall of
+# Shadows stays.
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets 4
+queue action ai cast 3
+passpriority

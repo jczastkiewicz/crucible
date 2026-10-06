@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Grizzly Bears|Id:1|Tapped
+aibattlefield=Island|Id:2;Island|Id:3;Island|Id:4;Island|Id:5;Island|Id:6
+aihand=Enthralling Hold|Id:7

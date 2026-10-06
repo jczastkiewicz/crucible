@@ -1,0 +1,9 @@
+# Lightning Bolt's `ValidTgts$ Any` does not contain Wall, so the spell can
+# target more than Walls and SourceCanOnlyTarget$ Wall does not apply: the
+# Bolt kills the 0/1 Wall of Shadows.
+startturn ai
+advance 3
+tapformana ai 2 R
+queue targets 1
+queue action ai cast 3
+passpriority

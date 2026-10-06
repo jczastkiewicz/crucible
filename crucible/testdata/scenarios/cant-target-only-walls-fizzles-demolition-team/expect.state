@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Wall of Shadows|Id:1;Wall of Wood|Id:3
+ailife=20
+aibattlefield=Dwarven Demolition Team|Id:2|Tapped

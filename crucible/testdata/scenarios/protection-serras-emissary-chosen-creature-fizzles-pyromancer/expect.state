@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=Main1
+humanlife=20
+humanbattlefield=Serra's Emissary|Id:1|ChosenType:Creature
+ailife=20
+aibattlefield=Prodigal Pyromancer|Id:2|Tapped

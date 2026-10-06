@@ -1,0 +1,12 @@
+# `TargetsWithDifferentControllers$ True` (SpellAbility.java:1545): each
+# further target must be controlled by a player no kept target is. One
+# Grizzly Bears each is a legal pair; Run Away Together returns both to their
+# owners' hands.
+startturn ai
+advance 3
+tapformana ai 2 U
+tapformana ai 5 U
+queue targets 1,4
+queue paygeneric U
+queue action ai cast 3
+passpriority

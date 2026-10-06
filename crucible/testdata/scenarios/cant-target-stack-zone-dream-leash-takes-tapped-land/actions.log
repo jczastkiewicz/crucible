@@ -1,0 +1,19 @@
+# Dream Leash (`Enchant:Permanent`, `ValidTarget$ Permanent.untapped |
+# EffectZone$ Stack`) with an untapped and a tapped Forest. ai's own five
+# Islands are tapped to pay for it, so they are legal targets too; the
+# untapped Forest (id 8) is the one permanent the line refuses. The queued
+# enchant target is the tapped Forest (id 1): the Aura attaches to it and
+# `GainControl$ You` hands it to ai.
+startturn ai
+advance 3
+tapformana ai 2 U
+tapformana ai 3 U
+tapformana ai 4 U
+tapformana ai 5 U
+tapformana ai 6 U
+queue enchanttarget 1
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue action ai cast 7
+passpriority

@@ -1,0 +1,12 @@
+# The ability half of "spells that can target only Walls or abilities that
+# can target only Walls": Dwarven Demolition Team's `AB$ Destroy | ValidTgts$
+# Wall` is an ability that can target only Walls, so Wall of Shadows is not a
+# legal target. The scripted controller does not validate its queued target
+# (see protection-from-red-refuses-bolt-on-resolution), so naming Wall of
+# Shadows isolates the CR 608.2b re-check: the ability fizzles and both Walls
+# survive, the Team tapped for its cost.
+startturn ai
+advance 3
+queue targets 1
+queue action ai activate 2 0
+passpriority

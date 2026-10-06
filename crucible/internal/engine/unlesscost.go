@@ -10,6 +10,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,8 @@ type unlessCost struct {
 	// "CARDNAME" for the source itself.
 	lifeN, discardN, sacN int
 	sacSpec               string
+	// discardHand is Discard<N/Hand>: the whole hand, always payable.
+	discardHand bool
 	// energyN is PayEnergy<N>; mandatory is the Mandatory token, which makes
 	// the cost unskippable (CostPart's isMandatory): nobody is asked.
 	energyN   int
@@ -76,6 +79,12 @@ type unlessCost struct {
 	// drawSpec is the player spec of a Draw<N/Spec> that is not "You": every
 	// player it names draws N (CostDraw.getPotentialPlayers), "" for You.
 	drawSpec string
+	// targeted, set by the ability that owns the cost (withTargets) when
+	// drawSpec names Player.targetedBy, limits that Draw to the players the
+	// ability itself targets; hasTargeted is false for a cost no ability
+	// owns (a Ward, a replacement), where it names every matching player.
+	targeted    []PlayerID
+	hasTargeted bool
 	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
 	manaTokens []string
 }
@@ -102,6 +111,8 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 			uc.energyN += n
 		case p.Name == "Discard" && p.Field(1) == "Card":
 			uc.discardN += n
+		case p.Name == "Discard" && p.Field(1) == "Hand":
+			uc.discardHand = true
 		case p.Name == "Sac" && uc.sacN == 0 && p.Field(1) != "":
 			uc.sacN, uc.sacSpec = n, p.Field(1)
 		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":
@@ -144,6 +155,23 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 		uc.mana, uc.hasMana = mc, true
 	}
 	return uc, true
+}
+
+// withTargets binds a Draw<N/Player.targetedBy> part to the players a's own
+// targets name (the spec's "targetedBy", AbilityUtils.getDefinedPlayers over
+// the ability's targets), so the draw does not fall on every player.
+func (uc unlessCost) withTargets(a *Ability) unlessCost {
+	if !strings.Contains(uc.drawSpec, "targetedBy") {
+		return uc
+	}
+	uc.hasTargeted = true
+	uc.targeted = nil
+	for _, t := range a.Targets {
+		if pid, ok := t.AsPlayer(); ok {
+			uc.targeted = append(uc.targeted, pid)
+		}
+	}
+	return uc
 }
 
 // unlessSacCandidates is what pid may sacrifice for the Sac part: the source
@@ -299,6 +327,9 @@ func (g *Game) unlessDrawers(pid PlayerID, source CardID, uc unlessCost) []Playe
 		if uc.drawSpec != "" && !drawSpecMatches(g, cand, pid, source, uc.drawSpec) {
 			continue
 		}
+		if uc.hasTargeted && !slices.Contains(uc.targeted, cand) {
+			continue
+		}
 		if !g.cantDrawAmount(cand, uc.drawN) {
 			out = append(out, cand)
 		}
@@ -411,6 +442,11 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 	}
 	if uc.discardN > 0 {
 		discardCards(g, controller, controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN), pid)
+	}
+	if uc.discardHand {
+		// Discard<N/Hand> (CostDiscard's "Hand" type): the payer discards the
+		// whole hand, no choice, and an empty hand pays it too.
+		discardCards(g, controller, slices.Clone(g.Zone(Hand, pid).Cards()), pid)
 	}
 	if uc.sacN > 0 {
 		sacrificeCardsFor(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN), false)

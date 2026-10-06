@@ -1,0 +1,20 @@
+# seraph.txt: the Bears were dealt damage by Seraph and die, so DelTrigReturn
+# registers a delayed Phase trigger that returns them under Seraph's
+# controller at the next end step (ChangeZone | GainControl$ True), and
+# TrigDelay/TrigDelay2 register the two delayed triggers that sacrifice them
+# when Seraph leaves or changes controller (RememberedLKI is the creature
+# ChangeZone remembered).
+startturn ai
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks 1=2
+declareblockers
+advance
+advance
+combatdamage
+advance
+resolvestack
+advance 2
+resolvestack

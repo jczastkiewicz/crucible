@@ -440,7 +440,7 @@ longer match a real reference.
   cannot be paid; that payability check is not ported).
 - `RepeatEach`: stack-object and card-type loops, `NextTurnForEachPlayer$`, vote amounts, the batched damage/zone/life
   tables, `ChooseOrder$`, `StartingWith$`.
-- `GainControl`: every duration-scoped change (`LoseControl$`, 126 lines), `AddKWs$`, `AllValid$`, and the targeting
+- `GainControl`: `LoseControl$ StaticCommandCheck`/`UntilSourceUnattached` (2 lines), `AllValid$`, and the targeting
   restrictions `targeting.go` does not enforce. `ExchangeControl` rejects the same restrictions.
 - `AddTurn`'s delayed-trigger, skip-untap and scheme variants; `Regenerate`'s `RegenerationAbility$`; `DrainMana`'s
   `RememberDrainedMana$` (an Integer in `Memory`).

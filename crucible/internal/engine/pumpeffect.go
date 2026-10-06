@@ -77,7 +77,7 @@ var pumpUnresolvedParams = [...]string{
 	"ConditionActivationLimit",
 	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
-	"DefinedLandwalk", "ForgetObjects", "RememberObjects", "RememberPumped", "LeaveBattlefield",
+	"DefinedLandwalk", "RememberPumped", "LeaveBattlefield",
 	"ImprintCards", "ForgetImprinted", "NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
 	"NoteNumber", "Optional", "OptionQuestion", "Radiance",
 }
@@ -126,6 +126,16 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return err
 	}
 
+	// PumpEffect.java:401-402 and :427-428: RememberObjects$ then
+	// ForgetObjects$, whether or not the line pumps anything (Stolen
+	// Uniform's Pump only remembers its target).
+	if err := pumpRememberObjects(g, a, source, "RememberObjects", false); err != nil {
+		return err
+	}
+	if err := pumpRememberObjects(g, a, source, "ForgetObjects", true); err != nil {
+		return err
+	}
+
 	if power == 0 && toughness == 0 && len(keywords) == 0 && !switched {
 		return nil
 	}
@@ -159,6 +169,29 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 			Keywords: keywords, Switched: switched, Permanent: permanent,
 		})
+	}
+	return nil
+}
+
+// pumpRememberObjects adds (or, forget, removes) the Defined$ objects key
+// names to the host's remembered list.
+func pumpRememberObjects(g *Game, a *Ability, host *Card, key string, forget bool) error {
+	spec, ok := a.Params.Param(key)
+	if !ok {
+		return nil
+	}
+	for _, part := range strings.Split(spec, " & ") {
+		objs, err := definedEntities(g, a.Controller, host, strings.TrimSpace(part), a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: Pump: %s$: %w", key, err)
+		}
+		for _, e := range objs {
+			if forget {
+				host.Memory.Forget(e)
+			} else {
+				host.Memory.Remember(e)
+			}
+		}
 	}
 	return nil
 }

@@ -1,0 +1,13 @@
+# At cleanup the EOT command returns the Sword to the AI; the delayed
+# trigger's IsPresent$ (Card.IsTriggerRemembered+AttachedTo Creature.YouCtrl)
+# holds, since the Sword is still on the human's Bears as control changes, so
+# Unattach resolves and the Sword ends loose on the AI's side.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets 3
+queue targets 4
+castspell human 1
+resolvestack
+advance 9
+resolvestack

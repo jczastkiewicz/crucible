@@ -1,0 +1,15 @@
+# The keyword's second trigger (TriggerZones$ Battlefield, ValidCard$
+# Creature.Other+YouCtrl, IsPresent$ Creature.Self+!Paired): Wolfir is already
+# out and unpaired when the Bears enter, so it offers the pair from its side.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+queue cardchoice 4
+castspell human 1
+resolvestack
+tapformana human 7 R
+queue targets 1
+castspell human 9
+resolvestack

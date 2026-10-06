@@ -1,16 +1,16 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone
+//enginelint:allow id card game ability defined condition control parts zone continuous controlcommands
 
 import "fmt"
 
 // gainControlUnresolvedParams are ControlGainEffect.java's params this port
-// cannot honour yet: every duration-scoped change (LoseControl$ and its
-// StaticCommand*$ checks), until-end-of-turn keywords (AddKWs$), the choice
-// and sweep shapes (Choices$, Chooser$, AllValid$), and target-selection
-// restrictions targeting.go does not enforce.
+// cannot honour yet: the StaticCommand*$ checks LoseControl$ StaticCommandCheck
+// reads (parseLoseControl refuses that token too), the choice and sweep
+// shapes (Choices$, Chooser$, AllValid$), and target-selection restrictions
+// targeting.go does not enforce.
 var gainControlUnresolvedParams = [...]string{
-	"LoseControl", "StaticCommandCheckSVar", "StaticCommandSVarCompare", "AddKWs",
+	"StaticCommandCheckSVar", "StaticCommandSVarCompare",
 	"Choices", "Chooser", "AllValid",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty", "TargetsAtRandom",
 	"TargetingPlayerControls", "TargetingPlayer", "MaxTotalTargetCMC",
@@ -54,18 +54,54 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	_, optional := a.Params.Param("Optional")
 	_, remember := a.Params.Param("RememberControlled")
 	_, forget := a.Params.Param("ForgetControlled")
+	var keywords []string
+	if _, ok := a.Params.Param("AddKWs"); ok {
+		var ok bool
+		if keywords, ok = keywordTokens(a.Params, "AddKWs"); !ok {
+			return fmt.Errorf("engine: GainControl: AddKWs$ not resolvable yet")
+		}
+	}
+	var lose []string
+	if raw, ok := a.Params.Param("LoseControl"); ok {
+		var err error
+		if lose, err = parseLoseControl(raw); err != nil {
+			return err
+		}
+		// "Check for lose control criteria right away"
+		// (ControlGainEffect.java:127-135).
+		if hasToken(lose, "LeavesPlay") && source.Zone != Battlefield {
+			return nil
+		}
+		if hasToken(lose, "LoseControl") && source.Controller() != a.Controller {
+			return nil
+		}
+		if hasToken(lose, "Untap") && !source.Tapped {
+			return nil
+		}
+	}
 	for _, id := range cards {
-		if g.Card(id).Zone != Battlefield {
+		c := g.Card(id)
+		// canBeControlledBy's isInGame half; the CantGainControl static
+		// half is not evaluated (controlspelleffect.go refuses it).
+		if c.Zone != Battlefield || g.Player(newController).Lost || c.IsPhasedOut() {
 			continue
 		}
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			continue
 		}
-		g.changeController(controller, id, newController)
-		c := g.Card(id)
+		g.timestamp++
+		ts := g.timestamp
+		c.tempControllers = append(c.tempControllers, ControlEffect{Timestamp: ts, Controller: newController})
 		if untap && c.Tapped {
+			g.runUntapCommands(controller, id)
 			c.Tapped = false
 			g.checkUntapsTriggers(controller, id)
+		}
+		if len(keywords) > 0 {
+			// addChangedCardKeywords at ts, removed by a command at end of
+			// turn (ControlGainEffect.java:151-154, 223-235): a Pump-shaped
+			// record that is gone at the next cleanup.
+			g.pumps = append(g.pumps, pumpRecord{Card: id, Timestamp: ts, Keywords: keywords})
 		}
 		if remember {
 			source.Memory.Remember(CardEntity(id))
@@ -73,6 +109,10 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		if forget {
 			source.Memory.Forget(CardEntity(id))
 		}
+		if lose != nil {
+			g.registerLoseControl(source, lose, id, ts, a.Controller)
+		}
+		g.correctControllerZone(controller, id)
 	}
 	return nil
 }
@@ -113,12 +153,13 @@ func (g *Game) changeControllerAt(controller PlayerController, id CardID, to Pla
 // stays phased out. The permanent leaves combat, is summoning sick under its
 // new controller and stops being its old controller's Ring-bearer, for a
 // Layer 2 change as for a one-shot one, then Mode$ ChangesController triggers
-// fire (checkChangesControllerTriggers). Java's runChangeControllerCommands
-// and the Soulbond unpairing (GameAction.java:1008-1022) have nothing to run
-// on: no ported effect registers a change-controller command (LoseControl$,
-// Duration$ UntilLoseControlOfHost/AsLongAsControl are refused; the Ring-bearer
-// loss is loseRingBearer above) and Soulbond pairing is not modeled
-// (m5-triggers.md).
+// fire (checkChangesControllerTriggers). Before the move, as
+// GameAction.java:1008-1022 orders it, a paired creature is unpaired from its
+// partner (CR 702.95e) and the permanent's change-controller commands run and
+// clear (runChangeControllerCommands, controlcommands.go): LoseControl$
+// LoseControl, Duration$ AsLongAsControl/UntilLoseControlOfHost. A command that
+// ends another permanent's control change corrects that permanent's zone
+// first, so its own ChangesController trigger fires before this one's.
 func (g *Game) correctControllerZone(controller PlayerController, id CardID) {
 	c := g.Card(id)
 	if c.Zone != Battlefield {
@@ -129,6 +170,8 @@ func (g *Game) correctControllerZone(controller PlayerController, id CardID) {
 		return
 	}
 	original := c.ZoneOwner
+	g.unpair(id)
+	g.runChangeControllerCommands(controller, id)
 	g.Zone(Battlefield, c.ZoneOwner).remove(id)
 	c.ZoneOwner = to
 	g.Zone(Battlefield, to).cards.Add(id)

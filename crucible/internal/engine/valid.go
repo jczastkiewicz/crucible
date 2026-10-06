@@ -555,6 +555,31 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// (Card.equalsWithGameTimestamp); identity here, for the reason
 		// StrictlyOther's own comment above gives.
 		return c.ID == source
+	case strings.HasPrefix(name, "DamagedBy"):
+		// CardProperty.java:1096-1124 without its Defined form (a space after
+		// the name): the card was dealt damage this turn by the source
+		// itself, or by a card matching the ";"-separated valid strings.
+		// A source is its CardID; Java also compares game timestamps.
+		rest := strings.TrimPrefix(name, "DamagedBy")
+		if strings.HasPrefix(rest, " ") {
+			return false
+		}
+		for _, dealer := range c.Damage.Sources {
+			if rest == "" && dealer == source {
+				return true
+			}
+			if rest != "" && anyValidMatches(g, g.Card(dealer), rest, sourceController, source) {
+				return true
+			}
+		}
+		return false
+	case strings.HasPrefix(name, "Paired"):
+		// CardProperty.java:564-570: Soulbond-paired, and for "PairedWith"
+		// paired with the source itself.
+		if !c.IsPaired() {
+			return false
+		}
+		return !strings.HasSuffix(name, "With") || c.PairedWith() == source
 	case name == "tapped":
 		return c.Tapped
 	case name == "untapped":

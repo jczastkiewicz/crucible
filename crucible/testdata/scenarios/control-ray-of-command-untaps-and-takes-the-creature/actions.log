@@ -1,0 +1,16 @@
+# The chain's first two links: SP$ Untap untaps the AI's tapped Bears, then
+# GainControl moves them under the human's control with a delayed
+# ChangesController trigger waiting. Nothing has changed controller since, so
+# the trigger has not fired and the Bears are untapped.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 6
+castspell human 1
+resolvestack

@@ -320,6 +320,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	}
 	c := g.Card(target)
 	t := c.Type()
+	c.Damage.Sources = append(c.Damage.Sources, source)
 	if t.Has(cardtype.Planeswalker) {
 		c.Counters.Add(Loyalty, -amount)
 		emitCounterChanged(g.sink, source, CardEntity(target), Loyalty, -amount)

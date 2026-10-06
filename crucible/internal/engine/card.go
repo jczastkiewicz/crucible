@@ -384,6 +384,17 @@ type Card struct {
 	// with ControlMod's continuous effects by timestamp, the latest winning.
 	tempControllers []ControlEffect
 
+	// leavesPlayCmds, untapCmds, changeControllerCmds and phaseOutCmds are
+	// Java's per-card GameCommand lists (Card.addLeavesPlayCommand,
+	// addUntapCommand, addChangeControllerCommand, addPhaseOutCommand), kept
+	// as data (controlcommands.go): each runs once when its event happens
+	// to this card and is then cleared, in registration order.
+	leavesPlayCmds, untapCmds, changeControllerCmds, phaseOutCmds []cardCommand
+
+	// pairedWith is the creature this one is Soulbond-paired with, NoCard
+	// for none (Card.getPairedWith, soulbond.go).
+	pairedWith CardID
+
 	// grants is this card's overlay of granted triggers (ADR-0023 decision
 	// 2), ascending id: the Layer-6 rows of Java's changedCardTraits
 	// (Card.java:141-142) this port builds, one per Animate/AnimateAll

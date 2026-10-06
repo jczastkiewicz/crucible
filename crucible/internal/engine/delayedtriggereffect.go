@@ -34,11 +34,17 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	mode, _ := a.Params.Param("Mode")
 	switch {
 	case strings.EqualFold(mode, "Phase"):
+	case strings.EqualFold(mode, "ChangesZone"):
+		// A battlefield-leaving watch (Seraph, Krovikan Vampire): matched by
+		// delayedWatchesLeaving, which only the dies and exile paths call.
+		if o, _ := a.Params.Param("Origin"); o != "Battlefield" {
+			return fmt.Errorf("engine: DelayedTrigger: Mode$ ChangesZone with Origin$ %q not resolvable yet", o)
+		}
 	case strings.EqualFold(mode, "ChangesController"):
-		// IsPresent$ (Stolen Uniform) reads Card.IsTriggerRemembered, which
-		// no valid-string evaluator resolves; fail closed rather than fire
-		// the trigger without its intervening-if.
-		if err := rejectParams(a, "DelayedTrigger", "IsPresent"); err != nil {
+		// IsPresent$ (Stolen Uniform) is read by delayedPresentMatches,
+		// which knows Card.IsTriggerRemembered; its modifiers are not.
+		if err := rejectParams(a, "DelayedTrigger", "PresentCompare", "PresentZone", "PresentPlayer",
+			"PresentDefined", "IsPresent2"); err != nil {
 			return err
 		}
 	default:

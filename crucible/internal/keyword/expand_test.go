@@ -48,6 +48,8 @@ func TestExpand(t *testing.T) {
 		{"Afflict:2", true, "Mode$ AttackerBlocked | ValidCard$ Card.Self"},
 		{"Afflict", false, ""},
 		{"Soulshift:3", true, "OptionalDecider$ You"},
+		{"Soulbond", true, "IsPresent$ Creature.Other+YouCtrl+!Paired"},
+		{"Soulbond:1", false, ""},
 		{"Soulshift:x", false, ""},
 		{"Mentor", true, "Mode$ Attacks | ValidCard$ Card.Self"},
 		{"Training", true, "IsPresent$ Creature.attacking+Other+powerGTKWPower"},

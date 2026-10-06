@@ -358,9 +358,13 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no cards", defined)
 		}
 		return slices.Clone(refs.triggered.cards), nil
-	case "TriggeredNewCard", "TriggeredNewCardLKICopy":
+	case "TriggeredCard", "TriggeredCardLKICopy", "TriggeredNewCard", "TriggeredNewCardLKICopy":
 		// AbilityKey.NewCard of a zone-change trigger: the card as it is now.
 		// A CardID is stable across the move, so it is the card that moved.
+		// TriggeredCard and TriggeredCardLKICopy are AbilityKey.Card, which
+		// differs from NewCard only for an Origin$ Battlefield trigger
+		// (TriggerChangesZone.java:192-197, the pre-move copy) -- one CardID
+		// here. Soulbond's Bond and Krovikan Vampire's Pump read them.
 		if refs.triggered.card == NoCard {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no card", defined)
 		}

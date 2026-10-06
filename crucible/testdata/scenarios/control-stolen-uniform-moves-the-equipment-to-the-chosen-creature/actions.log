@@ -1,0 +1,11 @@
+# stolen_uniform.txt: Pump (RememberObjects$ ThisTargetedCard), GainControl
+# of the Equipment (LoseControl$ EOT), Attach (Object$ ParentTarget | Defined$
+# Remembered), then a delayed ChangesController trigger with an IsPresent$
+# intervening-if. The Sword leaves the AI's Bears for the human's.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets 3
+queue targets 4
+castspell human 1
+resolvestack

@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Tapped;Grizzly Bears|Id:3;Short Sword|Id:4|Owner:ai|AttachedTo:3|SummonSick
+humangraveyard=Stolen Uniform
+ailife=20
+aibattlefield=Grizzly Bears|Id:5

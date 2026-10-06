@@ -382,6 +382,23 @@ func Expand(k Keyword) (Expansion, bool) {
 			Triggers: []string{"Mode$ AttackerBlocked | ValidCard$ Card.Self | TriggerZones$ Battlefield | ValidBlocker$ Creature | Secondary$ True | Execute$ KWAfflict" + Slot},
 			SVars:    []SVarDef{{"KWAfflict" + Slot, "DB$ LoseLife | Defined$ TriggeredDefendingPlayer | LifeAmount$ " + n}},
 		}, true
+	case "Soulbond":
+		// CardFactoryUtil.java:1740-1760: when it or another creature enters
+		// under your control and one of the pair is unpaired, you may pair
+		// them. The Execute$ SVar is Java's setOverridingAbility.
+		if k.Details != "" {
+			return Expansion{}, false
+		}
+		return Expansion{
+			Triggers: []string{
+				"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | IsPresent$ Creature.Other+YouCtrl+!Paired | Secondary$ True | Execute$ KWSoulbondSelf" + Slot,
+				"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | IsPresent$ Creature.Self+!Paired | Secondary$ True | Execute$ KWSoulbondOther" + Slot,
+			},
+			SVars: []SVarDef{
+				{"KWSoulbondSelf" + Slot, "DB$ Bond | Defined$ TriggeredCardLKICopy | ValidCards$ Creature.Other+YouCtrl+!Paired"},
+				{"KWSoulbondOther" + Slot, "DB$ Bond | Defined$ TriggeredCardLKICopy | ValidCards$ Creature.Self+!Paired"},
+			},
+		}, true
 	case "Soulshift":
 		// CardFactoryUtil.java:1763: when this dies, you may return target
 		// Spirit card with mana value N or less from your graveyard to hand.

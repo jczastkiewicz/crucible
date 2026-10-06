@@ -1,0 +1,16 @@
+# LoseControl$ EOT registers the lose-control command on EndOfTurn
+# (ControlGainEffect.java:183-186), which PhaseHandler runs at the cleanup
+# step (java:406). The Bears go back to the AI's battlefield, summoning sick
+# again under the controller that regained them, and stay untapped: the
+# Untap$ was real and nothing tapped them since.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+queue paygeneric R
+queue paygeneric R
+queue targets 5
+castspell human 1
+resolvestack
+advance 9

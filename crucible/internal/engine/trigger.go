@@ -2113,7 +2113,7 @@ func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Abi
 					continue
 				}
 			}
-			if !g.resolveTargets(controller, &matches[i]) {
+			if !g.resolveTargets(controller, &matches[i]) || !g.resolveChainTargets(controller, &matches[i]) {
 				continue
 			}
 			matches[i].isTrigger = !matches[i].activated

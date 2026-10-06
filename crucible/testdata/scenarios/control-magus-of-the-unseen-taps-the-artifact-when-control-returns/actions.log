@@ -1,0 +1,13 @@
+# Cleanup's EOT command returns the Sword; the delayed ChangesController
+# trigger (ValidOriginalController$ You) then taps it (Defined$
+# DelayTriggerRememberedLKI).
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+queue paygeneric U
+queue targets 4
+queue action human activate 1 0
+passpriority
+advance 9
+resolvestack

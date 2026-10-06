@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+ailife=20
+humanhand=Terror|Id:10
+humanbattlefield=Forest|Id:2|Tapped;Forest|Id:3|Tapped;Forest|Id:4|Tapped;Forest|Id:5|Tapped;Forest|Id:6|Tapped;Mountain|Id:7|Tapped;Swamp|Id:11;Swamp|Id:12;Grizzly Bears|Id:8|Damage:3;Wolfir Silverheart|Id:1|SummonSick
+humangraveyard=Lightning Bolt

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Mind Flayer|Id:1|SummonSick;Grizzly Bears|Id:7|Owner:ai|SummonSick
+ailife=20

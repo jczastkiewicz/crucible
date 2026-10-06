@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+ailife=20
+humanbattlefield=Forest|Id:2|Tapped;Forest|Id:3|Tapped;Forest|Id:4|Tapped;Forest|Id:5|Tapped;Forest|Id:6|Tapped;Mountain|Id:7|Tapped;Swamp|Id:11|Tapped;Swamp|Id:12|Tapped
+humangraveyard=Wolfir Silverheart;Terror;Lightning Bolt;Grizzly Bears

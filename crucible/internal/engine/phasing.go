@@ -81,15 +81,21 @@ func (g *Game) phase(b *phasing, id CardID, fromUntapStep, direct bool) {
 // 5647-5650). Phasing in unattaches it from a card no longer on the
 // battlefield (CR 702.26g, Card.java:5652-5665).
 //
-// Not modeled, each for want of the state it acts on: runPhaseOutCommands
-// (CR 702.26f -- no "until it phases out" duration exists in this port),
-// clearEncodedCards (cipher) and soulbond pairing, and Combat.saveLKI.
+// Not modeled, each for want of the state it acts on: clearEncodedCards
+// (cipher) and Combat.saveLKI. runPhaseOutCommands (CR 702.26f) and Soulbond
+// unpairing run before the permanent phases out.
 func (g *Game) switchPhaseState(b *phasing, id CardID, fromUntapStep bool) bool {
 	c := g.Card(id)
 	if c.IsPhasedOut() && fromUntapStep && c.wontPhaseInNormal {
 		return false
 	}
 	if !c.IsPhasedOut() {
+		// Card.java:5650-5656: CR 702.26f's phase-out commands run, and a
+		// Soulbond pair breaks, as the permanent is about to phase out. No
+		// controller is at hand, so a lose-control command leaves its zone
+		// correction to the next state-based pass.
+		g.runPhaseOutCommands(nil, id)
+		g.unpair(id)
 		g.setPhasedOut(id, c.Controller())
 		g.removeFromCombat(id)
 		b.events = append(b.events, phaseEvent{card: id})

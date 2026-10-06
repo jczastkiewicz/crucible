@@ -106,17 +106,18 @@ func TestDelayedChangesControllerStrictlySelfNamesTheHost(t *testing.T) {
 	}
 }
 
-// IsPresent$ (Stolen Uniform) reads Card.IsTriggerRemembered, which no
-// evaluator resolves: registering the trigger fails closed (GO-7).
-func TestDelayedChangesControllerRefusesIsPresent(t *testing.T) {
+// IsPresent$ (Stolen Uniform) with a modifier this port does not read
+// (PresentCompare$ here) fails closed at registration (GO-7); the plain form
+// is exercised by the control-stolen-uniform scenarios.
+func TestDelayedChangesControllerRefusesIsPresentModifiers(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
 	def := etbChainDef(t, "Test Watcher",
-		"DB$ DelayedTrigger | Mode$ ChangesController | ValidCard$ Card.IsTriggerRemembered | IsPresent$ Card.IsTriggerRemembered+AttachedTo Creature.YouCtrl | RememberObjects$ Self | Execute$ TrigDraw",
+		"DB$ DelayedTrigger | Mode$ ChangesController | ValidCard$ Card.IsTriggerRemembered | IsPresent$ Card.IsTriggerRemembered+AttachedTo Creature.YouCtrl | PresentCompare$ GE2 | RememberObjects$ Self | Execute$ TrigDraw",
 		"TrigDraw", "DB$ Draw | Defined$ You | NumCards$ 1")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Error("ResolveStack succeeded, want a not-resolvable error for IsPresent$")
+		t.Error("ResolveStack succeeded, want a not-resolvable error for PresentCompare$")
 	}
 }

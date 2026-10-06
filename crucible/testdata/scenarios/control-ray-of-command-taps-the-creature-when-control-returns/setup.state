@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Ray of Command|Id:1
+humanbattlefield=Island|Id:2;Island|Id:3;Island|Id:4;Island|Id:5
+aibattlefield=Grizzly Bears|Id:6|Tapped

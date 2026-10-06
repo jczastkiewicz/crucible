@@ -1,0 +1,17 @@
+# mind_flayer.txt: when it enters, DB$ GainControl | LoseControl$
+# LeavesPlay,LoseControl. ControlGainEffect.resolve registers the lose-control
+# command on the Flayer's leaves-play and change-controller lists
+# (ControlGainEffect.java:176-181) and moves the Bears at once.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 7
+castspell human 1
+resolvestack

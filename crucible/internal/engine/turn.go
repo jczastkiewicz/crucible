@@ -384,6 +384,9 @@ func (g *Game) untapStep(controller PlayerController) {
 		exerted := c.Exerted
 		c.Exerted = false
 		if !exerted && !g.untapBlocked(c) {
+			if wasTapped {
+				g.runUntapCommands(controller, id)
+			}
 			c.Tapped = false
 			if wasTapped {
 				g.checkUntapsTriggers(controller, id)
@@ -512,6 +515,7 @@ func (g *Game) endCombat() {
 	// (ADR-0030). Here rather than at CombatEnd's step so EndCombatPhase
 	// and EndTurn, which call endCombat directly, revoke too.
 	g.runScheduledActions(boundaryEndCombat, g.activePlayer)
+	g.runEndOfCombatCommands(nil)
 	g.combat = Combat{}
 	g.endEffectsAtEndOfCombat()
 	g.endMustBlocks(true)
@@ -595,6 +599,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	g.pumps = kept
 	g.endAnimatesAtCleanup()
 	g.endCopiesAtCleanup()
+	g.runEndOfTurnCommands(controller)
 	g.endSkipsAtCleanup()
 	g.endEffectsAtCleanup()
 	g.endMustBlocks(false)

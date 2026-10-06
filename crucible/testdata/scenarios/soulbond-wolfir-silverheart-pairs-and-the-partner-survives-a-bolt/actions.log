@@ -1,0 +1,22 @@
+# K:Soulbond (CardFactoryUtil.java:1740-1760): when Wolfir enters, the
+# `DB$ Bond` trigger lets its controller pair it with an unpaired creature
+# they control (BondEffect.java). The pair is read by Wolfir's static
+# `Affected$ Creature.PairedWith,Creature.Self+Paired | AddPower$ 4`, so the
+# Bears are 6/6 and survive a Lightning Bolt that would kill a 2/2.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue cardchoice 8
+castspell human 1
+resolvestack
+tapformana human 7 R
+queue targets 8
+castspell human 9
+resolvestack

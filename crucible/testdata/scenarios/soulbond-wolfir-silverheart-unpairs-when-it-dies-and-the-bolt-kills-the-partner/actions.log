@@ -1,0 +1,26 @@
+# GameAction.java:622-628: a paired creature leaving the battlefield frees its
+# partner. Terror destroys Wolfir, the Bears lose the +4/+4 and the same
+# Lightning Bolt now kills them.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue cardchoice 8
+castspell human 1
+resolvestack
+tapformana human 11 B
+tapformana human 12 B
+queue paygeneric B
+queue targets 1
+castspell human 10
+resolvestack
+tapformana human 7 R
+queue targets 8
+castspell human 9
+resolvestack

@@ -33,6 +33,13 @@ func isPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *co
 	if !ok {
 		return true
 	}
+	if strings.Contains(spec, "IsTriggerRemembered") {
+		// Card.IsTriggerRemembered names the delayed trigger's own
+		// RememberObjects$ list (CardProperty.java:163), which this scan
+		// cannot see: delayedPresentMatches (delayedtrigger.go) is the
+		// check for a delayed trigger and runs where that list is known.
+		return true
+	}
 	if defined, ok := t.Param(definedKey); ok {
 		return definedPresentMatches(g, host, amounts, t, spec, definedKey, defined, compareKey)
 	}

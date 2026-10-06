@@ -127,6 +127,9 @@ type Ability struct {
 	// some (Defined$ ParentTarget); a sub-ability that chooses its own keeps
 	// the parent's here while Targets holds its own.
 	parentTargets []EntityID
+	// chainTargets are the targets chosen for the sub-abilities of this
+	// ability that name their own ValidTgts$ (resolveChainTargets).
+	chainTargets []chainTarget
 	// evolve is the creature that entered for a trigger naming Condition$
 	// Evolve: WrappedAbility.resolve checks CR 702.100c again as the
 	// ability resolves, against the creatures' values by then. NoCard for
@@ -230,6 +233,14 @@ type Ability struct {
 	// pushes through pushTriggeredAbilities for its targets: it is not a
 	// trigger (isTrigger stays false).
 	activated bool
+}
+
+// chainTarget is the targets chosen for one sub-ability of a chain
+// (chaintargets.go), keyed by the link's compiled ability: immutable and
+// shared, so a pointer names it.
+type chainTarget struct {
+	Params  *compile.Ability
+	Targets []EntityID
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the

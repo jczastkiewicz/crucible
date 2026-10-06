@@ -56,12 +56,13 @@ func TestExchangeControlEffectSwaps(t *testing.T) {
 	}
 }
 
-// TestGainControlEffectRejectsUnresolvedParam proves LoseControl$ fails closed.
+// TestGainControlEffectRejectsUnresolvedParam proves a LoseControl$ value
+// without bookkeeping here (StaticCommandCheck) fails closed.
 func TestGainControlEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test Threaten", "DB$ GainControl | Defined$ Self | LoseControl$ EOT")
+	def := etbChainDef(t, "Test Threaten", "DB$ GainControl | Defined$ Self | LoseControl$ StaticCommandCheck")
 	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved LoseControl$")
 	}

@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Seraph|Id:1
+aihand=Ray of Command|Id:3
+aibattlefield=Grizzly Bears|Id:2;Island|Id:4;Island|Id:5;Island|Id:6;Island|Id:7

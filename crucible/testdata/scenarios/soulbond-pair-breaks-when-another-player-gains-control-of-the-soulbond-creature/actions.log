@@ -1,0 +1,30 @@
+# GameAction.java:1015-1020 (CR 702.95e): the AI's Ray of Command takes Wolfir,
+# and controllerChangeZoneCorrection unpairs it from the Bears before moving it.
+# The Bears are a 2/2 again, so the Bolt kills them.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue cardchoice 8
+castspell human 1
+resolvestack
+tapformana ai 14 U
+tapformana ai 15 U
+tapformana ai 16 U
+tapformana ai 17 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 1
+castspell ai 13
+resolvestack
+tapformana human 7 R
+queue targets 8
+castspell human 9
+resolvestack

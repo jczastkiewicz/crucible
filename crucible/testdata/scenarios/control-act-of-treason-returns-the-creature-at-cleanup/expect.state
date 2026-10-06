@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Cleanup
+humanlife=20
+humanbattlefield=Mountain|Tapped;Mountain|Tapped;Mountain|Tapped
+humangraveyard=Act of Treason
+ailife=20
+aibattlefield=Grizzly Bears|Id:5|SummonSick

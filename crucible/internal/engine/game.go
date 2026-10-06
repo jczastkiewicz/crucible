@@ -156,6 +156,11 @@ type Game struct {
 	// -- cleared down to its own Permanent-only remainder every cleanupStep
 	// (turn.go), CR 514.2's "until end of turn" effects wearing off.
 	pumps []pumpRecord
+	// endOfTurnCmds, endOfCombatCmds and endOfNextTurnCmds are the phase
+	// command lists Java's EndOfTurn.addUntil, EndOfCombat.addUntil and
+	// EndOfTurn.addUntilEnd/registerUntilEnd hold (controlcommands.go).
+	endOfTurnCmds, endOfCombatCmds []cardCommand
+	endOfNextTurnCmds              []playerCommand
 	// layerAffected is CR 613.6's carried set for the layer pass in progress:
 	// the cards each continuous static applied to in the first layer it did,
 	// which later layers reuse (affectedPerAbility, GameAction.java:1119). A
@@ -738,6 +743,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		g.clearPumps(id)
 		g.clearAnimates(id)
 		g.loseRingBearer(id)
+		g.unpairOnLeave(id)
 	case from == Stack && kind != Stack && kind != Battlefield:
 		// A Room spell that does not resolve into a permanent goes back to
 		// its printed split card.
@@ -849,6 +855,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		g.clearPumps(id)
 		g.clearAnimates(id)
 		g.loseRingBearer(id)
+		g.unpairOnLeave(id)
 	}
 	if from == Stack {
 		c.leaveRoom()
@@ -1134,9 +1141,12 @@ func (g *Game) Clone() *Game {
 		// Carried so the clone's next push gets an ID no item already on
 		// its stack has (ADR-0018: a StackItemID is never reused within a
 		// game, and CopySpellAbility tells a copy from its original by it).
-		nextStackItemID: g.nextStackItemID,
-		combat:          g.combat.clone(),
-		pumps:           append([]pumpRecord(nil), g.pumps...),
+		nextStackItemID:   g.nextStackItemID,
+		combat:            g.combat.clone(),
+		pumps:             append([]pumpRecord(nil), g.pumps...),
+		endOfTurnCmds:     append([]cardCommand(nil), g.endOfTurnCmds...),
+		endOfCombatCmds:   append([]cardCommand(nil), g.endOfCombatCmds...),
+		endOfNextTurnCmds: append([]playerCommand(nil), g.endOfNextTurnCmds...),
 
 		animates:  append([]animateRecord(nil), g.animates...),
 		delayed:   append([]delayedTrigger(nil), g.delayed...),
@@ -1203,6 +1213,11 @@ func (g *Game) Clone() *Game {
 		c.KeywordMod = g.cards[i].KeywordMod.clone()
 		c.ControlMod = g.cards[i].ControlMod.clone()
 		c.tempControllers = append([]ControlEffect(nil), g.cards[i].tempControllers...)
+		c.Damage.Sources = append([]CardID(nil), g.cards[i].Damage.Sources...)
+		c.leavesPlayCmds = append([]cardCommand(nil), g.cards[i].leavesPlayCmds...)
+		c.untapCmds = append([]cardCommand(nil), g.cards[i].untapCmds...)
+		c.changeControllerCmds = append([]cardCommand(nil), g.cards[i].changeControllerCmds...)
+		c.phaseOutCmds = append([]cardCommand(nil), g.cards[i].phaseOutCmds...)
 		c.copies = append([]copyEffect(nil), g.cards[i].copies...)
 		c.grants = append([]grantedTriggers(nil), g.cards[i].grants...)
 		if g.cards[i].svars != nil {

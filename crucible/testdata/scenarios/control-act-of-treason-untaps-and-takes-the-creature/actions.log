@@ -1,0 +1,16 @@
+# act_of_treason.txt: SP$ GainControl | LoseControl$ EOT | Untap$ True |
+# AddKWs$ Haste. ControlGainEffect.resolve gives the Bears a timestamped
+# temp controller, untaps them (Untap$), and corrects their battlefield list
+# right away (controllerChangeZoneCorrection): they leave the AI's list for the
+# human's, summoning sick as any new controller's permanent is. Haste is the
+# keyword that lets them attack anyway.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+queue paygeneric R
+queue paygeneric R
+queue targets 5
+castspell human 1
+resolvestack

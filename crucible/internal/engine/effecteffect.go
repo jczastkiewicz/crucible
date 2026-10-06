@@ -3,7 +3,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers
+//enginelint:allow id zone card game player ability defined condition control parts amount effecthelpers controlcommands
 
 import (
 	"fmt"
@@ -139,6 +139,10 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			life.armed = g.ActivePlayer() == pid
 		}
 		eff.effectLife = life
+		if life.hostBound != "" {
+			// Re-read: NewCard may have grown the arena under source.
+			g.registerEffectEnd(g.Card(a.Source), id, life.hostBound)
+		}
 		for _, e := range remember {
 			eff.Memory.Remember(e)
 		}
@@ -234,10 +238,14 @@ func (m zoneMask) has(z ZoneType) bool { return m&(1<<z) != 0 }
 // effectUntilEndOfYourNextTurn created during player's own turn, which
 // survives that turn's cleanup.
 type effectLifetime struct {
-	duration      effectDuration
-	player        PlayerID
-	armed         bool
-	host          CardID
+	duration effectDuration
+	player   PlayerID
+	armed    bool
+	host     CardID
+	// hostBound is Duration$ UntilLoseControlOfHost or AsLongAsControl: the
+	// effect is permanent until a command on the host ends it
+	// (registerEffectEnd), not a lifetime this struct's duration tracks.
+	hostBound     string
 	exileOnMoved  zoneMask
 	forgetOnMoved zoneMask
 	forgetOnCast  bool
@@ -269,6 +277,9 @@ func effectDurationOf(a *Ability, source *Card) (life effectLifetime, ok bool, e
 		life.duration = effectUntilHostLeavesPlay
 	case d == "UntilHostLeavesPlayOrEOT":
 		life.duration = effectUntilHostLeavesPlayOrEOT
+	case d == "UntilLoseControlOfHost", d == "AsLongAsControl":
+		life.duration = effectPermanent
+		life.hostBound = d
 	default:
 		return life, false, fmt.Errorf("engine: Effect: Duration$ %q not resolvable yet", d)
 	}
@@ -277,7 +288,32 @@ func effectDurationOf(a *Ability, source *Card) (life effectLifetime, ok bool, e
 			return life, false, nil
 		}
 	}
+	if life.hostBound != "" {
+		// SpellAbilityEffect.checkValidDuration (:1019-1033).
+		if source.Zone != Battlefield && source.Zone != Stack {
+			return life, false, nil
+		}
+		if life.hostBound == "AsLongAsControl" && source.IsPhasedOut() {
+			return life, false, nil
+		}
+		if source.Controller() != a.Controller {
+			return life, false, nil
+		}
+	}
 	return life, true, nil
+}
+
+// registerEffectEnd is addUntilCommand's UntilLoseControlOfHost and
+// AsLongAsControl branches (SpellAbilityEffect.java:1008-1017): the command
+// that ends effect id goes on the host's leaves-play and change-controller
+// lists, and for AsLongAsControl its phase-out list too.
+func (g *Game) registerEffectEnd(host *Card, id CardID, hostBound string) {
+	cmd := cardCommand{Kind: commandEndEffect, Target: id, Host: host.ID}
+	host.leavesPlayCmds = append(host.leavesPlayCmds, cmd)
+	host.changeControllerCmds = append(host.changeControllerCmds, cmd)
+	if hostBound == "AsLongAsControl" {
+		host.phaseOutCmds = append(host.phaseOutCmds, cmd)
+	}
 }
 
 // effectMoveWatch reads ExileOnMoved$ and ForgetOnMoved$ (each a comma list
@@ -357,6 +393,13 @@ func (g *Game) exileEffect(id CardID) {
 func (g *Game) effectCardsSeeMove(moved CardID, from, to ZoneType) {
 	if from == to || g.Card(moved).IsEffect {
 		return
+	}
+	if from == Battlefield {
+		// GameAction.java:533/960: the card's leaves-play commands run as it
+		// goes, before anything else reacts to the move. No controller is at
+		// hand here, so a lose-control command ends its control change and
+		// leaves the zone correction to the next state-based pass.
+		g.runLeavesPlayCommands(nil, moved)
 	}
 	for _, id := range g.effectCards() {
 		e := g.Card(id)

@@ -16,6 +16,10 @@ type Damage struct {
 	// ExcessThisTurn records that the card was dealt more damage than was
 	// lethal, which several cards care about.
 	ExcessThisTurn bool
+	// Sources are the cards that dealt damage to this one this turn, in
+	// order (Card.getDamageReceivedThisTurn's source half): the "DamagedBy"
+	// valid property reads them.
+	Sources []CardID
 }
 
 // Mark adds damage. A deathtouch source sets the flag for the rest of the

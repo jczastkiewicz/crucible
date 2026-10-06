@@ -6,10 +6,9 @@ import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot
 // honour yet. ForgetDefined$ needs getDefinedEntities' mixed
-// card-and-player reading, ClearTriggered$ a delayed-trigger registry,
-// ClearCoinFlips$ FlipCoin, Log$ a random-log event -- none built.
+// card-and-player reading, ClearCoinFlips$ FlipCoin, Log$ a random-log event -- none built.
 var cleanupUnresolvedParams = [...]string{
-	"Defined", "ForgetDefined", "ClearTriggered", "ClearCoinFlips",
+	"Defined", "ForgetDefined", "ClearCoinFlips",
 	"Log",
 	"Condition"}
 
@@ -28,6 +27,17 @@ func (cleanupEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if _, ok := a.Params.Param("ClearTriggered"); ok {
+		// TriggerHandler.clearDelayedTrigger(card): every delayed trigger
+		// the host registered and has not fired is dropped.
+		kept := g.delayed[:0]
+		for _, d := range g.delayed {
+			if d.Host != a.Source {
+				kept = append(kept, d)
+			}
+		}
+		g.delayed = kept
 	}
 	m := &source.Memory
 	if _, ok := a.Params.Param("ClearRemembered"); ok {

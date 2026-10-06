@@ -271,7 +271,7 @@ func TestChooseCardEffectRejectsUnknownZoneAndController(t *testing.T) {
 		"DB$ ChooseCard | Choices$ Creature | ControlledByPlayer$ Left",
 		"DB$ ChooseCard | Choices$ Creature | Amount$ Bogus",
 		"DB$ ChooseCard | Choices$ Creature | MinAmount$ many",
-		"DB$ ChooseCard | DefinedCards$ TriggeredCard",
+		"DB$ ChooseCard | DefinedCards$ TriggeredTarget",
 	} {
 		g, p, other := newTwoPlayerGame(t)
 		g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)

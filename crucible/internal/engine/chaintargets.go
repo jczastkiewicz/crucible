@@ -1,0 +1,62 @@
+// Targets of a SubAbility$ chain: CR 601.2c chooses every target of a spell
+// or ability as it is put on the stack, the sub-abilities' included.
+//
+// Ported from the loop in forge-game's PlayerControllerHuman/HumanPlay
+// target selection, which walks sa.getSubAbility() and runs TargetSelection
+// for each link that usesTargeting().
+
+package engine
+
+//enginelint:allow id game ability control subability targeting
+
+import "github.com/jczastkiewicz/crucible/internal/carddb/compile"
+
+// resolveChainTargets chooses the targets of every sub-ability of a that
+// names its own ValidTgts$ (Stolen Uniform's "target Equipment"), in chain
+// order after a's own, and stores them on a. It reports whether a can still
+// be put on the stack: false when a link has no legal target, as for a's
+// own (resolveTargets). A link this port cannot ask about records the error
+// to fail the ability when it resolves, as resolveTargets does.
+func (g *Game) resolveChainTargets(controller PlayerController, a *Ability) bool {
+	cur := a.Params
+	for cur != nil {
+		sub, ok := findSubAbility(cur)
+		if !ok {
+			return true
+		}
+		cur = sub.Ability
+		api, ok := APIByName(sub.Ability.Name)
+		if !ok {
+			return true
+		}
+		link := Ability{API: api, Source: a.Source, Controller: a.Controller, Params: sub.Ability, Amounts: a.Amounts}
+		choice, named, ok := g.targetChoiceFor(&link)
+		if !named {
+			continue
+		}
+		if !ok {
+			return false
+		}
+		if choice.err != nil {
+			a.targetsErr = choice.err
+			return true
+		}
+		a.chainTargets = append(a.chainTargets, chainTarget{
+			Params:  sub.Ability,
+			Targets: controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max),
+		})
+	}
+	return true
+}
+
+// chainTargetsFor is the targets chosen for the sub-ability link params, and
+// whether any were (an ability that never went through resolveChainTargets,
+// a copy or a Charm mode, has none, and its link keeps its parent's).
+func (a *Ability) chainTargetsFor(link *compile.Ability) ([]EntityID, bool) {
+	for _, c := range a.chainTargets {
+		if c.Params == link {
+			return c.Targets, true
+		}
+	}
+	return nil, false
+}

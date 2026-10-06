@@ -574,7 +574,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 			return false
 		}
 	}
-	if !g.resolveTargets(controller, &a) {
+	if !g.resolveTargets(controller, &a) || !g.resolveChainTargets(controller, &a) {
 		return false
 	}
 	// Targets are chosen: from here the spell is "on the stack" for an
@@ -779,7 +779,10 @@ func firstPlayerTarget(targets []EntityID) (PlayerID, bool) {
 // Defined$, PlayerChoices$, Optional$, Chooser$) are not read: such a line is
 // an error, never an attachment to the wrong thing (GO-7).
 func (g *Game) attachActivated(a *Ability) error {
-	for _, key := range [...]string{"Object", "Choices", "Defined", "PlayerChoices", "Optional", "Chooser", "Move"} {
+	if _, ok := a.Params.Param("Object"); ok {
+		return g.attachObject(a)
+	}
+	for _, key := range [...]string{"Choices", "Defined", "PlayerChoices", "Optional", "Chooser", "Move"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Attach: %s$ not resolvable yet", key)
 		}

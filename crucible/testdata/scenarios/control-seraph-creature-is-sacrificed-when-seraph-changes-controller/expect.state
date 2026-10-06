@@ -1,0 +1,7 @@
+turn=1
+activeplayer=ai
+activephase=End of Turn
+humanlife=20
+ailife=20
+aigraveyard=Ray of Command;Grizzly Bears
+aibattlefield=Island|Id:4|Tapped;Island|Id:5|Tapped;Island|Id:6|Tapped;Island|Id:7|Tapped;Seraph|Id:1|Owner:human|Damage:2|SummonSick

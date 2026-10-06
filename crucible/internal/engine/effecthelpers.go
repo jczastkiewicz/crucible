@@ -43,6 +43,17 @@ func filterValid(g *Game, ids []CardID, spec string, sourceController PlayerID, 
 	return out
 }
 
+// anyValidMatches is Card.isValid(String[]...) for a ";"-separated list: c
+// matches at least one of the valid strings.
+func anyValidMatches(g *Game, c *Card, specs string, sourceController PlayerID, source CardID) bool {
+	for _, part := range strings.Split(specs, ";") {
+		if Matches(g, c, valid.Parse(part), sourceController, source) {
+			return true
+		}
+	}
+	return false
+}
+
 // hasParam reports whether a's script names key.
 func hasParam(a *Ability, key string) bool {
 	_, ok := a.Params.Param(key)

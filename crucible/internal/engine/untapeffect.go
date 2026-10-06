@@ -66,6 +66,7 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if c.Zone != Battlefield || c.IsPhasedOut() || !c.Tapped {
 			continue
 		}
+		g.runUntapCommands(controller, id)
 		c.Tapped = false
 		g.checkUntapsTriggers(controller, id)
 	}

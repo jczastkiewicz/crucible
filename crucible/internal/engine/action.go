@@ -231,6 +231,10 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		g.dropStolenRingBearers()
 	})
 
+	// CR 702.95e: a pair whose creatures no longer share a controller or are
+	// no longer both creatures ends (GameAction.java:1209-1215).
+	g.unpairInvalid()
+
 	// CR 704.5q
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {

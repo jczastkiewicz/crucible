@@ -1,0 +1,20 @@
+# ray_of_command.txt: SP$ Untap, then DB$ GainControl | AddKWs$ Haste |
+# LoseControl$ EOT, then DB$ DelayedTrigger | Mode$ ChangesController |
+# ValidCard$ Card.IsTriggerRemembered | ValidOriginalController$ You. At cleanup
+# the EOT command ends the control change (PhaseHandler.java:406), which fires
+# the delayed trigger (CR 514.3a gives it priority in a repeated cleanup step):
+# Defined$ DelayTriggerRememberedLKI taps the Bears, back on the AI's side.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 6
+castspell human 1
+resolvestack
+advance 9
+resolvestack

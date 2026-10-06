@@ -1,0 +1,10 @@
+# magus_of_the_unseen.txt: AB$ GainControl | Untap$ True | AddKWs$ Haste |
+# LoseControl$ EOT | SubAbility$ DBDelay. The Sword is untapped and moved.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+queue paygeneric U
+queue targets 4
+queue action human activate 1 0
+passpriority

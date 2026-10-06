@@ -488,8 +488,12 @@ func TestChangeTargetsRefusesSpellsItCannotRewrite(t *testing.T) {
 		g, p, other := newTwoPlayerGame(t)
 		seatRetargeter(t, g, p, "DB$ ChangeTargets | Defined$ TriggeredSpellAbility")
 		spell := tc.spell(t, g, p)
+		// The sub-ability's own target is chosen at cast time now
+		// (resolveChainTargets), so a creature must exist for it.
+		victim := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
 		c := engine.NewScriptedController()
 		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
 		if err := castW(t, g, p, spell, c); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: err = %v, want %q", tc.name, err, tc.want)
 		}
@@ -506,8 +510,10 @@ func TestChangeTargetsCountingASubAbilityTargetIsAnError(t *testing.T) {
 	spell := g.NewCard(spellDefWith(t, "Bolt And Tap", "Instant", "W",
 		"SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | SubAbility$ DBTap",
 		"DBTap", "DB$ Tap | ValidTgts$ Creature"), p, engine.Hand)
+	victim := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
 	c := engine.NewScriptedController()
 	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
 	if err := castW(t, g, p, spell, c); err == nil || !strings.Contains(err.Error(), "SubAbility$ targets not resolvable yet") {
 		t.Errorf("err = %v, want the SubAbility$ targets error", err)
 	}

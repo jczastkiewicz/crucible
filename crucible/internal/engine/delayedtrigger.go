@@ -163,9 +163,43 @@ func (g *Game) delayedChangesControllerSatisfied(d delayedTrigger, card CardID, 
 	}
 	if spec, ok := d.Trigger.Param("ValidOriginalController"); ok {
 		matched, recognized := matchesPlayerSpec(g, original, d.Controller, d.Host, spec)
-		return recognized && matched
+		if !recognized || !matched {
+			return false
+		}
 	}
-	return true
+	return g.delayedPresentMatches(d)
+}
+
+// delayedPresentMatches is Trigger.meetsCommonRequirements' IsPresent$ for a
+// delayed trigger, at the moment it would fire: at least one battlefield
+// permanent matches the valid string, read with the trigger's controller as
+// "You". Card.IsTriggerRemembered (CardProperty.java:163) is a member of the
+// trigger's RememberObjects$ list, which Matches cannot see, so it is
+// applied here and dropped from the string (Stolen Uniform's "if it's
+// attached to a creature you control"). Java checks again as the trigger
+// resolves; this port checks once, as it fires.
+func (g *Game) delayedPresentMatches(d delayedTrigger) bool {
+	spec, ok := d.Trigger.Param("IsPresent")
+	if !ok {
+		return true
+	}
+	remembered := false
+	if strings.Contains(spec, "IsTriggerRemembered") {
+		remembered = true
+		spec = strings.NewReplacer(".IsTriggerRemembered+", ".", "+IsTriggerRemembered", "", ".IsTriggerRemembered", "").Replace(spec)
+	}
+	parsed := valid.Parse(spec)
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if remembered && !containsEntity(d.Remembered, CardEntity(id)) {
+				continue
+			}
+			if Matches(g, g.Card(id), parsed, d.Controller, d.Host) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // delayedLeftBattlefieldMatches collects every live delayed trigger watching
@@ -178,7 +212,7 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 	var matches []Ability
 	kept := g.delayed[:0]
 	for _, d := range g.delayed {
-		if !d.active() || g.Player(d.Controller).Lost || !delayedWatchesLeaving(d, left, dest) {
+		if !d.active() || g.Player(d.Controller).Lost || !g.delayedWatchesLeaving(d, left, dest) {
 			kept = append(kept, d)
 			continue
 		}
@@ -198,27 +232,42 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 }
 
 // delayedWatchesLeaving reports whether d is a battlefield-leaving delayed
-// trigger for left going to dest.
-func delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneType) bool {
+// trigger for left going to dest. ValidCard$ Card.IsTriggerRemembered names a
+// card d remembered; any other ValidCard$ is a valid string tested against
+// left as it was on the battlefield (Seraph's Card.StrictlySelf, with the
+// trigger's host as the source). Destination$ Any accepts every dest this
+// is called for (the graveyard and exile paths).
+func (g *Game) delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneType) bool {
 	t := d.Trigger
-	if v, _ := t.Param("ValidCard"); v != "Card.IsTriggerRemembered" {
-		return false
-	}
 	if o, _ := t.Param("Origin"); o != "Battlefield" {
 		return false
 	}
+	mode, ok := t.Param("Mode")
+	if !ok {
+		mode = t.Name
+	}
 	switch {
-	case strings.EqualFold(t.Name, "Exiled"):
+	case strings.EqualFold(mode, "Exiled"):
 		if dest != Exile {
 			return false
 		}
-	case strings.EqualFold(t.Name, "ChangesZone"):
+	case strings.EqualFold(mode, "ChangesZone"):
 		want, _ := t.Param("Destination")
-		if z, ok := ZoneByName(want); !ok || z != dest {
-			return false
+		if !strings.EqualFold(want, "Any") {
+			if z, ok := ZoneByName(want); !ok || z != dest {
+				return false
+			}
 		}
 	default:
 		return false
+	}
+	v, _ := t.Param("ValidCard")
+	if v != "Card.IsTriggerRemembered" {
+		c := g.Card(left)
+		if snap := g.LKI(left); snap != nil {
+			c = snap
+		}
+		return v != "" && Matches(g, c, valid.Parse(v), d.Controller, d.Host)
 	}
 	for _, e := range d.Remembered {
 		if id, ok := e.AsCard(); ok && id == left {

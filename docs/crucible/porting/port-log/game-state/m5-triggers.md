@@ -15,7 +15,7 @@ Four trigger gaps closed: `ChangesController` past the plain card trigger, Comma
 | `AbilityUtils.java:1022-1027` `TriggeredOriginalController` is the player     | `definedPlayers` case `TriggeredOriginalController` (`defined.go`)                  |
 | `DelayedTriggerEffect` with `Mode$ ChangesController` (4 real lines)          | `delayedTriggerEffect` accepts the mode; `delayedChangesControllerMatches` fires it |
 | `ThisTurn$` on the delayed line                                               | existing `delayedTrigger.ThisTurn` (`delayedTriggersOnNextTurn`), no new code       |
-| `GameAction.java:1008-1022` unpair, `runChangeControllerCommands`             | no state to act on, see below                                                       |
+| `GameAction.java:1008-1022` unpair, `runChangeControllerCommands`             | [`m5-control.md`](m5-control.md)                                                    |
 
 `TriggerController$` and `ThisTurn$` never appear on a `T:` card line together: `TriggerController$` is Khârn the
 Betrayer's (`TriggeredOriginalController`, the player who lost control draws), `ThisTurn$` is Stolen Uniform's delayed
@@ -31,22 +31,9 @@ Delayed trigger semantics (`TriggerChangesController.performTest` run against th
   (`valid.go`).
 - `ValidOriginalController$` is a player spec relative to the trigger's controller.
 - The trigger fires once and is removed; the card is recorded as `TriggeredCard`.
-- `IsPresent$` (Stolen Uniform, `Card.IsTriggerRemembered+AttachedTo ...`) fails closed at registration, since no
-  valid-string evaluator resolves `IsTriggerRemembered` (GO-7).
-
-Not end-to-end for the real cards: all four real `DB$ DelayedTrigger | Mode$ ChangesController` lines sit behind
-`LoseControl$ EOT` (Ray of Command, Magus of the Unseen, Stolen Uniform) or Seraph/Krovikan Vampire's `ChangeZone`
-`GainControl$` chains. `GainControl` refuses `LoseControl$` (`gaincontroleffect.go`), so the delayed registration is
-reached only by hand-built cards in `triggerchangescontroller_test.go`.
-
-### runChangeControllerCommands and Soulbond unpairing: nothing to run
-
-`Card.runChangeControllerCommands` (`Card.java:3628`) runs commands registered by `addChangeControllerCommand`:
-`Duration$ UntilLoseControlOfHost`/`AsLongAsControl` (`SpellAbilityEffect.java:1008-1012`), `LoseControl$ LoseControl`
-(`ControlGainEffect.java:181`) and the Ring-bearer loss (`RingTemptsYouEffect.java:49`). The Go port refuses the first
-two before they register anything; the third is `loseRingBearer`, already called in `correctControllerZone`. Soulbond
-pairing (`Card.getPairedWith`) is not modeled at all (`phasing.go` lists it), so there is no pair to clear at
-`GameAction.java:1008-1022`. Both hooks belong where those mechanics land.
+- `IsPresent$` (Stolen Uniform, `Card.IsTriggerRemembered+AttachedTo ...`) is read by `delayedPresentMatches`, see
+  [`m5-control.md`](m5-control.md), which also covers `LoseControl$`, the change-controller command lists and Soulbond
+  unpairing.
 
 ## Command-zone schemes are trait hosts
 

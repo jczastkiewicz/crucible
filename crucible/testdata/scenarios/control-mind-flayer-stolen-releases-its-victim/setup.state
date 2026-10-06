@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Mind Flayer|Id:1
+humanbattlefield=Island|Id:2;Island|Id:3;Island|Id:4;Island|Id:5;Island|Id:6
+aihand=Ray of Command|Id:12
+aibattlefield=Grizzly Bears|Id:7;Island|Id:8;Island|Id:9;Island|Id:10;Island|Id:11

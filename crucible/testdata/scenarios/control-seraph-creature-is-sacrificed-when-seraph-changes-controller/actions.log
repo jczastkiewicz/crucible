@@ -1,0 +1,30 @@
+# TrigDelay2 (DelayedTrigger | Mode$ ChangesController | ValidCard$
+# Card.StrictlySelf | ValidOriginalController$ You): once the Bears are back
+# under the human's control, the AI steals Seraph with Ray of Command and the
+# trigger sacrifices the Bears (SacrificeAll, Controller$ You), which go to
+# their owner's graveyard.
+startturn ai
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks 1=2
+declareblockers
+advance
+advance
+combatdamage
+advance
+resolvestack
+advance 2
+resolvestack
+tapformana ai 4 U
+tapformana ai 5 U
+tapformana ai 6 U
+tapformana ai 7 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 1
+castspell ai 3
+resolvestack
+resolvestack

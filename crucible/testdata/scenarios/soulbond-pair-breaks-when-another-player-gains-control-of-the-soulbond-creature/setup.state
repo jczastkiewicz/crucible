@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Wolfir Silverheart|Id:1;Lightning Bolt|Id:9;Terror|Id:10
+humanbattlefield=Forest|Id:2;Forest|Id:3;Forest|Id:4;Forest|Id:5;Forest|Id:6;Mountain|Id:7;Swamp|Id:11;Swamp|Id:12;Grizzly Bears|Id:8
+aihand=Ray of Command|Id:13
+aibattlefield=Island|Id:14;Island|Id:15;Island|Id:16;Island|Id:17

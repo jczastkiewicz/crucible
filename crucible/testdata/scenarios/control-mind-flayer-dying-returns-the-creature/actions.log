@@ -1,0 +1,21 @@
+# The Flayer's leaves-play command (GameAction.java:533 runLeavesPlayCommands)
+# ends the control change as it dies: the Bears are the AI's again. The
+# command has no controller to hand, so the zone correction is the next
+# state-based pass's (GameAction.java:1205), which the death's own check runs.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 7
+castspell human 1
+resolvestack
+tapformana human 9 R
+queue targets 1
+castspell human 8
+resolvestack

@@ -18,7 +18,7 @@ func TestLookAtEffectChangesNothing(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	g2, p2, _ := newTwoPlayerGame(t)
-	if _, err := castETBChain(t, g2, p2, etbChainDef(t, "Test Look Bad", "DB$ LookAt | Defined$ TriggeredCard"), engine.NewScriptedController()); err == nil {
+	if _, err := castETBChain(t, g2, p2, etbChainDef(t, "Test Look Bad", "DB$ LookAt | Defined$ TriggeredTarget"), engine.NewScriptedController()); err == nil {
 		t.Fatal("ResolveStack succeeded, want an error for an unresolvable Defined$")
 	}
 }

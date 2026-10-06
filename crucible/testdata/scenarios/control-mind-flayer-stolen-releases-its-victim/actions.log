@@ -1,0 +1,27 @@
+# GameAction.java:1008-1022: the AI steals the Flayer with Ray of Command, so the Flayer's change-controller list runs before the zone
+# correction: its LoseControl command ends the human's hold on the Bears, which
+# go back to the AI's battlefield first (the Bears' own correction fires
+# inside the Flayer's), then the Flayer follows them.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 7
+castspell human 1
+resolvestack
+tapformana ai 8 U
+tapformana ai 9 U
+tapformana ai 10 U
+tapformana ai 11 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets 1
+castspell ai 12
+resolvestack

@@ -164,10 +164,9 @@ kept.
 
 ### Not modeled
 
-| Java                                                      | Why                                                   |
-| --------------------------------------------------------- | ----------------------------------------------------- |
-| `runPhaseOutCommands` (CR 702.26f)                        | no "until it phases out" duration exists in this port |
-| `clearEncodedCards`, soulbond `setPairedWith(null)`       | cipher and soulbond not ported                        |
-| `Combat.saveLKI`                                          | combat LKI not ported                                 |
-| Phasing in unattaches from a player no longer in the game | this port attaches only to cards                      |
-| `PhasesEffect.java:75-79` timestamp half                  | `CardID` survives a zone change (ADR-0009)            |
+| Java                                                      | Why                                        |
+| --------------------------------------------------------- | ------------------------------------------ |
+| `clearEncodedCards`                                       | cipher not ported                          |
+| `Combat.saveLKI`                                          | combat LKI not ported                      |
+| Phasing in unattaches from a player no longer in the game | this port attaches only to cards           |
+| `PhasesEffect.java:75-79` timestamp half                  | `CardID` survives a zone change (ADR-0009) |

@@ -39,8 +39,8 @@ Not `changeControllerAt` for the spell: summoning sickness and removal from comb
 | `Mode$ Exchange`                   | host skipped unless on the battlefield, phased in, spell still on the stack, spell's controller still in the game (`ControlSpellEffect.java:74-81`); host to the spell's controller, spell to the host's controller, one timestamp (`:69-90`) |
 | `Remember$`                        | host (Exchange), then the spell, on the host's `Memory`                                                                                                                                                                                       |
 
-`runChangeControllerCommands` (`:88`, `:96`) has nothing to run: the one change-controller command this port has, losing
-the Ring-bearer designation, is already in `changeControllerAt`.
+`runChangeControllerCommands` (`:88`, `:96`) is not called from here: a spell on the stack hosts no change-controller
+command (they are registered on battlefield hosts, [`m5-control.md`](m5-control.md)).
 
 ### Rejected before acting (PORT-8, GO-7)
 

@@ -1,0 +1,4 @@
+# Event$ Moved | Destination$ Graveyard | ValidCard$ Card.Self | ReplaceWith$
+# DBShuffle (DB$ ChangeZone | Destination$ Library | Shuffle$ True): the
+# destroyed Progenitus is shuffled into its owner's (empty) library.
+startturn human

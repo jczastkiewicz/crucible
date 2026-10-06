@@ -123,7 +123,7 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 // whether a script effect or a cost triggered it.
 func discardCards(g *Game, controller PlayerController, ids []CardID, pid PlayerID) {
 	for _, id := range ids {
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiscardedTriggers(controller, id, pid)
 	}
 	g.checkDiscardedAllTriggers(controller, pid, ids)

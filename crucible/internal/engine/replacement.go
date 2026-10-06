@@ -140,24 +140,76 @@ func (g *Game) checkMovedReplacement(controller PlayerController, moved CardID, 
 // real "put into a graveyard" site calls it instead of Move, since
 // Game.Move itself cannot reach replacements (game.go cannot depend on this
 // file, see checkMovedReplacement's own doc comment).
-func (g *Game) moveToGraveyard(id CardID) (ZoneType, CardID) {
-	dest := g.movedGraveyardDestination(id)
-	return dest, g.Move(id, dest, g.Card(id).Owner)
+//
+// A replacement that sends the card to a library puts it on top, on the
+// bottom (LibraryPosition$ -1) or shuffles it in (Shuffle$ True), and its
+// SubAbility$ chain (Kalitas' Zombie token, Ugin's Nexus' extra turn) runs
+// right after the move, as ReplacementHandler.executeReplacement plays the
+// ReplaceWith$ ability without the stack. controller answers any decision
+// that chain asks.
+func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType, CardID) {
+	dest, post := g.movedGraveyardDestination(id)
+	owner := g.Card(id).Owner
+	var melded CardID
+	if dest == Library && (post == nil || post.libPos == 0) {
+		melded = g.MoveToLibraryTop(id, owner)
+	} else {
+		melded = g.Move(id, dest, owner)
+	}
+	if post != nil {
+		if post.shuffle {
+			g.Shuffle(Library, owner)
+		}
+		g.runMovedChain(controller, post)
+	}
+	return dest, melded
+}
+
+// movedPost is what a Moved replacement's ReplaceWith$ ChangeZone adds to
+// the destination zone: where in the library the card goes, whether the
+// library is shuffled, and the ability chain that follows.
+type movedPost struct {
+	libPos  int
+	shuffle bool
+	host    *Card
+	amounts map[string]expr.Amount
+	chain   *compile.Ability
+}
+
+// runMovedChain resolves post's SubAbility$ chain (nil for none) from the
+// replacement's host, as an ordinary ability of its controller.
+func (g *Game) runMovedChain(controller PlayerController, post *movedPost) {
+	if post.chain == nil {
+		return
+	}
+	api, ok := APIByName(post.chain.Name)
+	if !ok || g.registry == nil {
+		g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved: SubAbility$ %s not resolvable yet", post.host.Def.Name, post.chain.Name))
+		return
+	}
+	a := Ability{API: api, Source: post.host.ID, Controller: post.host.Controller(), Params: post.chain, Amounts: post.amounts}
+	if err := g.registry.Resolve(g, &a, controller); err != nil {
+		g.recordPendingError(err)
+	}
 }
 
 // movedGraveyardDestination is where a card about to go to the graveyard goes
 // instead: the first Event$ Moved replacement in play that names Destination$
 // Graveyard, whose Origin$ and ValidCard$ (each absent a pass) match and whose
 // requirements hold, applies its ReplaceWith$. The shape resolved is a bare
-// DB$ ChangeZone | Defined$ ReplacedCard with a Destination$ of Exile or
-// Hand (Rest in Peace, Leyline of the Void, Binding Geist: 79 of the 91 real
-// lines), under Origin$, ValidCard$ and ValidLKI$ only; any further param -- a SubAbility$, a Library destination's
-// position and shuffle -- is an unmodelled consequence, so the line is not
-// applied and the game's pending error is set (GO-7), never a half-replacement.
-// The first match wins, CR 616's simplification this file already makes.
-func (g *Game) movedGraveyardDestination(id CardID) ZoneType {
+// DB$ ChangeZone | Defined$ ReplacedCard with a Destination$ of Exile, Hand or
+// Library (Rest in Peace, Leyline of the Void, Binding Geist, Gravebane
+// Zombie, Blightsteel Colossus: 91 of the 91 real lines), under Origin$,
+// ValidCard$ and ValidLKI$ only; a Library destination reads LibraryPosition$
+// (0 or -1), Shuffle$ and Reveal$ (hidden information is not tracked), and any
+// ChangeZone may chain SubAbility$ (returned in the movedPost). Any further
+// param is an unmodelled consequence, so the line is not applied and the
+// game's pending error is set (GO-7), never a half-replacement. The first
+// match wins, CR 616's simplification this file already makes.
+func (g *Game) movedGraveyardDestination(id CardID) (ZoneType, *movedPost) {
 	c := g.Card(id)
 	dest := Graveyard
+	var post *movedPost
 	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		if _, ok := r.Param("Destination"); !ok || !replacementZoneMatches(r, "Destination", Graveyard) {
 			return false
@@ -180,7 +232,8 @@ func (g *Game) movedGraveyardDestination(id CardID) ZoneType {
 			return false
 		}
 		sub := replaceWithSub(r)
-		if sub == nil || !strings.EqualFold(sub.Name, "ChangeZone") || !onlyKeys(sub, "DB", "Hidden", "Origin", "Destination", "Defined") {
+		if sub == nil || !strings.EqualFold(sub.Name, "ChangeZone") ||
+			!onlyKeys(sub, "DB", "Hidden", "Origin", "Destination", "Defined", "LibraryPosition", "Shuffle", "Reveal", "SubAbility") {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: ReplaceWith$ shape not resolvable yet", h.Def.Name))
 			return false
 		}
@@ -190,14 +243,31 @@ func (g *Game) movedGraveyardDestination(id CardID) ZoneType {
 		}
 		to, _ := sub.Param("Destination")
 		z, ok := ZoneByName(to)
-		if !ok || (z != Exile && z != Hand) {
+		if !ok || (z != Exile && z != Hand && z != Library) {
 			g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: Destination$ %q not resolvable yet", h.Def.Name, to))
 			return false
 		}
-		dest = z
+		p := &movedPost{host: h, amounts: amounts}
+		if pos, ok := sub.Param("LibraryPosition"); ok {
+			n, err := strconv.Atoi(pos)
+			if err != nil || (n != 0 && n != -1) || z != Library {
+				g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved to the graveyard: LibraryPosition$ %q not resolvable yet", h.Def.Name, pos))
+				return false
+			}
+			p.libPos = n
+		}
+		if v, ok := sub.Param("Shuffle"); ok {
+			p.shuffle = strings.EqualFold(v, "True") && z == Library
+		}
+		for _, s := range sub.Subs {
+			if strings.EqualFold(s.Key, "SubAbility") {
+				p.chain = s.Ability
+			}
+		}
+		dest, post = z, p
 		return true
 	})
-	return dest
+	return dest, post
 }
 
 // onlyKeys reports whether every param of a is one of keys (folded).

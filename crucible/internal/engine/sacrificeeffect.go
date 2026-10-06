@@ -213,7 +213,7 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 		if remember {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		sacrificed = append(sacrificed, id)
 		if isExploitAbility(a) {

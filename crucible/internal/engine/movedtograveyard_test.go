@@ -52,13 +52,16 @@ func TestMovedToGraveyardReplacementExilesASpell(t *testing.T) {
 
 // TestMovedToGraveyardReplacementWithAnUnmodelledShapeSetsAnError proves a
 // replacement this port cannot apply fails loudly rather than being skipped:
-// Kalitas, Traitor of Ghet chains a SubAbility$ (a Zombie token), so the
-// creature still dies and the game carries a pending error naming it.
+// a ReplaceWith$ putting the card third from the top of the library (a
+// LibraryPosition$ past the top and the bottom) is not modelled, so the
+// creature still dies and the game carries a pending error naming the host.
 func TestMovedToGraveyardReplacementWithAnUnmodelledShapeSetsAnError(t *testing.T) {
 	t.Parallel()
 
 	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
-	g.NewCard(corpusCard(t, "Kalitas, Traitor of Ghet"), opp, engine.Battlefield)
+	g.NewCard(scriptDef(t, "Kalitas", "Creature Vampire",
+		"R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | ValidLKI$ Creature.!token+OppCtrl | ReplaceWith$ Third",
+		"SVar:Third:DB$ ChangeZone | Origin$ Battlefield | Destination$ Library | LibraryPosition$ 3 | Defined$ ReplacedCard"), opp, engine.Battlefield)
 	victim := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
 	g.Card(victim).Damage.Mark(2, false)
 

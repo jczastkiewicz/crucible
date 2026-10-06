@@ -122,7 +122,7 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 			return nil
 		}
 	}
-	g.moveResolvedSpellToGraveyard(a)
+	g.moveResolvedSpellToGraveyard(controller, a)
 	CheckStateBasedActions(g, controller)
 	return nil
 }
@@ -146,7 +146,7 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 // (Card.IsCopiedSpell) ceases to exist instead, inside Move itself
 // (ceaseCopiedSpell, game.go; MagicStack.removeCardFromStack's
 // ceaseToExist, MagicStack.java:680-683).
-func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
+func (g *Game) moveResolvedSpellToGraveyard(controller PlayerController, a Ability) {
 	if a.Source == NoCard || int(a.Source) >= len(g.cards) {
 		return
 	}
@@ -154,7 +154,7 @@ func (g *Game) moveResolvedSpellToGraveyard(a Ability) {
 	if c.Zone != Stack {
 		return
 	}
-	g.moveToGraveyard(a.Source)
+	g.moveToGraveyard(controller, a.Source)
 }
 
 // stackItem is the item on the stack whose ID is id, and whether one is --

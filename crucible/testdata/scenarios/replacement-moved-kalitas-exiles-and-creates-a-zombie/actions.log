@@ -1,0 +1,5 @@
+# Kalitas' R:Event$ Moved ... ReplaceWith$ Exile (DB$ ChangeZone | Destination$
+# Exile | SubAbility$ DBToken): the damaged nontoken Bears are exiled instead
+# of dying, then the SubAbility$ chain gives Kalitas' controller a 2/2 black
+# Zombie.
+startturn human

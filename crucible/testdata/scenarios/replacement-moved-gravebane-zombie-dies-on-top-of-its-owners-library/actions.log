@@ -1,0 +1,6 @@
+# Event$ Moved | Origin$ Battlefield | Destination$ Graveyard | ValidCard$
+# Card.Self | ReplaceWith$ ToLibrary (DB$ ChangeZone | Destination$ Library |
+# LibraryPosition$ 0): CR 704.5g destroys the damaged Zombie, which goes on top
+# of its owner's library instead. It never reaches the graveyard, so it does
+# not die.
+startturn human

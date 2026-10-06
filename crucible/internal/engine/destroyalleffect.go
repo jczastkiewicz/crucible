@@ -89,7 +89,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if !cantRegen && g.regenerate(controller, id) {
 			continue
 		}
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		if remember {
 			source.Memory.Remember(CardEntity(id))

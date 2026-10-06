@@ -103,3 +103,38 @@ Not ported: `Destroy` without `Regeneration$` (Harmonious Emergence), `TurnFaceU
 `Attached` (3), `Scry`/`Mill`/`DrawCards` (2 each), the `Optional$` ReplaceWith lines (Fasting, Time Vault), and the
 rest at one line each. `LifeReduced` lines whose `ReplaceWith$` is not a `ReplaceEffect` (Enduring Angel's Transform)
 record a pending error when they apply.
+
+## Event$ Moved to the graveyard: library destinations and chains
+
+Java: `ReplaceMoved`, `ReplacementHandler.executeReplacement`. A `ReplaceWith$` ChangeZone of a Moved replacement is
+played at once, without the stack (the "buffered" branch is `DamageDone` only), and its `SubAbility$` chain follows it.
+
+`moveToGraveyard(controller, id)` now performs the move itself and runs the chain, so its roughly 20 callers keep their
+shape; it gained the `controller` they all had in scope (a chain's token or extra turn may ask a decision).
+`movedGraveyardDestination` returns the zone and a `movedPost`:
+
+| Param on the ChangeZone | Effect                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `Destination$`          | `Exile`, `Hand` or `Library`                                                   |
+| `LibraryPosition$`      | `0` (top, the default) or `-1` (bottom); other values are a pending error      |
+| `Shuffle$ True`         | the owner's library is shuffled with the game's RNG after the card goes in     |
+| `Reveal$`               | accepted, no effect (hidden information is not tracked)                        |
+| `SubAbility$`           | the chain resolves through the Registry from the host, as its controller's own |
+
+All 91 real `Destination$ Graveyard` lines now resolve: Library 8 (Gravebane Zombie top, Nissa's Chosen and Wheel of Sun
+and Moon bottom, Darksteel and Blightsteel Colossus, Progenitus, Legacy Weapon, Nexus of Fate shuffled), chains 4
+(Kalitas' Zombie token, Ugin's Nexus' extra turn, Firestorm Phoenix' effect, Necromancer's Magemark). The dies, exiled
+and returned triggers key off the zone the card ended in, so a library-bound creature does not die. Token and copy
+vanishing (CR 704.5d) is `Game.Move`'s and landed earlier.
+
+| Scenario                                                                   | Proves                                |
+| -------------------------------------------------------------------------- | ------------------------------------- |
+| `replacement-moved-gravebane-zombie-dies-on-top-of-its-owners-library`     | top of the library, not the graveyard |
+| `replacement-moved-nissas-chosen-dies-on-the-bottom-of-its-owners-library` | `LibraryPosition$ -1`                 |
+| `replacement-moved-progenitus-is-shuffled-into-the-library`                | `Shuffle$ True`                       |
+| `replacement-moved-kalitas-exiles-and-creates-a-zombie`                    | `SubAbility$` chain after the exile   |
+
+Not ported: a `Destination$` other than Graveyard or the battlefield's tapped shapes on `Event$ Moved` (the 973-line
+family is almost all `Destination$ Battlefield`, resolved as "enters tapped" only), a `ChangeZone` replacement of an
+`Origin$ Stack` move into a zone other than Graveyard (Glimpse the Cosmos' `ValidLKI$ Card.CastSa` line), and
+`ChangesZoneAll` batch triggers, which still name the graveyard when a card was exiled instead.

@@ -408,7 +408,7 @@ func destroyLethalToughness(g *Game, controller PlayerController) bool {
 		}
 	}
 	for _, id := range dead {
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	g.checkChangesZoneAllTriggers(controller, dead, Battlefield, Graveyard)
@@ -467,7 +467,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 		if g.regenerate(controller, id) {
 			continue
 		}
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		died = append(died, id)
 	}
@@ -513,7 +513,7 @@ func destroyZeroLoyalty(g *Game, controller PlayerController) bool {
 		}
 	}
 	for _, id := range dead {
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	return len(dead) > 0
@@ -570,7 +570,7 @@ func assignBattleProtector(g *Game, controller PlayerController) bool {
 			}
 		}
 		if len(eligible) == 0 {
-			g.moveToGraveyard(id)
+			g.moveToGraveyard(controller, id)
 			g.checkDiesTriggers(controller, id)
 			continue
 		}
@@ -605,7 +605,7 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 		}
 	}
 	for _, id := range dead {
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	return len(dead) > 0
@@ -682,7 +682,7 @@ func resolveLegendRule(g *Game, controller PlayerController) bool {
 				if id != keep {
 					removed[id] = true
 					performed = true
-					g.moveToGraveyard(id)
+					g.moveToGraveyard(controller, id)
 					g.checkDiesTriggers(controller, id)
 				}
 			}
@@ -701,7 +701,7 @@ func resolveLegendRule(g *Game, controller PlayerController) bool {
 		for _, id := range remaining {
 			if id != keep {
 				performed = true
-				g.moveToGraveyard(id)
+				g.moveToGraveyard(controller, id)
 				g.checkDiesTriggers(controller, id)
 			}
 		}
@@ -764,7 +764,7 @@ func resolveWorldRule(g *Game, controller PlayerController) bool {
 			continue
 		}
 		performed = true
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	return performed
@@ -864,7 +864,7 @@ func cleanupDanglingAttachments(g *Game, controller PlayerController) bool {
 	for _, id := range toGraveyard {
 		// Move unattaches id itself as a side effect of leaving the
 		// battlefield (game.go), so there is nothing left to do here.
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	return len(toGraveyard) > 0 || len(toUnattach) > 0
@@ -954,7 +954,7 @@ func resolveRoleRule(g *Game, controller PlayerController) bool {
 		}
 	}
 	for _, id := range dead {
-		g.moveToGraveyard(id)
+		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 	}
 	return len(dead) > 0

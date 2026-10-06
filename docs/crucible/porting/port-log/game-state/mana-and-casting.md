@@ -460,8 +460,8 @@ tokens, `PayLife<N>` (68 real `UnlessCost$` lines, 21 `Ward`), `Discard<N/Card>`
 `CostDamage.canPay`) and `Draw<N/You>` (`DrawCards`, which applies a draw replacement during payment; `CostDraw.canPay`
 reads `S:Mode$ CantDraw`, which this port does not read yet) and `AddCounter<N/Type>` on the source (Fabricate; payable
 while it is on the battlefield and may receive the counters, `CostPutCounter.canPay`; `countersReplaced` applies).
-`Reveal`, `ExileFromGrave`, `tapXType`, `Draw` naming another player (`Player.targetedBy`, `Player.Activator`, ...) and
-an `X` still error.
+`Reveal`, `ExileFromGrave`, `tapXType`, `Draw` naming another player and an `X` are read now
+([`m5-ward-protection.md`](m5-ward-protection.md#unlesscost-and-ward-cost-shapes)).
 
 | Step                     | Rule                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -495,8 +495,9 @@ than pay the echo cost" (1). Tests: `upkeepcosts_test.go`.
 
 `checkWardTriggers` pushes a Ward trigger for any cost `parseUnlessCost` reads, so `Ward:PayLife<N>`,
 `Ward:Discard<1/Card>`, `Ward:Sac<N/Type>` and `Ward:{N} PayLife<N>` counter the spell unless paid. `Waterbend`,
-`CollectEvidence`, `Blight`, `AddCounterYou` and `Ward:X` are skipped before reaching the stack. Tests:
-`unlesscostparts_test.go`, `ward_test.go`.
+`CollectEvidence`, `Blight`, `AddCounterYou` and `Ward:X` are read now
+([`m5-ward-protection.md`](m5-ward-protection.md#unlesscost-and-ward-cost-shapes)). Tests: `unlesscostparts_test.go`,
+`ward_test.go`.
 
 ## Triggered `AB$` costs
 

@@ -148,6 +148,7 @@ queue sacrificechoice <id>[,...]  ScriptedController.QueueSacrificeChoice, the p
 queue returnchoice <id>[,...]     ScriptedController.QueueReturnChoice, the permanents a Return<N/Type> cost picks, ids from Loaded.CardByFixtureID
 queue scry <id>[,...]            ScriptedController.QueueScry, ids (all kept on top, in order) from Loaded.CardByFixtureID
 queue surveil <id>[,...]         ScriptedController.QueueSurveil, ids (all kept on top, in order) from Loaded.CardByFixtureID
+queue replacement <index>        ScriptedController.QueueReplacementEffect, the decider's pick among the replacement effects CR 616 offers (ChooseReplacementEffect)
 queue battleprotector <p>     ScriptedController.QueueBattleProtector, a seated player's name
 paymanacost <player> <cost>   Game.PayManaCost(player, cost, controller), cost is mana.Parse's own text
 tapformana <player> <id> <color> Game.TapLandForMana(player, id, color), id from Loaded.CardByFixtureID

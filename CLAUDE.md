@@ -248,7 +248,8 @@ closed, so parallel porters never append to one file.
 
 Worktree subagents cannot run `git`: the user's global `rtk` hook rewrites it to `rtk git`, which the isolation guard
 refuses, and no variant passes. Never bypass it with `/usr/bin/git`. Subagents leave work uncommitted; the main session
-commits with `crucible/scripts/merge-porters.sh commit BRANCH MSG`. Any subagent prompt for worktree work must say so.
+commits with `crucible/scripts/merge-porters.sh commit BRANCH MSG`. Any worktree-subagent prompt carries the prompt
+block from `docs/crucible/runbooks/subagent-worktrees.md` (failures seen and their rules).
 
 Hooks resolve the checkout from the tool call (hook input `cwd`, the edited path, `git -C`/`cd`), never
 `$CLAUDE_PROJECT_DIR` alone: a porter's worktree is gated and REV-1-guarded as its own checkout.

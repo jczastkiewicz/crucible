@@ -86,7 +86,9 @@ golangci() {
 		echo "golangci-lint missing or built with a Go older than go.mod's: run crucible/scripts/ensure-golangci.sh"
 		return 1
 	}
-	"$lint" run
+	# Parallel agents run gates in separate worktrees at once; without this the
+	# second run fails with "parallel golangci-lint is running".
+	"$lint" run --allow-parallel-runners
 }
 
 gate gofmt gofmt_clean

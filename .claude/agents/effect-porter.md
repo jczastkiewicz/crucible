@@ -46,6 +46,8 @@ Rules, non-negotiable:
   worktree's own copy) listing your assigned work and intended order; update it as your approach changes. It is scratch
   for whoever resumes you: `merge-porters.sh commit` drops it, so do not delete it yourself and do not rely on it
   landing.
+- Shell and tooling pitfalls (compound commands refused, BSD `sed -i`, corpus-wide greps, shared scratchpad, enginelint
+  group per new file, the 90.0% coverage floor): follow `docs/crucible/runbooks/subagent-worktrees.md`.
 - If an API genuinely cannot be ported at all, say so with a reason rather than faking it.
 
 If, while researching, an assigned API turns out to need a new stack/casting mechanic, a Layer 1 rewrite, or scanning

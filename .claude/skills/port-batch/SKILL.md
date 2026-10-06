@@ -62,6 +62,8 @@ registry). It stops on any other conflict with the cherry-pick in progress. Typi
 `PlayerController` methods, `Game` fields, or `Clone` lines. Keep both sides, since these are additive. Then
 `git cherry-pick --continue` and rerun `merge` with the remaining branches.
 
+Every porter prompt carries the prompt block of `docs/crucible/runbooks/subagent-worktrees.md`.
+
 Porters never run `git`: the user's `rtk` hook rewrites it to `rtk git`, which the worktree-isolation guard refuses.
 Their finished work is therefore always uncommitted, `uncommitted>0` in `list`. Read each diff, then commit what
 belongs to the batch with `crucible/scripts/merge-porters.sh commit BRANCH "<message with the attribution trailer>"`

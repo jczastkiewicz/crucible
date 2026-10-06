@@ -26,6 +26,7 @@
     "action": ["action.go"],
     "turn": ["turn.go"],
     "mulligan": ["mulligan.go"],
+    "match": ["match.go"],
     "stack": ["stack.go"],
     "priority": ["priority.go"],
     "driver": ["driver.go"],
@@ -152,6 +153,7 @@
       "scheduledaction"
     ],
     "mulligan": ["id", "zone", "game", "control"],
+    "match": ["id", "zone", "game", "control"],
     "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone"],
     "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
     "driver": ["id", "game", "phase", "control", "effect", "mulligan"],

@@ -313,7 +313,7 @@ func assignSectors(g *Game, controller PlayerController) bool {
 // the rest of the game. Java builds it as a `Mode$ Always | Static$ True`
 // trigger that resolves without the stack, so it is equivalent to running
 // with the state-based actions. The instant/sorcery half
-// (AbilityUtils.java:1338, checked as the spell resolves) is not ported.
+// (AbilityUtils.java:1338) is Game.ascendAtResolution (stack.go).
 func assignBlessings(g *Game) (performed bool) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {

@@ -329,6 +329,13 @@ type Card struct {
 	// transformations, Java's transformedTimestamp.
 	frontDef   *compile.Card
 	Transforms int
+	// flipped is Card.flipped (Card.java:1170): the permanent has flipped
+	// (CR 709.4, one-way). For a flip card Def then holds the flipped face
+	// and frontDef the unflipped one, the transform mechanism's own swap;
+	// it also holds for a card with no flipped face, and for a face-down or
+	// copying one, whose Def does not change. Cleared with the swap as the
+	// card leaves the battlefield (turnFrontFaceUp).
+	flipped bool
 
 	// MeldedWith is Card.meldedWith (Card.java:1400) on a melded
 	// permanent (CR 712.4a, meldeffect.go): the other card it represents,
@@ -1029,6 +1036,13 @@ func (c *Card) kickerMagnitude() int {
 	}
 	return 0
 }
+
+// IsFlipped is Card.isFlipped.
+func (c *Card) IsFlipped() bool { return c.flipped }
+
+// InFlippedState is Card.getCurrentStateName() == Flipped: a flip card
+// showing its flipped face, which GameState writes as `|Flipped`.
+func (c *Card) InFlippedState() bool { return c.flipped && c.frontDef != nil }
 
 // liveFaces is how many of def's faces are its current state's. A
 // transforming, flipping, melded, modal or specialize card's other face is a

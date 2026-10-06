@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanhand=Plains;Swamp;Mountain
+humangraveyard=Secrets of the Golden City
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+ailife=20

@@ -281,6 +281,8 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.Tapped = true
 		case strings.HasPrefix(info, "SummonSick"):
 			c.SummonSick = true
+		case strings.HasPrefix(info, "Flipped"):
+			ld.game.Flip(id)
 		case strings.HasPrefix(info, "PhasedOut"):
 			if err := ld.phasedOut(id, kind, info); err != nil {
 				return fmt.Errorf("%s: %w", name, err)

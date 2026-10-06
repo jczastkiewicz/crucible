@@ -116,6 +116,10 @@ func (c *Card) PrintedDef() *compile.Card {
 	if c.roomDef != nil {
 		return c.roomDef
 	}
+	if c.flipped && c.frontDef != nil {
+		// A flipped card is still the paper card it was printed as.
+		return c.frontDef
+	}
 	return c.UncopiedDef()
 }
 

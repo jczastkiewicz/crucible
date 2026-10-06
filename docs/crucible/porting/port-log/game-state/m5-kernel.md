@@ -62,8 +62,8 @@ Scenarios `ironclaw-curse-enchanted-creature-can-still-block-a-smaller-attacker`
 | `InstantSpeed$`        | not read: only matters for a mana ability mid-payment, never interleaved here        |
 | Sneak declare-blockers | not ported: no Sneak cast                                                            |
 
-The instant/sorcery Ascend check at resolution (`AbilityUtils.java:1338`) is not ported. A blessing granted makes the
-state-based pass repeat (CR 702.131d). Scenarios `ascend-citys-blessing-lets-arch-of-orazca-draw`,
+The instant/sorcery Ascend check at resolution is ported in [`m5-kernel-2.md`](m5-kernel-2.md). A blessing granted makes
+the state-based pass repeat (CR 702.131d). Scenarios `ascend-citys-blessing-lets-arch-of-orazca-draw`,
 `ascend-citys-blessing-skymarcher-aspirant-attacks-unblocked`; negatives in `activationrestrictions_test.go`.
 
 ## Turn driver
@@ -91,5 +91,4 @@ state-based pass repeat (CR 702.131d). Scenarios `ascend-citys-blessing-lets-arc
 
 ## Not done
 
-`CardState` flip: about 20 corpus cards (`AlternateMode:Flip`), too few to justify a state model this batch; meld
-already works through `leaveMeld`/`unmeld`.
+Flip and the Match series are ported in [`m5-kernel-2.md`](m5-kernel-2.md).

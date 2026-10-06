@@ -55,6 +55,7 @@ func (c *Card) turnFaceUp() {
 // turnFrontFaceUp returns a transformed card to its front face as it leaves
 // the battlefield (CR 711.8).
 func (c *Card) turnFrontFaceUp() {
+	c.flipped = false
 	if c.frontDef == nil {
 		return
 	}

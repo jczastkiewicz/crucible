@@ -34,24 +34,45 @@ func effectEventParams(own ...string) map[string]bool {
 }
 
 var (
-	scryTriggerParams    = effectEventParams("validplayer")
-	surveilTriggerParams = effectEventParams("validplayer")
+	scryTriggerParams    = effectEventParams("validplayer", "tobottom")
+	surveilTriggerParams = effectEventParams("validplayer", "firsttime")
 	transformedParams    = effectEventParams("validcard")
-	turnedFaceUpParams   = effectEventParams("validcard")
+	turnedFaceUpParams   = effectEventParams("validcard", "validcause")
 )
 
 // checkScryTriggers is Mode$ Scry (TriggerScry.performTest, 24 real lines),
 // run once per player that scried (GameAction.java:2652-2655): ValidPlayer$
-// against the scrying player. ToBottom$ lines are not fired.
-func (g *Game) checkScryTriggers(controller PlayerController, pid PlayerID) {
-	g.pushTriggeredAbilities(controller, g.playerEventMatches("Scry", scryTriggerParams, pid))
+// against the scrying player; ToBottom$ needs at least one card put on the
+// bottom. looked is ScryNum (cards put anywhere), bottom is ScryBottom, both
+// read by TriggerCount$.
+func (g *Game) checkScryTriggers(controller PlayerController, pid PlayerID, looked, bottom int) {
+	matches := g.scanTriggers([]string{"Scry"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, scryTriggerParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ToBottom"); ok && bottom <= 0 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid,
+			counts: triggerCounts{scryNum: looked, scryBottom: bottom, set: countScry}}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 // checkSurveilTriggers is Mode$ Surveil (TriggerSurveil.performTest, 16 real
-// lines, Player.java:1083-1088): ValidPlayer$ against the surveiling player.
-// FirstTime$ lines are not fired.
-func (g *Game) checkSurveilTriggers(controller PlayerController, pid PlayerID) {
-	g.pushTriggeredAbilities(controller, g.playerEventMatches("Surveil", surveilTriggerParams, pid))
+// lines, Player.java:1083-1088): ValidPlayer$ against the surveiling player;
+// FirstTime$ needs first, the player's first surveil this turn.
+func (g *Game) checkSurveilTriggers(controller PlayerController, pid PlayerID, first bool) {
+	matches := g.scanTriggers([]string{"Surveil"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, surveilTriggerParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("FirstTime"); ok && !first {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 func (g *Game) playerEventMatches(mode string, params map[string]bool, pid PlayerID) []Ability {
@@ -70,10 +91,26 @@ func (g *Game) checkTransformedTriggers(controller PlayerController, card CardID
 }
 
 // checkTurnedFaceUpTriggers is Mode$ TurnFaceUp (TriggerTurnFaceUp, 126 real
-// lines): ValidCard$ against the permanent just turned face up. ValidCause$
-// lines (2) are not fired.
-func (g *Game) checkTurnedFaceUpTriggers(controller PlayerController, card CardID) {
-	g.pushTriggeredAbilities(controller, g.cardEventMatches("TurnFaceUp", turnedFaceUpParams, card))
+// lines): ValidCard$ against the permanent just turned face up, ValidCause$
+// against the ability that turned it (nil for a special action, which matches
+// no ValidCause$ -- matchesValidParam is false for a null object).
+func (g *Game) checkTurnedFaceUpTriggers(controller PlayerController, card CardID, cause *Ability) {
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{"TurnFaceUp"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, turnedFaceUpParams) || !g.triggerCardMatches(h, t, "ValidCard", c) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidCause"); ok {
+			if cause == nil {
+				return triggeredObjects{}, false
+			}
+			if m, known := g.spellAbilityMatches(cause, spec, h, h.Controller(), face.Amounts); !known || !m {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{card: card}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
 }
 
 func (g *Game) cardEventMatches(mode string, params map[string]bool, card CardID) []Ability {

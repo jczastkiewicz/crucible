@@ -20,7 +20,9 @@ import (
 // ability does nothing if the permanent has transformed since the ability
 // went on the stack (CR 701.28f). TurnFaceUp turns a face-down permanent
 // face up (CR 708.8). Optional$ asks first; RememberChanged$ remembers each
-// changed card. Flip, TurnFaceDown and Specialize are not resolved.
+// changed card. Mode$ Flip (CR 709) is one-way and gives no timestamp and no
+// Transformed trigger (Card.java:716-745, g.flip). TurnFaceDown and
+// Specialize are not resolved.
 type setStateEffect struct{}
 
 func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -33,7 +35,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return nil
 	}
 	mode, _ := a.Params.Param("Mode")
-	if mode != "Transform" && mode != "TurnFaceUp" {
+	if mode != "Transform" && mode != "TurnFaceUp" && mode != "Flip" {
 		return fmt.Errorf("engine: SetState: Mode$ %q not resolvable yet", mode)
 	}
 	if mode == "Transform" && (battlefieldStaticMode(g, "CantTransform") || battlefieldReplacementEvent(g, "Transform")) {
@@ -92,23 +94,25 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			return nil
 		}
 		changed := false
-		if mode == "Transform" {
+		switch {
+		case mode == "Transform":
 			changed = g.transform(id)
-		} else if c.IsFaceDown() {
-			if c.faceUpDef.Faces[0].Type.IsPermanent() {
-				c.turnFaceUp()
-				// CR 613.7f: a permanent turned face up gets a new timestamp
-				// (Card.java:891).
-				g.timestamp++
-				c.Timestamp = g.timestamp
-				changed = true
-			}
+		case mode == "Flip":
+			changed = g.flip(id)
+		case c.IsFaceDown() && c.faceUpDef.Faces[0].Type.IsPermanent():
+			c.turnFaceUp()
+			// CR 613.7f: a permanent turned face up gets a new timestamp
+			// (Card.java:891).
+			g.timestamp++
+			c.Timestamp = g.timestamp
+			changed = true
 		}
 		if changed {
-			if mode == "Transform" {
+			switch mode {
+			case "Transform":
 				g.checkTransformedTriggers(controller, id)
-			} else {
-				g.checkTurnedFaceUpTriggers(controller, id)
+			case "TurnFaceUp":
+				g.checkTurnedFaceUpTriggers(controller, id, a)
 			}
 		}
 		if changed && hasParam(a, "RememberChanged") {
@@ -116,6 +120,40 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		}
 	}
 	return nil
+}
+
+// flip is Card.changeCardState("Flip") (Card.java:716-745), CR 709.4: a
+// permanent that has not flipped does, once. A flip card on the battlefield
+// takes its flipped face, the way transform swaps Def; flipping gives no new
+// timestamp. A face-down or copying permanent, and a card with no flipped
+// face, only records that it flipped: Java's `flipped` flag is set while the
+// state stays the copied or face-down one. A card with a flipped face that
+// turns face up later would show it (Card.getFaceupCardStateName); this port
+// has no turn-face-up path for a flip card that is face down, and turnFaceUp
+// restores the unflipped Def.
+func (g *Game) flip(id CardID) bool {
+	return g.Flip(id)
+}
+
+// Flip is flip for a caller outside an effect: GameState's `|Flipped` entry
+// (GameState.java:1349) puts a loaded card in its flipped state.
+func (g *Game) Flip(id CardID) bool {
+	c := g.Card(id)
+	if c.flipped {
+		return false
+	}
+	c.flipped = true
+	if c.IsFaceDown() || len(c.copies) > 0 || c.frontDef != nil {
+		return true
+	}
+	front := c.Def
+	if front.SplitType != carddb.SplitFlip || front.Faces[1].Name == "" {
+		return true
+	}
+	back := &compile.Card{Filename: front.Filename, Name: front.Faces[1].Name, SplitType: front.SplitType}
+	back.Faces[0] = front.Faces[1]
+	c.frontDef, c.Def = front, back
+	return true
 }
 
 // transform is Card.changeCardState("Transform"): a transforming

@@ -96,6 +96,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 				g.Player(pid).DamageReceivedThisTurn = 0
 				g.Player(pid).damageLastTurn = g.Player(pid).damageThisTurn
 				g.Player(pid).damageThisTurn = [2]int{}
+				g.Player(pid).surveilThisTurn = 0
 			}
 			g.extraPhases = [numPhaseTypes][]PhaseType{}
 			g.combatsThisTurn = 0

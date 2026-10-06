@@ -1,0 +1,13 @@
+# Akki Lavarunner (AlternateMode:Flip): damage to an opponent triggers SetState
+# Mode$ Flip (Card.java:716-745); it deals 1 and becomes Tok-Tok, Volcano Born.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+resolvestack

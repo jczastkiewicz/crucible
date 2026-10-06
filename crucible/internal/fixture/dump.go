@@ -143,6 +143,9 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 			b.WriteString("|PhasedOut:P")
 			b.WriteString(strconv.Itoa(seatIndex(g, c.PhasedOutFor())))
 		}
+		if c.InFlippedState() {
+			b.WriteString("|Flipped")
+		}
 		if pid, ok := c.AttachedToPlayer(); ok {
 			// GameState.java:368: EnchantingPlayer takes AttachedTo's place.
 			b.WriteString("|EnchantingPlayer:P")

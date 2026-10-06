@@ -81,7 +81,7 @@ func TestScryTriggerFiresForTheScryingPlayerOnly(t *testing.T) {
 	}
 }
 
-// ToBottom$ is a check this port does not evaluate: the line is not fired.
+// ToBottom$ needs a bottomed card: a scry that keeps every card on top does not fire it.
 func TestScryTriggerWithToBottomIsNotFired(t *testing.T) {
 	t.Parallel()
 
@@ -92,7 +92,7 @@ func TestScryTriggerWithToBottomIsNotFired(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	if got := g.Zone(engine.Hand, p).Len(); got != 0 {
-		t.Errorf("hand = %d, want 0 (ToBottom$ not evaluated)", got)
+		t.Errorf("hand = %d, want 0 (nothing was bottomed)", got)
 	}
 }
 

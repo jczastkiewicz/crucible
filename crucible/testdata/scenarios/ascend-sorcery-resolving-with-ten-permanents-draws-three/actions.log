@@ -1,0 +1,9 @@
+# K:Ascend on a sorcery (AbilityUtils.java:1338): three Islands and seven Forests are ten permanents when it resolves, so the city's blessing is granted first and Count$Blessing.3.2 draws three.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+castspell human 1
+resolvestack

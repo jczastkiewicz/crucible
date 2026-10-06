@@ -76,19 +76,22 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		if n > len(lib) {
 			n = len(lib)
 		}
-		if n == 0 {
-			continue
+		// An empty library still scries (GameAction.java:2605-2615 keeps the
+		// player, arrangeForScry gets an empty list) and the Scry trigger
+		// fires with ScryNum 0 (:2652-2655). Nothing is asked of the
+		// controller: there is nothing to arrange.
+		var toTop, toBottom []CardID
+		if n > 0 {
+			topN := append([]CardID(nil), lib[:n]...)
+			toTop, toBottom = controller.ArrangeForScry(g, pid, topN)
 		}
-		topN := append([]CardID(nil), lib[:n]...)
-
-		toTop, toBottom := controller.ArrangeForScry(g, pid, topN)
 		for i := len(toTop) - 1; i >= 0; i-- {
 			g.MoveToLibraryTop(toTop[i], pid)
 		}
 		for _, id := range toBottom {
 			g.Move(id, Library, pid)
 		}
-		g.checkScryTriggers(controller, pid)
+		g.checkScryTriggers(controller, pid, len(toTop)+len(toBottom), len(toBottom))
 	}
 	return nil
 }

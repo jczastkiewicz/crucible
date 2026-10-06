@@ -1,0 +1,13 @@
+# R:Event$ DamageDone | ActiveZones$ Command (an ongoing scheme in Command) prevents 1 of
+# the 2 damage an opponent-controlled source would deal to its controller (CR 615).
+# Untap -> Upkeep -> Draw -> Main1 -> BeginCombat -> Declare Attackers.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -360,6 +360,7 @@ type triggeredObjects struct {
 // that never learned it fails loudly instead of counting nothing (GO-7).
 type triggerCounts struct {
 	damage, life, amount, storm int
+	scryNum, scryBottom         int
 	set                         triggerCountKeys
 }
 
@@ -371,6 +372,7 @@ const (
 	countLife
 	countAmount
 	countStorm
+	countScry
 )
 
 // count is the value of the AbilityKey name, and whether the trigger recorded
@@ -385,6 +387,10 @@ func (c triggerCounts) count(name string) (int, bool) {
 		return c.amount, c.set&countAmount != 0
 	case "CurrentStormCount":
 		return c.storm, c.set&countStorm != 0
+	case "ScryNum":
+		return c.scryNum, c.set&countScry != 0
+	case "ScryBottom":
+		return c.scryBottom, c.set&countScry != 0
 	}
 	return 0, false
 }

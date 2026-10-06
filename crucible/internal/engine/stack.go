@@ -108,6 +108,7 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 		// to afterward (found auditing this call site for RestartGame,
 		// docs/crucible/adr/0033-restartgame-mid-resolution-reset.md).
 		phase, active, turn := g.activePhase, g.activePlayer, g.turn
+		g.ascendAtResolution(&a)
 		if err := reg.Resolve(g, &a, controller); err != nil {
 			return err
 		}
@@ -125,6 +126,24 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 	g.moveResolvedSpellToGraveyard(controller, a)
 	CheckStateBasedActions(g, controller)
 	return nil
+}
+
+// ascendAtResolution is Ascend's instant/sorcery half
+// (AbilityUtils.resolvePreAbilities, AbilityUtils.java:1338-1341): a
+// resolving non-permanent spell whose card has Ascend gives its controller
+// the city's blessing when they control ten or more permanents, before the
+// spell's own conditions are read. A fizzled spell never gets here.
+func (g *Game) ascendAtResolution(a *Ability) {
+	if !a.spell || a.Source == NoCard || int(a.Source) >= len(g.cards) {
+		return
+	}
+	c := g.Card(a.Source)
+	if c.Type().IsPermanent() || !c.HasKeyword("Ascend") {
+		return
+	}
+	if len(g.Zone(Battlefield, a.Controller).Cards()) >= 10 {
+		g.Player(a.Controller).Blessing = true
+	}
 }
 
 // moveResolvedSpellToGraveyard is ADR-0018's own post-resolution step:

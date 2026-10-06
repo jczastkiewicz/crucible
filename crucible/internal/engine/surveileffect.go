@@ -77,19 +77,22 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if n > len(lib) {
 			n = len(lib)
 		}
-		if n == 0 {
-			continue
+		// An empty library still counts as a surveil: Player.surveil skips only
+		// the arranging (Player.java:1049) and runs the trigger and the
+		// per-turn count after it (:1083-1090).
+		if n > 0 {
+			topN := append([]CardID(nil), lib[:n]...)
+			toTop, toGraveyard := controller.ArrangeForSurveil(g, pid, topN)
+			for _, id := range toGraveyard {
+				g.moveToGraveyard(controller, id)
+			}
+			for i := len(toTop) - 1; i >= 0; i-- {
+				g.MoveToLibraryTop(toTop[i], pid)
+			}
 		}
-		topN := append([]CardID(nil), lib[:n]...)
-
-		toTop, toGraveyard := controller.ArrangeForSurveil(g, pid, topN)
-		for _, id := range toGraveyard {
-			g.moveToGraveyard(controller, id)
-		}
-		for i := len(toTop) - 1; i >= 0; i-- {
-			g.MoveToLibraryTop(toTop[i], pid)
-		}
-		g.checkSurveilTriggers(controller, pid)
+		first := g.Player(pid).surveilThisTurn == 0
+		g.checkSurveilTriggers(controller, pid, first)
+		g.Player(pid).surveilThisTurn++
 	}
 	return nil
 }

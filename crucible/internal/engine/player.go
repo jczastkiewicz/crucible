@@ -57,6 +57,9 @@ type Player struct {
 	// and damageReceivedLastTurn lists (GameEntity.java:57), summed per kind.
 	// The turn rotation moves this turn's into last turn's (turn.go).
 	damageThisTurn, damageLastTurn [2]int
+	// surveilThisTurn is Player.surveilThisTurn: how many times this player has
+	// surveiled this turn, read by Mode$ Surveil's FirstTime$ (Player.java:1084).
+	surveilThisTurn int
 	// attachments is what is attached to this player (GameEntity's
 	// attachedCards, for a player): the Curses enchanting them, in the order
 	// they were attached. Written only by Game.AttachToPlayer and

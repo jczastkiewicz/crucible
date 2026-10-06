@@ -132,6 +132,19 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return 0, false
 	}
 	switch count.Head {
+	case "Blessing":
+		// Count$Blessing.<n with>.<n without> (AbilityUtils.java:2269):
+		// the controller's city's blessing picks the branch. Both branches
+		// are plain numbers here; any other shape is unresolved (GO-7).
+		if len(count.Parameters) != 2 {
+			return 0, false
+		}
+		branch := count.Parameters[1]
+		if g.Player(sourceController).Blessing {
+			branch = count.Parameters[0]
+		}
+		n, err := strconv.Atoi(branch)
+		return n, err == nil
 	case "BloodthirstAmount":
 		return g.bloodthirstAmount(sourceController), true
 	case "YourLifeTotal":

@@ -1,0 +1,12 @@
+# ValidTarget$ You is the scheme controller: its own attacker deals the full 2 to the opponent.
+# Untap -> Upkeep -> Draw -> Main1 -> BeginCombat -> Declare Attackers.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

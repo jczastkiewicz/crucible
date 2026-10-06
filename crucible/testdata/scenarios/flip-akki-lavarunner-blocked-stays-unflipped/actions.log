@@ -1,0 +1,13 @@
+# Blocked, the Lavarunner deals no damage to an opponent, so the flip trigger
+# never fires and it stays Akki Lavarunner.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+resolvestack

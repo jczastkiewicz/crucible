@@ -1,0 +1,13 @@
+# setup.state `|Flipped` (GameState.java:1349) loads Tok-Tok, Volcano Born: its own
+# replacement (DamageDone, red source to a player) adds 1 to its 2 combat damage.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage
+resolvestack

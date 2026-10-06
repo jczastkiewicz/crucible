@@ -1,0 +1,9 @@
+# Nine permanents when it resolves: no blessing, Count$Blessing.3.2 draws two.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+castspell human 1
+resolvestack

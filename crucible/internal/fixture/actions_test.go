@@ -1499,3 +1499,48 @@ func TestRunActionsResolveStackSurfacesAnUnimplementedAPI(t *testing.T) {
 		t.Error("resolvestack with an unregistered API did not error")
 	}
 }
+
+// The queue verbs that take an id list, a candidate index or a sector name
+// reject a malformed argument instead of queueing a wrong answer (GO-7).
+func TestRunActionsQueueVerbsRejectMalformedArguments(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"queue scry abc",
+		"queue surveil abc",
+		"queue sacrificechoice abc",
+		"queue returnchoice abc",
+		"queue replacement x",
+		"queue replacement -1",
+		"queue sector delta",
+		"dealopeninghands after nobody",
+	} {
+		t.Run(line, func(t *testing.T) {
+			t.Parallel()
+
+			l := load(t, testDB(t), "humanlife=20\n")
+			if err := runActions(t, l, engine.NewScriptedController(), line+"\n"); err == nil {
+				t.Errorf("%q did not error", line)
+			}
+		})
+	}
+}
+
+func TestRunActionsQueueVerbsAcceptWellFormedArguments(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"queue replacement 1",
+		"queue sector beta",
+		"queue optionaltrigger true",
+	} {
+		t.Run(line, func(t *testing.T) {
+			t.Parallel()
+
+			l := load(t, testDB(t), "humanlife=20\n")
+			if err := runActions(t, l, engine.NewScriptedController(), line+"\n"); err != nil {
+				t.Errorf("%q: %v", line, err)
+			}
+		})
+	}
+}

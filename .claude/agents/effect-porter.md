@@ -34,18 +34,18 @@ Rules, non-negotiable:
   `CLAUDE.md` / `00-master-implementation-plan-in-progress.md` kept consistent with your branch's registry. The
   orchestrator (`port-batch` skill, `scripts/merge-porters.sh`) unions index rows and rewrites the final count across
   parallel porters. Never edit "## Not ported yet" yourself.
-- Run `crucible/scripts/gates.sh full` until green, commit on your branch with the attribution lines your system prompt
-  gives (never a hardcoded model name). Never push.
-- **Commit at least every 10 minutes of work, never less often.** Don't wait for 3-4 APIs to finish if that would take
-  longer than that - split at whatever natural boundary you're at (one API done, or even mid-API if it's taking a while:
-  the effect file compiling with its own tests green is a valid checkpoint even before docs/counts catch up). Each
-  commit must itself build and pass `gates.sh fast` at minimum (full gates aren't required on every 10-minute commit,
-  only whenever you've finished a batch of APIs) - never commit code that doesn't compile. This is how an interruption
-  (rate limit, timeout) loses minutes of work instead of the whole batch.
+- **Never run `git`.** Your worktree sits under the user's `rtk` PreToolUse hook, which rewrites `git ...` to
+  `rtk git ...`; the worktree-isolation guard refuses that rewrite, so every `git` call fails (only
+  `git rev-parse --show-toplevel` passes). Do not work around it: no `/usr/bin/git`, `-C`, `env`, `command`, `rtk proxy`.
+  Reason: a bypass also skips the commit hook's gates. Leave your work uncommitted in the worktree, which survives an
+  interruption (rate limit, timeout) the same as a commit does; the orchestrator commits it with
+  `crucible/scripts/merge-porters.sh commit BRANCH "<message>"`. Never push.
+- Run `crucible/scripts/gates.sh fast` after each finished piece and `gates.sh full` before your final message, until
+  green. Never leave code that does not compile.
 - **Write a short plan before starting work.** At the very start, write `PORTER_PLAN.md` at the repo root (your
-  worktree's own copy) listing your assigned APIs and intended order, and commit it as your first commit. Update it as
-  you go if your approach changes. Once your whole batch is done, delete `PORTER_PLAN.md` in your final commit - it's
-  scratch scaffolding for whoever resumes you, not a deliverable.
+  worktree's own copy) listing your assigned work and intended order; update it as your approach changes. It is scratch
+  for whoever resumes you: `merge-porters.sh commit` drops it, so do not delete it yourself and do not rely on it
+  landing.
 - If an API genuinely cannot be ported at all, say so with a reason rather than faking it.
 
 If, while researching, an assigned API turns out to need a new stack/casting mechanic, a Layer 1 rewrite, or scanning
@@ -53,5 +53,4 @@ non-Battlefield zones for continuous effects - say so in your final message and 
 improvising architecture; port the rest of your batch normally.
 
 Final message: each API with status (ported / partial with rejected params / not ported + reason), new engine state and
-controller methods added, files touched outside your effect files (merge-conflict risk for other porters), commit
-hashes, branch name.
+controller methods added, files touched outside your effect files (merge-conflict risk for other porters), files changed, branch name.

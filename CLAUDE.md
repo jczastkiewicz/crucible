@@ -246,5 +246,9 @@ Engine port-log lives in `docs/crucible/porting/port-log/game-state/<topic>.md`;
 `Not ported yet`. Each new M6 batch gets its own `game-state/effects-<batch>.md`; existing `effects-*.md` files are
 closed, so parallel porters never append to one file.
 
+Worktree subagents cannot run `git`: the user's global `rtk` hook rewrites it to `rtk git`, which the isolation guard
+refuses, and no variant passes. Never bypass it with `/usr/bin/git`. Subagents leave work uncommitted; the main session
+commits with `crucible/scripts/merge-porters.sh commit BRANCH MSG`. Any subagent prompt for worktree work must say so.
+
 Hooks resolve the checkout from the tool call (hook input `cwd`, the edited path, `git -C`/`cd`), never
 `$CLAUDE_PROJECT_DIR` alone: a porter's worktree is gated and REV-1-guarded as its own checkout.

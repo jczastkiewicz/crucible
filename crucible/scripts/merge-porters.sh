@@ -9,6 +9,12 @@
 #                                       porters always cause (below), then
 #                                       regenerate the registry and rewrite the
 #                                       resolved-API count in the docs
+#   merge-porters.sh commit BRANCH MSG  commit a porter's uncommitted worktree
+#                                       (porters cannot run git under the rtk
+#                                       hook, see their agent definitions);
+#                                       drops PORTER_PLAN.md, runs the commit
+#                                       hook's gates, MSG should carry the
+#                                       attribution trailer
 #   merge-porters.sh cleanup BRANCH...  remove each branch's worktree and
 #                                       delete the branch -- refused while the
 #                                       branch has a commit HEAD lacks or its
@@ -91,6 +97,16 @@ list)
 		dirty=$(git -C "$path" status --porcelain | wc -l | tr -d ' ')
 		printf '%-45s ahead=%s not-on-HEAD=%s uncommitted=%s\n' "$branch" "$(ahead "$branch")" "$(unique "$branch")" "$dirty"
 	done
+	;;
+commit)
+	[ $# -eq 2 ] || { echo "usage: merge-porters.sh commit BRANCH MSG" >&2; exit 64; }
+	wt=$(wt_of "$1")
+	[ -n "$wt" ] || { echo "no worktree on branch $1" >&2; exit 1; }
+	rm -f "$wt/PORTER_PLAN.md"
+	[ -n "$(git -C "$wt" status --porcelain)" ] || { echo "$1: nothing to commit"; exit 0; }
+	git -C "$wt" add -A
+	git -C "$wt" commit -q -m "$2"
+	git -C "$wt" log --oneline -1
 	;;
 merge)
 	[ $# -gt 0 ] || { echo "usage: merge-porters.sh merge BRANCH..." >&2; exit 64; }

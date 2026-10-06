@@ -62,14 +62,12 @@ registry). It stops on any other conflict with the cherry-pick in progress. Typi
 `PlayerController` methods, `Game` fields, or `Clone` lines. Keep both sides, since these are additive. Then
 `git cherry-pick --continue` and rerun `merge` with the remaining branches.
 
-A porter that left uncommitted work in its worktree shows `uncommitted>0` in `list`. Read that diff before deciding.
-Commit what belongs to the batch in that worktree and merge it. Anything else is either explained or dropped, never
-silently lost.
-
-Each porter commits its own `PORTER_PLAN.md` (its working plan, per its own agent definition) as scratch, deleted in
-its own final commit once its assignment is done. A porter interrupted mid-task (rate limit, timeout) before that
-final commit leaves it behind — drop it when merging that branch (it's not part of the batch's deliverable), the same
-way any other porter-only scratch state gets dropped.
+Porters never run `git`: the user's `rtk` hook rewrites it to `rtk git`, which the worktree-isolation guard refuses.
+Their finished work is therefore always uncommitted, `uncommitted>0` in `list`. Read each diff, then commit what
+belongs to the batch with `crucible/scripts/merge-porters.sh commit BRANCH "<message with the attribution trailer>"`
+(drops the porter's scratch `PORTER_PLAN.md`, runs the commit hook's gates) and merge it. Anything else is either
+explained or dropped, never silently lost. A porter reporting a bypass (`/usr/bin/git`) skipped those gates: rerun
+`gates.sh full` on the merged result.
 
 ## 5. Reconcile, verify, commit
 

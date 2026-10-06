@@ -71,13 +71,13 @@ Details that are not obvious from the Java:
 - **Counter hosts.** A line with no `ActiveZones$` applies from any zone (`TriggerReplacementBase.zonesCheck`), which is
   how a spell's own "can't be countered" works from the stack; `counterCantHappen` always includes the spell itself as a
   host. `ValidSA$ Spell.Creature+YouCtrl` reads its properties off the spell's card (`YouCtrl` is the host's
-  controller). `CounterEffect` still refuses a `CantBeCountered` static; Guile's `ReplaceWith$` line (and any
-  `ValidCause$`) errors when it is live and no resolvable line stopped the counter.
+  controller). `CounterEffect` still refuses a `CantBeCountered` static. Guile's `ReplaceWith$` line resolves
+  ([`m5-replacement-2.md`](m5-replacement-2.md)).
 - **BeginPhase before one-shot skips.** `advanceStep` checks `beginPhaseSkipped` before `consumeSkip`, so a static skip
   leaves a `SkipPhase` effect unspent. Java lets the player choose; a skip is a skip either way. Fasting's `Optional$`
-  line records a pending error when it applies.
+  line asks the player ([`m5-replacement-2.md`](m5-replacement-2.md)).
 - **BeginTurn.** Java's `isExtraTurn` is "the extra-turn stack is not empty after the pop"; the bottom entry is the
-  normal turn. Time Vault's optional skip is a pending error.
+  normal turn. Time Vault's optional skip asks the player (`m5-replacement-2.md`).
 - **LifeReduced** runs from `LoseLife` and from damage to a player (`isDamage`); infect damage is poison, not a loss.
   `Result$ LT1` compares life minus the loss. Worship's `LimitMax.Difference` needed `LimitMax`/`LimitMin` in
   `resolveReplaceCountAmount` and an inline `ReplaceCount$` in `VarValue$` (Bloodletter). The player property
@@ -99,10 +99,10 @@ Details that are not obvious from the Java:
 | `replacement-life-reduced-bloodletter-doubles-an-opponents-life-loss`          | `PlayerTurn$`, inline `ReplaceCount$`       |
 | `replacement-lose-mana-horizon-stone-keeps-unspent-mana-as-colorless`          | pool converted, not emptied                 |
 
-Not ported: `Destroy` without `Regeneration$` (Harmonious Emergence), `TurnFaceUp` (8), `Transform` (4), `RollDice` (4),
-`Attached` (3), `Scry`/`Mill`/`DrawCards` (2 each), the `Optional$` ReplaceWith lines (Fasting, Time Vault), and the
-rest at one line each. `LifeReduced` lines whose `ReplaceWith$` is not a `ReplaceEffect` (Enduring Angel's Transform)
-record a pending error when they apply.
+Not ported: `RollDice` (4), `Attached` (3), and the rest at one line each; `Destroy` without `Regeneration$`,
+`TurnFaceUp`, `Transform`, `Scry`/`Mill`/`DrawCards` and the `Optional$` lines are in
+[`m5-replacement-2.md`](m5-replacement-2.md). `LifeReduced` lines whose `ReplaceWith$` is not a `ReplaceEffect`
+(Enduring Angel's Transform) record a pending error when they apply.
 
 ## Event$ Moved to the graveyard: library destinations and chains
 

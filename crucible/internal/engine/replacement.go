@@ -48,9 +48,11 @@
 // drawReplaced, gainLifeReplaced and damageReplaced/damageReplacedPlayer use.
 // Moot for the outcomes the other dispatches here produce (Tapped = true,
 // blocked = true, prevented = true): applying any of those more than once is
-// a no-op, so the first real match found is applied (or, for Untap/
-// DamageDone's own Prevent$ half, simply reported) directly and the search
-// stops.
+// a no-op, so the first real match found is applied (or, for DamageDone's
+// own Prevent$ half, simply reported) directly and the search stops. Tapped
+// and untapped Moved lines are the exception: checkMovedReplacement
+// collects every match and asks the affected player for the order (CR
+// 616.1), the last one applied winning.
 
 package engine
 

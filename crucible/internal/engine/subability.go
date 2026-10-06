@@ -47,14 +47,10 @@ import (
 // already holds the whole chain, one reference at a time.
 //
 // A sub-ability naming its own ValidTgts$ (891 of 16,022 real referenced
-// lines, 5.6%) is not targeted separately: resolveTargets (targeting.go)
-// runs once, on the ability actually pushed onto the stack, before any of
-// this. The child built here carries the parent's own Target/Targets
-// unchanged, so a chained effect gating on ValidTgts$ (loseLifeEffect,
-// today's only such effect) finds nothing to act on and no-ops -- the
-// identical "unsupported shape observably folds into no legal targets" this
-// port already committed to at the top level (targeting.go's own doc
-// comment), not a new silent-wrong-guess category.
+// lines, 5.6%) is targeted separately: chaintargets.go chooses each link's
+// targets at cast and trigger time, so the child built here carries its own
+// Target/Targets rather than the parent's. The CR 608.2b re-check at
+// resolution is still head-only.
 func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller PlayerController) error {
 	if parent.Params == nil {
 		return nil

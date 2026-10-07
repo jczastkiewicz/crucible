@@ -1,0 +1,19 @@
+# The same Attached replacement with green chosen: the Bears have protection
+# from green only, so the red Lightning Bolt still hits for 3 and kills the
+# 4/2.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+queue colorchoice G
+queue action human activate 1 0
+passpriority
+tapformana human 6 R
+queue targets 2
+queue action human cast 7
+passpriority

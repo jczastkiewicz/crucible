@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Zombify|Id:1
+humanbattlefield=Swamp|Id:3;Swamp|Id:4;Swamp|Id:5;Swamp|Id:6
+humangraveyard=Primeval Spawn|Id:7

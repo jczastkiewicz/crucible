@@ -371,6 +371,73 @@ func (g *Game) lifeReduced(controller PlayerController, pid PlayerID, amount int
 	return amount
 }
 
+// rollReplaced is ReplacementType.RollDice's run for player rolling amount
+// dice of sides sides with ignore lowest rolls set aside (RollDiceEffect.
+// rollAction, RollDiceEffect.java:403-421): each applying line's
+// ReplaceWith$ chain edits the dice count (VarName$ Number) and the lowest
+// rolls ignored (VarName$ Ignore) -- Pixie Guide, Wyll and Barbarian Class's
+// "roll one more die and ignore the lowest" -- and the edited values are what
+// is rolled. ValidPlayer$ and ValidSides$ are ReplaceRollDice.canReplace's.
+func (g *Game) rollReplaced(controller PlayerController, player PlayerID, amount, sides, ignore int) (int, int) {
+	ev := replacementEvent{amountName: "Number", amount: amount, vars: map[string]int{"ignore": ignore}}
+	g.runReplacements(controller, player, func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			if !strings.EqualFold(r.Name, "RollDice") || !hostInActiveZones(h, r, z) || !rollReplacementResolvable(r) {
+				return
+			}
+			if v, ok := r.Param("ValidPlayer"); ok {
+				if matched, recognized := matchesPlayerSpec(g, player, h.Controller(), h.ID, v); !recognized || !matched {
+					return
+				}
+			}
+			if v, ok := r.Param("ValidSides"); ok {
+				if n, err := strconv.Atoi(v); err != nil || n != sides {
+					return
+				}
+			}
+			if !replacementRequirementsCheck(g, h, amounts, r) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				if err := g.runReplacementChain(controller, h, amounts, replaceWithSub(r), &ev); err != nil {
+					g.recordPendingError(err)
+					return replacementNotReplaced
+				}
+				return replacementUpdated
+			}})
+		})
+		return out
+	})
+	return ev.amount, ev.vars["ignore"]
+}
+
+// rollReplacementResolvable reports whether r, an Event$ RollDice line, only
+// edits the dice count and the ignored rolls: its ReplaceWith$ chain is
+// ReplaceEffect abilities naming VarName$ Number or Ignore. Vedalken Squirrel-
+// Whacker's DicePTExchanges (VarType$ CardSet) is not one.
+func rollReplacementResolvable(r *compile.Ability) bool {
+	if !onlyParams(r, "event", "validplayer", "validsides", "replacewith", "description", "activezones", "secondary") {
+		return false
+	}
+	sub := replaceWithSub(r)
+	if sub == nil {
+		return false
+	}
+	for a := sub; a != nil; a = chainNext(a) {
+		if !strings.EqualFold(a.Name, "ReplaceEffect") {
+			return false
+		}
+		if _, typed := a.Param("VarType"); typed {
+			return false
+		}
+		if name, _ := a.Param("VarName"); !strings.EqualFold(name, "Number") && !strings.EqualFold(name, "Ignore") {
+			return false
+		}
+	}
+	return true
+}
+
 // loseManaConversion is ReplacementType.LoseMana's run for pid's unspent mana
 // as a step or phase ends (ManaPool.clearPool): a line with ReplaceWith$ a
 // ReplaceMana naming ReplaceType$ turns the mana into that type instead of

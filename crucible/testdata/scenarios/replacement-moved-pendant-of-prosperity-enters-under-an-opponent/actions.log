@@ -1,0 +1,14 @@
+# Same Layer$ Control line as Captive Audience, with a DBCleanup that clears the
+# chosen player afterwards (ClearChosenPlayer$): Pendant of Prosperity enters
+# under ai's control.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue playerchoice ai
+castspell human 1
+resolvestack

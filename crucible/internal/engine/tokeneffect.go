@@ -102,7 +102,7 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		id := g.createToken(controller, spec)
 		created = append(created, id)
 		if hasAttach && attachTo != NoCard && tokenCanAttach(g, a, spec, attachTo) && g.Card(id).Zone == Battlefield {
-			g.Attach(id, attachTo)
+			g.attachTo(controller, id, attachTo)
 		}
 		if pump != nil {
 			g.timestamp++

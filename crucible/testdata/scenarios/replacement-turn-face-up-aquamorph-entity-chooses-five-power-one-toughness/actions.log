@@ -1,0 +1,23 @@
+# The same replacement with branch 1, BigPower (5/1): the Lightning Bolt now
+# kills the Aquamorph Entity.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+castspell human 1
+resolvestack
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue targets 8
+queue abilitychoice 1
+queue action human activate 7 0
+passpriority
+resolvestack
+tapformana human 10 R
+queue targets 8
+queue action human cast 11
+passpriority

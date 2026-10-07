@@ -1,0 +1,22 @@
+# Cast for its ten mana, Primeval Spawn was cast (!wasCast fails) and mana was
+# spent (CastSa Spell.ManaSpent EQ0 fails), so the replacement does not apply
+# and it enters.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 U
+tapformana human 4 B
+tapformana human 5 R
+tapformana human 6 G
+tapformana human 7 G
+tapformana human 8 G
+tapformana human 9 G
+tapformana human 10 G
+tapformana human 11 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+resolvestack

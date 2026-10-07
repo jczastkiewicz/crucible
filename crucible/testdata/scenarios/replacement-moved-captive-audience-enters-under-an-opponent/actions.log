@@ -1,0 +1,22 @@
+# Event$ Moved | Layer$ Control | ReplaceWith$ DBChooseOpp: "Captive Audience
+# enters under the control of an opponent of your choice." The caster picks
+# ai through ChoosePlayer, and the chain's ChangeZone (GainControl$
+# ChosenPlayer) puts the enchantment onto the battlefield under ai's control,
+# the controller set before the move (ChangeZoneEffect.java:1322-1330).
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 R
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+tapformana human 8 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue playerchoice ai
+castspell human 1
+resolvestack

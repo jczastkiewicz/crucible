@@ -1,0 +1,9 @@
+# The same line does not touch a creature that was cast (!wasCast fails): the
+# spell moves from the stack as Card.wasCast says it was cast.
+startturn human
+advance 3
+tapformana human 3 G
+tapformana human 4 G
+queue paygeneric G
+castspell human 1
+resolvestack

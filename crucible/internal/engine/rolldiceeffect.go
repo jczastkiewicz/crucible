@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined effecthelpers game id parts zone
+//enginelint:allow ability additional card condition control defined effecthelpers game id parts replacement zone
 
 import (
 	"fmt"
@@ -71,8 +71,8 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	players = g.inAPNAPOrder(players)
 	var totals []int
-	for range players {
-		total, err := g.rollDiceFor(a, controller, amount, sides, ignore, modifier)
+	for _, pid := range players {
+		total, err := g.rollDiceFor(a, controller, pid, amount, sides, ignore, modifier)
 		if err != nil {
 			return err
 		}
@@ -96,10 +96,13 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 
 // rollDiceFor is one player's rollDice: the rolls, the bound SVars, the
 // result sub-ability. It answers the total.
-func (g *Game) rollDiceFor(a *Ability, controller PlayerController, amount, sides, ignore, modifier int) (int, error) {
+func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID, amount, sides, ignore, modifier int) (int, error) {
 	if amount <= 0 {
 		return 0, nil
 	}
+	// ReplacementType.RollDice runs before the dice are rolled; Updated edits the
+	// number of dice and the lowest rolls ignored (RollDiceEffect.rollAction).
+	amount, ignore = g.rollReplaced(controller, pid, amount, sides, ignore)
 	var rolls []int
 	for i := 0; i < amount; i++ {
 		rolls = append(rolls, int(g.rand.Int32n(int32(sides)))+1)
@@ -215,7 +218,9 @@ func diceModifierInPlay(g *Game) bool {
 				}
 				for _, face := range c.traitFaces() {
 					for _, r := range face.Replacements {
-						if strings.EqualFold(r.Name, "RollDice") {
+						// A line rollReplaced runs (Pixie Guide's extra die) is not a
+						// modifier this check refuses; Vedalken's exchange is.
+						if strings.EqualFold(r.Name, "RollDice") && !rollReplacementResolvable(r) {
 							return true
 						}
 					}

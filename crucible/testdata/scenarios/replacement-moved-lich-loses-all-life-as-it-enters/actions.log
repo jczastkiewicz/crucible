@@ -1,0 +1,13 @@
+# Event$ Moved | ReplacementResult$ Updated | ReplaceWith$ LoseLife: "As Lich
+# enters, you lose life equal to your life total." The line runs before the
+# move and the entry then goes on (ReplacementHandler.run's Updated branch), so
+# Lich enters and its own GameLoss replacement keeps the 0-life player in the
+# game at the state-based check.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+castspell human 1
+resolvestack

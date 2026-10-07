@@ -33,6 +33,11 @@ var changeZoneUnresolvedParams = [...]string{
 	"ExiledWithEffectSource",
 }
 
+// anyZoneOrigin is what Origin$ All covers: every zone a card this port moves
+// can be in. Command is left out, which only an effect card exiling itself
+// may name.
+var anyZoneOrigin = [...]ZoneType{Hand, Library, Graveyard, Battlefield, Exile, Stack, Sideboard}
+
 // changeZoneEffect is ChangeZoneEffect.java, the corpus's single most
 // common API (5,576 real (AB|DB)$ lines). Java splits it on
 // SpellAbility.isHidden -- Hidden$, or an Origin$ naming a hidden zone
@@ -57,7 +62,13 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		return fmt.Errorf("engine: ChangeZone: %w", err)
 	}
 	var origin []ZoneType
-	if raw, ok := a.Params.Param("Origin"); ok {
+	anyOrigin := false
+	if raw, ok := a.Params.Param("Origin"); ok && raw == "All" {
+		// Origin$ All: the card is wherever it is (a replaced card still on
+		// the stack, in hand or in a graveyard). It names no hidden zone, so
+		// it does not make the ability hidden by itself.
+		origin, anyOrigin = anyZoneOrigin[:], true
+	} else if ok {
 		origin, err = parseZoneList(raw)
 		if err != nil {
 			return fmt.Errorf("engine: ChangeZone: Origin$: %w", err)
@@ -83,7 +94,7 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	// SpellAbility.isHidden: Hidden$, or an Origin$ naming a hidden zone --
 	// Library, Hand, Sideboard (ZoneType.java:15-23).
 	_, hidden := a.Params.Param("Hidden")
-	if hidden || zoneIn(Library, origin) || zoneIn(Hand, origin) || zoneIn(Sideboard, origin) {
+	if hidden || (!anyOrigin && (zoneIn(Library, origin) || zoneIn(Hand, origin) || zoneIn(Sideboard, origin))) {
 		return changeZoneHidden(g, a, controller, source, origin, dest, newController)
 	}
 	return changeZoneKnown(g, a, controller, source, origin, dest, newController)

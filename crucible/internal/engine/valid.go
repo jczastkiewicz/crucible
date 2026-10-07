@@ -592,6 +592,14 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return !strings.HasSuffix(name, "With") || c.PairedWith() == source
 	case name == "tapped":
 		return c.Tapped
+	case name == "wasCast":
+		// CardProperty.java:1936: Card.wasCast, a cast spell's card.
+		return c.wasCast
+	case strings.HasPrefix(name, "CastSa "):
+		// CardProperty.java:1906-1913: the spell the card was cast as, read as a
+		// spell ability property. Only "Spell.ManaSpent <op><n>" (Primeval
+		// Spawn's "no mana was spent") is resolved; a card never cast fails.
+		return castSaManaSpent(strings.TrimPrefix(name, "CastSa "), c.castManaSpent) && c.wasCast
 	case name == "faceDown":
 		// CardProperty.java: card.isFaceDown().
 		return c.IsFaceDown()
@@ -1289,6 +1297,20 @@ func compareOp(left int, operator string, right int) bool {
 		return left%2 == right%2
 	}
 	return false
+}
+
+// castSaManaSpent reads "Spell.ManaSpent <op><n>" (SpellAbilityProperty.java:
+// 181-185) against the mana spent casting. Anything else is false.
+func castSaManaSpent(spec string, spent int) bool {
+	rest, ok := strings.CutPrefix(spec, "Spell.ManaSpent ")
+	if !ok || len(rest) < 3 {
+		return false
+	}
+	n, err := strconv.Atoi(rest[2:])
+	if err != nil {
+		return false
+	}
+	return compareOp(spent, rest[:2], n)
 }
 
 // countersMatches is CardProperty.java's counters_ branch (its own comment:

@@ -1,0 +1,10 @@
+# "If Mox Diamond would enter, you may discard a land card instead. If you do,
+# put it onto the battlefield." The permanent spell resolves, its entry is
+# replaced by the PayBeforeETB chain: the human picks the Forest to discard
+# (Optional$ lets the pick be empty), and the chain's ChangeZone puts Mox
+# Diamond onto the battlefield.
+startturn human
+advance 3
+queue cardchoice 2
+castspell human 1
+resolvestack

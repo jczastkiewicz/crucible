@@ -33,7 +33,7 @@ func (g *Game) applyLifelink(controller PlayerController, table damageTable) {
 	for _, src := range order {
 		c := g.Card(src)
 		if c.HasKeyword("Lifelink") {
-			g.gainLife(controller, c.Controller(), dealt[src], src)
+			g.gainLife(controller, c.Controller(), dealt[src], src, nil)
 		}
 	}
 }

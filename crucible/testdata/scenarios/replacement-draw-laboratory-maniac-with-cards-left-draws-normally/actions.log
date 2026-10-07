@@ -1,0 +1,5 @@
+# The same line with a card left in the library: IsPresent$ ... EQ0 fails, so
+# the draw step draws the Mountain and nobody wins.
+advance
+advance
+advance

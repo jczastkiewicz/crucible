@@ -1,0 +1,23 @@
+# Event$ Transform | ValidCard$ Card.Self | ReplaceWith$ DBChoose on the back
+# face (DB$ ChoosePlayer | Choices$ Player.Opponent). Zenos enters and chooses
+# the opponent's Grizzly Bears; a Lightning Bolt kills the Bears, "when the
+# chosen creature leaves the battlefield, transform Zenos" fires, and Card.
+# changeCardState runs the replacement once Zenos is Shinryu: human chooses ai.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue cardchoice 9
+castspell human 1
+resolvestack
+tapformana human 8 R
+queue targets 9
+queue playerchoice ai
+castspell human 2
+resolvestack

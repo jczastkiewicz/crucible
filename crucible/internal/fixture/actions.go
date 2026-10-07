@@ -469,24 +469,17 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		c.QueueDiscard(ids)
 
 	case "cardchoice":
+		// "none" is an explicit empty answer, for a "you may" pick (Optional$
+		// Discard) the player declines.
+		if value == "none" {
+			c.QueueCardChoice(nil)
+			break
+		}
 		ids, err := resolveCardIDs(l, value)
 		if err != nil {
 			return fmt.Errorf("queue cardchoice: %w", err)
 		}
 		c.QueueCardChoice(ids)
-
-	case "abilitychoice":
-		// An effect's ChooseAbilitiesForEffect: indices into the offered
-		// modes (GenericChoice's Choices$ order).
-		var picks []int
-		for _, field := range strings.Split(value, ",") {
-			n, err := strconv.Atoi(strings.TrimSpace(field))
-			if err != nil {
-				return fmt.Errorf("queue abilitychoice: %w", err)
-			}
-			picks = append(picks, n)
-		}
-		c.QueueAbilityChoice(picks)
 
 	case "sacrificechoice":
 		ids, err := resolveCardIDs(l, value)
@@ -522,6 +515,47 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 			return err
 		}
 		c.QueueBattleProtector(pid)
+
+	case "option":
+		// An index into the options an effect offers (ChooseOption): a type or
+		// card name from a list, GenericChoice's branch, a "choose one" pick.
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return fmt.Errorf("queue option %q: want an option index", value)
+		}
+		c.QueueOption(n)
+
+	case "abilitychoice":
+		// The branches an effect's own "choose one of these" takes
+		// (ChooseAbilitiesForEffect): GenericChoice's, as 0-based indices into
+		// the abilities offered.
+		var idx []int
+		for _, part := range strings.Split(value, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(part))
+			if err != nil || n < 0 {
+				return fmt.Errorf("queue abilitychoice %q: want ability indices", value)
+			}
+			idx = append(idx, n)
+		}
+		c.QueueAbilityChoice(idx)
+
+	case "colorchoice":
+		// The color an effect's own "choose a color" picks (ChooseColors):
+		// Sanctuary Blade's, as it becomes attached.
+		color, err := resolveManaColor(value)
+		if err != nil {
+			return fmt.Errorf("queue colorchoice %q: %w", value, err)
+		}
+		c.QueueColorChoice(color)
+
+	case "playerchoice":
+		// The player an effect's own "choose a player" picks (ChoosePlayer's
+		// ChoosePlayerForEffect): Captive Audience's opponent, Shinryu's.
+		pid, err := resolveActionPlayer(l, args[1:], 1)
+		if err != nil {
+			return err
+		}
+		c.QueuePlayerChoice(pid)
 
 	case "sector":
 		i := slices.IndexFunc([]string{"alpha", "beta", "gamma"}, func(n string) bool { return strings.EqualFold(n, value) })

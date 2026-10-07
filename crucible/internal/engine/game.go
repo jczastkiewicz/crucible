@@ -712,6 +712,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if from == Exile && kind != Exile {
 		c.foretold = false
 	}
+	if kind != Stack && kind != Battlefield {
+		c.wasCast, c.castManaSpent = false, 0
+	}
 	if from == Stack && c.flashbackCast {
 		// CR 702.34a, Flashback's replacement (CardFactoryUtil.java:2252:
 		// Event$ Moved | Origin$ Stack | ExcludeDestination$ Exile): a spell

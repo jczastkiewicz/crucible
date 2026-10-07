@@ -1,0 +1,16 @@
+# Event$ Moved | ValidCard$ Creature.!token+!wasCast | ReplaceWith$ Exile:
+# "If a nontoken creature would enter and it wasn't cast, exile it instead."
+# Zombify returns Grizzly Bears from the graveyard; the entry is replaced
+# before the card moves, so the Bears go to exile and never enter.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue targets 7
+castspell human 1
+resolvestack

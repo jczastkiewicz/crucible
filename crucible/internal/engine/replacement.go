@@ -915,6 +915,24 @@ func (g *Game) damageReplacement(controller PlayerController, decider PlayerID, 
 						amount = 0
 						return replacementReplaced
 					}
+					// Any other ReplaceWith$ ability (a life gain, a token, a draw, a
+					// chained effect: Kor Firewalker-style "instead" lines) is the full
+					// substitution of CR 614.6: the damage does not happen and the
+					// ability resolves through the Registry with the damaged object as
+					// the replaced one. A Replace* effect this port cannot run errors
+					// the same way, recorded rather than skipped (GO-7). A Replace*
+					// ability that ran and changed nothing (its own condition failed)
+					// is left alone: runReplaceWith already answered for it.
+					api, known := APIByName(sub.Ability.Name)
+					if _, replaceAPI := replaceEffectFor(api); known && !replaceAPI {
+						ev := replacementEvent{result: replacementReplaced, amountName: "DamageAmount", amount: amount, affected: affected}
+						if err := g.runReplacementChain(controller, h, amounts, sub.Ability, &ev); err != nil {
+							g.recordPendingError(err)
+							return replacementNotReplaced
+						}
+						amount = 0
+						return replacementReplaced
+					}
 				}
 				return replacementNotReplaced
 			}})
@@ -1459,12 +1477,24 @@ func (g *Game) drawReplaced(controller PlayerController, player PlayerID) bool {
 				return
 			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
-				for _, sub := range r.Subs {
-					if strings.EqualFold(sub.Key, "ReplaceWith") && applyDrawReplacement(g, controller, h, sub.Ability, amounts) {
-						return replacementReplaced
-					}
+				sub := replaceWithSub(r)
+				if sub == nil {
+					return replacementNotReplaced
 				}
-				return replacementNotReplaced
+				if applyDrawReplacement(g, controller, h, sub, amounts) {
+					return replacementReplaced
+				}
+				// Every other ReplaceWith$ ability (a chained draw-and-lose-life,
+				// Dig, Win, a Treasure for the opponent's draw) resolves through
+				// the Registry with the drawing player as the replaced player
+				// (Defined$ ReplacedPlayer), SubAbility$ chain included, as
+				// ReplacementHandler.executeReplacement plays it. An error stops
+				// the draw: the substitute could not run, so the card is not drawn
+				// as if nothing replaced it (GO-7).
+				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, player: player}); err != nil {
+					g.recordPendingError(err)
+				}
+				return replacementReplaced
 			}})
 		})
 		return out
@@ -1668,7 +1698,14 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 // SourceController$ True, no ValidPlayer$ at all -- a restriction on WHAT
 // CAUSED the event rather than who it affects, a shape this file's own
 // allow-lists have never needed to check before).
-func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, amount int) int {
+//
+// ValidSource$ SpellAbility and SourceController$ True (Rain of Gore,
+// ReplaceGainLife.canReplace) read cause, the spell or ability making the
+// player gain: a gain with none (lifelink) matches neither, and
+// SourceController$ needs the gaining player to be the one activating it.
+// A ValidSource$ other than SpellAbility records a pending error and the line
+// is skipped (GO-7).
+func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, amount int, cause *Ability) int {
 	// An effect that only resizes the gain (ReplaceEffect) leaves the event
 	// to the next one, CR 616.1f: Rhox Faithmender's doubling and Angel of
 	// Vitality's "plus 1" give 5 or 6 for a gain of 2 depending on which the
@@ -1684,6 +1721,18 @@ func (g *Game) gainLifeReplaced(controller PlayerController, player PlayerID, am
 				if !recognized || !matched {
 					return
 				}
+			}
+			if v, ok := r.Param("ValidSource"); ok {
+				if !strings.EqualFold(v, "SpellAbility") {
+					g.recordPendingError(fmt.Errorf("engine: %q: Event$ GainLife: ValidSource$ %q not resolvable yet", h.Def.Name, v))
+					return
+				}
+				if cause == nil {
+					return
+				}
+			}
+			if v, ok := r.Param("SourceController"); ok && strings.EqualFold(v, "True") && (cause == nil || cause.Controller != player) {
+				return
 			}
 			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
 				for _, sub := range r.Subs {
@@ -1730,7 +1779,7 @@ func gainLifeReplacementMatches(g *Game, r *compile.Ability, host CardID, hostZo
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
 		case "event", "replacewith", "description", "validplayer", "activezones", "secondary", "ailogic",
-			"playerturn", "activephases", "checksvar", "svarcompare",
+			"playerturn", "activephases", "checksvar", "svarcompare", "validsource", "sourcecontroller",
 			"ispresent", "presentcompare", "presentzone", "presentplayer", "presentdefined":
 		default:
 			return false

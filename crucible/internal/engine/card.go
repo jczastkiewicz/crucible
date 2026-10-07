@@ -45,6 +45,13 @@ type Card struct {
 	flashbackCast bool
 	// castFrom is the zone the card was last cast from (castrecord.go).
 	castFrom ZoneType
+	// wasCast is Card.wasCast (castFrom != null): the card was cast and has not
+	// changed zones since, except from the stack onto the battlefield. A cast
+	// that failed clears it; Game.Move clears it on every other zone change
+	// (CR 400.7: the card is a new object). castManaSpent is the mana paid for
+	// that cast (SpellAbility.getTotalManaSpent), 0 for a free one.
+	wasCast       bool
+	castManaSpent int
 	// foretold marks a card exiled by the Foretell special action, and
 	// foretoldTurn the turn it happened (foretell.go).
 	foretold     bool
@@ -1115,6 +1122,12 @@ func (c *Card) IsFlipped() bool { return c.flipped }
 // InFlippedState is Card.getCurrentStateName() == Flipped: a flip card
 // showing its flipped face, which GameState writes as `|Flipped`.
 func (c *Card) InFlippedState() bool { return c.flipped && c.frontDef != nil }
+
+// InTransformedState reports whether c shows the back face of a transforming
+// double-faced card (CardStateName.Backside, GameState's `|Transformed`).
+func (c *Card) InTransformedState() bool {
+	return !c.flipped && c.frontDef != nil && c.frontDef.SplitType == carddb.SplitTransform && len(c.copies) == 0
+}
 
 // liveFaces is how many of def's faces are its current state's. A
 // transforming, flipping, melded, modal or specialize card's other face is a

@@ -1,0 +1,26 @@
+# Event$ TurnFaceUp | ReplaceWith$ MorphChoice (DB$ GenericChoice, branches
+# BigTough = DB$ Clone | SetPower$ 1 | SetToughness$ 5, BigPower = 5/1). Soul
+# Summons manifests Aquamorph Entity, Ixidor turns it face up, and Card.
+# turnFaceUp runs the replacement once it is face up. The human picks branch 0,
+# the 1/5, so a Lightning Bolt does not kill it.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+castspell human 1
+resolvestack
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue targets 8
+queue abilitychoice 0
+queue action human activate 7 0
+passpriority
+resolvestack
+tapformana human 10 R
+queue targets 8
+queue action human cast 11
+passpriority

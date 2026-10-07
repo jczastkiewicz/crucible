@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Island|Tapped;Swamp|Tapped;Mountain|Tapped;Forest|Tapped;Forest|Tapped;Forest|Tapped;Forest|Tapped;Forest|Tapped;Forest|Tapped;Primeval Spawn|SummonSick
+ailife=20

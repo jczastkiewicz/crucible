@@ -1,0 +1,9 @@
+# Event$ Moved | ReplaceWith$ PayBeforeETB: "If Lake of the Dead would enter,
+# sacrifice a Swamp instead. If you do, put it onto the battlefield." The
+# replacement runs before the land moves (GameAction.changeZone): the Swamp the
+# human picks is sacrificed, the chain's ChangeZone then puts the land onto the
+# battlefield, and the land drop is used (Player.playLand).
+startturn human
+advance 3
+queue sacrificechoice 3
+playland human 1

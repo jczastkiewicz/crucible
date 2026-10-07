@@ -1,0 +1,13 @@
+# Lifelink is not a spell or ability: Player.gainLife gets no SourceSA for it,
+# so Rain of Gore's ValidSource$ SpellAbility does not match and the Unicorn's
+# controller gains the 2 life normally.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+queue blocks none
+declareblockers
+advance
+advance
+combatdamage

@@ -1,0 +1,9 @@
+# Lich's LifeTotal read at the time the line runs: 7 life becomes 0.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+castspell human 1
+resolvestack

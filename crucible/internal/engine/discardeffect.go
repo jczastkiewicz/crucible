@@ -13,7 +13,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined amount condition control zone
+//enginelint:allow id card game player ability defined amount condition control effecthelpers zone
 
 import (
 	"fmt"
@@ -58,10 +58,18 @@ import (
 // comment); every other real line names a PayEnergy<.../Sac<.../
 // Return<.../... cost part or a controller-derived UnlessPayer$
 // (RememberedController, ReplacedPlayer, ...) this port cannot resolve.
+//
+// Optional$ and DiscardValid$ resolve now (DiscardEffect.java:255-264): the
+// chooser picks from the hand cards matching DiscardValid$ (default Card), at
+// least min(valid, NumCards) of them, or none at all with Optional$, at most
+// NumCards (Mox Diamond's "you may discard a land card"). The pick goes
+// through ChooseCardsForEffect, since ChooseCardsToDiscard takes an exact
+// count. RememberDiscarded$ remembers each discarded card on the host (Player.
+// discard, Player.java:1441-1442).
 var discardUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax", "Optional", "AnyNumber",
-	"DiscardValid", "DiscardValidDesc", "UnlessType", "RevealNumber",
-	"RememberDiscarded", "RememberDiscardingPlayers", "RememberDiscardingPlayer",
+	"ValidTgts", "TargetMin", "TargetMax", "AnyNumber",
+	"UnlessType", "RevealNumber",
+	"RememberDiscardingPlayers", "RememberDiscardingPlayer",
 }
 
 type discardEffect struct{}
@@ -85,7 +93,11 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Discard: Mode$ %q not resolvable yet", mode)
 	}
 
-	defined, _ := a.Params.Param("Defined")
+	defined, ok := a.Params.Param("Defined")
+	if !ok {
+		// SpellAbilityEffect.getDefinedPlayersOrTargeted's default.
+		defined = "You"
+	}
 	players, err := definedPlayers(g, a.Controller, a.Source, defined, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Discard: %w", err)
@@ -100,17 +112,45 @@ func (discardEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return fmt.Errorf("engine: Discard: NumCards$ %q is not resolvable", numCards)
 	}
 
+	validSpec, filtered := a.Params.Param("DiscardValid")
+	_, optional := a.Params.Param("Optional")
+	_, remember := a.Params.Param("RememberDiscarded")
 	for _, pid := range players {
 		hand := g.Zone(Hand, pid).Cards()
-		count := amount
-		if count > len(hand) {
-			count = len(hand)
-		}
-		if count == 0 {
+		if len(hand) == 0 {
 			continue
 		}
-		chosen := controller.ChooseCardsToDiscard(g, pid, hand, count)
+		var chosen []CardID
+		if filtered || optional {
+			cands := hand
+			if filtered {
+				cands = filterValid(g, hand, validSpec, a.Controller, a.Source)
+			}
+			hi := min(len(cands), amount)
+			lo := hi
+			if optional {
+				lo = 0
+			}
+			if hi == 0 {
+				continue
+			}
+			chosen = controller.ChooseCardsForEffect(g, pid, a.Source, cands, lo, hi)
+			if err := checkChoice(chosen, cands, lo, hi); err != nil {
+				return fmt.Errorf("engine: Discard: %w", err)
+			}
+		} else {
+			count := min(amount, len(hand))
+			if count == 0 {
+				continue
+			}
+			chosen = controller.ChooseCardsToDiscard(g, pid, hand, count)
+		}
 		discardCards(g, controller, chosen, pid)
+		if remember {
+			for _, id := range chosen {
+				source.Memory.Remember(CardEntity(id))
+			}
+		}
 	}
 	return nil
 }

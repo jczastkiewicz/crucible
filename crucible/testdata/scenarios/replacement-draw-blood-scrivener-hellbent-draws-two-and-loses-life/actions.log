@@ -1,0 +1,8 @@
+# Event$ Draw | Hellbent$ True | ReplaceWith$ DrawTwo, whose ability chains
+# SubAbility$ DBLoseLife: "if you would draw a card while you have no cards in
+# hand, instead you draw two cards and you lose 1 life." The chain runs
+# through the Registry; the two substituted draws are new Draw events the same
+# line does not apply to again (ReplacementEffect.hasRun).
+advance
+advance
+advance

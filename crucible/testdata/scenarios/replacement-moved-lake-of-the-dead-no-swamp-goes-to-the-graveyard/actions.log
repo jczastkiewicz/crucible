@@ -1,0 +1,7 @@
+# Same line with no Swamp to sacrifice: X (Remembered$Amount) is 0, so the
+# chain's MoveToGraveyard sends the land to its owner's graveyard and the
+# MoveToBattlefield step is skipped. Player.playLand still counts the land
+# drop (Player.java:1645-1650).
+startturn human
+advance 3
+playland human 1

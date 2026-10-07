@@ -89,6 +89,61 @@ func (g *Game) faceChangeReplaced(controller PlayerController, event string, id 
 	})
 }
 
+// attachTo is Card.attachToEntity for a permanent host (Card.java:3920-3947):
+// attaching to the object it is already attached to does nothing, otherwise
+// the attachment moves (Game.Attach) and Event$ Attached runs on it. Every
+// site that attaches a card to a card calls it instead of Game.Attach, which
+// cannot reach replacements (game.go).
+func (g *Game) attachTo(controller PlayerController, attachment, host CardID) {
+	if cur, ok := g.Card(attachment).AttachedTo(); ok && cur == host {
+		return
+	}
+	g.Attach(attachment, host)
+	g.attachedReplaced(controller, attachment, host)
+}
+
+// attachedReplaced runs the ReplaceWith$ lines of Event$ Attached for
+// attachment, which just became attached to host: ReplaceAttached.canReplace
+// matches ValidCard$ against the attachment and ValidTarget$ against the host.
+// Like TurnFaceUp's it runs after the change and its result is not read
+// ("as it becomes attached, choose a color": Sanctuary Blade, Psychic
+// Paper). The attachment's controller decides the CR 616 order; a line whose
+// ability errors records a pending error (GO-7).
+func (g *Game) attachedReplaced(controller PlayerController, attachment, host CardID) {
+	card := g.Card(attachment)
+	target := g.Card(host)
+	g.runReplacements(controller, card.Controller(), func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			sub := replaceWithSub(r)
+			if sub == nil || !strings.EqualFold(r.Name, "Attached") || !hostInActiveZones(h, r, z) {
+				return
+			}
+			if !onlyParams(r, "validcard", "validtarget", "replacewith", "description", "activezones", "optional", "optionaldecider") {
+				g.recordPendingError(fmt.Errorf("engine: %q: Event$ Attached: a param is not resolvable yet", h.Def.Name))
+				return
+			}
+			if v, ok := r.Param("ValidCard"); ok && !Matches(g, card, valid.Parse(v), h.Controller(), h.ID) {
+				return
+			}
+			if v, ok := r.Param("ValidTarget"); ok && !Matches(g, target, valid.Parse(v), h.Controller(), h.ID) {
+				return
+			}
+			if !replacementRequirementsCheck(g, h, amounts, r) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, card: attachment}); err != nil {
+					g.recordPendingError(err)
+					return replacementNotReplaced
+				}
+				return replacementReplaced
+			}})
+		})
+		return out
+	})
+}
+
 // runReplacementChain resolves sub, a replacement's ReplaceWith$ ability,
 // through the Registry as an ability of h's controller with ev as its
 // replacing object, SubAbility$ chain included: ReplacementHandler plays the

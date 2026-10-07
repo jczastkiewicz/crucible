@@ -89,7 +89,7 @@ func setPlayerLife(g *Game, controller PlayerController, source CardID, pid Play
 	p := g.Player(pid)
 	switch {
 	case newLife > p.Life:
-		g.gainLife(controller, pid, newLife-p.Life, source)
+		g.gainLife(controller, pid, newLife-p.Life, source, nil)
 	case newLife < p.Life:
 		lost := p.Life - newLife
 		p.Life = newLife

@@ -56,7 +56,8 @@
       "replacementchoice.go",
       "replacementevents.go",
       "replacementfaces.go",
-      "replacementamounts.go"
+      "replacementamounts.go",
+      "replacemententry.go"
     ],
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],

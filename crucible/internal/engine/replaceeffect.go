@@ -38,6 +38,10 @@ type replacementEvent struct {
 	result     replacementResult
 	amountName string
 	amount     int
+	// vars are further named numbers the event carries, keyed lower-case
+	// (RollDice's Ignore beside its Number): ReplaceEffect's VarName$ may
+	// name one, and ReplaceCount$ reads it.
+	vars map[string]int
 
 	// affected is the damaged object (DamageDone's Affected).
 	affected EntityID
@@ -131,12 +135,22 @@ func (replaceEffectEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 		return fmt.Errorf("engine: ReplaceEffect: VarType$ %q not resolvable yet", t)
 	}
 	varName, _ := a.Params.Param("VarName")
-	if !strings.EqualFold(varName, ev.amountName) {
-		return fmt.Errorf("engine: ReplaceEffect: VarName$ %q not resolvable yet for this event", varName)
-	}
 	varValue, ok := a.Params.Param("VarValue")
 	if !ok {
 		return fmt.Errorf("engine: ReplaceEffect: no VarValue$")
+	}
+	if cur, extra := ev.vars[strings.ToLower(varName)]; extra && !strings.EqualFold(varName, ev.amountName) {
+		// A second number the event carries (RollDice's Ignore beside Number).
+		n, ok := resolveReplaceCountAmount(g, a.Amounts, g.Card(a.Source), varValue, cur, varName)
+		if !ok {
+			return fmt.Errorf("engine: ReplaceEffect: VarValue$ %q is not resolvable", varValue)
+		}
+		ev.vars[strings.ToLower(varName)] = max(n, 0)
+		ev.result = replacementUpdated
+		return nil
+	}
+	if !strings.EqualFold(varName, ev.amountName) {
+		return fmt.Errorf("engine: ReplaceEffect: VarName$ %q not resolvable yet for this event", varName)
 	}
 	n, ok := replacingAmount(g, a, varValue, ev)
 	if !ok {

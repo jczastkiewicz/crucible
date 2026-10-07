@@ -41,6 +41,9 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		if newController == NoPlayer {
 			newController = c.Controller()
 		}
+		if g.entryReplaced(controller, id, origin, newController) {
+			return NoCard
+		}
 		melded = g.Move(id, Battlefield, newController)
 		c.controller = newController
 		if tapped {

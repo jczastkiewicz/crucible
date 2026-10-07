@@ -1,0 +1,8 @@
+# Event$ Draw | IsPresent$ Card.YouOwn | PresentZone$ Library |
+# PresentCompare$ EQ0 | ReplaceWith$ Win (DB$ WinsGame | Defined$ You): the draw
+# step's draw from an empty library is replaced before the CR 704.5b loss can
+# see it, and the ability makes human win. The ability is not a hand-run shape:
+# it goes through the Registry.
+advance
+advance
+advance

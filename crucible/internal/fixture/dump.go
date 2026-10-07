@@ -145,6 +145,8 @@ func dumpCard(g *engine.Game, id engine.CardID) string {
 		}
 		if c.InFlippedState() {
 			b.WriteString("|Flipped")
+		} else if c.InTransformedState() {
+			b.WriteString("|Transformed")
 		}
 		if pid, ok := c.AttachedToPlayer(); ok {
 			// GameState.java:368: EnchantingPlayer takes AttachedTo's place.

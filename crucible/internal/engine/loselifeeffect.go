@@ -114,7 +114,12 @@ func (loseLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 		}
 	} else {
-		defined, _ := a.Params.Param("Defined")
+		defined, ok := a.Params.Param("Defined")
+		if !ok {
+			// No Defined$ and no targets: the activator (Lich's "you lose life
+			// equal to your life total").
+			defined = "You"
+		}
 		var err error
 		players, err = definedPlayers(g, a.Controller, a.Source, defined, a.refs())
 		if err != nil {

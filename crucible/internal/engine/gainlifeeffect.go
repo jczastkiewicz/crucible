@@ -94,7 +94,7 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return fmt.Errorf("engine: GainLife: %w", err)
 	}
 	for _, pid := range players {
-		g.gainLife(controller, pid, amount, a.Source)
+		g.gainLife(controller, pid, amount, a.Source, a)
 	}
 	return nil
 }
@@ -103,12 +103,14 @@ func (gainLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 // dealDamage, CR 702.15e) share, Player.gainLife: a player no longer in the
 // game or under a CantGainLife static gains nothing, a prevention or
 // replacement can stop or change the amount, and a gain that survives updates the life total, the event and
-// the LifeGained triggers.
-func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, source CardID) {
+// the LifeGained triggers. cause is the spell or ability making the player
+// gain (Java's SourceSA), nil for lifelink and the SetLife/ExchangeLife paths,
+// which do not carry one here; a GainLife replacement's ValidSource$ reads it.
+func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, source CardID, cause *Ability) {
 	if g.cantGainLife(pid) || g.gainLifePrevented(pid) {
 		return
 	}
-	gain := g.gainLifeReplaced(controller, pid, amount)
+	gain := g.gainLifeReplaced(controller, pid, amount, cause)
 	if gain <= 0 {
 		return
 	}

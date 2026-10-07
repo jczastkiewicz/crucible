@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20
+humanbattlefield=Laboratory Maniac|Id:1

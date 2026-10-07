@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Zenos yae Galvus|Id:1;Lightning Bolt|Id:2
+humanbattlefield=Swamp|Id:3;Swamp|Id:4;Swamp|Id:5;Swamp|Id:6;Swamp|Id:7;Mountain|Id:8
+aibattlefield=Grizzly Bears|Id:9;Hill Giant|Id:10

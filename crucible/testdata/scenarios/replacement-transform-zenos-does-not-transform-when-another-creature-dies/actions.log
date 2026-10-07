@@ -1,0 +1,22 @@
+# Zenos' transform trigger is ValidCard$ Card.ChosenCardStrict: only the chosen
+# creature leaving the battlefield transforms him, so no Event$ Transform
+# replacement runs for another creature's death. Zenos chooses the Bears; the
+# Hill Giant (3/3, -2/-2 until end of turn from the enter trigger) is the one
+# Lightning Bolt kills.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue cardchoice 9
+castspell human 1
+resolvestack
+tapformana human 8 R
+queue targets 10
+castspell human 2
+resolvestack

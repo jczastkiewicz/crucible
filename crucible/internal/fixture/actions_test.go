@@ -706,6 +706,57 @@ func TestRunActionsQueueAbilityChoice(t *testing.T) {
 	}
 }
 
+// queue cardchoice none is an empty pick, and queue playerchoice answers a
+// ChoosePlayerForEffect with a seated player.
+func TestRunActionsQueueCardChoiceNoneAndPlayerChoice(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	l := load(t, db, "humanlife=20\nailife=20\n")
+	c := engine.NewScriptedController()
+
+	if err := runActions(t, l, c, "queue cardchoice none\nqueue playerchoice ai\n"); err != nil {
+		t.Fatalf("RunActions: %v", err)
+	}
+	if got := c.ChooseCardsForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 0, 1); len(got) != 0 {
+		t.Errorf("card choice %v, want none", got)
+	}
+	ai := l.Game.Players()[1]
+	if got := c.ChoosePlayerForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil); got != ai {
+		t.Errorf("player choice %v, want %v", got, ai)
+	}
+	if err := runActions(t, l, c, "queue playerchoice nobody\n"); err == nil {
+		t.Error("an unseated player name did not error")
+	}
+	if err := runActions(t, l, c, "queue colorchoice R\n"); err != nil {
+		t.Fatalf("queue colorchoice R: %v", err)
+	}
+	if got := c.ChooseColors(l.Game, l.Game.Players()[0], engine.NoCard, 0, 1, 1); got == 0 {
+		t.Error("queued color choice came back empty")
+	}
+	if err := runActions(t, l, c, "queue colorchoice Q\n"); err == nil {
+		t.Error("a bad color letter did not error")
+	}
+	if err := runActions(t, l, c, "queue option 2\n"); err != nil {
+		t.Fatalf("queue option 2: %v", err)
+	}
+	if got := c.ChooseOption(l.Game, l.Game.Players()[0], engine.NoCard, nil); got != 2 {
+		t.Errorf("option = %d, want 2", got)
+	}
+	if err := runActions(t, l, c, "queue option -1\n"); err == nil {
+		t.Error("a negative option did not error")
+	}
+	if err := runActions(t, l, c, "queue abilitychoice 1,0\n"); err != nil {
+		t.Fatalf("queue abilitychoice: %v", err)
+	}
+	if got := c.ChooseAbilitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, nil, 2); len(got) != 2 || got[0] != 1 || got[1] != 0 {
+		t.Errorf("ability choice = %v, want [1 0]", got)
+	}
+	if err := runActions(t, l, c, "queue abilitychoice x\n"); err == nil {
+		t.Error("a non-numeric ability index did not error")
+	}
+}
+
 // queue targets answers a triggered ability's ChooseTargets with the cards
 // setup.state's Id: numbers name.
 func TestRunActionsQueueTargetsResolvesFixtureIDs(t *testing.T) {

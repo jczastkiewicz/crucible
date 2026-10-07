@@ -1,0 +1,8 @@
+turn=2
+activeplayer=human
+activephase=Draw
+humanlife=20
+humanwon=true
+humanbattlefield=Laboratory Maniac
+ailife=20
+over=true

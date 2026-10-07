@@ -1,0 +1,8 @@
+# PayBeforeETB with Amount$ 2 | StrictAmount$ True: "sacrifice two untapped
+# lands instead". The entering land is not on the battlefield yet, so it is
+# not one of the candidates; the human picks the two Mountains, X is 2 (GE2),
+# and Scorched Ruins enters.
+startturn human
+advance 3
+queue sacrificechoice 2,3
+playland human 1

@@ -43,10 +43,8 @@ import (
 // mechanic; Random$ (1) -- Aggregates.random, a randomized choice this
 // port's own ChoosePermanentsToSacrifice contract does not carry; Destroy$
 // (2) -- CR 701.7's own destroy rather than sacrifice, a different
-// GameAction call and a different Mode$ trigger entirely; StrictAmount$
-// (2) -- "sacrifice nothing rather than fewer than Amount$," the opposite
-// of this port's own "sacrifice as many of the chosen kind as exist"
-// clamp, below.
+// GameAction call and a different Mode$ trigger entirely. StrictAmount$
+// resolves: "sacrifice nothing rather than fewer than Amount$" (Lotus Vale).
 //
 // Echo$ and CumulativeUpkeep$ are SacrificeEffect.java's two leading branches,
 // "sacrifice unless you pay" for an upkeep trigger (CR 702.30, 702.24): the
@@ -80,7 +78,7 @@ import (
 var sacrificeUnresolvedParams = [...]string{
 	"ConditionActivationLimit",
 	"ChangeNum", "ValidCard",
-	"SorcerySpeed", "SacEachValid", "Random", "Destroy", "StrictAmount",
+	"SorcerySpeed", "SacEachValid", "Random", "Destroy",
 }
 
 type sacrificeEffect struct{}
@@ -143,12 +141,18 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	}
 
 	spec := valid.Parse(sacValid)
+	_, strict := a.Params.Param("StrictAmount")
 	for _, pid := range players {
 		var candidates []CardID
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
 			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) && !g.cantSacrifice(g.Card(cid), true, a) {
 				candidates = append(candidates, cid)
 			}
+		}
+		// StrictAmount$ (SacrificeEffect.java:137-144): fewer candidates than
+		// Amount$ means nothing is sacrificed, and the player is not asked.
+		if strict && len(candidates) < amount {
+			continue
 		}
 		// Optional$: the player is asked first (Java asks even with no
 		// candidate), then sacrifices Amount$ of the candidates, or all of

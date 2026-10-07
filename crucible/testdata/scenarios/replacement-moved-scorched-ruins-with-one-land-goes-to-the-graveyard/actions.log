@@ -1,0 +1,6 @@
+# StrictAmount$: one untapped land is fewer than Amount$ 2, so nothing is
+# sacrificed (SacrificeEffect.java:137-144), X stays 0 (LT2), and Scorched
+# Ruins goes to the graveyard. The Mountain stays.
+startturn human
+advance 3
+playland human 1

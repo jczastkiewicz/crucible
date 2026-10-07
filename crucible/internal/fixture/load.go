@@ -283,6 +283,12 @@ func (ld *loader) card(entry string, kind engine.ZoneType, owner engine.PlayerID
 			c.SummonSick = true
 		case strings.HasPrefix(info, "Flipped"):
 			ld.game.Flip(id)
+		case strings.HasPrefix(info, "Transformed"):
+			// GameState.java:1346: the card is loaded by its front face's name and
+			// shown on its back.
+			if !ld.game.Transform(id) {
+				return fmt.Errorf("%s: Transformed: not a transforming double-faced permanent", name)
+			}
 		case strings.HasPrefix(info, "PhasedOut"):
 			if err := ld.phasedOut(id, kind, info); err != nil {
 				return fmt.Errorf("%s: %w", name, err)

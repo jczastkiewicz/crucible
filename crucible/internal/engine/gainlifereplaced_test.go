@@ -133,12 +133,12 @@ func TestGainLifeReplacedByLoseLifeInstead(t *testing.T) {
 	}
 }
 
-// TestGainLifeNotReplacedByUnrecognizedSourceRestriction proves
-// rain_of_gore.txt's own real restriction shape -- ValidSource$
-// SpellAbility | SourceController$ True, no ValidPlayer$ at all, a
-// restriction on what CAUSED the event rather than who it affects -- skips
-// the whole line rather than guessing (GO-7): the gain proceeds normally.
-func TestGainLifeNotReplacedByUnrecognizedSourceRestriction(t *testing.T) {
+// TestGainLifeReplacedByRainOfGoreSourceRestriction proves rain_of_gore.txt's
+// own real restriction shape -- ValidSource$ SpellAbility | SourceController$
+// True, no ValidPlayer$ at all, a restriction on what CAUSED the event rather
+// than who it affects -- reads the causing ability (ReplaceGainLife.
+// canReplace): a spell that makes its own controller gain 3 makes them lose 3.
+func TestGainLifeReplacedByRainOfGoreSourceRestriction(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -156,8 +156,8 @@ func TestGainLifeNotReplacedByUnrecognizedSourceRestriction(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 
-	if got := g.Player(p).Life; got != 23 {
-		t.Errorf("p life = %d, want 23 -- ValidSource$/SourceController$ is unrecognized, so the gain must proceed normally", got)
+	if got := g.Player(p).Life; got != 17 {
+		t.Errorf("p life = %d, want 17 -- the ability's own controller gaining 3 becomes losing 3", got)
 	}
 }
 

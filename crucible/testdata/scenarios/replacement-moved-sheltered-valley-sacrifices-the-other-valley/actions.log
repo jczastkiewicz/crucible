@@ -1,0 +1,9 @@
+# SacBeforeETB: "instead sacrifice each other permanent named Sheltered
+# Valley you control, then put it onto the battlefield." SacrificeAll runs
+# before the new Valley is on the battlefield, so only the old one goes. The
+# old Valley's upkeep trigger (three or fewer lands: gain 1 life) resolves
+# first, since a land cannot be played with it on the stack.
+startturn human
+advance 3
+resolvestack
+playland human 1

@@ -163,6 +163,11 @@ func (g *Game) Flip(id CardID) bool {
 	return true
 }
 
+// Transform is transform for a caller outside an effect: GameState's
+// `|Transformed` entry (GameState.java:1346) puts a loaded card on its back
+// face, with no replacement run.
+func (g *Game) Transform(id CardID) bool { return g.transform(id) }
+
 // transform is Card.changeCardState("Transform"): a transforming
 // double-faced permanent that is face up and whose other face is a
 // permanent turns to that face, under a new timestamp.

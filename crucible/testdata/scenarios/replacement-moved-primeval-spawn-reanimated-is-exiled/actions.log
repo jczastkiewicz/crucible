@@ -1,0 +1,16 @@
+# Primeval Spawn's own line (ValidCard$ Card.Self+!wasCast,...): a Spawn that
+# was not cast is exiled instead of entering. The line is read off the card
+# itself as it would be on the battlefield (getReplacementList's affectedLKI),
+# though it is in a graveyard now.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue targets 7
+castspell human 1
+resolvestack

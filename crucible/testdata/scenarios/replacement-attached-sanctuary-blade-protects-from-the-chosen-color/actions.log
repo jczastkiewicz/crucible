@@ -1,0 +1,21 @@
+# Event$ Attached | ValidCard$ Card.Self | ValidTarget$ Creature | ReplaceWith$
+# ChooseColor: "As Sanctuary Blade becomes attached to a creature, choose a
+# color." Card.attachToEntity runs the replacement after the attach. The human
+# chooses red, so the equipped Bears has protection from red and a Lightning
+# Bolt aimed at it fizzles (CR 608.2b).
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+queue colorchoice R
+queue action human activate 1 0
+passpriority
+tapformana human 6 R
+queue targets 2
+queue action human cast 7
+passpriority

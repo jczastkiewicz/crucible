@@ -157,12 +157,12 @@ func TestDrawReplacedWithPutCounterInstead(t *testing.T) {
 	}
 }
 
-// TestDrawNotReplacedByTargetAbilityWithSubAbility proves
+// TestDrawReplacedByTargetAbilityWithSubAbility proves
 // blood_scrivener.txt's own real ReplaceWith$ target -- DB$ Draw carrying
-// its own SubAbility$ DBLoseLife -- is refused outright rather than run with
-// the chained half silently dropped (GO-7): even with Hellbent$ True met
-// (an empty hand), the draw proceeds normally rather than doubling.
-func TestDrawNotReplacedByTargetAbilityWithSubAbility(t *testing.T) {
+// its own SubAbility$ DBLoseLife -- runs through the Registry with its whole
+// chain: with Hellbent$ True met (an empty hand) two cards are drawn and the
+// life is lost.
+func TestDrawReplacedByTargetAbilityWithSubAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -189,18 +189,22 @@ func TestDrawNotReplacedByTargetAbilityWithSubAbility(t *testing.T) {
 	}
 	g.NewCard(def, p, engine.Battlefield)
 
+	life := g.Player(p).Life
 	g.DrawCards(p, 1, engine.NewScriptedController())
 
-	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
-		t.Errorf("hand has %d cards, want 1 -- a chained ReplaceWith$ target must not dispatch, so the draw stays a plain single draw", got)
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 2 {
+		t.Errorf("hand has %d cards, want 2 -- the chained ReplaceWith$ draws two instead", got)
+	}
+	if got := g.Player(p).Life; got != life-1 {
+		t.Errorf("life = %d, want %d -- the SubAbility$ DBLoseLife half runs too (Blood Scrivener)", got, life-1)
 	}
 }
 
-// TestDrawNotReplacedByUnrecognizedTargetAbility proves a ReplaceWith$
-// target this port has no direct-dispatch case for -- magus_of_the_chains.txt's
-// own real DB$ Discard target -- skips the whole line rather than guessing,
-// and the draw proceeds normally.
-func TestDrawNotReplacedByUnrecognizedTargetAbility(t *testing.T) {
+// TestDrawReplacedByDiscardTargetAbility proves a ReplaceWith$ target the
+// hand-run shapes do not cover -- magus_of_the_chains.txt's own real DB$
+// Discard | Defined$ ReplacedPlayer -- replaces the draw through the
+// Registry: the drawing player discards instead of drawing.
+func TestDrawReplacedByDiscardTargetAbility(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a")
@@ -212,8 +216,11 @@ func TestDrawNotReplacedByUnrecognizedTargetAbility(t *testing.T) {
 
 	g.DrawCards(p, 1, engine.NewScriptedController())
 
-	if got := len(g.Zone(engine.Hand, p).Cards()); got != 1 {
-		t.Errorf("hand has %d cards, want 1 -- an unrecognized ReplaceWith$ target must skip the whole line", got)
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != 0 {
+		t.Errorf("hand has %d cards, want 0 -- a ReplaceWith$ Discard replaces the draw (Magus of the Chains' shape), and the empty hand discards nothing", got)
+	}
+	if got := g.Zone(engine.Library, p).Len(); got != 1 {
+		t.Errorf("library has %d cards, want 1 -- the replaced draw takes nothing from it", got)
 	}
 }
 

@@ -1,0 +1,7 @@
+# Same line, the human discards nothing: nothing is remembered, X is 0, and
+# Mox Diamond is put into its owner's graveyard instead of entering.
+startturn human
+advance 3
+queue cardchoice none
+castspell human 1
+resolvestack

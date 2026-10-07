@@ -378,10 +378,12 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	// (Card.kicker) from the stack onto the battlefield, and a cast that fails
 	// forgets it.
 	g.Card(card).castFrom = g.Card(card).Zone
+	g.Card(card).wasCast = true
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	if !g.castSpellChosen(controller, pid, card, opts) {
 		g.Card(card).kicker = 0
+		g.Card(card).wasCast = false
 		return false
 	}
 	return true
@@ -489,6 +491,7 @@ func (g *Game) announceX(pid PlayerID, c *Card, controller PlayerController, opt
 func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
 	// The X is announced here, so from the return on Count$xPaid reads it.
 	defer func() { g.castPending = NoCard }()
+	c.castManaSpent = 0
 	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost {
 		return xAnnounced{}, true
 	}
@@ -500,6 +503,9 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	x, paid := g.payManaCostX(pid, total, controller)
 	if paid {
 		assist.settle(g, controller)
+		// SpellAbility.getTotalManaSpent: one per mana paid. Phyrexian shards
+		// paid with life are counted too, a small overcount no card reads.
+		c.castManaSpent = len(total.Shards()) + total.Generic() + x.value*total.CountX()
 	}
 	return x, paid
 }
@@ -825,6 +831,9 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	origin := g.Card(a.Source).Zone
 	door, castRoom := g.Card(a.Source).castRoomDoor()
 	copyBecomesToken(g.Card(a.Source))
+	if g.entryReplaced(controller, a.Source, origin, a.Controller) {
+		return nil
+	}
 	g.Move(a.Source, Battlefield, a.Controller)
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	if castRoom {
@@ -851,10 +860,13 @@ type attachEffect struct{}
 
 func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if !a.spell {
-		return g.attachActivated(a)
+		return g.attachActivated(a, controller)
 	}
 	origin := g.Card(a.Source).Zone
 	copyBecomesToken(g.Card(a.Source))
+	if g.entryReplaced(controller, a.Source, origin, a.Controller) {
+		return nil
+	}
 	g.Move(a.Source, Battlefield, a.Controller)
 	if a.Target == NoCard {
 		// castPlayerAura: the Aura enchants the player it targeted.
@@ -862,7 +874,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 			g.AttachToPlayer(a.Source, pid)
 		}
 	} else {
-		g.Attach(a.Source, a.Target)
+		g.attachTo(controller, a.Source, a.Target)
 	}
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
@@ -887,9 +899,9 @@ func firstPlayerTarget(targets []EntityID) (PlayerID, bool) {
 // choosing the attachment or the host without targeting (Object$, Choices$,
 // Defined$, PlayerChoices$, Optional$, Chooser$) are not read: such a line is
 // an error, never an attachment to the wrong thing (GO-7).
-func (g *Game) attachActivated(a *Ability) error {
+func (g *Game) attachActivated(a *Ability, controller PlayerController) error {
 	if _, ok := a.Params.Param("Object"); ok {
-		return g.attachObject(a)
+		return g.attachObject(a, controller)
 	}
 	for _, key := range [...]string{"Choices", "Defined", "PlayerChoices", "Optional", "Chooser", "Move"} {
 		if _, ok := a.Params.Param(key); ok {
@@ -908,7 +920,7 @@ func (g *Game) attachActivated(a *Ability) error {
 		if hostRefusesAttach(g, source, host) {
 			return nil
 		}
-		g.Attach(a.Source, host)
+		g.attachTo(controller, a.Source, host)
 		return nil
 	}
 	return nil

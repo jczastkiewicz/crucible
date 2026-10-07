@@ -3,7 +3,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined zone condition staticability
+//enginelint:allow id card game ability control defined zone condition staticability
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 // decision, and several are refused rather than guessed (GO-7). An
 // attachment that left the battlefield is skipped; the equipment legality
 // checks are the activated shape's (a creature host, Protection).
-func (g *Game) attachObject(a *Ability) error {
+func (g *Game) attachObject(a *Ability, controller PlayerController) error {
 	for _, key := range [...]string{"Choices", "PlayerChoices", "Optional", "Chooser", "Move"} {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Attach: %s$ with Object$ not resolvable yet", key)
@@ -51,7 +51,7 @@ func (g *Game) attachObject(a *Ability) error {
 		if g.Card(id).Zone != Battlefield || id == host || hostRefusesAttach(g, g.Card(id), host) {
 			continue
 		}
-		g.Attach(id, host)
+		g.attachTo(controller, id, host)
 	}
 	return nil
 }

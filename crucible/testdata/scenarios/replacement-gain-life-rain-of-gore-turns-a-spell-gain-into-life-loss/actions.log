@@ -1,0 +1,11 @@
+# Event$ GainLife | ValidSource$ SpellAbility | SourceController$ True |
+# ReplaceWith$ RLoseLife: "If a spell or ability would cause its controller to
+# gain life, that player loses that much life instead." Rain of Gore is the
+# opponent's; human's Nourish would gain 6 for its own controller, so human
+# loses 6 (ReplaceGainLife.canReplace reads the causing SpellAbility).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+castspell human 1
+resolvestack

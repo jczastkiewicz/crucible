@@ -144,6 +144,7 @@ queue blocks [<b>=<a>,...]    ScriptedController.QueueBlocks, blocker=attacker p
 queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=amount pairs from Loaded.CardByFixtureID
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue cardchoice <id>[,...]   ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID
+queue abilitychoice <i>[,...] ScriptedController.QueueAbilityChoice, an effect's ChooseAbilitiesForEffect pick (GenericChoice's Choices$ indices, Primal Clay's mold)
 queue sacrificechoice <id>[,...]  ScriptedController.QueueSacrificeChoice, the permanents a Sac<N/Type> cost or a sacrifice effect picks, ids from Loaded.CardByFixtureID
 queue returnchoice <id>[,...]     ScriptedController.QueueReturnChoice, the permanents a Return<N/Type> cost picks, ids from Loaded.CardByFixtureID
 queue scry <id>[,...]            ScriptedController.QueueScry, ids (all kept on top, in order) from Loaded.CardByFixtureID

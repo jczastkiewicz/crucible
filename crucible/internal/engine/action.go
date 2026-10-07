@@ -353,8 +353,8 @@ func annihilateCounters(g *Game, id CardID) bool {
 	}
 	c.Counters.Add(P1P1, -remove)
 	c.Counters.Add(M1M1, -remove)
-	emitCounterChanged(g.sink, id, CardEntity(id), P1P1, -remove)
-	emitCounterChanged(g.sink, id, CardEntity(id), M1M1, -remove)
+	emitCounterChanged(g, id, CardEntity(id), P1P1, -remove)
+	emitCounterChanged(g, id, CardEntity(id), M1M1, -remove)
 	return true
 }
 
@@ -374,7 +374,7 @@ func trimDreamCounters(g *Game, id CardID) bool {
 		return false
 	}
 	c.Counters.Add("DREAM", limit-have)
-	emitCounterChanged(g.sink, id, CardEntity(id), "DREAM", limit-have)
+	emitCounterChanged(g, id, CardEntity(id), "DREAM", limit-have)
 	return true
 }
 
@@ -643,15 +643,17 @@ func destroyZeroDefense(g *Game, controller PlayerController) bool {
 // removed its own duplicates -- a permanent already sent to its owner's
 // graveyard by the name-grouping does not also need asking about here.
 //
-// Corner Case 1 is still not here: whether a Corner-Case-2 permanent's own
-// borrowed names collide with some OTHER legendary's own literal printed
-// name (`StaticData.instance().getCommonCards().isNonLegendaryCreatureName`,
-// GameAction.java) needs a lookup across every creature card this game ever
-// printed, not just what is on this battlefield -- this port's `*Game` holds
-// no `*carddb.DB` reference to ask, and adding one now, for the one corpus
-// card (Spy Kit) this would unlock, is a disproportionately large refactor
-// (every `*Game` constructor across the whole test suite would need one
-// threaded through) for what it reaches (PORT-8/GO-7): skipped, not guessed.
+// Corner Case 1 (handleLegendRule's own name for it): a name group whose name
+// is some creature card's own non-legendary printed name
+// (isNonLegendaryCreatureName, a lookup in the game's *carddb.DB: GO-2's
+// injected immutable data, never a singleton) also pulls in every
+// HasNonLegendaryCreatureNames permanent, so a Spy Kit wearer clashes with a
+// legendary that bears a plain creature's name. A back face's own name is not
+// found: DB.Card indexes front names only.
+//
+// Names are Card.Name (a SetName$ result counts, Card.getName). Removed cards
+// are collected and moved once every group has been asked, as Java hands
+// noRegCreats to its caller, so a card in two groups is moved once.
 func resolveLegendRule(g *Game, controller PlayerController) bool {
 	performed := false
 	for _, pid := range g.Players() {
@@ -669,48 +671,74 @@ func resolveLegendRule(g *Game, controller PlayerController) bool {
 			if c.HasNonLegendaryCreatureNames {
 				nonLegendaryNamed = append(nonLegendaryNamed, id)
 			}
-			name := c.Def.Name
+			name := c.Name()
 			if _, ok := byName[name]; !ok {
 				order = append(order, name)
 			}
 			byName[name] = append(byName[name], id)
 		}
-		removed := map[CardID]bool{}
+		var removed []CardID
+		wasRemoved := func(id CardID) bool { return slices.Contains(removed, id) }
 		for _, name := range order {
-			dup := byName[name]
-			if len(dup) < 2 {
+			if name == "" {
 				continue
 			}
-			keep := controller.ChooseLegendaryToKeep(g, pid, dup)
-			for _, id := range dup {
-				if id != keep {
-					removed[id] = true
-					performed = true
-					g.moveToGraveyard(controller, id)
-					g.checkDiesTriggers(controller, id)
+			group := slices.Clone(byName[name])
+			if g.isNonLegendaryCreatureName(name) {
+				for _, id := range nonLegendaryNamed {
+					if !slices.Contains(group, id) {
+						group = append(group, id)
+					}
+				}
+			}
+			if len(group) < 2 {
+				continue
+			}
+			keep := controller.ChooseLegendaryToKeep(g, pid, group)
+			for _, id := range group {
+				if id != keep && !wasRemoved(id) {
+					removed = append(removed, id)
 				}
 			}
 		}
 
 		var remaining []CardID
 		for _, id := range nonLegendaryNamed {
-			if !removed[id] {
+			if !wasRemoved(id) {
 				remaining = append(remaining, id)
 			}
 		}
-		if len(remaining) < 2 {
-			continue
-		}
-		keep := controller.ChooseLegendaryToKeep(g, pid, remaining)
-		for _, id := range remaining {
-			if id != keep {
-				performed = true
-				g.moveToGraveyard(controller, id)
-				g.checkDiesTriggers(controller, id)
+		if len(remaining) >= 2 {
+			keep := controller.ChooseLegendaryToKeep(g, pid, remaining)
+			for _, id := range remaining {
+				if id != keep {
+					removed = append(removed, id)
+				}
 			}
+		}
+		for _, id := range removed {
+			performed = true
+			g.moveToGraveyard(controller, id)
+			g.checkDiesTriggers(controller, id)
 		}
 	}
 	return performed
+}
+
+// isNonLegendaryCreatureName is CardDb.isNonLegendaryCreatureName
+// (CardDb.java:1079): the name is a face of some card in the game's database
+// and that face is a creature without the Legendary supertype.
+func (g *Game) isNonLegendaryCreatureName(name string) bool {
+	def, ok := g.db.Card(name)
+	if !ok {
+		return false
+	}
+	for _, f := range def.Faces {
+		if f.Name == name {
+			return f.Type.Has(cardtype.Creature) && !f.Type.HasSupertype(cardtype.Legendary)
+		}
+	}
+	return false
 }
 
 // resolveWorldRule is CR 704.5m: at most one permanent with the World
@@ -1029,6 +1057,9 @@ func applyContinuousLayers(g *Game, afterControl func()) {
 	g.layerAffected = nil
 	for i := 1; i < len(g.cards); i++ {
 		g.cards[i].abilityRemoval = removalNone
+		// Layer 6 rebuilds the grants; clearing here keeps Layers 2-5 from
+		// reading last pass's granted statics through traitFaces.
+		g.cards[i].traitGrants = nil
 	}
 	clearContinuousText(g)
 	applyContinuousControl(g)

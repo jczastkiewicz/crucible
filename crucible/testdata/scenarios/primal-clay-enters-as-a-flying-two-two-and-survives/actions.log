@@ -1,0 +1,17 @@
+# CR 614.1c / 707.2: the same Primal Clay replacement, mode 1: the 2/2 with
+# flying (GroundMold 0, AirMold 1, WallMold 2). The permanent lives through the
+# state-based action check its printed 0/0 would not.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue abilitychoice 1
+castspell human 1
+resolvestack
+advance

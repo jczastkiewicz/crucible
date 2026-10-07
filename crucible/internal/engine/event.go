@@ -118,13 +118,9 @@ type Sink interface {
 }
 
 // CounterDetail is the Event.Detail payload a CounterChanged event carries.
-// Closed over the nine named CounterType constants (counters.go), not every
-// string CounterType allows: nothing yet creates a counter from a
-// script-written name -- that needs a SpellAbility to run one, M6 -- so
-// there is no open-string case to encode today. Extending this switch, or
-// replacing it with a per-Game interning table (ADR-0009's arena pattern,
-// the same shape as CardID) if the corpus turns out to need more than a
-// closed set, is whichever M6 needs when a real caller forces the choice.
+// The nine named CounterType constants (counters.go) have fixed values;
+// every other CounterType a script writes is interned per game from
+// CounterDetailOpenBase (counterDetailFor).
 type CounterDetail uint32
 
 // The details, one per named CounterType (counters.go). counterDetailNone is
@@ -170,17 +166,9 @@ func counterDetail(t CounterType) (CounterDetail, bool) {
 	}
 }
 
-// emitCounterChanged emits CounterChanged for a change of delta counters of
-// kind t on target, sourced from source. Does nothing for a CounterType
-// counterDetail does not encode -- unreachable today, and dropping the event
-// beats emitting one whose Detail lies about what kind changed.
-func emitCounterChanged(sink Sink, source CardID, target EntityID, t CounterType, delta int) {
-	detail, ok := counterDetail(t)
-	if !ok {
-		return
-	}
-	sink.Emit(Event{Kind: CounterChanged, Source: source, Target: target, Amount: int32(delta), Detail: uint32(detail)})
-}
+// CounterDetailOpenBase is where a script-written CounterType's Detail starts
+// (Game.counterDetailFor, counteradded.go).
+const CounterDetailOpenBase CounterDetail = 1 << 16
 
 // PhaseDetail is the Event.Detail payload a Phased event carries: which way
 // the permanent phased. Zero is never carried by a real Phased event.

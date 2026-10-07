@@ -122,7 +122,7 @@ func removeCounters(g *Game, source CardID, target EntityID, counters *Counters,
 		for _, kind := range counters.Kinds() {
 			n := counters.Count(kind)
 			counters.Add(kind, -n)
-			emitCounterChanged(g.sink, source, target, kind, -n)
+			emitCounterChanged(g, source, target, kind, -n)
 		}
 		return
 	}
@@ -134,7 +134,7 @@ func removeCounters(g *Game, source CardID, target EntityID, counters *Counters,
 		return
 	}
 	counters.Add(counterType, -n)
-	emitCounterChanged(g.sink, source, target, counterType, -n)
+	emitCounterChanged(g, source, target, counterType, -n)
 }
 
 // removeCounterType reads CounterType$: a single literal name (uppercased,

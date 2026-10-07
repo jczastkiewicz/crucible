@@ -246,13 +246,13 @@ func TestEntersAsCopyRejectsWhatItCannotRun(t *testing.T) {
 			want: "CR 616.1",
 		},
 		{
-			name: "a ReplaceWith$ other than Clone",
+			name: "a ReplaceWith$ whose effect is not ported",
 			setup: func(t *testing.T, _ *engine.Game, _ engine.PlayerID) *compile.Card {
 				return copyTestDef(t, "Test Mimeo", "Creature Shapeshifter", "0", "0", "Cost:G",
-					"K:ETBReplacement:Copy:DBChoose:Optional",
-					"SVar:DBChoose:DB$ ChooseCard | Choices$ Creature | ChoiceZone$ Graveyard")
+					"K:ETBReplacement:Copy:DBText",
+					"SVar:DBText:DB$ ChangeText | Defined$ Self | ChangeTypeWord$ Elf Giant")
 			},
-			want: "ReplaceWith$ ChooseCard not resolvable yet",
+			want: "copy replacement",
 		},
 		{
 			name: "an Effect replacing the same entry",

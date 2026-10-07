@@ -1164,12 +1164,12 @@ func applyDamageReplaceCounter(g *Game, host CardID, replacedTarget EntityID, a 
 	}
 	if cid, ok := target.AsCard(); ok {
 		g.Card(cid).Counters.Add(counterType, delta)
-		emitCounterChanged(g.sink, host, target, counterType, delta)
+		emitCounterChanged(g, host, target, counterType, delta)
 		return true
 	}
 	if pid, ok := target.AsPlayer(); ok {
 		g.Player(pid).Counters.Add(counterType, delta)
-		emitCounterChanged(g.sink, host, target, counterType, delta)
+		emitCounterChanged(g, host, target, counterType, delta)
 		return true
 	}
 	return false
@@ -1616,7 +1616,7 @@ func applyDrawReplacementPutCounter(g *Game, host *Card, a *compile.Ability, amo
 		return false
 	}
 	host.Counters.Add(counterType, amount)
-	emitCounterChanged(g.sink, host.ID, CardEntity(host.ID), counterType, amount)
+	emitCounterChanged(g, host.ID, CardEntity(host.ID), counterType, amount)
 	return true
 }
 

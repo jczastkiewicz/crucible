@@ -199,7 +199,7 @@ var (
 		"RemoveSuperTypes", "RemoveLandTypes", "RemoveCreatureTypes", "RemoveArtifactTypes",
 		"RemoveEnchantmentTypes",
 	}
-	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "AddTrigger", "AddAbility"}
+	keywordLayerKeys = []string{"AddKeyword", "RemoveKeyword", "RemoveAllAbilities", "RemoveNonManaAbilities", "AddTrigger", "AddAbility", "AddStaticAbility", "AddReplacementEffect"}
 	controlLayerKeys = []string{"GainControl"}
 )
 
@@ -247,7 +247,14 @@ func abilitiesLayerOps(g *Game) layerOps {
 		apply: func(ls layerStatic) {
 			h := g.Card(ls.host)
 			applyOneContinuousKeyword(g, h, ls.amounts, ls.s)
-			applyOneContinuousTraits(g, h, ls.amounts, ls.s)
+			// A static this one granted applies in this layer too, and so does
+			// anything it grants in turn.
+			for work := applyOneContinuousTraits(g, h, ls.amounts, ls.s); len(work) > 0; work = work[1:] {
+				gs := work[0]
+				gh := g.Card(gs.host)
+				applyOneContinuousKeyword(g, gh, gs.amounts, gs.s)
+				work = append(work, applyOneContinuousTraits(g, gh, gs.amounts, gs.s)...)
+			}
 		},
 		affected: func(ls layerStatic) ([]CardID, bool) {
 			return g.staticPeekAffected(g.Card(ls.host), ls.s)

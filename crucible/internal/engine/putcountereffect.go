@@ -148,7 +148,7 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			continue
 		}
 		g.Player(pid).Counters.Add(counterType, n)
-		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), counterType, n)
+		emitCounterChanged(g, a.Source, PlayerEntity(pid), counterType, n)
 	}
 	return nil
 }

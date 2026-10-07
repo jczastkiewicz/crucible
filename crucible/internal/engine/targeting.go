@@ -150,7 +150,7 @@ func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
 			switch {
 			case diffCtl && o.Controller() == c.Controller(),
 				diffCMC && o.CMC() == c.CMC(),
-				diffNames && o.Def != nil && c.Def != nil && o.Def.Name == c.Def.Name,
+				diffNames && o.Def != nil && c.Def != nil && o.Name() == c.Name(),
 				eqTough && !sameToughness(o, c),
 				sameType && !sharesCardType(o, c):
 				legal = false

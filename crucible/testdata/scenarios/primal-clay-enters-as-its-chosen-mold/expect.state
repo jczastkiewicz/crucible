@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=BeginCombat
+humanlife=20
+humanbattlefield=Island|Tapped;Island|Tapped;Island|Tapped;Island|Tapped;Primal Clay|SummonSick
+ailife=20

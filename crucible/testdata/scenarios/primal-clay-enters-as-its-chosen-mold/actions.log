@@ -1,0 +1,20 @@
+# CR 614.1c / 707.2 / 614.12: Primal Clay's own R:Event$ Moved | Layer$ Copy replacement
+# is a GenericChoice of three Clone modes. The controller picks mode 2, the 1/6
+# Wall with defender (GroundMold 0, AirMold 1, WallMold 2). Primal Clay's
+# printed */* is 0/0 and would die to the next state-based action check; the
+# 1/6 it entered as survives it.
+startturn human
+advance 3
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue abilitychoice 2
+castspell human 1
+resolvestack
+# Leave Main1: the state-based action check a 0/0 would not survive.
+advance

@@ -475,6 +475,19 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueCardChoice(ids)
 
+	case "abilitychoice":
+		// An effect's ChooseAbilitiesForEffect: indices into the offered
+		// modes (GenericChoice's Choices$ order).
+		var picks []int
+		for _, field := range strings.Split(value, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(field))
+			if err != nil {
+				return fmt.Errorf("queue abilitychoice: %w", err)
+			}
+			picks = append(picks, n)
+		}
+		c.QueueAbilityChoice(picks)
+
 	case "sacrificechoice":
 		ids, err := resolveCardIDs(l, value)
 		if err != nil {

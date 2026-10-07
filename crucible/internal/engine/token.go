@@ -51,7 +51,7 @@ func (g *Game) createToken(controller PlayerController, spec tokenSpec) CardID {
 	c.baseToughness, c.hasBaseToughness = spec.Toughness, spec.HasToughness
 	if spec.P1P1 > 0 {
 		c.Counters.Add(P1P1, spec.P1P1)
-		emitCounterChanged(g.sink, id, CardEntity(id), P1P1, spec.P1P1)
+		emitCounterChanged(g, id, CardEntity(id), P1P1, spec.P1P1)
 	}
 	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped)
 	return id

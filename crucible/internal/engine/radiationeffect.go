@@ -74,7 +74,7 @@ func (radiationEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			continue
 		}
 		p.Counters.Add(Radiation, amount)
-		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), Radiation, amount)
+		emitCounterChanged(g, a.Source, PlayerEntity(pid), Radiation, amount)
 	}
 	return nil
 }

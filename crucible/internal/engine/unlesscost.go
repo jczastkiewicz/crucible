@@ -438,7 +438,7 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 	}
 	if uc.energyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -uc.energyN)
-		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), Energy, -uc.energyN)
+		emitCounterChanged(g, a.Source, PlayerEntity(pid), Energy, -uc.energyN)
 	}
 	if uc.discardN > 0 {
 		discardCards(g, controller, controller.ChooseCardsToDiscard(g, pid, hand, uc.discardN), pid)
@@ -478,7 +478,7 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 	if uc.youCounterN > 0 {
 		if n := g.countersReplaced(controller, pid, PlayerEntity(pid), uc.youCounterType, uc.youCounterN); n > 0 {
 			g.Player(pid).Counters.Add(uc.youCounterType, n)
-			emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), uc.youCounterType, n)
+			emitCounterChanged(g, a.Source, PlayerEntity(pid), uc.youCounterType, n)
 		}
 	}
 	if uc.addCounterN > 0 {

@@ -400,7 +400,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	if shape.PayEnergyN > 0 {
 		g.Player(pid).Counters.Add(Energy, -shape.PayEnergyN)
-		emitCounterChanged(g.sink, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
+		emitCounterChanged(g, card, PlayerEntity(pid), Energy, -shape.PayEnergyN)
 	}
 	if shape.TapTypeN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
@@ -409,12 +409,12 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if shape.AddCounterType != "" {
 		ct := CounterType(strings.ToUpper(shape.AddCounterType))
 		c.Counters.Add(ct, shape.AddCounterN)
-		emitCounterChanged(g.sink, card, CardEntity(card), ct, shape.AddCounterN)
+		emitCounterChanged(g, card, CardEntity(card), ct, shape.AddCounterN)
 	}
 	if shape.SubCounterType != "" {
 		ct := CounterType(strings.ToUpper(shape.SubCounterType))
 		c.Counters.Add(ct, -shape.SubCounterN)
-		emitCounterChanged(g.sink, card, CardEntity(card), ct, -shape.SubCounterN)
+		emitCounterChanged(g, card, CardEntity(card), ct, -shape.SubCounterN)
 	}
 	if shape.SelfExileFromGrave {
 		exileFromGraveyard(g, card)

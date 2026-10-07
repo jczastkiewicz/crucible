@@ -110,7 +110,11 @@ func (g *Game) copyReplacementCandidates(moved CardID, origin ZoneType, applied 
 		}
 		gen := 0
 		if self {
-			gen = len(h.copies)
+			for _, e := range h.copies {
+				if !e.ofSelf {
+					gen++
+				}
+			}
 		}
 		face := &def.Faces[0]
 		for _, r := range face.Replacements {
@@ -233,12 +237,11 @@ func copyReplacementResolvable(h *Card, r *compile.Ability) error {
 			with = sub.Ability
 		}
 	}
-	if with == nil || with.Name != "Clone" {
-		name := "none"
-		if with != nil {
-			name = with.Name
-		}
-		return fmt.Errorf("engine: %q: copy replacement with ReplaceWith$ %s not resolvable yet", h.Def.Name, name)
+	if with == nil {
+		return fmt.Errorf("engine: %q: copy replacement with ReplaceWith$ none not resolvable yet", h.Def.Name)
+	}
+	if _, ok := APIByName(with.Name); !ok {
+		return fmt.Errorf("engine: %q: copy replacement with ReplaceWith$ %s not resolvable yet", h.Def.Name, with.Name)
 	}
 	for a := with; a != nil; a = subAbilityOf(a) {
 		if _, ok := a.Param("ValidTgts"); ok {
@@ -289,8 +292,9 @@ func (g *Game) runCopyReplacement(controller PlayerController, moved CardID, c c
 			with = sub.Ability
 		}
 	}
+	api, _ := APIByName(with.Name)
 	a := Ability{
-		API: APIClone, Source: c.host, Controller: h.Controller(), Params: with, Amounts: c.amounts,
+		API: api, Source: c.host, Controller: h.Controller(), Params: with, Amounts: c.amounts,
 		replacing: &replacementEvent{result: replacementUpdated, card: moved},
 	}
 	// Named before resolving: the copy may change the host's own name (it is

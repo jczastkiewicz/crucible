@@ -68,7 +68,7 @@ func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			}
 			for _, kind := range counters.Kinds() {
 				counters.Add(kind, 1)
-				emitCounterChanged(g.sink, a.Source, e, kind, 1)
+				emitCounterChanged(g, a.Source, e, kind, 1)
 			}
 		}
 	}

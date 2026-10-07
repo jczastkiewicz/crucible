@@ -264,6 +264,11 @@ type Card struct {
 	// when their printed names differ.
 	HasNonLegendaryCreatureNames bool
 
+	// changedName is Layer 3's SetName$ result (Card.changedCardNames,
+	// Card.getName): the last overwrite in timestamp order, "" for none.
+	// Rebuilt every pass by applyContinuousNames; read through Name.
+	changedName string
+
 	// text is Layer 3's own text-changing effect on this permanent (CR
 	// 613.1c): GainTextOf$ (applyContinuousText, continuous.go). While it
 	// applies, Def is the composite text definition and text.base is the
@@ -447,9 +452,48 @@ type grantedTriggers struct {
 // from the SVars its AddTrigger$/AddAbility$ named; amounts is the granting
 // face's, where those traits' SVar amounts live.
 type traitGrant struct {
-	triggers  []*compile.Ability
-	abilities []*compile.Ability
-	amounts   map[string]expr.Amount
+	triggers     []*compile.Ability
+	abilities    []*compile.Ability
+	statics      []*compile.Ability
+	replacements []*compile.Ability
+	amounts      map[string]expr.Amount
+}
+
+// Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a
+// permanent (changedName; only a battlefield card is ever renamed). A card
+// without a definition has none.
+func (c *Card) Name() string {
+	if c.changedName != "" && c.Zone == Battlefield {
+		return c.changedName
+	}
+	if c.Def == nil {
+		return ""
+	}
+	return c.Def.Name
+}
+
+// grantFaces is faces plus one pseudo-face per trait grant that carries statics
+// or replacement effects, holding exactly those lines and the granting face's
+// amounts: Java's Card.getStaticAbilities/getReplacementEffects read the printed
+// lines and the changedCardTraits rows through one list (Card.java), and every
+// walk over a host's statics or replacements here reads traitFaces, so one
+// seam serves them all (AddStaticAbility$, AddReplacementEffect$). The result
+// shares faces' backing array only when no grant adds either.
+func (c *Card) grantFaces(faces []compile.Face) []compile.Face {
+	var out []compile.Face
+	for _, grant := range c.traitGrants {
+		if len(grant.statics) == 0 && len(grant.replacements) == 0 {
+			continue
+		}
+		if out == nil {
+			out = append(make([]compile.Face, 0, len(faces)+len(c.traitGrants)), faces...)
+		}
+		out = append(out, compile.Face{Statics: grant.statics, Replacements: grant.replacements, Amounts: grant.amounts})
+	}
+	if out == nil {
+		return faces
+	}
+	return out
 }
 
 // printedTraitsRemoved is CR 305.7 (Card.hasRemoveIntrinsic): an effect
@@ -502,18 +546,20 @@ func (c *Card) traitDef() *compile.Card {
 
 // traitFaces is traitDef's faces, nil when it is nil.
 func (c *Card) traitFaces() []compile.Face {
+	var faces []compile.Face
 	if d := c.traitDef(); d != nil {
-		return d.Faces[:]
+		faces = d.Faces[:]
 	}
-	return nil
+	return c.grantFaces(faces)
 }
 
 // liveTraitFaces is traitFaces cut to liveFaces.
 func (c *Card) liveTraitFaces() []compile.Face {
+	var faces []compile.Face
 	if d := c.traitDef(); d != nil {
-		return d.Faces[:liveFaces(d)]
+		faces = d.Faces[:liveFaces(d)]
 	}
-	return nil
+	return c.grantFaces(faces)
 }
 
 // abilityAt is the index'th activated ability c has: its printed A: lines,

@@ -72,7 +72,7 @@ func (poisonEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			continue
 		}
 		p.Counters.Add(Poison, amount)
-		emitCounterChanged(g.sink, a.Source, PlayerEntity(pid), Poison, amount)
+		emitCounterChanged(g, a.Source, PlayerEntity(pid), Poison, amount)
 	}
 	return nil
 }

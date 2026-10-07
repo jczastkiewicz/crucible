@@ -145,6 +145,6 @@ func moveOneCounterKind(g *Game, controller PlayerController, source, src, dest 
 		return
 	}
 	srcCounters.Add(kind, -n)
-	emitCounterChanged(g.sink, source, CardEntity(src), kind, -n)
+	emitCounterChanged(g, source, CardEntity(src), kind, -n)
 	g.addCardCounters(controller, source, dest, kind, n)
 }

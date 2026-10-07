@@ -274,14 +274,14 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		if !ok || c.Def == nil {
 			return false
 		}
-		return containsString(sc.Memory.NamedCards(), c.Def.Name)
+		return containsString(sc.Memory.NamedCards(), c.Name())
 	case name == "NamedByRememberedPlayer":
 		sc, ok := sourceCard(g, source)
 		if !ok || c.Def == nil {
 			return false
 		}
 		for _, e := range sc.Memory.Remembered() {
-			if p, isPlayer := e.AsPlayer(); isPlayer && g.Player(p).NamedCard != c.Def.Name {
+			if p, isPlayer := e.AsPlayer(); isPlayer && g.Player(p).NamedCard != c.Name() {
 				return false
 			}
 		}
@@ -1355,7 +1355,7 @@ func sharesName(c *Card, name string) bool {
 	if name == "" || c.Def == nil {
 		return false
 	}
-	if c.Def.Name == name {
+	if c.Name() == name {
 		return true
 	}
 	if c.Zone == Battlefield || c.Def.SplitType != carddb.SplitSplit {

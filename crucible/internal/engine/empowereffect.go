@@ -66,7 +66,7 @@ func (empowerEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return nil
 	}
 	g.Card(picked[0]).Counters.Add(Loyalty, amount)
-	emitCounterChanged(g.sink, a.Source, CardEntity(picked[0]), Loyalty, amount)
+	emitCounterChanged(g, a.Source, CardEntity(picked[0]), Loyalty, amount)
 	return nil
 }
 

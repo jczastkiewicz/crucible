@@ -268,6 +268,10 @@ type Game struct {
 	// the current turn began (Game.monarchBeginTurn, set by PhaseHandler at
 	// each new turn), read by Mode$ BecomeMonarch's BeginTurn$.
 	monarch, monarchBeginTurn PlayerID
+
+	// counterKinds interns the script-written CounterTypes a CounterChanged
+	// event carried, in first-use order (counterDetailFor, event.go).
+	counterKinds []CounterType
 	// initiative is the player who has the initiative (CR 725,
 	// Game.hasInitiative), NoPlayer while nobody does.
 	initiative PlayerID
@@ -525,6 +529,49 @@ func (g *Game) Zone(kind ZoneType, owner PlayerID) *Zone {
 	return z
 }
 
+// counterDetailFor is the Detail CounterChanged carries for t in this game: the
+// named constant, else t's interned open number. The first script-written type
+// a game meets gets CounterDetailOpenBase, the next one CounterDetailOpenBase+1,
+// and so on (Game.counterKinds, ADR-0009's arena pattern: interned per game in
+// first-use order, so a replay of the same game numbers them the same).
+func (g *Game) counterDetailFor(t CounterType) CounterDetail {
+	if d, ok := counterDetail(t); ok {
+		return d
+	}
+	for i, k := range g.counterKinds {
+		if k == t {
+			return CounterDetailOpenBase + CounterDetail(i)
+		}
+	}
+	g.counterKinds = append(g.counterKinds, t)
+	return CounterDetailOpenBase + CounterDetail(len(g.counterKinds)-1)
+}
+
+// CounterTypeOf is the CounterType a CounterChanged Detail names in this game,
+// false for a Detail it never carried. The named constants decode too.
+func (g *Game) CounterTypeOf(d CounterDetail) (CounterType, bool) {
+	if d >= CounterDetailOpenBase {
+		i := int(d - CounterDetailOpenBase)
+		if i < len(g.counterKinds) {
+			return g.counterKinds[i], true
+		}
+		return "", false
+	}
+	for _, t := range [...]CounterType{P1P1, M1M1, Loyalty, Defense, Charge, Stun, Shield, Poison, Energy} {
+		if got, _ := counterDetail(t); got == d {
+			return t, true
+		}
+	}
+	return "", false
+}
+
+// emitCounterChanged emits CounterChanged for a change of delta counters of
+// kind t on target, sourced from source. A script-written kind is interned
+// (counterDetailFor), so no kind is dropped and none is mislabeled.
+func emitCounterChanged(g *Game, source CardID, target EntityID, t CounterType, delta int) {
+	g.sink.Emit(Event{Kind: CounterChanged, Source: source, Target: target, Amount: int32(delta), Detail: uint32(g.counterDetailFor(t))})
+}
+
 // traitHosts is every card of pid's whose static abilities and triggers are
 // active: the battlefield's permanents, then pid's Command-zone cards that
 // carry live traits -- effect cards, whose traits EffectEffect.java makes
@@ -766,11 +813,11 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.cameUnderControl, c.enteredTurn = true, g.turn
 		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
 			c.Counters.Add(Loyalty, loyalty)
-			emitCounterChanged(g.sink, id, CardEntity(id), Loyalty, loyalty)
+			emitCounterChanged(g, id, CardEntity(id), Loyalty, loyalty)
 		}
 		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) {
 			c.Counters.Add(Defense, defense)
-			emitCounterChanged(g.sink, id, CardEntity(id), Defense, defense)
+			emitCounterChanged(g, id, CardEntity(id), Defense, defense)
 		}
 	}
 
@@ -1180,6 +1227,7 @@ func (g *Game) Clone() *Game {
 		previousPlayerSpells:  g.previousPlayerSpells,
 		lki:                   make(map[CardID]*Card, len(g.lki)),
 		monarch:               g.monarch,
+		counterKinds:          append([]CounterType(nil), g.counterKinds...),
 		monarchBeginTurn:      g.monarchBeginTurn,
 		initiative:            g.initiative,
 		activePlane:           g.activePlane,

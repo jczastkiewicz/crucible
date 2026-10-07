@@ -43,10 +43,11 @@ import (
 // the controller controls), Delirium (23 -- Player.hasDelirium, four-plus
 // distinct core types among cards in the controller's own graveyard,
 // AbilityUtils.countCardTypesFromList's own permanentTypes=false form) and
-// FatefulHour (3 -- the controller's own life at 5 or below) and Blessing (9 -- Player.hasBlessing). Not resolved:
-// MaxSpeed (40), EnduringStory (4) and Monarch (2) -- each its
-// own mechanic (Alchemy's speed counter, Saga chapters,
-// the monarch) this port tracks no state for anywhere yet, so (like an
+// FatefulHour (3 -- the controller's own life at 5 or below), Blessing (9 -- Player.hasBlessing) and Monarch (2 --
+// Player.isMonarch, Game.Monarch). Not resolved:
+// MaxSpeed (40) and EnduringStory (4) -- each its
+// own mechanic (Alchemy's speed counter, the Storied keyword's flag)
+// this port tracks no state for anywhere yet, so (like an
 // unrecognized Affected$ value already does) the line is skipped rather
 // than treated as met (GO-7); an unrecognized value not in the real corpus
 // today falls to the same case.
@@ -73,6 +74,8 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 		return g.Player(controller).Life <= 5
 	case "Blessing":
 		return g.Player(controller).Blessing
+	case "Monarch":
+		return g.Monarch() == controller
 	default:
 		return false
 	}
@@ -112,6 +115,15 @@ func continuousStatics(g *Game) []layerStatic {
 			for fi, face := range def.Faces {
 				for si, s := range face.Statics {
 					out = append(out, layerStatic{host: host, def: def, face: fi, index: si, s: s, amounts: face.Amounts})
+				}
+			}
+			// Statics a Layer 6 AddStaticAbility$ granted this pass: face -1,
+			// index running across the grants so a per-static key stays unique.
+			n := 0
+			for _, grant := range g.Card(host).traitGrants {
+				for _, s := range grant.statics {
+					out = append(out, layerStatic{host: host, def: def, face: -1, index: n, s: s, amounts: grant.amounts})
+					n++
 				}
 			}
 		}
@@ -500,18 +512,44 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 // resolves that directly, since this port already models Equipment
 // attachment the identical way an Aura's is (Attach/AttachedTo). resolveLegendRule
 // (action.go) is the one reader.
+//
+// SetName$ (5 real lines: Ensoul Ring, Honest Work, Witness Protection, Psychic
+// Paper, Awestruck Cygnet) shares the pass: Card.changedCardNames is one
+// timestamp-ordered table that both AddNames$ and SetName$ write, an overwrite
+// resetting the non-legendary-names flag and AddNames$ setting it
+// (Card.hasNonLegendaryCreatureNames, Card.java:997-1007), so the statics apply
+// in effectOrder here and the last write wins.
 func applyContinuousNames(g *Game) {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			g.Card(id).HasNonLegendaryCreatureNames = false
+			g.Card(id).changedName = ""
 		}
 	}
 	for _, ls := range continuousStatics(g) {
 		if !g.staticLive(g.Card(ls.host), ls.s) {
 			continue
 		}
-		applyOneContinuousNames(g, g.Card(ls.host), ls.s)
+		applyOneContinuousNames(g, g.Card(ls.host), ls.amounts, ls.s)
 	}
+}
+
+// setNameOf is the name a SetName$ line gives (StaticAbilityContinuous.java:647-655):
+// ChosenName is the host's last NameCard pick, and an empty result writes
+// nothing.
+func setNameOf(host *Card, s *compile.Ability) (string, bool) {
+	name, ok := s.Param("SetName")
+	if !ok {
+		return "", false
+	}
+	if name == "ChosenName" {
+		picks := host.Memory.NamedCards()
+		if len(picks) == 0 {
+			return "", false
+		}
+		name = picks[len(picks)-1]
+	}
+	return name, name != ""
 }
 
 // applyOneContinuousNames grants s's own target(s) HasNonLegendaryCreatureNames,
@@ -524,15 +562,14 @@ func applyContinuousNames(g *Game) {
 // make this whole applier dead code against the actual corpus. AffectedZone$/
 // CharacteristicDefining$ (0 real lines paired with AddNames$) are refused,
 // the same as every other layer's own applier.
-func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
+func applyOneContinuousNames(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	if !continuousConditionMet(g, host, s) {
-		return
-	}
-	addNames, ok := s.Param("AddNames")
-	if !ok || !strings.EqualFold(addNames, "AllNonLegendaryCreatureNames") {
+	newName, setting := setNameOf(host, s)
+	addNames, hasAdd := s.Param("AddNames")
+	adding := hasAdd && strings.EqualFold(addNames, "AllNonLegendaryCreatureNames")
+	if !setting && !adding {
 		return
 	}
 	for _, key := range [...]string{"AffectedZone", "CharacteristicDefining"} {
@@ -540,11 +577,7 @@ func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
 			return
 		}
 	}
-
-	if affectedDefined, ok := s.Param("AffectedDefined"); ok && !strings.EqualFold(affectedDefined, "Equipped") {
-		return
-	}
-	if _, ok := s.Param("Affected"); !ok {
+	if !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
 	targets, ok := g.staticAffected(host, s)
@@ -552,7 +585,14 @@ func applyOneContinuousNames(g *Game, host *Card, s *compile.Ability) {
 		return
 	}
 	for _, id := range targets {
-		g.Card(id).HasNonLegendaryCreatureNames = true
+		c := g.Card(id)
+		if setting {
+			c.changedName = newName
+			c.HasNonLegendaryCreatureNames = false
+		}
+		if adding {
+			c.HasNonLegendaryCreatureNames = true
+		}
 	}
 }
 
@@ -1314,10 +1354,13 @@ func applyOneContinuousControl(g *Game, host *Card, s *compile.Ability) {
 // applyOneContinuousTraits is Layer 6's trait half (ADR-0023) for one static: AddTrigger$/AddAbility$ write the
 // compiled SVars they name onto each card they affect, and RemoveAllAbilities$/RemoveNonManaAbilities$ take away the
 // card's own text and every trait granted before it (applyOneContinuousRemoval). AddStaticAbility$ and
-// AddReplacementEffect$ grants are not applied yet (GO-7: those lines grant only what they name).
-func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
+// AddReplacementEffect$ ride the same grant row (traitGrant.statics/replacements) and reach every walk over the
+// card's statics and replacements through traitFaces. It returns the statics it just granted, as the layer statics
+// they now are on their new hosts: GameAction.checkStaticAbilities applies each at once in the layer that granted it
+// and lists it for every later layer (GameAction.java:1152-1168), which continuousStatics does for the later ones.
+func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) []layerStatic {
 	if !strings.EqualFold(s.Name, "Continuous") {
-		return
+		return nil
 	}
 	var grant traitGrant
 	for _, sub := range s.Subs {
@@ -1326,6 +1369,10 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 			grant.triggers = append(grant.triggers, sub.Ability)
 		case strings.EqualFold(sub.Key, "AddAbility"):
 			grant.abilities = append(grant.abilities, sub.Ability)
+		case strings.EqualFold(sub.Key, "AddStaticAbility"):
+			grant.statics = append(grant.statics, sub.Ability)
+		case strings.EqualFold(sub.Key, "AddReplacementEffect"):
+			grant.replacements = append(grant.replacements, sub.Ability)
 		}
 	}
 	removal := removalNone
@@ -1335,17 +1382,19 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 	case hasParamOn(s, "RemoveNonManaAbilities"):
 		removal = removalNonMana
 	}
-	if len(grant.triggers) == 0 && len(grant.abilities) == 0 && removal == removalNone {
-		return
+	granting := len(grant.triggers) > 0 || len(grant.abilities) > 0 || len(grant.statics) > 0 || len(grant.replacements) > 0
+	if !granting && removal == removalNone {
+		return nil
 	}
 	if !layerStaticApplies(g, host, amounts, s) {
-		return
+		return nil
 	}
 	affected, ok := g.staticAffected(host, s)
 	if !ok {
-		return
+		return nil
 	}
 	grant.amounts = amounts
+	var added []layerStatic
 	for _, id := range affected {
 		c := g.Card(id)
 		// CardTraitChanges.applySpellAbility and its siblings: the effect's own
@@ -1354,10 +1403,14 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 		if removal != removalNone {
 			c.removeTraits(removal)
 		}
-		if len(grant.triggers) > 0 || len(grant.abilities) > 0 {
+		if granting {
 			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), grant)
+			for _, st := range grant.statics {
+				added = append(added, layerStatic{host: id, def: c.Def, face: -1, s: st, amounts: amounts})
+			}
 		}
 	}
+	return added
 }
 
 // removeTraits is a RemoveAllAbilities$ (every trait) or
@@ -1382,7 +1435,7 @@ func (c *Card) removeTraits(kind abilityRemoval) {
 			}
 		}
 		if len(mana) > 0 {
-			g.triggers, g.abilities = nil, mana
+			g.triggers, g.abilities, g.statics, g.replacements = nil, mana, nil, nil
 			kept = append(kept, g)
 		}
 	}

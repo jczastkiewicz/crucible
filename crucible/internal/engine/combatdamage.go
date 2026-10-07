@@ -323,11 +323,11 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	c.Damage.Sources = append(c.Damage.Sources, source)
 	if t.Has(cardtype.Planeswalker) {
 		c.Counters.Add(Loyalty, -amount)
-		emitCounterChanged(g.sink, source, CardEntity(target), Loyalty, -amount)
+		emitCounterChanged(g, source, CardEntity(target), Loyalty, -amount)
 	}
 	if t.Has(cardtype.Battle) {
 		c.Counters.Add(Defense, -amount)
-		emitCounterChanged(g.sink, source, CardEntity(target), Defense, -amount)
+		emitCounterChanged(g, source, CardEntity(target), Defense, -amount)
 	}
 	if t.Has(cardtype.Creature) {
 		if g.witherDamage(source) {
@@ -336,7 +336,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 			// is set either way (Card.addDamageAfterPrevention).
 			if n := g.countersReplaced(controller, g.Card(source).Controller(), CardEntity(target), M1M1, amount); n > 0 {
 				c.Counters.Add(M1M1, n)
-				emitCounterChanged(g.sink, source, CardEntity(target), M1M1, n)
+				emitCounterChanged(g, source, CardEntity(target), M1M1, n)
 			}
 			if deathtouch {
 				c.Damage.Deathtouch = true
@@ -428,7 +428,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 	if poison > 0 {
 		if n := g.countersReplaced(controller, g.Card(source).Controller(), PlayerEntity(target), Poison, poison); n > 0 {
 			g.Player(target).Counters.Add(Poison, n)
-			emitCounterChanged(g.sink, source, PlayerEntity(target), Poison, n)
+			emitCounterChanged(g, source, PlayerEntity(target), Poison, n)
 		}
 	}
 	g.checkDamageDoneTriggersToPlayer(controller, source, target, amount, isCombat)

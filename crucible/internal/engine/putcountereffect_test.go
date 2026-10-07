@@ -341,12 +341,12 @@ func TestPutCounterEffectEmitsCounterChangedEventForNamedType(t *testing.T) {
 	}
 }
 
-// TestPutCounterEffectSkipsEventForUnnamedType proves the documented
-// counterDetail gap (event.go): a script-written CounterType past the nine
-// named constants still gets the counter (Counters.Add has no such limit)
-// but emits no CounterChanged event, rather than one whose own Detail lies
-// about what kind changed.
-func TestPutCounterEffectSkipsEventForUnnamedType(t *testing.T) {
+// TestPutCounterEffectEmitsEventForUnnamedType proves a script-written
+// CounterType past the nine named constants gets the counter and a
+// CounterChanged event whose Detail is interned per game
+// (CounterDetailOpenBase), decodable back to the type and stable for a second
+// change of the same kind.
+func TestPutCounterEffectEmitsEventForUnnamedType(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -363,10 +363,30 @@ func TestPutCounterEffectSkipsEventForUnnamedType(t *testing.T) {
 	if n := g.Card(creature).Counters.Count(engine.CounterType("EXPERIENCE")); n != 1 {
 		t.Errorf("EXPERIENCE count = %d, want 1 -- the counter itself must still be added", n)
 	}
+	saw := false
 	for _, e := range sink.events {
-		if e.Kind == engine.CounterChanged {
-			t.Error("saw a CounterChanged event for CounterType$ EXPERIENCE, want none -- counterDetail's own closed set does not cover it")
+		if e.Kind != engine.CounterChanged {
+			continue
 		}
+		saw = true
+		if engine.CounterDetail(e.Detail) != engine.CounterDetailOpenBase {
+			t.Errorf("Detail = %d, want the first interned open number %d", e.Detail, engine.CounterDetailOpenBase)
+		}
+		if got, ok := g.CounterTypeOf(engine.CounterDetail(e.Detail)); !ok || got != "EXPERIENCE" {
+			t.Errorf("CounterTypeOf = %q, %v, want EXPERIENCE", got, ok)
+		}
+	}
+	if !saw {
+		t.Error("no CounterChanged event for CounterType$ EXPERIENCE")
+	}
+	if got, ok := g.CounterTypeOf(engine.CounterDetailP1P1); !ok || got != engine.P1P1 {
+		t.Errorf("CounterTypeOf(P1P1 detail) = %q, %v", got, ok)
+	}
+	if _, ok := g.CounterTypeOf(engine.CounterDetailOpenBase + 5); ok {
+		t.Error("CounterTypeOf decoded a Detail the game never carried")
+	}
+	if _, ok := g.CounterTypeOf(engine.CounterDetail(60000)); ok {
+		t.Error("CounterTypeOf decoded an unassigned named Detail")
 	}
 }
 

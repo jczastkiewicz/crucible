@@ -51,7 +51,7 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		for _, e := range enter {
 			if n := g.countersReplaced(controller, newController, CardEntity(id), e.kind, e.n); n > 0 {
 				c.Counters.Add(e.kind, n)
-				emitCounterChanged(g.sink, id, CardEntity(id), e.kind, n)
+				emitCounterChanged(g, id, CardEntity(id), e.kind, n)
 			}
 		}
 		g.enterBattlefieldReplacements(controller, id, origin)

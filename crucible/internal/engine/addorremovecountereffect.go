@@ -62,7 +62,7 @@ func (addOrRemoveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerCo
 		if !c.Counters.Any() {
 			if !each && ctype != "" {
 				c.Counters.Add(ctype, n)
-				emitCounterChanged(g.sink, a.Source, CardEntity(id), ctype, n)
+				emitCounterChanged(g, a.Source, CardEntity(id), ctype, n)
 			}
 			continue
 		}
@@ -101,13 +101,13 @@ func addOrRemoveCounter(g *Game, a *Ability, controller PlayerController, decide
 	}
 	if controller.ChooseBinary(g, decider, a.Source, AddOrRemove) {
 		c.Counters.Add(kind, n)
-		emitCounterChanged(g.sink, a.Source, CardEntity(id), kind, n)
+		emitCounterChanged(g, a.Source, CardEntity(id), kind, n)
 		return nil
 	}
 	before := c.Counters.Count(kind)
 	removed := before - c.Counters.Add(kind, -n)
 	if removed > 0 {
-		emitCounterChanged(g.sink, a.Source, CardEntity(id), kind, -removed)
+		emitCounterChanged(g, a.Source, CardEntity(id), kind, -removed)
 	}
 	if remember {
 		g.Card(a.Source).Memory.Remember(CardEntity(id))

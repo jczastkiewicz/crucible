@@ -50,10 +50,10 @@ func (timeTravelEffect) Resolve(g *Game, a *Ability, controller PlayerController
 					continue
 				}
 				c.Counters.Add(Time, 1)
-				emitCounterChanged(g.sink, a.Source, CardEntity(id), Time, 1)
+				emitCounterChanged(g, a.Source, CardEntity(id), Time, 1)
 			} else if c.Counters.Count(Time) > 0 {
 				c.Counters.Add(Time, -1)
-				emitCounterChanged(g.sink, a.Source, CardEntity(id), Time, -1)
+				emitCounterChanged(g, a.Source, CardEntity(id), Time, -1)
 			}
 		}
 	}

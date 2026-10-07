@@ -35,6 +35,11 @@ type copyEffect struct {
 	life       effectLifetime
 	remembered []EntityID
 	imprinted  []CardID
+	// ofSelf marks a copy of the permanent's own current values with
+	// modifications (Primal Clay's `Clone | Defined$ Self | SetPower$ 3`): it
+	// brings no replacement the permanent did not already have, so it is not a
+	// new generation of its entry replacements (copyReplacementCandidates).
+	ofSelf bool
 }
 
 // UncopiedDef is c's definition under every copy effect and any Layer 3
@@ -310,6 +315,7 @@ func (cloneEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		}
 		e := template
 		e.Timestamp, e.def = ts, p.def
+		e.ofSelf = origin.card == p.id
 		if !e.permanent {
 			e.imprinted = append([]CardID(nil), t.Memory.Imprinted()...)
 			e.remembered = append([]EntityID(nil), t.Memory.Remembered()...)

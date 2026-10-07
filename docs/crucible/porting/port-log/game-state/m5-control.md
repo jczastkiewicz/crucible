@@ -45,10 +45,9 @@ Leaving the battlefield also clears the untap, change-controller and phase-out l
 | `LeavesPlay` registered only when host differs from target                                                                 | same                                                                   |
 
 Registered tokens: `EOT` (127 corpus lines), `LeavesPlay`/`LoseControl` combinations (31), `Untap` combinations (9),
-`UntilTheEndOfYourNextTurn` (5), `EndOfCombat` (1). Refused: `StaticCommandCheck` (needs `Card.staticCommandList`,
-`GameAction.java:1180-1198`) and `UntilSourceUnattached` (unattach command list). Skipped: the `SacMe` SVar
-(`ControlGainEffect.java:185`, an AI hint) and `Card.gainControlTargets` (read only by the optional-untap prompt's
-default, `Untap.java:180`).
+`UntilTheEndOfYourNextTurn` (5), `EndOfCombat` (1). `StaticCommandCheck` and `UntilSourceUnattached` are ported in
+[`m5-control-2.md`](m5-control-2.md). Skipped: the `SacMe` SVar (`ControlGainEffect.java:185`, an AI hint) and
+`Card.gainControlTargets` (read only by the optional-untap prompt's default, `Untap.java:180`).
 
 ## `Duration$` on Effect (`effecteffect.go`)
 
@@ -86,15 +85,14 @@ through Wolfir Silverheart's +4/+4.
 | Magus of the Unseen | same, as an activated ability                                                                                                                                                                                |
 | Stolen Uniform      | `IsPresent$` on a delayed trigger (`delayedPresentMatches`), `Pump` `RememberObjects$`, `Attach` `Object$`, targets of a sub-ability (below)                                                                 |
 | Seraph              | `Creature.DamagedBy` (`Damage.Sources`), `Defined$ TriggeredCard*`, delayed `Mode$ ChangesZone` from the battlefield with `ValidCard$ Card.StrictlySelf` and `Destination$ Any`, `Cleanup` `ClearTriggered$` |
-| Krovikan Vampire    | **not landed**, see below                                                                                                                                                                                    |
+| Krovikan Vampire    | landed, see [`m5-control-2.md`](m5-control-2.md)                                                                                                                                                             |
 
 `delayedPresentMatches` reads `IsPresent$` once, as the trigger fires (Java checks again as it resolves), with
 `Card.IsTriggerRemembered` applied against the trigger's `RememberObjects$` list. `PresentCompare$`/`PresentZone$`/
 `PresentPlayer$`/`PresentDefined$`/`IsPresent2$` on a delayed `ChangesController` line are refused. `isPresentMatches`
 returns true for a spec naming `IsTriggerRemembered`, since the delayed matcher owns it.
 
-`delayedWatchesLeaving` is called by the dies and exile paths only: a delayed `ChangesZone` watch with a destination
-other than the graveyard or exile (bounce, library) never fires.
+A delayed `ChangesZone` watch fires for every destination ([`m5-control-2.md`](m5-control-2.md)).
 
 ### Targets of a sub-ability (`chaintargets.go`)
 

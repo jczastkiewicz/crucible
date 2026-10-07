@@ -496,10 +496,10 @@ two-shapes-in-one-Part-name situation this is the first primitive to actually ha
 A new `returncost.go` holds `returnCards` (`exileCards`'s own structural sibling, `exile.go` -- Move to Hand instead of
 Exile, the identical no-`*Ability`-parameter simplification for the identical reason: 0 real `Return<...>` cost lines
 carry a Remember-shaped param) and the third sibling of CR 603.6d's own "leaves the battlefield" trigger family this
-session has now built: `isReturnedTrigger`/`checkReturnedTriggers`/`otherReturnedTriggerMatches`, `isExiledTrigger`'s
-own exact structural copy with `Destination$ Hand` in place of `Exile`. `Mode$ Exiled`'s own 3-real-line irrelevance has
-no analogue to check for Return at all -- Forge's own `TriggerType` has no dedicated "returned to hand" mode whatsoever,
-only the generic `Mode$ ChangesZone` family this landing already builds for it.
+session has now built: `isLeftToTrigger`/`checkLeftToTriggers`/`otherLeftToTriggerMatches` (`leftto.go`),
+`isExiledTrigger`'s own exact structural copy with `Destination$ Hand` in place of `Exile`. `Mode$ Exiled`'s own
+3-real-line irrelevance has no analogue to check for Return at all -- Forge's own `TriggerType` has no dedicated
+"returned to hand" mode whatsoever, only the generic `Mode$ ChangesZone` family this landing already builds for it.
 
 A new `PlayerController` method, `ChoosePermanentsToReturn` (its 30th -- `control.go`'s own top doc comment corrected
 from "twenty-nine" to "thirty," the identical one-chunk-stale gap `tapXType`'s own landing already found and fixed for
@@ -518,7 +518,7 @@ One regression-toggle pass: disabling the `ReturnTypeN` candidate-count feasibil
 shape `tapXType`'s own guard toggle already found -- `TestActivateAbilityDeclinesWhenNotEnoughReturnTypeCandidates`
 never queues a `ChoosePermanentsToReturn` answer since it expects a decline first, so removing the guard reaches the
 unqueued controller call and crashes the whole test binary (`scripted controller ran out of return choice decisions`)
-rather than failing its own assertion cleanly. The `isReturnedTrigger`/`Destination$ Hand` match itself was not toggled,
+rather than failing its own assertion cleanly. The `isLeftToTrigger`/`Destination$ Hand` match itself was not toggled,
 for the identical reason `isExiledTrigger`'s own was not: it was proven directly and positively by two new trigger tests
 instead (below), the same choice `Exile<1/CARDNAME>`'s own landing already made.
 

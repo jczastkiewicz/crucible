@@ -28,10 +28,8 @@ Corpus counts for the other `canTarget` params (root `A:`/`SP$` lines and `DB$` 
   `EqualToughness`, `SameCardType`, `MaxTotalTargetCMC`, `MaxTotalTargetPower`, in answer order (Java asks per
   candidate; this port asks once). Fewer than `TargetMin` kept: not cast (CR 603.3c). Fixtures
   `cant-target-different-controllers-*`, `cant-target-max-total-cmc-*`.
-- Not ported: `TargetsWithSameCreatureType`/`WithoutSameCreatureType` (Changeling, type registry),
-  `TargetsForEachPlayer`, `TargetsWithSharedCardType`, `TargetsWithRelatedProperty`, `TargetingPlayerControls`,
-  `TargetsWithControllerProperty`. No fixture for `TargetsWithDefinedController$` (every real root line is a trigger's
-  `Execute$` needing a trigger card).
+- The remaining `canTarget` params are in [`m5-targeting-2.md`](m5-targeting-2.md). No fixture for
+  `TargetsWithDefinedController$` (every real root line is a trigger's `Execute$` needing a trigger card).
 
 ## Player Protection
 
@@ -47,9 +45,8 @@ to the shared `Card.`/`Emblem.` wrap, `:63-65`). `matchesPlayerProperty` gained 
 CantBlockBy alike. Fixtures: `protection-runed-halo-*` (2), `protection-serras-emissary-*` (2),
 `protection-absolute-virtue-*` (2).
 
-Not ported: Pump `KW$` with `ChosenPlayerUID`/`DefinedKW$` (Courageous Resolve, Eon Frolicker, Guardian Archon,
-Cliffside Rescuer, Noble Heritage: `keywordTokens` still returns false for them) and True-Name Nemesis's fixture (no
-`GameState` key sets a chosen player).
+Pump `DefinedKW$` and its remainder are in [`m5-targeting-2.md`](m5-targeting-2.md); True-Name Nemesis has no fixture
+(no `GameState` key sets a chosen player).
 
 ## Ward residue (`UnlessCost$`)
 
@@ -61,13 +58,8 @@ Corpus counts: `Draw<N/Player.targetedBy>` 2, `Discard<1/Hand>` 2 (Perplex, Miss
   fixture: both cards need a full ValidTgts/UnlessSwitched chain.
 - `Discard<N/Hand>` discards the whole hand and is always payable (`CostDiscard.java:143-151`). Perplex itself is
   unreachable: its `UnlessCost$` has no `UnlessPayer$` (default `TargetedController`, `resolveUnlessCost`). No fixture.
-- Not ported: `DefinedCost_*`, `RemoveAnyCounter`, `PutCardToLibFromGrave`, the `CollectEvidence` trigger mode, the
-  `UnlessPayer$` default.
-
-## Static restrictions not done
-
-`CastWithFlash` `ValidSA$` naming `XCost`/`Teamwork`/`IsTargeting` (3 lines of 74), `MayFlashCost` (11), `MayFlashSac`
-(10) and `CantPutCounter` on `MakeCard`/token/ETB counters (13 lines total): not started.
+- `DefinedCost_*`, `RemoveAnyCounter`, `PutCardToLibFromGrave`, the `CollectEvidence` trigger and the `UnlessPayer$`
+  default are in [`m5-targeting-2.md`](m5-targeting-2.md).
 
 ## Observed, outside this batch
 

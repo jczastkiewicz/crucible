@@ -102,16 +102,16 @@ identical entry in `Card.copies`, no visible change. Whether Java's re-run does 
 
 ### Rejected, as a pending error before anything changes
 
-| Shape                                                                         | Why                                                                                                       |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Two or more copy replacements apply at once (a Clone entering beside Essence) | CR 616.1: the affected player orders them; `PlayerController` has no replacement choice yet               |
-| `ReplaceWith$` other than `Clone` (Mimeoplasm, Living Lore, Primal Clay, ...) | Each needs its own API run mid-entry; not Layer 1 copying                                                 |
-| A copy replacement hosted by an effect card (Mystic Reflection)               | "The next time one or more enter" is a batch; entries here are one at a time                              |
-| A `SubAbility$` `Effect` with `ReplacementEffects$` (Spark Double, Moritte)   | Its replacement edits the same entry, which has already happened here: counters would be silently missing |
-| A chained sub-ability with `ETB$` (Altered Ego, Undercover Operative)         | Counters placed as part of the entry; `PutCounter` refuses `ETB$`, so refused before the copy, not after  |
-| `CheckSVar$`/`SVarCompare$` that does not resolve (Protean Raider)            | `checkSVarMatches` reads it as "does not apply", which would skip the copy silently                       |
-| `ValidTgts$` anywhere in the chain; a replacement param outside the read set  | Not modeled at a replacement site                                                                         |
-| `Clone`'s own rejected params (`PumpKeywords$`, `RemoveCardTypes$`, ...)      | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                             |
+| Shape                                                                         | Why                                                                                                                                                                            |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Two or more copy replacements apply at once (a Clone entering beside Essence) | CR 616.1: the affected player orders them; `PlayerController` has no replacement choice yet                                                                                    |
+| `ReplaceWith$` of The Mimeoplasm                                              | Its chain has a `PutCounter` with `ETB$`, refused before the copy; any other registered API runs (Primal Clay, Molten Sentry, Living Lore, [`m5-layers-2.md`](m5-layers-2.md)) |
+| A copy replacement hosted by an effect card (Mystic Reflection)               | "The next time one or more enter" is a batch; entries here are one at a time                                                                                                   |
+| A `SubAbility$` `Effect` with `ReplacementEffects$` (Spark Double, Moritte)   | Its replacement edits the same entry, which has already happened here: counters would be silently missing                                                                      |
+| A chained sub-ability with `ETB$` (Altered Ego, Undercover Operative)         | Counters placed as part of the entry; `PutCounter` refuses `ETB$`, so refused before the copy, not after                                                                       |
+| `CheckSVar$`/`SVarCompare$` that does not resolve (Protean Raider)            | `checkSVarMatches` reads it as "does not apply", which would skip the copy silently                                                                                            |
+| `ValidTgts$` anywhere in the chain; a replacement param outside the read set  | Not modeled at a replacement site                                                                                                                                              |
+| `Clone`'s own rejected params (`PumpKeywords$`, `RemoveCardTypes$`, ...)      | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                                                                                                  |
 
 The error goes through `recordPendingError` (ADR-0020 decision 4): the entry sites have no error return, and
 `Registry.Resolve`/`ResolveStack`/the fixture runner take it at the next boundary.

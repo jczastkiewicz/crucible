@@ -449,7 +449,7 @@ param name, not this port's problem here):
 | `Hellbent`      |          8 |   yes    | `len(Zone(Hand, controller).Cards()) == 0` (`Player.hasHellbent`)                     |
 | `EnduringStory` |          4 |    no    | the Storied keyword's own flag; Sagas themselves are ported (`counters-and-sagas.md`) |
 | `FatefulHour`   |          3 |   yes    | `Player.Life <= 5`                                                                    |
-| `Monarch`       |          2 |    no    | no monarch mechanic (same gap Layer 2's own qualified value has, above)               |
+| `Monarch`       |          2 |   yes    | `Game.Monarch()` in `continuousConditionMet`                                          |
 
 262 of 317 resolve. The four that do not (55 lines) are each its own untracked mechanic, so (the identical "cannot
 evaluate, so do not apply" rule an unresolved `Affected$` value already has, GO-7) the whole line is skipped, same as

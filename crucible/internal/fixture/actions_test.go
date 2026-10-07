@@ -694,7 +694,7 @@ func TestRunActionsQueueAbilityChoice(t *testing.T) {
 	l := load(t, testDB(t), "humanlife=20\nailife=20\n")
 	c := engine.NewScriptedController()
 
-	if err := runActions(t, l, c, "queue abilitychoice 2, 0\n"); err != nil {
+	if err := runActions(t, l, c, "queue abilitychoice 2,0\n"); err != nil {
 		t.Fatalf("RunActions: %v", err)
 	}
 	got := c.ChooseAbilitiesForEffect(l.Game, l.Game.Players()[0], engine.NoCard, []string{"a", "b", "c"}, 2)

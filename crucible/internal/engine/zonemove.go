@@ -67,6 +67,9 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 	default:
 		melded = g.Move(id, dest, c.Owner)
 	}
+	if origin == Graveyard && dest != Battlefield && dest != Graveyard {
+		g.checkLeftGraveyardTriggers(controller, id, dest)
+	}
 	if origin != Battlefield {
 		return melded
 	}
@@ -77,6 +80,8 @@ func (g *Game) moveByEffect(controller PlayerController, id CardID, dest ZoneTyp
 		g.checkExiledTriggers(controller, id)
 	case Hand:
 		g.checkReturnedTriggers(controller, id)
+	case Library:
+		g.checkLeftToTriggers(controller, id, Library)
 	}
 	return melded
 }

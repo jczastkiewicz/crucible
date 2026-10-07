@@ -231,6 +231,10 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 		g.dropStolenRingBearers()
 	})
 
+	// Card.staticCommandList (LoseControl$ StaticCommandCheck), checked right
+	// after the layers (GameAction.java:1180-1198).
+	performed = g.runStaticCommands(controller) || performed
+
 	// CR 702.95e: a pair whose creatures no longer share a controller or are
 	// no longer both creatures ends (GameAction.java:1209-1215).
 	g.unpairInvalid()

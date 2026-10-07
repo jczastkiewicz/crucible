@@ -357,6 +357,13 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		API: apiType, Source: card, Controller: pid,
 		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 	}
+	// CR 602.2b / 601.2c: modes and targets are chosen before any cost is paid
+	// (PlaySpellAbility.java:675-683 runs setupTargets ahead of CostPayment), so
+	// an ability with no legal target costs nothing. Feasibility of every cost
+	// part, and the cost cards' own choice, come first, as canPlay does.
+	if !g.chooseAbilityTargets(controller, &activated) {
+		return false
+	}
 	x, paid := g.payManaCostX(pid, manaCost, controller)
 	if !paid {
 		return false

@@ -50,7 +50,7 @@ import (
 // lines, 5.6%) is targeted separately: chaintargets.go chooses each link's
 // targets at cast and trigger time, so the child built here carries its own
 // Target/Targets rather than the parent's. The CR 608.2b re-check at
-// resolution is still head-only.
+// resolution covers them (dropIllegalTargets).
 func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller PlayerController) error {
 	if parent.Params == nil {
 		return nil

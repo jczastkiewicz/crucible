@@ -1,0 +1,14 @@
+# CR 602.2b counterpart with a mana cost: targets are chosen first, then
+# {1}{B}{B} and {T} are paid, and the ability destroys the tapped nonblack Bears.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+queue targets 2
+queue action human activate 1 1
+queue confirmpaycost true
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+passpriority

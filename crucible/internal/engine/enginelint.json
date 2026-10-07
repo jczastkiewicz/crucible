@@ -421,7 +421,8 @@
       "continuous",
       "zone",
       "valid",
-      "control"
+      "control",
+      "controlcommands"
     ],
     "sacrificeeffect": [
       "id",
@@ -437,7 +438,7 @@
       "parts",
       "exploit"
     ],
-    "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
+    "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability", "statictrigger"],
     "exilefromgrave": ["id", "zone", "card", "game"],
     "taptype": ["id", "zone", "card", "game", "control", "valid", "trigger"],
     "returncost": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability"],
@@ -492,7 +493,7 @@
       "regenerationeffect"
     ],
     "effecthelpers": ["id", "card", "game", "valid", "parts", "ability", "zone", "amount"],
-    "animate": ["ability", "card", "effecthelpers", "game", "id", "layer", "parts", "valid", "zone"],
+    "animate": ["ability", "card", "controlcommands", "effecthelpers", "game", "id", "layer", "parts", "valid", "zone"],
     "delayedtrigger": ["ability", "card", "game", "id", "player", "trigger", "valid", "zone"],
     "random": ["game"],
     "token": ["card", "control", "event", "game", "id", "parts", "zone"],

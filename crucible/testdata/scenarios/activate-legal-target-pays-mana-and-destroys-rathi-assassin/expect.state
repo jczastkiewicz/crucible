@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Rathi Assassin|Id:1|Tapped;Swamp|Id:3|Tapped;Swamp|Id:4|Tapped;Swamp|Id:5|Tapped
+ailife=20
+aigraveyard=Grizzly Bears

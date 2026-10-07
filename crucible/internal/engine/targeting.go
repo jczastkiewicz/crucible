@@ -724,6 +724,23 @@ func (g *Game) dropIllegalTargets(a *Ability) bool {
 		m.Targets = g.withoutIllegal(m, m.Targets, &chosen, &kept)
 		cantFizzle = cantFizzle || hasCantFizzle(m)
 	}
+	// CR 608.2b over the SubAbility$ chain: hasFizzled recurses into
+	// sa.getSubAbility() with the one running fizzle flag, so a link's legal
+	// target keeps the whole ability from fizzling, and its illegal ones are
+	// removed (MagicStack.java:745-751).
+	if len(a.chainTargets) > 0 {
+		a.chainTargets = append([]chainTarget(nil), a.chainTargets...)
+	}
+	for i := range a.chainTargets {
+		ct := &a.chainTargets[i]
+		link := Ability{Source: a.Source, Controller: a.Controller, Params: ct.Params, targetStamps: ct.Stamps}
+		if api, ok := APIByName(ct.Params.Name); ok {
+			link.API = api
+		}
+		link.Targets = ct.Targets
+		ct.Targets = g.withoutIllegal(&link, ct.Targets, &chosen, &kept)
+		cantFizzle = cantFizzle || hasCantFizzle(&link)
+	}
 	return chosen == 0 || kept > 0 || cantFizzle
 }
 
@@ -859,6 +876,10 @@ func (g *Game) stampTargets(a *Ability) {
 	for i := range a.Modes {
 		m := &a.Modes[i]
 		m.targetStamps = g.restamp(m.targetStamps, m.Targets, NoCard)
+	}
+	for i := range a.chainTargets {
+		ct := &a.chainTargets[i]
+		ct.Stamps = g.restamp(ct.Stamps, ct.Targets, NoCard)
 	}
 }
 

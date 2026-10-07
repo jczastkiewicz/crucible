@@ -49,6 +49,28 @@ func (g *Game) resolveChainTargets(controller PlayerController, a *Ability) bool
 	return true
 }
 
+// chooseAbilityTargets is the "choose modes and targets" step of putting a on
+// the stack, ahead of any cost (PlaySpellAbility.java:675-683: announceType,
+// announceValuesLikeX, setupTargets, then CostPayment). It marks a so
+// pushTriggeredAbilities does not choose again, and reports whether a can still
+// be put on the stack: false for a Charm the controller declined or a missing
+// legal target (CR 601.2c).
+func (g *Game) chooseAbilityTargets(controller PlayerController, a *Ability) bool {
+	if a.API == APICharm {
+		ok, err := g.chooseCharmModes(controller, a)
+		if err != nil {
+			a.modesErr = err
+		} else if !ok {
+			return false
+		}
+	}
+	if !g.resolveTargets(controller, a) || !g.resolveChainTargets(controller, a) {
+		return false
+	}
+	a.targetsChosen = true
+	return true
+}
+
 // chainTargetsFor is the targets chosen for the sub-ability link params, and
 // whether any were (an ability that never went through resolveChainTargets,
 // a copy or a Charm mode, has none, and its link keeps its parent's).

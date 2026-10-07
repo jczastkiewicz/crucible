@@ -9,9 +9,9 @@ import (
 
 // stealUntil resolves a GainControl line for p against victim and returns the
 // host that carries the command lists.
-func stealUntil(t *testing.T, g *engine.Game, p engine.PlayerID, victim engine.CardID, line string) engine.CardID {
+func stealUntil(t *testing.T, g *engine.Game, p engine.PlayerID, victim engine.CardID, line string, svars ...string) engine.CardID {
 	t.Helper()
-	host, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(victim)}, line)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(victim)}, line, svars...)
 	if err != nil {
 		t.Fatalf("%q: %v", line, err)
 	}

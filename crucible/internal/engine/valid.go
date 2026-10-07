@@ -382,6 +382,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return ok && c.Zone == zone
 	case name == "IsRenowned":
 		return c.renowned
+	case strings.HasPrefix(name, "ThisTurnEnteredFrom"):
+		// CardProperty.java:954-967: c entered the zone it is in this turn, from
+		// the named zone. Java splits at "ThisTurnEnteredFrom_", so a name
+		// without the underscore cannot be read.
+		rest, ok := strings.CutPrefix(name, "ThisTurnEnteredFrom_")
+		if !ok {
+			return false
+		}
+		origin, ok := ZoneByName(strings.SplitN(rest, "_", 2)[0])
+		return ok && c.zoneEntered && c.zoneEntryTurn == g.turn && c.zoneEntryFrom == origin
 	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
 		// CardProperty.java:1082.
 		return c.cameUnderControl

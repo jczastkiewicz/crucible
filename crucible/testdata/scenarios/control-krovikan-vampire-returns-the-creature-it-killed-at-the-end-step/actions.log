@@ -1,0 +1,17 @@
+# krovikan_vampire.txt: the Bears die to damage Krovikan Vampire dealt, so its
+# Static$ True dies trigger remembers them inline (Pump | RememberObjects$
+# TriggeredCard). At the end step X (Remembered$Amount) is 1, so TrigChange
+# puts the Bears (Creature.IsRemembered+ThisTurnEnteredFrom_Battlefield) onto
+# the battlefield under the Vampire's controller.
+startturn ai
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks 1=2
+declareblockers
+advance
+advance
+combatdamage
+advance 3
+resolvestack

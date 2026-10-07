@@ -207,7 +207,7 @@ func TestFiftyPackFailsClosed(t *testing.T) {
 		"DB$ ManifestDread | Amount$ Bogus",
 		"DB$ SetState | Defined$ Self | Mode$ TurnFaceDown",
 		"DB$ SetState | Defined$ Self | Mode$ Transform | NewState$ Backside",
-		"DB$ Goad | Defined$ Self | Duration$ AsLongAsControl",
+		"DB$ Goad | Defined$ Self | Duration$ UntilHostLeavesPlay",
 		"DB$ ActivateAbility | Defined$ You | Type$ Land",
 		"DB$ MultiplePiles | Defined$ Player | Piles$ Bogus",
 		"DB$ DamageResolve | ReplaceDyingDefined$ Self",

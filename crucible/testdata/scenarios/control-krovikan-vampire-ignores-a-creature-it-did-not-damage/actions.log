@@ -1,0 +1,15 @@
+# krovikan_vampire.txt: the AI's Bears trade with the human's own Bears, not
+# with the Vampire, so ValidCard$ Creature.DamagedBy never matches, nothing is
+# remembered, X is 0 and the end step trigger does not fire (CheckSVar$ X).
+startturn ai
+advance 5
+queue attackers 2
+declareattackers
+advance
+queue blocks 3=2
+declareblockers
+advance
+advance
+combatdamage
+advance 3
+resolvestack

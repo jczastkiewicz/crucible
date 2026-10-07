@@ -1,0 +1,8 @@
+turn=1
+activeplayer=ai
+activephase=End of Turn
+humanlife=20
+humanbattlefield=Krovikan Vampire|Id:1
+humangraveyard=Grizzly Bears
+ailife=20
+aigraveyard=Grizzly Bears

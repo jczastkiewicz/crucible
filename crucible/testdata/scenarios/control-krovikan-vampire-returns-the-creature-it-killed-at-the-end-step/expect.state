@@ -1,0 +1,6 @@
+turn=1
+activeplayer=ai
+activephase=End of Turn
+humanlife=20
+humanbattlefield=Krovikan Vampire|Id:1|Damage:2;Grizzly Bears|Id:2|Owner:ai|SummonSick
+ailife=20

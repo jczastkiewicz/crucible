@@ -5,12 +5,10 @@ package engine
 import "fmt"
 
 // gainControlUnresolvedParams are ControlGainEffect.java's params this port
-// cannot honour yet: the StaticCommand*$ checks LoseControl$ StaticCommandCheck
-// reads (parseLoseControl refuses that token too), the choice and sweep
+// cannot honour yet: the choice and sweep
 // shapes (Choices$, Chooser$, AllValid$), and target-selection restrictions
 // targeting.go does not enforce.
 var gainControlUnresolvedParams = [...]string{
-	"StaticCommandCheckSVar", "StaticCommandSVarCompare",
 	"Choices", "Chooser", "AllValid",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty", "TargetsAtRandom",
 	"TargetingPlayerControls", "TargetingPlayer", "MaxTotalTargetCMC",
@@ -64,7 +62,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	var lose []string
 	if raw, ok := a.Params.Param("LoseControl"); ok {
 		var err error
-		if lose, err = parseLoseControl(raw); err != nil {
+		if lose, err = parseLoseControl(a, raw); err != nil {
 			return err
 		}
 		// "Check for lose control criteria right away"
@@ -110,7 +108,7 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			source.Memory.Forget(CardEntity(id))
 		}
 		if lose != nil {
-			g.registerLoseControl(source, lose, id, ts, a.Controller)
+			g.registerLoseControl(source, lose, id, ts, a)
 		}
 		g.correctControllerZone(controller, id)
 	}

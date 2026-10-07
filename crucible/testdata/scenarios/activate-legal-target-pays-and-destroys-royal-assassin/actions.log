@@ -1,0 +1,7 @@
+# CR 602.2b counterpart: with a tapped creature to target, the {T} is paid and
+# the ability destroys it.
+startturn human
+advance 3
+queue targets 2
+queue action human activate 1 0
+passpriority

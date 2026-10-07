@@ -288,17 +288,8 @@ func effectDurationOf(a *Ability, source *Card) (life effectLifetime, ok bool, e
 			return life, false, nil
 		}
 	}
-	if life.hostBound != "" {
-		// SpellAbilityEffect.checkValidDuration (:1019-1033).
-		if source.Zone != Battlefield && source.Zone != Stack {
-			return life, false, nil
-		}
-		if life.hostBound == "AsLongAsControl" && source.IsPhasedOut() {
-			return life, false, nil
-		}
-		if source.Controller() != a.Controller {
-			return life, false, nil
-		}
+	if life.hostBound != "" && !validHostDuration(a, source, life.hostBound) {
+		return life, false, nil
 	}
 	return life, true, nil
 }
@@ -308,12 +299,7 @@ func effectDurationOf(a *Ability, source *Card) (life effectLifetime, ok bool, e
 // that ends effect id goes on the host's leaves-play and change-controller
 // lists, and for AsLongAsControl its phase-out list too.
 func (g *Game) registerEffectEnd(host *Card, id CardID, hostBound string) {
-	cmd := cardCommand{Kind: commandEndEffect, Target: id, Host: host.ID}
-	host.leavesPlayCmds = append(host.leavesPlayCmds, cmd)
-	host.changeControllerCmds = append(host.changeControllerCmds, cmd)
-	if hostBound == "AsLongAsControl" {
-		host.phaseOutCmds = append(host.phaseOutCmds, cmd)
-	}
+	g.registerHostBoundEnd(host, cardCommand{Kind: commandEndEffect, Target: id}, hostBound)
 }
 
 // effectMoveWatch reads ExileOnMoved$ and ForgetOnMoved$ (each a comma list

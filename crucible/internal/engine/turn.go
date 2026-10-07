@@ -112,6 +112,9 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.endEffectsAtTurnStart(g.activePlayer)
 			g.endCopiesAtTurnStart(g.activePlayer)
 			g.monarchBeginTurn = g.monarch
+			// PhaseHandler.java:522-524: the "begin turn" trigger of the
+			// cleanup step that handed the turn over.
+			g.checkTurnBeginTriggers(controller, g.activePlayer)
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}

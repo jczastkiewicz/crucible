@@ -65,6 +65,14 @@ type Card struct {
 	// the flag on the turn the permanent arrived.
 	cameUnderControl bool
 	enteredTurn      int
+	// zoneEntered, zoneEntryTurn and zoneEntryFrom record how the card last
+	// entered the zone it sits in by a move: the turn and the zone it came from
+	// (Zone.cardsAddedThisTurn and enteredFromThisTurn, Zone.java:120-127), read
+	// by the ThisTurnEnteredFrom_<Zone> property. A card NewCard placed has
+	// none.
+	zoneEntered   bool
+	zoneEntryTurn int
+	zoneEntryFrom ZoneType
 	// renowned is Card.isRenowned (CR 702.112): a Renown creature that has
 	// had its counters put on it; Move clears it when the card leaves the
 	// battlefield.
@@ -395,6 +403,13 @@ type Card struct {
 	// as data (controlcommands.go): each runs once when its event happens
 	// to this card and is then cleared, in registration order.
 	leavesPlayCmds, untapCmds, changeControllerCmds, phaseOutCmds []cardCommand
+
+	// unattachCmds is Card.unattachCommandList: commands run when this
+	// Aura/Equipment becomes unattached (Card.unattachFromEntity), and
+	// staticCmds is Card.staticCommandList: commands checked at every
+	// state-based pass (GameAction.java:1180-1198).
+	unattachCmds []cardCommand
+	staticCmds   []staticCheck
 
 	// pairedWith is the creature this one is Soulbond-paired with, NoCard
 	// for none (Card.getPairedWith, soulbond.go).

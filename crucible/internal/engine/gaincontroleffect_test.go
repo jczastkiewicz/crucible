@@ -57,7 +57,8 @@ func TestExchangeControlEffectSwaps(t *testing.T) {
 }
 
 // TestGainControlEffectRejectsUnresolvedParam proves a LoseControl$ value
-// without bookkeeping here (StaticCommandCheck) fails closed.
+// whose inputs are missing (StaticCommandCheck without its SVar and compare)
+// fails closed.
 func TestGainControlEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 

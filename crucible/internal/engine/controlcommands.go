@@ -14,11 +14,13 @@
 
 package engine
 
-//enginelint:allow id card game zone player control
+//enginelint:allow id card game zone player control ability amount valid
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
 // cardCommandKind is which Java closure a cardCommand stands for.
@@ -31,6 +33,12 @@ const (
 	// commandEndEffect is addUntilCommand's closure for an Effect card: the
 	// effect card Target leaves the Command zone.
 	commandEndEffect
+	// commandEndPump, commandEndAnimate and commandEndGoad are the closures
+	// PumpEffect.applyPump, AnimateEffectBase and GoadEffect hand to
+	// addUntilCommand: the effect applied to Target at Timestamp ends.
+	commandEndPump
+	commandEndAnimate
+	commandEndGoad
 )
 
 // cardCommand is one pending GameCommand. Host is the card whose command
@@ -87,6 +95,31 @@ func (g *Game) runCommand(controller PlayerController, cmd cardCommand) {
 		if e := g.Card(cmd.Target); e.Zone == Command && e.IsEffect {
 			g.exileEffect(cmd.Target)
 		}
+	case commandEndPump:
+		kept := g.pumps[:0]
+		for _, p := range g.pumps {
+			if p.Card != cmd.Target || p.Timestamp != cmd.Timestamp {
+				kept = append(kept, p)
+			}
+		}
+		g.pumps = kept
+	case commandEndAnimate:
+		kept := g.animates[:0]
+		for _, r := range g.animates {
+			if r.Card != cmd.Target || r.Timestamp != cmd.Timestamp {
+				kept = append(kept, r)
+			}
+		}
+		g.animates = kept
+	case commandEndGoad:
+		c := g.Card(cmd.Target)
+		kept := c.goadedBy[:0]
+		for _, gd := range c.goadedBy {
+			if gd.Timestamp != cmd.Timestamp {
+				kept = append(kept, gd)
+			}
+		}
+		c.goadedBy = kept
 	}
 }
 
@@ -106,7 +139,74 @@ func (g *Game) runLeavesPlayCommands(controller PlayerController, id CardID) {
 	// The other lists belong to the object that left: Java's zone change
 	// makes a new Card with empty ones (CR 400.7).
 	c.leavesPlayCmds, c.untapCmds, c.changeControllerCmds, c.phaseOutCmds = nil, nil, nil, nil
+	c.unattachCmds, c.staticCmds = nil, nil
 	g.runCommands(controller, cmds)
+}
+
+// runUnattachCommands is Card.runUnattachCommands: id stopped being attached
+// (Card.java:3995). The list is cleared first.
+func (g *Game) runUnattachCommands(controller PlayerController, id CardID) {
+	c := g.Card(id)
+	cmds := c.unattachCmds
+	c.unattachCmds = nil
+	g.runCommands(controller, cmds)
+}
+
+// staticCheck is one entry of Card.staticCommandList (ControlGainEffect.java:
+// 191-195): the host's SVar named Left, evaluated with Affected as the
+// source, is compared with Compare's operand evaluated on the host; when the
+// comparison holds Cmd runs and the entry goes.
+type staticCheck struct {
+	Amounts  map[string]expr.Amount
+	Left     string
+	Compare  string
+	Affected CardID
+	Cmd      cardCommand
+}
+
+// staticCheckHolds is the comparison of GameAction.java:1187-1191.
+func (g *Game) staticCheckHolds(host *Card, sc staticCheck) bool {
+	amt, ok := sc.Amounts[strings.ToLower(sc.Left)]
+	if !ok || len(sc.Compare) < 3 {
+		return false
+	}
+	affected := g.Card(sc.Affected)
+	left, ok := resolveAmount(g, sc.Amounts, affected.Controller(), affected.ID, amt)
+	if !ok {
+		return false
+	}
+	right, ok := resolveNamedAmount(g, sc.Amounts, host, sc.Compare[2:])
+	if !ok {
+		return false
+	}
+	return compareOp(left, sc.Compare[:2], right)
+}
+
+// runStaticCommands is the staticCommandList loop of GameAction.
+// checkStaticAbilities (java:1180-1198), run right after the layers: every
+// card with an entry whose comparison holds runs its command and drops the
+// entry. It reports whether any ran.
+func (g *Game) runStaticCommands(controller PlayerController) bool {
+	ran := false
+	for i := range g.cards {
+		host := &g.cards[i]
+		if len(host.staticCmds) == 0 {
+			continue
+		}
+		var due []cardCommand
+		kept := host.staticCmds[:0:0]
+		for _, sc := range host.staticCmds {
+			if g.staticCheckHolds(host, sc) {
+				due = append(due, sc.Cmd)
+			} else {
+				kept = append(kept, sc)
+			}
+		}
+		host.staticCmds = kept
+		g.runCommands(controller, due)
+		ran = ran || len(due) > 0
+	}
+	return ran
 }
 
 // runUntapCommands is Card.runUntapCommands, run as id untaps
@@ -172,29 +272,72 @@ func (g *Game) runEndOfCombatCommands(controller PlayerController) {
 	g.runCommands(controller, cmds)
 }
 
+// hostBoundDuration reports whether d is a Duration$ whose end is a command
+// on the host card (addUntilCommand's UntilLoseControlOfHost and
+// AsLongAsControl branches, SpellAbilityEffect.java:1007-1013).
+func hostBoundDuration(d string) bool {
+	return d == "UntilLoseControlOfHost" || d == "AsLongAsControl"
+}
+
+// validHostDuration is checkValidDuration for a host-bound d
+// (SpellAbilityEffect.java:1036-1054): the host is in play or on the stack, not
+// phased out for AsLongAsControl, and controlled by the activator. false means
+// the effect does not apply at all.
+func validHostDuration(a *Ability, host *Card, d string) bool {
+	if host.Zone != Battlefield && host.Zone != Stack {
+		return false
+	}
+	if d == "AsLongAsControl" && host.IsPhasedOut() {
+		return false
+	}
+	return host.Controller() == a.Controller
+}
+
+// registerHostBoundEnd puts cmd on the host lists addUntilCommand names for d:
+// leaves play and change controller, plus phase-out for AsLongAsControl.
+func (g *Game) registerHostBoundEnd(host *Card, cmd cardCommand, d string) {
+	cmd.Host = host.ID
+	host.leavesPlayCmds = append(host.leavesPlayCmds, cmd)
+	host.changeControllerCmds = append(host.changeControllerCmds, cmd)
+	if d == "AsLongAsControl" {
+		host.phaseOutCmds = append(host.phaseOutCmds, cmd)
+	}
+}
+
 // loseControlTokens are the LoseControl$ values ControlGainEffect registers
 // a command for, in the order its resolve checks them.
 var loseControlTokens = map[string]bool{
 	"LeavesPlay": true, "Untap": true, "LoseControl": true, "EOT": true,
 	"EndOfCombat": true, "UntilTheEndOfYourNextTurn": true,
+	"StaticCommandCheck": true, "UntilSourceUnattached": true,
 }
-
-// refusedLoseControlTokens are the LoseControl$ values whose bookkeeping
-// this port does not have: StaticCommandCheck needs Card.staticCommandList
-// (evaluated at every state check, GameAction.java:1180-1198) and
-// UntilSourceUnattached the unattach command list.
-var refusedLoseControlTokens = map[string]bool{"StaticCommandCheck": true, "UntilSourceUnattached": true}
 
 // parseLoseControl splits LoseControl$ on "," as ControlGainEffect.resolve
 // does. A value this port cannot register is an error, never silently
-// dropped (GO-7).
-func parseLoseControl(raw string) ([]string, error) {
+// dropped (GO-7), and so is a token whose inputs are missing:
+// StaticCommandCheck without its StaticCommandCheckSVar$ and
+// StaticCommandSVarCompare$ (Java reads a null SVar there), and
+// UntilSourceUnattached on an ability no Mode$ Attached trigger put on the
+// stack (Java reads a null triggering Source).
+func parseLoseControl(a *Ability, raw string) ([]string, error) {
 	tokens := make([]string, 0, 4)
 	for _, tok := range strings.Split(raw, ",") {
-		if refusedLoseControlTokens[tok] || !loseControlTokens[tok] {
+		if !loseControlTokens[tok] {
 			return nil, fmt.Errorf("engine: GainControl: LoseControl$ %q not resolvable yet", tok)
 		}
 		tokens = append(tokens, tok)
+	}
+	if hasToken(tokens, "StaticCommandCheck") {
+		name, ok := a.Params.Param("StaticCommandCheckSVar")
+		cmp, ok2 := a.Params.Param("StaticCommandSVarCompare")
+		if _, known := a.Amounts[strings.ToLower(name)]; !ok || !ok2 || !known || len(cmp) < 3 {
+			return nil, fmt.Errorf("engine: GainControl: LoseControl$ StaticCommandCheck needs StaticCommandCheckSVar$ naming an SVar and StaticCommandSVarCompare$")
+		}
+	}
+	if hasToken(tokens, "UntilSourceUnattached") {
+		if _, ok := a.triggered.source.AsCard(); !ok {
+			return nil, fmt.Errorf("engine: GainControl: LoseControl$ UntilSourceUnattached needs the attachment of a Mode$ Attached trigger")
+		}
 	}
 	return tokens, nil
 }
@@ -211,7 +354,8 @@ func hasToken(tokens []string, want string) bool {
 // registerLoseControl is the `if (lose != null)` block of
 // ControlGainEffect.resolve for one target: the lose-control command goes on
 // the host's lists and the game's phase lists, as each token says.
-func (g *Game) registerLoseControl(host *Card, tokens []string, target CardID, ts uint64, activator PlayerID) {
+func (g *Game) registerLoseControl(host *Card, tokens []string, target CardID, ts uint64, a *Ability) {
+	activator := a.Controller
 	cmd := cardCommand{Kind: commandLoseControl, Target: target, Timestamp: ts, Host: host.ID}
 	if hasToken(tokens, "LeavesPlay") && host.ID != target {
 		// Only return control if host and target are different cards.
@@ -228,6 +372,20 @@ func (g *Game) registerLoseControl(host *Card, tokens []string, target CardID, t
 	}
 	if hasToken(tokens, "EndOfCombat") {
 		g.endOfCombatCmds = append(g.endOfCombatCmds, cmd)
+	}
+	if hasToken(tokens, "StaticCommandCheck") {
+		left, _ := a.Params.Param("StaticCommandCheckSVar")
+		cmp, _ := a.Params.Param("StaticCommandSVarCompare")
+		host.staticCmds = append(host.staticCmds, staticCheck{
+			Amounts: a.Amounts, Left: left, Compare: cmp, Affected: target, Cmd: cmd,
+		})
+	}
+	if hasToken(tokens, "UntilSourceUnattached") {
+		attachment, _ := a.triggered.source.AsCard()
+		at := g.Card(attachment)
+		at.leavesPlayCmds = append(at.leavesPlayCmds, cmd)
+		at.phaseOutCmds = append(at.phaseOutCmds, cmd)
+		at.unattachCmds = append(at.unattachCmds, cmd)
 	}
 	if hasToken(tokens, "UntilTheEndOfYourNextTurn") {
 		g.endOfNextTurnCmds = append(g.endOfNextTurnCmds, playerCommand{

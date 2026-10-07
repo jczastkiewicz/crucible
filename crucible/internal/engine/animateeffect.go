@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability animate card condition control defined effecthelpers game id parts zone
+//enginelint:allow ability animate card condition control controlcommands defined effecthelpers game id parts zone
 
 import "fmt"
 
@@ -19,6 +19,9 @@ func (animateEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	if template.endBound != "" && !validHostDuration(a, source, template.endBound) {
 		return nil
 	}
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())

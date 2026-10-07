@@ -233,6 +233,15 @@ type Ability struct {
 	// pushes through pushTriggeredAbilities for its targets: it is not a
 	// trigger (isTrigger stays false).
 	activated bool
+	// targetsChosen marks an ability whose modes and targets were chosen before
+	// its costs were paid (chooseAbilityTargets): pushTriggeredAbilities pushes
+	// it as is.
+	targetsChosen bool
+	// staticTrigger marks an ability of a T: line carrying Static$ True: it
+	// resolves at its trigger site and never uses the stack
+	// (pushTriggeredAbilities hands it to resolveStaticTriggers, ADR-0020). Only
+	// the trigger checks that set it get that treatment.
+	staticTrigger bool
 }
 
 // chainTarget is the targets chosen for one sub-ability of a chain
@@ -241,6 +250,9 @@ type Ability struct {
 type chainTarget struct {
 	Params  *compile.Ability
 	Targets []EntityID
+	// Stamps are the zoneStamps of the card targets as the ability went on the
+	// stack (stampTargets), for the CR 608.2b re-check.
+	Stamps []targetStamp
 }
 
 // abilityRefs is what Defined$ can name beyond the host card: the

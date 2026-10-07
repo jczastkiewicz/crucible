@@ -28,6 +28,10 @@ type animateRecord struct {
 	Card      CardID
 	Timestamp uint64
 	Permanent bool
+	// endBound is a host-bound Duration$ (AsLongAsControl) whose end is a
+	// command on endHost, registered per card by animateCards.
+	endBound string
+	endHost  CardID
 
 	Types TypeEffect
 
@@ -232,7 +236,11 @@ func buildAnimate(g *Game, a *Ability, api string) (animateRecord, []*compile.Ab
 	if err != nil {
 		return r, nil, err
 	}
-	if grants == nil {
+	if d, _ := a.Params.Param("Duration"); grants == nil && api == "Animate" && hostBoundDuration(d) {
+		// AnimateEffectBase's unanimate closure goes through addUntilCommand,
+		// so the record outlives cleanup and a command on the host ends it.
+		r.Permanent, r.endBound, r.endHost = true, d, a.Source
+	} else if grants == nil {
 		if r.Permanent, err = animateDuration(a, api); err != nil {
 			return r, nil, err
 		}
@@ -350,6 +358,9 @@ func (g *Game) animateCards(template animateRecord, cards []CardID) {
 		r := template
 		r.Card, r.Timestamp = id, ts
 		g.addAnimate(r)
+		if r.endBound != "" {
+			g.registerHostBoundEnd(g.Card(r.endHost), cardCommand{Kind: commandEndAnimate, Target: id, Timestamp: ts}, r.endBound)
+		}
 	}
 }
 

@@ -738,6 +738,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	leftStamp := c.zoneStamp
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.put(id, kind, owner)
+	if from != kind {
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+	}
 
 	// A card exiled face down (Heist) turns face up as it leaves exile.
 	if from == Exile && kind != Exile {
@@ -875,6 +878,9 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	leftStamp := c.zoneStamp
 	g.Zone(c.Zone, c.ZoneOwner).remove(id)
 	g.putFront(id, owner)
+	if from != Library {
+		c.zoneEntered, c.zoneEntryTurn, c.zoneEntryFrom = true, g.turn, from
+	}
 
 	melded := NoCard
 	if from == Battlefield {
@@ -1108,6 +1114,7 @@ func (g *Game) Unattach(attachment CardID) {
 			p.attachments.Remove(attachment)
 		}
 		a.attachedPlayer = NoPlayer
+		g.runUnattachCommands(nil, attachment)
 		return
 	}
 	if a.attachedTo == NoCard {
@@ -1117,6 +1124,8 @@ func (g *Game) Unattach(attachment CardID) {
 		h.attachments.Remove(attachment)
 	}
 	a.attachedTo = NoCard
+	// Card.unattachFromEntity ends with runUnattachCommands (Card.java:3995).
+	g.runUnattachCommands(nil, attachment)
 }
 
 // setPhasedOut is Card.setPhasedOut plus the zone's half of the same fact:
@@ -1278,6 +1287,8 @@ func (g *Game) Clone() *Game {
 		c.untapCmds = append([]cardCommand(nil), g.cards[i].untapCmds...)
 		c.changeControllerCmds = append([]cardCommand(nil), g.cards[i].changeControllerCmds...)
 		c.phaseOutCmds = append([]cardCommand(nil), g.cards[i].phaseOutCmds...)
+		c.unattachCmds = append([]cardCommand(nil), g.cards[i].unattachCmds...)
+		c.staticCmds = append([]staticCheck(nil), g.cards[i].staticCmds...)
 		c.copies = append([]copyEffect(nil), g.cards[i].copies...)
 		c.grants = append([]grantedTriggers(nil), g.cards[i].grants...)
 		if g.cards[i].svars != nil {

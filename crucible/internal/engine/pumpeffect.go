@@ -104,12 +104,23 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return nil
 	}
 
-	permanent := false
+	// A host-bound Duration$ (AsLongAsControl) keeps the record past cleanup and
+	// ends it with a command on the host (addUntilCommand,
+	// SpellAbilityEffect.java:1007-1017); checkValidDuration runs first
+	// (PumpEffect.java:271).
+	permanent, hostBound := false, ""
 	if d, ok := a.Params.Param("Duration"); ok {
-		if d != "Permanent" {
+		switch {
+		case d == "Permanent":
+			permanent = true
+		case hostBoundDuration(d):
+			if !validHostDuration(a, source, d) {
+				return nil
+			}
+			permanent, hostBound = true, d
+		default:
 			return fmt.Errorf("engine: Pump: Duration$ %q not resolvable yet", d)
 		}
-		permanent = true
 	}
 
 	power, err := pumpAmount(g, "Pump", a, source, "NumAtt")
@@ -169,6 +180,9 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 			Keywords: keywords, Switched: switched, Permanent: permanent,
 		})
+		if hostBound != "" {
+			g.registerHostBoundEnd(source, cardCommand{Kind: commandEndPump, Target: cid, Timestamp: timestamp}, hostBound)
+		}
 	}
 	return nil
 }

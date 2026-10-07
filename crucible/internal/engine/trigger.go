@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -89,7 +90,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered})})
+					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)})
 				}
 			}
 		}
@@ -151,7 +152,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered})})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}
@@ -221,7 +222,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left})})
+					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left}), staticTrigger: isStaticTrigger(t)})
 				}
 			}
 		}
@@ -277,7 +278,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left})})
+						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{card: left}), staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}
@@ -2126,20 +2127,26 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // ability's own chosen targets are exactly as real a "becomes the target of
 // a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
+	// Static$ True triggers run first, inline, in the order found
+	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:300-309); the rest
+	// go to the stack.
+	if slices.ContainsFunc(matches, func(m Ability) bool { return m.staticTrigger }) {
+		var stacked []Ability
+		for _, m := range matches {
+			if m.staticTrigger {
+				g.resolveStaticTriggers(controller, []Ability{m})
+			} else {
+				stacked = append(stacked, m)
+			}
+		}
+		matches = stacked
+	}
 	for _, pid := range g.playersInAPNAPOrder() {
 		for i := range matches {
 			if matches[i].Controller != pid {
 				continue
 			}
-			if matches[i].API == APICharm {
-				ok, err := g.chooseCharmModes(controller, &matches[i])
-				if err != nil {
-					matches[i].modesErr = err
-				} else if !ok {
-					continue
-				}
-			}
-			if !g.resolveTargets(controller, &matches[i]) || !g.resolveChainTargets(controller, &matches[i]) {
+			if !matches[i].targetsChosen && !g.chooseAbilityTargets(controller, &matches[i]) {
 				continue
 			}
 			matches[i].isTrigger = !matches[i].activated

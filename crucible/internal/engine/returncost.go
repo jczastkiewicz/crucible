@@ -21,7 +21,6 @@ package engine
 import (
 	"strings"
 
-	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -64,88 +63,10 @@ func returnTypeCandidates(g *Game, pid PlayerID, source CardID, rawSpec string) 
 	return candidates
 }
 
-// isReturnedTrigger reports whether t is CR 603.6d's "leaves the
-// battlefield" shape restricted to the one destination checkReturnedTriggers'
-// own call sites ever reach, Hand -- isDiesTrigger's/isExiledTrigger's own
-// sibling (trigger.go/exile.go), Destination$ swapped to Hand.
-func isReturnedTrigger(t *compile.Ability) bool {
-	return strings.EqualFold(t.Name, "ChangesZone") &&
-		hasZoneOrAny(t, "Origin", Battlefield) &&
-		hasZoneOrAny(t, "Destination", Hand) &&
-		changesZoneResolvable(t)
-}
-
-// checkReturnedTriggers is checkDiesTriggers'/checkExiledTriggers' own exact
-// structural sibling (trigger.go/exile.go) -- own-card and other-watcher
-// triggers both walked, g.LKI read for left's own dying-state fields the
-// identical way, matches collected before pushTriggeredAbilities is called
-// once -- with isReturnedTrigger/Hand in every place checkDiesTriggers reads
-// isDiesTrigger/Graveyard.
+// checkReturnedTriggers fires the leaves-the-battlefield triggers of a
+// permanent that just went to its owner's hand (checkLeftToTriggers, leftto.go,
+// which also holds the Hand-destination trigger shape and its other-watcher
+// walk).
 func (g *Game) checkReturnedTriggers(controller PlayerController, left CardID) {
-	var matches []Ability
-	c := g.Card(left)
-	if snap := g.LKI(left); snap != nil {
-		c = snap
-	}
-	if c.Def != nil {
-		for face := range c.triggerFaces {
-			for _, t := range face.Triggers {
-				if !isReturnedTrigger(t) {
-					continue
-				}
-				validCard, ok := t.Param("ValidCard")
-				if !ok {
-					continue
-				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
-					continue
-				}
-				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: left, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
-				}
-			}
-		}
-	}
-	matches = append(matches, g.otherReturnedTriggerMatches(left)...)
-	g.pushTriggeredAbilities(controller, matches)
-}
-
-// otherReturnedTriggerMatches is otherDiesTriggerMatches'/
-// otherExiledTriggerMatches' own exact sibling (trigger.go/exile.go): every
-// permanent still on the battlefield gets its own Triggers walked against
-// left, the card that just left. No entered == left skip is needed for the
-// identical reason those two have none: left is already in hand by the time
-// this runs.
-func (g *Game) otherReturnedTriggerMatches(left CardID) []Ability {
-	var matches []Ability
-	leaving := g.Card(left)
-	if snap := g.LKI(left); snap != nil {
-		leaving = snap
-	}
-	for _, pid := range g.Players() {
-		for _, watcher := range g.Zone(Battlefield, pid).Cards() {
-			w := g.Card(watcher)
-			if w.Def == nil {
-				continue
-			}
-			for face := range w.triggerFaces {
-				for _, t := range face.Triggers {
-					if !isReturnedTrigger(t) {
-						continue
-					}
-					validCard, ok := t.Param("ValidCard")
-					if !ok {
-						continue
-					}
-					if !Matches(g, leaving, valid.Parse(validCard), w.Controller(), watcher) {
-						continue
-					}
-					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{})})
-					}
-				}
-			}
-		}
-	}
-	return matches
+	g.checkLeftToTriggers(controller, left, Hand)
 }

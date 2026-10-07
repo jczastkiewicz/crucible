@@ -36,7 +36,8 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 	case strings.EqualFold(mode, "Phase"):
 	case strings.EqualFold(mode, "ChangesZone"):
 		// A battlefield-leaving watch (Seraph, Krovikan Vampire): matched by
-		// delayedWatchesLeaving, which only the dies and exile paths call.
+		// delayedWatchesLeaving, which the dies, exile, bounce and library
+		// paths call (delayedLeftBattlefieldMatches).
 		if o, _ := a.Params.Param("Origin"); o != "Battlefield" {
 			return fmt.Errorf("engine: DelayedTrigger: Mode$ ChangesZone with Origin$ %q not resolvable yet", o)
 		}

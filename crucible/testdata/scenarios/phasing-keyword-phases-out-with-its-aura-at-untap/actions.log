@@ -1,0 +1,9 @@
+# CR 702.26a: as human's untap step begins, Teferi's Drake (K:Phasing)
+# phases out before anything untaps, so it stays tapped. CR 702.26g: Holy
+# Strength, attached to it, phases out with it and stays attached.
+# ai's Cleanup wraps to human's turn 2, Untap.
+advance
+# Untap -> Cleanup of turn 2 (12 steps). Human draws Island 3 on the way.
+# CR 514.2: cleanup removes the damage marked on the Drake even though it is
+# phased out -- Java walks getCardsIncludePhasingIn (PhaseHandler.java:400).
+advance 12

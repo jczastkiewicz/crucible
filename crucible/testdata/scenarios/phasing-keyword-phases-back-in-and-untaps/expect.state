@@ -1,0 +1,7 @@
+turn=4
+activeplayer=human
+activephase=Untap
+humanlife=20
+ailife=20
+humanbattlefield=Teferi's Drake|Id:1;Holy Strength|Id:2|AttachedTo:1
+humanlibrary=Island|Id:3

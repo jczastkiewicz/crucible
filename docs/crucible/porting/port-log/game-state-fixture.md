@@ -126,6 +126,7 @@ concede <player>              Game.Concede(player): a loss no replacement stops 
 dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
 resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
+expecterror <text> <verb...>  runs <verb...>, which must fail with an error containing <text> (its own, or one left on the Game: an illegal combat declaration, ADR-0024) and changes nothing, so a legal one can follow; a success or another error fails the scenario
 declareattackers              Game.DeclareCombatAttackers(controller)
 declareblockers               Game.DeclareCombatBlockers(controller)
 firststrikedamage             Game.DealFirstStrikeDamage(controller)

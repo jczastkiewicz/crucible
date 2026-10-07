@@ -1,0 +1,7 @@
+turn=3
+activeplayer=ai
+activephase=Cleanup
+humanlife=20
+ailife=20
+humanbattlefield=Teferi's Drake|Id:1|Tapped|PhasedOut:human;Holy Strength|Id:2|AttachedTo:1|PhasedOut:human
+humanlibrary=Island|Id:3

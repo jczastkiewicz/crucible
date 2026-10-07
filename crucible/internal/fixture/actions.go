@@ -39,6 +39,7 @@ import (
 //	dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 //	dealopeninghands after <p>    DealOpeningHandsAfter(game, controller, p), p lost the last game of the match
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+//	expecterror <text> <verb...>  run <verb...>; it must fail with an error containing <text>
 //	resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
 //	declareblockers               Game.DeclareCombatBlockers(controller)
@@ -126,11 +127,36 @@ func RunActions(r io.Reader, l *Loaded, controller *engine.ScriptedController) e
 	return sc.Err()
 }
 
+// expectError is the expecterror verb: the action after the text must fail
+// -- by its own error or one left on the Game (TakePendingError, ADR-0020)
+// -- and the error must contain the text. A declaration the engine rejects
+// (ADR-0024) changes nothing, so a scenario can follow it with a legal one,
+// the way Java re-prompts a human.
+func expectError(args []string, l *Loaded, c *engine.ScriptedController) error {
+	if len(args) < 2 {
+		return fmt.Errorf("expecterror: want a text and an action, got %q", strings.Join(args, " "))
+	}
+	err := runAction(strings.Join(args[1:], " "), l, c)
+	if err == nil {
+		err = l.Game.TakePendingError()
+	}
+	if err == nil {
+		return fmt.Errorf("expecterror: %q succeeded, want an error containing %q", strings.Join(args[1:], " "), args[0])
+	}
+	if !strings.Contains(err.Error(), args[0]) {
+		return fmt.Errorf("expecterror: %q failed with %q, want an error containing %q", strings.Join(args[1:], " "), err, args[0])
+	}
+	return nil
+}
+
 func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 	fields := strings.Fields(line)
 	verb, args := fields[0], fields[1:]
 
 	switch verb {
+	case "expecterror":
+		return expectError(args, l, c)
+
 	case "startturn":
 		pid, err := resolveActionPlayer(l, args, 1)
 		if err != nil {

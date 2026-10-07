@@ -1,0 +1,6 @@
+# CR 702.26a: permanents that phased out under human's control phase in as
+# human's untap step begins, before the untap -- so Teferi's Drake comes
+# back and then untaps (Untap.executeAt: doPhasing before doUntap). Holy
+# Strength phases in with it, still attached.
+# ai's Cleanup wraps to human's turn 4, Untap.
+advance

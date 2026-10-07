@@ -1,0 +1,24 @@
+# ADR-0024: declarations are validated, and an illegal one is rejected
+# with nothing changed. Bloodrock Cyclops (3/3) "attacks each combat if
+# able" (S:Mode$ MustAttack | ValidCreature$ Card.Self); Iron Golem (5/3)
+# "attacks or blocks each combat if able" (S:Mode$ MustBlock).
+startturn human
+advance 5
+# CR 508.1d: declining to attack leaves the Cyclops' requirement unmet
+# while an attack meeting it exists -- rejected.
+queue attackers none
+expecterror 508.1d declareattackers
+# The Cyclops attacks; the Devoted Hero may stay home.
+queue attackers 1
+declareattackers
+advance
+# CR 509.1c: blocking with the Devoted Hero alone leaves Iron Golem
+# unassigned though it can block -- rejected.
+queue blocks 4=1
+expecterror 509.1c declareblockers
+queue blocks 2=1
+declareblockers
+advance
+advance
+combatdamage
+advance

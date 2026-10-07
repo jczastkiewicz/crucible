@@ -1,0 +1,9 @@
+# K:MayFlashSac lets Spider Climb be cast as though it had flash (a MayPlay$ grant
+# with MayPlayNotSorcerySpeed$, CardFactoryUtil.java:4037-4041): here on the
+# opponent's turn, where a sorcery-speed Aura could not be. It attaches on
+# resolution; the cleanup sacrifice is the module test's.
+startturn human
+advance 3
+tapformana ai 2 G
+castspell ai 4
+resolvestack

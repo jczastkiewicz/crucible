@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game control ability effecthelpers card condition defined zone id parts
+//enginelint:allow game control ability effecthelpers card condition defined zone id parts zonemove event
 
 import (
 	"fmt"
@@ -87,13 +87,22 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				return err
 			}
 		}
+		counterType := CounterType(strings.ToUpper(counterKind))
 		for _, id := range made {
+			// The counters go through AddCounter replacements and a Mode$
+			// CantPutCounter static either way (GameEntityCounterTable
+			// .replaceCounterEffect): entering with them on the battlefield, put
+			// on the card where it landed anywhere else.
+			var enter []enterCounters
 			if withCounter && zone == Battlefield {
-				g.Card(id).Counters.Add(CounterType(strings.ToUpper(counterKind)), counterNum)
+				enter = append(enter, enterCounters{kind: counterType, n: counterNum})
 			}
-			g.moveByEffect(controller, id, zone, libPos, NoPlayer, g.Card(id).Tapped)
+			g.moveByEffect(controller, id, zone, libPos, NoPlayer, g.Card(id).Tapped, enter...)
 			if withCounter && zone != Battlefield {
-				g.Card(id).Counters.Add(CounterType(strings.ToUpper(counterKind)), counterNum)
+				if n := g.countersReplaced(controller, p, CardEntity(id), counterType, counterNum); n > 0 {
+					g.Card(id).Counters.Add(counterType, n)
+					emitCounterChanged(g, id, CardEntity(id), counterType, n)
+				}
 			}
 			if hasParam(a, "RememberMade") {
 				source.Memory.Remember(CardEntity(id))

@@ -27,6 +27,9 @@ type castOption struct {
 	alt         mana.Cost
 	anyType     bool
 	flash       bool
+	// sacAtCleanup is MayFlashSac's own way: cast with flash where a sorcery
+	// could not be cast, then sacrifice the permanent at the next cleanup step.
+	sacAtCleanup bool
 	// limits are the MayPlayLimit$ counters a cast by this option uses up.
 	limits []mayPlayLimitKey
 }
@@ -34,7 +37,8 @@ type castOption struct {
 // sameWay reports whether two options differ only in flash and limits, which
 // merge: a grant that only adds flash leaves nothing to pick.
 func (o castOption) sameWay(p castOption) bool {
-	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType
+	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
+		o.sacAtCleanup == p.sacAtCleanup
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -57,6 +61,13 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
 		}
 		grants = append(grants, o)
+	}
+	// MayFlashSac (CardFactoryUtil.java:4037-4041): a MayPlay$ grant of the card
+	// to its controller, MayPlayNotSorcerySpeed$ (offered only where a sorcery
+	// could not be cast, GameActionUtil.java:343) and MayPlayDontGrantZonePermissions$
+	// (so no zone gains permission from it).
+	if c.HasKeyword("MayFlashSac") && c.Controller() == pid && !g.canActSorcerySpeed(pid) {
+		grants = append(grants, castOption{flash: true, sacAtCleanup: true})
 	}
 	if grant, ok := g.MayPlayFromExile(pid, card); ok {
 		zonePermission = true
@@ -98,6 +109,8 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 // describe is the option's label, what ChooseOption shows.
 func (o castOption) describe(name string) string {
 	switch {
+	case o.sacAtCleanup:
+		return "Cast " + name + " with flash, sacrificing it at the next cleanup step"
 	case o.withoutMana:
 		return "Cast " + name + " without paying its mana cost"
 	case o.hasAlt:

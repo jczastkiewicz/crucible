@@ -171,9 +171,8 @@ func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerContro
 // SubAbility$ chains, in one place, rather than falling through to the
 // identical unconditional trailing call every other ability gets.
 //
-// Each of UnlessPayer$'s own players (definedPlayers, reused; the value is
-// required explicitly -- an absent UnlessPayer$ defaults to
-// "TargetedController" in Java, not resolved here, below) is asked
+// Each of UnlessPayer$'s own players (definedPlayers, reused; an absent
+// UnlessPayer$ defaults to "TargetedController" as in Java) is asked
 // ConfirmPayCost in turn and, on a yes, actually charged via PayManaCost
 // (manapay.go) -- payCostToPreventEffect's own "decide, then pay" pairing,
 // split the identical way every other mana decision on PlayerController
@@ -187,8 +186,7 @@ func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerContro
 // Trimmed to what parseUnlessCost (unlesscost.go) reads: mana tokens,
 // PayLife<N>, Discard<N/Card> and one Sac<N/Type> part -- no Tap/Untap/
 // Mandatory/XMin token and no X shard, each its own further mechanic -- and
-// an explicit UnlessPayer$ naming You/Player/Opponent/Player.Opponent
-// (definedPlayers, reused). A cost this port cannot read fails loudly here.
+// the payers definedPlayers resolves. A cost this port cannot read fails loudly here.
 // Of the corpus's 727 real UnlessCost$ lines, those with a readable cost are
 // reachable by this port at all -- an activated ability's own
 // Cost$-gated UnlessCost$ line composes with ActivateAbility
@@ -209,6 +207,14 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 	var alternatives []unlessCost
 	for _, part := range strings.Split(unlessCostText, ":") {
 		text, err := g.expandUnlessCost(a, part)
+		if errors.Is(err, errUnlessNoCost) {
+			// calculateUnlessCost returned null (AbilityUtils.java:1416-1420): the
+			// ability resolves with nothing to pay.
+			if err := e.Resolve(g, a, controller); err != nil {
+				return err
+			}
+			return r.resolveSubAbility(g, a, controller)
+		}
 		if err != nil {
 			return err
 		}
@@ -219,9 +225,12 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 		alternatives = append(alternatives, uc.withTargets(a))
 	}
 
+	// UnlessPayer$ defaults to TargetedController (AbilityUtils.java:1407): the
+	// controller of each card the ability targets, nobody for one with no
+	// target.
 	payerSpec, ok := a.Params.Param("UnlessPayer")
 	if !ok {
-		return fmt.Errorf("engine: UnlessPayer$ default (TargetedController) not resolvable yet")
+		payerSpec = "TargetedController"
 	}
 	payers, err := definedPlayers(g, a.Controller, a.Source, payerSpec, a.refs())
 	if err != nil {

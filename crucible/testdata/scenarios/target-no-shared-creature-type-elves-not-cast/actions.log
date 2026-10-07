@@ -1,0 +1,7 @@
+# Two Elves share a creature type, so the second target breaks
+# TargetsWithoutSameCreatureType$ and fewer than TargetMin$ 2 remain: Rivals' Duel
+# is not cast (CR 601.2c) and stays in hand. No mana is spent.
+startturn human
+advance 3
+queue targets 1,2
+castspell human 7

@@ -4,7 +4,7 @@ package engine
 // outside" row): these hold the player-property and UnlessCost$ halves of
 // batch G to their own contract. No corpus card reaches them through a
 // fixture: a Draw<N/Player.targetedBy> or Discard<N/Hand> UnlessCost$ sits
-// behind an UnlessPayer$ chain (Perplex has none), and PlayerUID_<n> only
+// behind a full ValidTgts$/UnlessSwitched$ chain (Perplex), and PlayerUID_<n> only
 // appears once a chosen player is set, which no GameState key does.
 
 import (

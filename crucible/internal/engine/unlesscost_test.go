@@ -1,7 +1,6 @@
 package engine_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -233,11 +232,11 @@ func TestUnlessCostAsksEveryDefinedPlayerAccumulatingWithOr(t *testing.T) {
 	}
 }
 
-// TestUnlessCostRejectsAbsentUnlessPayer proves an absent UnlessPayer$ --
-// Java's own "TargetedController" default -- is not resolved (resolveUnlessCost's
-// own doc comment, effect.go), so the whole line fails loudly (PORT-8/GO-7)
-// rather than guessing who is asked.
-func TestUnlessCostRejectsAbsentUnlessPayer(t *testing.T) {
+// TestUnlessCostAbsentUnlessPayerAsksNobodyWithoutTargets proves an absent
+// UnlessPayer$ is Java's "TargetedController" default (AbilityUtils.java:1407):
+// an ability with no targeted card has no payer, so nobody is asked and its body
+// runs.
+func TestUnlessCostAbsentUnlessPayerAsksNobodyWithoutTargets(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -246,12 +245,13 @@ func TestUnlessCostRejectsAbsentUnlessPayer(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
 	def := etbSacrificeTriggerDefParams(t, "Test Absent UnlessPayer", "UnlessCost$ 1", nil)
-	_, err := castETBSacrifice(t, g, p, def, c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming UnlessPayer")
+	creature, err := castETBSacrifice(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "UnlessPayer") {
-		t.Errorf("ResolveStack error = %q, want it to name UnlessPayer$", err.Error())
+	if z := g.Card(creature).Zone; z != engine.Graveyard {
+		t.Errorf("creature zone = %v, want Graveyard: no payer, so the sacrifice runs", z)
 	}
 }

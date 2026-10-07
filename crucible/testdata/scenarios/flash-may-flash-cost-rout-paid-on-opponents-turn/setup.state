@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanbattlefield=Grizzly Bears|Id:1
+aibattlefield=Plains|Id:2;Plains|Id:3;Plains|Id:4;Plains|Id:5;Plains|Id:6;Plains|Id:7;Plains|Id:8;Grizzly Bears|Id:9
+aihand=Rout|Id:10

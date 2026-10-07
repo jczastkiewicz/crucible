@@ -1,0 +1,15 @@
+# Silver Scrutiny ({X}{U}{U} Sorcery) has "CastWithFlash | ValidSA$ Spell.XCostLE3":
+# the cast may begin out of timing, and X is checked once announced
+# (StaticAbilityCastWithFlash.anyWithFlashNeedsInfo). X=2 is 3 or less: it is cast
+# on the opponent's turn and draws two.
+startturn human
+advance 3
+tapformana ai 2 U
+tapformana ai 3 U
+tapformana ai 4 U
+tapformana ai 5 U
+queue payx 2
+queue paygeneric U
+queue paygeneric U
+castspell ai 6
+resolvestack

@@ -32,12 +32,12 @@ var saKeywordProperties = map[string][]string{
 // port does not track (how a spell was cast, what mana paid for it): a spec
 // naming one is not evaluated.
 var saUnresolvedPrefixes = []string{
-	"XCost", "CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Buyback", "Craft", "Dash",
+	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Buyback", "Craft", "Dash",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Teamwork", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem", "Mutate",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
 	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
-	"LastChapter", "paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource", "IsTargeting",
+	"LastChapter", "paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
 	"ManaAbilityCantPaidFor", "NamedSpell", "otherAbility", "CouldCastTiming", "NamedAbility", "withoutXCost",
 }
 
@@ -140,6 +140,10 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		return g.saTargetCount(a, prop, host, amounts)
 	case strings.HasPrefix(prop, "cmc"):
 		return g.saCMC(a, prop, host, amounts)
+	case strings.HasPrefix(prop, "XCost"):
+		return g.saXCost(a, prop, host, amounts)
+	case strings.HasPrefix(prop, "IsTargeting"):
+		return g.saIsTargeting(a, prop, host, hostController)
 	}
 	if names, ok := saKeywordProperties[prop]; ok {
 		if a.Params == nil {
@@ -186,6 +190,54 @@ func (g *Game) saCMC(a *Ability, prop string, host *Card, amounts map[string]exp
 		return false, false
 	}
 	return compareOp(have, prop[3:5], want), true
+}
+
+// saXCost is the XCost<cmp><amount> property (SpellAbilityProperty.java:33-36):
+// the X the spell's mana cost was paid with against an amount, 0 when none was
+// announced. A spell already on the stack carries its X on the card.
+func (g *Game) saXCost(a *Ability, prop string, host *Card, amounts map[string]expr.Amount) (matched, recognized bool) {
+	if len(prop) < 8 {
+		return false, false
+	}
+	have := 0
+	switch {
+	case a.hasXManaCostPaid:
+		have = a.xManaCostPaid
+	case g.Card(a.Source).Zone == Stack:
+		have = g.Card(a.Source).castX
+	}
+	want, ok := resolveNamedAmount(g, amounts, host, prop[7:])
+	if !ok {
+		return false, false
+	}
+	return compareOp(have, prop[5:7], want), true
+}
+
+// saIsTargeting is IsTargeting <defined> (SpellAbilityProperty.java:234-244):
+// some object the defined text names is a target of the ability. Only the
+// "Valid <spec>" form (battlefield cards, "~" standing for "+") is read; any
+// other defined text is not evaluated.
+func (g *Game) saIsTargeting(a *Ability, prop string, host *Card, hostController PlayerID) (matched, recognized bool) {
+	_, text, ok := strings.Cut(prop, " ")
+	spec, isValid := strings.CutPrefix(text, "Valid ")
+	if !ok || !isValid || spec == "" {
+		return false, false
+	}
+	parsed := valid.Parse(strings.ReplaceAll(spec, "~", "+"))
+	targets := allTargetsOf(*a)
+	if a.Target != NoCard {
+		targets = append(targets, CardEntity(a.Target))
+	}
+	for _, t := range targets {
+		id, isCard := t.AsCard()
+		if !isCard || g.Card(id).Zone != Battlefield {
+			continue
+		}
+		if Matches(g, g.Card(id), parsed, hostController, host.ID) {
+			return true, true
+		}
+	}
+	return false, true
 }
 
 // saTargetCount is numTargets <cmp><amount>: the distinct targets chosen.

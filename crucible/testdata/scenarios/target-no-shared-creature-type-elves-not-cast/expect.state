@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Llanowar Elves|Id:1;Elvish Mystic|Id:2;Mountain|Id:3;Mountain|Id:4;Mountain|Id:5;Mountain|Id:6
+humanhand=Rivals' Duel|Id:7
+ailife=20

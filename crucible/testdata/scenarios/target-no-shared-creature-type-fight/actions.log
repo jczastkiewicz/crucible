@@ -1,0 +1,15 @@
+# Rivals' Duel (TargetsWithoutSameCreatureType$, TargetMin$ 2): Grizzly Bears (Bear)
+# and Llanowar Elves (Elf Druid) share no creature type, so both are legal
+# targets and fight (SpellAbility.java:1559-1565). The Elves die, the Bears take 1.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+tapformana human 6 R
+queue targets 1,2
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+castspell human 7
+resolvestack

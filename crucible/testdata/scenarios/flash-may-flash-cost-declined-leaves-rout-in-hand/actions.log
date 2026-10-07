@@ -1,0 +1,6 @@
+# Out of timing, Rout is cast only when the caster agrees to MayFlashCost's {2}.
+# Declined: the sorcery stays in hand.
+startturn human
+advance 3
+queue confirmpaycost false
+castspell ai 10

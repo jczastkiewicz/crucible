@@ -5,13 +5,13 @@ package engine
 import "fmt"
 
 // gainControlUnresolvedParams are ControlGainEffect.java's params this port
-// cannot honour yet: the choice and sweep
-// shapes (Choices$, Chooser$, AllValid$), and target-selection restrictions
-// targeting.go does not enforce.
+// cannot honour yet: the choice and sweep shapes (Choices$, Chooser$,
+// AllValid$), and the random pick. The target-selection restrictions
+// (TargetsForEachPlayer$, MaxTotalTargetCMC$, TargetsWithControllerProperty$,
+// TargetingPlayer$ and TargetingPlayerControls$) are targeting.go's.
 var gainControlUnresolvedParams = [...]string{
 	"Choices", "Chooser", "AllValid",
-	"TargetsForEachPlayer", "TargetsWithControllerProperty", "TargetsAtRandom",
-	"TargetingPlayerControls", "TargetingPlayer", "MaxTotalTargetCMC",
+	"TargetsAtRandom",
 	"Condition", "SorcerySpeed", "Ultimate",
 }
 

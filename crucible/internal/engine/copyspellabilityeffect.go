@@ -318,7 +318,11 @@ func (g *Game) chooseCopyTargets(controller PlayerController, m *Ability) error 
 	if !named || !ok || !controller.ConfirmEffect(g, m.Controller, m.Source) {
 		return nil
 	}
-	chosen := controller.ChooseTargets(g, m.Controller, choice.candidates, choice.min, choice.max)
+	decider, err := g.targetingPlayerOf(m)
+	if err != nil {
+		return err
+	}
+	chosen := controller.ChooseTargets(g, decider, choice.candidates, choice.min, choice.max)
 	if err := checkChoice(chosen, choice.candidates, choice.min, choice.max); err != nil {
 		return fmt.Errorf("engine: CopySpellAbility: new targets: %w", err)
 	}

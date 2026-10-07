@@ -49,11 +49,14 @@ func (g *Game) createToken(controller PlayerController, spec tokenSpec) CardID {
 	c.IsToken = true
 	c.basePower, c.hasBasePower = spec.Power, spec.HasPower
 	c.baseToughness, c.hasBaseToughness = spec.Toughness, spec.HasToughness
+	// The counters enter with the token, through AddCounter replacements and a
+	// Mode$ CantPutCounter static (TokenEffectBase.java:140-145, the counter
+	// table's replaceCounterEffect).
+	var enter []enterCounters
 	if spec.P1P1 > 0 {
-		c.Counters.Add(P1P1, spec.P1P1)
-		emitCounterChanged(g, id, CardEntity(id), P1P1, spec.P1P1)
+		enter = append(enter, enterCounters{kind: P1P1, n: spec.P1P1})
 	}
-	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped)
+	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped, enter...)
 	return id
 }
 

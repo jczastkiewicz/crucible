@@ -41,9 +41,14 @@ func (g *Game) resolveChainTargets(controller PlayerController, a *Ability) bool
 			a.targetsErr = choice.err
 			return true
 		}
+		// TargetingPlayer$ on the link names who chooses (Magus of the Arena).
+		decider, err := g.targetingPlayerOf(&link)
+		if err != nil {
+			return false
+		}
 		a.chainTargets = append(a.chainTargets, chainTarget{
 			Params:  sub.Ability,
-			Targets: controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max),
+			Targets: controller.ChooseTargets(g, decider, choice.candidates, choice.min, choice.max),
 		})
 	}
 	return true

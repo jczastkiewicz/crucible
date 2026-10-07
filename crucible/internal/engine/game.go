@@ -814,11 +814,14 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		c.enterRoom()
 		c.SummonSick = true
 		c.cameUnderControl, c.enteredTurn = true, g.turn
-		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) {
+		// A Mode$ CantPutCounter static stops the printed loyalty and defense
+		// counters too (Card.canReceiveCounters, the "etbCounter" replacement's
+		// own placement).
+		if loyalty, ok := c.BaseLoyalty(); ok && c.Type().Has(cardtype.Planeswalker) && !g.cantPutCounter(CardEntity(id), Loyalty) {
 			c.Counters.Add(Loyalty, loyalty)
 			emitCounterChanged(g, id, CardEntity(id), Loyalty, loyalty)
 		}
-		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) {
+		if defense, ok := c.BaseDefense(); ok && c.Type().Has(cardtype.Battle) && !g.cantPutCounter(CardEntity(id), Defense) {
 			c.Counters.Add(Defense, defense)
 			emitCounterChanged(g, id, CardEntity(id), Defense, defense)
 		}

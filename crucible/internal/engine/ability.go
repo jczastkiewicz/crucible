@@ -206,6 +206,12 @@ type Ability struct {
 	// EntityID for. The ability is still pushed and fails with this error
 	// when it resolves, modesErr's own deferral.
 	targetsErr error
+	// targeter is the player who chose the targets (TargetingPlayer$,
+	// SpellAbility.getTargetingPlayer), NoPlayer before they were chosen.
+	targeter PlayerID
+	// forEachControllers is each card target's controller as it was chosen under
+	// TargetsForEachPlayer$ (TargetChoices.cardControllers).
+	forEachControllers map[CardID]PlayerID
 	// wardCounters is checkWardTriggers' own answer to Forge's
 	// Defined$ TriggeredSourceSA (trigger.go, ADR-0028): the spell Ward's
 	// built Counter ability counters. Kept off Targets on purpose -- a real

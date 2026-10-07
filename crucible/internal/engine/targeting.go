@@ -23,8 +23,10 @@ import (
 // targetUnresolvedParams names ValidTgts$'s own structural siblings this
 // port does not parse: Radiance$ (4 real corpus lines -- "and each other
 // permanent that shares a color with it," a second, derived candidate set
-// no single ValidTgts$ evaluation produces) and TargetsForEachPlayer$ (68
-// real lines, one target per player) -- each its own further mechanic.
+// no single ValidTgts$ evaluation produces), its own further mechanic.
+// TargetsForEachPlayer$ (one target per player) reads as
+// TargetsWithDifferentControllers$ plus a fizzle-time check that no target
+// changed controller (trimTargetSet, recordForEachControllers).
 // TargetUnique$ is not here: SpellAbility.getUniqueTargets collects only the
 // ancestors' targets (SpellAbility.java:2040-2050), and a root or Charm mode
 // has none, so on the lines this port targets it excludes nothing; its 131
@@ -37,7 +39,7 @@ import (
 // a genuinely empty candidate set already uses since the two are
 // observationally identical).
 var targetUnresolvedParams = [...]string{
-	"Radiance", "TargetsForEachPlayer",
+	"Radiance",
 }
 
 // resolveTargets is CR 601.2c/603.3b's own "choose targets," and reports
@@ -76,8 +78,15 @@ func (g *Game) resolveTargets(controller PlayerController, a *Ability) bool {
 		a.targetsErr = choice.err
 		return true
 	}
-	chosen := controller.ChooseTargets(g, a.Controller, choice.candidates, choice.min, choice.max)
+	// TargetingPlayer$ names who picks the targets (SpellAbility.setupTargets).
+	decider, err := g.targetingPlayerOf(a)
+	if err != nil {
+		return false
+	}
+	a.targeter = decider
+	chosen := controller.ChooseTargets(g, decider, choice.candidates, choice.min, choice.max)
 	a.Targets = g.trimTargetSet(a, chosen)
+	a.recordForEachControllers(g)
 	if cards := len(a.Targets); cards < len(chosen) && cards < choice.min {
 		// The answer broke a pairwise restriction and fewer than the minimum
 		// survive: no legal set was chosen, CR 603.3c.
@@ -110,18 +119,18 @@ func hasSameControllerRestriction(a *Ability) bool {
 // over the whole answer. Ported: TargetsWithDifferentControllers,
 // TargetsWithDifferentCMC, TargetsWithDifferentNames,
 // TargetsWithEqualToughness, TargetsWithSameCardType and
-// MaxTotalTargetCMC/MaxTotalTargetPower. Not ported:
-// TargetsWithSameCreatureType/TargetsWithoutSameCreatureType (Changeling and
-// the type registry), TargetsForEachPlayer, TargetsWithSharedCardType,
-// TargetsWithRelatedProperty (sub-ability only, parent targets).
+// MaxTotalTargetCMC/MaxTotalTargetPower, TargetsWithSameCreatureType and
+// TargetsWithoutSameCreatureType (sharesCreatureType), and
+// TargetsForEachPlayer, which asks what TargetsWithDifferentControllers does.
 func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
 	p := a.Params
 	if p == nil {
 		return chosen
 	}
 	has := func(key string) bool { _, ok := p.Param(key); return ok }
-	diffCtl, diffCMC, diffNames := has("TargetsWithDifferentControllers"), has("TargetsWithDifferentCMC"), has("TargetsWithDifferentNames")
+	diffCtl, diffCMC, diffNames := has("TargetsWithDifferentControllers") || has("TargetsForEachPlayer"), has("TargetsWithDifferentCMC"), has("TargetsWithDifferentNames")
 	eqTough, sameType := has("TargetsWithEqualToughness"), has("TargetsWithSameCardType")
+	sameCreature, noCreature := has("TargetsWithSameCreatureType"), has("TargetsWithoutSameCreatureType")
 	host := g.Card(a.Source)
 	limit := func(key string) (int, bool) {
 		raw, ok := p.Param(key)
@@ -132,7 +141,7 @@ func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
 	}
 	maxCMC, hasMaxCMC := limit("MaxTotalTargetCMC")
 	maxPower, hasMaxPower := limit("MaxTotalTargetPower")
-	if !diffCtl && !diffCMC && !diffNames && !eqTough && !sameType && !hasMaxCMC && !hasMaxPower {
+	if !diffCtl && !diffCMC && !diffNames && !eqTough && !sameType && !sameCreature && !noCreature && !hasMaxCMC && !hasMaxPower {
 		return chosen
 	}
 	var kept []EntityID
@@ -152,7 +161,9 @@ func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
 				diffCMC && o.CMC() == c.CMC(),
 				diffNames && o.Def != nil && c.Def != nil && o.Name() == c.Name(),
 				eqTough && !sameToughness(o, c),
-				sameType && !sharesCardType(o, c):
+				sameType && !sharesCardType(o, c),
+				sameCreature && !g.sharesCreatureType(o, c),
+				noCreature && g.sharesCreatureType(o, c):
 				legal = false
 			}
 		}
@@ -179,6 +190,132 @@ func sharesCardType(a, b *Card) bool {
 		}
 	}
 	return false
+}
+
+// sharesCreatureType is Card.sharesCreatureTypeWith (CardType.java:704-735):
+// both are creatures or Kindred and have a creature type in common. A card with
+// Changeling carries every creature type already (applyChangelings), which is
+// what Java's "all creature types" flag stands for.
+func (g *Game) sharesCreatureType(a, b *Card) bool {
+	reg := g.db.Types()
+	if reg == nil {
+		return false
+	}
+	mine := a.Type().CreatureTypes(reg)
+	theirs := b.Type().CreatureTypes(reg)
+	for _, t := range mine {
+		if slices.Contains(theirs, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// targetingPlayerOf is who chooses a's targets (SpellAbility.setupTargets): the
+// controller, or the one player TargetingPlayer$ names. A spec naming no player
+// or several is an error, the activator's pick among them being a decision this
+// port does not ask (GO-7).
+func (g *Game) targetingPlayerOf(a *Ability) (PlayerID, error) {
+	spec, ok := a.Params.Param("TargetingPlayer")
+	if !ok {
+		return a.Controller, nil
+	}
+	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return NoPlayer, fmt.Errorf("engine: TargetingPlayer$: %w", err)
+	}
+	if len(players) != 1 {
+		return NoPlayer, fmt.Errorf("engine: TargetingPlayer$ %q names %d players, not resolvable yet", spec, len(players))
+	}
+	return players[0], nil
+}
+
+// recordForEachControllers keeps each chosen card's controller under
+// TargetsForEachPlayer$ (TargetChoices.add's cardControllers), for the
+// fizzle-time check targetStillLegal makes.
+func (a *Ability) recordForEachControllers(g *Game) {
+	if a.Params == nil {
+		return
+	}
+	if _, ok := a.Params.Param("TargetsForEachPlayer"); !ok {
+		return
+	}
+	a.forEachControllers = map[CardID]PlayerID{}
+	for _, e := range a.Targets {
+		if id, ok := e.AsCard(); ok {
+			a.forEachControllers[id] = g.Card(id).Controller()
+		}
+	}
+}
+
+// candidateRestrictionsMet is the per-card half of SpellAbility.canTarget
+// (SpellAbility.java:1418-1481) the other candidate filters leave out:
+//   - TargetsWithSharedCardType$ names cards (TargetsWithSharedTypes$ narrowing
+//     the types) the target must share a card type with;
+//   - TargetsWithControllerProperty$ cmcLECardsInGraveyard / powerLECardsInGraveyard
+//     compares the target to its own controller's graveyard;
+//   - TargetsWithRelatedProperty$ LEPower / LECMC compares it to the first card
+//     an ancestor ability targeted (none: nothing qualifies);
+//   - TargetingPlayerControls$ needs the targeting player to control it.
+//
+// err is a shape this port cannot read, which makes the ability untargetable
+// rather than guessed at.
+func (g *Game) candidateRestrictionsMet(a *Ability, c *Card, targeter PlayerID) (bool, error) {
+	p := a.Params
+	if def, ok := p.Param("TargetsWithSharedCardType"); ok {
+		cards, err := definedCards(g.Card(a.Source), def, a.refs())
+		if err != nil {
+			return false, err
+		}
+		for _, id := range cards {
+			other := g.Card(id)
+			if types, ok := p.Param("TargetsWithSharedTypes"); ok {
+				shared := false
+				for _, t := range strings.Split(types, ",") {
+					if c.Type().HasStringType(t) && other.Type().HasStringType(t) {
+						shared = true
+						break
+					}
+				}
+				if !shared {
+					return false, nil
+				}
+			} else if !sharesCardType(c, other) {
+				return false, nil
+			}
+		}
+	}
+	if prop, ok := p.Param("TargetsWithControllerProperty"); ok {
+		graveyard := g.Zone(Graveyard, c.Controller()).Len()
+		pw, _ := c.Power()
+		switch {
+		case prop == "cmcLECardsInGraveyard" && c.CMC() > graveyard,
+			prop == "powerLECardsInGraveyard" && pw > graveyard:
+			return false, nil
+		}
+	}
+	if related, ok := p.Param("TargetsWithRelatedProperty"); ok {
+		var parent *Card
+		for _, e := range a.refs().parentTargets {
+			if id, isCard := e.AsCard(); isCard {
+				parent = g.Card(id)
+				break
+			}
+		}
+		if parent == nil {
+			return false, nil
+		}
+		pw, _ := c.Power()
+		ppw, _ := parent.Power()
+		switch {
+		case related == "LEPower" && pw > ppw, related == "LECMC" && c.CMC() > parent.CMC():
+			return false, nil
+		}
+	}
+	if _, ok := p.Param("TargetingPlayerControls"); ok && c.Controller() != targeter {
+		return false, nil
+	}
+	return true, nil
 }
 
 func sameToughness(a, b *Card) bool {
@@ -360,6 +497,26 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		}
 		candidates = kept
 	}
+	targeter, err := g.targetingPlayerOf(a)
+	if err != nil {
+		// Nobody to choose: no legal target set, the ability is not put on the
+		// stack (the same outcome as an unreadable shape).
+		return targetChoice{}, true, false
+	}
+	kept := candidates[:0:0]
+	for _, e := range candidates {
+		if id, isCard := e.AsCard(); isCard {
+			met, err := g.candidateRestrictionsMet(a, g.Card(id), targeter)
+			if err != nil {
+				return targetChoice{min: targetMin, max: targetMax, err: err}, true, true
+			}
+			if !met {
+				continue
+			}
+		}
+		kept = append(kept, e)
+	}
+	candidates = kept
 	if targetMin >= 2 && hasSameControllerRestriction(a) {
 		candidates = g.withSameControllerPartner(candidates)
 	}
@@ -839,6 +996,26 @@ func (g *Game) targetStillLegal(owner *Ability, e EntityID) bool {
 			if oid, ok := other.AsCard(); ok && oid != id && g.Card(oid).Controller() != c.Controller() {
 				return false
 			}
+		}
+	}
+	if owner.Params != nil {
+		// SpellAbility.canTarget runs at fizzle time too: the per-card
+		// restrictions, and (TargetsForEachPlayer$) a target that changed
+		// controller since it was chosen (TargetChoices.forEachControllerChanged).
+		targeter := owner.targeter
+		if targeter == NoPlayer {
+			// A chain link or a copy never recorded one: the player its
+			// TargetingPlayer$ names, else the controller.
+			var err error
+			if targeter, err = g.targetingPlayerOf(owner); err != nil {
+				targeter = owner.Controller
+			}
+		}
+		if met, err := g.candidateRestrictionsMet(owner, c, targeter); err != nil || !met {
+			return false
+		}
+		if was, recorded := owner.forEachControllers[id]; recorded && was != c.Controller() {
+			return false
 		}
 	}
 	if !hasSpec {

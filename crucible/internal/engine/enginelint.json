@@ -320,7 +320,8 @@
       "room",
       "amount",
       "playerstate",
-      "castoptions"
+      "castoptions",
+      "delayedtrigger"
     ],
     "trigger": [
       "daytimeeffect",
@@ -368,7 +369,7 @@
       "dependency"
     ],
     "dependency": ["id", "card", "game", "continuous", "continuouslayers", "layer"],
-    "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone"],
+    "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone", "castspell"],
     "triggerscan": [
       "id",
       "card",
@@ -422,7 +423,8 @@
       "zone",
       "valid",
       "control",
-      "controlcommands"
+      "controlcommands",
+      "continuouslayers"
     ],
     "sacrificeeffect": [
       "id",
@@ -496,7 +498,7 @@
     "animate": ["ability", "card", "controlcommands", "effecthelpers", "game", "id", "layer", "parts", "valid", "zone"],
     "delayedtrigger": ["ability", "card", "game", "id", "player", "trigger", "valid", "zone"],
     "random": ["game"],
-    "token": ["card", "control", "event", "game", "id", "parts", "zone"],
+    "token": ["card", "control", "event", "game", "id", "parts", "zone", "zonemove"],
     "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined"]
   }
 }

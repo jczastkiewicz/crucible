@@ -17,9 +17,11 @@ package engine
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // pumpUnresolvedParams names PumpEffect.resolve's own params past
@@ -32,9 +34,9 @@ import (
 // CanBlockAmount$/CanBlockAny$ (4/0) -- an additional-blocker grant this
 // port's own block-legality gate
 // (staticability.go) has nowhere to consult a one-shot record from;
-// DefinedKW$/KWChoice$/RandomKeyword$/RandomKWNum$/NoRepetition$ (3/3/1/0/0)
-// -- a placeholder substitution, an interactive choice, and a random draw,
-// none of which this port's own KW$ handling (below) does; SharedKeywordsZone$/
+// KWChoice$/RandomKeyword$/RandomKWNum$/NoRepetition$ (3/1/0/0) -- an
+// interactive choice and a random draw, neither of which this port's own KW$
+// handling (below) does (DefinedKW$ is pumpDefinedKeywords'); SharedKeywordsZone$/
 // SharedRestrictions$ (2/2) -- CardFactoryUtil.sharedKeywords' own zone scan,
 // a further mechanic; AtEOT$ (9) -- registerDelayedTrigger, a new
 // trigger this effect would silently fail to create; DefinedLandwalk$/
@@ -75,7 +77,7 @@ import (
 var pumpUnresolvedParams = [...]string{
 	"Condition", "ConditionZone", "ConditionPlayerTurn",
 	"ConditionActivationLimit",
-	"CanBlockAmount", "CanBlockAny", "DefinedKW", "KWChoice", "RandomKeyword", "RandomKWNum",
+	"CanBlockAmount", "CanBlockAny", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
 	"DefinedLandwalk", "RememberPumped", "LeaveBattlefield",
 	"ImprintCards", "ForgetImprinted", "NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
@@ -136,6 +138,13 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return err
 	}
+	keywords, proceed, err := g.pumpDefinedKeywords(a, source, keywords)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
+	}
 
 	// PumpEffect.java:401-402 and :427-428: RememberObjects$ then
 	// ForgetObjects$, whether or not the line pumps anything (Stolen
@@ -185,6 +194,79 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		}
 	}
 	return nil
+}
+
+// pumpDefinedKeywords is PumpEffect.java:318-371, DefinedKW$: the placeholder a
+// keyword names is replaced by what the host chose or the players Defined
+// names. ChosenType$/ChosenPlayer/ChosenColor read the host's own choice;
+// anything else is a player spec, and each keyword with ChosenPlayerUID or
+// ChosenPlayerName becomes one keyword per player (the others stay). proceed is
+// false when the choice or the player list is empty: the effect then does
+// nothing (Java returns). A player's UID is its PlayerID, the number
+// PlayerUID_<n> reads back (layerSubstituteKeyword's reasoning).
+func (g *Game) pumpDefinedKeywords(a *Ability, host *Card, keywords []string) (out []string, proceed bool, err error) {
+	defined, ok := a.Params.Param("DefinedKW")
+	if !ok {
+		return keywords, true, nil
+	}
+	replaceAll := func(from, to string) []string {
+		replaced := make([]string, len(keywords))
+		for i, kw := range keywords {
+			replaced[i] = strings.ReplaceAll(kw, from, to)
+		}
+		return replaced
+	}
+	playerName := func(p PlayerID) string { return g.Player(p).Name }
+	switch defined {
+	case "ChosenType":
+		t := host.Memory.ChosenType(false)
+		if t == "" {
+			return nil, false, nil
+		}
+		return replaceAll(defined, t), true, nil
+	case "ChosenPlayer":
+		p := host.Memory.ChosenPlayer()
+		if p == NoPlayer {
+			return nil, false, nil
+		}
+		keywords = replaceAll("ChosenPlayerUID", strconv.Itoa(int(p)))
+		return replaceAll("ChosenPlayerName", playerName(p)), true, nil
+	case "ChosenColor":
+		colors := host.Memory.ChosenColors()
+		if colors.Count() != 1 {
+			return nil, false, fmt.Errorf("engine: Pump: DefinedKW$ ChosenColor with %d chosen colors not resolvable yet", colors.Count())
+		}
+		return layerKeywordPerColorAll(keywords, colors), true, nil
+	}
+	players, err := definedPlayers(g, a.Controller, host.ID, defined, a.refs())
+	if err != nil {
+		return nil, false, fmt.Errorf("engine: Pump: DefinedKW$: %w", err)
+	}
+	if len(players) == 0 {
+		return nil, false, nil
+	}
+	var expanded []string
+	for _, kw := range keywords {
+		if !strings.Contains(kw, "ChosenPlayerUID") && !strings.Contains(kw, "ChosenPlayerName") {
+			expanded = append(expanded, kw)
+			continue
+		}
+		for _, p := range players {
+			s := strings.ReplaceAll(kw, "ChosenPlayerUID", strconv.Itoa(int(p)))
+			expanded = append(expanded, strings.ReplaceAll(s, "ChosenPlayerName", playerName(p)))
+		}
+	}
+	return expanded, true, nil
+}
+
+// layerKeywordPerColorAll is each keyword with ChosenColor/chosenColor replaced
+// by the single chosen color's name.
+func layerKeywordPerColorAll(keywords []string, colors mana.Colors) []string {
+	out := make([]string, 0, len(keywords))
+	for _, kw := range keywords {
+		out = append(out, layerKeywordPerColor(kw, "ChosenColor", "chosenColor", colors)...)
+	}
+	return out
 }
 
 // pumpRememberObjects adds (or, forget, removes) the Defined$ objects key
@@ -280,6 +362,10 @@ func pumpKeywords(effect string, a *compile.Ability) (keywords []string, switche
 			return nil, false, fmt.Errorf("engine: %s: KW$ %q not resolvable yet", effect, raw)
 		}
 		return nil, switched, nil
+	}
+	if _, defined := a.Param("DefinedKW"); defined && effect == "Pump" {
+		// pumpDefinedKeywords substitutes the placeholders this line names.
+		return strings.Split(raw, " & "), false, nil
 	}
 	tokens, ok := keywordTokens(a, "KW")
 	if !ok {

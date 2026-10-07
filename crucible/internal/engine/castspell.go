@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
@@ -137,10 +138,14 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		}
 		opts.altCost, opts.hasAltCost = cost, true
 	} else {
-		// Only the options playable under their own timing are offered.
+		// Only the options playable under their own timing are offered. A
+		// MayFlashCost keyword or a CastWithFlash line needing the targets or X
+		// (flashNeedsInfo) keeps the cast open; the gate below settles it.
+		_, _, flashByCost := mayFlashCost(c)
 		var timed []castOption
 		for _, o := range options {
-			if c.Type().Has(cardtype.Instant) || o.flash || g.castsWithFlash(pid, card) || g.canActSorcerySpeed(pid) {
+			if c.Type().Has(cardtype.Instant) || o.flash || flashByCost || g.castsWithFlash(pid, card) ||
+				g.canActSorcerySpeed(pid) || g.castsWithFlashNeedsInfo(pid, card) {
 				timed = append(timed, o)
 			}
 		}
@@ -165,7 +170,19 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		}()
 	}
 	if !c.Type().Has(cardtype.Instant) && !way.flash && !g.castsWithFlash(pid, card) && !g.canActSorcerySpeed(pid) {
-		return false
+		// Out of timing: a CastWithFlash line for the chosen targets or X
+		// decides later (castsWithFlashChosen), else MayFlashCost's optional cost
+		// (GameActionUtil.java:514-517, instant speed once paid) if the caster
+		// pays it.
+		extra, text, ok := mayFlashCost(c)
+		switch {
+		case g.castsWithFlashNeedsInfo(pid, card):
+			opts.flashNeedsInfo = true
+		case ok && controller.ConfirmPayCost(g, pid, cost.Parse(text), card):
+			opts.flashCost, opts.hasFlashCost = extra, true
+		default:
+			return false
+		}
 	}
 	if castableAsInstantOrSorcery(c) {
 		if spell := firstSpellAbility(c); spell != nil && (!g.timingRestrictionsMet(pid, spell) || !g.otherRestrictionsMet(c, spell)) {
@@ -180,7 +197,72 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		g.Card(card).flashbackCast = true
 	}
 	g.noteMayPlayUse(way)
+	if way.sacAtCleanup {
+		g.sacrificeAtCleanup(pid, card)
+	}
 	return true
+}
+
+// mayFlashCost is the plain mana cost of c's MayFlashCost keyword, with its
+// script text (what ConfirmPayCost shows). ok is false without the keyword or
+// when its cost is not plain mana (Behold<1/Dragon>, Molten Exhale): such a
+// cost is not offered, never half-paid (GO-7).
+func mayFlashCost(c *Card) (mc mana.Cost, text string, ok bool) {
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "MayFlashCost" || k.Details == "" {
+			continue
+		}
+		if !cost.Parse(k.Details).IsPureMana() {
+			return mana.Cost{}, "", false
+		}
+		mc, err := mana.Parse(k.Details)
+		if err != nil || mc.CountX() > 0 {
+			return mana.Cost{}, "", false
+		}
+		return mc, k.Details, true
+	}
+	return mana.Cost{}, "", false
+}
+
+// withExtraMana is base plus extra, one more cost paid with it.
+func withExtraMana(base, extra mana.Cost) mana.Cost {
+	if base.IsNoCost() {
+		return base
+	}
+	return mana.FromShards(append(append([]mana.Shard(nil), base.Shards()...), extra.Shards()...), base.Generic()+extra.Generic())
+}
+
+// sacrificeAtCleanup is MayFlashSac's trigger (CardFactoryUtil.java:2025-2038):
+// a delayed trigger, registered as the spell is cast, that sacrifices the
+// permanent it becomes at the beginning of the next cleanup step. Java
+// builds it from strings; this port builds the same tree (PORT-2):
+//
+//	DB$ DelayedTrigger | Mode$ Phase | Phase$ Cleanup | RememberObjects$ Self
+//	  Execute: DB$ SacrificeAll | Defined$ DelayTriggerRememberedLKI
+func (g *Game) sacrificeAtCleanup(pid PlayerID, card CardID) {
+	execute := &compile.Ability{Record: compile.SubAbility, Name: "SacrificeAll", Params: []vocab.Param{
+		{Key: "DB", Value: "SacrificeAll"}, {Key: "Defined", Value: "DelayTriggerRememberedLKI"},
+	}}
+	trigger := &compile.Ability{Record: compile.SubAbility, Name: "DelayedTrigger", Params: []vocab.Param{
+		{Key: "DB", Value: "DelayedTrigger"}, {Key: "Mode", Value: "Phase"}, {Key: "Phase", Value: "Cleanup"},
+	}, Subs: []compile.SubRef{{Key: "Execute", Ability: execute}}}
+	g.delayed = append(g.delayed, delayedTrigger{
+		Trigger: trigger, Host: card, Controller: pid, Remembered: []EntityID{CardEntity(card)},
+	})
+}
+
+// flashDecided is the decision a CastWithFlash line needing info deferred
+// (opts.flashNeedsInfo): the spell, with its targets and the X announced so far,
+// is castable at this timing. Always true when nothing was deferred.
+func (g *Game) flashDecided(pid PlayerID, card CardID, opts castOpts, spell Ability) bool {
+	if !opts.flashNeedsInfo {
+		return true
+	}
+	if g.hasPreX {
+		spell.xManaCostPaid, spell.hasXManaCostPaid = g.preX, true
+	}
+	return g.castsWithFlashChosen(pid, card, &spell)
 }
 
 // beamMeUpCost is Beam me up's graveyard cast (GameActionUtil.java:176-180):
@@ -266,6 +348,14 @@ type castOpts struct {
 	// printed one: Beam me up's returned creature.
 	extra    unlessCost
 	hasExtra bool
+	// flashCost, when hasFlashCost, is MayFlashCost's mana, paid on top of the
+	// cost for casting out of timing.
+	flashCost    mana.Cost
+	hasFlashCost bool
+	// flashNeedsInfo marks a cast out of timing that only a CastWithFlash line
+	// naming IsTargeting or XCost allows: castsWithFlashChosen decides once the
+	// targets and X are chosen.
+	flashNeedsInfo bool
 	// anyType is MayPlayIgnoreType$: mana of any type pays the cost.
 	anyType bool
 	// fromKeyword marks a cast from a graveyard or exile through a keyword's
@@ -309,6 +399,10 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 		return g.castInstantOrSorcery(pid, card, c, controller, opts)
 	}
 	if !castableAsPermanent(c) {
+		return false
+	}
+	if opts.flashNeedsInfo && (!g.announceX(pid, c, controller, opts) ||
+		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, spell: true})) {
 		return false
 	}
 	extra, hasExtra, ok := g.castExtraCost(pid, c, firstSpellAbility(c), opts)
@@ -356,7 +450,11 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) 
 	case opts.hasAltCost:
 		base = opts.altCost
 	}
-	total, ok := g.spellCost(pid, c.ID, withKicker(c, opts.kickers, base))
+	base = withKicker(c, opts.kickers, base)
+	if opts.hasFlashCost {
+		base = withExtraMana(base, opts.flashCost)
+	}
+	total, ok := g.spellCost(pid, c.ID, base)
 	if opts.anyType {
 		total = anyTypeCost(total)
 	}
@@ -368,7 +466,7 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) 
 // (Repeal's cmcEQX). payManaCostX takes the announced value instead of asking
 // again. False when the caster declines to announce one.
 func (g *Game) announceX(pid PlayerID, c *Card, controller PlayerController, opts castOpts) bool {
-	if opts.withoutManaCost && opts.kickers == 0 {
+	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost {
 		return true
 	}
 	total, ok := g.castCost(pid, c, opts)
@@ -391,7 +489,7 @@ func (g *Game) announceX(pid PlayerID, c *Card, controller PlayerController, opt
 func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, opts castOpts) (xAnnounced, bool) {
 	// The X is announced here, so from the return on Count$xPaid reads it.
 	defer func() { g.castPending = NoCard }()
-	if opts.withoutManaCost && opts.kickers == 0 {
+	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost {
 		return xAnnounced{}, true
 	}
 	total, ok := g.castCost(pid, c, opts)
@@ -463,6 +561,10 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	if len(eligible) > 1 {
 		target = controller.ChooseEnchantTarget(g, pid, card, eligible)
 	}
+	if opts.flashNeedsInfo && (!g.announceX(pid, c, controller, opts) ||
+		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, Target: target, spell: true})) {
+		return false
+	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
 		return false
@@ -515,6 +617,10 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 			return false
 		}
 		target = chosen[0]
+	}
+	if opts.flashNeedsInfo && (!g.announceX(pid, c, controller, opts) ||
+		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, Targets: []EntityID{target}, spell: true})) {
+		return false
 	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
@@ -582,6 +688,9 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	a.casting = false
 	for i := range a.Modes {
 		a.Modes[i].casting = false
+	}
+	if !g.flashDecided(pid, card, opts, a) {
+		return false
 	}
 	extra, hasExtra, ok := g.castExtraCost(pid, c, spellAbility, opts)
 	if !ok {

@@ -66,22 +66,6 @@ func TestCastWithFlashStaticGrantsFlashToMatchingSpells(t *testing.T) {
 	}
 }
 
-// A CastWithFlash line this port cannot evaluate (a ValidSA$ naming the X paid
-// or the targets, which Java asks only once they are chosen) grants nothing
-// rather than guessing.
-func TestCastWithFlashStaticSkipsShapesItCannotEvaluate(t *testing.T) {
-	t.Parallel()
-
-	g, p, other := newTwoPlayerGame(t)
-	g.NewCard(scriptDef(t, "Test Conditional", "Enchantment",
-		"S:Mode$ CastWithFlash | ValidCard$ Creature | ValidSA$ Spell.XCostLE3 | Caster$ You"), p, engine.Battlefield)
-	card := g.NewCard(creatureDefCost(t, "Mine", "G"), p, engine.Hand)
-
-	if castOnOpponentsTurn(t, g, p, other, card) {
-		t.Error("a conditional CastWithFlash line granted flash")
-	}
-}
-
 // A card's own static applies from hand only when its EffectZone$ says so
 // (StaticAbility.zonesCheck): Leyline of Anticipation's battlefield static
 // gives a card in hand nothing, but a Card.Self line with EffectZone$ All does.

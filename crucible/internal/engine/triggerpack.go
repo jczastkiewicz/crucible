@@ -75,6 +75,15 @@ func (g *Game) checkSurveilTriggers(controller PlayerController, pid PlayerID, f
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+var collectEvidenceParams = effectEventParams("validplayer")
+
+// checkCollectEvidenceTriggers is Mode$ CollectEvidence
+// (TriggerCollectEvidence.performTest, CostCollectEvidence.java:78): ValidPlayer$
+// against the player who paid the cost; the player is TriggeredPlayer.
+func (g *Game) checkCollectEvidenceTriggers(controller PlayerController, pid PlayerID) {
+	g.pushTriggeredAbilities(controller, g.playerEventMatches("CollectEvidence", collectEvidenceParams, pid))
+}
+
 func (g *Game) playerEventMatches(mode string, params map[string]bool, pid PlayerID) []Ability {
 	return g.scanTriggers([]string{mode}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
 		if !paramsResolvable(t, params) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {

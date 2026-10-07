@@ -4,11 +4,12 @@
 // beside mana tokens are the shapes that need no mid-payment decision beyond
 // which cards.
 
-//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount
+//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined
 
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -76,6 +77,18 @@ type unlessCost struct {
 	// counters (CostPutCounterYou).
 	youCounterN    int
 	youCounterType CounterType
+	// libN/libSpec/libPos are PutCardToLibFromGrave<N/Pos/Type>: N cards of the
+	// type from the payer's graveyard on the top (libPos 0) or the bottom
+	// (libraryBottom) of their library (CostPutCardToLib).
+	libN    int
+	libSpec string
+	libPos  int
+	// removeAnyN/removeAnyKind/removeAnySpec are RemoveAnyCounter<N/Kind/Type>:
+	// N counters (of the kind, or "Any") removed from among the payer's
+	// permanents of the type (CostRemoveAnyCounter).
+	removeAnyN    int
+	removeAnyKind string
+	removeAnySpec string
 	// drawSpec is the player spec of a Draw<N/Spec> that is not "You": every
 	// player it names draws N (CostDraw.getPotentialPlayers), "" for You.
 	drawSpec string
@@ -132,6 +145,13 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 		case p.Name == "Waterbend" && uc.waterbendN == 0:
 			uc.waterbendN = n
 			parsed.Mana = append(append([]string(nil), parsed.Mana...), strconv.Itoa(n))
+		case p.Name == "PutCardToLibFromGrave" && uc.libN == 0 && (p.Field(1) == "0" || p.Field(1) == "-1") && chosenCardSpecResolvable(p.Field(2)):
+			uc.libN, uc.libSpec, uc.libPos = n, p.Field(2), 0
+			if p.Field(1) == "-1" {
+				uc.libPos = libraryBottom
+			}
+		case p.Name == "RemoveAnyCounter" && uc.removeAnyN == 0 && chosenCardSpecResolvable(p.Field(2)):
+			uc.removeAnyN, uc.removeAnyKind, uc.removeAnySpec = n, p.Field(1), p.Field(2)
 		case p.Name == "CollectEvidence" && uc.evidenceN == 0:
 			uc.evidenceN = n
 		case p.Name == "AddCounterYou" && uc.youCounterN == 0 && p.Field(1) != "":
@@ -392,6 +412,12 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.tapN > 0 && len(tapTypeCandidates(g, pid, source, false, uc.tapSpec)) < uc.tapN {
 		return false
 	}
+	if uc.libN > 0 && len(g.costCandidates(pid, source, false, Graveyard, uc.libSpec)) < uc.libN {
+		return false
+	}
+	if uc.removeAnyN > 0 && g.removableCounters(pid, source, uc) < uc.removeAnyN {
+		return false
+	}
 	if uc.evidenceN > 0 && graveyardManaValue(g, g.Zone(Graveyard, pid).Cards()) < uc.evidenceN {
 		return false
 	}
@@ -414,6 +440,65 @@ func (g *Game) unlessCounterTargets(pid PlayerID, source CardID, uc unlessCost) 
 		}
 	}
 	return out
+}
+
+// removableKinds is the counter kinds on c a RemoveAnyCounter<N/Kind/Type> part
+// may remove: the named kind, or any kind for "Any" (CostRemoveAnyCounter
+// .getMaxAmountX).
+func removableKinds(c *Card, kind string) []CounterType {
+	if !strings.EqualFold(kind, "Any") {
+		ct := CounterType(strings.ToUpper(kind))
+		if c.Counters.Count(ct) > 0 {
+			return []CounterType{ct}
+		}
+		return nil
+	}
+	return c.Counters.Kinds()
+}
+
+// removableCounters is how many counters the RemoveAnyCounter part could remove:
+// the sum over the payer's matching permanents (CostRemoveAnyCounter.canPay is
+// the amount against it).
+func (g *Game) removableCounters(pid PlayerID, source CardID, uc unlessCost) int {
+	total := 0
+	for _, id := range g.costCandidates(pid, source, false, Battlefield, uc.removeAnySpec) {
+		c := g.Card(id)
+		for _, ct := range removableKinds(c, uc.removeAnyKind) {
+			total += c.Counters.Count(ct)
+		}
+	}
+	return total
+}
+
+// removeAnyCounters removes the RemoveAnyCounter part's N counters one at a
+// time: the payer picks a permanent that has one, and a kind when it has
+// several (CostRemoveAnyCounter.payAsDecided applies the chosen counter table).
+func (g *Game) removeAnyCounters(controller PlayerController, pid PlayerID, source CardID, uc unlessCost) {
+	for range uc.removeAnyN {
+		var options []CardID
+		for _, id := range g.costCandidates(pid, source, false, Battlefield, uc.removeAnySpec) {
+			if len(removableKinds(g.Card(id), uc.removeAnyKind)) > 0 {
+				options = append(options, id)
+			}
+		}
+		if len(options) == 0 {
+			return
+		}
+		id := g.chosenUnlessCards(controller, pid, source, options, 1, 1)[0]
+		c := g.Card(id)
+		kinds := removableKinds(c, uc.removeAnyKind)
+		kind := kinds[0]
+		if len(kinds) > 1 {
+			labels := make([]string, len(kinds))
+			for i, k := range kinds {
+				labels[i] = string(k)
+			}
+			if pick := controller.ChooseOption(g, pid, source, labels); pick > 0 && pick < len(kinds) {
+				kind = kinds[pick]
+			}
+		}
+		removeCounters(g, source, CardEntity(id), &c.Counters, kind, false, false, 1)
+	}
 }
 
 // graveyardManaValue is the total mana value of ids (CardLists.getTotalCMC).
@@ -469,6 +554,15 @@ func (g *Game) payUnlessParts(controller PlayerController, a *Ability, pid Playe
 			exileFromGraveyard(g, id)
 		}
 	}
+	if uc.libN > 0 {
+		options := g.costCandidates(pid, a.Source, false, Graveyard, uc.libSpec)
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, options, uc.libN, uc.libN) {
+			g.moveByEffect(controller, id, Library, uc.libPos, NoPlayer, false)
+		}
+	}
+	if uc.removeAnyN > 0 {
+		g.removeAnyCounters(controller, pid, a.Source, uc)
+	}
 	if uc.evidenceN > 0 {
 		g.collectEvidence(controller, pid, a.Source, uc.evidenceN)
 	}
@@ -516,6 +610,7 @@ func (g *Game) collectEvidence(controller PlayerController, pid PlayerID, source
 	for _, id := range append([]CardID(nil), picks...) {
 		exileFromGraveyard(g, id)
 	}
+	g.checkCollectEvidenceTriggers(controller, pid)
 }
 
 // handWithout is hand less source: a spell being cast cannot be discarded to pay
@@ -547,6 +642,8 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.tapN *= n
 	uc.waterbendN *= n
 	uc.evidenceN *= n
+	uc.libN *= n
+	uc.removeAnyN *= n
 	uc.youCounterN *= n
 	if uc.hasMana {
 		var tokens []string
@@ -608,6 +705,55 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	return !paid && source.Controller() == a.Controller, nil
 }
 
+// errUnlessNoCost is calculateUnlessCost returning null: a DefinedCost_ naming
+// no card. The ability then resolves without asking anyone to pay.
+var errUnlessNoCost = errors.New("engine: UnlessCost$ names no cost")
+
+// definedUnlessCost is AbilityUtils.calculateUnlessCost's DefinedCost_<Defined>
+// [_Minus<N>|_Plus<N>] (AbilityUtils.java:1450-1471): the mana cost of the first
+// card the defined text names, its generic part lowered or raised. UnlessUpTo$
+// lets the payer pick how much to lower it, a decision this port does not
+// model, so a line naming it is not resolved (GO-7). text is the whole cost
+// for the error, rest what follows "DefinedCost_".
+func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string) (string, error) {
+	if _, upTo := a.Params.Param("UnlessUpTo"); upTo {
+		return "", fmt.Errorf("engine: UnlessCost$ %q: UnlessUpTo$ not resolvable yet", text)
+	}
+	def, modifier, hasModifier := strings.Cut(rest, "_")
+	cards, err := definedCards(host, def, a.refs())
+	if err != nil {
+		return "", fmt.Errorf("engine: UnlessCost$ %q: %w", text, err)
+	}
+	if len(cards) == 0 {
+		return "", errUnlessNoCost
+	}
+	mc := g.Card(cards[0]).Def.Faces[0].ManaCost
+	if mc.IsNoCost() || mc.CountX() > 0 {
+		return "", fmt.Errorf("engine: UnlessCost$ %q: the card's mana cost is not a plain cost", text)
+	}
+	generic := mc.Generic()
+	if hasModifier {
+		switch {
+		case strings.HasPrefix(modifier, "Minus"):
+			n, convErr := strconv.Atoi(strings.TrimPrefix(modifier, "Minus"))
+			if convErr != nil {
+				return "", fmt.Errorf("engine: UnlessCost$ %q: %w", text, convErr)
+			}
+			generic = max(generic-n, 0)
+		case strings.HasPrefix(modifier, "Plus"):
+			n, convErr := strconv.Atoi(strings.TrimPrefix(modifier, "Plus"))
+			if convErr != nil {
+				return "", fmt.Errorf("engine: UnlessCost$ %q: %w", text, convErr)
+			}
+			generic += n
+		default:
+			return "", fmt.Errorf("engine: UnlessCost$ %q: modifier %q not resolvable", text, modifier)
+		}
+	}
+	out := mana.FromShards(mc.Shards(), generic).String()
+	return strings.NewReplacer("}{", " ", "{", "", "}", "").Replace(out), nil
+}
+
 // expandUnlessCost is AbilityUtils.calculateUnlessCost's SVar handling and the
 // X of a cost part's amount, evaluated for the ability that asks for the cost:
 //
@@ -623,6 +769,9 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 func (g *Game) expandUnlessCost(a *Ability, text string) (string, error) {
 	text = strings.TrimSpace(text)
 	host := g.Card(a.Source)
+	if rest, ok := strings.CutPrefix(text, "DefinedCost_"); ok {
+		return g.definedUnlessCost(a, host, text, rest)
+	}
 	amount := func(name string) (int, error) {
 		n, ok := resolveNamedAmount(g, a.Amounts, host, name)
 		if !ok {

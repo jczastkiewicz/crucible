@@ -5,10 +5,10 @@ package engine
 import "fmt"
 
 // tapOrUntapUnresolvedParams are TapOrUntapEffect.java's params this port
-// cannot honour yet: Tapper$ (1 real line, a non-activator decider) and
-// TargetingPlayer$ (1, someone other than the activator picks the target).
+// cannot honour yet: Tapper$ (1 real line, a non-activator decider).
+// TargetingPlayer$ is targeting.go's (targetingPlayerOf).
 var tapOrUntapUnresolvedParams = [...]string{
-	"Tapper", "TargetingPlayer", "PresentCompare",
+	"Tapper", "PresentCompare",
 	"Condition"}
 
 // tapOrUntapEffect is TapOrUntapEffect.java: for each target

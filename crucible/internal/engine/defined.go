@@ -218,7 +218,9 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 	}
 	var players []PlayerID
 	for _, pid := range candidates {
-		if !g.Player(pid).Lost {
+		// getDefinedPlayers returns a PlayerCollection: each player once, so two
+		// targeted cards of one controller ask that player once.
+		if !g.Player(pid).Lost && !slices.Contains(players, pid) {
 			players = append(players, pid)
 		}
 	}

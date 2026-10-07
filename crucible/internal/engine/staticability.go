@@ -840,17 +840,54 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 // Flash keyword, or a Mode$ CastWithFlash static (StaticAbilityCastWithFlash)
 // whose ValidCard$ matches the card, whose Caster$ matches pid and whose
 // ValidSA$ matches the spell (a plain Spell, or a property
-// spellAbilityMatches reads). A line whose ValidSA$ names a property this
-// port does not evaluate (IsTargeting, XCost: Java's applyWithFlashNeedsInfo
-// asks them only once targets and X are chosen), or a condition
-// staticConditionsMet cannot resolve, is skipped, never assumed to hold
-// (GO-7). The card's own statics count wherever it is (EffectZone$ All,
+// spellAbilityMatches reads). A line whose ValidSA$ names IsTargeting or XCost
+// is not read here: Java's applyWithFlashNeedsInfo asks it once targets and X
+// are chosen (flashMode, castsWithFlashChosen). A ValidSA$ property this port
+// does not evaluate, or a condition staticConditionsMet cannot resolve, is
+// skipped, never assumed to hold (GO-7). The card's own statics count wherever it is (EffectZone$ All,
 // Card.Self lines).
 func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 	if g.Card(card).HasKeyword("Flash") {
 		return true
 	}
-	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, spell: true})
+	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, spell: true}, flashPlain)
+}
+
+// flashMode is which half of StaticAbilityCastWithFlash a flashStatic walk is.
+type flashMode uint8
+
+const (
+	// flashPlain is anyWithFlash before anything is chosen: a line whose
+	// ValidSA$ needs the targets or X (flashNeedsInfo) is not read.
+	flashPlain flashMode = iota
+	// flashProvisional is anyWithFlashNeedsInfo: only those lines, with their
+	// ValidSA$ unread, so the cast may begin and decide once the info exists.
+	flashProvisional
+	// flashFinal is anyWithFlash once the targets and X are chosen: every line,
+	// ValidSA$ read against them.
+	flashFinal
+)
+
+// flashNeedsInfo is applyWithFlashNeedsInfo's test of a line's ValidSA$: it
+// names IsTargeting or XCost, which only a cast with its targets and X chosen
+// can answer (StaticAbilityCastWithFlash.java:63-66).
+func flashNeedsInfo(s *compile.Ability) bool {
+	validSA, _ := s.Param("ValidSA")
+	return strings.Contains(validSA, "IsTargeting") || strings.Contains(validSA, "XCost")
+}
+
+// castsWithFlashNeedsInfo is SpellAbilityRestriction.canPlay's second chance
+// (SpellAbilityRestriction.java:559): a CastWithFlash line naming IsTargeting
+// or XCost lets the cast begin at a timing it would otherwise be refused, and
+// castsWithFlashChosen then decides once the targets and X are known.
+func (g *Game) castsWithFlashNeedsInfo(pid PlayerID, card CardID) bool {
+	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, spell: true}, flashProvisional)
+}
+
+// castsWithFlashChosen is the decision castsWithFlashNeedsInfo deferred: some
+// line grants flash to spell, which now carries its targets and X.
+func (g *Game) castsWithFlashChosen(pid PlayerID, card CardID, spell *Ability) bool {
+	return g.flashStatic(pid, card, spell, flashFinal)
 }
 
 // activatesWithFlash is SpellAbility.withFlash for an activated ability
@@ -859,12 +896,12 @@ func (g *Game) castsWithFlash(pid PlayerID, card CardID) bool {
 // although it is sorcery-speed (Equip, a loyalty ability). ValidCard$ names
 // the ability's host.
 func (g *Game) activatesWithFlash(pid PlayerID, card CardID, ability *compile.Ability) bool {
-	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, Params: ability, activated: true})
+	return g.flashStatic(pid, card, &Ability{Source: card, Controller: pid, Params: ability, activated: true}, flashPlain)
 }
 
 // flashStatic is StaticAbilityCastWithFlash.anyWithFlash: some CastWithFlash
 // line applies to the spell or ability sa of card for pid.
-func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability) bool {
+func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability, mode flashMode) bool {
 	c := g.Card(card)
 	for _, host := range g.staticHostsWith(card) {
 		h := g.Card(host)
@@ -873,7 +910,7 @@ func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability) bool {
 		}
 		for _, face := range h.traitFaces() {
 			for _, s := range face.Statics {
-				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s, sa) {
+				if !strings.EqualFold(s.Name, "CastWithFlash") || !g.castWithFlashApplies(pid, c, h, s, sa, mode) {
 					continue
 				}
 				return true
@@ -886,8 +923,12 @@ func (g *Game) flashStatic(pid PlayerID, card CardID, sa *Ability) bool {
 // castWithFlashApplies is one CastWithFlash line's own test, see
 // castsWithFlash. An absent ValidSA$ matches any spell or ability
 // (matchesValidParam on a missing key).
-func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability, sa *Ability) bool {
-	if validSA, ok := s.Param("ValidSA"); ok {
+func (g *Game) castWithFlashApplies(pid PlayerID, c, host *Card, s *compile.Ability, sa *Ability, mode flashMode) bool {
+	needsInfo := flashNeedsInfo(s)
+	if (mode == flashPlain && needsInfo) || (mode == flashProvisional && !needsInfo) {
+		return false
+	}
+	if validSA, ok := s.Param("ValidSA"); ok && mode != flashProvisional {
 		if matched, recognized := g.spellAbilityMatches(sa, validSA, host, host.Controller(), host.abilityAmounts(s)); !recognized || !matched {
 			return false
 		}

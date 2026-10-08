@@ -1,0 +1,6 @@
+# The same Sightless Brawler attacks legally when another creature attacks
+# with it (two attackers, so the NOT_ALONE restriction is not violated).
+startturn human
+advance 5
+queue attackers 1,2
+declareattackers

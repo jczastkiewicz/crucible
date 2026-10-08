@@ -107,6 +107,20 @@ type layerStatic struct {
 // battlefield. Read fresh per layer: a Layer 3 text change swaps a host's
 // Def, and later layers then see the gained statics (Java's toAdd list).
 func continuousStatics(g *Game) []layerStatic {
+	return gatherStatics(g, false)
+}
+
+// continuousStaticsAllZones is continuousStatics plus the Mode$ Continuous
+// lines of cards outside the battlefield that function in the zone they sit
+// in (offZoneStatics): a characteristic-defining ability "functions in every
+// zone" (CR 604.3) and an EffectZone$ line functions in the zones it names. Every
+// applier whose effects land on cards of every zone, or on a player or the
+// game, walks this one; Layer 2 alone does not (applyContinuousControl).
+func continuousStaticsAllZones(g *Game) []layerStatic {
+	return gatherStatics(g, true)
+}
+
+func gatherStatics(g *Game, offZone bool) []layerStatic {
 	var out []layerStatic
 	for _, pid := range g.Players() {
 		for _, host := range g.traitHosts(pid) {
@@ -129,6 +143,9 @@ func continuousStatics(g *Game) []layerStatic {
 				}
 			}
 		}
+	}
+	if offZone {
+		out = appendOffZoneStatics(g, out)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		ci, cj := hasParamOn(out[i].s, "CharacteristicDefining"), hasParamOn(out[j].s, "CharacteristicDefining")
@@ -174,9 +191,13 @@ func applyContinuousPT(g *Game) {
 			g.Card(id).PT.Clear()
 		}
 	}
+	// A characteristic-defining power/toughness functions in every zone
+	// (Grist's 1/1 off the battlefield, a Tarmogoyf in hand), so a card off the
+	// battlefield is rebuilt too.
+	forEachOffBattlefieldCard(g, func(c *Card) { c.PT.Clear() })
 	animatePT(g)
 	pumpPT(g)
-	statics := continuousStatics(g)
+	statics := continuousStaticsAllZones(g)
 	for _, ls := range statics {
 		if hasParamOn(ls.s, "CharacteristicDefining") && g.staticLive(g.Card(ls.host), ls.s) {
 			applyOneContinuousPT(g, g.Card(ls.host), ls.amounts, ls.s, LayerCharacteristic)
@@ -227,7 +248,7 @@ func setPTStatics(statics []layerStatic) []layerStatic {
 //   - A non-numeric, non-resolvable AddPower$/AddToughness$/SetPower$/
 //     SetToughness$ -- a plain integer or a named SVar resolveAmount
 //     (amount.go) evaluates resolves (ptParam, below); only a value it
-//     cannot evaluate (xPaid, Count$Party, ExiledWith$, ...: resolveAmount's
+//     cannot evaluate (a per-card power read, a context-prefixed head, ...: resolveAmount's
 //     own doc comment) is skipped, per missing dimension rather than per
 //     whole line -- a real corpus line naming both a resolvable and an
 //     unresolvable dimension together is not a shape worth losing the
@@ -309,7 +330,7 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 // Add-shaped key.
 //
 // The amount itself is resolveAmount's (amount.go, amountheads.go,
-// amountpaid.go): 363 of the corpus's 374 real "*" CDA power/toughness
+// amountpaid.go): all 374 of the corpus's real "*" CDA power/toughness
 // dimensions on a card that stays on the battlefield resolve
 // (TestCharacteristicDefiningCorpusFloor) -- the Count$Valid family with or
 // without a doXMath
@@ -320,13 +341,12 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 // is left off the effect (HasPower/HasToughness false), so a printed "*"
 // stays unresolvable rather than reading as zero.
 //
-// ExcludeZone$ (1 real line among 264 CharacteristicDefining$ True cards) --
-// skip host entirely while it sits in one of the named zones -- is not
-// resolved: a single real line is not a shape worth a separate zone check
-// for, and applyContinuousPT's own battlefield-only walk means host is
-// always on the one zone this port could check anyway.
+// ExcludeZone$ (Grist, the Hunger Tide's "isn't on the battlefield" 1/1) skips
+// host entirely while it sits in one of the named zones
+// (layerAffectedCards), and the walk is the all-zones one, so the line applies
+// to host in hand, library, graveyard, exile or on the stack.
 func applyOneCharacteristicDefiningPT(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) {
-	if _, ok := s.Param("ExcludeZone"); ok {
+	if ids, ok := layerAffectedCards(g, host, s); !ok || len(ids) == 0 {
 		return
 	}
 	setP, hasSetP := ptParam(g, amounts, host, s, "SetPower")
@@ -359,7 +379,7 @@ func applyContinuousType(g *Game) {
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.TypeMod.Clear() })
 	animateTypes(g)
-	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), typeLayerKeys...), typeLayerOps(g))
+	applyInDependencyOrder(g, staticsWithAny(continuousStaticsAllZones(g), typeLayerKeys...), typeLayerOps(g))
 	applyChangelings(g)
 }
 
@@ -400,7 +420,7 @@ func applyContinuousColor(g *Game) {
 	}
 	forEachOffBattlefieldCard(g, func(c *Card) { c.ColorMod.Clear() })
 	animateColors(g)
-	for _, ls := range continuousStatics(g) {
+	for _, ls := range continuousStaticsAllZones(g) {
 		if !g.staticLive(g.Card(ls.host), ls.s) {
 			continue
 		}
@@ -446,7 +466,7 @@ func applyContinuousKeyword(g *Game) {
 	forEachOffBattlefieldCard(g, func(c *Card) { c.KeywordMod.Clear() })
 	animateKeywords(g)
 	pumpLayerKeywords(g)
-	applyInDependencyOrder(g, staticsWithAny(continuousStatics(g), keywordLayerKeys...), abilitiesLayerOps(g))
+	applyInDependencyOrder(g, staticsWithAny(continuousStaticsAllZones(g), keywordLayerKeys...), abilitiesLayerOps(g))
 }
 
 // applyOneContinuousKeyword is Layer 6's keyword half for one Mode$
@@ -875,7 +895,7 @@ func applyContinuousRules(g *Game) {
 	}
 	clearHiddenKeywords(g)
 	g.mayPlay = nil
-	for _, ls := range continuousStatics(g) {
+	for _, ls := range continuousStaticsAllZones(g) {
 		if !g.staticLive(g.Card(ls.host), ls.s) {
 			continue
 		}
@@ -1054,10 +1074,14 @@ func clearHiddenKeywords(g *Game) {
 func hiddenKeywordRead(line string) bool {
 	switch line {
 	case "CARDNAME can't block.", "CARDNAME can't attack or block.",
-		"All creatures able to block CARDNAME do so.", "CARDNAME must be blocked if able.":
+		"All creatures able to block CARDNAME do so.", "CARDNAME must be blocked if able.",
+		"CARDNAME can't attack alone.", "CARDNAME can only attack alone.",
+		"This card doesn't untap during your next untap step.":
 		return true
 	}
-	return false
+	// "CARDNAME count as <name>." is read by a valid string's hasKeyword
+	// property (Flame Burst's Count$ValidGraveyard Card.hasKeywordCARDNAME ...).
+	return strings.HasPrefix(line, "CARDNAME count as ")
 }
 
 // applyOneContinuousHiddenKeyword is StaticAbilityContinuous.java's own
@@ -1073,13 +1097,12 @@ func hiddenKeywordRead(line string) bool {
 // (the real Effect-SVar lines, AffectedZone$ Battlefield written out).
 //
 // Skipped whole, not applied partially (GO-7):
-//   - a line naming a keyword nothing here reads (hiddenKeywordRead): "This
-//     card doesn't untap during your next untap step." (no untap-step hook),
-//     "CARDNAME can't attack alone."/"CARDNAME can only attack alone."
-//     (attackconstraints.go reads neither), "CARDNAME count as <name>."
-//     (graveyard-only name aliasing).
-//   - AffectedZone$ other than Battlefield, CharacteristicDefining$, any
-//     other AffectedDefined$, an unresolved Condition$.
+//   - a line naming a keyword nothing here reads (hiddenKeywordRead); every
+//     hidden keyword string in the corpus is read: the untap step
+//     (untapBlocked), the attack-alone pair (attackAloneViolation), block
+//     legality, and "count as <name>." (the hasKeyword valid property).
+//   - CharacteristicDefining$, any other AffectedDefined$, an unresolved
+//     Condition$.
 func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
@@ -1094,9 +1117,6 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 	if _, ok := s.Param("CharacteristicDefining"); ok {
 		return
 	}
-	if zone, ok := s.Param("AffectedZone"); ok && !strings.EqualFold(zone, "Battlefield") {
-		return
-	}
 	lines := strings.Split(raw, " & ")
 	for i, l := range lines {
 		lines[i] = strings.TrimSpace(l)
@@ -1106,6 +1126,11 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 	}
 
 	var targets []CardID
+	affected, filtered := s.Param("Affected")
+	var spec valid.Spec
+	if filtered {
+		spec = valid.Parse(affected)
+	}
 	if defined, ok := s.Param("AffectedDefined"); ok {
 		switch {
 		case strings.EqualFold(defined, "Self"):
@@ -1117,25 +1142,30 @@ func applyOneContinuousHiddenKeyword(g *Game, host *Card, s *compile.Ability) {
 		default:
 			return
 		}
-	} else {
-		if _, ok := s.Param("Affected"); !ok {
-			return
+		for _, id := range targets {
+			c := g.Card(id)
+			if c.Zone != Battlefield || c.IsPhasedOut() {
+				continue
+			}
+			if filtered && !Matches(g, c, spec, host.Controller(), host.ID) {
+				continue
+			}
+			c.hiddenKeywords = append(c.hiddenKeywords, lines...)
 		}
-		for _, pid := range g.Players() {
-			targets = append(targets, g.Zone(Battlefield, pid).Cards()...)
-		}
+		return
 	}
-	affected, filtered := s.Param("Affected")
-	var spec valid.Spec
-	if filtered {
-		spec = valid.Parse(affected)
+	if !filtered {
+		return
 	}
-	for _, id := range targets {
+	// AffectedZone$ names the zones searched (the battlefield by default):
+	// "CARDNAME count as <name>." lives on a graveyard card.
+	ids, ok := layerAffectedCards(g, host, s)
+	if !ok {
+		return
+	}
+	for _, id := range ids {
 		c := g.Card(id)
-		if c.Zone != Battlefield || c.IsPhasedOut() {
-			continue
-		}
-		if filtered && !Matches(g, c, spec, host.Controller(), host.ID) {
+		if c.Zone == Battlefield && c.IsPhasedOut() {
 			continue
 		}
 		c.hiddenKeywords = append(c.hiddenKeywords, lines...)
@@ -1164,31 +1194,41 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 	if _, ok := s.Param("MayPlay"); !ok {
 		return
 	}
-	if !continuousConditionMet(g, host, s) {
+	// The static is on (StaticAbility.checkConditions): the host is in a zone
+	// the line functions from, and its Condition$, IsPresent$ and CheckSVar$
+	// chain hold.
+	if !layerStaticApplies(g, host, amounts, s) {
 		return
 	}
 	// Params that change what the grant allows or when it holds in a way
 	// this does not model, so a line naming any of them grants nothing
-	// (GO-7): the colour-only mana relaxations (MayPlayIgnoreColor$,
-	// MayPlaySnowIgnoreColor$), a raised cost (RaiseCost$), a single-face
-	// restriction (MayPlayText$), the presence conditions and the third SVar
-	// check continuousConditionMet does not evaluate, and the spell-ability
-	// restrictions (ValidSA$, ValidAfterStack$, ReplaceGraveyard$).
-	for _, key := range [...]string{
-		"MayPlayIgnoreColor", "MayPlaySnowIgnoreColor", "RaiseCost", "MayPlayText",
-		"CheckThirdSVar", "IsPresent",
-		"ValidSA", "ValidAfterStack", "ReplaceGraveyard", "CharacteristicDefining",
-	} {
+	// (GO-7): the snow-only colour relaxation (MayPlaySnowIgnoreColor$: the
+	// pool has no "this mana is snow" test for a colored shard) and the
+	// spell-ability restrictions (ValidSA$, ValidAfterStack$,
+	// ReplaceGraveyard$). MayPlayText$ is only the option's label
+	// (GameActionUtil.java:398) and changes nothing.
+	for _, key := range [...]string{"MayPlaySnowIgnoreColor", "CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
 	}
-	if !checkSVarMatches(g, host, amounts, s, "CheckSVar", "SVarCompare", "CheckSecondSVar") {
+	// ValidSA$ names the spell ability the option is for: a plain Spell is
+	// every cast; Spell.Blitz/Warp/Bestow/Mutate need an alternative cast
+	// this port has no way to make, so that grant would never be used.
+	if v, ok := s.Param("ValidSA"); ok && v != "Spell" {
 		return
 	}
-	if zone, ok := s.Param("EffectZone"); ok && !host.IsEffect &&
-		!strings.EqualFold(zone, "Battlefield") && !strings.EqualFold(zone, "All") {
-		return
+	var afterStack valid.Spec
+	_, hasAfterStack := s.Param("ValidAfterStack")
+	if v, ok := s.Param("ValidAfterStack"); ok {
+		// SpellAbility.isLegalAfterStack, checked once the spell is on the stack
+		// (PlaySpellAbility.java:679): here against the card before the cast,
+		// which differs only for a mana value that reads an X.
+		rest, found := strings.CutPrefix(v, "Spell")
+		if !found {
+			return
+		}
+		afterStack = valid.Parse("Card" + rest)
 	}
 	affected, ok := s.Param("Affected")
 	if !ok {
@@ -1219,6 +1259,27 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 	_, noZonePermission := s.Param("MayPlayDontGrantZonePermissions")
 	grant.ZonePermission = !noZonePermission
 	_, grant.AnyType = s.Param("MayPlayIgnoreType")
+	_, grant.AnyColor = s.Param("MayPlayIgnoreColor")
+	if v, ok := s.Param("ReplaceGraveyard"); ok {
+		if v != "Exile" {
+			return
+		}
+		grant.ReplaceExile = true
+	}
+	if raw, ok := s.Param("RaiseCost"); ok {
+		// A name the host defines as an SVar is its amount, generic mana
+		// (GameActionUtil.java:374-380); anything else is a cost string.
+		if n, isSVar := namedAmountOf(g, amounts, host, raw); isSVar {
+			if n < 0 {
+				return
+			}
+			raw = strconv.Itoa(n)
+		}
+		if _, ok := parseUnlessCost(raw); !ok {
+			return
+		}
+		grant.RaiseText = raw
+	}
 	if raw, ok := s.Param("MayPlayAltManaCost"); ok {
 		mc, err := mana.Parse(raw)
 		if err != nil || mc.CountX() > 0 || !cost.Parse(raw).IsPureMana() {
@@ -1253,6 +1314,9 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 					if !Matches(g, c, parsed, host.Controller(), host.ID) {
 						continue
 					}
+					if hasAfterStack && !Matches(g, c, afterStack, host.Controller(), host.ID) {
+						continue
+					}
 					gr := grant
 					gr.CardID, gr.Timestamp, gr.Grantee = id, c.Timestamp, player
 					g.mayPlay = append(g.mayPlay, gr)
@@ -1260,6 +1324,23 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 			}
 		}
 	}
+}
+
+// namedAmountOf reports whether name is an SVar the host defines (runtime or
+// compiled) and its amount. A defined SVar that does not resolve reports
+// (-1, true): the caller drops the line rather than read the name as text.
+func namedAmountOf(g *Game, amounts map[string]expr.Amount, host *Card, name string) (int, bool) {
+	key := strings.ToLower(name)
+	_, runtime := host.svars[key]
+	_, compiled := amounts[key]
+	if !runtime && !compiled {
+		return 0, false
+	}
+	n, ok := resolveNamedAmount(g, amounts, host, name)
+	if !ok {
+		return -1, true
+	}
+	return n, true
 }
 
 // applyContinuousControl recomputes every battlefield card's own Layer 2

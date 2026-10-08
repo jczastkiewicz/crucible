@@ -99,13 +99,13 @@ func TestAddHiddenKeywordCantAttackOrBlockStopsAttacking(t *testing.T) {
 }
 
 // A line naming a keyword nothing in this port reads is skipped whole, not
-// half-applied: "doesn't untap" beside "can't block" grants neither.
+// half-applied: an unread string beside "can't block" grants neither.
 func TestAddHiddenKeywordUnreadLineIsSkippedWhole(t *testing.T) {
 	t.Parallel()
 	g, a, b := combatGame(t)
 	attacker := g.NewCard(creatureDefPT(t, "2", "2"), a, engine.Battlefield)
 	g.NewCard(continuousDef(t, "Half Read",
-		"Mode$ Continuous | Affected$ Creature | AddHiddenKeyword$ CARDNAME can't block. & This card doesn't untap during your next untap step."),
+		"Mode$ Continuous | Affected$ Creature | AddHiddenKeyword$ CARDNAME can't block. & CARDNAME does something nothing reads."),
 		b, engine.Battlefield)
 	blocker := g.NewCard(creatureDefPT(t, "2", "2"), b, engine.Battlefield)
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())

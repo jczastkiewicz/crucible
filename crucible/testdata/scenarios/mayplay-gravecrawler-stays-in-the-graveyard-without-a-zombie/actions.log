@@ -1,0 +1,6 @@
+# The same grant with the IsPresent$ Zombie.YouCtrl condition false (a Grizzly
+# Bears is no Zombie): the static is off, nothing may be cast from the
+# graveyard (the Swamp is not even tapped), and the declined cast leaves Gravecrawler where it was.
+startturn human
+advance 3
+castspell human 1

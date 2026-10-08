@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=COMBAT_DECLARE_ATTACKERS
+humanlife=20
+humanbattlefield=Sightless Brawler|Tapped;Devoted Hero|Tapped
+ailife=20

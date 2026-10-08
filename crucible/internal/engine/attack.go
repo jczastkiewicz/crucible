@@ -74,6 +74,10 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 		return nil, err
 	}
 
+	if err := g.attackAloneViolation(attackers); err != nil {
+		return nil, err
+	}
+
 	g.combat.Attackers = attackers
 	g.combat.AttackTargets = targets
 	for _, id := range attackers {
@@ -90,6 +94,26 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	g.checkAttackersDeclaredOneTargetTrigger(controller)
 	g.checkAttackersDeclaredTrigger(controller)
 	return attackers, nil
+}
+
+// attackAloneViolation is AttackRestriction.getViolation's two alone checks
+// (AttackRestriction.java:46-70, set by :82-96): a creature with "CARDNAME can
+// only attack alone." makes a declaration of more than one attacker illegal,
+// and one with "CARDNAME can't attack alone." (or "can't attack or block
+// alone.") makes a declaration of one attacker illegal. Both count the whole
+// declared attack, whoever else attacks.
+func (g *Game) attackAloneViolation(attackers []CardID) error {
+	for _, id := range attackers {
+		c := g.Card(id)
+		if len(attackers) > 1 && c.hasKeywordText("CARDNAME can only attack alone.") {
+			return illegal("CR 508.1c", "can only attack alone", id)
+		}
+		if len(attackers) <= 1 && (c.hasKeywordText("CARDNAME can't attack alone.") ||
+			c.hasKeywordText("CARDNAME can't attack or block alone.")) {
+			return illegal("CR 508.1c", "can't attack alone", id)
+		}
+	}
+	return nil
 }
 
 // eligibleAttackers is every creature the active player controls that CR

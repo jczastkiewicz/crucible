@@ -76,9 +76,11 @@ func paidMeasure(def string) (func(*Game, []CardID) int, bool) {
 	switch {
 	case strings.HasPrefix(def, "Amount"):
 		return func(_ *Game, cards []CardID) int { return len(cards) }, true
-	case strings.HasPrefix(def, "TapPowerValue"), strings.HasPrefix(def, "DifferentCardNames"),
+	case strings.HasPrefix(def, "TapPowerValue"),
 		def == "DifferentColorPair", strings.HasPrefix(def, "Valid"), strings.HasPrefix(def, "AllTypes"):
 		return nil, false
+	case strings.HasPrefix(def, "DifferentCardNames"):
+		return differentNamesCount, true
 	case def == "Colors":
 		return func(g *Game, cards []CardID) int {
 			var colors mana.Colors
@@ -127,6 +129,66 @@ func paidMeasure(def string) (func(*Game, []CardID) int, bool) {
 		}
 		return fold(values)
 	}, true
+}
+
+// differentNamesCount is CardLists.getDifferentNamesCount (CardLists.java:498-518):
+// the distinct names among cards. A card with no name counts for nothing; the
+// cards that have every non-legendary creature name (Spy Kit) are counted last,
+// only if they share a name with none already counted.
+func differentNamesCount(g *Game, cards []CardID) int {
+	var plain, spy []CardID
+	for _, id := range cards {
+		c := g.Card(id)
+		list := &plain
+		if c.HasNonLegendaryCreatureNames {
+			list = &spy
+		}
+		if c.Name() == "" && !c.HasNonLegendaryCreatureNames {
+			continue
+		}
+		dup := false
+		for _, kept := range *list {
+			if g.sharesNameWith(id, kept) {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			*list = append(*list, id)
+		}
+	}
+	for _, id := range spy {
+		dup := false
+		for _, kept := range plain {
+			if g.sharesNameWith(id, kept) {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			plain = append(plain, id)
+		}
+	}
+	return len(plain)
+}
+
+// sharesNameWith is Card.sharesNameWith(Card) (Card.java:5830-5851): two cards
+// that both have every non-legendary creature name share one; an empty name
+// shares nothing; a name that is some non-legendary creature's shares with a
+// card that has all of those names; otherwise equal names.
+func (g *Game) sharesNameWith(a, b CardID) bool {
+	ca, cb := g.Card(a), g.Card(b)
+	if ca.HasNonLegendaryCreatureNames && cb.HasNonLegendaryCreatureNames {
+		return true
+	}
+	name := ca.Name()
+	if name == "" {
+		return false
+	}
+	if cb.HasNonLegendaryCreatureNames && g.isNonLegendaryCreatureName(name) {
+		return true
+	}
+	return name == cb.Name()
 }
 
 // perCardMeasure is the per-card xCount handlePaid's own fallthrough calls

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Untap
+humanlife=20
+humangraveyard=Awakened Amalgam
+humanbattlefield=Forest;Forest;Island
+ailife=20

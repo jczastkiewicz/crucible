@@ -1,0 +1,13 @@
+# Layer 8 MayPlay$ with ReplaceGraveyard$ Exile: during human's turn Kess,
+# Dissident Mage lets them cast Divination from the graveyard, and the spell is
+# exiled instead of returning to the graveyard when it resolves (it still
+# draws two cards).
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+castspell human 1
+resolvestack

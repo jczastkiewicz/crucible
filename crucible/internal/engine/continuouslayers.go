@@ -111,6 +111,72 @@ func layerZoneList(v string) ([]ZoneType, bool) {
 	return zones, len(zones) > 0
 }
 
+// offZoneHostZones are the zones whose cards continuousStaticsAllZones walks
+// beyond traitHosts: the five a card's own static can function from. Command
+// is traitHosts' (effect cards, schemes); a plane, phenomenon or Vanguard
+// avatar there is not a host (68 real EffectZone$ Command lines, all of them
+// planar or Vanguard play); Sideboard and the rest hold no live card.
+var offZoneHostZones = [...]ZoneType{Hand, Library, Graveyard, Exile, Stack}
+
+// appendOffZoneStatics adds to out the Mode$ Continuous lines of every card
+// in an offZoneHostZones zone that function from where it sits
+// (staticFunctionsOffBattlefield), face 0 only: a card outside the
+// battlefield shows its front face. A spell is on the stack of its caster and
+// of the shared NoPlayer pool at once, so the shared pool is read only for
+// cards the per-player walk has not seen.
+func appendOffZoneStatics(g *Game, out []layerStatic) []layerStatic {
+	var stack []CardID
+	add := func(id CardID) {
+		c := g.Card(id)
+		if c.Def == nil {
+			return
+		}
+		face := &c.Def.Faces[0]
+		for si, s := range face.Statics {
+			if staticFunctionsOffBattlefield(c, s) {
+				out = append(out, layerStatic{host: id, def: c.Def, face: 0, index: si, s: s, amounts: face.Amounts})
+			}
+		}
+	}
+	for _, pid := range g.Players() {
+		for _, z := range offZoneHostZones {
+			for _, id := range g.Zone(z, pid).Cards() {
+				if z == Stack {
+					stack = append(stack, id)
+				}
+				add(id)
+			}
+		}
+	}
+	for _, id := range g.Zone(Stack, NoPlayer).Cards() {
+		if !slices.Contains(stack, id) {
+			add(id)
+		}
+	}
+	return out
+}
+
+// staticFunctionsOffBattlefield is StaticAbility.zonesCheck for a card that
+// is not on the battlefield: a characteristic-defining ability functions in
+// every zone (CR 604.3) except its ExcludeZone$ ones, and any other line only
+// in the EffectZone$ zones it names. A mode other than Continuous is not this
+// walk's (the trigger, replacement and cost-modification scans read
+// traitHosts).
+func staticFunctionsOffBattlefield(host *Card, s *compile.Ability) bool {
+	if !strings.EqualFold(s.Name, "Continuous") {
+		return false
+	}
+	if _, cda := s.Param("CharacteristicDefining"); cda {
+		if v, ok := s.Param("ExcludeZone"); ok {
+			if zones, ok := layerZoneList(v); !ok || slices.Contains(zones, host.Zone) {
+				return false
+			}
+		}
+		return true
+	}
+	return layerHostZoneActive(host, s)
+}
+
 // layerSVarChecks are StaticAbility.checkConditions' four CheckSVar blocks,
 // in the order Java evaluates them.
 var layerSVarChecks = [...][2]string{

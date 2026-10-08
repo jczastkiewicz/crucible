@@ -43,6 +43,10 @@ type Card struct {
 	// any time it would leave the stack it is exiled instead (CR 702.34a,
 	// Game.Move). Cleared when it leaves.
 	flashbackCast bool
+	// graveyardToExile marks a spell cast through a MayPlay$ grant with
+	// ReplaceGraveyard$ Exile: leaving the stack for a graveyard it is exiled
+	// instead. Cleared when it leaves the stack.
+	graveyardToExile bool
 	// castFrom is the zone the card was last cast from (castrecord.go).
 	castFrom ZoneType
 	// wasCast is Card.wasCast (castFrom != null): the card was cast and has not

@@ -1,0 +1,6 @@
+# CR 604.3 / 613.4a: Awakened Amalgam's power and toughness are the number of
+# differently named lands you control (Count$Valid Land.YouCtrl$DifferentCardNames,
+# CardLists.getDifferentNamesCount). Forest, Forest and Island are two names, so
+# it is 2/2 and the 2 damage already marked is lethal at the first
+# state-based-action check. The survives-... scenario is the mirror.
+startturn human

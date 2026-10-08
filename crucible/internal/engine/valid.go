@@ -636,6 +636,15 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.HasKeyword(rest)
 	}
 	if rest, ok := strings.CutPrefix(name, "hasKeyword"); ok {
+		// Card.hasKeyword(String) reads the hidden table first, whole lines
+		// ("CARDNAME count as Flame Burst."), by substring (Card.java:4995-5000),
+		// since the valid string's own "." split drops the line's final period;
+		// then the keyword list.
+		for _, line := range c.hiddenKeywords {
+			if strings.Contains(line, rest) {
+				return true
+			}
+		}
 		return c.HasKeyword(rest)
 	}
 	if base, ok := strings.CutSuffix(name, "Source"); ok {

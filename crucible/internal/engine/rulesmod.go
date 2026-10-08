@@ -172,8 +172,19 @@ type mayPlayGrant struct {
 	AltCost    mana.Cost
 	HasAltCost bool
 	AnyType    bool
-	Limit      int
-	LimitKey   mayPlayLimitKey
+	// AnyColor is MayPlayIgnoreColor$: mana of any type pays a colored part of
+	// the cost, a {C} part still needs colorless mana (AnyType wins when both
+	// are written, CardPlayOption.java:69-75). RaiseText is RaiseCost$, a cost
+	// string already checked to be one this port can pay, added on top of the
+	// cost (CostAdjustment.java:82-90).
+	AnyColor  bool
+	RaiseText string
+	// ReplaceExile is ReplaceGraveyard$ Exile: a spell cast through this grant
+	// is exiled instead of going from the stack to the graveyard
+	// (PlayEffect.addReplaceGraveyardEffect, MagicStack.java:463-464).
+	ReplaceExile bool
+	Limit        int
+	LimitKey     mayPlayLimitKey
 }
 
 // mayPlayLimitKey names one static ability for MayPlayLimit$'s per-turn count:

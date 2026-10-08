@@ -367,7 +367,8 @@
       "defined",
       "trigger",
       "animate",
-      "dependency"
+      "dependency",
+      "unlesscost"
     ],
     "dependency": ["id", "card", "game", "continuous", "continuouslayers", "layer"],
     "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone", "castspell"],

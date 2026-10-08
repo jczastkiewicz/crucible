@@ -724,6 +724,12 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 			kind, owner = Exile, c.Owner
 		}
 	}
+	if from == Stack && c.graveyardToExile {
+		c.graveyardToExile = false
+		if kind == Graveyard {
+			kind, owner = Exile, c.Owner
+		}
+	}
 	if (from == Stack && kind != Battlefield) || (from == Battlefield && kind != Battlefield) {
 		c.kicker, c.castX = 0, 0
 	}

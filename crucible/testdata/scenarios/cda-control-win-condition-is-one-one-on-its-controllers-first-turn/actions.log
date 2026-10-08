@@ -1,0 +1,5 @@
+# Count$YourTurns (AbilityUtils.java:2438): Control Win Condition's power and
+# toughness are the turns its controller has taken, counting the current one
+# from its start (Player.incrementTurn runs as the turn begins). On human's
+# first turn it is 1/1, so the 1 damage already on it is lethal.
+startturn human

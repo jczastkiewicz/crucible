@@ -16,9 +16,8 @@ import (
 // cdaCorpusFloor is how many of the real corpus's CDA power/toughness
 // dimensions (a SetPower$/SetToughness$ on a CharacteristicDefining$ line of a
 // card whose printed value is not a plain number) resolve on an otherwise
-// empty battlefield. It only ever goes up; port-log/game-state/
-// layer7a-cda-amounts.md lists what the remainder needs.
-const cdaCorpusFloor = 363
+// empty battlefield. It only ever goes up; every dimension resolves now.
+const cdaCorpusFloor = 374
 
 // Every real CDA creature, alone on the battlefield: counts how many of its
 // "*" dimensions Layer 7a resolves, so a regression in any amount head shows
@@ -383,11 +382,9 @@ func TestAmountUnresolvableShapesStaySkipped(t *testing.T) {
 		static string
 	}{
 		{name: "Mod by zero", body: "Number$7/Mod.0"},
-		{name: "Party", body: "Count$Party"},
-		{name: "YourTurns", body: "Count$YourTurns"},
 		{name: "context prefix", body: "CastSA>Count$YourLifeTotal"},
-		{name: "ExiledWith", body: "ExiledWith$CardPower"},
-		{name: "DifferentCardNames", body: "Count$Valid Land.YouCtrl$DifferentCardNames"},
+		{name: "Remembered LKI", body: "Remembered$CardManaCostLKI"},
+		{name: "remembered players, other property", body: "PlayerCountRemembered$CardsInHand"},
 		{name: "Greatest CardPower", body: "Count$Valid Creature$GreatestCardPower"},
 		{name: "colorless devotion", body: "Count$Devotion.Colorless"},
 		{

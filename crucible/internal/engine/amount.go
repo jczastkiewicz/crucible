@@ -131,6 +131,12 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 		return amt.Value, amt.Numeric
 	case amt.Head == "SVar":
 		return namedAmount(g, amounts, sourceController, source, amt.Body, depth)
+	case amt.Head == "ExiledWith":
+		return exiledWithValue(g, source, amt.Body)
+	case amt.Head == "Imprinted":
+		return imprintedValue(g, sourceController, source, amt.Body)
+	case amt.Head == "Remembered":
+		return rememberedValue(g, source, amt.Body)
 	case contextHeads[amt.Head]:
 		return g.contextValue(source, amt.Head, amt.Body)
 	case amt.Head == "TriggerCount":
@@ -144,7 +150,7 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 		if amt.Op != nil {
 			return 0, false
 		}
-		return playerCountValue(g, sourceController, strings.TrimPrefix(amt.Head, "PlayerCount"), amt.Body)
+		return playerCountValue(g, sourceController, source, strings.TrimPrefix(amt.Head, "PlayerCount"), amt.Body)
 	}
 	return 0, false
 }

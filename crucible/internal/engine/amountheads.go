@@ -14,12 +14,15 @@ package engine
 
 import (
 	"math"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // countValue is xCount for a Count$ body already read at load (expr.Count):
@@ -159,6 +162,12 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			}
 		}
 		return n, true
+	case "Party":
+		return partyCount(g, sourceController), true
+	case "YourTurns":
+		// Count$YourTurns (AbilityUtils.java:2438): Player.getTurn() of the
+		// host's controller, the turns it has taken, this one included.
+		return g.Player(sourceController).Turn, true
 	case "YouDrewThisTurn":
 		return g.Player(sourceController).CardsDrawnThisTurn, true
 	case "NumInAllHands":
@@ -367,6 +376,190 @@ func devotionMod(g *Game, pid PlayerID) (int, bool) {
 	return mod, true
 }
 
+// javaBucket is the bucket Java's HashMap<String, _> with 16 buckets (Guava's
+// MultimapBuilder.hashKeys(), 8 expected keys) puts key in: String.hashCode
+// spread by h ^ (h >>> 16). Count$Party's greedy assignment visits the
+// multi-typed groups in this order when their sizes tie (AbilityUtils.java:2583,
+// 2628), so it is reproduced rather than replaced by a fixed one (PORT-7).
+func javaBucket(key string) uint32 {
+	var h int32
+	for _, r := range key {
+		h = 31*h + r
+	}
+	u := uint32(h)
+	return (u ^ u>>16) & 15
+}
+
+// partyCount is xCount's Count$Party (AbilityUtils.java:2580-2640): the size
+// of the largest party among pid's creatures, at most four, one creature per
+// Cleric, Rogue, Warrior and Wizard. A one-type creature fills its type, a
+// four-type creature (a changeling) is a wildcard, and creatures of two or
+// three party types are assigned greedily, smallest group first, in the
+// order Java's hashed multimap yields the groups.
+func partyCount(g *Game, pid PlayerID) int {
+	chosen := map[string]bool{}
+	wildcard := 0
+	groups := map[string][]CardID{}
+	for _, id := range battlefieldControlledBy(g, pid) {
+		t := g.Card(id).Type()
+		if !t.Has(cardtype.Creature) {
+			continue
+		}
+		var mine []string
+		for _, name := range partyTypes {
+			if t.HasSubtype(name) {
+				mine = append(mine, name)
+			}
+		}
+		switch len(mine) {
+		case 4:
+			wildcard++
+		case 1:
+			chosen[mine[0]] = true
+		case 2, 3:
+			for _, name := range mine {
+				groups[name] = append(groups[name], id)
+			}
+		}
+		if len(chosen)+wildcard >= 4 {
+			break
+		}
+	}
+	if len(chosen)+wildcard < 4 {
+		var keys []string
+		for _, name := range partyTypes {
+			if _, ok := groups[name]; ok && !chosen[name] {
+				keys = append(keys, name)
+			}
+		}
+		// Hash order first, then the stable sort by group size.
+		sort.SliceStable(keys, func(i, j int) bool { return javaBucket(keys[i]) < javaBucket(keys[j]) })
+		sort.SliceStable(keys, func(i, j int) bool { return len(groups[keys[i]]) < len(groups[keys[j]]) })
+		var taken []CardID
+		for _, key := range keys {
+			var rest []CardID
+			for _, id := range groups[key] {
+				if !slices.Contains(taken, id) {
+					rest = append(rest, id)
+				}
+			}
+			if len(rest) > 0 {
+				chosen[key] = true
+				taken = append(taken, rest[0])
+			}
+		}
+	}
+	return min(len(chosen)+wildcard, 4)
+}
+
+// exiledWithValue is calculateAmount's `ExiledWith$<property>` head
+// (AbilityUtils.java:502-503): handlePaid over source's own exiled cards
+// (Card.getExiledCards, the cards markExiledWith listed on this host object),
+// tokens excluded (Card.retainPaidList). An empty list is 0 whatever the
+// property. CardPower/CardToughness sum each card's net value (handlePaid's
+// generic tail); the exiled cards are not being rebuilt by Layer 7 the way
+// another permanent is, so the value is safe to read here.
+func exiledWithValue(g *Game, source CardID, property string) (int, bool) {
+	if source == NoCard {
+		return 0, false
+	}
+	stamp, _ := g.hostObjectStamp(source)
+	var cards []CardID
+	for i := 1; i < len(g.cards); i++ {
+		c := &g.cards[i]
+		ew := c.exiledWith
+		if ew.host == source && ew.listed && ew.stamp == stamp && !c.IsToken {
+			cards = append(cards, c.ID)
+		}
+	}
+	return measureListed(g, cards, property)
+}
+
+// rememberedValue is calculateAmount's `Remembered$<property>` head
+// (AbilityUtils.java:512-536): handlePaid over the cards source remembers.
+// A remembered player is skipped. The LKI forms read last-known copies and are
+// not resolved.
+func rememberedValue(g *Game, source CardID, property string) (int, bool) {
+	if source == NoCard || strings.Contains(property, "LKI") {
+		return 0, false
+	}
+	var cards []CardID
+	for _, e := range g.Card(source).Memory.Remembered() {
+		if id, ok := e.AsCard(); ok {
+			cards = append(cards, id)
+		}
+	}
+	return measureListed(g, cards, property)
+}
+
+// imprintedValue is calculateAmount's `Imprinted$<property>` head: handlePaid
+// over the cards source imprinted. `Valid <spec>` (handlePaid's own Valid
+// branch) counts those matching the spec; any other property is measured as
+// for an exiled list.
+func imprintedValue(g *Game, controller PlayerID, source CardID, property string) (int, bool) {
+	if source == NoCard {
+		return 0, false
+	}
+	imprinted := g.Card(source).Memory.Imprinted()
+	spec, isValid := strings.CutPrefix(property, "Valid ")
+	if !isValid {
+		return measureListed(g, imprinted, property)
+	}
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, id := range imprinted {
+		if Matches(g, g.Card(id), parsed, controller, source) {
+			n++
+		}
+	}
+	return n, true
+}
+
+// rememberedPlayersLife is PlayerCountRemembered$LifeTotal: the sum of the
+// life totals of the players source remembers (playerXCount's addPlayer takes
+// each remembered Player directly, then playerXProperty sums LifeTotal). Any
+// other property is unresolved.
+func rememberedPlayersLife(g *Game, source CardID, property string) (int, bool) {
+	if source == NoCard || property != "LifeTotal" {
+		return 0, false
+	}
+	total := 0
+	for _, e := range g.Card(source).Memory.Remembered() {
+		if pid, ok := e.AsPlayer(); ok {
+			total += g.Player(pid).Life
+		}
+	}
+	return total, true
+}
+
+// measureListed is handlePaid over an already collected list: 0 for an empty
+// one, else paidMeasure's property, with CardPower and CardToughness (the
+// generic tail's xCount per card) read as the sum of the cards' net values.
+func measureListed(g *Game, cards []CardID, property string) (int, bool) {
+	if len(cards) == 0 {
+		return 0, true
+	}
+	if property == "CardPower" || property == "CardToughness" {
+		total := 0
+		for _, id := range cards {
+			v, ok := g.Card(id).Power()
+			if property == "CardToughness" {
+				v, ok = g.Card(id).Toughness()
+			}
+			if !ok {
+				return 0, false
+			}
+			total += v
+		}
+		return total, true
+	}
+	measure, ok := paidMeasure(property)
+	if !ok {
+		return 0, false
+	}
+	return measure(g, cards), true
+}
+
 // playerCountValue is calculateAmount's own PlayerCount<hType>$ dispatch
 // into playerXCount, for the one shape a real CDA writes (Adamaro, First to
 // Desire's `PlayerCountOpponents$HighestCardsInHand`) and its immediate
@@ -376,7 +569,10 @@ func devotionMod(g *Game, pid PlayerID) (int, bool) {
 // two names before any other branch). Highest starts from 0 and Lowest from
 // 99999, Java's own seeds; no players at all is 0. Players who have left the
 // game are not counted (Game.getPlayers holds only players still in it).
-func playerCountValue(g *Game, sourceController PlayerID, hType, body string) (int, bool) {
+func playerCountValue(g *Game, sourceController PlayerID, source CardID, hType, body string) (int, bool) {
+	if hType == "Remembered" {
+		return rememberedPlayersLife(g, source, body)
+	}
 	var players []PlayerID
 	for _, pid := range g.Players() {
 		if g.Player(pid).Lost {
@@ -425,6 +621,10 @@ func playerCountValue(g *Game, sourceController PlayerID, hType, body string) (i
 		value = func(pid PlayerID) int { return len(g.Zone(Hand, pid).Cards()) }
 	case "LifeTotal":
 		value = func(pid PlayerID) int { return g.Player(pid).Life }
+	case "CardsInGraveyard":
+		value = func(pid PlayerID) int { return len(g.Zone(Graveyard, pid).Cards()) }
+	case "Counters.Poison":
+		value = func(pid PlayerID) int { return g.Player(pid).Counters.Count(Poison) }
 	default:
 		return 0, false
 	}

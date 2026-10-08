@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humangraveyard=Gravecrawler|Id:1
+humanbattlefield=Swamp|Id:2;Grizzly Bears|Id:3

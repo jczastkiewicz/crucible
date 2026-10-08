@@ -47,6 +47,7 @@ func (g *Game) StartTurn(active PlayerID, controller PlayerController) {
 	g.turn = 1
 	g.activePlayer = active
 	g.activePhase = Untap
+	g.Player(active).Turn++
 	g.sink.Emit(Event{Kind: TurnBegan, Active: active, Turn: uint16(g.turn)})
 	g.beginPhase(controller)
 }
@@ -101,6 +102,9 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.extraPhases = [numPhaseTypes][]PhaseType{}
 			g.combatsThisTurn = 0
 			g.activePlayer = g.nextActivePlayer(controller)
+			// PhaseHandler.java:188: Player.incrementTurn, once the turn's active
+			// player is known (Count$YourTurns counts this turn from its start).
+			g.Player(g.activePlayer).Turn++
 			g.endDetains(g.activePlayer)
 			g.endGoads(g.activePlayer)
 			// PhaseHandler.java:515-518: the cleanup Phase's until lists,

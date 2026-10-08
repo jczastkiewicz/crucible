@@ -1,0 +1,9 @@
+# Layer 8 MayPlay$ from a host that is not on the battlefield: Gravecrawler's
+# own static (EffectZone$ Graveyard, IsPresent$ Zombie.YouCtrl) functions while
+# it sits in its owner's graveyard. human controls a Zombie (Walking Corpse),
+# so the grant is live and the cast goes through.
+startturn human
+advance 3
+tapformana human 2 B
+castspell human 1
+resolvestack

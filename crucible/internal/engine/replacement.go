@@ -603,6 +603,13 @@ var replacementZones = [...]ZoneType{Battlefield, Command}
 // StaticAbilityUntapOtherPlayer, is not built, no card grants that
 // permission yet).
 func (g *Game) untapBlocked(card *Card) bool {
+	// Card.canUntap (Card.java:4699): the hidden keyword AddHiddenKeyword$
+	// grants, printed or hidden. The grant is rebuilt from the live static each
+	// pass, so it holds exactly as long as the static (an Effect card exiled by
+	// its own untap-step trigger, or an Aura that stays).
+	if card.hasKeywordText("This card doesn't untap during your next untap step.") {
+		return true
+	}
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {

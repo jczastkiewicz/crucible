@@ -26,7 +26,13 @@ type castOption struct {
 	hasAlt      bool
 	alt         mana.Cost
 	anyType     bool
-	flash       bool
+	anyColor    bool
+	// raise is the grant's RaiseCost$ text, "" for none.
+	raise string
+	// replaceExile exiles the spell instead of putting it into a graveyard
+	// (ReplaceGraveyard$ Exile).
+	replaceExile bool
+	flash        bool
 	// sacAtCleanup is MayFlashSac's own way: cast with flash where a sorcery
 	// could not be cast, then sacrifice the permanent at the next cleanup step.
 	sacAtCleanup bool
@@ -38,7 +44,7 @@ type castOption struct {
 // merge: a grant that only adds flash leaves nothing to pick.
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
-		o.sacAtCleanup == p.sacAtCleanup
+		o.anyColor == p.anyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -56,7 +62,9 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 			continue
 		}
 		zonePermission = zonePermission || gr.ZonePermission
-		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash}
+		o := castOption{withoutMana: gr.WithoutManaCost, hasAlt: gr.HasAltCost, alt: gr.AltCost, anyType: gr.AnyType, flash: gr.WithFlash,
+			anyColor: gr.AnyColor && !gr.AnyType, raise: gr.RaiseText,
+			replaceExile: gr.ReplaceExile}
 		if gr.Limit > 0 {
 			o.limits = []mayPlayLimitKey{gr.LimitKey}
 		}
@@ -108,17 +116,43 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 
 // describe is the option's label, what ChooseOption shows.
 func (o castOption) describe(name string) string {
+	base := "Cast " + name
 	switch {
 	case o.sacAtCleanup:
 		return "Cast " + name + " with flash, sacrificing it at the next cleanup step"
 	case o.withoutMana:
-		return "Cast " + name + " without paying its mana cost"
+		base = "Cast " + name + " without paying its mana cost"
 	case o.hasAlt:
-		return "Cast " + name + " for " + o.alt.String()
+		base = "Cast " + name + " for " + o.alt.String()
 	case o.anyType:
-		return "Cast " + name + " spending mana of any type"
+		base = "Cast " + name + " spending mana of any type"
+	case o.anyColor:
+		base = "Cast " + name + " spending mana as though it were any color"
 	}
-	return "Cast " + name
+	if o.raise != "" {
+		base += " and paying " + o.raise
+	}
+	if o.replaceExile {
+		base += ", exiling it instead of putting it into a graveyard"
+	}
+	return base
+}
+
+// anyColorCost is cost with every single-mana colored or hybrid requirement
+// turned into generic: mana of any type may pay a colored part
+// (MayPlayIgnoreColor$, "AnyType->AnyColor"). A {C} part keeps needing
+// colorless mana, and a snow, X or two-generic hybrid part is left as written.
+func anyColorCost(total mana.Cost) mana.Cost {
+	generic := total.Generic()
+	var kept []mana.Shard
+	for _, s := range total.Shards() {
+		if s.CMC() == 1 && !s.IsX() && !s.IsSnow() && s != mana.ShardC {
+			generic++
+			continue
+		}
+		kept = append(kept, s)
+	}
+	return mana.FromShards(kept, generic)
 }
 
 // chooseCastOption is the option pid casts by: the only one, or the one the

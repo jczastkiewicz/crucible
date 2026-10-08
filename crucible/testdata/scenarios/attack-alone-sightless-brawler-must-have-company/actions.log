@@ -1,0 +1,9 @@
+# AttackRestriction.java:94-96: Sightless Brawler ("CARDNAME can't attack
+# alone.") makes a declaration with it as the only attacker illegal; it is
+# rejected with nothing changed. The Devoted Hero may attack on its own.
+startturn human
+advance 5
+queue attackers 1
+expecterror alone declareattackers
+queue attackers 2
+declareattackers

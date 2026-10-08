@@ -153,9 +153,24 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		if way, ok = g.chooseCastOption(controller, pid, card, timed); !ok {
 			return false
 		}
-		opts.withoutManaCost, opts.anyType = way.withoutMana, way.anyType
+		opts.withoutManaCost, opts.anyType, opts.anyColor = way.withoutMana, way.anyType, way.anyColor
 		if way.hasAlt {
 			opts.altCost, opts.hasAltCost = way.alt, true
+		}
+		if way.raise != "" {
+			// MayPlay's RaiseCost$ was checked payable-in-shape when the grant was
+			// made (applyOneContinuousMayPlay); its mana joins the cost, the rest
+			// is the way's extra cost.
+			uc, ok := parseUnlessCost(way.raise)
+			if !ok {
+				return false
+			}
+			if uc.hasMana {
+				opts.raiseMana, opts.hasRaiseMana = uc.mana, true
+			}
+			if len(uc.parsed.Parts) > 0 {
+				opts.extra, opts.hasExtra = uc, true
+			}
 		}
 	}
 	if c.Zone == Exile && c.IsFaceDown() {
@@ -197,6 +212,9 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		g.Card(card).flashbackCast = true
 	}
 	g.noteMayPlayUse(way)
+	if way.replaceExile {
+		g.Card(card).graveyardToExile = true
+	}
 	if way.sacAtCleanup {
 		g.sacrificeAtCleanup(pid, card)
 	}
@@ -358,6 +376,13 @@ type castOpts struct {
 	flashNeedsInfo bool
 	// anyType is MayPlayIgnoreType$: mana of any type pays the cost.
 	anyType bool
+	// anyColor is MayPlayIgnoreColor$: mana of any type pays a colored part of
+	// the cost, but a {C} part still needs colorless mana.
+	anyColor bool
+	// raiseMana, when hasRaiseMana, is the mana part of MayPlay's RaiseCost$,
+	// paid on top of the cost (its other parts ride extra).
+	raiseMana    mana.Cost
+	hasRaiseMana bool
 	// fromKeyword marks a cast from a graveyard or exile through a keyword's
 	// own cost (Flashback, Foretell, Beam me up), exiled as it leaves the stack.
 	fromKeyword bool
@@ -456,9 +481,15 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) 
 	if opts.hasFlashCost {
 		base = withExtraMana(base, opts.flashCost)
 	}
+	if opts.hasRaiseMana {
+		base = withExtraMana(base, opts.raiseMana)
+	}
 	total, ok := g.spellCost(pid, c.ID, base)
-	if opts.anyType {
+	switch {
+	case opts.anyType:
 		total = anyTypeCost(total)
+	case opts.anyColor:
+		total = anyColorCost(total)
 	}
 	return total, ok
 }
@@ -468,7 +499,7 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts) (mana.Cost, bool) 
 // (Repeal's cmcEQX). payManaCostX takes the announced value instead of asking
 // again. False when the caster declines to announce one.
 func (g *Game) announceX(pid PlayerID, c *Card, controller PlayerController, opts castOpts) bool {
-	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost {
+	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost && !opts.hasRaiseMana {
 		return true
 	}
 	total, ok := g.castCost(pid, c, opts)
@@ -492,7 +523,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	// The X is announced here, so from the return on Count$xPaid reads it.
 	defer func() { g.castPending = NoCard }()
 	c.castManaSpent = 0
-	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost {
+	if opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost && !opts.hasRaiseMana {
 		return xAnnounced{}, true
 	}
 	total, ok := g.castCost(pid, c, opts)

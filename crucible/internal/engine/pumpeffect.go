@@ -40,8 +40,7 @@ import (
 // SharedRestrictions$ (2/2) -- CardFactoryUtil.sharedKeywords' own zone scan,
 // a further mechanic; AtEOT$ (9) -- registerDelayedTrigger, a new
 // trigger this effect would silently fail to create; DefinedLandwalk$/
-// ForgetObjects$/RememberObjects$/RememberPumped$/LeaveBattlefield$/
-// ImprintCards$/ForgetImprinted$ (0/0/0/0/0/1/0) -- each its own further
+// RememberPumped$/LeaveBattlefield$ (0/0) -- each its own further
 // tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/
 // NoteNumber$ (0/0/0/0) -- Player.noteNumberForName's own tracking, nothing
 // downstream reads yet;
@@ -80,8 +79,30 @@ var pumpUnresolvedParams = [...]string{
 	"CanBlockAmount", "CanBlockAny", "KWChoice", "RandomKeyword", "RandomKWNum",
 	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions", "AtEOT",
 	"DefinedLandwalk", "RememberPumped", "LeaveBattlefield",
-	"ImprintCards", "ForgetImprinted", "NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
+	"NoteCards", "NoteCardsFor", "ClearNotedCardsFor",
 	"NoteNumber", "Optional", "OptionQuestion", "Radiance",
+}
+
+// pumpImprint is PumpEffect.java:431-437: ImprintCards$ adds the defined
+// cards to the host's imprinted list and ForgetImprinted$ removes them
+// (Mystic Reflection's DBImprint, which counts what its replacement copied).
+func pumpImprint(a *Ability, host *Card, key string, forget bool) error {
+	spec, ok := a.Params.Param(key)
+	if !ok {
+		return nil
+	}
+	cards, err := definedCards(host, spec, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: Pump: %s$: %w", key, err)
+	}
+	for _, id := range cards {
+		if forget {
+			host.Memory.forgetImprinted(id)
+		} else {
+			host.Memory.Imprint(id)
+		}
+	}
+	return nil
 }
 
 // pumpEffect resolves SP$/DB$/AB$ Pump on its Defined$ cards (Self by
@@ -153,6 +174,13 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return err
 	}
 	if err := pumpRememberObjects(g, a, source, "ForgetObjects", true); err != nil {
+		return err
+	}
+
+	if err := pumpImprint(a, source, "ImprintCards", false); err != nil {
+		return err
+	}
+	if err := pumpImprint(a, source, "ForgetImprinted", true); err != nil {
 		return err
 	}
 

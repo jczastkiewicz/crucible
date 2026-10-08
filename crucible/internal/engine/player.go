@@ -37,6 +37,12 @@ type Player struct {
 	// Ascend is on the battlefield (assignBlessings, action.go). Never lost,
 	// except by a RestartGame (resetPlayerForRestart).
 	Blessing bool
+	// EnduringStory is Player.hasEnduringStory: set once the player controls
+	// three or more historic permanents while a permanent with Storied is on
+	// the battlefield (assignEnduringStories, action.go). RestartGameEffect
+	// does not clear it, as Java's (RestartGameEffect.java:73 resets only the
+	// blessing).
+	EnduringStory bool
 
 	// Speed is Player.speed (CR 702.179): 0 until "Start your engines!"
 	// gives the player one, then 1-4, changed by ChangeSpeed.

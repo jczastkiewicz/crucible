@@ -17,17 +17,17 @@ import (
 )
 
 // enterBattlefieldReplacements runs the replacements of moved's entry onto
-// the battlefield from origin, in ReplacementHandler's layer order: the
-// Copy layer first (applyCopyReplacements), then "enters tapped"
+// the battlefield from origin that need the permanent to be there: the
+// counters it enters with, a Saga's lore counter and "enters tapped"
 // (checkMovedReplacement, an Other-layer shape). Every site that puts a
 // card onto the battlefield calls it right after Game.Move and before the
-// ETB triggers: CR 614.12 has an entering permanent's replacements look at
-// it as it would exist on the battlefield, so a Vesuva entering as a copy
-// of a tapland enters tapped, and a Clone entering as a copy of a creature
+// ETB triggers. The Copy layer ("enters as a copy", applyCopyReplacements)
+// already ran before the move, inside entryReplaced, so the card arrives
+// with its copied definition (CR 614.12): a Vesuva entering as a copy of a
+// tapland enters tapped here, and a Clone entering as a copy of a creature
 // with an ETB trigger has that trigger when checkETBTriggers looks.
 func (g *Game) enterBattlefieldReplacements(controller PlayerController, moved CardID, origin ZoneType) {
 	g.refreshLayers()
-	g.applyCopyReplacements(controller, moved, origin)
 	g.applyEnterCounters(controller, moved, origin)
 	g.applySagaCounter(controller, moved)
 	g.checkMovedReplacement(controller, moved, origin)
@@ -65,11 +65,19 @@ type copyReplacement struct {
 // because the set of replacements a game can reach is finite and none
 // applies twice.
 //
+// Several candidates at once are CR 616.1's choice: the player the card
+// enters under (entering, the affected player) picks which applies first
+// through PlayerController.ChooseReplacementEffect (chooseReplacement, the
+// same hook the Other-layer walks use), and the rest are gathered again
+// against what the first left of the card (CR 616.1f). The loop is this
+// file's own and not runReplacements: a copy's own replacement is a fresh
+// one for every definition it lands on (gen below), and a "you may" copy
+// asks through ConfirmEffect.
+//
 // Anything this port cannot resolve records a pending error (ADR-0020
-// decision 4, GO-7) and stops before acting: several candidates at once,
-// whose order CR 616.1 lets the affected player choose (no PlayerController
-// decision for that exists yet); an unported param or ReplaceWith$ shape.
-func (g *Game) applyCopyReplacements(controller PlayerController, moved CardID, origin ZoneType) {
+// decision 4, GO-7) and stops before acting: an unported param or
+// ReplaceWith$ shape.
+func (g *Game) applyCopyReplacements(controller PlayerController, moved CardID, origin ZoneType, entering PlayerID) {
 	var applied []copyReplacement
 	for {
 		cands, err := g.copyReplacementCandidates(moved, origin, applied)
@@ -80,13 +88,14 @@ func (g *Game) applyCopyReplacements(controller PlayerController, moved CardID, 
 		if len(cands) == 0 {
 			return
 		}
-		if len(cands) > 1 {
-			g.recordPendingError(fmt.Errorf(
-				"engine: %d copy replacements apply to %q entering the battlefield: CR 616.1's choice among them not resolvable yet",
-				len(cands), g.Card(moved).Def.Name))
-			return
-		}
 		c := cands[0]
+		if len(cands) > 1 {
+			opts := make([]replacementCandidate, len(cands))
+			for i, cand := range cands {
+				opts[i] = replacementCandidate{host: g.Card(cand.host), rule: cand.r}
+			}
+			c = cands[g.chooseReplacement(controller, entering, opts)]
+		}
 		applied = append(applied, c)
 		if err := g.runCopyReplacement(controller, moved, c); err != nil {
 			g.recordPendingError(err)
@@ -225,12 +234,6 @@ func copyReplacementResolvable(h *Card, r *compile.Ability) error {
 			return fmt.Errorf("engine: %q: copy replacement param %s$ not resolvable yet", h.Def.Name, p.Key)
 		}
 	}
-	if h.IsEffect {
-		// Mystic Reflection: "the next time one or more creatures enter",
-		// a batch this port's one-at-a-time entries cannot tell apart, and
-		// an effect card whose own ChangesZoneAll exile ends it.
-		return fmt.Errorf("engine: %q: a copy replacement on an effect card not resolvable yet", h.Def.Name)
-	}
 	var with *compile.Ability
 	for _, sub := range r.Subs {
 		if strings.EqualFold(sub.Key, "ReplaceWith") {
@@ -247,17 +250,10 @@ func copyReplacementResolvable(h *Card, r *compile.Ability) error {
 		if _, ok := a.Param("ValidTgts"); ok {
 			return fmt.Errorf("engine: %q: copy replacement ability %s with ValidTgts$ not resolvable yet", h.Def.Name, a.Name)
 		}
-		if _, ok := a.Param("ReplacementEffects"); ok && a.Name == "Effect" {
-			// Spark Double, Moritte of the Frost: an effect whose own
-			// replacement adds counters to this same entry, which in this
-			// port has already happened by the time the effect exists.
-			return fmt.Errorf("engine: %q: an Effect replacing the entry it is part of not resolvable yet", h.Def.Name)
-		}
-		if _, ok := a.Param("ETB"); ok && a != with {
-			// Altered Ego, Undercover Operative, Dominion Saboteur:
-			// counters placed as part of the entry (PutCounter's ETB$),
-			// which PutCounter refuses -- refused here instead, before the
-			// copy applies rather than after.
+		if _, ok := a.Param("ETB"); ok && a.Name != "PutCounter" {
+			// Only PutCounter puts something into the entry (putEnterCounters);
+			// any other API's ETB$ means a counter table or a tapped entry this
+			// chain has no place for, refused before the copy applies.
 			return fmt.Errorf("engine: %q: copy replacement sub-ability %s with ETB$ not resolvable yet", h.Def.Name, a.Name)
 		}
 	}

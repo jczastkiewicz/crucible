@@ -842,6 +842,10 @@ func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		g.unlockDoor(controller, a.Source, a.Controller, door)
 	}
 	g.checkETBTriggers(controller, a.Source, origin)
+	// A lone entry is a batch of one for Mode$ ChangesZoneAll (GameAction's
+	// moveToPlay ends in table.triggerChangesZoneAll): Mystic Reflection's
+	// effect ends here, once the one card entered as its copy.
+	g.checkChangesZoneAllTriggers(controller, []CardID{a.Source}, origin, Battlefield)
 	return nil
 }
 
@@ -878,6 +882,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	}
 	g.enterBattlefieldReplacements(controller, a.Source, origin)
 	g.checkETBTriggers(controller, a.Source, origin)
+	g.checkChangesZoneAllTriggers(controller, []CardID{a.Source}, origin, Battlefield)
 	return nil
 }
 

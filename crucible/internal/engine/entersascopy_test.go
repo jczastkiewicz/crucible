@@ -236,16 +236,6 @@ func TestEntersAsCopyRejectsWhatItCannotRun(t *testing.T) {
 		want  string
 	}{
 		{
-			name: "two copy replacements at once need CR 616.1's choice",
-			setup: func(t *testing.T, g *engine.Game, p engine.PlayerID) *compile.Card {
-				g.NewCard(copyTestDef(t, "Test Essence", "Creature Elf", "6", "6",
-					"K:ETBReplacement:Copy:EssenceClone:Mandatory:Battlefield:Creature.Other+YouCtrl",
-					"SVar:EssenceClone:DB$ Clone | Defined$ Self | CloneTarget$ ReplacedCard"), p, engine.Battlefield)
-				return testCloneDef(t, "Test Clone", "Creature.Other")
-			},
-			want: "CR 616.1",
-		},
-		{
 			name: "a ReplaceWith$ whose effect is not ported",
 			setup: func(t *testing.T, _ *engine.Game, _ engine.PlayerID) *compile.Card {
 				return copyTestDef(t, "Test Mimeo", "Creature Shapeshifter", "0", "0", "Cost:G",
@@ -255,22 +245,12 @@ func TestEntersAsCopyRejectsWhatItCannotRun(t *testing.T) {
 			want: "copy replacement",
 		},
 		{
-			name: "an Effect replacing the same entry",
+			name: "an ETB$ on an API that puts nothing into the entry",
 			setup: func(t *testing.T, _ *engine.Game, _ engine.PlayerID) *compile.Card {
-				return testCloneDef(t, "Test Spark", "Creature.Other | SubAbility$ DBEffect",
-					"SVar:DBEffect:DB$ Effect | ReplacementEffects$ ETBCounter",
-					"SVar:ETBCounter:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ DBCounter | Description$ x",
-					"SVar:DBCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True")
+				return testCloneDef(t, "Test Ego", "Creature.Other | SubAbility$ DBTap",
+					"SVar:DBTap:DB$ Tap | Defined$ Self | ETB$ True")
 			},
-			want: "an Effect replacing the entry",
-		},
-		{
-			name: "counters placed as part of the entry (Altered Ego)",
-			setup: func(t *testing.T, _ *engine.Game, _ engine.PlayerID) *compile.Card {
-				return testCloneDef(t, "Test Ego", "Creature.Other | SubAbility$ DBAddCounter",
-					"SVar:DBAddCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | ETB$ True | CounterNum$ 2")
-			},
-			want: "PutCounter with ETB$ not resolvable yet",
+			want: "Tap with ETB$ not resolvable yet",
 		},
 		{
 			name: "a CheckSVar$ amount that does not resolve (Protean Raider)",

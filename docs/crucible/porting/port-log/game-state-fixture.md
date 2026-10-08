@@ -146,6 +146,7 @@ queue damage <b>=<n>[,...]    ScriptedController.QueueDamageAssignment, blocker=
 queue discard <id>[,...]      ScriptedController.QueueDiscard, ids from Loaded.CardByFixtureID
 queue cardchoice <id>[,...]|none  ScriptedController.QueueCardChoice, an effect's ChooseCardsForEffect pick (Clone's Choices$, among others), ids from Loaded.CardByFixtureID; none is an empty pick (a declined Optional$ Discard)
 queue option <n>              ScriptedController.QueueOption, ChooseOption's index into the options offered (a type from a list, a "choose one")
+queue cardorder <id>[,...]    ScriptedController.QueueCardOrder, the order cards moving into one zone together go in (CR 613.7m, OrderCardsForZone)
 queue abilitychoice <i>[,...]  ScriptedController.QueueAbilityChoice, ChooseAbilitiesForEffect's 0-based branches (GenericChoice's pick)
 queue colorchoice <color>     ScriptedController.QueueColorChoice, ChooseColors' pick (Sanctuary Blade's color), a bare color letter
 queue playerchoice <p>        ScriptedController.QueuePlayerChoice, ChoosePlayer's pick (Captive Audience's opponent), a seated player's name

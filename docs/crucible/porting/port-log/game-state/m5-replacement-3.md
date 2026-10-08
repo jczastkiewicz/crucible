@@ -37,9 +37,8 @@ in `Game.replacing` for the length of the chain, which is `hasRun`.
 - `wasCast` and `CastSa Spell.ManaSpent <op><n>` valid properties: `Card.wasCast` is set when a cast is announced and
   cleared on every move except stack to battlefield (CR 400.7), `castManaSpent` is the shards, generic and X paid.
 
-Known gap: the Copy layer (`enterBattlefieldReplacements`, "enters as a copy") still runs after the move. Java runs Copy
-before Other, so a Clone entering under Containment Priest is exiled here before it can copy anything, where Java
-applies the copy first and then exiles the copy.
+Layer order is Control, Copy, Other, all before the move: a Clone entering under Containment Priest copies first and is
+exiled as the copy ([`layers-n-copy.md`](layers-n-copy.md#the-copy-layer-runs-before-the-move)).
 
 Fixture verbs added: `queue cardchoice none` (an empty pick), `queue playerchoice <p>`, `queue colorchoice <c>`,
 `queue option <n>`.

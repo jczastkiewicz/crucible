@@ -54,13 +54,15 @@ fails on; they belong to whoever ports that layer. `ast.golden` changes for exac
 
 ### Engine: the Copy layer before every other replacement
 
-`enterBattlefieldReplacements` replaces the direct `checkMovedReplacement` call at every battlefield-entry site
-(`permanentEffect`, `attachEffect`, `playLandNow`, `moveByEffect`), in `ReplacementHandler.run`'s layer order:
+`entryReplaced` runs the Copy layer at every battlefield-entry site (`permanentEffect`, `attachEffect`, `playLandNow`,
+`moveByEffect`) before `Game.Move`, between the Control and Other layers
+([`layers-n-copy.md`](layers-n-copy.md#the-copy-layer-runs-before-the-move)); `enterBattlefieldReplacements` runs the
+rest after the move. Steps, in `ReplacementHandler.run`'s layer order:
 
 | Step           | What                                                                                                        | Java                                   |
 | -------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 1. Gather      | `Layer$ Copy` `Moved` replacements: the entering card's own current face, then `traitHosts` (other hosts)   | `getReplacementList(Moved, ..., Copy)` |
-| 2. Choose      | One candidate applies; several are an error (below)                                                         | `chooseSingleReplacementEffect`        |
+| 2. Choose      | One candidate applies; several: the entering player picks (`ChooseReplacementEffect`)                       | `chooseSingleReplacementEffect`        |
 | 3. Optional    | `Optional$` asks the entering card's controller (`ConfirmEffect`)                                           | `executeReplacement`'s decider         |
 | 4. Run         | `ReplaceWith$` `Clone` chain through the Registry, host's controller activating, `replacing.card` = entrant | `playSpellAbilityNoStack`              |
 | 5. Re-gather   | Back to 1, skipping (host, replacement) pairs already applied                                               | `Updated` re-run with `hasRun`         |
@@ -68,14 +70,14 @@ fails on; they belong to whoever ports that layer. `ast.golden` changes for exac
 
 Consequences, each tested (`entersascopy_test.go`):
 
-| Behavior                                                                                           | Why                                                                      |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| A Clone entering as a copy of a creature with an ETB trigger triggers it                           | Copy runs before `checkETBTriggers` (CR 614.12 before CR 603.2)          |
-| Vesuva copying a tapland enters tapped                                                             | Step 6 reads the copied definition (CR 614.12)                           |
-| Body Double copying a Clone card in a graveyard then copies a creature                             | Step 5: the copy carries Clone's replacement, not yet run                |
-| `Choices$ Creature` never offers the entering card                                                 | Java filters by the last battlefield state (`sa.isReplacementAbility()`) |
-| A watcher's `CloneTarget$ ReplacedCard` names the entering card                                    | `Defined$ ReplacedCard` (`definedCards`, `abilityRefs.replaced`)         |
-| Declining, or nothing to copy, leaves the card as itself (a 0/0 Clone dies to state-based actions) | `Clone` returns before acting                                            |
+| Behavior                                                                                           | Why                                                               |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| A Clone entering as a copy of a creature with an ETB trigger triggers it                           | Copy runs before `checkETBTriggers` (CR 614.12 before CR 603.2)   |
+| Vesuva copying a tapland enters tapped                                                             | Step 6 reads the copied definition (CR 614.12)                    |
+| Body Double copying a Clone card in a graveyard then copies a creature                             | Step 5: the copy carries Clone's replacement, not yet run         |
+| `Choices$ Creature` never offers the entering card                                                 | The card is not on the battlefield yet while the replacement runs |
+| A watcher's `CloneTarget$ ReplacedCard` names the entering card                                    | `Defined$ ReplacedCard` (`definedCards`, `abilityRefs.replaced`)  |
+| Declining, or nothing to copy, leaves the card as itself (a 0/0 Clone dies to state-based actions) | `Clone` returns before acting                                     |
 
 Scenario `clone-enters-as-copy-and-gets-the-copied-etb-trigger` casts the real Clone as a copy of Venerable Monk: its
 controller gains 2 life and the copy survives the state-based action check a 0/0 would not. `actions.log` gains
@@ -94,24 +96,18 @@ identical entry in `Card.copies`, no visible change. Whether Java's re-run does 
 
 ### Divergences
 
-| Where                     | Java                                                    | Here                                                                                     |
-| ------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Cards entering together   | Last battlefield state excludes every card of the batch | `ChangeZoneAll` and other loops move one card at a time: a Clone can copy an earlier one |
-| Entering from a graveyard | Last graveyard state still holds the entrant            | Already moved out; no corpus line can tell (`cloneChoice`'s comment)                     |
-| Timing of the replacement | Before the move (`GameAction.changeZone`)               | Right after `Game.Move`, before anything else looks at the card                          |
+| Where                   | Java                                                    | Here                                                                                     |
+| ----------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Cards entering together | Last battlefield state excludes every card of the batch | `ChangeZoneAll` and other loops move one card at a time: a Clone can copy an earlier one |
 
 ### Rejected, as a pending error before anything changes
 
-| Shape                                                                         | Why                                                                                                                                                                            |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Two or more copy replacements apply at once (a Clone entering beside Essence) | CR 616.1: the affected player orders them; `PlayerController` has no replacement choice yet                                                                                    |
-| `ReplaceWith$` of The Mimeoplasm                                              | Its chain has a `PutCounter` with `ETB$`, refused before the copy; any other registered API runs (Primal Clay, Molten Sentry, Living Lore, [`m5-layers-2.md`](m5-layers-2.md)) |
-| A copy replacement hosted by an effect card (Mystic Reflection)               | "The next time one or more enter" is a batch; entries here are one at a time                                                                                                   |
-| A `SubAbility$` `Effect` with `ReplacementEffects$` (Spark Double, Moritte)   | Its replacement edits the same entry, which has already happened here: counters would be silently missing                                                                      |
-| A chained sub-ability with `ETB$` (Altered Ego, Undercover Operative)         | Counters placed as part of the entry; `PutCounter` refuses `ETB$`, so refused before the copy, not after                                                                       |
-| `CheckSVar$`/`SVarCompare$` that does not resolve (Protean Raider)            | `checkSVarMatches` reads it as "does not apply", which would skip the copy silently                                                                                            |
-| `ValidTgts$` anywhere in the chain; a replacement param outside the read set  | Not modeled at a replacement site                                                                                                                                              |
-| `Clone`'s own rejected params (`PumpKeywords$`, `RemoveCardTypes$`, ...)      | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                                                                                                  |
+| Shape                                                                        | Why                                                                                                                                              |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A chained sub-ability with `ETB$` that is not a `PutCounter`                 | Only `PutCounter` puts something into the entry ([`layers-n-copy.md`](layers-n-copy.md#etb-counters-in-an-entry-chain)); refused before the copy |
+| `CheckSVar$`/`SVarCompare$` that does not resolve (Protean Raider)           | `checkSVarMatches` reads it as "does not apply", which would skip the copy silently                                                              |
+| `ValidTgts$` anywhere in the chain; a replacement param outside the read set | Not modeled at a replacement site                                                                                                                |
+| `Clone`'s own rejected params (`PumpKeywords$`, `RemoveCardTypes$`, ...)     | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                                                                    |
 
 The error goes through `recordPendingError` (ADR-0020 decision 4): the entry sites have no error return, and
 `Registry.Resolve`/`ResolveStack`/the fixture runner take it at the next boundary.
@@ -158,7 +154,11 @@ The 3 watchers share Essence of the Wild's shape, tested with a synthetic card; 
 | Chained `ImmediateTrigger` `ConditionDefined$` (Superior Spider-Man)                                     |     1 | no              |
 | Its "when you do" trigger's `Effect` `Duration$ AsLongAsControl`, on resolving (Wall of Stolen Identity) |     1 | no              |
 
+Since measured: the chained `PutCounter ETB$` rows (3 cards) and the `SubAbility$ Effect` rows (2) resolve, as do
+`RemoveCardTypes$` Imposter Mech and Machine God's Effigy; Vizier of Many Faces (`Embalm$`/`RemoveCost$`) stays an error
+([`layers-n-copy.md`](layers-n-copy.md)).
+
 The last two copy first and fail in the chain, as any Registry chain can: the game stops at the error either way.
 
 Outside the keyword: Displaced Dinosaurs runs (tested). Protean Raider errors (`CheckSVar$ Count$AttackersDeclared`).
-Mystic Reflection and the non-`Clone` lines (Primal Clay and its four kin, The Mimeoplasm, Living Lore) are errors.
+Mystic Reflection and the non-`Clone` lines (Primal Clay and its four kin, The Mimeoplasm, Living Lore) run too.

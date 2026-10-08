@@ -389,6 +389,15 @@ type Card struct {
 	copies      []copyEffect
 	uncopiedDef *compile.Card
 
+	// pendingEnter are the counters an entry replacement's chain put on this
+	// card as part of the entry (a PutCounter with ETB$ inside a Copy-layer
+	// chain: Altered Ego, The Mimeoplasm), before the card is on the
+	// battlefield. applyEnterCounters adds them with the entry's other
+	// counters, through the AddCounter replacements, once it has moved. The
+	// slice is replaced, never appended in place: a last-known-information
+	// snapshot shares it.
+	pendingEnter []enterPile
+
 	// goadedBy are this creature's goads (CR 701.15).
 	goadedBy []goad
 
@@ -1171,4 +1180,14 @@ func (c *Card) evolvedBy(entering *Card) bool {
 		return false
 	}
 	return ep > cp || et > ct
+}
+
+// enterPile is n counters of kind ct an entering permanent receives, put by
+// source's replacement and placed by placer (the controller the AddCounter
+// replacements read).
+type enterPile struct {
+	ct     CounterType
+	n      int
+	source CardID
+	placer PlayerID
 }

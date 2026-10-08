@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Swamp|Tapped;Forest|Tapped;Island|Tapped;Island|Tapped;Swamp|Tapped;The Mimeoplasm|Counters:P1P1=2|SummonSick
+humanexile=Grizzly Bears;Hill Giant
+ailife=20

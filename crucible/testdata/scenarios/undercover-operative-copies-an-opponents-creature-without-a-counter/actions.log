@@ -1,0 +1,16 @@
+# The same copy as undercover-operative-copies-your-creature-and-enters-with-
+# a-shield-counter, but of the opponent's Grizzly Bears: ConditionPresent$
+# Creature.YouCtrl fails for the remembered copied creature, so the copy
+# enters with no counter.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue confirmeffect true
+queue cardchoice 7
+castspell human 1
+resolvestack

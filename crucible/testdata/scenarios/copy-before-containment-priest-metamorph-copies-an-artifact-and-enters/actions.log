@@ -1,0 +1,20 @@
+# ReplacementLayer order is Control, Copy, Other (CR 616.1): a card entering
+# as a copy takes the copy first, and Containment Priest's Other-layer
+# "exile it instead" then reads the copy, not the card as printed.
+# Zombify returns Phyrexian Metamorph (an artifact creature) uncast. It enters
+# as a copy of the opponent's Bonesplitter, an Equipment: no creature, so the
+# Priest's ValidCard$ Creature.!token+!wasCast no longer matches and it enters.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+queue targets 7
+queue confirmeffect true
+queue cardchoice 8
+castspell human 1
+resolvestack

@@ -1,0 +1,17 @@
+# The same entry as copy-order-metamorph-beside-essence-of-the-wild-own-copy-
+# first, but its controller applies Essence of the Wild's replacement first
+# (index 1). Metamorph becomes a 6/6 copy of Essence, whose own definition has
+# no Metamorph replacement left: no confirmation and no Bonesplitter choice
+# is ever asked.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue payphyrexian false
+queue replacement 1
+castspell human 1
+resolvestack

@@ -10,7 +10,7 @@
 // at the permanent (enterBattlefieldReplacements), through countersReplaced so
 // an AddCounter replacement (Hardened Scales) still changes them.
 
-//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event parts
+//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event parts effecthelpers defined
 
 package engine
 
@@ -39,13 +39,26 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 	// Java puts every ETB$ counter into one counter table and runs the
 	// AddCounter replacements on it once, so the amounts of one kind are summed
 	// first (Hardened Scales adds one for the lot, not one per line).
-	type pile struct {
-		ct     CounterType
-		n      int
-		source CardID
-		placer PlayerID
+	var piles []enterPile
+	addPile := func(p enterPile) {
+		for i := range piles {
+			if piles[i].ct == p.ct {
+				piles[i].n += p.n
+				return
+			}
+		}
+		piles = append(piles, p)
 	}
-	var piles []pile
+	// Replacements whose ReplaceWith$ chain goes on past the PutCounter (an
+	// Effect card's "enters with an additional counter", then exiles itself:
+	// Spark Double, Moritte of the Frost). They resolve after the walk, since
+	// the chain may exile the very card the walk is standing on.
+	type chain struct {
+		host    *Card
+		amounts map[string]expr.Amount
+		sub     *compile.Ability
+	}
+	var chains []chain
 	g.eachReplacement("Moved", func(h *Card, amounts map[string]expr.Amount, r *compile.Ability) bool {
 		sub := replaceWithSub(r)
 		if sub == nil || !strings.EqualFold(sub.Name, "PutCounter") {
@@ -79,6 +92,10 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 			g.recordPendingError(fmt.Errorf("engine: %q: ETB$ PutCounter replacement: a param past ValidCard$/Destination$/Origin$ not resolvable yet", h.Def.Name))
 			return false
 		}
+		if chainNext(sub) != nil {
+			chains = append(chains, chain{host: h, amounts: amounts, sub: sub})
+			return false
+		}
 		ct, n, err := g.enterCounterAmount(moved, h, amounts, sub)
 		if err != nil {
 			g.recordPendingError(err)
@@ -87,20 +104,128 @@ func (g *Game) applyEnterCounters(controller PlayerController, moved CardID, ori
 		if n <= 0 {
 			return false
 		}
-		for i := range piles {
-			if piles[i].ct == ct {
-				piles[i].n += n
-				return false
-			}
-		}
-		piles = append(piles, pile{ct: ct, n: n, source: h.ID, placer: h.Controller()})
+		addPile(enterPile{ct: ct, n: n, source: h.ID, placer: h.Controller()})
 		return false
 	})
+	for _, c := range chains {
+		if err := g.runEnterChain(controller, moved, c.host, c.amounts, c.sub); err != nil {
+			g.recordPendingError(err)
+		}
+	}
+	// What an entry replacement's own chain put on the card (putEnterCounters:
+	// a Copy-layer chain before the move, an effect card's chain just above)
+	// joins the same table.
+	for _, p := range movedCard.pendingEnter {
+		addPile(p)
+	}
+	movedCard.pendingEnter = nil
 	for _, p := range piles {
 		if n := g.countersReplaced(controller, p.placer, CardEntity(moved), p.ct, p.n); n > 0 {
 			g.addCardCounters(controller, p.source, moved, p.ct, n)
 		}
 	}
+}
+
+// runEnterChain resolves one counter replacement's whole ReplaceWith$ chain
+// through the Registry, host's controller activating it and moved the
+// replacing card: the PutCounters in it deposit on moved (putEnterCounters)
+// and a ChangeZone of the host out of the Command zone ends an effect card.
+func (g *Game) runEnterChain(controller PlayerController, moved CardID, host *Card, amounts map[string]expr.Amount, sub *compile.Ability) error {
+	api, ok := APIByName(sub.Name)
+	if !ok || g.registry == nil {
+		return fmt.Errorf("engine: %q: ETB$ %s chain has no registered effect", host.Def.Name, sub.Name)
+	}
+	name := host.Def.Name
+	a := Ability{
+		API: api, Source: host.ID, Controller: host.Controller(), Params: sub, Amounts: amounts,
+		replacing: &replacementEvent{result: replacementUpdated, card: moved},
+	}
+	if err := g.registry.Resolve(g, &a, controller); err != nil {
+		return fmt.Errorf("engine: %q: ETB$ counter chain: %w", name, err)
+	}
+	return nil
+}
+
+// putEnterCounters is a PutCounter with ETB$ resolving inside a Moved
+// replacement's ReplaceWith$ chain (a Copy-layer chain: Altered Ego, Undercover
+// Operative, The Mimeoplasm, Dominion Saboteur, Spark Double's effect): the
+// counters go into the replaced event's counter table
+// (CountersPutEffect.java:365, :439, :536), which the permanent receives as it
+// enters. The card is not on the battlefield yet, so they wait on it
+// (Card.pendingEnter) for applyEnterCounters, which adds them through the
+// AddCounter replacements with the entry's other counters.
+//
+// The amount is read now, while the chain's remembered cards are still there
+// (The Mimeoplasm's Remembered$CardPower, before its DBCleanup). Defined$
+// names the entering card -- Self for its own line, ReplacedCard or
+// ReplacedNewCard for a watcher's, optionally filtered by a ".<valid>" suffix
+// (AbilityUtils.getDefinedCards' incR) -- and anything else is an error
+// rather than counters put on a card that is not entering (GO-7).
+//
+// CounterType$ EachFromSource with EachFromSource$ is "the same number and
+// kinds of counters as" the named cards (Dominion Saboteur): one pile per
+// kind each of them has, CounterNum$ overriding the count.
+func (g *Game) putEnterCounters(a *Ability, source *Card) error {
+	moved := a.replacedCard()
+	defined := "Self"
+	if d, ok := a.Params.Param("Defined"); ok {
+		defined = d
+	}
+	base, filter, _ := strings.Cut(defined, ".")
+	switch base {
+	case "Self":
+		if source.ID != moved {
+			return fmt.Errorf("engine: %q: PutCounter ETB$ Defined$ Self on a card other than the entering one not resolvable yet", source.Def.Name)
+		}
+	case "ReplacedCard", "ReplacedNewCard":
+	default:
+		return fmt.Errorf("engine: %q: PutCounter ETB$ Defined$ %q not resolvable yet", source.Def.Name, defined)
+	}
+	card := g.Card(moved)
+	if filter != "" && !Matches(g, card, valid.Parse(filter), a.Controller, a.Source) {
+		return nil
+	}
+	put := func(ct CounterType, n int) {
+		if n <= 0 {
+			return
+		}
+		card.pendingEnter = append(append([]enterPile(nil), card.pendingEnter...),
+			enterPile{ct: ct, n: n, source: a.Source, placer: a.Controller})
+	}
+	counterNum, hasNum := a.Params.Param("CounterNum")
+	n := 0
+	if hasNum || !hasParam(a, "EachFromSource") {
+		if !hasNum {
+			counterNum = "1"
+		}
+		var ok bool
+		if n, ok = resolveNamedAmount(g, a.Amounts, source, counterNum); !ok {
+			return fmt.Errorf("engine: PutCounter: CounterNum$ %q is not resolvable", counterNum)
+		}
+	}
+	if raw, ok := a.Params.Param("EachFromSource"); ok {
+		cards, err := definedCards(source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: PutCounter: %w", err)
+		}
+		for _, id := range cards {
+			c := g.Card(id)
+			for _, ct := range c.Counters.Kinds() {
+				if hasNum {
+					put(ct, n)
+				} else {
+					put(ct, c.Counters.Count(ct))
+				}
+			}
+		}
+		return nil
+	}
+	ct, err := putCounterType(a.Params)
+	if err != nil {
+		return err
+	}
+	put(ct, n)
+	return nil
 }
 
 // enterCounterAmount reads one ETB$ PutCounter's counter kind and amount for

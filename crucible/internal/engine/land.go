@@ -60,7 +60,13 @@ func (g *Game) PlayLand(pid PlayerID, card CardID, controller PlayerController) 
 	if !g.hasLandDrop(pid) {
 		return false
 	}
+	origin := c.Zone
 	g.playLandNow(controller, pid, card)
+	// A land play is a batch of one for Mode$ ChangesZoneAll; Play
+	// (playeffect.go) fires its own.
+	if c.Zone == Battlefield {
+		g.checkChangesZoneAllTriggers(controller, []CardID{card}, origin, Battlefield)
+	}
 	return true
 }
 

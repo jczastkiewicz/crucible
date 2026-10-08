@@ -1,0 +1,6 @@
+humanlife=20
+ailife=20
+humanhand=Zombify|Id:1
+humanbattlefield=Containment Priest|Id:2;Swamp|Id:3;Swamp|Id:4;Swamp|Id:5;Swamp|Id:6
+humangraveyard=Phyrexian Metamorph|Id:7
+aibattlefield=Hill Giant|Id:8

@@ -86,8 +86,9 @@ func TestChangesZoneAllSkipsWhenNoCardInTheBatchMatchesValidCards(t *testing.T) 
 }
 
 // TestChangesZoneAllRespectsDestinationFilter proves Destination$ actually
-// gates the trigger: a watcher naming Destination$ Battlefield must not
-// fire for a batch whose real destination is Graveyard.
+// gates the trigger: a watcher naming Destination$ Exile must not fire for a
+// batch whose real destination is Graveyard (nor for the cast creature's own
+// entry, a batch of one into the battlefield).
 func TestChangesZoneAllRespectsDestinationFilter(t *testing.T) {
 	t.Parallel()
 
@@ -95,7 +96,7 @@ func TestChangesZoneAllRespectsDestinationFilter(t *testing.T) {
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-	g.NewCard(changesZoneAllWatcherDef(t, "Test Watcher", "Destination$ Battlefield | ValidCards$ Creature"), p, engine.Battlefield)
+	g.NewCard(changesZoneAllWatcherDef(t, "Test Watcher", "Destination$ Exile | ValidCards$ Creature"), p, engine.Battlefield)
 	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 
@@ -105,7 +106,7 @@ func TestChangesZoneAllRespectsDestinationFilter(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 	if g.Player(p).Life != 20 {
-		t.Errorf("p's life = %d, want unchanged 20 -- Destination$ Battlefield must not match a Graveyard-bound batch", g.Player(p).Life)
+		t.Errorf("p's life = %d, want unchanged 20 -- Destination$ Exile must not match a Graveyard-bound batch", g.Player(p).Life)
 	}
 }
 

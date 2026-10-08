@@ -18,11 +18,11 @@
 // the applied line in Game.replacing for the length of the chain, which is
 // that hasRun.
 //
-// Layer order: Control runs before the Other layer (ReplacementLayer.java:
-// 9-13). The Copy layer ("enters as a copy", entersascopy.go) still runs after
-// the move, so a Clone entering under Containment Priest is exiled here
-// before it can copy anything, where Java would apply the copy first: known
-// gap, port-log m5-replacement-3.md.
+// Layer order is ReplacementLayer.java:9-13: Control, then Copy ("enters as a
+// copy", applyCopyReplacements in entersascopy.go), then Other. The Copy layer
+// runs here too, before the move: a Clone entering under Containment Priest
+// copies first and is then exiled as the copy, and the entering card's copy
+// effect is dropped when the entry does not land (CR 400.7).
 
 package engine
 
@@ -48,15 +48,23 @@ func (g *Game) entryReplaced(controller PlayerController, moved CardID, origin Z
 	// controlled by whoever it enters under.
 	savedController := card.controller
 	card.controller = entering
-	replaced := false
-	for _, layer := range [...]string{"Control", "Other"} {
-		res := g.runReplacements(controller, entering, func() []replacementCandidate {
-			return g.entryCandidates(controller, card, origin, layer)
-		})
-		if res == replacementReplaced {
-			replaced = true
-			break
+	replaced := g.runEntryLayer(controller, card, origin, entering, "Control")
+	if !replaced {
+		// The Copy layer: the card takes its copied definition before the
+		// move (CR 614.12), so the Other layer below and the move itself read
+		// the copy, as ReplacementHandler.run's later layers do.
+		g.refreshLayers()
+		g.applyCopyReplacements(controller, moved, origin, entering)
+		replaced = g.runEntryLayer(controller, card, origin, entering, "Other")
+	}
+	if replaced && card.Zone != Battlefield {
+		// The entry did not land: a copy effect and the counters it was to
+		// enter with go with the object that never entered (CR 400.7), not
+		// onto the card in its new zone.
+		if len(card.copies) > 0 {
+			card.setCopies(nil)
 		}
+		card.pendingEnter = nil
 	}
 	if replaced && card.Zone != Battlefield {
 		// A card the chain left outside the battlefield is not under the
@@ -69,6 +77,14 @@ func (g *Game) entryReplaced(controller PlayerController, moved CardID, origin Z
 		card.controller = savedController
 	}
 	return replaced
+}
+
+// runEntryLayer runs one ReplacementLayer's pre-entry Moved replacements for
+// card's entry (a runReplacements walk) and reports whether one replaced it.
+func (g *Game) runEntryLayer(controller PlayerController, card *Card, origin ZoneType, entering PlayerID, layer string) bool {
+	return g.runReplacements(controller, entering, func() []replacementCandidate {
+		return g.entryCandidates(controller, card, origin, layer)
+	}) == replacementReplaced
 }
 
 // entryCandidates lists the Event$ Moved lines of the given layer that apply

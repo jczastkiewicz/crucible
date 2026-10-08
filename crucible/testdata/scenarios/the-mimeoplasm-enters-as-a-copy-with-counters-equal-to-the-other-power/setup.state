@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=The Mimeoplasm|Id:1
+humanbattlefield=Swamp|Id:3;Forest|Id:4;Island|Id:5;Island|Id:6;Swamp|Id:7
+humangraveyard=Grizzly Bears|Id:8;Hill Giant|Id:9

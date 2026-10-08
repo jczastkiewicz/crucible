@@ -1,0 +1,18 @@
+# Moritte of the Frost: "enter as a copy of a permanent you control, except
+# it's legendary and snow in addition to its other types and, if it's a
+# creature, it enters with two additional +1/+1 counters on it and has
+# changeling." Its Clone's SubAbility$ Effect adds a replacement of this same
+# entry that puts the two counters in, then exiles itself.
+startturn human
+advance 3
+tapformana human 3 G
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+tapformana human 8 U
+queue paygeneric U
+queue paygeneric U
+queue confirmeffect true
+queue cardchoice 7
+castspell human 1
+resolvestack

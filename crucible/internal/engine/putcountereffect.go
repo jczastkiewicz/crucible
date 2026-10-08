@@ -86,7 +86,15 @@ var putCounterUnresolvedParams = [...]string{
 type putCounterEffect struct{}
 
 func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	// ETB$ inside a replacement of a card's entry puts the counters into the
+	// entry itself (putEnterCounters); anywhere else it is still the counter
+	// table this port does not batch.
+	_, etb := a.Params.Param("ETB")
+	enter := etb && a.replacedCard() != NoCard
 	for _, key := range putCounterUnresolvedParams {
+		if enter && (key == "ETB" || key == "EachFromSource") {
+			continue
+		}
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: PutCounter: %s$ not resolvable yet", key)
 		}
@@ -94,6 +102,9 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if enter {
+		return g.putEnterCounters(a, source)
 	}
 
 	counterType, err := putCounterType(a.Params)

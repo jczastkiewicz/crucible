@@ -1,0 +1,21 @@
+# The Mimeoplasm: "As it enters, you may exile two creature cards from
+# graveyards. If you do, it enters as a copy of one of those cards with a
+# number of additional +1/+1 counters on it equal to the power of the other."
+# Both graveyard creatures are exiled (Id:8 Grizzly Bears, power 2; Id:9 Hill
+# Giant), Hill Giant is the copy, and the chain's PutCounter ETB$ reads the
+# other card's power (Remembered$CardPower) before its cleanup: two counters.
+startturn human
+advance 3
+tapformana human 3 B
+tapformana human 4 G
+tapformana human 5 U
+tapformana human 6 U
+tapformana human 7 B
+queue paygeneric U
+queue paygeneric B
+queue confirmeffect true
+queue cardchoice 8,9
+queue cardorder 8,9
+queue cardchoice 9
+castspell human 1
+resolvestack

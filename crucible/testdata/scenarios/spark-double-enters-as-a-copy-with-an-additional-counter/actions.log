@@ -1,0 +1,18 @@
+# Spark Double: "enter as a copy of a creature or planeswalker you control,
+# except it enters with an additional +1/+1 counter on it if it's a
+# creature". The Clone's SubAbility$ Effect creates a short-lived replacement
+# of this same entry: it puts the counter into the entry (ETB$), then exiles
+# itself from the Command zone.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue confirmeffect true
+queue cardchoice 7
+castspell human 1
+resolvestack

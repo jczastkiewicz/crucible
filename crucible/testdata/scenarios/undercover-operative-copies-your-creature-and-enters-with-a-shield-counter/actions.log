@@ -1,0 +1,17 @@
+# CR 614.12 / 122.6: Undercover Operative enters as a copy of a creature,
+# "except it enters with a shield counter on it if you control that creature".
+# The counter is part of the entry: its PutCounter ETB$ waits on the card
+# (ConditionDefined$ Remembered from RememberCloneOrigin$) and goes in as the
+# copy arrives. The copied creature is your own Grizzly Bears (Id:7).
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+queue paygeneric U
+queue paygeneric U
+queue confirmeffect true
+queue cardchoice 7
+castspell human 1
+resolvestack

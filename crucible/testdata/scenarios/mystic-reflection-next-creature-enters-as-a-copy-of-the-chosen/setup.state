@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Mystic Reflection|Id:1;Grizzly Bears|Id:2
+humanbattlefield=Island|Id:3;Island|Id:4;Forest|Id:5;Forest|Id:6
+aibattlefield=Hill Giant|Id:8

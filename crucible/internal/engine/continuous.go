@@ -44,10 +44,10 @@ import (
 // distinct core types among cards in the controller's own graveyard,
 // AbilityUtils.countCardTypesFromList's own permanentTypes=false form) and
 // FatefulHour (3 -- the controller's own life at 5 or below), Blessing (9 -- Player.hasBlessing) and Monarch (2 --
-// Player.isMonarch, Game.Monarch). Not resolved:
-// MaxSpeed (40) and EnduringStory (4) -- each its
-// own mechanic (Alchemy's speed counter, the Storied keyword's flag)
-// this port tracks no state for anywhere yet, so (like an
+// Player.isMonarch, Game.Monarch) and EnduringStory (Player.hasEnduringStory,
+// set by assignEnduringStories). Not resolved:
+// MaxSpeed (40) -- Alchemy's speed counter, a
+// mechanic this port tracks no state for anywhere yet, so (like an
 // unrecognized Affected$ value already does) the line is skipped rather
 // than treated as met (GO-7); an unrecognized value not in the real corpus
 // today falls to the same case.
@@ -76,6 +76,8 @@ func continuousConditionMet(g *Game, host *Card, s *compile.Ability) bool {
 		return g.Player(controller).Blessing
 	case "Monarch":
 		return g.Monarch() == controller
+	case "EnduringStory":
+		return g.Player(controller).EnduringStory
 	default:
 		return false
 	}
@@ -213,7 +215,7 @@ func setPTStatics(statics []layerStatic) []layerStatic {
 // Not resolved, each for a specific reason (game-state.md's "Continuous
 // effects" section has the corpus counts behind every number below):
 //   - A line layerStaticApplies turns off: a Condition$ value this port has
-//     no player-state for (MaxSpeed, Blessing, EnduringStory, Monarch --
+//     no player-state for (MaxSpeed --
 //     continuousConditionMet's own doc comment has the full account), an
 //     IsPresent$/CheckSVar$ that compares false (a Level Up line applies
 //     only at its own level), a host outside its EffectZone$.

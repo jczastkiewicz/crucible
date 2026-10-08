@@ -253,6 +253,7 @@ func checkStateBasedActionsPass(g *Game, controller PlayerController) (over, per
 	performed = destroyZeroDefense(g, controller) || performed
 	performed = sacrificeCompletedSagas(g, controller) || performed
 	performed = assignBlessings(g) || performed
+	performed = assignEnduringStories(g) || performed
 	performed = assignSectors(g, controller) || performed
 	performed = resolveLegendRule(g, controller) || performed
 	performed = resolveWorldRule(g, controller) || performed
@@ -334,6 +335,39 @@ func assignBlessings(g *Game) (performed bool) {
 				// CR 702.131d: continuous effects are reapplied, so the pass
 				// repeats.
 				ctrl.Blessing, performed = true, true
+			}
+		}
+	}
+	return performed
+}
+
+// assignEnduringStories is the Storied keyword's trigger (CardFactoryUtil.java:
+// 1790-1813): `Mode$ Always | Static$ True | EnduringStory$ False | IsPresent$
+// Permanent.YouCtrl+Historic | PresentCompare$ GE3`, resolved without the
+// stack. While a permanent with Storied is on the battlefield and its
+// controller has no enduring story yet, controlling three or more historic
+// permanents gives them one for the rest of the game (Player.setEnduringStory).
+// Like assignBlessings it runs with the state-based actions. Java builds the
+// trigger only for a permanent card, which a battlefield host always is.
+func assignEnduringStories(g *Game) (performed bool) {
+	historic := valid.Parse("Permanent.YouCtrl+Historic")
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			ctrl := g.Player(c.Controller())
+			if ctrl.EnduringStory || ctrl.Lost || !c.HasKeyword("Storied") {
+				continue
+			}
+			n := 0
+			for _, other := range g.Zone(Battlefield, c.Controller()).Cards() {
+				if Matches(g, g.Card(other), historic, c.Controller(), id) {
+					n++
+				}
+			}
+			if n >= 3 {
+				// As with the city's blessing, continuous effects are reapplied,
+				// so the pass repeats.
+				ctrl.EnduringStory, performed = true, true
 			}
 		}
 	}

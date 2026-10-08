@@ -46,6 +46,9 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		hostTransforms:    parent.hostTransforms,
 		hasHostTransforms: parent.hasHostTransforms,
 		damageMap:         parent.damageMap,
+		// An AdditionalAbility of a replacement's ReplaceWith$ chain (Molten
+		// Sentry's FlipCoin branches) still replaces the same event.
+		replacing: parent.replacing,
 	}
 	r := g.registry
 	err := r.Resolve(g, &child, controller)

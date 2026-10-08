@@ -1,0 +1,22 @@
+# CR 616.1: Phyrexian Metamorph entering beside Essence of the Wild has two
+# copy replacements, and its controller picks which applies first. Candidates
+# are listed own first, then the watcher: index 0 is Metamorph's own. It
+# copies the opponent's Ichor Wellspring and so is no longer a creature, which
+# leaves Essence's "each other creature you control" with nothing to apply to
+# on the re-gather. The copied "when this enters, draw a card" is what tells
+# the two orders apart: only here does the controller draw. The {U/P} is paid
+# with 2 life.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue payphyrexian false
+queue replacement 0
+queue confirmeffect true
+queue cardchoice 8
+castspell human 1
+resolvestack

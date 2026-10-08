@@ -1,0 +1,20 @@
+# Mystic Reflection: "Choose target nonlegendary creature. The next time one
+# or more creatures or planeswalkers enter this turn, they enter as copies of
+# the chosen creature." The spell leaves an effect card in the Command zone
+# whose Copy-layer replacement copies the entering card, imprints it, and is
+# then exiled by its own ChangesZoneAll trigger. Grizzly Bears (Id:2) is cast
+# after it and enters as a copy of the opponent's Hill Giant; its Command-zone
+# effect is gone afterwards.
+startturn human
+advance 3
+tapformana human 3 U
+tapformana human 4 U
+queue paygeneric U
+queue targets 8
+castspell human 1
+resolvestack
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+castspell human 2
+resolvestack

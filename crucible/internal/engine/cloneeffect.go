@@ -223,13 +223,13 @@ type cloneEffect struct{}
 // cloneUnresolvedParams are the CloneEffect/getCloneStates params this port
 // does not resolve: gaining another card's text (GainTextAbilities$,
 // GainTextOf$), the pump keywords' own until-command, Embalm's condition,
-// mana cost and card/creature type rewriting, keyword removal, loyalty, and
+// mana cost and creature type rewriting, keyword removal, loyalty, and
 // RemoveCreatureTypes$ -- which getCloneStates never reads (PORT-8,
 // effects-clone.md).
 var cloneUnresolvedParams = [...]string{
 	"GainTextAbilities", "GainTextOf",
 	"PumpKeywords", "PumpDuration", "Embalm", "RemoveCost", "SetManaCost", "SetColorByManaCost",
-	"RemoveCardTypes", "RemoveSubTypes", "RemoveCreatureTypes", "SetCreatureTypes", "RemoveKeywords",
+	"RemoveCreatureTypes", "SetCreatureTypes", "RemoveKeywords",
 	"SetLoyalty", "Condition",
 }
 
@@ -288,7 +288,10 @@ func (cloneEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if hasCloneZone && t.Zone != cloneZone {
 			continue
 		}
-		if t.Zone != Battlefield {
+		// The card entering the battlefield is still in the zone it enters
+		// from while its replacement runs (entryReplaced): it takes the copy
+		// there, and carries it onto the battlefield.
+		if t.Zone != Battlefield && id != a.replacedCard() {
 			return fmt.Errorf("engine: Clone: a copy outside the battlefield (%v) not resolvable yet", t.Zone)
 		}
 		if t.IsFaceDown() {
@@ -448,18 +451,12 @@ func cloneChoice(g *Game, a *Ability, controller PlayerController) (CardID, bool
 	// As a replacement of a card's entry ("enters as a copy"), Java keeps
 	// only the last battlefield state's cards (CloneEffect.java's
 	// isReplacementAbility branch): the card entering is not yet there to be
-	// copied. This port has already moved it, so it is left out by hand.
-	// Java's last graveyard state still holds a card entering from the
-	// graveyard, which this port has moved out of it. No corpus line can
-	// tell: each choosing there says Other, except Lazotep Convert's, a
-	// battle's back face, which enters cast from exile.
-	entering := a.replacedCard()
+	// copied. It still is not, since the replacement runs before the move
+	// (entryReplaced), so nothing is filtered by hand; a card entering from
+	// the graveyard is still in it, as in Java's last graveyard state.
 	var choices []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(zone, pid).Cards() {
-			if zone == Battlefield && id == entering {
-				continue
-			}
 			if Matches(g, g.Card(id), spec, a.Controller, a.Source) {
 				choices = append(choices, id)
 			}
@@ -647,15 +644,20 @@ type cloneChanges struct {
 	addColors, setColor  bool
 	colors               mana.Colors
 	nonLegendary         bool
-	addTypes             []string
-	addKeywords          []string
-	keywordsIfNew        bool
-	setPower, setTough   bool
-	power, toughness     int
-	addAmounts           map[string]expr.Amount
-	addAmountNames       []string
-	gain                 *compile.Ability
-	gainKind             compile.Record
+	// removeCardTypes is RemoveCardTypes$: the copy loses its card types
+	// (CardType.removeCardTypes clears the core types, supertypes stay);
+	// removeSubTypes, read only with it, then drops the subtypes no remaining
+	// type allows (CardType.sanisfySubtypes) -- with no core type left, all.
+	removeCardTypes, removeSubTypes bool
+	addTypes                        []string
+	addKeywords                     []string
+	keywordsIfNew                   bool
+	setPower, setTough              bool
+	power, toughness                int
+	addAmounts                      map[string]expr.Amount
+	addAmountNames                  []string
+	gain                            *compile.Ability
+	gainKind                        compile.Record
 }
 
 func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
@@ -693,6 +695,9 @@ func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
 		}
 	}
 	ch.nonLegendary = hasParam(a, "NonLegendary")
+	if ch.removeCardTypes = hasParam(a, "RemoveCardTypes"); ch.removeCardTypes {
+		ch.removeSubTypes = hasParam(a, "RemoveSubTypes")
+	}
 	if raw, ok := a.Params.Param("AddTypes"); ok {
 		ch.addTypes = strings.Split(raw, " & ")
 	}
@@ -749,6 +754,12 @@ func (ch *cloneChanges) apply(f, out, printed *compile.Face) {
 	}
 	if ch.nonLegendary {
 		f.Type = f.Type.Without(cardtype.ParseToken("Legendary"))
+	}
+	if ch.removeCardTypes {
+		f.Type = f.Type.WithoutCardTypes()
+		if ch.removeSubTypes {
+			f.Type = f.Type.WithoutSubtypes()
+		}
 	}
 	for _, t := range ch.addTypes {
 		f.Type = f.Type.Union(cardtype.ParseToken(t))

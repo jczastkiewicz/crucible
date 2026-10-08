@@ -303,6 +303,8 @@ Creature Aetherborn Warrior	Creature - Aetherborn Warrior
 Creature Alien	Creature - Alien
 Creature Alien Beast	Creature - Alien Beast
 Creature Alien Cleric	Creature - Alien Cleric
+Creature Alien Crab Horror	Creature - Alien Crab Horror
+Creature Alien Dinosaur	Creature - Alien Dinosaur
 Creature Alien Eye	Creature - Alien Eye
 Creature Alien Guest	Creature - Alien Guest
 Creature Alien Horror	Creature - Alien Horror
@@ -326,6 +328,7 @@ Creature Angel Horror	Creature - Angel Horror
 Creature Angel Illusion	Creature - Angel Illusion
 Creature Angel Knight	Creature - Angel Knight
 Creature Angel Mercenary	Creature - Angel Mercenary
+Creature Angel Performer	Creature - Angel Performer
 Creature Angel Rogue	Creature - Angel Rogue
 Creature Angel Soldier	Creature - Angel Soldier
 Creature Angel Spirit	Creature - Angel Spirit
@@ -419,6 +422,7 @@ Creature Bird Egg	Creature - Bird Egg
 Creature Bird Fish Illusion	Creature - Bird Fish Illusion
 Creature Bird Frog	Creature - Bird Frog
 Creature Bird Goat	Creature - Bird Goat
+Creature Bird Guest	Creature - Bird Guest
 Creature Bird Horror	Creature - Bird Horror
 Creature Bird Horse	Creature - Bird Horse
 Creature Bird Illusion	Creature - Bird Illusion
@@ -428,6 +432,7 @@ Creature Bird Mercenary	Creature - Bird Mercenary
 Creature Bird Monk	Creature - Bird Monk
 Creature Bird Mutant	Creature - Bird Mutant
 Creature Bird Noble	Creature - Bird Noble
+Creature Bird Performer	Creature - Bird Performer
 Creature Bird Pilot	Creature - Bird Pilot
 Creature Bird Rebel Soldier	Creature - Bird Rebel Soldier
 Creature Bird Rogue	Creature - Bird Rogue
@@ -480,6 +485,7 @@ Creature Cat Citizen	Creature - Cat Citizen
 Creature Cat Cleric	Creature - Cat Cleric
 Creature Cat Dragon	Creature - Cat Dragon
 Creature Cat Druid	Creature - Cat Druid
+Creature Cat Guest	Creature - Cat Guest
 Creature Cat Horror	Creature - Cat Horror
 Creature Cat Illusion	Creature - Cat Illusion
 Creature Cat Knight	Creature - Cat Knight
@@ -790,6 +796,7 @@ Creature Elephant Druid	Creature - Elephant Druid
 Creature Elephant Monk	Creature - Elephant Monk
 Creature Elephant Monkey	Creature - Elephant Monkey
 Creature Elephant Mount	Creature - Elephant Mount
+Creature Elephant Performer	Creature - Elephant Performer
 Creature Elephant Rat	Creature - Elephant Rat
 Creature Elephant Scout	Creature - Elephant Scout
 Creature Elephant Soldier	Creature - Elephant Soldier
@@ -884,6 +891,7 @@ Creature Faerie Druid	Creature - Faerie Druid
 Creature Faerie Elf Wizard	Creature - Faerie Elf Wizard
 Creature Faerie Knight	Creature - Faerie Knight
 Creature Faerie Noble	Creature - Faerie Noble
+Creature Faerie Performer	Creature - Faerie Performer
 Creature Faerie Ranger	Creature - Faerie Ranger
 Creature Faerie Rogue	Creature - Faerie Rogue
 Creature Faerie Scout	Creature - Faerie Scout
@@ -923,6 +931,7 @@ Creature Frog Bard	Creature - Frog Bard
 Creature Frog Beast	Creature - Frog Beast
 Creature Frog Demon	Creature - Frog Demon
 Creature Frog Druid	Creature - Frog Druid
+Creature Frog Guest	Creature - Frog Guest
 Creature Frog Horror	Creature - Frog Horror
 Creature Frog Lizard	Creature - Frog Lizard
 Creature Frog Mutant	Creature - Frog Mutant
@@ -987,6 +996,7 @@ Creature Gnome Warlock	Creature - Gnome Warlock
 Creature Gnome Wizard	Creature - Gnome Wizard
 Creature Goat	Creature - Goat
 Creature Goat Beast	Creature - Goat Beast
+Creature Goat Employee	Creature - Goat Employee
 Creature Goat Hydra	Creature - Goat Hydra
 Creature Goblin	Creature - Goblin
 Creature Goblin Advisor	Creature - Goblin Advisor
@@ -1001,6 +1011,7 @@ Creature Goblin Berserker	Creature - Goblin Berserker
 Creature Goblin Berserker Villain	Creature - Goblin Berserker Villain
 Creature Goblin Citizen	Creature - Goblin Citizen
 Creature Goblin Druid	Creature - Goblin Druid
+Creature Goblin Employee	Creature - Goblin Employee
 Creature Goblin Guest	Creature - Goblin Guest
 Creature Goblin Knight	Creature - Goblin Knight
 Creature Goblin Mercenary	Creature - Goblin Mercenary
@@ -1182,6 +1193,7 @@ Creature Human Ooze Mutant	Creature - Human Ooze Mutant
 Creature Human Peasant	Creature - Human Peasant
 Creature Human Peasant Ally	Creature - Human Peasant Ally
 Creature Human Peasant Wizard	Creature - Human Peasant Wizard
+Creature Human Performer	Creature - Human Performer
 Creature Human Performer Villain	Creature - Human Performer Villain
 Creature Human Pilot	Creature - Human Pilot
 Creature Human Pilot Ally	Creature - Human Pilot Ally
@@ -1274,6 +1286,7 @@ Creature Human Wizard	Creature - Human Wizard
 Creature Human Wizard Ally	Creature - Human Wizard Ally
 Creature Human Wizard Artificer	Creature - Human Wizard Artificer
 Creature Human Wizard Mutant	Creature - Human Wizard Mutant
+Creature Human Wizard Performer	Creature - Human Wizard Performer
 Creature Human Wizard Sorcerer	Creature - Human Wizard Sorcerer
 Creature Human Wizard Warlock	Creature - Human Wizard Warlock
 Creature Hydra	Creature - Hydra
@@ -1419,6 +1432,7 @@ Creature Lizard Citizen	Creature - Lizard Citizen
 Creature Lizard Drake	Creature - Lizard Drake
 Creature Lizard Druid	Creature - Lizard Druid
 Creature Lizard Egg	Creature - Lizard Egg
+Creature Lizard Guest	Creature - Lizard Guest
 Creature Lizard Horror	Creature - Lizard Horror
 Creature Lizard Hydra	Creature - Lizard Hydra
 Creature Lizard Mercenary	Creature - Lizard Mercenary
@@ -1450,6 +1464,7 @@ Creature Merfolk Goblin	Creature - Merfolk Goblin
 Creature Merfolk Knight	Creature - Merfolk Knight
 Creature Merfolk Mutant	Creature - Merfolk Mutant
 Creature Merfolk Noble	Creature - Merfolk Noble
+Creature Merfolk Performer	Creature - Merfolk Performer
 Creature Merfolk Pirate	Creature - Merfolk Pirate
 Creature Merfolk Rogue	Creature - Merfolk Rogue
 Creature Merfolk Rogue Ally	Creature - Merfolk Rogue Ally
@@ -1478,9 +1493,11 @@ Creature Minotaur Artificer	Creature - Minotaur Artificer
 Creature Minotaur Barbarian	Creature - Minotaur Barbarian
 Creature Minotaur Berserker	Creature - Minotaur Berserker
 Creature Minotaur Berserker Wizard	Creature - Minotaur Berserker Wizard
+Creature Minotaur Child Guest	Creature - Minotaur Child Guest
 Creature Minotaur Cleric	Creature - Minotaur Cleric
 Creature Minotaur Mercenary	Creature - Minotaur Mercenary
 Creature Minotaur Monger	Creature - Minotaur Monger
+Creature Minotaur Performer	Creature - Minotaur Performer
 Creature Minotaur Pilot	Creature - Minotaur Pilot
 Creature Minotaur Pirate	Creature - Minotaur Pirate
 Creature Minotaur Rogue	Creature - Minotaur Rogue
@@ -1592,6 +1609,7 @@ Creature Ogre Shaman Ally	Creature - Ogre Shaman Ally
 Creature Ogre Spirit	Creature - Ogre Spirit
 Creature Ogre Warlock	Creature - Ogre Warlock
 Creature Ogre Warrior	Creature - Ogre Warrior
+Creature Ogre Warrior Guest	Creature - Ogre Warrior Guest
 Creature Ogre Warrior Shaman	Creature - Ogre Warrior Shaman
 Creature Ogre Warrior Wizard	Creature - Ogre Warrior Wizard
 Creature Ogre Wizard	Creature - Ogre Wizard
@@ -1819,6 +1837,7 @@ Creature Rhino Cleric	Creature - Rhino Cleric
 Creature Rhino Druid	Creature - Rhino Druid
 Creature Rhino Monk	Creature - Rhino Monk
 Creature Rhino Monk Soldier	Creature - Rhino Monk Soldier
+Creature Rhino Performer	Creature - Rhino Performer
 Creature Rhino Soldier	Creature - Rhino Soldier
 Creature Rhino Warrior	Creature - Rhino Warrior
 Creature Salamander	Creature - Salamander
@@ -1872,6 +1891,7 @@ Creature Shark Pirate	Creature - Shark Pirate
 Creature Shark Rogue	Creature - Shark Rogue
 Creature Sheep	Creature - Sheep
 Creature Sheep Mount	Creature - Sheep Mount
+Creature Sheep Performer	Creature - Sheep Performer
 Creature Shi'ar Soldier	Creature - Shi'ar Soldier
 Creature Siren	Creature - Siren
 Creature Siren Bard	Creature - Siren Bard
@@ -2156,6 +2176,7 @@ Creature Wizard Illusion	Creature - Wizard Illusion
 Creature Wolf	Creature - Wolf
 Creature Wolf Bat	Creature - Wolf Bat
 Creature Wolf Bear	Creature - Wolf Bear
+Creature Wolf Guest	Creature - Wolf Guest
 Creature Wolf Horror	Creature - Wolf Horror
 Creature Wolf Spirit	Creature - Wolf Spirit
 Creature Wolf Warrior	Creature - Wolf Warrior
@@ -2196,6 +2217,7 @@ Creature Zombie Cat Knight	Creature - Zombie Cat Knight
 Creature Zombie Cat Warrior	Creature - Zombie Cat Warrior
 Creature Zombie Centaur	Creature - Zombie Centaur
 Creature Zombie Cleric	Creature - Zombie Cleric
+Creature Zombie Coward Guest	Creature - Zombie Coward Guest
 Creature Zombie Crocodile	Creature - Zombie Crocodile
 Creature Zombie Crocodile Demon	Creature - Zombie Crocodile Demon
 Creature Zombie Cyclops	Creature - Zombie Cyclops
@@ -2599,6 +2621,7 @@ Legendary Creature Aetherborn Rogue	Legendary Creature - Aetherborn Rogue
 Legendary Creature Aetherborn Vampire	Legendary Creature - Aetherborn Vampire
 Legendary Creature Alien	Legendary Creature - Alien
 Legendary Creature Alien Advisor	Legendary Creature - Alien Advisor
+Legendary Creature Alien Advisor Guest	Legendary Creature - Alien Advisor Guest
 Legendary Creature Alien Cleric	Legendary Creature - Alien Cleric
 Legendary Creature Alien Dog Soldier	Legendary Creature - Alien Dog Soldier
 Legendary Creature Alien Dragon Villain	Legendary Creature - Alien Dragon Villain
@@ -2853,6 +2876,7 @@ Legendary Creature Elemental Wolf	Legendary Creature - Elemental Wolf
 Legendary Creature Elephant Angel	Legendary Creature - Elephant Angel
 Legendary Creature Elephant Artificer	Legendary Creature - Elephant Artificer
 Legendary Creature Elephant Cleric	Legendary Creature - Elephant Cleric
+Legendary Creature Elephant Mouse Performer	Legendary Creature - Elephant Mouse Performer
 Legendary Creature Elephant Warrior	Legendary Creature - Elephant Warrior
 Legendary Creature Elf Advisor	Legendary Creature - Elf Advisor
 Legendary Creature Elf Ally	Legendary Creature - Elf Ally
@@ -3082,6 +3106,7 @@ Legendary Creature Human Elf Rogue	Legendary Creature - Human Elf Rogue
 Legendary Creature Human Elf Shaman	Legendary Creature - Human Elf Shaman
 Legendary Creature Human Elf Shaman Sorcerer	Legendary Creature - Human Elf Shaman Sorcerer
 Legendary Creature Human Elf Warlock	Legendary Creature - Human Elf Warlock
+Legendary Creature Human Employee	Legendary Creature - Human Employee
 Legendary Creature Human Faerie	Legendary Creature - Human Faerie
 Legendary Creature Human Faerie Detective	Legendary Creature - Human Faerie Detective
 Legendary Creature Human Faerie Rogue	Legendary Creature - Human Faerie Rogue
@@ -3946,5 +3971,6 @@ Sorcery Arcane	Sorcery - Arcane
 Sorcery Chorus	Sorcery - Chorus
 Sorcery Lesson	Sorcery - Lesson
 Sorcery Omen	Sorcery - Omen
+Stickers	 - Stickers
 Vanguard	Vanguard
 World Enchantment	World Enchantment

@@ -439,6 +439,8 @@ paramKey	GainsAbilitiesLimitPerTurn
 paramKey	GainsAbilitiesOf
 paramKey	GainsAbilitiesOfDefined
 paramKey	GainsAbilitiesOfZones
+paramKey	GainsStickerAbilitiesOf
+paramKey	GainsStickerAbilitiesOfDefined
 paramKey	GainsTriggerAbsOf
 paramKey	GainsValidAbilities
 paramKey	GameActivationLimit
@@ -482,6 +484,7 @@ paramKey	InstantSpeed
 paramKey	IntoPlayTapped
 paramKey	InvalidTypes
 paramKey	InvertValidCause
+paramKey	InvertValidSA
 paramKey	InvertValidSource
 paramKey	IsCombat
 paramKey	IsCurse
@@ -496,6 +499,7 @@ paramKey	KeepRemembered
 paramKey	KeepSecret
 paramKey	KeywordDefined
 paramKey	Keywords
+paramKey	Kind
 paramKey	Layer
 paramKey	LeaveBattlefield
 paramKey	LeftRightPile
@@ -534,6 +538,7 @@ paramKey	MaxNum
 paramKey	MaxRepeat
 paramKey	MaxRevealed
 paramKey	MaxRollsResults
+paramKey	MaxTickets
 paramKey	MaxTotalTargetCMC
 paramKey	MaxTotalTargetPower
 paramKey	MayChooseTarget
@@ -594,6 +599,7 @@ paramKey	NoResolvingCheck
 paramKey	NoReveal
 paramKey	NoSchemes
 paramKey	NoShuffle
+paramKey	NoTicketCost
 paramKey	NonBasicSpell
 paramKey	NonLegendary
 paramKey	NonZero
@@ -951,6 +957,7 @@ paramKey	StaticEffect
 paramKey	StaticEffectCheckSVar
 paramKey	StaticEffectSVarCompare
 paramKey	Step
+paramKey	StickerKind
 paramKey	StoreResults
 paramKey	StoreVoteNum
 paramKey	StrictAmount
@@ -1310,6 +1317,7 @@ api	Pump
 api	PumpAll
 api	PutCounter
 api	PutCounterAll
+api	PutSticker
 api	Radiation
 api	RearrangeTopOfLibrary
 api	Recruit
@@ -1491,6 +1499,7 @@ mode	DisableTriggers
 mode	Discarded
 mode	DiscardedAll
 mode	Discover
+mode	DrawFromBottom
 mode	Drawn
 mode	DungeonCompleted
 mode	ElementalBend
@@ -1595,6 +1604,7 @@ mode	SpellCast
 mode	SpellCastOrCopy
 mode	SpellCopy
 mode	Stationed
+mode	StickerPlaced
 mode	Surveil
 mode	SurveilNum
 mode	TapAll
@@ -1694,6 +1704,7 @@ countHead	CardNumAttacksThisGame
 countHead	CardNumAttacksThisTurn
 countHead	CardNumColors
 countHead	CardPower
+countHead	CardStickers
 countHead	CardToughness
 countHead	CardsInYourHand
 countHead	CastSinceBeginningOfYourLastTurn_Card
@@ -1883,6 +1894,7 @@ countHead	TotalValue
 countHead	TriggerRememberAmount
 countHead	TriggeredCardManaCost
 countHead	TriggeredManaCostDevotion
+countHead	TriggeredManaCostGeneric
 countHead	TriggeredPayingMana
 countHead	TypesSharedWith
 countHead	UniqueManaColorsProduced
@@ -2071,6 +2083,7 @@ validBase	Bolas
 validBase	Camarid
 validBase	Camel
 validBase	Card
+validBase	Card$AllTypes
 validBase	Card$CardTypes
 validBase	Card$CreatureType
 validBase	Card$GreatestCardManaCost
@@ -2553,6 +2566,7 @@ validProperty	Elemental
 validProperty	Elf
 validProperty	Elspeth
 validProperty	Embalm
+validProperty	Employee
 validProperty	EnchantedBy
 validProperty	EnchantedBy Aura.Other
 validProperty	EnchantedBy Aura.YouCtrl
@@ -2758,6 +2772,7 @@ validProperty	Paired
 validProperty	PairedWith
 validProperty	Party
 validProperty	Pegasus
+validProperty	Performer
 validProperty	Permanent
 validProperty	Permanent$CardCounters.ALL
 validProperty	Phyrexian
@@ -2898,6 +2913,8 @@ validProperty	YouCtrl$GreatestCardManaCost
 validProperty	YouCtrl$GreatestCardPower
 validProperty	YouCtrl$GreatestCardToughness
 validProperty	YouCtrl$PlaneswalkerType
+validProperty	YouCtrl$StickerPower
+validProperty	YouCtrl$StickerToughness
 validProperty	YouDontCtrl
 validProperty	YouDontCtrl$GreatestCardPower
 validProperty	YouDontCtrl$GreatestCardToughness
@@ -3369,6 +3386,7 @@ validProperty	phasedOutSelf
 validProperty	powerEQ1
 validProperty	powerEQ4
 validProperty	powerEQChosen
+validProperty	powerEQSTK8P
 validProperty	powerEQX
 validProperty	powerGE1
 validProperty	powerGE2
@@ -3442,6 +3460,10 @@ validProperty	sharesNameWith YourGraveyard
 validProperty	singleTarget
 validProperty	sneaked
 validProperty	spectacle
+validProperty	stickered
+validProperty	stickeredWith Art
+validProperty	stickeredWith Name
+validProperty	stickeredWith PT
 validProperty	surged
 validProperty	surveilledThisTurn
 validProperty	suspended
@@ -3457,6 +3479,7 @@ validProperty	totalPT_LE8
 validProperty	toughnessEQ1
 validProperty	toughnessEQ4
 validProperty	toughnessEQChosen
+validProperty	toughnessEQSTK8T
 validProperty	toughnessGE2
 validProperty	toughnessGE3
 validProperty	toughnessGE4
@@ -3779,6 +3802,7 @@ keywordHead	Squad
 keywordHead	Start your engines
 keywordHead	Starting intensity
 keywordHead	Station
+keywordHead	StickerSheet
 keywordHead	Storied
 keywordHead	Storm
 keywordHead	Strive
@@ -3831,6 +3855,7 @@ svarHead	ExiledCards
 svarHead	ExiledWith
 svarHead	Imprinted
 svarHead	ImprintedLKI
+svarHead	Kind
 svarHead	Number
 svarHead	OriginalHost
 svarHead	ParentTargeted
@@ -3914,11 +3939,13 @@ svarProperty	7
 svarProperty	8
 svarProperty	9
 svarProperty	A
+svarProperty	Ability
 svarProperty	Active
 svarProperty	AllTypes
 svarProperty	AltCostPaid
 svarProperty	Amount
 svarProperty	AmountManaProduced
+svarProperty	Art
 svarProperty	AttachedTo Aura.YouCtrl
 svarProperty	AttackersDeclared
 svarProperty	AttractionsVisitedThisTurn
@@ -4084,6 +4111,7 @@ svarProperty	LowestValidHand Card.YouOwn
 svarProperty	LowestValidLibrary Card.YouOwn
 svarProperty	MaxPlayers
 svarProperty	Me
+svarProperty	Name
 svarProperty	NonCombatDamageDealtThisTurn
 svarProperty	Num
 svarProperty	NumDmg
@@ -4096,6 +4124,7 @@ svarProperty	OppLand
 svarProperty	OppLilW
 svarProperty	OpponentsAttackedThisCombat
 svarProperty	OpponentsAttackedThisTurn
+svarProperty	PT
 svarProperty	Peer
 svarProperty	PlaneswalkedToThisTurn Unyaro
 svarProperty	PseudoKicker

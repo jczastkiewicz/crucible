@@ -1,11 +1,11 @@
-kind	Unknown	1460
-kind	Simple	9770
-kind	Amount	649
+kind	Unknown	1509
+kind	Simple	9783
+kind	Amount	650
 kind	Cost	1884
-kind	Type	1338
+kind	Type	1339
 kind	CostAndAmount	32
 kind	CostAndType	136
-kind	Special	3125
+kind	Special	3128
 used	Affinity	Special
 used	Afflict	Amount
 used	Afterlife	Amount
@@ -214,6 +214,7 @@ pseudo	MayEffectFromOpeningDeck	4
 pseudo	MayEffectFromOpeningHand	30
 pseudo	MustBeBlockedByAll	2
 pseudo	Prize	1
-pseudo	Visit	22
+pseudo	StickerSheet	48
+pseudo	Visit	23
 pseudo	etbCounter	477
 textKeywords	35 distinct

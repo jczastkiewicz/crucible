@@ -175,7 +175,8 @@ func eachFace(face *carddb.Face, card string, fn func(card, amount string)) {
 
 func isRecordKey(key string) bool {
 	switch strings.ToLower(key) {
-	case "sp", "ab", "db", "st", "re", "mode", "event":
+	// kind leads a sticker sheet's SVar (StickerSheet), a record like the others.
+	case "sp", "ab", "db", "st", "re", "mode", "event", "kind":
 		return true
 	}
 	return false

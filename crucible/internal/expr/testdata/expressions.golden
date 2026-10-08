@@ -113,12 +113,12 @@ operator	Minus	118
 operator	Mod	3
 operator	NMinus	14
 operator	Negative	1
-operator	Plus	317
+operator	Plus	318
 operator	Pow	1
 operator	ThirdUp	5
 operator	Thrice	9
 operator	Times	183
-operator	Twice	163
+operator	Twice	166
 countHead	AbilityYouCtrl
 countHead	Adamant
 countHead	Adamant_7
@@ -135,6 +135,7 @@ countHead	CardNumAttacksThisGame
 countHead	CardNumAttacksThisTurn
 countHead	CardNumColors
 countHead	CardPower
+countHead	CardStickers
 countHead	CardToughness
 countHead	CardsInYourHand
 countHead	CastTotalManaSpent
@@ -298,6 +299,7 @@ countHead	TotalValue
 countHead	TriggerRememberAmount
 countHead	TriggeredCardManaCost
 countHead	TriggeredManaCostDevotion
+countHead	TriggeredManaCostGeneric
 countHead	TriggeredPayingMana
 countHead	TypesSharedWith
 countHead	UniqueManaColorsProduced

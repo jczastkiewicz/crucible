@@ -654,6 +654,9 @@ func applyContinuousText(g *Game) {
 		}
 		applyOneContinuousText(g, g.Card(ls.host), ls.s, textChange{owner: ls.def, face: ls.face, static: ls.index})
 	}
+	// Word substitution (ChangeText, ExchangeTextBox, ChangeColorWordsTo$)
+	// folds over whatever text GainTextOf$ left, ADR-0039.
+	applyTextWords(g)
 }
 
 // applyOneContinuousText is StaticAbilityContinuous.java's own TEXT-layer
@@ -1487,8 +1490,11 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 			c.removeTraits(removal)
 		}
 		if granting {
-			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), grant)
-			for _, st := range grant.statics {
+			// CardManaCost / ConvertedManaCost in a granted body name the card
+			// that receives it (StaticAbilityContinuous.java:777-784, 842-847).
+			cg := costSubstitutedGrant(grant, c)
+			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...), cg)
+			for _, st := range cg.statics {
 				added = append(added, layerStatic{host: id, def: c.Def, face: -1, s: st, amounts: amounts})
 			}
 		}

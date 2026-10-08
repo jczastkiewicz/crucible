@@ -223,6 +223,33 @@ func (c Cost) Equal(other Cost) bool {
 	return true
 }
 
+// ShortString is ManaCost.getShortString (ManaCost.java:294), the text
+// StaticAbilityContinuous substitutes for CardManaCost in a granted keyword or
+// ability: "-1" for no cost, else the generic amount ("0" for a zero cost)
+// followed by each shard with a space before it and its braces kept, so {2}{W}{W}
+// is "2 {W} {W}". A cost reduced below zero ends with the reduction.
+func (c Cost) ShortString() string {
+	if c.noCost {
+		return "-1"
+	}
+	var b strings.Builder
+	if c.IsZero() {
+		b.WriteByte('0')
+	}
+	if c.generic > 0 {
+		b.WriteString(strconv.Itoa(c.generic))
+	}
+	for _, s := range c.shards {
+		b.WriteByte(' ')
+		b.WriteString(s.String())
+	}
+	if c.generic < 0 {
+		b.WriteByte(' ')
+		b.WriteString(strconv.Itoa(c.generic))
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // String prints the cost in the form the oracle dump uses: "{2}{W}{W}", "{X}{R}",
 // or "no cost".
 //

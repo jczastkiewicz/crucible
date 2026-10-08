@@ -1021,6 +1021,15 @@ func (c *Card) CMC() int {
 	return c.Def.Faces[0].ManaCost.CMC()
 }
 
+// shortManaCost is Card.getManaCost().getShortString(), what a granted
+// keyword's CardManaCost stands for (mana.Cost.ShortString).
+func (c *Card) shortManaCost() string {
+	if c.Def == nil {
+		return ""
+	}
+	return c.Def.Faces[0].ManaCost.ShortString()
+}
+
 // foldPT applies Layers 7a and 7b in order (CR 613.4a-b): each effect
 // replaces the running value, unless pick's own bool reports this effect
 // does not set this particular dimension at all (PTEffect's own

@@ -2,7 +2,7 @@
 
 package engine
 
-//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost
+//enginelint:allow id zone parts card player game ability control subability defined manapay unlesscost textwords
 
 import (
 	"errors"
@@ -90,6 +90,9 @@ func (r *Registry) Resolve(g *Game, a *Ability, controller PlayerController) err
 // resolve is Resolve without the pending static-trigger error check.
 func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) error {
 	if g != nil {
+		// A spell whose text a word change reached since it was cast resolves
+		// the rewritten text (textwords.go, ADR-0039).
+		a = g.textChangedSpell(a)
 		g.registry = r
 		prev := g.xctx
 		g.xctx = xContext{value: a.xManaCostPaid, has: a.hasXManaCostPaid, source: a.Source}

@@ -203,12 +203,11 @@ state-based actions, combat, mulligans, the valid-string evaluator, mana pool an
 Instants/Sorceries through the stack (ADR-0018), trigger firing, replacement effects, block legality, continuous effects
 across all eight layers (partial), targeting, SubAbility chaining, last-known information, activated abilities.
 
-M6 in progress: 187 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`. Of the other 17, 2 have real corpus lines and are listed by
-`scripts/unported-apis.sh` as deliberately deferred (`ChangeText`, `ExchangeTextBox`, Layer 1/3 text work); the rest
-(`Mutate`, `Haunt`, `Bond`, `Encode`, `InternalIgnoreEffect`/`InternalLegendaryRule`/`InternalRadiation`, ...) have zero
-real `AB$`/`SP$`/`DB$` lines under that exact name and never surface in `unported-apis.sh`'s corpus-driven listing at
-all. Largest gaps (corpus lines, `scripts/unported-apis.sh`): `ChangeText` (17), `ExchangeTextBox` (2).
+M6 in progress: 189 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+`registry_gen.go`); the rest return `ErrUnimplemented`. Of the other 14, none has a real corpus line: `Mutate`, `Haunt`,
+`Bond`, `Encode`, `InternalIgnoreEffect`/`InternalLegendaryRule`/`InternalRadiation`, ... have zero real
+`AB$`/`SP$`/`DB$` lines under that exact name and never surface in `unported-apis.sh`'s corpus-driven listing at all.
+`ChangeText` and `ExchangeTextBox` resolve through Layer 3 word substitution (ADR-0039).
 
 Thin or missing: Layer 1 past `Clone`'s own "enters as a copy" (`entersascopy.go` resolves it now) — a copy replacement
 other than `Clone` itself, CR 616.1's choice among several, Mystic Reflection's batch "next time"; most of Layers 3-8

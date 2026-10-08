@@ -189,10 +189,9 @@ func TestLayersRemoveAllAbilitiesRemovesKeywords(t *testing.T) {
 	}
 }
 
-// TestLayersKeywordCardManaCostDoesNothing proves a token this port cannot
-// resolve (CardManaCost needs ManaCost.getShortString) leaves the whole line
-// unapplied rather than granting the literal marker.
-func TestLayersKeywordCardManaCostDoesNothing(t *testing.T) {
+// TestLayersKeywordCardManaCostIsTheShortString proves CardManaCost in a
+// granted keyword becomes the affected card's ManaCost.getShortString.
+func TestLayersKeywordCardManaCostIsTheShortString(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := layer456Game(t)
@@ -203,15 +202,14 @@ func TestLayersKeywordCardManaCostDoesNothing(t *testing.T) {
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
-	if got := g.Card(dead).KeywordLines(); len(got) != 0 {
-		t.Errorf("KeywordLines() = %v, want the whole line unapplied", got)
+	if got := g.Card(dead).KeywordLines(); !slices.Equal(got, []string{"Scavenge:{G}", "Haste"}) {
+		t.Errorf("KeywordLines() = %v, want [Scavenge:{G} Haste]", got)
 	}
 }
 
-// TestLayersAddAllCreatureTypesDoesNothing proves AddAllCreatureTypes$,
-// which needs a cardtype.Line flag this port lacks, applies no part of its
-// line's type change.
-func TestLayersAddAllCreatureTypesDoesNothing(t *testing.T) {
+// TestLayersAddAllCreatureTypesAppliesWithItsLine proves AddAllCreatureTypes$
+// applies beside the line's own AddType$.
+func TestLayersAddAllCreatureTypesAppliesWithItsLine(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := layer456Game(t)
@@ -222,7 +220,7 @@ func TestLayersAddAllCreatureTypesDoesNothing(t *testing.T) {
 
 	engine.CheckStateBasedActions(g, engine.NewScriptedController())
 
-	if typ := g.Card(creature).Type(); typ.HasSubtype("Angel") {
-		t.Errorf("Type() = %q, want the AddAllCreatureTypes$ line unapplied", typ)
+	if typ := g.Card(creature).Type(); !typ.HasSubtype("Angel") {
+		t.Errorf("Type() = %q, want the AddAllCreatureTypes$ line applied", typ)
 	}
 }

@@ -623,6 +623,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	}
 	g.pumps = kept
 	g.endAnimatesAtCleanup()
+	g.endTextAtCleanup()
 	g.endCopiesAtCleanup()
 	g.runEndOfTurnCommands(controller)
 	g.endSkipsAtCleanup()

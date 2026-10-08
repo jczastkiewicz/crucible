@@ -17,6 +17,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -181,6 +182,20 @@ type Game struct {
 	// animates is every Animate-shaped effect in force (animate.go):
 	// Animate, AnimateAll, Debuff, Protection, ProtectionAll.
 	animates []animateRecord
+	// textWords and textBoxes are the ChangeText word changes and
+	// ExchangeTextBox exchanges in force (textwords.go, ADR-0039); textMaps is
+	// this pass's folded word map per card, and textMemo the rewritten
+	// definitions built so far. The memo is a pure cache of immutable values,
+	// rebuilt on demand, so Clone leaves it empty rather than share a map.
+	textWords []textWordRecord
+	textBoxes []textBoxRecord
+	textMaps  map[CardID]wordMap
+	textMemo  map[textMemoKey]*compile.Card
+	// everyCreatureType is the type line holding every creature type of the
+	// DB's vocabulary, built on first use (allCreatureTypes); a pure cache of
+	// the immutable registry, so Clone leaves it unbuilt.
+	everyCreatureType      cardtype.Line
+	everyCreatureTypeBuilt bool
 	// delayed is every registered delayed trigger (delayedtrigger.go), in
 	// registration order.
 	delayed []delayedTrigger
@@ -709,6 +724,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	g.clearTextRecords(id)
 	if from == Exile && kind != Exile {
 		c.foretold = false
 	}
@@ -883,6 +899,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	g.clearTextRecords(id)
 	if from == Stack {
 		c.controller = c.Owner
 		c.tempControllers = nil
@@ -1229,6 +1246,9 @@ func (g *Game) Clone() *Game {
 		endOfNextTurnCmds: append([]playerCommand(nil), g.endOfNextTurnCmds...),
 
 		animates:  append([]animateRecord(nil), g.animates...),
+		textWords: append([]textWordRecord(nil), g.textWords...),
+		textBoxes: append([]textBoxRecord(nil), g.textBoxes...),
+		textMaps:  maps.Clone(g.textMaps),
 		delayed:   append([]delayedTrigger(nil), g.delayed...),
 		scheduled: append([]scheduledAction(nil), g.scheduled...),
 		skips:     append([]skipPhase(nil), g.skips...),

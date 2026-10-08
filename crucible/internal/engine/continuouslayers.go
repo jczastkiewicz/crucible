@@ -338,13 +338,19 @@ func forEachOffBattlefieldCard(g *Game, fn func(*Card)) {
 // vocabulary off the game's DB (compile.DB.Types) -- Animate's own seam,
 // subtypeCategoryDrop -- and report false without one.
 //
-// false too for AddAllCreatureTypes$ (8 real lines): Java's CardType keeps
-// "every creature type" as a flag, and cardtype.Line has no such flag yet.
-// Materialising it as a few hundred subtypes on every Type() fold is the
-// alternative, and a cost this port does not pay for eight lines.
+// AddAllCreatureTypes$ (8 real lines) is Java's CardType.allCreatureTypes flag.
+// cardtype.Line has no such flag, so the effect adds every creature type of the
+// DB's vocabulary (allCreatureTypes), the way Changeling does; without a
+// vocabulary the line does nothing. The Remove*Types$ flags gate on a kept
+// AddType$ token only, not on this param, as in Java.
 func layerTypeChange(g *Game, host *Card, s *compile.Ability) (TypeEffect, bool) {
-	if _, ok := s.Param("AddAllCreatureTypes"); ok {
-		return TypeEffect{}, false
+	var every cardtype.Line
+	_, allCreature := s.Param("AddAllCreatureTypes")
+	if allCreature {
+		var ok bool
+		if every, ok = g.allCreatureTypes(); !ok {
+			return TypeEffect{}, false
+		}
 	}
 	reg := g.db.Types()
 	e := TypeEffect{Timestamp: host.Timestamp}
@@ -412,9 +418,10 @@ func layerTypeChange(g *Game, host *Card, s *compile.Ability) (TypeEffect, bool)
 		e.RemoveLandTypes = land
 		flags = e.RemoveCardTypes || e.RemoveSuperTypes || e.RemoveSubTypes || drop != nil
 	}
-	if len(addWords) == 0 && removeCount == 0 && !flags {
+	if len(addWords) == 0 && removeCount == 0 && !flags && !allCreature {
 		return TypeEffect{}, false
 	}
+	e.AddTypes = e.AddTypes.Union(every)
 	return e, true
 }
 
@@ -533,8 +540,7 @@ type layerKeywords struct {
 // false when the line has no keyword change, or one this cannot resolve:
 // SharedKeywordsZone$ (CardFactoryUtil.sharedKeywords), FromDraftNotes$,
 // ShareRememberedKeywords$, CantHaveKeyword$ (a grant blocker a later
-// timestamp's AddKeyword$ must respect), CardManaCost in a token (needs
-// ManaCost.getShortString, not ported), more than one chosen color behind a
+// timestamp's AddKeyword$ must respect), more than one chosen color behind a
 // ChosenColor token (Java takes the first chosen, an order mana.Colors does
 // not keep), or a CalcKeywordN$ resolveNamedAmount cannot compute.
 func layerKeywordChange(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) (layerKeywords, bool) {
@@ -575,11 +581,8 @@ func layerKeywordChange(g *Game, host *Card, amounts map[string]expr.Amount, s *
 				return layerKeywords{}, false
 			}
 			k.add[i] = out
-			if strings.Contains(out, "CardManaCost") {
-				return layerKeywords{}, false
-			}
 			if strings.Contains(out, "CardColors") || strings.Contains(out, "cardColors") ||
-				strings.Contains(out, "ConvertedManaCost") {
+				strings.Contains(out, "CardManaCost") || strings.Contains(out, "ConvertedManaCost") {
 				k.perCard = true
 			}
 		}
@@ -725,8 +728,14 @@ func (k *layerKeywords) layerKeywordsFor(c *Card) []string {
 		}
 		kept = append(kept, extra...)
 		add = kept
+		// CardManaCost wins over ConvertedManaCost in one keyword
+		// (StaticAbilityContinuous.java:735-741, an else-if): a keyword with
+		// both keeps the second token as written.
 		for i, tok := range add {
-			if strings.Contains(tok, "ConvertedManaCost") {
+			switch {
+			case strings.Contains(tok, "CardManaCost"):
+				add[i] = strings.ReplaceAll(tok, "CardManaCost", c.shortManaCost())
+			case strings.Contains(tok, "ConvertedManaCost"):
 				add[i] = strings.ReplaceAll(tok, "ConvertedManaCost", strconv.Itoa(c.CMC()))
 			}
 		}
@@ -753,25 +762,35 @@ func (k *layerKeywords) layerKeywordsFor(c *Card) []string {
 // one), so the types are materialized from the registry, for the few cards
 // that carry the keyword. Nothing is added without a registry.
 func applyChangelings(g *Game) {
-	reg := g.db.Types()
-	if reg == nil {
-		return
-	}
-	var all cardtype.Line
-	built := false
 	for i := 1; i < len(g.cards); i++ {
 		c := &g.cards[i]
 		if c.Def == nil || !c.HasKeyword("Changeling") {
 			continue
 		}
-		if !built {
-			for _, name := range reg.Members(cardtype.CategoryCreature) {
-				all = all.Union(cardtype.ParseToken(name))
-			}
-			built = true
+		all, ok := g.allCreatureTypes()
+		if !ok {
+			return
 		}
 		c.TypeMod.Add(TypeEffect{Timestamp: c.Timestamp, AddTypes: all})
 	}
+}
+
+// allCreatureTypes is the type line of every creature type in the game's DB
+// vocabulary: Java's CardType.allCreatureTypes flag, materialized (Changeling,
+// AddAllCreatureTypes$). false while the DB has no vocabulary. Built once per
+// game: the registry is immutable.
+func (g *Game) allCreatureTypes() (cardtype.Line, bool) {
+	reg := g.db.Types()
+	if reg == nil {
+		return cardtype.Line{}, false
+	}
+	if !g.everyCreatureTypeBuilt {
+		for _, name := range reg.Members(cardtype.CategoryCreature) {
+			g.everyCreatureType = g.everyCreatureType.Union(cardtype.ParseToken(name))
+		}
+		g.everyCreatureTypeBuilt = true
+	}
+	return g.everyCreatureType, true
 }
 
 // staticAffected is the cards the static s of host applies to in this layer

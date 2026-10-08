@@ -86,6 +86,8 @@
     "random": ["random.go"],
     "token": ["token.go"],
     "facedown": ["facedown.go"],
+    "textrewrite": ["textrewrite.go"],
+    "textwords": ["textwords.go"],
     "registry": ["registry_gen.go"]
   },
   "allow": {
@@ -130,7 +132,9 @@
       "cloneeffect",
       "registry",
       "mustblockeffect",
-      "scheduledaction"
+      "scheduledaction",
+      "textwords",
+      "textrewrite"
     ],
     "phase": [],
     "event": ["id", "zone", "phase", "parts"],
@@ -169,7 +173,8 @@
       "effecteffect",
       "mustblockeffect",
       "phasing",
-      "scheduledaction"
+      "scheduledaction",
+      "textwords"
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "match": ["id", "zone", "game", "control"],
@@ -368,7 +373,8 @@
       "trigger",
       "animate",
       "dependency",
-      "unlesscost"
+      "unlesscost",
+      "textwords"
     ],
     "dependency": ["id", "card", "game", "continuous", "continuouslayers", "layer"],
     "saspec": ["id", "card", "game", "ability", "valid", "amount", "parts", "zone", "castspell"],
@@ -501,6 +507,8 @@
     "delayedtrigger": ["ability", "card", "game", "id", "player", "trigger", "valid", "zone"],
     "random": ["game"],
     "token": ["card", "control", "event", "game", "id", "parts", "zone", "zonemove"],
-    "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined"]
+    "facedown": ["card", "id", "game", "control", "zone", "ability", "effecthelpers", "condition", "parts", "defined"],
+    "textrewrite": [],
+    "textwords": ["card", "game", "ability", "id", "zone", "continuous", "continuouslayers", "textrewrite", "valid"]
   }
 }

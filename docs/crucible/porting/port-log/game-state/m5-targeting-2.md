@@ -47,11 +47,10 @@ full `ValidTgts$`/`UnlessSwitched$` chain.
 | `TargetsWithSharedCardType$`, `TargetsWithSharedTypes$`           | `candidateRestrictionsMet`: the target shares a card type (or a listed one) with every card the Defined text names.                                                                          |
 | `TargetsWithRelatedProperty$`                                     | `LEPower`/`LECMC` against the first card an ancestor targeted; a root ability has none, so nothing qualifies.                                                                                |
 
-`GainControl` and `TapOrUntap` no longer refuse the params above. `ExchangeControl` still refuses
-`TargetsWithSharedCardType$`, `TargetsWithRelatedProperty$`, `TargetsWithDefinedController$` and `TargetingPlayer$`
-(Confusion in the Ranks). `TargetsWithSharedCardType$ ParentTarget` and `TargetsWithRelatedProperty$` sit on
-sub-abilities, which are never targeted separately (`subability.go`), so only the `TriggeredCard`/`Remembered` forms are
-reachable.
+`GainControl` and `TapOrUntap` no longer refuse the params above. `ExchangeControl` takes them too
+([`m5-s-redirects.md`](m5-s-redirects.md)). `TargetsWithSharedCardType$ ParentTarget` and `TargetsWithRelatedProperty$`
+sit on sub-abilities, which are never targeted separately (`subability.go`), so only the `TriggeredCard`/`Remembered`
+forms are reachable.
 
 Fixtures: `target-no-shared-creature-type-fight`, `target-no-shared-creature-type-elves-not-cast`. Module tests:
 `targetingrestrictions2_test.go` (the other params, the fizzle check, the decider).
@@ -63,6 +62,6 @@ host's choice; any other text is a player spec and each keyword naming `ChosenPl
 per player. A card target gets the keywords, so Courageous Resolve and Cliffside Rescuer protect a permanent from the
 players named (test `pumpdefinedkw_test.go`).
 
-Not ported: Eon Frolicker, Noble Heritage and Guardian Archon's second ability pump a player (`Defined$ You`), and Pump
-has no player keyword record; they resolve to nothing as before. `ChosenPlayer` needs a `GameState` key that sets a
+Eon Frolicker, Noble Heritage and Guardian Archon's second ability pump a player (`Defined$ You`): ported through
+`pumpRecord.OnPlayer` ([`m5-s-redirects.md`](m5-s-redirects.md)). `ChosenPlayer` needs a `GameState` key that sets a
 chosen player, so no fixture.

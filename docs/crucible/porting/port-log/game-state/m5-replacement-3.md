@@ -63,10 +63,8 @@ Fixture verbs added: `queue cardchoice none` (an empty pick), `queue playerchoic
 
 ## Not landed from the Moved remainder
 
-- `PayLife` (Phyrexian Processor, Minion of the Wastes, Nameless Race, 3 lines):
-  `AB$ StoreSVar | Cost$ Mandatory PayLife<X>` is a cost with an X the player chooses, paid inside a replacement
-  ability. Nothing on the `runReplacementChain` path pays a `Cost$`, and the amount is read back by a static through
-  `LifePaidOnETB`.
+- `PayLife` (Minion of the Wastes, Nameless Race, Phyrexian Processor) is ported: see
+  [`m5-q-attached.md`](m5-q-attached.md) (`payReplacementLifeX`).
 - "Enters with counters" (`PutCounter | ETB$ True`) was already ported (`entercounters.go`, ADR-0038); the old row was
   stale.
 - Xantcha, Abby: the same `Layer$ Control` shape as Captive Audience; no fixture of their own.
@@ -96,8 +94,8 @@ a card to a card calls it (`attachEffect`, `attachObject`, `attachActivated`, `t
 | `replacement-attached-sanctuary-blade-protects-from-the-chosen-color`      | red chosen as it attaches: a Bolt on the Bears fizzles |
 | `replacement-attached-sanctuary-blade-protects-only-from-the-chosen-color` | green chosen: the Bolt kills the 4/2                   |
 
-Not done: Psychic Paper (`NameCard` + `ChooseType`; the card-name choice needs an index into the whole corpus),
-Paleontologist's Pick-Axe (`ExiledWith`, craft).
+Psychic Paper is ported ([`m5-q-attached.md`](m5-q-attached.md)). Not done: Paleontologist's Pick-Axe (its back face,
+Dinosaur Headdress, needs `ExiledWith` and craft).
 
 ## Transform and TurnFaceUp scenarios
 
@@ -113,10 +111,9 @@ The fixture format gained `|Transformed` (`GameState.java:360-366`, `:1346`): `G
 
 Not done:
 
-- Sephiroth, Fabled SOLDIER: its transform condition reads `X = Count$ResolvedThisTurn`, which `resolveAmount` has no
-  head for, so the fourth resolution never transforms him (the scenario drained the opponent correctly and stayed on the
-  front face). Curse of Leeches transforms through day/night, which fixtures cannot set; Ludevic needs
-  `XMin1 ... ExileFromGrave<X>` and a `Clone` with `Choices$ Creature.ExiledWithSource`.
+- Sephiroth, Fabled SOLDIER transforms ([`m5-q-attached.md`](m5-q-attached.md), `Count$ResolvedThisTurn`). Curse of
+  Leeches transforms through day/night, which fixtures cannot set; Ludevic needs `XMin1 ... ExileFromGrave<X>` and a
+  `Clone` with `Choices$ Creature.ExiledWithSource`.
 - Gift of Doom: `DB$ Attach | Choices$ Creature | Optional$ True` is refused by `attachActivated`
   (`Choices$ ... not resolvable yet`); Vesuvan Shapeshifter:
   `Clone | Choices$ Creature.Other | Duration$ UntilFacedown`, the Layer 1 duration work in batch M.

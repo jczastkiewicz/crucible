@@ -34,9 +34,9 @@ keep the parent's targets.
 `staticCheck` keeps the host's `Amounts`, the SVar name and the compare string: the left SVar is evaluated with the
 affected card as source, the operand on the host. Missing `StaticCommandCheckSVar$`/`StaticCommandSVarCompare$` is an
 error (Java reads a null SVar). `UntilSourceUnattached` reads the attachment from the trigger's `Source`
-(`triggeredObjects.source`); no `Mode$ Attached` trigger is ported (4 corpus lines: Eriette, Siona, Assimilation Aegis,
-Enormous Energy Blade), so no card reaches it yet and an ability without one errors. The unattach list is pinned by an
-internal test (`unattachcommand_internal_test.go`, TEST-2 row 3).
+(`triggeredObjects.source`); `Mode$ Attached` is ported ([`m5-q-attached.md`](m5-q-attached.md)), so Eriette reaches it;
+an ability without a source errors. The unattach list is pinned by an internal test (`unattachcommand_internal_test.go`,
+TEST-2 row 3).
 
 ## `Duration$ AsLongAsControl` / `UntilLoseControlOfHost` on Pump, Animate, Goad
 

@@ -151,9 +151,9 @@ on an Effect card in the Command zone, not the battlefield, so a controlled vote
 `VotePlayer$ Other` ballot, not the player whose vote it is: under a controlled vote each player may vote for
 themselves, and nobody may vote for the controller. That combination returns an error citing the line instead.
 
-Not resolved (skipped, `applyOneContinuousRules`' doc comment): `ControlOpponentsSearchingLibrary$` (1 real line) — no
-search effect hands its decisions to another controller; `IgnoreEffectCost$` (4) — a cost-paid exemption from another
-static, its own mechanic.
+Not resolved (skipped, `applyOneContinuousRules`' doc comment): `ControlOpponentsSearchingLibrary$` and
+`IgnoreEffectCost$` are resolved now ([ADR-0040](../../../adr/0040-search-control-redirect.md),
+[`m5-s-redirects.md`](m5-s-redirects.md)).
 
 Tests: `extravotes_test.go` (each param from its real line; `ControlVote$` through a controller that records who is
 asked; the `VotePlayer$ Other` refusal).

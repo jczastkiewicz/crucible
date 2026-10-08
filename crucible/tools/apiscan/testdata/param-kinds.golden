@@ -3991,6 +3991,8 @@ Intensify	DB	21	-	-	token:21
 Intensify	DefinedDesc	7	-	-	prose:7
 Intensify	SpellDescription	5	-	-	prose:5
 Intensify	SubAbility	2	-	-	token:2
+InternalIgnoreEffect	AB	4	-	-	token:4
+InternalIgnoreEffect	Cost	4	-	-	token:3,int:1
 Investigate	AB	16	-	-	token:16
 Investigate	ConditionCheckSVar	2	-	-	token:2
 Investigate	ConditionCompare	2	-	-	token:2

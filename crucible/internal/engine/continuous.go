@@ -510,7 +510,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 	}
 	if spec, ok := s.Param("Affected"); ok {
 		for _, pid := range g.Players() {
-			if matched, _ := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); matched {
+			if matched, _ := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); matched && !g.playerIgnores(pid, host, s) {
 				g.Player(pid).KeywordMod.Add(KeywordEffect{
 					Timestamp:      host.Timestamp,
 					AddKeywords:    change.add,
@@ -805,6 +805,9 @@ func applyPumpEffects(g *Game) {
 func livePumps(g *Game, fn func(c *Card, p *pumpRecord)) {
 	for i := range g.pumps {
 		p := &g.pumps[i]
+		if p.OnPlayer {
+			continue
+		}
 		c := g.Card(p.Card)
 		if c.Zone != Battlefield || c.IsPhasedOut() {
 			continue
@@ -816,6 +819,11 @@ func livePumps(g *Game, fn func(c *Card, p *pumpRecord)) {
 // pumpLayerKeywords is applyPumpEffects' Layer 6 half, called at the start of
 // applyContinuousKeyword.
 func pumpLayerKeywords(g *Game) {
+	for _, p := range g.pumps {
+		if p.OnPlayer && len(p.Keywords) > 0 {
+			g.Player(p.Player).KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
+		}
+	}
 	livePumps(g, func(c *Card, p *pumpRecord) {
 		if len(p.Keywords) > 0 {
 			c.KeywordMod.Add(KeywordEffect{Timestamp: p.Timestamp, AddKeywords: p.Keywords})
@@ -905,6 +913,7 @@ func applyContinuousRules(g *Game) {
 		}
 		h := g.Card(ls.host)
 		applyOneContinuousRules(g, h, ls.amounts, ls.s)
+		grantIgnoreEffect(g, h, ls.amounts, ls.s)
 		applyOneContinuousHiddenKeyword(g, h, ls.s)
 		applyOneContinuousMayPlay(g, h, ls.amounts, ls.s, ls.index)
 	}
@@ -930,16 +939,18 @@ func applyContinuousRules(g *Game) {
 //   - MayPlay$/MayLookAt$ are not this function's: MayPlay$ is a per-card
 //     grant (applyOneContinuousMayPlay, below) and MayLookAt$ changes no
 //     state in an omniscient engine.
-//   - ControlOpponentsSearchingLibrary$ (1 real line) -- a library search
-//     handing its decisions to another player's controller, which no
-//     search effect here can do. The vote params (AdditionalVote$,
-//     AdditionalOptionalVote$, AdditionalVillainousChoice$, ControlVote$)
-//     do resolve here, into RulesEffect fields Vote/VillainousChoice read,
-//     and so do DeclaresAttackers$/DeclaresBlockers$ (1 S: line, 5 Effect
-//     SVars), into the fields AttackDeclarer/BlockDeclarer read (ADR-0036).
-//   - IgnoreEffectCost$ (4) -- a cost-ignoring ability grant, its own
-//     separate mechanic. AddHiddenKeyword$ is not this function's:
-//     applyOneContinuousHiddenKeyword (below) resolves it per card.
+//   - The vote params (AdditionalVote$, AdditionalOptionalVote$,
+//     AdditionalVillainousChoice$, ControlVote$) do resolve here, into
+//     RulesEffect fields Vote/VillainousChoice read, and so do
+//     DeclaresAttackers$/DeclaresBlockers$ (1 S: line, 5 Effect SVars), into
+//     the fields AttackDeclarer/BlockDeclarer read (ADR-0036), and
+//     ControlOpponentsSearchingLibrary$ (1 real line), into the field
+//     Game.SearchController reads (ADR-0040).
+//   - IgnoreEffectCost$ (4) is not this function's: it is a granted ability
+//     (compile's ignore-effect sub, ignoreeffect.go), and a player it frees is
+//     left out of every player-facing pass (playerIgnores). AddHiddenKeyword$
+//     is not this function's either: applyOneContinuousHiddenKeyword (below)
+//     resolves it per card.
 //   - A qualified Affected$ matchesPlayerSpec cannot resolve
 //     (Player.NotedForGreenAnchor, Player.Chosen -- 1 real line each,
 //     matchesPlayerSpec's own doc comment has the general reason).
@@ -968,7 +979,7 @@ func applyOneContinuousRules(g *Game, host *Card, amounts map[string]expr.Amount
 	}
 	for _, pid := range g.Players() {
 		matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, affected)
-		if !recognized || !matched {
+		if !recognized || !matched || g.playerIgnores(pid, host, s) {
 			continue
 		}
 		g.Player(pid).Rules.Add(effect)
@@ -1043,6 +1054,7 @@ func rulesEffect(g *Game, host *Card, amounts map[string]expr.Amount, s *compile
 	}{
 		{"DeclaresAttackers", &e.DeclaresAttackers},
 		{"DeclaresBlockers", &e.DeclaresBlockers},
+		{"ControlOpponentsSearchingLibrary", &e.SearchControl},
 	} {
 		spec, ok := s.Param(v.key)
 		if !ok {

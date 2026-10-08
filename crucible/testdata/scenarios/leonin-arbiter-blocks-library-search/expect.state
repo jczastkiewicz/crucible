@@ -1,0 +1,10 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humangraveyard=Rampant Growth
+humanbattlefield=Forest|Id:1|Tapped;Forest|Id:2|Tapped
+humanlibrary=Forest|Id:4
+ailife=20
+aibattlefield=Leonin Arbiter|Id:5
+ailibrary=Island|Id:6

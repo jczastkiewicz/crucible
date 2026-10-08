@@ -3485,7 +3485,7 @@ func (g *Game) wardTriggers(targets []EntityID, sourceController PlayerID, sourc
 // evaluated, or a part parseUnlessCost refuses, skips the line (GO-7).
 func (g *Game) wardCostResolvable(w *Ability, details string) bool {
 	for _, part := range strings.Split(details, ":") {
-		text, err := g.expandUnlessCost(w, part)
+		text, err := g.expandUnlessCost(w, part, nil)
 		if err != nil {
 			return false
 		}

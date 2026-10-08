@@ -131,11 +131,15 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	// ends it with a command on the host (addUntilCommand,
 	// SpellAbilityEffect.java:1007-1017); checkValidDuration runs first
 	// (PumpEffect.java:271).
-	permanent, hostBound := false, ""
+	permanent, hostBound, untilNextTurn := false, "", false
 	if d, ok := a.Params.Param("Duration"); ok {
 		switch {
 		case d == "Permanent":
 			permanent = true
+		case d == "UntilYourNextTurn":
+			// SpellAbilityEffect.addUntilCommand: the untap phase of the
+			// activator's next turn (PhaseHandler.java:252).
+			permanent, untilNextTurn = true, true
 		case hostBoundDuration(d):
 			if !validHostDuration(a, source, d) {
 				return nil
@@ -190,23 +194,44 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
-		return fmt.Errorf("engine: Pump: %w", err)
+		// A Defined$ that names players (You) names no card (AbilityUtils.
+		// getDefinedCards skips it); only a spec neither side knows is an error.
+		spec, _ := a.Params.Param("Defined")
+		if ps, perr := definedPlayers(g, a.Controller, a.Source, spec, a.refs()); perr != nil || len(ps) == 0 {
+			return fmt.Errorf("engine: Pump: %w", err)
+		}
+		cards = nil
 	}
-	// PumpEffect.java's tgtPlayers loop gives a player keywords only (a
-	// player has no power or toughness); this port has no player keyword
-	// record yet, so a keyword pump naming a player target fails loudly
-	// rather than granting nothing (GO-7). A P/T-only line ignores player
-	// targets, as Java's applyPump(player) does.
+	// PumpEffect.java's tgtPlayers loop (:498-504) gives a player keywords only
+	// (a player has no power or toughness): getTargetPlayers is the targeted
+	// players, or the players Defined$ names ("You"; a card-only spec names
+	// none).
+	var players []PlayerID
 	if len(keywords) > 0 {
-		for _, e := range a.Targets {
-			if _, ok := e.AsPlayer(); ok {
-				return fmt.Errorf("engine: Pump: KW$ on a player target not resolvable yet")
+		if _, ok := a.Params.Param("ValidTgts"); ok {
+			for _, e := range a.Targets {
+				if p, ok := e.AsPlayer(); ok {
+					players = append(players, p)
+				}
+			}
+		} else if spec, ok := a.Params.Param("Defined"); ok {
+			if ps, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs()); err == nil {
+				players = ps
 			}
 		}
 	}
 
 	g.timestamp++
 	timestamp := g.timestamp
+	for _, p := range players {
+		if g.Player(p).Lost {
+			continue
+		}
+		g.pumps = append(g.pumps, pumpRecord{
+			Timestamp: timestamp, Keywords: keywords, OnPlayer: true, Player: p,
+			Permanent: permanent, HasUntil: untilNextTurn, UntilTurnOf: a.Controller,
+		})
+	}
 	for _, cid := range cards {
 		c := g.Card(cid)
 		// CR 702.26e: a phased-out target is not pumped (PumpEffect.java).
@@ -216,6 +241,7 @@ func (pumpEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		g.pumps = append(g.pumps, pumpRecord{
 			Card: cid, Timestamp: timestamp, Power: power, Toughness: toughness,
 			Keywords: keywords, Switched: switched, Permanent: permanent,
+			HasUntil: untilNextTurn, UntilTurnOf: a.Controller,
 		})
 		if hostBound != "" {
 			g.registerHostBoundEnd(source, cardCommand{Kind: commandEndPump, Target: cid, Timestamp: timestamp}, hostBound)

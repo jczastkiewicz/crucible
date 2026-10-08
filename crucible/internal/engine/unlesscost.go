@@ -48,6 +48,9 @@ type unlessCost struct {
 	// them to exist (CostReveal.canPay).
 	revealN    int
 	revealSpec string
+	// revealBattlefield is Behold<N/Type> (CostBehold): the cards may also be
+	// permanents the payer controls.
+	revealBattlefield bool
 	// addCounterN/addCounterType are AddCounter<N/Type>: put N counters of a
 	// kind on the source itself (CostPutCounter's CARDNAME shape, Fabricate).
 	addCounterN    int
@@ -132,6 +135,9 @@ func parseUnlessCost(text string) (unlessCost, bool) {
 			uc.returnN, uc.returnSpec = n, p.Field(1)
 		case p.Name == "Reveal" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec = n, p.Field(1)
+		case p.Name == "Behold" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
+			// CostBehold is a CostReveal over the hand and the battlefield.
+			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, p.Field(1), true
 		case p.Name == "AddCounter" && uc.addCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME"):
 			uc.addCounterN, uc.addCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
 		case p.Name == "AddCounter" && uc.addCounterN == 0 && p.Field(1) != "" && chosenCardSpecResolvable(p.Field(2)):
@@ -256,9 +262,20 @@ func (g *Game) unlessRevealable(pid PlayerID, source CardID, uc unlessCost) bool
 	}
 	spec := valid.Parse(strings.ReplaceAll(uc.revealSpec, ";", ","))
 	n := 0
-	for _, id := range g.Zone(Hand, pid).Cards() {
-		if Matches(g, g.Card(id), spec, pid, source) {
-			n++
+	zones := []ZoneType{Hand}
+	if uc.revealBattlefield {
+		zones = append(zones, Battlefield)
+	}
+	for _, z := range zones {
+		for _, id := range g.Zone(z, pid).Cards() {
+			// A Behold paid while casting: the spell is already on the stack, not in
+			// the hand it is chosen from.
+			if uc.revealBattlefield && id == source && z == Hand {
+				continue
+			}
+			if Matches(g, g.Card(id), spec, pid, source) {
+				n++
+			}
 		}
 	}
 	return n >= uc.revealN
@@ -712,11 +729,15 @@ var errUnlessNoCost = errors.New("engine: UnlessCost$ names no cost")
 // definedUnlessCost is AbilityUtils.calculateUnlessCost's DefinedCost_<Defined>
 // [_Minus<N>|_Plus<N>] (AbilityUtils.java:1450-1471): the mana cost of the first
 // card the defined text names, its generic part lowered or raised. UnlessUpTo$
-// lets the payer pick how much to lower it, a decision this port does not
-// model, so a line naming it is not resolved (GO-7). text is the whole cost
-// for the error, rest what follows "DefinedCost_".
-func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string) (string, error) {
-	if _, upTo := a.Params.Param("UnlessUpTo"); upTo {
+// lets the ability's controller pick how much of a Minus reduction to take,
+// 0 to N (AbilityUtils.java:1462-1464, chooseNumberForCostReduction), asked
+// through controller.ChooseNumber before the payer is asked to pay; without a
+// controller to ask (a Ward cost, which has no such param) it is not resolved
+// (GO-7). text is the whole cost for the error, rest what follows
+// "DefinedCost_".
+func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string, controller PlayerController) (string, error) {
+	_, upTo := a.Params.Param("UnlessUpTo")
+	if upTo && controller == nil {
 		return "", fmt.Errorf("engine: UnlessCost$ %q: UnlessUpTo$ not resolvable yet", text)
 	}
 	def, modifier, hasModifier := strings.Cut(rest, "_")
@@ -738,6 +759,9 @@ func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string) (str
 			n, convErr := strconv.Atoi(strings.TrimPrefix(modifier, "Minus"))
 			if convErr != nil {
 				return "", fmt.Errorf("engine: UnlessCost$ %q: %w", text, convErr)
+			}
+			if upTo {
+				n = controller.ChooseNumber(g, a.Controller, a.Source, 0, n)
 			}
 			generic = max(generic-n, 0)
 		case strings.HasPrefix(modifier, "Plus"):
@@ -766,11 +790,11 @@ func (g *Game) definedUnlessCost(a *Ability, host *Card, text, rest string) (str
 //
 // An SVar this port cannot evaluate is an error, never a free payment (GO-7).
 // Text with none of these shapes is returned as written.
-func (g *Game) expandUnlessCost(a *Ability, text string) (string, error) {
+func (g *Game) expandUnlessCost(a *Ability, text string, controller PlayerController) (string, error) {
 	text = strings.TrimSpace(text)
 	host := g.Card(a.Source)
 	if rest, ok := strings.CutPrefix(text, "DefinedCost_"); ok {
-		return g.definedUnlessCost(a, host, text, rest)
+		return g.definedUnlessCost(a, host, text, rest, controller)
 	}
 	amount := func(name string) (int, error) {
 		n, ok := resolveNamedAmount(g, a.Amounts, host, name)

@@ -1,0 +1,18 @@
+# IgnoreEffectCost$ 2 (StaticAbilityContinuous.buildIgnoreEffectAbility): any
+# affected player, here the opponent of Leonin Arbiter's controller, pays {2}
+# to ignore the static until end of turn. The ability uses the stack. Once it
+# resolves, human's Rampant Growth may search: the Forest is chosen.
+startturn human
+advance 3
+tapformana human 1 G
+tapformana human 2 G
+queue paygeneric G
+queue paygeneric G
+queue action human activate 7 0
+passpriority
+tapformana human 3 G
+tapformana human 4 G
+queue paygeneric G
+queue cardchoice 6
+castspell human 5
+resolvestack

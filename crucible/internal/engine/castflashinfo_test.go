@@ -147,8 +147,45 @@ func TestMayFlashCostIsAnOptionalAdditionalCost(t *testing.T) {
 	}
 }
 
-// MayFlashCost with a cost that is not plain mana (Molten Exhale's Behold) is
-// never offered: the spell stays uncastable out of timing.
+// MayFlashCost: Behold<1/Elf> (Molten Exhale's Behold<1/Dragon>) is an additional
+// cost paid by choosing a matching permanent you control or revealing a matching
+// card in hand (CostBehold, a CostReveal over Hand and Battlefield). It is offered
+// only when one exists and the caster agrees.
+func TestMayFlashCostBeholdNeedsAMatchingCardAndConsent(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		zone    engine.ZoneType
+		confirm bool
+		want    bool
+	}{
+		{"elf on the battlefield", engine.Battlefield, true, true},
+		{"elf in hand", engine.Hand, true, true},
+		{"declined", engine.Battlefield, false, false},
+		{"elf in the graveyard", engine.Graveyard, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGame(t)
+			def := creatureDefCost(t, "Exhale Like", "G")
+			def.Faces[0].Keywords = append(def.Faces[0].Keywords, "MayFlashCost:Behold<1/Elf>")
+			card := g.NewCard(def, p, engine.Hand)
+			g.NewCard(scriptDef(t, "Test Elf", "Creature Elf"), p, tc.zone)
+			g.SetTurnState(1, other, engine.Main1)
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueueConfirmPayCost(tc.confirm)
+			if got := g.CastSpell(p, card, c); got != tc.want {
+				t.Fatalf("CastSpell = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// MayFlashCost with a cost this port cannot pay is never offered: the spell
+// stays uncastable out of timing.
 func TestMayFlashCostWithANonManaCostIsNotOffered(t *testing.T) {
 	t.Parallel()
 

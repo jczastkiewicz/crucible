@@ -142,6 +142,8 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		// MayFlashCost keyword or a CastWithFlash line needing the targets or X
 		// (flashNeedsInfo) keeps the cast open; the gate below settles it.
 		_, _, flashByCost := mayFlashCost(c)
+		_, _, flashByBehold := mayFlashBehold(c)
+		flashByCost = flashByCost || flashByBehold
 		var timed []castOption
 		for _, o := range options {
 			if c.Type().Has(cardtype.Instant) || o.flash || flashByCost || g.castsWithFlash(pid, card) ||
@@ -191,11 +193,17 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		// (GameActionUtil.java:514-517, instant speed once paid) if the caster
 		// pays it.
 		extra, text, ok := mayFlashCost(c)
+		behold, beholdText, beholdOK := mayFlashBehold(c)
 		switch {
 		case g.castsWithFlashNeedsInfo(pid, card):
 			opts.flashNeedsInfo = true
 		case ok && controller.ConfirmPayCost(g, pid, cost.Parse(text), card):
 			opts.flashCost, opts.hasFlashCost = extra, true
+		case beholdOK && !opts.hasExtra && g.unlessPayable(pid, card, behold) &&
+			controller.ConfirmPayCost(g, pid, cost.Parse(beholdText), card):
+			// A non-mana MayFlashCost (Molten Exhale's Behold<1/Dragon>) is an
+			// additional cost like any other the way the spell is cast adds.
+			opts.extra, opts.hasExtra = behold, true
 		default:
 			return false
 		}
@@ -242,6 +250,25 @@ func mayFlashCost(c *Card) (mc mana.Cost, text string, ok bool) {
 		return mc, k.Details, true
 	}
 	return mana.Cost{}, "", false
+}
+
+// mayFlashBehold is the MayFlashCost keyword of c when its cost is a Behold
+// and nothing else (Molten Exhale's Behold<1/Dragon>): the cost, with its
+// script text for ConfirmPayCost. Any other non-mana shape is not offered
+// (GO-7).
+func mayFlashBehold(c *Card) (uc unlessCost, text string, ok bool) {
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		if k.Name != "MayFlashCost" || k.Details == "" {
+			continue
+		}
+		uc, parsed := parseUnlessCost(k.Details)
+		if !parsed || !uc.revealBattlefield || uc.hasMana {
+			return unlessCost{}, "", false
+		}
+		return uc, k.Details, true
+	}
+	return unlessCost{}, "", false
 }
 
 // withExtraMana is base plus extra, one more cost paid with it.

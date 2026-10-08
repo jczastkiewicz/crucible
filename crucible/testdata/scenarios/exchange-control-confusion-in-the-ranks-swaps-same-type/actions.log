@@ -1,0 +1,13 @@
+# Confusion in the Ranks: when Grizzly Bears enters, its controller (human,
+# TargetingPlayer$ TriggeredCardController) chooses target permanent another
+# player controls that shares a card type with it (TargetsWithDefinedController$
+# NonTriggeredCardController, TargetsWithSharedCardType$ TriggeredCard): Hill
+# Giant is the only creature. Control of the two is exchanged.
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+queue targets 5
+castspell human 4
+resolvestack

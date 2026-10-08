@@ -5,11 +5,13 @@ package engine
 import "fmt"
 
 // exchangeControlUnresolvedParams: target-selection restrictions targeting.go
-// does not enforce, and Charm's ModeCost$ linkage.
+// does not enforce, and Charm's ModeCost$ linkage. TargetsWithSharedCardType$,
+// TargetsWithSharedTypes$, TargetsWithRelatedProperty$,
+// TargetsWithDefinedController$ and TargetingPlayer$ are enforced when the
+// targets are chosen (targeting.go), so they no longer refuse here.
 var exchangeControlUnresolvedParams = [...]string{
-	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TargetsWithSameCardType",
-	"TargetsWithRelatedProperty", "TargetsWithDefinedController", "TargetsWithDifferentControllers",
-	"TargetsAtRandom", "TargetingPlayer", "ModeCost",
+	"TargetsWithSameCardType", "TargetsWithDifferentControllers",
+	"TargetsAtRandom", "ModeCost",
 	"Condition", "SorcerySpeed",
 }
 

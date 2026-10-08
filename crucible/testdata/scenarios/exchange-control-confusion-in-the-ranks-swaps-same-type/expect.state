@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Confusion in the Ranks|Id:1;Forest|Id:2|Tapped;Forest|Id:3|Tapped;Hill Giant|Id:5|SummonSick
+ailife=20
+aibattlefield=Mountain|Id:6;Grizzly Bears|Id:4|SummonSick

@@ -218,6 +218,9 @@ type Game struct {
 	// (scheduledaction.go, ADR-0030) -- ControlPlayer's grants and
 	// revokes -- in scheduling order.
 	scheduled []scheduledAction
+	// ignores is every resolved IgnoreEffectCost$ ability: the players who
+	// ignore a static until end of turn (ignoreeffect.go). Cleared at cleanup.
+	ignores []ignoredEffect
 	// extraPhases is PhaseHandler.extraPhases: for each phase, the stack of
 	// phases an AddPhase effect queued to follow it instead of the normal
 	// next one (last entry first). Cleared when the turn ends.
@@ -329,6 +332,27 @@ type pumpRecord struct {
 	Keywords         []string
 	Switched         bool // KW$ HIDDEN switchPTKeyword: a Layer 7d switch
 	Permanent        bool
+	// OnPlayer marks a keyword pump of a player (PumpEffect.applyPump(player),
+	// Player.addChangedKeywords): Player holds the keywords, Card is NoCard.
+	OnPlayer bool
+	Player   PlayerID
+	// UntilTurnOf ends the record as that player's next turn begins
+	// (Duration$ UntilYourNextTurn); set only with HasUntil. Such a record is
+	// Permanent so cleanup keeps it.
+	HasUntil    bool
+	UntilTurnOf PlayerID
+}
+
+// endPumpsUntilTurnOf ends every Duration$ UntilYourNextTurn pump p made, as
+// p's turn begins (the untap-phase until list, PhaseHandler.java:252).
+func (g *Game) endPumpsUntilTurnOf(p PlayerID) {
+	kept := g.pumps[:0]
+	for _, r := range g.pumps {
+		if !r.HasUntil || r.UntilTurnOf != p {
+			kept = append(kept, r)
+		}
+	}
+	g.pumps = kept
 }
 
 // clearPumps drops every pumpRecord naming id, called from Move (above)
@@ -1270,6 +1294,7 @@ func (g *Game) Clone() *Game {
 		textMaps:  maps.Clone(g.textMaps),
 		delayed:   append([]delayedTrigger(nil), g.delayed...),
 		scheduled: append([]scheduledAction(nil), g.scheduled...),
+		ignores:   cloneIgnores(g.ignores),
 		skips:     append([]skipPhase(nil), g.skips...),
 
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),

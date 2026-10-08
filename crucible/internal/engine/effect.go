@@ -210,7 +210,7 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 	// Ward branch), or none and the spell is countered.
 	var alternatives []unlessCost
 	for _, part := range strings.Split(unlessCostText, ":") {
-		text, err := g.expandUnlessCost(a, part)
+		text, err := g.expandUnlessCost(a, part, controller)
 		if errors.Is(err, errUnlessNoCost) {
 			// calculateUnlessCost returned null (AbilityUtils.java:1416-1420): the
 			// ability resolves with nothing to pay.

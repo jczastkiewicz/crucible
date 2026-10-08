@@ -203,11 +203,11 @@ state-based actions, combat, mulligans, the valid-string evaluator, mana pool an
 Instants/Sorceries through the stack (ADR-0018), trigger firing, replacement effects, block legality, continuous effects
 across all eight layers (partial), targeting, SubAbility chaining, last-known information, activated abilities.
 
-M6 in progress: 189 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
-`registry_gen.go`); the rest return `ErrUnimplemented`. Of the other 14, none has a real corpus line: `Mutate`, `Haunt`,
-`Bond`, `Encode`, `InternalIgnoreEffect`/`InternalLegendaryRule`/`InternalRadiation`, ... have zero real
-`AB$`/`SP$`/`DB$` lines under that exact name and never surface in `unported-apis.sh`'s corpus-driven listing at all.
-`ChangeText` and `ExchangeTextBox` resolve through Layer 3 word substitution (ADR-0039).
+M6 in progress: 190 of the corpus's 203 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+`registry_gen.go`); the rest return `ErrUnimplemented`. Of the other 13, none has a real corpus line: `Mutate`, `Haunt`,
+`Bond`, `Encode`, `InternalLegendaryRule`/`InternalRadiation`, ... have zero real `AB$`/`SP$`/`DB$` lines under that
+exact name and never surface in `unported-apis.sh`'s corpus-driven listing at all. `ChangeText` and `ExchangeTextBox`
+resolve through Layer 3 word substitution (ADR-0039).
 
 Thin or missing: a granted static's Layer 4/5 effects, `AddSVar$` and `CheckSVar$` amounts that need per-turn ledgers;
 `ControlOpponentsSearchingLibrary$` and `IgnoreEffectCost$`; `Mode$ Attached`; replacement `PayLife`; Pump on a player;

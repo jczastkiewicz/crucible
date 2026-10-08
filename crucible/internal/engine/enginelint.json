@@ -134,6 +134,7 @@
       "registry",
       "mustblockeffect",
       "scheduledaction",
+      "ignoreeffect",
       "textwords",
       "textrewrite"
     ],
@@ -357,6 +358,7 @@
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
     "continuous": [
+      "ignoreeffect",
       "presentcheck",
       "id",
       "zone",
@@ -424,6 +426,7 @@
     "condition": ["presentcheck", "id", "card", "game", "ability", "trigger", "phase"],
     "pumpeffect": [
       "id",
+      "player",
       "card",
       "game",
       "ability",

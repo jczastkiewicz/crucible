@@ -276,6 +276,23 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 type hiddenChoice struct {
 	player PlayerID
 	chosen []CardID
+	// shuffleMandatory is this fetcher's own flag (ChangeZoneEffect.java:999,
+	// declared per fetcher): a blocked search turns it to
+	// !ShuffleNonMandatory$.
+	shuffleMandatory bool
+}
+
+// canSearchLibraryWith is Player.canSearchLibraryWith (Player.java:3749): a
+// decider with the CantSearchLibrary keyword (Leonin Arbiter) cannot search at
+// all, and one with "Spells and abilities you control can't cause you to
+// search your library." cannot search their own library with an ability they
+// control.
+func (g *Game) canSearchLibraryWith(decider, target, activator PlayerID) bool {
+	p := g.Player(decider)
+	if p.HasKeyword("CantSearchLibrary") {
+		return false
+	}
+	return target != activator || !p.HasKeyword("Spells and abilities you control can't cause you to search your library.")
 }
 
 // changeZoneHidden is changeHiddenOriginResolve: each fetcher (DefinedPlayer$,
@@ -363,6 +380,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		}
 
 		var fetchList []CardID
+		fetcherShuffle, searchedLibrary, blocked := shuffleMandatory, false, false
 		switch {
 		case defined:
 			spec := definedSpec
@@ -383,7 +401,23 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				}
 			}
 		default:
+			// ChangeZoneEffect.java:1018-1039: a library search the decider may
+			// not make (CantSearchLibrary) offers nothing from the library, and
+			// the shuffle then follows ShuffleNonMandatory$.
+			_, noLooking := a.Params.Param("NoLooking")
+			if zoneIn(Library, searched) && !noLooking {
+				searchedLibrary = true
+				if !g.canSearchLibraryWith(player, player, a.Controller) {
+					blocked = true
+					searchedLibrary = false
+					_, nonMandatory := a.Params.Param("ShuffleNonMandatory")
+					fetcherShuffle = !nonMandatory && !noShuffle && shuffleParam != "False"
+				}
+			}
 			for _, z := range searched {
+				if z == Library && blocked {
+					continue
+				}
 				fetchList = append(fetchList, g.Zone(z, player).Cards()...)
 			}
 		}
@@ -410,16 +444,26 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				lo = hi
 			}
 			if hi > 0 {
+				// ChangeZoneEffect.java:1070-1076, 1268: a searched library is
+				// searched under the control grant ControlOpponentsSearching-
+				// Library$ gives (ADR-0040), popped after the pick.
+				var end func()
+				if searchedLibrary {
+					end = g.beginSearchControl(player)
+				}
 				chosen = controller.ChooseCardsForEffect(g, player, a.Source, fetchList, lo, hi)
+				if end != nil {
+					end()
+				}
 				if err := checkChoice(chosen, fetchList, lo, hi); err != nil {
 					return fmt.Errorf("engine: ChangeZone: %w", err)
 				}
 			}
 		}
-		if zoneIn(Library, origin) && dest == Library && shuffleMandatory {
+		if zoneIn(Library, origin) && dest == Library && fetcherShuffle {
 			g.Shuffle(Library, player)
 		}
-		picks = append(picks, hiddenChoice{player: player, chosen: chosen})
+		picks = append(picks, hiddenChoice{player: player, chosen: chosen, shuffleMandatory: fetcherShuffle})
 	}
 
 	_, tapped := a.Params.Param("Tapped")
@@ -444,7 +488,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		for _, from := range movedOrigins {
 			g.checkChangesZoneAllTriggers(controller, moved[from], from, dest)
 		}
-		if (zoneIn(Library, origin) && dest != Library && !defined && shuffleMandatory) || shuffleParam == "True" {
+		if (zoneIn(Library, origin) && dest != Library && !defined && pick.shuffleMandatory) || shuffleParam == "True" {
 			g.Shuffle(Library, pick.player)
 		}
 	}

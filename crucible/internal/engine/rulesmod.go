@@ -71,6 +71,13 @@ type RulesEffect struct {
 	// neither". AttackDeclarer/BlockDeclarer pick the newest by Timestamp.
 	DeclaresAttackers PlayerID
 	DeclaresBlockers  PlayerID
+
+	// SearchControl is ControlOpponentsSearchingLibrary$
+	// (Player.addControlledWhileSearching, ADR-0040): the first player the
+	// param names, who makes this player's decisions while they search their
+	// library. NoPlayer is "this effect redirects nothing". Game.SearchController
+	// picks the newest by Timestamp.
+	SearchControl PlayerID
 }
 
 // additionalVotes sums every effect's AdditionalVotes
@@ -120,6 +127,14 @@ func (r RulesMod) controlVote() (uint64, bool) {
 // field names on the effect with the newest Timestamp among those that set
 // it, or NoPlayer.
 func (r RulesMod) declarer(field func(RulesEffect) PlayerID) PlayerID {
+	who, _ := r.newest(field)
+	return who
+}
+
+// newest is declarer with the winning effect's Timestamp: the player field
+// names on the effect with the newest Timestamp among those that set it
+// (NoPlayer and 0 for none).
+func (r RulesMod) newest(field func(RulesEffect) PlayerID) (PlayerID, uint64) {
 	var best uint64
 	who := NoPlayer
 	for _, e := range r.effects {
@@ -127,7 +142,7 @@ func (r RulesMod) declarer(field func(RulesEffect) PlayerID) PlayerID {
 			best, who = e.Timestamp, p
 		}
 	}
-	return who
+	return who, best
 }
 
 // Add records one continuous effect. Order does not matter here for the

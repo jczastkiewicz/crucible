@@ -619,7 +619,25 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 			ability.Subs = append(ability.Subs, sub)
 		}
 	}
+	if cost, ok := ability.Param("IgnoreEffectCost"); ok && record == StaticEffect {
+		ability.Subs = append(ability.Subs, ignoreEffectSub(cost))
+	}
 	return ability, nil
+}
+
+// ignoreEffectSub is the ability StaticAbilityContinuous.buildIgnoreEffectAbility
+// (java:948-985) builds from IgnoreEffectCost$: an activated ability of the
+// static's host, "cost: ignore this effect until end of turn", API
+// InternalIgnoreEffect. Java builds it when the static applies; it is built
+// here once, as keyword expansion is (ADR-0038), so no script text is read at
+// runtime (PORT-2). The engine grants it to the host and resolves it
+// (ignoreeffect.go).
+func ignoreEffectSub(cost string) SubRef {
+	return SubRef{Key: "IgnoreEffectCost", Ability: &Ability{
+		Record: Activated,
+		Name:   "InternalIgnoreEffect",
+		Params: []vocab.Param{{Key: "AB", Value: "InternalIgnoreEffect"}, {Key: "Cost", Value: cost}},
+	}}
 }
 
 // reference compiles the SVar a param names.

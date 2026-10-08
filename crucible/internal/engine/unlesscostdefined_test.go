@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -72,19 +73,48 @@ func TestUnlessCostDefinedCostNamingNothingResolvesWithoutAsking(t *testing.T) {
 	}
 }
 
-// UnlessUpTo$ asks the payer how much of the reduction to take, which this port
-// does not model: the line fails loudly rather than guess.
-func TestUnlessCostDefinedCostWithUnlessUpToFailsClosed(t *testing.T) {
+// UnlessUpTo$ asks the ability's controller how much of the reduction to take
+// (AbilityUtils.java:1462-1464) through ChooseNumber before the payer is asked
+// to pay. The answer is consumed: with none queued the scripted controller
+// panics, so a queued 1 resolving cleanly proves the question was asked.
+func TestUnlessCostDefinedCostWithUnlessUpToAsksTheController(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueueNumberChoice(1)
+	c.QueueConfirmPayCost(true)
 	def := etbSacrificeTriggerDefParams(t, "Test Up To", "UnlessCost$ DefinedCost_Self_Minus1 | UnlessUpTo$ True | UnlessPayer$ You", nil)
-	_, err := castETBSacrifice(t, g, p, def, engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "UnlessUpTo") {
-		t.Fatalf("ResolveStack error = %v, want one naming UnlessUpTo$", err)
+	creature, err := castETBSacrifice(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
+	if z := g.Card(creature).Zone; z != engine.Battlefield {
+		t.Errorf("creature zone = %v, want Battlefield (cost paid)", z)
+	}
+}
+
+func TestUnlessCostDefinedCostWithUnlessUpToNeedsAControllerToAsk(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	// No number queued: ChooseNumber is asked and the scripted controller,
+	// out of answers, panics -- recovered at the game boundary as an error.
+	def := etbSacrificeTriggerDefParams(t, "Test Up To None", "UnlessCost$ DefinedCost_Self_Minus1 | UnlessUpTo$ True | UnlessPayer$ You", nil)
+	defer func() {
+		if r := recover(); r == nil || !strings.Contains(fmt.Sprint(r), "number") {
+			t.Fatalf("recover = %v, want the scripted controller's out-of-answers panic", r)
+		}
+	}()
+	_, _ = castETBSacrifice(t, g, p, def, c)
 }
 
 // A DefinedCost_ that is not a recognised modifier or whose card has no plain

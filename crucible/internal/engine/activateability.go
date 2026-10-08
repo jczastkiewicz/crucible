@@ -459,6 +459,10 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 // Activator$ (default "You") matches them against the permanent's controller.
 // A spec matchesPlayerSpec does not recognize refuses (GO-7).
 func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) bool {
+	// IgnoreEffectCost$'s ability belongs to every player its static affects.
+	if ability.Name == "InternalIgnoreEffect" {
+		return g.ignoreActivatorValid(pid, c, ability)
+	}
 	spec, ok := ability.Param("Activator")
 	if !ok {
 		return c.Controller() == pid

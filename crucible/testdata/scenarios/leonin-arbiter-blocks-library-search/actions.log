@@ -1,0 +1,11 @@
+# Leonin Arbiter: "Players can't search libraries" (AddKeyword$ CantSearchLibrary,
+# Player.canSearchLibraryWith, Player.java:3754). Rampant Growth's search
+# offers nothing from the library (ChangeZoneEffect.java:1032-1038), so the
+# Forest stays put: no card choice is queued, and one would fail the run.
+startturn human
+advance 3
+tapformana human 1 G
+tapformana human 2 G
+queue paygeneric G
+castspell human 3
+resolvestack

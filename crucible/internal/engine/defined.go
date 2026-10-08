@@ -71,6 +71,21 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 	if base, filter, ok := strings.Cut(defined, "."); ok && strings.HasPrefix(base, "Triggered") {
 		return triggeredPlayersFiltered(g, controller, host, base, filter, refs)
 	}
+	// AbilityUtils.java:1104-1106: "Non<spec>" is every player but those spec names
+	// (NonTriggeredCardController, Confusion in the Ranks).
+	if rest, ok := strings.CutPrefix(defined, "Non"); ok && rest != "" {
+		excluded, err := definedPlayers(g, controller, host, rest, refs)
+		if err != nil {
+			return nil, err
+		}
+		var out []PlayerID
+		for _, pid := range g.playersInTurnOrder() {
+			if !slices.Contains(excluded, pid) {
+				out = append(out, pid)
+			}
+		}
+		return out, nil
+	}
 	var candidates []PlayerID
 	switch defined {
 	case "You":

@@ -120,6 +120,53 @@ func (g *Game) addControlGrant(target, controller PlayerID) uint64 {
 	return g.timestamp
 }
 
+// SearchController is `player.getControlledWhileSearching()` (Player.java:2575):
+// the player ControlOpponentsSearchingLibrary$ gives pid's library searches to,
+// with the static's timestamp, or NoPlayer when none does (ADR-0040).
+func (g *Game) SearchController(pid PlayerID) (PlayerID, uint64) {
+	return g.Player(pid).Rules.newest(func(e RulesEffect) PlayerID { return e.SearchControl })
+}
+
+// addControlGrantAt is Player.addController(timestamp, controller) with a
+// caller-chosen timestamp: the grant goes in timestamp order, so
+// controlledBy[len-1] stays the newest and ControllingPlayer keeps answering
+// what Java's TreeMap.lastEntry does. A grant with the same timestamp is
+// replaced (TreeMap.put). It consumes no Game.timestamp.
+func (g *Game) addControlGrantAt(target, controller PlayerID, ts uint64) {
+	p := g.Player(target)
+	grants := append([]controlGrant(nil), p.controlledBy...)
+	for i, gr := range grants {
+		if gr.Timestamp == ts {
+			grants[i].Controller = controller
+			p.controlledBy = grants
+			return
+		}
+	}
+	at := len(grants)
+	for i, gr := range grants {
+		if gr.Timestamp > ts {
+			at = i
+			break
+		}
+	}
+	grants = append(grants, controlGrant{})
+	copy(grants[at+1:], grants[at:])
+	grants[at] = controlGrant{Timestamp: ts, Controller: controller}
+	p.controlledBy = grants
+}
+
+// beginSearchControl starts the control grant a library search runs under
+// (ChangeZoneEffect.java:1072-1076) and returns the call that ends it. With no
+// ControlOpponentsSearchingLibrary$ effect on pid it does nothing.
+func (g *Game) beginSearchControl(pid PlayerID) (end func()) {
+	who, ts := g.SearchController(pid)
+	if who == NoPlayer {
+		return nil
+	}
+	g.addControlGrantAt(pid, who, ts)
+	return func() { g.removeControlGrant(pid, ts) }
+}
+
 // removeControlGrant is Player.removeController(long): the grant made at ts
 // ends, and control reverts to whichever grant is now newest (CR 800.4b's
 // "next-most-recent"), or to the player themself.

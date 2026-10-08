@@ -107,6 +107,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.Player(g.activePlayer).Turn++
 			g.endDetains(g.activePlayer)
 			g.endGoads(g.activePlayer)
+			g.endPumpsUntilTurnOf(g.activePlayer)
 			// PhaseHandler.java:515-518: the cleanup Phase's until lists,
 			// unkeyed first (ControlPlayer's revokes), then those keyed to
 			// the incoming active player (its grants), ADR-0030.
@@ -628,6 +629,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		}
 	}
 	g.pumps = kept
+	g.ignores = nil // IgnoreEffectCost$ ends with the turn (Java's getEndOfTurn().addUntil)
 	g.endAnimatesAtCleanup()
 	g.endTextAtCleanup()
 	g.endCopiesAtCleanup()

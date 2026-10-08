@@ -1,0 +1,11 @@
+# Confusion in the Ranks: the only permanent human's opponent controls is a
+# land, which shares no card type with Grizzly Bears. TargetsWithSharedCardType$
+# leaves no legal target, so the trigger is not put on the stack and nothing
+# is exchanged (no target is queued; one would fail the run).
+startturn human
+advance 3
+tapformana human 2 G
+tapformana human 3 G
+queue paygeneric G
+castspell human 4
+resolvestack

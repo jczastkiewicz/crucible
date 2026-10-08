@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Siona, Captain of the Pyleas|Id:7;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Mountain|Tapped;Curse of Bloodletting|SummonSick|EnchantingPlayer:P1
+ailife=20

@@ -100,6 +100,19 @@ func (g *Game) attachTo(controller PlayerController, attachment, host CardID) {
 	}
 	g.Attach(attachment, host)
 	g.attachedReplaced(controller, attachment, host)
+	g.checkAttachedTriggers(controller, attachment, CardEntity(host))
+}
+
+// attachToPlayer is Card.attachToEntity for a player host (CR 303.4h). Only
+// the Mode$ Attached trigger runs: no corpus Event$ Attached line has a player
+// ValidTarget$ (attachedReplaced), and the attachment already on that player
+// stays put.
+func (g *Game) attachToPlayer(controller PlayerController, attachment CardID, host PlayerID) {
+	if cur, ok := g.Card(attachment).AttachedToPlayer(); ok && cur == host {
+		return
+	}
+	g.AttachToPlayer(attachment, host)
+	g.checkAttachedTriggers(controller, attachment, PlayerEntity(host))
 }
 
 // attachedReplaced runs the ReplaceWith$ lines of Event$ Attached for
@@ -159,6 +172,9 @@ func (g *Game) runReplacementChain(controller PlayerController, h *Card, amounts
 		return fmt.Errorf("engine: %q: ReplaceWith$ %s: no Registry on this Game", name, sub.Name)
 	}
 	a := Ability{API: api, Source: h.ID, Controller: h.Controller(), Params: sub, Amounts: amounts, replacing: ev}
+	if err := g.payReplacementLifeX(controller, h, &a); err != nil {
+		return err
+	}
 	if err := g.registry.Resolve(g, &a, controller); err != nil {
 		return fmt.Errorf("engine: %q: ReplaceWith$ %s: %w", name, sub.Name, err)
 	}

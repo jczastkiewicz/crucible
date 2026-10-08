@@ -1,0 +1,15 @@
+# The limit is 1 (Savannah Lions). A controller that answers 3 broke the rule
+# "can't be more than"; the engine reports it instead of taking the life
+# (GO-7), and no life is paid.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+castspell human 1
+queue numberchoice 3
+expecterror outside resolvestack

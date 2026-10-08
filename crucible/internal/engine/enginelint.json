@@ -57,7 +57,8 @@
       "replacementevents.go",
       "replacementfaces.go",
       "replacementamounts.go",
-      "replacemententry.go"
+      "replacemententry.go",
+      "replacementcost.go"
     ],
     "playerstate": ["playerstate.go"],
     "defined": ["defined.go"],
@@ -413,7 +414,10 @@
       "effecthelpers",
       "defined",
       "combat",
-      "unlesscost"
+      "unlesscost",
+      "staticability",
+      "lifelost",
+      "manapay"
     ],
     "playerstate": ["id", "zone", "card", "game"],
     "defined": ["id", "game", "player", "card", "ability", "parts", "valid"],

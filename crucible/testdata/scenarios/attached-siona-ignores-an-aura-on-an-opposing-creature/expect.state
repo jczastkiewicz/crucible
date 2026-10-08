@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Siona, Captain of the Pyleas|Id:2;Plains|Tapped;Plains|Tapped;Pacifism|SummonSick|AttachedTo:3
+ailife=20
+aibattlefield=Grizzly Bears|Id:3

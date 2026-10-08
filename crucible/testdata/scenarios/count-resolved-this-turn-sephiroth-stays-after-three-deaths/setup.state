@@ -1,0 +1,4 @@
+humanlife=20
+ailife=20
+humanbattlefield=Sephiroth, Fabled SOLDIER|Id:1
+aibattlefield=Grizzly Bears|Id:2|Damage:2;Grizzly Bears|Id:3|Damage:2;Grizzly Bears|Id:4|Damage:2

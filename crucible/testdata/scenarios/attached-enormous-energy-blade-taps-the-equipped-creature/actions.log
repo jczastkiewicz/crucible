@@ -1,0 +1,15 @@
+# Mode$ Attached | ValidSource$ Card.Self | ValidTarget$ Creature (TriggerAttached):
+# Card.attachToEntity fires it after the attach (Card.java:3949-3953), and
+# Defined$ TriggeredTargetLKICopy is the creature the Blade became attached to.
+# Equip {2} is paid with two Mountains; the trigger goes on the stack above the
+# resolved Equip and taps the Grizzly Bears.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+queue action human activate 1 0
+passpriority
+resolvestack

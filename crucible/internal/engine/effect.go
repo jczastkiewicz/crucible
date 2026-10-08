@@ -116,9 +116,10 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 	if e == nil {
 		return fmt.Errorf("%w: %s", ErrUnimplemented, a.API)
 	}
-	if g != nil && a.isTrigger && a.Params != nil {
-		// AbilityUtils.resolve counts each resolution of a non-wrapper ability
-		// (AbilityUtils.java:1313-1319): ResolvedLimit$'s state.
+	if g != nil && a.Params != nil && (a.isTrigger || a.Params.Record != compile.Spell) {
+		// AbilityUtils.resolve counts each resolution of a non-wrapper ability,
+		// a sub-ability included (AbilityUtils.java:1313-1319): ResolvedLimit$'s
+		// state, and Count$ResolvedThisTurn's.
 		g.Card(a.Source).trigResolved.note(a.Params)
 	}
 	if a.Params != nil {

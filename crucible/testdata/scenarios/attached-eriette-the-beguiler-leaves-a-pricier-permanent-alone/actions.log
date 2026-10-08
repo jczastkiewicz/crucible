@@ -1,0 +1,10 @@
+# cmcLEX with X = the Aura's mana value (2): the opponent's Hill Giant has mana
+# value 4, so Mode$ Attached finds no match and control stays with the AI.
+startturn human
+advance 3
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue enchanttarget 3
+castspell human 1
+resolvestack

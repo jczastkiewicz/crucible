@@ -617,7 +617,7 @@ type ScriptedController struct {
 	coinCalls          []bool
 	cardOnTop          []bool
 	binary             []bool
-	option             []int
+	option             []optionAnswer
 	sector             []int
 	roomDoor           []Door
 	replacementPick    []int
@@ -1270,11 +1270,36 @@ func (c *ScriptedController) ChooseBinary(_ *Game, _ PlayerID, _ CardID, _ Binar
 }
 
 // QueueOption appends the answer to the next ChooseOption call.
-func (c *ScriptedController) QueueOption(i int) { c.option = append(c.option, i) }
+func (c *ScriptedController) QueueOption(i int) { c.option = append(c.option, optionAnswer{index: i}) }
 
-// ChooseOption returns the next answer QueueOption queued.
-func (c *ScriptedController) ChooseOption(_ *Game, _ PlayerID, _ CardID, _ []string) int {
-	return popQueue(&c.option, "option")
+// QueueOptionNamed appends an answer to the next ChooseOption call that picks
+// the offered option equal to name, for lists too long to index by hand (a
+// creature card name out of the whole card database).
+func (c *ScriptedController) QueueOptionNamed(name string) {
+	c.option = append(c.option, optionAnswer{name: name, named: true})
+}
+
+// optionAnswer is one queued ChooseOption answer: an index, or a name to find
+// among the options.
+type optionAnswer struct {
+	index int
+	name  string
+	named bool
+}
+
+// ChooseOption returns the next answer QueueOption or QueueOptionNamed queued.
+// A name the options do not contain is a broken script and panics.
+func (c *ScriptedController) ChooseOption(_ *Game, _ PlayerID, _ CardID, options []string) int {
+	ans := popQueue(&c.option, "option")
+	if !ans.named {
+		return ans.index
+	}
+	for i, o := range options {
+		if o == ans.name {
+			return i
+		}
+	}
+	panic(fmt.Sprintf("engine: scripted controller: option %q is not offered", ans.name))
 }
 
 // QueueSector appends the answer to the next ChooseSector call: an index

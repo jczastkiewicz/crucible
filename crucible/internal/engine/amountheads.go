@@ -85,6 +85,15 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		return g.Card(source).castX, true
+	case "ResolvedThisTurn":
+		// AbilityUtils.java:1843: how often the ability being resolved has
+		// resolved this turn, itself included (SpellAbility.getResolvedThisTurn
+		// is the host's count for that ability). Unresolved outside a resolution.
+		if g.resolving == nil || g.resolving.Params == nil || source == NoCard {
+			return 0, false
+		}
+		turn, _ := g.Card(source).trigResolved.of(g.resolving.Params)
+		return turn, true
 	case "CardManaCost":
 		// Count$CardManaCost: the source card's own mana value (Cascade's X).
 		if source == NoCard {

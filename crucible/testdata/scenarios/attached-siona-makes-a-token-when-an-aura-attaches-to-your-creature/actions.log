@@ -1,0 +1,13 @@
+# Mode$ Attached | ValidSource$ Aura.YouCtrl | ValidTarget$ Creature.YouCtrl:
+# Pacifism resolves and attaches to the Grizzly Bears (attachEffect), which fires
+# the trigger; ValidTarget$ passes because the Bears are the human's. Siona
+# creates a 1/1 white Human Soldier token.
+startturn human
+advance 3
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue enchanttarget 3
+castspell human 1
+resolvestack
+resolvestack

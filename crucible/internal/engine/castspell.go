@@ -906,7 +906,7 @@ func (attachEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	if a.Target == NoCard {
 		// castPlayerAura: the Aura enchants the player it targeted.
 		if pid, ok := firstPlayerTarget(a.Targets); ok {
-			g.AttachToPlayer(a.Source, pid)
+			g.attachToPlayer(controller, a.Source, pid)
 		}
 	} else {
 		g.attachTo(controller, a.Source, a.Target)

@@ -21,6 +21,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
@@ -72,6 +73,10 @@ type Game struct {
 	// valid-string evaluator has no ability to carry that, so it rides here.
 	// Never copied by Clone: nothing is mid-evaluation across a clone.
 	relativeFace *compile.Face
+	// relativeAmounts is relativeFace's counterpart for a trigger's
+	// TargetRelativeToSource$ (Eriette, the Beguiler's `cmcLEX`): the SVars of
+	// the trigger host, set only while checkAttachedTriggers evaluates it.
+	relativeAmounts map[string]expr.Amount
 	// endTurnCleanup is set when an EndTurn resolution began a Cleanup that
 	// grants priority (CR 514.3a: a state-based action or trigger fired in
 	// it), for Step to play that priority window and repeat the Cleanup

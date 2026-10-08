@@ -1584,6 +1584,8 @@ func TestRunActionsQueueVerbsRejectMalformedArguments(t *testing.T) {
 		"queue replacement x",
 		"queue replacement -1",
 		"queue sector delta",
+		"queue numberchoice abc",
+		"queue numberchoice -2",
 		"dealopeninghands after nobody",
 	} {
 		t.Run(line, func(t *testing.T) {
@@ -1603,6 +1605,8 @@ func TestRunActionsQueueVerbsAcceptWellFormedArguments(t *testing.T) {
 	for _, line := range []string{
 		"queue replacement 1",
 		"queue sector beta",
+		"queue numberchoice 3",
+		"queue optionname Hill_Giant",
 		"queue optionaltrigger true",
 	} {
 		t.Run(line, func(t *testing.T) {

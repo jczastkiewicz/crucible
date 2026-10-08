@@ -1,0 +1,17 @@
+# Card.attachToEntity fires Mode$ Attached for a player host too (an "Enchant
+# player" Aura), with the player as the triggering target. Siona's ValidTarget$
+# Creature.YouCtrl is a card spec, so the player never matches and no token is
+# created.
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+tapformana human 4 R
+tapformana human 5 R
+tapformana human 6 R
+queue targets ai
+queue paygeneric R
+queue paygeneric R
+queue paygeneric R
+castspell human 1
+resolvestack

@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=15
+humanbattlefield=Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Swamp|Tapped;Minion of the Wastes|SummonSick
+ailife=20

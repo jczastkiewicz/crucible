@@ -196,7 +196,13 @@ func chainNext(a *compile.Ability) *compile.Ability {
 }
 
 // entryUpdatedShape is the set of "as it enters" abilities that run before
-// the move: a plain life loss (Lich).
+// the move: a plain life loss (Lich), and the StoreSVar that remembers the
+// life paid as the card enters (Phyrexian Processor, Minion of the Wastes,
+// Nameless Race: payReplacementLifeX pays its Cost$).
 func entryUpdatedShape(sub *compile.Ability) bool {
+	if strings.EqualFold(sub.Name, "StoreSVar") {
+		cost, _ := sub.Param("Cost")
+		return cost == replacementPayLifeX
+	}
 	return strings.EqualFold(sub.Name, "LoseLife")
 }

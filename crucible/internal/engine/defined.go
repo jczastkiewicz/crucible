@@ -372,6 +372,16 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
 		}
 		return []CardID{refs.triggered.attacker}, nil
+	case "TriggeredTarget", "TriggeredTargetLKICopy":
+		// AbilityKey.Target of Mode$ Attached: what the attachment became
+		// attached to. A player host is not a card, so it yields none here.
+		if refs.triggered.target == NoEntity {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no target", defined)
+		}
+		if id, ok := refs.triggered.target.AsCard(); ok {
+			return []CardID{id}, nil
+		}
+		return nil, nil
 	case "TriggeredCards", "TriggeredCardsLKICopy":
 		if len(refs.triggered.cards) == 0 {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no cards", defined)

@@ -1,0 +1,9 @@
+# Three deaths: the SetState link has resolved three times, X is 3, and the
+# ConditionCheckSVar EQ4 fails, so Sephiroth stays on his front face.
+queue targets ai
+queue targets ai
+queue targets ai
+startturn human
+resolvestack
+resolvestack
+resolvestack

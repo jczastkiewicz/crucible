@@ -4,10 +4,11 @@
 
 package engine
 
-//enginelint:allow id card ability trigger staticability triggerscan game control
+//enginelint:allow id card ability trigger staticability triggerscan game control valid
 
 import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // effectEventTriggerParams are the general params a trigger of these four
@@ -120,6 +121,59 @@ func (g *Game) checkTurnedFaceUpTriggers(controller PlayerController, card CardI
 		return triggeredObjects{card: card}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
+}
+
+var attachedTriggerParams = effectEventParams("validsource", "validtarget", "targetrelativetosource")
+
+// checkAttachedTriggers is Mode$ Attached (TriggerAttached, 4 real lines),
+// fired by Card.attachToEntity after the Event$ Attached replacements
+// (Card.java:3949-3953): ValidSource$ against the attachment, ValidTarget$ and
+// TargetRelativeToSource$ against what it became attached to -- a card or a
+// player. TargetRelativeToSource$ is matchesValidParam(param, target, source)
+// with the attachment as the source card, so a `cmcLEX` operand is the
+// attachment's own value, read through the trigger host's SVar X
+// (Game.relativeAmounts): Eriette, the Beguiler's `Count$CardManaCost` is the
+// Aura's mana value. The attachment is Defined$ TriggeredSource, the host
+// TriggeredTarget (TriggerAttached.setTriggeringObjects).
+func (g *Game) checkAttachedTriggers(controller PlayerController, attachment CardID, target EntityID) {
+	src := g.Card(attachment)
+	matches := g.scanTriggers([]string{"Attached"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, attachedTriggerParams) || !g.triggerCardMatches(h, t, "ValidSource", src) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidTarget"); ok && !g.attachTargetMatches(h, spec, h.ID, target) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("TargetRelativeToSource"); ok && !g.attachTargetRelative(h, face, spec, attachment, target) {
+			return triggeredObjects{}, false
+		}
+		return face.objects(triggeredObjects{source: CardEntity(attachment), sourceController: src.Controller(), target: target}), true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// attachTargetMatches is matchesValid(target, spec, srcCard) on a trigger of
+// h with src as the source card: a card target against the valid string, a
+// player target against the player spec. A player spec this port cannot read
+// does not match (GO-7).
+func (g *Game) attachTargetMatches(h *Card, spec string, src CardID, target EntityID) bool {
+	if id, ok := target.AsCard(); ok {
+		return Matches(g, g.Card(id), valid.Parse(spec), h.Controller(), src)
+	}
+	pid, _ := target.AsPlayer()
+	matched, recognized := matchesPlayerSpec(g, pid, h.Controller(), src, spec)
+	return recognized && matched
+}
+
+// attachTargetRelative is TargetRelativeToSource$: attachTargetMatches with
+// the attachment as the source card and the trigger host's SVars answering a
+// comparison operand (AbilityUtils.calculateAmount(source, "X", trigger)
+// reads the SVar off the trigger, the amount off the source).
+func (g *Game) attachTargetRelative(h *Card, face triggerFace, spec string, attachment CardID, target EntityID) bool {
+	prev := g.relativeAmounts
+	g.relativeAmounts = face.Amounts
+	defer func() { g.relativeAmounts = prev }()
+	return g.attachTargetMatches(h, spec, attachment, target)
 }
 
 func (g *Game) cardEventMatches(mode string, params map[string]bool, card CardID) []Ability {

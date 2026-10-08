@@ -1,0 +1,11 @@
+# ValidTarget$ Creature.YouCtrl fails for an opposing creature: Pacifism attaches
+# to the AI's Grizzly Bears (the only creature besides Siona, chosen by the
+# human), Mode$ Attached finds no match and no token is created.
+startturn human
+advance 3
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue enchanttarget 3
+castspell human 1
+resolvestack

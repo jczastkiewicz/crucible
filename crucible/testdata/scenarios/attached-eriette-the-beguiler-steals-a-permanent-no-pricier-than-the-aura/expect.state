@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Eriette, the Beguiler|Id:2;Plains|Tapped;Plains|Tapped;Pacifism|SummonSick|AttachedTo:3;Grizzly Bears|Id:3|SummonSick
+ailife=20

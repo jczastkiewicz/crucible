@@ -560,6 +560,20 @@ func runQueue(args []string, l *Loaded, c *engine.ScriptedController) error {
 		}
 		c.QueueOption(n)
 
+	case "numberchoice":
+		// A number an effect asks the player to choose (ChooseNumber): the life
+		// of "pay any amount of life".
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return fmt.Errorf("queue numberchoice %q: want a non-negative number", value)
+		}
+		c.QueueNumberChoice(n)
+
+	case "optionname":
+		// The option equal to the text, for a list too long to index (a creature
+		// card name from the whole database). Spaces in the name are written "_".
+		c.QueueOptionNamed(strings.ReplaceAll(value, "_", " "))
+
 	case "abilitychoice":
 		// The branches an effect's own "choose one of these" takes
 		// (ChooseAbilitiesForEffect): GenericChoice's, as 0-based indices into

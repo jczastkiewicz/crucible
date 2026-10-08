@@ -1,0 +1,16 @@
+# Event$ Attached | ReplaceWith$ ChooseName (NameCard, then ChooseType): as Psychic
+# Paper becomes attached it records a creature card name and a creature type
+# (Hill Giant, Goblin), and SetName$ ChosenName / AddType$ ChosenType make the
+# equipped Grizzly Bears a Hill Giant Goblin. `queue optionname` picks the
+# option equal to the text out of the whole card database.
+startturn human
+advance 3
+tapformana human 3 R
+tapformana human 4 R
+queue paygeneric R
+queue paygeneric R
+queue targets 2
+queue optionname Hill_Giant
+queue optionname Goblin
+queue action human activate 1 0
+passpriority

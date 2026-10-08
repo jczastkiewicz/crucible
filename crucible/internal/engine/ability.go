@@ -387,6 +387,11 @@ type triggeredObjects struct {
 	// cards is AbilityKey.Cards: the batch a Mode$ DiscardedAll trigger
 	// fired for, read by Defined$ TriggeredCards.
 	cards []CardID
+	// target is AbilityKey.Target for Mode$ Attached
+	// (TriggerAttached.setTriggeringObjects): what the attachment became
+	// attached to, read by Defined$ TriggeredTarget/TriggeredTargetLKICopy.
+	// NoEntity when unset.
+	target EntityID
 }
 
 // triggerCounts is the integer half of Java's triggering-objects map: the

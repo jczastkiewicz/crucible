@@ -1,0 +1,16 @@
+# XMax$ Limit, SVar:Limit:SVar$Active/Plus.Buried: the white nontoken permanents
+# the opponent controls (Savannah Lions, 1) plus the white cards in their
+# graveyard (Serra Angel, 1) cap the life at 2. The human pays 2 (20 -> 18) and
+# Nameless Race is a 2/2, so it stays on the battlefield.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+castspell human 1
+queue numberchoice 2
+resolvestack

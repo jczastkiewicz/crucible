@@ -1236,6 +1236,11 @@ func compareOperand(g *Game, operand string, sourceController PlayerID, source C
 			return resolveAmount(g, f.Amounts, sourceController, source, amt)
 		}
 	}
+	if amounts := g.relativeAmounts; amounts != nil {
+		if amt, ok := amounts[key]; ok {
+			return resolveAmount(g, amounts, sourceController, source, amt)
+		}
+	}
 	sc, ok := sourceCard(g, source)
 	if !ok || sc.Def == nil {
 		return 0, false

@@ -1,0 +1,14 @@
+# TargetRelativeToSource$ Permanent.nonLand+OppCtrl+cmcLEX: the Aura is the
+# source card, so X (Eriette's SVar, Count$CardManaCost) is Pacifism's mana
+# value, 2. The opponent's Grizzly Bears (mana value 2) qualifies. Defined$
+# TriggeredTarget is the Bears; LoseControl$ UntilSourceUnattached ties the
+# control change to Pacifism.
+startturn human
+advance 3
+tapformana human 4 W
+tapformana human 5 W
+queue paygeneric W
+queue enchanttarget 3
+castspell human 1
+resolvestack
+resolvestack

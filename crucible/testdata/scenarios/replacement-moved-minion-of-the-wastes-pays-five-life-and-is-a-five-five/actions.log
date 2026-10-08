@@ -1,0 +1,20 @@
+# Event$ Moved | ReplaceWith$ PayLife | ReplacementResult$ Updated: "As Minion of
+# the Wastes enters, pay any amount of life." The replacement ability's
+# Cost$ Mandatory PayLife<X> is paid inside the replacement (X chosen as 5,
+# 20 -> 15 life), StoreSVar keeps it as LifePaidOnETB, and the characteristic-
+# defining SetPower$/SetToughness$ make the Minion a 5/5, so it stays on the
+# battlefield instead of dying as a 0/0.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+castspell human 1
+queue numberchoice 5
+resolvestack

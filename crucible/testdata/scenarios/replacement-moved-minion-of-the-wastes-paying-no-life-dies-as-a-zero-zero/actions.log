@@ -1,0 +1,17 @@
+# X = 0: nothing is paid, LifePaidOnETB stays 0, and the characteristic-defining
+# power and toughness make the Minion a 0/0 that dies to the 704.5f state-based
+# action as soon as it enters.
+startturn human
+advance 3
+tapformana human 2 B
+tapformana human 3 B
+tapformana human 4 B
+tapformana human 5 B
+tapformana human 6 B
+tapformana human 7 B
+queue paygeneric B
+queue paygeneric B
+queue paygeneric B
+castspell human 1
+queue numberchoice 0
+resolvestack

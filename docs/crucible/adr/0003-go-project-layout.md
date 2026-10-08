@@ -10,21 +10,21 @@
 Java tolerates package cycles. Go forbids them. That single difference decides this ADR, and it decides it much more
 forcefully than expected.
 
-Measured across `forge-game/src/main/java/forge/game`, 21 packages, counting only `forge.game.*` imports.
+Measured across `forge-game/src/main/java/forge/game`, 22 packages, counting only `forge.game.*` imports.
 `crucible/tools/javacycles` re-runs the count, so the premise can be checked after an upstream sync rather than trusted:
 
 ```console
 $ cd crucible && go run ./tools/javacycles -root ../forge-game/src/main/java -prefix forge.game
-packages: 21
-direct two-package cycles: 82
+packages: 22
+direct two-package cycles: 87
 ```
 
-Pass `-expect 82` to turn a change in the premise into a build failure.
+Pass `-expect 87` to turn a change in the premise into a build failure.
 
-Current tree (upstream `7e3b22b44f5`): 22 packages, 87 cycles. All five extra cycles come from the new
-`forge.game.card.sticker` package (Unfinity stickers), which couples to `ability`, `card`, `player`, `staticability` and
-`trigger`. The premise holds: one more package joins the same tangle. `-expect` stays at the original 82, so the check
-is red until the figure is re-baselined; the 82 below is the design-time measurement.
+The design-time measurement was 21 packages and 82 cycles. The five extra cycles come from the `forge.game.card.sticker`
+package (Unfinity stickers, upstream `7e3b22b44f5`), which couples to `ability`, `card`, `player`, `staticability` and
+`trigger`. The premise holds: one more package joins the same tangle. The 82 in the rest of this ADR is the design-time
+measurement.
 
 Every significant package cycles with nearly every other: `card` with `game`, `player`, `zone`, `spellability`,
 `combat`, `cost`, `mana`, `keyword`, `trigger`, `replacement`, `staticability`, `event`. The root `forge.game` package

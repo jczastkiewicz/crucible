@@ -21,6 +21,11 @@ direct two-package cycles: 82
 
 Pass `-expect 82` to turn a change in the premise into a build failure.
 
+Current tree (upstream `7e3b22b44f5`): 22 packages, 87 cycles. All five extra cycles come from the new
+`forge.game.card.sticker` package (Unfinity stickers), which couples to `ability`, `card`, `player`, `staticability` and
+`trigger`. The premise holds: one more package joins the same tangle. `-expect` stays at the original 82, so the check
+is red until the figure is re-baselined; the 82 below is the design-time measurement.
+
 Every significant package cycles with nearly every other: `card` with `game`, `player`, `zone`, `spellability`,
 `combat`, `cost`, `mana`, `keyword`, `trigger`, `replacement`, `staticability`, `event`. The root `forge.game` package
 cycles with all 17 of its subpackages.

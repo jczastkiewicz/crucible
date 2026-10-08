@@ -52,8 +52,16 @@ Crucible's workload is the opposite shape: hundreds of thousands of independent 
 exists to make that reachable — one goroutine per game, an immutable card database shared by pointer, and card scripts
 compiled once instead of re-parsed per card per game.
 
-The reasoning is in [ADR-0005](docs/crucible/adr/0005-concurrency-model.md) and
-[ADR-0007](docs/crucible/adr/0007-card-dsl-representation.md).
+<<<<<<< HEAD The reasoning is in [ADR-0005](docs/crucible/adr/0005-concurrency-model.md) and
+[ADR-0007](docs/crucible/adr/0007-card-dsl-representation.md). =======
+
+### 📱 iOS (early stage)
+
+- Build the **IPA** according to Wiki
+- No jailbreak needed, only developer mode and iOS 16-27
+- Connect your device to a PC to self-sign and upload the app file, multiple tools exist e.g.
+  [Sideloadly](https://sideloadly.io)
+  > > > > > > > upstream/master
 
 ---
 

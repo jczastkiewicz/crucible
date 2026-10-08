@@ -8,7 +8,7 @@ part	CollectEvidence	22
 part	Discard	557
 part	Draw	40
 part	Exert	36
-part	Exile	80
+part	Exile	81
 part	ExileAnyGrave	17
 part	ExileCtrlOrGrave	1
 part	ExileFromGrave	227
@@ -34,9 +34,9 @@ part	RevealChosen	4
 part	RevealFromExile	1
 part	RevealOrChoose	2
 part	RollDice	1
-part	Sac	2254
+part	Sac	2256
 part	SubCounter	947
-part	T	5552
+part	T	5568
 part	Unattach	9
 part	Waterbend	25
 part	tapXType	232

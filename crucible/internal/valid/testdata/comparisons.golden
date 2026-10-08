@@ -3,11 +3,11 @@ field	baseToughness	4
 field	cmc	632
 field	numColors	6
 field	numTypes	2
-field	power	391
+field	power	393
 field	totalPT	5
-field	toughness	54
-operator	EQ	161
-operator	GE	252
+field	toughness	55
+operator	EQ	163
+operator	GE	253
 operator	GT	19
 operator	LE	602
 operator	LT	65
@@ -28,6 +28,8 @@ operand	Count$CardPower
 operand	Count$ChosenNumber
 operand	IronclawX
 operand	M
+operand	STK8P
+operand	STK8T
 operand	TriggeredCard$CardPower
 operand	X
 operand	Y

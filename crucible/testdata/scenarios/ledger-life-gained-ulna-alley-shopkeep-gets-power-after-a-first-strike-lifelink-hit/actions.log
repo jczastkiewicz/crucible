@@ -1,0 +1,15 @@
+# Count$LifeYouGainedThisTurn (Player.getLifeGainedThisTurn). Ulna Alley Shopkeep
+# is 2/3 with "+2/+0 as long as you gained life this turn" (CheckSVar$ X). Knight
+# of Meadowgrain (First Strike, Lifelink) hits first: its 2 damage gains the
+# attacking player 2 life in the first-strike step, so in the regular step the
+# Shopkeep deals 2+2 = 4. Opponent: 20 - 2 - 4 = 14. Controller: 20 + 2 = 22.
+startturn human
+advance 5
+queue attackers 1,2
+declareattackers
+advance
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

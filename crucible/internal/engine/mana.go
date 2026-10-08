@@ -206,6 +206,16 @@ func (p *Pool) Pay(cost mana.Cost) bool {
 // {S} requirement), and any failure anywhere leaves the pool exactly as it
 // was, the same all-or-nothing guarantee Pay itself already makes.
 func (p *Pool) PayWithSnow(cost mana.Cost, snow []mana.Shard) bool {
+	return p.payWithSnow(cost, snow, false)
+}
+
+// payWithSnow is [Pool.PayWithSnow]; snowAny is a cast through
+// MayPlaySnowIgnoreColor$ (ManaConversionMatrix.snowForColor), where snow mana
+// of any type pays a colored pip (ManaCostBeingPaid.canBePaidWith: any shard
+// with a color mask takes any snow mana). It is tried after the pip's own plain
+// and snow mana, colorless snow first, then the other colors in WUBRG order --
+// the choice of which snow source pays is the payer's, and this port picks.
+func (p *Pool) payWithSnow(cost mana.Cost, snow []mana.Shard, snowAny bool) bool {
 	spend := *p
 	for _, s := range cost.Shards() {
 		var plain, snowBucket *int
@@ -230,6 +240,7 @@ func (p *Pool) PayWithSnow(cost mana.Cost, snow []mana.Shard) bool {
 			*plain--
 		case *snowBucket > 0:
 			*snowBucket--
+		case snowAny && s != mana.ShardC && spend.takeAnySnow():
 		default:
 			return false
 		}
@@ -294,6 +305,18 @@ func (p *Pool) PayWithSnow(cost mana.Cost, snow []mana.Shard) bool {
 
 	*p = spend
 	return true
+}
+
+// takeAnySnow spends one snow mana of any type, colorless first, and reports
+// whether the pool had one.
+func (p *Pool) takeAnySnow() bool {
+	for _, bucket := range [...]*int{&p.snowColorless, &p.snowWhite, &p.snowBlue, &p.snowBlack, &p.snowRed, &p.snowGreen} {
+		if *bucket > 0 {
+			*bucket--
+			return true
+		}
+	}
+	return false
 }
 
 // merge adds every mana in o to p, snow mana staying snow -- DrainMana's

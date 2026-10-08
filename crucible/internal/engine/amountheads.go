@@ -21,6 +21,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -60,7 +61,28 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		}
 		return g.thisTurnCastCount(source, spec)
 	}
+	if strings.HasPrefix(count.Head, "ThisTurnEntered_") {
+		if sourceController == NoPlayer {
+			return 0, false
+		}
+		// ParseCount cut the head at the first `.` and the first space; the
+		// zone split reads the string whole (AbilityUtils.java:2806).
+		text := count.Head
+		if len(count.Parameters) > 0 {
+			text += "." + strings.Join(count.Parameters, ".")
+		}
+		if count.Argument != "" {
+			text += " " + count.Argument
+		}
+		return g.thisTurnEnteredCount(sourceController, source, text)
+	}
 	switch count.Head {
+	case "Intensity":
+		// AbilityUtils.java:2094: Card.getIntensity(true), the host's own.
+		if source == NoCard {
+			return 0, false
+		}
+		return g.Card(source).Intensity + startingIntensity(g.Card(source)), true
 	case "CardCounters":
 		if source == NoCard || len(count.Parameters) == 0 {
 			return 0, false
@@ -143,7 +165,24 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	if sourceController == NoPlayer {
 		return 0, false
 	}
+	if which, ok := strings.CutPrefix(count.Head, "ManaPool:"); ok {
+		return manaPoolCount(g.Player(sourceController), which)
+	}
 	switch count.Head {
+	case "LifeYouGainedThisTurn":
+		return g.Player(sourceController).LifeGainedThisTurn, true
+	case "CreaturesAttackedThisTurn":
+		return g.creaturesAttackedCount(sourceController, source, count.Argument)
+	case "CountersAddedThisTurn":
+		return g.countersAddedCount(sourceController, source, count.Argument)
+	case "UnlockedDoors":
+		return len(g.unlockedDoorNames(sourceController)), true
+	case "DistinctUnlockedDoors":
+		seen := map[string]bool{}
+		for _, name := range g.unlockedDoorNames(sourceController) {
+			seen[name] = true
+		}
+		return len(seen), true
 	case "Blessing":
 		// Count$Blessing.<n with>.<n without> (AbilityUtils.java:2269):
 		// the controller's city's blessing picks the branch. Both branches
@@ -517,6 +556,63 @@ func imprintedValue(g *Game, controller PlayerID, source CardID, property string
 	parsed := valid.Parse(spec)
 	n := 0
 	for _, id := range imprinted {
+		if Matches(g, g.Card(id), parsed, controller, source) {
+			n++
+		}
+	}
+	return n, true
+}
+
+// manaPoolCount is Count$ManaPool:<All|color> (AbilityUtils.java:2544-2553):
+// the controller's floating mana, in total or of one color named in lower
+// case ("green"). A name that is no color is unresolved.
+func manaPoolCount(p *Player, which string) (int, bool) {
+	if which == "All" {
+		return p.ManaPool.Total(), true
+	}
+	for i, name := range [...]string{"white", "blue", "black", "red", "green"} {
+		if which == name {
+			return p.ManaPool.Breakdown()[i], true
+		}
+	}
+	return 0, false
+}
+
+// startingIntensity is the magnitude of c's Starting intensity keyword lines,
+// the part of Card.getIntensity(true) beyond the intensity counted so far.
+func startingIntensity(c *Card) int {
+	total := 0
+	for _, line := range c.KeywordLines() {
+		kw := keyword.Parse(line)
+		if kw.Name != "Starting intensity" {
+			continue
+		}
+		if args := kw.Args(); len(args) > 0 {
+			if n, err := strconv.Atoi(args[0]); err == nil {
+				total += n
+			}
+		}
+	}
+	return total
+}
+
+// dungeonsCompletedValue is calculateAmount's `DungeonsCompleted$<property>`
+// head (AbilityUtils.java:500-501): handlePaid over the dungeons the source
+// controller has completed. `Valid <spec>` counts those matching the spec
+// (read from the controller's point of view); an empty list is 0 whatever
+// the property.
+func dungeonsCompletedValue(g *Game, controller PlayerID, source CardID, property string) (int, bool) {
+	if controller == NoPlayer {
+		return 0, false
+	}
+	done := g.Player(controller).completedDungeons
+	spec, isValid := strings.CutPrefix(property, "Valid ")
+	if !isValid {
+		return measureListed(g, done, property)
+	}
+	parsed := valid.Parse(spec)
+	n := 0
+	for _, id := range done {
 		if Matches(g, g.Card(id), parsed, controller, source) {
 			n++
 		}

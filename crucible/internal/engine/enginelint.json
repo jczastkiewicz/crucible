@@ -460,7 +460,7 @@
     "exploit": ["id", "zone", "card", "game", "control", "valid", "ability", "trigger"],
     "gameloss": ["id", "zone", "card", "game", "player", "valid", "replacement", "parts", "effecthelpers"],
     "castoptions": ["id", "zone", "card", "game", "control", "parts", "airbendeffect", "rulesmod"],
-    "castrecord": ["id", "zone", "card", "game", "valid"],
+    "castrecord": ["id", "zone", "card", "game", "valid", "parts"],
     "foretell": ["id", "zone", "card", "game", "control", "parts", "mana"],
     "lifelost": [
       "id",

@@ -146,6 +146,16 @@ type Game struct {
 	// and from where (Count$ThisTurnCast_<valid>, castrecord.go); cleared when
 	// a new turn starts.
 	castThisTurn []castRecord
+	// enteredThisTurn is every zone change this turn, as the card stood in
+	// the zone it entered (a battlefield entry) or left (any other), and
+	// countersAddedThisTurn every counter placement (castrecord.go); both
+	// cleared at cleanup.
+	enteredThisTurn       []zoneEntry
+	countersAddedThisTurn []counterAddition
+	// snowAnyColor is set while a cast through MayPlaySnowIgnoreColor$ pays
+	// its mana cost: snow mana pays a colored pip of any color
+	// (ManaConversionMatrix.snowForColor, PlaySpellAbility.java:648-649).
+	snowAnyColor bool
 
 	// sink is where this game's events go. DiscardSink by default: most
 	// callers -- every test, fixture loading -- have nothing listening and
@@ -729,6 +739,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	before := *c
 	g.clearTextRecords(id)
 	if from == Exile && kind != Exile {
 		c.foretold = false
@@ -866,6 +877,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	if kind == Graveyard && isPermanent && !c.IsToken {
 		g.Player(owner).DescendedThisTurn = true
 	}
+	g.recordEntered(c, &before, from, kind)
 
 	g.sink.Emit(Event{
 		Kind:   ZoneChanged,
@@ -904,6 +916,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	before := *c
 	g.clearTextRecords(id)
 	if from == Stack {
 		c.controller = c.Owner
@@ -959,6 +972,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 	if from == Stack {
 		c.leaveRoom()
 	}
+	g.recordEntered(c, &before, from, Library)
 
 	g.sink.Emit(Event{
 		Kind:   ZoneChanged,
@@ -1268,6 +1282,9 @@ func (g *Game) Clone() *Game {
 		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
 		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
 		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
+		enteredThisTurn:       append([]zoneEntry(nil), g.enteredThisTurn...),
+		countersAddedThisTurn: append([]counterAddition(nil), g.countersAddedThisTurn...),
+		snowAnyColor:          g.snowAnyColor,
 		dayTime:               g.dayTime,
 		previousPlayer:        g.previousPlayer,
 		previousPlayerSpells:  g.previousPlayerSpells,
@@ -1298,6 +1315,7 @@ func (g *Game) Clone() *Game {
 			out.players[i].completedDungeons = append([]CardID(nil), g.players[i].completedDungeons...)
 		}
 		out.players[i].controlledBy = append([]controlGrant(nil), g.players[i].controlledBy...)
+		out.players[i].attackedThisTurn = append([]CardID(nil), g.players[i].attackedThisTurn...)
 	}
 
 	copy(out.cards, g.cards)
@@ -1376,6 +1394,24 @@ type castRecord struct {
 	card       CardID
 	controller PlayerID
 	from       ZoneType
+}
+
+// zoneEntry is one card's zone change this turn (Zone.cardsAddedThisTurn): the
+// card as a last-known copy, so its controller and characteristics are those
+// it had in the zone it entered (a battlefield entry) or left (any other,
+// Zone.add's latestState), and the zones it moved between.
+type zoneEntry struct {
+	card     Card
+	from, to ZoneType
+}
+
+// counterAddition is one placement in Game.countersAddedThisTurn: who put how
+// many counters of which kind on which card, the card as a last-known copy.
+type counterAddition struct {
+	counter CounterType
+	putter  PlayerID
+	card    Card
+	n       int
 }
 
 // cloneMayPlayUses copies the counter map for Game.Clone.

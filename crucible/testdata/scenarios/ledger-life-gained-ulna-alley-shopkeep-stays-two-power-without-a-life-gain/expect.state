@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=COMBAT_DAMAGE
+humanlife=20
+humanbattlefield=Ulna Alley Shopkeep|Tapped
+ailife=18

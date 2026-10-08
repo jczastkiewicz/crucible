@@ -177,8 +177,11 @@ type mayPlayGrant struct {
 	// are written, CardPlayOption.java:69-75). RaiseText is RaiseCost$, a cost
 	// string already checked to be one this port can pay, added on top of the
 	// cost (CostAdjustment.java:82-90).
-	AnyColor  bool
-	RaiseText string
+	AnyColor bool
+	// SnowAnyColor is MayPlaySnowIgnoreColor$: snow mana pays a colored part
+	// of the cost whatever its color (CardPlayOption.isIgnoreSnowSourceManaCostColor).
+	SnowAnyColor bool
+	RaiseText    string
 	// ReplaceExile is ReplaceGraveyard$ Exile: a spell cast through this grant
 	// is exiled instead of going from the stack to the graveyard
 	// (PlayEffect.addReplaceGraveyardEffect, MagicStack.java:463-464).

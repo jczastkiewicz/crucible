@@ -505,6 +505,7 @@ func applyOneContinuousKeyword(g *Game, host *Card, amounts map[string]expr.Amou
 			AddKeywords:    change.layerKeywordsFor(c),
 			RemoveKeywords: change.remove,
 			RemoveAll:      change.removeAll,
+			CantHave:       change.cantHave,
 		})
 	}
 	if spec, ok := s.Param("Affected"); ok {
@@ -1205,12 +1206,10 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 	}
 	// Params that change what the grant allows or when it holds in a way
 	// this does not model, so a line naming any of them grants nothing
-	// (GO-7): the snow-only colour relaxation (MayPlaySnowIgnoreColor$: the
-	// pool has no "this mana is snow" test for a colored shard) and the
-	// spell-ability restrictions (ValidSA$, ValidAfterStack$,
-	// ReplaceGraveyard$). MayPlayText$ is only the option's label
+	// (GO-7): CharacteristicDefining$. MayPlaySnowIgnoreColor$ (snow mana pays
+	// a colored part) is read below; MayPlayText$ is only the option's label
 	// (GameActionUtil.java:398) and changes nothing.
-	for _, key := range [...]string{"MayPlaySnowIgnoreColor", "CharacteristicDefining"} {
+	for _, key := range [...]string{"CharacteristicDefining"} {
 		if _, ok := s.Param(key); ok {
 			return
 		}
@@ -1263,6 +1262,7 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 	grant.ZonePermission = !noZonePermission
 	_, grant.AnyType = s.Param("MayPlayIgnoreType")
 	_, grant.AnyColor = s.Param("MayPlayIgnoreColor")
+	_, grant.SnowAnyColor = s.Param("MayPlaySnowIgnoreColor")
 	if v, ok := s.Param("ReplaceGraveyard"); ok {
 		if v != "Exile" {
 			return

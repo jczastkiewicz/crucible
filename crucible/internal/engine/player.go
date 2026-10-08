@@ -145,6 +145,14 @@ type Player struct {
 	// LifeLostThisTurn is the life this player has lost this turn
 	// (Player.lifeLostThisTurn); the first loss is what FirstTime$ names.
 	LifeLostThisTurn int
+	// LifeGainedThisTurn is the life this player has gained this turn
+	// (Player.lifeGainedThisTurn, after replacement and prevention), read by
+	// Count$LifeYouGainedThisTurn.
+	LifeGainedThisTurn int
+	// attackedThisTurn is Player.attackedThisTurn flattened: every creature this
+	// player attacked with this turn, once per declaration (Count$
+	// CreaturesAttackedThisTurn counts a creature that attacked twice twice).
+	attackedThisTurn []CardID
 	// CyclingThisTurn is how many Cycling or TypeCycling abilities the player
 	// has activated this turn (FirstTime$ of Mode$ Cycled).
 	CyclingThisTurn int

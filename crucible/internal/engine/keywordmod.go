@@ -4,8 +4,11 @@
 package engine
 
 import (
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 )
 
 // KeywordMod is the continuous keyword changes currently affecting one
@@ -36,6 +39,11 @@ type KeywordEffect struct {
 	AddKeywords    []string
 	RemoveKeywords []string
 	RemoveAll      bool
+	// CantHave is CantHaveKeyword$ (Card.addCantHaveKeyword): every line of
+	// these keywords is dropped once all effects have applied, whatever their
+	// timestamps (Card.java:5198-5200, KeywordCollection.removeAll). Card
+	// only; a player's fold has nothing to strip.
+	CantHave []string
 }
 
 // Add records one continuous effect. Order does not matter here, the same
@@ -90,6 +98,19 @@ func (km KeywordMod) fold(base []string) []string {
 			lines = kept
 		}
 		lines = append(lines, e.AddKeywords...)
+	}
+	var cant []string
+	for _, e := range effects {
+		cant = append(cant, e.CantHave...)
+	}
+	if len(cant) > 0 {
+		kept := lines[:0:0]
+		for _, line := range lines {
+			if !slices.Contains(cant, keyword.Parse(line).Name) {
+				kept = append(kept, line)
+			}
+		}
+		lines = kept
 	}
 	return lines
 }

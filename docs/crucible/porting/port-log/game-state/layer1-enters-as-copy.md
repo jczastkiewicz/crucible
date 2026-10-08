@@ -107,7 +107,7 @@ identical entry in `Card.copies`, no visible change. Whether Java's re-run does 
 | A chained sub-ability with `ETB$` that is not a `PutCounter`                 | Only `PutCounter` puts something into the entry ([`layers-n-copy.md`](layers-n-copy.md#etb-counters-in-an-entry-chain)); refused before the copy |
 | `CheckSVar$`/`SVarCompare$` that does not resolve (Protean Raider)           | `checkSVarMatches` reads it as "does not apply", which would skip the copy silently                                                              |
 | `ValidTgts$` anywhere in the chain; a replacement param outside the read set | Not modeled at a replacement site                                                                                                                |
-| `Clone`'s own rejected params (`PumpKeywords$`, `RemoveCardTypes$`, ...)     | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                                                                    |
+| `Clone`'s own rejected params (`RemoveCreatureTypes$`, `SetManaCost$`, ...)  | [`effects-clone.md`](effects-clone.md#rejected); `Clone` errors before acting                                                                    |
 
 The error goes through `recordPendingError` (ADR-0020 decision 4): the entry sites have no error return, and
 `Registry.Resolve`/`ResolveStack`/the fixture runner take it at the next boundary.
@@ -155,8 +155,8 @@ The 3 watchers share Essence of the Wild's shape, tested with a synthetic card; 
 | Its "when you do" trigger's `Effect` `Duration$ AsLongAsControl`, on resolving (Wall of Stolen Identity) |     1 | no              |
 
 Since measured: the chained `PutCounter ETB$` rows (3 cards) and the `SubAbility$ Effect` rows (2) resolve, as do
-`RemoveCardTypes$` Imposter Mech and Machine God's Effigy; Vizier of Many Faces (`Embalm$`/`RemoveCost$`) stays an error
-([`layers-n-copy.md`](layers-n-copy.md)).
+`RemoveCardTypes$` Imposter Mech and Machine God's Effigy, as do Vizier of Many Faces (`Embalm$`/`RemoveCost$`) and
+`ThisTurnEnteredFrom_<Zone>` in a `Choices$` (The Fourteenth Doctor) ([`layers-n-copy.md`](layers-n-copy.md)).
 
 The last two copy first and fail in the chain, as any Registry chain can: the game stops at the error either way.
 

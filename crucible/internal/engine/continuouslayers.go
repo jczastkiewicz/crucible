@@ -23,6 +23,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -511,6 +512,9 @@ type layerKeywords struct {
 	remove     []string
 	removeAll  bool
 	multiplier int
+	// cantHave is CantHaveKeyword$: keywords the affected card cannot carry
+	// once every change has applied (Card.getCantHaveKeyword).
+	cantHave []string
 	// perCard marks an add token naming the affected card itself
 	// (CardColors, ConvertedManaCost): layerKeywordsFor rewrites those per
 	// card, and shares add unchanged otherwise.
@@ -537,19 +541,27 @@ type layerKeywords struct {
 // of "loses all abilities" only: this port has no way yet to switch off the
 // affected card's own triggers, activated abilities or statics.
 //
+// SharedKeywordsZone$ filters the tokens by the keywords the cards in those
+// zones carry (layerSharedKeywords); CantHaveKeyword$ is carried on the change
+// and strips the keyword from the affected card after every change applied
+// (KeywordMod.fold, Card.java:5198).
+//
 // false when the line has no keyword change, or one this cannot resolve:
-// SharedKeywordsZone$ (CardFactoryUtil.sharedKeywords), FromDraftNotes$,
-// ShareRememberedKeywords$, CantHaveKeyword$ (a grant blocker a later
-// timestamp's AddKeyword$ must respect), more than one chosen color behind a
+// FromDraftNotes$, ShareRememberedKeywords$, more than one chosen color behind a
 // ChosenColor token (Java takes the first chosen, an order mana.Colors does
 // not keep), or a CalcKeywordN$ resolveNamedAmount cannot compute.
 func layerKeywordChange(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) (layerKeywords, bool) {
-	for _, key := range [...]string{"SharedKeywordsZone", "FromDraftNotes", "ShareRememberedKeywords", "CantHaveKeyword"} {
+	for _, key := range [...]string{"FromDraftNotes", "ShareRememberedKeywords"} {
 		if _, ok := s.Param(key); ok {
 			return layerKeywords{}, false
 		}
 	}
 	k := layerKeywords{multiplier: 1}
+	if v, ok := s.Param("CantHaveKeyword"); ok {
+		for _, name := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' }) {
+			k.cantHave = append(k.cantHave, strings.TrimSpace(name))
+		}
+	}
 	if v, ok := s.Param("RemoveKeyword"); ok {
 		k.remove = strings.Split(v, " & ")
 	}
@@ -586,11 +598,107 @@ func layerKeywordChange(g *Game, host *Card, amounts map[string]expr.Amount, s *
 				k.perCard = true
 			}
 		}
+		if zones, ok := s.Param("SharedKeywordsZone"); ok {
+			shared, ok := layerSharedKeywords(g, host, s, k.add, zones)
+			if !ok {
+				return layerKeywords{}, false
+			}
+			k.add = shared
+		}
 	}
-	if len(k.add) == 0 && k.remove == nil && !k.removeAll {
+	if len(k.add) == 0 && k.remove == nil && !k.removeAll && k.cantHave == nil {
 		return layerKeywords{}, false
 	}
 	return k, true
+}
+
+// layerUnportedSharedRestrictions are SharedRestrictions$ properties Matches
+// cannot answer: it would read each as a type and match nothing, silently
+// (GO-7). "delved" is Soulflayer's: the cards exiled by its own delve.
+var layerUnportedSharedRestrictions = [...]string{"delved"}
+
+// layerSharedKeywords is CardFactoryUtil.sharedKeywords (:398-460) for
+// SharedKeywordsZone$: of the keywords in add, the ones some card in the
+// zones that matches SharedRestrictions$ (default Card) carries, read from
+// the static's host. A bare Protection, ProtectionColor, Landwalk, Hexproof or
+// Trample token stands for the whole lines of that kind on those cards
+// (Protection, Landwalk, Hexproof and Trample keep their own text; a
+// ProtectionColor is "Protection from <color>" only for the five colors);
+// any other token is kept if a card has a line equal to it, case aside.
+// false for a zone name that is none or a restriction Matches cannot answer.
+func layerSharedKeywords(g *Game, host *Card, s *compile.Ability, add []string, zonesRaw string) ([]string, bool) {
+	var zones []ZoneType
+	for _, name := range strings.Split(zonesRaw, ",") {
+		z, ok := ZoneByName(strings.TrimSpace(name))
+		if !ok {
+			return nil, false
+		}
+		zones = append(zones, z)
+	}
+	restrictions := "Card"
+	if v, ok := s.Param("SharedRestrictions"); ok {
+		restrictions = v
+	}
+	spec := valid.Parse(restrictions)
+	for _, alt := range spec.Alternatives {
+		for _, p := range alt.Properties {
+			if slices.Contains(layerUnportedSharedRestrictions[:], p.Name) {
+				return nil, false
+			}
+		}
+	}
+	var land, protection, protectionColor, hexproof, trample []string
+	all := map[string]bool{}
+	for _, z := range zones {
+		for _, pid := range g.Players() {
+			for _, id := range g.Zone(z, pid).Cards() {
+				c := g.Card(id)
+				if !Matches(g, c, spec, host.Controller(), host.ID) {
+					continue
+				}
+				for _, line := range c.KeywordLines() {
+					switch keyword.Parse(line).Name {
+					case "Landwalk":
+						land = append(land, line)
+					case "Protection":
+						protection = append(protection, line)
+						for _, col := range layerColorNames {
+							long := "Protection from " + col.name
+							if line == long || strings.Contains(line, strings.ToUpper(col.name[:1])+col.name[1:]+":"+col.name) {
+								protectionColor = append(protectionColor, long)
+							}
+						}
+					case "Hexproof":
+						hexproof = append(hexproof, line)
+					case "Trample":
+						trample = append(trample, line)
+					default:
+						all[strings.ToLower(line)] = true
+					}
+				}
+			}
+		}
+	}
+	var out []string
+	for _, kw := range add {
+		switch kw {
+		case "Protection":
+			out = append(out, protection...)
+		case "ProtectionColor":
+			out = append(out, protectionColor...)
+		case "Landwalk":
+			out = append(out, land...)
+		case "Hexproof":
+			out = append(out, hexproof...)
+		case "Trample":
+			out = append(out, trample...)
+		default:
+			if all[strings.ToLower(kw)] {
+				out = append(out, kw)
+			}
+		}
+	}
+	return out, true
 }
 
 // layerExpandKeyword is one token's pass through Java's removeIf: keep is

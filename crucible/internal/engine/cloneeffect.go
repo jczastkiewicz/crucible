@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow card game ability defined condition control parts effecthelpers id zone valid amount copypermanenteffect effecteffect player room
+//enginelint:allow card game ability defined condition control parts effecthelpers id zone valid amount copypermanenteffect effecteffect player room animate tokeneffect
 
 import (
 	"fmt"
@@ -222,13 +222,12 @@ type cloneEffect struct{}
 
 // cloneUnresolvedParams are the CloneEffect/getCloneStates params this port
 // does not resolve: gaining another card's text (GainTextAbilities$,
-// GainTextOf$), the pump keywords' own until-command, Embalm's condition,
-// mana cost and creature type rewriting, keyword removal, loyalty, and
-// RemoveCreatureTypes$ -- which getCloneStates never reads (PORT-8,
-// effects-clone.md).
+// GainTextOf$), mana cost and creature type rewriting, keyword removal,
+// loyalty, and RemoveCreatureTypes$ -- which getCloneStates never reads
+// (PORT-8, effects-clone.md).
 var cloneUnresolvedParams = [...]string{
 	"GainTextAbilities", "GainTextOf",
-	"PumpKeywords", "PumpDuration", "Embalm", "RemoveCost", "SetManaCost", "SetColorByManaCost",
+	"SetManaCost", "SetColorByManaCost",
 	"RemoveCreatureTypes", "SetCreatureTypes", "RemoveKeywords",
 	"SetLoyalty", "Condition",
 }
@@ -267,6 +266,10 @@ func (cloneEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	if hasParam(a, "RememberCloneOrigin") && origin.card == NoCard {
 		return fmt.Errorf("engine: Clone: RememberCloneOrigin$ of a card outside the game not resolvable yet")
+	}
+	pump, err := tokenPumpKeywords(a, "Clone")
+	if err != nil {
+		return err
 	}
 	cloneZone, hasCloneZone := None, false
 	if raw, ok := a.Params.Param("CloneZone"); ok {
@@ -326,6 +329,11 @@ func (cloneEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		t.addCopy(e)
 		if hasParam(a, "IntoPlayTapped") {
 			t.Tapped = true
+		}
+		if pump != nil {
+			// CloneEffect.java:153-156: the keywords ride the copy's own
+			// timestamp; PumpDuration$ (absent: never) ends them.
+			g.addAnimate(animateRecord{Card: p.id, Timestamp: ts, Permanent: pump.permanent, AddKeywords: pump.keywords})
 		}
 		t.Memory.ClearRemembered()
 		t.Memory.ClearImprinted()
@@ -535,7 +543,9 @@ func cloneSpec(raw string) (valid.Spec, error) {
 	spec := valid.Parse(raw)
 	for _, alt := range spec.Alternatives {
 		for _, p := range alt.Properties {
-			unported := strings.HasPrefix(p.Name, "ThisTurnEntered")
+			// ThisTurnEnteredFrom_<Zone> is answered (valid.go); any other
+			// ThisTurnEntered* spelling is not.
+			unported := strings.HasPrefix(p.Name, "ThisTurnEntered") && !strings.HasPrefix(p.Name, "ThisTurnEnteredFrom_")
 			for _, name := range cloneUnportedProperties {
 				unported = unported || p.Name == name
 			}
@@ -581,6 +591,11 @@ func cloneDef(g *Game, a *Ability, origin cloneOrigin, out *Card) (*compile.Card
 	ch, err := readCloneChanges(g, a)
 	if err != nil {
 		return nil, err
+	}
+	if ch.embalmGate && !out.embalmed {
+		// CardFactory.java:555: Embalm$ skips every "except" for a card that
+		// is not an embalmed token (Vizier of Many Faces cast from hand).
+		return def, nil
 	}
 	if hasParam(a, "GainThisAbility") {
 		if ch.gain, ch.gainKind, err = cloneRoot(g.Card(a.Source), a); err != nil {
@@ -649,15 +664,19 @@ type cloneChanges struct {
 	// removeSubTypes, read only with it, then drops the subtypes no remaining
 	// type allows (CardType.sanisfySubtypes) -- with no core type left, all.
 	removeCardTypes, removeSubTypes bool
-	addTypes                        []string
-	addKeywords                     []string
-	keywordsIfNew                   bool
-	setPower, setTough              bool
-	power, toughness                int
-	addAmounts                      map[string]expr.Amount
-	addAmountNames                  []string
-	gain                            *compile.Ability
-	gainKind                        compile.Record
+	// removeCost is RemoveCost$: the copy has no mana cost (CardFactory.java:613).
+	// embalmGate is Embalm$: every "except" below applies only when the card
+	// becoming the copy is an embalmed token (CardFactory.java:555).
+	removeCost, embalmGate bool
+	addTypes               []string
+	addKeywords            []string
+	keywordsIfNew          bool
+	setPower, setTough     bool
+	power, toughness       int
+	addAmounts             map[string]expr.Amount
+	addAmountNames         []string
+	gain                   *compile.Ability
+	gainKind               compile.Record
 }
 
 func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
@@ -695,6 +714,8 @@ func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
 		}
 	}
 	ch.nonLegendary = hasParam(a, "NonLegendary")
+	ch.removeCost = hasParam(a, "RemoveCost")
+	ch.embalmGate = hasParam(a, "Embalm")
 	if ch.removeCardTypes = hasParam(a, "RemoveCardTypes"); ch.removeCardTypes {
 		ch.removeSubTypes = hasParam(a, "RemoveSubTypes")
 	}
@@ -794,6 +815,15 @@ func (ch *cloneChanges) apply(f, out, printed *compile.Face) {
 			amounts[k] = ch.addAmounts[k]
 		}
 		f.Amounts = amounts
+	}
+	if ch.removeCost {
+		// A state's color is stored apart from its cost in Java, so the
+		// copy keeps the color the cost gave it; this port derives an
+		// unset color from the cost, so freeze it first.
+		if !f.HasColors {
+			f.Colors, f.HasColors = f.ManaCost.Colors(), true
+		}
+		f.ManaCost = mana.NoCost()
 	}
 	// A characteristic-defining ability setting what an "except" sets is
 	// gone from the copy, and SetColor$ removes devoid.

@@ -89,6 +89,7 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 	g.exertDeclaredAttackers(controller, attackers)
 	for _, id := range attackers {
 		g.Card(id).AttacksThisTurn++
+		g.recordAttacked(id)
 		g.checkAttacksTriggers(controller, id)
 	}
 	g.checkAttackersDeclaredOneTargetTrigger(controller)

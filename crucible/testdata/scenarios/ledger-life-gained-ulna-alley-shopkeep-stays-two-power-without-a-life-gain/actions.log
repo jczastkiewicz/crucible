@@ -1,0 +1,13 @@
+# Negative control for the ledger: nobody gained life this turn, so the
+# Shopkeep's "+2/+0 as long as you gained life this turn" is off and it deals
+# its printed 2. Opponent: 20 - 2 = 18; controller unchanged.
+startturn human
+advance 5
+queue attackers 1
+declareattackers
+advance
+declareblockers
+advance
+firststrikedamage
+advance
+combatdamage

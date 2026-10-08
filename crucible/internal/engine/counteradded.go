@@ -35,6 +35,7 @@ func (g *Game) addCardCounters(controller PlayerController, source CardID, id Ca
 		}
 	}
 	c.Counters.Add(ct, n)
+	g.recordCountersAdded(source, id, ct, n)
 	emitCounterChanged(g, source, CardEntity(id), ct, n)
 	var matches []Ability
 	for i := 1; i <= n; i++ {

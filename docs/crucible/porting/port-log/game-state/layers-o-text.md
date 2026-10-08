@@ -29,7 +29,6 @@ changes the real color. An exchange clears every earlier word row of both cards 
 
 Not resolved:
 
-- `Face.Amounts` (compiled SVar amounts) is not rewritten: Java rewrites SVar bodies, the compiled amount has no text.
 - `ExchangeTextBox` `Duration$` other than none, `AsLongAsInPlay`, `UntilHostLeavesPlay` is an error.
 - Word changes are keyed per card, not per exchanged text box: a change made after an exchange rewrites the exchanged
   text, as Java.
@@ -50,12 +49,13 @@ so `Red` also rewrites the front of `Reduce`. Reproduced (PORT-7), as parity dep
 | `CardManaCost` / `ConvertedManaCost` in a granted body | Lands: `costSubstitutedGrant`, per receiving card; abilities take either token, statics only the second            |
 | Layer 3 text change on a granted body                  | Lands for free: a grant's SVars are read through the host's rewritten `Def`; the grant row itself is not rewritten |
 | A granted static's Layer 4/5 effects                   | Not done                                                                                                           |
-| `AddSVar$`                                             | Not done                                                                                                           |
+| `AddSVar$`                                             | Lands for free: the granted body reads the granting face's amounts and sub-abilities                               |
 
 Java applies a static granted in Layer 6 to Layers 4 and 5 from the next pass. This port rebuilds grants after Layers
 4-5, so the effect would need a second settle step; no real shape depends on it yet beyond a handful of Auras that also
-grant a type. `AddSVar$` (about 40 real lines) writes `Card.changedSVars`, which has no counterpart: SVars are compiled
-amounts on the granting face.
+grant a type. `AddSVar$` (about 40 real lines) writes `Card.changedSVars` in Java; here SVars are compiled amounts and
+sub-abilities of the granting face, which a grant already carries, so no per-card SVar table exists
+(`layersaddsvar_test.go`).
 
 ## Layers 4, 5 and 6
 
@@ -63,7 +63,7 @@ amounts on the granting face.
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `AddAllCreatureTypes$` (8)                 | Lands: `layerTypeChange` adds every creature type of the DB vocabulary via `Game.allCreatureTypes`, shared with Changeling    |
 | `CardManaCost` in a keyword (2 real lines) | Lands: `mana.Cost.ShortString` (`ManaCost.getShortString`), `layerKeywordsFor`; `CardManaCost` wins over `ConvertedManaCost`  |
-| `SharedKeywordsZone$`, `CantHaveKeyword$`  | Not done                                                                                                                      |
+| `SharedKeywordsZone$`, `CantHaveKeyword$`  | Lands: `layerSharedKeywords` (`CardFactoryUtil.getSharedKeywords`), `KeywordEffect.CantHave` stripped in `KeywordMod.fold`    |
 | "Loses all abilities" past keywords        | Already resolved before this batch (`abilityRemoval`, `printedTraitsRemoved`, `removeallabilities_test.go`); the row is stale |
 | `CheckSVar$` amount outside `Count$Valid`  | Not done: the general `calculateAmount` port                                                                                  |
 

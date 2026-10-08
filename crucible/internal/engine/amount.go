@@ -133,6 +133,8 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 		return namedAmount(g, amounts, sourceController, source, amt.Body, depth)
 	case amt.Head == "ExiledWith":
 		return exiledWithValue(g, source, amt.Body)
+	case amt.Head == "DungeonsCompleted":
+		return dungeonsCompletedValue(g, sourceController, source, amt.Body)
 	case amt.Head == "Imprinted":
 		return imprintedValue(g, sourceController, source, amt.Body)
 	case amt.Head == "Remembered":

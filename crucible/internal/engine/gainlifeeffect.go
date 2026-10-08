@@ -116,6 +116,7 @@ func (g *Game) gainLife(controller PlayerController, pid PlayerID, amount int, s
 	}
 	firstGain := g.Player(pid).LifeGainedTimesThisTurn == 0
 	g.Player(pid).LifeGainedTimesThisTurn++
+	g.Player(pid).LifeGainedThisTurn += gain
 	g.Player(pid).Life += gain
 	g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(pid), Amount: int32(gain)})
 	g.checkLifeGainedTriggers(controller, pid, gain, firstGain)

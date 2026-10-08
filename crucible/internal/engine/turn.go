@@ -608,9 +608,15 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 		p.LifeLostThisTurn = 0
+		p.LifeGainedThisTurn = 0
+		p.attackedThisTurn = nil
 		p.CyclingThisTurn = 0
 		p.discardedThisTurn = nil
 	}
+	// Zone.resetCardsAddedThisTurn (Player.onCleanupPhase) and
+	// Game.clearCountersThisTurn (Game.onCleanupPhase).
+	g.enteredThisTurn = nil
+	g.countersAddedThisTurn = nil
 
 	g.combatDamagePrevented = false
 	g.preventShields = nil

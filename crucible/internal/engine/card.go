@@ -76,6 +76,9 @@ type Card struct {
 	// the flag on the turn the permanent arrived.
 	cameUnderControl bool
 	enteredTurn      int
+	// embalmed is Card.isEmbalmed: the token Embalm makes. Embalm is not
+	// ported, so nothing sets it; Clone's Embalm$ reads it (CardFactory.java:555).
+	embalmed bool
 	// zoneEntered, zoneEntryTurn and zoneEntryFrom record how the card last
 	// entered the zone it sits in by a move: the turn and the zone it came from
 	// (Zone.cardsAddedThisTurn and enteredFromThisTurn, Zone.java:120-127), read
@@ -317,7 +320,7 @@ type Card struct {
 	detainedBy []PlayerID
 
 	// Intensity is Card.intensity (Alchemy's intensify): starts at zero and
-	// is raised by Intensify, read through Count$CardIntensity.
+	// is raised by Intensify, read through Count$Intensity.
 	Intensity int
 
 	// exiledWith is Card.exiledWith (Card.java:326): which host object

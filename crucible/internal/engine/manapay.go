@@ -147,7 +147,7 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 	if life > 0 && g.cantPayLife(decider, false, cause) {
 		return xAnnounced{}, false
 	}
-	if !g.Player(decider).ManaPool.PayWithSnow(mana.FromShards(resolved, 0), snow) {
+	if !g.Player(decider).ManaPool.payWithSnow(mana.FromShards(resolved, 0), snow, g.snowAnyColor) {
 		return xAnnounced{}, false
 	}
 	if life > 0 {

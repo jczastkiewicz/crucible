@@ -61,7 +61,7 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			return err
 		}
 	}
-	pump, err := tokenPumpKeywords(a)
+	pump, err := tokenPumpKeywords(a, "Token")
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,9 @@ type tokenPump struct {
 	permanent bool
 }
 
-func tokenPumpKeywords(a *Ability) (*tokenPump, error) {
+// api names the effect in an error: Token and Clone share this grant
+// (TokenEffectBase.addPumpUntil is called from both).
+func tokenPumpKeywords(a *Ability, api string) (*tokenPump, error) {
 	raw, ok := a.Params.Param("PumpKeywords")
 	if !ok {
 		return nil, nil
@@ -163,7 +165,7 @@ func tokenPumpKeywords(a *Ability) (*tokenPump, error) {
 	p := &tokenPump{keywords: strings.Split(raw, " & "), permanent: true}
 	if d, ok := a.Params.Param("PumpDuration"); ok {
 		if d == "UntilYourNextTurn" {
-			return nil, fmt.Errorf("engine: Token: PumpDuration$ %q not resolvable yet", d)
+			return nil, fmt.Errorf("engine: %s: PumpDuration$ %q not resolvable yet", api, d)
 		}
 		p.permanent = false
 	}

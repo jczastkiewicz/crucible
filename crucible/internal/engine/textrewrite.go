@@ -289,10 +289,42 @@ func rewriteType(l cardtype.Line, m wordMap) cardtype.Line {
 	return l
 }
 
+// rewriteAmounts is AbilityUtils.calculateAmount's `calcX[1] =
+// applyAbilityTextChangeEffects(calcX[1], ability)` (:440) done once per
+// definition: the part of an amount after its first `$` ("Valid Creature.Elf"
+// of `Count$Valid Creature.Elf`) is rewritten and the amount read again from
+// the new text. A Number$ amount is read from its whole, unrewritten text
+// (:447-448). The table is copied only when some amount changes; the keys,
+// which an inline amount takes from its own text, stay as written.
+func rewriteAmounts(amounts map[string]expr.Amount, fn func(string) string) map[string]expr.Amount {
+	var out map[string]expr.Amount
+	for name, a := range amounts {
+		head, rest, ok := strings.Cut(a.Text, "$")
+		if !ok || strings.HasPrefix(head, "Number") {
+			continue
+		}
+		changed := fn(rest)
+		if changed == rest {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]expr.Amount, len(amounts))
+			for k, v := range amounts {
+				out[k] = v
+			}
+		}
+		out[name] = expr.Parse(head + "$" + changed)
+	}
+	if out == nil {
+		return amounts
+	}
+	return out
+}
+
 // rewriteDef is the definition def has under word map m: every face's
 // abilities, triggers, statics and replacements with their params rewritten,
-// every modifiable keyword line rewritten, and the face's type line under the
-// type words. Face.Amounts is shared unchanged (ADR-0039).
+// every modifiable keyword line rewritten, the face's type line under the
+// type words and its amounts' counted text (ADR-0039).
 func rewriteDef(def *compile.Card, m wordMap) *compile.Card {
 	out := *def
 	fn := func(s string) string { return rewriteText(s, m) }
@@ -315,6 +347,7 @@ func rewriteDef(def *compile.Card, m wordMap) *compile.Card {
 			f.Keywords = kws
 		}
 		f.Type = rewriteType(f.Type, m)
+		f.Amounts = rewriteAmounts(f.Amounts, fn)
 		out.Faces[i] = f
 	}
 	return &out

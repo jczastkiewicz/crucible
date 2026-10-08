@@ -1,0 +1,6 @@
+turn=1
+activeplayer=human
+activephase=COMBAT_DAMAGE
+humanlife=22
+humanbattlefield=Ulna Alley Shopkeep|Tapped;Knight of Meadowgrain|Tapped
+ailife=14

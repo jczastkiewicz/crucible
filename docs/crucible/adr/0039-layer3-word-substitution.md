@@ -54,9 +54,10 @@ map); `Game.Clone` starts with an empty memo.
 Rewrite rules, kept from Java: left `\b` only; optional `non` prefix kept; no match within 100 characters after `named`;
 color words replaced lower and capitalized, the `Any` source skipping the destination color; type words replaced as
 written; a value equal to an SVar or sub-ability name, and `TokenScript`, `NewName`, `DefinedName`, `ChooseFromList`,
-`AddAbility`, descriptions: untouched. `Face.Amounts` (compiled SVar amounts) is not rewritten: Java rewrites SVar
-bodies, here the compiled `expr.Amount` has no text to rewrite, and the one real shape this loses is a `Count$Valid`
-SVar naming a color or type word.
+`AddAbility`, descriptions: untouched. `Face.Amounts` (compiled SVar amounts) is rewritten the way
+`AbilityUtils.calculateAmount` does at read time (`AbilityUtils.java:440`): the text after the first `$` goes through
+the word map and the amount is parsed again (`rewriteAmounts`); a `Number$` amount is read unrewritten (`:447-448`).
+Table keys stay as written, since an inline amount is keyed by its own text.
 
 A spell on the stack resolves from its `Ability`, built at cast time; `Registry.Resolve` rewrites a spell's `Params`
 when its card carries a map (Java does the same at `MagicStack.java:580`).

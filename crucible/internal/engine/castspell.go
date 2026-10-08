@@ -154,6 +154,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 			return false
 		}
 		opts.withoutManaCost, opts.anyType, opts.anyColor = way.withoutMana, way.anyType, way.anyColor
+		opts.snowAnyColor = way.snowAnyColor
 		if way.hasAlt {
 			opts.altCost, opts.hasAltCost = way.alt, true
 		}
@@ -379,6 +380,9 @@ type castOpts struct {
 	// anyColor is MayPlayIgnoreColor$: mana of any type pays a colored part of
 	// the cost, but a {C} part still needs colorless mana.
 	anyColor bool
+	// snowAnyColor is MayPlaySnowIgnoreColor$: snow mana pays a colored part
+	// of the cost whatever its color.
+	snowAnyColor bool
 	// raiseMana, when hasRaiseMana, is the mana part of MayPlay's RaiseCost$,
 	// paid on top of the cost (its other parts ride extra).
 	raiseMana    mana.Cost
@@ -531,7 +535,9 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		return xAnnounced{}, false
 	}
 	total, assist := g.assistCost(controller, pid, c, total)
+	g.snowAnyColor = opts.snowAnyColor
 	x, paid := g.payManaCostX(pid, total, controller)
+	g.snowAnyColor = false
 	if paid {
 		assist.settle(g, controller)
 		// SpellAbility.getTotalManaSpent: one per mana paid. Phyrexian shards

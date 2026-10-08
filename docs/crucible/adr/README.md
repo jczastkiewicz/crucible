@@ -50,10 +50,11 @@ Numbers are permanent. Files are never deleted. A superseded ADR keeps its numbe
 | [0037](0037-battlefield-zone-keyed-by-controller.md)        | The battlefield zone is keyed by controller               | Accepted           |
 | [0038](0038-keyword-expansion.md)                           | Keyword expansion: expressible keywords compile to traits | Accepted           |
 | [0039](0039-layer3-word-substitution.md)                    | Layer 3 word substitution rewrites the compiled Def       | Accepted           |
+| [0040](0040-search-control-redirect.md)                     | Search control: a per-effect decision redirect            | Accepted           |
 
 ## Numbering
 
-No gap and no missing number: 0001-0039, every number used exactly once. Numbers are allocated when an ADR is written,
+No gap and no missing number: 0001-0040, every number used exactly once. Numbers are allocated when an ADR is written,
 never reserved — the plan lists remaining subjects without numbers for that reason.
 
 The plan's M0 exit gate asked for ADR-0001 through ADR-0011 `Accepted`. The three subjects after it — ports and

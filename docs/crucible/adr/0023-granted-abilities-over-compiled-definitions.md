@@ -68,9 +68,9 @@ the grant silently does not happen (`effects-manareflected.md`, "Caveat").
    today — never a silent omission. The coverage command (`cmd/crucible/coverage.go`) checks card presence only;
    extending it to report unapplicable grants at load is part of the implementing work. The `S:` lines applied today
    stay applied.
-5. **Layer 3 text-changing is out of scope** (`ChangeText` 17 lines, `GainTextOf$` 1). Java stores it as a substitution
-   on the ability object (`changeTextIntrinsic`), which fits this overlay later without re-parsing; it gets its own
-   decision when a gauntlet needs it.
+5. **Layer 3 text-changing is its own decision** (`ChangeText` 17 lines, `GainTextOf$` 1):
+   [ADR-0039](0039-layer3-word-substitution.md). Java stores it as a substitution on the ability object
+   (`changeTextIntrinsic`), which fits this overlay without re-parsing.
 
 ## Consequences
 

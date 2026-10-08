@@ -96,11 +96,8 @@ remainder is the "Still not resolved" table below.
 | --------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CheckSVar$`/`PresentCompare$` naming an amount outside `Count$Valid` | 26 / 0 / 90              | `Count$Devotion*` (22), `Count$ThisTurnCast_*` (15), `Imprinted$Valid` (9), `PlayerCountOpponents$*`, `Count$CardCounters`, ...: the general `AbilityUtils.calculateAmount` port, shared by every layer, not a Layer 4-6 question |
 | `EffectZone$` without `Battlefield` (Command, Graveyard, Stack)       | 4 / 1 / 40               | `traitHosts` (`game.go`) walks the battlefield and effect cards only; emblems, planes and graveyard/stack-functioning statics need their own host walk                                                                            |
-| `AddAllCreatureTypes$`                                                | 8 (type)                 | Java's `CardType.allCreatureTypes` flag; `cardtype.Line` has none, and materialising ~300 subtypes on every `Type()` fold is the alternative                                                                                      |
-| `CardManaCost` in a keyword                                           | 18 (kw)                  | needs `ManaCost.getShortString`, not ported; a guessed format would be wrong the day a reader of Escape/Scavenge costs lands                                                                                                      |
 | `SharedKeywordsZone$`, `FromDraftNotes$`, `CantHaveKeyword$`          | 8, 1, 5                  | `CardFactoryUtil.sharedKeywords`; draft notes (no draft); a grant blocker later timestamps must respect                                                                                                                           |
 | CDA hosts off the battlefield                                         | 9 each, counted resolved | a CDA functions in every zone; only battlefield hosts are walked, so "this spell has flash" and "is every color" in hand do not apply yet                                                                                         |
-| "Loses all abilities" beyond keywords                                 | —                        | `RemoveAllAbilities$` removes keywords only; the affected card's own triggers, activated abilities and statics keep working                                                                                                       |
 
 `forge-gui/res/cardsfolder/p/phyrexian_adapter.txt:6` writes `AddType$ Food,Blood,Clue,Treasure,Powerstone`: a comma
 list where every other line uses `" & "`. Java's `CardType.add` stores it as one subtype named with the commas, and so
@@ -114,4 +111,4 @@ does this port (PORT-8, reported, not compensated).
 carrying every creature type (`Registry.Members(CategoryCreature)`) to each card holding the keyword in any zone, so
 `Matches` and `HasSubtype` see a Goblin in hand or in a graveyard too. `cardtype.Line` has no "every creature type" flag
 (Java's `CardType` does), so the subtypes are materialized for the few cards that need them; the effect is recomputed
-each state-based pass, like the others. `AddAllCreatureTypes$` (8 lines) is still not read. Test: `changeling_test.go`.
+each state-based pass, like the others. Test: `changeling_test.go`.

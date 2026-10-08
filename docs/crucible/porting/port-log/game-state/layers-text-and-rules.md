@@ -18,7 +18,7 @@ CR 613.1c's text-changing layer for its one real `GainTextOf$` line, and the res
 | `GainTextOf$`                            | 1 (Volrath's Shapeshifter)      | Resolved here                                                                           |
 | `AddNames$`                              | 1 (Spy Kit)                     | Resolved earlier, `applyContinuousNames`                                                |
 | `SetName$`                               | 5                               | Not resolved: every line pairs it with `RemoveAllAbilities$`/`RemoveCreatureTypes$`/... |
-| `ChangeColorWordsTo$`                    | 1 (Swirl the Mists)             | Not resolved: CR 612 word substitution, the `ChangeText` API's own mechanism            |
+| `ChangeColorWordsTo$`                    | 1 (Swirl the Mists)             | Resolved ([ADR-0039](../../../adr/0039-layer3-word-substitution.md)):                   |
 | `Incorporate$`, `ManaCost$`              | 0 (Animate-only, `Perpetual`)   | Not a static shape                                                                      |
 
 The one line:

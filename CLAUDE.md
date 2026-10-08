@@ -209,11 +209,9 @@ M6 in progress: 189 of the corpus's 203 script-driven `Effect` APIs resolve (`Ne
 `AB$`/`SP$`/`DB$` lines under that exact name and never surface in `unported-apis.sh`'s corpus-driven listing at all.
 `ChangeText` and `ExchangeTextBox` resolve through Layer 3 word substitution (ADR-0039).
 
-Thin or missing: Layer 1 past `Clone`'s own "enters as a copy" (`entersascopy.go` resolves it now) — a copy replacement
-other than `Clone` itself, CR 616.1's choice among several, Mystic Reflection's batch "next time"; most of Layers 3-8
-past their literal shapes; Ward's own non-mana cost shapes (`PayLife`/`Discard`/`Sac`/`Ward:X`) and
-ability-source/retargeted Ward — the mana-cost shape against a directly cast spell is ported (ADR-0028), alongside
-Hexproof/Shroud/Protection. Full list: `port-log/game-state.md`, "Not ported yet".
+Thin or missing: a granted static's Layer 4/5 effects, `AddSVar$` and `CheckSVar$` amounts that need per-turn ledgers;
+`ControlOpponentsSearchingLibrary$` and `IgnoreEffectCost$`; `Mode$ Attached`; replacement `PayLife`; Pump on a player;
+the long tail of single-card shapes. Full list: `port-log/game-state.md`, "Not ported yet".
 
 **M5 exit gate:** the test-port matrix is green (every `M5? yes` row `ported` or `superseded`,
 `porting/test-port-matrix.md`). **P4 exit gate:** fixture-count half met (≥300 scenarios, `testdata/scenarios/`);

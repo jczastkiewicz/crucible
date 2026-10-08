@@ -17,7 +17,7 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 
 | Site                                    | Defect                                                                                                                                                          | Crucible meanwhile                                                  | Upstream                                                 |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| `ChooseSourceEffect.java:84-89`         | `tgtPlayers.get(0)` unguarded; throws once the player list is empty                                                                                             | `TargetControls$` rejected                                          | [#12083](https://github.com/Card-Forge/forge/pull/12083) |
+| `ChooseSourceEffect.java:84-89`         | `TargetControls$` filter: `tgtPlayers.get(0)` unguarded, throws once the player list is empty; PR removes the param (no ChooseSource script uses it)            | `TargetControls$` rejected                                          | [#12083](https://github.com/Card-Forge/forge/pull/12083) |
 | `ChooseSourceEffect.java:131-133`       | Pool exhausted before every chooser has picked hangs the game                                                                                                   | `error` for the chooser left empty                                  | [#12083](https://github.com/Card-Forge/forge/pull/12083) |
 | `Player.java:3435`                      | `getMonarchSet` ternary condition inverted                                                                                                                      | No counterpart: no set codes in Crucible                            | Fixed upstream (`8cd226407b1`)                           |
 | `GameAction.java:2568-2573`             | `takeInitiative` has no `return` after passing a lost player's take on                                                                                          | Reproduced (oracle parity)                                          | Not filed                                                |
@@ -59,15 +59,12 @@ block reads only `tgtPlayers.get(0)`, so:
   ability's target controls," which for chooser N ≠ 0 should presumably still be `tgtPlayers.get(0)` by the param's own
   definition (it does not vary per chooser), so this half is arguably intended; only the empty-list crash is the bug.
 
-**Proposed fix:** guard on `!tgtPlayers.isEmpty()` alongside the existing `hasParam("TargetControls")` check, matching
-how `sourcesToChooseFrom.isEmpty()` is later treated as a no-op rather than an error:
-
-```java
-if (sa.hasParam("TargetControls") && !tgtPlayers.isEmpty()) {
-```
+**Proposed fix:** remove the block. A reviewer (tool4ever) called `TargetControls$` redundant, since a script can
+restrict `Choices$` itself, and no ChooseSource script uses it: the nine cards that carry `TargetControls$` all use
+`ChooseCard`, which has its own reader (`ChooseCardEffect.java:73`).
 
 **Upstream:** [Card-Forge/forge#12083](https://github.com/Card-Forge/forge/pull/12083), branch
-`upstream-pr/choosesource-bugs`. `ChooseSourceEffectShould` throws `IndexOutOfBoundsException` without the guard.
+`upstream-pr/choosesource-bugs`.
 
 **Crucible meanwhile:** `internal/engine/choosesourceeffect.go` rejects `TargetControls$` outright with an `error` — Go
 has no card in the corpus exercising it, and reproducing an upstream crash as a Go `panic` would violate GO-7 (a bad

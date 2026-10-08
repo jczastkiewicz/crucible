@@ -670,10 +670,10 @@ has no case for, so a red spell would still read red.
 
 **Forge bugs (PORT-8, not carried; tracked in [`forge-java-defects.md`](../../forge-java-defects.md)).**
 
-| Site                              | Bug                                                                                                                                | Here           |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `ChooseSourceEffect.java:84-89`   | `TargetControls$` read by presence only; `tgtPlayers.get(0)` unguarded, `IndexOutOfBoundsException` when the chooser left the game | Param rejected |
-| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser picks → do/while rejects the dividers forever, game hangs                                      | `error`        |
+| Site                              | Bug                                                                                                                                                      | Here           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `ChooseSourceEffect.java:84-89`   | `TargetControls$` read by presence only; `tgtPlayers.get(0)` unguarded, `IndexOutOfBoundsException` when the chooser left the game; PR removes the param | Param rejected |
+| `ChooseSourceEffect.java:131-133` | Pool exhausted before every chooser picks → do/while rejects the dividers forever, game hangs                                                            | `error`        |
 
 **`<Color>Source` valid property** lands with it: 15 of 67 `Choices$` lines name one (`Card.RedSource`, ...).
 `valid-strings.md` has the rule and the Ghostly Flame exception.

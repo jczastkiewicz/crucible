@@ -6,6 +6,7 @@ Artifact Book Clue	Artifact - Book Clue
 Artifact Book Equipment	Artifact - Book Equipment
 Artifact Clue	Artifact - Clue
 Artifact Clue Equipment	Artifact - Clue Equipment
+Artifact Communicator Equipment	Artifact - Communicator Equipment
 Artifact Contraption	Artifact - Contraption
 Artifact Creature Alien Angel	Artifact Creature - Alien Angel
 Artifact Creature Alien Soldier	Artifact Creature - Alien Soldier
@@ -2549,6 +2550,7 @@ Legendary Artifact Clue	Legendary Artifact - Clue
 Legendary Artifact Creature Alien Scientist	Legendary Artifact Creature - Alien Scientist
 Legendary Artifact Creature Artificer	Legendary Artifact Creature - Artificer
 Legendary Artifact Creature Book Construct	Legendary Artifact Creature - Book Construct
+Legendary Artifact Creature Borg Noble	Legendary Artifact Creature - Borg Noble
 Legendary Artifact Creature Cat Moogle	Legendary Artifact Creature - Cat Moogle
 Legendary Artifact Creature Construct	Legendary Artifact Creature - Construct
 Legendary Artifact Creature Cyberman	Legendary Artifact Creature - Cyberman

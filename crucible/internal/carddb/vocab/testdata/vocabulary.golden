@@ -2395,6 +2395,7 @@ validProperty	Assembly-Worker
 validProperty	Attached
 validProperty	Attached$GreatestCardManaCost
 validProperty	AttachedBy
+validProperty	AttachedBy Communicator
 validProperty	AttachedTo Card
 validProperty	AttachedTo Card.IsRemembered
 validProperty	AttachedTo Card.Self
@@ -3969,7 +3970,6 @@ svarProperty	CardCounters.LOYALTY
 svarProperty	CardCounters.M1M1
 svarProperty	CardCounters.OIL
 svarProperty	CardCounters.P1P1
-svarProperty	CardCounters.PRESSURE
 svarProperty	CardCounters.QUEST
 svarProperty	CardCounters.RUST
 svarProperty	CardCounters.VOYAGE
@@ -4245,6 +4245,7 @@ svarProperty	Valid Creature.blocking
 svarProperty	Valid Creature.counters_GE1_P1P1
 svarProperty	Valid Creature.inZoneBattlefield
 svarProperty	Valid Creature.inZoneGraveyard
+svarProperty	Valid Creature.nonArtifact
 svarProperty	Valid Creature.powerGTY,Creature.toughnessGTZ
 svarProperty	Valid Creature.powerLE0
 svarProperty	Valid Creature.powerLE3

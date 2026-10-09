@@ -93,8 +93,8 @@ Doctor resolves. Loose in the Park still needs `Draft` and `Defined$ ExiledWith`
 | `forge-gui/res/cardsfolder/t/taskmaster_mercenary_mimic.txt:6` | `RemoveCreatureTypes$ True`; `CardFactory.getCloneStates` (`CardFactory.java:579-581`) reads only `RemoveCardTypes$`/`RemoveSubTypes$`                                                               | fixed on this tree (`RemoveSubTypes$`), [#12193](https://github.com/Card-Forge/forge/pull/12193) |
 | `forge-gui/res/cardsfolder/l/loose_in_the_park.txt:11`         | `PumpKeywords$ Haste` without `PumpDuration$`: `TokenEffectBase.addPumpUntil` (`:272`) returns when absent, so the haste outlives the `Duration$ UntilEndOfTurn` copy; Oracle says until end of turn | reproduced (PORT-7), `TestClonePumpKeywordsWithoutDurationStayPastTheCopy`                       |
 
-Both lines carry their fix on this tree until [#12193](https://github.com/Card-Forge/forge/pull/12193) merges upstream
-(`PumpDuration$ EOT` for Loose in the Park). The test keeps pinning Java's behavior for a script without the param.
+Both lines are fixed upstream ([#12193](https://github.com/Card-Forge/forge/pull/12193); `PumpDuration$ EOT` for Loose
+in the Park). The test keeps pinning Java's behavior for a script without the param.
 
 ## MayPlay$ remainder
 

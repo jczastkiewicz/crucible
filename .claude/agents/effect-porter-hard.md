@@ -8,6 +8,7 @@ description:
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: opus
 effort: high
+maxTurns: 400
 ---
 
 You port the hardest Forge ApiType effects to Crucible's Go engine - the ones where the dominant corpus shape does not

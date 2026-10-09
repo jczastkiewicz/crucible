@@ -6,8 +6,9 @@ description:
   param the Java reads, corpus usage counts and Forge bugs worth reporting (PORT-8). Keeps large Java reads out of the
   main context.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: haiku
 effort: medium
+maxTurns: 60
 ---
 
 You research Forge's Java implementation for the Crucible Go port. You never edit files. Bash is for `grep`, `rg`,

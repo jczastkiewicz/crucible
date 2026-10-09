@@ -9,6 +9,7 @@ description:
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
 effort: medium
+maxTurns: 250
 ---
 
 You port Forge ApiType effects to Crucible's Go engine. Read `/CLAUDE.md` first, then follow the project skill

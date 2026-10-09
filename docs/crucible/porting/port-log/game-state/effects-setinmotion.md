@@ -112,6 +112,8 @@ Corpus: 85 real `Mode$ SetInMotion` lines on 84 cards (81 `Scheme`, 3 `Ongoing S
 `T:Mode$ SetInMotion | Execute$ DarkEffect | TriggerZones$ Command` with no `ValidCard$ Card.Self`, though both read
 "When you set this scheme in motion". `TriggerSetInMotion.performTest` passes a missing `ValidCard$`, so each fires for
 any scheme set in motion while it is still face up (a `RepeatNum$` resolution sets several in motion with no state-based
-check between). Crucible fires them the same way; not compensated. Rows in `card-script-defects.md`.
+check between). Both lines carry `ValidCard$ Card.Self` on this tree until
+[#12193](https://github.com/Card-Forge/forge/pull/12193) merges upstream, so each fires only for itself. Rows in
+`card-script-defects.md`.
 
 Tests: `archenemy_test.go`.

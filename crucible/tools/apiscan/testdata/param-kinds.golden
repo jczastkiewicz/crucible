@@ -1750,7 +1750,7 @@ Clone	AB	22	-	-	token:22
 Clone	AILogic	17	-	-	token:17
 Clone	Activation	1	-	-	token:1
 Clone	AddAbilities	5	-	-	token:5
-Clone	AddColors	2	-	-	prose:1,token:1
+Clone	AddColors	2	-	-	token:2
 Clone	AddKeywords	32	-	-	token:30,prose:2
 Clone	AddSVars	22	-	-	token:22
 Clone	AddStaticAbilities	3	-	-	token:3
@@ -1787,13 +1787,12 @@ Clone	NonLegendary	7	-	-	bool:7
 Clone	Optional	13	-	-	bool:13
 Clone	Planeswalker	1	-	-	bool:1
 Clone	PrecostDesc	1	-	text:1	prose:1
-Clone	PumpDuration	1	-	-	token:1
+Clone	PumpDuration	2	-	-	token:2
 Clone	PumpKeywords	2	-	-	token:2
 Clone	RememberCloneOrigin	4	-	-	bool:4
 Clone	RemoveCardTypes	3	-	-	bool:3
 Clone	RemoveCost	1	-	-	bool:1
-Clone	RemoveCreatureTypes	1	-	-	bool:1
-Clone	RemoveSubTypes	1	-	-	bool:1
+Clone	RemoveSubTypes	2	-	-	bool:2
 Clone	SP	5	-	-	token:5
 Clone	SetColor	3	-	-	token:3
 Clone	SetPower	27	-	amount:1	int:26,token:1
@@ -6101,7 +6100,7 @@ SetInMotion	SVarCompare	1	-	-	token:1
 SetInMotion	SubAbility	2	-	-	token:2
 SetInMotion	TriggerDescription	85	-	-	prose:85
 SetInMotion	TriggerZones	85	-	-	token:85
-SetInMotion	ValidCard	83	-	valid:5	token:83
+SetInMotion	ValidCard	85	-	valid:5	token:85
 SetLife	AB	3	-	-	token:3
 SetLife	ActivationZone	1	-	-	token:1
 SetLife	ChoiceAmount	3	amount:1	-	token:3

@@ -106,5 +106,7 @@ plane counts: it goes to the bottom first and is walked straight back to
 null → false), so X is 0: the eruption deals no damage. Fix: `TriggerObjectsCards$CardCounters.PRESSURE`
 (`AbilityUtils.java:694-697`, reads the `Cards` collection as it stood at trigger time, counters included). Crucible
 records no `Card` triggering object for these modes, matching Java; not compensated. Row in `card-script-defects.md`.
+The line is fixed on this tree with the form above until [#12193](https://github.com/Card-Forge/forge/pull/12193) merges
+upstream. No `TriggerObjects*` amount head is ported yet, so the eruption's X is not resolved here.
 
 Tests: `planechase_test.go`.

@@ -33,18 +33,14 @@ Each was found by a gate rather than by reading: a parser or scanner that treats
 | `loose_in_the_park`                        | `Clone` with `PumpKeywords$ Haste` but no `PumpDuration$`: Haste outlasts the turn                             | Clone port                      | [#12193](https://github.com/Card-Forge/forge/pull/12193)         |
 
 Every row but `peace_talks`, the two `ListTitle$` rows and the rows of
-[#12193](https://github.com/Card-Forge/forge/pull/12193) (open, with `CardScriptFixesShould` reproducing each) is merged
-upstream; the Clone rows and `captured_by_the_consulate` are rejected with an `error` meanwhile
-(`Defined$ TriggeredSourceSA` is not resolvable, so the fix, `Defined$ TriggeredSpellAbility`, is what the port would
-resolve); `mount_keralia` resolves X to 0 instead (no counters to read back), so its eruption silently deals no damage
-until fixed upstream. The `ListTitle$` rows are latent: both SVars are named only by `K:ETBReplacement:Other`, which
-`compile` does not expand yet, so no gate reads them; expanding that layer makes `tools/apiscan -check -api` fail on
-both ([`layer1-enters-as-copy.md`](port-log/game-state/layer1-enters-as-copy.md)). The two scheme rows fire as Java
-does: a later scheme set in motion while either still sits face up in Command (Plots That Span Centuries'
-`RepeatNum$ 3`, one resolution, no state-based check between) triggers it again. `peace_talks` is carried as a pending
-fix, logged in [upstream-patches.md](upstream-patches.md), until upstream merges it. `internal/carddb/compile` compiles
-the whole corpus with no exemption of any kind, and `internal/valid` parses all 49,615 valid strings with no padded
-base.
+[#12193](https://github.com/Card-Forge/forge/pull/12193) is merged upstream. The rows of #12193 are carried fixed on
+this tree until it merges ([upstream-patches.md](upstream-patches.md)), with `CardScriptFixesShould` reproducing each
+one except `loose_in_the_park`; `mount_keralia` reads `TriggerObjectsCards$`, which Crucible has no amount head for yet.
+The `ListTitle$` rows are latent: both SVars are named only by `K:ETBReplacement:Other`, which `compile` does not expand
+yet, so no gate reads them; expanding that layer makes `tools/apiscan -check -api` fail on both
+([`layer1-enters-as-copy.md`](port-log/game-state/layer1-enters-as-copy.md)). `peace_talks` is carried as a pending fix,
+logged in [upstream-patches.md](upstream-patches.md), until upstream merges it. `internal/carddb/compile` compiles the
+whole corpus with no exemption of any kind, and `internal/valid` parses all 49,615 valid strings with no padded base.
 
 Two more change no rules behaviour:
 

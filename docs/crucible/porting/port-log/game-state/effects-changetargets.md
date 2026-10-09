@@ -122,4 +122,5 @@ two), mode indices then disagreed with Java's option list, and picking it made t
 trigger, which never records `SourceSA` (`TriggerSpellAbilityCastOrCopy.setTriggeringObjects`,
 `TriggerSpellAbilityCastOrCopy.java:232-251`; `MagicStack.java:377-394` passes only `Activator`, `SpellAbility`,
 `CurrentStormCount`, `CurrentCastSpells`). The retarget never happens. Logged in
-[`card-script-defects.md`](../../card-script-defects.md); rejected by name meanwhile.
+[`card-script-defects.md`](../../card-script-defects.md). The line is fixed on this tree
+(`Defined$ TriggeredSpellAbility`) until [#12193](https://github.com/Card-Forge/forge/pull/12193) merges upstream.

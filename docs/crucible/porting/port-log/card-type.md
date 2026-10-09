@@ -14,8 +14,8 @@ subtypes. `Legendary Creature Elf Warrior` becomes two sets and two strings, so 
 with a bit test instead of a string comparison, millions of times per batch.
 
 The sixteen core types follow Java's `CardType.CoreType` order, `Stickers` included (`CardType.java:59`, a sticker
-sheet's type). Without it a `Types:Stickers` card prints ` - Stickers` where Java prints `Stickers`, which the P1 dump
-gate (`carddb vs Forge's own reader`) rejects.
+sheet's type). Without it a `Types:Stickers` card prints `Stickers` as a subtype (`- Stickers`) where Java prints it as
+a type, which the P1 dump gate (`carddb vs Forge's own reader`) rejects.
 
 Subtypes are open-ended — every creature type ever printed — so they stay strings, checked against a vocabulary loaded
 from `TypeLists.txt`. That vocabulary is also what makes `Time Lord` one subtype rather than two.

@@ -71,7 +71,8 @@ jobs:
       #
       #   golangci-lint 2.6.x cannot read Go 1.27 export data, failing with
       #   "export data version 4 is greater than maximum supported version 2".
-      #   2.13.2 is the first that can.
+      #   2.13.2 can read Go 1.27.0 but not 1.27.2: "export data version 5 is
+      #   greater than maximum supported version 4". 2.14.0 reads both.
       #
       #   golangci-lint-action v6 rejects any v2 golangci-lint outright:
       #   "golangci-lint v2 is not supported by golangci-lint-action v6".
@@ -81,7 +82,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.2
+          version: v2.14.0
           working-directory: crucible
 
       # -race is not optional here. The engine is goroutine-per-game with an

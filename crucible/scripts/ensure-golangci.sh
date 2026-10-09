@@ -5,7 +5,7 @@
 # golangci-lint refuses a module whose `go` line is newer than the Go it was
 # built with: "the Go language version (go1.25) used to build golangci-lint
 # is lower than the targeted Go version (1.27.0)". A plain
-#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 # does not fix that: go install honours golangci-lint's own go.mod and
 # switches to go1.26.x. Building with the module's pinned toolchain binary,
 # GOTOOLCHAIN=local, does. The version is CI's (.github/workflows/
@@ -14,14 +14,17 @@
 #   ensure-golangci.sh          install if needed, print the usable binary
 #   ensure-golangci.sh -check   print it, or exit 1 without installing
 set -euo pipefail
-version=v2.13.2
+version=v2.14.0
 cd "$(dirname "$0")/.."
 
 want=$(sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod)
 
-# usable reports whether binary $1 was built with a Go >= the module's.
+# usable reports whether binary $1 is the pinned version, built with a Go >=
+# the module's. The version check matters: an older golangci-lint cannot read
+# the export data of a newer Go patch release (2.13.2 vs Go 1.27.2).
 usable() {
 	[ -x "$1" ] || return 1
+	"$1" version 2>/dev/null | grep -q "version ${version#v} " || return 1
 	local built
 	built=$("$1" version 2>/dev/null | sed -nE 's/.*built with go([0-9]+\.[0-9]+).*/\1/p')
 	[ -n "$built" ] || return 1

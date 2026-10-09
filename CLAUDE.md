@@ -144,7 +144,7 @@ cd crucible && go test -race -coverprofile=cover.out ./... && go run ./tools/cov
 cd crucible && go run ./tools/enginelint -config internal/engine/enginelint.json   # new engine file → new group + allow-list
 cd crucible && go run ./tools/docgate -module . -docs ../docs/crucible            # DOC-12 docs land with code
 cd crucible && go run ./tools/apiscan -check && go run ./tools/apiscan -check -api
-cd crucible && golangci-lint run   # v2.13.2, same as CI; scripts/ensure-golangci.sh installs one built with go.mod's Go
+cd crucible && golangci-lint run   # v2.14.0, same as CI; scripts/ensure-golangci.sh installs one built with go.mod's Go
 
 # All of the above in CI order. .claude/ hooks run full before every Claude commit (blocking) and fast on Stop (report
 # only), both with GATES_AUTO_SKIP=1: gates whose inputs are unchanged since HEAD are skipped, and go test uses its cache

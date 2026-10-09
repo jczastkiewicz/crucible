@@ -13,6 +13,10 @@ Turns the `Types:` line of a card script into a value: a set of supertypes, a se
 subtypes. `Legendary Creature Elf Warrior` becomes two sets and two strings, so the engine answers "is this a creature"
 with a bit test instead of a string comparison, millions of times per batch.
 
+The sixteen core types follow Java's `CardType.CoreType` order, `Stickers` included (`CardType.java:59`, a sticker
+sheet's type). Without it a `Types:Stickers` card prints ` - Stickers` where Java prints `Stickers`, which the P1 dump
+gate (`carddb vs Forge's own reader`) rejects.
+
 Subtypes are open-ended — every creature type ever printed — so they stay strings, checked against a vocabulary loaded
 from `TypeLists.txt`. That vocabulary is also what makes `Time Lord` one subtype rather than two.
 

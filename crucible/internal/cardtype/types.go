@@ -11,7 +11,7 @@ package cardtype
 // because a card that is both Kindred and Creature prints "Kindred Creature".
 type CoreType uint8
 
-// The fifteen core types, in Java's CardType.CoreType order.
+// The sixteen core types, in Java's CardType.CoreType order.
 const (
 	Kindred CoreType = iota
 	Artifact
@@ -27,6 +27,7 @@ const (
 	Planeswalker
 	Scheme
 	Sorcery
+	Stickers
 	Vanguard
 
 	numCoreTypes = int(Vanguard) + 1
@@ -53,6 +54,7 @@ var coreTypeTable = [numCoreTypes]coreTypeInfo{
 	Planeswalker: {"Planeswalker", "planeswalkers", true},
 	Scheme:       {"Scheme", "schemes", false},
 	Sorcery:      {"Sorcery", "sorceries", false},
+	Stickers:     {"Stickers", "stickers", false},
 	Vanguard:     {"Vanguard", "vanguards", false},
 }
 

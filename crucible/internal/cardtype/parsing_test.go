@@ -410,7 +410,7 @@ func TestCoreTypeTable(t *testing.T) {
 		cardtype.Kindred, cardtype.Artifact, cardtype.Battle, cardtype.Conspiracy,
 		cardtype.Enchantment, cardtype.Creature, cardtype.Dungeon, cardtype.Instant,
 		cardtype.Land, cardtype.Phenomenon, cardtype.Plane, cardtype.Planeswalker,
-		cardtype.Scheme, cardtype.Sorcery, cardtype.Vanguard,
+		cardtype.Scheme, cardtype.Sorcery, cardtype.Stickers, cardtype.Vanguard,
 	}
 	for i, ct := range order {
 		if int(ct) != i {
@@ -430,6 +430,7 @@ func TestCoreTypeTable(t *testing.T) {
 		{cardtype.Sorcery, "sorceries", false},
 		{cardtype.Battle, "battles", true},
 		{cardtype.Kindred, "kindreds", false},
+		{cardtype.Stickers, "stickers", false},
 	} {
 		if got := tt.ct.Plural(); got != tt.plural {
 			t.Errorf("%v.Plural() = %q, want %q", tt.ct, got, tt.plural)

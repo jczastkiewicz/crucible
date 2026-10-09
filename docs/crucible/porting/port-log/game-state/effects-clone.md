@@ -136,7 +136,6 @@ differs only when the remembered permanent was itself a copy.
 | `forge-gui/res/cardsfolder/l/ludevic_necrogenius_olag_ludevics_hubris.txt:23` | `AddColors$ Blue & Black`; `CardFactory.java:497` splits on `,`, so `MagicColor.fromName("blue & black")` is 0: Olag gains no color                                                          | `error`: `AddColors$ "Blue & Black" names no color` |
 | `forge-gui/res/cardsfolder/t/taskmaster_mercenary_mimic.txt:6`                | `RemoveCreatureTypes$ True` is never read by `getCloneStates` (`CardFactory.java:579-581` reads `RemoveCardTypes$`/`RemoveSubTypes$`): the copy keeps its creature types, against its Oracle | `RemoveCreatureTypes$` rejected                     |
 
-Both are card-script defects, logged in [card-script-defects.md](../../card-script-defects.md). Both lines are fixed on
-this tree (`AddColors$ Blue,Black`, `RemoveSubTypes$ True`) until
-[#12193](https://github.com/Card-Forge/forge/pull/12193) merges upstream, so neither is rejected any more; the `error`
-and rejection in the last column no longer apply.
+Both are card-script defects, logged in [card-script-defects.md](../../card-script-defects.md). Both lines are fixed
+upstream ([#12193](https://github.com/Card-Forge/forge/pull/12193): `AddColors$ Blue,Black`, `RemoveSubTypes$ True`), so
+neither is rejected.

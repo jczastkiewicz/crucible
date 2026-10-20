@@ -144,3 +144,54 @@ func TestPutCounterAllEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved ValidZone$")
 	}
 }
+
+// ValidCards2$/CounterType2$ run a second sweep after the first
+// (CountersPutAllEffect.java:95-116): Ajani Steadfast's +1/+1 counter on each
+// creature you control and loyalty counter on each other planeswalker.
+func TestPutCounterAllSecondPassPutsAnotherCounterOnOtherCards(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	pw := g.NewCard(planeswalkerDefLoyalty(t, "3"), p, engine.Battlefield)
+	g.Card(pw).Counters.Add(engine.Loyalty, 3)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 1 | ValidCards2$ Planeswalker.YouCtrl | CounterType2$ LOYALTY | CounterNum2$ 2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := p1p1(g, mine); got != 1 {
+		t.Errorf("own creature +1/+1 counters = %d, want 1", got)
+	}
+	if got := p1p1(g, theirs); got != 0 {
+		t.Errorf("opponent's creature +1/+1 counters = %d, want 0", got)
+	}
+	if got := g.Card(pw).Counters.Count(engine.Loyalty); got != 5 {
+		t.Errorf("planeswalker loyalty = %d, want 5", got)
+	}
+}
+
+// A second pass with CounterNum$2 alone reuses the first pass's cards and type
+// (CountersPutAllEffect.java:96-108), and a second pass the port cannot read
+// is refused.
+func TestPutCounterAllSecondPassDefaultsAndRefusals(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 1 | CounterNum2$ 2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := p1p1(g, mine); got != 3 {
+		t.Errorf("+1/+1 counters = %d, want 3: one, then two more", got)
+	}
+	for _, line := range []string{
+		"DB$ PutCounterAll | ValidCards$ Creature | CounterType$ P1P1 | CounterType2$ P1P1,M1M1",
+		"DB$ PutCounterAll | ValidCards$ Creature | CounterType$ P1P1 | CounterNum2$ Bogus",
+	} {
+		if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line); err == nil {
+			t.Errorf("%q resolved, want an error", line)
+		}
+	}
+}

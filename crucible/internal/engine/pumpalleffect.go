@@ -31,9 +31,7 @@ import (
 // Condition$/ConditionDefined$/ConditionZone$/ConditionPlayerTurn$/
 // ConditionManaSpent$/ConditionManaNotSpent$ (4/5/3/1/4/0) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
-// the identical Pump-shaped gap; SharedKeywordsZone$/SharedRestrictions$ (4/4) --
-// CardFactoryUtil.sharedKeywords' own zone scan, a further mechanic;
-// ModeCost$ (3) -- a further activation mechanic (Exhaust$ is an activation
+// the identical Pump-shaped gap; ModeCost$ (3) -- a further activation mechanic (Exhaust$ is an activation
 // limit, activationLimitsMet, never read here). AtEOT$ resolves (registerAtEOT) over every matched card.
 //
 // SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
@@ -53,7 +51,6 @@ import (
 // RememberedController and a non-mana UnlessCost$ (Mandatory PayEnergy<X>),
 // neither resolvable here regardless.
 var pumpAllUnresolvedParams = [...]string{
-	"SharedKeywordsZone", "SharedRestrictions",
 	"ModeCost",
 }
 
@@ -115,6 +112,9 @@ func (pumpAllEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	grant, err := pumpKeywords("PumpAll", a.Params)
 	if err != nil {
+		return err
+	}
+	if grant.keywords, err = pumpSharedKeywords("PumpAll", g, source, a.Params, grant.keywords); err != nil {
 		return err
 	}
 	if perpetual && (len(grant.hidden) > 0 || grant.switched) {

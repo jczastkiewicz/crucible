@@ -33,9 +33,7 @@ import (
 // the identical DealDamage/GainLife-shaped gap;
 // RandomKeyword$/RandomKWNum$/NoRepetition$ -- a random draw this port's own
 // KW$ handling (below) does not do (KWChoice$ is pumpChooseKeyword's, DefinedKW$
-// is pumpDefinedKeywords'); SharedKeywordsZone$/SharedRestrictions$ --
-// CardFactoryUtil.sharedKeywords' own zone scan, a further mechanic;
-// DefinedLandwalk$ -- its own further tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/NoteNumber$ --
+// is pumpDefinedKeywords'); DefinedLandwalk$ -- its own further tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/NoteNumber$ --
 // Player.noteNumberForName's own tracking, nothing downstream reads yet.
 //
 // SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
@@ -65,8 +63,7 @@ import (
 // spell's targets resolve (ADR-0018).
 var pumpUnresolvedParams = [...]string{
 	"RandomKeyword", "RandomKWNum",
-	"NoRepetition", "SharedKeywordsZone", "SharedRestrictions",
-	"DefinedLandwalk",
+	"NoRepetition", "DefinedLandwalk",
 }
 
 // pumpImprint is PumpEffect.java:431-437: ImprintCards$ adds the defined
@@ -165,6 +162,9 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 
 	grant, err := pumpKeywords("Pump", a.Params)
 	if err != nil {
+		return err
+	}
+	if grant.keywords, err = pumpSharedKeywords("Pump", g, source, a.Params, grant.keywords); err != nil {
 		return err
 	}
 	if err := g.pumpChooseKeyword(controller, a, source, &grant); err != nil {
@@ -583,6 +583,26 @@ func pumpKeywords(effect string, a *compile.Ability) (pumpGrant, error) {
 		grant.keywords = append(grant.keywords, tok)
 	}
 	return grant, nil
+}
+
+// pumpSharedKeywords is PumpEffect.java:312-316 and PumpAllEffect.java:151-157:
+// SharedKeywordsZone$ keeps, of the granted keywords, the ones a card in those
+// zones that SharedRestrictions$ accepts carries (layerSharedKeywords, the
+// static layer's CardFactoryUtil.sharedKeywords). A restriction naming the
+// trigger's or the line's remembered card is not resolvable here (GO-7).
+func pumpSharedKeywords(effect string, g *Game, host *Card, a *compile.Ability, keywords []string) ([]string, error) {
+	zones, ok := a.Param("SharedKeywordsZone")
+	if !ok {
+		return keywords, nil
+	}
+	if r, _ := a.Param("SharedRestrictions"); strings.Contains(r, "IsRemembered") || strings.Contains(r, "TriggeredCard") {
+		return nil, fmt.Errorf("engine: %s: SharedRestrictions$ %q not resolvable yet", effect, r)
+	}
+	shared, ok := layerSharedKeywords(g, host, a, keywords, zones)
+	if !ok {
+		return nil, fmt.Errorf("engine: %s: SharedKeywordsZone$ %q not resolvable yet", effect, zones)
+	}
+	return shared, nil
 }
 
 // pumpChooseKeyword is PumpEffect.java:296-301: a line with KWChoice$ and no KW$

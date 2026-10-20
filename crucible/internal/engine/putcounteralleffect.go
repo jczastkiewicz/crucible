@@ -9,11 +9,10 @@
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/CountersPutAllEffect.java's
 // resolve, trimmed the identical way putcountereffect.go's own is: that
-// file also handles AmountByChosenMap$'s own ChosenMap-indexed amount, and a second
-// ValidCards2$/CounterType2$/CounterNum2$ pass -- each its own further
-// mechanic this port has nowhere to route through yet, so each fails the
-// whole line loudly (PORT-8/GO-7) rather than resolving the first pass and
-// silently dropping the second.
+// file also handles AmountByChosenMap$'s own ChosenMap-indexed amount, a
+// further mechanic this port has nowhere to route through yet, so it fails
+// the whole line loudly (PORT-8/GO-7). The second ValidCards2$/CounterType2$/
+// CounterNum2$ pass runs after the first (Ajani Steadfast's loyalty counters).
 
 package engine
 
@@ -31,9 +30,7 @@ import (
 // evaluate. Every one fails the whole line loudly: ValidZone$ (2) -- this
 // file's own sweep is Battlefield-only, CountersPutAllEffect.java's own
 // default too, but a card naming a different zone explicitly must not
-// silently sweep the wrong one; ValidCards2$/
-// CounterType2$/CounterNum2$ (7/13/6) -- the second ValidCards$/CounterType$/
-// CounterNum$ pass, above; AmountByChosenMap$ (1) -- a ChosenMap-indexed
+// silently sweep the wrong one (ValidZone2$ likewise); AmountByChosenMap$ (1) -- a ChosenMap-indexed
 // amount, this port's own Card.ChosenMap gap; TargetUnique$ (2) -- an extra
 // battlefield-ownership filter this file has nowhere to route through,
 // damageAllEffect's own identical gap; Ultimate$/ModeCost$ (3/1) -- tapAllEffect's/untapAllEffect's own
@@ -42,8 +39,7 @@ import (
 // identical putCounterEffect gap, SpellAbilityCondition shapes
 // subAbilityConditionMet does not cover.
 var putCounterAllUnresolvedParams = [...]string{
-	"ValidZone", "ValidCards2", "CounterType2", "CounterNum2",
-	"AmountByChosenMap", "TargetUnique",
+	"ValidZone", "ValidZone2", "AmountByChosenMap", "TargetUnique",
 	"Ultimate", "ModeCost",
 }
 
@@ -107,20 +103,53 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	if err != nil {
 		return err
 	}
-	for _, pid := range players {
-		for _, cid := range g.Zone(Battlefield, pid).Cards() {
-			c := g.Card(cid)
-			if !Matches(g, c, spec, a.Controller, a.Source) {
-				continue
-			}
-			// The counter table's replaceCounterEffect runs the AddCounter
-			// replacements (Hardened Scales) and Mode$ CantPutCounter first
-			// (CountersPutAllEffect.java:92, :118).
-			placer := placerOf(c)
-			if n := g.countersReplaced(controller, placer, CardEntity(cid), counterType, amount); n > 0 {
-				g.addCardCounters(controller, placer, a.Source, cid, counterType, n)
+	sweep := func(spec valid.Spec, counterType CounterType, amount int) {
+		for _, pid := range players {
+			for _, cid := range g.Zone(Battlefield, pid).Cards() {
+				c := g.Card(cid)
+				if !Matches(g, c, spec, a.Controller, a.Source) {
+					continue
+				}
+				// The counter table's replaceCounterEffect runs the AddCounter
+				// replacements (Hardened Scales) and Mode$ CantPutCounter first
+				// (CountersPutAllEffect.java:92, :118).
+				placer := placerOf(c)
+				if n := g.countersReplaced(controller, placer, CardEntity(cid), counterType, amount); n > 0 {
+					g.addCardCounters(controller, placer, a.Source, cid, counterType, n)
+				}
 			}
 		}
+	}
+	sweep(spec, counterType, amount)
+
+	// CountersPutAllEffect.java:95-116: a second pass over ValidCards2$ (the
+	// first pass's cards when absent), CounterType2$ (the first type) and
+	// CounterNum2$ (the first amount).
+	_, has2 := a.Params.Param("ValidCards2")
+	_, hasType2 := a.Params.Param("CounterType2")
+	_, hasNum2 := a.Params.Param("CounterNum2")
+	if !has2 && !hasType2 && !hasNum2 {
+		return nil
+	}
+	spec2, type2, amount2 := spec, counterType, amount
+	if raw, ok := a.Params.Param("ValidCards2"); ok {
+		spec2 = valid.Parse(raw)
+	}
+	if raw, ok := a.Params.Param("CounterType2"); ok {
+		if strings.Contains(raw, ",") || strings.EqualFold(raw, "Any") {
+			return fmt.Errorf("engine: PutCounterAll: CounterType2$ %q not resolvable yet", raw)
+		}
+		type2 = CounterType(strings.ToUpper(raw))
+	}
+	if raw, ok := a.Params.Param("CounterNum2"); ok {
+		n, ok := resolveNamedAmount(g, a.Amounts, source, raw)
+		if !ok {
+			return fmt.Errorf("engine: PutCounterAll: CounterNum2$ %q is not resolvable", raw)
+		}
+		amount2 = n
+	}
+	if amount2 > 0 {
+		sweep(spec2, type2, amount2)
 	}
 	return nil
 }

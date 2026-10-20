@@ -19,16 +19,16 @@ import (
 // ChangesController and SpellCast fire: the port's other trigger checks walk
 // card scripts, not this registry, so any other Mode$ fails closed here
 // rather than registering a trigger that never fires.
-// RememberNumber$/RememberSVarAmount$ remember an Integer and Static$
-// triggers resolve off the stack; both fail closed.
+// RememberNumber$/RememberSVarAmount$ remember an Integer, which fails
+// closed. Static$ makes the trigger resolve at once, off the stack
+// (TriggerHandler.runSingleTrigger -> playTrigger).
 type delayedTriggerEffect struct{}
 
 func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "DelayedTrigger", "RememberNumber", "RememberSVarAmount", "Static",
-		"ValidTgts"); err != nil {
+	if err := rejectParams(a, "DelayedTrigger", "RememberNumber", "RememberSVarAmount"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

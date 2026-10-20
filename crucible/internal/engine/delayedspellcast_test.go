@@ -120,3 +120,82 @@ func TestDelayedSpellCastRefusesHasXManaCost(t *testing.T) {
 		t.Fatal("HasXManaCost$ registered, want an error")
 	}
 }
+
+// A DelayedTrigger that is itself a targeted spell (ValidTgts$ with
+// RememberObjects$ Targeted) remembers the target it was cast with: Reincarnation
+// watches that creature alone, and returns a creature card of its owner's
+// to the battlefield when it dies this turn.
+func TestTargetedDelayedTriggerWatchesItsTarget(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	watched := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	bystander := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	r := &stackOfferRecorder{ScriptedController: engine.NewScriptedController()}
+	if err := castCounter(t, g, p, "Graceful Reprieve", r, []engine.EntityID{engine.CardEntity(watched)}, mana.White, mana.White); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	kill := func(id engine.CardID) {
+		t.Helper()
+		if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(id)},
+			"DB$ Destroy | ValidTgts$ Creature"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	kill(bystander)
+	if got := g.Card(bystander).Zone; got != engine.Graveyard {
+		t.Fatalf("an unwatched creature that died is in %v, want the graveyard: the watch fired for it", got)
+	}
+	kill(watched)
+	if got := g.Card(watched).Zone; got != engine.Battlefield {
+		t.Errorf("the watched creature is in %v after it died, want the battlefield: Graceful Reprieve returned it", got)
+	}
+}
+
+// Static$ on a delayed trigger resolves it at the trigger site, off the stack
+// (TriggerHandler.runSingleTrigger -> playTrigger): Overmaster's "can't be
+// countered" effect is in place before the spell can be responded to.
+func TestStaticDelayedSpellCastResolvesWithoutTheStack(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ SpellCast | ValidActivatingPlayer$ You | ThisTurn$ True | Static$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	spell := g.NewCard(spellDefWith(t, "Test Static", "Instant", "G", "SP$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	if !g.CastSpell(p, spell, engine.NewScriptedController()) {
+		t.Fatal("could not cast the instant")
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Errorf("stack holds %d items, want the spell alone: a static trigger never goes on the stack", got)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23: the static trigger resolved as the spell was cast", got)
+	}
+}
+
+// A static delayed Mode$ Phase trigger resolves when its step begins, off the
+// stack, and only once.
+func TestStaticDelayedPhaseTriggerResolvesOnce(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Static$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	g.SetTurnState(2, p, engine.Untap)
+	for range 3 {
+		g.AdvancePhase(engine.NewScriptedController())
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d after the upkeep, want 23", got)
+	}
+	if got := g.StackLen(); got != 0 {
+		t.Errorf("stack holds %d items, want none", got)
+	}
+}

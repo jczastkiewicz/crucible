@@ -106,6 +106,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
 			triggered:      triggeredObjects{player: g.activePlayer},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+			staticTrigger: isStaticTrigger(d.Trigger),
 		})
 	}
 	g.delayed = kept
@@ -141,6 +142,7 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
 			triggered:      triggeredObjects{card: card, originalController: original},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+			staticTrigger: isStaticTrigger(d.Trigger),
 		})
 	}
 	g.delayed = kept
@@ -173,6 +175,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 			triggered: triggeredObjects{spellAbility: spellID,
 				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+			staticTrigger: isStaticTrigger(d.Trigger),
 		})
 	}
 	g.delayed = kept
@@ -296,6 +299,7 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+			staticTrigger: isStaticTrigger(d.Trigger),
 		})
 	}
 	g.delayed = kept

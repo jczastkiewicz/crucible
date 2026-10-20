@@ -199,3 +199,31 @@ func TestStaticDelayedPhaseTriggerResolvesOnce(t *testing.T) {
 		t.Errorf("stack holds %d items, want none", got)
 	}
 }
+
+// A delayed Mode$ SpellAbilityCast trigger fires on the next activated ability
+// its ValidSA$ accepts, and goes above that ability (Jaya's Phoenix); once.
+func TestDelayedSpellAbilityCastFiresOnTheNextActivatedAbility(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ SpellAbilityCast | ValidSA$ Activated | ValidActivatingPlayer$ You | ThisTurn$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	elf := g.NewCard(creatureDefWithAbility(t, "Test Elf", "AB$ GainLife | Cost$ 0 | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	activate := func() {
+		t.Helper()
+		if !g.ActivateAbility(p, elf, 0, engine.NewScriptedController()) {
+			t.Fatal("could not activate the ability")
+		}
+	}
+	activate()
+	if got := g.StackLen(); got != 2 {
+		t.Fatalf("stack holds %d items after the first activation, want the ability and the delayed trigger", got)
+	}
+	activate()
+	if got := g.StackLen(); got != 3 {
+		t.Errorf("stack holds %d items after the second activation, want one more ability and no trigger: the watch fires once", got)
+	}
+}

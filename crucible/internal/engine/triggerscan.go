@@ -116,6 +116,11 @@ func (g *Game) abilityCastMatches(a *Ability) []Ability {
 		}
 		return triggeredObjects{card: a.Source, activator: a.Controller}, true
 	})
+	// Delayed triggers run after every collected card trigger, on the item
+	// pushTriggeredAbilities just put on top.
+	if n := len(g.stack); n > 0 && g.stack[n-1].Source == a.Source {
+		matches = append(matches, g.delayedAbilityCastMatches(a, g.stack[n-1].ID)...)
+	}
 	return matches
 }
 

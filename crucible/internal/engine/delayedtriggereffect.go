@@ -16,7 +16,7 @@ import (
 // RememberObjects$ is what Defined$ DelayTriggerRemembered reads.
 //
 // Only Mode$ Phase (380 of 461 real lines), ChangesZone from the battlefield,
-// ChangesController and SpellCast fire: the port's other trigger checks walk
+// ChangesController, SpellCast and SpellAbilityCast fire: the port's other trigger checks walk
 // card scripts, not this registry, so any other Mode$ fails closed here
 // rather than registering a trigger that never fires.
 // RememberNumber$/RememberSVarAmount$ remember an Integer, which fails
@@ -45,7 +45,7 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 		if o, _ := a.Params.Param("Origin"); o != "Battlefield" {
 			return fmt.Errorf("engine: DelayedTrigger: Mode$ ChangesZone with Origin$ %q not resolvable yet", o)
 		}
-	case strings.EqualFold(mode, "SpellCast"):
+	case strings.EqualFold(mode, "SpellCast"), strings.EqualFold(mode, "SpellAbilityCast"):
 		// Fired by checkSpellCastTriggers (delayedSpellCastMatches), which
 		// resolves the same params as a card's own SpellCast trigger; the ones
 		// it cannot resolve there are refused here.

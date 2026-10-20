@@ -159,7 +159,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 	var matches []Ability
 	kept := g.delayed[:0]
 	for _, d := range g.delayed {
-		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "SpellCast") ||
+		if !d.active() || g.Player(d.Controller).Lost || (!delayedModeIs(d, "SpellCast") && !delayedModeIs(d, "SpellAbilityCast")) ||
 			!g.delayedSpellCastSatisfied(d, c, activator, spellID) {
 			kept = append(kept, d)
 			continue
@@ -174,6 +174,38 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
 			triggered: triggeredObjects{spellAbility: spellID,
 				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
+			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+			staticTrigger: isStaticTrigger(d.Trigger),
+		})
+	}
+	g.delayed = kept
+	return matches
+}
+
+// delayedAbilityCastMatches is delayedSpellCastMatches for the activated
+// ability a just put on the stack as item spellID: only Mode$ SpellAbilityCast
+// fires (Jaya's Phoenix, Repeated Reverberation), with the ability's source
+// card as ValidCard$ and its controller as the activating player. The ability
+// is recorded as TriggeredSpellAbility.
+func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Ability {
+	var matches []Ability
+	source := g.Card(a.Source)
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "SpellAbilityCast") ||
+			!g.delayedSpellCastSatisfied(d, source, a.Controller, spellID) {
+			kept = append(kept, d)
+			continue
+		}
+		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, Ability{
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			triggered:      triggeredObjects{spellAbility: spellID},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
 		})

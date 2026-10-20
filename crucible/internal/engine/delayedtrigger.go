@@ -147,6 +147,59 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 	return matches
 }
 
+// delayedSpellCastMatches collects every live delayed Mode$ SpellCast trigger
+// the cast of c by activator satisfies, removing each one it collects (a
+// delayed trigger fires once, "when you next cast"). The checks are
+// appendSpellCastMatches': ValidCard$ against the spell, ValidActivatingPlayer$
+// and ValidSA$ read with the trigger's controller as "You". The spell is
+// recorded as TriggeredSpellAbility, which CopySpellAbility reads.
+func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID StackItemID) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "SpellCast") ||
+			!g.delayedSpellCastSatisfied(d, c, activator, spellID) {
+			kept = append(kept, d)
+			continue
+		}
+		sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, Ability{
+			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			triggered: triggeredObjects{spellAbility: spellID,
+				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
+			hostTransforms: d.HostTransforms, hasHostTransforms: true,
+		})
+	}
+	g.delayed = kept
+	return matches
+}
+
+// delayedSpellCastSatisfied is the SpellCast performTest for one delayed trigger.
+func (g *Game) delayedSpellCastSatisfied(d delayedTrigger, c *Card, activator PlayerID, spellID StackItemID) bool {
+	t := d.Trigger
+	if validCard, ok := t.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(validCard), d.Controller, d.Host) {
+		return false
+	}
+	if !matchesActivatingPlayer(g, t, activator, d.Controller, d.Host) {
+		return false
+	}
+	if spec, ok := t.Param("ValidSA"); ok {
+		spell, found := g.stackItem(spellID)
+		if !found {
+			return false
+		}
+		if m, known := g.spellAbilityMatches(spell, spec, g.Card(d.Host), d.Controller, d.Amounts); !known || !m {
+			return false
+		}
+	}
+	return g.delayedPresentMatches(d)
+}
+
 // delayedModeIs reports whether d's DelayedTrigger line names Mode$ mode.
 func delayedModeIs(d delayedTrigger, mode string) bool {
 	m, _ := d.Trigger.Param("Mode")

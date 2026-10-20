@@ -527,6 +527,9 @@ func (g *Game) checkSpellCastTriggers(controller PlayerController, cast CardID, 
 	if c.Zone == Stack {
 		matches = g.appendSpellCastMatches(matches, cast, c, activator, spellID, true)
 	}
+	// Delayed triggers run after every collected card trigger
+	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:356-361).
+	matches = append(matches, g.delayedSpellCastMatches(c, activator, spellID)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -564,9 +567,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			if onStack && !phaseTriggerZoneMatches(h, t, Stack) {
 				continue
 			}
-			if hasAnyParam(t, "ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
-				"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
-				"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach") {
+			if hasAnyParam(t, spellCastUnresolvedParams[:]...) {
 				continue
 			}
 			if hasAnyParam(t, "HasXManaCost") && (c.Def == nil || c.Def.Faces[0].ManaCost.CountX() == 0) {
@@ -596,6 +597,13 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 	}
 	return matches
 }
+
+// spellCastUnresolvedParams are the SpellCast params no check here resolves: a
+// trigger carrying one never fires, and a DelayedTrigger carrying one is
+// refused at registration.
+var spellCastUnresolvedParams = [...]string{"ValidSAonCard", "TargetsValid", "CanTargetOtherCondition",
+	"IsSingleTarget", "NoColoredMana", "SnowSpentForCardsColor",
+	"TriggersWhenSpent", "ActivatorThisTurnCast", "ActivatorThisTurnCastEach"}
 
 // matchesActivatingPlayer is ValidActivatingPlayer's own check, ported from
 // matchesValidParam("ValidActivatingPlayer", activator) -- matchesPlayerSpec

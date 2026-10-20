@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined delayedtrigger effecthelpers game
+//enginelint:allow ability additional card condition control defined delayedtrigger effecthelpers game trigger
 
 import (
 	"fmt"
@@ -15,9 +15,10 @@ import (
 // DelayedTriggerDefinedPlayer$ holds it until that player's next turn.
 // RememberObjects$ is what Defined$ DelayTriggerRemembered reads.
 //
-// Only Mode$ Phase (380 of 461 real lines) fires: the port's other trigger
-// checks walk card scripts, not this registry, so any other Mode$ fails
-// closed here rather than registering a trigger that never fires.
+// Only Mode$ Phase (380 of 461 real lines), ChangesZone from the battlefield,
+// ChangesController and SpellCast fire: the port's other trigger checks walk
+// card scripts, not this registry, so any other Mode$ fails closed here
+// rather than registering a trigger that never fires.
 // RememberNumber$/RememberSVarAmount$ remember an Integer and Static$
 // triggers resolve off the stack; both fail closed.
 type delayedTriggerEffect struct{}
@@ -43,6 +44,16 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 		// paths call (delayedLeftBattlefieldMatches).
 		if o, _ := a.Params.Param("Origin"); o != "Battlefield" {
 			return fmt.Errorf("engine: DelayedTrigger: Mode$ ChangesZone with Origin$ %q not resolvable yet", o)
+		}
+	case strings.EqualFold(mode, "SpellCast"):
+		// Fired by checkSpellCastTriggers (delayedSpellCastMatches), which
+		// resolves the same params as a card's own SpellCast trigger; the ones
+		// it cannot resolve there are refused here.
+		if err := rejectParams(a, "DelayedTrigger", spellCastUnresolvedParams[:]...); err != nil {
+			return err
+		}
+		if err := rejectParams(a, "DelayedTrigger", "HasXManaCost"); err != nil {
+			return err
 		}
 	case strings.EqualFold(mode, "ChangesController"):
 		// IsPresent$ (Stolen Uniform) is read by delayedPresentMatches,

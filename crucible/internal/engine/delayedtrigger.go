@@ -386,3 +386,142 @@ func (g *Game) delayedWatchesLeaving(d delayedTrigger, left CardID, dest ZoneTyp
 	}
 	return false
 }
+
+// delayedFire is the Ability a satisfied delayed trigger d puts on the stack
+// with the triggering objects objs, or false when its Execute$ does not
+// resolve.
+func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bool) {
+	sub, api, optional, ok := triggerEffectAPI(g, g.Card(d.Host), d.Amounts, d.Trigger)
+	if !ok {
+		return Ability{}, false
+	}
+	return Ability{
+		API: api, Source: d.Host, Controller: d.Controller, Params: sub,
+		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+		triggered:      objs,
+		hostTransforms: d.HostTransforms, hasHostTransforms: true,
+		staticTrigger: isStaticTrigger(d.Trigger),
+	}, true
+}
+
+// delayedAttackersDeclaredMatches collects every live delayed Mode$
+// AttackersDeclared trigger this combat's declaration satisfies, removing
+// each one it collects ("when you next attack this turn", All-Out Assault).
+// The checks are attackersDeclaredParamsMatch's, read against the trigger's
+// host.
+func (g *Game) delayedAttackersDeclaredMatches(attackers []CardID, targets []EntityID) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "AttackersDeclared") {
+			kept = append(kept, d)
+			continue
+		}
+		h := g.Card(d.Host)
+		if !attackersDeclaredParamsMatch(g, h, d.Trigger, attackers, targets) {
+			kept = append(kept, d)
+			continue
+		}
+		m, ok := g.delayedFire(d, attackersDeclaredObjects(g, h, d.Trigger, attackers, targets))
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, m)
+	}
+	g.delayed = kept
+	return matches
+}
+
+// delayedDamageDoneMatches collects every live delayed Mode$ DamageDone
+// trigger the damage source dealt to target satisfies, removing each one it
+// collects. ValidSource$ Card.IsTriggerRemembered names a card the trigger
+// remembered (Optimus Prime's "when that creature deals combat damage to a
+// player this turn"); any other ValidSource$ is a valid string against the
+// host. ValidTarget$ is a card valid string or a player spec by the target's
+// kind, as the card-trigger path reads it. DamageAmount$ and the
+// SpellAbility-relative params are refused at registration.
+func (g *Game) delayedDamageDoneMatches(source CardID, target EntityID, amount int, isCombat bool) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "DamageDone") ||
+			!g.delayedDamageDoneSatisfied(d, source, target, isCombat) {
+			kept = append(kept, d)
+			continue
+		}
+		m, ok := g.delayedFire(d, damageSourceObjects(g, source, target, amount))
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, m)
+	}
+	g.delayed = kept
+	return matches
+}
+
+func (g *Game) delayedDamageDoneSatisfied(d delayedTrigger, source CardID, target EntityID, isCombat bool) bool {
+	t := d.Trigger
+	if v, ok := t.Param("ValidSource"); ok {
+		if v == "Card.IsTriggerRemembered" {
+			if !containsEntity(d.Remembered, CardEntity(source)) {
+				return false
+			}
+		} else if !Matches(g, g.Card(source), valid.Parse(v), d.Controller, d.Host) {
+			return false
+		}
+	}
+	if combat, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combat, "True") != isCombat {
+		return false
+	}
+	if v, ok := t.Param("ValidTarget"); ok {
+		if pid, isPlayer := target.AsPlayer(); isPlayer {
+			matched, recognized := matchesPlayerSpec(g, pid, d.Controller, d.Host, v)
+			if !recognized || !matched {
+				return false
+			}
+		} else if cid, isCard := target.AsCard(); !isCard || !Matches(g, g.Card(cid), valid.Parse(v), d.Controller, d.Host) {
+			return false
+		}
+	}
+	return true
+}
+
+// delayedEnteredMatches collects every live delayed Mode$ ChangesZone trigger
+// naming Destination$ Battlefield that entered satisfies when it arrives from
+// origin, removing each one it collects (Jailbreak's "when that permanent
+// enters"). ValidCard$ Card.IsTriggerRemembered names a card the trigger
+// remembered; any other ValidCard$ is a valid string against the entering
+// card with the trigger's host as the source. Origin$ is isETBTrigger's.
+func (g *Game) delayedEnteredMatches(entered CardID, origin ZoneType) []Ability {
+	var matches []Ability
+	kept := g.delayed[:0]
+	for _, d := range g.delayed {
+		if !d.active() || g.Player(d.Controller).Lost || !delayedModeIs(d, "ChangesZone") ||
+			!hasZone(d.Trigger, "Destination", Battlefield.String()) ||
+			!hasZoneOrAny(d.Trigger, "Origin", origin) || !g.delayedEnteredSatisfied(d, entered) {
+			kept = append(kept, d)
+			continue
+		}
+		m, ok := g.delayedFire(d, triggeredObjects{card: entered})
+		if !ok {
+			kept = append(kept, d)
+			continue
+		}
+		matches = append(matches, m)
+	}
+	g.delayed = kept
+	return matches
+}
+
+func (g *Game) delayedEnteredSatisfied(d delayedTrigger, entered CardID) bool {
+	v, ok := d.Trigger.Param("ValidCard")
+	if !ok {
+		return false
+	}
+	if v == "Card.IsTriggerRemembered" {
+		return containsEntity(d.Remembered, CardEntity(entered))
+	}
+	return Matches(g, g.Card(entered), valid.Parse(v), d.Controller, d.Host)
+}

@@ -16,8 +16,9 @@ import (
 // RememberObjects$ is what Defined$ DelayTriggerRemembered reads.
 //
 // Only Mode$ Phase (380 of 461 real lines), ChangesZone from the battlefield,
-// ChangesController, SpellCast and SpellAbilityCast fire: the port's other trigger checks walk
-// card scripts, not this registry, so any other Mode$ fails closed here
+// ChangesController, SpellCast, SpellAbilityCast, AttackersDeclared and
+// DamageDone fire: the port's other trigger checks walk card scripts, not
+// this registry, so any other Mode$ fails closed here
 // rather than registering a trigger that never fires.
 // RememberNumber$/RememberSVarAmount$ remember an Integer, which fails
 // closed. Static$ makes the trigger resolve at once, off the stack
@@ -42,7 +43,9 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 		// A battlefield-leaving watch (Seraph, Krovikan Vampire): matched by
 		// delayedWatchesLeaving, which the dies, exile, bounce and library
 		// paths call (delayedLeftBattlefieldMatches).
-		if o, _ := a.Params.Param("Origin"); o != "Battlefield" {
+		// An entering watch (Jailbreak) is matched by delayedEnteredMatches.
+		o, _ := a.Params.Param("Origin")
+		if d, _ := a.Params.Param("Destination"); o != "Battlefield" && d != "Battlefield" {
 			return fmt.Errorf("engine: DelayedTrigger: Mode$ ChangesZone with Origin$ %q not resolvable yet", o)
 		}
 	case strings.EqualFold(mode, "SpellCast"), strings.EqualFold(mode, "SpellAbilityCast"):
@@ -53,6 +56,18 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 			return err
 		}
 		if err := rejectParams(a, "DelayedTrigger", "HasXManaCost"); err != nil {
+			return err
+		}
+	case strings.EqualFold(mode, "AttackersDeclared"):
+		// Fired by checkAttackersDeclaredTrigger (delayedAttackersDeclaredMatches).
+		if err := rejectParams(a, "DelayedTrigger", "Condition", "OptionalDecider", "CheckDefinedPlayer",
+			"IsPresent"); err != nil {
+			return err
+		}
+	case strings.EqualFold(mode, "DamageDone"):
+		// Fired by the card and player damage checks (delayedDamageDoneMatches).
+		if err := rejectParams(a, "DelayedTrigger", "DamageAmount", "ValidCause", "TargetRelativeToCause",
+			"TargetRelativeToSource"); err != nil {
 			return err
 		}
 	case strings.EqualFold(mode, "ChangesController"):

@@ -98,6 +98,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 		}
 	}
 	matches = append(matches, g.otherETBTriggerMatches(entered, origin)...)
+	matches = append(matches, g.delayedEnteredMatches(entered, origin)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -906,6 +907,7 @@ func (g *Game) checkDamageDoneTriggersToCard(controller PlayerController, source
 			}
 		}
 	}
+	matches = append(matches, g.delayedDamageDoneMatches(source, CardEntity(target), amount, isCombat)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -935,6 +937,7 @@ func (g *Game) checkDamageDoneTriggersToPlayer(controller PlayerController, sour
 			}
 		}
 	}
+	matches = append(matches, g.delayedDamageDoneMatches(source, PlayerEntity(target), amount, isCombat)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 
@@ -3027,6 +3030,7 @@ func (g *Game) checkAttackersDeclaredTrigger(controller PlayerController) {
 		}
 	}
 	matches = append(matches, g.delayedPhaseTriggerMatches()...)
+	matches = append(matches, g.delayedAttackersDeclaredMatches(g.combat.Attackers, targets)...)
 	g.pushTriggeredAbilities(controller, matches)
 }
 

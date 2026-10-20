@@ -227,3 +227,149 @@ func TestDelayedSpellAbilityCastFiresOnTheNextActivatedAbility(t *testing.T) {
 		t.Errorf("stack holds %d items after the second activation, want one more ability and no trigger: the watch fires once", got)
 	}
 }
+
+// A delayed Mode$ AttackersDeclared trigger fires once, on the next attack of
+// the player it names (All-Out Assault).
+func TestDelayedAttackersDeclaredFiresOnTheNextAttack(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ AttackersDeclared | AttackingPlayer$ You | ThisTurn$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	a := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	attackAndResolve(t, g, a)
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d after the first attack, want 23", got)
+	}
+}
+
+// A delayed Mode$ DamageDone trigger fires once on the combat damage a creature
+// its ValidSource$ accepts deals to a player (Optimus Prime), not on another
+// creature's.
+func TestDelayedDamageDoneFiresOnceForTheMatchingSource(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ DamageDone | ValidSource$ Creature.powerEQ2 | ValidTarget$ Player | CombatDamage$ True | ThisTurn$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	chosen := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	other := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch, "DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{other, chosen})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks(nil)
+	declareBlockers(t, g, bc)
+	g.DealCombatDamage(ac)
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("stack holds %d items after combat damage, want the one delayed trigger", got)
+	}
+}
+
+// A delayed Mode$ ChangesZone trigger naming Destination$ Battlefield fires
+// once when a card its ValidCard$ accepts enters (Jailbreak).
+func TestDelayedEntersTriggerFiresOnceWhenAMatchingCardEnters(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Land | ThisTurn$ True | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("stack holds %d items after a creature was put onto the battlefield, want none", got)
+	}
+	land := g.NewCard(landDef(t, "Test Land", "Land"), p, engine.Hand)
+	if !g.PlayLand(p, land, engine.NewScriptedController()) {
+		t.Fatal("could not play the land")
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("stack holds %d items after the land entered, want the delayed trigger", got)
+	}
+}
+
+// ValidSource$ Card.IsTriggerRemembered names the creature the delayed
+// DamageDone trigger was made for (Optimus Prime); ValidTarget$ Creature
+// ignores the bystander's damage to a player.
+func TestDelayedDamageDoneWatchesTheRememberedCreature(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ DamageDone | RememberObjects$ Targeted | ValidTgts$ Creature | ValidSource$ Card.IsTriggerRemembered | ValidTarget$ Creature | CombatDamage$ True | ThisTurn$ True | Execute$ DBGain"
+	g, p, other := newTwoPlayerGame(t)
+	chosen := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	bystander := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	blocker := g.NewCard(creatureDefPT(t, "4", "4"), other, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(chosen)}, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	ac := engine.NewScriptedController()
+	ac.QueueAttackers([]engine.CardID{bystander, chosen})
+	declareAttackers(t, g, ac)
+	bc := engine.NewScriptedController()
+	bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: chosen}})
+	declareBlockers(t, g, bc)
+	g.DealCombatDamage(ac)
+	if got := g.StackLen(); got != 1 {
+		t.Fatalf("stack holds %d items after the remembered creature dealt damage to a creature, want the delayed trigger", got)
+	}
+}
+
+// Params the delayed AttackersDeclared and DamageDone checks cannot resolve are
+// refused at registration, not silently ignored.
+func TestDelayedAttackersDeclaredAndDamageDoneRefuseUnresolvedParams(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"DB$ DelayedTrigger | Mode$ AttackersDeclared | Condition$ Hellbent | Execute$ DBGain",
+		"DB$ DelayedTrigger | Mode$ DamageDone | DamageAmount$ GE3 | Execute$ DBGain",
+		"DB$ DelayedTrigger | Mode$ ChangesZone | Origin$ Graveyard | Destination$ Exile | ValidCard$ Land | Execute$ DBGain",
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line,
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err == nil {
+			t.Errorf("%q registered, want an error", line)
+		}
+	}
+}
+
+// Card.IsTriggerRemembered on an entering delayed trigger names the card it
+// remembered (Jailbreak); another card entering does not fire it, and a
+// trigger with no ValidCard$ never fires.
+func TestDelayedEntersTriggerWatchesTheRememberedCard(t *testing.T) {
+	t.Parallel()
+
+	const watch = "DB$ DelayedTrigger | Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | RememberObjects$ Targeted | ValidTgts$ Land | TgtZone$ Hand | ValidCard$ Card.IsTriggerRemembered | Execute$ DBGain"
+	g, p, _ := newTwoPlayerGame(t)
+	chosen := g.NewCard(landDef(t, "Test Land", "Land"), p, engine.Hand)
+	bystander := g.NewCard(landDef(t, "Test Land", "Land"), p, engine.Hand)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(chosen)}, watch,
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ DelayedTrigger | Mode$ ChangesZone | Destination$ Battlefield | Execute$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 3"); err != nil {
+		t.Fatal(err)
+	}
+	if !g.PlayLand(p, bystander, engine.NewScriptedController()) {
+		t.Fatal("could not play the bystander land")
+	}
+	if got := g.StackLen(); got != 0 {
+		t.Fatalf("stack holds %d items after an unremembered card entered, want none", got)
+	}
+	g.Player(p).LandsPlayed = 0
+	if !g.PlayLand(p, chosen, engine.NewScriptedController()) {
+		t.Fatal("could not play the remembered land")
+	}
+	if got := g.StackLen(); got != 1 {
+		t.Errorf("stack holds %d items after the remembered card entered, want the delayed trigger", got)
+	}
+}

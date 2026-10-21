@@ -151,6 +151,38 @@ func TestMoveCounterEffectCounterTypeAllMovesEveryKind(t *testing.T) {
 	}
 }
 
+// TestMoveCounterEffectTwoTargetsMoveFromFirstToSecond proves the TargetMin$ 2
+// shape (CountersMoveEffect.java:229-233): the first target is the source.
+func TestMoveCounterEffectTwoTargetsMoveFromFirstToSecond(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	from := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	to := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(from).Counters.Add(engine.P1P1, 2)
+
+	def := etbMoveCounterTriggerDefParams(t, "Test Move TwoTarget", "CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2")
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(from), engine.CardEntity(to)})
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	host := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, host, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(from).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("source P1P1 = %d, want 1", n)
+	}
+	if n := g.Card(to).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("destination P1P1 = %d, want 1", n)
+	}
+}
+
 // TestMoveCounterEffectRejectsUnresolvedParam proves
 // moveCounterUnresolvedParams' own fail-loud contract (PORT-8/GO-7).
 func TestMoveCounterEffectRejectsUnresolvedParam(t *testing.T) {
@@ -160,18 +192,17 @@ func TestMoveCounterEffectRejectsUnresolvedParam(t *testing.T) {
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-	dest1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	dest2 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	dest := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 
-	def := etbMoveCounterTriggerDefParams(t, "Test Move TwoTarget", "CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2")
+	def := etbMoveCounterTriggerDefParams(t, "Test Move NonZero", "CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature | NonZero$ True")
 	c := engine.NewScriptedController()
-	c.QueueTargets([]engine.EntityID{engine.CardEntity(dest1), engine.CardEntity(dest2)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(dest)})
 	g.Player(p).ManaPool.Add(mana.Green, 1)
 	host := g.NewCard(def, p, engine.Hand)
 	if !g.CastSpell(p, host, c) {
 		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
 	}
 	if err := g.ResolveStack(engine.NewRegistry(), c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved TargetMin$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved NonZero$")
 	}
 }

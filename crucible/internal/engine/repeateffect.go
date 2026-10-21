@@ -4,17 +4,16 @@ package engine
 
 import "fmt"
 
-// repeatUnresolvedParams: RepeatDefined$ swaps the battlefield for a
-// Defined$ card list in the RepeatPresent$ count, and RepeatOptionalDecider$
-// hands the "again?" question to another player.
+// repeatUnresolvedParams: RepeatOptionalDecider$ hands the "again?" question
+// to another player.
 var repeatUnresolvedParams = [...]string{
-	"RepeatDefined", "RepeatOptionalDecider",
+	"RepeatOptionalDecider",
 	"Ultimate",
 }
 
 // repeatEffect is RepeatEffect.java: RepeatSubAbility$ resolves at least
 // once, then again while the repeat conditions hold -- RepeatPresent$/
-// RepeatCompare$ over the battlefield, RepeatCheckSVar$/RepeatSVarCompare$,
+// RepeatCompare$ over the battlefield or the RepeatDefined$ cards, RepeatCheckSVar$/RepeatSVarCompare$,
 // and RepeatOptional$ asking the activator (ConfirmEffect) -- stopping at
 // MaxRepeat$ or when the game ends. 37 real lines.
 type repeatEffect struct{}

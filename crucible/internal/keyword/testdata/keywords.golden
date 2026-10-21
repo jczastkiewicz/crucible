@@ -1,11 +1,11 @@
-kind	Unknown	1510
-kind	Simple	9786
-kind	Amount	651
+kind	Unknown	1511
+kind	Simple	9784
+kind	Amount	652
 kind	Cost	1884
 kind	Type	1339
 kind	CostAndAmount	32
 kind	CostAndType	136
-kind	Special	3130
+kind	Special	3132
 used	Affinity	Special
 used	Afflict	Amount
 used	Afterlife	Amount
@@ -209,7 +209,7 @@ pseudo	AlternateAdditionalCost	44
 pseudo	Chapter	236
 pseudo	Class	76
 pseudo	DeckLimit	5
-pseudo	ETBReplacement	421
+pseudo	ETBReplacement	422
 pseudo	MayEffectFromOpeningDeck	4
 pseudo	MayEffectFromOpeningHand	30
 pseudo	MustBeBlockedByAll	2

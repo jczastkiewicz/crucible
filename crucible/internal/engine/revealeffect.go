@@ -5,10 +5,9 @@ package engine
 import "fmt"
 
 // revealUnresolvedParams are RevealEffect.java's params this port cannot
-// honour yet: Random$ (Aggregates.random), OptionalDecider$ and
-// BecomeStartingPlayer$ (1 line each).
+// honour yet: OptionalDecider$ and BecomeStartingPlayer$ (1 line each).
 var revealUnresolvedParams = [...]string{
-	"Random", "OptionalDecider", "BecomeStartingPlayer"}
+	"OptionalDecider", "BecomeStartingPlayer"}
 
 // revealEffect is RevealEffect.java: each player (Defined$/ValidTgts$,
 // default You) with a non-empty hand reveals RevealDefined$'s cards,
@@ -17,7 +16,9 @@ var revealUnresolvedParams = [...]string{
 // RevealValid$; AnyNumber$ and Optional$ lower the minimum to zero. The
 // engine is omniscient, so revealing changes no state by itself; what this
 // port keeps is RememberRevealed$ (43 of 68 real lines), which the
-// following SubAbility$ reads back as Defined$ Remembered.
+// following SubAbility$ reads back as Defined$ Remembered. Random$ takes
+// precedence over the other ways to pick: Aggregates.random over the hand
+// cards matching RevealValid$, NumCards$ of them.
 type revealEffect struct{}
 
 func (revealEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -55,7 +56,18 @@ func (revealEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 			continue
 		}
 		var revealed []CardID
-		if defined, ok := a.Params.Param("RevealDefined"); ok {
+		if _, ok := a.Params.Param("Random"); ok {
+			options := hand
+			if rv, ok := a.Params.Param("RevealValid"); ok {
+				options = filterValid(g, hand, rv, pid, a.Source)
+			}
+			if len(options) == 0 {
+				continue
+			}
+			for _, i := range g.randomSample(len(options), min(cnt, len(options))) {
+				revealed = append(revealed, options[i])
+			}
+		} else if defined, ok := a.Params.Param("RevealDefined"); ok {
 			revealed, err = definedCards(source, defined, a.refs())
 			if err != nil {
 				return fmt.Errorf("engine: Reveal: RevealDefined$: %w", err)

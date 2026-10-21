@@ -53,17 +53,31 @@ func TestDestroyAllEffectSkipsIndestructibleAndRemembers(t *testing.T) {
 	}
 }
 
-// TestDestroyAllEffectRejectsXInValidCards proves the textual X
-// substitution Java performs fails closed here (PORT-2).
-func TestDestroyAllEffectRejectsXInValidCards(t *testing.T) {
+// TestDestroyAllEffectSubstitutesXInValidCards proves every X in ValidCards$
+// is replaced by the X SVar's value before the string is parsed
+// (DestroyAllEffect.java:57-60), and that an X no SVar defines fails the
+// ability instead of matching nothing (GO-7).
+func TestDestroyAllEffectSubstitutesXInValidCards(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
-	g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	small := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	big := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Battlefield)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test DestroyAll X", "DB$ DestroyAll | ValidCards$ Creature.cmcLEX")
+	def := etbChainDef(t, "Test DestroyAll X", "DB$ DestroyAll | ValidCards$ Creature.powerGEX", "X", "Number$2")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(big).Zone; z != engine.Graveyard {
+		t.Errorf("power 3 zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(small).Zone; z != engine.Battlefield {
+		t.Errorf("power 1 zone = %v, want Battlefield", z)
+	}
+
+	def = etbChainDef(t, "Test DestroyAll Bare X", "DB$ DestroyAll | ValidCards$ Creature.cmcLEX")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for X in ValidCards$")
+		t.Fatal("ResolveStack succeeded, want an error for an X no SVar defines")
 	}
 }
 

@@ -118,6 +118,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.castThisTurn = nil
 			// MagicStack.java:968: thisTurnActivated.clear().
 			g.activatedThisTurn = nil
+			g.resetCharmModesTurn()
 			for _, pid := range g.Players() {
 				g.Player(pid).SpellsCastThisTurn = 0
 				g.Player(pid).DamageReceivedThisTurn = 0
@@ -329,6 +330,9 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		// PhaseHandler.java:301: getBeginOfCombat().executeUntil(playerTurn),
 		// ControlPlayer's Combat$ grants (ADR-0030).
 		g.runScheduledActions(boundaryBeginCombat, g.activePlayer)
+	case CombatEnd:
+		// PhaseHandler.java:347-351.
+		g.charmModesEndOfCombat()
 	case DeclareAttackers:
 		if driven {
 			if _, err := g.DeclareCombatAttackers(controller); err != nil {

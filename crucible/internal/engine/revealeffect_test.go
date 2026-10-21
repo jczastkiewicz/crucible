@@ -119,3 +119,36 @@ func TestRevealEffectNumCardsOptional(t *testing.T) {
 		t.Errorf("Remembered = %v, want one card", got)
 	}
 }
+
+// TestRevealEffectRandomPicksWithoutAsking proves Random$ draws the revealed
+// card from the RevealValid$ hand cards (RevealEffect.java:39-51) instead of
+// asking the player, and an empty pool reveals nothing.
+func TestRevealEffectRandomPicksWithoutAsking(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		valid string
+		want  int
+	}{
+		{"one matching card", "Creature", 1},
+		{"no matching card", "Land", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			pick := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Hand)
+			g.NewCard(scriptDef(t, "Test Artifact", "Artifact"), p, engine.Hand)
+
+			host, err := castETBChain(t, g, p, etbChainDef(t, "Test Reveal Random",
+				"DB$ Reveal | Defined$ You | Random$ True | RevealValid$ "+tc.valid+" | RememberRevealed$ True"), engine.NewScriptedController())
+			if err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			got := g.Card(host).Memory.Remembered()
+			if len(got) != tc.want || tc.want == 1 && got[0] != engine.CardEntity(pick) {
+				t.Errorf("Remembered = %v, want %d card(s) (%v)", got, tc.want, engine.CardEntity(pick))
+			}
+		})
+	}
+}

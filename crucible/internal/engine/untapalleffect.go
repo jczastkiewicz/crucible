@@ -28,21 +28,6 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
-// untapAllUnresolvedParams names UntapAllEffect's own params this port does
-// not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// Planeswalker$ (3) -- an unclear-semantics restriction on a resolving
-// line, tapAllEffect's own identical gap; ModeCost$
-// (2) -- a further activation-time restriction, unclear semantics on a resolving (not triggering) line;
-// ConditionPlayerTurn$/ConditionManaSpent$ (1/1) -- SpellAbilityCondition's
-// own shapes subAbilityConditionMet does not cover, putCounterEffect's own
-// identical ConditionZone$/ConditionPlayerTurn$ gap; Condition$/
-// ConditionDefined$ (0/1) -- condition.go's own subAbilityConditionMet
-// would otherwise silently no-op a card naming either without
-// ConditionPresent$ alongside it, dealDamageEffect's own identical
-// reasoning.
-var untapAllUnresolvedParams = [...]string{
-	"Planeswalker"}
-
 // untapAllEffect resolves Mode$/DB$/AB$ UntapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
 // through subAbilityConditionMet (condition.go), the identical way every
@@ -52,11 +37,6 @@ type untapAllEffect struct{}
 func (untapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range untapAllUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: UntapAll: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {

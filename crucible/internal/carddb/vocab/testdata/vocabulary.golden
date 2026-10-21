@@ -1195,6 +1195,7 @@ api	Animate
 api	AnimateAll
 api	AssembleContraption
 api	AssignGroup
+api	Assimilate
 api	Attach
 api	Balance
 api	BecomeMonarch
@@ -2954,6 +2955,7 @@ validProperty	attackingYou
 validProperty	attackingYouOrYourPW
 validProperty	attackingYouOrYourPWLKI
 validProperty	bargained
+validProperty	baseLoyaltyEQX
 validProperty	basePowerEQ0
 validProperty	basePowerEQ1
 validProperty	basePowerEQ2
@@ -3481,6 +3483,7 @@ validProperty	toughnessEQ1
 validProperty	toughnessEQ4
 validProperty	toughnessEQChosen
 validProperty	toughnessEQSTK8T
+validProperty	toughnessEQX
 validProperty	toughnessGE2
 validProperty	toughnessGE3
 validProperty	toughnessGE4

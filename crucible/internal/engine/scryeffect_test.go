@@ -336,25 +336,33 @@ func TestScryEffectRejectsValidTgts(t *testing.T) {
 	}
 }
 
-// TestScryEffectRejectsOptional proves Optional$ (an interactive confirm
-// this port's own PlayerController has no hook for) fails loudly rather
-// than silently treating the scry as mandatory.
-func TestScryEffectRejectsOptional(t *testing.T) {
+// TestScryEffectOptionalAsksBeforeScrying proves Optional$ (ScryEffect.java:
+// 51-55): a declined confirm scries nothing (the controller is never asked to
+// arrange), an accepted one scries.
+func TestScryEffectOptionalAsksBeforeScrying(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	for _, accept := range []bool{false, true} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+		top := g.NewCard(nil, p, engine.Library)
+		g.NewCard(nil, p, engine.Library)
 
-	def := etbScryTriggerDefParams(t, "Test Optional", "ScryNum$ 1 | Optional$ True", nil)
-	c := engine.NewScriptedController()
-	err := castETBScry(t, g, p, def, c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming Optional")
-	}
-	if !strings.Contains(err.Error(), "Optional") {
-		t.Errorf("ResolveStack error = %q, want it to name Optional$", err.Error())
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		if accept {
+			c.QueueScry(nil, []engine.CardID{top})
+		}
+		def := etbScryTriggerDefParams(t, "Test Optional", "ScryNum$ 1 | Optional$ True", nil)
+		if err := castETBScry(t, g, p, def, c); err != nil {
+			t.Fatalf("accept=%v: ResolveStack: %v", accept, err)
+		}
+		lib := g.Zone(engine.Library, p).Cards()
+		if atBottom := lib[len(lib)-1] == top; atBottom != accept {
+			t.Errorf("accept=%v: top card at the bottom = %v", accept, atBottom)
+		}
 	}
 }
 

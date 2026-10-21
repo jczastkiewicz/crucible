@@ -20,10 +20,9 @@ var chooseSourceUnresolvedParams = [...]string{"Amount", "TargetControls"}
 // chooseSourceUnresolvedChoices are the Choices$ properties Matches has no
 // evaluator for yet: each would otherwise read false for every card and
 // leave an empty pool, a silent no-op rather than a failed game (GO-7).
-// ChosenColor (2 real lines) needs the host's chosen color, and
 // SharesColorWith's own suffixed forms (Imprinted, ActivationColor -- 1
-// line each) a remembered-list or cast-time color comparison.
-var chooseSourceUnresolvedChoices = [...]string{"ChosenColor", "SharesColorWith "}
+// line each) need a remembered-list or cast-time color comparison.
+var chooseSourceUnresolvedChoices = [...]string{"SharesColorWith "}
 
 // chooseSourceEffect is ChooseSourceEffect.java: each chooser (Defined$/
 // ValidTgts$, default You) picks one source -- a permanent, a spell or

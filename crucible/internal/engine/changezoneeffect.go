@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,12 +37,12 @@ import (
 // accepted and changes nothing a port reads; whoever ports either adds the
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
-	"Transformed", "WithNotedCounters", "ReturnAbility", "ReturnValid",
+	"WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter", "FaceDown",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalCMC", "WithTotalPower", "WithTotalCardTypes",
-	"ShuffleChangedPile", "Exactly", "RememberSearched",
+	"ShuffleChangedPile", "RememberSearched",
 	"ImprintLast", "Unearth",
 	"Ultimate",
 	// ExiledWithEffectSource$ marks the effect card's own source as the
@@ -555,6 +556,12 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		if err != nil {
 			return err
 		}
+		if hasParam(a, "Transformed") {
+			// ChangeZoneEffect.java:598-607: a transformable card turns to its
+			// back face before it moves; one that cannot transform moves
+			// anyway (the else branch is empty, its comment says otherwise).
+			g.transform(id)
+		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
@@ -698,6 +705,11 @@ func (g *Game) canSearchLibraryWith(decider, target, activator PlayerID) bool {
 // ControlOpponentsSearchingLibrary$ grant applies only to a fetcher deciding
 // their own search (:1071).
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID, until bool) error {
+	if hasParam(a, "Transformed") {
+		// changeHiddenOriginResolve skips a card that cannot transform
+		// (ChangeZoneEffect.java:1339); no fetch in the corpus does it yet.
+		return fmt.Errorf("engine: ChangeZone: Transformed$ with a hidden Origin$ not resolvable yet")
+	}
 	enter, err := changeZoneEnter(g, a, dest, false)
 	if err != nil {
 		return err
@@ -720,7 +732,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	definedSpec, hasDefined := a.Params.Param("Defined")
 	defined := hasDefined || chooseFromDefined
 	changeType, _ := a.Params.Param("ChangeType")
-	if strings.HasPrefix(changeType, "EACH") {
+	// ChangeZoneEffect.java:1119-1120: "EACH a & b" picks a card per listed
+	// type, ChangeNum$ times each. Its alternative-zone and Defined$ shapes
+	// are not audited.
+	eachTypes, each := strings.CutPrefix(changeType, "EACH ")
+	if strings.HasPrefix(changeType, "EACH") && !each || each && (hasAlt || defined) {
 		return fmt.Errorf("engine: ChangeZone: ChangeType$ %q not resolvable yet", changeType)
 	}
 	_, mandatory := a.Params.Param("Mandatory")
@@ -839,7 +855,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		if (searchedLibrary || searchedParam) && decider == player {
 			g.Player(decider).librarySearched++
 		}
-		if !defined && changeType != "" {
+		if !defined && changeType != "" && !each {
 			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)
 		}
 
@@ -871,7 +887,33 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				}
 				return got, nil
 			}
-			if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
+			if each {
+				// One optional pick per type and repetition from the cards
+				// matching that type and not yet chosen (:1119-1135); a
+				// declined or empty pick moves on to the next.
+				for _, thisType := range strings.Split(eachTypes, " & ") {
+					for i := 0; i < changeNum; i++ {
+						var rest []CardID
+						for _, id := range filterValid(g, fetchList, thisType, a.Controller, a.Source) {
+							if !slices.Contains(chosen, id) {
+								rest = append(rest, id)
+							}
+						}
+						if len(rest) == 0 {
+							continue
+						}
+						lo := 0
+						if mandatory {
+							lo = 1
+						}
+						got, err := pickFrom(rest, lo, 1)
+						if err != nil {
+							return err
+						}
+						chosen = append(chosen, got...)
+					}
+				}
+			} else if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
 				// The one-at-a-time loop (ChangeZoneEffect.java:1157-1231;
 				// allowMultiSelect is false under DifferentNames$): each pick
 				// leaves out every card sharing a name with an earlier one. A
@@ -956,6 +998,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			default:
 				return fmt.Errorf("engine: ChangeZone: Reorder$ into %v not resolvable yet", dest)
 			}
+		}
+		if hasParam(a, "Exactly") && len(chosen) < changeNum {
+			// ChangeZoneEffect.java:1272: a search that found fewer cards than
+			// ChangeNum$ moves none of them (after the shuffle and reorder).
+			continue
 		}
 		picks = append(picks, hiddenChoice{player: player, chosen: chosen, shuffleMandatory: fetcherShuffle,
 			found: searchedLibrary && !searchedParam, origin: searched, dest: dest, libPos: libPos})

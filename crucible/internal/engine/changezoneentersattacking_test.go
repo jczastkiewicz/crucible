@@ -194,3 +194,27 @@ func slicesContains(ids []engine.CardID, id engine.CardID) bool {
 	}
 	return false
 }
+
+// Dig's Attacking$ (DigEffect.java:409, Winota's shape): the dug creature
+// enters tapped and attacking the defender its controller picks.
+func TestDigAttackingPutsTheDugCreatureIntoCombat(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.DeclareAttackers)
+	dug := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{dug})
+	c.QueueAttackTarget(engine.PlayerEntity(other))
+	if _, err := resolveNow(t, g, p, c, nil,
+		"DB$ Dig | DigNum$ 1 | ChangeNum$ 1 | ChangeValid$ Creature | DestinationZone$ Battlefield | Tapped$ True | Attacking$ True"); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	d := g.Card(dug)
+	if d.Zone != engine.Battlefield || !d.Tapped {
+		t.Fatalf("dug zone = %v tapped = %v, want Battlefield, tapped", d.Zone, d.Tapped)
+	}
+	if got := g.AttackTarget(dug); got != engine.PlayerEntity(other) {
+		t.Errorf("AttackTarget = %v, want %v", got, engine.PlayerEntity(other))
+	}
+}

@@ -115,11 +115,21 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}
 			pool.addProduced(producedMana{color: color, amount: amount}, src)
 		default:
-			color, colorless, colorOK := producedManaColor(produced)
-			if !colorOK {
+			// "R G" is one mana of each color named, Amount$ times over
+			// (GameActionUtil.generatedMana repeats the whole string).
+			tokens := strings.Fields(produced)
+			if len(tokens) == 0 {
 				return fmt.Errorf("engine: Mana: Produced$ %q not resolvable yet", produced)
 			}
-			pool.addProduced(producedMana{color: color, colorless: colorless, amount: amount}, src)
+			for range amount {
+				for _, tok := range tokens {
+					color, colorless, colorOK := producedManaColor(tok)
+					if !colorOK {
+						return fmt.Errorf("engine: Mana: Produced$ %q not resolvable yet", produced)
+					}
+					pool.addProduced(producedMana{color: color, colorless: colorless, amount: 1}, src)
+				}
+			}
 		}
 	}
 	return nil

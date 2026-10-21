@@ -528,6 +528,12 @@ type PlayerController interface {
 	// (GO-7).
 	ChooseRollToSwap(g *Game, decider PlayerID, source CardID, rolls []int) int
 
+	// ChooseDieResult picks one of the rolled results (RollDice ChosenSVar$),
+	// answering with its index in rolls -- Java's chooseNumber(sa, title,
+	// rolls, player) (RollDiceEffect.java:502). The caller checks the answer
+	// (GO-7).
+	ChooseDieResult(g *Game, decider PlayerID, source CardID, rolls []int) int
+
 	// ChooseRollSwapValue picks which stat the roll swaps with: 0 for power,
 	// 1 for toughness, -1 for none (the roll is then asked again) -- Java's
 	// chooseRollSwapValue (PlayerController.java:280, ADR-0045). The caller
@@ -658,6 +664,7 @@ type ScriptedController struct {
 	sticker            []int
 	stickerPos         []int
 	rollSwap           []int
+	dieResult          []int
 	rollSwapValue      []int
 	roomDoor           []Door
 	replacementPick    []int
@@ -1385,6 +1392,14 @@ func (c *ScriptedController) QueueRollToSwap(i int) { c.rollSwap = append(c.roll
 // ChooseRollToSwap returns the next answer QueueRollToSwap queued.
 func (c *ScriptedController) ChooseRollToSwap(_ *Game, _ PlayerID, _ CardID, _ []int) int {
 	return popQueue(&c.rollSwap, "roll to swap")
+}
+
+// QueueDieResult appends the answer to the next ChooseDieResult call.
+func (c *ScriptedController) QueueDieResult(i int) { c.dieResult = append(c.dieResult, i) }
+
+// ChooseDieResult returns the next answer QueueDieResult queued.
+func (c *ScriptedController) ChooseDieResult(_ *Game, _ PlayerID, _ CardID, _ []int) int {
+	return popQueue(&c.dieResult, "die result")
 }
 
 // QueueRollSwapValue appends the answer to the next ChooseRollSwapValue call.

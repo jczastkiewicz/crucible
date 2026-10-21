@@ -60,7 +60,6 @@ merges it and a sync brings the identical content back.
 
 | Date       | Path                                                                                                           | Change                                                                                                                                                                                             | Upstream                                                                  |
 | ---------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 2026-10-20 | `forge-gui/res/cardsfolder/**` (40 `SP$`/`AB$ Charm` scripts, e.g. `ulgrotha_charm.txt`, `umezawas_jitte.txt`) | Drop the dead `Defined$ You` from the Charm line. `CharmEffect.java` and `CharmAi.java` read no `Defined` param; the chooser is the activating player. Crucible's param check flags it on 34 cards | branch `upstream-pr/charm-defined-you` (`069ac62185f`), PR not yet opened |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.
@@ -72,7 +71,7 @@ written under the wrong name (Sanctum Lurker's `Affected$` where `StaticAbilityI
 PORT-8: a param that never reaches its effect, a sub-ability chain broken by name, or a line that is not a script line
 at all is a Forge bug, reported and fixed here rather than exempted from either gate.
 
-Thirty rows have retired this way — #12193 (seven card scripts in one pull request: `captured_by_the_consulate.txt`,
+Thirty-one rows have retired this way — #12312 (40 Charm scripts' `Defined$ You`), #12193 (seven card scripts in one pull request: `captured_by_the_consulate.txt`,
 `loose_in_the_park.txt`, `ludevic_necrogenius_olag_ludevics_hubris.txt`, `mount_keralia.txt`,
 `taskmaster_mercenary_mimic.txt`, `tooth_claw_and_tail.txt`, `your_will_is_not_your_own.txt`) and the pull
 requests #11846, #11848, #11850, #11851, #11852, #11854, #11859, #12035, #12038 (`the_disciple_of_vess.txt` and

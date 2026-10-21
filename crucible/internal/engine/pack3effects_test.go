@@ -414,6 +414,24 @@ func TestMakeCardConjuresIntoZones(t *testing.T) {
 	resolveLine(t, g, p, c, "DB$ MakeCard | Spellbook$ Grizzly Bears | Zone$ Library")
 }
 
+// TestMakeCardLibraryPositionAmount proves LibraryPosition$ is an amount
+// (MakeCardEffect.java:200): a literal N sinks the made card N below the top
+// and a Count$Random range with equal ends is that number.
+func TestMakeCardLibraryPositionAmount(t *testing.T) {
+	t.Parallel()
+	bear := namedCreature(t, "Grizzly Bears", "1 G")
+	for _, pos := range []string{"2", "Count$Random.2.2"} {
+		g, p, _ := newPackGame(t, bear)
+		libraryCards(t, g, p, 3)
+		resolveLine(t, g, p, engine.NewScriptedController(),
+			"DB$ MakeCard | Name$ Grizzly Bears | Zone$ Library | LibraryPosition$ "+pos)
+		cards := g.Zone(engine.Library, p).Cards()
+		if len(cards) != 4 || g.Card(cards[2]).Def == nil || g.Card(cards[2]).Def.Name != "Grizzly Bears" {
+			t.Errorf("LibraryPosition$ %s: library = %v, want the bear at index 2", pos, cards)
+		}
+	}
+}
+
 func TestLearnRummages(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newTwoPlayerGame(t)

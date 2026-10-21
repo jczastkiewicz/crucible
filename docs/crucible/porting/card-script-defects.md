@@ -372,3 +372,17 @@ Fix: delete one space each.
 `internal/valid` parses without trimming for exactly this reason. The vocabulary scanner trims each alternative before
 counting, which collapsed `" Planeswalker"` and `"Planeswalker"` into one token and hid the defect; a parser that tidies
 its input cannot find the bugs that tidying would fix.
+
+## Dead params the smoke refusal list names: `Sacrifice` `ChangeNum$`, `DestroyAll` `Zone$`
+
+`SacrificeEffect.java` reads `Amount$`, `SacValid$`, `SacEachValid$`, `Destroy$`, `Optional$`, `StrictAmount$`,
+`Random$`, `SacMessage$` and `RememberSacrificed$`; never `ChangeNum$`, which is `ChangeZone`'s. Lava Runner, Thresher
+Beast, Foul Spirit, Glacial Chasm and Destructive Urge write `SacValid$ Land | ChangeNum$ 1`: the sacrifice is one
+land through the default `Amount$ 1`, so the param does nothing and the line reads as if it chose the count.
+
+`DestroyAllEffect.java` never reads `Zone$` either. Kindred Dominance and Kindred Judgment write
+`DB$ DestroyAll | ValidCards$ Creature.IsNotChosenType | Zone$ Battlefield`; `DestroyAll` always scans the
+battlefield.
+
+Crucible keeps both refused (`Sacrifice: ChangeNum$`, `DestroyAll: Zone$`): a param the Java ignores is a script
+defect, not a feature to port (PORT-8). Fix: drop `| ChangeNum$ 1` and `| Zone$ Battlefield`.

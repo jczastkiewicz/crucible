@@ -170,11 +170,12 @@ func TestChangeZoneEffectRejectsUnresolvedShapes(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
-		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand | Transformed$ True",
+		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand | Champion$ True",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Flashback | Destination$ Hand",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Command",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Library | LibraryPosition$ Bogus",
-		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Creature",
+		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Creature | Defined$ Self",
+		"DB$ ChangeZone | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | ChangeType$ EACH Creature & Land",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		c := engine.NewScriptedController()
@@ -499,5 +500,55 @@ func TestChangeZoneEffectDifferentNamesMandatoryAndBadOrder(t *testing.T) {
 	def = etbChainDef(t, "Test Reorder Bad", "DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True | Reorder$ True")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
 		t.Fatal("an order that drops a card was accepted")
+	}
+}
+
+// TestChangeZoneEffectEachTypePicksOnePerType proves ChangeType$ EACH a & b
+// (ChangeZoneEffect.java:1119-1135): one pick per listed type from the cards
+// matching it, a card matching two types taken once, an empty type skipped.
+func TestChangeZoneEffectEachTypePicksOnePerType(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Land.Forest & Land.Basic & Land.Forest & Creature"
+	g, p, _ := newTwoPlayerGame(t)
+	forest := g.NewCard(landDef(t, "Test Forest", "Basic Land Forest"), p, engine.Library)
+	plains := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{forest})
+	c.QueueCardChoice([]engine.CardID{plains})
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Each", line), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for name, id := range map[string]engine.CardID{"forest": forest, "plains": plains} {
+		if z := g.Card(id).Zone; z != engine.Hand {
+			t.Errorf("%s zone = %v, want Hand", name, z)
+		}
+	}
+}
+
+// TestChangeZoneEffectExactlyMovesNothingFromAShortSearch proves Exactly$
+// (ChangeZoneEffect.java:1272): a search that finds fewer cards than
+// ChangeNum$ puts none of them in the destination; enough cards move.
+func TestChangeZoneEffectExactlyMovesNothingFromAShortSearch(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land | ChangeNum$ 2 | Exactly$ True"
+	for _, tc := range []struct {
+		lands int
+		want  engine.ZoneType
+	}{{1, engine.Library}, {2, engine.Hand}} {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids []engine.CardID
+		c := engine.NewScriptedController()
+		for i := 0; i < tc.lands; i++ {
+			ids = append(ids, g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library))
+		}
+		c.QueueCardChoice(ids)
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Exactly", line), c); err != nil {
+			t.Fatalf("%d lands: ResolveStack: %v", tc.lands, err)
+		}
+		if z := g.Card(ids[0]).Zone; z != tc.want {
+			t.Errorf("%d lands: card zone = %v, want %v", tc.lands, z, tc.want)
+		}
 	}
 }

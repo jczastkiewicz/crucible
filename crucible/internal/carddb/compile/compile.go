@@ -690,6 +690,14 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 
 	ability := &Ability{Record: record, Name: params[0].Value, Params: params}
 	for _, p := range params {
+		if strings.EqualFold(p.Key, "ExtraTurnDelayedTrigger") && ability.Name == "AddTurn" {
+			sub, err := c.extraTurnTrigger(ability, p.Value)
+			if err != nil {
+				return nil, err
+			}
+			ability.Subs = append(ability.Subs, sub)
+			continue
+		}
 		names, ok := c.references(ability, p)
 		if !ok {
 			continue
@@ -757,6 +765,35 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	}
 	ability.SVar = name
 	return SubRef{Key: key, SVar: name, Ability: ability}, nil
+}
+
+// extraTurnTrigger compiles the SVar an AddTurn's `ExtraTurnDelayedTrigger$`
+// names. AddTurnEffect.java:50 parses it as a trigger line (it leads with
+// `ThisTurn$` or `Mode$`, not `DB$`) and overrides its ability with the SVar
+// `ExtraTurnDelayedTriggerExecute$` names. It is compiled here as the
+// `DB$ DelayedTrigger` line that trigger is, Execute$ pointing at the
+// override, so the engine registers it like any delayed trigger and never
+// reads script text (PORT-2).
+func (c *faceCompiler) extraTurnTrigger(a *Ability, name string) (SubRef, error) {
+	if c.open[name] {
+		return SubRef{}, &cycleError{key: "ExtraTurnDelayedTrigger", name: name}
+	}
+	body, ok := c.face.SVars.Get(name)
+	if !ok {
+		return SubRef{}, fmt.Errorf("%w: ExtraTurnDelayedTrigger names %q", ErrMissingSVar, name)
+	}
+	execute, ok := a.Param("ExtraTurnDelayedTriggerExecute")
+	if !ok {
+		return SubRef{}, fmt.Errorf("%w: ExtraTurnDelayedTrigger %q without ExtraTurnDelayedTriggerExecute", ErrMissingSVar, name)
+	}
+	c.open[name] = true
+	defer delete(c.open, name)
+	ability, err := c.line("DB$ DelayedTrigger | "+body+" | Execute$ "+execute, SubAbility)
+	if err != nil {
+		return SubRef{}, fmt.Errorf("in %q: %w", name, err)
+	}
+	ability.SVar = name
+	return SubRef{Key: "ExtraTurnDelayedTrigger", SVar: name, Ability: ability}, nil
 }
 
 // cycleError is ErrCycle naming the SVar the chain came back to.

@@ -20,7 +20,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined amount condition control zone
+//enginelint:allow id card game player ability defined amount condition control zone effecthelpers
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ import (
 // the corpus's own 57 real SVar-defined Scry lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
 var scryUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax", "Optional",
+	"ValidTgts", "TargetMin", "TargetMax",
 }
 
 type scryEffect struct{}
@@ -70,6 +70,17 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return fmt.Errorf("engine: Scry: %w", err)
 	}
 
+	if hasParam(a, "Optional") {
+		// ScryEffect.java:51-55: each player is asked first, then the
+		// confirmed ones scry.
+		var willing []PlayerID
+		for _, pid := range players {
+			if !g.Player(pid).Lost && controller.ConfirmEffect(g, pid, a.Source) {
+				willing = append(willing, pid)
+			}
+		}
+		players = willing
+	}
 	for _, pid := range players {
 		// Event$ Scry: Kenessos' "scry that many plus one", Eligeth's "draw
 		// that many cards instead".

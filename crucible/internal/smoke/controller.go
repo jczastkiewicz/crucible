@@ -140,21 +140,32 @@ func (c *Controller) DeclareCombatBlockers(g *engine.Game, defender engine.Playe
 			out = append(out, engine.Block{Blocker: eligible[i], Attacker: a})
 		}
 	}
+	if !g.BlocksLegal(defender, out) {
+		// A creature that must block if able (a Disturbed Slumber land) has no
+		// attacker of its own here: let every eligible creature block.
+		if forced := c.forcedBlocks(g, defender, attackers, eligible); forced != nil {
+			return forced
+		}
+	}
 	return out
 }
 
 // forcedBlocks is the empty declaration when it is legal, else every eligible
-// creature blocking, the attackers taken in turn, when that is legal.
+// creature blocking, the attackers taken in turn from each starting attacker
+// until one assignment is legal (an attacker that must be blocked if able is
+// not always the first).
 func (*Controller) forcedBlocks(g *engine.Game, defender engine.PlayerID, attackers, eligible []engine.CardID) []engine.Block {
 	if g.BlocksLegal(defender, nil) || len(attackers) == 0 {
 		return nil
 	}
-	var all []engine.Block
-	for i, b := range eligible {
-		all = append(all, engine.Block{Blocker: b, Attacker: attackers[i%len(attackers)]})
-	}
-	if g.BlocksLegal(defender, all) {
-		return all
+	for shift := range attackers {
+		var all []engine.Block
+		for i, b := range eligible {
+			all = append(all, engine.Block{Blocker: b, Attacker: attackers[(i+shift)%len(attackers)]})
+		}
+		if g.BlocksLegal(defender, all) {
+			return all
+		}
 	}
 	return nil
 }
@@ -372,9 +383,20 @@ func (*Controller) ChooseAbilitiesForEffect(_ *engine.Game, decider engine.Playe
 	return indices(clip(amount, len(options)))
 }
 
-// ChooseModesForAbility takes the first modes, at least one when the choice allows it.
+// ChooseModesForAbility takes the first modes, at least one when the choice
+// allows it. A choice needing more modes than the legal ones left (a
+// Confluence under CanRepeatModes$ with a mode that has no target) repeats
+// them in turn; the engine refuses the repeat when the Charm does not allow it.
 func (*Controller) ChooseModesForAbility(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, options []string, lo, hi int) []int {
-	return indices(pick(lo, hi, len(options)))
+	n := pick(lo, hi, len(options))
+	if len(options) == 0 || lo <= n {
+		return indices(n)
+	}
+	out := make([]int, lo)
+	for i := range out {
+		out[i] = i % len(options)
+	}
+	return out
 }
 
 // ChooseProtectionType picks the first option.
@@ -420,6 +442,9 @@ func (*Controller) ChooseStickerNamePosition(*engine.Game, engine.PlayerID, engi
 func (*Controller) ChooseRollToSwap(*engine.Game, engine.PlayerID, engine.CardID, []int) int {
 	return -1
 }
+
+// ChooseDieResult keeps the first roll.
+func (*Controller) ChooseDieResult(*engine.Game, engine.PlayerID, engine.CardID, []int) int { return 0 }
 
 // ChooseRollSwapValue declines both stats.
 func (*Controller) ChooseRollSwapValue(*engine.Game, engine.PlayerID, engine.CardID, int, int, int) int {

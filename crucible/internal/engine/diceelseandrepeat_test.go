@@ -1,9 +1,11 @@
 package engine_test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
 // An "Else:SVar" pair inside ResultSubAbilities$ is the roll's Else ability
@@ -79,6 +81,33 @@ func TestRepeatCheckSVarIsReadAfterTheFirstRepetition(t *testing.T) {
 	}
 }
 
+// RepeatDefined$ swaps the battlefield for the Defined$ cards in the
+// RepeatPresent$ count (RepeatEffect.java:78-83): Primal Surge repeats while
+// the remembered card is still there.
+func TestRepeatDefinedCountsTheDefinedCards(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, remember string
+		want           int
+	}{
+		{"one remembered card", "RememberDrawn$ True | ", 23},
+		{"nothing remembered", "", 21},
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		libraryCards(t, g, p, 3)
+		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+			"DB$ Draw | Defined$ You | "+tc.remember+"SubAbility$ DBRepeat",
+			"DBRepeat", "DB$ Repeat | RepeatSubAbility$ DBGain | RepeatDefined$ Remembered | RepeatPresent$ Card | RepeatCompare$ EQ1 | MaxRepeat$ 3",
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got := g.Player(p).Life - 20; got != tc.want-20 {
+			t.Errorf("%s: gained %d, want %d", tc.name, got, tc.want-20)
+		}
+	}
+}
+
 // Defined$ TargetedAndYou is the targeted players, then the activator, each
 // once (AbilityUtils.java:970-975); nothing targeting a player names nobody.
 func TestDefinedTargetedAndYou(t *testing.T) {
@@ -104,5 +133,37 @@ func TestDefinedTargetedAndYou(t *testing.T) {
 	}
 	if g.Player(p).Life != 22 || g.Player(other).Life != 21 {
 		t.Errorf("life = %d/%d, want 22/21: no player targeted names nobody", g.Player(p).Life, g.Player(other).Life)
+	}
+}
+
+// ChosenSVar$ binds the roll the roller picks and OtherSVar$ the first roll
+// that differs from it, else the first (RollDiceEffect.java:501-516), the
+// d20 "roll two dice and choose one" sorceries.
+func TestRollDiceChosenSVarBindsPickedAndOtherRoll(t *testing.T) {
+	t.Parallel()
+	r := javarand.New(1)
+	rolls := []int{int(r.Int32n(20)) + 1, int(r.Int32n(20)) + 1}
+	sort.Ints(rolls)
+	if rolls[0] == rolls[1] {
+		t.Fatalf("seed 1 rolled a double %v, the fixture needs two different rolls", rolls)
+	}
+	for pick := 0; pick < 2; pick++ {
+		g, p, _ := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		c.QueueDieResult(pick)
+		resolveLine(t, g, p, c,
+			"DB$ RollDice | Amount$ 2 | Sides$ 20 | ChosenSVar$ X | OtherSVar$ Y | SubAbility$ DBGain",
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBLose",
+			"DBLose", "DB$ LoseLife | Defined$ You | LifeAmount$ Y")
+		if got, want := g.Player(p).Life, 20+rolls[pick]-rolls[1-pick]; got != want {
+			t.Errorf("pick %d of %v: life = %d, want %d", pick, rolls, got, want)
+		}
+	}
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueDieResult(2)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ RollDice | Amount$ 2 | Sides$ 20 | ChosenSVar$ X"); err == nil {
+		t.Error("an answer past the rolls succeeded, want an error")
 	}
 }

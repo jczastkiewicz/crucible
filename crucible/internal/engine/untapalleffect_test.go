@@ -131,9 +131,9 @@ func TestUntapAllEffectRememberUntapped(t *testing.T) {
 	}
 }
 
-// TestUntapAllEffectRejectsUnresolvedParam proves untapAllUnresolvedParams'
-// own fail-loud contract (PORT-8/GO-7).
-func TestUntapAllEffectRejectsUnresolvedParam(t *testing.T) {
+// TestUntapAllEffectIgnoresPlaneswalkerFlag proves Planeswalker$ (the loyalty
+// cost flag activateability.go reads) no longer refuses the line.
+func TestUntapAllEffectIgnoresPlaneswalkerFlag(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
@@ -142,8 +142,7 @@ func TestUntapAllEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBUntapAll(t, g, p, etbUntapAllTriggerDefParams(t, "Test UntapAll Planeswalker", "ValidCards$ Creature | Planeswalker$ True"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Planeswalker$")
+	if _, err := castETBUntapAll(t, g, p, etbUntapAllTriggerDefParams(t, "Test UntapAll Planeswalker", "ValidCards$ Creature | Planeswalker$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 }

@@ -517,6 +517,10 @@ func (c *scriptedMulliganController) ChooseSticker(_ *engine.Game, _ engine.Play
 	panic("scriptedMulliganController: ChooseSticker was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChooseDieResult(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []int) int {
+	panic("scriptedMulliganController: ChooseDieResult was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChooseRollToSwap(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, _ []int) int {
 	panic("scriptedMulliganController: ChooseRollToSwap was not expected to be called")
 }

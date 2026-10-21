@@ -85,7 +85,6 @@ func TestDigEffectRejectsUnresolvedShapes(t *testing.T) {
 	for _, line := range []string{
 		"DB$ Dig | DigNum$ 3 | FromBottom$ True",
 		"DB$ Dig | DigNum$ 3 | LibraryPosition$ 2",
-		"DB$ Dig | DigNum$ 3 | ChangeValid$ Creature.ChosenType",
 		"DB$ Dig | DigNum$ Bogus",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
@@ -171,4 +170,54 @@ func TestDigEffectSecondaryShapes(t *testing.T) {
 			t.Fatalf("ResolveStack: %v", err)
 		}
 	})
+}
+
+// TestDigEffectChoserNamesTheChooserAndRecordsIt proves Choser$ (DigEffect.
+// java:215-222): the named player picks, and SetChosenPlayer$ records them on
+// the host for the rest of the chain (Allure of the Unknown).
+func TestDigEffectChoserNamesTheChooserAndRecordsIt(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	lib := libraryCards(t, g, p, 3)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{lib[1]})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Choser Dig",
+		"DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | Choser$ Opponent | SetChosenPlayer$ True | DestinationZone$ Exile | DestinationZone2$ Graveyard | SkipReorder$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(lib[1]).Zone; z != engine.Exile {
+		t.Errorf("picked zone = %v, want Exile", z)
+	}
+	if got := g.Card(host).Memory.ChosenPlayer(); got != other {
+		t.Errorf("chosen player = %v, want the opponent %v", got, other)
+	}
+}
+
+// TestDigEffectChangeValidChosenTypeReadsTheHostsType proves
+// ChangeValid$ Card.ChosenType (Winding Way, Vigean Intuition): the cards of
+// the type the host chose go to the hand, the rest to the graveyard.
+func TestDigEffectChangeValidChosenTypeReadsTheHostsType(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	lib := libraryCards(t, g, p, 2)
+	other := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueOption(0)
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Winding Way",
+		"DB$ ChooseType | Defined$ You | Type$ Creature | ValidTypes$ Elf | SubAbility$ DBDig",
+		"DBDig", "DB$ Dig | DigNum$ 3 | ChangeNum$ All | ChangeValid$ Card.ChosenType | DestinationZone2$ Graveyard | SkipReorder$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range lib {
+		if z := g.Card(id).Zone; z != engine.Hand {
+			t.Errorf("creature zone = %v, want Hand", z)
+		}
+	}
+	if z := g.Card(other).Zone; z != engine.Graveyard {
+		t.Errorf("land zone = %v, want Graveyard", z)
+	}
 }

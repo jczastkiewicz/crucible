@@ -372,6 +372,9 @@ type Game struct {
 	// mayPlayUses counts the casts this turn through each MayPlayLimit$
 	// grant (castoptions.go).
 	mayPlayUses map[mayPlayLimitKey]mayPlayUse
+	// charmModes are the modes each Charm with a ChoiceRestriction$ has
+	// chosen (charmrestriction.go).
+	charmModes map[charmModeKey]charmModeLists
 
 	// dayTime is Game.daytime: DayNeither until something makes it day or
 	// night (DayTime, CR 726.2), then Day or Night.
@@ -1578,6 +1581,7 @@ func (g *Game) Clone() *Game {
 		exileGrants:           append([]ExilePlayGrant(nil), g.exileGrants...),
 		mayPlay:               append([]mayPlayGrant(nil), g.mayPlay...),
 		mayPlayUses:           cloneMayPlayUses(g.mayPlayUses),
+		charmModes:            cloneCharmModes(g.charmModes),
 		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
 		castLastTurn:          append([]castRecord(nil), g.castLastTurn...),
 		startingPlayer:        g.startingPlayer,
@@ -1767,6 +1771,40 @@ type counterRemoval struct {
 type activationRecord struct {
 	ability Ability
 	host    Card
+}
+
+// charmModeKey is Card's per-ability map key: the card and the Charm's
+// compiled ability (Java's "original" SpellAbility, which a trigger's copy
+// and a cast's copy both resolve to).
+type charmModeKey struct {
+	Host  CardID
+	Charm *compile.Ability
+}
+
+// charmModeLists are the four lists Card keeps per Charm: the modes chosen
+// this turn, this game, this combat and during the last combat of the
+// controller. A mode is its SVar name; Java keys them by SpellDescription$,
+// which the corpus keeps distinct per mode.
+type charmModeLists struct {
+	turn, game, combat, lastCombat []string
+}
+
+func (l charmModeLists) clone() charmModeLists {
+	return charmModeLists{
+		turn: append([]string(nil), l.turn...), game: append([]string(nil), l.game...),
+		combat: append([]string(nil), l.combat...), lastCombat: append([]string(nil), l.lastCombat...),
+	}
+}
+
+func cloneCharmModes(m map[charmModeKey]charmModeLists) map[charmModeKey]charmModeLists {
+	if m == nil {
+		return nil
+	}
+	out := make(map[charmModeKey]charmModeLists, len(m))
+	for k, v := range m {
+		out[k] = v.clone()
+	}
+	return out
 }
 
 // cloneMayPlayUses copies the counter map for Game.Clone.

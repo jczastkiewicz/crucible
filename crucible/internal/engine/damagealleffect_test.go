@@ -143,3 +143,52 @@ func TestDamageAllEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved Ultimate$")
 	}
 }
+
+// TestDamageAllEffectValidTgtsNarrowsCardsToTargetedPlayer proves
+// DamageAllEffect.java:62,76-78: the targeted player's battlefield only, and
+// ValidPlayers$ Targeted still reaches the player (Chandra's Flame Wave).
+func TestDamageAllEffectValidTgtsNarrowsCardsToTargetedPlayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	mine := g.NewCard(creatureDefPT(t, "2", "10"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "10"), other, engine.Battlefield)
+
+	_, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.PlayerEntity(other)},
+		"DB$ DamageAll | ValidTgts$ Player | NumDmg$ 2 | ValidPlayers$ Targeted | ValidCards$ Creature")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got := g.Card(theirs).Damage.Marked; got != 2 {
+		t.Errorf("targeted player's creature damage = %d, want 2", got)
+	}
+	if got := g.Card(mine).Damage.Marked; got != 0 {
+		t.Errorf("other creature damage = %d, want 0", got)
+	}
+	if got := g.Player(other).Life; got != 18 {
+		t.Errorf("targeted player life = %d, want 18", got)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("caster life = %d, want 20", got)
+	}
+}
+
+// TestDamageAllEffectValidPlayersOppNon proves AbilityUtils'
+// "OppNon<spec>": every opponent but the players <spec> names.
+func TestDamageAllEffectValidPlayersOppNon(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	_, err := castETBDamageAll(t, g, p, etbDamageAllTriggerDefParams(t, "Test DamageAll OppNon", "NumDmg$ 3 | ValidPlayers$ OppNonYou"), engine.NewScriptedController())
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life; got != 17 {
+		t.Errorf("opponent life = %d, want 17 (OppNonYou excludes only the caster)", got)
+	}
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("caster life = %d, want 20", got)
+	}
+}

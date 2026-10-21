@@ -29,16 +29,13 @@ import (
 
 // moveCounterUnresolvedParams names CountersMoveEffect's own params this
 // port does not evaluate. Every one fails the whole line loudly (PORT-8/
-// GO-7): TargetMin$/TargetMax$ (7/7, always literal 2 in the real corpus) --
-// the two-target-source shape (the ability's own FIRST target is the
-// source, not Source$), a distinct branch this file does not resolve;
-// ValidSource$/ValidDefined$ (0/0, defensive) -- the "many sources to one
+// GO-7): ValidSource$/ValidDefined$ (0/0, defensive) -- the "many sources to one
 // destination"/"one source to many destinations" branches, above, listed
 // even at zero real lines rather than silently misreading either as a
 // plain Source$ value; NonZero$ (1) -- CounterNum$ Any's own "at least one"
 // floor, moot on its own since CounterNum$ Any already fails below.
 var moveCounterUnresolvedParams = [...]string{
-	"TargetMin", "TargetMax", "ValidSource", "ValidDefined", "NonZero",
+	"ValidSource", "ValidDefined", "NonZero",
 }
 
 // moveCounterEffect resolves Mode$/DB$/AB$ MoveCounter for the one-source,
@@ -87,25 +84,35 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		}
 	}
 
-	sourceParam, ok := a.Params.Param("Source")
-	if !ok {
-		sourceParam = "Self"
-	}
-	srcCards, err := definedCards(source, sourceParam, a.refs())
-	if err != nil {
-		return fmt.Errorf("engine: MoveCounter: Source$: %w", err)
-	}
-	if len(srcCards) == 0 {
-		return nil
-	}
-	src := srcCards[0]
-	if !g.Card(src).Counters.Any() {
-		return nil
-	}
-
 	destCards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: MoveCounter: %w", err)
+	}
+	var src CardID
+	_, targeting := a.Params.Param("ValidTgts")
+	if minTargets, _ := a.Params.Param("TargetMin"); targeting && minTargets == "2" {
+		// CountersMoveEffect.java:229-233: with two targets the first is
+		// the source and the rest receive.
+		if len(destCards) < 2 {
+			return nil
+		}
+		src, destCards = destCards[0], destCards[1:]
+	} else {
+		sourceParam, ok := a.Params.Param("Source")
+		if !ok {
+			sourceParam = "Self"
+		}
+		srcCards, err := definedCards(source, sourceParam, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: MoveCounter: Source$: %w", err)
+		}
+		if len(srcCards) == 0 {
+			return nil
+		}
+		src = srcCards[0]
+	}
+	if !g.Card(src).Counters.Any() {
+		return nil
 	}
 
 	for _, dest := range destCards {

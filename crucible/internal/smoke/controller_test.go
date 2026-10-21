@@ -123,9 +123,22 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 	if got := c.ChooseModesForAbility(g, p, a, []string{"x", "y", "z"}, 2, 2); len(got) != 2 {
 		t.Errorf("modes = %v", got)
 	}
+	if got := c.ChooseModesForAbility(g, p, a, []string{"x", "y"}, 3, 3); len(got) != 3 || got[2] != 0 {
+		t.Errorf("repeating modes = %v, want 3 cycling over 2", got)
+	}
 	if c.ChooseProtectionType(g, p, a, []string{"x"}) != 0 || c.ChooseOption(g, p, a, []string{"x"}) != 0 ||
 		c.ChooseSector(g, p, a, []string{"x"}) != 0 || c.ChooseReplacementEffect(g, p, nil) != 0 {
 		t.Error("index choices take the first option")
+	}
+	if c.ChooseSticker(g, p, a, b, []engine.StickerOption{{}}, true) != 0 || c.ChooseSticker(g, p, a, b, nil, true) != -1 ||
+		c.ChooseStickerNamePosition(g, p, a, engine.StickerOption{}) != 0 {
+		t.Error("stickers take the first option, or none when none is offered")
+	}
+	if c.ChooseRollToSwap(g, p, a, []int{3, 9}) != -1 || c.ChooseRollSwapValue(g, p, a, 3, 2, 2) != -1 {
+		t.Error("roll swaps are declined")
+	}
+	if c.ChooseDieResult(g, p, a, []int{3, 9}) != 0 {
+		t.Error("die result keeps the first roll")
 	}
 	if c.ChooseRoomDoor(g, p, a, []engine.Door{engine.DoorRight, engine.DoorLeft}) != engine.DoorRight {
 		t.Error("room door")

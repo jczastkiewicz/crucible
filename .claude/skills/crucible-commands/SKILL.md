@@ -32,6 +32,8 @@ crucible/scripts/unported-apis.sh 30
 
 # How many cards the engine plays, and why the rest are refused (smoke-probe.md); ~2 min for the whole corpus
 cd crucible && go run ./cmd/crucible card-smoke -all -workers 8     # or -decks <dir> / -cards "A,B"
+# -top 80 shows the long tail (default 25). Many refusals are probe-controller artifacts (internal/smoke/controller.go:
+# repeated Charm modes, forced blocks), not engine gaps: check those first, they flip many cards at once.
 
 # After landing engine work in main: both smoke probes (corpus + precons), rewrite quoted numbers in smoke-probe.md,
 # CLAUDE.md and the open plan, before/after table

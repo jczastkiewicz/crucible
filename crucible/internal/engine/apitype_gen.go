@@ -2,7 +2,7 @@
 
 // The ability APIs, in the order Forge's ApiType enum declares them.
 //
-// 203 of them. Keeping the enum's order means a diff against upstream shows an
+// 204 of them. Keeping the enum's order means a diff against upstream shows an
 // API being added rather than every constant shifting.
 
 package engine
@@ -22,6 +22,7 @@ const (
 	APIAnimateAll
 	APIAttach
 	APIAssembleContraption
+	APIAssimilate
 	APIAssignGroup
 	APIBalance
 	APIBecomeMonarch
@@ -232,6 +233,7 @@ var apiNames = [numAPITypes]string{
 	APIAnimateAll:             "AnimateAll",
 	APIAttach:                 "Attach",
 	APIAssembleContraption:    "AssembleContraption",
+	APIAssimilate:             "Assimilate",
 	APIAssignGroup:            "AssignGroup",
 	APIBalance:                "Balance",
 	APIBecomeMonarch:          "BecomeMonarch",

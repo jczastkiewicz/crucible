@@ -1,12 +1,15 @@
 package engine
 
-//enginelint:allow game ability control effecthelpers card condition id zone valid defined parts effecteffect cloneeffect facedown
+//enginelint:allow game ability control effecthelpers card condition id zone valid defined parts effecteffect cloneeffect facedown amount
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb"
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -36,7 +39,7 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return err
 	}
 	if err := rejectParams(a, "SetState", "RevealFirst", "ValidNewFace", "NewState",
-		"FaceDownPower", "FaceDownToughness", "FaceDownSetType", "ETB"); err != nil {
+		"ETB"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -116,7 +119,11 @@ func (setStateEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		case mode == "Flip":
 			changed = g.flip(id)
 		case mode == "TurnFaceDown":
-			changed = g.turnFaceDown(id)
+			if changed = g.turnFaceDown(id); changed {
+				if err := g.setFaceDownState(a, source, c); err != nil {
+					return err
+				}
+			}
 		case c.IsFaceDown() && g.canBeTurnedFaceUp(id) && c.faceUpDef.Faces[0].Type.IsPermanent():
 			c.turnFaceUp()
 			// CR 613.7f: a permanent turned face up gets a new timestamp
@@ -270,4 +277,36 @@ func (g *Game) transform(id CardID) bool {
 	c.Timestamp = g.timestamp
 	c.Transforms++
 	return true
+}
+
+// setFaceDownState is CardFactoryUtil.setFaceDownState (:4129-4160) for a
+// card SetState just turned face down: FaceDownPower$/FaceDownToughness$ set
+// the printed values (read with the host, not the card, as the source),
+// FaceDownSetType$ ("A & B") replaces the types. SetStateEffect.java:177-178
+// never passes FaceDownKeyword$, so it is not read here either.
+func (g *Game) setFaceDownState(a *Ability, host, c *Card) error {
+	face := &c.Def.Faces[0]
+	for _, e := range [...]struct {
+		key string
+		dst *string
+	}{{"FaceDownPower", &face.Power}, {"FaceDownToughness", &face.Toughness}} {
+		key, dst := e.key, e.dst
+		raw, ok := a.Params.Param(key)
+		if !ok {
+			continue
+		}
+		v, ok := resolveNamedAmount(g, a.Amounts, host, raw)
+		if !ok {
+			return fmt.Errorf("engine: SetState: %s$ %q is not resolvable", key, raw)
+		}
+		*dst = strconv.Itoa(v)
+	}
+	if raw, ok := a.Params.Param("FaceDownSetType"); ok {
+		var line cardtype.Line
+		for _, word := range strings.Split(raw, " & ") {
+			line = line.Union(cardtype.ParseToken(word))
+		}
+		face.Type = line
+	}
+	return nil
 }

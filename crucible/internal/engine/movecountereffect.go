@@ -9,7 +9,8 @@
 // ValidSource$, many sources to the first destination. CounterNum$ Any asks
 // the activator which sources (ChooseCardsForEffect, ValidSource$ only) and how
 // many counters of each kind (ChooseNumber, 0 to what the source holds); the
-// ValidDefined$ branch and CounterType$ Any fail loudly.
+// ValidDefined$ branch fails loudly. CounterType$ Any has the activator pick
+// the kind (Source$ shape only; with ValidSource$ it fails loudly).
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/CountersMoveEffect.java's
@@ -23,6 +24,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -56,11 +58,13 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		return fmt.Errorf("engine: MoveCounter: CounterType$ missing")
 	}
 	var counterType CounterType
-	allKinds := false
+	allKinds, chooseKind := false, false
 	switch {
 	case strings.EqualFold(counterTypeRaw, "All"):
 		allKinds = true
-	case strings.Contains(counterTypeRaw, ","), strings.EqualFold(counterTypeRaw, "Any"), strings.EqualFold(counterTypeRaw, "EachNotOn"):
+	case strings.EqualFold(counterTypeRaw, "Any"):
+		chooseKind = true
+	case strings.Contains(counterTypeRaw, ","), strings.EqualFold(counterTypeRaw, "EachNotOn"):
 		return fmt.Errorf("engine: MoveCounter: CounterType$ %q not resolvable yet", counterTypeRaw)
 	default:
 		counterType = CounterType(strings.ToUpper(counterTypeRaw))
@@ -96,6 +100,9 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		srcCards, err := phasesValidCards(g, a, spec, false)
 		if err != nil {
 			return fmt.Errorf("engine: MoveCounter: ValidSource$: %w", err)
+		}
+		if chooseKind {
+			return fmt.Errorf("engine: MoveCounter: CounterType$ %q with ValidSource$ not resolvable yet", counterTypeRaw)
 		}
 		dest := destCards[0]
 		if anyAmount {
@@ -151,7 +158,39 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		if dest == src {
 			continue
 		}
+		if chooseKind {
+			if err := moveChosenKinds(g, controller, a, src, dest, anyAmount, allAmount, amount); err != nil {
+				return err
+			}
+			continue
+		}
 		moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, anyAmount, amount)
+	}
+	return nil
+}
+
+// moveChosenKinds is CountersMoveEffect.java:280-306, CounterType$ Any: the
+// activator picks a kind among those src holds, and that kind moves; under
+// CounterNum$ Any the loop goes on with the remaining kinds, otherwise it stops.
+// Java never drops a kind that moved nothing, so an exhausted kind is still
+// offered and moves nothing (moveOneCounterKind returns on an empty count).
+func moveChosenKinds(g *Game, controller PlayerController, a *Ability, src, dest CardID, anyAmount, allAmount bool, amount int) error {
+	srcCounters := &g.Card(src).Counters
+	kinds := srcCounters.Kinds()
+	for len(kinds) > 0 {
+		names := make([]string, len(kinds))
+		for i, k := range kinds {
+			names[i] = string(k)
+		}
+		i := controller.ChooseOption(g, a.Controller, a.Source, names)
+		if i < 0 || i >= len(kinds) {
+			return fmt.Errorf("engine: MoveCounter: counter kind choice %d out of range", i)
+		}
+		moveOneCounterKind(g, controller, a.Controller, a.Source, src, dest, srcCounters, kinds[i], allAmount, anyAmount, amount)
+		if !anyAmount {
+			break
+		}
+		kinds = slices.Delete(kinds, i, i+1)
 	}
 	return nil
 }

@@ -513,3 +513,11 @@ method and the filter from `Destroy$` in both branches.
 `DigUntilEffect.java:181` is an `else if`: with `MinTotalCMC$` set nothing is ever "found", so `Valid$`, the `Amount$`
 threshold (`:192`), `FoundDestination$` outside the sequential shape, `RememberFound$` and `ImprintFound$` never act. The
 three corpus lines all use equal destinations, so only the sequential shape works; Crucible refuses the rest.
+
+`SetStateEffect.java:177-178` passes `FaceDownPower$`, `FaceDownToughness$` and `FaceDownSetType$` to
+`CardFactoryUtil.setFaceDownState` but not `FaceDownKeyword$`, which `CardFactoryUtil.java:4147` handles: the param never
+reaches its effect. No corpus line carries it, so Crucible ignores it the same way.
+
+`ChangeZoneEffect.java:1416-1431` (hidden origin, Destination Exile) reads `ExileFaceDown$` only; `FaceDown$` is read for a
+battlefield destination (`:1396`) and on the known path (`:757`). Tezzeret's Reckoning (`FaceDown$ True`, Origin Library)
+exiles its three cards face up. Crucible refuses `FaceDown$` on ChangeZone until this is fixed upstream.

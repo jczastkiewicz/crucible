@@ -335,3 +335,53 @@ func TestMoveCounterEffectTwoTargetsAnyAsksHowMany(t *testing.T) {
 		t.Errorf("source P1P1 = %d, want %d", got, want)
 	}
 }
+
+// TestMoveCounterTypeAnyAsksForTheKind proves CounterType$ Any
+// (CountersMoveEffect.java:280-306): with CounterNum$ 1 the activator names
+// one kind and one counter of it moves; with CounterNum$ Any every kind is
+// offered in turn and the activator chooses how many of each.
+func TestMoveCounterTypeAnyAsksForTheKind(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, num string
+		option    int
+		numbers   []int
+		wantP1    int
+		wantLoy   int
+	}{
+		{"one counter of the chosen kind", "1", 1, nil, 0, 1},
+		{"every kind, chosen amounts", "Any", 0, []int{2, 0}, 2, 0},
+	} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		dest := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+		def := etbMoveCounterTriggerDefParams(t, "Test Move Any", "CounterType$ Any | CounterNum$ "+tc.num+" | ValidTgts$ Creature")
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(dest)})
+		c.QueueOption(tc.option)
+		if tc.num == "Any" {
+			c.QueueOption(0) // the kind left after the first
+		}
+		for _, n := range tc.numbers {
+			c.QueueNumberChoice(n)
+		}
+		g.Player(p).ManaPool.Add(mana.Green, 1)
+		host := g.NewCard(def, p, engine.Hand)
+		g.Card(host).Counters.Add(engine.P1P1, 3)
+		g.Card(host).Counters.Add(engine.CounterType("LOYALTY"), 1)
+		if !g.CastSpell(p, host, c) {
+			t.Fatal("CastSpell failed")
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("%s: ResolveStack: %v", tc.name, err)
+		}
+		if got := g.Card(dest).Counters.Count(engine.P1P1); got != tc.wantP1 {
+			t.Errorf("%s: P1P1 on the target = %d, want %d", tc.name, got, tc.wantP1)
+		}
+		if got := g.Card(dest).Counters.Count(engine.CounterType("LOYALTY")); got != tc.wantLoy {
+			t.Errorf("%s: LOYALTY on the target = %d, want %d", tc.name, got, tc.wantLoy)
+		}
+	}
+}

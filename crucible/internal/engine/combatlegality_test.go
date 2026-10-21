@@ -285,8 +285,8 @@ func TestMustAttackStaticRejectsUnportedShapes(t *testing.T) {
 		{"Mode$ MustAttack | ValidCreature$ Card.Self | Condition$ MaxSpeed", `Condition$ "MaxSpeed" not resolvable yet`},
 		{"Mode$ MustAttack | ValidCreature$ Card.Self | AffectedZone$ Graveyard", `AffectedZone$ "Graveyard" not resolvable yet`},
 		{"Mode$ MustAttack | ValidCreature$ Card.Self | MustAttack$ Player.Allies", "MustAttack$"},
-		{"Mode$ AttackRequirement | ValidCard$ Creature | ValidAttacker$ Creature", "Mode$ AttackRequirement static not resolvable yet"},
-		{"Mode$ PlayerMustAttack | ValidPlayer$ Player | MustAttack$ Player", "Mode$ PlayerMustAttack static not resolvable yet"},
+		{"Mode$ MustAttack | ValidCreature$ Card.Self | ValidAttacker$ Creature", "ValidAttacker$ not resolvable yet"},
+		{"Mode$ PlayerMustAttack | ValidPlayer$ Player | Bogus$ 1", "Bogus$ not resolvable yet"},
 	} {
 		g, a, _ := combatGame(t)
 		g.NewCard(combatCreatureDef(t, "Odd", []string{tc.static}, nil), a, engine.Battlefield)

@@ -55,3 +55,35 @@ func TestCharmModeCountAndBounds(t *testing.T) {
 		})
 	}
 }
+
+// Optional$ asks the activator before any mode is chosen (CharmEffect.java:
+// 240-243): a decline casts nothing, an accept goes on to the mode choice.
+func TestCharmOptionalAsksBeforeTheModes(t *testing.T) {
+	t.Parallel()
+
+	for _, accept := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.Player(p).Life = 20
+		spell := g.NewCard(copyTestDef(t, "Test Optional Charm", "Instant", "", "",
+			"Cost:G", "A:SP$ Charm | Choices$ DBA | CharmNum$ 1 | Optional$ True",
+			"SVar:DBA:DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Hand)
+		g.Player(p).ManaPool.Add(mana.Green, 1)
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		if accept {
+			c.QueueModeChoice([]int{0})
+		}
+		ok := g.CastSpell(p, spell, c)
+		if ok != accept {
+			t.Fatalf("accept=%v: cast = %v", accept, ok)
+		}
+		if ok {
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatal(err)
+			}
+			if got := g.Player(p).Life; got != 21 {
+				t.Errorf("life = %d, want 21", got)
+			}
+		}
+	}
+}

@@ -20,13 +20,13 @@ import (
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// Optional$, Chooser$ (an opponent chooses), Random$
+// Chooser$ (an opponent chooses), Random$
 // Compare, Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
 // dead script param, forge-java-defects.md and card-script-defects.md; refused until
 // the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
 // activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
-	"Optional", "Chooser", "RandomCompare", "RandomCompareSVar", "Defined",
+	"Chooser", "RandomCompare", "RandomCompareSVar", "Defined",
 }
 
 // chooseCharmModes is makeChoices, run from pushTriggeredAbilities before
@@ -99,6 +99,11 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 	}
 
+	if _, ok := a.Params.Param("Optional"); ok && !controller.ConfirmEffect(g, a.Controller, a.Source) {
+		// CharmEffect.java:240-243: asked after the mode count is known to be
+		// reachable, before Random$ or any mode is chosen.
+		return false, nil
+	}
 	var chosen []int
 	if random, ok := a.Params.Param("Random"); ok {
 		if random != "True" || repeat {

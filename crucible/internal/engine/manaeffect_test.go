@@ -176,3 +176,25 @@ func TestManaEffectSeveralColorsAddsOneOfEach(t *testing.T) {
 		t.Errorf("breakdown = %v, want 2 red and 2 green", got)
 	}
 }
+
+// TestManaEffectComboAnyAsksForEachMana proves Produced$ Combo Any (Cosmic
+// Crucible's four mana): one color choice per mana from all five colors,
+// so two different answers give two different colors.
+func TestManaEffectComboAnyAsksForEachMana(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Red)
+	c.QueueManaColor(mana.Green)
+	if _, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Combo Any", "Produced$ Combo Any | Amount$ 2 | Defined$ You"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).ManaPool.Breakdown(); got[3] != 1 || got[4] != 1 {
+		t.Errorf("pool = %v, want one red and one green", got)
+	}
+}

@@ -106,14 +106,23 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			pool.addProduced(producedMana{color: color, amount: amount}, src)
 		case strings.HasPrefix(produced, "Combo "):
 			options, comboOK := parseComboColors(produced)
+			if produced == "Combo Any" {
+				// AbilityManaPart.getComboColors: isAnyMana answers "W U B R G".
+				options, comboOK = mana.AllColors, true
+			}
 			if !comboOK {
 				return fmt.Errorf("engine: Mana: Produced$ %q not resolvable yet", produced)
 			}
-			color := controller.ChooseManaColor(g, pid, a.Source, options)
-			if color.Count() != 1 || !options.Has(color) {
-				return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color from the offered set")
+			// ManaEffect.java:113-139: one color choice per mana. Java's
+			// specifyManaCombo answers the whole Amount$ at once when it is
+			// above 1; this port has the one prompt, asked amount times.
+			for range amount {
+				color := controller.ChooseManaColor(g, pid, a.Source, options)
+				if color.Count() != 1 || !options.Has(color) {
+					return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color from the offered set")
+				}
+				pool.addProduced(producedMana{color: color, amount: 1}, src)
 			}
-			pool.addProduced(producedMana{color: color, amount: amount}, src)
 		default:
 			// "R G" is one mana of each color named, Amount$ times over
 			// (GameActionUtil.generatedMana repeats the whole string).

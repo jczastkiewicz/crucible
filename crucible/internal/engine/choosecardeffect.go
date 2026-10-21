@@ -15,7 +15,7 @@ import (
 // cannot honour yet: the alternative selection loops (EachBasicType$/
 // WithTotalPower$/WithDifferentPowers$/EachDifferentPower$/
 // ControlAndNot$; ChooseEach$ resolves, chooseEachCards), the non-default choice pools (AllCards$,
-// IncludeSpellsOnStack$, TargetControls$) and ChosenMap$'s per-player map.
+// IncludeSpellsOnStack$; TargetControls$ resolves, chooseCardPool) and ChosenMap$'s per-player map.
 // 399 real (AB|DB)$ lines; the default chooseCardsForEffect shape covers
 // most of them. QuasiLibrarySearch$ resolves (chooseCardQuasiSearch);
 // AtRandom$ is Aggregates.random(pChoices, Amount) over the pool in its scan
@@ -24,7 +24,7 @@ import (
 var chooseCardUnresolvedParams = [...]string{
 	"EachBasicType", "WithTotalPower",
 	"WithDifferentPowers", "EachDifferentPower", "ControlAndNot",
-	"AllCards", "IncludeSpellsOnStack", "TargetControls",
+	"AllCards", "IncludeSpellsOnStack",
 	"ChosenMap", "ChoiceTitleAppend", "StartingWith", "Optional",
 	"UnlessResolveSubs", "LockInText", "OrString",
 	"ConditionGameTypes",
@@ -62,6 +62,18 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	choices, err := chooseCardPool(g, a, source)
 	if err != nil {
 		return err
+	}
+	if hasParam(a, "TargetControls") && !hasParam(a, "DefinedCards") {
+		// CardLists.filterControlledBy(choices, tgtPlayers), before DefinedCards$
+		// replaces the pool (ChooseCardEffect.java:73-78); the players are the
+		// choosers.
+		kept := choices[:0:0]
+		for _, cid := range choices {
+			if slices.Contains(choosers, g.Card(cid).Controller()) {
+				kept = append(kept, cid)
+			}
+		}
+		choices = kept
 	}
 
 	amountValue, ok := a.Params.Param("Amount")

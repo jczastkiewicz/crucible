@@ -324,3 +324,32 @@ func TestChooseCardEffectChooseEach(t *testing.T) {
 	}
 	_ = creature
 }
+
+// TestChooseCardEffectTargetControlsLimitsPoolToChoosers proves
+// TargetControls$ (ChooseCardEffect.java:73-75): the pool keeps only cards
+// the choosing players control, so the chooser's own creature is offered and
+// the opponent's is not.
+func TestChooseCardEffectTargetControlsLimitsPoolToChoosers(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		pick    func(mine, theirs engine.CardID) engine.CardID
+		wantErr bool
+	}{
+		{"own creature offered", func(mine, _ engine.CardID) engine.CardID { return mine }, false},
+		{"opponent creature not offered", func(_, theirs engine.CardID) engine.CardID { return theirs }, true},
+	} {
+		g, p, other := newTwoPlayerGame(t)
+		mine := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+		theirs := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{tc.pick(mine, theirs)})
+		def := etbChainDef(t, "Test ChooseCard TargetControls",
+			"DB$ ChooseCard | Choices$ Creature | TargetControls$ True | Mandatory$ True | RememberChosen$ True")
+		_, err := castETBChain(t, g, p, def, c)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s: ResolveStack error = %v, want error %v", tc.name, err, tc.wantErr)
+		}
+	}
+}

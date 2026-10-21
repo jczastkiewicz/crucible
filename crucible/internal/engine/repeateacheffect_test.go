@@ -103,15 +103,15 @@ func TestRepeatEachEffectStartingWithOrdersPlayers(t *testing.T) {
 	}
 }
 
-// TestRepeatEachEffectRejectsUnresolvedParam proves ChooseOrder$ fails closed.
+// TestRepeatEachEffectRejectsUnresolvedParam proves LoseLifeMap$ fails closed.
 func TestRepeatEachEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test RepeatEach Bad", "DB$ RepeatEach | RepeatPlayers$ Player | ChooseOrder$ True | RepeatSubAbility$ DBLose",
+	def := etbChainDef(t, "Test RepeatEach Bad", "DB$ RepeatEach | RepeatPlayers$ Player | LoseLifeMap$ True | RepeatSubAbility$ DBLose",
 		"DBLose", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 1")
 	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseOrder$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved LoseLifeMap$")
 	}
 }
 
@@ -129,5 +129,45 @@ func TestRepeatEachEffectDamageMapDealsOnceAfterTheLoop(t *testing.T) {
 	}
 	if g.Player(p).Life != 18 || g.Player(other).Life != 18 {
 		t.Errorf("life = %d/%d, want 18/18", g.Player(p).Life, g.Player(other).Life)
+	}
+}
+
+// TestRepeatEachEffectChooseOrderLetsTheChooserOrderTheCards proves ChooseOrder$
+// True (RepeatEachEffect.java:92-96): the activator's order, not the zone's, is
+// the order the sub-ability sees the cards in (the last card sent to the
+// library ends on top); an answer that is not a permutation of the cards is an
+// error.
+func TestRepeatEachEffectChooseOrderLetsTheChooserOrderTheCards(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		answer  func(a, b engine.CardID) []engine.CardID
+		top     func(a, b engine.CardID) engine.CardID
+		wantErr bool
+	}{
+		{"reversed", func(a, b engine.CardID) []engine.CardID { return []engine.CardID{b, a} }, func(a, _ engine.CardID) engine.CardID { return a }, false},
+		{"as listed", func(a, b engine.CardID) []engine.CardID { return []engine.CardID{a, b} }, func(_, b engine.CardID) engine.CardID { return b }, false},
+		{"not a permutation", func(a, _ engine.CardID) []engine.CardID { return []engine.CardID{a, a} }, nil, true},
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		first := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+		second := g.NewCard(creatureDefPT(t, "1", "2"), p, engine.Battlefield)
+		c := engine.NewScriptedController()
+		c.QueueCardOrder(tc.answer(first, second))
+		def := etbChainDef(t, "Test RepeatEach Order",
+			"DB$ RepeatEach | RepeatCards$ Creature.Other+YouCtrl | ChooseOrder$ True | RepeatSubAbility$ DBBack",
+			"DBBack", "DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Library")
+		_, err := castETBChain(t, g, p, def, c)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s: ResolveStack error = %v, want error %v", tc.name, err, tc.wantErr)
+			continue
+		}
+		if tc.wantErr {
+			continue
+		}
+		if lib := g.Zone(engine.Library, p).Cards(); len(lib) != 2 || lib[0] != tc.top(first, second) {
+			t.Errorf("%s: library = %v, want %d on top", tc.name, lib, tc.top(first, second))
+		}
 	}
 }

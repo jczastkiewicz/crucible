@@ -421,6 +421,9 @@ func (*Controller) ChooseRollToSwap(*engine.Game, engine.PlayerID, engine.CardID
 	return -1
 }
 
+// ChooseDieResult keeps the first roll.
+func (*Controller) ChooseDieResult(*engine.Game, engine.PlayerID, engine.CardID, []int) int { return 0 }
+
 // ChooseRollSwapValue declines both stats.
 func (*Controller) ChooseRollSwapValue(*engine.Game, engine.PlayerID, engine.CardID, int, int, int) int {
 	return -1

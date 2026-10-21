@@ -4,7 +4,6 @@ package engine
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -50,14 +49,6 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		}
 		zone = z
 	}
-	libPos := 0
-	if raw, ok := a.Params.Param("LibraryPosition"); ok {
-		n, err := strconv.Atoi(raw)
-		if err != nil || (n != 0 && n != -1) {
-			return fmt.Errorf("engine: MakeCard: LibraryPosition$ %q not resolvable", raw)
-		}
-		libPos = n
-	}
 	for _, p := range players {
 		if hasParam(a, "Optional") && hasParam(a, "OptionPrompt") && !controller.ConfirmEffect(g, p, a.Source) {
 			return nil
@@ -99,6 +90,12 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			var enter []enterCounters
 			if withCounter && zone == Battlefield {
 				enter = append(enter, enterCounters{kind: counterType, n: counterNum, placer: p})
+			}
+			// calculateAmount runs per made card (MakeCardEffect.java:200), so a
+			// Count$Random position re-rolls for each.
+			libPos, err := libraryPosition(g, a, source)
+			if err != nil {
+				return fmt.Errorf("engine: MakeCard: %w", err)
 			}
 			g.moveByEffect(controller, id, zone, libPos, NoPlayer, g.Card(id).Tapped, enter...)
 			if withCounter && zone != Battlefield {

@@ -10,10 +10,10 @@ import (
 )
 
 // rollDiceUnresolvedParams are RollDiceEffect params this port does not
-// model: rerolls, attraction visits, stored rolls, a chosen result, and
+// model: rerolls, attraction visits, stored rolls and
 // the per-roll sub-abilities.
 var rollDiceUnresolvedParams = [...]string{
-	"RerollResults", "ToVisitYourAttractions", "StoreResults", "ChosenSVar", "OtherSVar"}
+	"RerollResults", "ToVisitYourAttractions", "StoreResults"}
 
 // rollDiceEffect is RollDiceEffect.java (CR 706): each target or Defined$
 // player (default You) rolls Amount$ (default 1) Sides$-sided dice (default
@@ -165,6 +165,26 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 	}
 	if name, ok := a.Params.Param("ResultSVar"); ok {
 		bind(name, total)
+	}
+	if name, ok := a.Params.Param("ChosenSVar"); ok && len(final) > 0 {
+		// chooseNumber over the rolls (RollDiceEffect.java:501-516); OtherSVar$ is
+		// the first roll differing from the pick, else the first roll.
+		i := controller.ChooseDieResult(g, pid, a.Source, append([]int(nil), final...))
+		if i < 0 || i >= len(final) {
+			return 0, fmt.Errorf("engine: RollDice: ChooseDieResult answered %d of %d rolls", i, len(final))
+		}
+		chosen := final[i]
+		bind(name, chosen)
+		if other, ok := a.Params.Param("OtherSVar"); ok {
+			o := final[0]
+			for _, r := range final[1:] {
+				if r != chosen {
+					o = r
+					break
+				}
+			}
+			bind(other, o)
+		}
 	}
 	if hasParam(a, "SubsForEach") {
 		for _, r := range final {

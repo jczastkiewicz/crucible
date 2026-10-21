@@ -127,6 +127,9 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 		c.ChooseSector(g, p, a, []string{"x"}) != 0 || c.ChooseReplacementEffect(g, p, nil) != 0 {
 		t.Error("index choices take the first option")
 	}
+	if c.ChooseDieResult(g, p, a, []int{3, 9}) != 0 {
+		t.Error("die result keeps the first roll")
+	}
 	if c.ChooseRoomDoor(g, p, a, []engine.Door{engine.DoorRight, engine.DoorLeft}) != engine.DoorRight {
 		t.Error("room door")
 	}

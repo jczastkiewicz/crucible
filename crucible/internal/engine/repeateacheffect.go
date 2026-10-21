@@ -13,11 +13,12 @@ import (
 // cannot honour yet: the stack-object and card-type loops
 // (RepeatSpellAbilities$, RepeatTypesFrom$), a delayed per-player loop
 // (NextTurnForEachPlayer$), vote amounts (AmountFromVotes$), the batched
-// life table (LoseLifeMap$), a
-// chooser-ordered loop (ChooseOrder$).
+// life table (LoseLifeMap$). ChooseOrder$ orders a card loop only (the
+// player loop and RepeatTypesFrom$'s chosen-type loop, which Java also
+// reads it for, stay as they are).
 var repeatEachUnresolvedParams = [...]string{
 	"RepeatSpellAbilities", "RepeatTypesFrom", "NextTurnForEachPlayer", "AmountFromVotes",
-	"LoseLifeMap", "ChooseOrder",
+	"LoseLifeMap",
 	"Ultimate",
 }
 
@@ -95,6 +96,26 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	if _, ok := a.Params.Param("ClearRemembered"); ok {
 		m.ClearRemembered()
+	}
+	if order, ok := a.Params.Param("ChooseOrder"); ok && len(cards) > 1 {
+		// RepeatEachEffect.java:92-96: the chooser (the activator for "True",
+		// else the first Defined$ player) orders the cards.
+		chooser := a.Controller
+		if order != "True" {
+			ps, err := definedPlayers(g, a.Controller, a.Source, order, a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: RepeatEach: ChooseOrder$: %w", err)
+			}
+			if len(ps) == 0 {
+				return fmt.Errorf("engine: RepeatEach: ChooseOrder$ %q names no player", order)
+			}
+			chooser = ps[0]
+		}
+		ordered := controller.OrderCardsForZone(g, chooser, slices.Clone(cards), None)
+		if err := checkChoice(ordered, cards, len(cards), len(cards)); err != nil {
+			return fmt.Errorf("engine: RepeatEach: ordering the cards: %w", err)
+		}
+		cards = ordered
 	}
 	if hasCards {
 		for _, id := range cards {

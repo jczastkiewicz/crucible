@@ -1,9 +1,11 @@
 package engine_test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
 // An "Else:SVar" pair inside ResultSubAbilities$ is the roll's Else ability
@@ -131,5 +133,37 @@ func TestDefinedTargetedAndYou(t *testing.T) {
 	}
 	if g.Player(p).Life != 22 || g.Player(other).Life != 21 {
 		t.Errorf("life = %d/%d, want 22/21: no player targeted names nobody", g.Player(p).Life, g.Player(other).Life)
+	}
+}
+
+// ChosenSVar$ binds the roll the roller picks and OtherSVar$ the first roll
+// that differs from it, else the first (RollDiceEffect.java:501-516), the
+// d20 "roll two dice and choose one" sorceries.
+func TestRollDiceChosenSVarBindsPickedAndOtherRoll(t *testing.T) {
+	t.Parallel()
+	r := javarand.New(1)
+	rolls := []int{int(r.Int32n(20)) + 1, int(r.Int32n(20)) + 1}
+	sort.Ints(rolls)
+	if rolls[0] == rolls[1] {
+		t.Fatalf("seed 1 rolled a double %v, the fixture needs two different rolls", rolls)
+	}
+	for pick := 0; pick < 2; pick++ {
+		g, p, _ := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		c.QueueDieResult(pick)
+		resolveLine(t, g, p, c,
+			"DB$ RollDice | Amount$ 2 | Sides$ 20 | ChosenSVar$ X | OtherSVar$ Y | SubAbility$ DBGain",
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBLose",
+			"DBLose", "DB$ LoseLife | Defined$ You | LifeAmount$ Y")
+		if got, want := g.Player(p).Life, 20+rolls[pick]-rolls[1-pick]; got != want {
+			t.Errorf("pick %d of %v: life = %d, want %d", pick, rolls, got, want)
+		}
+	}
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueDieResult(2)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ RollDice | Amount$ 2 | Sides$ 20 | ChosenSVar$ X"); err == nil {
+		t.Error("an answer past the rolls succeeded, want an error")
 	}
 }

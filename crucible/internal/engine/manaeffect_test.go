@@ -155,3 +155,24 @@ func TestManaEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved RestrictValid$")
 	}
 }
+
+// TestManaEffectSeveralColorsAddsOneOfEach proves Produced$ "R G" (Burning-Tree
+// Emissary) adds one mana per named color, Amount$ times over
+// (GameActionUtil.generatedMana repeats the whole string).
+func TestManaEffectSeveralColorsAddsOneOfEach(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	_, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Pair", "Produced$ R G | Amount$ 2 | Defined$ You"), engine.NewScriptedController())
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	got := g.Player(p).ManaPool.Breakdown()
+	if got[3] != 2 || got[4] != 2 {
+		t.Errorf("breakdown = %v, want 2 red and 2 green", got)
+	}
+}

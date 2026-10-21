@@ -185,7 +185,7 @@ func (g *Game) resetForRestart() {
 		}
 	}
 	g.delayed = nil
-	g.extraPhases = [numPhaseTypes][]PhaseType{}
+	g.extraPhases = [numPhaseTypes][]extraPhase{}
 	g.extraTurns = nil
 	g.skips = nil
 	g.preventShields = nil

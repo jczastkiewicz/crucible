@@ -690,8 +690,9 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 
 	ability := &Ability{Record: record, Name: params[0].Value, Params: params}
 	for _, p := range params {
-		if strings.EqualFold(p.Key, "ExtraTurnDelayedTrigger") && ability.Name == "AddTurn" {
-			sub, err := c.extraTurnTrigger(ability, p.Value)
+		if strings.EqualFold(p.Key, "ExtraTurnDelayedTrigger") && ability.Name == "AddTurn" ||
+			strings.EqualFold(p.Key, "ExtraPhaseDelayedTrigger") && ability.Name == "AddPhase" {
+			sub, err := c.extraTurnTrigger(ability, p.Key, p.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -768,23 +769,29 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 }
 
 // extraTurnTrigger compiles the SVar an AddTurn's `ExtraTurnDelayedTrigger$`
-// names. AddTurnEffect.java:50 parses it as a trigger line (it leads with
-// `ThisTurn$` or `Mode$`, not `DB$`) and overrides its ability with the SVar
-// `ExtraTurnDelayedTriggerExecute$` names. It is compiled here as the
-// `DB$ DelayedTrigger` line that trigger is, Execute$ pointing at the
-// override, so the engine registers it like any delayed trigger and never
-// reads script text (PORT-2).
-func (c *faceCompiler) extraTurnTrigger(a *Ability, name string) (SubRef, error) {
+// or an AddPhase's `ExtraPhaseDelayedTrigger$` (key) names.
+// AddTurnEffect.java:50 and AddPhaseEffect.java:70-74 parse it as a trigger
+// line (it leads with `ThisTurn$`, `Static$` or `Mode$`, not `DB$`) and
+// override its ability with the SVar the `...Execute$` param names (AddPhase
+// spells it `ExtraPhaseDelayedTriggerExcute$`, in Java and in every script).
+// It is compiled here as the `DB$ DelayedTrigger` line that trigger is,
+// Execute$ pointing at the override, so the engine registers it like any
+// delayed trigger and never reads script text (PORT-2).
+func (c *faceCompiler) extraTurnTrigger(a *Ability, key, name string) (SubRef, error) {
 	if c.open[name] {
-		return SubRef{}, &cycleError{key: "ExtraTurnDelayedTrigger", name: name}
+		return SubRef{}, &cycleError{key: key, name: name}
 	}
 	body, ok := c.face.SVars.Get(name)
 	if !ok {
-		return SubRef{}, fmt.Errorf("%w: ExtraTurnDelayedTrigger names %q", ErrMissingSVar, name)
+		return SubRef{}, fmt.Errorf("%w: %s names %q", ErrMissingSVar, key, name)
 	}
-	execute, ok := a.Param("ExtraTurnDelayedTriggerExecute")
+	executeKey := "ExtraTurnDelayedTriggerExecute"
+	if key == "ExtraPhaseDelayedTrigger" {
+		executeKey = "ExtraPhaseDelayedTriggerExcute"
+	}
+	execute, ok := a.Param(executeKey)
 	if !ok {
-		return SubRef{}, fmt.Errorf("%w: ExtraTurnDelayedTrigger %q without ExtraTurnDelayedTriggerExecute", ErrMissingSVar, name)
+		return SubRef{}, fmt.Errorf("%w: %s %q without %s", ErrMissingSVar, key, name, executeKey)
 	}
 	c.open[name] = true
 	defer delete(c.open, name)
@@ -793,7 +800,7 @@ func (c *faceCompiler) extraTurnTrigger(a *Ability, name string) (SubRef, error)
 		return SubRef{}, fmt.Errorf("in %q: %w", name, err)
 	}
 	ability.SVar = name
-	return SubRef{Key: "ExtraTurnDelayedTrigger", SVar: name, Ability: ability}, nil
+	return SubRef{Key: key, SVar: name, Ability: ability}, nil
 }
 
 // cycleError is ErrCycle naming the SVar the chain came back to.

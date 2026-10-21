@@ -126,7 +126,7 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ StoreSVar | SVar$ X | Type$ Calculate | Expression$ Bogus",
 		"DB$ Balance | Valid$ Creature | Zone$ Graveyard",
 		"DB$ AddPhase | ExtraPhase$ Bogus",
-		"DB$ AddPhase | ExtraPhase$ Combat | ExtraPhaseDelayedTrigger$ DBX",
+		"DB$ AddPhase | ExtraPhase$ Combat | BeforeFirstPostCombatMainEnd$ True",
 		"DB$ SkipPhase | Defined$ You | Step$ Draw | Start$ True",
 		"DB$ SkipPhase | Defined$ You | Step$ Draw | Duration$ UntilYourNextTurn",
 		"DB$ SkipPhase | Defined$ You | Step$ Bogus",

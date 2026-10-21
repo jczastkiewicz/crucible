@@ -104,7 +104,12 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 	}
 	var next PhaseType
 	if st := g.extraPhases[g.activePhase]; len(st) > 0 {
-		next = st[len(st)-1]
+		next = st[len(st)-1].phase
+		if t := st[len(st)-1].trigger; t != nil {
+			// PhaseHandler.java:208-211: an extra phase's delayed trigger
+			// is registered as the phase is entered, before it begins.
+			g.delayed = append(g.delayed, *t)
+		}
 		g.extraPhases[g.activePhase] = st[:len(st)-1]
 	} else {
 		next = PhaseType((int(g.activePhase) + 1) % numPhaseTypes)
@@ -126,7 +131,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 				g.Player(pid).damageThisTurn = [2]int{}
 				g.Player(pid).surveilThisTurn = 0
 			}
-			g.extraPhases = [numPhaseTypes][]PhaseType{}
+			g.extraPhases = [numPhaseTypes][]extraPhase{}
 			// Java zeroes these as cleanup begins (cleanupStep); a turn this port
 			// enters without its cleanup (a state set mid-turn) starts from none too.
 			g.combatsThisTurn = 0

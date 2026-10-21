@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability card condition control effecthelpers game phase
+//enginelint:allow ability card condition control effecthelpers game phase delayedtrigger additional
 
 import (
 	"fmt"
@@ -11,15 +11,17 @@ import (
 // times, the ExtraPhase$ -- Beginning (untap, upkeep, draw), Combat (the
 // six combat steps) or one named phase -- then FollowedBy$ is inserted
 // after AfterPhase$ (default the current phase), the most recent insertion
-// running first (PhaseHandler.addExtraPhase). ExtraPhaseDelayedTrigger$ and
-// BeforeFirstPostCombatMainEnd$ fail closed.
+// running first (PhaseHandler.addExtraPhase). ExtraPhaseDelayedTrigger$
+// (AddPhaseEffect.java:70-76) hangs a delayed trigger on the first phase of
+// each insertion, registered when that phase is entered.
+// BeforeFirstPostCombatMainEnd$ fails closed.
 type addPhaseEffect struct{}
 
 func (addPhaseEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "AddPhase", "ExtraPhaseDelayedTrigger", "BeforeFirstPostCombatMainEnd"); err != nil {
+	if err := rejectParams(a, "AddPhase", "BeforeFirstPostCombatMainEnd"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -62,29 +64,39 @@ func (addPhaseEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return err
 	}
+	var trigger *delayedTrigger
+	if subs := additionalAbilities(a.Params, "ExtraPhaseDelayedTrigger"); len(subs) > 0 {
+		if mode, _ := subs[0].Ability.Param("Mode"); !strings.EqualFold(mode, "Phase") {
+			return fmt.Errorf("engine: AddPhase: ExtraPhaseDelayedTrigger$ Mode$ %q not resolvable yet", mode)
+		}
+		trigger = &delayedTrigger{
+			Trigger: subs[0].Ability, Host: a.Source, Controller: a.Controller, Amounts: a.Amounts,
+			ThisTurn: true, HostTransforms: source.Transforms,
+		}
+	}
 	natural := PhaseType((int(after) + 1) % numPhaseTypes)
 	for n := num; n > 0; n-- {
-		g.addExtraPhase(after, list, natural)
+		g.addExtraPhase(after, list, natural, trigger)
 	}
 	return nil
 }
 
 // addExtraPhase is PhaseHandler.addExtraPhase: each extra phase is followed
 // by the next in list, the last by whatever already followed after (a
-// previous insertion's first phase) or else next; after is then followed by
-// list's first phase.
-func (g *Game) addExtraPhase(after PhaseType, list []PhaseType, next PhaseType) {
+// previous insertion's first phase, with its trigger) or else next; after is
+// then followed by list's first phase, which carries trigger.
+func (g *Game) addExtraPhase(after PhaseType, list []PhaseType, next PhaseType, trigger *delayedTrigger) {
 	for i, extra := range list {
 		if i < len(list)-1 {
-			g.extraPhases[extra] = append(g.extraPhases[extra], list[i+1])
+			g.extraPhases[extra] = append(g.extraPhases[extra], extraPhase{phase: list[i+1]})
 			continue
 		}
 		if st := g.extraPhases[after]; len(st) > 0 {
 			g.extraPhases[extra] = append(g.extraPhases[extra], st[len(st)-1])
 			g.extraPhases[after] = st[:len(st)-1]
 		} else {
-			g.extraPhases[extra] = append(g.extraPhases[extra], next)
+			g.extraPhases[extra] = append(g.extraPhases[extra], extraPhase{phase: next})
 		}
 	}
-	g.extraPhases[after] = append(g.extraPhases[after], list[0])
+	g.extraPhases[after] = append(g.extraPhases[after], extraPhase{phase: list[0], trigger: trigger})
 }

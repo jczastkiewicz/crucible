@@ -43,7 +43,7 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	g.exileStack(controller)
 	g.endCombat()
 	CheckStateBasedActions(g, controller)
-	g.extraPhases = [numPhaseTypes][]PhaseType{}
+	g.extraPhases = [numPhaseTypes][]extraPhase{}
 	g.activePhase = Cleanup
 	priority, err := g.beginStep(controller, false)
 	if err != nil {

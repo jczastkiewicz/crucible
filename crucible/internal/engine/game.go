@@ -341,7 +341,7 @@ type Game struct {
 	// extraPhases is PhaseHandler.extraPhases: for each phase, the stack of
 	// phases an AddPhase effect queued to follow it instead of the normal
 	// next one (last entry first). Cleared when the turn ends.
-	extraPhases [numPhaseTypes][]PhaseType
+	extraPhases [numPhaseTypes][]extraPhase
 	// skips is every SkipPhase effect in force (skipphaseeffect.go).
 	skips []skipPhase
 	// pendingSkips are the SkipPhase$ Start$ skips waiting for their upkeep.
@@ -1619,7 +1619,7 @@ func (g *Game) Clone() *Game {
 		planechaseActive:      g.planechaseActive,
 	}
 	for i := range g.extraPhases {
-		out.extraPhases[i] = append([]PhaseType(nil), g.extraPhases[i]...)
+		out.extraPhases[i] = append([]extraPhase(nil), g.extraPhases[i]...)
 	}
 	if g.rand != nil {
 		r := *g.rand
@@ -1858,4 +1858,12 @@ func (a *Ability) causeKind() string {
 type layerKey struct {
 	host CardID
 	s    *compile.Ability
+}
+
+// extraPhase is one entry of a phase's extraPhases stack: the phase that
+// follows it, and the delayed trigger registered when that phase is entered
+// (the ExtraPhase object of PhaseHandler.java:947-970 carries it).
+type extraPhase struct {
+	phase   PhaseType
+	trigger *delayedTrigger
 }

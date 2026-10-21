@@ -328,3 +328,41 @@ func TestSeekDefinedCardsTopXOfLibraryLimitsThePool(t *testing.T) {
 		t.Errorf("land: zone = %v, want Library", z)
 	}
 }
+
+// TestAddPhaseExtraPhaseDelayedTriggerFiresWithTheExtraCombat proves
+// ExtraPhaseDelayedTrigger$ (AddPhaseEffect.java:70-76, PhaseHandler.java:
+// 208-211): the delayed Mode$ Phase trigger hangs on the extra combat, so it
+// stays quiet at the turn's own combat and fires once as the extra one begins.
+func TestAddPhaseExtraPhaseDelayedTriggerFiresWithTheExtraCombat(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Extra Combat Trigger",
+		"DB$ AddPhase | ExtraPhase$ Combat | AfterPhase$ EndCombat | ExtraPhaseDelayedTrigger$ DelTrig | ExtraPhaseDelayedTriggerExcute$ TrigGain",
+		"DelTrig", "Mode$ Phase | Static$ True | Phase$ BeginCombat",
+		"TrigGain", "DB$ GainLife | LifeAmount$ 3")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	start := g.Player(p).Life
+	combats, gainedAtFirst := 0, 0
+	for g.ActivePhase() != engine.Cleanup {
+		g.AdvancePhase(c)
+		if g.ActivePhase() == engine.CombatBegin {
+			combats++
+			if combats == 1 {
+				gainedAtFirst = g.Player(p).Life - start
+			}
+		}
+	}
+	if combats != 2 {
+		t.Fatalf("combats = %d, want 2", combats)
+	}
+	if gainedAtFirst != 0 {
+		t.Errorf("life gained at the first combat = %d, want 0", gainedAtFirst)
+	}
+	if got := g.Player(p).Life - start; got != 3 {
+		t.Errorf("life gained over the turn = %d, want 3", got)
+	}
+}

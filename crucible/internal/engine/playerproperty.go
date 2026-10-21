@@ -140,6 +140,23 @@ func (g *Game) attackedDirectly(pid PlayerID) bool {
 // (SacrificedPermanentTypesThisTurn) is unresolved.
 func (g *Game) sacrificedThisTurnCount(pid PlayerID, source CardID, body string) (int, bool) {
 	head, spec, filtered := strings.Cut(body, " ")
+	if head == "SacrificedPermanentTypesThisTurn" {
+		// AbilityUtils.java:3537-3540: the permanent card types among what the
+		// player sacrificed this turn (countCardTypesFromList, permanents only).
+		var seen cardtype.Line
+		for i := range g.sacrificedThisTurn {
+			if s := &g.sacrificedThisTurn[i]; s.player == pid {
+				seen = seen.Union(s.card.Type())
+			}
+		}
+		n := 0
+		for _, t := range seen.CoreTypes() {
+			if t.IsPermanent() {
+				n++
+			}
+		}
+		return n, true
+	}
 	if head != "SacrificedThisTurn" {
 		return 0, false
 	}

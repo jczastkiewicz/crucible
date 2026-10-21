@@ -120,3 +120,50 @@ func TestCumulativeUpkeepCostsMoreEachTurn(t *testing.T) {
 		t.Errorf("after declining the third payment the creature is in %v, want Graveyard", got)
 	}
 }
+
+// Cumulative upkeep parts past mana: Thought Lash exiles cards off the top of
+// its controller's library, Wall of Shards gives an opponent life, Braid of
+// Fire adds mana (which fuels the next upkeep's spells), each once per age
+// counter.
+func TestCumulativeUpkeepLibraryLifeAndManaParts(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		card  string
+		check func(t *testing.T, g *engine.Game, p, other engine.PlayerID, libBefore int)
+	}{
+		{"Thought Lash", func(t *testing.T, g *engine.Game, p, _ engine.PlayerID, libBefore int) {
+			if got := g.Zone(engine.Library, p).Len(); got >= libBefore {
+				t.Errorf("library %d -> %d, want cards exiled off the top", libBefore, got)
+			}
+		}},
+		{"Wall of Shards", func(t *testing.T, g *engine.Game, _, other engine.PlayerID, _ int) {
+			if got := g.Player(other).Life; got != 21 {
+				t.Errorf("opponent life = %d, want 21", got)
+			}
+		}},
+		{"Braid of Fire", func(t *testing.T, g *engine.Game, p, _ engine.PlayerID, _ int) {
+			if got := g.Player(p).ManaPool.Total(); got != 1 {
+				t.Errorf("mana in the pool = %d, want the {R} the cost added", got)
+			}
+		}},
+	} {
+		t.Run(tc.card, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+			libraryCards(t, g, p, 8)
+			libraryCards(t, g, other, 8)
+			card := g.NewCard(corpusCard(t, tc.card), p, engine.Battlefield)
+			g.SetTurnState(2, p, engine.Untap)
+			c := engine.NewScriptedController()
+			c.QueueConfirmPayCost(true)
+			libBefore := g.Zone(engine.Library, p).Len()
+			toStep(t, g, c, p, engine.Upkeep, nil)
+			if got := g.Card(card).Zone; got != engine.Battlefield {
+				t.Fatalf("%s is in %v after paying, want the battlefield", tc.card, got)
+			}
+			tc.check(t, g, p, other, libBefore)
+		})
+	}
+}

@@ -75,9 +75,8 @@ func validFamilyValue(g *Game, sourceController PlayerID, source CardID, count e
 // name one earlier branch would catch never reaches a later one.
 //
 // Not measured, each false (GO-7): TapPowerValue (CardLists.getTotalPower's
-// tap-for-power replacements), AllTypes, and CreatureType/
-// PlaneswalkerType/LandType (each needs the subtype vocabulary to tell a
-// creature type from any other subtype). A property this does not recognize
+// tap-for-power replacements) and AllTypes; CreatureType/PlaneswalkerType/
+// LandType need the database's subtype vocabulary and are false without it. A property this does not recognize
 // must not fall back to a plain match count: that would be a real but wrong
 // number. CardPower and CardToughness are read only outside a layer pass
 // (Game.layering): inside one another permanent's power is itself mid-rebuild.
@@ -164,7 +163,29 @@ func handlePaid(g *Game, amounts map[string]expr.Amount, sourceController Player
 		return math(n)
 	case strings.HasPrefix(def, "CreatureType"), strings.HasPrefix(def, "PlaneswalkerType"),
 		strings.HasPrefix(def, "LandType"):
-		return 0, false
+		// AbilityUtils.java:3809-3837: the distinct subtypes of that category
+		// among the cards.
+		reg := g.db.Types()
+		if reg == nil {
+			return 0, false
+		}
+		category := cardtype.CategoryCreature
+		switch {
+		case strings.HasPrefix(def, "PlaneswalkerType"):
+			category = cardtype.CategoryPlaneswalker
+		case strings.HasPrefix(def, "LandType"):
+			category = cardtype.CategoryLand
+		}
+		var kinds []string
+		for _, c := range cards {
+			for _, t := range c.Type().Subtypes() {
+				if (category == cardtype.CategoryLand && reg.IsLandType(t) || category != cardtype.CategoryLand && reg.Is(category, t)) &&
+					indexOfString(kinds, t) < 0 {
+					kinds = append(kinds, t)
+				}
+			}
+		}
+		return math(len(kinds))
 	}
 
 	fold, perCard := sumFold, def

@@ -100,7 +100,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			return err
 		}
 	}
-	opts, err := playCost(a)
+	opts, extraCost, err := playCost(a)
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,13 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}
 			continue
 		}
-		if g.castSpell(controller, caster, pick, opts) {
+		cast := opts
+		if extraCost != "" {
+			if cast, err = playExtraCost(opts, extraCost, g.Card(pick)); err != nil {
+				return err
+			}
+		}
+		if g.castSpell(controller, caster, pick, cast) {
 			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
 		}
@@ -233,28 +239,45 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 // playCost is the cast options a's cost params give (PlayEffect.java:
 // 369-386, :420-422): WithoutManaCost$, else a PlayCost$ of plain mana paid
 // instead of the mana cost (copyWithManaCostReplaced; Madness's "X R",
-// Blue Mage's Cane's 3). PlayCost$ ManaCost, SuspendCost, a
-// ConvertedManaCost amount and a non-mana part are other mechanics, refused
-// (GO-7). The ability Madness's keyword made (PlayEffect.java:420's
+// Blue Mage's Cane's 3). A PlayCost$ with a part past mana (PayLife<
+// ConvertedManaCost>, Discard<1/Card>) replaces the mana cost with nothing
+// and is returned as extra, paid per card played (playExtraCost). PlayCost$
+// ManaCost and SuspendCost are other mechanics, refused (GO-7). The ability Madness's keyword made (PlayEffect.java:420's
 // sa.isKeyword(Keyword.MADNESS)) casts for the madness cost, which the
 // spell then carries (castOptional.madness).
-func playCost(a *Ability) (castOpts, error) {
-	opts := castOpts{withoutManaCost: hasParam(a, "WithoutManaCost")}
+func playCost(a *Ability) (opts castOpts, extra string, err error) {
+	opts = castOpts{withoutManaCost: hasParam(a, "WithoutManaCost")}
 	if a.Params.Keyword != "" && keyword.Parse(a.Params.Keyword).Name == "Madness" {
 		opts.madness = true
 	}
 	raw, ok := a.Params.Param("PlayCost")
 	if !ok || opts.withoutManaCost {
-		return opts, nil
+		return opts, "", nil
 	}
 	if !cost.Parse(raw).IsPureMana() {
-		return castOpts{}, fmt.Errorf("engine: Play: PlayCost$ %q not resolvable yet", raw)
+		// The mana cost is replaced by the non-mana one: nothing to pay in mana.
+		opts.altCost, opts.hasAltCost = mana.FromShards(nil, 0), true
+		return opts, raw, nil
 	}
 	mc, err := mana.Parse(raw)
 	if err != nil {
-		return castOpts{}, fmt.Errorf("engine: Play: PlayCost$ %q not resolvable yet", raw)
+		return castOpts{}, "", fmt.Errorf("engine: Play: PlayCost$ %q not resolvable yet", raw)
 	}
 	opts.altCost, opts.hasAltCost = mc, true
+	return opts, "", nil
+}
+
+// playExtraCost is the non-mana PlayCost$ of one card played: ConvertedManaCost
+// is that card's mana value (CostPart.getAbilityAmount), and the parts become
+// the cast's additional cost. A mana part beside them is refused.
+func playExtraCost(opts castOpts, raw string, played *Card) (castOpts, error) {
+	measure, _ := perCardMeasure("CardManaCost")
+	text := strings.ReplaceAll(raw, "ConvertedManaCost", strconv.Itoa(measure(played)))
+	uc, ok := parseUnlessCost(text)
+	if !ok || uc.hasMana {
+		return castOpts{}, fmt.Errorf("engine: Play: PlayCost$ %q not resolvable yet", raw)
+	}
+	opts.extra, opts.hasExtra = uc, true
 	return opts, nil
 }
 

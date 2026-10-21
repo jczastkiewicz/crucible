@@ -174,11 +174,11 @@ func TestWiltLeafLiegeReplacedPlayerIsRefused(t *testing.T) {
 	}
 }
 
-// Play's PlayCost$ is plain mana; anything else is refused before a card is
+// Play's PlayCost$ ManaCost is refused before a card is
 // chosen.
 func TestPlayCostPastManaIsRefused(t *testing.T) {
 	t.Parallel()
-	for _, raw := range []string{"Discard<1/Card>", "ManaCost"} {
+	for _, raw := range []string{"ManaCost"} {
 		g, p, _ := newTwoPlayerGame(t)
 		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ Play | Defined$ Self | PlayCost$ "+raw)
 		if err == nil || !strings.Contains(err.Error(), "PlayCost$") {

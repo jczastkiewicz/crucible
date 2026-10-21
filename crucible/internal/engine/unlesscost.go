@@ -167,6 +167,13 @@ type unlessCost struct {
 	// owns (a Ward, a replacement), where it names every matching player.
 	targeted    []PlayerID
 	hasTargeted bool
+	// exileTopN is ExileFromTop<N/Card>: the top N cards of the payer's library
+	// exiled (CostExile's library branch). addManaN/addManaColor are
+	// AddMana<N/Color>: the payer adds N mana of the color to their pool
+	// (CostAddMana). oppGainN is GainLife<N/Player.Opponent>: each opponent of
+	// the payer gains N life (CostGainLife).
+	exileTopN, addManaN, oppGainN int
+	addManaColor                  mana.Colors
 	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
 	manaTokens []string
 }
@@ -291,6 +298,12 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.evidenceN = n
 		case p.Name == "AddCounterYou" && uc.youCounterN == 0 && p.Field(1) != "":
 			uc.youCounterN, uc.youCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
+		case p.Name == "ExileFromTop" && uc.exileTopN == 0 && p.Field(1) == "Card":
+			uc.exileTopN = n
+		case p.Name == "AddMana" && uc.addManaN == 0 && addManaColorOf(p.Field(1)) != 0:
+			uc.addManaN, uc.addManaColor = n, addManaColorOf(p.Field(1))
+		case p.Name == "GainLife" && uc.oppGainN == 0 && p.Field(1) == "Player.Opponent":
+			uc.oppGainN = n
 		case p.Name == "DamageYou":
 			uc.damageN += n
 		case p.Name == "Draw" && p.Field(1) == "You":
@@ -1021,6 +1034,9 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.discardTypeN *= n
 	uc.movedToGraveN *= n
 	uc.exileEitherN *= n
+	uc.exileTopN *= n
+	uc.addManaN *= n
+	uc.oppGainN *= n
 	if uc.hasMana {
 		var tokens []string
 		for range n {
@@ -1041,6 +1057,24 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	}
 	uc.parsed = cost.Parse(strings.Join(repeated, " "))
 	return uc, true
+}
+
+// addManaColorOf is the color of AddMana<N/Color>'s second field, 0 for one
+// this port does not add (a type list, "Any", a combination).
+func addManaColorOf(field string) mana.Colors {
+	switch field {
+	case "W":
+		return mana.White
+	case "U":
+		return mana.Blue
+	case "B":
+		return mana.Black
+	case "R":
+		return mana.Red
+	case "G":
+		return mana.Green
+	}
+	return 0
 }
 
 // upkeepCostPaid is the Echo$ and CumulativeUpkeep$ branches of

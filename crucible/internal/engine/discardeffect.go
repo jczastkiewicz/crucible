@@ -44,9 +44,8 @@
 // reached discardedMap (DiscardEffect.java:279-281).
 //
 // Not ported, each failing the whole line before anything moves (PORT-8,
-// GO-7): UnlessType$ -- chooseCardsToDiscardUnlessType's "N cards, or one of
-// the type" selection, a constraint ChooseCardsForEffect's lo..hi contract
-// cannot express; RememberDiscardingPlayer$ (0 corpus lines, Java never reads
+// GO-7): UnlessType$ outside Mode$ TgtChoose (the only mode Java reads it
+// in); RememberDiscardingPlayer$ (0 corpus lines, Java never reads
 // it); a DiscardValid$ property Matches has no case for, or a comparison
 // operand it cannot resolve, since either reads false for every card and
 // would silently discard nothing (discardValidResolvable). Player.canDiscardBy
@@ -72,7 +71,7 @@ import (
 
 // discardUnresolvedParams names the params this port rejects (doc comment
 // above).
-var discardUnresolvedParams = [...]string{"UnlessType", "RememberDiscardingPlayer"}
+var discardUnresolvedParams = [...]string{"RememberDiscardingPlayer"}
 
 type discardEffect struct{}
 
@@ -226,6 +225,13 @@ func discardChoice(g *Game, a *Ability, controller PlayerController, mode string
 		return filterValid(g, hand, validSpec, a.Controller, a.Source), true, nil
 	}
 
+	unlessType, hasUnless := a.Params.Param("UnlessType")
+	if hasUnless && mode != "TgtChoose" {
+		return nil, false, fmt.Errorf("UnlessType$ with Mode$ %s not resolvable yet", mode)
+	}
+	if hasUnless {
+		return discardUnlessType(g, a, controller, p, hand, numCards, strings.TrimSpace(unlessType))
+	}
 	// The *YouChoose / *TgtChoose family.
 	if len(hand) == 0 {
 		return nil, false, nil
@@ -283,6 +289,36 @@ func discardChoice(g *Game, a *Ability, controller PlayerController, mode string
 	}
 	if len(chosen) == 0 {
 		return nil, false, nil
+	}
+	return chosen, true, nil
+}
+
+// discardUnlessType is DiscardEffect.java:199-208: the discarder picks
+// numCards cards, or fewer when the pick holds a card of the UnlessType$
+// (PlayerControllerHuman.chooseCardsToDiscardUnlessType, whose selection
+// is complete once it includes a matching card); whatever was picked is
+// discarded.
+func discardUnlessType(g *Game, a *Ability, controller PlayerController, p PlayerID, hand []CardID, numCards int, unlessType string) ([]CardID, bool, error) {
+	if err := discardValidResolvable(g, unlessType, a.Controller, a.Source); err != nil {
+		return nil, false, fmt.Errorf("UnlessType$ %q: %w", unlessType, err)
+	}
+	if len(hand) == 0 {
+		return nil, false, nil
+	}
+	// The cards of the type come first and make a single pick enough; with none
+	// in hand only the full count completes the selection.
+	matching := filterValid(g, hand, unlessType, a.Controller, a.Source)
+	options := append(slices.Clone(matching), withoutCards(hand, matching)...)
+	lo := numCards
+	if len(matching) > 0 {
+		lo = 1
+	}
+	chosen := controller.ChooseCardsForEffect(g, p, a.Source, options, lo, numCards)
+	if err := checkChoice(chosen, options, lo, numCards); err != nil {
+		return nil, false, err
+	}
+	if len(chosen) != numCards && len(filterValid(g, chosen, unlessType, a.Controller, a.Source)) == 0 {
+		return nil, false, fmt.Errorf("picked %d of %d cards without one matching UnlessType$ %q", len(chosen), numCards, unlessType)
 	}
 	return chosen, true, nil
 }

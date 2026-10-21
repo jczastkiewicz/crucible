@@ -464,7 +464,6 @@ func TestPlayerPropertiesRefuseWhatTheyCannotRead(t *testing.T) {
 		"PlayerCountOpponents$HasPropertyhasFewerCreatures",
 		"PlayerCountOpponents$HasPropertywithMostColors",
 		"PlayerCountOpponents$HasPropertyNotedDefender",
-		"PlayerCountPropertyYou$SacrificedPermanentTypesThisTurn",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		if err := measureErr(t, g, p, x); err == nil {

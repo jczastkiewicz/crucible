@@ -10,6 +10,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -232,6 +233,9 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.exileEitherN > 0 && len(g.exileEitherCandidates(pid, source, uc.exileEitherSpec)) < uc.exileEitherN {
 		return false
 	}
+	if uc.exileTopN > 0 && g.Zone(Library, pid).Len() < uc.exileTopN {
+		return false
+	}
 	return true
 }
 
@@ -315,6 +319,29 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 	}
 	if uc.forage {
 		g.payForage(controller, a, pid)
+	}
+	if uc.exileTopN > 0 {
+		// CostExile's library branch: the top cards, one by one, marked as
+		// exiled with the source like every other exiled cost card.
+		for _, id := range slices.Clone(g.Zone(Library, pid).Cards()[:uc.exileTopN]) {
+			g.moveByEffect(controller, id, Exile, 0, NoPlayer, false)
+			if g.Card(id).Zone == Exile {
+				g.markExiledWith(id, a.Source)
+				if rec != nil {
+					rec.exiled = append(rec.exiled, id)
+				}
+			}
+		}
+	}
+	if uc.addManaN > 0 {
+		g.Player(pid).ManaPool.Add(uc.addManaColor, uc.addManaN)
+	}
+	if uc.oppGainN > 0 {
+		for _, opp := range g.Players() {
+			if opp != pid {
+				g.gainLife(controller, opp, uc.oppGainN, a.Source, a)
+			}
+		}
 	}
 }
 

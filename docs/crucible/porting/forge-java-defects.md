@@ -21,8 +21,6 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `SpellAbilityEffect.java:797`                               | `addToCombat`'s blocking half: `getDefenderPlayerByAttacker` returns null for an attacker no longer in combat (killed in response to Brimaz's trigger) and `.equals` throws                                                                                                                                                                                                        | `addToCombatBlocking` skips the block (CR 506.4)                                                               | Not filed                                                |
 | `CardProperty.java:1522`                                    | `attackingBattle` reads `combat.getDefenderByAttacker(source)`, not the card's: Rampaging Geoderm's "if it's attacking a battle" asks whether the Geoderm is                                                                                                                                                                                                                       | `attackingBattle` refused with a pending error                                                                 | Not filed                                                |
 | `CombatUtil.java:70`                                        | `getAllPossibleDefenders`: `battle.getProtectingPlayer().isOpponentOf` throws for a battle with no protector                                                                                                                                                                                                                                                                       | Such a battle is not offered as an attack target                                                               | Not filed                                                |
-| `ChooseSourceEffect.java:84-89`                             | `TargetControls$` filter: `tgtPlayers.get(0)` unguarded, throws once the player list is empty; PR removes the param (no ChooseSource script uses it)                                                                                                                                                                                                                               | `TargetControls$` rejected                                                                                     | [#12083](https://github.com/Card-Forge/forge/pull/12083) |
-| `ChooseSourceEffect.java:131-133`                           | Pool exhausted before every chooser has picked hangs the game                                                                                                                                                                                                                                                                                                                      | `error` for the chooser left empty                                                                             | [#12083](https://github.com/Card-Forge/forge/pull/12083) |
 | `Player.java:3435`                                          | `getMonarchSet` ternary condition inverted                                                                                                                                                                                                                                                                                                                                         | No counterpart: no set codes in Crucible                                                                       | Fixed upstream (`8cd226407b1`)                           |
 | `GameAction.java:2568-2573`                                 | `takeInitiative` has no `return` after passing a lost player's take on                                                                                                                                                                                                                                                                                                             | Reproduced (oracle parity)                                                                                     | Not filed                                                |
 | `AlterAttributeEffect.java:87`                              | Unpreparing is only a leaves-play command: a creature prepared as it enters whose entry is then replaced (exiled by Containment Priest) never left the battlefield, so its prepared copy stays castable by the card's owner                                                                                                                                                        | Reproduced (oracle parity, `replacemententry.go`)                                                              | Not filed                                                |
@@ -63,86 +61,6 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `AbilityUtils.java:1584`                                    | `xCount` `Number$` with a non-integer body throws `NumberFormatException`. Latent                                                                                                                                                                                                                                                                                                  | Refused                                                                                                        | Not filed                                                |
 | `TriggerDamageDoneOnce.java:67-70`                          | `AttackingPlayer` is the first source's controller of a `HashMap`: undetermined when one entity was hit by several controllers' sources in one damage table                                                                                                                                                                                                                        | Refused, not reproduced                                                                                        | Not filed                                                |
 | `TriggerRolledDie.java:57-60`                               | `Number$` branch unboxes a missing `AbilityKey.Number` and throws on a planar roll (`PlanarDice.java:81,87` runs `RolledDie` with `Result` 0, no `Number`). Latent: 0 corpus lines                                                                                                                                                                                                 | Planar die roll refused before the roll                                                                        | Not filed                                                |
-
-### `ChooseSourceEffect.java:84-89` — `TargetControls$` throws on an empty player list
-
-```java
-if (sa.hasParam("TargetControls")) {
-    permanentSources = CardLists.filterControlledBy(permanentSources, tgtPlayers.get(0));
-    stackSources = CardLists.filterControlledBy(stackSources, tgtPlayers.get(0));
-    referencedSources = CardLists.filterControlledBy(referencedSources, tgtPlayers.get(0));
-    commandZoneSources = CardLists.filterControlledBy(commandZoneSources, tgtPlayers.get(0));
-}
-```
-
-`tgtPlayers` is `getTargetPlayers(sa)` (line 36): every `Target$`/`Defined$` player still in the game, in order. This
-block reads only `tgtPlayers.get(0)`, so:
-
-- **Crash.** If every player the ability targets or defines has already left the game by the time it resolves (last
-  player standing concedes, a `Defined$ TargetedPlayer` reference to a player removed earlier in the chain),
-  `sourcesToChooseFrom.isEmpty()` at line 117 is checked, but this line runs first and `tgtPlayers.get(0)` on an empty
-  `List<Player>` throws `IndexOutOfBoundsException` before that guard is reached.
-- **Wrong player on multi-target.** An ability that targets more than one player (`TargetsWithDefinedController` or
-  similar, though no corpus card currently does this with `TargetControls$`) filters every player's source list by the
-  _first_ target's controller, not each chooser's own reference point — `TargetControls$` reads "the player the
-  ability's target controls," which for chooser N ≠ 0 should presumably still be `tgtPlayers.get(0)` by the param's own
-  definition (it does not vary per chooser), so this half is arguably intended; only the empty-list crash is the bug.
-
-**Proposed fix:** remove the block. A reviewer (tool4ever) called `TargetControls$` redundant, since a script can
-restrict `Choices$` itself, and no ChooseSource script uses it: the nine cards that carry `TargetControls$` all use
-`ChooseCard`, which has its own reader (`ChooseCardEffect.java:73`).
-
-**Upstream:** [Card-Forge/forge#12083](https://github.com/Card-Forge/forge/pull/12083), branch
-`upstream-pr/choosesource-bugs`.
-
-**Crucible meanwhile:** `internal/engine/choosesourceeffect.go` rejects `TargetControls$` outright with an `error` — Go
-has no card in the corpus exercising it, and reproducing an upstream crash as a Go `panic` would violate GO-7 (a bad
-card script must not kill a batch).
-
-### `ChooseSourceEffect.java:131-133` — a pool of only section headers hangs the game
-
-```java
-Card o = null;
-do {
-    o = p.getController().chooseSingleEntityForEffect(sourcesToChooseFrom, sa, choiceTitle, null);
-} while (o == null || o.getName().startsWith("--"));
-```
-
-`sourcesToChooseFrom` holds the section headers (`--PERMANENTS:--`, `--SPELLS ON THE STACK:--`,
-`--OBJECTS REFERRED TO ON THE STACK:--`, `--CARDS IN THE COMMAND ZONE:--`) next to the real sources. Only the picked
-source is removed (`sourcesToChooseFrom.remove(o)`, line 135); the headers stay. The loop's only exit is a controller
-returning a non-null card that is not a header. If `Amount$` exceeds the number of real sources, or several `tgtPlayers`
-compete for a short pool, the pool ends up holding only headers, the loop rejects each one, and it asks again forever.
-The pool is never empty, so an `isEmpty()` check does not catch it. This is a real hang: nothing bounds the iteration
-count.
-
-**Proposed fix:** stop asking once no real source is left, and let the ability choose fewer cards than `Amount$`:
-
-```java
-for (int i = 0; i < validAmount; i++) {
-    if (!hasSourceLeft(sourcesToChooseFrom)) {
-        break;
-    }
-    // ...
-}
-
-private static boolean hasSourceLeft(final CardCollectionView pool) {
-    for (final Card c : pool) {
-        if (!c.getName().startsWith("--")) {
-            return true;
-        }
-    }
-    return false;
-}
-```
-
-**Upstream:** [Card-Forge/forge#12083](https://github.com/Card-Forge/forge/pull/12083), branch
-`upstream-pr/choosesource-bugs`. `ChooseSourceEffectShould` fails without the change (the chooser is asked 26 times) and
-passes with it.
-
-**Crucible meanwhile:** `choosesourceeffect.go` returns an `error` —
-`engine: ChooseSource: no source left for chooser %d` — the moment a chooser's pool has no real source left, rather than
-reproducing the hang.
 
 ### `Player.java:3435` — `getMonarchSet` ternary is inverted
 

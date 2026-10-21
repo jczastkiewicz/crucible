@@ -11,11 +11,9 @@ import (
 )
 
 // chooseSourceUnresolvedParams are ChooseSourceEffect.java's params this
-// port does not honour: Amount$ (0 of 67 real lines; Java's own do/while
-// never ends once the pool runs dry before Amount$ picks are made) and
-// TargetControls$ (0 of 67; Java reads only its presence, then indexes
-// tgtPlayers.get(0) unguarded, ChooseSourceEffect.java:84-89).
-var chooseSourceUnresolvedParams = [...]string{"Amount", "TargetControls"}
+// port does not honour: Amount$ (0 of 67 real lines). TargetControls$ is
+// not read at all since upstream removed the filter (#12083).
+var chooseSourceUnresolvedParams = [...]string{"Amount"}
 
 // chooseSourceUnresolvedChoices are the Choices$ properties Matches has no
 // evaluator for yet: each would otherwise read false for every card and
@@ -74,10 +72,11 @@ func (chooseSourceEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 
 	for _, pid := range choosers {
 		if pool.Len() == 0 {
-			// Java's do/while never ends here: only divider cards are
-			// left, and it rejects every one (ChooseSourceEffect.java:
-			// 131-133) -- a Forge hang, failed loudly instead (PORT-8).
-			return fmt.Errorf("engine: ChooseSource: no source left for chooser %d", pid)
+			// Only divider cards are left: Java stops asking
+			// (hasSourceLeft) and still replaces the chosen list with the
+			// empty pick (ChooseSourceEffect.java:123-125,140).
+			g.Card(a.Source).Memory.ClearChosen()
+			continue
 		}
 		choices := append([]CardID(nil), pool.All()...)
 		picked := controller.ChooseCardsForEffect(g, pid, a.Source, choices, 1, 1)

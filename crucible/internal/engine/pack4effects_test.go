@@ -153,7 +153,7 @@ func TestChooseSourceEmptyPoolIsANoOp(t *testing.T) {
 }
 
 // TestChooseSourceRejectsUnresolvableShapes proves every shape this port
-// cannot evaluate fails loudly: Amount$/TargetControls$ (0 real lines) and
+// cannot evaluate fails loudly: Amount$ (0 real lines) and
 // the Choices$ properties Matches has no evaluator for, which would
 // otherwise read false for every card and silently empty the pool.
 func TestChooseSourceRejectsUnresolvableShapes(t *testing.T) {
@@ -161,7 +161,6 @@ func TestChooseSourceRejectsUnresolvableShapes(t *testing.T) {
 
 	for _, line := range []string{
 		"DB$ ChooseSource | Choices$ Card | Amount$ 2",
-		"DB$ ChooseSource | Choices$ Card | TargetControls$ True",
 		"DB$ ChooseSource | Choices$ Card.SharesColorWith Imprinted",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
@@ -326,10 +325,10 @@ func TestChooseSourceRefusesSpellUnderColorlessDamageSource(t *testing.T) {
 	}
 }
 
-// TestChooseSourceFailsWhenThePoolRunsDry proves the Forge hang is an
-// error instead: two choosers share a one-card pool, and Java's do/while
-// would reject the dividers forever once the first took it.
-func TestChooseSourceFailsWhenThePoolRunsDry(t *testing.T) {
+// TestChooseSourceStopsWhenThePoolRunsDry proves a chooser facing only
+// divider cards picks nothing and clears the chosen list, as Java does
+// since #12083: two choosers share a one-card pool.
+func TestChooseSourceStopsWhenThePoolRunsDry(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
@@ -341,10 +340,13 @@ func TestChooseSourceFailsWhenThePoolRunsDry(t *testing.T) {
 			g.PushAbility(engine.Ability{API: engine.APIChooseSource, Source: host, Controller: p, Params: sub.Ability})
 		}
 	}
-	if err := g.ResolveStack(engine.NewRegistry(), c); err == nil {
-		t.Error("a second chooser facing an empty pool resolved, want an error")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
 	if len(c.picked) != 1 {
 		t.Errorf("picked %v, want the first chooser's one pick", c.picked)
+	}
+	if got := g.Card(host).Memory.Chosen(); len(got) != 0 {
+		t.Errorf("chosen = %v, want nothing: the second chooser's empty pick replaces the first's", got)
 	}
 }

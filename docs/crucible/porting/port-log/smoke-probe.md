@@ -58,27 +58,27 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,219 |
-| refused      |    356 |
+| plays        | 33,255 |
+| refused      |    319 |
 | panicked     |      0 |
 | hung         |      0 |
-| placed       |    447 |
+| placed       |    448 |
 | inconclusive |     70 |
 
-98.9% of the 33,575 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.0% of the 33,574 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.2% of 8,654 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.3% of 8,654 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 15 | `ChangeZone: AtRandom$ not resolvable` |
-| 12 | `ChangeZone: AtRandom$ not resolvable` |
 | 4 | `Play: CopyFromChosenName$ not resolvable` |
 | 4 | `Mode$ AttackRequirement static not resolvable` |
-| 3 | `ChangeZone: AtRandom$ not resolvable` |
-| 3 | `ChangeZone: ChangeZone: Destination$ not resolvable` |
+| 3 | `Charm: Chooser$ not resolvable` |
+| 3 | `NameCard: AtRandom$ over every card not resolvable` |
+| 3 | `Play: Valid$ property not resolvable` |
+| 3 | `Sacrifice: upkeep cost not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

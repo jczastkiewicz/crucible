@@ -14,20 +14,19 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// ChoiceRestriction$ (Card.getChosenModes' once-per-turn/-game bookkeeping),
 // Optional$, Chooser$ (an opponent chooses), Random$
 // Compare, Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
 // dead script param, forge-java-defects.md and card-script-defects.md; refused until
 // the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
 // activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
-	"ChoiceRestriction", "Optional", "Chooser", "RandomCompare",
-	"RandomCompareSVar", "Defined",
+	"Optional", "Chooser", "RandomCompare", "RandomCompareSVar", "Defined",
 }
 
 // chooseCharmModes is makeChoices, run from pushTriggeredAbilities before
@@ -46,6 +45,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 	}
 	host := g.Card(a.Source)
 
+	restricted := g.charmRestricted(a)
 	var options []Ability
 	var names []string
 	for _, sub := range a.Params.Subs {
@@ -62,6 +62,9 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 			charmRoot: a.Params, casting: a.casting,
 		}
 		if !g.modeHasLegalTargets(&mode) {
+			continue
+		}
+		if slices.Contains(restricted, sub.SVar) {
 			continue
 		}
 		options = append(options, mode)
@@ -139,6 +142,9 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 			return false, nil
 		}
 		a.Modes = append(a.Modes, mode)
+	}
+	if len(a.Modes) > 0 {
+		g.recordCharmMode(a, names[chosen[0]])
 	}
 	return len(a.Modes) > 0, nil
 }

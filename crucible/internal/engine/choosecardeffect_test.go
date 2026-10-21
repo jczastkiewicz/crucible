@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -147,9 +148,9 @@ func TestChooseCardEffectRejectsUnresolvedParam(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test ChooseCard Each", "DB$ ChooseCard | Choices$ Creature.OppCtrl | ChooseEach$ Elf & Goblin")
+	def := etbChainDef(t, "Test ChooseCard Each", "DB$ ChooseCard | Choices$ Creature.OppCtrl | ChooseEach$ Party")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseEach$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseEach$ Party")
 	}
 }
 
@@ -262,13 +263,13 @@ func TestChooseCardEffectDefinedCardsAndOptional(t *testing.T) {
 }
 
 // TestChooseCardEffectRejectsUnknownZoneAndController proves an unknown
-// ChoiceZone$ and a non-Chooser ControlledByPlayer$ both fail closed.
+// ChoiceZone$ and an unresolvable ControlledByPlayer$ both fail closed.
 func TestChooseCardEffectRejectsUnknownZoneAndController(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
 		"DB$ ChooseCard | Choices$ Card | ChoiceZone$ Nowhere",
-		"DB$ ChooseCard | Choices$ Creature | ControlledByPlayer$ Left",
+		"DB$ ChooseCard | Choices$ Creature | ControlledByPlayer$ TriggeredTarget",
 		"DB$ ChooseCard | Choices$ Creature | Amount$ Bogus",
 		"DB$ ChooseCard | Choices$ Creature | MinAmount$ many",
 		"DB$ ChooseCard | DefinedCards$ TriggeredTarget",
@@ -280,4 +281,46 @@ func TestChooseCardEffectRejectsUnknownZoneAndController(t *testing.T) {
 			t.Errorf("%q: ResolveStack succeeded, want an error", line)
 		}
 	}
+}
+
+// ChooseEach$ asks each chooser once per listed type, over their own cards
+// (ControlledByPlayer$ Chooser) or those of the player to their left; a card
+// that fits two types and is picked for both is chosen once, and a type
+// nobody has is not asked (ChooseCardEffect.java:131-146).
+func TestChooseCardEffectChooseEach(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	artifactCreature := g.NewCard(copyTestDef(t, "Test Construct", "Artifact Creature", "1", "1"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	// p: Artifact -> the only one, Creature -> the same card again; other:
+	// no Artifact (not asked), Creature -> theirs.
+	c.QueueCardChoice([]engine.CardID{artifactCreature})
+	c.QueueCardChoice([]engine.CardID{artifactCreature})
+	c.QueueCardChoice([]engine.CardID{theirs})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test ChooseEach",
+		"DB$ ChooseCard | Defined$ Player | Choices$ Permanent | ChooseEach$ Artifact & Creature | ControlledByPlayer$ Chooser | Mandatory$ True | RememberChosen$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	want := []engine.EntityID{engine.CardEntity(artifactCreature), engine.CardEntity(theirs)}
+	if got := g.Card(host).Memory.Remembered(); !slices.Equal(got, want) {
+		t.Errorf("Remembered = %v, want %v", got, want)
+	}
+
+	// Left: the player to the chooser's left, so p chooses among other's cards.
+	c = engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{theirs})
+	host, err = castETBChain(t, g, p, etbChainDef(t, "Test ChooseEach Left",
+		"DB$ ChooseCard | Defined$ You | Choices$ Creature | ChooseEach$ Creature | ControlledByPlayer$ Left | Mandatory$ True | RememberChosen$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(host).Memory.Remembered(); !slices.Equal(got, []engine.EntityID{engine.CardEntity(theirs)}) {
+		t.Errorf("Left: Remembered = %v, want [%v]", got, engine.CardEntity(theirs))
+	}
+	_ = creature
 }

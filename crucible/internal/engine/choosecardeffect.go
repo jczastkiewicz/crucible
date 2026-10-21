@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -11,9 +12,9 @@ import (
 )
 
 // chooseCardUnresolvedParams are ChooseCardEffect.java's params this port
-// cannot honour yet: the alternative selection loops (ChooseEach$/
-// EachBasicType$/WithTotalPower$/WithDifferentPowers$/EachDifferentPower$/
-// ControlAndNot$), the non-default choice pools (AllCards$,
+// cannot honour yet: the alternative selection loops (EachBasicType$/
+// WithTotalPower$/WithDifferentPowers$/EachDifferentPower$/
+// ControlAndNot$; ChooseEach$ resolves, chooseEachCards), the non-default choice pools (AllCards$,
 // IncludeSpellsOnStack$, TargetControls$) and ChosenMap$'s per-player map.
 // 399 real (AB|DB)$ lines; the default chooseCardsForEffect shape covers
 // most of them. QuasiLibrarySearch$ resolves (chooseCardQuasiSearch);
@@ -21,7 +22,7 @@ import (
 // order (ChooseCardEffect.java:225-228); Secretly$ only moves Reveal$'s
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
-	"ChooseEach", "EachBasicType", "WithTotalPower",
+	"EachBasicType", "WithTotalPower",
 	"WithDifferentPowers", "EachDifferentPower", "ControlAndNot",
 	"AllCards", "IncludeSpellsOnStack", "TargetControls",
 	"ChosenMap", "ChoiceTitleAppend", "StartingWith", "Optional",
@@ -95,15 +96,36 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	for _, pid := range choosers {
 		pChoices := choices
 		if by, ok := a.Params.Param("ControlledByPlayer"); ok {
-			if by != "Chooser" {
-				return fmt.Errorf("engine: ChooseCard: ControlledByPlayer$ %q not resolvable yet", by)
+			var owners []PlayerID
+			switch by {
+			case "Chooser":
+				owners = []PlayerID{pid}
+			case "Left", "Right":
+				owners = []PlayerID{g.nextPlayerInDirection(pid, by == "Right")}
+			default:
+				owners, err = definedPlayers(g, a.Controller, a.Source, by, a.refs())
+				if err != nil {
+					return fmt.Errorf("engine: ChooseCard: ControlledByPlayer$: %w", err)
+				}
 			}
 			pChoices = nil
 			for _, cid := range choices {
-				if g.Card(cid).Controller() == pid {
+				if slices.Contains(owners, g.Card(cid).Controller()) {
 					pChoices = append(pChoices, cid)
 				}
 			}
+		}
+		if each, ok := a.Params.Param("ChooseEach"); ok {
+			chosen, err := chooseEachCards(g, a, controller, pid, pChoices, each)
+			if err != nil {
+				return err
+			}
+			for _, cid := range chosen {
+				if !slices.Contains(all, cid) {
+					all = append(all, cid)
+				}
+			}
+			continue
 		}
 		if hasParam(a, "AtRandom") && len(pChoices) > 0 {
 			// Aggregates.random's reservoir: Amount$ cards, the sample's order
@@ -175,6 +197,44 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	return nil
+}
+
+// chooseEachCards is ChooseEach$ (ChooseCardEffect.java:131-146): for each
+// " & "-separated type, in order, the chooser picks one of their cards of
+// that type (optional unless Mandatory$; a type with none is skipped). One
+// card can fill two types and is chosen once. "Party" walks Java's HashSet
+// of the four party creature types, an order this port does not reproduce.
+func chooseEachCards(g *Game, a *Ability, controller PlayerController, pid PlayerID, pool []CardID, each string) ([]CardID, error) {
+	if each == "Party" {
+		return nil, fmt.Errorf("engine: ChooseCard: ChooseEach$ Party not resolvable yet (CardType.Constant.PARTY_TYPES is a HashSet)")
+	}
+	lo := 0
+	if hasParam(a, "Mandatory") {
+		lo = 1
+	}
+	var chosen []CardID
+	for _, kind := range strings.Split(each, " & ") {
+		spec := valid.Parse(kind)
+		var options []CardID
+		for _, cid := range pool {
+			if Matches(g, g.Card(cid), spec, a.Controller, a.Source) {
+				options = append(options, cid)
+			}
+		}
+		if len(options) == 0 {
+			continue
+		}
+		pick := controller.ChooseCardsForEffect(g, pid, a.Source, options, lo, 1)
+		if err := checkChoice(pick, options, lo, 1); err != nil {
+			return nil, fmt.Errorf("engine: ChooseCard: %w", err)
+		}
+		for _, cid := range pick {
+			if !slices.Contains(chosen, cid) {
+				chosen = append(chosen, cid)
+			}
+		}
+	}
+	return chosen, nil
 }
 
 // chooseCardQuasiSearch reads QuasiLibrarySearch$ (ChooseCardEffect.java:

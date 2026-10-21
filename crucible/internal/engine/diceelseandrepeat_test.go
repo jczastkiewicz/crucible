@@ -79,6 +79,33 @@ func TestRepeatCheckSVarIsReadAfterTheFirstRepetition(t *testing.T) {
 	}
 }
 
+// RepeatDefined$ swaps the battlefield for the Defined$ cards in the
+// RepeatPresent$ count (RepeatEffect.java:78-83): Primal Surge repeats while
+// the remembered card is still there.
+func TestRepeatDefinedCountsTheDefinedCards(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, remember string
+		want           int
+	}{
+		{"one remembered card", "RememberDrawn$ True | ", 23},
+		{"nothing remembered", "", 21},
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		libraryCards(t, g, p, 3)
+		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+			"DB$ Draw | Defined$ You | "+tc.remember+"SubAbility$ DBRepeat",
+			"DBRepeat", "DB$ Repeat | RepeatSubAbility$ DBGain | RepeatDefined$ Remembered | RepeatPresent$ Card | RepeatCompare$ EQ1 | MaxRepeat$ 3",
+			"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got := g.Player(p).Life - 20; got != tc.want-20 {
+			t.Errorf("%s: gained %d, want %d", tc.name, got, tc.want-20)
+		}
+	}
+}
+
 // Defined$ TargetedAndYou is the targeted players, then the activator, each
 // once (AbilityUtils.java:970-975); nothing targeting a player names nobody.
 func TestDefinedTargetedAndYou(t *testing.T) {

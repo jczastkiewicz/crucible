@@ -1,9 +1,10 @@
 package engine
 
-//enginelint:allow id card game ability condition control parts zone valid destroyeffect
+//enginelint:allow id card game ability amount condition control parts zone valid destroyeffect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -22,10 +23,9 @@ var destroyAllUnresolvedParams = [...]string{
 // Permanents that cannot be destroyed (canBeDestroyed, destroyeffect.go) are
 // dropped first, as Java's own CardLists.filter(list, Card::canBeDestroyed).
 //
-// A ValidCards$ containing "X" is rejected: Java textually substitutes the
-// X SVar's value into the valid string before parsing it, a runtime
-// re-interpretation of script text PORT-2 forbids and this port has no
-// compiled equivalent for yet.
+// A ValidCards$ containing "X" has every X replaced by the value of the X
+// SVar before it is parsed, as Java does (DestroyAllEffect.java:57-60), so
+// an X anywhere in the string, a name's included, is replaced.
 type destroyAllEffect struct{}
 
 func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -43,7 +43,11 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	validCards, _ := a.Params.Param("ValidCards")
 	if strings.Contains(validCards, "X") {
-		return fmt.Errorf("engine: DestroyAll: ValidCards$ %q names X, not resolvable yet", validCards)
+		x, ok := resolveNamedAmount(g, a.Amounts, source, "X")
+		if !ok {
+			return fmt.Errorf("engine: DestroyAll: ValidCards$ %q: SVar X is not resolvable", validCards)
+		}
+		validCards = strings.ReplaceAll(validCards, "X", strconv.Itoa(x))
 	}
 	spec := valid.Parse(validCards)
 

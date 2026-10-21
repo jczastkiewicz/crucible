@@ -8,14 +8,13 @@ import (
 )
 
 // digUnresolvedParams are DigEffect.java's params this port cannot honour
-// yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), a
-// different chooser (Choser$), the alternative selection loops
+// yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
 // (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$, RandomChange$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (ExileWithCounters$,
 // DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"SourceZone", "FromBottom", "Choser", "SetChosenPlayer", "WithTotalCMC",
+	"SourceZone", "FromBottom", "WithTotalCMC",
 	"ForEachColorPair", "WithDifferentPowers", "RandomChange", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
@@ -105,6 +104,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		return fmt.Errorf("engine: Dig: %w", err)
 	}
 	var moved1, moved2 []CardID
+	chooser := a.Controller
 	for _, p := range players {
 		if g.Player(p).Lost {
 			continue
@@ -132,6 +132,23 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				source.Memory.Imprint(id)
 			}
 		}
+		if raw, ok := a.Params.Param("Choser"); ok {
+			// DigEffect.java:215-222: the activator picks the chooser among
+			// the players Choser$ names; SetChosenPlayer$ records the pick.
+			choosers, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: Dig: Choser$: %w", err)
+			}
+			if len(choosers) > 0 {
+				chooser = choosers[0]
+				if len(choosers) > 1 {
+					chooser = controller.ChoosePlayerForEffect(g, a.Controller, a.Source, choosers)
+				}
+			}
+			if _, ok := a.Params.Param("SetChosenPlayer"); ok {
+				source.Memory.SetChosenPlayer(chooser)
+			}
+		}
 		valid := top
 		if changeValid != "" {
 			valid = filterValid(g, top, changeValid, source.Controller(), a.Source)
@@ -153,7 +170,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				lo = 0
 			}
 			if hi > 0 {
-				chosen = controller.ChooseCardsForEffect(g, a.Controller, a.Source, valid, lo, hi)
+				chosen = controller.ChooseCardsForEffect(g, chooser, a.Source, valid, lo, hi)
 				if err := checkChoice(chosen, valid, lo, hi); err != nil {
 					return fmt.Errorf("engine: Dig: %w", err)
 				}
@@ -212,7 +229,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 					return fmt.Errorf("engine: Dig: %w", err)
 				}
 			case !skip && len(rest) > 1:
-				ordered := controller.OrderCardsForZone(g, a.Controller, rest, dest2)
+				ordered := controller.OrderCardsForZone(g, chooser, rest, dest2)
 				if err := checkChoice(ordered, rest, len(rest), len(rest)); err != nil {
 					return fmt.Errorf("engine: Dig: %w", err)
 				}

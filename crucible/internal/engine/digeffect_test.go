@@ -172,3 +172,27 @@ func TestDigEffectSecondaryShapes(t *testing.T) {
 		}
 	})
 }
+
+// TestDigEffectChoserNamesTheChooserAndRecordsIt proves Choser$ (DigEffect.
+// java:215-222): the named player picks, and SetChosenPlayer$ records them on
+// the host for the rest of the chain (Allure of the Unknown).
+func TestDigEffectChoserNamesTheChooserAndRecordsIt(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	lib := libraryCards(t, g, p, 3)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{lib[1]})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Choser Dig",
+		"DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | Choser$ Opponent | SetChosenPlayer$ True | DestinationZone$ Exile | DestinationZone2$ Graveyard | SkipReorder$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(lib[1]).Zone; z != engine.Exile {
+		t.Errorf("picked zone = %v, want Exile", z)
+	}
+	if got := g.Card(host).Memory.ChosenPlayer(); got != other {
+		t.Errorf("chosen player = %v, want the opponent %v", got, other)
+	}
+}

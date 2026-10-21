@@ -162,7 +162,6 @@ func TestChooseSourceRejectsUnresolvableShapes(t *testing.T) {
 	for _, line := range []string{
 		"DB$ ChooseSource | Choices$ Card | Amount$ 2",
 		"DB$ ChooseSource | Choices$ Card | TargetControls$ True",
-		"DB$ ChooseSource | Choices$ Card.ChosenColorSource",
 		"DB$ ChooseSource | Choices$ Card.SharesColorWith Imprinted",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
@@ -170,6 +169,27 @@ func TestChooseSourceRejectsUnresolvableShapes(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "not resolvable yet") {
 			t.Errorf("%q: err = %v, want a not resolvable yet error", line, err)
 		}
+	}
+}
+
+// Choices$ Card.ChosenColorSource (Prismatic Circle, Story Circle) offers the
+// sources of the color the host chose.
+func TestChooseSourceChosenColorSourceOffersOnlyThatColor(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	white := g.NewCard(creatureDefManaCost(t, "W"), other, engine.Battlefield)
+	g.NewCard(creatureDefManaCost(t, "R"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueColorChoice(mana.White)
+	c.QueueCardChoice([]engine.CardID{white})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Circle", "DB$ ChooseColor | Defined$ You | SubAbility$ DBSource",
+		"DBSource", "DB$ ChooseSource | Choices$ Card.ChosenColorSource"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(host).Memory.Chosen(); !slices.Equal(got, []engine.CardID{white}) {
+		t.Errorf("chosen = %v, want the white creature", got)
 	}
 }
 

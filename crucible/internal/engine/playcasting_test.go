@@ -565,3 +565,27 @@ func TestPlayReplaceGraveyardExilesTheSpellAfterItResolves(t *testing.T) {
 		}
 	}
 }
+
+// TestPlayValidTargetedPlayerCtrlReadsTheTargetedPlayer proves
+// Valid$ Card.TargetedPlayerCtrl (Command the Chaff, Vengeful Archon's kin):
+// only cards the targeted player controls are offered, and Play casts the
+// pick for the caster.
+func TestPlayValidTargetedPlayerCtrlReadsTheTargetedPlayer(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	mine := g.NewCard(gainInstant(t, "Mine", "W", "1"), p, engine.Hand)
+	theirs := g.NewCard(gainInstant(t, "Theirs", "W", "3"), other, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{theirs})
+	pushPlayLine(t, g, p, []engine.EntityID{engine.PlayerEntity(other)},
+		"DB$ Play | Valid$ Card.TargetedPlayerCtrl | ValidTgts$ Opponent | ValidZone$ Hand | WithoutManaCost$ True | ValidSA$ Instant")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(theirs).Zone; got != engine.Graveyard {
+		t.Errorf("their instant zone %v, want Graveyard (cast)", got)
+	}
+	if got := g.Card(mine).Zone; got != engine.Hand {
+		t.Errorf("my instant zone %v, want Hand (not offered)", got)
+	}
+}

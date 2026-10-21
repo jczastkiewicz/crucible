@@ -525,3 +525,30 @@ func TestChangeZoneEffectEachTypePicksOnePerType(t *testing.T) {
 		}
 	}
 }
+
+// TestChangeZoneEffectExactlyMovesNothingFromAShortSearch proves Exactly$
+// (ChangeZoneEffect.java:1272): a search that finds fewer cards than
+// ChangeNum$ puts none of them in the destination; enough cards move.
+func TestChangeZoneEffectExactlyMovesNothingFromAShortSearch(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land | ChangeNum$ 2 | Exactly$ True"
+	for _, tc := range []struct {
+		lands int
+		want  engine.ZoneType
+	}{{1, engine.Library}, {2, engine.Hand}} {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids []engine.CardID
+		c := engine.NewScriptedController()
+		for i := 0; i < tc.lands; i++ {
+			ids = append(ids, g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library))
+		}
+		c.QueueCardChoice(ids)
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Exactly", line), c); err != nil {
+			t.Fatalf("%d lands: ResolveStack: %v", tc.lands, err)
+		}
+		if z := g.Card(ids[0]).Zone; z != tc.want {
+			t.Errorf("%d lands: card zone = %v, want %v", tc.lands, z, tc.want)
+		}
+	}
+}

@@ -42,7 +42,7 @@ var changeZoneUnresolvedParams = [...]string{
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalCMC", "WithTotalPower", "WithTotalCardTypes",
-	"ShuffleChangedPile", "Exactly", "RememberSearched",
+	"ShuffleChangedPile", "RememberSearched",
 	"ImprintLast", "Unearth",
 	"Ultimate",
 	// ExiledWithEffectSource$ marks the effect card's own source as the
@@ -998,6 +998,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			default:
 				return fmt.Errorf("engine: ChangeZone: Reorder$ into %v not resolvable yet", dest)
 			}
+		}
+		if hasParam(a, "Exactly") && len(chosen) < changeNum {
+			// ChangeZoneEffect.java:1272: a search that found fewer cards than
+			// ChangeNum$ moves none of them (after the shuffle and reorder).
+			continue
 		}
 		picks = append(picks, hiddenChoice{player: player, chosen: chosen, shuffleMandatory: fetcherShuffle,
 			found: searchedLibrary && !searchedParam, origin: searched, dest: dest, libPos: libPos})

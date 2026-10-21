@@ -707,7 +707,9 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 // reads.
 func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error) {
 	switch defined {
-	case "Self":
+	case "Self", "CorrectedSelf":
+		// CorrectedSelf is game.getCardState(host) (AbilityUtils.java:84-85): the
+		// host as it is now, the same CardID.
 		return []CardID{host.ID}, nil
 	case "Self.StrictlySelf":
 		// Self filtered by StrictlySelf (Madness's "put it into your

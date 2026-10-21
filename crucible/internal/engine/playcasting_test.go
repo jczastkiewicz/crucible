@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -350,7 +351,6 @@ func TestPlayRejectsUnbuiltShapes(t *testing.T) {
 		{"DB$ Play | Valid$ Card.ExiledWithSourceLKI | ValidZone$ Exile", "ExiledWithSourceLKI"},
 		{"DB$ Play | Valid$ Card.cmcLEX | ValidZone$ Exile", "cmcLEX"},
 		{"DB$ Play | Valid$ Card | ValidZone$ Nowhere", "ValidZone$"},
-		{"DB$ Play | Defined$ Remembered | ValidSA$ Spell.faceUp", "faceUp"},
 		{"DB$ Play | Defined$ Remembered | ValidSA$ Spell.cmcLEZ", "cmcLEZ"},
 		{"DB$ Play | Defined$ Bogus", "Bogus"},
 		{"DB$ Play | Defined$ Remembered | Controller$ Bogus", "Controller$"},
@@ -587,5 +587,47 @@ func TestPlayValidTargetedPlayerCtrlReadsTheTargetedPlayer(t *testing.T) {
 	}
 	if got := g.Card(mine).Zone; got != engine.Hand {
 		t.Errorf("my instant zone %v, want Hand (not offered)", got)
+	}
+}
+
+// TestPlayValidReadsTheAbilitiesSVarAndPlayerSpecs proves Valid$ properties
+// that need the Play ability in context: cmcLEX reads the host's X SVar
+// (CardProperty.java:1467-1469), OwnedBy <spec> the card's owner (:302-309)
+// and faceUp a face-up card (:1045-1048).
+func TestPlayValidReadsTheAbilitiesSVarAndPlayerSpecs(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		valid string
+		want  func(mine, theirs engine.CardID) []engine.CardID
+	}{
+		{"Card.cmcLEX", func(mine, theirs engine.CardID) []engine.CardID { return []engine.CardID{mine, theirs} }},
+		{"Card.cmcLEX+OwnedBy Player.Opponent", func(_, theirs engine.CardID) []engine.CardID { return []engine.CardID{theirs} }},
+		{"Card.cmcLEX+ControlledBy You", func(mine, _ engine.CardID) []engine.CardID { return []engine.CardID{mine} }},
+		{"Card.cmcLEX+faceUp+YouOwn", func(mine, _ engine.CardID) []engine.CardID { return []engine.CardID{mine} }},
+	} {
+		g, p, opp := newTwoPlayerGame(t)
+		mine := g.NewCard(gainInstant(t, "Mine", "R", "1"), p, engine.Exile)
+		g.NewCard(gainInstant(t, "MineDear", "3 R", "1"), p, engine.Exile)
+		theirs := g.NewCard(gainInstant(t, "Theirs", "R", "1"), opp, engine.Exile)
+		// X counts Elves: the Play host and this one.
+		g.NewCard(etbChainDef(t, "Other Elf", "DB$ BlankLine"), p, engine.Battlefield)
+		rec := &offerRecorder{ScriptedController: engine.NewScriptedController()}
+		want := tc.want(mine, theirs)
+		rec.QueueCardChoice(nil)
+		rec.QueueConfirmEffect(true)
+		pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ "+tc.valid+" | ValidZone$ Exile | WithoutManaCost$ True | Optional$ True", "X", "Count$Valid Elf")
+		if err := g.ResolveStack(engine.NewRegistry(), rec); err != nil {
+			t.Fatalf("%s: %v", tc.valid, err)
+		}
+		if len(want) == 1 {
+			// One candidate is cast on a confirm, not offered.
+			if len(rec.offers) != 0 || g.Card(want[0]).Zone == engine.Exile {
+				t.Errorf("%s: offers = %v, zone %v, want %v cast", tc.valid, rec.offers, g.Card(want[0]).Zone, want[0])
+			}
+			continue
+		}
+		if len(rec.offers) != 1 || !slices.Equal(rec.offers[0], want) {
+			t.Errorf("%s: offers = %v, want %v", tc.valid, rec.offers, want)
+		}
 	}
 }

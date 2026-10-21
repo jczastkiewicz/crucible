@@ -650,21 +650,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// ControlledBy <player spec>: c's controller matches the spec from the
 	// source's point of view (CardProperty.java's ControlledBy branch).
 	case strings.HasPrefix(name, "ControlledBy "):
-		spec := strings.TrimPrefix(name, "ControlledBy ")
-		matched, ok := matchesPlayerSpec(g, c.Controller(), sourceController, source, spec)
-		if !ok && source != NoCard {
-			// CardProperty.java:310-317: a spec Player.isValid cannot read is a
-			// Defined$ list (getDefinedPlayers) -- Zara, Renegade Recruiter's
-			// "ControlledBy DefendingPlayer" -- read with the refs of source's
-			// ability in context, when there is one.
-			var refs abilityRefs
-			if a := g.resolving; a != nil && a.Source == source {
-				refs = a.refs()
-			}
-			players, err := definedPlayers(g, sourceController, source, spec, refs)
-			return err == nil && slices.Contains(players, c.Controller())
-		}
-		return ok && matched
+		return playerRelationMatches(g, c.Controller(), sourceController, source, strings.TrimPrefix(name, "ControlledBy "))
+	// OwnedBy <player spec>: the same read on c's owner (CardProperty.java:
+	// 302-309).
+	case strings.HasPrefix(name, "OwnedBy "):
+		return playerRelationMatches(g, c.Owner, sourceController, source, strings.TrimPrefix(name, "OwnedBy "))
 	case strings.HasPrefix(name, "leastPower"), strings.HasPrefix(name, "leastToughness"), strings.HasPrefix(name, "greatestPower"):
 		return extremeStatMatches(g, c, name, sourceController, source)
 	case strings.HasPrefix(name, "YourTeamCtrl"):
@@ -1936,4 +1926,23 @@ func extremeStatMatches(g *Game, c *Card, name string, sourceController PlayerID
 		}
 	}
 	return inScope
+}
+
+// playerRelationMatches is the ControlledBy/OwnedBy <spec> read: pid matches
+// the spec from the source's point of view (CardProperty.java:302-317).
+func playerRelationMatches(g *Game, pid, sourceController PlayerID, source CardID, spec string) bool {
+	matched, ok := matchesPlayerSpec(g, pid, sourceController, source, spec)
+	if !ok && source != NoCard {
+		// A spec Player.isValid cannot read is a Defined$ list
+		// (getDefinedPlayers) -- Zara, Renegade Recruiter's "ControlledBy
+		// DefendingPlayer" -- read with the refs of source's ability in
+		// context, when there is one.
+		var refs abilityRefs
+		if a := g.resolving; a != nil && a.Source == source {
+			refs = a.refs()
+		}
+		players, err := definedPlayers(g, sourceController, source, spec, refs)
+		return err == nil && slices.Contains(players, pid)
+	}
+	return ok && matched
 }

@@ -139,3 +139,19 @@ func TestChangeZoneAllEffectSecondaryShapes(t *testing.T) {
 		}
 	})
 }
+
+// TestChangeZoneAllEffectIgnoresHidden proves Hidden$ is inert on
+// ChangeZoneAll: only SpellAbility.isHidden reads it, for ChangeZone, so the
+// sweep moves every match as without it (Suppress, Kyren Archive).
+func TestChangeZoneAllEffectIgnoresHidden(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	card := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Graveyard)
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Hidden Sweep", "DB$ ChangeZoneAll | Hidden$ True | ChangeType$ Card | Defined$ You | Origin$ Graveyard | Destination$ Exile"), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(card).Zone; z != engine.Exile {
+		t.Errorf("zone = %v, want Exile", z)
+	}
+}

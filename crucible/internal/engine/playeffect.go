@@ -12,6 +12,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -70,14 +71,13 @@ var playUnresolvedParams = [...]string{
 // valid strings that Matches (valid.go) has no case for and would read as
 // false for every card, silently emptying the pool (GO-7): ExiledWith and
 // its ExiledWithSourceLKI/ExiledWithEffectSource forms -- the exact
-// ExiledWithSource is answered (playSpecGap) --, OwnedBy/ControlledBy <Defined> (8),
-// sharesCardTypeWith, faceUp, CanPayManaCost.
+// ExiledWithSource is answered (playSpecGap) --, sharesCardTypeWith,
+// CanPayManaCost.
 // sharesNameWith is answered in the forms Matches evaluates without the
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
 // use only ThisTurnCast and TriggeredCard, which stay refused.
 var playUnportedProperties = [...]string{
-	"ExiledWith", "OwnedBy", "ControlledBy", "sharesCardTypeWith",
-	"faceUp", "CanPayManaCost",
+	"ExiledWith", "sharesCardTypeWith", "CanPayManaCost",
 }
 
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions
@@ -326,9 +326,14 @@ func playRecord(g *Game, a *Ability, played, chosen CardID) {
 // ability's targets / Defined$ cards (getTargetCards, default Self).
 func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 	if spec, ok := a.Params.Param("Valid"); ok {
-		if prop, gap := playSpecGap(spec); gap {
+		if prop, gap := playSpecGap(spec, a.Amounts); gap {
 			return nil, fmt.Errorf("engine: Play: Valid$ property %q not resolvable yet", prop)
 		}
+		// CardProperty.java:1467-1469 reads a cmc operand with the ability in
+		// context: the Play ability's own SVars (Kotis: cmcLEX).
+		prev := g.relativeAmounts
+		g.relativeAmounts = a.Amounts
+		defer func() { g.relativeAmounts = prev }()
 		zones := []ZoneType{Hand}
 		if raw, ok := a.Params.Param("ValidZone"); ok {
 			parsed, err := parseZoneList(raw)
@@ -353,15 +358,17 @@ func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 }
 
 // playSpecGap names the first property of a card valid string Matches
-// cannot answer: a numeric comparison against a non-literal operand (kept
-// refused here: Play checks specs without the SVar context compareOperand
-// reads) or a playUnportedProperties prefix.
-func playSpecGap(spec string) (string, bool) {
+// cannot answer: a numeric comparison against an operand that is neither a
+// literal nor an SVar of the Play ability (amounts), or a
+// playUnportedProperties prefix.
+func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 	for _, alt := range valid.Parse(spec).Alternatives {
 		for _, p := range alt.Properties {
 			if p.Compare != nil {
 				if _, err := strconv.Atoi(p.Compare.Operand); err != nil {
-					return p.Name, true
+					if _, ok := amounts[strings.ToLower(p.Compare.Operand)]; !ok {
+						return p.Name, true
+					}
 				}
 				continue
 			}
@@ -569,7 +576,7 @@ func validSAPropertyMatches(g *Game, a *Ability, caster PlayerID, c *Card, prop 
 		}
 		return compareOp(c.CMC(), prop[3:5], n), nil
 	}
-	if name, gap := playSpecGap("Card." + prop); gap {
+	if name, gap := playSpecGap("Card."+prop, a.Amounts); gap {
 		return false, fmt.Errorf("engine: Play: ValidSA$ property %q not resolvable yet", name)
 	}
 	return Matches(g, c, valid.Parse("Card."+prop), caster, a.Source), nil

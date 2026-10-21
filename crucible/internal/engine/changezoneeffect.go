@@ -500,14 +500,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			return fmt.Errorf("engine: ChangeZone: %w", err)
 		}
 	}
-	_, targeted := a.Params.Param("ValidTgts")
 	for _, id := range cards {
-		// A targeted spell is removed from the stack before it moves
-		// (ChangeZoneEffect.java:577-579), below. A Defined$ one other than
-		// the host or the replaced card is not audited yet.
-		if c := g.Card(id); c.Zone == Stack && zoneIn(Stack, origin) && !targeted && id != a.Source && (a.replacing == nil || a.replacing.card != id) {
-			return fmt.Errorf("engine: ChangeZone: Origin$ Stack for a spell other than its own host not resolvable yet")
-		}
 		if c := g.Card(id); c.Zone == Command && zoneIn(Command, origin) && !c.IsEffect {
 			return fmt.Errorf("engine: ChangeZone: Origin$ Command for a card that is not an effect not resolvable yet")
 		}
@@ -543,10 +536,12 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			continue
 		}
 		from := c.Zone
-		if from == Stack && targeted {
-			// MagicStack.remove(Card) (MagicStack.java:799-805): the spell
-			// leaves the stack, then its card moves -- a copy ceasing to
-			// exist and a flashback card going to exile inside Move.
+		if from == Stack {
+			// MagicStack.remove(Card) (ChangeZoneEffect.java:577-579, for every
+			// card on the stack, not only a targeted spell; MagicStack.java:
+			// 799-805): the spell leaves the stack, then its card moves -- a
+			// copy ceasing to exist and a flashback card going to exile inside
+			// Move. A spell already resolving is off the stack, a no-op.
 			g.removeSpellFromStack(id)
 		}
 		attach, skip, err := g.changeZonePlanAttach(controller, a.Controller, a, source, id, dest)

@@ -9,10 +9,12 @@ import (
 
 // changeZoneAllUnresolvedParams are ChangeZoneAllEffect.java's params this
 // port cannot honour yet (same mechanisms as changeZoneUnresolvedParams).
+// Hidden$ is not among them: ChangeZoneAllEffect never reads it (only
+// SpellAbility.isHidden does, for ChangeZone).
 var changeZoneAllUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCountersType", "StaticEffect", "TypeLimit", "OptionQuestion",
-	"Hidden", "ChangeNum", "Pawprint", "Random",
+	"ChangeNum", "Pawprint", "Random",
 	"Ultimate",
 }
 

@@ -124,9 +124,10 @@ func TestChangeZoneSpellTargetThatResolvedFizzles(t *testing.T) {
 	}
 }
 
-// A Defined$ spell other than the host with Origin$ Stack is not audited:
-// it fails loudly instead of moving.
-func TestChangeZoneDefinedSpellOnTheStackFails(t *testing.T) {
+// A Defined$ spell other than the host with Origin$ Stack leaves the stack
+// like a targeted one (ChangeZoneEffect.java:577-579 removes every Stack
+// card) and moves to its destination.
+func TestChangeZoneDefinedSpellOnTheStackMoves(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	bears := castBearsSpell(t, g, other)
@@ -136,8 +137,14 @@ func TestChangeZoneDefinedSpellOnTheStackFails(t *testing.T) {
 	sub := def.Faces[0].Triggers[0].Subs[0].Ability
 	g.PushAbility(engine.Ability{API: engine.APIChangeZone, Source: host, Controller: p, Params: sub})
 	err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "Origin$ Stack for a spell other than its own host") {
-		t.Fatalf("ResolveStack = %v, want the Origin$ Stack refusal", err)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(bears).Zone; z != engine.Hand {
+		t.Errorf("Grizzly Bears is in %v, want its owner's hand", z)
+	}
+	if n := g.StackLen(); n != 0 {
+		t.Errorf("stack holds %d items, want the Bears spell gone", n)
 	}
 }
 

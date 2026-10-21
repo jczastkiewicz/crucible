@@ -206,3 +206,49 @@ func TestMillEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved Ultimate$")
 	}
 }
+
+// TestMillEffectOptionalAsksTheMiller proves Optional$ (CR 701.13b,
+// MillEffect.java:48-60): the miller confirms first, and a library smaller
+// than NumCards$ skips the question and the mill.
+func TestMillEffectOptionalAsksTheMiller(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		libSize int
+		confirm bool
+		milled  int
+	}{
+		{"accepted", 5, true, 2},
+		{"declined", 5, false, 0},
+		{"short library", 1, true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g := newGame(t, "a", "b")
+			p := g.Players()[0]
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+			lib := libraryCards(t, g, p, tc.libSize)
+
+			c := engine.NewScriptedController()
+			if tc.libSize >= 2 {
+				c.QueueConfirmEffect(tc.confirm)
+			}
+			def := etbMillTriggerDefParams(t, "Test Mill Optional", "NumCards$ 2 | Defined$ You | Optional$ True")
+			if _, err := castETBMill(t, g, p, def, c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			got := 0
+			for _, id := range lib {
+				if g.Card(id).Zone == engine.Graveyard {
+					got++
+				}
+			}
+			if got != tc.milled {
+				t.Errorf("milled = %d, want %d", got, tc.milled)
+			}
+		})
+	}
+}

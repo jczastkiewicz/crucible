@@ -20,10 +20,9 @@ import "fmt"
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7): Destination$
 // (0 real lines -- the file doc comment above has the reason) is listed
 // anyway, a defensive reject rather than silently assuming Graveyard for an
-// unrecognized destination; Optional$ (23) -- CR 701.13b's own "would you
-// like to mill" confirm, this port's own PlayerController has no hook for
-// it, the identical gap Sacrifice's/Discard's own Optional$ already
-// document; Planeswalker$ (14) is not here: CR 606.3's own loyalty-ability
+// unrecognized destination; Optional$ is not here: CR 701.13b's "would you
+// like to mill" confirm is ConfirmEffect per miller, skipped when the
+// library holds fewer cards than NumCards$ (MillEffect.java:48-60); Planeswalker$ (14) is not here: CR 606.3's own loyalty-ability
 // marker is a cost-side gate (ActivateAbility/ActivateManaAbility,
 // activateability.go), never a restriction on how the effect it pays for
 // resolves, every other M6 effect's own identical reasoning; Ultimate$ (3)
@@ -38,7 +37,7 @@ import "fmt"
 // actual zone change, the identical "cosmetic, ignored" treatment
 // SpellDescription$/TgtPrompt$ already get everywhere.
 var millUnresolvedParams = [...]string{
-	"Destination", "Optional", "Ultimate", "ReduceCost"}
+	"Destination", "Ultimate", "ReduceCost"}
 
 // millEffect resolves Mode$/DB$/AB$ Mill. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -84,7 +83,11 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	_, imprint := a.Params.Param("Imprint")
 
 	var milled []CardID
+	_, optional := a.Params.Param("Optional")
 	for _, pid := range millers {
+		if optional && (numCards > len(g.Zone(Library, pid).Cards()) || !controller.ConfirmEffect(g, pid, a.Source)) {
+			continue
+		}
 		// Event$ Mill: "they mill twice that many cards instead".
 		pidCards, replaced := g.playerAmountReplaced(controller, "Mill", "Number", pid, numCards)
 		if replaced || pidCards <= 0 {

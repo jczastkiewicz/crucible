@@ -706,3 +706,103 @@ func TestDigMultipleMustChoose(t *testing.T) {
 		t.Error("an empty pick without Optional$ resolved")
 	}
 }
+
+// RememberCounteredCMC$ stores the countered spell's mana value as a
+// remembered number (CounterEffect.java:74-79), which Count$RememberedNumber
+// reads back.
+func TestCounterRemembersCounteredManaValue(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	spell := g.NewCard(creatureDefCost(t, "Spell", "1 G"), other, engine.Hand)
+	g.SetTurnState(1, other, engine.Main1)
+	g.Player(other).ManaPool.Add(mana.Green, 1)
+	g.Player(other).ManaPool.AddColorless(1)
+	cast := engine.NewScriptedController()
+	cast.QueuePayGeneric(mana.ShardC)
+	if !g.CastSpell(other, spell, cast) {
+		t.Fatal("cast failed")
+	}
+	def := etbChainDef(t, "Counterer", "DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCounteredCMC$ True")
+	host := g.NewCard(def, p, engine.Battlefield)
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	g.PushAbility(engine.Ability{API: engine.APICounter, Source: host, Controller: p, Params: sub,
+		Targets: []engine.EntityID{engine.CardEntity(spell)}})
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(host).Memory.RememberedNumbers(); len(got) != 1 || got[0] != 2 {
+		t.Errorf("remembered numbers = %v, want [2]", got)
+	}
+}
+
+// UntapUpTo$ / UntapExactly$ (UntapEffect.untapChoose): Defined$ (default
+// You) chooses Amount$ permanents matching UntapType$ to untap.
+func TestUntapChoosesPermanentsToUntap(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, line string
+		chosen     int
+		wantUntap  int
+	}{
+		{"up to takes the chosen subset", "DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2", 1, 1},
+		{"exactly untaps all it must", "DB$ Untap | UntapExactly$ True | UntapType$ Land | Amount$ 2", 2, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			var lands []engine.CardID
+			for i := 0; i < 3; i++ {
+				id := g.NewCard(landDef(t, "Test Land", "Basic Land Plains"), p, engine.Battlefield)
+				g.Card(id).Tapped = true
+				lands = append(lands, id)
+			}
+			c := engine.NewScriptedController()
+			c.QueueCardChoice(lands[:tc.chosen])
+			resolveLine(t, g, p, c, tc.line)
+			untapped := 0
+			for _, id := range lands {
+				if !g.Card(id).Tapped {
+					untapped++
+				}
+			}
+			if untapped != tc.wantUntap {
+				t.Errorf("untapped = %d, want %d", untapped, tc.wantUntap)
+			}
+		})
+	}
+}
+
+func TestUntapChooseNeedsAmountAndType(t *testing.T) {
+	t.Parallel()
+	for _, line := range []string{
+		"DB$ Untap | UntapUpTo$ True | UntapType$ Land",
+		"DB$ Untap | UntapUpTo$ True | Amount$ 1",
+		"DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ Bogus",
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Untap Bad", line), engine.NewScriptedController()); err == nil {
+			t.Errorf("%q resolved, want an error", line)
+		}
+	}
+}
+
+// An untapped pick is left alone, a list with nothing to pick asks nobody,
+// and a pick outside the offered permanents is an error (GO-7).
+func TestUntapChooseSkipsUntappedAndRejectsForeignPicks(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	land := g.NewCard(landDef(t, "Test Land", "Basic Land Plains"), p, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Untap | UntapUpTo$ True | UntapType$ Planeswalker | Amount$ 1")
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{land})
+	resolveLine(t, g, p, c, "DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 1")
+	if g.Card(land).Tapped {
+		t.Error("an untapped land became tapped")
+	}
+	foreign := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	bad := engine.NewScriptedController()
+	bad.QueueCardChoice([]engine.CardID{foreign})
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Untap Foreign", "DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 1"), bad); err == nil {
+		t.Error("a pick outside the offered lands was accepted")
+	}
+}

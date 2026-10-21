@@ -12,7 +12,8 @@ import "fmt"
 // moves (CounterEffect.java:270-272); DestroyPermanent$ then destroys its host
 // (:105-107). RememberCountered$ and RememberForCounter$ remember the card --
 // an ability's host -- on the host of this ability (the latter even if it
-// could not be countered). Optional$ lets the activator stop first. A Layer$
+// could not be countered). RememberCounteredCMC$ remembers the spell's mana
+// value as a number, before the counterable check. Optional$ lets the activator stop first. A Layer$
 // CantHappen Counter replacement (counterCantHappen, replacementevents.go)
 // stops the counter, and a ReplaceWith$ one replaces a spell's (counterReplaced).
 // TargetValidTargeting$ is a targeting restriction (canTargetStackItem), read
@@ -24,7 +25,7 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Counter", "Defined", "DestinationChoice", "RememberCounteredCMC",
+	if err := rejectParams(a, "Counter", "Defined", "DestinationChoice",
 		"RememberCounteredSA", "RememberSplicedOntoCounteredSpell", "ConditionWouldDestroy"); err != nil {
 		return err
 	}
@@ -64,6 +65,9 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 				return nil
 			}
+			if hasParam(a, "RememberCounteredCMC") {
+				return fmt.Errorf("engine: Counter: RememberCounteredCMC$ on an ability not resolvable yet")
+			}
 			if err := counterAbility(g, a, controller, t); err != nil {
 				return err
 			}
@@ -76,10 +80,16 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			return nil
 		}
+		c := g.Card(id)
+		// Remembered before the counterable check, so even a spell that
+		// can't be countered leaves its mana value (CounterEffect.java:
+		// 74-79); Count$RememberedNumber reads it back.
+		if hasParam(a, "RememberCounteredCMC") {
+			source.Memory.RememberNumber(c.CMC())
+		}
 		if hasParam(a, "RememberForCounter") {
 			source.Memory.Remember(t)
 		}
-		c := g.Card(id)
 		if c.Zone != Stack || c.HasKeyword("This spell can't be countered.") {
 			continue
 		}

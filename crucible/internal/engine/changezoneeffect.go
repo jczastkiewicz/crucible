@@ -17,7 +17,7 @@ import (
 // changeZoneJoinCombat), a delayed follow-up (StaticEffect$; Duration$ UntilHostLeavesPlay resolves,
 // changeZoneDuration, but not its ReturnAbility$/ReturnValid$ delayed
 // trigger), an alternative destination prompt (DestinationAlternative$), a
-// non-default search loop (Different*$, WithTotal*$, Exactly$, Reorder$; and
+// non-default search loop (DifferentNames$ and Reorder$ (library only) resolve; DifferentCMC$/DifferentPower$, WithTotal*$, Exactly$, Reorder$; and
 // AtRandom$, whose Aggregates.random draws over the fetch list after
 // fetchList.sort() orders it by CardView.toString -- zone text, translated
 // name and Java card id, ChangeZoneEffect.java:1097, :1199 -- an order this
@@ -40,9 +40,9 @@ var changeZoneUnresolvedParams = [...]string{
 	"AttachAfter", "FaceDown",
 	"StaticEffect",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
-	"RandomOrder", "AtRandom", "DifferentNames", "DifferentCMC", "DifferentPower",
+	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalCMC", "WithTotalPower", "WithTotalCardTypes",
-	"ShuffleChangedPile", "Reorder", "Exactly", "RememberSearched",
+	"ShuffleChangedPile", "Exactly", "RememberSearched",
 	"ImprintLast", "Unearth",
 	"Ultimate",
 	// ExiledWithEffectSource$ marks the effect card's own source as the
@@ -841,29 +841,78 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			}
 			chosen = append(chosen, fetchList[:n]...)
 		} else {
-			hi := changeNum
-			if hi > len(fetchList) {
-				hi = len(fetchList)
-			}
-			lo := 0
-			if mandatory {
-				lo = hi
-			}
-			if hi > 0 {
-				// ChangeZoneEffect.java:1070-1076, 1268: a searched library is
-				// searched under the control grant ControlOpponentsSearching-
-				// Library$ gives (ADR-0040), popped after the pick. Searched$
-				// counts as a search for the grant (:1067-1069).
+			// ChangeZoneEffect.java:1070-1076, 1268: a searched library is
+			// searched under the control grant ControlOpponentsSearching-
+			// Library$ gives (ADR-0040), popped after the pick. Searched$
+			// counts as a search for the grant (:1067-1069).
+			pickFrom := func(list []CardID, lo, hi int) ([]CardID, error) {
 				var end func()
 				if (searchedLibrary || searchedParam) && decider == player {
 					end = g.beginSearchControl(player)
 				}
-				chosen = controller.ChooseCardsForEffect(g, decider, a.Source, fetchList, lo, hi)
+				got := controller.ChooseCardsForEffect(g, decider, a.Source, list, lo, hi)
 				if end != nil {
 					end()
 				}
-				if err := checkChoice(chosen, fetchList, lo, hi); err != nil {
-					return fmt.Errorf("engine: ChangeZone: %w", err)
+				if err := checkChoice(got, list, lo, hi); err != nil {
+					return nil, fmt.Errorf("engine: ChangeZone: %w", err)
+				}
+				return got, nil
+			}
+			if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
+				// The one-at-a-time loop (ChangeZoneEffect.java:1157-1231;
+				// allowMultiSelect is false under DifferentNames$): each pick
+				// leaves out every card sharing a name with an earlier one. A
+				// declined pick ends the search when nothing is left to pick,
+				// SkipCancelPrompt$ is set or the decider confirms the cancel.
+				_, skipCancel := a.Params.Param("SkipCancelPrompt")
+				for i := 0; i < changeNum; i++ {
+					var rest []CardID
+					for _, id := range fetchList {
+						shares := false
+						for _, kept := range chosen {
+							if g.sharesNameWith(id, kept) {
+								shares = true
+								break
+							}
+						}
+						if !shares {
+							rest = append(rest, id)
+						}
+					}
+					fetchList = rest
+					lo := 0
+					if mandatory && len(fetchList) > 0 {
+						lo = 1
+					}
+					var got []CardID
+					if len(fetchList) > 0 {
+						if got, err = pickFrom(fetchList, lo, 1); err != nil {
+							return err
+						}
+					}
+					if len(got) == 0 {
+						if len(fetchList) == 0 || skipCancel || controller.ConfirmEffect(g, decider, a.Source) {
+							break
+						}
+						i--
+						continue
+					}
+					chosen = append(chosen, got[0])
+				}
+			} else {
+				hi := changeNum
+				if hi > len(fetchList) {
+					hi = len(fetchList)
+				}
+				lo := 0
+				if mandatory {
+					lo = hi
+				}
+				if hi > 0 {
+					if chosen, err = pickFrom(fetchList, lo, hi); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -876,6 +925,25 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		}
 		if zoneIn(Library, searched) && dest == Library && fetcherShuffle {
 			g.Shuffle(Library, player)
+		}
+		if _, ok := a.Params.Param("Reorder"); ok {
+			// ChangeZoneEffect.java:1263-1265: the decider orders the chosen
+			// cards for their destination, after the shuffle. Only the library
+			// is ordered here; a destination Java leaves unordered (Hand)
+			// passes through, the others are not audited.
+			switch dest {
+			case Library:
+				if len(chosen) > 1 {
+					ordered := controller.OrderCardsForZone(g, decider, chosen, dest)
+					if err := checkChoice(ordered, chosen, len(chosen), len(chosen)); err != nil {
+						return fmt.Errorf("engine: ChangeZone: ordering cards into %v: %w", dest, err)
+					}
+					chosen = ordered
+				}
+			case Hand:
+			default:
+				return fmt.Errorf("engine: ChangeZone: Reorder$ into %v not resolvable yet", dest)
+			}
 		}
 		picks = append(picks, hiddenChoice{player: player, chosen: chosen, shuffleMandatory: fetcherShuffle,
 			found: searchedLibrary && !searchedParam, origin: searched, dest: dest, libPos: libPos})

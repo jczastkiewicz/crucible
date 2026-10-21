@@ -1,23 +1,16 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone continuous controlcommands resolvechoice
+//enginelint:allow id card game ability defined condition control parts zone continuous controlcommands resolvechoice phaseseffect
 
 import "fmt"
-
-// gainControlUnresolvedParams are ControlGainEffect.java's params this port
-// cannot honour yet: the sweep shape (AllValid$). The target-selection restrictions (TargetsForEachPlayer$,
-// MaxTotalTargetCMC$, TargetsWithControllerProperty$, TargetingPlayer$,
-// TargetingPlayerControls$ and the random pick, TargetsAtRandom$) are
-// targeting.go's.
-var gainControlUnresolvedParams = [...]string{
-	"AllValid", "Ultimate",
-}
 
 // gainControlEffect is ControlGainEffect.java's permanent shape: the
 // NewController$ player (default the activator) gains control of each
 // targeted or Defined$ permanent (default Self) with no end date --
 // Card.addTempController, a timestamped entry Controller merges with
-// Layer 2's continuous effects (Card.tempControllers). Untap$ untaps it;
+// Layer 2's continuous effects (Card.tempControllers). AllValid$ takes every
+// battlefield permanent matching it instead (getDefinedCards,
+// ControlGainEffect.java:268-274). Untap$ untaps it;
 // Optional$ asks per permanent. A permanent that changes controller is
 // removed from combat and is summoning sick again (CR 506.4, 302.6).
 type gainControlEffect struct{}
@@ -25,11 +18,6 @@ type gainControlEffect struct{}
 func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range gainControlUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: GainControl: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -46,7 +34,12 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		}
 	}
 	var cards []CardID
-	if spec, ok := a.Params.Param("Choices"); ok {
+	if spec, ok := a.Params.Param("AllValid"); ok {
+		var err error
+		if cards, err = phasesValidCards(g, a, spec, false); err != nil {
+			return fmt.Errorf("engine: GainControl: AllValid$: %w", err)
+		}
+	} else if spec, ok := a.Params.Param("Choices"); ok {
 		// ControlGainEffect.java:106-120: Chooser$ (the activator) picks one
 		// battlefield permanent, never optionally; none to pick ends the effect.
 		chooser, err := choiceChooser(g, a, "GainControl")

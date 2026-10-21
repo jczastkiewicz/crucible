@@ -341,3 +341,163 @@ func TestChangeZoneEffectHiddenShapes(t *testing.T) {
 		}
 	})
 }
+
+// TestChangeZoneEffectDifferentNamesOffersOnlyUnsharedNames proves
+// DifferentNames$ (ChangeZoneEffect.java:1157-1161): the search picks one card
+// at a time and leaves out every card sharing a name with an earlier pick.
+func TestChangeZoneEffectDifferentNamesOffersOnlyUnsharedNames(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land | ChangeNum$ 2 | DifferentNames$ True"
+	setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids [3]engine.CardID
+		ids[0] = g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+		ids[1] = g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+		ids[2] = g.NewCard(landDef(t, "Test Forest", "Basic Land Forest"), p, engine.Library)
+		return g, p, ids
+	}
+
+	t.Run("picks two names", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[2]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Different Names", line), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		for i, want := range []engine.ZoneType{engine.Hand, engine.Library, engine.Hand} {
+			if z := g.Card(ids[i]).Zone; z != want {
+				t.Errorf("card %d zone = %v, want %v", i, z, want)
+			}
+		}
+	})
+
+	t.Run("second plains is not offered", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Different Names", line), c); err == nil {
+			t.Fatal("choosing a card sharing a name with the first pick succeeded")
+		}
+	})
+
+	t.Run("declined pick ends the search", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice(nil)
+		c.QueueConfirmEffect(true)
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Different Names", line), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		if z := g.Card(ids[0]).Zone; z != engine.Hand {
+			t.Errorf("first pick zone = %v, want Hand", z)
+		}
+		if z := g.Card(ids[2]).Zone; z != engine.Library {
+			t.Errorf("unpicked card zone = %v, want Library", z)
+		}
+	})
+}
+
+// TestChangeZoneEffectReorderAsksTheDeciderToOrderTheLibraryMove proves
+// Reorder$ (ChangeZoneEffect.java:1263-1265): the cards chosen from the hand
+// are put back in the order the decider gives.
+func TestChangeZoneEffectReorderAsksTheDeciderToOrderTheLibraryMove(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	first := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	second := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{first, second})
+	c.QueueCardOrder([]engine.CardID{first, second})
+	def := etbChainDef(t, "Test Reorder", "DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True | Reorder$ True")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	lib := g.Zone(engine.Library, p).Cards()
+	if len(lib) != 2 || lib[0] != second || lib[1] != first {
+		t.Errorf("library = %v, want [%v %v] (moved in the given order, each onto the top)", lib, second, first)
+	}
+}
+
+// TestChangeZoneEffectReorderPassesHandThroughAndRefusesOtherZones covers the
+// destinations Reorder$ does not order: Java leaves a Hand move as chosen, and
+// the rest are not audited.
+func TestChangeZoneEffectReorderPassesHandThroughAndRefusesOtherZones(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		dest    string
+		wantErr bool
+	}{{"Hand", false}, {"Graveyard", true}} {
+		t.Run(tc.dest, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			card := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+			c := engine.NewScriptedController()
+			c.QueueCardChoice([]engine.CardID{card})
+			def := etbChainDef(t, "Test Reorder Dest", "DB$ ChangeZone | Origin$ Library | Destination$ "+tc.dest+" | ChangeType$ Card | Mandatory$ True | Reorder$ True")
+			_, err := castETBChain(t, g, p, def, c)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TestChangeZoneEffectDifferentNamesDeclinedCancelAsksAgain proves a declined
+// pick whose cancel is not confirmed repeats the same pick (i--,
+// ChangeZoneEffect.java:1218-1220).
+func TestChangeZoneEffectDifferentNamesDeclinedCancelAsksAgain(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	land := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(nil)
+	c.QueueConfirmEffect(false)
+	c.QueueCardChoice([]engine.CardID{land})
+	def := etbChainDef(t, "Test Different Names Retry", "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land | DifferentNames$ True")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(land).Zone; z != engine.Hand {
+		t.Errorf("land zone = %v, want Hand", z)
+	}
+}
+
+// TestChangeZoneEffectDifferentNamesMandatoryAndBadOrder covers the mandatory
+// minimum of a DifferentNames$ pick and a Reorder$ answer that is not a
+// permutation of the chosen cards (GO-7: an error, not a panic).
+func TestChangeZoneEffectDifferentNamesMandatoryAndBadOrder(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	land := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{land})
+	def := etbChainDef(t, "Test Different Names Mandatory", "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land | DifferentNames$ True | Mandatory$ True")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(land).Zone; z != engine.Hand {
+		t.Errorf("land zone = %v, want Hand", z)
+	}
+
+	g, p, _ = newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	b := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Hand)
+	c = engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{a, b})
+	c.QueueCardOrder([]engine.CardID{a})
+	def = etbChainDef(t, "Test Reorder Bad", "DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True | Reorder$ True")
+	if _, err := castETBChain(t, g, p, def, c); err == nil {
+		t.Fatal("an order that drops a card was accepted")
+	}
+}

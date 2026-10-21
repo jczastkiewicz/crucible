@@ -16,17 +16,14 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone
+//enginelint:allow id card game ability defined condition control zone amount effecthelpers
 
 import "fmt"
 
 // untapUnresolvedParams names UntapEffect's own params this port does not
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7): UntapUpTo$/
-// UntapExactly$/UntapType$/Amount$ (16/2/18/18) -- untapChoose's own
-// "choose up to N battlefield permanents matching a spec" interactive
-// shape, this port's own PlayerController has no hook for it (the identical
-// gap tapUnresolvedParams' own CardChoices$ has, no ChoosePermanentsToUntap
-// method exists yet); Condition$/ConditionDefined$ (1/0) -- condition.go's
+// UntapExactly$ are not here: untapChoose (untapChoosePermanents, below) has
+// the chosen player pick them with ChooseCardsForEffect; Condition$/ConditionDefined$ (1/0) -- condition.go's
 // own subAbilityConditionMet would otherwise silently no-op a card naming
 // either, dealDamageEffect's own identical reasoning; ETB$ (6) -- Tap's own
 // "enters tapped" replacement idiom (tapAbilityResolvesTap, replacement.go)
@@ -34,9 +31,7 @@ import "fmt"
 // override line is not recognized anywhere in this port and must fail
 // loudly here rather than silently untap-without-a-trigger the wrong
 // permanent.
-var untapUnresolvedParams = [...]string{
-	"UntapUpTo", "UntapExactly", "UntapType", "Amount", "ETB",
-}
+var untapUnresolvedParams = [...]string{"ETB"}
 
 // untapEffect resolves Mode$/DB$/AB$ Untap for the plain ValidTgts$/
 // Defined$ shape -- UntapUpTo$/UntapExactly$'s own interactive "choose"
@@ -59,6 +54,12 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	if _, upTo := a.Params.Param("UntapUpTo"); upTo {
+		return untapChoosePermanents(g, a, controller, source, false)
+	}
+	if _, exactly := a.Params.Param("UntapExactly"); exactly {
+		return untapChoosePermanents(g, a, controller, source, true)
+	}
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Untap: %w", err)
@@ -74,6 +75,69 @@ func (untapEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		g.runUntapCommands(controller, id)
 		c.Tapped = false
 		g.checkUntapsTriggers(controller, id)
+	}
+	return nil
+}
+
+// untapChoosePermanents is UntapEffect.untapChoose (UntapEffect.java:101-139):
+// each Defined$ player (default You) chooses Amount$ battlefield permanents
+// matching UntapType$ to untap -- up to that many, or exactly that many (as
+// far as the list allows) when mandatory. The UntapAll trigger
+// is not fired, as in the plain branch.
+func untapChoosePermanents(g *Game, a *Ability, controller PlayerController, source *Card, mandatory bool) error {
+	raw, ok := a.Params.Param("Amount")
+	if !ok {
+		return fmt.Errorf("engine: Untap: Amount$ missing")
+	}
+	num, ok := resolveNamedAmount(g, a.Amounts, source, raw)
+	if !ok {
+		return fmt.Errorf("engine: Untap: Amount$ %q is not resolvable", raw)
+	}
+	spec, ok := a.Params.Param("UntapType")
+	if !ok {
+		return fmt.Errorf("engine: Untap: UntapType$ missing")
+	}
+	who := "You"
+	if d, ok := a.Params.Param("Defined"); ok {
+		who = d
+	}
+	players, err := definedPlayers(g, a.Controller, a.Source, who, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: Untap: Defined$: %w", err)
+	}
+	for _, pid := range players {
+		if g.Player(pid).Lost {
+			continue
+		}
+		var candidates []CardID
+		for _, owner := range g.Players() {
+			candidates = append(candidates, g.Zone(Battlefield, owner).Cards()...)
+		}
+		candidates = filterValid(g, candidates, spec, a.Controller, a.Source)
+		hi := num
+		if hi > len(candidates) {
+			hi = len(candidates)
+		}
+		if hi <= 0 {
+			continue
+		}
+		lo := 0
+		if mandatory {
+			lo = hi
+		}
+		chosen := controller.ChooseCardsForEffect(g, pid, a.Source, candidates, lo, hi)
+		if err := checkChoice(chosen, candidates, lo, hi); err != nil {
+			return fmt.Errorf("engine: Untap: %w", err)
+		}
+		for _, id := range chosen {
+			c := g.Card(id)
+			if !c.Tapped {
+				continue
+			}
+			g.runUntapCommands(controller, id)
+			c.Tapped = false
+			g.checkUntapsTriggers(controller, id)
+		}
 	}
 	return nil
 }

@@ -331,3 +331,18 @@ func TestBecomesBlockedWithoutBlockerDealsNothing(t *testing.T) {
 		t.Errorf("life = %d, want 18 (blocked trampler still connects, the other deals nothing)", got)
 	}
 }
+
+// AllValid$ takes every matching battlefield permanent instead of targets
+// (ControlGainEffect.getDefinedCards).
+func TestGainControlAllValidSweepsMatchingPermanents(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	b := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ GainControl | AllValid$ Creature.OppCtrl | Ultimate$ True")
+	for _, id := range []engine.CardID{a, b} {
+		if got := g.Card(id).Controller(); got != p {
+			t.Errorf("controller of %v = %v, want %v", id, got, p)
+		}
+	}
+}

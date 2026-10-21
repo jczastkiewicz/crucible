@@ -97,9 +97,6 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return nil
 	}
 	storeNum := hasParam(a, "StoreVoteNum")
-	if storeNum && !hasParam(a, "Choices") {
-		return fmt.Errorf("engine: Vote: StoreVoteNum$ without Choices$ not resolvable yet")
-	}
 	voters, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Vote: %w", err)
@@ -183,6 +180,19 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		return nil
 	}
+	if storeNum && !hasParam(a, "Choices") {
+		// VoteEffect.java:164-167: the count of every option is kept on the
+		// vote ability as a VoteNum<option> SVar, for RepeatEach's
+		// AmountFromVotes$ to read; no sub-ability resolves.
+		if a.rootAbility != nil {
+			a.rootAbility.voteTally = nil
+			for i, o := range options {
+				a.rootAbility.voteTally = append(a.rootAbility.voteTally, voteCount{o.entity, counts[i]})
+			}
+		}
+		g.rememberVoted(source, a, options, counts)
+		return nil
+	}
 	if storeNum {
 		for i := range options {
 			if err := resolveSub(i, true); err != nil {
@@ -224,14 +234,36 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}
 		}
 	}
-	if hasParam(a, "RememberVotedObjects") {
-		for i, n := range counts {
-			if n > 0 && options[i].sub < 0 {
-				source.Memory.Remember(options[i].entity)
-			}
+	g.rememberVoted(source, a, options, counts)
+	return nil
+}
+
+// rememberVoted is RememberVotedObjects$ (VoteEffect.java:178-180): every
+// option that received a vote, in ballot order.
+func (g *Game) rememberVoted(source *Card, a *Ability, options []voteOption, counts []int) {
+	if !hasParam(a, "RememberVotedObjects") {
+		return
+	}
+	for i, n := range counts {
+		if n > 0 && options[i].sub < 0 {
+			source.Memory.Remember(options[i].entity)
 		}
 	}
-	return nil
+}
+
+// votesFor is RepeatEachEffect.setVoteAmount (RepeatEachEffect.java:216-229):
+// the votes e received in the root ability's Vote, 0 when it stored none (Java
+// logs a bad amount and defaults to 0).
+func (a *Ability) votesFor(e EntityID) int {
+	if a.rootAbility == nil {
+		return 0
+	}
+	for _, v := range a.rootAbility.voteTally {
+		if v.entity == e {
+			return v.n
+		}
+	}
+	return 0
 }
 
 // castVote asks p for one vote among opts (indices into options).

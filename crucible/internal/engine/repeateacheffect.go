@@ -14,12 +14,12 @@ import (
 // repeatEachUnresolvedParams are RepeatEachEffect.java's params this port
 // cannot honour yet: the stack-object loop
 // (RepeatSpellAbilities$), a delayed per-player loop
-// (NextTurnForEachPlayer$), vote amounts (AmountFromVotes$), the batched
+// (NextTurnForEachPlayer$), the batched
 // life table (LoseLifeMap$). ChooseOrder$ orders a card loop and names
 // RepeatTypesFrom$'s chooser; the player loop, which Java also reads it
 // for, stays as it is.
 var repeatEachUnresolvedParams = [...]string{
-	"RepeatSpellAbilities", "NextTurnForEachPlayer", "AmountFromVotes",
+	"RepeatSpellAbilities", "NextTurnForEachPlayer",
 	"LoseLifeMap",
 	"Ultimate",
 }
@@ -126,6 +126,7 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			} else {
 				m.Remember(CardEntity(id))
 			}
+			a.setVoteAmount(CardEntity(id))
 			if err := g.resolveAdditionalKey(a, controller, "RepeatSubAbility"); err != nil {
 				return err
 			}
@@ -169,6 +170,7 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 				continue
 			}
 			old := swapRememberedPlayer(m, p)
+			a.setVoteAmount(PlayerEntity(p))
 			if err := g.resolveAdditionalKey(a, controller, "RepeatSubAbility"); err != nil {
 				return err
 			}
@@ -268,4 +270,13 @@ func repeatCardTypes(g *Game, a *Ability, controller PlayerController, def strin
 	}
 	source.Memory.SetChosenType(stored, false)
 	return nil
+}
+
+// setVoteAmount is AmountFromVotes$: the Votes SVar of this ability becomes
+// the votes e received (RepeatEachEffect.java:216-229), and stays for the
+// sub-abilities that follow, as Java's setSVar leaves it.
+func (a *Ability) setVoteAmount(e EntityID) {
+	if hasParam(a, "AmountFromVotes") {
+		a.Amounts = withAmount(a.Amounts, "Votes", a.votesFor(e))
+	}
 }

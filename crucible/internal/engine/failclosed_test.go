@@ -190,7 +190,6 @@ func TestFiftyPackFailsClosed(t *testing.T) {
 		"DB$ ExchangeControlVariant | Defined$ Player | Zone$ Graveyard",
 		"DB$ DayTime | Value$ Dusk",
 		"DB$ AlterAttribute | Defined$ Self | Attributes$ Saddled",
-		"DB$ Vote | Defined$ Player | VoteCard$ Card | StoreVoteNum$ True",
 		"DB$ Vote | Defined$ Player | VoteCard$ Card | Zone$ Nowhere",
 		"DB$ MakeCard | Name$ Nonexistent Card | Zone$ Hand",
 		"DB$ MakeCard | Booster$ True",

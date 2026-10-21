@@ -217,6 +217,9 @@ type Ability struct {
 	// popped (SpellAbility.getRootAbility): what Defined$ Parent names. Set
 	// where the item resolves (resolveTop), inherited by every sub-ability.
 	rootAbility *Ability
+	// voteTally is what a StoreVoteNum$ Vote without Choices$ counted, kept on
+	// the root for AmountFromVotes$ (voteCount).
+	voteTally []voteCount
 	// probing marks a spell not yet cast asked about as though one optional
 	// cost were paid: SpellAbility.canPlay(checkOptionalCosts) tries the spell
 	// with each one added (SpellAbility.java:467-491). probeTeamwork is that
@@ -716,4 +719,11 @@ type paidLists struct {
 	// colors is the colored mana the activation spent, white to green
 	// (xAnnounced.paid): SpellAbility.getPayingColors, Count$ManaColorsPaid.
 	colors [5]int
+}
+
+// voteCount is one option's vote total, the VoteNum<option> SVar of
+// VoteEffect.java:166.
+type voteCount struct {
+	entity EntityID
+	n      int
 }

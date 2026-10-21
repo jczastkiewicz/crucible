@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
 // TestChangeZoneAtRandomPicksWithoutAsking proves AtRandom$ on a hidden
@@ -66,5 +67,30 @@ func TestChangeZoneWithoutDestinationOnlyChooses(t *testing.T) {
 	}
 	if got := g.Card(host).Memory.Remembered(); len(got) != 1 || got[0] != engine.CardEntity(held) {
 		t.Errorf("remembered %v, want the chosen card", got)
+	}
+}
+
+// TestChangeZoneAtRandomDrawsFromTheNameSortedList proves the draw indexes the
+// list sorted by "name (id)" (ChangeZoneEffect.java:1097), not the zone's
+// order: with the generator at its seed, the first draw over three cards is
+// the Int32n(3)th name in sorted order.
+func TestChangeZoneAtRandomDrawsFromTheNameSortedList(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 1)
+	byName := map[string]engine.CardID{}
+	for _, name := range []string{"Llanowar Elves", "Grizzly Bears", "Air Elemental"} {
+		byName[name] = g.NewCard(corpusCard(t, name), p, engine.Graveyard)
+	}
+	def := etbChainDef(t, "Test Sorted Draw",
+		"DB$ ChangeZone | Hidden$ True | Origin$ Graveyard | Destination$ Exile | ChangeType$ Card | Mandatory$ True | AtRandom$ True")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	sorted := []string{"Air Elemental", "Grizzly Bears", "Llanowar Elves"}
+	want := byName[sorted[javarand.New(1).Int32n(3)]]
+	if got := g.Zone(engine.Exile, p).Cards(); len(got) != 1 || got[0] != want {
+		t.Errorf("exiled %v, want %v", got, want)
 	}
 }

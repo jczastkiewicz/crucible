@@ -704,10 +704,10 @@ func changeZoneIsHidden(a *Ability) bool {
 
 // changeZoneAtRandom is the AtRandom$ branch of the pick loop
 // (ChangeZoneEffect.java:1195-1199): fetchList.sort() orders the list by
-// CardView.toString, "name (id)" (:1097), then each of the changeNum picks
-// is Aggregates.random over what is left -- no draw for one card. The id in
-// the sort key is Java's card id, so cards sharing a name tie-break on the
-// arena id instead (quirks.md).
+// CardView.toString, "name (id)" compared as text (:1097), then each of the
+// changeNum picks is Aggregates.random over what is left -- no draw for one
+// card. The id is the arena id, which counts cards from 1 in creation order
+// as Game.nextCardId does, so same-name cards tie-break as Java's do.
 func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
 	key := func(id CardID) string { return g.Card(id).Name() + " (" + strconv.Itoa(int(id)) + ")" }
 	list := slices.Clone(fetchList)

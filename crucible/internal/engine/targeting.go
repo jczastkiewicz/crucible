@@ -994,7 +994,8 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 
 // hostCardPropertyOrType is hostCardProperty plus the host-card properties
 // a mana restriction names (ADR-0046): a creature type (Spell.Dragon),
-// inZone<Zone> (Activated.Artifact+inZoneBattlefield) and ChosenType.
+// inZone<Zone> (Activated.Artifact+inZoneBattlefield), ChosenType,
+// numColors<op><n> and with<Keyword> (Spell.withForetell).
 func (g *Game) hostCardPropertyOrType(prop string) bool {
 	if hostCardProperty(prop) || prop == "ChosenType" {
 		return true
@@ -1003,8 +1004,20 @@ func (g *Game) hostCardPropertyOrType(prop string) bool {
 		_, known := ZoneByName(zone)
 		return known
 	}
+	if rest, ok := strings.CutPrefix(prop, "numColors"); ok {
+		// numColors<LT|LE|EQ|GE|GT|NE><n>.
+		n, err := strconv.Atoi(rest[min(2, len(rest)):])
+		switch rest[:min(2, len(rest))] {
+		case "LT", "LE", "EQ", "GE", "GT", "NE":
+			return err == nil && n >= 0
+		}
+		return false
+	}
+	if rest, ok := strings.CutPrefix(prop, "with"); ok && rest != "" && !strings.HasPrefix(rest, "out") {
+		return true
+	}
 	reg := g.db.Types()
-	return reg != nil && reg.IsCreatureType(prop)
+	return reg != nil && reg.Known(prop)
 }
 
 // hostCardProperty reports whether prop is a card property propertyMatches

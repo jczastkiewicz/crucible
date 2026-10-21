@@ -122,3 +122,28 @@ func TestManaEffectRestrictValidRefusesWhatNoPaymentCanJudge(t *testing.T) {
 		t.Error("instant cast with instant-or-sorcery mana, want it cast")
 	}
 }
+
+// TestRestrictedManaSpecialActionsAndKeywordSpells proves the three shapes
+// Niko Defies Destiny, Smoky Lounge and Meeting of the Five name: foretelling
+// is paid by Static.Foretelling mana, a three-color spell by numColorsEQ3.
+func TestRestrictedManaSpecialActionsAndKeywordSpells(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	restrictedRock(t, g, p, "Static.Foretelling,Spell.withForetell")
+	restrictedRock(t, g, p, "Spell.numColorsEQ3")
+	restrictedRock(t, g, p, "Static.Unlock,Spell.Enchantment")
+
+	// Colorless-cost permanents: no spell here is three-colored or has
+	// foretell, so the three red units pay nothing ordinary.
+	bears := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Hand)
+	if g.CastSpell(p, bears, engine.NewScriptedController()) {
+		t.Error("red creature cast with foretell/three-color/unlock mana, want it refused")
+	}
+	if got := g.Player(p).ManaPool.Breakdown()[3]; got != 3 {
+		t.Errorf("red after the refused cast = %d, want 3", got)
+	}
+}

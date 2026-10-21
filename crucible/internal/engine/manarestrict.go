@@ -24,6 +24,10 @@ type payContext struct {
 	// resolving is a payment made while item resolves (an unless-cost):
 	// AbilityManaPart.java:443-445 meets no ordinary restriction then.
 	resolving bool
+	// special names the special action a payment is for: "Foretelling" or
+	// "Unlock" (RestrictValid$ Static.Foretelling, Static.Unlock); "" for a
+	// spell, ability or effect.
+	special string
 }
 
 // payingFor sets what the payments that follow are for and returns the call
@@ -54,6 +58,11 @@ func (g *Game) manaRestrictionSupported(restrict string) bool {
 		head, rest, hasRest := strings.Cut(alt, ".")
 		switch head {
 		case "Spell", "SpellAbility", "Ability", "Activated", "Triggered", "Instant", "Sorcery":
+		case "Static":
+			if rest != "Foretelling" && rest != "Unlock" {
+				return false
+			}
+			continue
 		default:
 			return false
 		}
@@ -105,6 +114,12 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 		}
 		if ctx.resolving {
 			return false
+		}
+		if head, prop, _ := strings.Cut(alt, "."); head == "Static" {
+			if ctx.special != "" && prop == ctx.special {
+				return true
+			}
+			continue
 		}
 		src := g.manaSourceCard(u.src)
 		self := &Ability{Source: u.src.card, Controller: src.Controller()}

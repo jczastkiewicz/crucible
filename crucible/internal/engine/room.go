@@ -10,7 +10,7 @@
 
 package engine
 
-//enginelint:allow id zone card game parts ability control trigger valid manapay statictrigger
+//enginelint:allow id zone card game parts ability control trigger valid manapay manarestrict statictrigger
 
 import (
 	"strings"
@@ -413,7 +413,10 @@ func (g *Game) UnlockDoor(pid PlayerID, card CardID, d Door, controller PlayerCo
 	if !g.canActSorcerySpeed(pid) || unlockCostModified(g, pid) {
 		return false
 	}
-	if _, paid := g.payManaCostX(pid, c.roomDef.Faces[d].ManaCost, controller); !paid {
+	restore := g.payingFor(&payContext{item: &Ability{Source: card, Controller: pid}, cost: c.roomDef.Faces[d].ManaCost, special: "Unlock"})
+	_, paid := g.payManaCostX(pid, c.roomDef.Faces[d].ManaCost, controller)
+	restore()
+	if !paid {
 		return false
 	}
 	g.unlockDoor(controller, card, pid, d)

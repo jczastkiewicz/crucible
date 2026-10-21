@@ -40,7 +40,11 @@ func (g *Game) Foretell(pid PlayerID, card CardID, controller PlayerController) 
 	if c.Zone != Hand || c.Controller() != pid || c.Def == nil || !hasForetell(c) || pid != g.activePlayer {
 		return false
 	}
-	if _, paid := g.payManaCostX(pid, mana.MustParse(foretellActionCost), controller); !paid {
+	cost := mana.MustParse(foretellActionCost)
+	restore := g.payingFor(&payContext{item: &Ability{Source: card, Controller: pid}, cost: cost, special: "Foretelling"})
+	_, paid := g.payManaCostX(pid, cost, controller)
+	restore()
+	if !paid {
 		return false
 	}
 	g.moveByEffect(controller, card, Exile, 0, NoPlayer, false)

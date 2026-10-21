@@ -46,13 +46,15 @@ Option 1.
 
 **Production.** `producedMana` carries `restrict string`. `ActivateManaAbility`, a resolving `Mana` and `ManaReflected`
 copy `RestrictValid$` onto every unit they add. `manaRestrictionSupported` checks the string when the mana is made and
-returns an error for any alternative it cannot judge (`Static.*`, `Kicked`, `wasCastFrom*`, `hasXCost`, `cmcGE*`,
-`CantPayGenericCosts`, `CumulativeUpkeep`): the card stays refused instead of making mana that pays wrongly (GO-7).
+returns an error for any alternative it cannot judge (`Static.` other than `Foretelling` and `Unlock`, `Kicked`,
+`wasCastFrom*`, `hasXCost`, `cmcGE*`, `CantPayGenericCosts`, `CumulativeUpkeep`): the card stays refused instead of
+making mana that pays wrongly (GO-7).
 
 **Payment context.** `Game.payFor` names what a payment is for: the spell being cast (`castspell.go`), the ability being
-activated (`activateability.go`, `activatemanaability.go`), or an unless-cost of a resolving ability (`unlesscost.go`).
-It holds an `*Ability` (kind, host card, controller) and the mana cost being paid. A payment with no context (fixtures,
-foretell, room unlock) may use no restricted unit.
+activated (`activateability.go`, `activatemanaability.go`), an unless-cost of a resolving ability (`unlesscost.go`), or
+a special action (foretell, unlock a door), which names itself in `payContext.special` for `Static.Foretelling` and
+`Static.Unlock`. It holds an `*Ability` (kind, host card, controller) and the mana cost being paid. A payment with no
+context (fixtures, foretell, room unlock) may use no restricted unit.
 
 **Judging a unit.** `restrictionMet` follows `AbilityManaPart.meetsManaRestrictions` alternative by alternative:
 `nonSpell`, `CostContainsX`, `CantCastSpellFromHand`, `CantCastNonArtifactSpells` answer as Java does; a payment for a

@@ -120,3 +120,19 @@ func TestRemoveCounterRefusesUnreadShapes(t *testing.T) {
 		}
 	}
 }
+
+// CounterType$ Any with CounterNum$ All reads the player's count of no kind
+// (CountersRemoveEffect.java:92-100, 150-152: counterType stays null for Any,
+// getCounters(null) is 0), so nothing comes off. No corpus line writes the
+// pair; the port reproduces it rather than invent a meaning (PORT-7).
+func TestRemoveCounterAnyKindWithAllAmountOnAPlayerRemovesNothing(t *testing.T) {
+	t.Parallel()
+	g, p, _, err := resolveRemoveCounterWith(t, "CounterType$ Any | CounterNum$ All | Defined$ You", engine.NewScriptedController(),
+		func(g *engine.Game, _ *engine.Card, p engine.PlayerID) { g.Player(p).Counters.Add(engine.Energy, 3) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := g.Player(p).Counters.Count(engine.Energy); n != 3 {
+		t.Errorf("Energy = %d, want 3", n)
+	}
+}

@@ -575,3 +575,10 @@ the deal under `DamageMap$` (`:210-214`), so the cause is the later `DamageResol
 `RepeatEach` (`RepeatEachEffect.java:199-201`), neither of which carries the param. Volcano Hellion's damage ("can't be
 prevented") stays preventable. Crucible keeps the line refused (`DealDamage: NoPrevention$ under DamageMap$`) rather
 than reproduce it. Fix upstream: copy the flag onto the damage map or read it per source SA.
+
+## `Transformed$` on a known-origin `ChangeZone` still moves a card that cannot transform
+
+`ChangeZoneEffect.java:598-607` (`changeKnownOriginResolve`) transforms the card when `isTransformable()`, and its `else`
+branch holds only the comment "If it can't Transform, don't change zones", so the card moves untransformed. The hidden
+path (`:1339-1349`) does `continue`. Crucible follows each path as written (`quirks.md`). Fix upstream: `continue` in the
+known-origin `else`.

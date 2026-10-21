@@ -1,16 +1,17 @@
 package engine
 
-//enginelint:allow card game ability defined condition control amount
+//enginelint:allow card game ability defined condition control amount additional delayedtrigger
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
 
-// addTurnUnresolvedParams: an extra turn carrying a delayed trigger
-// (ExtraTurnDelayedTrigger$), a skipped untap step (SkipUntap$) or an
-// Archenemy scheme restriction (NoSchemes$).
-var addTurnUnresolvedParams = [...]string{
-	"ExtraTurnDelayedTrigger", "ExtraTurnDelayedTriggerExecute", "SkipUntap", "NoSchemes",
-	"Ultimate",
-}
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
+
+// addTurnUnresolvedParams: a skipped untap step (SkipUntap$) or an Archenemy
+// scheme restriction (NoSchemes$). ExtraTurnDelayedTrigger$ is read below.
+var addTurnUnresolvedParams = [...]string{"SkipUntap", "NoSchemes", "Ultimate"}
 
 // addTurnEffect is AddTurnEffect.java: each target player (default You)
 // takes NumTurns$ extra turns after this one (Game.addExtraTurn, turn.go).
@@ -39,9 +40,26 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return fmt.Errorf("engine: AddTurn: %w", err)
 	}
+	var trigger *compile.Ability
+	if subs := additionalAbilities(a.Params, "ExtraTurnDelayedTrigger"); len(subs) > 0 {
+		trigger = subs[0].Ability
+		if mode, _ := trigger.Param("Mode"); !strings.EqualFold(mode, "Phase") {
+			return fmt.Errorf("engine: AddTurn: ExtraTurnDelayedTrigger$ Mode$ %q not resolvable yet", mode)
+		}
+	}
 	for _, p := range players {
 		for i := 0; i < n; i++ {
 			g.addExtraTurn(p)
+			if trigger != nil {
+				// AddTurnEffect.java:50-58 hangs the trigger on the ExtraTurn
+				// object. The extra turn follows this one at once, so a
+				// NextTurn$-shaped delayed trigger (live for exactly the
+				// next turn) stands in for it (quirks.md).
+				g.delayed = append(g.delayed, delayedTrigger{
+					Trigger: trigger, Host: a.Source, Controller: a.Controller, Amounts: a.Amounts,
+					ThisTurn: true, AtCleanup: true, HostTransforms: source.Transforms,
+				})
+			}
 		}
 	}
 	return nil

@@ -37,7 +37,7 @@ import (
 // accepted and changes nothing a port reads; whoever ports either adds the
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
-	"Transformed", "WithNotedCounters", "ReturnAbility", "ReturnValid",
+	"WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter", "FaceDown",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
@@ -556,6 +556,12 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		if err != nil {
 			return err
 		}
+		if hasParam(a, "Transformed") {
+			// ChangeZoneEffect.java:598-607: a transformable card turns to its
+			// back face before it moves; one that cannot transform moves
+			// anyway (the else branch is empty, its comment says otherwise).
+			g.transform(id)
+		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
@@ -699,6 +705,11 @@ func (g *Game) canSearchLibraryWith(decider, target, activator PlayerID) bool {
 // ControlOpponentsSearchingLibrary$ grant applies only to a fetcher deciding
 // their own search (:1071).
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID, until bool) error {
+	if hasParam(a, "Transformed") {
+		// changeHiddenOriginResolve skips a card that cannot transform
+		// (ChangeZoneEffect.java:1339); no fetch in the corpus does it yet.
+		return fmt.Errorf("engine: ChangeZone: Transformed$ with a hidden Origin$ not resolvable yet")
+	}
 	enter, err := changeZoneEnter(g, a, dest, false)
 	if err != nil {
 		return err

@@ -172,3 +172,16 @@ func TestCopyPermanentAddsAStaticToTheCopy(t *testing.T) {
 		t.Errorf("original power = %d, want 1", got)
 	}
 }
+
+// RememberOriginalTokens$ (TokenEffectBase.java:202) remembers the tokens of
+// the effect's own scripts, the memory a "when you do" payoff counts.
+func TestTokenRememberOriginalTokensRemembersEachToken(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTokenGame(t)
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Token | TokenAmount$ 2 | TokenScript$ w_1_1_soldier | RememberOriginalTokens$ True")
+	if got := len(g.Card(host).Memory.Remembered()); got != 2 {
+		t.Errorf("remembered %d tokens, want 2", got)
+	}
+}

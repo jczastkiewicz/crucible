@@ -14,13 +14,13 @@ import (
 // addToCombatAttacking and addToCombatBlocking): a counter table on entry
 // (WithCountersType$), copied triggers (AddTriggersFrom$), chosen-type/-color
 // prototypes (TokenTypes$/TokenColors$), what the token remembers
-// (TokenRemembered$/CleanupForEach$/RememberOriginalTokens$), a shared zone
+// (TokenRemembered$/CleanupForEach$), a shared zone
 // table (ChangeZoneTable$) and the end-of-turn delayed sacrifice/exile
 // (AtEOT$/AtEOTTrig$).
 var tokenUnresolvedParams = [...]string{
 	"WithCountersType",
 	"WithCountersAmount", "AddTriggersFrom", "TokenTypes", "TokenColors", "TokenRemembered",
-	"CleanupForEach", "RememberOriginalTokens", "ChangeZoneTable"}
+	"CleanupForEach", "ChangeZoneTable"}
 
 // tokenEffect is TokenEffect.java: TokenAmount$ (default 1) of every
 // TokenScript$ script for every TokenOwner$ player (getDefinedPlayersOrTargeted:
@@ -125,7 +125,10 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if err := g.addToCombatBlocking(controller, a, id, "TokenBlocking"); err != nil {
 			return fmt.Errorf("engine: Token: %w", err)
 		}
-		if hasParam(a, "RememberTokens") {
+		// RememberOriginalTokens$ keeps the tokens of the scripts the effect
+		// named, not ones a replacement swapped in; a CreateToken replacement
+		// here only changes the count of the same script (quirks.md).
+		if hasParam(a, "RememberTokens") || hasParam(a, "RememberOriginalTokens") {
 			source.Memory.Remember(CardEntity(id))
 		}
 		if hasParam(a, "ImprintTokens") {

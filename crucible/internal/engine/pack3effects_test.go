@@ -234,6 +234,41 @@ func TestPreventDamageShield(t *testing.T) {
 	}
 }
 
+// PreventionSubAbility$ (Candles' Glow): the follow-up runs per prevention with
+// PreventedDamage the amount that event prevented, Defined$ ShieldEffectTarget
+// the shield's frozen target; once the shield is spent it no longer runs.
+func TestPreventDamageSubAbilityReadsPreventedDamage(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ PreventDamage | Defined$ You | Amount$ 3 | PreventionSubAbility$ DBGlow | ShieldEffectTarget$ You | SubAbility$ DBBurn",
+		"DBGlow", "DB$ GainLife | Defined$ ShieldEffectTarget | LifeAmount$ PreventedDamage",
+		"DBBurn", "DB$ DealDamage | Defined$ You | NumDmg$ 2 | SubAbility$ DBBurn2",
+		"DBBurn2", "DB$ DealDamage | Defined$ You | NumDmg$ 5 | SubAbility$ DBBurn3",
+		"DBBurn3", "DB$ DealDamage | Defined$ You | NumDmg$ 2")
+	// 2 fully prevented (gain 2), then 1 of 5 prevented (gain 1), 4 taken, 2 taken.
+	if got, want := g.Player(p).Life, 20+2+1-4-2; got != want {
+		t.Errorf("life = %d, want %d", got, want)
+	}
+}
+
+// Test of Faith: a targeted creature's shield puts a +1/+1 counter per damage
+// prevented on that creature, through Defined$ ShieldEffectTarget as a card.
+func TestPreventDamageSubAbilityTargetsTheShieldedCreature(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	bear := g.NewCard(creatureDefPT(t, "2", "5"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bear)})
+	resolveLine(t, g, p, c,
+		"DB$ PreventDamage | ValidTgts$ Creature | Amount$ 3 | PreventionSubAbility$ DBFaith | ShieldEffectTarget$ Targeted | SubAbility$ DBBurn",
+		"DBFaith", "DB$ PutCounter | Defined$ ShieldEffectTarget | CounterType$ P1P1 | CounterNum$ PreventedDamage",
+		"DBBurn", "DB$ DealDamage | Defined$ Targeted | NumDmg$ 2")
+	if got := g.Card(bear).Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("+1/+1 counters = %d, want 2 (2 damage prevented)", got)
+	}
+}
+
 func TestDigMultipleOnePerCategory(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newTwoPlayerGame(t)

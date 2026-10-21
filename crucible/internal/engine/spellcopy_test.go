@@ -260,6 +260,40 @@ func TestCopySpellOfAPermanentBecomesAToken(t *testing.T) {
 	}
 }
 
+// TestCopySpellNonLegendaryDropsLegendaryFromTheCopy proves NonLegendary$
+// (CardFactory.java:580): the copy token of a legendary creature spell is
+// not legendary, so the legend rule leaves both permanents on the battlefield.
+func TestCopySpellNonLegendaryDropsLegendaryFromTheCopy(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	def := creatureDefCost(t, "Hero", "W")
+	def.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Legendary Creature Bear")
+	hero := g.NewCard(def, p, engine.Hand)
+	if err := castWithCopyWatcher(t, g, p, hero, engine.NewScriptedController(), "Creature",
+		"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | NonLegendary$ True"); err != nil {
+		t.Fatal(err)
+	}
+	var tokens, heroes int
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		cd := g.Card(id)
+		if cd.Def.Name != "Hero" {
+			continue
+		}
+		heroes++
+		if cd.IsToken {
+			tokens++
+			if cd.Type().HasSupertype(cardtype.Legendary) {
+				t.Error("the copy token is still legendary")
+			}
+		} else if !cd.Type().HasSupertype(cardtype.Legendary) {
+			t.Error("the original lost Legendary")
+		}
+	}
+	if heroes != 2 || tokens != 1 {
+		t.Errorf("heroes on the battlefield = %d (%d tokens), want 2 (1 token)", heroes, tokens)
+	}
+}
+
 // TestCopySpellAbilityRejectsCopyingARoomSpell proves a Room spell on the
 // stack cannot be copied: its own Def, while cast, is doorView's single-half
 // projection (room.go), not the split card the copy's own roomDef/Room-ness
@@ -433,7 +467,7 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 		line, want string
 	}{
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | CopyForEachCanTarget$ Creature", "CopyForEachCanTarget$"},
-		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | NonLegendary$ True", "NonLegendary$"},
+		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | SetPower$ 3", "SetPower$"},
 		{"DB$ CopySpellAbility | Defined$ Parent", "Parent"},
 		{"DB$ CopySpellAbility", `Defined$ ""`},
 		{"DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ Bogus", "Amount"},

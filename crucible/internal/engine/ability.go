@@ -128,6 +128,16 @@ type Ability struct {
 	// paid are the cards the activation cost used up, read back by Sacrificed$,
 	// Exiled$ and Discarded$ amounts. Sub-abilities inherit them.
 	paid paidLists
+	// spawnerPaid is the paid list of the ImmediateTrigger ability that put
+	// this one on the stack, which a `Spawner>` amount reads
+	// (ImmediateTriggerEffect.java:72's setSpawningAbility); nil for any other
+	// ability. Sub-abilities inherit it.
+	spawnerPaid *paidLists
+	// shieldTarget is the entity a PreventDamage shield's ShieldEffectTarget$
+	// named when the shield was made (DamagePreventEffect.java:141-152), which
+	// the PreventionSubAbility$ chain reads as Defined$ ShieldEffectTarget;
+	// NoEntity for any other ability. Sub-abilities inherit it.
+	shieldTarget EntityID
 	// activationIndex is 1 + the index of the A: line whose activation put this
 	// ability on the stack, 0 for any other; sub-abilities inherit it
 	// (SpellAbility.getRootAbility, which ActivationTable counts by).
@@ -415,6 +425,8 @@ type abilityRefs struct {
 	// (ReplaceDamage.setReplacingObjects, ReplaceDamage.java:145: AbilityKey.
 	// Target from Affected; Defined$ ReplacedTarget); NoEntity otherwise.
 	replacedTarget EntityID
+	// shieldTarget is Ability.shieldTarget (Defined$ ShieldEffectTarget).
+	shieldTarget EntityID
 	// game and activator are the resolving ability's game and controller, for
 	// the Defined$ forms that scan it (definedValidCards); nil/NoPlayer when
 	// the refs were built outside a resolution.
@@ -425,7 +437,7 @@ type abilityRefs struct {
 // refs is a's own abilityRefs.
 func (a *Ability) refs() abilityRefs {
 	r := abilityRefs{targets: a.Targets, parentTargets: a.parentTargets, ancestorTargeting: a.ancestorTargeting,
-		triggerRemembered: a.TriggerRemembered, triggered: a.triggered, paid: a.paid, replaced: a.replacedCard(),
+		triggerRemembered: a.TriggerRemembered, triggered: a.triggered, paid: a.paid, replaced: a.replacedCard(), shieldTarget: a.shieldTarget,
 		stackTargets: a.stackTargets, game: a.game, activator: a.Controller}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer

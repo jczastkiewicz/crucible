@@ -6,10 +6,10 @@
 // one Source$ card, one or more ValidTgts$/Defined$ destinations
 // (targetedOrDefinedCards, defined.go, default "Self" the identical way
 // Java's own getDefinedCardsOrTargeted(sa) with no override does), and
-// ValidSource$, many sources to the first destination. CountersMoveEffect's
-// chosen-subset (CounterNum$ Any) and ValidDefined$ branches each need an
-// interactive step this port's PlayerController has no hook for and fail
-// loudly.
+// ValidSource$, many sources to the first destination. CounterNum$ Any asks
+// the activator which sources (ChooseCardsForEffect, ValidSource$ only) and how
+// many counters of each kind (ChooseNumber, 0 to what the source holds); the
+// ValidDefined$ branch and CounterType$ Any fail loudly.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/CountersMoveEffect.java's
@@ -19,7 +19,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control amount parts event phaseseffect
+//enginelint:allow id card game ability defined condition control amount parts event phaseseffect effecthelpers
 
 import (
 	"fmt"
@@ -70,12 +70,10 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if !ok {
 		counterNumParam = "1"
 	}
-	if strings.EqualFold(counterNumParam, "Any") {
-		return fmt.Errorf("engine: MoveCounter: CounterNum$ %q not resolvable yet", counterNumParam)
-	}
 	allAmount := strings.EqualFold(counterNumParam, "All")
+	anyAmount := strings.EqualFold(counterNumParam, "Any")
 	var amount int
-	if !allAmount {
+	if !allAmount && !anyAmount {
 		amount, ok = resolveNamedAmount(g, a.Amounts, source, counterNumParam)
 		if !ok {
 			return fmt.Errorf("engine: MoveCounter: CounterNum$ %q is not resolvable", counterNumParam)
@@ -88,12 +86,10 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	}
 	if spec, ok := a.Params.Param("ValidSource"); ok {
 		// CountersMoveEffect.java:104-162: every battlefield card matching
-		// ValidSource$ gives its counters to the first destination. The
-		// chosen-subset shape (CounterNum$ Any) needs chooseCardsForEffect,
-		// which PlayerController does not have.
-		if strings.EqualFold(counterNumParam, "Any") {
-			return fmt.Errorf("engine: MoveCounter: ValidSource$ with CounterNum$ Any not resolvable yet")
-		}
+		// ValidSource$ gives its counters to the first destination; under
+		// CounterNum$ Any the activator first picks which of the sources
+		// holding the counter (CountersMoveEffect.java:104-148; the
+		// destination stays a candidate, Java drops it only in removeCounter).
 		if len(destCards) == 0 {
 			return nil
 		}
@@ -102,9 +98,24 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			return fmt.Errorf("engine: MoveCounter: ValidSource$: %w", err)
 		}
 		dest := destCards[0]
+		if anyAmount {
+			var holders []CardID
+			for _, src := range srcCards {
+				c := g.Card(src)
+				if (allKinds && c.Counters.Any()) || (!allKinds && c.Counters.Count(counterType) > 0) {
+					holders = append(holders, src)
+				}
+			}
+			if srcCards = holders; len(srcCards) > 0 {
+				srcCards = controller.ChooseCardsForEffect(g, a.Controller, a.Source, srcCards, 0, len(srcCards))
+				if err := checkChoice(srcCards, holders, 0, len(holders)); err != nil {
+					return fmt.Errorf("engine: MoveCounter: sources: %w", err)
+				}
+			}
+		}
 		for _, src := range srcCards {
 			if src != dest {
-				moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, amount)
+				moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, anyAmount, amount)
 			}
 		}
 		return nil
@@ -140,7 +151,7 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		if dest == src {
 			continue
 		}
-		moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, amount)
+		moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, anyAmount, amount)
 	}
 	return nil
 }
@@ -150,23 +161,27 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 // count, CountersRemoveEffect's own identical per-kind independence);
 // otherwise only counterType moves. placer, the activator, puts them on dest
 // (CountersMoveEffect.java:86, :160).
-func moveCounters(g *Game, controller PlayerController, placer PlayerID, source, src, dest CardID, counterType CounterType, allKinds, allAmount bool, amount int) {
+func moveCounters(g *Game, controller PlayerController, placer PlayerID, source, src, dest CardID, counterType CounterType, allKinds, allAmount, anyAmount bool, amount int) {
 	srcCounters := &g.Card(src).Counters
 	if allKinds {
 		for _, kind := range srcCounters.Kinds() {
-			moveOneCounterKind(g, controller, placer, source, src, dest, srcCounters, kind, allAmount, amount)
+			moveOneCounterKind(g, controller, placer, source, src, dest, srcCounters, kind, allAmount, anyAmount, amount)
 		}
 		return
 	}
-	moveOneCounterKind(g, controller, placer, source, src, dest, srcCounters, counterType, allAmount, amount)
+	moveOneCounterKind(g, controller, placer, source, src, dest, srcCounters, counterType, allAmount, anyAmount, amount)
 }
 
-func moveOneCounterKind(g *Game, controller PlayerController, placer PlayerID, source, src, dest CardID, srcCounters *Counters, kind CounterType, allAmount bool, amount int) {
+func moveOneCounterKind(g *Game, controller PlayerController, placer PlayerID, source, src, dest CardID, srcCounters *Counters, kind CounterType, allAmount, anyAmount bool, amount int) {
 	cmax := srcCounters.Count(kind)
 	if cmax <= 0 {
 		return
 	}
 	n := amount
+	if anyAmount {
+		// removeCounter's chooseNumber(min 0, max cmax), CountersMoveEffect.java:355.
+		n = controller.ChooseNumber(g, placer, source, 0, cmax)
+	}
 	if allAmount || n > cmax {
 		n = cmax
 	}

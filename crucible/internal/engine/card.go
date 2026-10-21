@@ -159,6 +159,10 @@ type Card struct {
 	// permanent spell resolving, which makes it a token instead (CR 111.11,
 	// permanentEffect, castspell.go).
 	IsCopiedSpell bool
+	// copyNonLegendary is CopySpellAbility NonLegendary$ (CardFactory.java:580,
+	// getCloneStates): the copy's own printed state lost Legendary, so Type()
+	// folds a first-timestamp removal under every continuous effect.
+	copyNonLegendary bool
 	// IsEffect marks an effect card (GamePieceType.EFFECT): the Command-zone
 	// object an Effect ability creates to carry its triggers, continuous
 	// effects and replacement effects (effecteffect.go). Its traits are
@@ -853,7 +857,11 @@ func (c *Card) Type() cardtype.Line {
 	if c.Def == nil {
 		return cardtype.Line{}
 	}
-	return foldType(c.Def.Faces[0].Type, c.TypeMod.effects)
+	effects := c.TypeMod.effects
+	if c.copyNonLegendary {
+		effects = append([]TypeEffect{{RemoveTypes: cardtype.ParseToken("Legendary")}}, effects...)
+	}
+	return foldType(c.Def.Faces[0].Type, effects)
 }
 
 // isSick is Card.isSick (Card.java:3651-3653): summoning sickness

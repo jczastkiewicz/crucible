@@ -236,19 +236,102 @@ func TestMoveCounterEffectValidSourceGathersCountersFromEveryMatch(t *testing.T)
 	}
 }
 
-// TestMoveCounterEffectValidSourceAnyIsRefused proves the chosen-subset
-// shape (CounterNum$ Any) fails loudly: no chooseCardsForEffect hook.
-func TestMoveCounterEffectValidSourceAnyIsRefused(t *testing.T) {
+// TestMoveCounterEffectValidSourceAnyAsksWhichSourcesAndHowMany proves
+// CounterNum$ Any with ValidSource$ (Aetherborn Marauder, CountersMoveEffect.
+// java:104-148, :355): the activator picks the sources, then a count per
+// source; an unpicked source keeps its counters.
+func TestMoveCounterEffectValidSourceAnyAsksWhichSourcesAndHowMany(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	picked := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	skipped := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(picked).Counters.Add(engine.P1P1, 3)
+	g.Card(skipped).Counters.Add(engine.P1P1, 2)
 
 	def := etbMoveCounterTriggerDefParams(t, "Test Move ValidSource Any", "ValidSource$ Permanent.YouCtrl+Other | Defined$ Self | CounterType$ P1P1 | CounterNum$ Any")
 	c := engine.NewScriptedController()
-	if _, err := castETBMoveCounter(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for ValidSource$ with CounterNum$ Any")
+	c.QueueCardChoice([]engine.CardID{picked})
+	c.QueueNumberChoice(2)
+	host, err := castETBMoveCounter(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(host).Counters.Count(engine.P1P1); n != 2 {
+		t.Errorf("host P1P1 = %d, want 2", n)
+	}
+	if n := g.Card(picked).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("picked source P1P1 = %d, want 1", n)
+	}
+	if n := g.Card(skipped).Counters.Count(engine.P1P1); n != 2 {
+		t.Errorf("unpicked source P1P1 = %d, want 2", n)
+	}
+}
+
+// TestMoveCounterEffectCounterTypeAllWithAnyAsksPerKind proves Slippery
+// Bogbonder's shape (:123-129, :151-153): CounterType$ All with CounterNum$ Any
+// asks one number per counter kind of each chosen source.
+func TestMoveCounterEffectCounterTypeAllWithAnyAsksPerKind(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	src := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(src).Counters.Add(engine.P1P1, 2)
+	g.Card(src).Counters.Add(engine.Stun, 1)
+
+	def := etbMoveCounterTriggerDefParams(t, "Test Move All Any", "ValidSource$ Creature.Other+YouCtrl | Defined$ Self | CounterType$ All | CounterNum$ Any")
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{src})
+	for _, n := range []int{1, 1} {
+		c.QueueNumberChoice(n)
+	}
+	host, err := castETBMoveCounter(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(host).Counters.Count(engine.P1P1) + g.Card(host).Counters.Count(engine.Stun); got != 2 {
+		t.Errorf("host holds %d counters, want 2 (one of each kind)", got)
+	}
+	if n := g.Card(src).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("source P1P1 = %d, want 1", n)
+	}
+}
+
+// TestMoveCounterEffectTwoTargetsAnyAsksHowMany proves Bioshift's shape: the
+// first target is the source and the activator chooses how many move.
+func TestMoveCounterEffectTwoTargetsAnyAsksHowMany(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	from := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	to := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(from).Counters.Add(engine.P1P1, 3)
+
+	def := etbMoveCounterTriggerDefParams(t, "Test Move TwoTarget Any", "CounterType$ P1P1 | CounterNum$ Any | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2")
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(from), engine.CardEntity(to)})
+	c.QueueNumberChoice(2)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	host := g.NewCard(def, p, engine.Hand)
+	if !g.CastSpell(p, host, c) {
+		t.Fatal("CastSpell failed casting a creature with exactly enough mana")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got, want := g.Card(to).Counters.Count(engine.P1P1), 2; got != want {
+		t.Errorf("destination P1P1 = %d, want %d", got, want)
+	}
+	if got, want := g.Card(from).Counters.Count(engine.P1P1), 1; got != want {
+		t.Errorf("source P1P1 = %d, want %d", got, want)
 	}
 }

@@ -92,6 +92,27 @@ func resolveAmountDepth(g *Game, amounts map[string]expr.Amount, sourceControlle
 				return n, true
 			}
 			n, ok = expressionValue(g, amounts, sourceController, source, amt, depth)
+		case "Spawner>":
+			// adjustTriggerContext (AbilityUtils.java:4018-4031): measure against
+			// the ImmediateTrigger that spawned this ability, read as a paid
+			// list. Java falls back silently to the caller's own ability when
+			// none spawned it; here that stays unresolved (GO-7).
+			r := g.resolving
+			if r == nil || r.spawnerPaid == nil {
+				return 0, false
+			}
+			spawned := *r
+			spawned.paid = *r.spawnerPaid
+			saved := g.resolving
+			g.resolving = &spawned
+			plain := amt
+			plain.Context = ""
+			n, ok = resolveAmountDepth(g, amounts, sourceController, source, plain, depth+1)
+			g.resolving = saved
+			if !ok {
+				return 0, false
+			}
+			return n, true
 		case "CastSA>":
 			var cast bool
 			n, ok, cast = g.castSAValue(source, amt)

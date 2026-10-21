@@ -432,3 +432,26 @@ func TestTriggeredCostUnreadShapesFail(t *testing.T) {
 		})
 	}
 }
+
+// Spawner>Sacrificed$CardPower (Heart-Piercer Manticore, Bolg of the North):
+// the reflexive trigger reads the power the sacrificed creature had when the
+// spawning ability's cost was paid (AbilityUtils.java:4018-4031, :3949-3956).
+func TestImmediateTriggerReadsSpawnerSacrificedPower(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	placeWatcher(t, g, p, "AB$ ImmediateTrigger | Cost$ Sac<1/Creature.Other/another creature> | Execute$ TrigGain | TriggerDescription$ When you do, gain life.",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ XPower",
+		"SVar:XPower:Spawner>Sacrificed$CardPower")
+	victim := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueConfirmOptionalTrigger(true)
+	c.QueueSacrificeChoice([]engine.CardID{victim})
+	mustFireWatcher(t, g, p, c)
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 (the sacrificed creature's power)", got)
+	}
+	if got := g.Card(victim).Zone; got != engine.Graveyard {
+		t.Errorf("sacrificed creature is in %v, want the graveyard", got)
+	}
+}

@@ -318,7 +318,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		return
 	}
 	if preventable {
-		if amount = g.applyPreventShields(CardEntity(target), amount); amount <= 0 {
+		if amount = g.applyPreventShields(controller, CardEntity(target), amount); amount <= 0 {
 			return
 		}
 	}
@@ -413,7 +413,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		return
 	}
 	if preventable {
-		if amount = g.applyPreventShields(PlayerEntity(target), amount); amount <= 0 {
+		if amount = g.applyPreventShields(controller, PlayerEntity(target), amount); amount <= 0 {
 			return
 		}
 	}

@@ -7,19 +7,19 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 )
 
 // tokenUnresolvedParams are TokenEffect/TokenEffectBase params this port
 // does not model (TokenAttacking$ and TokenBlocking$ resolve,
 // addToCombatAttacking and addToCombatBlocking): a counter table on entry
-// (WithCountersType$), copied triggers (AddTriggersFrom$), chosen-type/-color
-// prototypes (TokenTypes$/TokenColors$), what the token remembers
+// (WithCountersType$), copied triggers (AddTriggersFrom$), what the token remembers
 // (TokenRemembered$/CleanupForEach$), a shared zone
 // table (ChangeZoneTable$) and the end-of-turn delayed sacrifice/exile
 // (AtEOT$/AtEOTTrig$).
 var tokenUnresolvedParams = [...]string{
 	"WithCountersType",
-	"WithCountersAmount", "AddTriggersFrom", "TokenTypes", "TokenColors", "TokenRemembered",
+	"WithCountersAmount", "AddTriggersFrom", "TokenRemembered",
 	"CleanupForEach", "ChangeZoneTable"}
 
 // tokenEffect is TokenEffect.java: TokenAmount$ (default 1) of every
@@ -68,6 +68,11 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		return err
 	}
 
+	chosen, err := tokenChosenTraits(a, source)
+	if err != nil {
+		return err
+	}
+
 	var specs []tokenSpec
 	for _, owner := range owners {
 		if g.Player(owner).Lost {
@@ -111,6 +116,13 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		if hasAttach && attachTo != NoCard && tokenCanAttach(g, a, spec, attachTo) && g.Card(id).Zone == Battlefield {
 			g.attachTo(controller, id, attachTo)
 		}
+		if chosen != nil {
+			g.timestamp++
+			rec := *chosen
+			rec.Card, rec.Timestamp = id, g.timestamp
+			rec.Types.Timestamp = g.timestamp
+			g.addAnimate(rec)
+		}
 		if pump != nil {
 			g.timestamp++
 			g.addAnimate(animateRecord{
@@ -140,6 +152,40 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	g.checkCreatedZoneAllTriggers(controller, created)
 	return registerAtEOT(g, a, created)
+}
+
+// tokenChosenTraits is TokenInfo.getProtoType's TokenTypes$ and TokenColors$
+// (TokenInfo.java:309-320): the host's chosen type is added to the script's
+// types and replaces its name outright (token "Elf", not "Elf Token"), and the
+// host's chosen color replaces its colors. Only the ChosenType/ChosenColor
+// values the corpus uses (Riptide Replicator, Volrath's Laboratory) resolve.
+// Nil when neither param is present. The record lands after the token has
+// entered, so its ETB sees the script's own characteristics (quirks.md).
+func tokenChosenTraits(a *Ability, source *Card) (*animateRecord, error) {
+	types, hasTypes := a.Params.Param("TokenTypes")
+	colors, hasColors := a.Params.Param("TokenColors")
+	if !hasTypes && !hasColors {
+		return nil, nil
+	}
+	rec := &animateRecord{Permanent: true}
+	if hasTypes {
+		if types != "ChosenType" {
+			return nil, fmt.Errorf("engine: Token: TokenTypes$ %q not resolvable yet", types)
+		}
+		chosen := source.Memory.ChosenType(false)
+		if chosen != "" {
+			rec.Types.AddTypes = cardtype.ParseToken(chosen)
+		}
+		rec.Name = chosen
+	}
+	if hasColors {
+		if colors != "ChosenColor" {
+			return nil, fmt.Errorf("engine: Token: TokenColors$ %q not resolvable yet", colors)
+		}
+		rec.HasColors, rec.OverwriteColors = true, true
+		rec.Colors = source.Memory.ChosenColors()
+	}
+	return rec, nil
 }
 
 // tokenOwners is getDefinedPlayersOrTargeted(sa, "TokenOwner").

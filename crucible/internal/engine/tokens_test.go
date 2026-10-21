@@ -7,6 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -235,5 +236,42 @@ func TestIncubateEffectEntersWithCounters(t *testing.T) {
 	}
 	if n := g.Card(incubators[0]).Counters.Count(engine.P1P1); n != 3 {
 		t.Errorf("incubator +1/+1 counters = %d, want 3", n)
+	}
+}
+
+// TokenTypes$ ChosenType and TokenColors$ ChosenColor (TokenInfo.java:309-320,
+// Riptide Replicator's shape): the token script's name becomes the chosen type
+// alone, the type joins its card types, and the chosen color replaces its
+// (colorless) colors.
+func TestTokenEffectChosenTypeAndColor(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	c := engine.NewScriptedController()
+	c.QueueColorChoice(mana.Blue)
+	c.QueueOption(0)
+	host := resolveLine(t, g, p, c,
+		"DB$ ChooseColor | Defined$ You | SubAbility$ DBType",
+		"DBType", "DB$ ChooseType | Defined$ You | Type$ Creature | SubAbility$ DBTok",
+		"DBTok", "DB$ Token | TokenScript$ riptide_replicator | TokenTypes$ ChosenType | TokenColors$ ChosenColor | TokenPower$ 2 | TokenToughness$ 2")
+	chosen := g.Card(host).Memory.ChosenType(false)
+	if chosen == "" {
+		t.Fatal("ChooseType chose nothing")
+	}
+	var toks []engine.CardID
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if c := g.Card(id); c.IsToken && c.Name() == chosen {
+			toks = append(toks, id)
+		}
+	}
+	if len(toks) != 1 {
+		t.Fatalf("tokens named %q = %d, want 1", chosen, len(toks))
+	}
+	tok := g.Card(toks[0])
+	if got := tok.Type().String(); got != "Creature - "+chosen {
+		t.Errorf("token type = %q, want Creature - %s", got, chosen)
+	}
+	if got := tok.Colors(); got != mana.Blue {
+		t.Errorf("token colors = %v, want blue", got)
 	}
 }

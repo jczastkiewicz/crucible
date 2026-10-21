@@ -35,13 +35,13 @@ type copySpellAbilityEffect struct{}
 // not resolve, each rejected before anything is copied (PORT-8, GO-7):
 // CopyForEachCanTarget$/ChooseOnlyOne$ (CR 707.10d, one copy per other
 // legal target), DefinedTarget$ (CR 707.10e), SingleChoice$, the copy's
-// Layer 1 changes (NonLegendary$, SetPower$, SetToughness$, SetColor$,
-// AddTypes$), Epic$, UseOriginalHost$, RememberCopies$ (remembers
-// SpellAbility objects, which Memory cannot hold), TargetValidTargeting$,
+// Layer 1 changes (SetPower$, SetToughness$, SetColor$, AddTypes$), Epic$,
+// UseOriginalHost$, RememberCopies$ (remembers SpellAbility objects, which
+// Memory cannot hold), TargetValidTargeting$,
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // never met, silently.
 var copySpellUnresolvedParams = [...]string{
-	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice", "NonLegendary", "SetPower",
+	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice", "SetPower",
 	"SetToughness", "SetColor", "AddTypes", "Epic", "UseOriginalHost", "RememberCopies", "TargetValidTargeting"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -95,6 +95,11 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 			}
 			for i := 0; i < amount; i++ {
 				host, tg, err := g.copySpell(controller, orig, copier, mayChoose)
+				if err == nil && hasParam(a, "NonLegendary") {
+					// CardFactory.java:580, read from the CopySpellAbility, only
+					// for a spell copy: the copy's host loses Legendary.
+					g.Card(host).copyNonLegendary = true
+				}
 				if err != nil {
 					return err
 				}

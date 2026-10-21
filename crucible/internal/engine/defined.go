@@ -232,6 +232,12 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 				candidates = append(candidates, pid)
 			}
 		}
+	case "ShieldEffectTarget":
+		// AbilityUtils.java:1151's PlayerNamed_ spelling of the shield's
+		// frozen target (DamagePreventEffect.java:141-152).
+		if pid, ok := refs.shieldTarget.AsPlayer(); ok {
+			candidates = append(candidates, pid)
+		}
 	case "ParentTarget":
 		// AbilityUtils.java:947-951: the players the nearest ancestor that
 		// targets a player targets (SpellAbility.java:2024-2032,
@@ -733,6 +739,12 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			}
 		}
 		return cards, nil
+	case "ShieldEffectTarget":
+		// AbilityUtils.java:280's CardUID_ spelling of the shield's frozen target.
+		if id, ok := refs.shieldTarget.AsCard(); ok {
+			return []CardID{id}, nil
+		}
+		return nil, nil
 	case "ParentTarget":
 		var cards []CardID
 		for _, e := range refs.parentTargets {

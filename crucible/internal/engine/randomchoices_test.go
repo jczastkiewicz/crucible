@@ -102,23 +102,6 @@ func TestGenericChoiceAtRandomResolvesTheDrawnChoice(t *testing.T) {
 	}
 }
 
-// A hidden-zone ChangeZone's AtRandom$ draws over a fetch list Java first
-// sorts by CardView.toString (ChangeZoneEffect.java:1097), an order this port
-// cannot reproduce: refused rather than drawing a different card.
-func TestChangeZoneAtRandomIsRefused(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	for range 3 {
-		g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
-	}
-	if _, err := castETBChain(t, g, p, etbChainDef(t, "Random Wish",
-		"DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ChangeType$ Card.YouCtrl | ChangeNum$ 2 | Hidden$ True | AtRandom$ True"),
-		engine.NewScriptedController()); err == nil {
-		t.Error("AtRandom$ resolved, want it refused")
-	}
-}
-
 // ChooseNumber's Random$ is nextInt(max-min+1)+min (ChooseNumberEffect.java:
 // 65-66); bounds that leave no number are an error, where Java throws.
 func TestChooseNumberRandom(t *testing.T) {

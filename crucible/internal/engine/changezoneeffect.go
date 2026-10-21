@@ -18,11 +18,8 @@ import (
 // changeZoneJoinCombat), a delayed follow-up (Duration$ UntilHostLeavesPlay resolves,
 // changeZoneDuration, but not its ReturnAbility$/ReturnValid$ delayed
 // trigger), an alternative destination prompt (DestinationAlternative$), a
-// non-default search loop (DifferentNames$, WithTotalCMC$ and Reorder$ (library only) resolve; DifferentCMC$/DifferentPower$, WithTotalPower$/WithTotalCardTypes$, Exactly$, Reorder$; and
-// AtRandom$, whose Aggregates.random draws over the fetch list after
-// fetchList.sort() orders it by CardView.toString -- zone text, translated
-// name and Java card id, ChangeZoneEffect.java:1097, :1199 -- an order this
-// port cannot reproduce, so the same draw would pick another card).
+// non-default search loop (DifferentNames$, WithTotalCMC$, Reorder$ (library only) and
+// AtRandom$ resolve; DifferentCMC$/DifferentPower$, WithTotalPower$/WithTotalCardTypes$, Exactly$, Reorder$).
 // RememberLKI$ and a known-origin DestinationAlternative$ resolve
 // (Memory.RememberLKI, changeZoneAltDest). Chooser$ and OriginAlternative$ resolve
 // (changeZoneHidden, changeZoneKnown).
@@ -40,7 +37,7 @@ var changeZoneUnresolvedParams = [...]string{
 	"WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter", "FaceDown",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
-	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
+	"RandomOrder", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
 	"ImprintLast", "Unearth",
 	"Ultimate",
@@ -689,6 +686,28 @@ func (g *Game) canSearchLibraryWith(decider, target, activator PlayerID) bool {
 	return target != activator || !p.HasKeyword("Spells and abilities you control can't cause you to search your library.")
 }
 
+// changeZoneAtRandom is the AtRandom$ branch of the pick loop
+// (ChangeZoneEffect.java:1195-1199): fetchList.sort() orders the list by
+// CardView.toString, "name (id)" (:1097), then each of the changeNum picks
+// is Aggregates.random over what is left -- no draw for one card. The id in
+// the sort key is Java's card id, so cards sharing a name tie-break on the
+// arena id instead (quirks.md).
+func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
+	key := func(id CardID) string { return g.Card(id).Name() + " (" + strconv.Itoa(int(id)) + ")" }
+	list := slices.Clone(fetchList)
+	slices.SortStableFunc(list, func(x, y CardID) int { return strings.Compare(key(x), key(y)) })
+	var chosen []CardID
+	for i := 0; i < changeNum; i++ {
+		j := g.randomIndex(len(list))
+		if j < 0 {
+			break
+		}
+		chosen = append(chosen, list[j])
+		list = slices.Delete(list, j, j+1)
+	}
+	return chosen
+}
+
 // changeZoneHidden is changeHiddenOriginResolve: each fetcher (DefinedPlayer$,
 // default You; the first targeted player when ValidTgts$ names one and
 // DefinedPlayer$ is absent) searches the Origin$ zones for up to ChangeNum$
@@ -906,7 +925,12 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				}
 				return got, nil
 			}
-			if each {
+			if hasParam(a, "AtRandom") {
+				if defined {
+					return fmt.Errorf("engine: ChangeZone: AtRandom$ with Defined$ not resolvable yet")
+				}
+				chosen = g.changeZoneAtRandom(fetchList, changeNum)
+			} else if each {
 				// One optional pick per type and repetition from the cards
 				// matching that type and not yet chosen (:1119-1135); a
 				// declined or empty pick moves on to the next.

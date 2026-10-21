@@ -597,3 +597,29 @@ func TestChangeZoneEffectWithTotalCMCOffersOnlyWhatTheTotalLeaves(t *testing.T) 
 		}
 	})
 }
+
+// TestChangeZoneEffectRememberSearchedAndShuffleChangedPile proves
+// RememberSearched$ (ChangeZoneEffect.java:1083-1085: the searched player is
+// remembered, whoever searches) and ShuffleChangedPile$ (:1248-1250: the
+// chosen cards are shuffled before they move; every one still moves).
+func TestChangeZoneEffectRememberSearchedAndShuffleChangedPile(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	lib := libraryCards(t, g, p, 3)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(lib[:2])
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Searched Pile",
+		"DB$ ChangeZone | Origin$ Library | Destination$ Exile | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True | ShuffleChangedPile$ True | RememberSearched$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range lib[:2] {
+		if z := g.Card(id).Zone; z != engine.Exile {
+			t.Errorf("card %d zone = %v, want Exile", id, z)
+		}
+	}
+	if got := g.Card(host).Memory.Remembered(); len(got) != 1 || got[0] != engine.PlayerEntity(p) {
+		t.Errorf("remembered = %v, want the searched player", got)
+	}
+}

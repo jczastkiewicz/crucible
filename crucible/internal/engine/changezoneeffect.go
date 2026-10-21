@@ -42,7 +42,6 @@ var changeZoneUnresolvedParams = [...]string{
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
-	"ShuffleChangedPile", "RememberSearched",
 	"ImprintLast", "Unearth",
 	"Ultimate",
 	// ExiledWithEffectSource$ marks the effect card's own source as the
@@ -855,6 +854,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		if (searchedLibrary || searchedParam) && decider == player {
 			g.Player(decider).librarySearched++
 		}
+		if (searchedLibrary || searchedParam) && hasParam(a, "RememberSearched") {
+			// ChangeZoneEffect.java:1083-1085, ahead of ForgetOtherRemembered$'s
+			// clear (:1106): the searched player, whoever searches.
+			source.Memory.Remember(PlayerEntity(player))
+		}
 		if !defined && changeType != "" && !each {
 			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)
 		}
@@ -984,6 +988,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 					}
 				}
 			}
+		}
+		if hasParam(a, "ShuffleChangedPile") {
+			// ChangeZoneEffect.java:1248-1250: CardLists.shuffle, Collections.shuffle
+			// on the game's generator.
+			g.rand.Shuffle(len(chosen), func(i, j int) { chosen[i], chosen[j] = chosen[j], chosen[i] })
 		}
 		if _, ok := a.Params.Param("DestinationAlternative"); ok {
 			// ChangeZoneEffect.java:1252-1256: once the search has chosen its

@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control amount parts zone valid effecthelpers scheduledaction
+//enginelint:allow id card game ability defined condition control amount parts zone valid effecthelpers scheduledaction repeateacheffect
 
 import (
 	"fmt"
@@ -12,8 +12,9 @@ import (
 )
 
 // chooseCardUnresolvedParams are ChooseCardEffect.java's params this port
-// cannot honour yet: the alternative selection loops (WithTotalPower$/WithDifferentPowers$/EachDifferentPower$/
-// ControlAndNot$; ChooseEach$ and EachBasicType$ resolve, chooseEachCards), the non-default choice pools (AllCards$,
+// cannot honour yet: the alternative selection loops (WithDifferentPowers$/EachDifferentPower$/
+// ControlAndNot$; ChooseEach$, EachBasicType$ and WithTotalPower$ resolve, chooseEachCards,
+// chooseWithTotalPower), the non-default choice pools (AllCards$,
 // IncludeSpellsOnStack$; TargetControls$ resolves, chooseCardPool) and ChosenMap$'s per-player map.
 // 399 real (AB|DB)$ lines; the default chooseCardsForEffect shape covers
 // most of them. QuasiLibrarySearch$ resolves (chooseCardQuasiSearch);
@@ -21,10 +22,9 @@ import (
 // order (ChooseCardEffect.java:225-228); Secretly$ only moves Reveal$'s
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
-	"WithTotalPower",
 	"WithDifferentPowers", "EachDifferentPower", "ControlAndNot",
 	"AllCards", "IncludeSpellsOnStack",
-	"ChosenMap", "ChoiceTitleAppend", "StartingWith", "Optional",
+	"ChosenMap",
 	"UnlessResolveSubs", "LockInText", "OrString",
 	"ConditionGameTypes",
 }
@@ -37,7 +37,10 @@ var chooseCardUnresolvedParams = [...]string{
 // the ChosenCard valid property), then RememberChosen$/ImprintChosen$/
 // ForgetChosen$/ForgetOtherRemembered$ update Memory the same way Java's own
 // trailing block does. Without Mandatory$ the choice may be empty, Java's
-// own isOptional = !Mandatory.
+// own isOptional = !Mandatory, which is why Optional$ (read by nothing in
+// Java, card-script-defects.md) changes nothing. StartingWith$ orders the
+// choosers (getPlayers' trailing sort); ChoiceTitleAppend$ only extends the
+// prompt title.
 type chooseCardEffect struct{}
 
 func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -56,6 +59,12 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	choosers, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: ChooseCard: %w", err)
+	}
+
+	if start, ok := a.Params.Param("StartingWith"); ok {
+		if choosers, err = playersStartingWith(g, a, choosers, start); err != nil {
+			return err
+		}
 	}
 
 	choices, err := chooseCardPool(g, a, source)
@@ -125,6 +134,14 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 					pChoices = append(pChoices, cid)
 				}
 			}
+		}
+		if raw, ok := a.Params.Param("WithTotalPower"); ok {
+			chosen, err := chooseWithTotalPower(g, a, controller, pid, raw)
+			if err != nil {
+				return err
+			}
+			all = append(all, chosen...)
+			continue
 		}
 		each, ok := a.Params.Param("ChooseEach")
 		if hasParam(a, "EachBasicType") {
@@ -259,6 +276,88 @@ func chooseEachCards(g *Game, a *Ability, controller PlayerController, pid Playe
 		}
 	}
 	return chosen, nil
+}
+
+// chooseWithTotalPower is WithTotalPower$ (ChooseCardEffect.java:146-171): the
+// chooser picks creatures they control one at a time, each pick leaving only
+// creatures whose power fits the total less the picks' power, the negative
+// powers still unpicked counted against it as an allowance. An empty pick asks
+// whether to stop; a "no" asks again. The choice pool is the chooser's
+// creatures, not Choices$.
+func chooseWithTotalPower(g *Game, a *Ability, controller PlayerController, pid PlayerID, raw string) ([]CardID, error) {
+	total, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
+	if !ok {
+		return nil, fmt.Errorf("engine: ChooseCard: WithTotalPower$ %q not resolvable yet", raw)
+	}
+	power := func(id CardID) (int, error) {
+		n, ok := g.Card(id).Power()
+		if !ok {
+			return 0, fmt.Errorf("engine: ChooseCard: WithTotalPower$: a creature's power is not resolvable yet")
+		}
+		return n, nil
+	}
+	var negative []CardID
+	negNum := 0
+	for _, id := range g.creaturesInPlay(pid) {
+		n, err := power(id)
+		if err != nil {
+			return nil, err
+		}
+		if n <= -1 {
+			negative = append(negative, id)
+			negNum += n
+		}
+	}
+	fits := func(left int, taken []CardID) ([]CardID, error) {
+		var out []CardID
+		for _, id := range g.creaturesInPlay(pid) {
+			n, err := power(id)
+			if err != nil {
+				return nil, err
+			}
+			if n <= left && !slices.Contains(taken, id) {
+				out = append(out, id)
+			}
+		}
+		return out, nil
+	}
+	creatures, err := fits(total-negNum, nil)
+	if err != nil {
+		return nil, err
+	}
+	var pool []CardID
+	chosenPower := 0
+	for len(creatures) > 0 {
+		pick := controller.ChooseCardsForEffect(g, pid, a.Source, creatures, 0, 1)
+		if err := checkChoice(pick, creatures, 0, 1); err != nil {
+			return nil, fmt.Errorf("engine: ChooseCard: %w", err)
+		}
+		if len(pick) == 0 {
+			if controller.ConfirmEffect(g, pid, a.Source) {
+				break
+			}
+			continue
+		}
+		n, err := power(pick[0])
+		if err != nil {
+			return nil, err
+		}
+		chosenPower += n
+		pool = append(pool, pick[0])
+		negative = slices.DeleteFunc(negative, func(id CardID) bool { return id == pick[0] })
+		negNum = 0
+		for _, id := range negative {
+			m, err := power(id)
+			if err != nil {
+				return nil, err
+			}
+			negNum += m
+		}
+		if creatures, err = fits(total-chosenPower-negNum, pool); err != nil {
+			return nil, err
+		}
+	}
+	return pool, nil
 }
 
 // chooseCardQuasiSearch reads QuasiLibrarySearch$ (ChooseCardEffect.java:

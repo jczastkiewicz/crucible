@@ -113,7 +113,6 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ Protection | Defined$ Self | Gains$ Choice | Choices$ AnyColor | Choser$ Controller",
 		"DB$ ProtectionAll | ValidCards$ Creature | Gains$ TargetedCardColor",
 		"DB$ DelayedTrigger | Mode$ ChangesZone | Execute$ DBX",
-		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | RememberNumber$ True | Execute$ DBX",
 		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep",
 		"DB$ ImmediateTrigger | RememberSVarAmount$ X | Execute$ DBX",
 		"DB$ ImmediateTrigger | TriggerAmount$ Bogus | Execute$ DBX",

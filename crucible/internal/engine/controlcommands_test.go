@@ -271,3 +271,29 @@ func TestBondPairsAndUnpairs(t *testing.T) {
 		}
 	}
 }
+
+// RememberSVarAmount$ (DelayedTriggerEffect.java:66-68) hands the named
+// SVar's amount to the delayed trigger, which Count$TriggerRememberAmount
+// reads when it fires (Mana Drain's shape, RememberNumber$ being the same
+// hand-over of the host's remembered Integers).
+func TestDelayedTriggerRemembersAnAmountForItsExecute(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Untap)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | RememberSVarAmount$ Y | Execute$ DBGain",
+		"Y", "Number$3",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ Z",
+		"Z", "Count$TriggerRememberAmount"); err != nil {
+		t.Fatal(err)
+	}
+	c := engine.NewScriptedController()
+	g.AdvancePhase(c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 (the remembered 3)", got)
+	}
+}

@@ -3,6 +3,8 @@
 package engine
 
 import (
+	"maps"
+
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 )
@@ -42,6 +44,11 @@ type Memory struct {
 	rememberedRemovals *collect.OrderedSet[removedCounter]
 	imprinted          *collect.OrderedSet[CardID]
 	chosen             *collect.OrderedSet[CardID]
+
+	// flipResults is Card.flipResultsMap: each flipper's last "Heads" or "Tails"
+	// that a RememberResult$ NoCall$ FlipCoin recorded, read by Defined$
+	// FlippedHeads/FlippedTails and cleared by Cleanup's ClearCoinFlips$.
+	flipResults map[PlayerID]string
 
 	// chosenPlayer, chosenColors and chosenNumber are Java Card's own
 	// setChosenPlayer/setChosenColors/setChosenNumber: single values, each
@@ -113,6 +120,21 @@ func (m *Memory) Remembered() []EntityID {
 	}
 	return m.remembered.All()
 }
+
+// AddFlipResult records flipper's coin result, replacing an earlier one
+// (Card.addFlipResult).
+func (m *Memory) AddFlipResult(flipper PlayerID, result string) {
+	if m.flipResults == nil {
+		m.flipResults = make(map[PlayerID]string, 2)
+	}
+	m.flipResults[flipper] = result
+}
+
+// FlipResult is flipper's recorded coin result, "" when there is none.
+func (m *Memory) FlipResult(flipper PlayerID) string { return m.flipResults[flipper] }
+
+// ClearFlipResults forgets every recorded coin result (Card.clearFlipResult).
+func (m *Memory) ClearFlipResults() { m.flipResults = nil }
 
 // RememberNumber adds an integer to the remembered set (Card.addRemembered of
 // an Integer), and reports whether it was new.
@@ -344,6 +366,9 @@ func (m Memory) clone() Memory {
 	}
 	if m.imprinted != nil {
 		out.imprinted = m.imprinted.Clone()
+	}
+	if len(m.flipResults) > 0 {
+		out.flipResults = maps.Clone(m.flipResults)
 	}
 	if m.chosen != nil {
 		out.chosen = m.chosen.Clone()

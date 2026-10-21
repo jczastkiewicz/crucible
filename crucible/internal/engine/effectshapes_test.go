@@ -375,3 +375,54 @@ func TestDefinedPlayersTrailingFilterOnRegisteredAndRemembered(t *testing.T) {
 		t.Errorf("controller life = %d, want 20", got)
 	}
 }
+
+// TestFlipCoinRememberResultFeedsFlippedTailsUntilCleared proves
+// RememberResult$ (FlipCoinEffect.java:64-82): each flipper's Heads or Tails
+// is recorded on the host for Defined$ FlippedTails (Goblin Assassin's
+// shape), and Cleanup's ClearCoinFlips$ forgets them.
+func TestFlipCoinRememberResultFeedsFlippedTailsUntilCleared(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ FlipCoin | Flipper$ Player | NoCall$ True | RememberResult$ True | SubAbility$ DBLose",
+		"DBLose", "DB$ LoseLife | Defined$ FlippedTails | LifeAmount$ 1 | SubAbility$ DBReset",
+		"DBReset", "DB$ Cleanup | ClearCoinFlips$ True")
+	r := javarand.New(1)
+	wantP, wantOther := 20, 20
+	if !r.Bool() {
+		wantP--
+	}
+	if !r.Bool() {
+		wantOther--
+	}
+	if g.Player(p).Life != wantP || g.Player(other).Life != wantOther {
+		t.Errorf("life = %d/%d, want %d/%d (tails flippers lose 1)", g.Player(p).Life, g.Player(other).Life, wantP, wantOther)
+	}
+	if got := g.Card(host).Memory.FlipResult(p); got != "" {
+		t.Errorf("flip result after ClearCoinFlips$ = %q, want none", got)
+	}
+}
+
+// TestFlipCoinRememberNumberKeepsTheWinCount proves RememberNumber$ Wins
+// (FlipCoinEffect.java:154-161).
+func TestFlipCoinRememberNumberKeepsTheWinCount(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	for i := 0; i < 3; i++ {
+		c.QueueCoinCall(true)
+	}
+	host := resolveLine(t, g, p, c, "DB$ FlipCoin | Amount$ 3 | RememberNumber$ Wins")
+	r := javarand.New(1)
+	wins := 0
+	for i := 0; i < 3; i++ {
+		if r.Bool() {
+			wins++
+		}
+	}
+	if got := g.Card(host).Memory.RememberedNumbers(); len(got) != 1 || got[0] != wins {
+		t.Errorf("remembered numbers = %v, want [%d]", got, wins)
+	}
+}

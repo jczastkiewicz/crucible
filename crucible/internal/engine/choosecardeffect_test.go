@@ -379,3 +379,70 @@ func TestChooseCardEffectEachBasicTypeAsksInHashOrder(t *testing.T) {
 		t.Errorf("Remembered = %v, want %v", got, want)
 	}
 }
+
+// TestChooseCardWithTotalPowerOffersOnlyWhatTheTotalLeaves proves
+// WithTotalPower$ (ChooseCardEffect.java:146-171): creatures are picked one
+// at a time, and a pick leaves only creatures whose power fits what is left of
+// the total.
+func TestChooseCardWithTotalPowerOffersOnlyWhatTheTotalLeaves(t *testing.T) {
+	t.Parallel()
+
+	setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids [3]engine.CardID
+		for i, pw := range []string{"3", "2", "2"} {
+			ids[i] = g.NewCard(creatureDefPT(t, pw, "2"), p, engine.Battlefield)
+		}
+		return g, p, ids
+	}
+	const line = "DB$ ChooseCard | Defined$ You | WithTotalPower$ 4"
+
+	t.Run("two small creatures fit", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		c.QueueCardChoice([]engine.CardID{ids[2]})
+		host, err := castETBChain(t, g, p, etbChainDef(t, "Test Total Power", line), c)
+		if err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		if got := g.Card(host).Memory.Chosen(); len(got) != 2 {
+			t.Errorf("chosen = %v, want the two 2-power creatures", got)
+		}
+	})
+
+	t.Run("a creature over what is left is not offered", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Total Power", line), c); err == nil {
+			t.Fatal("choosing a 2-power creature after a 3-power pick (total 4) succeeded")
+		}
+	})
+}
+
+// TestChooseCardStartingWithOrdersTheChoosers proves StartingWith$ (the
+// trailing sort of SpellAbilityEffect.getPlayers): the opponent chooses first,
+// so the first queued pick is the opponent's.
+func TestChooseCardStartingWithOrdersTheChoosers(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	mine := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{theirs})
+	c.QueueCardChoice([]engine.CardID{mine})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Starting With",
+		"DB$ ChooseCard | Defined$ Player | StartingWith$ Opponent | Choices$ Creature | ControlledByPlayer$ Chooser | Mandatory$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	got := g.Card(host).Memory.Chosen()
+	if len(got) != 2 || got[0] != theirs || got[1] != mine {
+		t.Errorf("chosen = %v, want [theirs mine]", got)
+	}
+}

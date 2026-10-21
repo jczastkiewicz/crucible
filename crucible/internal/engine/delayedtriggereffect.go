@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined delayedtrigger effecthelpers game trigger
+//enginelint:allow ability additional card condition control defined delayedtrigger effecthelpers game trigger id amount
 
 import (
 	"fmt"
@@ -20,16 +20,14 @@ import (
 // DamageDone fire: the port's other trigger checks walk card scripts, not
 // this registry, so any other Mode$ fails closed here
 // rather than registering a trigger that never fires.
-// RememberNumber$/RememberSVarAmount$ remember an Integer, which fails
-// closed. Static$ makes the trigger resolve at once, off the stack
+// RememberNumber$ hands the host's remembered Integers on, RememberSVarAmount$
+// the named SVar's amount (NumberEntity), for Count$TriggerRememberAmount.
+// Static$ makes the trigger resolve at once, off the stack
 // (TriggerHandler.runSingleTrigger -> playTrigger).
 type delayedTriggerEffect struct{}
 
 func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "DelayedTrigger", "RememberNumber", "RememberSVarAmount"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -96,6 +94,21 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 			}
 			d.Remembered = append(d.Remembered, es...)
 		}
+	}
+	if hasParam(a, "RememberNumber") {
+		// DelayedTriggerEffect.java:58-64: the Integers among the host's
+		// remembered objects.
+		for _, n := range source.Memory.RememberedNumbers() {
+			d.Remembered = append(d.Remembered, NumberEntity(n))
+		}
+	}
+	if name, ok := a.Params.Param("RememberSVarAmount"); ok {
+		// DelayedTriggerEffect.java:66-68.
+		n, known := resolveNamedAmount(g, a.Amounts, source, name)
+		if !known {
+			return fmt.Errorf("engine: DelayedTrigger: RememberSVarAmount$ %q is not resolvable", name)
+		}
+		d.Remembered = append(d.Remembered, NumberEntity(n))
 	}
 	switch {
 	case hasParam(a, "DelayedTriggerDefinedPlayer"):

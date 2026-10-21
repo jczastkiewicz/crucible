@@ -285,6 +285,15 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		candidates = []PlayerID{g.Card(host).Controller()}
 	case "CardOwner":
 		candidates = []PlayerID{g.Card(host).Owner}
+	case "FlippedHeads", "FlippedTails":
+		// AbilityUtils.java:1155-1163: the players whose recorded coin result
+		// on the host is that word, in turn order.
+		want := strings.TrimPrefix(defined, "Flipped")
+		for _, pid := range g.playersInTurnOrder() {
+			if g.Card(host).Memory.FlipResult(pid) == want {
+				candidates = append(candidates, pid)
+			}
+		}
 	case "RememberedPlayer":
 		// AbilityUtils.java:994-995: the players among the remembered objects
 		// (a remembered card names none: the "...Remembered" recursion is for

@@ -17,7 +17,10 @@ import (
 // RememberWinner$/RememberLoser$ remember the flipper on the host. Each
 // flip is one nextBoolean on the game's stream.
 //
-// ForEachPlayer$, RememberResult$ and RememberNumber$ fail closed, as does
+// RememberResult$ (NoCall$ only) records each flipper's result for Defined$
+// FlippedHeads/FlippedTails until Cleanup's ClearCoinFlips$; RememberNumber$
+// Wins/Losses remembers the count as a number once the sub-abilities ran.
+// ForEachPlayer$ fails closed, as does
 // any flip while a FlipCoinMod/FlipCoinDoubler static (Krark's Thumb, a
 // fixed result) is in play: this port evaluates neither static's
 // conditions nor the chooseFlipResult decision a doubled flip needs.
@@ -27,7 +30,7 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "FlipCoin", "ForEachPlayer", "RememberResult", "RememberNumber"); err != nil {
+	if err := rejectParams(a, "FlipCoin", "ForEachPlayer"); err != nil {
 		return err
 	}
 	if flipCoinModInPlay(g) {
@@ -88,6 +91,10 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 		}
 		if wins > 0 {
+			if noCall && hasParam(a, "RememberResult") {
+				// FlipCoinEffect.java:66-68, before the sub-ability reads it.
+				source.Memory.AddFlipResult(flipper, "Heads")
+			}
 			if !noCall && hasParam(a, "RememberWinner") {
 				source.Memory.Remember(PlayerEntity(flipper))
 			}
@@ -96,11 +103,24 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 		}
 		if losses > 0 {
+			if noCall && hasParam(a, "RememberResult") {
+				source.Memory.AddFlipResult(flipper, "Tails")
+			}
 			if !noCall && hasParam(a, "RememberLoser") {
 				source.Memory.Remember(PlayerEntity(flipper))
 			}
 			if err := g.resolveFlipSub(a, controller, loseKey, loseVar, losses); err != nil {
 				return err
+			}
+		}
+		if raw, ok := a.Params.Param("RememberNumber"); ok && !noCall {
+			// FlipCoinEffect.java:154-161: the win or loss count, by the word's
+			// first letters; any other word remembers nothing.
+			switch {
+			case strings.HasPrefix(raw, "Win"):
+				source.Memory.RememberNumber(wins)
+			case strings.HasPrefix(raw, "Loss"):
+				source.Memory.RememberNumber(losses)
 			}
 		}
 	}

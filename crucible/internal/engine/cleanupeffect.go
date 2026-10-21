@@ -6,9 +6,9 @@ import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot
 // honour yet. ForgetDefined$ needs getDefinedEntities' mixed
-// card-and-player reading, ClearCoinFlips$ FlipCoin, Log$ a random-log event -- none built.
+// card-and-player reading, Log$ a random-log event -- none built.
 var cleanupUnresolvedParams = [...]string{
-	"Defined", "ForgetDefined", "ClearCoinFlips",
+	"Defined", "ForgetDefined",
 	"Log"}
 
 // cleanupEffect is CleanUpEffect.java: it wipes the host card's own Memory
@@ -42,6 +42,9 @@ func (cleanupEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		g.delayed = kept
 	}
 	m := &source.Memory
+	if _, ok := a.Params.Param("ClearCoinFlips"); ok {
+		m.ClearFlipResults()
+	}
 	if _, ok := a.Params.Param("ClearRemembered"); ok {
 		m.ClearRemembered()
 	}

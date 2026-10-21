@@ -293,9 +293,9 @@ func alternativeOrigin(g *Game, a *Ability, controller PlayerController, decider
 // WithCountersAmount$ (default 1): the counters a permanent entering the
 // battlefield gets (ChangeZoneEffect.java:614). "Any" is a choice this port does
 // not make, so it is an error rather than a silent omission (GO-7). Counters
-// on another destination are added after the move (known origin only,
-// ChangeZoneEffect.java:751-755: changeZoneKnown); the search path does not
-// apply them, so there they are an error too.
+// on another destination are added after the move (ChangeZoneEffect.java:
+// 751-755: changeZoneKnown; :1508-1514: changeZoneHidden, which calls this
+// again once the card is remembered so X sees it).
 func changeZoneEnter(g *Game, a *Ability, dest ZoneType, known bool) ([]enterCounters, error) {
 	raw, ok := a.Params.Param("WithCountersType")
 	if !ok {
@@ -715,8 +715,17 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		// (ChangeZoneEffect.java:1339); no fetch in the corpus does it yet.
 		return fmt.Errorf("engine: ChangeZone: Transformed$ with a hidden Origin$ not resolvable yet")
 	}
-	enter, err := changeZoneEnter(g, a, dest, false)
-	if err != nil {
+	// Counters on a non-battlefield destination are evaluated after each
+	// card is remembered or imprinted (ChangeZoneEffect.java:1508-1514), so
+	// X may read Remembered$/Imprinted$; only a battlefield entry carries
+	// them into the move.
+	var enter []enterCounters
+	if dest == Battlefield {
+		var err error
+		if enter, err = changeZoneEnter(g, a, dest, false); err != nil {
+			return err
+		}
+	} else if _, err := changeZoneEnter(g, a, dest, true); err != nil {
 		return err
 	}
 	chooser, err := hiddenChooser(g, a, controller)
@@ -1096,6 +1105,17 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			moved[from] = append(moved[from], id)
 			movedAll = append(movedAll, id)
 			g.changeZoneMoved(a, source, id)
+			if dest != Battlefield {
+				// ChangeZoneEffect.java:1508-1514: the fetcher, not the
+				// activator, places them (the known path uses the activator).
+				late, err := changeZoneEnter(g, a, dest, true)
+				if err != nil {
+					return err
+				}
+				for _, e := range late {
+					g.addCardCounters(controller, pick.player, a.Source, id, e.kind, e.n)
+				}
+			}
 		}
 		for _, from := range movedOrigins {
 			g.checkChangesZoneAllTriggers(controller, moved[from], from, dest)

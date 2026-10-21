@@ -11,14 +11,13 @@ import (
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
 // (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$, RandomChange$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
-// bookkeeping this port has no concept of (ExileWithCounters$,
-// DefinedExiler$), and GainControl$'s Cybership reorder.
+// bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
 	"SourceZone", "FromBottom", "WithTotalCMC",
 	"ForEachColorPair", "WithDifferentPowers", "RandomChange", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
-	"ExileWithCounters", "DefinedExiler", "StaticEffect",
+	"DefinedExiler", "StaticEffect",
 	"Pawprint", "Boast", "UnlessResolveSubs",
 	"Ultimate",
 }
@@ -101,6 +100,11 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		return fmt.Errorf("engine: Dig: %w", err)
 	}
 	var moved1, moved2 []CardID
+	// ExileWithCounters$ (DigEffect.java:414, :472): one counter of the named
+	// kind on each card exiled, placed by the activator through the dig's
+	// counter table, which is flushed once every card has moved (:490).
+	exileCounter, hasExileCounter := a.Params.Param("ExileWithCounters")
+	var counterTable []CardID
 	chooser := a.Controller
 	for _, p := range players {
 		if g.Player(p).Lost {
@@ -194,6 +198,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			g.changeZoneLeftCombat(id, joined)
 			if dest1 == Exile {
 				g.markExiledWith(id, a.Source)
+				if hasExileCounter {
+					counterTable = append(counterTable, id)
+				}
 				g.exileFaceDown(a, id)
 				if melded != NoCard {
 					g.markExiledWith(melded, a.Source)
@@ -237,6 +244,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			melded := g.moveByEffect(controller, id, dest2, libPos2, NoPlayer, false)
 			if dest2 == Exile {
 				g.markExiledWith(id, a.Source)
+				if hasExileCounter {
+					counterTable = append(counterTable, id)
+				}
 				if melded != NoCard {
 					g.markExiledWith(melded, a.Source)
 				}
@@ -249,6 +259,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 	}
 	g.checkChangesZoneAllTriggers(controller, moved1, Library, dest1)
 	g.checkChangesZoneAllTriggers(controller, moved2, Library, dest2)
+	for _, id := range counterTable {
+		g.addCardCounters(controller, a.Controller, a.Source, id, CounterType(strings.ToUpper(exileCounter)), 1)
+	}
 	return nil
 }
 

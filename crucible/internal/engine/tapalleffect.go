@@ -30,15 +30,15 @@ import (
 // tapAllUnresolvedParams names TapAllEffect's own params this port does not
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
 // TapperController$ (3) -- tapEffect's own identical Tapper$ gap, "tapped
-// by" attribution nothing downstream reads yet; Ultimate$/Planeswalker$
-// (2/2) -- a planeswalker-ultimate-specific flag and an unclear-semantics
-// restriction on a resolving line, neither worth guessing at; Condition$/
+// by" attribution nothing downstream reads yet; Ultimate$
+// (2) -- a planeswalker-ultimate-specific flag worth not guessing at
+// (Planeswalker$ is the loyalty-cost flag activateability.go reads); Condition$/
 // ConditionDefined$ (0/0, defensive) -- condition.go's own
 // subAbilityConditionMet would otherwise silently no-op a card naming
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var tapAllUnresolvedParams = [...]string{
-	"TapperController", "Ultimate", "Planeswalker"}
+	"TapperController", "Ultimate"}
 
 // tapAllEffect resolves Mode$/DB$/AB$ TapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

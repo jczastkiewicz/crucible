@@ -137,8 +137,8 @@ func TestTapAllEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBTapAll(t, g, p, etbTapAllTriggerDefParams(t, "Test TapAll Planeswalker", "ValidCards$ Creature | Planeswalker$ True"), c)
+	_, err := castETBTapAll(t, g, p, etbTapAllTriggerDefParams(t, "Test TapAll Ultimate", "ValidCards$ Creature | Ultimate$ True"), c)
 	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Planeswalker$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Ultimate$")
 	}
 }

@@ -27,7 +27,7 @@ import "fmt"
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
 var poisonUnresolvedParams = [...]string{
-	"Ultimate", "Planeswalker"}
+	"Ultimate"}
 
 // poisonEffect resolves Mode$/DB$/AB$ Poison. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

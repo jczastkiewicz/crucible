@@ -123,6 +123,9 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 	if got := c.ChooseModesForAbility(g, p, a, []string{"x", "y", "z"}, 2, 2); len(got) != 2 {
 		t.Errorf("modes = %v", got)
 	}
+	if got := c.ChooseModesForAbility(g, p, a, []string{"x", "y"}, 3, 3); len(got) != 3 || got[2] != 0 {
+		t.Errorf("repeating modes = %v, want 3 cycling over 2", got)
+	}
 	if c.ChooseProtectionType(g, p, a, []string{"x"}) != 0 || c.ChooseOption(g, p, a, []string{"x"}) != 0 ||
 		c.ChooseSector(g, p, a, []string{"x"}) != 0 || c.ChooseReplacementEffect(g, p, nil) != 0 {
 		t.Error("index choices take the first option")

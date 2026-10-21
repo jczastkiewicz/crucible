@@ -166,22 +166,27 @@ func TestFightEffectNoOpsWithOnlyOneFighter(t *testing.T) {
 	}
 }
 
-// TestFightEffectRejectsUnresolvedParam proves fightUnresolvedParams' own
-// fail-loud contract (PORT-8/GO-7).
-func TestFightEffectRejectsUnresolvedParam(t *testing.T) {
+// TestFightEffectOptionalAsksTheActivator proves Optional$ (Kraul Harpooner,
+// FightEffect.java:65-67): declining ends the effect before any damage.
+func TestFightEffectOptionalAsksTheActivator(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-	target := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
+	for _, accept := range []bool{false, true} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+		target := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
 
-	c := engine.NewScriptedController()
-	c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
-
-	_, err := castETBFight(t, g, p, etbFightTriggerDefParams(t, "Test Fight Optional", "Defined$ Self | ValidTgts$ Creature.Other | Optional$ True", nil), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Optional$")
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(target)})
+		c.QueueConfirmEffect(accept)
+		_, err := castETBFight(t, g, p, etbFightTriggerDefParams(t, "Test Fight Optional", "Defined$ Self | ValidTgts$ Creature.Other | Optional$ True", nil), c)
+		if err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		if got := g.Card(target).Damage.Marked > 0; got != accept {
+			t.Errorf("accept=%v: target damaged = %v", accept, got)
+		}
 	}
 }

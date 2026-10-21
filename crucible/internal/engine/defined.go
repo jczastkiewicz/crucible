@@ -1108,8 +1108,8 @@ func targetedOrDefinedCards(host *Card, a *compile.Ability, refs abilityRefs) ([
 // that scan it (AbilityUtils.java:287-303): "Valid <spec>" over the
 // battlefield and "Valid<Zone> <spec>" over that zone, each zone across every
 // player in seat order (game.getCardsIn), filtered with the activator as You.
-// "ValidAll" (every card in the game) is not resolved; any other form is
-// definedCards'.
+// "ValidAll" is every card in the game (:293-295, cardsInGame); any other form
+// is definedCards'.
 func definedCardsInGame(g *Game, activator PlayerID, host *Card, defined string, refs abilityRefs) ([]CardID, error) {
 	if defined == "ExiledWith" {
 		// AbilityUtils.java:304-305: the cards the host exiled (Card.getExiledCards).
@@ -1137,6 +1137,16 @@ func (g *Game) definedValidCards(activator PlayerID, host *Card, defined string)
 		return nil, false
 	}
 	zone := Battlefield
+	if zoneName == "All" {
+		// AbilityUtils.java:293-295: game.getCardsInGame().
+		parsed := valid.Parse(spec)
+		for _, id := range g.cardsInGame() {
+			if Matches(g, g.Card(id), parsed, activator, host.ID) {
+				cards = append(cards, id)
+			}
+		}
+		return cards, true
+	}
 	if zoneName != "" {
 		z, known := ZoneByName(zoneName)
 		if !known {

@@ -13,9 +13,6 @@ func (investigateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Investigate", "Optional"); err != nil {
-		return err
-	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
@@ -33,6 +30,17 @@ func (investigateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		return err
 	}
 	players = g.inAPNAPOrder(players)
+	if hasParam(a, "Optional") {
+		// InvestigateEffect.java:48-49: each player's own controller is
+		// asked; a player who declines is skipped.
+		var accepted []PlayerID
+		for _, p := range players {
+			if controller.ConfirmEffect(g, p, a.Source) {
+				accepted = append(accepted, p)
+			}
+		}
+		players = accepted
+	}
 	for i := 0; i < num; i++ {
 		var created []CardID
 		for _, p := range players {

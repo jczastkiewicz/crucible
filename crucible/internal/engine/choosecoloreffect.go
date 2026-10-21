@@ -11,9 +11,11 @@ import (
 
 // chooseColorUnresolvedParams are ChooseColorEffect.java's params this port
 // cannot honour yet; a bare CheckSVar$/SVarCompare$ is the activation gate
-// activationLimitsMet's sibling otherRestrictionsMet enforces.
+// activationLimitsMet's sibling otherRestrictionsMet enforces. InstantSpeed$
+// is not read by the effect at all (SpellAbilityRestriction.java:107-108 keeps
+// it for the ability layer, which ignores it too, activateability.go).
 var chooseColorUnresolvedParams = [...]string{
-	"InstantSpeed", "Forecast",
+	"Forecast",
 }
 
 // chooseColorEffect is ChooseColorEffect.java: each chooser (Defined$,

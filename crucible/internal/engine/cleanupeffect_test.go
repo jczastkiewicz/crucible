@@ -64,16 +64,22 @@ func TestCleanupEffectLeavesUnnamedListsAlone(t *testing.T) {
 	}
 }
 
-// TestCleanupEffectRejectsUnresolvedParam proves Log$ fails closed rather
-// than being dropped (PORT-8).
+// TestCleanupEffectRejectsUnresolvedParam proves ForgetDefined$ fails closed
+// rather than being dropped (PORT-8), and Log$ (a UI-only event in Java) is
+// accepted.
 func TestCleanupEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test Cleanup Log", "DB$ Cleanup | ClearRemembered$ True | Log$ Something")
+	def := etbChainDef(t, "Test Cleanup Forget", "DB$ Cleanup | ClearRemembered$ True | ForgetDefined$ Self")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Log$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved ForgetDefined$")
+	}
+	g, p, _ = newTwoPlayerGame(t)
+	def = etbChainDef(t, "Test Cleanup Log", "DB$ Cleanup | ClearRemembered$ True | Log$ True")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err != nil {
+		t.Fatalf("Log$ is a UI-only event, got %v", err)
 	}
 }
 

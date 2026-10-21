@@ -6,10 +6,11 @@ import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot
 // honour yet. ForgetDefined$ needs getDefinedEntities' mixed
-// card-and-player reading, Log$ a random-log event -- none built.
+// card-and-player reading. Log$ (CleanUpEffect.java:31-33, :70-72) only
+// emits a UI event with the text of what is about to be cleared, so it is
+// accepted and changes no state.
 var cleanupUnresolvedParams = [...]string{
-	"Defined", "ForgetDefined",
-	"Log"}
+	"Defined", "ForgetDefined"}
 
 // cleanupEffect is CleanUpEffect.java: it wipes the host card's own Memory
 // lists (memory.go) at the end of a chain that wrote to them. 3,011 real

@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -135,20 +136,27 @@ func TestShuffleEffectValidTgtsShufflesChosenPlayersLibraryOnly(t *testing.T) {
 	}
 }
 
-// TestShuffleEffectRejectsUnresolvedParam proves shuffleUnresolvedParams'
-// own fail-loud contract (PORT-8/GO-7).
-func TestShuffleEffectRejectsUnresolvedParam(t *testing.T) {
+// TestShuffleEffectOptionalAsksTheActivator proves Optional$ (Visions,
+// ShuffleEffect.java:17-22): declining leaves the library as it was.
+func TestShuffleEffectOptionalAsksTheActivator(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-	libraryCards(t, g, p, 2)
+	for _, accept := range []bool{false, true} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+		libraryCards(t, g, p, 8)
+		before := append([]engine.CardID(nil), g.Zone(engine.Library, p).Cards()...)
 
-	c := engine.NewScriptedController()
-	_, err := castETBShuffle(t, g, p, etbShuffleTriggerDefParams(t, "Test Shuffle Optional", "Defined$ You | Optional$ True"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Optional$")
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		if _, err := castETBShuffle(t, g, p, etbShuffleTriggerDefParams(t, "Test Shuffle Optional", "Defined$ You | Optional$ True"), c); err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		after := g.Zone(engine.Library, p).Cards()
+		if same := slices.Equal(before, after); same == accept {
+			t.Errorf("accept=%v: library order unchanged = %v", accept, same)
+		}
 	}
 }

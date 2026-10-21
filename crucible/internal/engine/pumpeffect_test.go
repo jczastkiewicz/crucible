@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -339,5 +340,25 @@ func TestPumpEffectDefinedEnchantedGrantsHostPT(t *testing.T) {
 	}
 	if apw, _ := g.Card(aura).Power(); apw != 0 {
 		t.Errorf("aura's own power = %d, want 0 (Defined$ Enchanted must not pump the Aura itself)", apw)
+	}
+}
+
+// TestPumpImprintCardsValidAllReachesEveryZone proves ImprintCards$ ValidAll
+// (Creeping Dread, AbilityUtils.java:293-295): the pool is every card of the
+// game, not the battlefield a bare Valid scans.
+func TestPumpImprintCardsValidAllReachesEveryZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	inGrave := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Graveyard)
+	onField := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ Pump | Defined$ Self | NumAtt$ 1 | ImprintCards$ ValidAll Creature.Other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := g.Card(host).Memory.Imprinted()
+	if !slices.Contains(got, inGrave) || !slices.Contains(got, onField) {
+		t.Errorf("imprinted = %v, want both %v and %v", got, inGrave, onField)
 	}
 }

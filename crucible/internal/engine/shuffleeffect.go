@@ -19,13 +19,7 @@ import "fmt"
 
 // shuffleUnresolvedParams names ShuffleEffect's own params this port does
 // not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// Optional$ (1) -- an interactive "would you like to shuffle" confirm, the
-// identical gap Sacrifice's/Discard's/Mill's own Optional$ already
-// document; Condition$/ConditionDefined$ (0/1) -- condition.go's own
-// subAbilityConditionMet would otherwise silently no-op a card naming
-// either, dealDamageEffect's own identical reasoning.
-var shuffleUnresolvedParams = [...]string{
-	"Optional"}
+// none now (Optional$ asks the activator once per player, below).
 
 // shuffleEffect resolves Mode$/DB$/AB$ Shuffle. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -33,14 +27,9 @@ var shuffleUnresolvedParams = [...]string{
 // other M6 effect's own does.
 type shuffleEffect struct{}
 
-func (shuffleEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (shuffleEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range shuffleUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: Shuffle: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -50,7 +39,13 @@ func (shuffleEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err != nil {
 		return fmt.Errorf("engine: Shuffle: %w", err)
 	}
+	_, optional := a.Params.Param("Optional")
 	for _, pid := range players {
+		// ShuffleEffect.java:21: the activating player answers for each
+		// player, not the player who shuffles.
+		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
+			continue
+		}
 		g.Shuffle(Library, pid)
 	}
 	return nil

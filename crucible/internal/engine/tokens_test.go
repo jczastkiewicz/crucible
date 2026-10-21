@@ -194,6 +194,30 @@ func TestInvestigateEffectCreatesClues(t *testing.T) {
 	}
 }
 
+// TestInvestigateEffectOptionalSkipsADecliningPlayer proves Optional$ (Will
+// the Wise, InvestigateEffect.java:48-49): the investigating player's own
+// controller is asked, and a decline makes no Clue.
+func TestInvestigateEffectOptionalSkipsADecliningPlayer(t *testing.T) {
+	t.Parallel()
+
+	for _, accept := range []bool{false, true} {
+		g, p, _ := newTokenGame(t)
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		def := etbChainDef(t, "Test Optional Investigator", "DB$ Investigate | Optional$ True")
+		if _, err := castETBChain(t, g, p, def, c); err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		want := 0
+		if accept {
+			want = 1
+		}
+		if n := len(tokensOn(g, p, "Clue Token")); n != want {
+			t.Errorf("accept=%v: clues = %d, want %d", accept, n, want)
+		}
+	}
+}
+
 // TestAmassEffectCreatesArmyThenGrowsIt proves CR 701.47: with no Army the
 // amasser creates a 0/0 one and puts the counters on it; a second amass
 // reuses it, and an Army of another type gains the amassed type.

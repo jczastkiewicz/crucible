@@ -69,12 +69,12 @@ var pumpUnresolvedParams = [...]string{
 // pumpImprint is PumpEffect.java:431-437: ImprintCards$ adds the defined
 // cards to the host's imprinted list and ForgetImprinted$ removes them
 // (Mystic Reflection's DBImprint, which counts what its replacement copied).
-func pumpImprint(a *Ability, host *Card, key string, forget bool) error {
+func pumpImprint(g *Game, a *Ability, host *Card, key string, forget bool) error {
 	spec, ok := a.Params.Param(key)
 	if !ok {
 		return nil
 	}
-	cards, err := definedCards(host, spec, a.refs())
+	cards, err := definedCardsInGame(g, a.Controller, host, spec, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Pump: %s$: %w", key, err)
 	}
@@ -201,10 +201,10 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return err
 	}
 
-	if err := pumpImprint(a, source, "ImprintCards", false); err != nil {
+	if err := pumpImprint(g, a, source, "ImprintCards", false); err != nil {
 		return err
 	}
-	if err := pumpImprint(a, source, "ForgetImprinted", true); err != nil {
+	if err := pumpImprint(g, a, source, "ForgetImprinted", true); err != nil {
 		return err
 	}
 

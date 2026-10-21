@@ -14,7 +14,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone combatdamage trigger excessdamage replacedying
+//enginelint:allow id card game ability defined condition control zone combatdamage trigger excessdamage replacedying effecthelpers
 
 import (
 	"fmt"
@@ -25,15 +25,9 @@ import (
 
 // fightUnresolvedParams names FightEffect's own params this port does not
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// Optional$ (2) -- an interactive "would you like to
-// fight" confirm, the identical gap Sacrifice's/Discard's/Pump's own
-// Optional$ already document (TargetsAtRandom$ is chosen when the targets
-// are, randomTargets in targeting.go); Condition$/ConditionDefined$
-// (0/0) -- condition.go's own subAbilityConditionMet would otherwise
-// silently no-op a card naming either, dealDamageEffect's own identical
-// reasoning.
-var fightUnresolvedParams = [...]string{
-	"Optional"}
+// none now (Optional$ asks the activator after the fighters are known;
+// TargetsAtRandom$ is chosen when the targets are, randomTargets in
+// targeting.go).
 
 // fightEffect resolves Mode$/DB$/AB$ Fight. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -49,11 +43,6 @@ type fightEffect struct{}
 func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range fightUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: Fight: %s$ not resolvable yet", key)
-		}
 	}
 	if err := checkReplaceDying(g, a, "Fight"); err != nil {
 		return err
@@ -71,6 +60,10 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		return fmt.Errorf("engine: Fight: %w", err)
 	}
 	if len(fighters) < 2 {
+		return nil
+	}
+	// FightEffect.java:65-67: declining returns before any damage.
+	if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 		return nil
 	}
 	fighterA, fighterB := g.Card(fighters[0]), g.Card(fighters[1])

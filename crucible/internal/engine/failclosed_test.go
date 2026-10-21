@@ -98,7 +98,6 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ Token | TokenScript$ w_1_1_soldier | PumpKeywords$ Haste | PumpDuration$ UntilYourNextTurn",
 		"DB$ Token | TokenScript$ w_1_1_soldier | TokenOwner$ TriggeredPlayer",
 		"DB$ Token",
-		"DB$ Investigate | Optional$ True",
 		"DB$ Amass | Type$ Elf | Num$ 1",
 		"DB$ Amass | Num$ 1",
 		"DB$ Incubate | Amount$ Bogus",

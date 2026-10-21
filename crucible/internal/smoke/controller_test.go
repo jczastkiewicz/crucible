@@ -127,6 +127,13 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 		c.ChooseSector(g, p, a, []string{"x"}) != 0 || c.ChooseReplacementEffect(g, p, nil) != 0 {
 		t.Error("index choices take the first option")
 	}
+	if c.ChooseSticker(g, p, a, b, []engine.StickerOption{{}}, true) != 0 || c.ChooseSticker(g, p, a, b, nil, true) != -1 ||
+		c.ChooseStickerNamePosition(g, p, a, engine.StickerOption{}) != 0 {
+		t.Error("stickers take the first option, or none when none is offered")
+	}
+	if c.ChooseRollToSwap(g, p, a, []int{3, 9}) != -1 || c.ChooseRollSwapValue(g, p, a, 3, 2, 2) != -1 {
+		t.Error("roll swaps are declined")
+	}
 	if c.ChooseDieResult(g, p, a, []int{3, 9}) != 0 {
 		t.Error("die result keeps the first roll")
 	}

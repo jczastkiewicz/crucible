@@ -277,6 +277,11 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		if g.activePhase.IsCombat() {
 			candidates = []PlayerID{g.activePlayer}
 		}
+	case "NextPlayerToYourLeft", "NextPlayerToYourRight", "NextOpponentToYourLeft", "NextOpponentToYourRight":
+		// AbilityUtils.java:1177-1186: the next player after the controller
+		// in the direction. Every other player is an opponent (no teams),
+		// so NextOpponent* is the same player.
+		candidates = []PlayerID{g.nextPlayerInDirection(controller, strings.HasSuffix(defined, "Right"))}
 	case "ChosenPlayer":
 		if pid := g.Card(host).Memory.ChosenPlayer(); pid != NoPlayer {
 			candidates = []PlayerID{pid}

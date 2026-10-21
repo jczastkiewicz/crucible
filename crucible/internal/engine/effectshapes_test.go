@@ -444,3 +444,20 @@ func TestDealDamageRelativeTargetReadsDefinedPerSource(t *testing.T) {
 		t.Errorf("life = %d/%d, want 18/16 (each creature hits its own controller)", g.Player(p).Life, g.Player(other).Life)
 	}
 }
+
+// TestDefinedNextPlayerToYourLeftAndRight proves the seat walk of
+// NextPlayerToYour{Left,Right}: Left is the next seat in turn order, Right
+// the previous one (Hithlain Rope passes its control to the right).
+func TestDefinedNextPlayerToYourLeftAndRight(t *testing.T) {
+	t.Parallel()
+
+	g, a, left, right := newThreePlayerGame(t)
+	resolveLine(t, g, a, engine.NewScriptedController(), "DB$ GainLife | Defined$ NextPlayerToYourLeft | LifeAmount$ 3")
+	resolveLine(t, g, a, engine.NewScriptedController(), "DB$ GainLife | Defined$ NextOpponentToYourRight | LifeAmount$ 5")
+	if got := g.Player(left).Life; got != 23 {
+		t.Errorf("left life = %d, want 23", got)
+	}
+	if got := g.Player(right).Life; got != 25 {
+		t.Errorf("right life = %d, want 25", got)
+	}
+}

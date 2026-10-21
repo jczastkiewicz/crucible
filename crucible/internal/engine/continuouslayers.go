@@ -138,6 +138,17 @@ func appendOffZoneStatics(g *Game, out []layerStatic) []layerStatic {
 				out = append(out, layerStatic{host: id, def: c.Def, face: 0, index: si, s: s, amounts: face.Amounts})
 			}
 		}
+		// Statics an Animate staticAbilities$ granted (traitGrants, face -1 as
+		// gatherStatics numbers them): Flames of Moradin's duplicate in hand.
+		n := 0
+		for _, grant := range c.traitGrants {
+			for _, s := range grant.statics {
+				if staticFunctionsOffBattlefield(c, s) {
+					out = append(out, layerStatic{host: id, def: c.Def, face: -1, index: n, s: s, amounts: grant.amounts})
+				}
+				n++
+			}
+		}
 	}
 	for _, pid := range g.Players() {
 		for _, z := range offZoneHostZones {

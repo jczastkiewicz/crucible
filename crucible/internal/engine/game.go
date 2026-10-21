@@ -1046,9 +1046,10 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 
 	// A card exiled face down (Heist) turns face up as it leaves exile.
-	if from == Exile && kind != Exile {
+	if from == Exile && kind != Exile && (kind != Battlefield || !c.faceDownEntry) {
 		c.turnFaceUp()
 	}
+	c.faceDownEntry = false
 	// A zone change always drops continuous-effect grants from the zone left
 	// behind: Java gives every zone's own card fresh characteristics
 	// (Layers 4/5/6, continuouslayers.go's own AffectedZone$ reach can now

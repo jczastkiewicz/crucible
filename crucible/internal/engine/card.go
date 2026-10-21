@@ -482,7 +482,11 @@ type Card struct {
 	// faceUpDef is the card's own definition while it is face down (CR
 	// 708): Def then holds the face-down characteristics. Manifested and
 	// Cloaked record how it turned face down.
-	faceUpDef           *compile.Card
+	faceUpDef *compile.Card
+	// faceDownEntry marks a face-down card ChangeZone FaceDown$ is moving
+	// from exile to the battlefield, which Move would turn face up as it
+	// leaves exile (Heist); Move clears it.
+	faceDownEntry       bool
 	Manifested, Cloaked bool
 
 	// frontDef is the card's own (front face) definition while it is

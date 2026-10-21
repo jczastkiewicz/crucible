@@ -106,12 +106,13 @@ func restoreRememberedPlayers(m *Memory, p PlayerID, old []EntityID) {
 	}
 }
 
-// changeZoneDestination parses Destination$, limited to the five zones a
-// card can be moved to by this port (PlanarDeck/Ante/Sideboard/Command/Stack
-// are not modeled as destinations).
+// changeZoneDestination parses Destination$, limited to the zones a card can
+// be moved to by this port: the five usual ones and Ante, which Java moves to
+// through the generic GameAction.moveTo with no branch of its own
+// (PlanarDeck/Sideboard/Command/Stack are not modeled as destinations).
 func changeZoneDestination(name string) (ZoneType, error) {
 	z, ok := ZoneByName(name)
-	if !ok || (z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile) {
+	if !ok || (z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Ante) {
 		return 0, fmt.Errorf("engine: ChangeZone: Destination$ %q not resolvable yet", name)
 	}
 	return z, nil

@@ -35,7 +35,7 @@ import (
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
 	"WithNotedCounters", "ReturnAbility", "ReturnValid",
-	"AttachAfter", "FaceDown",
+	"AttachAfter",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
@@ -566,6 +566,22 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			// anyway (the else branch is empty, its comment says otherwise).
 			g.transform(id)
 		}
+		if hasParam(a, "FaceDown") {
+			// ChangeZoneEffect.java:670-672: the card turns face down before
+			// it moves, so entry replacements and triggers see a face-down
+			// permanent; FaceDownPower$/FaceDownToughness$/FaceDownSetType$
+			// set its values. (The second turnFaceDown after the move,
+			// :757-759, finds it already face down.)
+			if dest != Battlefield {
+				return fmt.Errorf("engine: ChangeZone: FaceDown$ with Destination$ %v not resolvable yet", dest)
+			}
+			if g.turnFaceDown(id) {
+				if err := g.setFaceDownState(a, source, g.Card(id)); err != nil {
+					return err
+				}
+				g.Card(id).faceDownEntry = true
+			}
+		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped, enter...)
 		g.changeZoneLeftCombat(id, joined)
 		g.changeZoneAttach(controller, id, attach)
@@ -745,6 +761,12 @@ func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
 // ControlOpponentsSearchingLibrary$ grant applies only to a fetcher deciding
 // their own search (:1071).
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID, until bool) error {
+	if hasParam(a, "FaceDown") {
+		// The hidden Exile branch never reads FaceDown$ (Tezzeret's
+		// Reckoning, forge-java-defects.md) and the battlefield branch
+		// (:1396-1398) has no corpus line: refused, not guessed.
+		return fmt.Errorf("engine: ChangeZone: FaceDown$ with a hidden Origin$ not resolvable yet")
+	}
 	if hasParam(a, "Transformed") {
 		// changeHiddenOriginResolve skips a card that cannot transform
 		// (ChangeZoneEffect.java:1339); no fetch in the corpus does it yet.

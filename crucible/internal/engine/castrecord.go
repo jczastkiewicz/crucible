@@ -66,6 +66,23 @@ func (g *Game) thisTurnCastCount(source CardID, spec string) (int, bool) {
 	return n, true
 }
 
+// thisTurnCastTypes is CardUtil.getThisTurnCast(spec, source): the type line of
+// every spell cast so far this turn that matches spec, read as its caster
+// controlled it.
+func (g *Game) thisTurnCastTypes(source CardID, spec string) []cardtype.Line {
+	parsed := valid.Parse(strings.TrimSpace(spec))
+	host := g.Card(source)
+	var out []cardtype.Line
+	for _, rec := range g.castThisTurn {
+		view := *g.Card(rec.card)
+		view.controller = rec.controller
+		if Matches(g, &view, parsed, host.Controller(), source) {
+			out = append(out, view.Type())
+		}
+	}
+	return out
+}
+
 // recordEntered logs c's move from from to to (Zone.add, Zone.saveLKI). before
 // is c as it stood just before the move; a battlefield entry logs the card as
 // it is now, any other move as it was. A move within one zone logs nothing.

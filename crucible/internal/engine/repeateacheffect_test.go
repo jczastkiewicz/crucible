@@ -171,3 +171,57 @@ func TestRepeatEachEffectChooseOrderLetsTheChooserOrderTheCards(t *testing.T) {
 		}
 	}
 }
+
+// TestRepeatEachEffectRepeatTypesFromChoosesEachCoreType proves
+// RepeatTypesFrom$ (RepeatEachEffect.java:132-161): the sub-ability resolves
+// once per core type among the named cards with that type as the host's chosen
+// type, and the host's earlier choice is restored afterwards.
+func TestRepeatEachEffectRepeatTypesFromChoosesEachCoreType(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	land := g.NewCard(landDef(t, "Test Land", "Basic Land Plains"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueOptionNamed("Land")
+	c.QueueOptionNamed("Creature")
+	def := etbChainDef(t, "Test RepeatEach Types", "DB$ RepeatEach | RepeatTypesFrom$ Valid Permanent.OppCtrl | RepeatSubAbility$ DBTap",
+		"DBTap", "DB$ TapAll | ValidCards$ Permanent.OppCtrl+ChosenType")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.Card(creature).Tapped || !g.Card(land).Tapped {
+		t.Errorf("tapped creature=%v land=%v, want both (one pass per type)", g.Card(creature).Tapped, g.Card(land).Tapped)
+	}
+	if got := g.Card(host).Memory.ChosenType(false); got != "" {
+		t.Errorf("chosen type after = %q, want it restored to empty", got)
+	}
+}
+
+// TestRepeatEachEffectRepeatTypesFromThisTurnCast proves the ThisTurnCast_
+// form reads the type lines of this turn's matching spells (Hurkyl).
+func TestRepeatEachEffectRepeatTypesFromThisTurnCast(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	bolt := boltAt(t, g, p)
+	bc := engine.NewScriptedController()
+	bc.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	castOn(t, g, p, bolt, bc)
+	def := etbChainDef(t, "Test RepeatEach Cast", "DB$ RepeatEach | RepeatTypesFrom$ ThisTurnCast_Card.nonCreature+YouCtrl | RepeatSubAbility$ DBLose",
+		"DBLose", "DB$ LoseLife | Defined$ You | LifeAmount$ 1")
+	host := g.NewCard(def, p, engine.Battlefield)
+	g.PushAbility(engine.Ability{API: engine.APIRepeatEach, Source: host, Controller: p,
+		Params: def.Faces[0].Triggers[0].Subs[0].Ability})
+	before := g.Player(p).Life
+	rc := engine.NewScriptedController()
+	rc.QueueOption(0)
+	if err := g.ResolveStack(engine.NewRegistry(), rc); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got := before - g.Player(p).Life; got != 1 {
+		t.Errorf("life lost = %d, want 1 (the Bolt is one type: Instant)", got)
+	}
+}

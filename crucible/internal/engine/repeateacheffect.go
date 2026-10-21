@@ -5,19 +5,21 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // repeatEachUnresolvedParams are RepeatEachEffect.java's params this port
-// cannot honour yet: the stack-object and card-type loops
-// (RepeatSpellAbilities$, RepeatTypesFrom$), a delayed per-player loop
+// cannot honour yet: the stack-object loop
+// (RepeatSpellAbilities$), a delayed per-player loop
 // (NextTurnForEachPlayer$), vote amounts (AmountFromVotes$), the batched
-// life table (LoseLifeMap$). ChooseOrder$ orders a card loop only (the
-// player loop and RepeatTypesFrom$'s chosen-type loop, which Java also
-// reads it for, stay as they are).
+// life table (LoseLifeMap$). ChooseOrder$ orders a card loop and names
+// RepeatTypesFrom$'s chooser; the player loop, which Java also reads it
+// for, stays as it is.
 var repeatEachUnresolvedParams = [...]string{
-	"RepeatSpellAbilities", "RepeatTypesFrom", "NextTurnForEachPlayer", "AmountFromVotes",
+	"RepeatSpellAbilities", "NextTurnForEachPlayer", "AmountFromVotes",
 	"LoseLifeMap",
 	"Ultimate",
 }
@@ -143,6 +145,11 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			m.Forget(e)
 		}
 	}
+	if def, ok := a.Params.Param("RepeatTypesFrom"); ok {
+		if err := repeatCardTypes(g, a, controller, def); err != nil {
+			return err
+		}
+	}
 	if spec, ok := a.Params.Param("RepeatPlayers"); ok {
 		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 		if err != nil {
@@ -203,4 +210,62 @@ func playersStartingWith(g *Game, a *Ability, players []PlayerID, spec string) (
 		}
 	}
 	return out, nil
+}
+
+// repeatCardTypes is RepeatEachEffect.java:132-161: the core types among the
+// cards def names (ThisTurnCast_<valid>: the spells cast this turn that match,
+// else a Defined$ card list) are chosen one by one -- the chooser is the
+// activator, or ChooseOrder$'s first player -- each becoming the host's chosen
+// type while RepeatSubAbility$ resolves. Java offers a HashSet of type names;
+// this port offers them in the order they were first met, which only a
+// controller that takes the first option can tell apart.
+func repeatCardTypes(g *Game, a *Ability, controller PlayerController, def string) error {
+	source := g.Card(a.Source)
+	var types []string
+	add := func(line cardtype.Line) {
+		for _, t := range line.CoreTypes() {
+			if !slices.Contains(types, t.String()) {
+				types = append(types, t.String())
+			}
+		}
+	}
+	if rest, ok := strings.CutPrefix(def, "ThisTurnCast"); ok {
+		_, spec, _ := strings.Cut(rest, "_")
+		for _, line := range g.thisTurnCastTypes(a.Source, spec) {
+			add(line)
+		}
+	} else {
+		cards, err := definedCards(source, def, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: RepeatEach: RepeatTypesFrom$: %w", err)
+		}
+		for _, id := range cards {
+			add(g.Card(id).Type())
+		}
+	}
+	chooser := a.Controller
+	if order, ok := a.Params.Param("ChooseOrder"); ok && order != "True" {
+		ps, err := definedPlayers(g, a.Controller, a.Source, order, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: RepeatEach: ChooseOrder$: %w", err)
+		}
+		if len(ps) == 0 {
+			return fmt.Errorf("engine: RepeatEach: ChooseOrder$ %q names no player", order)
+		}
+		chooser = ps[0]
+	}
+	stored := source.Memory.ChosenType(false)
+	for len(types) > 0 {
+		i := controller.ChooseOption(g, chooser, a.Source, types)
+		if i < 0 || i >= len(types) {
+			return fmt.Errorf("engine: RepeatEach: RepeatTypesFrom$: choice %d out of range", i)
+		}
+		source.Memory.SetChosenType(types[i], false)
+		if err := g.resolveAdditionalKey(a, controller, "RepeatSubAbility"); err != nil {
+			return err
+		}
+		types = slices.Delete(types, i, i+1)
+	}
+	source.Memory.SetChosenType(stored, false)
+	return nil
 }

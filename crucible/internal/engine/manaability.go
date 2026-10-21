@@ -107,7 +107,7 @@ func (p *Pool) addProduced(m producedMana, src manaSource) {
 	if m.snow {
 		b += bucketSnow
 	}
-	p.addUnits(b, m.amount, src)
+	p.addRestrictedUnits(b, m.amount, src, m.restrict)
 }
 
 // manaSourceOf is card as the source of mana its ability is about to make:

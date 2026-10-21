@@ -41,6 +41,7 @@
     "combatdamage": ["combatdamage.go"],
     "mana": ["mana.go"],
     "manapay": ["manapay.go"],
+    "manarestrict": ["manarestrict.go"],
     "manaability": ["manaability.go", "activatemanaability.go"],
     "land": ["land.go"],
     "castspell": ["castspell.go", "activateability.go"],
@@ -129,6 +130,7 @@
     "ability": ["id", "mana", "damageresolveeffect", "replaceeffect", "game"],
     "combat": ["id", "game", "valid", "effecthelpers", "card"],
     "game": [
+      "manarestrict",
       "sticker",
       "id",
       "zone",
@@ -314,8 +316,10 @@
       "staticability",
       "excessdamage"
     ],
-    "manapay": ["id", "game", "player", "control", "event", "mana"],
+    "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict"],
+    "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone"],
     "manaability": [
+      "manarestrict",
       "id",
       "mana",
       "zone",
@@ -339,6 +343,7 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "manarestrict",
       "costparts",
       "presentcheck",
       "condition",

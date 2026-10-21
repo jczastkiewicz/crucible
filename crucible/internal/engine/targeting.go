@@ -982,7 +982,7 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 		targets, err := stackItemTargets(item)
 		return containsEntity(targets, want), err
 	}
-	if hostCardProperty(prop) {
+	if g.hostCardPropertyOrType(prop) {
 		// SpellAbilityProperty.java:319-320: a property the ability itself
 		// does not have is asked of its host card (Consign to Memory's
 		// Spell.Colorless, Tale's End's Spell.Legendary, Nimble
@@ -990,6 +990,21 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 		return Matches(g, g.Card(item.Source), valid.Parse("Card."+prop), a.Controller, a.Source), nil
 	}
 	return false, fmt.Errorf("TargetType$ property %q not resolvable yet", prop)
+}
+
+// hostCardPropertyOrType is hostCardProperty plus the host-card properties
+// a mana restriction names (ADR-0046): a creature type (Spell.Dragon),
+// inZone<Zone> (Activated.Artifact+inZoneBattlefield) and ChosenType.
+func (g *Game) hostCardPropertyOrType(prop string) bool {
+	if hostCardProperty(prop) || prop == "ChosenType" {
+		return true
+	}
+	if zone, ok := strings.CutPrefix(prop, "inZone"); ok {
+		_, known := ZoneByName(zone)
+		return known
+	}
+	reg := g.db.Types()
+	return reg != nil && reg.IsCreatureType(prop)
 }
 
 // hostCardProperty reports whether prop is a card property propertyMatches

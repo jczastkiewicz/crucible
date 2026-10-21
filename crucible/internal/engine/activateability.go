@@ -383,7 +383,9 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	// The host before any cost moves it, for the activation record.
 	before := *c
+	restore := g.payingFor(&payContext{item: &activated, cost: manaCost})
 	x, paid := g.payManaCostX(pid, manaCost, controller)
+	restore()
 	if !paid {
 		return false
 	}

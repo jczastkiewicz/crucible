@@ -28,9 +28,8 @@ import (
 // reads or can safely ignore -- SpellDescription$ describes the ability to a
 // human and this port never renders it. Any other key present fails the
 // whole line loudly rather than producing the wrong mana or ignoring a real
-// restriction (PORT-8/GO-7): RestrictValid$ (53 real lines clearing every
-// other gate here) is a mana-pool spending restriction this port's own Pool
-// has no way to tag mana with; SubAbility$ is admitted and resolved once the
+// restriction (PORT-8/GO-7): RestrictValid$ is admitted when
+// manaRestrictionSupported can judge it (ADR-0046); SubAbility$ is admitted and resolved once the
 // mana is made (resolveManaSubAbility); IsPresent$/ConditionCheckSVar$/ConditionSVarCompare$/
 // PresentCompare$/CheckSVar$/SVarCompare$ (combined) are an
 // "activate only if..." restriction this port has no general resolving-
@@ -61,10 +60,15 @@ var manaAbilityAllowedParams = map[string]bool{
 }
 
 // manaAbilityParamsResolvable reports whether a is nothing but the params
-// manaAbilityAllowedParams admits.
-func manaAbilityParamsResolvable(a *compile.Ability) bool {
+// manaAbilityAllowedParams admits, plus a RestrictValid$ that
+// manaRestrictionSupported can judge (ADR-0046): the mana it makes carries it.
+func (g *Game) manaAbilityParamsResolvable(a *compile.Ability) bool {
 	for _, p := range a.Params {
-		if !manaAbilityAllowedParams[strings.ToLower(p.Key)] {
+		key := strings.ToLower(p.Key)
+		if key == "restrictvalid" && g.manaRestrictionSupported(p.Value) {
+			continue
+		}
+		if !manaAbilityAllowedParams[key] {
 			return false
 		}
 	}
@@ -259,7 +263,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	if g.cantBeActivated(pid, c, true, false) || !g.timingRestrictionsMet(pid, ability) {
 		return false
 	}
-	if !manaAbilityParamsResolvable(ability) {
+	if !g.manaAbilityParamsResolvable(ability) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
@@ -391,7 +395,10 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	// The source as it is before its costs move it (ADR-0042).
 	src := g.manaSourceOf(card)
 	before := *c
-	if !g.PayManaCost(pid, costMana, controller) {
+	restore := g.payingFor(&payContext{item: &Ability{API: APIMana, Source: card, Controller: pid, activated: true}, cost: costMana})
+	paid := g.PayManaCost(pid, costMana, controller)
+	restore()
+	if !paid {
 		return false
 	}
 	if shape.Tap {
@@ -446,6 +453,7 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	made := g.manaReplaced(controller, pid, card, producedMana{
 		color: color, colorless: colorless, snow: c.Type().HasSupertype(cardtype.Snow), amount: amount,
 	})
+	made.restrict, _ = ability.Param("RestrictValid")
 	g.addProducedMana(pid, made, src)
 
 	if shape.Tap {

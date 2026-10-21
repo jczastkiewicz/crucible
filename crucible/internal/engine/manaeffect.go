@@ -36,10 +36,10 @@ import (
 )
 
 // manaUnresolvedParams names ManaEffect's own params this port does not
-// evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// RestrictValid$ (20) -- a mana-pool spending restriction this port's own
-// Pool has no tag mechanism for, manaAbilityAllowedParams' own identical
-// gap (activatemanaability.go); Each$ (1) -- isComboMana's own
+// evaluate. Every one fails the whole line loudly (PORT-8/GO-7). RestrictValid$
+// is read: each unit made carries it (ADR-0046) when manaRestrictionSupported
+// can judge it, else the line errors:
+// Each$ (1) -- isComboMana's own
 // per-iteration-color-count shape, a further branch past the single-choice
 // dispatch this file resolves; CombatMana$ (1) -- unclear semantics on a
 // resolving line, not worth guessing at; Optional$ (1) -- an interactive
@@ -49,7 +49,7 @@ import (
 // would otherwise silently no-op a card naming either, dealDamageEffect's
 // own identical reasoning.
 var manaUnresolvedParams = [...]string{
-	"RestrictValid", "Each", "CombatMana", "Optional"}
+	"Each", "CombatMana", "Optional"}
 
 // manaEffect resolves Mode$/DB$/SP$ Mana. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -93,6 +93,10 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return fmt.Errorf("engine: Mana: %w", err)
 	}
 
+	restrict, _ := a.Params.Param("RestrictValid")
+	if restrict != "" && !g.manaRestrictionSupported(restrict) {
+		return fmt.Errorf("engine: Mana: RestrictValid$ %q not resolvable yet", restrict)
+	}
 	// The host made the mana (ManaEffect's AbilityManaPart source), ADR-0042.
 	src := g.manaSourceOf(a.Source)
 	for _, pid := range players {
@@ -103,7 +107,7 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			if color.Count() != 1 {
 				return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with exactly one color")
 			}
-			pool.addProduced(producedMana{color: color, amount: amount}, src)
+			pool.addProduced(producedMana{color: color, amount: amount, restrict: restrict}, src)
 		case strings.HasPrefix(produced, "Combo "):
 			options, comboOK := parseComboColors(produced)
 			if produced == "Combo Any" {
@@ -121,7 +125,7 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				if color.Count() != 1 || !options.Has(color) {
 					return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color from the offered set")
 				}
-				pool.addProduced(producedMana{color: color, amount: 1}, src)
+				pool.addProduced(producedMana{color: color, amount: 1, restrict: restrict}, src)
 			}
 		default:
 			// "R G" is one mana of each color named, Amount$ times over
@@ -136,7 +140,7 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 					if !colorOK {
 						return fmt.Errorf("engine: Mana: Produced$ %q not resolvable yet", produced)
 					}
-					pool.addProduced(producedMana{color: color, colorless: colorless, amount: 1}, src)
+					pool.addProduced(producedMana{color: color, colorless: colorless, amount: 1, restrict: restrict}, src)
 				}
 			}
 		}

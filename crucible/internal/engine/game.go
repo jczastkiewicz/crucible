@@ -253,6 +253,9 @@ type Game struct {
 	// its mana cost: snow mana pays a colored pip of any color
 	// (ManaConversionMatrix.snowForColor, PlaySpellAbility.java:648-649).
 	snowAnyColor bool
+	// payFor is what the mana payment in progress is for (ADR-0046); nil
+	// outside one and for a payment no restricted mana may join.
+	payFor *payContext
 
 	// sink is where this game's events go. DiscardSink by default: most
 	// callers -- every test, fixture loading -- have nothing listening and

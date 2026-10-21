@@ -5,7 +5,7 @@
 // Return<N/Type> beside mana tokens are the shapes that need no mid-payment
 // decision beyond which cards; costparts.go holds the parts added since.
 
-//enginelint:allow id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile
+//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile
 
 package engine
 
@@ -468,8 +468,13 @@ func (g *Game) payUnlessCostInto(controller PlayerController, a *Ability, pid Pl
 	if uc.waterbendN > 0 {
 		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)
 	}
-	if uc.hasMana && !g.PayManaCost(pid, mc, controller) {
-		return false
+	if uc.hasMana {
+		restore := g.payingFor(&payContext{item: a, cost: mc, resolving: true})
+		paid := g.PayManaCost(pid, mc, controller)
+		restore()
+		if !paid {
+			return false
+		}
 	}
 	tapChosenPermanents(g, controller, taps)
 	return g.payUnlessPartsInto(controller, a, pid, uc, rec)

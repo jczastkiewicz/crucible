@@ -164,7 +164,7 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		return xAnnounced{}, false
 	}
 	snowBefore := g.Player(decider).ManaPool.SnowBreakdown()
-	spent, ok := g.Player(decider).ManaPool.payWithSnow(mana.FromShards(resolved, 0), snow, g.snowAnyColor)
+	spent, ok := g.Player(decider).ManaPool.payUsable(mana.FromShards(resolved, 0), snow, g.snowAnyColor, g.usableMana())
 	if !ok {
 		return xAnnounced{}, false
 	}

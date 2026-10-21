@@ -3,7 +3,11 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/mana"
+import (
+	"slices"
+
+	"github.com/jczastkiewicz/crucible/internal/mana"
+)
 
 // Pool is what one player has floating (CR 106.4) -- mana added but not yet
 // spent, held separately by the five colors and by the {C} colorless mana
@@ -51,6 +55,9 @@ type manaSource struct {
 type poolUnit struct {
 	bucket uint8
 	src    manaSource
+	// restrict is the mana ability's RestrictValid$ (ADR-0046): what the unit
+	// may pay for, "" for none.
+	restrict string
 }
 
 // Pool buckets, the index order of counters and SnowBreakdown.
@@ -85,13 +92,17 @@ func colorBucket(color mana.Colors) (int, bool) {
 }
 
 // addUnits adds n units to bucket b, each from src.
-func (p *Pool) addUnits(b, n int, src manaSource) {
+func (p *Pool) addUnits(b, n int, src manaSource) { p.addRestrictedUnits(b, n, src, "") }
+
+// addRestrictedUnits is addUnits for mana that may pay only for what
+// restrict allows (ADR-0046).
+func (p *Pool) addRestrictedUnits(b, n int, src manaSource, restrict string) {
 	if n <= 0 {
 		return
 	}
 	*p.counters()[b] += n
 	for range n {
-		p.units = append(p.units, poolUnit{bucket: uint8(b), src: src})
+		p.units = append(p.units, poolUnit{bucket: uint8(b), src: src, restrict: restrict})
 	}
 }
 
@@ -316,6 +327,47 @@ func (p *Pool) PayWithSnow(cost mana.Cost, snow []mana.Shard) bool {
 // the choice of which snow source pays is the payer's, and this port picks.
 // It returns the units spent (takeSpent, ADR-0042).
 func (p *Pool) payWithSnow(cost mana.Cost, snow []mana.Shard, snowAny bool) ([]poolUnit, bool) {
+	return p.payUsable(cost, snow, snowAny, nil)
+}
+
+// payUsable is payWithSnow spending only the units usable accepts (nil: all
+// of them), the paid-for object's view of the pool (ADR-0046). A pool with no
+// restricted unit pays directly. Otherwise the payment runs on a view of the
+// usable units, the restricted ones first within a bucket, and one equal unit
+// per spent unit is then removed from p; a failed payment leaves p as it was.
+func (p *Pool) payUsable(cost mana.Cost, snow []mana.Shard, snowAny bool, usable func(poolUnit) bool) ([]poolUnit, bool) {
+	restricted := false
+	for _, u := range p.units {
+		if u.restrict != "" {
+			restricted = true
+			break
+		}
+	}
+	if !restricted {
+		return p.payDirect(cost, snow, snowAny)
+	}
+	var view Pool
+	for _, first := range [...]bool{true, false} {
+		for _, u := range p.units {
+			if (u.restrict != "") == first && (usable == nil || usable(u) || u.restrict == "") {
+				view.addRestrictedUnits(int(u.bucket), 1, u.src, u.restrict)
+			}
+		}
+	}
+	spent, ok := view.payDirect(cost, snow, snowAny)
+	if !ok {
+		return nil, false
+	}
+	for _, u := range spent {
+		i := slices.Index(p.units, u)
+		p.units = slices.Delete(p.units, i, i+1)
+		*p.counters()[u.bucket]--
+	}
+	return spent, true
+}
+
+// payDirect is the payment over every unit in p, payWithSnow's algorithm.
+func (p *Pool) payDirect(cost mana.Cost, snow []mana.Shard, snowAny bool) ([]poolUnit, bool) {
 	spend := *p
 	for _, s := range cost.Shards() {
 		var plain, snowBucket *int

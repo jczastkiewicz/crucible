@@ -88,6 +88,8 @@ type producedMana struct {
 	colorless bool
 	snow      bool
 	amount    int
+	// restrict is the producing ability's RestrictValid$ (ADR-0046).
+	restrict string
 }
 
 // replaceEffectFor is the effect behind a Replace* API, for the

@@ -739,7 +739,9 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	total, assist := g.assistCost(controller, pid, c, total)
 	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN)
 	g.snowAnyColor = opts.snowAnyColor
+	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
 	x, paid := g.payManaCostX(pid, total, controller)
+	restore()
 	g.snowAnyColor = false
 	if paid {
 		assist.settle(g, controller)

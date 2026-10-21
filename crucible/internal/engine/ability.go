@@ -713,4 +713,7 @@ type paidLists struct {
 	recorded     bool
 	mana         []manaSource
 	manaRecorded bool
+	// colors is the colored mana the activation spent, white to green
+	// (xAnnounced.paid): SpellAbility.getPayingColors, Count$ManaColorsPaid.
+	colors [5]int
 }

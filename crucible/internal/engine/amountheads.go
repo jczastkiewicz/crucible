@@ -271,6 +271,31 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			}
 		}
 		return n, true
+	case "ManaColorsPaid":
+		// AbilityUtils.java:1791-1795: the colors of mana the resolving root
+		// ability's payment spent -- an activation's (paid.colors) or a spell's
+		// cast -- 0 outside source's own resolution.
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return 0, false
+		}
+		colors := a.paid.colors
+		switch c := g.Card(source); {
+		case a.paid.manaRecorded:
+		case (a.spell || a.rootSpell) && c.wasCast:
+			colors = c.castPaid
+		case a.spell || a.rootSpell:
+			colors = [5]int{}
+		default:
+			return 0, false
+		}
+		n := 0
+		for _, spent := range colors {
+			if spent > 0 {
+				n++
+			}
+		}
+		return n, true
 	case "CastTotalManaSpent":
 		// AbilityUtils.java:1896-1908: the cast SpellAbility's total mana
 		// spent, 0 for a card that was not cast; `CastTotalManaSpent <valid>`

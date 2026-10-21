@@ -45,7 +45,7 @@ func etbSacrificeTriggerDefParams(t *testing.T, name, extraParams string, svars 
 // on controller c and resolves the stack, returning the creature's own
 // CardID and ResolveStack's own error -- castETBDiscard's own shape
 // (discardeffect_test.go).
-func castETBSacrifice(t *testing.T, g *engine.Game, p engine.PlayerID, def *compile.Card, c *engine.ScriptedController) (engine.CardID, error) {
+func castETBSacrifice(t *testing.T, g *engine.Game, p engine.PlayerID, def *compile.Card, c engine.PlayerController) (engine.CardID, error) {
 	t.Helper()
 	g.Player(p).ManaPool.Add(mana.Green, 1)
 	creature := g.NewCard(def, p, engine.Hand)

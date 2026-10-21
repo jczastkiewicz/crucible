@@ -60,7 +60,7 @@ func TestControllerAnswersEveryDecisionLegally(t *testing.T) {
 		t.Error("surveil keeps cards on top")
 	}
 	for _, f := range []func(*engine.Game, engine.PlayerID, []engine.CardID, int) []engine.CardID{
-		c.ChoosePermanentsToSacrifice, c.ChoosePermanentsToTap, c.ChoosePermanentsToReturn,
+		c.ChoosePermanentsToSacrifice, c.ChoosePermanentsToDestroy, c.ChoosePermanentsToTap, c.ChoosePermanentsToReturn,
 	} {
 		if got := f(g, p, hand, 1); len(got) != 1 {
 			t.Errorf("permanent choice = %v, want one", got)

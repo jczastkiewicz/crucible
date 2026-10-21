@@ -23,6 +23,9 @@ package engine
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -31,16 +34,13 @@ import (
 // port does not evaluate. Every one fails the whole line loudly rather than
 // sacrificing the wrong permanent, the wrong count, or silently skipping a
 // choice (PORT-8/GO-7): ChangeNum$ (5) --
-// SacrificeAll's own param, never read by this ApiType at all, so its
+// ChangeZone's param, never read by this ApiType at all, so its
 // presence marks a line this port would misclassify rather than one it can
 // safely ignore; ValidCard$ (3) -- SacrificeEffect.java
 // never reads this key at all, so its real meaning on the handful of lines
-// naming it is unclear; SacEachValid$ (1) -- a comma-list of
-// several SacValid$ specs sacrificed independently, a distribution
-// mechanic; Random$ (1) -- Aggregates.random, a randomized choice this
-// port's own ChoosePermanentsToSacrifice contract does not carry; Destroy$
-// (2) -- CR 701.7's own destroy rather than sacrifice, a different
-// GameAction call and a different Mode$ trigger entirely. StrictAmount$
+// naming it is unclear; Random$ (1) -- Aggregates.random, a randomized choice this
+// port's own ChoosePermanentsToSacrifice contract does not carry. Destroy$
+// (CR 701.7) and SacEachValid$ resolve (below). StrictAmount$
 // resolves: "sacrifice nothing rather than fewer than Amount$" (Lotus Vale).
 //
 // Echo$ and CumulativeUpkeep$ are SacrificeEffect.java's two leading branches,
@@ -73,8 +73,7 @@ import (
 // is not a built continuous-effect param, so the trigger it would grant
 // never exists in this port's own game at all.
 var sacrificeUnresolvedParams = [...]string{
-	"ChangeNum", "ValidCard",
-	"SacEachValid", "Random", "Destroy",
+	"ChangeNum", "ValidCard", "Random",
 }
 
 type sacrificeEffect struct{}
@@ -136,12 +135,28 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		}
 	}
 
+	_, destroy := a.Params.Param("Destroy")
+	_, eachValid := a.Params.Param("SacEachValid")
+	if destroy && (eachValid || optional) {
+		// SacEachValid$ asks choosePermanentsToSacrifice and then destroys
+		// what it chose (SacrificeEffect.java:124, 154), and Optional$ words
+		// its confirmation as a sacrifice: no corpus line combines them.
+		return fmt.Errorf("engine: Sacrifice: Destroy$ with SacEachValid$ or Optional$ not resolvable yet")
+	}
+	if eachValid {
+		for _, pid := range players {
+			sacrificeCards(g, controller, a, g.sacrificeEachValid(controller, a, pid, sacValid, amount))
+		}
+		return nil
+	}
 	spec := valid.Parse(sacValid)
 	_, strict := a.Params.Param("StrictAmount")
 	for _, pid := range players {
 		var candidates []CardID
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) && !g.cantSacrifice(g.Card(cid), true, a) {
+			// A destroyed permanent need not be sacrificable
+			// (SacrificeEffect.java:132-135).
+			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) && (destroy || !g.cantSacrifice(g.Card(cid), true, a)) {
 				candidates = append(candidates, cid)
 			}
 		}
@@ -165,6 +180,10 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		if !optional || strict {
 			// minTargets = amount (SacrificeEffect.java:138): exactly Amount$
 			// of the candidates, or all of them when fewer.
+			if destroy {
+				g.destroyChosen(controller, a, controller.ChoosePermanentsToDestroy(g, pid, candidates, n))
+				continue
+			}
 			sacrificeCards(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, n))
 			continue
 		}
@@ -180,6 +199,97 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 		sacrificeCards(g, controller, a, chosen)
 	}
 	return nil
+}
+
+// sacrificeEachValid is SacrificeEffect.java's SacEachValid$ branch
+// (:109-130) for one player: SacValid$ splits on " & " into alternatives, and
+// the player chooses Amount$ permanents for each, a permanent chosen for one
+// alternative no longer offered to the later ones. removeCandidates keeps an
+// early choice from starving a later alternative.
+func (g *Game) sacrificeEachValid(controller PlayerController, a *Ability, pid PlayerID, sacValid string, amount int) []CardID {
+	source := g.Card(a.Source)
+	alts := strings.Split(sacValid, " & ")
+	lists := make([][]CardID, len(alts))
+	for i, alt := range alts {
+		spec := valid.Parse(alt)
+		for _, cid := range g.Zone(Battlefield, pid).Cards() {
+			if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) && !g.cantSacrifice(g.Card(cid), true, a) {
+				lists[i] = append(lists[i], cid)
+			}
+		}
+	}
+	var chosen []CardID
+	for i, cands := range lists {
+		if len(cands) == 0 {
+			continue
+		}
+		if len(cands) > 1 && i < len(lists)-1 {
+			cands = removeCandidates(cands, lists, map[CardID]bool{}, i+1, 0, amount)
+		}
+		picked := controller.ChoosePermanentsToSacrifice(g, pid, cands, min(amount, len(cands)))
+		for j := i + 1; j < len(lists); j++ {
+			lists[j] = slices.DeleteFunc(lists[j], func(id CardID) bool { return slices.Contains(picked, id) })
+		}
+		chosen = append(chosen, picked...)
+	}
+	return chosen
+}
+
+// removeCandidates is SacrificeEffect.removeCandidates (:229-255): it drops
+// from targets every card that must stay free for a later alternative, i.e.
+// each one whose removal-set union of later alternatives would be too small
+// to cover them all. union is never mutated, only cloned.
+func removeCandidates(targets []CardID, lists [][]CardID, union map[CardID]bool, index, included, amount int) []CardID {
+	if index >= len(lists) {
+		if len(union) <= included*amount {
+			return slices.DeleteFunc(targets, func(id CardID) bool { return union[id] })
+		}
+		return targets
+	}
+	targets = removeCandidates(targets, lists, union, index+1, included, amount)
+	candidate := lists[index]
+	if len(candidate) == 0 {
+		return targets
+	}
+	if len(union) == 0 {
+		set := make(map[CardID]bool, len(candidate))
+		for _, id := range candidate {
+			set[id] = true
+		}
+		if len(candidate) <= amount {
+			return slices.DeleteFunc(targets, func(id CardID) bool { return set[id] })
+		}
+		return removeCandidates(targets, lists, set, index+1, included+1, amount)
+	}
+	clone := maps.Clone(union)
+	for _, id := range candidate {
+		clone[id] = true
+	}
+	return removeCandidates(targets, lists, clone, index+1, included+1, amount)
+}
+
+// destroyChosen destroys each of ids (Destroy$, SacrificeEffect.java:154-160):
+// GameAction.destroy, so an indestructible or regenerating permanent stays.
+// RememberSacrificed$ remembers only what was destroyed.
+func (g *Game) destroyChosen(controller PlayerController, a *Ability, ids []CardID) {
+	_, remember := a.Params.Param("RememberSacrificed")
+	var destroyed []CardID
+	for _, id := range ids {
+		c := g.Card(id)
+		if c.Zone != Battlefield || !canBeDestroyed(c) {
+			continue
+		}
+		if g.destroyInstead(controller, id) || g.regenerate(controller, id) {
+			continue
+		}
+		if remember {
+			g.Card(a.Source).Memory.Remember(CardEntity(id))
+		}
+		g.moveToGraveyard(controller, id)
+		g.checkDiesTriggers(controller, id)
+		destroyed = append(destroyed, id)
+	}
+	g.checkChangesZoneAllTriggers(controller, destroyed, Battlefield, Graveyard)
 }
 
 // sacrificeCards actually sacrifices each of ids, GameAction.sacrifice's

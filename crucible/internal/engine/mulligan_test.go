@@ -171,6 +171,10 @@ func (c *scriptedMulliganController) ChoosePermanentsToSacrifice(_ *engine.Game,
 	panic("scriptedMulliganController: ChoosePermanentsToSacrifice was not expected to be called")
 }
 
+func (c *scriptedMulliganController) ChoosePermanentsToDestroy(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ int) []engine.CardID {
+	panic("scriptedMulliganController: ChoosePermanentsToDestroy was not expected to be called")
+}
+
 func (c *scriptedMulliganController) ChoosePermanentsToTap(_ *engine.Game, _ engine.PlayerID, _ []engine.CardID, _ int) []engine.CardID {
 	panic("scriptedMulliganController: ChoosePermanentsToTap was not expected to be called")
 }

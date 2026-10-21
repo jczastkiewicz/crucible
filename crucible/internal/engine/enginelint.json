@@ -543,7 +543,8 @@
       "exploit",
       "devour",
       "taptype",
-      "chosencosts"
+      "chosencosts",
+      "destroyeffect"
     ],
     "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability", "statictrigger"],
     "exilefromgrave": ["id", "zone", "card", "game", "control", "leftto"],

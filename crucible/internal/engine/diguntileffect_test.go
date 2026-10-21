@@ -150,3 +150,47 @@ func TestDigUntilEffectSecondaryShapes(t *testing.T) {
 		}
 	})
 }
+
+// TestDigUntilEffectMinTotalCMCExilesUntilTheTotalIsReached: MinTotalCMC$
+// reveals until the total mana value reaches the threshold, the crossing card
+// included, ignores Valid$, and (equal destinations) exiles every revealed
+// card.
+func TestDigUntilEffectMinTotalCMCExilesUntilTheTotalIsReached(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefManaCost(t, "2"), p, engine.Library)
+	b := g.NewCard(creatureDefManaCost(t, "1"), p, engine.Library)
+	c3 := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Library)
+	rest := g.NewCard(creatureDefManaCost(t, "1"), p, engine.Library)
+
+	def := etbChainDef(t, "Test MinTotalCMC", "DB$ DigUntil | Valid$ Land | MinTotalCMC$ 4 | FoundDestination$ Exile | RevealedDestination$ Exile | RememberRevealed$ True")
+	host, err := castETBChain(t, g, p, def, engine.NewScriptedController())
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range []engine.CardID{a, b, c3} {
+		if z := g.Card(id).Zone; z != engine.Exile {
+			t.Errorf("card %v zone = %v, want Exile", id, z)
+		}
+	}
+	if lib := g.Zone(engine.Library, p).Cards(); len(lib) != 1 || lib[0] != rest {
+		t.Errorf("library = %v, want [%v]", lib, rest)
+	}
+	if got := g.Card(host).Memory.Remembered(); len(got) != 3 {
+		t.Errorf("remembered = %v, want the three revealed cards", got)
+	}
+}
+
+// TestDigUntilEffectMinTotalCMCNeedsEqualDestinations: Java finds nothing in
+// this mode, so unequal destinations stay refused.
+func TestDigUntilEffectMinTotalCMCNeedsEqualDestinations(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(creatureDefManaCost(t, "2"), p, engine.Library)
+	def := etbChainDef(t, "Test MinTotalCMC Split", "DB$ DigUntil | MinTotalCMC$ 4 | FoundDestination$ Hand | RevealedDestination$ Graveyard")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
+		t.Fatal("ResolveStack: want an error for MinTotalCMC$ with split destinations")
+	}
+}

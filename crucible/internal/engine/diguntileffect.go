@@ -5,11 +5,10 @@ package engine
 import "fmt"
 
 // digUntilUnresolvedParams are DigUntilEffect.java's params this port
-// cannot honour yet: a non-library dig site (DigZone$), the MinTotalCMC$
-// variant, entering-state/combat modifiers (AttachedTo$, Attacking$), and
+// cannot honour yet: a non-library dig site (DigZone$), entering-state/combat modifiers (AttachedTo$, Attacking$), and
 // the ShuffleCondition$ values other than NoneFound.
 var digUntilUnresolvedParams = [...]string{
-	"DigZone", "MinTotalCMC", "AttachedTo", "Attacking", "Blocking", "ValidPlayer"}
+	"DigZone", "AttachedTo", "Attacking", "Blocking", "ValidPlayer"}
 
 // digUntilEffect is DigUntilEffect.java: each target player (default You)
 // reveals cards from the top of their library until Amount$ (default 1)
@@ -20,7 +19,13 @@ var digUntilUnresolvedParams = [...]string{
 // moves every revealed card in reveal order instead. Two or more rest cards
 // into a known zone, or into a library that will not be shuffled, are
 // ordered by the revealing player; RevealRandomOrder$ shuffles them with the
-// game's own RNG. 153 real lines.
+// game's own RNG. 177 real lines.
+//
+// MinTotalCMC$ (3 lines) digs until the revealed cards' total mana value
+// reaches the threshold (DigUntilEffect.java:173-196): the crossing card is
+// revealed too, Valid$ and Amount$ are not read, and nothing is "found", so
+// only the sequential shape (both destinations the same zone) moves anything.
+// Each moved card fires its own zone-change batch (:274-276).
 type digUntilEffect struct{}
 
 func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -54,6 +59,14 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			return fmt.Errorf("engine: DigUntil: MaxRevealed$ %q not resolvable yet", raw)
 		}
 		maxRevealed = n
+	}
+	minCMC, hasMinCMC := 0, false
+	if raw, ok := a.Params.Param("MinTotalCMC"); ok {
+		n, ok := resolveNamedAmount(g, a.Amounts, source, raw)
+		if !ok {
+			return fmt.Errorf("engine: DigUntil: MinTotalCMC$ %q not resolvable yet", raw)
+		}
+		minCMC, hasMinCMC = n, true
 	}
 	validSpec, ok := a.Params.Param("Valid")
 	if !ok {
@@ -99,6 +112,11 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		newController = a.Controller
 	}
 	sequential := hasRevealed && hasFound && revealedDest == foundDest
+	if hasMinCMC && !sequential {
+		// Java never "finds" a card in this mode (:181), so the found and
+		// none-found destinations would silently decide where cards go.
+		return fmt.Errorf("engine: DigUntil: MinTotalCMC$ without equal FoundDestination$ and RevealedDestination$ not resolvable yet")
+	}
 
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
@@ -117,9 +135,17 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			maxToDig = maxRevealed
 		}
 		var found, revealed []CardID
+		restCMC := minCMC
 		for i := 0; i < maxToDig; i++ {
 			id := library[i]
 			revealed = append(revealed, id)
+			if hasMinCMC {
+				restCMC -= g.Card(id).CMC()
+				if restCMC <= 0 {
+					break
+				}
+				continue
+			}
 			if len(filterValid(g, []CardID{id}, validSpec, a.Controller, a.Source)) == 0 {
 				continue
 			}
@@ -170,8 +196,13 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 						g.markExiledWith(melded, a.Source)
 					}
 				}
+				if hasMinCMC {
+					g.checkChangesZoneAllTriggers(controller, []CardID{id}, Library, dest)
+				}
 			}
-			g.checkChangesZoneAllTriggers(controller, kept, Library, dest)
+			if !hasMinCMC {
+				g.checkChangesZoneAllTriggers(controller, kept, Library, dest)
+			}
 			revealed = withoutCards(revealed, found)
 		}
 		if _, ok := a.Params.Param("RememberRevealed"); ok {

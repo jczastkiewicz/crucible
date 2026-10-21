@@ -214,6 +214,11 @@ type PlayerController interface {
 	// ChooseCardsToDiscard.
 	ChoosePermanentsToSacrifice(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
 
+	// ChoosePermanentsToDestroy is choosePermanentsToDestroy, Sacrifice's own
+	// Destroy$ choice (Imperial Edict): ChoosePermanentsToSacrifice's contract
+	// for permanents that are destroyed rather than sacrificed.
+	ChoosePermanentsToDestroy(g *Game, decider PlayerID, candidates []CardID, count int) []CardID
+
 	// ChoosePermanentsToTap decides which of decider's own untapped,
 	// type-matched battlefield permanents decider taps when an activation
 	// cost names a tapXType<N/Type> part (CR 602.2, ActivateAbility/
@@ -924,6 +929,12 @@ func (c *ScriptedController) ChooseCardsToDiscard(_ *Game, _ PlayerID, _ []CardI
 	v := c.discardChoices[0]
 	c.discardChoices = c.discardChoices[1:]
 	return v
+}
+
+// ChoosePermanentsToDestroy returns the next answer QueueSacrificeChoice
+// queued, the same queue as ChoosePermanentsToSacrifice.
+func (c *ScriptedController) ChoosePermanentsToDestroy(g *Game, d PlayerID, cands []CardID, n int) []CardID {
+	return c.ChoosePermanentsToSacrifice(g, d, cands, n)
 }
 
 // ChoosePermanentsToSacrifice returns the next answer QueueSacrificeChoice

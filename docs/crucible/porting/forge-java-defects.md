@@ -500,3 +500,16 @@ than reproduce it. Fix upstream: copy the flag onto the damage map or read it pe
 branch holds only the comment "If it can't Transform, don't change zones", so the card moves untransformed. The hidden
 path (`:1339-1349`) does `continue`. Crucible follows each path as written (`quirks.md`). Fix upstream: `continue` in the
 known-origin `else`.
+
+## `SacEachValid$` with `Destroy$` asks for a sacrifice and filters by sacrifice rules
+
+`SacrificeEffect.java:124` calls `choosePermanentsToSacrifice` for every `SacEachValid$` alternative, then `:154` destroys
+what was chosen, and `:114` applies `canBeSacrificedBy` even when `Destroy$` is set (the single-choice branch skips it at
+`:132-135`). No corpus line combines the two, so Crucible refuses the combination. Fix upstream: pick the controller
+method and the filter from `Destroy$` in both branches.
+
+## `MinTotalCMC$` makes `Valid$`, `Amount$` and the found destinations dead on `DigUntil`
+
+`DigUntilEffect.java:181` is an `else if`: with `MinTotalCMC$` set nothing is ever "found", so `Valid$`, the `Amount$`
+threshold (`:192`), `FoundDestination$` outside the sequential shape, `RememberFound$` and `ImprintFound$` never act. The
+three corpus lines all use equal destinations, so only the sequential shape works; Crucible refuses the rest.

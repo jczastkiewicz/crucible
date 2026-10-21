@@ -204,6 +204,11 @@ func (*Controller) ChoosePermanentsToSacrifice(_ *engine.Game, _ engine.PlayerID
 	return c[:clip(n, len(c))]
 }
 
+// ChoosePermanentsToDestroy takes the first candidates.
+func (*Controller) ChoosePermanentsToDestroy(_ *engine.Game, _ engine.PlayerID, c []engine.CardID, n int) []engine.CardID {
+	return c[:clip(n, len(c))]
+}
+
 // ChoosePermanentsToTap takes the first candidates.
 func (*Controller) ChoosePermanentsToTap(_ *engine.Game, _ engine.PlayerID, c []engine.CardID, n int) []engine.CardID {
 	return c[:clip(n, len(c))]

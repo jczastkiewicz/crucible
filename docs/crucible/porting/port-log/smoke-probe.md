@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,115 |
-| refused      |    461 |
+| plays        | 33,118 |
+| refused      |    458 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    445 |

@@ -1212,6 +1212,11 @@ func (g *Game) cantPutCounter(object EntityID, ct CounterType) bool {
 			if h.Def == nil {
 				continue
 			}
+			// A host that entered in the same table as the counters, so it
+			// was not on the last-state battlefield, does not apply to them.
+			if h.Zone == Battlefield && slices.Contains(g.enterBatch, host) {
+				continue
+			}
 			for _, face := range h.traitFaces() {
 				for _, s := range face.Statics {
 					if !strings.EqualFold(s.Name, "CantPutCounter") || !paramsResolvable(s, cantPutCounterParams) || !g.staticConditionsMet(h, s) {

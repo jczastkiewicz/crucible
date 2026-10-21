@@ -2,7 +2,10 @@ package engine
 
 //enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // changeZoneAllUnresolvedParams are ChangeZoneAllEffect.java's params this
 // port cannot honour yet (same mechanisms as changeZoneUnresolvedParams).
@@ -126,6 +129,13 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	moved := map[ZoneType][]CardID{}
 	var movedOrigins []ZoneType
 	_, rememberLKI := a.Params.Param("RememberLKI")
+	if dest == Battlefield {
+		// The whole sweep is one zone-change table: a CantPutCounter host
+		// among the cards does not stop the others' enter counters.
+		prevBatch := g.enterBatch
+		g.enterBatch = slices.DeleteFunc(slices.Clone(cards), func(id CardID) bool { return g.Card(id).Zone == Battlefield })
+		defer func() { g.enterBatch = prevBatch }()
+	}
 	for _, id := range cards {
 		from := g.Card(id).Zone
 		if rememberLKI {

@@ -205,6 +205,11 @@ type Game struct {
 	// has put onto the battlefield so far, held for one ChangesZoneAll.
 	zoneBatchOpen    bool
 	zoneBatchCreated []CardID
+	// enterBatch is the cards a ChangeZoneAll is putting onto the battlefield
+	// as one zone-change table (changezonealleffect.go), nil outside one. A
+	// Mode$ CantPutCounter static whose host is in it does not stop the
+	// counters of that same entry (StaticAbilityCantPutCounter.java:22-25).
+	enterBatch []CardID
 	// enteredThisTurn is every zone change this turn, as the card stood in
 	// the zone it entered (a battlefield entry) or left (any other), and
 	// countersAddedThisTurn every counter placement (castrecord.go); both

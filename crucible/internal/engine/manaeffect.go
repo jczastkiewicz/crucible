@@ -26,7 +26,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount manaability replaceeffect
+//enginelint:allow id card game player ability defined condition control amount manaability replaceeffect effecthelpers
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ import (
 // would otherwise silently no-op a card naming either, dealDamageEffect's
 // own identical reasoning.
 var manaUnresolvedParams = [...]string{
-	"Each", "CombatMana", "Optional"}
+	"Each", "CombatMana"}
 
 // manaEffect resolves Mode$/DB$/SP$ Mana. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -71,6 +71,11 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return nil
 	}
 
+	// ManaEffect.java:52: Optional$ asks the activator, who adds no mana on a
+	// decline.
+	if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
+		return nil
+	}
 	produced, ok := a.Params.Param("Produced")
 	if !ok {
 		return fmt.Errorf("engine: Mana: Produced$ missing")

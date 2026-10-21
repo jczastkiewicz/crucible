@@ -321,9 +321,12 @@ func sacrificeCards(g *Game, controller PlayerController, a *Ability, ids []Card
 // not sacrificed (Card.canBeSacrificedBy). It answers the cards it did
 // sacrifice.
 func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []CardID, effect bool) []CardID {
-	remember := false
+	remember, imprint := false, false
 	if a.Params != nil { // a state-based sacrifice (a Saga's) has no ability behind it
 		_, remember = a.Params.Param("RememberSacrificed")
+		// SacrificeAllEffect.java:86-87 alone reads ImprintSacrificed$.
+		_, imprint = a.Params.Param("ImprintSacrificed")
+		imprint = imprint && a.API == APISacrificeAll
 	}
 	var sacrificed []CardID
 	for _, id := range ids {
@@ -336,6 +339,9 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 		g.checkSacrificedTriggers(controller, id, pid)
 		if remember {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
+		}
+		if imprint {
+			g.Card(a.Source).Memory.Imprint(id)
 		}
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)

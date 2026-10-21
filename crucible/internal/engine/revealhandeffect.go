@@ -24,33 +24,17 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
-// revealHandUnresolvedParams names RevealHandEffect's own params this port
-// does not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// Optional$ (2) -- an interactive "would you like to reveal" confirm, the
-// identical gap Sacrifice's/Discard's/Mill's own Optional$ already
-// document; ImprintRevealed$ (1) -- Card.ChosenMap/imprint storage, a
-// separate mechanism from Memory.Remember this port does not have;
-// Condition$/ConditionDefined$ (0/0, defensive) -- condition.go's own
-// subAbilityConditionMet would otherwise silently no-op a card naming
-// either without ConditionPresent$ alongside it, dealDamageEffect's own
-// identical reasoning.
-var revealHandUnresolvedParams = [...]string{
-	"Optional", "ImprintRevealed"}
-
 // revealHandEffect resolves Mode$/DB$/AB$ RevealHand. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
 // through subAbilityConditionMet (condition.go), the identical way every
-// other M6 effect's own does.
+// other M6 effect's own does. Optional$ asks each revealing player's own
+// controller (RevealHandEffect.java:42); there is no reveal event to fire,
+// so only the Remember/Imprint bookkeeping acts.
 type revealHandEffect struct{}
 
-func (revealHandEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (revealHandEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range revealHandUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: RevealHand: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -63,8 +47,10 @@ func (revealHandEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	_, remCards := a.Params.Param("RememberRevealed")
+	_, imprint := a.Params.Param("ImprintRevealed")
 	_, remPlayer := a.Params.Param("RememberRevealedPlayer")
-	if !remCards && !remPlayer {
+	_, optional := a.Params.Param("Optional")
+	if !remCards && !imprint && !remPlayer {
 		return nil
 	}
 
@@ -76,12 +62,18 @@ func (revealHandEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 
 	for _, pid := range players {
-		if remCards {
-			for _, cid := range g.Zone(Hand, pid).Cards() {
-				if hasType && !Matches(g, g.Card(cid), spec, a.Controller, a.Source) {
-					continue
-				}
+		if optional && !controller.ConfirmEffect(g, pid, a.Source) {
+			continue
+		}
+		for _, cid := range g.Zone(Hand, pid).Cards() {
+			if hasType && !Matches(g, g.Card(cid), spec, a.Controller, a.Source) {
+				continue
+			}
+			if remCards {
 				source.Memory.Remember(CardEntity(cid))
+			}
+			if imprint {
+				source.Memory.Imprint(cid)
 			}
 		}
 		if remPlayer {

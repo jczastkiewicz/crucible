@@ -287,3 +287,20 @@ func TestSacrificeAllEffectFiresSacrificedTriggerPerCard(t *testing.T) {
 		t.Errorf("p's life = %d, want 22 -- Mode$ Sacrificed must fire once for each of the two sacrificed creatures", g.Player(p).Life)
 	}
 }
+
+// TestSacrificeAllImprintSacrificed proves ImprintSacrificed$ (Knowledge
+// Vault, SacrificeAllEffect.java:86-87) imprints what was sacrificed.
+func TestSacrificeAllImprintSacrificed(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	victim := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ SacrificeAll | ValidCards$ Creature.Other+YouCtrl | ImprintSacrificed$ True")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(host).Memory.Imprinted(); len(got) != 1 || got[0] != victim {
+		t.Errorf("imprinted = %v, want [%v]", got, victim)
+	}
+}

@@ -104,13 +104,25 @@ func TestDestroyAllEffectValidTgtsNarrowsToTargetedPlayer(t *testing.T) {
 	}
 }
 
-// TestDestroyAllEffectRejectsUnresolvedParam proves Optional$ fails closed.
-func TestDestroyAllEffectRejectsUnresolvedParam(t *testing.T) {
+// TestDestroyAllEffectOptionalAsksTheActivator proves Optional$ (Awaken the
+// Sleeper, DestroyAllEffect.java:77-82): declining destroys nothing.
+func TestDestroyAllEffectOptionalAsksTheActivator(t *testing.T) {
 	t.Parallel()
 
-	g, p, _ := newTwoPlayerGame(t)
-	c := engine.NewScriptedController()
-	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test DestroyAll Optional", "DB$ DestroyAll | ValidCards$ Creature | Optional$ True"), c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Optional$")
+	for _, accept := range []bool{false, true} {
+		g, p, other := newTwoPlayerGame(t)
+		victim := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		host, err := castETBChain(t, g, p, etbChainDef(t, "Test DestroyAll Optional", "DB$ DestroyAll | ValidCards$ Creature.OppCtrl | Optional$ True | RememberAllObjects$ True"), c)
+		if err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		if died := g.Card(victim).Zone == engine.Graveyard; died != accept {
+			t.Errorf("accept=%v: victim died = %v", accept, died)
+		}
+		if got := g.Card(host).Memory.Remembered(); len(got) != 1 || got[0] != engine.CardEntity(victim) {
+			t.Errorf("accept=%v: remembered = %v, want the victim whatever the answer", accept, got)
+		}
 	}
 }

@@ -761,6 +761,10 @@ func readCloneChanges(g *Game, a *Ability) (cloneChanges, error) {
 			if name == "" {
 				continue
 			}
+			if strings.EqualFold(name, "Colorless") {
+				// MagicColor.fromName(colorless) is the empty color set.
+				continue
+			}
 			c, ok := colorFromName(strings.ToUpper(name[:1]) + strings.ToLower(name[1:]))
 			if !ok {
 				return 0, fmt.Errorf("engine: Clone: %s$ %q names no color", key, raw)

@@ -123,19 +123,28 @@ func TestRevealHandEffectNoRememberParamIsANoOp(t *testing.T) {
 	}
 }
 
-// TestRevealHandEffectRejectsUnresolvedParam proves revealHandUnresolvedParams'
-// own fail-loud contract (PORT-8/GO-7).
-func TestRevealHandEffectRejectsUnresolvedParam(t *testing.T) {
+// TestRevealHandEffectOptionalAndImprint proves Optional$ asks the revealing
+// player's own controller (a decline reveals and imprints nothing) and
+// ImprintRevealed$ (Dreams of Steel and Oil) imprints the hand.
+func TestRevealHandEffectOptionalAndImprint(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	for _, accept := range []bool{false, true} {
+		g := newGame(t, "a", "b")
+		p, other := g.Players()[0], g.Players()[1]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(other).Life = 20, 20
+		card := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Hand)
 
-	c := engine.NewScriptedController()
-	_, err := castETBRevealHand(t, g, p, etbRevealHandTriggerDefParams(t, "Test RevealHand Optional", "Defined$ You | RememberRevealed$ True | Optional$ True"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Optional$")
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		host, err := castETBRevealHand(t, g, p, etbRevealHandTriggerDefParams(t, "Test RevealHand Imprint", "Defined$ Opponent | Optional$ True | ImprintRevealed$ True"), c)
+		if err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		got := g.Card(host).Memory.Imprinted()
+		if accept != (len(got) == 1 && got[0] == card) {
+			t.Errorf("accept=%v: imprinted = %v", accept, got)
+		}
 	}
 }

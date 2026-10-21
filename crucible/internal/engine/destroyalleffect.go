@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability amount condition control parts zone valid destroyeffect
+//enginelint:allow id card game ability amount condition control parts zone valid destroyeffect effecthelpers
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 // cannot honour yet. NoRegen$ and NoRegenValid$ (the per-card version) stop a
 // regeneration shield (regeneration.go) from replacing the destruction.
 var destroyAllUnresolvedParams = [...]string{
-	"Optional", "RememberAllObjects", "Zone", "Hidden",
+	"Zone", "Hidden",
 }
 
 // destroyAllEffect is DestroyAllEffect.java: every battlefield permanent
@@ -72,6 +72,16 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 
+	if hasParam(a, "RememberAllObjects") {
+		for _, id := range list {
+			source.Memory.Remember(CardEntity(id))
+		}
+	}
+	// DestroyAllEffect.java:77-82: an optional destruction with nothing to
+	// destroy ends quietly, otherwise the activator is asked.
+	if hasParam(a, "Optional") && (len(list) == 0 || !controller.ConfirmEffect(g, a.Controller, a.Source)) {
+		return nil
+	}
 	_, remember := a.Params.Param("RememberDestroyed")
 	if remember {
 		source.Memory.ClearRemembered()

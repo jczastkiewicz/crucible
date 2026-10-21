@@ -156,6 +156,27 @@ func TestManaEffectRejectsUnresolvedParam(t *testing.T) {
 	}
 }
 
+// TestManaEffectOptionalAsksTheActivator proves Optional$ (Soulbright
+// Flamekin, ManaEffect.java:52): a decline adds no mana.
+func TestManaEffectOptionalAsksTheActivator(t *testing.T) {
+	t.Parallel()
+
+	for _, accept := range []bool{false, true} {
+		g := newGame(t, "a", "b")
+		p := g.Players()[0]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(accept)
+		if _, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Optional", "Produced$ R | Defined$ You | Optional$ True"), c); err != nil {
+			t.Fatalf("accept=%v: %v", accept, err)
+		}
+		if got := g.Player(p).ManaPool.Total(); (got > 0) != accept {
+			t.Errorf("accept=%v: pool total = %d", accept, got)
+		}
+	}
+}
+
 // TestManaEffectSeveralColorsAddsOneOfEach proves Produced$ "R G" (Burning-Tree
 // Emissary) adds one mana per named color, Amount$ times over
 // (GameActionUtil.generatedMana repeats the whole string).

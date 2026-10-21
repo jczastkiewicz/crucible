@@ -352,6 +352,20 @@ func TestCloneSetColorAndKeepName(t *testing.T) {
 	}
 }
 
+// TestCloneSetColorColorlessEmptiesTheColors proves SetColor$ Colorless
+// (Benthic Anomaly): MagicColor.fromName(colorless) is the empty color set.
+func TestCloneSetColorColorlessEmptiesTheColors(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	odd := g.NewCard(copyTestDef(t, "Odd", "Creature Elf", "2", "3"), other, engine.Battlefield)
+	host := shifter(t, g, p, "Clone | ValidTgts$ Creature | SetColor$ Colorless")
+	mustActivate(t, g, p, engine.NewScriptedController(), host, odd)
+	if cs := g.Card(host).Colors(); cs != 0 {
+		t.Errorf("colors = %v, want none", cs)
+	}
+}
+
 // TestCloneOptionalAsksTheHostsController proves Optional$ asks the host's
 // controller, and that declining copies nothing.
 func TestCloneOptionalAsksTheHostsController(t *testing.T) {

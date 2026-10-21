@@ -438,9 +438,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.TapTypeTotalPower > 0 {
 		tapChosenPermanents(g, controller, tapChosen)
+		activated.paid.tapped = append(activated.paid.tapped, tapChosen...)
 	} else if shape.TapTypeN > 0 {
 		chosen := controller.ChoosePermanentsToTap(g, pid, tapCandidates, shape.TapTypeN)
 		tapChosenPermanents(g, controller, chosen)
+		activated.paid.tapped = append(activated.paid.tapped, chosen...)
 	}
 	if shape.ReturnTypeN > 0 {
 		chosen := controller.ChoosePermanentsToReturn(g, pid, returnCandidates, shape.ReturnTypeN)

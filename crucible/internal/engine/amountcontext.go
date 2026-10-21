@@ -29,7 +29,7 @@ import (
 // (AbilityUtils.java:672-719), read only while that ability resolves.
 var contextHeads = map[string]bool{
 	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
-	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "Discarded": true,
+	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "Discarded": true, "Tapped": true,
 	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggeredExploited": true,
 	"TriggeredDevoured": true, "CardTriggeredTarget": true,
 }
@@ -250,11 +250,13 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 				ids = append(ids, id)
 			}
 		}
-	case "Sacrificed", "Exiled", "Discarded":
+	case "Sacrificed", "Exiled", "Discarded", "Tapped":
 		if !a.paid.recorded {
 			return nil, false
 		}
 		switch head {
+		case "Tapped":
+			ids = a.paid.tapped
 		case "Sacrificed":
 			ids = a.paid.sacrificed
 		case "Exiled":

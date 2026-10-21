@@ -715,6 +715,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it sacrificed", defined)
 		}
 		return append([]CardID(nil), refs.paid.sacrificed...), nil
+	case "Tapped":
+		if !refs.paid.recorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it tapped", defined)
+		}
+		return append([]CardID(nil), refs.paid.tapped...), nil
 	case "Discarded", "Exiled":
 		// getPaidCards (AbilityUtils.java:306-310): what the cost discarded or
 		// exiled, recorded alike.
@@ -814,6 +819,12 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			}
 		}
 		return cards, nil
+	case "TriggeredSources", "TriggeredSourcesLKICopy":
+		// AbilityKey.Sources of a DamageDoneOnce trigger (damageDoneOnceObjects).
+		if !refs.triggered.sourcesSet {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no sources", defined)
+		}
+		return slices.Clone(refs.triggered.sources), nil
 	case "TriggeredCards", "TriggeredCardsLKICopy":
 		if len(refs.triggered.cards) == 0 {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no cards", defined)

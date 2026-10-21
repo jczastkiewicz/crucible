@@ -875,7 +875,11 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		g.collectEvidence(controller, pid, a.Source, uc.evidenceN)
 	}
 	if uc.tapN > 0 {
-		tapChosenPermanents(g, controller, controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN))
+		chosen := controller.ChoosePermanentsToTap(g, pid, tapTypeCandidates(g, pid, a.Source, false, uc.tapSpec), uc.tapN)
+		tapChosenPermanents(g, controller, chosen)
+		if rec != nil {
+			rec.tapped = append(rec.tapped, chosen...)
+		}
 	}
 	if uc.youCounterN > 0 {
 		if n := g.countersReplaced(controller, pid, PlayerEntity(pid), uc.youCounterType, uc.youCounterN); n > 0 {

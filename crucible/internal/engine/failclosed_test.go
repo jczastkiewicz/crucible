@@ -112,7 +112,7 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ Debuff | Defined$ Self | Keywords$ Forestwalk | AllSuffixKeywords$ walk",
 		"DB$ Protection | Defined$ Self | Gains$ TargetedCardColor",
 		"DB$ Protection | Defined$ Self | Gains$ Choice | Choices$ AnyColor | Choser$ Controller",
-		"DB$ ProtectionAll | ValidCards$ Creature | ValidPlayers$ You | Gains$ red",
+		"DB$ ProtectionAll | ValidCards$ Creature | Gains$ TargetedCardColor",
 		"DB$ DelayedTrigger | Mode$ ChangesZone | Execute$ DBX",
 		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | RememberNumber$ True | Execute$ DBX",
 		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep",

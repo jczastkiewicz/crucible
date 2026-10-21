@@ -1159,7 +1159,7 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 							continue
 						}
 						if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageDoneOnceObjects(g, target, entries, amount)), staticTrigger: isStaticTrigger(t)})
+							matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(damageDoneOnceObjects(g, target, entries, amount, validSource, hasValidSource, h.Controller(), host)), staticTrigger: isStaticTrigger(t)})
 						}
 					}
 				}
@@ -1179,9 +1179,19 @@ func (g *Game) checkDamageDoneOnceTriggers(controller PlayerController, table da
 // stays unrecorded here (Defined$ TriggeredAttackingPlayer then errors, GO-7).
 // With one controller -- every combat-damage shape, whose sources are the
 // attacking player's creatures -- the answer is that controller. The source
-// card list (AbilityKey.Sources) is not recorded.
-func damageDoneOnceObjects(g *Game, target EntityID, entries []damageEntry, amount int) triggeredObjects {
-	objs := triggeredObjects{target: target, counts: triggerCounts{damage: amount, set: countDamage}}
+// card list (AbilityKey.Sources, getDamageSources) is every damage source, or
+// those matching ValidSource$.
+func damageDoneOnceObjects(g *Game, target EntityID, entries []damageEntry, amount int, validSource string, hasValidSource bool, sourceController PlayerID, host CardID) triggeredObjects {
+	objs := triggeredObjects{target: target, counts: triggerCounts{damage: amount, set: countDamage}, sourcesSet: true}
+	for _, e := range entries {
+		if slices.Contains(objs.sources, e.Source) {
+			continue
+		}
+		if hasValidSource && !Matches(g, g.Card(e.Source), valid.Parse(validSource), sourceController, host) {
+			continue
+		}
+		objs.sources = append(objs.sources, e.Source)
+	}
 	for i, e := range entries {
 		ctrl := g.Card(e.Source).Controller()
 		if i == 0 {

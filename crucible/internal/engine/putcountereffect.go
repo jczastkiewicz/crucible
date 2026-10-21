@@ -69,7 +69,6 @@ import (
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
 	"DividedRandomly",
-	"EachFromSource",
 	"ForColor", "SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
 	"RemovePhase",
@@ -92,7 +91,7 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	_, etb := a.Params.Param("ETB")
 	enter := etb && a.replacedCard() != NoCard
 	for _, key := range putCounterUnresolvedParams {
-		if enter && (key == "ETB" || key == "EachFromSource") {
+		if enter && key == "ETB" {
 			continue
 		}
 		if _, ok := a.Params.Param(key); ok {
@@ -145,7 +144,7 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	default:
 		// CounterTypes$, ExistingCounter and the per-object type choices pick the
 		// kind per target (counterKindPlan); no single kind is read here.
-		if !counterKindsPerObject(a.Params) {
+		if !counterKindsPerObject(a.Params) && !hasParam(a, "EachFromSource") {
 			var err error
 			if counterType, err = g.putCounterTypeChosen(controller, a, placer); err != nil {
 				return err
@@ -157,6 +156,35 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	plan := g.counterKindPlan(controller, a, counterType)
+	// EachFromSource$ (CountersPutEffect.java:431-448): each card gets one pile
+	// per kind each Defined source has, at its count unless CounterNum$ names
+	// one; a source that left the battlefield is read as it last was. Players
+	// get nothing from it (the Java branch is `gameCard != null` only).
+	var eachSources []*Card
+	eachFromSource := false
+	if raw, ok := a.Params.Param("EachFromSource"); ok && !enter {
+		ids, err := definedCards(source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: PutCounter: %w", err)
+		}
+		eachFromSource = true
+		for _, id := range ids {
+			eachSources = append(eachSources, g.lkiOrLive(id))
+		}
+		plan = func(_ EntityID, n int) ([]counterKind, error) {
+			var kinds []counterKind
+			for _, s := range eachSources {
+				for _, ct := range s.Counters.Kinds() {
+					if _, hasNum := a.Params.Param("CounterNum"); hasNum {
+						kinds = append(kinds, counterKind{kind: ct, n: n})
+					} else {
+						kinds = append(kinds, counterKind{kind: ct, n: s.Counters.Count(ct)})
+					}
+				}
+			}
+			return kinds, nil
+		}
+	}
 	amount, ok := resolveNamedAmount(g, a.Amounts, source, counterNum)
 	if !ok {
 		return fmt.Errorf("engine: PutCounter: CounterNum$ %q is not resolvable", counterNum)
@@ -295,6 +323,9 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	for _, pid := range players {
+		if eachFromSource {
+			break
+		}
 		kinds, err := plan(PlayerEntity(pid), amount)
 		if err != nil {
 			return err

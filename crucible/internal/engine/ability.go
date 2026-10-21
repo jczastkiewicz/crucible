@@ -569,6 +569,11 @@ type triggeredObjects struct {
 	// cards is AbilityKey.Cards: the batch a Mode$ DiscardedAll or
 	// ChangesZoneAll trigger fired for, read by Defined$ TriggeredCards.
 	cards []CardID
+	// sources is AbilityKey.Sources of a Mode$ DamageDoneOnce trigger: the
+	// damage sources narrowed by its ValidSource$, read by Defined$
+	// TriggeredSources. sourcesSet tells an empty list from an unrecorded one.
+	sources    []CardID
+	sourcesSet bool
 	// attackers is AbilityKey.Attackers: the attackers a Mode$
 	// AttackersDeclared/AttackersDeclaredOneTarget trigger fired for, narrowed
 	// by its ValidAttackers$ (TriggerAttackersDeclared.java:82-91), the
@@ -672,7 +677,7 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 }
 
 // paidLists are the cards an ability's cost used up, which its effects read
-// back as `Sacrificed$`, `Exiled$` and `Discarded$` (SpellAbility.getPaidList).
+// back as `Sacrificed$`, `Exiled$`, `Discarded$` and `Tapped$` (SpellAbility.getPaidList).
 // They are IDs: a sacrificed card is read from its last-known information.
 //
 // recorded is true once the cost that paid for the ability wrote them. A cost
@@ -687,7 +692,9 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 // it; replaced, never written in place.
 type paidLists struct {
 	sacrificed, exiled, discarded []CardID
-	recorded                      bool
-	mana                          []manaSource
-	manaRecorded                  bool
+	// tapped is what tapXType tapped (getPaidList("Tapped")).
+	tapped       []CardID
+	recorded     bool
+	mana         []manaSource
+	manaRecorded bool
 }

@@ -18,7 +18,7 @@ import (
 // changeZoneJoinCombat), a delayed follow-up (Duration$ UntilHostLeavesPlay resolves,
 // changeZoneDuration, but not its ReturnAbility$/ReturnValid$ delayed
 // trigger), an alternative destination prompt (DestinationAlternative$), a
-// non-default search loop (DifferentNames$ and Reorder$ (library only) resolve; DifferentCMC$/DifferentPower$, WithTotal*$, Exactly$, Reorder$; and
+// non-default search loop (DifferentNames$, WithTotalCMC$ and Reorder$ (library only) resolve; DifferentCMC$/DifferentPower$, WithTotalPower$/WithTotalCardTypes$, Exactly$, Reorder$; and
 // AtRandom$, whose Aggregates.random draws over the fetch list after
 // fetchList.sort() orders it by CardView.toString -- zone text, translated
 // name and Java card id, ChangeZoneEffect.java:1097, :1199 -- an order this
@@ -41,7 +41,7 @@ var changeZoneUnresolvedParams = [...]string{
 	"AttachAfter", "FaceDown",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
-	"ShareLandType", "WithTotalCMC", "WithTotalPower", "WithTotalCardTypes",
+	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
 	"ShuffleChangedPile", "RememberSearched",
 	"ImprintLast", "Unearth",
 	"Ultimate",
@@ -913,22 +913,36 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 						chosen = append(chosen, got...)
 					}
 				}
-			} else if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
+			} else if _, differentNames := a.Params.Param("DifferentNames"); differentNames || hasParam(a, "WithTotalCMC") {
 				// The one-at-a-time loop (ChangeZoneEffect.java:1157-1231;
-				// allowMultiSelect is false under DifferentNames$): each pick
-				// leaves out every card sharing a name with an earlier one. A
-				// declined pick ends the search when nothing is left to pick,
-				// SkipCancelPrompt$ is set or the decider confirms the cancel.
+				// allowMultiSelect is false under DifferentNames$ and
+				// WithTotalCMC$): each pick leaves out every card sharing a
+				// name with an earlier one (DifferentNames$), and with
+				// WithTotalCMC$ every card whose mana value exceeds what the
+				// picks so far leave of the total. A declined pick ends the
+				// search when nothing is left to pick, SkipCancelPrompt$ is
+				// set or the decider confirms the cancel.
 				_, skipCancel := a.Params.Param("SkipCancelPrompt")
+				totalCMC := -1
+				if raw, ok := a.Params.Param("WithTotalCMC"); ok {
+					n, ok := resolveNamedAmount(g, a.Amounts, source, raw)
+					if !ok {
+						return fmt.Errorf("engine: ChangeZone: WithTotalCMC$ %q not resolvable yet", raw)
+					}
+					totalCMC = n
+				}
 				for i := 0; i < changeNum; i++ {
 					var rest []CardID
 					for _, id := range fetchList {
-						shares := false
+						shares := slices.Contains(chosen, id)
 						for _, kept := range chosen {
-							if g.sharesNameWith(id, kept) {
+							if differentNames && g.sharesNameWith(id, kept) {
 								shares = true
 								break
 							}
+						}
+						if totalCMC >= 0 && g.Card(id).CMC() > totalCMC {
+							shares = true
 						}
 						if !shares {
 							rest = append(rest, id)
@@ -953,6 +967,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 						continue
 					}
 					chosen = append(chosen, got[0])
+					totalCMC -= g.Card(got[0]).CMC()
 				}
 			} else {
 				hi := changeNum

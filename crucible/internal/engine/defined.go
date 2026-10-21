@@ -483,15 +483,24 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		// every player, filtered by the dotted restriction; "You.<p>" and
 		// "Opponent.<p>" are the You and Opponent players filtered the same
 		// way (:1173-1176, :1194-1200), which matchesPlayerSpec's own base
-		// check gives. Only a single property matchesPlayerProperty
-		// recognizes resolves; a comma list or an unrecognized property stays
-		// an error.
+		// check gives. The text after the dot is a comma list, each
+		// alternative one more way to match (:1203-1208); an empty base
+		// (".Chosen,You") is every player. Only properties
+		// matchesPlayerProperty recognizes resolve; any other stays an error.
 		base, prop, dotted := strings.Cut(defined, ".")
-		if !dotted || base != "Player" && base != "You" && base != "Opponent" || strings.Contains(prop, ",") {
+		if base == "" {
+			base = "Player"
+		}
+		if !dotted || base != "Player" && base != "You" && base != "Opponent" {
 			return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 		}
+		alts := strings.Split(prop, ",")
+		for i, alt := range alts {
+			alts[i] = base + "." + alt
+		}
+		spec := strings.Join(alts, ",")
 		for _, pid := range g.playersInTurnOrder() {
-			matched, recognized := matchesPlayerSpec(g, pid, controller, host, defined)
+			matched, recognized := matchesPlayerSpec(g, pid, controller, host, spec)
 			if !recognized {
 				return nil, fmt.Errorf("engine: Defined$ %q not resolvable yet", defined)
 			}

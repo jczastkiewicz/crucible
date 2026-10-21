@@ -200,15 +200,29 @@ func TestSubgameCountdownChain(t *testing.T) {
 }
 
 // Defined$ Player.<property> is getDefinedPlayers' filtered fallthrough;
-// a property the valid evaluator does not know, or a comma list of them,
+// a property the valid evaluator does not know, alone or in a comma list,
 // fails loudly.
 func TestDefinedPlayerPropertyRejectsUnknownShapes(t *testing.T) {
 	t.Parallel()
 
-	for _, def := range []string{"Player.Bogus", "Player.IsRemembered,Active"} {
+	for _, def := range []string{"Player.Bogus", "Player.IsRemembered,Bogus"} {
 		g, p, _ := newTwoPlayerGame(t)
 		wantSubgameError(t, subgameCast(t, g, p, engine.NewScriptedController(), "DB$ LoseLife | LifeAmount$ 1 | Defined$ "+def),
 			`Defined$ "`+def+`" not resolvable yet`)
+	}
+}
+
+// A comma list after the dot is a list of alternatives (AbilityUtils.java:
+// 1203-1208), and an empty base is every player (Fade from History's
+// "TokenOwner$ .Chosen,You"): both players match "Opponent,Active" with p active.
+func TestDefinedPlayerPropertyCommaListIsAlternatives(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ LoseLife | LifeAmount$ 1 | Defined$ .Opponent,Active")
+	if g.Player(p).Life != 19 || g.Player(other).Life != 19 {
+		t.Errorf("life = %d/%d, want 19/19", g.Player(p).Life, g.Player(other).Life)
 	}
 }
 

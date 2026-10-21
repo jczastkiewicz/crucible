@@ -552,3 +552,48 @@ func TestChangeZoneEffectExactlyMovesNothingFromAShortSearch(t *testing.T) {
 		}
 	}
 }
+
+// TestChangeZoneEffectWithTotalCMCOffersOnlyWhatTheTotalLeaves proves
+// WithTotalCMC$ (ChangeZoneEffect.java:1111-1114, :1167-1171, :1226-1228): the
+// search picks one card at a time and offers only cards whose mana value fits
+// in what earlier picks left of the total.
+func TestChangeZoneEffectWithTotalCMCOffersOnlyWhatTheTotalLeaves(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | Hidden$ True | ChangeType$ Creature | ChangeNum$ 3 | WithTotalCMC$ 3"
+	setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+		g, p, _ := newTwoPlayerGame(t)
+		var ids [3]engine.CardID
+		for i, cost := range []string{"2", "1", "3"} {
+			ids[i] = g.NewCard(creatureDefCost(t, "Test "+cost, cost), p, engine.Graveyard)
+		}
+		return g, p, ids
+	}
+
+	t.Run("picks fit the total", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[1]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Total CMC", line), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+		for i, want := range []engine.ZoneType{engine.Battlefield, engine.Battlefield, engine.Graveyard} {
+			if z := g.Card(ids[i]).Zone; z != want {
+				t.Errorf("card %d zone = %v, want %v", i, z, want)
+			}
+		}
+	})
+
+	t.Run("a card over what is left is not offered", func(t *testing.T) {
+		t.Parallel()
+		g, p, ids := setup()
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{ids[0]})
+		c.QueueCardChoice([]engine.CardID{ids[2]})
+		if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Total CMC", line), c); err == nil {
+			t.Fatal("choosing a card over the remaining total succeeded")
+		}
+	})
+}

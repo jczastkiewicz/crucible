@@ -1359,6 +1359,9 @@ const (
 	// optAltCost is OptionalCost.AltCost: the card's own Mode$ AlternativeCost
 	// static paid the cast (StaticAbilityAlternativeCost.java:84-86).
 	optAltCost
+	// optPromiseGift is OptionalCost.PromiseGift: the gift of a Gift spell was
+	// promised (SpellAbility.isGiftPromised, CR 702.174).
+	optPromiseGift
 )
 
 // castOptional is a card's record of its cast's optional costs: Java keeps
@@ -1371,7 +1374,10 @@ const (
 // getCastSA().isEscape() (SpellAbility.isEscape): cast from the graveyard for
 // its Escape cost (escapeCost).
 type castOptional struct {
-	kinds     optionalKinds
+	kinds optionalKinds
+	// promised is Card.getPromisedGift: the opponent the gift was promised to,
+	// meaningful when kinds has optPromiseGift.
+	promised  PlayerID
 	collected []CardID
 	revealed  []CardID
 	// revealedLKI is the "Revealed" list as Java keeps it: each revealed or

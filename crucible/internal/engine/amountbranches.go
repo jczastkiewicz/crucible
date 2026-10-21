@@ -29,9 +29,9 @@ import (
 // (castrecord.go: Void, Revolt; Player.committedCrimes); Adamant reads the
 // spell's own paid mana (adamantValue), StartingPlayer the game's first-turn
 // player (Game.startingPlayer) and IsPrime a primality test (isPrimeValue).
-// Not resolved: Freerunning and PromisedGift (the card's own keyword or
-// static is a cast this port does not make, so the branch would only hide
-// that). Random is randomCountValue's, a draw per read.
+// Not resolved: Freerunning (the card's own keyword or static is a cast
+// this port does not make, so the branch would only hide that). Random is
+// randomCountValue's, a draw per read.
 func branchCountValue(g *Game, amounts map[string]expr.Amount, sourceController PlayerID, source CardID, count expr.Count, depth int) (n int, ok, handled bool) {
 	branch := func(yes bool) (int, bool, bool) {
 		if len(count.Parameters) < 2 {
@@ -132,6 +132,14 @@ func branchCountValue(g *Game, amounts map[string]expr.Amount, sourceController 
 			return 0, false, true
 		}
 		return branch(g.spellOptional(source).madness)
+	case count.Head == "PromisedGift":
+		// AbilityUtils.java:2055-2057: Count$PromisedGift.<promised>.<not> on the
+		// host's cast (SpellAbility.isGiftPromised), which only the spell being
+		// cast or on the stack carries here.
+		if source == NoCard {
+			return 0, false, true
+		}
+		return branch(g.spellOptional(source).has(optPromiseGift))
 	case strings.HasPrefix(count.Head, "Bargain"):
 		// AbilityUtils.java:1708-1710: the ability's own cast was bargained
 		// (SpellAbility.isBargained), which only the spell itself carries.

@@ -190,6 +190,9 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 			return err
 		}
 		g.ascendAtResolution(&a)
+		if err := g.resolveGiftAbility(reg, &a, controller); err != nil {
+			return err
+		}
 		if err := reg.Resolve(g, &a, controller); err != nil {
 			return err
 		}
@@ -269,6 +272,24 @@ func (g *Game) ascendAtResolution(a *Ability) {
 	if len(g.Zone(Battlefield, a.Controller).Cards()) >= 10 {
 		g.Player(a.Controller).Blessing = true
 	}
+}
+
+// resolveGiftAbility is AbilityUtils.resolvePreAbilities' Gift half
+// (AbilityUtils.java:1336-1358): an instant or sorcery whose gift was
+// promised first resolves its GiftAbility, as the spell's controller, before
+// its own effect. A permanent's gift is the overriding ability of the
+// synthesized enters trigger instead (compile.expandGift). A fizzled spell
+// never gets here.
+func (g *Game) resolveGiftAbility(reg *Registry, a *Ability, controller PlayerController) error {
+	if !a.spell || a.Source == NoCard || !g.Card(a.Source).castOpt.has(optPromiseGift) || g.Card(a.Source).Type().IsPermanent() {
+		return nil
+	}
+	subs := additionalAbilities(a.Params, "GiftAbility")
+	if len(subs) == 0 {
+		return nil
+	}
+	g.registry = reg
+	return g.resolveAdditional(a, controller, subs[0])
 }
 
 // moveResolvedSpellToGraveyard is ADR-0018's own post-resolution step:

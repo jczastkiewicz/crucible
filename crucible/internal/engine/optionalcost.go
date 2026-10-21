@@ -12,6 +12,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -44,6 +45,8 @@ type optionalCostOption struct {
 	hasReduce bool
 	// teamworkN is Teamwork<N>'s total power (CostTeamwork), 0 for any other.
 	teamworkN int
+	// promised is the opponent a Gift cost was paid to (CostPromiseGift).
+	promised PlayerID
 }
 
 // optionalChoice is what the optional costs a cast pays add to it: kinds for
@@ -58,6 +61,23 @@ type optionalChoice struct {
 	reduce     []mana.Shard
 	parts      []unlessCost
 	teamworkN  int
+	// promised is the opponent a Gift cost was paid to (CostPromiseGift).
+	promised PlayerID
+}
+
+// giftCost is the Gift keyword's optional cost (GameActionUtil.java:494-496).
+const giftCost = "PromiseGift"
+
+// giftOpponents is CostPromiseGift.getPotentialPlayers: pid's opponents still
+// in the game, in turn order.
+func (g *Game) giftOpponents(pid PlayerID) []PlayerID {
+	var out []PlayerID
+	for _, p := range g.playersInTurnOrder() {
+		if p != pid && !g.Player(p).Lost {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // optionalCostOptions is getOptionalCostValues for pid casting card: every
@@ -130,6 +150,10 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 			continue
 		}
 		k := keyword.Parse(line)
+		if k.Name == "Gift" {
+			out = append(out, optionalCostOption{text: giftCost, kind: optPromiseGift})
+			continue
+		}
 		if k.Name != "Teamwork" {
 			continue
 		}
@@ -213,6 +237,18 @@ func (g *Game) chooseOptionalCosts(controller PlayerController, pid PlayerID, ca
 		if !g.optionalOptionPayable(pid, card, o) || !controller.ConfirmPayCost(g, pid, cost.Parse(o.text), card) {
 			continue
 		}
+		if o.kind == optPromiseGift {
+			// CostPromiseGift.payAsDecided (CostPromiseGift.java:35-43): the
+			// caster picks the opponent. Java asks after the targets, before the
+			// mana; here the choice is part of the optional costs, so the promise
+			// is known before the targets that Count$PromisedGift sizes.
+			opponents := g.giftOpponents(pid)
+			pick := controller.ChoosePlayerForEffect(g, pid, card, opponents)
+			if !slices.Contains(opponents, pick) {
+				return optionalChoice{}, fmt.Errorf("engine: Gift: %v is not an opponent to promise the gift to", pick)
+			}
+			o.promised = pick
+		}
 		choice.add(o)
 	}
 	return choice, nil
@@ -222,6 +258,9 @@ func (g *Game) chooseOptionalCosts(controller PlayerController, pid PlayerID, ca
 // addOptionalCost, which notes the pip a ReduceColor$ line reduces.
 func (choice *optionalChoice) add(o optionalCostOption) {
 	choice.kinds |= o.kind
+	if o.kind == optPromiseGift {
+		choice.promised = o.promised
+	}
 	if o.hasReduce {
 		choice.reduce = append(choice.reduce, o.reduce)
 	}
@@ -256,6 +295,11 @@ func (uc unlessCost) hasParts() bool {
 
 // optionalOptionPayable is CostPart.canPay for o's non-mana part.
 func (g *Game) optionalOptionPayable(pid PlayerID, card CardID, o optionalCostOption) bool {
+	if o.kind == optPromiseGift {
+		// CostPromiseGift.canPay is always true (:17-20); with no opponent to
+		// promise it to the payment fails, so it is not offered.
+		return len(g.giftOpponents(pid)) > 0
+	}
 	if o.teamworkN > 0 {
 		return totalPower(g, g.teamworkCandidates(pid)) >= o.teamworkN
 	}

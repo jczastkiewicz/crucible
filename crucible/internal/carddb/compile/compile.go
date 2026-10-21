@@ -345,6 +345,12 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 			}
 			continue
 		}
+		if keyword.Parse(line).Name == "Gift" {
+			if err := c.expandGift(out, line); err != nil {
+				return err
+			}
+			continue
+		}
 		exp, ok := keyword.Expand(keyword.Parse(line))
 		if !ok {
 			continue

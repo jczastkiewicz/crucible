@@ -292,6 +292,12 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		if pid := g.Card(host).Memory.ChosenPlayer(); pid != NoPlayer {
 			candidates = []PlayerID{pid}
 		}
+	case "Promised":
+		// AbilityUtils.java:1138-1142: the opponent the host's gift was promised
+		// to (Card.getPromisedGift), none when it never was.
+		if rec := g.Card(host).castOpt; rec.has(optPromiseGift) {
+			candidates = []PlayerID{rec.promised}
+		}
 	case "SourceController", "CardController":
 		// AbilityUtils.java:1146-1149: the host's controller.
 		candidates = []PlayerID{g.Card(host).Controller()}

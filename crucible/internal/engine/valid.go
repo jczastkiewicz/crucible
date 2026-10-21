@@ -686,6 +686,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case strings.HasPrefix(name, "wasDealtExcessDamageThisTurn"):
 		// CardProperty.java:1164-1167: Card.hasBeenDealtExcessDamageThisTurn.
 		return c.Damage.ExcessThisTurn
+	case name == "PromisedGift":
+		// CardProperty.java:1767-1772: castSA != null && castSA.isGiftPromised().
+		rec, cast := g.castSARecord(c.ID)
+		return cast && rec.has(optPromiseGift)
 	case name == "TriggeredTarget":
 		// CardProperty.java:2045-2063: c is the root ability's
 		// AbilityKey.Target triggering object, read off the ability of source

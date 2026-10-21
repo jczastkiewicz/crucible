@@ -206,7 +206,20 @@
     ],
     "mulligan": ["id", "zone", "game", "control"],
     "match": ["id", "zone", "game", "control"],
-    "stack": ["id", "ability", "game", "effect", "event", "action", "control", "card", "zone", "parts", "subability"],
+    "stack": [
+      "id",
+      "ability",
+      "game",
+      "effect",
+      "event",
+      "action",
+      "control",
+      "card",
+      "zone",
+      "parts",
+      "subability",
+      "additional"
+    ],
     "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
     "driver": ["id", "game", "phase", "control", "effect", "mulligan"],
     "valid": [

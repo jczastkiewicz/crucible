@@ -312,7 +312,7 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if isMonstrosity {
 				// :543-548.
 				g.Card(cid).monstrous = true
-				g.checkMonstrousTriggers(controller, cid)
+				g.checkMonstrousTriggers(controller, cid, n)
 			}
 		}
 	}

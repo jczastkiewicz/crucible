@@ -537,7 +537,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	if opts.altStatic {
 		kinds |= optAltCost
 	}
-	g.Card(card).castOpt = castOptional{kinds: kinds, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
+	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
 	g.Card(card).sneaked = opts.sneak

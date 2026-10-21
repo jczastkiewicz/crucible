@@ -1525,7 +1525,7 @@ func isModified(g *Game, c *Card) bool {
 }
 
 // compareMatches is the numeric-comparison branch of CardProperty.java:1423
-// ("power"/"basePower"/"toughness"/"baseToughness"/"cmc"/"totalPT"/
+// ("power"/"basePower"/"baseLoyalty"/"toughness"/"baseToughness"/"cmc"/"totalPT"/
 // "numColors"/"numTypes", each crossed with LT/LE/EQ/GE/GT/NE/M2) --
 // internal/valid.parseCompare already split the property into Field,
 // Operator and Operand at load time (that package's own doc comment says
@@ -1620,6 +1620,17 @@ func compareFieldValue(c *Card, field string) (int, bool) {
 		return c.Colors().Count(), true
 	case "numTypes":
 		return len(c.Type().CoreTypes()), true
+	case "baseLoyalty":
+		// CardState.getBaseLoyalty is "" off a planeswalker and
+		// calculateAmount reads that as 0 (PORT-7); a printed X is a
+		// Count$ this port cannot evaluate.
+		if c.Def == nil {
+			return 0, true
+		}
+		if c.Def.Faces[0].Loyalty == "" {
+			return 0, true
+		}
+		return c.BaseLoyalty()
 	}
 	return 0, false
 }

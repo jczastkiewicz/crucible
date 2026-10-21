@@ -1,3 +1,4 @@
+field	baseLoyalty	1
 field	basePower	6
 field	baseToughness	4
 field	cmc	633
@@ -6,7 +7,7 @@ field	numTypes	2
 field	power	395
 field	totalPT	5
 field	toughness	56
-operator	EQ	165
+operator	EQ	166
 operator	GE	253
 operator	GT	19
 operator	LE	604

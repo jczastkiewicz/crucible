@@ -1238,3 +1238,33 @@ func TestMatchesBaseNegationCoversTheWholeAlternative(t *testing.T) {
 		t.Error("a permanent a does not control did not match !Permanent.YouCtrl from a's perspective")
 	}
 }
+
+// baseLoyalty is the printed loyalty (CardState.getBaseLoyalty); a card
+// with none reads 0 because calculateAmount turns "" into 0 (PORT-7), and a
+// printed X is a Count$ this port cannot evaluate, so it matches nothing.
+func TestMatchesBaseLoyaltyComparison(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a")
+	p := g.Players()[0]
+	walker := g.NewCard(planeswalkerDefLoyalty(t, "4"), p, engine.Battlefield)
+	creature := g.NewCard(creatureDefPT(t, "3", "2"), p, engine.Battlefield)
+	g.Card(walker).Counters.Add(engine.Loyalty, 3)
+
+	for _, tc := range []struct {
+		name string
+		id   engine.CardID
+		spec string
+		want bool
+	}{
+		{"printed loyalty ignores counters", walker, "Card.baseLoyaltyEQ4", true},
+		{"counters do not count", walker, "Card.baseLoyaltyEQ7", false},
+		{"greater-or-equal", walker, "Card.baseLoyaltyGE3", true},
+		{"no loyalty reads zero", creature, "Card.baseLoyaltyEQ0", true},
+		{"no loyalty is not four", creature, "Card.baseLoyaltyEQ4", false},
+	} {
+		if got := engine.Matches(g, g.Card(tc.id), valid.Parse(tc.spec), p, engine.NoCard); got != tc.want {
+			t.Errorf("%s: Matches(%s) = %v, want %v", tc.name, tc.spec, got, tc.want)
+		}
+	}
+}

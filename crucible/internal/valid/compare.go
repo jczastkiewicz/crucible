@@ -31,6 +31,7 @@ var compareFields = []struct {
 }{
 	{"baseToughness", 15},
 	{"basePower", 11},
+	{"baseLoyalty", 13},
 	{"toughness", 11},
 	{"totalPT", 10},
 	{"numColors", 11},

@@ -70,7 +70,10 @@ go test ./tools/apiscan -run TestParamKinds -update
 2. Check the eight gates above. Green means the port is unaffected and the PR can merge.
 3. Skim the diff for `forge-core/src/main/java` and `forge-gui/res/lists`. Those are the files Crucible ports and reads
    directly, and a change there usually deserves a line in the PR description even when every check is green.
-4. **Merge with a merge commit.** Do not squash. Squashing replaces upstream's commits with one unrelated commit, so the
+4. Walk every commit in the list against the port, not only the gates: a changed Java rule under a ported effect, an
+   upstream fix of a bug Crucible reported (its Go refusal and defect row go), a new API or property to track. The
+   `sync-upstream` skill has the checklist. Gates see data that moved, never a rule that changed.
+5. **Merge with a merge commit.** Do not squash. Squashing replaces upstream's commits with one unrelated commit, so the
    next sync re-resolves everything this one resolved, and the ancestry that makes syncs cheap is gone. This is the only
    irreversible mistake in the whole procedure.
 

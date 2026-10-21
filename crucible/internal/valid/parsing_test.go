@@ -110,6 +110,7 @@ func TestNumericComparisons(t *testing.T) {
 		{"basePowerEQ2", "basePower", "EQ", "2"},
 		{"toughnessLE3", "toughness", "LE", "3"},
 		{"baseToughnessEQ1", "baseToughness", "EQ", "1"},
+		{"baseLoyaltyEQX", "baseLoyalty", "EQ", "X"},
 		{"cmcGE7", "cmc", "GE", "7"},
 		{"cmcEQX", "cmc", "EQ", "X"},
 		{"cmcEQChosen", "cmc", "EQ", "Chosen"},

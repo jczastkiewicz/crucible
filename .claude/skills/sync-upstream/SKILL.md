@@ -40,16 +40,36 @@ Two failure shapes, two responses:
 `ability/effects/*.java`. Reason: Sanctum Lurker's `Affected$` (should be `ValidCard$`) passed every gate. A sync that
 adds or touches an `S:` line in a mode Crucible ports: check its params against `forge-game/.../staticability/` by hand.
 
-## Diff the Java against the port
+## Review every upstream commit against the port
+
+Mandatory, every sync, before the PR: gates only see data that moved, not a rule that changed under a port. Walk **all**
+commits, not only the Java diff.
 
 ```bash
-git diff <old-sha> <new-sha> --stat -- forge-game/src/main/java forge-core/src/main/java forge-gui/res/lists
+git log --reverse --format='%h %s' <old-sha>..<new-sha>        # every commit, read the whole list
+git diff <old-sha> <new-sha> --stat -- forge-game forge-core forge-gui/res/lists forge-gui/res/cardsfolder/upcoming
+git diff <old-sha> <new-sha> --name-only | rg -v 'cardsfolder|forge-gui/src|forge-ai|forge-gui-|\.(png|jpg)$'
 ```
 
-For each file touching something ported (grep its class/method in `crucible/internal/engine/*.go` and
-`docs/crucible/porting/port-log/`), read the diff:
+Classify each commit, then act. A commit is "ignored" only after the file list shows nothing under `forge-game`,
+`forge-core`, `forge-gui/res` (lists, editions, tokens, rules) or a card script Crucible has a note about.
+
+| Commit touches | Check | Do |
+| --- | --- | --- |
+| `forge-game`/`forge-core` Java | grep the class and method in `crucible/internal/engine/*.go` and `docs/crucible/porting/port-log/`; read the diff | Table below |
+| An effect Crucible ported | Does the Go still match? Params added, removed, loop or guard changed | Re-port the changed behavior with a test; update the `quirks.md` row |
+| A Forge bug Crucible reported (`forge-java-defects.md`, `card-script-defects.md`, `upstream-patches.md`) | Did upstream fix it, and how? | Make Go match upstream's fix, remove the Go refusal or workaround, delete the defect row and "Pending" row (DOC-16), keep the PR number in the retired list |
+| Card scripts | `rg` the touched card names in `docs/crucible/porting/`, `crucible/internal` tests and fixtures | A test or note naming a changed card needs updating; a script fix of a param Crucible rejects lifts that refusal |
+| A new `ApiType`, trigger mode, static mode, replacement event, keyword or valid-property | `git diff` shows it in `ApiType.java`, `TriggerType`, `StaticAbilityMode`, `ReplacementType`, `CardProperty`/`CardPropertyTest` | Row in `game-state.md` "Not ported yet" naming Java site and corpus line count; port it if the user asked |
+| `forge-gui/res/lists`, editions, `TypeLists.txt` | Parsed by Crucible loaders | Golden moves; read the diff |
+| Only `forge-gui/src`, `forge-ai`, UI, Android, build | Nothing Crucible reads | Ignore, but say so in the PR body |
+
+Then read each Java diff that touches something ported:
 
 | Change | Do |
 | --- | --- |
 | Ported rule got a new escape hatch (static mode, param, SBA or combat exemption) | Port it in the same commit, with a test. Template: `ignoreLegendRule` in `staticability.go` |
 | Unported rule refactored | Row in `game-state.md` "Not ported yet" if missing. Precedent: Shadow-blocking moved to `Mode$ CanBlockIfShadow`; tracking update, not new work |
+| Upstream regression or new Forge bug found while reading | PORT-8: stop, name file and line, row in `forge-java-defects.md`, fix on `upstream-pr/<slug>` |
+
+Put the result in the sync PR body: one line per commit group (ported-impact / tracking row added / ignored and why).

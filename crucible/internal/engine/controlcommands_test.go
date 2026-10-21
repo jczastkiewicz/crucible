@@ -297,3 +297,21 @@ func TestDelayedTriggerRemembersAnAmountForItsExecute(t *testing.T) {
 		t.Errorf("life = %d, want 23 (the remembered 3)", got)
 	}
 }
+
+// Defined$ beats ValidTgts$ for the host (SpellAbilityEffect.java:378-383,
+// getDefinedEntitiesOrTargeted): "Object$ Targeted | Defined$ Self" attaches
+// the target to the source, never the source to its target.
+func TestAttachDefinedHostWinsOverValidTgts(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	equip := g.NewCard(equipmentDef(t), p, engine.Battlefield)
+	host, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(equip)},
+		"DB$ Attach | ValidTgts$ Equipment | Object$ Targeted | Defined$ Self")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if to, ok := g.Card(equip).AttachedTo(); !ok || to != host {
+		t.Errorf("equipment attached to %v (%v), want the source %v", to, ok, host)
+	}
+}

@@ -246,14 +246,14 @@ func (g *Game) canBeAttached(attachment *Card, host CardID) bool {
 }
 
 // targetedOrDefinedEntities is getDefinedEntitiesOrTargeted(sa, "Defined"):
-// the ability's targets when it has ValidTgts$, else its Defined$ entities
-// (default Self).
+// its Defined$ entities when it has Defined$ (SpellAbilityEffect.java:378-383
+// asks them first), else its targets when it has ValidTgts$, else Self.
 func targetedOrDefinedEntities(g *Game, a *Ability) ([]EntityID, error) {
-	if _, ok := a.Params.Param("ValidTgts"); ok {
-		return a.Targets, nil
-	}
 	def, ok := a.Params.Param("Defined")
 	if !ok {
+		if _, ok := a.Params.Param("ValidTgts"); ok {
+			return a.Targets, nil
+		}
 		def = "Self"
 	}
 	es, err := definedEntities(g, a.Controller, g.Card(a.Source), def, a.refs())

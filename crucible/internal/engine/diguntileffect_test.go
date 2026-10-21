@@ -194,3 +194,29 @@ func TestDigUntilEffectMinTotalCMCNeedsEqualDestinations(t *testing.T) {
 		t.Fatal("ResolveStack: want an error for MinTotalCMC$ with split destinations")
 	}
 }
+
+// TestDigUntilEffectAttackingJoinsCombat proves Attacking$ (Fireflux Squad):
+// the found creature enters the battlefield attacking the defender its
+// controller picks (DigUntilEffect.java:257-263), and a found card sent
+// elsewhere never attacks.
+func TestDigUntilEffectAttackingJoinsCombat(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		dest      string
+		attacking bool
+	}{{"Battlefield", true}, {"Hand", false}} {
+		g, p, other := newTwoPlayerGame(t)
+		g.SetTurnState(1, p, engine.DeclareAttackers)
+		creature := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+		c := engine.NewScriptedController()
+		c.QueueAttackTarget(engine.PlayerEntity(other))
+		if _, err := resolveNow(t, g, p, c, nil,
+			"DB$ DigUntil | Valid$ Creature | FoundDestination$ "+tc.dest+" | Tapped$ True | Attacking$ True | RevealedDestination$ Library"); err != nil {
+			t.Fatalf("FoundDestination$ %s: %v", tc.dest, err)
+		}
+		if got := slicesContains(g.Attackers(), creature); got != tc.attacking {
+			t.Errorf("FoundDestination$ %s: attacking = %v, want %v", tc.dest, got, tc.attacking)
+		}
+	}
+}

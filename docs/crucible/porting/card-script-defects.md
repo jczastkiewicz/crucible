@@ -377,12 +377,21 @@ its input cannot find the bugs that tidying would fix.
 
 `SacrificeEffect.java` reads `Amount$`, `SacValid$`, `SacEachValid$`, `Destroy$`, `Optional$`, `StrictAmount$`,
 `Random$`, `SacMessage$` and `RememberSacrificed$`; never `ChangeNum$`, which is `ChangeZone`'s. Lava Runner, Thresher
-Beast, Foul Spirit, Glacial Chasm and Destructive Urge write `SacValid$ Land | ChangeNum$ 1`: the sacrifice is one
-land through the default `Amount$ 1`, so the param does nothing and the line reads as if it chose the count.
+Beast, Foul Spirit, Glacial Chasm and Destructive Urge write `SacValid$ Land | ChangeNum$ 1`: the sacrifice is one land
+through the default `Amount$ 1`, so the param does nothing and the line reads as if it chose the count.
 
 `DestroyAllEffect.java` never reads `Zone$` either. Kindred Dominance and Kindred Judgment write
-`DB$ DestroyAll | ValidCards$ Creature.IsNotChosenType | Zone$ Battlefield`; `DestroyAll` always scans the
-battlefield.
+`DB$ DestroyAll | ValidCards$ Creature.IsNotChosenType | Zone$ Battlefield`; `DestroyAll` always scans the battlefield.
 
-Crucible keeps both refused (`Sacrifice: ChangeNum$`, `DestroyAll: Zone$`): a param the Java ignores is a script
-defect, not a feature to port (PORT-8). Fix: drop `| ChangeNum$ 1` and `| Zone$ Battlefield`.
+Crucible keeps both refused (`Sacrifice: ChangeNum$`, `DestroyAll: Zone$`): a param the Java ignores is a script defect,
+not a feature to port (PORT-8). Fix: drop `| ChangeNum$ 1` and `| Zone$ Battlefield`.
+
+## Timesifter and Tales of the Ancestors: properties no code answers
+
+Timesifter (`ImprintCards$ ValidAll Card.greatestRememberedCMC`, `t/timesifter.txt:6,11`): no property of that name
+exists in `forge-game`; `greatest` matches only `greatestPower` and `greatestCMC_` (`CardProperty.java:1211`, `:1261`),
+so the string falls to a type test (`CardStateProperty.java:155`) that is false for every card and the card imprints
+nothing. Tales of the Ancestors (`RepeatPlayers$ Player.HasCardsInHand_Card_LTX`, `tales_of_the_ancestors.txt`): no
+branch of `PlayerProperty` matches `HasCardsInHand`, and an unknown property passes (`PlayerProperty.java:512-516`), so
+every player is repeated for. Crucible does not reproduce either intent: a workaround would make it disagree with the
+oracle for a reason no diff explains (PORT-8). Fix upstream in the scripts.

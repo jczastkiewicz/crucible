@@ -160,6 +160,10 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if players, err = playersStartingWith(g, a, players, start); err != nil {
 				return err
 			}
+		} else {
+			// getPlayers sorts by turn order from the active player
+			// (SpellAbilityEffect.java:351-357).
+			players = apnapSubset(g, players)
 		}
 		if _, ok := a.Params.Param("ClearRememberedBeforeLoop"); ok {
 			m.ClearRemembered()
@@ -193,8 +197,7 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 // playersStartingWith is getPlayers' trailing sort (SpellAbilityEffect.java:
 // 353-358): players in turn order from the first player StartingWith$ names
 // (StartingWith$ You is the ability's controller). The default start, the
-// active player, is not modeled: without StartingWith$ the list keeps seat
-// order, the simplification definedPlayers documents.
+// active player, is apnapSubset.
 func playersStartingWith(g *Game, a *Ability, players []PlayerID, spec string) ([]PlayerID, error) {
 	starters, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
 	if err != nil {
@@ -279,4 +282,15 @@ func (a *Ability) setVoteAmount(e EntityID) {
 	if hasParam(a, "AmountFromVotes") {
 		a.Amounts = withAmount(a.Amounts, "Votes", a.votesFor(e))
 	}
+}
+
+// apnapSubset is players in turn order from the active player.
+func apnapSubset(g *Game, players []PlayerID) []PlayerID {
+	out := make([]PlayerID, 0, len(players))
+	for _, id := range g.playersInAPNAPOrder() {
+		if slices.Contains(players, id) {
+			out = append(out, id)
+		}
+	}
+	return out
 }

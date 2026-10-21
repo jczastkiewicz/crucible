@@ -225,3 +225,24 @@ func TestRepeatEachEffectRepeatTypesFromThisTurnCast(t *testing.T) {
 		t.Errorf("life lost = %d, want 1 (the Bolt is one type: Instant)", got)
 	}
 }
+
+// TestRepeatEachEffectPlayersStartAtTheActivePlayer proves the default
+// order: without StartingWith$ RepeatPlayers$ runs in turn order from the
+// active player (SpellAbilityEffect.java:351-357), here the opponent, so the
+// first answer (decline) lands on them and the controller loses the life.
+func TestRepeatEachEffectPlayersStartAtTheActivePlayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, other, engine.Main1)
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(false)
+	c.QueueConfirmEffect(true)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ RepeatEach | RepeatPlayers$ Player | RepeatOptionalForEachPlayer$ True | RepeatSubAbility$ DBLose",
+		"DBLose", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 1"); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Player(p).Life != 19 || g.Player(other).Life != 20 {
+		t.Errorf("life = %d/%d, want 19/20", g.Player(p).Life, g.Player(other).Life)
+	}
+}

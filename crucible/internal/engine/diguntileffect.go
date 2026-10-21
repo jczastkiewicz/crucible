@@ -5,10 +5,10 @@ package engine
 import "fmt"
 
 // digUntilUnresolvedParams are DigUntilEffect.java's params this port
-// cannot honour yet: a non-library dig site (DigZone$), entering-state/combat modifiers (AttachedTo$, Attacking$), and
+// cannot honour yet: a non-library dig site (DigZone$), AttachedTo$, and
 // the ShuffleCondition$ values other than NoneFound.
 var digUntilUnresolvedParams = [...]string{
-	"DigZone", "AttachedTo", "Attacking", "Blocking", "ValidPlayer"}
+	"DigZone", "AttachedTo", "ValidPlayer"}
 
 // digUntilEffect is DigUntilEffect.java: each target player (default You)
 // reveals cards from the top of their library until Amount$ (default 1)
@@ -189,7 +189,14 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				if noMoveFound && dest != Battlefield {
 					continue
 				}
+				// DigUntilEffect.java:257-263: only a found card entering the
+				// battlefield joins combat (Attacking$/Blocking$).
+				joined, err := g.changeZoneJoinCombat(controller, a, id, dest, newController)
+				if err != nil {
+					return fmt.Errorf("engine: DigUntil: %w", err)
+				}
 				melded := g.moveByEffect(controller, id, dest, foundLibPos, newController, tapped && dest == Battlefield)
+				g.changeZoneLeftCombat(id, joined)
 				if dest == Exile {
 					g.markExiledWith(id, a.Source)
 					if melded != NoCard {

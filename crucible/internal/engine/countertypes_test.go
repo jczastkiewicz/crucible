@@ -143,3 +143,24 @@ func TestValidPropertiesGreatestPowerMonoColorAndTeam(t *testing.T) {
 		}
 	}
 }
+
+// TestPutCounterTgtZoneOffTheBattlefieldIsRefused: an API that only reads
+// battlefield targets must not silently target the battlefield when the script
+// names another zone (Soovril: TgtZone$ Exile; GO-7).
+func TestPutCounterTgtZoneOffTheBattlefieldIsRefused(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	victim := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	pinger := g.NewCard(creatureDefWithAbility(t, "Test Pinger",
+		"AB$ PutCounter | Cost$ 0 | ValidTgts$ Card | TgtZone$ Exile | CounterType$ P1P1 | CounterNum$ 1"), p, engine.Battlefield)
+	g.Card(pinger).SummonSick = false
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
+	g.ActivateAbility(p, pinger, 0, c)
+	_ = g.ResolveStack(engine.NewRegistry(), c)
+	if got := g.Card(victim).Counters.Count(engine.P1P1); got != 0 {
+		t.Errorf("a TgtZone$ Exile ability put %d counters on a battlefield creature", got)
+	}
+}

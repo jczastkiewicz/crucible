@@ -535,6 +535,14 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				zones = parsed
 			}
 		}
+		if raw, ok := a.Params.Param("TgtZone"); ok && zones[0] == Battlefield && len(zones) == 1 && !strings.Contains(raw, "Battlefield") &&
+			a.API != APIPlay && a.API != APIRemoveCounter && a.API != APIPump && a.API != APIEffect && a.API != APIChangeZone && a.API != APIChangeZoneAll {
+			// An API outside the list above would target on the battlefield
+			// while the script names another zone: a silent wrong target,
+			// refused instead (GO-7). Its Resolve is unaudited against one.
+			return targetChoice{min: targetMin, max: targetMax,
+				err: fmt.Errorf("TgtZone$ %q not resolvable for %s yet", raw, a.Params.Name)}, true, true
+		}
 		if a.API == APIChangeZone || a.API == APIChangeZoneAll {
 			// AbilityFactory.adjustChangeZoneTarget (ChangeZoneEffect.java:47,
 			// buildSpellAbility): a ChangeZone that does not target players

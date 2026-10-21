@@ -58,16 +58,16 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 32,918 |
-| refused      |    655 |
+| plays        | 32,961 |
+| refused      |    612 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    444 |
 | inconclusive |     71 |
 
-98.0% of the 33,573 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+98.2% of the 33,573 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 98.6% of 8,654 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 98.7% of 8,654 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
@@ -76,9 +76,9 @@ Largest refusal causes over the full corpus (cards blocked):
 | 34 | `Charm: Defined$ not resolvable` |
 | 15 | `ChangeZone: AtRandom$ not resolvable` |
 | 12 | `ChangeZone: AtRandom$ not resolvable` |
-| 9 | `ChangeZone: ChangeType$ not resolvable` |
 | 8 | `Charm: chose N modes, want N..N` |
 | 7 | `CopySpellAbility: Defined$ not resolvable` |
+| 7 | `Mana: RestrictValid$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

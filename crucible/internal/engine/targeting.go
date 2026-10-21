@@ -503,12 +503,15 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
 	default:
 		zones := []ZoneType{Battlefield}
-		if a.API == APIPlay || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect {
+		if a.API == APIPlay || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect || a.API == APIClone || a.API == APICopyPermanent {
 			// Scoped to the APIs whose Resolve reads a target in any zone: Play
 			// (Pass the Torch's own TrigPlay, 27 real DB$ Play | TgtZone$ Graveyard
 			// lines), RemoveCounter (counters off a suspended card in exile), Pump
-			// (PumpZone$ Graveyard: Flashback, Recoup) and Effect (RememberObjects$
-			// Targeted over a graveyard card: Sins of the Past). Every other API
+			// (PumpZone$ Graveyard: Flashback, Recoup), Effect (RememberObjects$
+			// Targeted over a graveyard card: Sins of the Past), and Clone and
+			// CopyPermanent, which copy the target's printed card whatever zone
+			// it is in (CloneEffect.java:106, CopyPermanentEffect.java:290:
+			// Lazav, Likeness Looter, Dino DNA). Every other API
 			// reaching this branch (ChangeZone, PutCounter, MakeCard, Clone,
 			// RepeatEach, ...) has its own Resolve written against a battlefield
 			// target only, unaudited against a graveyard/exile one -- widening
@@ -536,7 +539,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 			}
 		}
 		if raw, ok := a.Params.Param("TgtZone"); ok && zones[0] == Battlefield && len(zones) == 1 && !strings.Contains(raw, "Battlefield") &&
-			a.API != APIPlay && a.API != APIRemoveCounter && a.API != APIPump && a.API != APIEffect && a.API != APIChangeZone && a.API != APIChangeZoneAll {
+			a.API != APIPlay && a.API != APIRemoveCounter && a.API != APIPump && a.API != APIEffect && a.API != APIClone && a.API != APICopyPermanent && a.API != APIChangeZone && a.API != APIChangeZoneAll {
 			// An API outside the list above would target on the battlefield
 			// while the script names another zone: a silent wrong target,
 			// refused instead (GO-7). Its Resolve is unaudited against one.

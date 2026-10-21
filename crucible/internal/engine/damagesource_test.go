@@ -519,7 +519,6 @@ func TestDealDamageRejectsUnportedParams(t *testing.T) {
 		{"ReplaceDyingDefined$ Targeted | ReplaceDyingZone$ Hand", "ReplaceDyingZone$"},
 		{"ReplaceDyingDefined$ Targeted | ReplaceDyingCondition$ Foretold", "ReplaceDyingCondition$"},
 		{"ReplaceDyingDefined$ Bogus", "ReplaceDyingDefined$"},
-		{"RelativeTarget$ True", "RelativeTarget$"},
 		{"DividerOnResolution$ You", "DividerOnResolution$"},
 		{"DivideEvenly$ RoundedDown", "DivideEvenly$"},
 		{"CardChoices$ Creature", "CardChoices$"},

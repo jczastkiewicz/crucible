@@ -263,3 +263,68 @@ func TestFirstCombatOnlyInFirstOfTwoCombats(t *testing.T) {
 		t.Errorf("life = %d, want 21 (first combat only)", got)
 	}
 }
+
+// TestSkipPhaseStartFromNextBeginsAtTheTargetsUpkeep proves SkipPhase$ with
+// Start$ FromNext and Duration$ UntilTheEndOfTargetedNextTurn (False Peace):
+// the targeted player's next turn skips its combat, the casting turn's own
+// combat is untouched, and the turn after that has combat again.
+func TestSkipPhaseStartFromNextBeginsAtTheTargetsUpkeep(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 4)
+	libraryCards(t, g, other, 4)
+	g.SetTurnState(1, p, engine.Main1)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	def := etbChainDef(t, "Test False Peace", "DB$ SkipPhase | ValidTgts$ Player | Phase$ BeginCombat | Start$ FromNext | Duration$ UntilTheEndOfTargetedNextTurn")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	g.AdvancePhase(c)
+	if got := g.ActivePhase(); got != engine.CombatBegin {
+		t.Errorf("casting turn: phase after Main1 = %v, want BeginCombat (not skipped)", got)
+	}
+	for g.ActivePlayer() != other || g.ActivePhase() != engine.Main1 {
+		g.AdvancePhase(c)
+	}
+	g.AdvancePhase(c)
+	if got := g.ActivePhase(); got != engine.Main2 {
+		t.Errorf("targeted turn: phase after Main1 = %v, want Main2 (combat skipped)", got)
+	}
+	for g.ActivePlayer() != p {
+		g.AdvancePhase(c)
+	}
+	for g.ActivePlayer() != other || g.ActivePhase() != engine.Main1 {
+		g.AdvancePhase(c)
+	}
+	g.AdvancePhase(c)
+	if got := g.ActivePhase(); got != engine.CombatBegin {
+		t.Errorf("the turn after: phase after Main1 = %v, want BeginCombat (skip lapsed)", got)
+	}
+}
+
+// TestSeekDefinedCardsTopXOfLibraryLimitsThePool proves DefinedCards$
+// Top_<N>_OfLibrary (Trove Mage, Grow Old Together): only the top N cards are
+// the pool, so a matching card deeper in the library is never sought.
+func TestSeekDefinedCardsTopXOfLibraryLimitsThePool(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	top := g.NewCard(landDef(t, "Test Forest", "Land Forest"), p, engine.Library)
+	nearby := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Library)
+	deep := g.NewCard(creatureDefPT(t, "4", "4"), p, engine.Library)
+	def := etbChainDef(t, "Test Top Seeker", "DB$ Seek | DefinedCards$ Top_2_OfLibrary | Type$ Creature")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(nearby).Zone; z != engine.Hand {
+		t.Errorf("creature in the top two: zone = %v, want Hand", z)
+	}
+	if z := g.Card(deep).Zone; z != engine.Library {
+		t.Errorf("creature below the top two: zone = %v, want Library", z)
+	}
+	if z := g.Card(top).Zone; z != engine.Library {
+		t.Errorf("land: zone = %v, want Library", z)
+	}
+}

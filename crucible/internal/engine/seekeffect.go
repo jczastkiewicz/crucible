@@ -3,6 +3,7 @@ package engine
 //enginelint:allow ability card condition control defined effecthelpers game id parts player valid zone
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/valid"
@@ -14,14 +15,11 @@ import (
 // type go to their hand -- Aggregates.random(pool, n)'s reservoir sample on
 // the game's own stream. RememberFound$/ImprintFound$ record the cards that
 // reached a hand; ChangesZoneAll fires once for the whole seek. DefinedCards$
-// (a pool other than the library) fails closed.
+// replaces the library as the pool (Top_10_OfLibrary: the activator's top ten).
 type seekEffect struct{}
 
 func (seekEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "Seek", "DefinedCards"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -50,6 +48,12 @@ func (seekEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		var sought []CardID
 		for _, t := range types {
 			pool := append([]CardID(nil), g.Zone(Library, seeker).Cards()...)
+			if def, ok := a.Params.Param("DefinedCards"); ok {
+				var err error
+				if pool, err = definedCards(source, def, a.refs()); err != nil {
+					return fmt.Errorf("engine: Seek: DefinedCards$: %w", err)
+				}
+			}
 			if t != "Card" {
 				spec := valid.Parse(t)
 				kept := pool[:0]

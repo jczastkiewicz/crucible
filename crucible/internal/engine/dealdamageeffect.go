@@ -76,7 +76,8 @@ type dealDamageEffect struct{}
 //     the share announced with it (perTargetAmounts, dividedtargets.go);
 //   - CardChoices$/PlayerChoices$/Random$ -- a choice outside Defined$/
 //     targets (:150-176);
-//   - RelativeTarget$ -- Defined$ re-read relative to each source (:243-245);
+//   - RelativeTarget$ resolves: Defined$ is re-read with each source as the
+//     host (:243-245), so "CardController" is that source's controller;
 //   - RememberAmount$/RememberRedirectedExcess$ -- the dealt total or the
 //     redirected excess remembered on the host.
 //
@@ -92,7 +93,6 @@ var dealDamageUnresolvedParams = [...]string{
 	"NoRedirection",
 	"DivideEvenly", "DividerOnResolution",
 	"CardChoices", "PlayerChoices", "Random",
-	"RelativeTarget",
 	"RememberAmount", "RememberRedirectedExcess",
 }
 
@@ -173,8 +173,19 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if batch == nil {
 		batch = &pendingDamage{}
 	}
+	_, relative := a.Params.Param("RelativeTarget")
 	for _, src := range sources {
 		deathtouch := g.Card(src).HasKeyword("Deathtouch")
+		if relative {
+			// DamageDealEffect.java:243-245: the targets are Defined$ read
+			// relative to this source, not to the ability's host.
+			if targets, err = dealDamageDefined(g, a, src); err != nil {
+				return err
+			}
+			if amounts, err = a.perTargetAmounts("DealDamage", targets, dmg); err != nil {
+				return err
+			}
+		}
 		for i, e := range targets {
 			if cid, ok := e.AsCard(); ok {
 				if !damageTargetInPlay(g.Card(cid)) {
@@ -259,6 +270,12 @@ func dealDamageTargets(g *Game, a *Ability) ([]EntityID, error) {
 	if _, ok := a.Params.Param("ValidTgts"); ok {
 		return a.Targets, nil
 	}
+	return dealDamageDefined(g, a, a.Source)
+}
+
+// dealDamageDefined reads Defined$ (default Self) with host as the card it is
+// relative to: the ability's own host, or a damage source under RelativeTarget$.
+func dealDamageDefined(g *Game, a *Ability, host CardID) ([]EntityID, error) {
 	defined, ok := a.Params.Param("Defined")
 	if !ok {
 		defined = "Self"
@@ -266,8 +283,8 @@ func dealDamageTargets(g *Game, a *Ability) ([]EntityID, error) {
 	var out []EntityID
 	for _, part := range strings.Split(defined, " & ") {
 		part = strings.TrimSpace(part)
-		players, perr := definedPlayers(g, a.Controller, a.Source, part, a.refs())
-		cards, cerr := definedCards(g.Card(a.Source), part, a.refs())
+		players, perr := definedPlayers(g, a.Controller, host, part, a.refs())
+		cards, cerr := definedCards(g.Card(host), part, a.refs())
 		if perr != nil && cerr != nil {
 			// Neither reader knows it. The player reader's reason is the
 			// one this effect reported before it read cards too, and the

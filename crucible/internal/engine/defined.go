@@ -13,6 +13,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -916,6 +917,18 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return []CardID{cards[0]}, nil
 		}
 		return []CardID{cards[len(cards)-1]}, nil
+	case "TopThirdOfLibrary", "TopThirdRoundedDownOfLibrary":
+		// AbilityUtils.java:132-135: the top third of the activator's library,
+		// rounded up unless named RoundedDown.
+		if refs.game == nil {
+			return nil, fmt.Errorf("engine: Defined$ %q needs the game", defined)
+		}
+		cards := refs.game.Zone(Library, refs.activator).Cards()
+		third := (len(cards) + 2) / 3
+		if strings.Contains(defined, "RoundedDown") {
+			third = len(cards) / 3
+		}
+		return append([]CardID(nil), cards[:third]...), nil
 	case "RememberedFirst", "RememberedLast":
 		// AbilityUtils.java:245-256: the first or last remembered object, when
 		// it is a card.
@@ -933,6 +946,12 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 		return nil, nil
 	default:
 		if refs.game != nil {
+			if n, ok := topXOfLibrary(defined); ok {
+				// AbilityUtils.java:136-138: the top N cards of the activator's
+				// library, fewer when it holds fewer; an empty library is none.
+				cards := refs.game.Zone(Library, refs.activator).Cards()
+				return append([]CardID(nil), cards[:min(n, len(cards))]...), nil
+			}
 			if cards, ok := refs.game.definedValidCards(refs.activator, host, defined); ok {
 				return cards, nil
 			}
@@ -1180,4 +1199,18 @@ func (g *Game) definedAttachCards(host *Card, defined string, refs abilityRefs) 
 		return cards, true, nil
 	}
 	return nil, false, nil
+}
+
+// topXOfLibrary reads Top_<N>_OfLibrary, N a literal count.
+func topXOfLibrary(defined string) (int, bool) {
+	mid, ok := strings.CutPrefix(defined, "Top_")
+	if !ok {
+		return 0, false
+	}
+	mid, ok = strings.CutSuffix(mid, "_OfLibrary")
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.Atoi(mid)
+	return n, err == nil && n >= 0
 }

@@ -120,7 +120,7 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ FlipCoin | ForEachPlayer$ Player | WinSubAbility$ DBX",
 		"DB$ RollDice | Sides$ 6 | RerollResults$ True",
 		"DB$ Clash | Defined$ TriggeredPlayer",
-		"DB$ Seek | DefinedCards$ Self",
+		"DB$ Seek | DefinedCards$ Bogus",
 		"DB$ StoreSVar | SVar$ X | Type$ Targeted | Expression$ CardPower",
 		"DB$ StoreSVar | SVar$ EachPlayer | Type$ Number | Expression$ 1",
 		"DB$ StoreSVar | SVar$ X | Type$ Calculate | Expression$ Bogus",

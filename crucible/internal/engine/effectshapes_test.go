@@ -426,3 +426,21 @@ func TestFlipCoinRememberNumberKeepsTheWinCount(t *testing.T) {
 		t.Errorf("remembered numbers = %v, want [%d]", got, wins)
 	}
 }
+
+// TestDealDamageRelativeTargetReadsDefinedPerSource proves RelativeTarget$
+// (DamageDealEffect.java:243-245): Defined$ CardController is read relative to
+// each damage source, so every creature deals its damage to its own controller
+// (Aura Barbs' shape).
+func TestDealDamageRelativeTargetReadsDefinedPerSource(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	// resolveLine's host is p's one creature.
+	g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ DealDamage | NumDmg$ 2 | DamageSource$ Valid Creature | Defined$ CardController | RelativeTarget$ True")
+	if g.Player(p).Life != 18 || g.Player(other).Life != 16 {
+		t.Errorf("life = %d/%d, want 18/16 (each creature hits its own controller)", g.Player(p).Life, g.Player(other).Life)
+	}
+}

@@ -49,6 +49,9 @@ const (
 	// controller, which a leaves-play hook inside Game.Move does not have
 	// (returnUntilCards).
 	commandReturnExiled
+	// commandBeginSkip is SkipPhaseEffect's Start$ (:99-100): the skip waiting
+	// on Game.pendingSkips under Timestamp starts at the player's upkeep.
+	commandBeginSkip
 )
 
 // cardCommand is one pending GameCommand. Host is the card whose command
@@ -143,6 +146,14 @@ func (g *Game) runCommand(controller PlayerController, cmd cardCommand) {
 		c.goadedBy = kept
 	case commandReturnExiled:
 		g.pendingReturns = append(g.pendingReturns, cmd)
+	case commandBeginSkip:
+		for i, p := range g.pendingSkips {
+			if p.ID == cmd.Timestamp {
+				g.skips = append(g.skips, p.Skip)
+				g.pendingSkips = append(g.pendingSkips[:i:i], g.pendingSkips[i+1:]...)
+				break
+			}
+		}
 	}
 }
 

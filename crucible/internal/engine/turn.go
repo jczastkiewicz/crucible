@@ -734,6 +734,13 @@ func (g *Game) cleanupStep(controller PlayerController) {
 // Phases -- or, with a Duration$, each one until that duration ends.
 // Java builds a command-zone effect holding a BeginPhase replacement that
 // exiles itself after one use unless it has a Duration$ (Skip$ True).
+// pendingSkip is a skip SkipPhase$ with Start$ has not started yet: the
+// phase command commandBeginSkip names it by ID.
+type pendingSkip struct {
+	ID   uint64
+	Skip skipPhase
+}
+
 type skipPhase struct {
 	Player       PlayerID
 	Phases       phaseSet

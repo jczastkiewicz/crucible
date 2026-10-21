@@ -341,6 +341,8 @@ type Game struct {
 	extraPhases [numPhaseTypes][]PhaseType
 	// skips is every SkipPhase effect in force (skipphaseeffect.go).
 	skips []skipPhase
+	// pendingSkips are the SkipPhase$ Start$ skips waiting for their upkeep.
+	pendingSkips []pendingSkip
 	// combatsThisTurn is PhaseHandler.nCombatsThisTurn: combat phases begun
 	// this turn, counted at CombatBegin and zeroed as cleanup begins
 	// (PhaseHandler.java:416) -- what FirstCombat$ reads once AddPhase can add
@@ -1567,14 +1569,15 @@ func (g *Game) Clone() *Game {
 		phaseCmds:         append([]phaseCommand(nil), g.phaseCmds...),
 		pendingReturns:    append([]cardCommand(nil), g.pendingReturns...),
 
-		animates:  append([]animateRecord(nil), g.animates...),
-		textWords: append([]textWordRecord(nil), g.textWords...),
-		textBoxes: append([]textBoxRecord(nil), g.textBoxes...),
-		textMaps:  maps.Clone(g.textMaps),
-		delayed:   append([]delayedTrigger(nil), g.delayed...),
-		scheduled: append([]scheduledAction(nil), g.scheduled...),
-		ignores:   cloneIgnores(g.ignores),
-		skips:     append([]skipPhase(nil), g.skips...),
+		animates:     append([]animateRecord(nil), g.animates...),
+		textWords:    append([]textWordRecord(nil), g.textWords...),
+		textBoxes:    append([]textBoxRecord(nil), g.textBoxes...),
+		textMaps:     maps.Clone(g.textMaps),
+		delayed:      append([]delayedTrigger(nil), g.delayed...),
+		scheduled:    append([]scheduledAction(nil), g.scheduled...),
+		ignores:      cloneIgnores(g.ignores),
+		skips:        append([]skipPhase(nil), g.skips...),
+		pendingSkips: append([]pendingSkip(nil), g.pendingSkips...),
 
 		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,

@@ -623,3 +623,25 @@ func TestChangeZoneEffectRememberSearchedAndShuffleChangedPile(t *testing.T) {
 		t.Errorf("remembered = %v, want the searched player", got)
 	}
 }
+
+// TestChangeZoneEffectOriginListNamingCommandMovesTheCardInTheOtherZone
+// proves an Origin$ list that names Command beside Exile (Norin the Wary's
+// "Exile,Command") is read: the exiled card returns, the Command entry only
+// matters for an effect card.
+func TestChangeZoneEffectOriginListNamingCommandMovesTheCardInTheOtherZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	exiled := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Exile)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{exiled})
+	def := etbChainDef(t, "Test Norin",
+		"DB$ ChooseCard | ChoiceZone$ Exile | Choices$ Creature | Mandatory$ True | RememberChosen$ True | SubAbility$ DBReturn",
+		"DBReturn", "DB$ ChangeZone | Defined$ Remembered | Origin$ Exile,Command | Destination$ Battlefield")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(exiled).Zone; z != engine.Battlefield {
+		t.Errorf("exiled card zone = %v, want Battlefield", z)
+	}
+}

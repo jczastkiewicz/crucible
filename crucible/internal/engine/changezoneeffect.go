@@ -115,6 +115,12 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if z == Command && dest == Exile {
 				continue
 			}
+			// A list naming Command beside another zone (Norin the Wary's
+			// "Exile,Command") only matters for an effect card; any other
+			// card in Command is refused where it is met, below.
+			if z == Command && len(origin) > 1 {
+				continue
+			}
 			// Stack only for a spell exiling itself ("Exile CARDNAME", Mnemonic
 			// Betrayal): the loop below refuses any other spell.
 			if z != Battlefield && z != Graveyard && z != Hand && z != Library && z != Exile && z != Sideboard && z != Stack {

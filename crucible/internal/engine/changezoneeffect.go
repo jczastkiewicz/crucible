@@ -88,10 +88,12 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if _, err := changeZoneStaticTemplate(g, a); err != nil {
 		return err
 	}
-	destName, _ := a.Params.Param("Destination")
-	dest, err := changeZoneDestination(destName)
-	if err != nil {
-		return fmt.Errorf("engine: ChangeZone: %w", err)
+	destName, hasDest := a.Params.Param("Destination")
+	var dest ZoneType
+	if hasDest || !changeZoneIsHidden(a) {
+		if dest, err = changeZoneDestination(destName); err != nil {
+			return fmt.Errorf("engine: ChangeZone: %w", err)
+		}
 	}
 	var origin []ZoneType
 	anyOrigin := false
@@ -686,6 +688,20 @@ func (g *Game) canSearchLibraryWith(decider, target, activator PlayerID) bool {
 	return target != activator || !p.HasKeyword("Spells and abilities you control can't cause you to search your library.")
 }
 
+// changeZoneIsHidden is SpellAbility.isHidden for the hidden path's one
+// destinationless case: Hidden$, or an Origin$ naming a hidden zone.
+func changeZoneIsHidden(a *Ability) bool {
+	if hasParam(a, "Hidden") {
+		return true
+	}
+	raw, ok := a.Params.Param("Origin")
+	if !ok || raw == "All" {
+		return false
+	}
+	origin, err := parseZoneList(raw)
+	return err == nil && (zoneIn(Library, origin) || zoneIn(Hand, origin) || zoneIn(Sideboard, origin))
+}
+
 // changeZoneAtRandom is the AtRandom$ branch of the pick loop
 // (ChangeZoneEffect.java:1195-1199): fetchList.sort() orders the list by
 // CardView.toString, "name (id)" (:1097), then each of the changeNum picks
@@ -1072,6 +1088,8 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	}
 
 	_, tapped := a.Params.Param("Tapped")
+	_, hasDest := a.Params.Param("Destination")
+	noDest := !hasDest
 	// returns is changeZoneUntilCommand's table across every fetcher's
 	// moves (ChangeZoneEffect.java:1538), armed once they are all done.
 	var returns []cardCommand
@@ -1081,6 +1099,12 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		var movedOrigins []ZoneType
 		var movedAll []CardID
 		for _, id := range pick.chosen {
+			if noDest {
+				// ChangeZoneEffect.java:1311-1313: no Destination$ only chooses;
+				// RememberChanged$ and friends still apply (:1476-1497).
+				g.changeZoneMoved(a, source, id)
+				continue
+			}
 			from := g.Card(id).Zone
 			attach, skip, err := g.changeZonePlanAttach(controller, pick.player, a, source, id, dest)
 			if err != nil {

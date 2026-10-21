@@ -42,3 +42,29 @@ func TestChangeZoneAtRandomPicksWithoutAsking(t *testing.T) {
 		t.Errorf("single card: exiled %d, left %d, want 1 and 0", len(one), left)
 	}
 }
+
+// TestChangeZoneWithoutDestinationOnlyChooses proves a hidden-origin
+// ChangeZone with no Destination$ moves nothing but still applies
+// RememberChanged$ (ChangeZoneEffect.java:1311-1313, :1476-1477): Turtles
+// Forever's first half.
+func TestChangeZoneWithoutDestinationOnlyChooses(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 1)
+	held := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{held})
+	def := etbChainDef(t, "Test Choose Only",
+		"DB$ ChangeZone | Hidden$ True | Origin$ Graveyard | ChangeType$ Card | Mandatory$ True | RememberChanged$ True")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(held).Zone; got != engine.Graveyard {
+		t.Errorf("chosen card moved to %v, want it to stay in the graveyard", got)
+	}
+	if got := g.Card(host).Memory.Remembered(); len(got) != 1 || got[0] != engine.CardEntity(held) {
+		t.Errorf("remembered %v, want the chosen card", got)
+	}
+}

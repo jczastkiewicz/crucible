@@ -106,8 +106,8 @@ func TestManaEffectRestrictValidRefusesWhatNoPaymentCanJudge(t *testing.T) {
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-	if _, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Kicked", "Produced$ R | Defined$ You | RestrictValid$ Spell.Kicked"), engine.NewScriptedController()); err == nil {
-		t.Error("RestrictValid$ Spell.Kicked resolved, want an error")
+	if _, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Exile", "Produced$ R | Defined$ You | RestrictValid$ Spell.wasCastFromExile"), engine.NewScriptedController()); err == nil {
+		t.Error("RestrictValid$ Spell.wasCastFromExile resolved, want an error")
 	}
 	if got := g.Player(p).ManaPool.Total(); got != 0 {
 		t.Errorf("pool after the refused line holds %d, want 0", got)
@@ -145,5 +145,78 @@ func TestRestrictedManaSpecialActionsAndKeywordSpells(t *testing.T) {
 	}
 	if got := g.Player(p).ManaPool.Breakdown()[3]; got != 3 {
 		t.Errorf("red after the refused cast = %d, want 3", got)
+	}
+}
+
+// TestRestrictedManaKickedPaysOnlyAKickedSpell proves Spell.Kicked mana
+// (Helga, Skittish Seer's kind): four units cannot help an unkicked Burst
+// Lightning, and cover the kicker of a kicked one.
+func TestRestrictedManaKickedPaysOnlyAKickedSpell(t *testing.T) {
+	t.Parallel()
+
+	for _, kick := range []bool{false, true} {
+		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+		for range 4 {
+			restrictedRock(t, g, p, "Spell.Kicked")
+		}
+		g.Player(p).ManaPool.Add(mana.Red, 1)
+		bolt := g.NewCard(corpusCard(t, "Burst Lightning"), p, engine.Hand)
+		c := engine.NewScriptedController()
+		c.QueueConfirmPayCost(kick)
+		for range 4 {
+			c.QueuePayGeneric(mana.ShardR)
+		}
+		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+		if !g.CastSpell(p, bolt, c) {
+			t.Fatalf("kick=%v: CastSpell = false, want true (the plain red pays the unkicked cost)", kick)
+		}
+		left := g.Player(p).ManaPool.Total()
+		if want := map[bool]int{false: 4, true: 0}[kick]; left != want {
+			t.Errorf("kick=%v: %d mana left, want %d", kick, left, want)
+		}
+	}
+}
+
+// TestRestrictedManaCumulativeUpkeepPaysOnlyThatCost proves
+// RestrictValid$ CumulativeUpkeep mana pays Balduvian Fallen's upkeep.
+func TestRestrictedManaCumulativeUpkeepPaysOnlyThatCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 8)
+	libraryCards(t, g, other, 8)
+	fallen := g.NewCard(corpusCard(t, "Balduvian Fallen"), p, engine.Battlefield)
+	g.SetTurnState(2, p, engine.Untap)
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	c.QueuePayGeneric(mana.ShardR)
+	toStep(t, g, c, p, engine.Upkeep, func() { restrictedRock(t, g, p, "CumulativeUpkeep") })
+	if got := g.Card(fallen).Zone; got != engine.Battlefield {
+		t.Errorf("Balduvian Fallen is in %v after paying with upkeep-only mana, want Battlefield", got)
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("%d mana left, want the restricted unit spent", got)
+	}
+}
+
+// TestRestrictedManaAcceptsTurnFaceUpAndFaceDownShapes proves the shapes
+// this port judges but never pays (no turn-face-up action, no face-down
+// cast) make mana, which then pays an ordinary spell only through another
+// alternative.
+func TestRestrictedManaAcceptsTurnFaceUpAndFaceDownShapes(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	restrictedRock(t, g, p, "Spell.isCastFaceDown+Creature,Static.ManifestUp+Creature,Static.MorphUp")
+	restrictedRock(t, g, p, "Static.isTurnFaceUp,Spell.Creature")
+	bears := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Hand)
+	if !g.CastSpell(p, bears, engine.NewScriptedController()) {
+		t.Fatal("creature cast, want it cast with the Spell.Creature unit")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 1 {
+		t.Errorf("%d mana left, want the face-down-only unit unspent", got)
 	}
 }

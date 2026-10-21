@@ -389,7 +389,7 @@ func TestActivateManaAbilityDeclinesForNonLiteralComboShape(t *testing.T) {
 
 // TestActivateManaAbilityDeclinesForBlockedParam proves a param past
 // manaAbilityAllowedParams -- a RestrictValid$ no payment can judge
-// (Spell.Kicked, ADR-0046) here -- declines the whole line rather than
+// (Spell.wasCastFromExile, ADR-0046) here -- declines the whole line rather than
 // producing unrestricted mana (PORT-8/GO-7).
 func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 	t.Parallel()
@@ -400,7 +400,7 @@ func TestActivateManaAbilityDeclinesForBlockedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	def := creatureDefWithAbility(t, "Test Restricted Mana",
-		"AB$ Mana | Cost$ T | Produced$ R | RestrictValid$ Spell.Kicked")
+		"AB$ Mana | Cost$ T | Produced$ R | RestrictValid$ Spell.wasCastFromExile")
 	rock := g.NewCard(def, p, engine.Battlefield)
 
 	c := engine.NewScriptedController()

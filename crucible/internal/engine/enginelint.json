@@ -317,7 +317,7 @@
       "excessdamage"
     ],
     "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict"],
-    "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone"],
+    "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],
     "manaability": [
       "manarestrict",
       "id",

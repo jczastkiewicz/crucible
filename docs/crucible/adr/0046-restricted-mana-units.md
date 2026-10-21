@@ -46,9 +46,8 @@ Option 1.
 
 **Production.** `producedMana` carries `restrict string`. `ActivateManaAbility`, a resolving `Mana` and `ManaReflected`
 copy `RestrictValid$` onto every unit they add. `manaRestrictionSupported` checks the string when the mana is made and
-returns an error for any alternative it cannot judge (`Static.` other than `Foretelling` and `Unlock`, `Kicked`,
-`wasCastFrom*`, `hasXCost`, `cmcGE*`, `CantPayGenericCosts`, `CumulativeUpkeep`): the card stays refused instead of
-making mana that pays wrongly (GO-7).
+returns an error for any alternative it cannot judge (`wasCastFrom*`, `hasXCost`, `cmcGE*`, `CantPayGenericCosts`, an
+unknown property); the card stays refused instead of making mana that pays wrongly (GO-7).
 
 **Payment context.** `Game.payFor` names what a payment is for: the spell being cast (`castspell.go`), the ability being
 activated (`activateability.go`, `activatemanaability.go`), an unless-cost of a resolving ability (`unlesscost.go`), or

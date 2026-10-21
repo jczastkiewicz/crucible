@@ -469,7 +469,11 @@ func (g *Game) payUnlessCostInto(controller PlayerController, a *Ability, pid Pl
 		mc, taps = g.waterbendReduce(controller, pid, a.Source, uc)
 	}
 	if uc.hasMana {
-		restore := g.payingFor(&payContext{item: a, cost: mc, resolving: true})
+		cumulative := false
+		if a.Params != nil {
+			_, cumulative = a.Params.Param("CumulativeUpkeep")
+		}
+		restore := g.payingFor(&payContext{item: a, cost: mc, resolving: true, cumulative: cumulative})
 		paid := g.PayManaCost(pid, mc, controller)
 		restore()
 		if !paid {

@@ -947,6 +947,12 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 	case "singleTarget":
 		targets, err := stackItemTargets(item)
 		return len(targets) == 1, err
+	case "Kicked":
+		// SpellAbility.isKicked: the spell's kicker cost was paid.
+		return item.spell && g.Card(item.Source).kicker != 0, nil
+	case "isCastFaceDown":
+		// No spell is cast face down in this port (morph, disguise).
+		return false, nil
 	}
 	name, arg, _ := strings.Cut(prop, " ")
 	switch name {

@@ -461,7 +461,7 @@ func TestChangeTargetsRefusesUnbuiltShapes(t *testing.T) {
 // silently empty candidate set.
 func TestChangeTargetsRefusesUnreadableTargetType(t *testing.T) {
 	t.Parallel()
-	for _, targetType := range []string{"!Spell", "Spell.Kicked", "Spell.numTargets EQ", "Spell.numTargets EQx", "Spell.IsTargeting Enchanted"} {
+	for _, targetType := range []string{"!Spell", "Spell.wasCastFromExile", "Spell.numTargets EQ", "Spell.numTargets EQx", "Spell.IsTargeting Enchanted"} {
 		g, p, other := newTwoPlayerGame(t)
 		seatRetargeter(t, g, p, "DB$ ChangeTargets | TargetType$ "+targetType+" | ValidTgts$ Card")
 		bolt := boltAt(t, g, p)

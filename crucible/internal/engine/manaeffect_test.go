@@ -150,7 +150,7 @@ func TestManaEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Restrict", "Produced$ G | Defined$ You | RestrictValid$ CumulativeUpkeep"), c)
+	_, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Restrict", "Produced$ G | Defined$ You | RestrictValid$ Spell.wasCastFromExile"), c)
 	if err == nil {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved RestrictValid$")
 	}

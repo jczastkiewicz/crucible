@@ -12,6 +12,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // payContext is what a mana payment is for: the spell being cast, the ability
@@ -28,6 +29,9 @@ type payContext struct {
 	// "Unlock" (RestrictValid$ Static.Foretelling, Static.Unlock); "" for a
 	// spell, ability or effect.
 	special string
+	// cumulative is a payment for a cumulative upkeep cost
+	// (SpellAbility.isCumulativeUpkeep).
+	cumulative bool
 }
 
 // payingFor sets what the payments that follow are for and returns the call
@@ -42,8 +46,16 @@ func (g *Game) payingFor(ctx *payContext) func() {
 // manaRestrictionSpecials are the RestrictValid$ alternatives that are not a
 // SpellAbility.isValid string and that restrictionMet answers itself.
 var manaRestrictionSpecials = map[string]bool{
-	"nonSpell": true, "CostContainsX": true,
+	"nonSpell": true, "CostContainsX": true, "CumulativeUpkeep": true,
 	"CantCastNonArtifactSpells": true, "CantCastSpellFromHand": true,
+}
+
+// staticSpecials are the special actions a Static.<name> alternative can
+// name. The turn-face-up ones (isTurnFaceUp, MorphUp, ManifestUp) are judged
+// but never paid for: this port has no turn-face-up special action, so mana
+// restricted to it pays only its other alternatives.
+var staticSpecials = map[string]bool{
+	"Foretelling": true, "Unlock": true, "isTurnFaceUp": true, "MorphUp": true, "ManifestUp": true,
 }
 
 // manaRestrictionSupported reports whether every alternative of restrict is
@@ -59,8 +71,10 @@ func (g *Game) manaRestrictionSupported(restrict string) bool {
 		switch head {
 		case "Spell", "SpellAbility", "Ability", "Activated", "Triggered", "Instant", "Sorcery":
 		case "Static":
-			if rest != "Foretelling" && rest != "Unlock" {
-				return false
+			for _, prop := range strings.Split(rest, "+") {
+				if !staticSpecials[prop] && !g.hostCardPropertyOrType(prop) {
+					return false
+				}
 			}
 			continue
 		default:
@@ -72,6 +86,7 @@ func (g *Game) manaRestrictionSupported(restrict string) bool {
 		for _, prop := range strings.Split(rest, "+") {
 			switch prop {
 			case "YouCtrl", "OppCtrl", "Other":
+			case "Kicked", "isCastFaceDown":
 			default:
 				if !g.hostCardPropertyOrType(prop) {
 					return false
@@ -97,6 +112,11 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 		switch alt {
 		case "nonSpell":
 			return !item.spell
+		case "CumulativeUpkeep":
+			if ctx.cumulative {
+				return true
+			}
+			continue
 		case "CostContainsX":
 			if ctx.cost.CountX() > 0 {
 				return true
@@ -115,8 +135,8 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 		if ctx.resolving {
 			return false
 		}
-		if head, prop, _ := strings.Cut(alt, "."); head == "Static" {
-			if ctx.special != "" && prop == ctx.special {
+		if head, rest, _ := strings.Cut(alt, "."); head == "Static" {
+			if g.staticRestrictionMet(ctx, host, rest) {
 				return true
 			}
 			continue
@@ -134,4 +154,20 @@ func (g *Game) restrictionMet(u poolUnit, ctx *payContext) bool {
 func (g *Game) usableMana() func(poolUnit) bool {
 	ctx := g.payFor
 	return func(u poolUnit) bool { return g.restrictionMet(u, ctx) }
+}
+
+// staticRestrictionMet is Static.<special>[+<host property>...] against a
+// payment for a special action: the first property names the action, the
+// rest are asked of its host card.
+func (g *Game) staticRestrictionMet(ctx *payContext, host *Card, props string) bool {
+	for _, prop := range strings.Split(props, "+") {
+		switch {
+		case prop == ctx.special && ctx.special != "":
+		case staticSpecials[prop]:
+			return false
+		case !Matches(g, host, valid.Parse("Card."+prop), host.Controller(), host.ID):
+			return false
+		}
+	}
+	return ctx.special != ""
 }

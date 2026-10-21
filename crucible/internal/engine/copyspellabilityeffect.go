@@ -167,11 +167,29 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 				}
 			}
 			ids = spellItemsOf(g, a.Targets)
+		case "Parent":
+			// AbilityUtils.java:1232-1233: the stack root the chain resolves
+			// under. It has left the stack as it resolves, so the copy is made
+			// from the by-value snapshot resolveTop took (Java holds the
+			// spell object).
+			if a.rootAbility == nil {
+				return nil, fmt.Errorf("engine: CopySpellAbility: Defined$ Parent: no root ability recorded")
+			}
+			root := *a.rootAbility
+			if !root.spell {
+				// copySpell builds a spell copy; an activated or triggered
+				// root keeps its host (CR 707.10), not built.
+				return nil, fmt.Errorf("engine: CopySpellAbility: Defined$ Parent under an ability that is not a spell not resolvable yet")
+			}
+			if root.Params != nil {
+				if _, ok := root.Params.Param("CantCopy"); ok {
+					return nil, nil
+				}
+			}
+			return []Ability{root}, nil
 		default:
-			// Parent (10 lines) needs the resolving root spell, which a
-			// chained sub-ability does not carry; Remembered, Imprinted,
-			// ValidStack and TriggeredSourceSA are getDefinedSpellAbilities
-			// shapes of their own.
+			// Remembered, Imprinted, ValidStack and TriggeredSourceSA are
+			// getDefinedSpellAbilities shapes of their own.
 			return nil, fmt.Errorf("engine: CopySpellAbility: Defined$ %q not resolvable yet", defined)
 		}
 	}

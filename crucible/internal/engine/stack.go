@@ -184,6 +184,8 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 		// MagicStack.java:646-647: handleRemembering, then AbilityUtils.resolve
 		// (whose resolvePreAbilities gives Ascend's blessing).
 		a.stackRoot = true
+		root := a
+		a.rootAbility = &root
 		if err := g.rememberTargets(&a); err != nil {
 			return err
 		}

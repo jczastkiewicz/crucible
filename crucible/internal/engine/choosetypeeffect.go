@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow control game ability effecthelpers card condition defined parts
+//enginelint:allow control game ability effecthelpers card condition defined parts choosecardeffect
 
 import (
 	"fmt"
@@ -39,7 +39,10 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if raw, ok := a.Params.Param("ValidTypes"); ok {
 		types = strings.Split(raw, ",")
 	} else {
-		if hasParam(a, "AtRandom") {
+		if hasParam(a, "AtRandom") && kind != "Basic Land" {
+			// Creature and Land lists are CardType's HashSets (CREATURE_TYPES,
+			// LAND_TYPES) whose bucket order this port does not reproduce;
+			// Basic Land's five-name order is known (basicTypesHashOrder).
 			return fmt.Errorf("engine: ChooseType: AtRandom$ over Type$ %q not resolvable (no stable order)", kind)
 		}
 		var err error
@@ -99,7 +102,9 @@ func chooseTypeOptions(g *Game, kind string) ([]string, error) {
 	case "Creature":
 		return reg.Members(cardtype.CategoryCreature), nil
 	case "Basic Land":
-		return reg.Members(cardtype.CategoryBasic), nil
+		// CardType.getBasicTypes is the BASIC_TYPES HashSet (CardType.java:
+		// 940-941), offered in its iteration order.
+		return strings.Split(basicTypesHashOrder, " & "), nil
 	case "Nonbasic Land":
 		return reg.Members(cardtype.CategoryLand), nil
 	case "Land":

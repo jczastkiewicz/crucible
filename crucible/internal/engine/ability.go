@@ -213,6 +213,10 @@ type Ability struct {
 	// built (resolveSubAbility, resolveAdditional). ChangeZone's Defined$
 	// Parent reads it (ChangeZoneEffect.java:496-506).
 	rootSpell bool
+	// rootAbility is the stack item the chain resolves under, by value as it
+	// popped (SpellAbility.getRootAbility): what Defined$ Parent names. Set
+	// where the item resolves (resolveTop), inherited by every sub-ability.
+	rootAbility *Ability
 	// probing marks a spell not yet cast asked about as though one optional
 	// cost were paid: SpellAbility.canPlay(checkOptionalCosts) tries the spell
 	// with each one added (SpellAbility.java:467-491). probeTeamwork is that

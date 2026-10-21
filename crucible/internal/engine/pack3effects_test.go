@@ -824,3 +824,34 @@ func TestUntapChooseSkipsUntappedAndRejectsForeignPicks(t *testing.T) {
 		t.Error("a pick outside the offered lands was accepted")
 	}
 }
+
+// Defined$ ValidStack <spec> (getDefinedSpellAbilities, AbilityUtils.java:1279)
+// counters every stack item matching spec: Spell.Other spares the ability's
+// own host.
+func TestCounterDefinedValidStackCountersEveryMatchingSpell(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	var spells []engine.CardID
+	for range 2 {
+		bolt := boltAt(t, g, other)
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+		castOn(t, g, other, bolt, c)
+		spells = append(spells, bolt)
+	}
+	def := etbChainDef(t, "Counterer", "DB$ Counter | Defined$ ValidStack Spell.Other")
+	host := g.NewCard(def, p, engine.Battlefield)
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	g.PushAbility(engine.Ability{API: engine.APICounter, Source: host, Controller: p, Params: sub})
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range spells {
+		if z := g.Card(s).Zone; z != engine.Graveyard {
+			t.Errorf("spell %d zone = %v, want Graveyard", s, z)
+		}
+	}
+	if g.StackLen() != 0 {
+		t.Errorf("stack = %d, want empty", g.StackLen())
+	}
+}

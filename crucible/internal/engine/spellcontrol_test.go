@@ -461,7 +461,7 @@ func TestCounterDefinedOtherThanKnownShapesFailsClosed(t *testing.T) {
 	g, p, other := newTwoPlayerGame(t)
 	g.NewCard(triggerWatcherDef(t, "Spell Eater",
 		"Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | Execute$ TrigCounter",
-		"TrigCounter", "DB$ Counter | Defined$ ValidStack Spell.Other"), p, engine.Battlefield)
+		"TrigCounter", "DB$ Counter | Defined$ Imprinted"), p, engine.Battlefield)
 	bolt := boltAt(t, g, other)
 	c := engine.NewScriptedController()
 	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})

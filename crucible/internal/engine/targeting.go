@@ -942,6 +942,8 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 		return item.Controller == a.Controller, nil
 	case "OppCtrl":
 		return item.Controller != a.Controller, nil
+	case "Other":
+		return item.Source != a.Source, nil
 	case "singleTarget":
 		targets, err := stackItemTargets(item)
 		return len(targets) == 1, err

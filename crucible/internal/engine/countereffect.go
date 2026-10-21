@@ -2,7 +2,10 @@ package engine
 
 //enginelint:allow game ability control effecthelpers card condition parts zone id destroyeffect
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // counterEffect is CounterEffect.java: each targeted spell (a card on the
 // stack) is countered -- unless it can't be -- and removed from the stack, its
@@ -18,7 +21,8 @@ import "fmt"
 // stops the counter, and a ReplaceWith$ one replaces a spell's (counterReplaced).
 // TargetValidTargeting$ is a targeting restriction (canTargetStackItem), read
 // as targets are chosen and again at resolution. Defined$ TriggeredSpellAbility
-// and Targeted name the spells (counterDefinedTargets); any other Defined$,
+// and Targeted name the spells, ValidStack<spec> every stack item matching it
+// (counterDefinedTargets); any other Defined$,
 // any other Counter replacement and a CantBeCountered static are not resolved.
 type counterEffect struct{}
 
@@ -231,6 +235,27 @@ func counterDefinedTargets(g *Game, a *Ability, defined string) ([]EntityID, err
 			return []EntityID{CardEntity(item.Source)}, nil
 		}
 		return []EntityID{StackItemEntity(item.ID)}, nil
+	}
+	if restriction, ok := strings.CutPrefix(defined, "ValidStack "); ok {
+		// getDefinedSpellAbilities :1279-1287: every stack item, in stack
+		// order, that isValid for the restriction.
+		var out []EntityID
+		for i := range g.stack {
+			item := &g.stack[i]
+			matched, err := g.stackItemMatches(item, restriction, a)
+			if err != nil {
+				return nil, fmt.Errorf("engine: Counter: Defined$ %q: %w", defined, err)
+			}
+			if !matched {
+				continue
+			}
+			if item.spell {
+				out = append(out, CardEntity(item.Source))
+			} else {
+				out = append(out, StackItemEntity(item.ID))
+			}
+		}
+		return out, nil
 	}
 	return nil, fmt.Errorf("engine: Counter: Defined$ %q not resolvable yet", defined)
 }

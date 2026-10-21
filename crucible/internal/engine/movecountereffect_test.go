@@ -206,3 +206,49 @@ func TestMoveCounterEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved NonZero$")
 	}
 }
+
+// TestMoveCounterEffectValidSourceGathersCountersFromEveryMatch proves
+// ValidSource$ (Spike Cannibal): every battlefield card matching it, the
+// opponent's included, gives its counters to the Defined$ destination.
+func TestMoveCounterEffectValidSourceGathersCountersFromEveryMatch(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	own := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	theirs := g.NewCard(creatureDefPT(t, "2", "2"), g.Players()[1], engine.Battlefield)
+	g.Card(own).Counters.Add(engine.P1P1, 2)
+	g.Card(theirs).Counters.Add(engine.P1P1, 3)
+
+	def := etbMoveCounterTriggerDefParams(t, "Test Move ValidSource", "ValidSource$ Creature | Defined$ Self | CounterType$ P1P1 | CounterNum$ All")
+	c := engine.NewScriptedController()
+	host, err := castETBMoveCounter(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(host).Counters.Count(engine.P1P1); n != 5 {
+		t.Errorf("host P1P1 = %d, want 5", n)
+	}
+	if n := g.Card(own).Counters.Count(engine.P1P1) + g.Card(theirs).Counters.Count(engine.P1P1); n != 0 {
+		t.Errorf("sources kept %d P1P1, want 0", n)
+	}
+}
+
+// TestMoveCounterEffectValidSourceAnyIsRefused proves the chosen-subset
+// shape (CounterNum$ Any) fails loudly: no chooseCardsForEffect hook.
+func TestMoveCounterEffectValidSourceAnyIsRefused(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	def := etbMoveCounterTriggerDefParams(t, "Test Move ValidSource Any", "ValidSource$ Permanent.YouCtrl+Other | Defined$ Self | CounterType$ P1P1 | CounterNum$ Any")
+	c := engine.NewScriptedController()
+	if _, err := castETBMoveCounter(t, g, p, def, c); err == nil {
+		t.Fatal("ResolveStack succeeded, want an error for ValidSource$ with CounterNum$ Any")
+	}
+}

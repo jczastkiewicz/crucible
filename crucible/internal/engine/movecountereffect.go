@@ -1,16 +1,15 @@
 // MoveCounter: CR 121.5, "move N counters of a kind from one object to
-// another" -- 30 real (AB|DB)$ MoveCounter lines, every one Source$ Self
-// (15) or another definedCards-resolvable value (9, 6 of them a value
+// another" -- 30 real (AB|DB)$ MoveCounter lines, mostly Source$ Self (15)
+// or another definedCards-resolvable value (9, 6 of them a value
 // (Creature/Permanent/ParentTarget) this port's own definedCards has no
-// case for and so fails loudly rather than guessing), no line naming
-// ValidSource$/ValidDefined$ at all -- CountersMoveEffect.java's own "many
-// sources to one destination"/"one source to many destinations" branches,
-// each needing a chooseCardsForEffect/chooseNumber interactive step this
-// port's own PlayerController has no hook for, simply do not exist in the
-// real corpus this port has read. The remaining shape -- one Source$ card,
-// one or more ValidTgts$/Defined$ destinations (targetedOrDefinedCards,
-// defined.go, default "Self" the identical way Java's own
-// getDefinedCardsOrTargeted(sa) with no override does) -- resolves outright.
+// case for and so fails loudly rather than guessing). Two shapes resolve:
+// one Source$ card, one or more ValidTgts$/Defined$ destinations
+// (targetedOrDefinedCards, defined.go, default "Self" the identical way
+// Java's own getDefinedCardsOrTargeted(sa) with no override does), and
+// ValidSource$, many sources to the first destination. CountersMoveEffect's
+// chosen-subset (CounterNum$ Any) and ValidDefined$ branches each need an
+// interactive step this port's PlayerController has no hook for and fail
+// loudly.
 //
 // Ported from
 // forge-game/src/main/java/forge/game/ability/effects/CountersMoveEffect.java's
@@ -20,7 +19,7 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control amount parts event
+//enginelint:allow id card game ability defined condition control amount parts event phaseseffect
 
 import (
 	"fmt"
@@ -29,13 +28,12 @@ import (
 
 // moveCounterUnresolvedParams names CountersMoveEffect's own params this
 // port does not evaluate. Every one fails the whole line loudly (PORT-8/
-// GO-7): ValidSource$/ValidDefined$ (0/0, defensive) -- the "many sources to one
-// destination"/"one source to many destinations" branches, above, listed
-// even at zero real lines rather than silently misreading either as a
-// plain Source$ value; NonZero$ (1) -- CounterNum$ Any's own "at least one"
+// GO-7): ValidDefined$ (0, defensive) -- the "one source to many
+// destinations" branch, listed even at zero real lines rather than silently
+// misreading it as a plain Source$ value; NonZero$ (1) -- CounterNum$ Any's own "at least one"
 // floor, moot on its own since CounterNum$ Any already fails below.
 var moveCounterUnresolvedParams = [...]string{
-	"ValidSource", "ValidDefined", "NonZero",
+	"ValidDefined", "NonZero",
 }
 
 // moveCounterEffect resolves Mode$/DB$/AB$ MoveCounter for the one-source,
@@ -87,6 +85,29 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	destCards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: MoveCounter: %w", err)
+	}
+	if spec, ok := a.Params.Param("ValidSource"); ok {
+		// CountersMoveEffect.java:104-162: every battlefield card matching
+		// ValidSource$ gives its counters to the first destination. The
+		// chosen-subset shape (CounterNum$ Any) needs chooseCardsForEffect,
+		// which PlayerController does not have.
+		if strings.EqualFold(counterNumParam, "Any") {
+			return fmt.Errorf("engine: MoveCounter: ValidSource$ with CounterNum$ Any not resolvable yet")
+		}
+		if len(destCards) == 0 {
+			return nil
+		}
+		srcCards, err := phasesValidCards(g, a, spec, false)
+		if err != nil {
+			return fmt.Errorf("engine: MoveCounter: ValidSource$: %w", err)
+		}
+		dest := destCards[0]
+		for _, src := range srcCards {
+			if src != dest {
+				moveCounters(g, controller, a.Controller, a.Source, src, dest, counterType, allKinds, allAmount, amount)
+			}
+		}
+		return nil
 	}
 	var src CardID
 	_, targeting := a.Params.Param("ValidTgts")

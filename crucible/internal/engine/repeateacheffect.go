@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -13,10 +14,10 @@ import (
 // (RepeatSpellAbilities$, RepeatTypesFrom$), a delayed per-player loop
 // (NextTurnForEachPlayer$), vote amounts (AmountFromVotes$), the batched
 // damage/life tables (DamageMap$, LoseLifeMap$), a
-// chooser-ordered loop (ChooseOrder$), and a non-APNAP start (StartingWith$).
+// chooser-ordered loop (ChooseOrder$).
 var repeatEachUnresolvedParams = [...]string{
 	"RepeatSpellAbilities", "RepeatTypesFrom", "NextTurnForEachPlayer", "AmountFromVotes",
-	"DamageMap", "LoseLifeMap", "ChooseOrder", "StartingWith",
+	"DamageMap", "LoseLifeMap", "ChooseOrder",
 	"Ultimate",
 }
 
@@ -120,6 +121,11 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if err != nil {
 			return fmt.Errorf("engine: RepeatEach: RepeatPlayers$: %w", err)
 		}
+		if start, ok := a.Params.Param("StartingWith"); ok {
+			if players, err = playersStartingWith(g, a, players, start); err != nil {
+				return err
+			}
+		}
 		if _, ok := a.Params.Param("ClearRememberedBeforeLoop"); ok {
 			m.ClearRemembered()
 		}
@@ -136,4 +142,28 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	return nil
+}
+
+// playersStartingWith is getPlayers' trailing sort (SpellAbilityEffect.java:
+// 353-358): players in turn order from the first player StartingWith$ names
+// (StartingWith$ You is the ability's controller). The default start, the
+// active player, is not modeled: without StartingWith$ the list keeps seat
+// order, the simplification definedPlayers documents.
+func playersStartingWith(g *Game, a *Ability, players []PlayerID, spec string) ([]PlayerID, error) {
+	starters, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: RepeatEach: StartingWith$: %w", err)
+	}
+	if len(starters) == 0 {
+		return players, nil
+	}
+	order := g.playersInTurnOrder()
+	from := slices.Index(order, starters[0])
+	out := make([]PlayerID, 0, len(players))
+	for i := range order {
+		if id := order[(from+i)%len(order)]; slices.Contains(players, id) {
+			out = append(out, id)
+		}
+	}
+	return out, nil
 }

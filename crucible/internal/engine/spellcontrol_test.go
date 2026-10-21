@@ -311,10 +311,9 @@ func TestControlSpellExchangeSkipsASpellThatLeftTheStack(t *testing.T) {
 }
 
 // TestControlSpellInvertPolarityWinsTheSpell proves the Defined$ Targeted
-// shape through invert_polarity.txt: whichever call wins the flip (the
-// game's RNG decides; both calls run on clones of one game) steals the
-// targeted spell for the flipper; the losing call reaches Counter's
-// Defined$ Targeted, which fails closed.
+// shape through invert_polarity.txt: heads steals the targeted spell for the
+// flipper, tails reaches Counter's Defined$ Targeted and counters it. Both
+// calls run on clones of one game.
 func TestControlSpellInvertPolarityWinsTheSpell(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGame(t)
@@ -331,26 +330,24 @@ func TestControlSpellInvertPolarityWinsTheSpell(t *testing.T) {
 	if !g.CastSpell(other, invert, c) {
 		t.Fatal("CastSpell(Invert Polarity) failed")
 	}
-	wins := 0
-	for _, heads := range []bool{true, false} {
+	for _, tc := range []struct {
+		heads     bool
+		otherLife int
+		gainZone  engine.ZoneType
+	}{{true, 23, engine.Graveyard}, {false, 20, engine.Graveyard}} {
 		gg := g.Clone()
 		cc := engine.NewScriptedController()
-		cc.QueueCoinCall(heads)
+		cc.QueueCoinCall(tc.heads)
 		cc.QueueConfirmEffect(false)
-		err := gg.ResolveStack(engine.NewRegistry(), cc)
-		if err != nil {
-			if !strings.Contains(err.Error(), "Counter: Defined$ not resolvable yet") {
-				t.Errorf("heads %v: err = %v, want Counter's Defined$ error", heads, err)
-			}
-			continue
+		if err := gg.ResolveStack(engine.NewRegistry(), cc); err != nil {
+			t.Fatalf("heads %v: %v", tc.heads, err)
 		}
-		wins++
-		if gg.Player(p).Life != 20 || gg.Player(other).Life != 23 {
-			t.Errorf("heads %v: life %d/%d, want 20/23", heads, gg.Player(p).Life, gg.Player(other).Life)
+		if gg.Player(p).Life != 20 || gg.Player(other).Life != tc.otherLife {
+			t.Errorf("heads %v: life %d/%d, want 20/%d", tc.heads, gg.Player(p).Life, gg.Player(other).Life, tc.otherLife)
 		}
-	}
-	if wins != 1 {
-		t.Errorf("won %d of the two calls, want exactly 1", wins)
+		if got := gg.Card(gain).Zone; got != tc.gainZone {
+			t.Errorf("heads %v: Gain in %v, want %v", tc.heads, got, tc.gainZone)
+		}
 	}
 }
 
@@ -433,5 +430,44 @@ func TestControlSpellExchangeFailsClosedOnCantGainControl(t *testing.T) {
 	err := g.ResolveStack(engine.NewRegistry(), c)
 	if err == nil || !strings.Contains(err.Error(), "CantGainControl statics not resolvable yet") {
 		t.Errorf("err = %v, want the CantGainControl error", err)
+	}
+}
+
+// TestCounterDefinedTriggeredSpellAbilityCountersTheCastSpell proves an
+// untargeted Counter reads the spell a Mode$ SpellCast trigger recorded
+// (Defined$ TriggeredSpellAbility, no TargetType$): Bolt never resolves.
+func TestCounterDefinedTriggeredSpellAbilityCountersTheCastSpell(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(triggerWatcherDef(t, "Spell Eater",
+		"Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | Execute$ TrigCounter",
+		"TrigCounter", "DB$ Counter | Defined$ TriggeredSpellAbility"), p, engine.Battlefield)
+	bolt := boltAt(t, g, other)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	castOn(t, g, other, bolt, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if g.Card(bolt).Zone != engine.Graveyard || g.Player(p).Life != 20 {
+		t.Errorf("bolt in %v, life %d: want it countered", g.Card(bolt).Zone, g.Player(p).Life)
+	}
+}
+
+// TestCounterDefinedOtherThanKnownShapesFailsClosed proves a Defined$ the
+// port does not read still errors by name.
+func TestCounterDefinedOtherThanKnownShapesFailsClosed(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(triggerWatcherDef(t, "Spell Eater",
+		"Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | Execute$ TrigCounter",
+		"TrigCounter", "DB$ Counter | Defined$ ValidStack Spell.Other"), p, engine.Battlefield)
+	bolt := boltAt(t, g, other)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+	castOn(t, g, other, bolt, c)
+	err := g.ResolveStack(engine.NewRegistry(), c)
+	if err == nil || !strings.Contains(err.Error(), "Counter: Defined$") {
+		t.Fatalf("err = %v, want Counter's Defined$ error", err)
 	}
 }

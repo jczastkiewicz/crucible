@@ -17,15 +17,16 @@ import "fmt"
 // CantHappen Counter replacement (counterCantHappen, replacementevents.go)
 // stops the counter, and a ReplaceWith$ one replaces a spell's (counterReplaced).
 // TargetValidTargeting$ is a targeting restriction (canTargetStackItem), read
-// as targets are chosen and again at resolution. Defined$ spells, any other
-// Counter replacement and a CantBeCountered static are not resolved.
+// as targets are chosen and again at resolution. Defined$ TriggeredSpellAbility
+// and Targeted name the spells (counterDefinedTargets); any other Defined$,
+// any other Counter replacement and a CantBeCountered static are not resolved.
 type counterEffect struct{}
 
 func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Counter", "Defined", "DestinationChoice",
+	if err := rejectParams(a, "Counter", "DestinationChoice",
 		"RememberCounteredSA", "RememberSplicedOntoCounteredSpell", "ConditionWouldDestroy"); err != nil {
 		return err
 	}
@@ -37,7 +38,13 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	// spell as its card and an ability as its stack item
 	// (stackAbilityCandidates), each countered its own way below. An
 	// untargeted one must name Spell: it has no other way to its spell.
-	if tt, ok := a.Params.Param("TargetType"); !ok || tt != "Spell" && !hasParam(a, "ValidTgts") {
+	defined, hasDefined := a.Params.Param("Defined")
+	if hasDefined && hasParam(a, "ValidTgts") {
+		// getSpells(false, "Defined"): a targeting ability ignores Defined$
+		// (SpellAbilityEffect.java getSpells), whatever its value.
+		hasDefined = false
+	}
+	if tt, ok := a.Params.Param("TargetType"); !hasDefined && (!ok || tt != "Spell" && !hasParam(a, "ValidTgts")) {
 		return fmt.Errorf("engine: Counter: TargetType$ %q not resolvable yet", tt)
 	}
 	if battlefieldStaticMode(g, "CantBeCountered") {
@@ -53,6 +60,12 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		return counterAbility(g, a, controller, StackItemEntity(a.wardItem))
 	}
 	targets := a.Targets
+	if hasDefined {
+		var err error
+		if targets, err = counterDefinedTargets(g, a, defined); err != nil {
+			return err
+		}
+	}
 	if a.wardCounters != NoEntity {
 		// checkWardTriggers' own Defined$ TriggeredSourceSA stand-in
 		// (ability.go's wardCounters doc comment, ADR-0028): the spell
@@ -193,4 +206,31 @@ func (g *Game) removeStackItem(id StackItemID) {
 	}
 	clear(g.stack[len(kept):])
 	g.stack = kept
+}
+
+// counterDefinedTargets is getTargetSpells(sa) for an untargeted Counter
+// (AbilityUtils.getDefinedSpellAbilities, :1234-1266): Defined$
+// TriggeredSpellAbility is the stack item the trigger recorded, Targeted the
+// parent's targets. An item that left the stack is dropped, as CounterEffect
+// skips an instance it cannot find (:87-90). A spell is handed on as its card,
+// an activated or triggered ability as its stack item, the two shapes targeting
+// itself produces.
+func counterDefinedTargets(g *Game, a *Ability, defined string) ([]EntityID, error) {
+	switch defined {
+	case "Targeted":
+		return a.Targets, nil
+	case "TriggeredSpellAbility":
+		if a.triggered.spellAbility == NoStackItem {
+			return nil, fmt.Errorf("engine: Counter: Defined$ TriggeredSpellAbility: no triggering spell recorded")
+		}
+		item, ok := g.stackItem(a.triggered.spellAbility)
+		if !ok {
+			return nil, nil
+		}
+		if item.spell {
+			return []EntityID{CardEntity(item.Source)}, nil
+		}
+		return []EntityID{StackItemEntity(item.ID)}, nil
+	}
+	return nil, fmt.Errorf("engine: Counter: Defined$ %q not resolvable yet", defined)
 }

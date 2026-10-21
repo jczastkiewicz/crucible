@@ -387,6 +387,51 @@ func TestDealDamageEffectDamageIsPreventedByReplacement(t *testing.T) {
 	}
 }
 
+// TestDealDamageEffectNoPreventionIgnoresPrevention proves NoPrevention$
+// (ReplacementHandler.java:407) skips a Prevent$ True replacement and a
+// PreventionEffect$ one, while the same damage without it is prevented.
+func TestDealDamageEffectNoPreventionIgnoresPrevention(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, params string
+		want         int
+	}{
+		{"plain damage is prevented", "Defined$ Player.Opponent | NumDmg$ 5", 20},
+		{"NoPrevention$ deals it", "Defined$ Player.Opponent | NumDmg$ 5 | NoPrevention$ True", 15},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := newGame(t, "a", "b")
+			p, other := g.Players()[0], g.Players()[1]
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(p).Life, g.Player(other).Life = 20, 20
+			g.NewCard(replacementEnchantmentDef(t, "Test Damage Shield",
+				"Event$ DamageDone | ValidTarget$ You | Prevent$ True | Description$ Prevent all damage that would be dealt to you."), other, engine.Battlefield)
+			if err := castETBDealDamage(t, g, p, etbDealDamageTriggerDefParams(t, "Test NoPrevention", tc.params, nil)); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Player(other).Life; got != tc.want {
+				t.Errorf("other's life = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestDealDamageEffectNoPreventionUnderDamageMapIsRefused proves the
+// combination Java drops (forge-java-defects.md) fails by name.
+func TestDealDamageEffectNoPreventionUnderDamageMapIsRefused(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	err := castETBDealDamage(t, g, p, etbDealDamageTriggerDefParams(t, "Test NoPrevention Map", "Defined$ You | NumDmg$ 1 | NoPrevention$ True | DamageMap$ True", nil))
+	if err == nil || !strings.Contains(err.Error(), "NoPrevention$") {
+		t.Fatalf("ResolveStack error = %v, want one naming NoPrevention$", err)
+	}
+}
+
 // TestDealDamageEffectEventDoesNotCarryFlagCombat proves a script-driven
 // DealDamage emits DamageDealt without FlagCombat -- FlagCombat's own doc
 // comment (event.go) distinguishes combat damage from an effect's, and this

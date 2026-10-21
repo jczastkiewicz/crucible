@@ -66,8 +66,10 @@ type dealDamageEffect struct{}
 //   - Condition$ (SpellAbilityCondition's flag switch; subAbilityConditionMet
 //     would otherwise silently no-op it), TriggeredSpellAbility$, CounterNum$,
 //     Optional$ -- each its own further mechanic;
-//   - NoPrevention$/NoRedirection$ -- damagePrevented would apply where
-//     AbilityKey.NoPreventDamage says not to;
+//   - NoRedirection$ -- the redirect would apply where Java says not to;
+//     NoPrevention$ resolves (Game.noPreventDamage) except under DamageMap$,
+//     where Java itself drops it (the DamageResolve that deals the batch is
+//     the cause, ReplacementHandler.java:407; forge-java-defects.md);
 //   - DivideEvenly$/DividerOnResolution$ -- Fireball's even split and
 //     Master of the Wild Hunt's assignCombatDamage at resolution
 //     (:188-193, :220-241). DividedAsYouChoose$ resolves: each target takes
@@ -87,7 +89,7 @@ type dealDamageEffect struct{}
 // cause), not on this ability.
 var dealDamageUnresolvedParams = [...]string{
 	"TriggeredSpellAbility", "CounterNum", "Optional",
-	"NoPrevention", "NoRedirection",
+	"NoRedirection",
 	"DivideEvenly", "DividerOnResolution",
 	"CardChoices", "PlayerChoices", "Random",
 	"RelativeTarget",
@@ -132,6 +134,9 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	dmg, ok := resolveNamedAmount(g, a.Amounts, source, numDmg)
 	if !ok {
 		return fmt.Errorf("engine: DealDamage: NumDmg$ %q is not resolvable", numDmg)
+	}
+	if hasParam(a, "NoPrevention") && (a.damageMap != nil || hasParam(a, "DamageMap")) {
+		return fmt.Errorf("engine: DealDamage: NoPrevention$ under DamageMap$ not resolvable yet")
 	}
 	if hasParam(a, "DamageMap") && a.damageMap == nil {
 		a.damageMap = &pendingDamage{}
@@ -200,7 +205,9 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		// ReplaceDying effect is made now (DamageDealEffect.java:269-272).
 		return g.replaceDying(a, "DealDamage")
 	}
+	g.noPreventDamage = hasParam(a, "NoPrevention")
 	table := g.dealPendingDamage(controller, batch.entries)
+	g.noPreventDamage = false
 	if hasParam(a, "RememberDamaged") {
 		rememberDamaged(g, a.Source, table)
 	}

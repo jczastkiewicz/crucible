@@ -389,6 +389,11 @@ type Game struct {
 	// combatDamagePrevented is Fog's "prevent all combat damage this turn",
 	// cleared at cleanup (damagePrevented/damagePreventedPlayer read it).
 	combatDamagePrevented bool
+	// noPreventDamage is AbilityKey.NoPreventDamage for the damage batch being
+	// dealt: set by a DealDamage with NoPrevention$ around dealPendingDamage
+	// (ReplacementHandler.java:407), it skips prevention shields and every
+	// Prevent$ / PreventionEffect$ replacement (:344-352).
+	noPreventDamage bool
 
 	// lki is CR 603.6d's "look back in time": each CardID's own frozen copy
 	// of itself from the instant before Move's own battlefield-leaving branch

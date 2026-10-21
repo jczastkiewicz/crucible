@@ -567,3 +567,11 @@ Crucible reproduces it (`quirks.md`). Fix upstream: `ValidPlayer$ You` in place 
 test for the counter being 0 (`:980-986`). A Phase trigger carrying `FirstUpkeep$` (one card) or `FirstUpkeepThisGame$`
 (two Command-zone cards) therefore never fires: "at the beginning of the first upkeep" does nothing. Crucible reproduces
 it (`triggerPhasesCheck` answers false). Fix upstream: compare against 1, or read the counters before the increment.
+
+## `NoPrevention$` is lost when `DamageMap$` defers the damage
+
+`ReplacementHandler.java:407` reads `NoPrevention$` from the `cause` that finalizes the damage. `DamageDealEffect` defers
+the deal under `DamageMap$` (`:210-214`), so the cause is the later `DamageResolve` (`DamageResolveEffect.java:29`) or
+`RepeatEach` (`RepeatEachEffect.java:199-201`), neither of which carries the param. Volcano Hellion's damage ("can't be
+prevented") stays preventable. Crucible keeps the line refused (`DealDamage: NoPrevention$ under DamageMap$`) rather
+than reproduce it. Fix upstream: copy the flag onto the damage map or read it per source SA.

@@ -78,14 +78,39 @@ func TestRepeatEachEffectUseImprintedAndOptional(t *testing.T) {
 	}
 }
 
-// TestRepeatEachEffectRejectsUnresolvedParam proves StartingWith$ fails closed.
+// TestRepeatEachEffectStartingWithOrdersPlayers proves StartingWith$: the
+// first player asked is the one it names (the first answer declines, the
+// second accepts, so the life loss lands on whoever was asked second).
+func TestRepeatEachEffectStartingWithOrdersPlayers(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		start        string
+		pLife, oLife int
+	}{{"You", 20, 19}, {"Opponent", 19, 20}} {
+		g, p, other := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		c.QueueConfirmEffect(false)
+		c.QueueConfirmEffect(true)
+		def := etbChainDef(t, "Test RepeatEach Start", "DB$ RepeatEach | RepeatPlayers$ Player | StartingWith$ "+tc.start+" | RepeatOptionalForEachPlayer$ True | RepeatSubAbility$ DBLose",
+			"DBLose", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 1")
+		if _, err := castETBChain(t, g, p, def, c); err != nil {
+			t.Fatalf("StartingWith$ %s: %v", tc.start, err)
+		}
+		if g.Player(p).Life != tc.pLife || g.Player(other).Life != tc.oLife {
+			t.Errorf("StartingWith$ %s: life = %d/%d, want %d/%d", tc.start, g.Player(p).Life, g.Player(other).Life, tc.pLife, tc.oLife)
+		}
+	}
+}
+
+// TestRepeatEachEffectRejectsUnresolvedParam proves ChooseOrder$ fails closed.
 func TestRepeatEachEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test RepeatEach Bad", "DB$ RepeatEach | RepeatPlayers$ Player | StartingWith$ You | RepeatSubAbility$ DBLose",
+	def := etbChainDef(t, "Test RepeatEach Bad", "DB$ RepeatEach | RepeatPlayers$ Player | ChooseOrder$ True | RepeatSubAbility$ DBLose",
 		"DBLose", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 1")
 	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved StartingWith$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseOrder$")
 	}
 }

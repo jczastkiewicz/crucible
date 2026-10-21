@@ -1013,6 +1013,11 @@ func damageReplacementMatches(g *Game, r *compile.Ability, source CardID, hostCo
 	if _, ok := r.Param("ReplaceWith"); !ok {
 		return false
 	}
+	if _, prevention := r.Param("PreventionEffect"); prevention && g.noPreventDamage {
+		// NoPrevention$ (ReplacementHandler.java:344-352): a prevention
+		// replacement is not replaced, AlwaysReplace$ or not.
+		return false
+	}
 	for _, p := range r.Params {
 		switch strings.ToLower(p.Key) {
 		case "event", "replacewith", "description", "validtarget", "activezones", "validsource", "iscombat", "secondary",

@@ -313,7 +313,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	if amount <= 0 {
 		return
 	}
-	preventable := g.canDamagePrevented(source, isCombat)
+	preventable := !g.noPreventDamage && g.canDamagePrevented(source, isCombat)
 	if preventable && g.damagePrevented(source, target, isCombat, amount) {
 		return
 	}
@@ -408,7 +408,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 // own doc comment gives. table is dealPermanentDamage's own doc comment,
 // the identical contract for a player-shaped target.
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
-	preventable := g.canDamagePrevented(source, isCombat)
+	preventable := !g.noPreventDamage && g.canDamagePrevented(source, isCombat)
 	if preventable && g.damagePreventedPlayer(source, target, isCombat, amount) {
 		return
 	}

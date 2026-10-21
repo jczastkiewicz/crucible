@@ -50,9 +50,7 @@ import (
 // (castspell.go's own doc comment); the other 2 name UnlessPayer$
 // RememberedController and a non-mana UnlessCost$ (Mandatory PayEnergy<X>),
 // neither resolvable here regardless.
-var pumpAllUnresolvedParams = [...]string{
-	"ModeCost",
-}
+var pumpAllUnresolvedParams = [...]string{}
 
 // pumpAllEffect resolves Mode$/DB$/AB$ PumpAll for the blanket shape --
 // every card ValidCards$ matches across PumpZone$'s own zones (default

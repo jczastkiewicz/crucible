@@ -158,6 +158,18 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return 0, false
 		}
 		return g.Card(source).castX, true
+	case "TriggerRememberAmount":
+		// AbilityUtils.java:1732-1741: the Integers the trigger remembered, summed.
+		if g.resolving == nil {
+			return 0, false
+		}
+		total := 0
+		for _, e := range g.resolving.TriggerRemembered {
+			if n, ok := e.AsNumber(); ok {
+				total += n
+			}
+		}
+		return total, true
 	case "ResolvedThisTurn":
 		// AbilityUtils.java:1843: how often the ability being resolved has
 		// resolved this turn, itself included (SpellAbility.getResolvedThisTurn

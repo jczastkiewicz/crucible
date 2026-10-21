@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability additional card condition control defined effecthelpers game id trigger
+//enginelint:allow ability additional amount card condition control defined effecthelpers game id trigger
 
 import (
 	"fmt"
@@ -16,16 +16,16 @@ import (
 // stack above everything the resolving ability left there, the same
 // resolution order. OptionalDecider$ You makes it a "may". The copies carry
 // the spawning ability's X.
-// RememberSVarAmount$ remembers an Integer and fails closed, as do Static$
-// and the triggering-object copies.
+// RememberSVarAmount$ remembers an Integer (NumberEntity), which
+// Count$TriggerRememberAmount sums; Static$ and the triggering-object copies
+// fail closed.
 type immediateTriggerEffect struct{}
 
 func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "ImmediateTrigger", "RememberSVarAmount", "Static",
-		"AfterReplacement", "RememberDiscarded"); err != nil {
+	if err := rejectParams(a, "ImmediateTrigger", "Static", "AfterReplacement", "RememberDiscarded"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -58,6 +58,17 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 			remember = append(remember, es...)
 		}
 	}
+	// RememberSVarAmount$ (ImmediateTriggerEffect.java:83-87): the named SVar's
+	// amount, remembered as an Integer after the objects.
+	hasAmount := false
+	rememberedAmount := 0
+	if name, ok := a.Params.Param("RememberSVarAmount"); ok {
+		n, known := resolveNamedAmount(g, a.Amounts, source, name)
+		if !known {
+			return fmt.Errorf("engine: ImmediateTrigger: RememberSVarAmount$ %q is not resolvable", name)
+		}
+		hasAmount, rememberedAmount = true, n
+	}
 	each := hasParam(a, "RememberEach")
 	if each && len(remember) < amount {
 		return fmt.Errorf("engine: ImmediateTrigger: RememberEach$ has %d objects for %d triggers", len(remember), amount)
@@ -67,6 +78,9 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		r := remember
 		if each {
 			r = remember[i : i+1]
+		}
+		if hasAmount {
+			r = append(append([]EntityID(nil), r...), NumberEntity(rememberedAmount))
 		}
 		// Count$xPaid in the reflexive trigger reads the X of the ability that
 		// spawned it, 0 when that one announced none (AbilityUtils.java:

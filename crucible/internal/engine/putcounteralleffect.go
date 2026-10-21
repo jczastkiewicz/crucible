@@ -40,7 +40,7 @@ import (
 // subAbilityConditionMet does not cover.
 var putCounterAllUnresolvedParams = [...]string{
 	"ValidZone", "ValidZone2", "AmountByChosenMap", "TargetUnique",
-	"Ultimate", "ModeCost",
+	"Ultimate",
 }
 
 // putCounterAllEffect resolves Mode$/DB$/AB$ PutCounterAll. ConditionPresent$/

@@ -38,8 +38,7 @@ import "fmt"
 // actual zone change, the identical "cosmetic, ignored" treatment
 // SpellDescription$/TgtPrompt$ already get everywhere.
 var millUnresolvedParams = [...]string{
-	"Destination", "Optional", "Ultimate", "ReduceCost",
-	"ModeCost"}
+	"Destination", "Optional", "Ultimate", "ReduceCost"}
 
 // millEffect resolves Mode$/DB$/AB$ Mill. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

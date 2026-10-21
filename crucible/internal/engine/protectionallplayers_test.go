@@ -45,3 +45,17 @@ func TestProtectionAllValidPlayersAlonePermanent(t *testing.T) {
 		t.Error("a Permanent player protection ended with the turn")
 	}
 }
+
+func TestProtectionAllNeedsCardsOrPlayersAndAReadablePlayer(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"DB$ ProtectionAll | Gains$ red",
+		"DB$ ProtectionAll | ValidPlayers$ Bogus | Gains$ red",
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line); err == nil {
+			t.Errorf("%q resolved, want an error", line)
+		}
+	}
+}

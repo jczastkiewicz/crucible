@@ -11,8 +11,7 @@ import "fmt"
 // TargetsWithDefinedController$, TargetingPlayer$ and TargetsAtRandom$) are
 // enforced when the targets are chosen (targeting.go), so they do not refuse
 // here.
-var exchangeControlUnresolvedParams = [...]string{
-	"ModeCost"}
+var exchangeControlUnresolvedParams = [...]string{}
 
 // exchangeControlEffect is ControlExchangeEffect.java: two permanents trade
 // controllers. With targets, the first target is object1 and either the

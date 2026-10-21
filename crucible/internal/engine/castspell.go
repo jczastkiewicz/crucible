@@ -960,6 +960,13 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 			a.modesErr = err
 		} else if !modesOK {
 			return false
+		} else if cost, has := charmModeCost(a.Modes); has {
+			// Spree and Tiered (CostAdjustment.java:143-152): each chosen mode's
+			// ModeCost$ joins the cost.
+			if opts.hasRaiseMana {
+				cost = withExtraMana(opts.raiseMana, cost)
+			}
+			opts.raiseMana, opts.hasRaiseMana = cost, true
 		}
 	}
 	if !g.resolveTargets(controller, &a) || !g.resolveChainTargets(controller, &a) {

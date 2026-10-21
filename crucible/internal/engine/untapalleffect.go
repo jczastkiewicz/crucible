@@ -41,7 +41,7 @@ import (
 // ConditionPresent$ alongside it, dealDamageEffect's own identical
 // reasoning.
 var untapAllUnresolvedParams = [...]string{
-	"Planeswalker", "ModeCost"}
+	"Planeswalker"}
 
 // untapAllEffect resolves Mode$/DB$/AB$ UntapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

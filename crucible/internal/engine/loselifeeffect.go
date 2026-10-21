@@ -82,7 +82,7 @@ import "fmt"
 type loseLifeEffect struct{}
 
 var loseLifeUnresolvedParams = [...]string{
-	"NumCards", "ModeCost",
+	"NumCards",
 }
 
 func (loseLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

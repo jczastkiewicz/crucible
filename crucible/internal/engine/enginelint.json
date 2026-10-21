@@ -339,6 +339,7 @@
     ],
     "land": ["id", "zone", "card", "game", "player", "phase", "trigger", "replacement", "control"],
     "castspell": [
+      "costparts",
       "presentcheck",
       "condition",
       "discardeffect",

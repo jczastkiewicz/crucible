@@ -56,6 +56,11 @@ const (
 	entityStackItem EntityID = 1 << 30
 )
 
+// entityNumber is both tags together: an Integer in a remembered set, which
+// Java's set of Objects holds beside cards and players
+// (ImmediateTriggerEffect's RememberSVarAmount$).
+const entityNumber = entityPlayer | entityStackItem
+
 // NoEntity is the absent entity.
 const NoEntity EntityID = 0
 
@@ -69,6 +74,17 @@ func PlayerEntity(id PlayerID) EntityID { return entityPlayer | EntityID(id) }
 // target of Stifle and its kin (ADR-0041). It names that one stack object,
 // which stops existing once it leaves the stack.
 func StackItemEntity(id StackItemID) EntityID { return entityStackItem | EntityID(id) }
+
+// NumberEntity is the entity handle for an Integer a trigger remembered.
+func NumberEntity(n int) EntityID { return entityNumber | EntityID(n)&^entityNumber }
+
+// AsNumber returns the Integer this entity is, and whether it is one.
+func (e EntityID) AsNumber() (int, bool) {
+	if e&entityNumber != entityNumber {
+		return 0, false
+	}
+	return int(e &^ entityNumber), true
+}
 
 // AsCard returns the card this entity is, and whether it is one.
 func (e EntityID) AsCard() (CardID, bool) {
@@ -88,7 +104,7 @@ func (e EntityID) AsStackItem() (StackItemID, bool) {
 
 // AsPlayer returns the player this entity is, and whether it is one.
 func (e EntityID) AsPlayer() (PlayerID, bool) {
-	if e&entityPlayer == 0 {
+	if e&entityNumber != entityPlayer {
 		return NoPlayer, false
 	}
 	return PlayerID(e &^ entityPlayer), true

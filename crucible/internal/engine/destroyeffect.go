@@ -35,8 +35,7 @@ import (
 // the wrong permanent or silently dropping half of what it asked for
 // (PORT-8/GO-7): a Condition$ value subAbilityConditionMet does not read
 // (rejectUnreadCondition; Kicked and OptionalCost resolve); Ultimate$ (11) -- a planeswalker-ultimate-specific flag, its
-// own further mechanic; ModeCost$ (7) -- Charm's own per-mode cost linkage,
-// unrelated.
+// own further mechanic.
 //
 // SubAbility$ chains through resolveSubAbility (subability.go,
 // Registry.Resolve, effect.go) once this effect's own body finishes, the
@@ -46,7 +45,6 @@ import (
 // Resolve ever reaches it.
 var destroyUnresolvedParams = [...]string{
 	"Ultimate",
-	"ModeCost",
 }
 
 // destroyEffect resolves Mode$/DB$/AB$ Destroy. ConditionPresent$/

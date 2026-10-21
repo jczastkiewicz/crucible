@@ -44,7 +44,7 @@ type changeTargetsEffect struct{}
 // (PORT-8, GO-7): Chooser$ (another player chooses), RandomTarget$/
 // RandomTargetRestriction$ (a random legal target, Chef's Kiss and Grip of
 // Chaos, both of which also need a Defined$ or trigger mode this port does
-// not build), ModeCost$ (Spree; Charm charges no mode cost), and the
+// not build), and the
 // condition params subAbilityConditionMet reads as never met, silently:
 // ConditionTargetValidTargeting$/ConditionTargetsSingleTarget$ (Meddle,
 // Quicksilver Dragon) and ConditionPlayerDefined$/ConditionPlayerContains$
@@ -52,7 +52,7 @@ type changeTargetsEffect struct{}
 // TargetsWithControllerProperty$ is a canTargetSpellAbility filter
 // stackAbilityCandidates does not read.
 var changeTargetsUnresolvedParams = [...]string{
-	"Chooser", "RandomTarget", "RandomTargetRestriction", "ModeCost",
+	"Chooser", "RandomTarget", "RandomTargetRestriction",
 	"ConditionTargetValidTargeting", "ConditionTargetsSingleTarget",
 	"ConditionPlayerDefined", "ConditionPlayerContains", "TargetsWithControllerProperty",
 }

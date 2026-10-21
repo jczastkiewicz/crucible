@@ -68,7 +68,6 @@ func TestEffectsFailClosedOnUnresolvedShapes(t *testing.T) {
 		"DB$ GainControl | Defined$ Self | NewController$ TriggeredPlayer",
 		"DB$ GainControl | Defined$ TriggeredTarget",
 		"DB$ ExchangeControl | Defined$ TriggeredTarget",
-		"DB$ ExchangeControl | Defined$ Self | ModeCost$ 1",
 		"DB$ HealDamage | Defined$ TriggeredTarget",
 		"DB$ HealDamage | Defined$ Self | Condition$ Teamwork",
 		"DB$ EachDamage | DefinedDamagers$ TriggeredTarget | Defined$ You",

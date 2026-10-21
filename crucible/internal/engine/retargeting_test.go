@@ -443,7 +443,6 @@ func TestChangeTargetsRefusesUnbuiltShapes(t *testing.T) {
 		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility | RandomTarget$ True", "RandomTarget$ not resolvable yet"},
 		{"DB$ ChangeTargets | Defined$ Remembered", `Defined$ "Remembered" not resolvable yet`},
 		{"DB$ ChangeTargets | Defined$ TriggeredSourceSA", `Defined$ "TriggeredSourceSA" not resolvable yet`},
-		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility | ModeCost$ 1", "ModeCost$ not resolvable yet"},
 		{"DB$ ChangeTargets | Defined$ Targeted | ConditionTargetsSingleTarget$ True", "ConditionTargetsSingleTarget$ not resolvable yet"},
 		{"DB$ ChangeTargets | Defined$ Targeted | ChangeSingleTarget$ True", "ChangeSingleTarget$ without DefinedMagnet$"},
 		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility", "no triggering spell recorded"},

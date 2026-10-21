@@ -194,6 +194,9 @@ func (r *Registry) payTriggeredCost(g *Game, a *Ability, controller PlayerContro
 	if !ok || text == "0" {
 		return true, nil
 	}
+	if announced, _ := a.Params.Param("Announce"); announced == "NumTimes" {
+		return g.payNumTimesCost(controller, a, text)
+	}
 	uc, announce, err := g.triggeredCostShape(a, text, controller)
 	if err != nil {
 		return false, err

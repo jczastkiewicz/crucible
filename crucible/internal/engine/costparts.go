@@ -67,6 +67,80 @@ func (g *Game) triggeredCostShape(a *Ability, text string, controller PlayerCont
 	return uc, false, nil
 }
 
+// charmModeCost is the mana the chosen modes' ModeCost$ add to the spell
+// (Spree: every chosen mode's, Tiered: the one chosen). A cost that does not
+// parse as mana adds nothing; the corpus has only mana ones.
+func charmModeCost(modes []Ability) (mana.Cost, bool) {
+	var shards []mana.Shard
+	generic := 0
+	found := false
+	for _, m := range modes {
+		raw, ok := m.Params.Param("ModeCost")
+		if !ok {
+			continue
+		}
+		cost, err := mana.Parse(raw)
+		if err != nil {
+			continue
+		}
+		found = true
+		shards = append(shards, cost.Shards()...)
+		generic += cost.Generic()
+	}
+	return mana.FromShards(shards, generic), found
+}
+
+// payNumTimesCost is a triggered AB$'s "Mana<cost\\NumTimes>" with Announce$
+// NumTimes ("you may pay {2}{R} any number of times", PlaySpellAbility.
+// announceValuesLikeX): the controller names how many times, up to AnnounceMax$,
+// the cost is paid that many times over, and the count becomes the ability's
+// NumTimes SVar, which its ConditionCheckSVar$ and RememberSVarAmount$ read.
+// Paying zero times pays nothing and leaves the ability's condition unmet.
+func (g *Game) payNumTimesCost(controller PlayerController, a *Ability, text string) (bool, error) {
+	inner, ok := strings.CutPrefix(text, "Mana<")
+	if ok {
+		inner, ok = strings.CutSuffix(inner, `\NumTimes>`)
+	}
+	if !ok {
+		return false, fmt.Errorf("engine: triggered AB$ Cost$ %q with Announce$ NumTimes not resolvable yet", text)
+	}
+	unit, err := mana.Parse(inner)
+	if err != nil {
+		return false, fmt.Errorf("engine: triggered AB$ Cost$ %q: %w", text, err)
+	}
+	if !a.Optional && !controller.ConfirmOptionalTrigger(g, a.Controller, a.Source) {
+		return false, nil
+	}
+	n := controller.ChoosePayX(g, a.Controller, unit)
+	if n < 0 {
+		return false, nil
+	}
+	if raw, has := a.Params.Param("AnnounceMax"); has {
+		limit, known := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
+		if !known {
+			return false, fmt.Errorf("engine: triggered AB$ Cost$ %q: AnnounceMax$ %q not resolvable yet", text, raw)
+		}
+		n = min(n, max(limit, 0))
+	}
+	amounts := make(map[string]expr.Amount, len(a.Amounts)+1)
+	for k, v := range a.Amounts {
+		amounts[k] = v
+	}
+	amounts["numtimes"] = expr.Amount{Kind: expr.Literal, Value: n}
+	a.Amounts = amounts
+	if n == 0 {
+		a.paid.recorded = true
+		return true, nil
+	}
+	var shards []mana.Shard
+	for range n {
+		shards = append(shards, unit.Shards()...)
+	}
+	paid := g.payUnlessCostInto(controller, a, a.Controller, unlessCost{hasMana: true, mana: mana.FromShards(shards, unit.Generic()*n)}, &a.paid)
+	a.paid.recorded = paid
+	return paid, nil
+}
+
 // announceTriggeredX announces the X of a triggered AB$'s Cost$ and returns
 // the cost with that X in place. The controller names it (ChoosePayX, asked
 // with the cost's mana); AbilityUtils.getAnnouncementBounds caps it at XMax$

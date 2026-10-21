@@ -39,9 +39,6 @@ func (protectionAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		}
 		g.timestamp++
 		for _, p := range ps {
-			if g.Player(p).Lost {
-				continue
-			}
 			g.pumps = append(g.pumps, pumpRecord{
 				Timestamp: g.timestamp, Keywords: protectionKeywords(gains, false), OnPlayer: true, Player: p,
 				Permanent: permanent,

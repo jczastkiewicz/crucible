@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -720,7 +721,11 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	definedSpec, hasDefined := a.Params.Param("Defined")
 	defined := hasDefined || chooseFromDefined
 	changeType, _ := a.Params.Param("ChangeType")
-	if strings.HasPrefix(changeType, "EACH") {
+	// ChangeZoneEffect.java:1119-1120: "EACH a & b" picks a card per listed
+	// type, ChangeNum$ times each. Its alternative-zone and Defined$ shapes
+	// are not audited.
+	eachTypes, each := strings.CutPrefix(changeType, "EACH ")
+	if strings.HasPrefix(changeType, "EACH") && !each || each && (hasAlt || defined) {
 		return fmt.Errorf("engine: ChangeZone: ChangeType$ %q not resolvable yet", changeType)
 	}
 	_, mandatory := a.Params.Param("Mandatory")
@@ -839,7 +844,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		if (searchedLibrary || searchedParam) && decider == player {
 			g.Player(decider).librarySearched++
 		}
-		if !defined && changeType != "" {
+		if !defined && changeType != "" && !each {
 			fetchList = filterValid(g, fetchList, changeType, a.Controller, a.Source)
 		}
 
@@ -871,7 +876,33 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				}
 				return got, nil
 			}
-			if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
+			if each {
+				// One optional pick per type and repetition from the cards
+				// matching that type and not yet chosen (:1119-1135); a
+				// declined or empty pick moves on to the next.
+				for _, thisType := range strings.Split(eachTypes, " & ") {
+					for i := 0; i < changeNum; i++ {
+						var rest []CardID
+						for _, id := range filterValid(g, fetchList, thisType, a.Controller, a.Source) {
+							if !slices.Contains(chosen, id) {
+								rest = append(rest, id)
+							}
+						}
+						if len(rest) == 0 {
+							continue
+						}
+						lo := 0
+						if mandatory {
+							lo = 1
+						}
+						got, err := pickFrom(rest, lo, 1)
+						if err != nil {
+							return err
+						}
+						chosen = append(chosen, got...)
+					}
+				}
+			} else if _, differentNames := a.Params.Param("DifferentNames"); differentNames {
 				// The one-at-a-time loop (ChangeZoneEffect.java:1157-1231;
 				// allowMultiSelect is false under DifferentNames$): each pick
 				// leaves out every card sharing a name with an earlier one. A

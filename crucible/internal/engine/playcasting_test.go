@@ -345,7 +345,7 @@ func TestPlayRejectsUnbuiltShapes(t *testing.T) {
 	for _, tc := range []struct {
 		line, want string
 	}{
-		{"DB$ Play | Defined$ Remembered | ReplaceGraveyard$ Exile", "ReplaceGraveyard$"},
+		{"DB$ Play | Defined$ Remembered | ReplaceGraveyard$ Hand", "ReplaceGraveyard$"},
 		{"DB$ Play | Defined$ Remembered | TgtZone$ Graveyard", "TgtZone$"},
 		{"DB$ Play | Valid$ Card.ExiledWithSourceLKI | ValidZone$ Exile", "ExiledWithSourceLKI"},
 		{"DB$ Play | Valid$ Card.cmcLEX | ValidZone$ Exile", "cmcLEX"},
@@ -534,5 +534,34 @@ func TestPlayValidSharesNameWithAZone(t *testing.T) {
 	err := resolvePlay(t, g, host, engine.NewScriptedController())
 	if err == nil || !strings.Contains(err.Error(), "sharesNameWith ThisTurnCast") {
 		t.Errorf("err = %v, want a refusal naming sharesNameWith ThisTurnCast", err)
+	}
+}
+
+// TestPlayReplaceGraveyardExilesTheSpellAfterItResolves proves
+// ReplaceGraveyard$ Exile (PlayEffect.java:441-446): the spell is exiled
+// instead of going to the graveyard, unless ReplaceGraveyardValid$ excludes it.
+func TestPlayReplaceGraveyardExilesTheSpellAfterItResolves(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		valid string
+		want  engine.ZoneType
+	}{
+		{"", engine.Exile},
+		{" | ReplaceGraveyardValid$ Instant,Sorcery", engine.Exile},
+		{" | ReplaceGraveyardValid$ Creature", engine.Graveyard},
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		spell := g.NewCard(gainInstant(t, "Gain", "W", "4"), p, engine.Graveyard)
+		host := pushPlayLine(t, g, p, nil, "DB$ Play | Defined$ Remembered | ValidSA$ Spell | WithoutManaCost$ True | ReplaceGraveyard$ Exile"+tc.valid)
+		c := engine.NewScriptedController()
+		if err := resolvePlay(t, g, host, c, spell); err != nil {
+			t.Fatal(err)
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatal(err)
+		}
+		if got := g.Card(spell).Zone; got != tc.want {
+			t.Errorf("%q: resolved spell in %v, want %v", tc.valid, got, tc.want)
+		}
 	}
 }

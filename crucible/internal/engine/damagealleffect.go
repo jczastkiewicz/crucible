@@ -35,9 +35,8 @@ import (
 
 // damageAllUnresolvedParams names DamageAllEffect's own params this port
 // does not evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// ValidTgts$/TargetMin$/TargetMax$/TargetUnique$ (9/-/-/1) --
-// getFirstTargetedPlayer's own extra battlefield-ownership filter, this
-// file has nowhere to route it through;
+// TargetUnique$ (1) -- a target-uniqueness rule across the chain, this file
+// has nowhere to route it through;
 // Ultimate$ (4) -- a planeswalker-ultimate-
 // specific flag, its own further mechanic; Remembered$/SVar$/XColor$/
 // TriggeredSpellAbility$ (1 each) -- each its own further reference this
@@ -45,7 +44,7 @@ import (
 // condition.go's own subAbilityConditionMet would otherwise silently no-op
 // a card naming either, dealDamageEffect's own identical reasoning.
 var damageAllUnresolvedParams = [...]string{
-	"ValidTgts", "TargetUnique",
+	"TargetUnique",
 	"Ultimate", "Remembered", "SVar", "XColor", "TriggeredSpellAbility"}
 
 // damageAllEffect resolves Mode$/DB$/AB$ DamageAll. ConditionPresent$/
@@ -101,9 +100,19 @@ func (damageAllEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 	from := sources[0]
 
 	var table damageTable
+	// DamageAllEffect.java:62,76-78: the first targeted player (ValidTgts$
+	// Player/Opponent) narrows the battlefield sweep to what they control;
+	// ValidPlayers$ is not narrowed.
+	targetPlayer := NoPlayer
+	if ps := playersIn(a.Targets); len(ps) > 0 {
+		targetPlayer = ps[0]
+	}
 	if validCards, ok := a.Params.Param("ValidCards"); ok {
 		spec := valid.Parse(validCards)
 		for _, pid := range g.Players() {
+			if targetPlayer != NoPlayer && pid != targetPlayer {
+				continue
+			}
 			for _, cid := range g.Zone(Battlefield, pid).Cards() {
 				if Matches(g, g.Card(cid), spec, source.Controller(), a.Source) {
 					g.dealPermanentDamage(controller, from, cid, dmg, false, false, &table)

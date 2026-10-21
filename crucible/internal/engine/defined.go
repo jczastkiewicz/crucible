@@ -91,6 +91,21 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		}
 		return out, nil
 	}
+	// AbilityUtils.java:1077-1079: "OppNon<spec>" is every opponent but those
+	// spec names (OppNonTriggeredTarget, Amarant Coral's "each other opponent").
+	if rest, ok := strings.CutPrefix(defined, "OppNon"); ok && rest != "" {
+		excluded, err := definedPlayers(g, controller, host, rest, refs)
+		if err != nil {
+			return nil, err
+		}
+		var out []PlayerID
+		for _, pid := range g.playersInTurnOrder() {
+			if pid != controller && !slices.Contains(excluded, pid) {
+				out = append(out, pid)
+			}
+		}
+		return out, nil
+	}
 	if base, prop, dotted := strings.Cut(defined, "."); dotted && !strings.Contains(prop, ",") {
 		switch base {
 		case "Registered", "Remembered", "RememberedController", "RememberedOwner", "ImprintedController", "ImprintedOwner":

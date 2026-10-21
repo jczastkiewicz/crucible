@@ -11,14 +11,14 @@ import (
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), a
 // different chooser (Choser$), the alternative selection loops
 // (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$, RandomChange$),
-// entering-state modifiers (FaceDown*$, WithCounters$, Attacking$), exile
+// entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (ExileWithCounters$,
 // DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
 	"SourceZone", "FromBottom", "Choser", "SetChosenPlayer", "WithTotalCMC",
 	"ForEachColorPair", "WithDifferentPowers", "RandomChange", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCounters", "WithCountersAmount", "Attacking", "Blocking",
+	"WithCounters", "WithCountersAmount",
 	"ExileWithCounters", "DefinedExiler", "StaticEffect",
 	"Pawprint", "Boast", "UnlessResolveSubs",
 	"Ultimate",
@@ -170,7 +170,14 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			}
 		}
 		for _, id := range chosen {
+			// DigEffect.java:409: Attacking$/Blocking$ join combat as the card
+			// enters, changeZoneJoinCombat's own timing note.
+			joined, err := g.changeZoneJoinCombat(controller, a, id, dest1, NoPlayer)
+			if err != nil {
+				return fmt.Errorf("engine: Dig: %w", err)
+			}
 			melded := g.moveByEffect(controller, id, dest1, libPos1, NoPlayer, tapped)
+			g.changeZoneLeftCombat(id, joined)
 			if dest1 == Exile {
 				g.markExiledWith(id, a.Source)
 				g.exileFaceDown(a, id)

@@ -174,7 +174,8 @@ func TestChangeZoneEffectRejectsUnresolvedShapes(t *testing.T) {
 		"DB$ ChangeZone | Defined$ Self | Origin$ Flashback | Destination$ Hand",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Command",
 		"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Library | LibraryPosition$ Bogus",
-		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Creature",
+		"DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Creature | Defined$ Self",
+		"DB$ ChangeZone | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | ChangeType$ EACH Creature & Land",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		c := engine.NewScriptedController()
@@ -499,5 +500,28 @@ func TestChangeZoneEffectDifferentNamesMandatoryAndBadOrder(t *testing.T) {
 	def = etbChainDef(t, "Test Reorder Bad", "DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True | Reorder$ True")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
 		t.Fatal("an order that drops a card was accepted")
+	}
+}
+
+// TestChangeZoneEffectEachTypePicksOnePerType proves ChangeType$ EACH a & b
+// (ChangeZoneEffect.java:1119-1135): one pick per listed type from the cards
+// matching it, a card matching two types taken once, an empty type skipped.
+func TestChangeZoneEffectEachTypePicksOnePerType(t *testing.T) {
+	t.Parallel()
+
+	const line = "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ EACH Land.Forest & Land.Basic & Land.Forest & Creature"
+	g, p, _ := newTwoPlayerGame(t)
+	forest := g.NewCard(landDef(t, "Test Forest", "Basic Land Forest"), p, engine.Library)
+	plains := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{forest})
+	c.QueueCardChoice([]engine.CardID{plains})
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Each", line), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for name, id := range map[string]engine.CardID{"forest": forest, "plains": plains} {
+		if z := g.Card(id).Zone; z != engine.Hand {
+			t.Errorf("%s zone = %v, want Hand", name, z)
+		}
 	}
 }

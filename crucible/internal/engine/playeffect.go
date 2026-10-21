@@ -42,10 +42,7 @@ type playEffect struct{}
 
 // playUnresolvedParams are PlayEffect params this port does not resolve,
 // each rejected before anything is played (PORT-8, GO-7):
-// ReplaceGraveyard$/ReplaceGraveyardValid$ (35 lines; "exile it instead of
-// putting it anywhere else" is an effect-card replacement on the spell's own
-// trip off the stack, and the Stack -> Graveyard move has no replacement
-// hook, ADR-0018 Decision point 3); a card built from outside the game
+// a card built from outside the game
 // (CopyFromChosenName$, AnySupportedCard$ and its RandomCopied$/RandomNum$/
 // ChoiceNum$); alternate states (CastFaceDown$, CastTransformed$,
 // ReplaceIlluMask$); alternative or modified costs past a plain mana
@@ -65,7 +62,7 @@ type playEffect struct{}
 // reads straight from its own EntityID list, with no target zone of its
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
-	"ReplaceGraveyard", "ReplaceGraveyardValid", "CopyFromChosenName", "AnySupportedCard", "RandomCopied",
+	"CopyFromChosenName", "AnySupportedCard", "RandomCopied",
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
 	"PlayRaiseCost", "ManaConversion", "ControlledByPlayer", "WithTotalCMC", "ShowCards", "ZoneRegardless"}
 
@@ -94,6 +91,9 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	}
 	if err := rejectParams(a, "Play", playUnresolvedParams[:]...); err != nil {
 		return err
+	}
+	if zone, ok := a.Params.Param("ReplaceGraveyard"); ok && zone != "Exile" {
+		return fmt.Errorf("engine: Play: ReplaceGraveyard$ %q not resolvable yet", zone)
 	}
 	if _, hasValidTgts := a.Params.Param("ValidTgts"); !hasValidTgts {
 		if err := rejectParams(a, "Play", "TgtZone"); err != nil {
@@ -228,6 +228,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			}
 		}
 		if g.castSpell(controller, caster, pick, cast) {
+			g.playReplaceGraveyard(a, pick)
 			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
 		}
@@ -572,4 +573,24 @@ func validSAPropertyMatches(g *Game, a *Ability, caster PlayerID, c *Card, prop 
 		return false, fmt.Errorf("engine: Play: ValidSA$ property %q not resolvable yet", name)
 	}
 	return Matches(g, c, valid.Parse("Card."+prop), caster, a.Source), nil
+}
+
+// playReplaceGraveyard is PlayEffect.addReplaceGraveyardEffect
+// (PlayEffect.java:441-446): ReplaceGraveyard$ Exile exiles the spell it cast
+// instead of putting it into a graveyard, when ReplaceGraveyardValid$ (absent
+// means always) matches it. Java makes the effect before the cast and keeps
+// it to end of turn; this port marks the card once it is on the stack, which
+// the Stack -> Graveyard move reads and clears (Game.Move). Another
+// destination zone is not in the corpus (37 of 37 lines say Exile) and is
+// refused up front by Resolve.
+func (g *Game) playReplaceGraveyard(a *Ability, id CardID) {
+	zone, ok := a.Params.Param("ReplaceGraveyard")
+	if !ok || zone != "Exile" {
+		return
+	}
+	if v, ok := a.Params.Param("ReplaceGraveyardValid"); ok &&
+		!Matches(g, g.Card(id), valid.Parse(v), a.Controller, a.Source) {
+		return
+	}
+	g.Card(id).graveyardToExile = true
 }

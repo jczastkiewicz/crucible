@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone effecthelpers valid zonemove
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers valid zonemove damageresolveeffect
 
 import (
 	"fmt"
@@ -13,11 +13,11 @@ import (
 // cannot honour yet: the stack-object and card-type loops
 // (RepeatSpellAbilities$, RepeatTypesFrom$), a delayed per-player loop
 // (NextTurnForEachPlayer$), vote amounts (AmountFromVotes$), the batched
-// damage/life tables (DamageMap$, LoseLifeMap$), a
+// life table (LoseLifeMap$), a
 // chooser-ordered loop (ChooseOrder$).
 var repeatEachUnresolvedParams = [...]string{
 	"RepeatSpellAbilities", "RepeatTypesFrom", "NextTurnForEachPlayer", "AmountFromVotes",
-	"DamageMap", "LoseLifeMap", "ChooseOrder",
+	"LoseLifeMap", "ChooseOrder",
 	"Ultimate",
 }
 
@@ -53,6 +53,12 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		// RepeatEachEffect.java:84-86, :202-205: one CardZoneTable for the whole
 		// loop; the batched ChangesZoneAll fires when it ends.
 		defer g.openZoneBatch(controller)()
+	}
+	if hasParam(a, "DamageMap") {
+		// RepeatEachEffect.java:79-82: every DealDamage in the loop records into
+		// this table (subability.go hands it down); it is dealt once after the
+		// loop with this ability as the cause.
+		a.damageMap = &pendingDamage{}
 	}
 	_, useImprinted := a.Params.Param("UseImprinted")
 	m := &source.Memory
@@ -140,6 +146,16 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			}
 			restoreRememberedPlayers(m, p, old)
 		}
+	}
+	if a.damageMap != nil && hasParam(a, "DamageMap") {
+		// RepeatEachEffect.java:199-201.
+		entries := a.damageMap.entries
+		a.damageMap.entries = nil
+		table := g.dealPendingDamage(controller, entries)
+		if hasParam(a, "RememberDamaged") {
+			rememberDamaged(g, a.Source, table)
+		}
+		g.checkDamageTableTriggers(controller, table, false)
 	}
 	return nil
 }

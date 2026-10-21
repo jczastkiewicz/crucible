@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot
+//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 // cannot honour yet, grouped by the mechanism each needs: an entering-state
 // modifier (Transformed$, FaceDown$, AttachedTo$ ...; WithCountersType$ and
 // WithCountersAmount$ resolve, changeZoneEnter; Attacking$/Blocking$ resolve,
-// changeZoneJoinCombat), a delayed follow-up (StaticEffect$; Duration$ UntilHostLeavesPlay resolves,
+// changeZoneJoinCombat), a delayed follow-up (Duration$ UntilHostLeavesPlay resolves,
 // changeZoneDuration, but not its ReturnAbility$/ReturnValid$ delayed
 // trigger), an alternative destination prompt (DestinationAlternative$), a
 // non-default search loop (DifferentNames$ and Reorder$ (library only) resolve; DifferentCMC$/DifferentPower$, WithTotal*$, Exactly$, Reorder$; and
@@ -38,7 +38,6 @@ import (
 var changeZoneUnresolvedParams = [...]string{
 	"Transformed", "WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter", "FaceDown",
-	"StaticEffect",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 	"RandomOrder", "AtRandom", "DifferentCMC", "DifferentPower",
 	"ShareLandType", "WithTotalCMC", "WithTotalPower", "WithTotalCardTypes",
@@ -86,6 +85,11 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	// trigger -- makes the whole effect do nothing.
 	if until && source.Zone != Battlefield && source.Zone != Stack {
 		return nil
+	}
+	// StaticEffect$ is read before anything moves, so a static this port cannot
+	// apply refuses the line whole (GO-7); changeZoneMoved re-reads it per card.
+	if _, err := changeZoneStaticTemplate(g, a); err != nil {
+		return err
 	}
 	destName, _ := a.Params.Param("Destination")
 	dest, err := changeZoneDestination(destName)
@@ -382,6 +386,14 @@ func changeZoneGainControl(g *Game, a *Ability) (PlayerID, error) {
 	return players[0], nil
 }
 
+// changeZoneMoved is everything a ChangeZone does to a card that actually
+// moved: changeZoneMemory, then the StaticEffect$ static it takes.
+func (g *Game) changeZoneMoved(a *Ability, source *Card, id CardID) {
+	changeZoneMemory(a, source, id)
+	tmpl, _ := changeZoneStaticTemplate(g, a) // validated in Resolve
+	g.applyChangeZoneStatic(tmpl, id)
+}
+
 // changeZoneMemory applies RememberChanged$/ForgetChanged$/Imprint$ for a
 // card that actually moved.
 func changeZoneMemory(a *Ability, source *Card, id CardID) {
@@ -568,7 +580,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 		}
 		moved[from] = append(moved[from], id)
 		movedAll = append(movedAll, id)
-		changeZoneMemory(a, source, id)
+		g.changeZoneMoved(a, source, id)
 	}
 	for _, from := range movedOrigins {
 		g.checkChangesZoneAllTriggers(controller, moved[from], from, dest)
@@ -982,7 +994,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 					g.markExiledWith(id, a.Source)
 					g.exileFaceDown(a, id)
 				}
-				changeZoneMemory(a, source, id)
+				g.changeZoneMoved(a, source, id)
 				if until {
 					returns = g.untilReturns(returns, a.Source, from, []CardID{id})
 				}
@@ -1006,7 +1018,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			}
 			moved[from] = append(moved[from], id)
 			movedAll = append(movedAll, id)
-			changeZoneMemory(a, source, id)
+			g.changeZoneMoved(a, source, id)
 		}
 		for _, from := range movedOrigins {
 			g.checkChangesZoneAllTriggers(controller, moved[from], from, dest)

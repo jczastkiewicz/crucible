@@ -748,7 +748,7 @@ func (c *faceCompiler) reference(key, name string) (SubRef, error) {
 	// like a trigger's, and only the naming key says they are continuous
 	// effects (EffectEffect.java adds them through addStaticAbility).
 	want := SubAbility
-	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") || strings.EqualFold(key, "AddStaticAbility") {
+	if strings.EqualFold(key, "StaticAbilities") || strings.EqualFold(key, "AddStaticAbilities") || strings.EqualFold(key, "AddStaticAbility") || strings.EqualFold(key, "StaticEffect") {
 		want = StaticEffect
 	}
 	ability, err := c.line(body, want)
@@ -824,6 +824,10 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 		return []string{p.Value}, true
 	case strings.EqualFold(p.Key, "Choices") && choiceAPIs[a.Name]:
 		return splitTrim(p.Value, ","), true
+	// GameAction.setupStaticEffect (:718) parses the SVar named by a ChangeZone's
+	// `StaticEffect$` as a static ability.
+	case strings.EqualFold(p.Key, "StaticEffect") && a.Name == "ChangeZone":
+		return []string{p.Value}, true
 	case effectTraitKeys[strings.ToLower(p.Key)] && a.Name == "Effect":
 		return splitTrim(p.Value, ","), true
 	case cloneTraitKeys[strings.ToLower(p.Key)] && (a.Name == "Clone" || a.Name == "CopyPermanent"):

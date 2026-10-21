@@ -114,3 +114,20 @@ func TestRepeatEachEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseOrder$")
 	}
 }
+
+// TestRepeatEachEffectDamageMapDealsOnceAfterTheLoop proves DamageMap$: each
+// iteration's DealDamage records into the loop's table and the RepeatEach
+// itself deals the whole batch afterwards (RepeatEachEffect.java:199-201).
+func TestRepeatEachEffectDamageMapDealsOnceAfterTheLoop(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	def := etbChainDef(t, "Test RepeatEach Map", "DB$ RepeatEach | RepeatPlayers$ Player | DamageMap$ True | RepeatSubAbility$ DBDmg",
+		"DBDmg", "DB$ DealDamage | Defined$ Remembered | NumDmg$ 2")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Player(p).Life != 18 || g.Player(other).Life != 18 {
+		t.Errorf("life = %d/%d, want 18/18", g.Player(p).Life, g.Player(other).Life)
+	}
+}

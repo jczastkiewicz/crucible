@@ -1249,7 +1249,6 @@ Creature Human Soldier Archer	Creature - Human Soldier Archer
 Creature Human Soldier Archer Ranger	Creature - Human Soldier Archer Ranger
 Creature Human Soldier Assassin	Creature - Human Soldier Assassin
 Creature Human Soldier Berserker	Creature - Human Soldier Berserker
-Creature Human Soldier Creature	Creature - Human Soldier
 Creature Human Soldier Hero	Creature - Human Soldier Hero
 Creature Human Soldier Knight	Creature - Human Soldier Knight
 Creature Human Soldier Ranger	Creature - Human Soldier Ranger
@@ -3046,7 +3045,6 @@ Legendary Creature Human Advisor Wizard	Legendary Creature - Human Advisor Wizar
 Legendary Creature Human Alien Shapeshifter	Legendary Creature - Human Alien Shapeshifter
 Legendary Creature Human Ally	Legendary Creature - Human Ally
 Legendary Creature Human Angel	Legendary Creature - Human Angel
-Legendary Creature Human Angel Warrior	Legendary Creature - Human Angel Warrior
 Legendary Creature Human Archer	Legendary Creature - Human Archer
 Legendary Creature Human Archer Hero	Legendary Creature - Human Archer Hero
 Legendary Creature Human Archer Ranger	Legendary Creature - Human Archer Ranger
@@ -3307,6 +3305,7 @@ Legendary Creature Merfolk Cleric	Legendary Creature - Merfolk Cleric
 Legendary Creature Merfolk Druid	Legendary Creature - Merfolk Druid
 Legendary Creature Merfolk God	Legendary Creature - Merfolk God
 Legendary Creature Merfolk Noble	Legendary Creature - Merfolk Noble
+Legendary Creature Merfolk Performer	Legendary Creature - Merfolk Performer
 Legendary Creature Merfolk Rogue	Legendary Creature - Merfolk Rogue
 Legendary Creature Merfolk Scout	Legendary Creature - Merfolk Scout
 Legendary Creature Merfolk Shaman	Legendary Creature - Merfolk Shaman

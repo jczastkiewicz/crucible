@@ -787,37 +787,6 @@ func textChangedDef(src *compile.Card, gained []*compile.Ability) *compile.Card 
 	return out
 }
 
-// applyPumpEffects re-adds every resolved Pump effect's own contribution
-// (pumpeffect.go) into its target's Layer 7b/7c PT and Layer 6 KeywordMod --
-// the one-shot counterpart to applyContinuousPT's/applyContinuousKeyword's
-// own Mode$ Continuous statics loop, called from CheckStateBasedActions
-// (action.go) right after both so it runs after their own Clear() has
-// already emptied every battlefield card's effects for this pass. A Pump
-// record has no S: line behind it to re-derive from, so it is kept in
-// Game.pumps (game.go) directly instead and applied fresh every pass the
-// identical way a static ability's own line is -- cleanupStep (turn.go)
-// drops every non-Permanent record at end of turn, CR 514.2's own "until
-// end of turn" effects wearing off, closing the gap applyContinuousPT's own
-// doc comment used to name.
-//
-// A record whose card has left the battlefield since it was recorded (or
-// was never there -- Enchanted$/Equipped$ resolving to a non-permanent) is
-// skipped rather than applied: Card.PT/KeywordMod are only ever read for a
-// battlefield permanent (Card.Power/Toughness/HasKeyword), so adding to
-// either for a card nowhere reads them from would be inert, not wrong, but
-// skipping is also what keeps a since-departed card's own entry from
-// silently piling up in Game.pumps until this turn's cleanup removes it.
-//
-// A phased-out card's record is skipped too, and kept: the Clear() passes
-// before this walk the battlefield enumeration, which leaves a phased-out
-// permanent out (Zone.Cards, ADR-0021), so re-adding to it would stack one
-// more copy of the pump every pass. It applies again once the card phases
-// back in, as Java's own pump -- a boost stored on the card itself -- does.
-func applyPumpEffects(g *Game) {
-	pumpLayerKeywords(g)
-	pumpPT(g)
-}
-
 // livePumps calls fn for every pump record whose card is on the
 // battlefield and phased in (or, for a PumpZone$ pump, still in the zone it was
 // made in); a Perpetual record applies in every zone, as the

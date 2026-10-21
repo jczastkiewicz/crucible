@@ -179,22 +179,6 @@ func (g *Game) checkRingTemptsYouTriggers(c PlayerController, p PlayerID, bearer
 	}, "RingTemptsYou"))
 }
 
-// anyRingBearerCandidateMatches reports whether spec, read from host,
-// matches any creature p could choose as Ring-bearer. A ValidCard$ trigger
-// none of them matches cannot fire on this temptation -- with no creature
-// the trigger's Card is null, whoever the kept bearer is (an opponent's Call of the Ring:
-// Creature.YouCtrl is read against its controller). Level 1 only adds
-// Legendary, so the candidates are the same after the level changes.
-func (g *Game) anyRingBearerCandidateMatches(p PlayerID, host *Card, spec string) bool {
-	parsed := valid.Parse(spec)
-	for _, id := range g.ringBearerCandidates(p) {
-		if Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
-			return true
-		}
-	}
-	return false
-}
-
 // dropStolenRingBearers is controllerChangeZoneCorrection's Ring half for
 // a control change no effect made -- a Layer 2 static
 // (GameAction.checkStaticAbilities runs the correction for every

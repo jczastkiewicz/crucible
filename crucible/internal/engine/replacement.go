@@ -488,47 +488,6 @@ func replacementRequirementsCheck(g *Game, host *Card, amounts map[string]expr.A
 	return triggerCommonRequirementsMet(g, host, amounts, r)
 }
 
-// replacementTapsOnMove reports whether r is a resolvable "enters tapped"
-// replacement matching moved's own zone change (matched, the second return
-// value) and, if so, whether it actually taps (shouldTap, the first): Event$
-// Moved, an optional Origin$/Destination$ restriction (present on 2 and 624
-// of the real ETBTapped-named lines respectively -- absence of either means
-// unrestricted, ReplaceMoved.java's own hasParam guard), ValidCard$ matched
-// against moved the identical way a trigger's own ValidCard$ is (Matches,
-// valid.go), replacementRequirementsCheck (above), and a ReplaceWith$
-// sub-ability tapAbilityResolvesTap (below) recognizes -- matched true
-// whether or not the checkland-style condition inside that sub-ability
-// actually holds, since CR 616's own "which replacement applies" choice is
-// decided by ReplaceWith$ naming a resolvable shape at all, not by what that
-// shape's own resolution produces.
-func replacementTapsOnMove(g *Game, controller PlayerController, r *compile.Ability, movedCard *Card, origin ZoneType, hostController PlayerID, host CardID, amounts map[string]expr.Amount) (shouldTap, matched bool) {
-	if !strings.EqualFold(r.Name, "Moved") {
-		return false, false
-	}
-	if !replacementZoneMatches(r, "Destination", Battlefield) {
-		return false, false
-	}
-	if !replacementZoneMatches(r, "Origin", origin) {
-		return false, false
-	}
-	validCard, ok := r.Param("ValidCard")
-	if !ok {
-		return false, false
-	}
-	if !Matches(g, movedCard, valid.Parse(validCard), hostController, host) {
-		return false, false
-	}
-	if !replacementRequirementsCheck(g, g.Card(host), amounts, r) {
-		return false, false
-	}
-	for _, sub := range r.Subs {
-		if strings.EqualFold(sub.Key, "ReplaceWith") {
-			return tapAbilityResolvesTap(g, controller, sub.Ability, g.Card(host), amounts)
-		}
-	}
-	return false, false
-}
-
 // replacementZoneMatches reports whether r's key names zone among its
 // comma-separated zone list, or carries no such param at all -- an absent
 // Origin$/Destination$ is not a restriction (ReplaceMoved.java's own

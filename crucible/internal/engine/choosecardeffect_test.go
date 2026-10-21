@@ -353,3 +353,29 @@ func TestChooseCardEffectTargetControlsLimitsPoolToChoosers(t *testing.T) {
 		}
 	}
 }
+
+// EachBasicType$ asks once per basic land type the chooser has, in Java's
+// HashSet order (Mountain, Swamp, Forest, Plains, Island), and a type nobody
+// has is not asked (ChooseCardEffect.java:119-130; Sundering Titan).
+func TestChooseCardEffectEachBasicTypeAsksInHashOrder(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	plains := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Battlefield)
+	forest := g.NewCard(landDef(t, "Test Forest", "Basic Land Forest"), p, engine.Battlefield)
+	mountain := g.NewCard(landDef(t, "Test Mountain", "Basic Land Mountain"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{mountain})
+	c.QueueCardChoice([]engine.CardID{forest})
+	c.QueueCardChoice([]engine.CardID{plains})
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test EachBasicType",
+		"DB$ ChooseCard | Defined$ You | Choices$ Land | EachBasicType$ True | RememberChosen$ True"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	want := []engine.EntityID{engine.CardEntity(mountain), engine.CardEntity(forest), engine.CardEntity(plains)}
+	if got := g.Card(host).Memory.Remembered(); !slices.Equal(got, want) {
+		t.Errorf("Remembered = %v, want %v", got, want)
+	}
+}

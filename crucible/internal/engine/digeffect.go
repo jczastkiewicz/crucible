@@ -71,9 +71,6 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		return err
 	}
 	changeValid, _ := a.Params.Param("ChangeValid")
-	if strings.Contains(changeValid, "ChosenType") {
-		return fmt.Errorf("engine: Dig: ChangeValid$ %q names ChosenType, not resolvable yet", changeValid)
-	}
 	changeNum, changeAll, anyNumber := 1, false, false
 	if raw, ok := a.Params.Param("ChangeNum"); ok {
 		switch {

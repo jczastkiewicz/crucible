@@ -4,22 +4,22 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
 // debuffEffect is DebuffEffect.java: each targeted or Defined$ card on the
 // battlefield loses Keywords$ until end of turn (or for good with Duration$
 // Permanent). The "Protection from <color>" special cases -- splitting
-// "Protection from each color" and the Ward Auras' Protection: form -- and
-// AllSuffixKeywords$ walk removal are not built: a line whose card could hit
-// them fails closed rather than removing the wrong thing.
+// "Protection from each color" and the Ward Auras' Protection: form -- are
+// not built: a line whose card could hit them fails closed rather than
+// removing the wrong thing. AllSuffixKeywords$ walk (Hammerheim) removes every
+// Landwalk keyword the target has; any other value does nothing, as in Java
+// (DebuffEffect.java:90-97).
 type debuffEffect struct{}
 
 func (debuffEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "Debuff", "AllSuffixKeywords"); err != nil {
 		return err
 	}
 	permanent, until, err := animateDuration(a, "Debuff")
@@ -38,6 +38,15 @@ func (debuffEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Debuff: %w", err)
+	}
+	if suffix, ok := a.Params.Param("AllSuffixKeywords"); ok && suffix == "walk" {
+		for _, id := range cards {
+			for _, line := range g.Card(id).KeywordLines() {
+				if strings.HasPrefix(line, "Landwalk:") && !slices.Contains(kws, line) {
+					kws = append(kws, line)
+				}
+			}
+		}
 	}
 	for _, kw := range kws {
 		if !strings.HasPrefix(kw, "Protection from ") {

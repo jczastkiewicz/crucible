@@ -193,6 +193,27 @@ func TestCloneCopiesStackByTimestamp(t *testing.T) {
 	wantPT(t, g, host, 4, 5)
 }
 
+// TestCloneNotDefinedTargetedSparesTheTarget proves Mirrorweave's shape
+// (CloneTarget$ Valid Creature.YouCtrl+NotDefinedTargeted): every other
+// creature becomes a copy of the target, and the target itself is not
+// among them.
+func TestCloneNotDefinedTargetedSparesTheTarget(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	giant := g.NewCard(giantDef(t), p, engine.Battlefield)
+	host := g.NewCard(copyTestDef(t, "Target Shifter", "Creature Shapeshifter", "1", "1"), p, engine.Battlefield)
+	weaver := g.NewCard(copyTestDef(t, "Weaver", "Artifact", "", "",
+		"A:AB$ Clone | ValidTgts$ Creature | Defined$ Targeted | CloneTarget$ Valid Creature.YouCtrl+NotDefinedTargeted"), p, engine.Battlefield)
+	mustActivate(t, g, p, engine.NewScriptedController(), weaver, giant)
+	if h := g.Card(host); !h.IsCopy() || h.Def.Name != "Copied Giant" {
+		t.Errorf("host = %q copy %v, want a copy of Copied Giant", h.Def.Name, h.IsCopy())
+	}
+	if g.Card(giant).IsCopy() {
+		t.Error("the target became a copy of itself, want it spared")
+	}
+}
+
 // TestCloneLaterLayersApplyOverCopiedValues proves Layer 1 sits under the
 // others (CR 613.1): a +1/+1 counter, a +2/+2 pump (7c) and a Layer 4 type
 // grant on the host before it becomes a copy all still apply to the copied
@@ -741,7 +762,6 @@ func TestCloneRejectsUnportedShapes(t *testing.T) {
 		{"Clone | Choices$ Card.TriggeredCards", `valid property "TriggeredCards"`},
 		{"Clone | Choices$ Creature.cmcLEX", `valid property "cmcLEX"`},
 		{"Clone | Choices$ Creature.ThisTurnEnteredNowhere", `valid property "ThisTurnEnteredNowhere"`},
-		{"Clone | ValidTgts$ Creature | CloneTarget$ Valid Creature.NotDefinedTargeted", `"NotDefinedTargeted"`},
 		{"Clone | ValidTgts$ Creature | AddColors$ Blue & Black", `AddColors$ "Blue & Black" names no color`},
 		{"Clone | ValidTgts$ Creature | SetColor$ Plaid", `SetColor$ "Plaid" names no color`},
 		{"Clone | ValidTgts$ Creature | SetPower$ Z", `SetPower$ "Z" is not resolvable`},

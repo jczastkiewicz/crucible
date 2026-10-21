@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -549,14 +550,38 @@ func cloneDefinedCards(g *Game, a *Ability, source *Card, raw string) ([]CardID,
 		}
 		return cards, nil
 	}
-	spec, err := cloneSpec(rest)
+	// NotDefinedTargeted (Mirrorweave, Nanogene Conversion) excludes the
+	// ability's own targets (CardProperty.java:2067-2071, Defined$ Targeted
+	// negated); Matches has no ability context, so it is stripped here and
+	// answered against a.Targets. Only the single-alternative spelling the
+	// corpus uses is read.
+	parsed := valid.Parse(rest)
+	var excluded []CardID
+	if len(parsed.Alternatives) == 1 {
+		alt := parsed.Alternatives[0]
+		props := make([]valid.Property, 0, len(alt.Properties))
+		for _, p := range alt.Properties {
+			if p.Name == "NotDefinedTargeted" && !p.Negated {
+				for _, t := range a.Targets {
+					if id, ok := t.AsCard(); ok {
+						excluded = append(excluded, id)
+					}
+				}
+				continue
+			}
+			props = append(props, p)
+		}
+		alt.Properties = props
+		parsed.Alternatives = []valid.Alternative{alt}
+	}
+	spec, err := cloneSpecChecked(parsed, rest)
 	if err != nil {
 		return nil, err
 	}
 	var out []CardID
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
-			if Matches(g, g.Card(id), spec, a.Controller, a.Source) {
+			if !slices.Contains(excluded, id) && Matches(g, g.Card(id), spec, a.Controller, a.Source) {
 				out = append(out, id)
 			}
 		}
@@ -573,7 +598,12 @@ var cloneUnportedProperties = [...]string{"NotDefinedTargeted", "TriggeredCards"
 // Matches cannot answer: cloneUnportedProperties, a ThisTurnEntered* name
 // naming no zone, and a comparison against anything but a literal number.
 func cloneSpec(raw string) (valid.Spec, error) {
-	spec := valid.Parse(raw)
+	return cloneSpecChecked(valid.Parse(raw), raw)
+}
+
+// cloneSpecChecked is cloneSpec over an already parsed spec; raw names it in
+// the error.
+func cloneSpecChecked(spec valid.Spec, raw string) (valid.Spec, error) {
 	for _, alt := range spec.Alternatives {
 		for _, p := range alt.Properties {
 			// ThisTurnEntered, ThisTurnEntered[Your]<Zone> and

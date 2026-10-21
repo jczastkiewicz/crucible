@@ -169,6 +169,33 @@ func TestDebuffEffectRemovesKeywordUntilEndOfTurn(t *testing.T) {
 	}
 }
 
+// TestDebuffEffectAllSuffixKeywordsWalkRemovesLandwalk proves Hammerheim's
+// AllSuffixKeywords$ walk (DebuffEffect.java:90-97): every Landwalk keyword
+// the target has goes, other keywords stay, any other suffix does nothing.
+func TestDebuffEffectAllSuffixKeywordsWalkRemovesLandwalk(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		suffix string
+		walks  bool
+	}{{"walk", false}, {"fly", true}} {
+		g, p, other := newTwoPlayerGame(t)
+		walker := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Landwalk:Island", "Flying"), other, engine.Battlefield)
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.CardEntity(walker)})
+		def := etbChainDef(t, "Test Hammerheim", "DB$ Debuff | ValidTgts$ Creature.OppCtrl | AllSuffixKeywords$ "+tc.suffix)
+		if _, err := castETBChain(t, g, p, def, c); err != nil {
+			t.Fatalf("suffix %s: %v", tc.suffix, err)
+		}
+		if got := g.Card(walker).HasKeyword("Landwalk"); got != tc.walks {
+			t.Errorf("suffix %s: landwalk = %v, want %v", tc.suffix, got, tc.walks)
+		}
+		if !g.Card(walker).HasKeyword("Flying") {
+			t.Errorf("suffix %s: lost Flying", tc.suffix)
+		}
+	}
+}
+
 // TestProtectionEffectChoiceGrantsProtection proves Gains$ Choice with
 // Choices$ AnyColor asks the activator and grants "Protection from
 // <color>"; a card type becomes "Protection:<type>".

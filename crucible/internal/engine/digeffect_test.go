@@ -259,3 +259,23 @@ func TestDigEffectIgnoresParamsItNeverReads(t *testing.T) {
 		t.Fatalf("ResolveStack: %v", err)
 	}
 }
+
+// TestDigEffectRandomChangePicksWithoutAsking proves RandomChange$
+// (DigEffect.java:260-262): ChangeNum$ cards come from the looked-at set
+// with no chooser decision (the scripted controller has none queued).
+func TestDigEffectRandomChangePicksWithoutAsking(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 5)
+	c := engine.NewScriptedController()
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Dig Random", "DB$ Dig | DigNum$ 4 | ChangeNum$ 2 | RandomChange$ True | DestinationZone$ Exile | RestRandomOrder$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := len(g.Zone(engine.Exile, p).Cards()); n != 2 {
+		t.Errorf("exile size = %d, want 2", n)
+	}
+	if n := len(g.Zone(engine.Library, p).Cards()); n != 3 {
+		t.Errorf("library size = %d, want 3", n)
+	}
+}

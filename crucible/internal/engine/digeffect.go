@@ -4,17 +4,18 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
 // digUnresolvedParams are DigEffect.java's params this port cannot honour
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
-// (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$, RandomChange$),
+// (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
 	"SourceZone", "WithTotalCMC",
-	"ForEachColorPair", "WithDifferentPowers", "RandomChange", "GainControl",
+	"ForEachColorPair", "WithDifferentPowers", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
 	"DefinedExiler", "StaticEffect",
@@ -168,6 +169,15 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		switch {
 		case changeAll:
 			chosen = append(chosen, valid...)
+		case hasParam(a, "RandomChange"):
+			// DigEffect.java:260-262, CardLists.getRandomSubList (:150-161): no
+			// decision; each pick shuffles what is left and takes the first.
+			rest := slices.Clone(valid)
+			for n := min(changeNum, len(valid)); n > 0; n-- {
+				g.rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })
+				chosen = append(chosen, rest[0])
+				rest = rest[1:]
+			}
 		case len(valid) > 0:
 			hi := changeNum
 			if anyNumber || hi > len(valid) {

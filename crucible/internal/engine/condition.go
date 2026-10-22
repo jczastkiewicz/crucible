@@ -119,7 +119,18 @@ func subAbilityConditionMet(g *Game, host *Card, amounts map[string]expr.Amount,
 			return false
 		}
 	}
-	if !isPresentMatches(g, host, amounts, a, "ConditionPresent", "ConditionCompare", "ConditionDefined", "ConditionZone", "ConditionPlayer") {
+	// ConditionNotPresent$ replaces ConditionPresent$ and forces EQ0
+	// (SpellAbilityCondition.java:196-198): no ConditionCompare$ is read.
+	present, compare := "ConditionPresent", "ConditionCompare"
+	if _, ok := a.Param("ConditionNotPresent"); ok {
+		present, compare = "ConditionNotPresent", "=EQ0"
+	}
+	if !isPresentMatches(g, host, amounts, a, present, compare, "ConditionDefined", "ConditionZone", "ConditionPlayer") {
+		return false
+	}
+	// ConditionOpponentTurn$ (SpellAbilityCondition.java:139-140, :313): by
+	// presence, the active player is an opponent of the activator.
+	if _, ok := a.Param("ConditionOpponentTurn"); ok && g.ActivePlayer() == host.Controller() {
 		return false
 	}
 	// SpellAbilityCondition.java:169-174, :376-402: the second presence check,

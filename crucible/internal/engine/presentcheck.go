@@ -144,6 +144,9 @@ func definedPresentMatches(g *Game, host *Card, amounts map[string]expr.Amount, 
 // false (GO-7): Java evaluates both (CardTraitBase.java:425-431).
 func presentCountMatches(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability, compareKey string, n int) bool {
 	compare, ok := t.Param(compareKey)
+	if literal, forced := strings.CutPrefix(compareKey, "="); forced {
+		compare, ok = literal, true
+	}
 	if !ok {
 		compare = "GE1"
 	}

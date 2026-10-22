@@ -36,8 +36,22 @@ session: only research for a doubtful site goes to `forge-oracle`.
    say so in the PR text and the row; never skip silently.
 6. **Compile:** `mvn -pl forge-game -am compile -q` (add `forge-core`/`forge-gui` only when the touched file lives
    there). A failed compile is fixed before anything else; do not run the whole test suite, only the new tests.
-7. **Draft the PR text** in English, as in the plan: per site one sentence on the defect, the rule or ruling it breaks (CR number, card), and one sentence on the fix.
-   Show it to the user.
+7. **Draft the PR text** in English. A reviewer who has never seen the row must be able to follow it, so each site gets
+   an analysis, not a one-liner:
+   - **What the code does** in one or two sentences (the function, the expression it receives, what each variable holds).
+   - **The mechanism of the defect** step by step, with a worked example using real numbers or a real card (input,
+     each intermediate value, the wrong result, the right one). Show the old line and the new line.
+   - **The rule or ruling** it breaks (CR number, card), or one line saying no rule is involved and why.
+   - **Reach:** if a site is latent (the engine contains the defect but no card script triggers it today), say so in
+     those words and state the evidence you ran: the `rg` over `forge-gui/res/cardsfolder` and its result (the
+     cards that do reach the site, or "no line combines X and Y"). Never copy a corpus claim from the defects row
+     without re-running the search; a search that timed out is not evidence, say it was not verified.
+   - **The fix** in one sentence, and why it is the smallest one (name the alternative you rejected when there was
+     one).
+   - **The tests:** one line each on what it sets up, what it fails with on `master`, and any harness trick (a
+     controller posing as a human, a counting controller that fails after N repeats instead of hanging).
+   Show it to the user. A PR already open gets its description updated with `gh pr edit <n> --repo Card-Forge/forge
+   --body-file <file>` (switch the active `gh` account to the personal one for the call, then back).
 8. **Stop before publishing.** Push the branch to `origin` and open the PR only after the user approves that package.
 9. **Back on `master`:** set each row's "Upstream" cell to the branch (then the PR number once it exists), commit with
    the docs. When a sync later brings the fix, make Go match upstream's version, remove its refusal and delete the row

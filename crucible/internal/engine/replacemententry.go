@@ -337,7 +337,7 @@ var entryChainAPIs = [...]string{
 	"ChooseColor", "ChooseType", "ChoosePlayer", "ChooseNumber", "ChooseCard",
 	"ChooseEvenOdd", "ChooseDirection", "NameCard", "GenericChoice", "StoreSVar", "Cleanup",
 	"Mill", "Discard", "Draw", "Token", "Reveal", "RevealHand", "Sacrifice", "SacrificeAll",
-	"RollDice", "ChangeZoneAll",
+	"RollDice", "ChangeZoneAll", "RemoveCounter",
 }
 
 // entryChainRunsBeforeMove reports whether every ability reachable from a
@@ -359,6 +359,14 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 	}
 	for _, api := range entryChainAPIs {
 		ok = ok || strings.EqualFold(a.Name, api)
+	}
+	if strings.EqualFold(a.Name, "ChangeZone") {
+		// A graveyard search or exile that acts on other cards (Dermotaxi
+		// imprinting a creature card from a graveyard); a move of the entering
+		// card itself is the replaced-card shape.
+		origin, _ := a.Param("Origin")
+		defined, hasDefined := a.Param("Defined")
+		ok = strings.EqualFold(origin, "Graveyard") && !hasDefined || hasDefined && !strings.EqualFold(defined, "Self") && !strings.HasPrefix(defined, "Replaced") && strings.EqualFold(origin, "Graveyard")
 	}
 	if !ok {
 		return false

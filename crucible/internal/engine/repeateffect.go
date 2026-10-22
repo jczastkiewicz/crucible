@@ -8,7 +8,6 @@ import "fmt"
 // to another player.
 var repeatUnresolvedParams = [...]string{
 	"RepeatOptionalDecider",
-	"Ultimate",
 }
 
 // repeatEffect is RepeatEffect.java: RepeatSubAbility$ resolves at least

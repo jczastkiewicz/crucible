@@ -48,6 +48,9 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if diceModifierInPlay(g) {
 		return fmt.Errorf("engine: RollDice: a card that changes die rolls is in play, not resolvable yet")
 	}
+	if name, mode, found := g.rolledDieTriggerHost(); found {
+		return fmt.Errorf("engine: RollDice: %q's Mode$ %s trigger not resolvable yet", name, mode)
+	}
 	amount, err := optionalAmount(g, a, "RollDice", "Amount", 1)
 	if err != nil {
 		return err

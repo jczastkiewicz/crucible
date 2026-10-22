@@ -37,12 +37,12 @@ type copySpellAbilityEffect struct{}
 // legal target), DefinedTarget$ (CR 707.10e), SingleChoice$, the copy's
 // Layer 1 changes (SetPower$, SetToughness$, SetColor$, AddTypes$), Epic$,
 // UseOriginalHost$, RememberCopies$ (remembers SpellAbility objects, which
-// Memory cannot hold), TargetValidTargeting$,
+// Memory cannot hold),
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // never met, silently.
 var copySpellUnresolvedParams = [...]string{
 	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice", "SetPower",
-	"SetToughness", "SetColor", "AddTypes", "Epic", "UseOriginalHost", "RememberCopies", "TargetValidTargeting"}
+	"SetToughness", "SetColor", "AddTypes", "Epic", "UseOriginalHost", "RememberCopies"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {

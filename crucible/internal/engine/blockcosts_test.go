@@ -60,3 +60,18 @@ func TestDecliningABlockCostRemovesTheBlock(t *testing.T) {
 		t.Errorf("Blocks() = %v, want none", blocks)
 	}
 }
+
+// A creature that must block but can't block unless its controller pays a
+// cost is not required to block (CombatUtil.java:649, :679, :760, :782): the
+// empty declaration is legal.
+func TestAMustBlockRequirementIsDroppedForAPairWithABlockCost(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.DeclareAttackers)
+	attacker := g.NewCard(combatCreature(t, "Raider", "2", "2"), p, engine.Battlefield)
+	g.NewCard(combatCreature(t, "Eager", "2", "2",
+		"S:Mode$ MustBlock | ValidCreature$ Card.Self",
+		"S:Mode$ CantBlockUnless | ValidCard$ Card.Self | Cost$ 2"), other, engine.Battlefield)
+	declareLegalAttack(t, g, attacker)
+	wantBlockLegal(t, g)
+}

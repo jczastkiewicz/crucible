@@ -78,6 +78,10 @@ func (g *Game) validateBlocks(defending PlayerID, blocks []Block) error {
 		if len(must) > 0 {
 			blockedSoFar := v.attackersBlockedBy(blocker)
 			for _, card := range must {
+				// CombatUtil.java:649: a player is not required to pay a block cost.
+				if v.blockCosted(blocker, card) {
+					continue
+				}
 				additional := v.minBlockers(card) - 1
 				potential := 0
 				// Java's own loop: the first pass already takes every free
@@ -106,7 +110,7 @@ func (g *Game) validateBlocks(defending PlayerID, blocks []Block) error {
 		}
 		if !containsCard(blockers, blocker) && v.eachCombat[blocker] {
 			for _, attacker := range attackers {
-				if !v.canBlockCombat(attacker, blocker) {
+				if v.blockCosted(blocker, attacker) || !v.canBlockCombat(attacker, blocker) {
 					continue
 				}
 				if v.minBlockers(attacker) > 1 {
@@ -442,7 +446,7 @@ func (v blockCheck) mustBlockAnAttacker(blocker CardID, free []CardID, hasFree b
 	defender := g.Card(blocker).Controller()
 	var required []CardID
 	for _, attacker := range g.combat.Attackers {
-		if v.attackerLureSatisfied(attacker, blocker, v.blockersOf(attacker)) {
+		if v.attackerLureSatisfied(attacker, blocker, v.blockersOf(attacker)) || v.blockCosted(blocker, attacker) {
 			continue
 		}
 		if v.canBeBlockedInCombat(attacker, defender) && g.CanBlock(attacker, blocker) &&
@@ -451,7 +455,7 @@ func (v blockCheck) mustBlockAnAttacker(blocker CardID, free []CardID, hasFree b
 		}
 	}
 	for _, attacker := range g.Card(blocker).MustBlockAttackers() {
-		if !v.canBeBlockedInCombat(attacker, defender) || !g.CanBlock(attacker, blocker) || !g.combat.isAttacking(attacker) {
+		if v.blockCosted(blocker, attacker) || !v.canBeBlockedInCombat(attacker, defender) || !g.CanBlock(attacker, blocker) || !g.combat.isAttacking(attacker) {
 			continue
 		}
 		pool := g.creaturesInPlay(g.defenderOf(attacker))
@@ -587,4 +591,13 @@ func (c *Card) hasKeywordTextPrefix(prefix string) bool {
 		}
 	}
 	return false
+}
+
+// blockCosted is CombatUtil.getBlockCost(...) != null for the pair
+// (CombatUtil.java:649, :679, :760, :782): a requirement to block is dropped
+// for a pair that costs something to block. A cost this port cannot read is
+// kept as costed here; payBlockCosts raises the same error when it pays.
+func (v blockCheck) blockCosted(blocker, attacker CardID) bool {
+	_, costed, err := v.g.blockCost(blocker, attacker)
+	return costed || err != nil
 }

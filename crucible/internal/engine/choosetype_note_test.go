@@ -80,3 +80,28 @@ func TestRepeatEachYourTeamAndAlliesWithoutTeams(t *testing.T) {
 		}
 	}
 }
+
+// TestRepeatEachNextTurnForEachPlayerWaitsForThatPlayersTurn proves
+// NextTurnForEachPlayer$ (RepeatEachEffect.java:169-183): the sub-ability for
+// an opponent resolves when their next turn begins, with that player
+// remembered, and not before.
+func TestRepeatEachNextTurnForEachPlayerWaitsForThatPlayersTurn(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 8)
+	libraryCards(t, g, opp, 8)
+	g.SetTurnState(1, p, engine.Main1)
+	c := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, p, c, nil,
+		"DB$ RepeatEach | RepeatPlayers$ Player.Opponent | NextTurnForEachPlayer$ True | RepeatSubAbility$ DBGain", "DBGain", "DB$ GainLife | Defined$ Remembered | LifeAmount$ 3"); err != nil {
+		t.Fatalf("RepeatEach: %v", err)
+	}
+	if got := g.Player(opp).Life; got != 20 {
+		t.Fatalf("opponent life = %d right away, want 20", got)
+	}
+	toStep(t, g, c, opp, engine.Upkeep, nil)
+	if got := g.Player(opp).Life; got != 23 {
+		t.Errorf("opponent life = %d on their turn, want 23", got)
+	}
+}

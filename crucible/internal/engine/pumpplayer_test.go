@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -75,5 +76,22 @@ func TestPumpUntilYourNextTurnOnACard(t *testing.T) {
 	engine.CheckStateBasedActions(g, c)
 	if got, _ := g.Card(target).Power(); got != 2 {
 		t.Errorf("power after your next turn began = %d, want 2", got)
+	}
+}
+
+// Excavator's DefinedLandwalk$ (PumpEffect.java:372-378) grants a landwalk
+// keyword per land type of each defined card.
+func TestPumpDefinedLandwalkGrantsTheDefinedCardsLandTypes(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	c := engine.NewScriptedController()
+	target := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.NewCard(landDef(t, "Forest Stand-in", "Basic Land - Forest"), p, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(target)}, "DB$ Pump | ValidTgts$ Creature | DefinedLandwalk$ Valid Land.YouCtrl"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(target).KeywordLines(); !slices.Contains(got, "Landwalk:Forest") {
+		t.Errorf("KeywordLines() = %v, want Landwalk:Forest", got)
 	}
 }

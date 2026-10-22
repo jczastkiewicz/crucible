@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone effecthelpers valid zonemove damageresolveeffect
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers valid zonemove damageresolveeffect player untilcommand controlcommands
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 // RepeatTypesFrom$'s chooser; the player loop, which Java also reads it
 // for, stays as it is.
 var repeatEachUnresolvedParams = [...]string{
-	"RepeatSpellAbilities", "NextTurnForEachPlayer",
+	"RepeatSpellAbilities",
 	"LoseLifeMap",
 	"Ultimate",
 }
@@ -169,8 +169,20 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			m.ClearRemembered()
 		}
 		_, optional := a.Params.Param("RepeatOptionalForEachPlayer")
+		_, nextTurn := a.Params.Param("NextTurnForEachPlayer")
 		for _, p := range players {
 			if optional && !controller.ConfirmEffect(g, p, a.Source) {
+				continue
+			}
+			if nextTurn {
+				// :169-183: the loop for p waits for p's next turn (the confirm
+				// above is asked now); no vote amount is set on this path.
+				g.timestamp++
+				g.pendingRepeats = append(g.pendingRepeats, pendingRepeat{ID: g.timestamp, Ability: *a, Player: p})
+				g.phaseCmds = append(g.phaseCmds, phaseCommand{
+					cardCommand: cardCommand{Kind: commandRepeatForPlayer, Timestamp: g.timestamp, Host: a.Source},
+					When:        untilTurnStart, Player: p,
+				})
 				continue
 			}
 			old := swapRememberedPlayer(m, p)
@@ -293,4 +305,21 @@ func apnapSubset(g *Game, players []PlayerID) []PlayerID {
 		}
 	}
 	return out
+}
+
+// pendingRepeat is a NextTurnForEachPlayer$ loop for one player: a copy of
+// the RepeatEach ability, resolved when Player's next turn starts.
+
+// runPendingRepeat is the closure RepeatEachEffect.java:176-183 registers:
+// the host's other remembered players are set aside, p is remembered, the
+// RepeatSubAbility resolves, and the set-aside players are restored. An error
+// is left pending on the game (the command has no error path, GO-7).
+func (g *Game) runPendingRepeat(controller PlayerController, r pendingRepeat) {
+	m := &g.Card(r.Ability.Source).Memory
+	old := swapRememberedPlayer(m, r.Player)
+	a := r.Ability
+	if err := g.resolveAdditionalKey(&a, controller, "RepeatSubAbility"); err != nil {
+		g.recordPendingError(err)
+	}
+	restoreRememberedPlayers(m, r.Player, old)
 }

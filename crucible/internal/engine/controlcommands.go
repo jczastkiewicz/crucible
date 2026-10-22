@@ -52,6 +52,10 @@ const (
 	// commandBeginSkip is SkipPhaseEffect's Start$ (:99-100): the skip waiting
 	// on Game.pendingSkips under Timestamp starts at the player's upkeep.
 	commandBeginSkip
+	// commandRepeatForPlayer is RepeatEachEffect.java:175-183's closure for
+	// NextTurnForEachPlayer$: the repeat waiting on Game.pendingRepeats under
+	// Timestamp resolves for its player.
+	commandRepeatForPlayer
 )
 
 // cardCommand is one pending GameCommand. Host is the card whose command
@@ -146,6 +150,14 @@ func (g *Game) runCommand(controller PlayerController, cmd cardCommand) {
 		c.goadedBy = kept
 	case commandReturnExiled:
 		g.pendingReturns = append(g.pendingReturns, cmd)
+	case commandRepeatForPlayer:
+		for i, p := range g.pendingRepeats {
+			if p.ID == cmd.Timestamp {
+				g.pendingRepeats = append(g.pendingRepeats[:i:i], g.pendingRepeats[i+1:]...)
+				g.runPendingRepeat(controller, p)
+				break
+			}
+		}
 	case commandBeginSkip:
 		for i, p := range g.pendingSkips {
 			if p.ID == cmd.Timestamp {
@@ -470,4 +482,10 @@ func (g *Game) registerLoseControl(host *Card, tokens []string, target CardID, t
 			Armed: g.activePlayer == activator,
 		})
 	}
+}
+
+type pendingRepeat struct {
+	ID      uint64
+	Ability Ability
+	Player  PlayerID
 }

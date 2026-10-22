@@ -17,6 +17,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -63,7 +64,7 @@ import (
 // spell's targets resolve (ADR-0018).
 var pumpUnresolvedParams = [...]string{
 	"RandomKeyword", "RandomKWNum",
-	"NoRepetition", "DefinedLandwalk",
+	"NoRepetition",
 }
 
 // pumpImprint is PumpEffect.java:431-437: ImprintCards$ adds the defined
@@ -371,6 +372,26 @@ func (g *Game) pumpPlayers(a *Ability, grant pumpGrant) ([]PlayerID, error) {
 // nothing (Java returns). A player's UID is its PlayerID, the number
 // PlayerUID_<n> reads back (layerSubstituteKeyword's reasoning).
 func (g *Game) pumpDefinedKeywords(a *Ability, host *Card, keywords []string) (out []string, proceed bool, err error) {
+	if spec, ok := a.Params.Param("DefinedLandwalk"); ok {
+		// PumpEffect.java:372-378: a landwalk keyword for each land type of
+		// each Defined card (Excavator's sacrificed land).
+		cards, err := definedCards(host, spec, a.refs())
+		if err != nil {
+			return nil, false, fmt.Errorf("engine: Pump: DefinedLandwalk$: %w", err)
+		}
+		reg := g.db.Types()
+		if reg == nil {
+			return nil, false, fmt.Errorf("engine: Pump: DefinedLandwalk$ needs the type vocabulary")
+		}
+		keywords = slices.Clone(keywords)
+		for _, id := range cards {
+			for _, t := range g.Card(id).Type().Subtypes() {
+				if reg.IsLandType(t) {
+					keywords = append(keywords, "Landwalk:"+t)
+				}
+			}
+		}
+	}
 	defined, ok := a.Params.Param("DefinedKW")
 	if !ok {
 		return keywords, true, nil

@@ -198,6 +198,11 @@ type Ability struct {
 	// charmRoot is the Charm line a mode belongs to, nil elsewhere:
 	// SpellAbility.getRootAbility for a mode (askOf, staticability.go).
 	charmRoot *compile.Ability
+	// choosing is the player CharmEffect.makeChoices recorded with
+	// setChoosingPlayer (Chooser$), read by Defined$ ChoosingPlayer; set marks
+	// it, since NoPlayer is not the zero value. Modes and their links carry it.
+	choosing    PlayerID
+	hasChoosing bool
 	// casting is true only while a spell's targets are being chosen as it is
 	// cast, before it is on the stack (castInstantOrSorcery); askOf reads it.
 	casting bool
@@ -434,6 +439,9 @@ type abilityRefs struct {
 	replacedTarget EntityID
 	// shieldTarget is Ability.shieldTarget (Defined$ ShieldEffectTarget).
 	shieldTarget EntityID
+	// choosing is Ability.choosing (Defined$ ChoosingPlayer); hasChoosing marks it.
+	choosing    PlayerID
+	hasChoosing bool
 	// game and activator are the resolving ability's game and controller, for
 	// the Defined$ forms that scan it (definedValidCards); nil/NoPlayer when
 	// the refs were built outside a resolution.
@@ -445,7 +453,8 @@ type abilityRefs struct {
 func (a *Ability) refs() abilityRefs {
 	r := abilityRefs{targets: a.Targets, parentTargets: a.parentTargets, ancestorTargeting: a.ancestorTargeting,
 		triggerRemembered: a.TriggerRemembered, triggered: a.triggered, paid: a.paid, replaced: a.replacedCard(), shieldTarget: a.shieldTarget,
-		stackTargets: a.stackTargets, game: a.game, activator: a.Controller}
+		stackTargets: a.stackTargets, game: a.game, activator: a.Controller,
+		choosing: a.choosing, hasChoosing: a.hasChoosing}
 	if a.replacing != nil {
 		r.replacedPlayer, r.replacedDefendingPlayer = a.replacing.player, a.replacing.defendingPlayer
 		if a.replacing.amountName == "DamageAmount" {

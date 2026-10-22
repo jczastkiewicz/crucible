@@ -521,3 +521,5 @@ reaches its effect. No corpus line carries it, so Crucible ignores it the same w
 `ChangeZoneEffect.java:1416-1431` (hidden origin, Destination Exile) reads `ExileFaceDown$` only; `FaceDown$` is read for a
 battlefield destination (`:1396`) and on the known path (`:757`). Tezzeret's Reckoning (`FaceDown$ True`, Origin Library)
 exiles its three cards face up. Crucible refuses `FaceDown$` on ChangeZone until this is fixed upstream.
+
+`CharmEffect.java:43-44` judges a mode's `getNumCandidates` before `setChoosingPlayer` (`:273`), so a mode whose `ValidTgts$` names `ChoosingPlayer` with `TargetMin > 0` is filtered with no chooser. `AbilityUtils.java:1131-1132` adds the root's chooser unguarded: `Defined$ ChoosingPlayer` outside a Charm adds null. No corpus line hits either (Fatal Lore's mode has `TargetMin$ 0`; all four `ChoosingPlayer` lines sit in Charm modes).

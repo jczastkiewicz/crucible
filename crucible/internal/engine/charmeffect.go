@@ -10,7 +10,7 @@
 
 package engine
 
-//enginelint:allow ability amount card control game
+//enginelint:allow ability amount card control game id
 
 import (
 	"fmt"
@@ -20,13 +20,13 @@ import (
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// Chooser$ (an opponent chooses), Random$
+// Random$ Compare
 // Compare, Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
 // dead script param, forge-java-defects.md and card-script-defects.md; refused until
 // the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
 // activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
-	"Chooser", "RandomCompare", "RandomCompareSVar", "Defined",
+	"RandomCompare", "RandomCompareSVar", "Defined",
 }
 
 // chooseCharmModes is makeChoices, run from pushTriggeredAbilities before
@@ -61,6 +61,7 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 			Amounts: a.Amounts, TriggerRemembered: a.TriggerRemembered, triggered: a.triggered,
 			charmRoot: a.Params, casting: a.casting,
 		}
+
 		if !g.modeHasLegalTargets(&mode) {
 			continue
 		}
@@ -111,7 +112,27 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		}
 		chosen = g.randomSample(len(options), num)
 	} else {
-		chosen = controller.ChooseModesForAbility(g, a.Controller, a.Source, names, minModes, num)
+		decider := a.Controller
+		if _, ok := a.Params.Param("Chooser"); ok {
+			// CharmEffect.java:266-273: the activator picks one opponent whatever
+			// Chooser$ says, even when only one exists, and that opponent picks
+			// the modes; the value of Chooser$ is never read.
+			var opps []PlayerID
+			for _, pid := range g.playersInTurnOrder() {
+				if pid != a.Controller {
+					opps = append(opps, pid)
+				}
+			}
+			picked := controller.ChoosePlayerForEffect(g, a.Controller, a.Source, opps)
+			if !slices.Contains(opps, picked) {
+				return false, fmt.Errorf("engine: Charm: Chooser$ picked %v, not an opponent", picked)
+			}
+			decider = picked
+			for i := range options {
+				options[i].choosing, options[i].hasChoosing = picked, true
+			}
+		}
+		chosen = controller.ChooseModesForAbility(g, decider, a.Source, names, minModes, num)
 		if err := checkModeChoice(chosen, len(options), minModes, num, repeat); err != nil {
 			return false, err
 		}

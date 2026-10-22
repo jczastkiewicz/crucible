@@ -1281,6 +1281,7 @@ func (g *Game) dropIllegalChainTargets(owner *Ability, parents []EntityID, chose
 		// like (Legerdemain, Power Struggle).
 		link := Ability{Source: owner.Source, Controller: owner.Controller, Params: ct.Params, targetStamps: ct.Stamps,
 			Amounts: owner.Amounts, TriggerRemembered: owner.TriggerRemembered, triggered: owner.triggered, targeter: ct.Targeter,
+			choosing: owner.choosing, hasChoosing: owner.hasChoosing,
 			parentTargets: parents, ancestorTargeting: ancestorTargeting}
 		if api, ok := APIByName(ct.Params.Name); ok {
 			link.API = api

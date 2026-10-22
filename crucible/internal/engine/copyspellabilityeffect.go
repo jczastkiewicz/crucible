@@ -332,7 +332,8 @@ func (g *Game) chooseCopyChainTargets(controller PlayerController, m *Ability) e
 	for i := range m.chainTargets {
 		ct := &m.chainTargets[i]
 		link := Ability{Source: m.Source, Controller: m.Controller, Params: ct.Params, Targets: ct.Targets,
-			Amounts: m.Amounts, TriggerRemembered: m.TriggerRemembered, triggered: m.triggered, charmRoot: m.charmRoot}
+			Amounts: m.Amounts, TriggerRemembered: m.TriggerRemembered, triggered: m.triggered, charmRoot: m.charmRoot,
+			choosing: m.choosing, hasChoosing: m.hasChoosing}
 		if api, ok := APIByName(ct.Params.Name); ok {
 			link.API = api
 		}

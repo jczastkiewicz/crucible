@@ -56,6 +56,8 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		stackTargets:      parent.stackTargets,
 		TriggerRemembered: parent.TriggerRemembered,
 		triggered:         parent.triggered,
+		choosing:          parent.choosing,
+		hasChoosing:       parent.hasChoosing,
 		hostTransforms:    parent.hostTransforms,
 		hasHostTransforms: parent.hasHostTransforms,
 		damageMap:         parent.damageMap,

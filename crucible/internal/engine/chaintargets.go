@@ -48,6 +48,7 @@ func (g *Game) resolveChainTargets(controller PlayerController, a *Ability) bool
 		// link is asked about as its mode is.
 		link := Ability{API: api, Source: a.Source, Controller: a.Controller, Params: sub.Ability, Amounts: a.Amounts,
 			TriggerRemembered: a.TriggerRemembered, triggered: a.triggered, casting: a.casting, charmRoot: a.charmRoot,
+			choosing: a.choosing, hasChoosing: a.hasChoosing,
 			parentTargets: parents, ancestorTargeting: ancestorTargeting, uniqueTargets: unique}
 		ancestorTargeting = ancestorTargeting || linkUsesTargeting(sub.Ability)
 		choice, named, ok := g.targetChoiceFor(&link)

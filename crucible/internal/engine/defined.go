@@ -288,6 +288,13 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 		// in the direction. Every other player is an opponent (no teams),
 		// so NextOpponent* is the same player.
 		candidates = []PlayerID{g.nextPlayerInDirection(controller, strings.HasSuffix(defined, "Right"))}
+	case "ChoosingPlayer":
+		// AbilityUtils.java:1131-1132: the root Charm's chooser. Java adds null
+		// outside a Charm; here that is an error (GO-7).
+		if !refs.hasChoosing {
+			return nil, fmt.Errorf("engine: Defined$ ChoosingPlayer: no Charm recorded a chooser")
+		}
+		candidates = []PlayerID{refs.choosing}
 	case "ChosenPlayer":
 		if pid := g.Card(host).Memory.ChosenPlayer(); pid != NoPlayer {
 			candidates = []PlayerID{pid}

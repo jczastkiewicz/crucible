@@ -74,3 +74,55 @@ func TestKickedPermanentRemembersItOnTheBattlefield(t *testing.T) {
 		t.Error("the kicked creature on the battlefield does not match the kicked property")
 	}
 }
+
+// Multikicker (GameActionUtil.java:667-685): the caster chooses how many times
+// to pay the cost, each on top of the mana cost; Count$TimesKicked and the
+// kicked property read the amount back, and a cast the pool cannot pay fails.
+func TestMultikickerPaysTheChosenNumberOfTimes(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		times    int
+		greens   int
+		wantOK   bool
+		counters int
+	}{
+		{"unkicked", 0, 1, true, 0},
+		{"kicked twice", 2, 3, true, 2},
+		{"kicked without the mana", 2, 2, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			def := scriptDef(t, "Test Multikicker Beast", "Creature Elf",
+				"K:Multikicker:G",
+				"K:etbCounter:P1P1:XKicked:no Condition:CARDNAME enters with a +1/+1 counter on it for each time it was kicked.",
+				"SVar:XKicked:Count$TimesKicked")
+			def.Faces[0].ManaCost = mana.MustParse("G")
+			card := g.NewCard(def, p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Green, tc.greens)
+			c := engine.NewScriptedController()
+			c.QueueNumberChoice(tc.times)
+			for range 4 {
+				c.QueuePayGeneric(mana.ShardG)
+			}
+			if got := g.CastSpell(p, card, c); got != tc.wantOK {
+				t.Fatalf("CastSpell = %v, want %v", got, tc.wantOK)
+			}
+			if !tc.wantOK {
+				return
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := p1p1(g, card); got != tc.counters {
+				t.Errorf("+1/+1 counters = %d, want %d", got, tc.counters)
+			}
+			if kicked := engine.Matches(g, g.Card(card), valid.Parse("Card.Self+kicked"), p, card); kicked != (tc.times > 0) {
+				t.Errorf("kicked property = %v after %d payments", kicked, tc.times)
+			}
+		})
+	}
+}

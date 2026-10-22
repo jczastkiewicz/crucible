@@ -448,6 +448,9 @@ type castOpts struct {
 	// kickers are the kicker costs chosen (kicker1, kicker2 bits), paid on top
 	// of the cost (CR 601.2b, 702.33a).
 	kickers uint8
+	// multikicks is how many times the Multikicker cost was paid, each on top
+	// of the cost (GameActionUtil.java:667-685).
+	multikicks int
 	// optional are the Mode$ OptionalCost and Teamwork costs chosen
 	// (optionalcost.go): their mana joins the cost, their other parts are paid
 	// once it is.
@@ -540,6 +543,12 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
+	var ok bool
+	if opts.multikicks, ok = g.chooseMultikicker(controller, pid, g.Card(card)); !ok {
+		g.Card(card).wasCast = false
+		return false
+	}
+	g.Card(card).castOpt.multikicks = opts.multikicks
 	g.Card(card).sneaked = opts.sneak
 	if !g.castSpellChosen(controller, pid, card, opts) {
 		g.Card(card).kicker = 0
@@ -633,6 +642,7 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana
 		base = opts.altCost
 	}
 	base = withKicker(c, opts.kickers, base)
+	base = withMultikicker(c, opts.multikicks, base)
 	base = opts.optional.withMana(base)
 	if opts.hasFlashCost {
 		base = withExtraMana(base, opts.flashCost)
@@ -655,7 +665,7 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana
 // paysNoMana reports a free cast (WithoutManaCost$) that adds no mana either:
 // no kicker, MayFlashCost, RaiseCost$ or optional cost with mana (CR 118.9d).
 func (opts castOpts) paysNoMana() bool {
-	return opts.withoutManaCost && opts.kickers == 0 && !opts.hasFlashCost && !opts.hasRaiseMana && !opts.optional.hasMana
+	return opts.withoutManaCost && opts.kickers == 0 && opts.multikicks == 0 && !opts.hasFlashCost && !opts.hasRaiseMana && !opts.optional.hasMana
 }
 
 // announceX is CR 601.2b: a spell with {X} in its cost has its X announced

@@ -1399,6 +1399,9 @@ const (
 // its Escape cost (escapeCost).
 type castOptional struct {
 	kinds optionalKinds
+	// multikicks is the amount recorded for K:Multikicker
+	// (SpellAbility.setOptionalKeywordAmount): only a positive one is kept.
+	multikicks int
 	// promised is Card.getPromisedGift: the opponent the gift was promised to,
 	// meaningful when kinds has optPromiseGift.
 	promised  PlayerID
@@ -1477,10 +1480,13 @@ func (o castOptional) clone() castOptional {
 	return o
 }
 
-// kickerMagnitude is Card.getKickerMagnitude for a kicker (not multikicker)
-// card: how many kicker costs were paid, 0 to 2 -- one when exactly one of the
-// two was, as Java computes it.
+// kickerMagnitude is Card.getKickerMagnitude: the Multikicker amount when one
+// was recorded, else how many kicker costs were paid, 0 to 2 -- one when
+// exactly one of the two was, as Java computes it.
 func (c *Card) kickerMagnitude() int {
+	if c.castOpt.multikicks > 0 {
+		return c.castOpt.multikicks
+	}
 	k1, k2 := c.kicker&kicker1 != 0, c.kicker&kicker2 != 0
 	switch {
 	case k1 && k2:

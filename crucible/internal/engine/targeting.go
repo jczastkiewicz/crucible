@@ -960,7 +960,7 @@ func (g *Game) stackItemHasProperty(item *Ability, prop string, a *Ability) (boo
 		return len(targets) == 1, err
 	case "Kicked":
 		// SpellAbility.isKicked: the spell's kicker cost was paid.
-		return item.spell && g.Card(item.Source).kicker != 0, nil
+		return item.spell && (g.Card(item.Source).kicker != 0 || g.Card(item.Source).castOpt.multikicks > 0), nil
 	case "isCastFaceDown":
 		// No spell is cast face down in this port (morph, disguise).
 		return false, nil

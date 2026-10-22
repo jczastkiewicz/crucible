@@ -73,6 +73,10 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/player/Player.java` | `planeswalk` returns on an empty planar deck | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java` | `Chooser$` naming nobody returns instead of `get(0)` on an empty list | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/AbilityUtils.java` | `Defined$ DefendingPlayer` guarded by `inCombat()`, like `AttackingPlayer` | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChangeTargetsEffect.java` | `Chooser$` naming nobody returns instead of `get(0)` on an empty list | Branch `upstream-pr/null-guards-effect-params`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/PumpEffect.java` | `NoRepetition$` filter skipped when there is no target | Branch `upstream-pr/null-guards-effect-params`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/spellability/SpellAbility.java` | `setupTargets` returns false when `TargetingPlayer$` names nobody | Branch `upstream-pr/null-guards-effect-params`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/SetStateEffect.java` | stack description compares from the `"Specialize"` literal: `Mode$` is absent in the `NewState$` form | Branch `upstream-pr/null-guards-effect-params`, PR number pending |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

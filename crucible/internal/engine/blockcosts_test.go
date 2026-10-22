@@ -75,3 +75,21 @@ func TestAMustBlockRequirementIsDroppedForAPairWithABlockCost(t *testing.T) {
 	declareLegalAttack(t, g, attacker)
 	wantBlockLegal(t, g)
 }
+
+// A block dropped for an unpaid cost can leave a can't-block-alone creature
+// alone; the steady-state pass after the cost pass removes it too
+// (PhaseHandler.java:689-731).
+func TestDecliningABlockCostDropsACantBlockAloneCompanion(t *testing.T) {
+	t.Parallel()
+	g, _, b, attacker, behemoth := blockCostGame(t)
+	timid := g.NewCard(combatCreature(t, "Timid", "1", "1", "K:CARDNAME can't block alone."), b, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueBlocks([]engine.Block{{Blocker: behemoth, Attacker: attacker}, {Blocker: timid, Attacker: attacker}})
+	c.QueueConfirmPayCost(false)
+	got := declareBlockers(t, g, c)
+
+	if len(got) != 0 {
+		t.Fatalf("blocks = %v, want none: the Behemoth's block was dropped and the Timid cannot block alone", got)
+	}
+}

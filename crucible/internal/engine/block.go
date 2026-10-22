@@ -129,6 +129,11 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 		if blocks, err = g.payBlockCosts(controller, defender, blocks); err != nil {
 			return nil, err
 		}
+		// PhaseHandler.java:704-731 runs after the cost pass: a block it dropped
+		// can leave a can't-block-alone creature alone.
+		if blocks, err = g.repairReplacedBlocks(defender, blocks); err != nil {
+			return nil, err
+		}
 	}
 	g.combat.Blocks = blocks
 	// declareBlockersTurnBasedAction sets every band's blocked flag
@@ -182,7 +187,8 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 // validateBlocks has already rejected every violation it would repair.
 //
 // PhaseHandler.java:689-697's block-cost pass before it is not run on this
-// path (payBlockCosts, blockcost.go, is called on the normal one).
+// path (payBlockCosts, blockcost.go, is called on the normal one, which then
+// runs this loop too).
 func (g *Game) repairReplacedBlocks(defender PlayerID, blocks []Block) ([]Block, error) {
 	for {
 		var remaining []CardID

@@ -333,6 +333,14 @@ func (g *Game) moveResolvedSpellToGraveyard(controller PlayerController, a Abili
 			}
 		}
 	}
+	if a.spell && !fizzled && !c.IsCopiedSpell && g.spellOptional(a.Source).has(optBuyback) {
+		// The Buyback replacement (CardFactoryUtil.java:2138-2144): Moved
+		// Stack -> Graveyard, Fizzle$ False, ValidStackSa$ Spell.Buyback, becomes
+		// a move to the hand. A countered spell carries no Fizzle key, so it
+		// keeps going to the graveyard.
+		g.Move(a.Source, Hand, c.Owner)
+		return
+	}
 	g.moveToGraveyard(controller, a.Source)
 	if a.spell {
 		g.checkSpellToGraveyardTriggers(controller, a.Source, fizzled)

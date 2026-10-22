@@ -1372,6 +1372,9 @@ const (
 	// optPromiseGift is OptionalCost.PromiseGift: the gift of a Gift spell was
 	// promised (SpellAbility.isGiftPromised, CR 702.174).
 	optPromiseGift
+	// optBuyback is OptionalCost.Buyback: the spell's Buyback cost was paid
+	// (SpellAbility.isBuyback, CR 702.27).
+	optBuyback
 )
 
 // castOptional is a card's record of its cast's optional costs: Java keeps

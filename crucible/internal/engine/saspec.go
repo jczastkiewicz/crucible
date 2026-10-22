@@ -32,7 +32,7 @@ var saKeywordProperties = map[string][]string{
 // port does not track (how a spell was cast, what mana paid for it): a spec
 // naming one is not evaluated.
 var saUnresolvedPrefixes = []string{
-	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Buyback", "Craft", "Dash",
+	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Craft", "Dash",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
 	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem", "Mutate",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
@@ -143,6 +143,8 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		return matched, true
 	case prop == "singleTarget":
 		return len(a.Targets) == 1, true
+	case prop == "Buyback":
+		return a.spell && g.spellOptional(a.Source).has(optBuyback), true
 	case prop == "Teamwork":
 		// SpellAbilityProperty.java:93-94, SpellAbility.isTeamwork (:658-660):
 		// the spell's own Teamwork optional cost was paid. Only a spell records

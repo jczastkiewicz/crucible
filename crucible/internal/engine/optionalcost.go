@@ -150,6 +150,17 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 			continue
 		}
 		k := keyword.Parse(line)
+		if k.Name == "Buyback" {
+			// GameActionUtil.java:482-485: the keyword's cost, paid as the spell is
+			// cast; the spell returns to hand as it resolves (moveResolvedSpellToGraveyard).
+			text := strings.TrimPrefix(line, "Buyback:")
+			uc, ok := parseUnlessCost(text)
+			if !ok {
+				return nil, fmt.Errorf("engine: %q: Buyback cost %q not resolvable yet", c.Def.Name, text)
+			}
+			out = append(out, optionalCostOption{text: text, uc: uc, kind: optBuyback})
+			continue
+		}
 		if k.Name == "Gift" {
 			out = append(out, optionalCostOption{text: giftCost, kind: optPromiseGift})
 			continue

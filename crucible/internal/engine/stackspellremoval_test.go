@@ -65,3 +65,36 @@ func TestRemovingASpellKeepsItsCastTrigger(t *testing.T) {
 		})
 	}
 }
+
+// TestCounterDestinationChoiceAndRememberCounteredSA proves Hinder's
+// DestinationChoice$ (the activator picks the spell's destination from the
+// list, CounterEffect.java:266-268) and RememberCounteredSA$ (the countered
+// spell is remembered, :112).
+func TestCounterDestinationChoiceAndRememberCounteredSA(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	spell := g.NewCard(creatureDefCost(t, "Spell", "G"), other, engine.Hand)
+	g.SetTurnState(1, other, engine.Main1)
+	g.Player(other).ManaPool.Add(mana.Green, 1)
+	if !g.CastSpell(other, spell, engine.NewScriptedController()) {
+		t.Fatal("cast failed")
+	}
+	def := etbChainDef(t, "Hinderer", "DB$ Counter | TargetType$ Spell | ValidTgts$ Card | DestinationChoice$ BottomOfLibrary,TopOfLibrary | RememberCounteredSA$ True")
+	host := g.NewCard(def, p, engine.Battlefield)
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	c := engine.NewScriptedController()
+	c.QueueOption(1)
+	g.PushAbility(engine.Ability{API: engine.APICounter, Source: host, Controller: p, Params: sub,
+		Targets: []engine.EntityID{engine.CardEntity(spell)}})
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	lib := g.Zone(engine.Library, other).Cards()
+	if len(lib) == 0 || lib[0] != spell {
+		t.Errorf("library = %v, want the spell on top", lib)
+	}
+	if n := len(g.Card(host).Memory.Remembered()); n != 1 {
+		t.Errorf("remembered %d, want the countered spell", n)
+	}
+}

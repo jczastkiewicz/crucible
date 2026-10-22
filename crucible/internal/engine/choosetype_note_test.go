@@ -58,3 +58,25 @@ func TestChooseTypeMostPrevalentInDefinedZone(t *testing.T) {
 		t.Errorf("noted = %v, want [Elf]", got)
 	}
 }
+
+// TestRepeatEachYourTeamAndAlliesWithoutTeams proves the team-less reading of
+// PlayerProperty.java:50-57: Player.YourTeam is the controller alone and
+// Player.Allies nobody (Azra Bladeseeker, Imperial Mask).
+func TestRepeatEachYourTeamAndAlliesWithoutTeams(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		spec string
+		want int
+	}{{"Player.YourTeam", 22}, {"Player.Allies", 20}} {
+		g, p, _ := newTwoPlayerGame(t)
+		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+			"DB$ RepeatEach | RepeatPlayers$ "+tc.spec+" | RepeatSubAbility$ DBGain", "DBGain", "DB$ GainLife | Defined$ Remembered | LifeAmount$ 2")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.spec, err)
+		}
+		if got := g.Player(p).Life; got != tc.want {
+			t.Errorf("%s: life = %d, want %d", tc.spec, got, tc.want)
+		}
+	}
+}

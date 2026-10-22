@@ -30,8 +30,7 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Counter", "DestinationChoice",
-		"RememberCounteredSA", "RememberSplicedOntoCounteredSpell", "ConditionWouldDestroy"); err != nil {
+	if err := rejectParams(a, "Counter", "RememberSplicedOntoCounteredSpell", "ConditionWouldDestroy"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -129,7 +128,11 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		// and still resolves (MagicStack.remove(Card), MagicStack.java:799-805,
 		// keeps abilities the same way).
 		g.removeSpellFromStack(id)
-		switch dest {
+		spellDest, err := counterDestination(g, a, controller, dest)
+		if err != nil {
+			return err
+		}
+		switch spellDest {
 		case "Graveyard":
 			g.moveByEffect(controller, id, Graveyard, 0, NoPlayer, false)
 		case "Exile":
@@ -141,9 +144,11 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		case "BottomOfLibrary":
 			g.moveByEffect(controller, id, Library, -1, NoPlayer, false)
 		default:
-			return fmt.Errorf("engine: Counter: Destination$ %q not resolvable", dest)
+			return fmt.Errorf("engine: Counter: Destination$ %q not resolvable", spellDest)
 		}
-		if hasParam(a, "RememberCountered") {
+		if hasParam(a, "RememberCountered") || hasParam(a, "RememberCounteredSA") {
+			// RememberCounteredSA$ remembers the countered SpellAbility
+			// (CounterEffect.java:112); a stack object has one entity here.
 			source.Memory.Remember(t)
 		}
 	}
@@ -183,6 +188,12 @@ func counterAbility(g *Game, a *Ability, controller PlayerController, t EntityID
 		return nil
 	}
 	g.removeStackItem(id)
+	if _, err := counterDestination(g, a, controller, ""); err != nil {
+		return err
+	}
+	if hasParam(a, "RememberCounteredSA") {
+		g.Card(a.Source).Memory.Remember(t)
+	}
 	if hasParam(a, "DestroyPermanent") {
 		// GameAction.destroy with regeneration allowed: the steps destroyEffect
 		// runs per card (destroyeffect.go).
@@ -258,4 +269,22 @@ func counterDefinedTargets(g *Game, a *Ability, defined string) ([]EntityID, err
 		return out, nil
 	}
 	return nil, fmt.Errorf("engine: Counter: Defined$ %q not resolvable yet", defined)
+}
+
+// counterDestination is where a countered spell goes: Destination$ (default
+// Graveyard), or DestinationChoice$'s comma list when given, the activator
+// choosing (chooseSomeType, CounterEffect.java:264-268). Java asks it for an
+// ability too, before it finds there is no card to move (:270): so does this,
+// with dest "" and an answer nothing uses (PORT-7).
+func counterDestination(g *Game, a *Ability, controller PlayerController, dest string) (string, error) {
+	raw, ok := a.Params.Param("DestinationChoice")
+	if !ok {
+		return dest, nil
+	}
+	options := strings.Split(raw, ",")
+	i := controller.ChooseOption(g, a.Controller, a.Source, options)
+	if i < 0 || i >= len(options) {
+		return "", fmt.Errorf("engine: Counter: DestinationChoice$ choice %d out of range", i)
+	}
+	return strings.TrimSpace(options[i]), nil
 }

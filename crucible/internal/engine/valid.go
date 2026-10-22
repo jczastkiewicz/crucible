@@ -1014,6 +1014,14 @@ func matchesPlayerBase(candidate, host PlayerID, spec string) (matched, ok bool)
 		return candidate == host, true
 	case "Opponent":
 		return candidate != host, true
+	case "YourTeam":
+		// PlayerProperty.java:50-53, Player.sameTeam: without team games a team
+		// is its one player.
+		return candidate == host, true
+	case "Allies":
+		// PlayerProperty.java:54-57: never the controller, and every other
+		// player is an opponent when no teams are seated (Player.java:400-401).
+		return false, true
 	case "Player", "Any":
 		// "Any" (CR 115's own "any target") matches every player the same as
 		// bare "Player" does -- Player.isValid's own literal "Any" case

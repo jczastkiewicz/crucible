@@ -980,8 +980,8 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			if cards, ok := refs.game.definedValidCards(refs.activator, host, defined); ok {
 				return cards, nil
 			}
-			if defined == "ExiledWith" {
-				// AbilityUtils.java:304-305: the cards the host exiled.
+			if strings.HasPrefix(defined, "ExiledWith") {
+				// AbilityUtils.java:304-305 (startsWith): the cards the host exiled.
 				return refs.game.exiledWithCards(host.ID), nil
 			}
 			if cards, ok, err := refs.game.definedAttachCards(host, defined, refs); ok {
@@ -1119,8 +1119,8 @@ func targetedOrDefinedCards(host *Card, a *compile.Ability, refs abilityRefs) ([
 // "ValidAll" is every card in the game (:293-295, cardsInGame); any other form
 // is definedCards'.
 func definedCardsInGame(g *Game, activator PlayerID, host *Card, defined string, refs abilityRefs) ([]CardID, error) {
-	if defined == "ExiledWith" {
-		// AbilityUtils.java:304-305: the cards the host exiled (Card.getExiledCards).
+	if strings.HasPrefix(defined, "ExiledWith") {
+		// AbilityUtils.java:304-305 (startsWith): the cards the host exiled (Card.getExiledCards).
 		return g.exiledWithCards(host.ID), nil
 	}
 	if cards, ok := g.definedValidCards(activator, host, defined); ok {

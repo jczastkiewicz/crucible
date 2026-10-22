@@ -22,7 +22,7 @@ func (addOrRemoveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerCo
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "AddOrRemoveCounter", "RemoveConditionSVar", "TgtZone"); err != nil {
+	if err := rejectParams(a, "AddOrRemoveCounter", "RemoveConditionSVar"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

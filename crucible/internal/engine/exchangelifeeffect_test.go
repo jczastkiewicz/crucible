@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,20 +132,36 @@ func TestExchangeLifeEffectEqualLifeIsNoOp(t *testing.T) {
 	}
 }
 
-// TestExchangeLifeEffectRejectsUnresolvedParam proves
-// exchangeLifeUnresolvedParams' own fail-loud contract (PORT-8/GO-7).
-func TestExchangeLifeEffectRejectsUnresolvedParam(t *testing.T) {
+// TestExchangeLifeEffectRemembersDifferenceAndOwnLoss proves
+// RememberDifference$ (p1's life less p2's after the exchange, negative) and
+// RememberOwnLoss$ (the activator's loss, remembered only when it was theirs,
+// LifeExchangeEffect.java:73-80).
+func TestExchangeLifeEffectRemembersDifferenceAndOwnLoss(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p, other := g.Players()[0], g.Players()[1]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(other).Life = 5, 15
-
-	c := engine.NewScriptedController()
-	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
-	_, err := castETBExchangeLife(t, g, p, etbExchangeLifeTriggerDefParams(t, "Test Exchange Remember", "ValidTgts$ Opponent | RememberDifference$ True"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved RememberDifference$")
+	for _, tc := range []struct {
+		name         string
+		mine, theirs int
+		want         []int
+	}{
+		{"activator loses", 15, 5, []int{-10, 10}},
+		{"activator gains", 5, 15, []int{-10}},
+	} {
+		g := newGame(t, "a", "b")
+		p, other := g.Players()[0], g.Players()[1]
+		g.SetTurnState(1, p, engine.Main1)
+		g.Player(p).Life, g.Player(other).Life = tc.mine, tc.theirs
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+		host, err := castETBExchangeLife(t, g, p, etbExchangeLifeTriggerDefParams(t, "Test Exchange Remember", "ValidTgts$ Opponent | RememberDifference$ True | RememberOwnLoss$ True"), c)
+		if err != nil {
+			t.Fatalf("%s: ResolveStack: %v", tc.name, err)
+		}
+		got := g.Card(host).Memory.RememberedNumbers()
+		slices.Sort(got)
+		slices.Sort(tc.want)
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%s: remembered %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }

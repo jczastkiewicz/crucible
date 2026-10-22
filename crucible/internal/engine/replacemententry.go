@@ -162,7 +162,7 @@ func (g *Game) entryShape(r *compile.Ability, moved *Card, origin ZoneType, h *C
 	// unhandled is an "as it enters" line no entry path runs: it is matched
 	// like the rest below and, when it applies, refused loudly rather than
 	// skipped (GO-7).
-	unhandled := false
+	unhandled, unmoved := false, false
 	if v, has := r.Param("ReplacementResult"); has && strings.EqualFold(v, "Updated") {
 		updated = true
 		if !entryUpdatedShape(sub) {
@@ -172,7 +172,10 @@ func (g *Game) entryShape(r *compile.Ability, moved *Card, origin ZoneType, h *C
 			unhandled = true
 		}
 	} else if !chainMovesReplacedCard(sub) {
-		return nil, false, false
+		if !chainMovesSelf(sub) {
+			return nil, false, false
+		}
+		unmoved = true
 	}
 	// A self line reads off the card's battlefield-bound copy whatever
 	// ActiveZones$ says (getReplacementList's affectedLKI).
@@ -184,6 +187,13 @@ func (g *Game) entryShape(r *compile.Ability, moved *Card, origin ZoneType, h *C
 		return nil, false, false
 	}
 	if !replacementRequirementsCheck(g, h, amounts, r) {
+		return nil, false, false
+	}
+	if unmoved {
+		// A replaced line whose chain does not put the replaced card anywhere
+		// (Frankenstein's Monster moves Defined$ Self): the entry would go on
+		// as if nothing replaced it (GO-7).
+		g.recordPendingError(fmt.Errorf("engine: %q: Event$ Moved replacement whose ReplaceWith$ chain does not move the replaced card not resolvable yet", h.Def.Name))
 		return nil, false, false
 	}
 	if unhandled {
@@ -258,6 +268,20 @@ func chainMovesReplacedCard(sub *compile.Ability) bool {
 	for a := sub; a != nil; a = chainNext(a) {
 		if strings.EqualFold(a.Name, "ChangeZone") {
 			if d, ok := a.Param("Defined"); ok && strings.EqualFold(d, "ReplacedCard") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// chainMovesSelf reports whether the ReplaceWith$ chain starting at sub has a
+// ChangeZone of Defined$ Self: a replacement that moves its own card instead
+// of the entry (Frankenstein's Monster), which entryShape does not run.
+func chainMovesSelf(sub *compile.Ability) bool {
+	for a := sub; a != nil; a = chainNext(a) {
+		if strings.EqualFold(a.Name, "ChangeZone") {
+			if d, ok := a.Param("Defined"); ok && strings.EqualFold(d, "Self") {
 				return true
 			}
 		}

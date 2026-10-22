@@ -558,6 +558,11 @@ func (g *Game) counterKindPlan(controller PlayerController, a *Ability, counterT
 			return "", false
 		}
 		if hasParam(a, "RandomType") {
+			if len(choices) == 1 {
+				// Aggregates.random(List) draws nothing from a one-element list
+				// (Aggregates.java:131-140).
+				return choices[0], true
+			}
 			return choices[g.rand.Int32n(int32(len(choices)))], true
 		}
 		names := make([]string, len(choices))

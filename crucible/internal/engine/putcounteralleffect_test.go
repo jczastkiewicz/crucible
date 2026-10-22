@@ -128,20 +128,28 @@ func TestPutCounterAllEffectCounterNumDefaultsToOne(t *testing.T) {
 	}
 }
 
-// TestPutCounterAllEffectRejectsUnresolvedParam proves
-// putCounterAllUnresolvedParams' own fail-loud contract (PORT-8/GO-7).
-func TestPutCounterAllEffectRejectsUnresolvedParam(t *testing.T) {
+// ValidZone$ moves the sweep off the battlefield (CountersPutAllEffect.java:
+// 50-57): Dust of Moments' time counters land on suspended cards in exile.
+func TestPutCounterAllEffectSweepsTheValidZone(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	exiled := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Exile)
+	onBoard := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	_, err := castETBPutCounterAll(t, g, p, etbPutCounterAllTriggerDefParams(t, "Test PutCounterAll ValidZone", "ValidCards$ Creature | CounterType$ P1P1 | ValidZone$ Graveyard"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ValidZone$")
+	_, err := castETBPutCounterAll(t, g, p, etbPutCounterAllTriggerDefParams(t, "Test PutCounterAll ValidZone", "ValidCards$ Creature | CounterType$ P1P1 | ValidZone$ Exile"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(exiled).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("exiled P1P1 = %d, want 1", n)
+	}
+	if n := g.Card(onBoard).Counters.Count(engine.P1P1); n != 0 {
+		t.Errorf("on-board P1P1 = %d, want 0: only the named zone is swept", n)
 	}
 }
 

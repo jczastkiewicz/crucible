@@ -27,10 +27,7 @@ import (
 
 // putCounterAllUnresolvedParams names CountersPutAllEffect's own params
 // past ValidCards$/CounterType$/CounterNum$/ValidTgts$ this port does not
-// evaluate. Every one fails the whole line loudly: ValidZone$ (2) -- this
-// file's own sweep is Battlefield-only, CountersPutAllEffect.java's own
-// default too, but a card naming a different zone explicitly must not
-// silently sweep the wrong one (ValidZone2$ likewise); AmountByChosenMap$ (1) -- a ChosenMap-indexed
+// evaluate. Every one fails the whole line loudly: AmountByChosenMap$ (1) -- a ChosenMap-indexed
 // amount, this port's own Card.ChosenMap gap; TargetUnique$ (2) -- an extra
 // battlefield-ownership filter this file has nowhere to route through,
 // damageAllEffect's own identical gap; Ultimate$/ModeCost$ (3/1) -- tapAllEffect's/untapAllEffect's own
@@ -39,7 +36,7 @@ import (
 // identical putCounterEffect gap, SpellAbilityCondition shapes
 // subAbilityConditionMet does not cover.
 var putCounterAllUnresolvedParams = [...]string{
-	"ValidZone", "ValidZone2", "AmountByChosenMap", "TargetUnique",
+	"AmountByChosenMap", "TargetUnique",
 	"Ultimate",
 }
 
@@ -90,6 +87,19 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		return nil
 	}
 
+	zone, zone2 := Battlefield, Battlefield
+	if raw, ok := a.Params.Param("ValidZone"); ok {
+		if zone, ok = ZoneByName(raw); !ok {
+			return fmt.Errorf("engine: PutCounterAll: ValidZone$ %q is not a zone", raw)
+		}
+		zone2 = zone
+	}
+	if raw, ok := a.Params.Param("ValidZone2"); ok {
+		if zone2, ok = ZoneByName(raw); !ok {
+			return fmt.Errorf("engine: PutCounterAll: ValidZone2$ %q is not a zone", raw)
+		}
+	}
+
 	players := g.Players()
 	if _, ok := a.Params.Param("ValidTgts"); ok {
 		var err error
@@ -103,9 +113,9 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	if err != nil {
 		return err
 	}
-	sweep := func(spec valid.Spec, counterType CounterType, amount int) {
+	sweep := func(zone ZoneType, spec valid.Spec, counterType CounterType, amount int) {
 		for _, pid := range players {
-			for _, cid := range g.Zone(Battlefield, pid).Cards() {
+			for _, cid := range g.Zone(zone, pid).Cards() {
 				c := g.Card(cid)
 				if !Matches(g, c, spec, a.Controller, a.Source) {
 					continue
@@ -120,7 +130,7 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			}
 		}
 	}
-	sweep(spec, counterType, amount)
+	sweep(zone, spec, counterType, amount)
 
 	// CountersPutAllEffect.java:95-116: a second pass over ValidCards2$ (the
 	// first pass's cards when absent), CounterType2$ (the first type) and
@@ -149,7 +159,7 @@ func (putCounterAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		amount2 = n
 	}
 	if amount2 > 0 {
-		sweep(spec2, type2, amount2)
+		sweep(zone2, spec2, type2, amount2)
 	}
 	return nil
 }

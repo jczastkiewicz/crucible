@@ -108,19 +108,57 @@ func TestRemoveCounterAllEffectAllCountersRemovesEachTargetsOwnCurrentCount(t *t
 	}
 }
 
-// TestRemoveCounterAllEffectRejectsUnresolvedParam proves
-// removeCounterAllUnresolvedParams' own fail-loud contract (PORT-8/GO-7).
-func TestRemoveCounterAllEffectRejectsUnresolvedParam(t *testing.T) {
+// ValidZone$ names the zone swept (CountersRemoveAllEffect.java:50-53).
+func TestRemoveCounterAllEffectSweepsTheValidZone(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
 	p := g.Players()[0]
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	exiled := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Exile)
+	g.Card(exiled).Counters.Add(engine.P1P1, 2)
+	onBoard := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(onBoard).Counters.Add(engine.P1P1, 2)
 
 	c := engine.NewScriptedController()
-	_, err := castETBRemoveCounterAll(t, g, p, etbRemoveCounterAllTriggerDefParams(t, "Test RemoveCounterAll Zone", "ValidCards$ Creature | CounterType$ P1P1 | ValidZone$ Graveyard"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ValidZone$")
+	_, err := castETBRemoveCounterAll(t, g, p, etbRemoveCounterAllTriggerDefParams(t, "Test RemoveCounterAll Zone", "ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1 | ValidZone$ Exile"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(exiled).Counters.Count(engine.P1P1); n != 1 {
+		t.Errorf("exiled P1P1 = %d, want 1", n)
+	}
+	if n := g.Card(onBoard).Counters.Count(engine.P1P1); n != 2 {
+		t.Errorf("on-board P1P1 = %d, want 2", n)
+	}
+}
+
+// AllCounterTypes$ empties every kind off each card; a line naming neither
+// CounterNum$ nor AllCounters$ removes nothing (CountersRemoveAllEffect.java:
+// 48, :63-74).
+func TestRemoveCounterAllEffectAllKindsAndNoDefaultAmount(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	c1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	g.Card(c1).Counters.Add(engine.P1P1, 2)
+	g.Card(c1).Counters.Add(engine.CounterType("TIME"), 3)
+
+	c := engine.NewScriptedController()
+	if _, err := castETBRemoveCounterAll(t, g, p, etbRemoveCounterAllTriggerDefParams(t, "Test RemoveCounterAll NoNum", "ValidCards$ Creature | CounterType$ P1P1"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(c1).Counters.Count(engine.P1P1); n != 2 {
+		t.Errorf("P1P1 = %d, want 2: no CounterNum$ removes nothing", n)
+	}
+	if _, err := castETBRemoveCounterAll(t, g, p, etbRemoveCounterAllTriggerDefParams(t, "Test RemoveCounterAll Kinds", "ValidCards$ Creature | AllCounterTypes$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if n := g.Card(c1).Counters.Count(engine.P1P1) + g.Card(c1).Counters.Count(engine.CounterType("TIME")); n != 0 {
+		t.Errorf("counters left = %d, want 0", n)
 	}
 }

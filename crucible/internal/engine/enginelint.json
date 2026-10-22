@@ -47,6 +47,7 @@
     "castspell": ["castspell.go", "activateability.go"],
     "trigger": ["trigger.go", "blockerstriggers.go", "madnesstrigger.go"],
     "statictrigger": ["statictrigger.go"],
+    "panharmonicon": ["panharmonicon.go"],
     "continuous": ["continuous.go"],
     "dependency": ["dependency.go"],
     "saspec": ["saspec.go"],
@@ -398,6 +399,7 @@
     ],
     "trigger": [
       "daytimeeffect",
+      "panharmonicon",
       "presentcheck",
       "id",
       "zone",
@@ -423,6 +425,17 @@
       "triggerpack"
     ],
     "statictrigger": ["id", "game", "card", "ability", "control", "effect"],
+    "panharmonicon": [
+      "id",
+      "card",
+      "game",
+      "valid",
+      "statictrigger",
+      "zone",
+      "effecthelpers",
+      "staticability",
+      "ability"
+    ],
     "continuous": [
       "sticker",
       "ignoreeffect",

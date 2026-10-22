@@ -92,7 +92,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
-					matches = append(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)})
+					matches = withExtraCopies(matches, Ability{API: api, Source: entered, Controller: c.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)}, g.panharmoniconExtra(c, t, c, origin, Battlefield))
 				}
 			}
 		}
@@ -158,7 +158,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)})
+						matches = withExtraCopies(matches, Ability{API: api, Source: watcher, Controller: w.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, evolve: evolve, triggered: face.objects(triggeredObjects{card: entered}), staticTrigger: isStaticTrigger(t)}, g.panharmoniconExtra(w, t, g.Card(entered), origin, Battlefield))
 					}
 				}
 			}

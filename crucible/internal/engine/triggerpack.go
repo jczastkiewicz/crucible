@@ -265,3 +265,23 @@ func (g *Game) checkConjureAllTriggers(controller PlayerController, pid PlayerID
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+var losesGameParams = effectEventParams("validplayer")
+
+// checkLosesGameTriggers is Mode$ LosesGame (TriggerLosesGame.java:34-46,
+// queued by Game.onPlayerLost, Game.java:1025-1029) for a player the state-based
+// actions just eliminated: ValidPlayer$ against them. Java clears the active
+// triggers of cards the loser both owns and controls first (Game.java:897-902,
+// CR 800.4d), so those hosts never see their own loss.
+func (g *Game) checkLosesGameTriggers(controller PlayerController, loser PlayerID) {
+	matches := g.scanTriggers([]string{"LosesGame"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if h.Owner == loser && h.Controller() == loser {
+			return triggeredObjects{}, false
+		}
+		if !paramsResolvable(t, losesGameParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", loser) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: loser}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

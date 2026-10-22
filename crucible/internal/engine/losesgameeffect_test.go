@@ -120,3 +120,28 @@ func TestLosesGameEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved Condition$")
 	}
 }
+
+// TestLosesGameTriggerFiresForAnEliminatedOpponent proves Mode$ LosesGame
+// (TriggerLosesGame.java:34-46, queued by Game.onPlayerLost): in a
+// three-player game the watcher's controller gains 1 life when an opponent
+// is eliminated, and ValidPlayer$ Player.Opponent keeps it from firing on
+// their own elimination.
+func TestLosesGameTriggerFiresForAnEliminatedOpponent(t *testing.T) {
+	t.Parallel()
+
+	g, p, b, _ := newThreePlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	g.NewCard(scriptDef(t, "Test Loss Watcher", "Enchantment",
+		"T:Mode$ LosesGame | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigGain",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	start := g.Player(p).Life
+	g.Player(b).Life = 0
+	c := engine.NewScriptedController()
+	engine.CheckStateBasedActions(g, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != start+1 {
+		t.Errorf("life = %d, want %d", got, start+1)
+	}
+}

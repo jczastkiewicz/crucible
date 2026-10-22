@@ -298,6 +298,7 @@ func (g *Game) onPlayersLost(c PlayerController) {
 		// Game.java:1014-1017, "free any mindslaves" (ADR-0030).
 		g.releaseControlBy(pid)
 		pl.lossHandled = true
+		g.checkLosesGameTriggers(c, pid)
 	}
 }
 

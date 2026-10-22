@@ -646,6 +646,10 @@ type traitGrant struct {
 	statics      []*compile.Ability
 	replacements []*compile.Ability
 	amounts      map[string]expr.Amount
+	// activatorFor are the abilities only activator may activate
+	// (TransferActivator$, AnimateEffectBase.java:165-167).
+	activatorFor []*compile.Ability
+	activator    PlayerID
 }
 
 // Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a

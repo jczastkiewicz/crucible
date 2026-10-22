@@ -86,13 +86,11 @@ func TestAnimateAbilitiesEndAtCleanup(t *testing.T) {
 }
 
 // The shapes left unported are refused before anything changes (GO-7):
-// TransferActivator$ (Martyrdom's "only you may activate"), and a duration
-// nothing registers.
+// a duration nothing registers.
 func TestAnimateAbilitiesRejectsUnportedShapes(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct{ line, want string }{
-		{"DB$ Animate | ValidTgts$ Creature | Abilities$ ABGain | TransferActivator$ True", "TransferActivator$"},
 		{"DB$ Animate | ValidTgts$ Creature | Abilities$ ABGain | Duration$ UntilTheEndOfTargetedNextTurn", "UntilTheEndOfTargetedNextTurn"},
 	} {
 		g, p, _ := newTwoPlayerGame(t)
@@ -170,5 +168,24 @@ func TestAnimateTriggersEndAtCleanup(t *testing.T) {
 	}
 	if got := g.Player(p).Life; got != 22 {
 		t.Errorf("life after the next turn's draw = %d, want 22: the trigger outlived the turn", got)
+	}
+}
+
+// TransferActivator$ (Martyrdom) lets only the player who resolved the Animate
+// activate the granted ability, not the creature's controller
+// (AnimateEffectBase.java:165-167).
+func TestAnimateTransferActivatorLetsOnlyTheGranterActivate(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	creature := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(creature)},
+		"DB$ Animate | ValidTgts$ Creature | Abilities$ ABGain | TransferActivator$ True", "ABGain", grantedGain); err != nil {
+		t.Fatal(err)
+	}
+	if canActivateGrant(t, g, other, creature) {
+		t.Error("the creature's controller activated an ability only the granter may")
+	}
+	if !canActivateGrant(t, g, p, creature) {
+		t.Error("the granter cannot activate the ability")
 	}
 }

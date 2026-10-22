@@ -66,6 +66,11 @@ type animateRecord struct {
 	// never edited: Clone copies the record by value.
 	abilities      []*compile.Ability
 	abilityAmounts map[string]expr.Amount
+	// activatorFor are the Abilities$ grants (not the revert) a
+	// TransferActivator$ line restricts to activator, the player who
+	// resolved the Animate (AnimateEffectBase.java:165-167).
+	activatorFor []*compile.Ability
+	activator    PlayerID
 	// statics are the continuous and rule statics a staticAbilities$ grants
 	// (AnimateEffectBase.java:171-179): layer-6 trait rows like abilities, in
 	// whatever zone the card is (a ReduceCost on a card in hand), compiled at
@@ -197,7 +202,8 @@ func animateAbilities(g *Game) {
 				}
 			}
 			c.traitGrants = append(append([]traitGrant(nil), c.traitGrants...),
-				traitGrant{abilities: r.abilities, triggers: triggers, replacements: replacements, statics: r.statics, amounts: r.abilityAmounts})
+				traitGrant{abilities: r.abilities, triggers: triggers, replacements: replacements, statics: r.statics, amounts: r.abilityAmounts,
+					activatorFor: r.activatorFor, activator: r.activator})
 		}
 	}
 }
@@ -281,9 +287,7 @@ func subtypeCategoryDrop(g *Game, land, creature, artifact, enchantment bool) (f
 // Animate's own (animateEffect.Resolve); AnimateAllEffect never reads them. sVars$ is read as nothing: the SVars it copies are the AI markers
 // (MustAttack:True) and the ones the granted traits already carry compiled. Condition$ is the two effects' own
 // (rejectUnreadCondition, then subAbilityConditionMet).
-var animateUnresolvedParams = [...]string{
-	"TransferActivator",
-}
+var animateUnresolvedParams = [...]string{}
 
 // animateDuration reads Duration$ for an Animate-shaped record: absent ends at
 // cleanup, Permanent never ends, and any other value addUntilCommand names
@@ -343,6 +347,9 @@ func buildAnimate(g *Game, a *Ability, api string) (animateRecord, []*compile.Ab
 		return r, nil, err
 	}
 	r.abilityAmounts = a.Amounts
+	if hasParam(a, "TransferActivator") {
+		r.activatorFor, r.activator = r.abilities, a.Controller
+	}
 	if hasParam(a, "RemoveThisAbility") {
 		if a.activationIndex == 0 {
 			return r, nil, fmt.Errorf("engine: %s: RemoveThisAbility$ outside an activated ability", api)

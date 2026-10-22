@@ -521,6 +521,13 @@ func (g *Game) activatorValid(pid PlayerID, c *Card, ability *compile.Ability) b
 	if ability.Name == "InternalIgnoreEffect" {
 		return g.ignoreActivatorValid(pid, c, ability)
 	}
+	for _, grant := range c.traitGrants {
+		// TransferActivator$ replaces the default of the permanent's
+		// controller with the player who granted the ability.
+		if slices.Contains(grant.activatorFor, ability) {
+			return pid == grant.activator
+		}
+	}
 	spec, ok := ability.Param("Activator")
 	if !ok {
 		return c.Controller() == pid

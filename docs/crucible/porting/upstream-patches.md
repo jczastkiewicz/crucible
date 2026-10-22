@@ -60,6 +60,7 @@ merges it and a sync brings the identical content back.
 
 | Date       | Path                                                                                                           | Change                                                                                                                                                                                             | Upstream                                                                  |
 | ---------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 2026-10-22 | `forge-gui/res/cardsfolder/upcoming/the_wrath_of_khan.txt`                                                     | Dropped `SubAbility$ DBCleanup` from `DBDelTrig`: the card defines no such SVar, so the script cannot build                                                                                        | Branch `upstream-pr/wrath-of-khan-cleanup` (`ed74515bf0c`), not opened    |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

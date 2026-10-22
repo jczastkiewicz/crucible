@@ -98,7 +98,7 @@ func (g *Game) staticAttackCost(h *Card, face *compile.Face, s *compile.Ability,
 	if !ok {
 		return "", false, fmt.Errorf("engine: Mode$ CantAttackUnless without Cost$")
 	}
-	text, err := g.attackCostAmount(h, face, s, text, attacker)
+	text, err := g.attackCostAmount(h, face, s, "CantAttackUnless", text, attacker)
 	if err != nil {
 		return "", false, err
 	}
@@ -117,7 +117,7 @@ func (g *Game) staticAttackCost(h *Card, face *compile.Face, s *compile.Ability,
 // "0", CombatUtil.java:266), so the shard is left out here: the amount paid
 // is the same. Java's removeRemembered also forgets an attacker the host
 // remembered before the evaluation; Forget reproduces that (PORT-7).
-func (g *Game) attackCostAmount(h *Card, face *compile.Face, s *compile.Ability, text string, attacker CardID) (string, error) {
+func (g *Game) attackCostAmount(h *Card, face *compile.Face, s *compile.Ability, mode, text string, attacker CardID) (string, error) {
 	name := strings.ToLower(text)
 	_, isSVar := face.Amounts[name]
 	if _, own := h.svars[name]; !isSVar && !own {
@@ -132,7 +132,7 @@ func (g *Game) attackCostAmount(h *Card, face *compile.Face, s *compile.Ability,
 		h.Memory.Forget(CardEntity(attacker))
 	}
 	if !ok {
-		return "", fmt.Errorf("engine: Mode$ CantAttackUnless: Cost$ %s: SVar not resolvable yet", text)
+		return "", fmt.Errorf("engine: Mode$ %s: Cost$ %s: SVar not resolvable yet", mode, text)
 	}
 	return strconv.Itoa(n), nil
 }

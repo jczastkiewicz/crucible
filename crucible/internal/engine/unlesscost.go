@@ -152,6 +152,9 @@ type unlessCost struct {
 	libN    int
 	libSpec string
 	libPos  int
+	// libHand makes the part PutCardToLibFromHand: the cards come from the
+	// payer\'s hand instead of the graveyard (Cost.java:551-553).
+	libHand bool
 	// gainN/gainSpec are GainControl<N/Type>: the payer gains control of N
 	// permanents of the type, any player's (CostGainControl). sameParts/sameN/
 	// sameSpec/samePos are PutCardToLibFromSameGrave<N/Pos/Type> repeated
@@ -271,6 +274,11 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.sameParts, uc.sameN, uc.sameSpec, uc.samePos = 1, n, p.Field(2), 0
 			if p.Field(1) == "-1" {
 				uc.samePos = libraryBottom
+			}
+		case p.Name == "PutCardToLibFromHand" && uc.libN == 0 && (p.Field(1) == "0" || p.Field(1) == "-1") && chosenCardSpecResolvable(p.Field(2)):
+			uc.libN, uc.libSpec, uc.libPos, uc.libHand = n, p.Field(2), 0, true
+			if p.Field(1) == "-1" {
+				uc.libPos = libraryBottom
 			}
 		case p.Name == "RemoveAnyCounter" && uc.removeAnyN == 0 && p.Field(1) != "" && (p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME"):
 			uc.removeAnyN, uc.removeAnyKind, uc.removeAnySelf = n, p.Field(1), true
@@ -664,7 +672,7 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.tapN > 0 && len(tapTypeCandidates(g, pid, source, false, uc.tapSpec)) < uc.tapN {
 		return false
 	}
-	if uc.libN > 0 && len(g.costCandidates(pid, source, false, Graveyard, uc.libSpec)) < uc.libN {
+	if uc.libN > 0 && len(g.costCandidates(pid, source, false, uc.libZone(), uc.libSpec)) < uc.libN {
 		return false
 	}
 	if uc.gainN > 0 && len(g.gainControlCandidates(pid, source, uc.gainSpec)) < uc.gainN {
@@ -910,7 +918,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		}
 	}
 	if uc.libN > 0 {
-		options := g.costCandidates(pid, a.Source, false, Graveyard, uc.libSpec)
+		options := g.costCandidates(pid, a.Source, false, uc.libZone(), uc.libSpec)
 		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, options, uc.libN, uc.libN) {
 			g.moveByEffect(controller, id, Library, uc.libPos, NoPlayer, false)
 		}
@@ -1457,4 +1465,12 @@ func (g *Game) paySameGraveLibrary(controller PlayerController, pid PlayerID, so
 	for _, id := range g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN) {
 		g.moveByEffect(controller, id, Library, uc.samePos, NoPlayer, false)
 	}
+}
+
+// libZone is the zone a PutCardToLib part takes its cards from.
+func (uc unlessCost) libZone() ZoneType {
+	if uc.libHand {
+		return Hand
+	}
+	return Graveyard
 }

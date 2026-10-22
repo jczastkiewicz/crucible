@@ -126,6 +126,9 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 		if err := g.validateBlocks(defender, blocks); err != nil {
 			return nil, err
 		}
+		if blocks, err = g.payBlockCosts(controller, defender, blocks); err != nil {
+			return nil, err
+		}
 	}
 	g.combat.Blocks = blocks
 	// declareBlockersTurnBasedAction sets every band's blocked flag
@@ -178,8 +181,8 @@ func (g *Game) DeclareCombatBlockers(controller PlayerController) ([]Block, erro
 // validateBlocks. Java runs this loop on the normal path too; there,
 // validateBlocks has already rejected every violation it would repair.
 //
-// PhaseHandler.java:681-691's block-cost pass before it is not ported: this
-// port has no block costs (blockvalidation.go's absent-default list).
+// PhaseHandler.java:689-697's block-cost pass before it is not run on this
+// path (payBlockCosts, blockcost.go, is called on the normal one).
 func (g *Game) repairReplacedBlocks(defender PlayerID, blocks []Block) ([]Block, error) {
 	for {
 		var remaining []CardID

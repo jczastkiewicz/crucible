@@ -569,7 +569,7 @@ func animateAbilityGrants(a *Ability, api string) ([]*compile.Ability, error) {
 var animateStaticModes = map[string]bool{
 	"continuous": true, "mustattack": true, "minmaxblocker": true, "cantsacrifice": true,
 	"cantblockby": true, "combatdamagetoughness": true, "reducecost": true, "raisecost": true,
-	"manaconvert": true, "cantblock": true, "cantattack": true, "cantattackunless": true,
+	"manaconvert": true, "cantblock": true, "cantattack": true, "cantattackunless": true, "cantblockunless": true,
 	"canattackdefender": true, "cantregenerate": true, "nocleanupdamage": true,
 }
 

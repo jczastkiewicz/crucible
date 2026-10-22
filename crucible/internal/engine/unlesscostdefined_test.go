@@ -340,3 +340,29 @@ func TestCollectEvidenceTriggerFiresForThePayer(t *testing.T) {
 		})
 	}
 }
+
+// PutCardToLibFromHand<N/0/Card> (Tainted Specter): the payer puts a card
+// from their hand on top of their library (Cost.java:551-553).
+func TestUnlessCostPutCardToLibFromHand(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	card := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	c.QueueCardChoice([]engine.CardID{card})
+	def := etbSacrificeTriggerDefParams(t, "Test Put Hand To Lib", "UnlessCost$ PutCardToLibFromHand<1/0/Card> | UnlessPayer$ You", nil)
+	creature, err := castETBSacrifice(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(creature).Zone != engine.Battlefield {
+		t.Errorf("creature was sacrificed despite the paid cost")
+	}
+	if lib := g.Zone(engine.Library, p).Cards(); len(lib) != 1 || lib[0] != card {
+		t.Errorf("library = %v, want [%v]", lib, card)
+	}
+}

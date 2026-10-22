@@ -18,9 +18,8 @@
 // declaration. Parity with the oracle is what is measured, so the
 // approximation is the rule here (ADR-0024 Considered Options 2).
 //
-// Java sources this port has none of, each read as its absent default: block
-// costs (getBlockCost, Mode$ CantBlockUnless -- nil, so no requirement is
-// excused by one), StaticAbilityBlockRestrict's per-player blocker limit
+// Java sources this port has none of, each read as its absent default:
+// StaticAbilityBlockRestrict's per-player blocker limit
 // and Mode$ CanBlockTapped. "Can block an additional creature" is read
 // (Card.canBlockMoreCreatures).
 

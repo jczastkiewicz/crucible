@@ -67,6 +67,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/AbilityUtils.java` | `playerXCount` Highest/Lowest pass `l[0]`, not `s`, to `playerXProperty` (operator applied twice); `doXMath` `Mod` by zero returns 0 | PR [#12371](https://github.com/Card-Forge/forge/pull/12371), branch `upstream-pr/xmath-hardening` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/phase/Untap.java` | `break` when the `UntapAdjust` choice is declined (the loop asked forever) | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/PlayEffect.java` | `amount--` before the three `continue`s that skip a play under `AllowRepeats$` | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/SwitchBlockEffect.java` | `Blocks` trigger gets `Attackers`; switched Sorrow's Path blocks are recorded in the blocked-by history; Jarkeld removes only the two targeted block assignments | PR [#12375](https://github.com/Card-Forge/forge/pull/12375), branch `upstream-pr/switch-block` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

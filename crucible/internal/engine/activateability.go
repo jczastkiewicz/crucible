@@ -236,7 +236,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if (isLoyaltyAbility || sorcerySpeed) && !g.canActSorcerySpeed(pid) && !g.activatesWithFlash(pid, card, ability) {
 		return false
 	}
-	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(c, index, ability) || !g.otherRestrictionsMet(c, ability) {
+	if !g.timingRestrictionsMet(pid, ability) || !g.activationLimitsMet(pid, c, index, ability) || !g.otherRestrictionsMet(c, ability) {
 		return false
 	}
 	fromGraveyard, fromHand := false, false
@@ -591,21 +591,22 @@ func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
 // 583-598): fewer activations of the A: line at index this turn (this game)
 // than the limit. The limit is an amount, X through the card's own SVars. One
 // that cannot be resolved refuses the activation (GO-7).
-func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability) bool {
+func (g *Game) activationLimitsMet(pid PlayerID, c *Card, index int, ability *compile.Ability) bool {
 	turn, game := c.activations.of(index)
-	if _, ok := ability.Param("Exhaust"); ok && game >= 1 {
-		// SpellAbilityRestriction.java:465-471: an Exhaust or Power-up ability
-		// is limited to one activation a game (StaticAbilityAdditionalActivations
-		// raises it; no corpus card does yet).
-		return false
-	}
-	if _, ok := ability.Param("PowerUp"); ok && game >= 1 {
-		return false
-	}
-	// Boast: once each turn (SpellAbilityRestriction.java:461-463, default
-	// limit 1; StaticAbilityAdditionalActivations raises it, unported).
-	if _, ok := ability.Param("Boast"); ok && turn >= 1 {
-		return false
+	// Exhaust, Power-up (per game) and Boast (per turn): one activation unless
+	// a Mode$ Activations static raises it (SpellAbilityRestriction.java:
+	// 461-469, StaticAbilityAdditionalActivations.getLimit).
+	for _, k := range [...]struct {
+		key   string
+		count int
+	}{{"Exhaust", game}, {"PowerUp", game}, {"Boast", turn}} {
+		if _, ok := ability.Param(k.key); !ok {
+			continue
+		}
+		limit, ok := g.activationLimit(pid, c, ability, 1)
+		if !ok || k.count >= limit {
+			return false
+		}
 	}
 	for _, k := range [...]struct {
 		key   string

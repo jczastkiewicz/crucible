@@ -164,6 +164,13 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 		if a.Params == nil {
 			return false, true
 		}
+		// SpellAbility.isBoast/isExhaust/isPowerUp are hasParam
+		// (SpellAbility.java:620-630, SpellAbilityProperty.java:87-111).
+		if prop == "Boast" || prop == "Exhaust" || prop == "PowerUp" {
+			if _, has := a.Params.Param(prop); has {
+				return true, true
+			}
+		}
 		have := keyword.Parse(a.Params.Keyword).Name
 		for _, n := range names {
 			if have == n {

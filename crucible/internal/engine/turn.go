@@ -438,7 +438,7 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 // at all.
 func (g *Game) untapStep(controller PlayerController) {
 	g.untapStepPhasing(controller)
-	g.dayTimeAtUntap()
+	g.dayTimeAtUntap(controller)
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
 		wasTapped := c.Tapped

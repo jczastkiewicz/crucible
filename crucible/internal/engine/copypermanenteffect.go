@@ -237,7 +237,7 @@ func copyBaseValue(g *Game, a *Ability, source *Card, key string) (int, bool, er
 // SetColor$/AddColors$, RemoveCardTypes$/RemoveSubTypes$, SetPower$/SetToughness$,
 // AddSVars$, NewName$). A line with none of them copies the definition itself.
 // Like cloneDef it copies the current face alone and never writes through the
-// shared definition. The traits a copy gains (AddTriggers$, ...) are not read.
+// shared definition. The traits a copy gains (AddTriggers$, ...) go through addGainedTraits.
 func copyExceptDef(g *Game, a *Ability, base *compile.Card) (*compile.Card, error) {
 	excepting := false
 	for _, key := range [...]string{"AddTypes", "AddKeywords", "NonLegendary", "SetColor", "AddColors",

@@ -68,6 +68,11 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/phase/Untap.java` | `break` when the `UntapAdjust` choice is declined (the loop asked forever) | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/PlayEffect.java` | `amount--` before the three `continue`s that skip a play under `AllowRepeats$` | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/SwitchBlockEffect.java` | `Blocks` trigger gets `Attackers`; switched Sorrow's Path blocks are recorded in the blocked-by history; Jarkeld removes only the two targeted block assignments | PR [#12375](https://github.com/Card-Forge/forge/pull/12375), branch `upstream-pr/switch-block` |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/SpellAbilityEffect.java` | `addToCombat` compares from the controller: `getDefenderPlayerByAttacker` is null for an attacker that left combat | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/combat/CombatUtil.java` | `getAllPossibleDefenders` skips a battle with no protector | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/player/Player.java` | `planeswalk` returns on an empty planar deck | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java` | `Chooser$` naming nobody returns instead of `get(0)` on an empty list | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/AbilityUtils.java` | `Defined$ DefendingPlayer` guarded by `inCombat()`, like `AttackingPlayer` | Branch `upstream-pr/null-guards-combat-zones`, PR number pending |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

@@ -645,3 +645,18 @@ func TestChangeZoneEffectOriginListNamingCommandMovesTheCardInTheOtherZone(t *te
 		t.Errorf("exiled card zone = %v, want Battlefield", z)
 	}
 }
+
+// Command Beacon / Netherborn Altar: Origin$ Command with Hidden$ resolves
+// (ChangeZoneEffect.java:934-935); with no commander in the Command zone the
+// fetch is empty and nothing moves.
+func TestChangeZoneHiddenCommandOriginWithoutACommanderMovesNothing(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
+		"DB$ ChangeZone | Origin$ Command | Destination$ Hand | ChangeType$ Card.IsCommander+YouOwn | ChangeNum$ 1 | Mandatory$ True | Hidden$ True"); err != nil {
+		t.Fatal(err)
+	}
+	if n := g.Zone(engine.Hand, p).Len(); n != 0 {
+		t.Errorf("hand = %d cards, want 0", n)
+	}
+}

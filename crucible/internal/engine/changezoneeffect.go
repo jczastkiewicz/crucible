@@ -114,6 +114,13 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			if z == Command && dest == Exile {
 				continue
 			}
+			// Hidden$ True from the Command zone (Command Beacon, Netherborn
+			// Altar) fetches through changeHiddenOriginResolve like any hidden
+			// origin; without a commander setup (isCommander is false) nothing
+			// matches, as in Java with no commanders.
+			if z == Command && hasParam(a, "Hidden") {
+				continue
+			}
 			// A list naming Command beside another zone (Norin the Wary's
 			// "Exile,Command") only matters for an effect card; any other
 			// card in Command is refused where it is met, below.

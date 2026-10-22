@@ -65,7 +65,7 @@ type playEffect struct{}
 var playUnresolvedParams = [...]string{
 	"CopyFromChosenName", "AnySupportedCard", "RandomCopied",
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
-	"PlayRaiseCost", "ManaConversion", "ControlledByPlayer", "WithTotalCMC", "ShowCards", "ZoneRegardless"}
+	"PlayRaiseCost", "ControlledByPlayer", "WithTotalCMC", "ShowCards", "ZoneRegardless"}
 
 // playUnportedProperties are card-property prefixes in the corpus's Play
 // valid strings that Matches (valid.go) has no case for and would read as
@@ -103,6 +103,19 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	opts, extraCost, err := playCost(a)
 	if err != nil {
 		return err
+	}
+	// ManaConversion$ (PlayEffect.java:428-430, PlaySpellAbility.java:662-664):
+	// only the two corpus values are modelled, as the MayPlayIgnoreType /
+	// MayPlayIgnoreColor approximations in castCost.
+	if raw, ok := a.Params.Param("ManaConversion"); ok {
+		switch raw {
+		case "AnyType->AnyType":
+			opts.anyType = true
+		case "AnyType->AnyColor":
+			opts.anyColor = true
+		default:
+			return fmt.Errorf("engine: Play: ManaConversion$ %q not resolvable yet", raw)
+		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {

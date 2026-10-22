@@ -631,3 +631,33 @@ func TestPlayValidReadsTheAbilitiesSVarAndPlayerSpecs(t *testing.T) {
 		}
 	}
 }
+
+// TestPlayManaConversionLetsAnyManaPayAColoredCost proves ManaConversion$
+// AnyType->AnyColor (PlayEffect.java:428-430): green mana pays {W}.
+func TestPlayManaConversionLetsAnyManaPayAColoredCost(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, line string
+		want       int
+	}{
+		{"converted", "DB$ Play | Defined$ Remembered | ValidSA$ Spell | ManaConversion$ AnyType->AnyColor | Optional$ True", 24},
+		{"plain", "DB$ Play | Defined$ Remembered | ValidSA$ Spell | Optional$ True", 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			spell := g.NewCard(gainInstant(t, "Gain", "W", "4"), p, engine.Exile)
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueueConfirmEffect(true)
+			c.QueuePayGeneric(mana.ShardG)
+			host := pushPlayLine(t, g, p, nil, tc.line)
+			if err := resolvePlay(t, g, host, c, spell); err != nil {
+				t.Fatal(err)
+			}
+			if got := g.Player(p).Life; got != tc.want {
+				t.Errorf("life = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

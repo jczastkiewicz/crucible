@@ -88,7 +88,7 @@ func (g *Game) checkETBTriggers(controller PlayerController, entered CardID, ori
 					continue
 				}
 				evolve, ok := evolveCheck(g, c, t, entered)
-				if !ok {
+				if !ok || g.triggerDisabled(c, t, c, origin, Battlefield) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -154,7 +154,7 @@ func (g *Game) otherETBTriggerMatches(entered CardID, origin ZoneType) []Ability
 						continue
 					}
 					evolve, ok := evolveCheck(g, w, t, entered)
-					if !ok {
+					if !ok || g.triggerDisabled(w, t, g.Card(entered), origin, Battlefield) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {
@@ -238,7 +238,7 @@ func (g *Game) checkDiesTriggers(controller PlayerController, left CardID) {
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Graveyard) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -317,7 +317,7 @@ func (g *Game) otherDiesTriggerMatches(left CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) {
+					if !Matches(g, dying, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, dying, Battlefield, Graveyard) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {

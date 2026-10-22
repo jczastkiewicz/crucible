@@ -279,3 +279,28 @@ func TestDigEffectRandomChangePicksWithoutAsking(t *testing.T) {
 		t.Errorf("library size = %d, want 3", n)
 	}
 }
+
+// TestDigEffectWithTotalCMCStopsAtTheBudget proves WithTotalCMC$
+// (DigEffect.java:263-289): the budget prefilters the looked-at cards and
+// shrinks with every pick, so a 2-budget allows a {2} card or two {1}s, never
+// both a {2} and a {1}.
+func TestDigEffectWithTotalCMCStopsAtTheBudget(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	two := g.NewCard(creatureDefManaCost(t, "2"), p, engine.Library)
+	one := g.NewCard(creatureDefManaCost(t, "1"), p, engine.Library)
+	three := g.NewCard(creatureDefManaCost(t, "3"), p, engine.Library)
+	_ = three
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{two})
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Dig CMC", "DB$ Dig | DigNum$ 3 | ChangeNum$ Any | WithTotalCMC$ 2 | DestinationZone$ Battlefield | RestRandomOrder$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if g.Card(two).Zone != engine.Battlefield {
+		t.Errorf("the {2} card is in %v, want the battlefield", g.Card(two).Zone)
+	}
+	if g.Card(one).Zone == engine.Battlefield || g.Card(three).Zone == engine.Battlefield {
+		t.Errorf("a card beyond the budget entered the battlefield")
+	}
+}

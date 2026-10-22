@@ -10,11 +10,11 @@ import (
 
 // digUnresolvedParams are DigEffect.java's params this port cannot honour
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
-// (WithTotalCMC$, ForEachColorPair$, WithDifferentPowers$),
+// (ForEachColorPair$, WithDifferentPowers$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"SourceZone", "WithTotalCMC",
+	"SourceZone",
 	"ForEachColorPair", "WithDifferentPowers", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
@@ -159,8 +159,18 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			}
 		}
 		valid := top
+		totalCMC := hasParam(a, "WithTotalCMC")
+		budget := 0
+		if totalCMC {
+			// DigEffect.java:154-155, :227-229: the budget prefilters before
+			// ChangeValid$ and shrinks with every pick.
+			if budget, err = optionalAmount(g, a, "Dig", "WithTotalCMC", 0); err != nil {
+				return err
+			}
+			valid = filterValid(g, valid, fmt.Sprintf("Card.cmcLE%d", budget), source.Controller(), a.Source)
+		}
 		if changeValid != "" {
-			valid = filterValid(g, top, changeValid, source.Controller(), a.Source)
+			valid = filterValid(g, valid, changeValid, source.Controller(), a.Source)
 		}
 		if optional && mayBeSkipped && len(valid) > 0 && !controller.ConfirmEffect(g, p, a.Source) {
 			return nil
@@ -177,6 +187,26 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				g.rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })
 				chosen = append(chosen, rest[0])
 				rest = rest[1:]
+			}
+		case totalCMC:
+			// DigEffect.java:263-289: one pick at a time while the budget
+			// lasts; optional picks may stop early.
+			for len(valid) > 0 && (anyNumber || len(chosen) < changeNum) {
+				lo := 1
+				if anyNumber || optional {
+					lo = 0
+				}
+				pick := controller.ChooseCardsForEffect(g, chooser, a.Source, valid, lo, 1)
+				if err := checkChoice(pick, valid, lo, 1); err != nil {
+					return fmt.Errorf("engine: Dig: %w", err)
+				}
+				if len(pick) == 0 {
+					break
+				}
+				chosen = append(chosen, pick[0])
+				valid = withoutCards(valid, pick)
+				budget -= g.Card(pick[0]).CMC()
+				valid = filterValid(g, valid, fmt.Sprintf("Card.cmcLE%d", budget), source.Controller(), a.Source)
 			}
 		case len(valid) > 0:
 			hi := changeNum

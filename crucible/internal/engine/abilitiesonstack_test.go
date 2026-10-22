@@ -69,6 +69,9 @@ func castCounter(t *testing.T, g *engine.Game, p engine.PlayerID, name string, r
 	g.Player(p).ManaPool.AddColorless(1)
 	r.QueuePayGeneric(mana.ShardC)
 	spell := g.NewCard(corpusCard(t, name), p, engine.Hand)
+	if name == "Consign to Memory" {
+		r.QueueNumberChoice(0) // Replicate: pay it no times
+	}
 	if targets != nil {
 		r.QueueTargets(targets)
 	}

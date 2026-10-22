@@ -1388,6 +1388,23 @@ const (
 	optBuyback
 )
 
+// keywordAmount is the amount SpellAbility.setOptionalKeywordAmount records
+// for one keyword of the cast (Count$OptionalKeywordAmount reads it back).
+type keywordAmount struct {
+	name string
+	n    int
+}
+
+// keywordCostAmount is the amount recorded for the keyword name, 0 when none.
+func (o castOptional) keywordCostAmount(name string) int {
+	for _, a := range o.keywordAmounts {
+		if a.name == name {
+			return a.n
+		}
+	}
+	return 0
+}
+
 // castOptional is a card's record of its cast's optional costs: Java keeps
 // them on Card.getCastSA, read by isOptionalCostPaid and the paid lists
 // (SpellAbility.getPaidList). collected is "Collected" (CostCollectEvidence),
@@ -1399,9 +1416,10 @@ const (
 // its Escape cost (escapeCost).
 type castOptional struct {
 	kinds optionalKinds
-	// multikicks is the amount recorded for K:Multikicker
-	// (SpellAbility.setOptionalKeywordAmount): only a positive one is kept.
-	multikicks int
+	// keywordAmounts are the amounts recorded for the keywords paid a number
+	// of times (SpellAbility.setOptionalKeywordAmount): only a positive one is
+	// kept.
+	keywordAmounts []keywordAmount
 	// promised is Card.getPromisedGift: the opponent the gift was promised to,
 	// meaningful when kinds has optPromiseGift.
 	promised  PlayerID
@@ -1484,8 +1502,8 @@ func (o castOptional) clone() castOptional {
 // was recorded, else how many kicker costs were paid, 0 to 2 -- one when
 // exactly one of the two was, as Java computes it.
 func (c *Card) kickerMagnitude() int {
-	if c.castOpt.multikicks > 0 {
-		return c.castOpt.multikicks
+	if n := c.castOpt.keywordCostAmount("Multikicker"); n > 0 {
+		return n
 	}
 	k1, k2 := c.kicker&kicker1 != 0, c.kicker&kicker2 != 0
 	switch {

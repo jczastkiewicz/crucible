@@ -211,6 +211,14 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return yes, true
 		}
 		return no, true
+	case "OptionalKeywordAmount":
+		// AbilityUtils.java:1916-1917 over the cast's recorded amounts; the
+		// keyword is the one the Expand template names in the head's
+		// parameter (a script never writes the bare form).
+		if source == NoCard || len(count.Parameters) != 1 {
+			return 0, false
+		}
+		return g.Card(source).castOpt.keywordCostAmount(count.Parameters[0]), true
 	case "TimesKicked":
 		if source == NoCard {
 			return 0, false

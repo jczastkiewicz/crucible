@@ -83,53 +83,64 @@ func withKicker(c *Card, bits uint8, base mana.Cost) mana.Cost {
 	return mana.FromShards(shards, generic)
 }
 
-// multikickerCost is the plain mana cost of c's Multikicker keyword
-// (K:Multikicker:<cost>). ok is false without the keyword; a cost that is not
-// plain mana comes back as an error, never half-paid (GO-7).
-func multikickerCost(c *Card) (m mana.Cost, ok bool, err error) {
-	for _, line := range c.KeywordLines() {
-		k := keyword.Parse(line)
-		if k.Name != "Multikicker" {
-			continue
-		}
-		args := k.Args()
-		if len(args) == 0 || !cost.Parse(args[0]).IsPureMana() {
-			return mana.Cost{}, false, fmt.Errorf("engine: %q: Multikicker %q not resolvable yet", c.Def.Name, k.Details)
-		}
-		mc, perr := mana.Parse(args[0])
-		if perr != nil || mc.CountX() > 0 {
-			return mana.Cost{}, false, fmt.Errorf("engine: %q: Multikicker %q not resolvable yet", c.Def.Name, args[0])
-		}
-		return mc, true, nil
+// keywordManaCost is the plain mana cost of the keyword line k
+// (K:<Name>:<cost>). A cost that is not plain mana is an error, never
+// half-paid (GO-7).
+func keywordManaCost(c *Card, k keyword.Keyword) (mana.Cost, error) {
+	args := k.Args()
+	if len(args) == 0 || !cost.Parse(args[0]).IsPureMana() {
+		return mana.Cost{}, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, k.Details)
 	}
-	return mana.Cost{}, false, nil
+	mc, err := mana.Parse(args[0])
+	if err != nil || mc.CountX() > 0 {
+		return mana.Cost{}, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, args[0])
+	}
+	return mc, nil
 }
 
-// chooseMultikicker asks pid how many times to pay c's Multikicker cost
-// (PlayerController.chooseNumberForKeywordCost, GameActionUtil.java:667-685).
-// Java offers up to Integer.MAX_VALUE; this port bounds the question by the
-// mana pid can still make (manaCapacity), since more copies could never be
-// paid. ok is false when the keyword's cost cannot be read.
-func (g *Game) chooseMultikicker(controller PlayerController, pid PlayerID, c *Card) (n int, ok bool) {
-	each, has, err := multikickerCost(c)
-	if err != nil {
-		g.recordPendingError(err)
-		return 0, false
+// chooseKeywordAmounts is GameActionUtil.addExtraKeywordCost
+// (GameActionUtil.java:617-734) for the keywords whose cost is mana: Multikicker,
+// Squad and Replicate ask how many times to pay it
+// (chooseNumberForKeywordCost), Offspring whether to (addKeywordCost). Only a
+// positive amount is recorded. Java offers Integer.MAX_VALUE times; this port
+// bounds the question by the mana pid can still make (manaCapacity), since
+// more could never be paid. ok is false when a keyword's cost cannot be read.
+func (g *Game) chooseKeywordAmounts(controller PlayerController, pid PlayerID, c *Card) (out []keywordAmount, ok bool) {
+	for _, line := range c.KeywordLines() {
+		k := keyword.Parse(line)
+		switch k.Name {
+		case "Multikicker", "Squad", "Replicate", "Offspring":
+		default:
+			continue
+		}
+		each, err := keywordManaCost(c, k)
+		if err != nil {
+			g.recordPendingError(err)
+			return nil, false
+		}
+		n := 0
+		if k.Name == "Offspring" {
+			if controller.ConfirmPayCost(g, pid, cost.Parse(k.Args()[0]), c.ID) {
+				n = 1
+			}
+		} else {
+			per := each.Generic() + len(each.Shards())
+			if per == 0 {
+				per = 1
+			}
+			n = controller.ChooseNumber(g, pid, c.ID, 0, g.manaCapacity(pid)/per)
+		}
+		if n > 0 {
+			out = append(out, keywordAmount{name: k.Name, n: n})
+		}
 	}
-	if !has {
-		return 0, true
-	}
-	per := each.Generic() + len(each.Shards())
-	if per == 0 {
-		per = 1
-	}
-	return controller.ChooseNumber(g, pid, c.ID, 0, g.manaCapacity(pid)/per), true
+	return out, true
 }
 
 // manaCapacity is an upper bound on the mana pid could still make: what is in
-// the pool plus one for each untapped permanent they control that has a mana
-// ability, as many as it could make at most counted once. It bounds a count
-// the controller chooses; the payment is what enforces affordability.
+// the pool plus one for each untapped land or permanent with a mana ability.
+// It bounds a count the controller chooses; the payment is what enforces
+// affordability.
 func (g *Game) manaCapacity(pid PlayerID) int {
 	n := g.Player(pid).ManaPool.Total()
 	for _, id := range g.Zone(Battlefield, pid).Cards() {
@@ -151,16 +162,26 @@ func (g *Game) manaCapacity(pid PlayerID) int {
 	return n
 }
 
-// withMultikicker is base plus n copies of c's Multikicker cost.
-func withMultikicker(c *Card, n int, base mana.Cost) mana.Cost {
-	if n <= 0 || base.IsNoCost() {
+// withKeywordAmounts is base plus each recorded keyword's mana cost, once per
+// amount.
+func withKeywordAmounts(c *Card, amounts []keywordAmount, base mana.Cost) mana.Cost {
+	if len(amounts) == 0 || base.IsNoCost() {
 		return base
 	}
-	each, _, _ := multikickerCost(c)
 	generic, shards := base.Generic(), append([]mana.Shard(nil), base.Shards()...)
-	for range n {
-		generic += each.Generic()
-		shards = append(shards, each.Shards()...)
+	for _, a := range amounts {
+		for _, line := range c.KeywordLines() {
+			k := keyword.Parse(line)
+			if k.Name != a.name {
+				continue
+			}
+			each, _ := keywordManaCost(c, k)
+			for range a.n {
+				generic += each.Generic()
+				shards = append(shards, each.Shards()...)
+			}
+			break
+		}
 	}
 	return mana.FromShards(shards, generic)
 }

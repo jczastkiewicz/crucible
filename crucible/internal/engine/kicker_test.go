@@ -126,3 +126,51 @@ func TestMultikickerPaysTheChosenNumberOfTimes(t *testing.T) {
 		})
 	}
 }
+
+// Squad and Offspring (CardFactoryUtil.java:1539-1556, :1777-1789): the cost
+// is paid the chosen number of times as the spell is cast, and the permanent
+// entering makes that many token copies (Offspring: one copy that is 1/1).
+func TestSquadAndOffspringMakeTokenCopies(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		keyword string
+		choice  int
+		confirm bool
+		want    int // creatures on the battlefield
+	}{
+		{"squad twice", "K:Squad:1", 2, false, 3},
+		{"squad declined", "K:Squad:1", 0, false, 1},
+		{"offspring paid", "K:Offspring:1", 0, true, 2},
+		{"offspring declined", "K:Offspring:1", 0, false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			def := scriptDef(t, "Test Copier", "Creature Elf", tc.keyword)
+			def.Faces[0].ManaCost = mana.MustParse("G")
+			card := g.NewCard(def, p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Green, 3)
+			c := engine.NewScriptedController()
+			if tc.keyword == "K:Offspring:1" {
+				c.QueueConfirmPayCost(tc.confirm)
+			} else {
+				c.QueueNumberChoice(tc.choice)
+			}
+			for range 4 {
+				c.QueuePayGeneric(mana.ShardG)
+			}
+			if !g.CastSpell(p, card, c) {
+				t.Fatal("CastSpell failed")
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := len(g.Zone(engine.Battlefield, p).Cards()); got != tc.want {
+				t.Errorf("creatures = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

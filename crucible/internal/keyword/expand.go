@@ -290,6 +290,24 @@ func Expand(k Keyword) (Expansion, bool) {
 			triggers = append(triggers, "Mode$ CounterAdded | ValidCard$ Card.Self | TriggerZones$ Battlefield | Chapter$ "+n+" | CounterType$ LORE | CounterAmount$ EQ"+n+" | Execute$ "+ability)
 		}
 		return Expansion{Triggers: triggers}, true
+	case "Squad":
+		// CardFactoryUtil.java:1777-1789: when it enters having been cast with
+		// the Squad cost paid, create that many token copies of it. The
+		// ValidCard$ linkedCastSA test is the amount itself: the cast's
+		// record ends when the card leaves the battlefield.
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | CheckSVar$ KWSquad" + Slot + " | Secondary$ True | Execute$ KWSquadCopy" + Slot},
+			SVars:    []SVarDef{{"KWSquadCopy" + Slot, "DB$ CopyPermanent | Defined$ TriggeredCardLKICopy | NumCopies$ KWSquad" + Slot}},
+			Amounts:  []SVarDef{{"KWSquad" + Slot, "Count$OptionalKeywordAmount.Squad"}},
+		}, true
+	case "Offspring":
+		// CardFactoryUtil.java:1539-1556: when it enters having been cast with
+		// the Offspring cost paid, create a token copy that is 1/1.
+		return Expansion{
+			Triggers: []string{"Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | CheckSVar$ KWOffspring" + Slot + " | Secondary$ True | Execute$ KWOffspringCopy" + Slot},
+			SVars:    []SVarDef{{"KWOffspringCopy" + Slot, "DB$ CopyPermanent | Defined$ TriggeredCardLKICopy | SetPower$ 1 | SetToughness$ 1"}},
+			Amounts:  []SVarDef{{"KWOffspring" + Slot, "Count$OptionalKeywordAmount.Offspring"}},
+		}, true
 	case "Renown":
 		// CardFactoryUtil.java:1655: when this deals combat damage to a player, if
 		// it is not renowned, put N +1/+1 counters on it and it becomes renowned

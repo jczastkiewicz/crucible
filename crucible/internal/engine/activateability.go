@@ -424,6 +424,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		exileCards(g, controller, []CardID{card})
 	}
 	if shape.SelfReturn {
+		activated.paid.returned = append(activated.paid.returned, card)
 		returnCards(g, controller, []CardID{card})
 	}
 	if shape.SelfExert {
@@ -454,6 +455,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	}
 	if shape.ReturnTypeN > 0 {
 		chosen := controller.ChoosePermanentsToReturn(g, pid, returnCandidates, shape.ReturnTypeN)
+		activated.paid.returned = append(activated.paid.returned, chosen...)
 		returnCards(g, controller, chosen)
 	}
 	g.payCostCards(controller, pid, chosen, &activated)

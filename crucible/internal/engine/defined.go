@@ -791,6 +791,13 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it tapped", defined)
 		}
 		return append([]CardID(nil), refs.paid.tapped...), nil
+	case "Returned", "ReturnedCards":
+		// getPaidCards over the Return cost's paid list (CostReturn.java:131-137);
+		// ids stand for both the last-known copy and the live card.
+		if !refs.paid.recorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it returned", defined)
+		}
+		return append([]CardID(nil), refs.paid.returned...), nil
 	case "Discarded", "DiscardedCards", "Exiled", "ExiledCards":
 		// getPaidCards (AbilityUtils.java:306-310): what the cost discarded or
 		// exiled, recorded alike.

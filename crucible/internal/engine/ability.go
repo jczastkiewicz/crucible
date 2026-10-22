@@ -749,7 +749,11 @@ type paidLists struct {
 	// sacrificed (CostPartWithList.cardList), not the picks (Sacrificed).
 	sacrificedMoved []CardID
 	// tapped is what tapXType tapped (getPaidList("Tapped")).
-	tapped       []CardID
+	tapped []CardID
+	// returned is what a Return<..> cost returned to hand (Defined$ Returned,
+	// ReturnedCards): ids, so a last-known-information read still names what an
+	// Aura was attached to (CardCopyService.java:75).
+	returned     []CardID
 	recorded     bool
 	mana         []manaSource
 	manaRecorded bool

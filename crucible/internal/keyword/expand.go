@@ -300,6 +300,28 @@ func Expand(k Keyword) (Expansion, bool) {
 			SVars:    []SVarDef{{"KWSquadCopy" + Slot, "DB$ CopyPermanent | Defined$ TriggeredCardLKICopy | NumCopies$ KWSquad" + Slot}},
 			Amounts:  []SVarDef{{"KWSquad" + Slot, "Count$OptionalKeywordAmount.Squad"}},
 		}, true
+	case "Replicate":
+		// CardFactoryUtil.java:1698-1706: when you cast it, copy it for each time
+		// its replicate cost was paid.
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ KWReplicate" + Slot + " | Secondary$ True | Execute$ KWReplicateCopy" + Slot},
+			SVars:    []SVarDef{{"KWReplicateCopy" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | Amount$ KWReplicate" + Slot + " | MayChooseTarget$ True"}},
+			Amounts:  []SVarDef{{"KWReplicate" + Slot, "Count$OptionalKeywordAmount.Replicate"}},
+		}, true
+	case "Casualty", "Conspire":
+		// CardFactoryUtil.java:795-810, :851-860: when you cast it having paid
+		// the keyword's cost, copy it. Casualty X (one card, with its own
+		// trailing params) has no template.
+		if k.Name == "Casualty" {
+			if n, ok := amountDetail(k); !ok || n == "X" {
+				return Expansion{}, false
+			}
+		}
+		return Expansion{
+			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ KW" + k.Name + Slot + " | Secondary$ True | Execute$ KW" + k.Name + "Copy" + Slot},
+			SVars:    []SVarDef{{"KW" + k.Name + "Copy" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"}},
+			Amounts:  []SVarDef{{"KW" + k.Name + Slot, "Count$OptionalKeywordAmount." + k.Name}},
+		}, true
 	case "Offspring":
 		// CardFactoryUtil.java:1539-1556: when it enters having been cast with
 		// the Offspring cost paid, create a token copy that is 1/1.

@@ -47,6 +47,10 @@ type optionalCostOption struct {
 	teamworkN int
 	// promised is the opponent a Gift cost was paid to (CostPromiseGift).
 	promised PlayerID
+	// kwName and kwAmount are the keyword amount a paid Casualty or Conspire
+	// records (SpellAbility.setOptionalKeywordAmount).
+	kwName   string
+	kwAmount int
 }
 
 // optionalChoice is what the optional costs a cast pays add to it: kinds for
@@ -63,6 +67,7 @@ type optionalChoice struct {
 	teamworkN  int
 	// promised is the opponent a Gift cost was paid to (CostPromiseGift).
 	promised PlayerID
+	amounts  []keywordAmount
 }
 
 // giftCost is the Gift keyword's optional cost (GameActionUtil.java:494-496).
@@ -159,6 +164,25 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 				return nil, fmt.Errorf("engine: %q: Buyback cost %q not resolvable yet", c.Def.Name, text)
 			}
 			out = append(out, optionalCostOption{text: text, uc: uc, kind: optBuyback})
+			continue
+		}
+		if k.Name == "Casualty" || k.Name == "Conspire" {
+			// GameActionUtil.java:630-662: sacrifice a creature with power at
+			// least N, or tap two untapped creatures that share a color with
+			// the spell; a Casualty X is not read.
+			amount, text := 1, "tapXType<2/Creature.SharesColorWith/creature that shares a color with "+c.Def.Name+">"
+			if k.Name == "Casualty" {
+				n, err := strconv.Atoi(k.Args()[0])
+				if len(k.Args()) < 1 || err != nil {
+					return nil, fmt.Errorf("engine: %q: Casualty %q not resolvable yet", c.Def.Name, k.Details)
+				}
+				amount, text = n, "Sac<1/Creature.powerGE"+k.Args()[0]+"/creature with power "+k.Args()[0]+" or greater>"
+			}
+			uc, ok := parseUnlessCost(text)
+			if !ok {
+				return nil, fmt.Errorf("engine: %q: %s cost %q not resolvable yet", c.Def.Name, k.Name, text)
+			}
+			out = append(out, optionalCostOption{text: text, uc: uc, kwName: k.Name, kwAmount: amount})
 			continue
 		}
 		if k.Name == "Gift" {
@@ -269,6 +293,9 @@ func (g *Game) chooseOptionalCosts(controller PlayerController, pid PlayerID, ca
 // addOptionalCost, which notes the pip a ReduceColor$ line reduces.
 func (choice *optionalChoice) add(o optionalCostOption) {
 	choice.kinds |= o.kind
+	if o.kwName != "" {
+		choice.amounts = append(choice.amounts, keywordAmount{name: o.kwName, n: o.kwAmount})
+	}
 	if o.kind == optPromiseGift {
 		choice.promised = o.promised
 	}

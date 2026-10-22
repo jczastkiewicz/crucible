@@ -7,6 +7,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -543,8 +544,9 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers
-	var ok bool
-	if opts.keywordAmounts, ok = g.chooseKeywordAmounts(controller, pid, g.Card(card)); !ok {
+	chosen, ok := g.chooseKeywordAmounts(controller, pid, g.Card(card))
+	opts.keywordAmounts = append(slices.Clone(optional.amounts), chosen...)
+	if !ok {
 		g.Card(card).kicker, g.Card(card).castOpt = 0, castOptional{}
 		g.Card(card).wasCast = false
 		return false

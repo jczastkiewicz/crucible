@@ -174,3 +174,84 @@ func TestSquadAndOffspringMakeTokenCopies(t *testing.T) {
 		})
 	}
 }
+
+// Replicate (CardFactoryUtil.java:1698-1706): the cost is paid the chosen
+// number of times and the cast trigger copies the spell once for each.
+func TestReplicateCopiesTheSpellForEachPayment(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := scriptDef(t, "Test Replicator", "Sorcery",
+		"K:Replicate:G",
+		"A:SP$ GainLife | Defined$ You | LifeAmount$ 1")
+	def.Faces[0].ManaCost = mana.MustParse("G")
+	card := g.NewCard(def, p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Green, 3)
+	c := engine.NewScriptedController()
+	c.QueueNumberChoice(2)
+	for range 4 {
+		c.QueuePayGeneric(mana.ShardG)
+	}
+	if !g.CastSpell(p, card, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23: the spell and two copies each gain 1", got)
+	}
+}
+
+// Casualty and Conspire (GameActionUtil.java:630-662): the optional cost
+// (sacrifice a creature with enough power, tap two creatures that share a
+// color with the spell) is offered as the spell is cast, and paying it copies
+// the spell.
+func TestCasualtyAndConspireCopyTheSpell(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		keyword string
+		pay     bool
+		life    int
+	}{
+		{"casualty paid", "K:Casualty:1", true, 22},
+		{"casualty declined", "K:Casualty:1", false, 21},
+		{"conspire paid", "K:Conspire", true, 22},
+		{"conspire declined", "K:Conspire", false, 21},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			def := scriptDef(t, "Test Copier", "Sorcery", tc.keyword, "A:SP$ GainLife | Defined$ You | LifeAmount$ 1")
+			def.Faces[0].ManaCost = mana.MustParse("G")
+			card := g.NewCard(def, p, engine.Hand)
+			var bears []engine.CardID
+			for range 2 {
+				bear := scriptDef(t, "Test Grizzly", "Creature Bear")
+				bear.Faces[0].ManaCost = mana.MustParse("G") // shares green with the spell
+				bears = append(bears, g.NewCard(bear, p, engine.Battlefield))
+			}
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			c := engine.NewScriptedController()
+			c.QueueConfirmPayCost(tc.pay)
+			if tc.pay && tc.keyword == "K:Casualty:1" {
+				c.QueueSacrificeChoice(bears[:1])
+			} else if tc.pay {
+				c.QueueTapChoice(bears)
+			}
+			c.QueuePayGeneric(mana.ShardG)
+			if !g.CastSpell(p, card, c) {
+				t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Player(p).Life; got != tc.life {
+				t.Errorf("life = %d, want %d", got, tc.life)
+			}
+		})
+	}
+}

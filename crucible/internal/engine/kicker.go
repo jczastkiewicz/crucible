@@ -170,6 +170,9 @@ func withKeywordAmounts(c *Card, amounts []keywordAmount, base mana.Cost) mana.C
 	}
 	generic, shards := base.Generic(), append([]mana.Shard(nil), base.Shards()...)
 	for _, a := range amounts {
+		if a.name == "Casualty" || a.name == "Conspire" {
+			continue // paid by their own non-mana optional cost parts
+		}
 		for _, line := range c.KeywordLines() {
 			k := keyword.Parse(line)
 			if k.Name != a.name {

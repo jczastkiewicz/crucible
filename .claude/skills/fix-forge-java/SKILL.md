@@ -53,9 +53,16 @@ session: only research for a doubtful site goes to `forge-oracle`.
    Show it to the user. A PR already open gets its description updated with `gh pr edit <n> --repo Card-Forge/forge
    --body-file <file>` (switch the active `gh` account to the personal one for the call, then back).
 8. **Stop before publishing.** Push the branch to `origin` and open the PR only after the user approves that package.
-9. **Back on `master`:** set each row's "Upstream" cell to the branch (then the PR number once it exists), commit with
-   the docs. When a sync later brings the fix, make Go match upstream's version, remove its refusal and delete the row
-   (DOC-16).
+9. **Carry the fix on `master`, always.** Back on `master`, `git cherry-pick -n` the package's fix commits (the
+   `Fix ...` commits, not the test commits; the tests arrive with the upstream merge) so Crucible's Java oracle runs
+   the fixed behaviour. One commit per package, in the same commit add one row per touched file to **Pending upstream
+   fixes** in `docs/crucible/porting/upstream-patches.md` (date, path, change, PR number and branch). The row and the
+   local edit are deleted together once upstream merges the PR and a sync brings the identical content back; on a
+   conflict take upstream's version. `guard-upstream.sh` only watches Write/Edit, so a cherry-pick passes it, but the
+   log row is still required (REV-1). Compile with `mvn -pl forge-game -am compile -q` on `master` before committing.
+10. **Defect rows:** set each row's "Upstream" cell to the branch (then the PR number once it exists), commit with the
+    docs. When a sync later brings the fix, make Go match upstream's version, remove its refusal and delete the row
+    (DOC-16).
 
-Never force-push, never edit upstream files on `master` (REV-1), never carry the fix on `master` unless Crucible needs it
-now (then log it in `upstream-patches.md`).
+Never force-push, never edit upstream files on `master` by hand (REV-1): the only upstream change on `master` is a
+cherry-pick of a package that has a pull request, logged in `upstream-patches.md`.

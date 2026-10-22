@@ -18,7 +18,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability event defined amount condition parts control resolvechoice attackconstraints continuouslayers effecthelpers valid zone
+//enginelint:allow id card game player ability event defined amount condition parts control resolvechoice attackconstraints continuouslayers effecthelpers valid zone delayedtrigger
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -71,7 +72,6 @@ var putCounterUnresolvedParams = [...]string{
 	"DividedRandomly",
 	"ForColor", "SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
-	"RemovePhase",
 }
 
 // putCounterEffect resolves Mode$/DB$/AB$ PutCounter for the Defined$
@@ -276,6 +276,14 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	// replacements have edited the table in place (ReplaceCounterEffect's
 	// setCount): the counters each object was to get, summed.
 	total := 0
+	// RemovePhase$ (CountersPutEffect.java:649-655, :663-693): one delayed
+	// trigger per counter unit that was put, removing it again in that phase.
+	removePhase, hasRemovePhase := a.Params.Param("RemovePhase")
+	if hasRemovePhase && len(players) > 0 {
+		return fmt.Errorf("engine: PutCounter: RemovePhase$ over a player not resolvable yet")
+	}
+	var placed []counterKind
+	var placedOn []CardID
 	// RememberCards$ remembers the cards that got counters (CountersPutEffect.
 	// java:658-660) and RememberPut$ every entity that did, a player too
 	// (GameEntityCounterTable.java:158-163).
@@ -300,6 +308,9 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			}
 			total += n
 			g.addCardCounters(controller, placer, a.Source, cid, k.kind, n)
+			if hasRemovePhase {
+				placed, placedOn = append(placed, counterKind{kind: k.kind, n: n}), append(placedOn, cid)
+			}
 			if remember {
 				// CountersPutEffect.java:658-660: the cards that got counters.
 				source.Memory.Remember(CardEntity(cid))
@@ -341,6 +352,11 @@ func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			}
 			g.Player(pid).Counters.Add(k.kind, n)
 			emitCounterChanged(g, a.Source, PlayerEntity(pid), k.kind, n)
+		}
+	}
+	for i, pk := range placed {
+		for range pk.n {
+			g.delayRemoveCounter(a, removePhase, placedOn[i], pk.kind)
 		}
 	}
 	if rememberAmount && total > 0 {
@@ -814,4 +830,20 @@ func (g *Game) chooseDifferentKinds(controller PlayerController, a *Ability, pla
 		options = slices.DeleteFunc(options, func(o CounterType) bool { return o == ct })
 	}
 	return out, nil
+}
+
+// delayRemoveCounter registers one of RemovePhase$'s delayed triggers
+// (CountersPutEffect.addRemovePhaseTrigger, :663-693): in phase, remove one
+// counter of kind from card.
+func (g *Game) delayRemoveCounter(a *Ability, phase string, card CardID, kind CounterType) {
+	body := []vocab.Param{{Key: "DB", Value: "RemoveCounter"}, {Key: "Defined", Value: "DelayTriggerRemembered"},
+		{Key: "CounterNum", Value: "1"}, {Key: "CounterType", Value: string(kind)}}
+	execute := &compile.Ability{Record: compile.SubAbility, Name: "RemoveCounter", Params: body}
+	trig := []vocab.Param{{Key: "DB", Value: "DelayedTrigger"}, {Key: "Mode", Value: "Phase"}, {Key: "Phase", Value: phase}}
+	g.delayed = append(g.delayed, delayedTrigger{
+		Trigger: &compile.Ability{Record: compile.SubAbility, Name: "DelayedTrigger", Params: trig,
+			Subs: []compile.SubRef{{Key: "Execute", Ability: execute}}},
+		Host: a.Source, Controller: a.Controller, Amounts: a.Amounts, HostTransforms: g.Card(a.Source).Transforms,
+		Remembered: []EntityID{CardEntity(card)},
+	})
 }

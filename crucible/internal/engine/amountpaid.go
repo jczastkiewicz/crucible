@@ -147,7 +147,23 @@ func handlePaid(g *Game, amounts map[string]expr.Amount, sourceController Player
 		// list, the operator applied once to the total.
 		return math(g.stickerPTSum(cards, strings.HasPrefix(def, "StickerPower")))
 	case strings.HasPrefix(def, "AllTypes"):
-		return 0, false
+		// AbilityUtils.java:3800-3803: the distinct core types, supertypes and
+		// subtypes among the cards, summed; no operator is applied.
+		core := map[cardtype.CoreType]bool{}
+		super := map[cardtype.Supertype]bool{}
+		sub := map[string]bool{}
+		for _, c := range cards {
+			for _, t := range c.Type().CoreTypes() {
+				core[t] = true
+			}
+			for _, t := range c.Type().Supertypes() {
+				super[t] = true
+			}
+			for _, t := range c.Type().Subtypes() {
+				sub[t] = true
+			}
+		}
+		return len(core) + len(super) + len(sub), true
 	case strings.HasPrefix(def, "CardTypes"):
 		permanent := strings.HasPrefix(def, "CardTypesPermanent")
 		var seen cardtype.Line

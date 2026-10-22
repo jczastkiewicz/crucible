@@ -79,6 +79,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/SetStateEffect.java` | stack description compares from the `"Specialize"` literal: `Mode$` is absent in the `NewState$` form | PR [#12377](https://github.com/Card-Forge/forge/pull/12377), branch `upstream-pr/null-guards-effect-params` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/spellability/SpellAbilityCondition.java` | `ConditionTargetValidTargeting` walks the targeted spell's SubAbility chain (it re-read the checking ability's: endless loop); `ConditionTargetsSingleTarget` counts the targeted spell's targets | PR [#12378](https://github.com/Card-Forge/forge/pull/12378), branch `upstream-pr/condition-slips` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChangeTargetsEffect.java` | Random branch reads the divided total before `resetTargets()` clears it | PR [#12378](https://github.com/Card-Forge/forge/pull/12378), branch `upstream-pr/condition-slips` |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/CopySpellAbilityEffect.java` | Copies counted per spell (`chosenCopies`), so the `CopySpell` replacement sees one spell's amount, not the running total | PR [#12379](https://github.com/Card-Forge/forge/pull/12379), branch `upstream-pr/copy-spell-amount` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

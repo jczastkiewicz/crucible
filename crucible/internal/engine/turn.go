@@ -444,7 +444,12 @@ func (g *Game) untapStep(controller PlayerController) {
 		wasTapped := c.Tapped
 		exerted := c.Exerted
 		c.Exerted = false
-		if !exerted && !g.untapBlocked(c) {
+		untaps := !exerted && !g.untapBlocked(c)
+		if untaps && wasTapped && c.hasKeywordText(optionalUntapKeyword) {
+			// Untap.optionalUntap (Untap.java:174-196): the controller may leave it.
+			untaps = controller.ChooseBinary(g, c.Controller(), id, UntapOrLeaveTapped)
+		}
+		if untaps {
 			if wasTapped {
 				g.runUntapCommands(controller, id)
 			}

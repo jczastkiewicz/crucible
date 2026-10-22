@@ -600,11 +600,14 @@ type BinaryChoice string
 
 // The BinaryChoiceType values the ported effects ask.
 const (
-	TapOrUntap   BinaryChoice = "TapOrUntap"
-	OddsOrEvens  BinaryChoice = "OddsOrEvens"
-	LeftOrRight  BinaryChoice = "LeftOrRight"
-	AddOrRemove  BinaryChoice = "AddOrRemove"
-	Pile1OrPile2 BinaryChoice = "Pile1OrPile2"
+	TapOrUntap BinaryChoice = "TapOrUntap"
+	// UntapOrLeaveTapped is the untap step's "You may choose not to untap"
+	// question (Untap.optionalUntap, Untap.java:174-196): true untaps.
+	UntapOrLeaveTapped BinaryChoice = "UntapOrLeaveTapped"
+	OddsOrEvens        BinaryChoice = "OddsOrEvens"
+	LeftOrRight        BinaryChoice = "LeftOrRight"
+	AddOrRemove        BinaryChoice = "AddOrRemove"
+	Pile1OrPile2       BinaryChoice = "Pile1OrPile2"
 )
 
 // ScriptedController answers every decision from a pre-loaded queue, one per

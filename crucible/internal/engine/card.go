@@ -31,6 +31,10 @@ type castSnapshot struct {
 // damaged card to refuse a redirecting replacement (Whippoorwill).
 const noRedirectKeyword = "Damage that would be dealt to CARDNAME can't be redirected."
 
+// optionalUntapKeyword is the keyword Untap.optionalUntap reads
+// (Untap.java:177): its controller may leave the permanent tapped.
+const optionalUntapKeyword = "You may choose not to untap CARDNAME during your untap step."
+
 const untapNextStepKeyword = "This card doesn't untap during your next untap step."
 
 // Card is one card in one game.

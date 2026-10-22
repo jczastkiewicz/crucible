@@ -35,10 +35,12 @@ func effectEventParams(own ...string) map[string]bool {
 }
 
 var (
-	scryTriggerParams    = effectEventParams("validplayer", "tobottom")
-	surveilTriggerParams = effectEventParams("validplayer", "firsttime")
-	transformedParams    = effectEventParams("validcard")
-	turnedFaceUpParams   = effectEventParams("validcard", "validcause")
+	scryTriggerParams     = effectEventParams("validplayer", "tobottom")
+	surveilTriggerParams  = effectEventParams("validplayer", "firsttime")
+	flippedCoinParams     = effectEventParams("validplayer", "validresult")
+	flippedCoinOnceParams = effectEventParams("validplayer")
+	transformedParams     = effectEventParams("validcard")
+	turnedFaceUpParams    = effectEventParams("validcard", "validcause")
 )
 
 // checkScryTriggers is Mode$ Scry (TriggerScry.performTest, 24 real lines),
@@ -203,4 +205,35 @@ func (g *Game) cardEventMatches(mode string, params map[string]bool, card CardID
 		}
 		return triggeredObjects{card: card}, true
 	})
+}
+
+// checkFlippedCoinTriggers is Mode$ FlippedCoin (TriggerFlippedCoin.java:56-70,
+// run from FlipCoinEffect.flipCoin :235-239): ValidPlayer$ against the
+// flipper, ValidResult$ "Win" meaning the flip was won and any other value
+// meaning it was lost (PORT-7, the method does not match the result it
+// names). An absent ValidResult$ matches both. The player is TriggeredPlayer.
+func (g *Game) checkFlippedCoinTriggers(controller PlayerController, flipper PlayerID, won bool) {
+	matches := g.scanTriggers([]string{"FlippedCoin"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, flippedCoinParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", flipper) {
+			return triggeredObjects{}, false
+		}
+		if v, ok := t.Param("ValidResult"); ok && (v == "Win") != won {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: flipper}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkFlippedCoinOnceTriggers is Mode$ FlippedCoinOnce
+// (TriggerFlippedCoinOnce.java:20, FlipCoinEffect.java:164-167): once per
+// flipper after its sub-abilities, whatever the results.
+func (g *Game) checkFlippedCoinOnceTriggers(controller PlayerController, flipper PlayerID) {
+	matches := g.scanTriggers([]string{"FlippedCoinOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, flippedCoinOnceParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", flipper) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: flipper}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
 }

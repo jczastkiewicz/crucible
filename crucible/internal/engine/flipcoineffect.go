@@ -72,6 +72,9 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				if won {
 					wins++
 				}
+				if !noCall {
+					g.checkFlippedCoinTriggers(controller, flipper, won)
+				}
 			}
 			if !untilLose || !won {
 				break
@@ -122,6 +125,9 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			case strings.HasPrefix(raw, "Loss"):
 				source.Memory.RememberNumber(losses)
 			}
+		}
+		if amount > 0 {
+			g.checkFlippedCoinOnceTriggers(controller, flipper)
 		}
 	}
 	return nil

@@ -166,3 +166,36 @@ func TestTurnFaceUpTriggerFiresWhenAManifestTurnsFaceUp(t *testing.T) {
 		t.Errorf("hand = %d, want 1 (the TurnFaceUp watcher drew)", got)
 	}
 }
+
+// Mode$ FlippedCoin (TriggerFlippedCoin, 9 real lines): a called flip fires
+// the ValidResult$ Win watcher or the Lose watcher, never both.
+func TestFlippedCoinTriggerFiresForTheResultOnly(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := watcherGame(t, "Mode$ FlippedCoin | ValidPlayer$ You | ValidResult$ Win | TriggerZones$ Battlefield")
+	g.NewCard(modeWatcherDef(t, "Mode$ FlippedCoin | ValidPlayer$ You | ValidResult$ Lose | TriggerZones$ Battlefield"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCoinCall(true)
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Flipper", "DB$ FlipCoin"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 1 {
+		t.Errorf("hand = %d, want 1 (exactly one of the Win and Lose watchers)", got)
+	}
+}
+
+// A NoCall flip fires no FlippedCoin trigger (FlipCoinEffect.java:235), but
+// FlippedCoinOnce fires after any flipper's flips.
+func TestFlippedCoinOnceFiresAfterANoCallFlip(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := watcherGame(t, "Mode$ FlippedCoin | ValidPlayer$ You | TriggerZones$ Battlefield")
+	g.NewCard(modeWatcherDef(t, "Mode$ FlippedCoinOnce | ValidPlayer$ You | TriggerZones$ Battlefield"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Flipper", "DB$ FlipCoin | NoCall$ True"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Zone(engine.Hand, p).Len(); got != 1 {
+		t.Errorf("hand = %d, want 1 (only the Once watcher)", got)
+	}
+}

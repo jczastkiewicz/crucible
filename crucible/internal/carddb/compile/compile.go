@@ -723,6 +723,9 @@ func (c *faceCompiler) line(text string, want Record) (*Ability, error) {
 	if cost, ok := ability.Param("IgnoreEffectCost"); ok && record == StaticEffect {
 		ability.Subs = append(ability.Subs, ignoreEffectSub(cost))
 	}
+	if cost, ok := ability.Param("RevertCost"); ok && strings.EqualFold(ability.Name, "Animate") {
+		ability.Subs = append(ability.Subs, animateRevertSub(cost))
+	}
 	return ability, nil
 }
 
@@ -738,6 +741,20 @@ func ignoreEffectSub(cost string) SubRef {
 		Record: Activated,
 		Name:   "InternalIgnoreEffect",
 		Params: []vocab.Param{{Key: "AB", Value: "InternalIgnoreEffect"}, {Key: "Cost", Value: cost}},
+	}}
+}
+
+// animateRevertSub is the ability AnimateEffectBase.java:205-219 builds from
+// RevertCost$: an activated, cost-only ability of the animated card whose
+// resolution runs the effect's unanimate command (a Licid's "pay {W}: end
+// this effect"), API InternalAnimateRevert. Built here once (PORT-2); the
+// engine grants it with the animate record and resolves it without the stack
+// (AbilityStatic, MagicStack.java:283-288).
+func animateRevertSub(cost string) SubRef {
+	return SubRef{Key: "RevertCost", Ability: &Ability{
+		Record: Activated,
+		Name:   "InternalAnimateRevert",
+		Params: []vocab.Param{{Key: "AB", Value: "InternalAnimateRevert"}, {Key: "Cost", Value: cost}},
 	}}
 }
 

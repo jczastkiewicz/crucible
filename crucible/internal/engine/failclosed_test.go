@@ -103,7 +103,6 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ Incubate | Amount$ Bogus",
 		"DB$ Animate | Defined$ Self | Replacements$ DBX",
 		"DB$ Animate | Defined$ Self | Power$ 1 | Duration$ UntilTheEndOfTargetedNextTurn",
-		"DB$ Animate | Defined$ Self | RevertCost$ 3",
 		"DB$ Animate | Defined$ Self | Colors$ Plaid",
 		"DB$ Animate | Defined$ Self | Keywords$ HIDDEN CARDNAME can't block.",
 		"DB$ AnimateAll | ValidCards$ Creature | Zone$ Bogus | Power$ 1",

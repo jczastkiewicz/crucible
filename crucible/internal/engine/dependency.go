@@ -210,6 +210,7 @@ type layerMark struct {
 	sizes   []int
 	grants  [][]traitGrant
 	removal []abilityRemoval
+	hidden  []uint64
 }
 
 // markCards records size(c) for every card in the arena.
@@ -266,8 +267,10 @@ func abilitiesLayerOps(g *Game) layerOps {
 			}
 			m.grants = make([][]traitGrant, len(g.cards))
 			m.removal = make([]abilityRemoval, len(g.cards))
+			m.hidden = make([]uint64, len(g.cards))
 			for i := 1; i < len(g.cards); i++ {
 				m.grants[i], m.removal[i] = g.cards[i].traitGrants, g.cards[i].abilityRemoval
+				m.hidden[i] = g.cards[i].hiddenPrinted
 			}
 			return m
 		},
@@ -275,6 +278,7 @@ func abilitiesLayerOps(g *Game) layerOps {
 			for i := 1; i < len(g.cards); i++ {
 				g.cards[i].KeywordMod.truncate(m.sizes[i])
 				g.cards[i].traitGrants, g.cards[i].abilityRemoval = m.grants[i], m.removal[i]
+				g.cards[i].hiddenPrinted = m.hidden[i]
 			}
 			for k, pid := range g.Players() {
 				g.Player(pid).KeywordMod.truncate(m.sizes[len(g.cards)+k])

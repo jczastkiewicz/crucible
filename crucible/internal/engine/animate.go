@@ -81,6 +81,15 @@ type animateRecord struct {
 	// record lives, so they end with it (cleanup, or Permanent: never) and
 	// go with the card at a zone change.
 	triggers []*compile.Ability
+	// hidePrinted is RemoveThisAbility$ (AnimateEffectBase.java:86-88): the
+	// printed A: line whose activation resolved this effect is removed while
+	// the record lives. printedIndex is that line's index, read at resolution
+	// (Java captures sa.getOriginalAbility() there).
+	hidePrinted  bool
+	printedIndex int
+	// revert is RevertCost$'s granted ability (also in abilities), the one
+	// whose activation ends this record.
+	revert *compile.Ability
 }
 
 // changesTypes reports whether r carries any Layer 4 change.
@@ -170,6 +179,9 @@ func animateAbilities(g *Game) {
 		}
 		if r.removeAbilities != removalNone && c.Zone == Battlefield {
 			c.removeTraits(r.removeAbilities)
+		}
+		if r.hidePrinted && c.Zone == Battlefield && r.printedIndex < 64 {
+			c.hiddenPrinted |= 1 << uint(r.printedIndex)
 		}
 		if len(r.abilities) > 0 || len(r.triggers) > 0 || len(r.statics) > 0 {
 			// Triggers$ and Replacements$ ride one list (animateTriggerGrants); the
@@ -269,8 +281,7 @@ func subtypeCategoryDrop(g *Game, land, creature, artifact, enchantment bool) (f
 // (rejectUnreadCondition, then subAbilityConditionMet).
 var animateUnresolvedParams = [...]string{
 	"TransferActivator",
-	"CantHaveKeyword", "RemoveThisAbility",
-	"RevertCost",
+	"CantHaveKeyword",
 }
 
 // animateDuration reads Duration$ for an Animate-shaped record: absent ends at
@@ -331,6 +342,18 @@ func buildAnimate(g *Game, a *Ability, api string) (animateRecord, []*compile.Ab
 		return r, nil, err
 	}
 	r.abilityAmounts = a.Amounts
+	if hasParam(a, "RemoveThisAbility") {
+		if a.activationIndex == 0 {
+			return r, nil, fmt.Errorf("engine: %s: RemoveThisAbility$ outside an activated ability", api)
+		}
+		r.hidePrinted, r.printedIndex = true, a.activationIndex-1
+	}
+	for _, sub := range a.Params.Subs {
+		if strings.EqualFold(sub.Key, "RevertCost") {
+			r.revert = sub.Ability
+			r.abilities = append(append([]*compile.Ability(nil), r.abilities...), sub.Ability)
+		}
+	}
 	if r.statics, err = animateStaticGrants(a, api); err != nil {
 		return r, nil, err
 	}
@@ -640,4 +663,18 @@ func (g *Game) grantPerpetualTriggers(cards []CardID, traits []*compile.Ability,
 		}
 		c.grants = c.withGrant(grantedTriggers{id: id, triggers: triggers, replacements: replacements, amounts: amounts})
 	}
+}
+
+// endAnimateRevert is the unanimate command a RevertCost$ ability runs
+// (AnimateEffectBase.java:188-199, :205-219): the record that granted ab ends,
+// and with it every change it made, the removal of the printed line and the
+// revert ability itself (doUnanimate removes the one trait row, :269).
+func (g *Game) endAnimateRevert(card CardID, ab *compile.Ability) {
+	kept := g.animates[:0]
+	for _, r := range g.animates {
+		if r.Card != card || r.revert != ab {
+			kept = append(kept, r)
+		}
+	}
+	g.animates = kept
 }

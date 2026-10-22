@@ -366,6 +366,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		manaCost = subtractManaCost(manaCost, c.Def.Faces[0].ManaCost)
 	}
 	apiType, ok := APIByName(ability.Name)
+	isRevert := ability.Name == "InternalAnimateRevert"
+	if isRevert {
+		// Built by compile, not a Java API: resolved below without the stack.
+		apiType, ok = APIInternalIgnoreEffect, true
+	}
 	if !ok {
 		return false
 	}
@@ -486,6 +491,13 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	g.recordActivation(&activated, &before)
 	held := g.castExitMatches()
 	g.holdingCastExits, g.castExits = outerHold, outerExits
+	if isRevert {
+		// AbilityStatic resolves on activation, never on the stack
+		// (MagicStack.java:283-288).
+		g.endAnimateRevert(card, ability)
+		g.pushTriggeredAbilities(controller, held)
+		return true
+	}
 	g.pushTriggeredAbilities(controller, []Ability{activated})
 	// One batch, as unfreezeStack runs every waiting trigger at once: the
 	// costs' triggers in firing order, then AbilityCast, then Cycled

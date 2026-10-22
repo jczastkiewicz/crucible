@@ -1152,6 +1152,7 @@ func applyContinuousLayers(g *Game, afterControl func()) {
 	g.layerAffected = nil
 	for i := 1; i < len(g.cards); i++ {
 		g.cards[i].abilityRemoval = removalNone
+		g.cards[i].hiddenPrinted = 0
 		// Layer 6 rebuilds the grants; clearing here keeps Layers 2-5 from
 		// reading last pass's granted statics through traitFaces.
 		g.cards[i].traitGrants = nil

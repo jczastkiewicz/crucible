@@ -360,6 +360,9 @@ type Card struct {
 	trigActs triggerActivations
 	// abilityRemoval is this pass's Layer 6 removal of the card's own text.
 	abilityRemoval abilityRemoval
+	// hiddenPrinted is this pass's bit set of printed A: line indices a
+	// RemoveThisAbility$ animate hides (AnimateEffectBase.java:86-88).
+	hiddenPrinted uint64
 	// trigResolved counts, this turn, how often each of the card's triggers
 	// resolved (Card.numberAbilityResolved, ResolvedLimit$).
 	trigResolved triggerActivations
@@ -759,7 +762,7 @@ func (c *Card) abilityAt(index int) (*compile.Ability, map[string]expr.Amount, b
 	if index < len(printed) {
 		// CR 305.7 and RemoveAllAbilities$ hide the printed lines without
 		// renumbering the granted ones after them.
-		if c.hidesPrintedAbility(printed[index]) {
+		if c.hidesPrintedAbility(printed[index]) || (index < 64 && c.hiddenPrinted&(1<<uint(index)) != 0) {
 			return nil, nil, false
 		}
 		return printed[index], c.Def.Faces[0].Amounts, true

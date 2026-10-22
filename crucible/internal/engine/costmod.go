@@ -2,7 +2,7 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast
 
 package engine
 
@@ -25,7 +25,7 @@ var costModParams = map[string]bool{
 	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
-	"description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"validspell": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
 
 // spellCost is base, the printed (or alternative) mana cost of casting card as
@@ -42,7 +42,16 @@ var costModParams = map[string]bool{
 // (announceXFor, which only asks whether an X is left) skips such a line: a
 // reduction never touches the X.
 func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying bool) (mana.Cost, bool) {
-	if base.IsNoCost() {
+	return g.costStatics(pid, card, nil, base, paying)
+}
+
+// costStatics is spellCost for a spell (act nil) or for the activation of
+// ability act on card (CostAdjustment.adjust over an activated ability, called
+// from CostPayment.payCost): Type$ Ability and an absent Type$ reach it, and
+// ValidSpell$ Activated[.props] is read against act. A cost with no mana
+// part still takes a raise, so its base is never "no cost" there.
+func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying bool) (mana.Cost, bool) {
+	if act == nil && base.IsNoCost() {
 		return base, true
 	}
 	c := g.Card(card)
@@ -69,7 +78,7 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying bool)
 			for _, s := range face.Statics {
 				switch {
 				case strings.EqualFold(s.Name, "RaiseCost"):
-					switch g.costModStatus(pid, c, h, s) {
+					switch g.costModStatus(pid, c, h, s, act) {
 					case costModApplies:
 						raises = append(raises, line{h, s, face})
 					case costModUnresolvable:
@@ -78,7 +87,7 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying bool)
 						// refused (GO-7).
 						return base, false
 					}
-				case strings.EqualFold(s.Name, "ReduceCost") && g.costModStatus(pid, c, h, s) == costModApplies:
+				case strings.EqualFold(s.Name, "ReduceCost") && g.costModStatus(pid, c, h, s, act) == costModApplies:
 					reduces = append(reduces, line{h, s, face})
 				}
 			}
@@ -152,15 +161,33 @@ const (
 // param outside costModParams, or whose conditions do not hold, is applied only
 // when everything is evaluable; with an unlisted param it is
 // costModUnresolvable.
-func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability) costModResult {
+func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, act *compile.Ability) costModResult {
 	// An absent Type$ gates nothing (CostAdjustment.java:535-576): the line
 	// reaches spells and activations alike. ValidSpell$ Activated[.props] never
 	// holds for a spell (SpellAbility.java:2232).
-	if t, ok := s.Param("Type"); ok && t != "Spell" {
+	wantType := "Spell"
+	if act != nil {
+		wantType = "Ability"
+	}
+	if t, ok := s.Param("Type"); ok && t != wantType {
 		return costModSkips
 	}
-	if v, ok := s.Param("ValidSpell"); ok && strings.HasPrefix(v, "Activated") {
-		return costModSkips
+	if v, ok := s.Param("ValidSpell"); ok {
+		switch {
+		case act == nil && strings.HasPrefix(v, "Activated"):
+			return costModSkips
+		case act == nil:
+			return costModUnresolvable
+		case act != nil:
+			_, loyalty := act.Param("Planeswalker")
+			matched, recognized := validActivatedSA(v, act.Name == "Mana", loyalty)
+			if !recognized {
+				return costModUnresolvable
+			}
+			if !matched {
+				return costModSkips
+			}
+		}
 	}
 	if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), host.Controller(), host.ID) {
 		return costModSkips

@@ -365,6 +365,12 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		// mana cost less on the turn the host entered.
 		manaCost = subtractManaCost(manaCost, c.Def.Faces[0].ManaCost)
 	}
+	// CostAdjustment.adjust over the activation (CostPayment.payCost): the cost
+	// statics that reach an activated ability. One this port cannot evaluate, or
+	// a raise with a non-mana Cost$, refuses the activation (GO-7).
+	if manaCost, ok = g.costStatics(pid, card, ability, manaCost, true); !ok {
+		return false
+	}
 	apiType, ok := APIByName(ability.Name)
 	isRevert := ability.Name == "InternalAnimateRevert"
 	if isRevert {

@@ -83,6 +83,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/VoteEffect.java` | `VotePlayer$ Other` removes the voting player `p` from the ballot, not `realVoter` | PR [#12380](https://github.com/Card-Forge/forge/pull/12380), branch `upstream-pr/small-rules-fixes` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/GameAction.java` | `takeInitiative` returns after passing the initiative on from a lost player | PR [#12380](https://github.com/Card-Forge/forge/pull/12380), branch `upstream-pr/small-rules-fixes` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/RestartGameEffect.java` | Clears `getBeginOfCombat()` commands with the other phases' | PR [#12380](https://github.com/Card-Forge/forge/pull/12380), branch `upstream-pr/small-rules-fixes` |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java` | `QuasiLibrarySearch$` ends the search-control grant before a declined pick returns; offers only the cards searched under `LimitSearchLibrary`/`CantSearchLibrary` | PR [#12381](https://github.com/Card-Forge/forge/pull/12381), branch `upstream-pr/quasi-library-search` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

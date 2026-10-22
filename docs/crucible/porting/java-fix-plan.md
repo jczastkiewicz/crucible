@@ -22,12 +22,9 @@ One package is one pull request: one theme, small enough to review in one sittin
 | 7   | SwitchBlockEffect                                   | `:22-25`, `:97/103/151/157`, `:88`                                                                                                               | S    | One class, three defects                                |
 | 8   | Small rules fixes                                   | `VoteEffect:93`, `GameAction:2568` (takeInitiative), `RestartGameEffect:47`, `FlipOntoBattlefieldEffect:109`, `StaticAbilityCantAttackBlock:269` | S    | Independent, 1-5 lines each                             |
 | 9   | xCount/doXMath hardening                            | `AbilityUtils:3257`, `:1584`, `:3310/3321`, `Game:1430`                                                                                          | XS   | All latent                                              |
-| 10  | Replacement result read back                        | `Player:584-592` and `Card:4787` (PayLife, Tap `Updated`), `ConniveEffect:73`, `ExploreEffect:65`, `Player:3928` (Learn)                         | S    | Changes when an effect is skipped                       |
-| 11  | CounterRemoved trigger                              | `Player:904-913` (commented out under a TODO)                                                                                                    | M    | Energy and rad counters                                 |
 | 12  | QuasiLibrarySearch and Searched                     | `ChooseCardEffect:262-269` and `:243-260`, `ChangeZoneEffect:1090`                                                                               | S    | The last is only suspected                              |
-| 13  | Untap of another player's permanents                | `Untap:151-155` (skips `canUntap`, UntapAdjust, OnlyUntapChosen)                                                                                 | M    | 17 corpus lines; largest fixable item                   |
 
-Order: 3, 4, 1, 2, 9 (plain crashes, easiest to accept), then 5-8, then 10-13.
+Order: 3, 4, 1, 2, 9 (plain crashes, easiest to accept), then 5-8, then 12.
 
 ## Issues first, not pull requests
 
@@ -39,16 +36,19 @@ Cipher order (`EncodeEffect:57`), `unmeldPosition` (`GameAction:635`), X from `R
 (`GameAction:2398`), `TextBoxExchangeEffect:74`, `AbilityUtils:3090` (regex without a right boundary),
 `SacrificeAllEffect:66`, `TriggerDamageDoneOnce:67`, `TargetRestrictions:53` (CopyForEachCanTarget), `CombatUtil:532`
 (hidden Unblockable), `ChangeZoneEffect:961` (OriginAlternative takes an opponent's graveyard), `TriggerChaosEnsues`,
-`RunChaosEffect`, `AlterAttributeEffect:87`, `CardUtil:345`, `DamageDealEffect:248` and `DamagePreventEffect:105` (what a radiance copy receives from a divided amount), `ChangeTargetsEffect:71-106` (`TargetRestriction$` on `ChangeSingleTarget$`/`DefinedMagnet$`), `StaticAbilityCantAttackBlock:269`, `FlipOntoBattlefieldEffect:146` (random visual layout, no way to test), `ChangeZoneEffect:1090` (is the `Searched$` reset intended), and all of package 10 (`Updated` read back: the rules do not say what `Updated` means for an event with no updatable param, and the same `!= NotReplaced` read sits in a dozen other events).
+`RunChaosEffect`, `AlterAttributeEffect:87`, `CardUtil:345`, `DamageDealEffect:248` and `DamagePreventEffect:105` (what a radiance copy receives from a divided amount), `ChangeTargetsEffect:71-106` (`TargetRestriction$` on `ChangeSingleTarget$`/`DefinedMagnet$`), `StaticAbilityCantAttackBlock:269`, `FlipOntoBattlefieldEffect:146` (random visual layout, no way to test), `ChangeZoneEffect:1090` (is the `Searched$` reset intended).
 
 ## Left out
 
-| Item                                                                                              | Reason                                                                          |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `AiCostDecision`, `PlayerControllerAi:246`, `MayEffectFromOpeningHand` in `PlayerControllerHuman` | AI or UI code, nothing Crucible reads                                           |
-| `CardProperty:1522` (`attackingBattle`)                                                           | The Java may do what its name says; the defect row is re-checked before any fix |
-| `mana_clash.txt`, `sword_of_dungeons_dragons.txt`                                                 | Card scripts: `card-script-defects.md`                                          |
-| `Player:3435`                                                                                     | Fixed upstream (`8cd226407b1`)                                                  |
+| Item                                                                                                       | Reason                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AiCostDecision`, `PlayerControllerAi:246`, `MayEffectFromOpeningHand` in `PlayerControllerHuman`          | AI or UI code, nothing Crucible reads                                                                                                                                                                    |
+| `CardProperty:1522` (`attackingBattle`)                                                                    | The Java may do what its name says; the defect row is re-checked before any fix                                                                                                                          |
+| `mana_clash.txt`, `sword_of_dungeons_dragons.txt`                                                          | Card scripts: `card-script-defects.md`                                                                                                                                                                   |
+| `Player:3435`                                                                                              | Fixed upstream (`8cd226407b1`)                                                                                                                                                                           |
+| `Untap:151-155` (untap during another player's step)                                                       | Not a defect: bypassing `UntapAdjust`, `OnlyUntapChosen`, the optional prompt and `doesn't untap` is what the rulings of Seedborn Muse and Prophet of Kruphix say                                        |
+| `Player:904-913` (`CounterRemoved` for player counters)                                                    | No card has a `CounterRemoved` trigger for a player counter, and the trigger's `Player` param means the remover for cards but the owner for players: a design call for the authors, once a card needs it |
+| `Player:584-592`, `Card:4787`, `ConniveEffect:73`, `ExploreEffect:65`, `Player:3928` (`Updated` read back) | No replacement in the corpus returns `Updated` for PayLife, Tap, Connive, Explore or Learn, and the events have no param an `Updated` result could change                                                |
 
 ## Procedure per package
 

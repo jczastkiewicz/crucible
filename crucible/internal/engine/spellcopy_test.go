@@ -491,13 +491,6 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 		t.Errorf("no recorded spell: err = %v", err)
 	}
 
-	// A targeted spell whose TargetType$ names an ability.
-	g, p, _ = newTwoPlayerGame(t)
-	pushPlayLine(t, g, p, nil, "DB$ CopySpellAbility | ValidTgts$ Card | TargetType$ Activated.YouCtrl")
-	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err == nil || !strings.Contains(err.Error(), "TargetType$") {
-		t.Errorf("ability copy: err = %v", err)
-	}
-
 	for _, tc := range []struct {
 		name, trigger, want string
 	}{

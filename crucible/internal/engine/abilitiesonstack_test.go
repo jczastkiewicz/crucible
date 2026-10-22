@@ -379,14 +379,16 @@ func TestRerouteChangesAnActivatedAbilitysTarget(t *testing.T) {
 	}
 }
 
-// Copying an activated or triggered ability is not built: Strionic
-// Resonator's copy fails loudly rather than copying it as a spell.
-func TestCopyingATriggeredAbilityIsRefused(t *testing.T) {
+// Strionic Resonator copies a triggered ability its controller controls: the
+// copy keeps the host and resolves on its own (CR 707.10), so the trigger's
+// life gain happens twice.
+func TestCopyingATriggeredAbilityResolvesTheCopy(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	res := g.NewCard(corpusCard(t, "Strionic Resonator"), other, engine.Battlefield)
 	c := engine.NewScriptedController()
 	trig, _ := castWatcherTrigger(t, g, p, other, c)
+	before := g.Player(other).Life
 	g.Player(other).ManaPool.AddColorless(2)
 	c.QueuePayGeneric(mana.ShardC)
 	c.QueuePayGeneric(mana.ShardC)
@@ -394,9 +396,11 @@ func TestCopyingATriggeredAbilityIsRefused(t *testing.T) {
 	if !g.ActivateAbility(other, res, 0, c) {
 		t.Fatal("could not activate Strionic Resonator over a trigger")
 	}
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "CopySpellAbility") {
-		t.Fatalf("ResolveStack = %v, want the CopySpellAbility refusal", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(other).Life - before; got != 6 {
+		t.Errorf("other gained %d life, want 6: the trigger and its copy", got)
 	}
 }
 

@@ -93,9 +93,12 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 			if optional && !controller.ConfirmEffect(g, copier, a.Source) {
 				continue
 			}
+			if !orig.spell && hasParam(a, "RememberNewCard") {
+				return fmt.Errorf("engine: CopySpellAbility: RememberNewCard$ over a copied ability not resolvable yet")
+			}
 			for i := 0; i < amount; i++ {
 				host, tg, err := g.copySpell(controller, orig, copier, mayChoose)
-				if err == nil && hasParam(a, "NonLegendary") {
+				if err == nil && host != NoCard && hasParam(a, "NonLegendary") {
 					// CardFactory.java:580, read from the CopySpellAbility, only
 					// for a spell copy: the copy's host loses Legendary.
 					g.Card(host).copyNonLegendary = true
@@ -122,7 +125,11 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		// for an Aura (becomesTargetSourceMatches reads .Aura as always true
 		// under a spell source).
 		matches := g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier)
-		matches = append(matches, g.checkWardTriggers(tg.targets, tg.host, tg.copier)...)
+		if tg.item != NoStackItem {
+			matches = append(matches, g.checkWardTriggersForAbility(tg.targets, tg.item, tg.source, tg.copier)...)
+		} else {
+			matches = append(matches, g.checkWardTriggers(tg.targets, tg.host, tg.copier)...)
+		}
 		// The copy's targets are all a crime check reads (isCrime).
 		matches = append(matches, g.crimeTriggers(Ability{Controller: tg.copier, Targets: tg.targets})...)
 		g.pushTriggeredAbilities(controller, matches)
@@ -138,6 +145,10 @@ type copiedTargets struct {
 	copier  PlayerID
 	// host is the copy's card on the stack, what Ward's Counter counters.
 	host CardID
+	// item and source name a copied activated or triggered ability instead
+	// (host is NoCard): Ward counters the ability's stack item.
+	item   StackItemID
+	source CardID
 }
 
 // copySpellTargets is getTargetSpells(sa): the spells a names, as stack
@@ -146,10 +157,10 @@ type copiedTargets struct {
 func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 	var ids []StackItemID
 	if _, ok := a.Params.Param("ValidTgts"); ok {
-		if tt, ok := a.Params.Param("TargetType"); ok && tt != "Spell" {
-			return nil, fmt.Errorf("engine: CopySpellAbility: TargetType$ %q not resolvable yet", tt)
-		}
-		ids = spellItemsOf(g, a.Targets)
+		// A TargetType$ past the literal Spell (Strionic Resonator's
+		// Triggered.YouCtrl) was judged by targeting (stackAbilityCandidates);
+		// its targets are spells as cards and abilities as stack items.
+		ids = stackItemsOf(g, a.Targets)
 	} else {
 		defined, _ := a.Params.Param("Defined")
 		switch defined {
@@ -159,14 +170,7 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 			}
 			ids = []StackItemID{a.triggered.spellAbility}
 		case "Targeted":
-			for _, t := range a.Targets {
-				if _, ok := t.AsStackItem(); ok {
-					// copySpell builds a spell copy on a new card; a copied
-					// ability keeps its host (CR 707.10), not built.
-					return nil, fmt.Errorf("engine: CopySpellAbility: copying an activated or triggered ability not resolvable yet")
-				}
-			}
-			ids = spellItemsOf(g, a.Targets)
+			ids = stackItemsOf(g, a.Targets)
 		case "Parent":
 			// AbilityUtils.java:1232-1233: the stack root the chain resolves
 			// under. It has left the stack as it resolves, so the copy is made
@@ -211,12 +215,19 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 	return out, nil
 }
 
-// spellItemsOf is the stack items of the spells whose cards targets name,
-// in target order. A target that is no longer a spell on the stack is
-// skipped: it has resolved or left, and there is nothing to copy.
-func spellItemsOf(g *Game, targets []EntityID) []StackItemID {
+// stackItemsOf is the stack items targets name, in target order: a spell as
+// its card, an activated or triggered ability as its stack item (ADR-0041).
+// A target that has left the stack is skipped: it has resolved, and there is
+// nothing to copy.
+func stackItemsOf(g *Game, targets []EntityID) []StackItemID {
 	var ids []StackItemID
 	for _, t := range targets {
+		if id, ok := t.AsStackItem(); ok {
+			if _, on := g.stackItem(id); on {
+				ids = append(ids, id)
+			}
+			continue
+		}
 		card, ok := t.AsCard()
 		if !ok {
 			continue
@@ -267,6 +278,9 @@ func (g *Game) copyTriggerWatching() bool {
 // effects end when a permanent leaves the battlefield (endCopiesOnLeave), so
 // its printed Def is its copiable values.
 func (g *Game) copySpell(controller PlayerController, orig Ability, copier PlayerID, mayChoose bool) (CardID, copiedTargets, error) {
+	if !orig.spell {
+		return g.copyStackAbility(controller, orig, copier, mayChoose)
+	}
 	source := g.Card(orig.Source)
 	if source.roomDef != nil {
 		// A Room spell's own Def, while on the stack, is doorView's single-half
@@ -320,6 +334,43 @@ func (g *Game) copySpell(controller PlayerController, orig Ability, copier Playe
 		targets = append(targets, CardEntity(cp.Target))
 	}
 	return host, copiedTargets{targets: targets, aura: cp.API == APIAttach, copier: copier, host: host}, nil
+}
+
+// copyStackAbility is copySpell for an activated or triggered ability
+// (CopySpellAbilityEffect.java:150-200, CR 707.10): the copy keeps the
+// original's host, a card that is not new, and its parameters, targets,
+// modes and X; only its controller is the copier. No cost, not activated or
+// triggered again, so neither an activation nor a trigger event is raised.
+func (g *Game) copyStackAbility(controller PlayerController, orig Ability, copier PlayerID, mayChoose bool) (CardID, copiedTargets, error) {
+	cp := orig
+	cp.ID = NoStackItem
+	cp.Controller = copier
+	cp.Optional = false
+	cp.damageMap, cp.replacing = nil, nil
+	cp.Targets = append([]EntityID(nil), orig.Targets...)
+	cp.chainTargets = clonedChainTargets(orig.chainTargets)
+	if orig.Modes != nil {
+		cp.Modes = make([]Ability, len(orig.Modes))
+		for i, m := range orig.Modes {
+			m.Controller = copier
+			m.Targets = append([]EntityID(nil), m.Targets...)
+			m.chainTargets = clonedChainTargets(m.chainTargets)
+			cp.Modes[i] = m
+		}
+	}
+	if mayChoose {
+		if err := g.chooseCopyChainTargets(controller, &cp); err != nil {
+			return NoCard, copiedTargets{}, err
+		}
+		for i := range cp.Modes {
+			if err := g.chooseCopyChainTargets(controller, &cp.Modes[i]); err != nil {
+				return NoCard, copiedTargets{}, err
+			}
+		}
+	}
+	g.PushAbility(cp)
+	targets := allTargetsOf(cp)
+	return NoCard, copiedTargets{targets: targets, copier: copier, item: g.nextStackItemID, source: cp.Source}, nil
 }
 
 // chooseCopyChainTargets is chooseCopyTargets for m and then each of its

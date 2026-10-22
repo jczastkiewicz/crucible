@@ -113,7 +113,7 @@ cards, `internal/engine` core, `PlayerController`, fixture round-trip). P1 and P
 M5 in progress (rules kernel): turn/priority loop, zone changes, SBA, combat, mana, casting, stack, triggers,
 replacement effects, continuous effects across all eight layers (partial), targeting, LKI, activated abilities.
 
-M6 in progress: 193 of the corpus's 204 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
+M6 in progress: 194 of the corpus's 204 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`, and the other 12 have no real corpus line.
 `crucible card-smoke -all` measures how many cards play: 99.4% of 33,569 judged, an upper bound; the refusal causes it
 groups are the backlog.

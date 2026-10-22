@@ -163,6 +163,9 @@ type Card struct {
 	// resolved for it; cleared when the card leaves the battlefield like
 	// renowned.
 	monstrous bool
+	// classLevel is Card.getClassLevel less its default: 0 reads as level 1
+	// (ClassLevel); cleared when the card leaves the battlefield.
+	classLevel uint8
 	// IsCopiedSpell marks the card a copy of a spell lives on
 	// (GamePieceType.COPIED_SPELL, CardFactory.copySpellHost): it exists
 	// only on the stack and ceases to exist the moment anything would move

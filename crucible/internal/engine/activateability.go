@@ -591,9 +591,7 @@ func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
 	if _, ok := ability.Param("ActivationGameTypes"); ok {
 		return false
 	}
-	// ClassLevel$ compares the host's Class level, and no Class level is
-	// tracked: refuse rather than ignore the restriction (GO-7).
-	if _, ok := ability.Param("ClassLevel"); ok {
+	if v, ok := ability.Param("ClassLevel"); ok && !classLevelRestrictionMet(c, v) {
 		return false
 	}
 	return isPresentMatches(g, c, amounts, ability, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone", "") &&

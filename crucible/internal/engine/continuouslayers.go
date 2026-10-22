@@ -13,7 +13,7 @@
 
 package engine
 
-//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck
+//enginelint:allow id zone card game player valid parts ability amount trigger continuous animate presentcheck classlevel
 
 import (
 	"slices"
@@ -36,10 +36,11 @@ import (
 // TopCardOfLibraryIs$ matches the controller's top library card, and its
 // CheckSVar$ chain compares true (layerCheckSVars).
 //
-// Phases$, PlayerTurn$, GameStage$ and ClassLevel$ report false: each needs a
-// phase-range parser, a defined-player turn check, the game's own stage or a
-// Class level this port does not read for statics yet (1, 0, 1 and 0 real
-// Mode$ Continuous lines). False means the line does nothing this pass -- a
+// ClassLevel$ is the host's Class level at least the line's (classlevel.go).
+// Phases$, PlayerTurn$ and GameStage$ report false: each needs a
+// phase-range parser, a defined-player turn check or the game's own stage
+// this port does not read for statics yet (1, 0 and 1 real Mode$ Continuous
+// lines). False means the line does nothing this pass -- a
 // coverage gap rather than an effect applied when it should not be (GO-7).
 func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *compile.Ability) bool {
 	if _, cda := s.Param("CharacteristicDefining"); !cda && !layerHostZoneActive(host, s) {
@@ -48,10 +49,13 @@ func layerStaticApplies(g *Game, host *Card, amounts map[string]expr.Amount, s *
 	if !continuousConditionMet(g, host, s) {
 		return false
 	}
-	for _, key := range [...]string{"Phases", "PlayerTurn", "GameStage", "ClassLevel"} {
+	for _, key := range [...]string{"Phases", "PlayerTurn", "GameStage"} {
 		if _, ok := s.Param(key); ok {
 			return false
 		}
+	}
+	if v, ok := s.Param("ClassLevel"); ok && !classLevelStaticMet(host, v) {
+		return false
 	}
 	if spec, ok := s.Param("TopCardOfLibraryIs"); ok {
 		lib := g.Zone(Library, host.Controller()).Cards()

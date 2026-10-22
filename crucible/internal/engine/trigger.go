@@ -2534,15 +2534,15 @@ func changesZoneResolvable(t *compile.Ability) bool {
 //
 // A condition this port cannot read records a pending error and reads false,
 // so the game fails instead of silently skipping the trigger (GO-7):
-// ClassLevel$ (no Class level is tracked; every real line is on Mode$
-// ClassLevelGained), a CheckDefinedPlayer$ definedPlayers cannot read, a
+// ClassLevel$ off Mode$ ClassLevelGained (which tests it itself), a CheckDefinedPlayer$ definedPlayers cannot read, a
 // LifeTotal$ other than You/ActivePlayer/OpponentSmallest/OpponentGreatest,
 // a compare that is not one. Monarch$ is host's controller being the monarch
 // (Game.monarch), the one R: line naming it Archon of Coronation's.
 func triggerCommonRequirementsMet(g *Game, host *Card, amounts map[string]expr.Amount, t *compile.Ability) bool {
-	if v, ok := t.Param("ClassLevel"); ok {
-		// No Class level is tracked (ClassLevelUp is not ported): a condition
-		// on it cannot be read, so the game fails rather than skip (GO-7).
+	if v, ok := t.Param("ClassLevel"); ok && !strings.EqualFold(t.Name, "ClassLevelGained") {
+		// Only Mode$ ClassLevelGained reads ClassLevel$ (classlevel.go); on
+		// another mode the condition cannot be read, so the game fails
+		// rather than skip (GO-7).
 		g.recordPendingError(fmt.Errorf("engine: %q: ClassLevel$ %q not resolvable yet", host.Def.Name, v))
 		return false
 	}

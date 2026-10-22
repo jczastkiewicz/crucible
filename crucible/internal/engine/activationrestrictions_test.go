@@ -142,8 +142,8 @@ func TestActivationGameTypesNeedsAVariant(t *testing.T) {
 	}
 }
 
-// TestActivationClassLevelIsRefused: no Class level is tracked, so a
-// ClassLevel$ restriction refuses rather than being ignored (GO-7).
+// TestActivationClassLevelIsRefused: a restriction the host's level does not meet
+// refuses the activation (a land stays at level 1).
 func TestActivationClassLevelIsRefused(t *testing.T) {
 	t.Parallel()
 

@@ -39,7 +39,7 @@ Cipher order (`EncodeEffect:57`), `unmeldPosition` (`GameAction:635`), X from `R
 (`GameAction:2398`), `TextBoxExchangeEffect:74`, `AbilityUtils:3090` (regex without a right boundary),
 `SacrificeAllEffect:66`, `TriggerDamageDoneOnce:67`, `TargetRestrictions:53` (CopyForEachCanTarget), `CombatUtil:532`
 (hidden Unblockable), `ChangeZoneEffect:961` (OriginAlternative takes an opponent's graveyard), `TriggerChaosEnsues`,
-`RunChaosEffect`, `AlterAttributeEffect:87`, `CardUtil:345`.
+`RunChaosEffect`, `AlterAttributeEffect:87`, `CardUtil:345`, `DamageDealEffect:248` and `DamagePreventEffect:105` (what a radiance copy receives from a divided amount), `ChangeTargetsEffect:71-106` (`TargetRestriction$` on `ChangeSingleTarget$`/`DefinedMagnet$`), `StaticAbilityCantAttackBlock:269`, `FlipOntoBattlefieldEffect:146` (random visual layout, no way to test), `ChangeZoneEffect:1090` (is the `Searched$` reset intended), and all of package 10 (`Updated` read back: the rules do not say what `Updated` means for an event with no updatable param, and the same `!= NotReplaced` read sits in a dozen other events).
 
 ## Left out
 

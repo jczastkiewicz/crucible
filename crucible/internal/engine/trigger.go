@@ -1727,7 +1727,7 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 					if !hasZoneOrAny(t, "Destination", destination) || !hasZoneOrAny(t, "Origin", origin) {
 						continue
 					}
-					matching := changesZoneAllMatchingCards(g, t, cards, h.Controller(), host)
+					matching := g.triggerDisabledAll(h, t, changesZoneAllMatchingCards(g, t, cards, h.Controller(), host), origin, destination)
 					if len(matching) == 0 {
 						continue
 					}

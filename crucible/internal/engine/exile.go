@@ -91,7 +91,7 @@ func (g *Game) checkExiledTriggers(controller PlayerController, left CardID) {
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, Exile) {
 					continue
 				}
 				// TriggerChangesZone.java:192-194: AbilityKey.Card (the pre-move
@@ -133,7 +133,7 @@ func (g *Game) otherExiledTriggerMatches(left CardID) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, leaving, valid.Parse(validCard), w.Controller(), watcher) {
+					if !Matches(g, leaving, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, leaving, Battlefield, Exile) {
 						continue
 					}
 					// TriggerChangesZone.java:192-194: AbilityKey.Card, the card

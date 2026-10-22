@@ -52,7 +52,7 @@ func (g *Game) checkLeftToTriggers(controller PlayerController, left CardID, des
 				if !ok {
 					continue
 				}
-				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) {
+				if !Matches(g, c, valid.Parse(validCard), c.Controller(), left) || g.triggerDisabled(c, t, c, Battlefield, dest) {
 					continue
 				}
 				if sub, api, optional, ok := triggerEffectAPI(g, c, face.Amounts, t); ok {
@@ -189,7 +189,7 @@ func (g *Game) appendLeftZoneMatches(matches []Ability, host *Card, zone ZoneTyp
 				continue
 			}
 			validCard, ok := t.Param("ValidCard")
-			if !ok || !Matches(g, moved, valid.Parse(validCard), host.Controller(), host.ID) {
+			if !ok || !Matches(g, moved, valid.Parse(validCard), host.Controller(), host.ID) || g.triggerDisabled(host, t, moved, origin, dest) {
 				continue
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, host, face.Amounts, t); ok {
@@ -224,7 +224,7 @@ func (g *Game) otherLeftToTriggerMatches(left CardID, dest ZoneType) []Ability {
 					if !ok {
 						continue
 					}
-					if !Matches(g, leaving, valid.Parse(validCard), w.Controller(), watcher) {
+					if !Matches(g, leaving, valid.Parse(validCard), w.Controller(), watcher) || g.triggerDisabled(w, t, leaving, Battlefield, dest) {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, w, face.Amounts, t); ok {

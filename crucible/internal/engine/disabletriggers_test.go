@@ -49,3 +49,33 @@ func TestDisableTriggersStopsAnEntersTriggerWhileTheStaticIsInPlay(t *testing.T)
 		t.Errorf("without the static: gained %d, want 3", got)
 	}
 }
+
+// TestDisableTriggersReachesTheExilePath proves the static also stops a
+// creature's own leaves-the-battlefield trigger when it is exiled as a cost
+// (Hushbringer-shaped Origin$ Battlefield, Destination$ Exile).
+func TestDisableTriggersReachesTheExilePath(t *testing.T) {
+	t.Parallel()
+
+	const shieldLine = "S:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Origin$ Battlefield | Destination$ Exile"
+	for _, withStatic := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGame(t)
+		g.NewCard(nil, p, engine.Library)
+		if withStatic {
+			g.NewCard(scriptDef(t, "Shield", "Artifact", shieldLine), p, engine.Battlefield)
+		}
+		def := creatureDefWithAbilityAndTrigger(t, "Exiler",
+			"AB$ GainLife | Cost$ Exile<1/CARDNAME> | Defined$ You | LifeAmount$ 1",
+			"Mode$ ChangesZone | Origin$ Battlefield | Destination$ Exile | ValidCard$ Card.Self | Execute$ TrigDraw")
+		creature := g.NewCard(def, p, engine.Battlefield)
+		if !g.ActivateAbility(p, creature, 0, engine.NewScriptedController()) {
+			t.Fatal("ActivateAbility failed")
+		}
+		want := 2
+		if withStatic {
+			want = 1
+		}
+		if got := g.StackLen(); got != want {
+			t.Errorf("static=%v: StackLen = %d, want %d", withStatic, got, want)
+		}
+	}
+}

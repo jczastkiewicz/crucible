@@ -46,4 +46,4 @@ The fix depends on what the authors meant, so open an issue and wait: `CostMill:
 2. Per site: a test that reproduces the defect first (seen failing), then the fix (seen passing); `mvn -pl forge-game -am compile` after each change; only the new tests run, never the whole suite.
 3. English PR body: the site, one sentence on the defect, one on the fix.
 4. Push and open the PR only after the user approves that package.
-5. On `master`, set the row's "Upstream" cell to the PR number. When a sync brings the fix back, make Go match upstream's fix, remove its refusal and delete the row (DOC-16).
+5. On `master`, cherry-pick the package's fix commits (not the tests) in one commit with one row per file in **Pending upstream fixes** of `upstream-patches.md`, and set the defect row's "Upstream" cell to the PR number. When a sync brings the fix back, make Go match upstream's fix, remove its refusal and delete the row (DOC-16).

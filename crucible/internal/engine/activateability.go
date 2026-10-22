@@ -415,7 +415,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		if g.Card(card).Zone == Battlefield {
 			activated.paid.sacrificed = append(activated.paid.sacrificed, card)
 		}
-		sacrificeCardsFor(g, controller, &activated, []CardID{card}, false)
+		activated.paid.sacrificedMoved = append(activated.paid.sacrificedMoved, sacrificeCardsFor(g, controller, &activated, []CardID{card}, false)...)
 	}
 	if shape.SelfExile {
 		if g.Card(card).Zone == Battlefield {

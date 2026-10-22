@@ -853,6 +853,7 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 		sacrificed := sacrificeCardsFor(g, controller, a, controller.ChoosePermanentsToSacrifice(g, pid, candidates, uc.sacN), false)
 		if rec != nil {
 			rec.sacrificed = append(rec.sacrificed, sacrificed...)
+			rec.sacrificedMoved = append(rec.sacrificedMoved, sacrificed...)
 		}
 	}
 	if uc.returnN > 0 {

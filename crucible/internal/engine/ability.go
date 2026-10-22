@@ -720,6 +720,9 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 // it; replaced, never written in place.
 type paidLists struct {
 	sacrificed, exiled, discarded []CardID
+	// sacrificedMoved is Defined$ SacrificedCards: the cards the cost really
+	// sacrificed (CostPartWithList.cardList), not the picks (Sacrificed).
+	sacrificedMoved []CardID
 	// tapped is what tapXType tapped (getPaidList("Tapped")).
 	tapped       []CardID
 	recorded     bool

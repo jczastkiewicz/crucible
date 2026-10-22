@@ -503,7 +503,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
 	default:
 		zones := []ZoneType{Battlefield}
-		if a.API == APIPlay || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect || a.API == APIClone || a.API == APICopyPermanent {
+		if a.API == APIPlay || a.API == APIDelayedTrigger || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect || a.API == APIClone || a.API == APICopyPermanent {
 			// Scoped to the APIs whose Resolve reads a target in any zone: Play
 			// (Pass the Torch's own TrigPlay, 27 real DB$ Play | TgtZone$ Graveyard
 			// lines), RemoveCounter (counters off a suspended card in exile), Pump

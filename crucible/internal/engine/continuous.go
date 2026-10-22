@@ -1591,6 +1591,13 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 	if !ok {
 		return nil
 	}
+	// GainsAbilitiesOf$/OfDefined$: activated abilities copied from other cards
+	// (StaticAbilityContinuous.java:829-852).
+	abilityGrants, ok := g.gainedAbilityGrants(host, s)
+	if !ok {
+		return nil
+	}
+	stickerGrants = append(stickerGrants, abilityGrants...)
 	granting := len(grant.triggers) > 0 || len(grant.abilities) > 0 || len(grant.statics) > 0 || len(grant.replacements) > 0 || len(stickerGrants) > 0
 	if !granting && removal == removalNone {
 		return nil

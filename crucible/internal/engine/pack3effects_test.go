@@ -890,3 +890,25 @@ func TestCounterDefinedValidStackCountersEveryMatchingSpell(t *testing.T) {
 		t.Errorf("stack = %d, want empty", g.StackLen())
 	}
 }
+
+// TestMakeCardConjureFiresConjureAllOnce proves Conjure$ (MakeCardEffect.java:
+// 219-224) fires Mode$ ConjureAll once per conjuring player, and ValidCard$
+// keeps the trigger from firing when no made card matches.
+func TestMakeCardConjureFiresConjureAllOnce(t *testing.T) {
+	t.Parallel()
+	bear := namedCreature(t, "Grizzly Bears", "1 G")
+	for _, tc := range []struct {
+		valid string
+		want  int
+	}{{"Card", 21}, {"Land", 20}} {
+		g, p, _ := newPackGame(t, bear)
+		g.NewCard(scriptDef(t, "Test Conjure Watcher", "Enchantment",
+			"T:Mode$ ConjureAll | ValidPlayer$ You | ValidCard$ "+tc.valid+" | TriggerZones$ Battlefield | Execute$ TrigGain",
+			"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+		resolveLine(t, g, p, engine.NewScriptedController(),
+			"DB$ MakeCard | Conjure$ True | Name$ Grizzly Bears | Zone$ Hand | Amount$ 2")
+		if got := g.Player(p).Life; got != tc.want {
+			t.Errorf("ValidCard$ %s: life = %d, want %d", tc.valid, got, tc.want)
+		}
+	}
+}

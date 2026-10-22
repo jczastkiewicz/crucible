@@ -122,6 +122,10 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 		}
 		g.checkChangesZoneAllTriggers(controller, made, None, zone)
+		if hasParam(a, "Conjure") {
+			// MakeCardEffect.java:219-224: once per player, before the shuffle.
+			g.checkConjureAllTriggers(controller, p, made)
+		}
 		if zone == Library && !hasParam(a, "LibraryPosition") {
 			g.Shuffle(Library, p)
 		}

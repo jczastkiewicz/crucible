@@ -237,3 +237,31 @@ func (g *Game) checkFlippedCoinOnceTriggers(controller PlayerController, flipper
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+var conjureAllParams = effectEventParams("validplayer", "validcard")
+
+// checkConjureAllTriggers is Mode$ ConjureAll (TriggerConjureAll.java:19-46,
+// fired from MakeCardEffect.java:219-224) once per conjuring player: ValidPlayer$
+// against that player, ValidCard$ must match some made card, and the trigger
+// sees only the matching cards. Without ValidCard$ it fires on an empty batch.
+func (g *Game) checkConjureAllTriggers(controller PlayerController, pid PlayerID, made []CardID) {
+	matches := g.scanTriggers([]string{"ConjureAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, conjureAllParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		kept := made
+		if spec, ok := t.Param("ValidCard"); ok {
+			kept = nil
+			for _, id := range made {
+				if Matches(g, g.Card(id), valid.Parse(spec), h.Controller(), h.ID) {
+					kept = append(kept, id)
+				}
+			}
+			if len(kept) == 0 {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{player: pid, cards: kept}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

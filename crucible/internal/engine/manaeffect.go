@@ -30,6 +30,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/mana"
@@ -136,6 +137,27 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			// "R G" is one mana of each color named, Amount$ times over
 			// (GameActionUtil.generatedMana repeats the whole string).
 			tokens := strings.Fields(produced)
+			chosen := false
+			for i := 0; i < len(tokens); i++ {
+				if tokens[i] != "Chosen" {
+					continue
+				}
+				// AbilityManaPart.java:515-516: "Chosen" is the host's
+				// chosen colors; none chosen produces nothing, no error
+				// (ManaEffect.java:179-188).
+				chosen = true
+				var repl []string
+				if cs := g.Card(a.Source).Memory.ChosenColors(); !cs.IsColorless() {
+					for _, l := range cs.String() {
+						repl = append(repl, string(l))
+					}
+				}
+				tokens = slices.Concat(tokens[:i], repl, tokens[i+1:])
+				i += len(repl) - 1
+			}
+			if chosen && len(tokens) == 0 {
+				continue
+			}
 			if len(tokens) == 0 {
 				return fmt.Errorf("engine: Mana: Produced$ %q not resolvable yet", produced)
 			}

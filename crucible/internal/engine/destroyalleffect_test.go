@@ -126,3 +126,21 @@ func TestDestroyAllEffectOptionalAsksTheActivator(t *testing.T) {
 		}
 	}
 }
+
+// TestDestroyAllEffectIgnoresHiddenAndZone proves Hidden$ and Zone$ are
+// dead params in DestroyAllEffect.java:43-101: the battlefield is always
+// swept.
+func TestDestroyAllEffectIgnoresHiddenAndZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test DestroyAll Dead", "DB$ DestroyAll | ValidCards$ Creature.OppCtrl | Hidden$ True | Zone$ Battlefield"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(a).Zone; z != engine.Graveyard {
+		t.Errorf("creature zone = %v, want Graveyard", z)
+	}
+}

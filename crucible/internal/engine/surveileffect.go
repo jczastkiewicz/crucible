@@ -34,7 +34,6 @@ import (
 // chain to an already-built leaf ability and resolve end to end.
 var surveilUnresolvedParams = [...]string{
 	"ValidTgts", "TargetMin", "TargetMax", "Optional",
-	"RememberMoved", "RememberKept",
 }
 
 type surveilEffect struct{}
@@ -83,11 +82,21 @@ func (surveilEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if n > 0 {
 			topN := append([]CardID(nil), lib[:n]...)
 			toTop, toGraveyard := controller.ArrangeForSurveil(g, pid, topN)
+			_, rememberMoved := a.Params.Param("RememberMoved")
+			_, rememberKept := a.Params.Param("RememberKept")
 			for _, id := range toGraveyard {
 				g.moveToGraveyard(controller, id)
+				if rememberMoved {
+					source.Memory.Remember(CardEntity(id))
+				}
 			}
 			for i := len(toTop) - 1; i >= 0; i-- {
 				g.MoveToLibraryTop(toTop[i], pid)
+			}
+			if rememberKept {
+				for _, id := range toTop {
+					source.Memory.Remember(CardEntity(id))
+				}
 			}
 		}
 		first := g.Player(pid).surveilThisTurn == 0

@@ -72,8 +72,12 @@ import (
 // magus_of_the_tabernacle.txt's own real cards among them) -- AddTrigger$
 // is not a built continuous-effect param, so the trigger it would grant
 // never exists in this port's own game at all.
+//
+// ChangeNum$ and ValidCard$ are not on the list: SacrificeEffect.java reads
+// neither (Amount$ and SacValid$ drive it), so ignoring them is the Java
+// behavior (PORT-8, dead script params).
 var sacrificeUnresolvedParams = [...]string{
-	"ChangeNum", "ValidCard", "Random",
+	"Random",
 }
 
 type sacrificeEffect struct{}

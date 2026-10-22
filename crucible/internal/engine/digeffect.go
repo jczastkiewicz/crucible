@@ -13,7 +13,7 @@ import (
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"SourceZone", "FromBottom", "WithTotalCMC",
+	"SourceZone", "WithTotalCMC",
 	"ForEachColorPair", "WithDifferentPowers", "RandomChange", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
@@ -116,6 +116,14 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			n = len(library)
 		}
 		top := append([]CardID(nil), library[:n]...)
+		if _, ok := a.Params.Param("FromBottom"); ok {
+			// DigEffect.java:181-183 reverses the zone list before taking
+			// the first DigNum$, so the bottom card is looked at first.
+			top = top[:0]
+			for i := len(library) - 1; i >= len(library)-n; i-- {
+				top = append(top, library[i])
+			}
+		}
 		if len(top) == 0 {
 			continue
 		}

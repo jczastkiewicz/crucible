@@ -23,7 +23,7 @@ import (
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
 	"WithDifferentPowers", "EachDifferentPower", "ControlAndNot",
-	"AllCards", "IncludeSpellsOnStack",
+	"IncludeSpellsOnStack",
 	"ChosenMap",
 	"UnlessResolveSubs", "LockInText", "OrString",
 	"ConditionGameTypes",
@@ -428,6 +428,15 @@ func chooseCardPool(g *Game, a *Ability, source *Card) ([]CardID, error) {
 		spec = valid.Parse(choicesParam)
 	}
 	var pool []CardID
+	if _, ok := a.Params.Param("AllCards"); ok {
+		// ChooseCardEffect.java:69: game.getCardsInGame() replaces the zones.
+		for _, cid := range g.cardsInGame() {
+			if !hasChoices || Matches(g, g.Card(cid), spec, a.Controller, a.Source) {
+				pool = append(pool, cid)
+			}
+		}
+		return pool, nil
+	}
 	for _, z := range zones {
 		for _, pid := range g.Players() {
 			for _, cid := range g.Zone(z, pid).Cards() {

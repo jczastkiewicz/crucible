@@ -446,3 +446,25 @@ func TestChooseCardStartingWithOrdersTheChoosers(t *testing.T) {
 		t.Errorf("chosen = %v, want [theirs mine]", got)
 	}
 }
+
+// TestChooseCardEffectAllCardsReachesAnyZone proves AllCards$
+// (ChooseCardEffect.java:69): the pool is every card in the game, not the
+// ChoiceZone$ zones, so a card in an opponent's hand can be picked.
+func TestChooseCardEffectAllCardsReachesAnyZone(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	pick := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Hand)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{pick})
+	def := etbChainDef(t, "Test ChooseCard All",
+		"DB$ ChooseCard | AllCards$ True | Choices$ Creature.OppCtrl | Mandatory$ True")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(host).Memory.Chosen(); len(got) != 1 || got[0] != pick {
+		t.Errorf("host Memory.Chosen = %v, want [%v]", got, pick)
+	}
+}

@@ -398,3 +398,19 @@ func TestSacrificeEffectFiresWatchingPermanentsSacrificedTrigger(t *testing.T) {
 		t.Errorf("p's life = %d, want 21 -- the watcher must fire for p's own sacrifice", g.Player(p).Life)
 	}
 }
+
+// TestSacrificeEffectIgnoresChangeNumAndValidCard proves the two params
+// SacrificeEffect.java never reads (Amount$ and SacValid$ drive it).
+func TestSacrificeEffectIgnoresChangeNumAndValidCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Sacrifice Dead", "DB$ Sacrifice | Defined$ You | ChangeNum$ 1 | ValidCard$ Card.Self"), c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Errorf("host zone = %v, want Graveyard", z)
+	}
+}

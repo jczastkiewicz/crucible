@@ -80,6 +80,12 @@ func countSVar(g *Game, a *Ability, host *Card, expression string) (int, bool) {
 	switch opName {
 	case "Twice":
 		return v * 2, true
+	case "Times":
+		n, ok := resolveNamedAmount(g, a.Amounts, host, operand)
+		if !ok {
+			return 0, false
+		}
+		return v * n, true
 	case "Plus", "Minus":
 		n, ok := resolveNamedAmount(g, a.Amounts, host, operand)
 		if !ok {

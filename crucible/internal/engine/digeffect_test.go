@@ -77,13 +77,12 @@ func TestDigEffectOptionalNoneAndRandomRest(t *testing.T) {
 	}
 }
 
-// TestDigEffectRejectsUnresolvedShapes proves FromBottom$ and a non-literal
+// TestDigEffectRejectsUnresolvedShapes proves a non-literal
 // library position fail closed.
 func TestDigEffectRejectsUnresolvedShapes(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
-		"DB$ Dig | DigNum$ 3 | FromBottom$ True",
 		"DB$ Dig | DigNum$ 3 | LibraryPosition$ 2",
 		"DB$ Dig | DigNum$ Bogus",
 	} {
@@ -219,5 +218,29 @@ func TestDigEffectChangeValidChosenTypeReadsTheHostsType(t *testing.T) {
 	}
 	if z := g.Card(other).Zone; z != engine.Graveyard {
 		t.Errorf("land zone = %v, want Graveyard", z)
+	}
+}
+
+// TestDigEffectFromBottomLooksAtTheBottomCards proves FromBottom$
+// (DigEffect.java:181-183): the dug cards are the bottom DigNum$ of the library.
+func TestDigEffectFromBottomLooksAtTheBottomCards(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	lib := libraryCards(t, g, p, 4)
+
+	c := engine.NewScriptedController()
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Dig Bottom", "DB$ Dig | DigNum$ 2 | FromBottom$ True | ChangeNum$ All"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range lib[2:] {
+		if z := g.Card(id).Zone; z != engine.Hand {
+			t.Errorf("bottom card %v zone = %v, want Hand", id, z)
+		}
+	}
+	for _, id := range lib[:2] {
+		if z := g.Card(id).Zone; z != engine.Library {
+			t.Errorf("top card %v zone = %v, want Library", id, z)
+		}
 	}
 }

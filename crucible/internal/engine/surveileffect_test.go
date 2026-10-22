@@ -389,3 +389,38 @@ func TestSurveilEffectNoOpsWhenConditionCheckSVarIsNotMet(t *testing.T) {
 		t.Errorf("library = %v, want unchanged [%v]", got, top)
 	}
 }
+
+// TestSurveilEffectRememberMovedAndKept proves Player.java:1070-1077: the
+// cards sent to the graveyard (RememberMoved$) and kept on top
+// (RememberKept$) land on the host's Remembered list.
+func TestSurveilEffectRememberMovedAndKept(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	a := g.NewCard(nil, p, engine.Library)
+	b := g.NewCard(nil, p, engine.Library)
+
+	ctrl := engine.NewScriptedController()
+	ctrl.QueueSurveil([]engine.CardID{b}, []engine.CardID{a})
+
+	if err := castETBSurveil(t, g, p, etbSurveilTriggerDefParams(t, "Test Remember Surveil", "Amount$ 2 | RememberMoved$ True | RememberKept$ True", nil), ctrl); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(a).Zone; z != engine.Graveyard {
+		t.Errorf("moved card zone = %v, want Graveyard", z)
+	}
+	if z := g.Card(b).Zone; z != engine.Library {
+		t.Errorf("kept card zone = %v, want Library", z)
+	}
+	var remembered []engine.EntityID
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		remembered = append(remembered, g.Card(id).Memory.Remembered()...)
+	}
+	want := []engine.EntityID{engine.CardEntity(a), engine.CardEntity(b)}
+	if !slices.Equal(remembered, want) {
+		t.Errorf("Remembered = %v, want %v", remembered, want)
+	}
+}

@@ -13,9 +13,11 @@ import (
 // destroyAllUnresolvedParams are DestroyAllEffect.java's params this port
 // cannot honour yet. NoRegen$ and NoRegenValid$ (the per-card version) stop a
 // regeneration shield (regeneration.go) from replacing the destruction.
-var destroyAllUnresolvedParams = [...]string{
-	"Zone", "Hidden",
-}
+//
+// Zone$ and Hidden$ are not on the list: DestroyAllEffect.java:43-101 never
+// reads either (PORT-8, the scripts carry dead params), so ignoring them is
+// the Java behavior.
+var destroyAllUnresolvedParams = [...]string{}
 
 // destroyAllEffect is DestroyAllEffect.java: every battlefield permanent
 // matching ValidCards$ (all 238 real lines carry it), narrowed to the first

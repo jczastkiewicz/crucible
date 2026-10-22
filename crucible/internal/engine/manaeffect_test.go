@@ -219,3 +219,24 @@ func TestManaEffectComboAnyAsksForEachMana(t *testing.T) {
 		t.Errorf("pool = %v, want one red and one green", got)
 	}
 }
+
+// TestManaEffectChosenWithoutAChosenColorMakesNothing proves
+// ManaEffect.java:179-188: Produced$ Chosen on a host with no chosen color
+// produces no mana and no error.
+func TestManaEffectChosenWithoutAChosenColorMakesNothing(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+
+	if _, err := castETBMana(t, g, p, etbManaTriggerDefParams(t, "Test Mana Chosen", "Produced$ Chosen | Defined$ You"), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for i, n := range g.Player(p).ManaPool.Breakdown() {
+		if n != 0 {
+			t.Errorf("breakdown[%d] = %d, want an empty pool", i, n)
+		}
+	}
+}

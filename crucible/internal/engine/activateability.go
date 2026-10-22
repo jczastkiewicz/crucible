@@ -563,6 +563,12 @@ func (g *Game) otherRestrictionsMet(c *Card, ability *compile.Ability) bool {
 			return false
 		}
 	}
+	// Boast$ (SpellAbilityEffect.java:85-88): buildSpellAbility injects
+	// IsPresent$ Card.attackedThisTurn on Self, so the host must have attacked
+	// this turn (SpellAbilityRestriction.java:418-435).
+	if _, ok := ability.Param("Boast"); ok && len(c.attackedThisTurn) == 0 {
+		return false
+	}
 	// ActivationGameTypes$ (SpellAbilityRestriction.java:526): some listed
 	// variant must be applied to the game. A Game here is a plain constructed
 	// game with none, so a line naming only Commander-family variants never
@@ -594,6 +600,11 @@ func (g *Game) activationLimitsMet(c *Card, index int, ability *compile.Ability)
 		return false
 	}
 	if _, ok := ability.Param("PowerUp"); ok && game >= 1 {
+		return false
+	}
+	// Boast: once each turn (SpellAbilityRestriction.java:461-463, default
+	// limit 1; StaticAbilityAdditionalActivations raises it, unported).
+	if _, ok := ability.Param("Boast"); ok && turn >= 1 {
 		return false
 	}
 	for _, k := range [...]struct {

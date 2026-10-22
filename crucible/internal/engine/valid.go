@@ -203,9 +203,10 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:90, "Card.phasedOutPermanent"'s own tail.
 		return c.Type().IsPermanent()
 	case name == "token":
-		// CardProperty.java:1336's exact form; its "tokenCreated..." suffixes
-		// fall through to the type fallback below, false for every card.
-		return c.IsToken
+		// CardProperty.java:1346-1347: isToken() || isTokenCard(); its
+		// "tokenCreated..." suffixes fall through to the type fallback below,
+		// false for every card.
+		return c.IsToken || c.IsTokenCard
 	case name == "EffectSource":
 		// CardProperty.java:424: c is the card that created source, an
 		// effect card (effecteffect.go's effectLifetime.host).

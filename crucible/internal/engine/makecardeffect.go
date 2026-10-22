@@ -22,7 +22,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "MakeCard", "Booster", "Filter", "AttachedTo", "TokenCard", "FaceDown"); err != nil {
+	if err := rejectParams(a, "MakeCard", "Booster", "Filter", "AttachedTo", "FaceDown"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -68,6 +68,12 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 			for i := 0; i < amount; i++ {
 				id := g.NewCard(cardDef, p, None)
+				if hasParam(a, "TokenCard") {
+					// MakeCardEffect.java:161-163: setTokenCard, not a token
+					// (isToken reads gamePieceType); only the "token" valid
+					// property sees it (CardProperty.java:1346-1347).
+					g.Card(id).IsTokenCard = true
+				}
 				if hasParam(a, "Tapped") {
 					g.Card(id).Tapped = true
 				}

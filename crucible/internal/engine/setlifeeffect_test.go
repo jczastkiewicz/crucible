@@ -158,8 +158,8 @@ func TestSetLifeEffectRejectsUnresolvedParam(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBSetLife(t, g, p, etbSetLifeTriggerDefParams(t, "Test SetLife Ultimate", "LifeAmount$ 1 | Defined$ You | Ultimate$ True"), c)
+	_, err := castETBSetLife(t, g, p, etbSetLifeTriggerDefParams(t, "Test SetLife Choice", "LifeAmount$ 1 | Defined$ You | ChoiceAmount$ Any"), c)
 	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Ultimate$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved ChoiceAmount$")
 	}
 }

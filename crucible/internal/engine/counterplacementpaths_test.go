@@ -128,3 +128,20 @@ func TestMultiplyCounterIsReplacedByHardenedScales(t *testing.T) {
 		})
 	}
 }
+
+// MakeCard's TokenCard$ marks the card for the "token" valid property
+// without making it a token (MakeCardEffect.java:161-163, CardProperty.java:1346).
+func TestMakeCardTokenCardMatchesTokenButIsNotOne(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ MakeCard | Name$ Grizzly Bears | Zone$ Hand | TokenCard$ True | RememberMade$ True")
+	made := g.Card(host).Memory.Remembered()
+	if len(made) != 1 {
+		t.Fatalf("made %d cards, want 1", len(made))
+	}
+	id, _ := made[0].AsCard()
+	if g.Card(id).IsToken || !g.Card(id).IsTokenCard {
+		t.Errorf("IsToken = %v, IsTokenCard = %v, want false, true", g.Card(id).IsToken, g.Card(id).IsTokenCard)
+	}
+}

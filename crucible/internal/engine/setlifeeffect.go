@@ -36,8 +36,7 @@ import "fmt"
 // subAbilityConditionMet would otherwise silently no-op a card naming
 // either, dealDamageEffect's own identical reasoning.
 var setLifeUnresolvedParams = [...]string{
-	"Redistribute", "PlayerChoices", "ChoicePrompt", "ChoiceAmount",
-	"Ultimate"}
+	"Redistribute", "PlayerChoices", "ChoicePrompt", "ChoiceAmount"}
 
 // setLifeEffect resolves Mode$/DB$/AB$ SetLife for the plain, non-
 // Redistribute$ shape. ConditionPresent$/ConditionCompare$/
@@ -74,6 +73,10 @@ func (setLifeEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 
 	for _, pid := range players {
+		// LifeSetEffect.java:72-74 skips a player no longer in the game.
+		if g.Player(pid).Lost {
+			continue
+		}
 		setPlayerLife(g, controller, a.Source, pid, newLife)
 	}
 	return nil

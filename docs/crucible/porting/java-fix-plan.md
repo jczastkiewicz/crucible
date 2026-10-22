@@ -42,8 +42,8 @@ The fix depends on what the authors meant, so open an issue and wait: `CostMill:
 
 ## Procedure per package
 
-1. Branch `upstream-pr/<slug>` off `upstream/master`, holding only the fix, never a change under `crucible/` or `docs/`.
-2. `mvn -pl forge-game -am compile` after each change; the test suite is not run.
+1. Branch `upstream-pr/<slug>` off `upstream/master`, holding only tests and fix, never a change under `crucible/` or `docs/`.
+2. Per site: a test that reproduces the defect first (seen failing), then the fix (seen passing); `mvn -pl forge-game -am compile` after each change; only the new tests run, never the whole suite.
 3. English PR body: the site, one sentence on the defect, one on the fix.
 4. Push and open the PR only after the user approves that package.
 5. On `master`, set the row's "Upstream" cell to the PR number. When a sync brings the fix back, make Go match upstream's fix, remove its refusal and delete the row (DOC-16).

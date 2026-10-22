@@ -25,11 +25,17 @@ session: only research for a doubtful site goes to `forge-oracle`.
    "Suspected" is proven by reading the Java before it is fixed; if the reading says it is not a bug, correct the row
    instead.
 4. **Branch** `upstream-pr/<slug>` from `upstream/master`, from a clean tree (`git status` first; commit or stash the
-   rest). The branch holds the fix and nothing else: no change under `crucible/`, `docs/` or `.claude/`.
-5. **Fix the smallest thing that is wrong.** No refactor, no neighbouring cleanup, match the surrounding style. One
-   commit per site, message citing the file and line it fixes and why.
+   rest). The branch holds the tests and the fix and nothing else: no change under `crucible/`, `docs/` or `.claude/`.
+5. **Test first, fix second, per site.** Before touching the Java, commit a test that reproduces the defect (JUnit under
+   `forge-gui-desktop/src/test/java/forge/game/`, built on `RunTest` or the nearest existing test; a card from the corpus
+   if one reaches the site, else a `SpellAbility` built from a script line). Run only that test
+   (`mvn -pl forge-gui-desktop -am test -Dtest=<Class> -Dsurefire.failIfNoSpecifiedTests=false`) and see it fail for the
+   defect's reason (the exception or wrong result the row names), not for a setup error. Then fix the smallest thing that
+   is wrong: no refactor, no neighbouring cleanup, match the surrounding style. Run the test again and see it pass. One
+   test commit then one fix commit per site, messages citing the file and line and why. If no test can reach the site,
+   say so in the PR text and the row; never skip silently.
 6. **Compile:** `mvn -pl forge-game -am compile -q` (add `forge-core`/`forge-gui` only when the touched file lives
-   there). A failed compile is fixed before anything else; do not run the whole test suite.
+   there). A failed compile is fixed before anything else; do not run the whole test suite, only the new tests.
 7. **Draft the PR text** in English, as in the plan: per site one sentence on the defect, the rule or ruling it breaks (CR number, card), and one sentence on the fix.
    Show it to the user.
 8. **Stop before publishing.** Push the branch to `origin` and open the PR only after the user approves that package.

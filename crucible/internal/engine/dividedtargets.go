@@ -58,11 +58,6 @@ func (g *Game) capDividedChoice(a *Ability, choice targetChoice) targetChoice {
 	if err != nil {
 		return targetChoice{min: choice.min, max: choice.max, err: err}
 	}
-	if _, ok := a.Params.Param("DividedUpTo"); ok {
-		// PlayerControllerHuman.java:2492-2494 asks how much of the total to
-		// divide first: a decision this port does not ask.
-		return targetChoice{min: choice.min, max: choice.max, err: fmt.Errorf("engine: DividedUpTo$ not resolvable yet")}
-	}
 	choice.max = min(choice.max, max(total, 0))
 	choice.min = min(choice.min, choice.max)
 	return choice
@@ -87,6 +82,14 @@ func (g *Game) divideAmongTargets(controller PlayerController, decider PlayerID,
 	}
 	if len(chosen) > total {
 		return nil, fmt.Errorf("engine: DividedAsYouChoose$: %d targets cannot each get one of %d", len(chosen), total)
+	}
+	if _, upTo := a.Params.Param("DividedUpTo"); upTo {
+		// PlayerControllerHuman.java:2555-2556: the decider first picks how much
+		// of the total to divide, between one per target and the total.
+		total = controller.ChooseNumber(g, decider, a.Source, len(chosen), total)
+		if total < len(chosen) {
+			return nil, fmt.Errorf("engine: DividedUpTo$: %d is below the %d targets", total, len(chosen))
+		}
 	}
 	amounts := make([]int, len(chosen))
 	switch {

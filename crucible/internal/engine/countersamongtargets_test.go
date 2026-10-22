@@ -305,12 +305,12 @@ func TestPutCounterDividedLinkFailsUnderARootThatIgnoresIt(t *testing.T) {
 }
 
 // TestPutCounterDividedLinkItCannotAskFailsUnderARootThatIgnoresIt proves a
-// link whose targets could not be asked for at all (DividedUpTo$, an
+// link whose targets could not be asked for at all (an
 // unreadable total) fails on its own error rather than resolving over its
 // parent's targets, none, silently.
 func TestPutCounterDividedLinkItCannotAskFailsUnderARootThatIgnoresIt(t *testing.T) {
 	t.Parallel()
-	for _, extra := range []string{"DividedAsYouChoose$ Nope", "DividedAsYouChoose$ 2 | DividedUpTo$ True"} {
+	for _, extra := range []string{"DividedAsYouChoose$ Nope"} {
 		g, p, _ := newTwoPlayerGame(t)
 		a := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 		err := castCounterSpell(t, g, p, engine.NewScriptedController(), "SP$ GainLife | Defined$ You | LifeAmount$ 1 | SubAbility$ DBPut",
@@ -361,8 +361,7 @@ func TestPutCounterDividedTotalOfZeroAsksForNoTarget(t *testing.T) {
 }
 
 // TestPutCounterDividedShapesItCannotReadFailLoudly proves the divided shapes
-// this port does not resolve are errors: DividedUpTo$ (a further "how much"
-// question), an unreadable total, and a division with no targets of its own
+// this port does not resolve are errors: an unreadable total, and a division with no targets of its own
 // (Defined$, or no ValidTgts$ at all).
 func TestPutCounterDividedShapesItCannotReadFailLoudly(t *testing.T) {
 	t.Parallel()
@@ -370,7 +369,6 @@ func TestPutCounterDividedShapesItCannotReadFailLoudly(t *testing.T) {
 		name, line, want string
 		target           bool
 	}{
-		{"up to", "SP$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ 2 | DividedUpTo$ True", "DividedUpTo$", false},
 		{"unreadable total", "SP$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ Nope", "Nope", false},
 		{"defined", "SP$ PutCounter | ValidTgts$ Creature | Defined$ Targeted | CounterType$ P1P1 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ 2", "without its own targets", true},
 		{"untargeted", "SP$ PutCounter | Defined$ You | CounterType$ ENERGY | DividedAsYouChoose$ 2", "without its own targets", false},
@@ -429,5 +427,27 @@ func TestCopyOfADividedSpellKeepingItsTargetsKeepsItsDivision(t *testing.T) {
 	}
 	if p1p1(g, a) != 4 || p1p1(g, b) != 2 {
 		t.Errorf("counters = %d/%d, want 4/2 (the copy's 2/1 plus the original's)", p1p1(g, a), p1p1(g, b))
+	}
+}
+
+// TestPutCounterDividedUpToAsksHowMuchToDivide proves Lathiel's DividedUpTo$
+// (PlayerControllerHuman.java:2555-2556): after the targets are chosen the
+// decider picks how much of the total to divide, between one per target and
+// the total, and the chosen amount is what the counters add up to.
+func TestPutCounterDividedUpToAsksHowMuchToDivide(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	b := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(a), engine.CardEntity(b)})
+	c.QueueNumberChoice(2)
+	err := castCounterSpell(t, g, p, c,
+		"SP$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | TargetMin$ 0 | TargetMax$ 3 | DividedAsYouChoose$ 5 | DividedUpTo$ True")
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if p1p1(g, a) != 1 || p1p1(g, b) != 1 {
+		t.Errorf("counters = %d/%d, want 1/1 (2 chosen of 5, one each)", p1p1(g, a), p1p1(g, b))
 	}
 }

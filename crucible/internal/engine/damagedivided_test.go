@@ -135,21 +135,11 @@ func TestDealDamageDividedBadDivisionDealsNothing(t *testing.T) {
 }
 
 // TestDealDamageDividedShapesItCannotReadFailLoudly proves the divided shapes
-// this port does not resolve fail by name before any damage: DividedUpTo$
-// (a further "how much" question at targeting), no division announced for a
+// this port does not resolve fail by name before any damage: no division announced for a
 // target, a division without targets of its own (Java deals NumDmg$ to each),
 // and Radiance$ (Java's radiant cards take the last target's share).
 func TestDealDamageDividedShapesItCannotReadFailLoudly(t *testing.T) {
 	t.Parallel()
-	g, p, other := newTwoPlayerGame(t)
-	err := castCounterSpell(t, g, p, engine.NewScriptedController(), arcLightning+" | DividedUpTo$ True")
-	if err == nil || !strings.Contains(err.Error(), "DividedUpTo$") {
-		t.Errorf("up to: err = %v, want DividedUpTo$ named", err)
-	}
-	if g.Player(other).Life != 20 {
-		t.Errorf("up to: other's life = %d, want 20", g.Player(other).Life)
-	}
-
 	cases := []struct {
 		name, line, want string
 		targets          bool
@@ -173,9 +163,9 @@ func TestDealDamageDividedShapesItCannotReadFailLoudly(t *testing.T) {
 		}
 	}
 
-	g, p, other = newTwoPlayerGame(t)
+	g, p, other := newTwoPlayerGame(t)
 	bear := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
-	_, err = resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(bear)},
+	_, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.CardEntity(bear)},
 		"DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | DividedAsYouChoose$ 2")
 	if err == nil || !strings.Contains(err.Error(), "no division was announced for card") {
 		t.Errorf("card with no division: err = %v, want the card named", err)

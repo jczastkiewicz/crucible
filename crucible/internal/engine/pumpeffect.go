@@ -32,9 +32,7 @@ import (
 // ConditionPlayerTurn$ (0/19/0/0) --
 // SpellAbilityCondition's own shapes subAbilityConditionMet does not cover,
 // the identical DealDamage/GainLife-shaped gap;
-// RandomKeyword$/RandomKWNum$/NoRepetition$ -- a random draw this port's own
-// KW$ handling (below) does not do (KWChoice$ is pumpChooseKeyword's, DefinedKW$
-// is pumpDefinedKeywords'); DefinedLandwalk$ -- its own further tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/NoteNumber$ --
+// DefinedLandwalk$ -- its own further tracking mechanic; NoteCards$/NoteCardsFor$/ClearNotedCardsFor$/NoteNumber$ --
 // Player.noteNumberForName's own tracking, nothing downstream reads yet.
 //
 // SubAbility$ no longer blocks: resolveSubAbility (subability.go) chains it
@@ -62,10 +60,7 @@ import (
 // (resolveUnlessCost's own doc comment, effect.go), the third is
 // wild_might.txt's own spell-level ValidTgts$, reachable since a cast
 // spell's targets resolve (ADR-0018).
-var pumpUnresolvedParams = [...]string{
-	"RandomKeyword", "RandomKWNum",
-	"NoRepetition",
-}
+var pumpUnresolvedParams = [...]string{}
 
 // pumpImprint is PumpEffect.java:431-437: ImprintCards$ adds the defined
 // cards to the host's imprinted list and ForgetImprinted$ removes them
@@ -177,6 +172,11 @@ func (pumpEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	}
 	if !proceed {
 		return nil
+	}
+	if _, ok := a.Params.Param("RandomKeyword"); ok {
+		if keywords, err = g.pumpRandomKeywords(a, source, keywords); err != nil {
+			return err
+		}
 	}
 	grant.keywords = keywords
 	if perpetual && (len(grant.hidden) > 0 || grant.switched) {
@@ -719,4 +719,48 @@ func (g *Game) pumpNotes(a *Ability, source *Card) error {
 		}
 	}
 	return nil
+}
+
+// pumpRandomKeywords is PumpEffect.java:380-398: RandomKeyword$ (presence
+// only) keeps RandomKWNum$ (default 1) keywords drawn from keywords, once per
+// resolve, so every target gets the same choice. NoRepetition$ first drops
+// each keyword the first target already carries (exact text, the first
+// occurrence per match). Each draw is Aggregates.random over what is left
+// (no draw for one, nextInt otherwise) and removes the first equal value,
+// not the drawn index (PORT-7).
+func (g *Game) pumpRandomKeywords(a *Ability, source *Card, keywords []string) ([]string, error) {
+	raw, ok := a.Params.Param("RandomKWNum")
+	if !ok {
+		raw = "1"
+	}
+	num, ok := resolveNamedAmount(g, a.Amounts, source, raw)
+	if !ok {
+		return nil, fmt.Errorf("engine: Pump: RandomKWNum$ %q is not resolvable", raw)
+	}
+	total := slices.Clone(keywords)
+	if hasParam(a, "NoRepetition") && len(keywords) > 0 {
+		cards, err := pumpTargetCards(g, a, source)
+		if err != nil {
+			return nil, err
+		}
+		if len(cards) == 0 {
+			// PumpEffect.java:387 reads tgtCards.get(0) unguarded; Java throws.
+			return nil, fmt.Errorf("engine: Pump: NoRepetition$ with no target card")
+		}
+		first := g.Card(cards[0])
+		for _, kw := range keywords {
+			if first.hasKeywordText(kw) {
+				if i := slices.Index(total, kw); i >= 0 {
+					total = slices.Delete(total, i, i+1)
+				}
+			}
+		}
+	}
+	var choice []string
+	for i := min(len(total), num); i > 0; i-- {
+		pick := total[g.randomIndex(len(total))]
+		choice = append(choice, pick)
+		total = slices.Delete(total, slices.Index(total, pick), slices.Index(total, pick)+1)
+	}
+	return choice, nil
 }

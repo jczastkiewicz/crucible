@@ -791,13 +791,13 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it tapped", defined)
 		}
 		return append([]CardID(nil), refs.paid.tapped...), nil
-	case "Discarded", "Exiled", "ExiledCards":
+	case "Discarded", "DiscardedCards", "Exiled", "ExiledCards":
 		// getPaidCards (AbilityUtils.java:306-310): what the cost discarded or
 		// exiled, recorded alike.
 		if !refs.paid.recorded {
 			return nil, fmt.Errorf("engine: Defined$ %q: no cost recorded what it used up", defined)
 		}
-		if defined == "Discarded" {
+		if defined == "Discarded" || defined == "DiscardedCards" {
 			return append([]CardID(nil), refs.paid.discarded...), nil
 		}
 		return append([]CardID(nil), refs.paid.exiled...), nil

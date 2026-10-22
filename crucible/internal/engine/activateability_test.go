@@ -1812,3 +1812,44 @@ func TestActivateAbilityDeclinesHandAbilityCombinedWithTapCost(t *testing.T) {
 		t.Error("ActivateAbility returned true for a Hand ability combined with a Tap cost, want false")
 	}
 }
+
+// TestActivateAbilityDiscardedCardsDefinedReadsTheCostsCards proves Defined$
+// DiscardedCards (AbilityUtils.getPaidCards, CostDiscard's card list): the
+// card the cost discarded is the one a chained ChangeZone returns.
+func TestActivateAbilityDiscardedCardsDefinedReadsTheCostsCards(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	toss := g.NewCard(nil, p, engine.Hand)
+	other := g.NewCard(nil, p, engine.Hand)
+
+	raw := &carddb.Card{Filename: "Test Discarded Cards"}
+	raw.Faces[0].Present = true
+	raw.Faces[0].Name = "Test Discarded Cards"
+	raw.Faces[0].Type = cardtype.Parse(attachmentTypeRegistry(t), "Creature Elf")
+	raw.Faces[0].Power, raw.Faces[0].Toughness = "2", "2"
+	raw.Faces[0].Abilities = []string{"AB$ GainLife | Cost$ Discard<1/Card> | Defined$ You | LifeAmount$ 1 | SubAbility$ DBBack"}
+	raw.Faces[0].SVars.Set("DBBack", "DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | Defined$ DiscardedCards")
+	def, err := compile.Compile(raw)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	creature := g.NewCard(def, p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	c.QueueDiscardChoice([]engine.CardID{toss})
+	if !g.ActivateAbility(p, creature, 0, c) {
+		t.Fatal("ActivateAbility returned false, want true")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(toss).Zone; z != engine.Library {
+		t.Errorf("discarded card zone = %v, want Library", z)
+	}
+	if z := g.Card(other).Zone; z != engine.Hand {
+		t.Errorf("other card zone = %v, want Hand", z)
+	}
+}

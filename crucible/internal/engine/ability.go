@@ -133,6 +133,11 @@ type Ability struct {
 	// (ImmediateTriggerEffect.java:72's setSpawningAbility); nil for any other
 	// ability. Sub-abilities inherit it.
 	spawnerPaid *paidLists
+	// spawnerTriggered is the triggering objects of the ability that spawned
+	// this one (Trigger.getSpawningAbility, read by a Defined$ `Spawner>
+	// Triggered...` string after adjustTriggerContext swaps in the spawner);
+	// nil for any other ability. Sub-abilities inherit it.
+	spawnerTriggered *triggeredObjects
 	// shieldTarget is the entity a PreventDamage shield's ShieldEffectTarget$
 	// named when the shield was made (DamagePreventEffect.java:141-152), which
 	// the PreventionSubAbility$ chain reads as Defined$ ShieldEffectTarget;
@@ -421,6 +426,7 @@ type abilityRefs struct {
 	ancestorTargeting bool
 	triggerRemembered []EntityID
 	triggered         triggeredObjects
+	spawnerTriggered  *triggeredObjects
 	paid              paidLists
 	// stackTargets is Ability.stackTargets: the targeted abilities on the
 	// stack as last seen, for a reader that runs after one left the stack.
@@ -452,7 +458,7 @@ type abilityRefs struct {
 // refs is a's own abilityRefs.
 func (a *Ability) refs() abilityRefs {
 	r := abilityRefs{targets: a.Targets, parentTargets: a.parentTargets, ancestorTargeting: a.ancestorTargeting,
-		triggerRemembered: a.TriggerRemembered, triggered: a.triggered, paid: a.paid, replaced: a.replacedCard(), shieldTarget: a.shieldTarget,
+		triggerRemembered: a.TriggerRemembered, triggered: a.triggered, spawnerTriggered: a.spawnerTriggered, paid: a.paid, replaced: a.replacedCard(), shieldTarget: a.shieldTarget,
 		stackTargets: a.stackTargets, game: a.game, activator: a.Controller,
 		choosing: a.choosing, hasChoosing: a.hasChoosing}
 	if a.replacing != nil {
@@ -637,6 +643,13 @@ type triggeredObjects struct {
 	// recorded list can be empty (AttackedTarget$ kept none of the
 	// ValidAttackers$ defenders), an unrecorded one is unresolved (GO-7).
 	attackedTargetsRecorded bool
+	// damagedTargets is AbilityKey.Targets of a Mode$ DamageAll trigger: the
+	// distinct damaged objects of the table narrowed by ValidSource$ and
+	// ValidTarget$ (TriggerDamageAll.setTriggeringObjects, columnKeySet), read
+	// by Defined$ TriggeredTargets and the TriggeredPlayersTargets$ amount.
+	// damagedTargetsRecorded tells an empty list from an unrecorded one.
+	damagedTargets         []EntityID
+	damagedTargetsRecorded bool
 	// target is AbilityKey.Target: what the attachment became attached to
 	// (Mode$ Attached, TriggerAttached.setTriggeringObjects), the damaged
 	// card or player (DamageDone, DamageDoneOnce), or what became the target

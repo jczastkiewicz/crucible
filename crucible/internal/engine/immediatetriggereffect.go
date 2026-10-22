@@ -76,6 +76,7 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 	// Spawner>Sacrificed$CardPower (Heart-Piercer Manticore): the copies read
 	// the cost this ability paid, as it was at payment (LKI ids).
 	spawnerPaid := a.paid
+	spawnerTriggered := a.triggered
 	var abilities []Ability
 	for i := 0; i < amount; i++ {
 		r := remember
@@ -91,7 +92,7 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 		abilities = append(abilities, Ability{
 			API: api, Source: a.Source, Controller: a.Controller, Params: execs[0].Ability,
 			Amounts: a.Amounts, Optional: optional, TriggerRemembered: r,
-			xManaCostPaid: a.xManaCostPaid, hasXManaCostPaid: true, spawnerPaid: &spawnerPaid,
+			xManaCostPaid: a.xManaCostPaid, hasXManaCostPaid: true, spawnerPaid: &spawnerPaid, spawnerTriggered: &spawnerTriggered,
 		})
 	}
 	g.pushTriggeredAbilities(controller, abilities)

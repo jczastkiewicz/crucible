@@ -45,6 +45,7 @@ func (g *Game) resolveAdditional(parent *Ability, controller PlayerController, s
 		ancestorTargeting: parent.ancestorTargeting || linkUsesTargeting(parent.Params),
 		paid:              parent.paid,
 		spawnerPaid:       parent.spawnerPaid,
+		spawnerTriggered:  parent.spawnerTriggered,
 		shieldTarget:      parent.shieldTarget,
 		activationIndex:   parent.activationIndex,
 		Params:            sub.Ability,

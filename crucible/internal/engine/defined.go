@@ -52,6 +52,10 @@ import (
 // longer in the game is skipped, matching Java's own
 // `if (!p.isInGame()) continue`.
 func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, refs abilityRefs) ([]PlayerID, error) {
+	defined, refs, err := spawnerContext(defined, refs)
+	if err != nil {
+		return nil, err
+	}
 	// AbilityUtils.getDefinedPlayers splits the string on "&" and gathers
 	// the players of each part ("You & ReplacedPlayer"), each once.
 	if strings.Contains(defined, "&") {
@@ -473,6 +477,17 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no activator", defined)
 		}
 		candidates = []PlayerID{refs.triggered.activator}
+	case "TriggeredTargets":
+		// AbilityUtils.java:1073-1075: the players in AbilityKey.Targets of a
+		// Mode$ DamageAll trigger (a damaged card is definedCards' half).
+		if !refs.triggered.damagedTargetsRecorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no targets", defined)
+		}
+		for _, e := range refs.triggered.damagedTargets {
+			if pid, ok := e.AsPlayer(); ok {
+				candidates = append(candidates, pid)
+			}
+		}
 	case "TriggeredAttackedTarget":
 		// AbilityUtils.java:1065-1075: the players in the recorded
 		// AbilityKey.AttackedTarget list (a planeswalker or battle in it is a
@@ -713,6 +728,10 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 // names the same card; Java's LKI form differs only in which snapshot it
 // reads.
 func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error) {
+	defined, refs, err := spawnerContext(defined, refs)
+	if err != nil {
+		return nil, err
+	}
 	switch defined {
 	case "Self", "CorrectedSelf":
 		// CorrectedSelf is game.getCardState(host) (AbilityUtils.java:84-85): the
@@ -884,6 +903,17 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no blockers", defined)
 		}
 		return slices.Clone(refs.triggered.blockers), nil
+	case "TriggeredTargets":
+		if !refs.triggered.damagedTargetsRecorded {
+			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no targets", defined)
+		}
+		var cards []CardID
+		for _, e := range refs.triggered.damagedTargets {
+			if id, ok := e.AsCard(); ok {
+				cards = append(cards, id)
+			}
+		}
+		return cards, nil
 	case "TriggeredAttackedTarget":
 		// The cards (planeswalkers, battles) in AbilityKey.AttackedTarget, the
 		// same Iterable branch; its players are definedPlayers' half.
@@ -1267,4 +1297,22 @@ func topXOfLibrary(defined string) (int, bool) {
 	}
 	n, err := strconv.Atoi(mid)
 	return n, err == nil && n >= 0
+}
+
+// spawnerContext is AbilityUtils.adjustTriggerContext's `Spawner>` branch
+// (AbilityUtils.java:4024-4031): the string is read against the ImmediateTrigger
+// that spawned the ability, so Triggered* keys name that ability's triggering
+// objects. Java falls back silently to the caller's own ability when none
+// spawned it; here that is an error (GO-7).
+func spawnerContext(defined string, refs abilityRefs) (string, abilityRefs, error) {
+	rest, ok := strings.CutPrefix(defined, "Spawner>")
+	if !ok {
+		return defined, refs, nil
+	}
+	if refs.spawnerTriggered == nil {
+		return "", refs, fmt.Errorf("engine: Defined$ %q: no ImmediateTrigger spawned this ability", defined)
+	}
+	refs.triggered = *refs.spawnerTriggered
+	refs.spawnerTriggered = nil
+	return rest, refs, nil
 }

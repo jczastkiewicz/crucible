@@ -1368,11 +1368,12 @@ func (g *Game) checkDamageAllTriggers(controller PlayerController, table damageT
 					if combatDamage, ok := t.Param("CombatDamage"); ok && strings.EqualFold(combatDamage, "True") != isCombat {
 						continue
 					}
-					if !damageAllTableMatches(g, h, t, table) {
+					targets := damageAllTargets(g, h, t, table)
+					if len(targets) == 0 {
 						continue
 					}
 					if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
-						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{}), staticTrigger: isStaticTrigger(t)})
+						matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional, triggered: face.objects(triggeredObjects{damagedTargets: targets, damagedTargetsRecorded: true}), staticTrigger: isStaticTrigger(t)})
 					}
 				}
 			}
@@ -1381,15 +1382,15 @@ func (g *Game) checkDamageAllTriggers(controller PlayerController, table damageT
 	g.pushTriggeredAbilities(controller, matches)
 }
 
-// damageAllTableMatches reports whether at least one entry in table matches
-// BOTH ValidSource$ and ValidTarget$ together (either absent is a pass for
-// its own half) -- CardDamageTable.filteredMap's own two-sided filter,
-// ported directly, short-circuiting on the first surviving entry rather
-// than building the filtered table Java's own version returns, since
-// nothing here reads it back past the emptiness check.
-func damageAllTableMatches(g *Game, host *Card, t *compile.Ability, table damageTable) bool {
+// damageAllTargets is CardDamageTable.filteredMap's target column for a
+// Mode$ DamageAll line: the distinct damaged objects among the entries that
+// match BOTH ValidSource$ and ValidTarget$ (either absent is a pass for its
+// own half), in table order. Empty means no entry survived, and the trigger
+// does not fire (TriggerDamageAll.performTest's isEmpty check).
+func damageAllTargets(g *Game, host *Card, t *compile.Ability, table damageTable) []EntityID {
 	validSource, hasValidSource := t.Param("ValidSource")
 	validTarget, hasValidTarget := t.Param("ValidTarget")
+	var targets []EntityID
 	for _, e := range table {
 		if hasValidSource && !Matches(g, g.Card(e.Source), valid.Parse(validSource), host.Controller(), host.ID) {
 			continue
@@ -1397,9 +1398,11 @@ func damageAllTableMatches(g *Game, host *Card, t *compile.Ability, table damage
 		if hasValidTarget && !attackedTargetMatches(g, host, []EntityID{e.Target}, validTarget) {
 			continue
 		}
-		return true
+		if !slices.Contains(targets, e.Target) {
+			targets = append(targets, e.Target)
+		}
 	}
-	return false
+	return targets
 }
 
 // isDamageAllTrigger reports whether t is Mode$ DamageAll's own shape.

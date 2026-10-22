@@ -94,6 +94,7 @@ func (r *Registry) resolveSubAbility(g *Game, parent *Ability, controller Player
 		hasXManaCostPaid: parent.hasXManaCostPaid,
 		paid:             parent.paid,
 		spawnerPaid:      parent.spawnerPaid,
+		spawnerTriggered: parent.spawnerTriggered,
 		shieldTarget:     parent.shieldTarget,
 		activationIndex:  parent.activationIndex,
 		// The parent's targeted abilities on the stack as last seen (ADR-0041),

@@ -92,7 +92,7 @@ var dealDamageUnresolvedParams = [...]string{
 	"TriggeredSpellAbility", "CounterNum", "Optional",
 	"NoRedirection",
 	"DivideEvenly", "DividerOnResolution",
-	"CardChoices", "PlayerChoices", "Random",
+	"Random",
 	"RememberAmount", "RememberRedirectedExcess",
 }
 
@@ -146,7 +146,12 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		// batch, the later DamageResolve, not this one.
 		return fmt.Errorf("engine: DealDamage: RememberDamaged$ under DamageMap$ not resolvable yet")
 	}
-	targets, err := dealDamageTargets(g, a)
+	var targets []EntityID
+	if hasParam(a, "CardChoices") || hasParam(a, "PlayerChoices") {
+		targets, err = dealDamageChoose(g, a, controller)
+	} else {
+		targets, err = dealDamageTargets(g, a)
+	}
 	if err != nil {
 		return err
 	}
@@ -271,6 +276,43 @@ func dealDamageTargets(g *Game, a *Ability) ([]EntityID, error) {
 		return a.Targets, nil
 	}
 	return dealDamageDefined(g, a, a.Source)
+}
+
+// dealDamageChoose is DamageDealEffect.java:150-175: the activator picks
+// ChoiceAmount$ (default 1) entities, not targets, from the battlefield cards
+// CardChoices$ names (read for the activator) then the players PlayerChoices$
+// names (read for the host). The choice is asked even when nothing is on
+// offer, as Java does (PORT-7).
+func dealDamageChoose(g *Game, a *Ability, controller PlayerController) ([]EntityID, error) {
+	var options []EntityID
+	if spec, ok := a.Params.Param("CardChoices"); ok {
+		parsed := valid.Parse(spec)
+		for _, pid := range g.Players() {
+			for _, cid := range g.Zone(Battlefield, pid).Cards() {
+				if Matches(g, g.Card(cid), parsed, a.Controller, a.Source) {
+					options = append(options, CardEntity(cid))
+				}
+			}
+		}
+	}
+	if spec, ok := a.Params.Param("PlayerChoices"); ok {
+		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+		if err != nil {
+			return nil, fmt.Errorf("engine: DealDamage: PlayerChoices$: %w", err)
+		}
+		for _, p := range players {
+			options = append(options, PlayerEntity(p))
+		}
+	}
+	n, err := optionalAmount(g, a, "DealDamage", "ChoiceAmount", 1)
+	if err != nil {
+		return nil, err
+	}
+	picked := controller.ChooseEntitiesForEffect(g, a.Controller, a.Source, options, n, n)
+	if err := checkChoice(picked, options, n, n); err != nil {
+		return nil, fmt.Errorf("engine: DealDamage: %w", err)
+	}
+	return picked, nil
 }
 
 // dealDamageDefined reads Defined$ (default Self) with host as the card it is

@@ -202,6 +202,15 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "Permanent":
 		// CardProperty.java:90, "Card.phasedOutPermanent"'s own tail.
 		return c.Type().IsPermanent()
+	case strings.HasPrefix(name, "MostProminentColor"):
+		// CardProperty.java:694-707: `MostProminentColor <color>`; a bare
+		// property is false.
+		_, word, found := strings.Cut(name, " ")
+		color, cok := colorFromName(word)
+		if !found || !cok {
+			return false
+		}
+		return g.mostProminentColors().HasAny(color)
 	case name == "token":
 		// CardProperty.java:1346-1347: isToken() || isTokenCard(); its
 		// "tokenCreated..." suffixes fall through to the type fallback below,
@@ -1213,6 +1222,10 @@ func matchesPlayerProperty(g *Game, candidate, host PlayerID, source CardID, pro
 // the property (Player.hasProperty, Player.java:2203-2205: Mindstorm Crown's
 // You.!CardsInHandAtBeginningOfTurn).
 func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, property string, amounts map[string]expr.Amount, depth int) (matched, ok bool) {
+	if property == "MaxSpeed" {
+		// PlayerProperty.java:285-288, Player.maxSpeed (Player.java:1914-1916).
+		return g.Player(candidate).Speed == 4, true
+	}
 	if rest, negated := strings.CutPrefix(property, "!"); negated {
 		m, known := matchesPlayerPropertyIn(g, candidate, host, source, rest, amounts, depth)
 		return !m && known, known
@@ -2020,6 +2033,43 @@ func sharesColorWithRestriction(g *Game, c *Card, source CardID, restriction str
 		g.recordPendingError(fmt.Errorf("engine: SharesColorWith ActivationColor: the first mana paid is not recorded for a mixed payment"))
 		return false
 	}
+	if restriction == "MostProminentColor" {
+		// CardProperty.java:656-660.
+		return c.Colors().HasAny(g.mostProminentColors())
+	}
 	g.recordPendingError(fmt.Errorf("engine: SharesColorWith %s: restriction not evaluable in a valid string", restriction))
 	return false
+}
+
+// mostProminentColors is CardFactoryUtil.getMostProminentColors
+// (CardFactoryUtil.java:218-245) over the battlefield: the colors the most
+// permanents carry, ties or-ed. nMax starts at -1, so with no colored
+// permanent every color ties at 0 and the mask is all five (PORT-7).
+func (g *Game) mostProminentColors() mana.Colors {
+	var counts [5]int
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).CardsIncludingPhasedOut() {
+			col := g.Card(id).Colors()
+			for i := range counts {
+				if col.HasAny(mana.Colors(1) << uint(i)) {
+					counts[i]++
+				}
+			}
+		}
+	}
+	var mask mana.Colors
+	nMax := -1
+	for i, n := range counts {
+		bit := mana.Colors(1) << uint(i)
+		switch {
+		case n > nMax:
+			mask = bit
+		case n == nMax:
+			mask |= bit
+		default:
+			continue
+		}
+		nMax = n
+	}
+	return mask
 }

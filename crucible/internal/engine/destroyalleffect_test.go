@@ -144,3 +144,23 @@ func TestDestroyAllEffectIgnoresHiddenAndZone(t *testing.T) {
 		t.Errorf("creature zone = %v, want Graveyard", z)
 	}
 }
+
+// TestDestroyAllMostProminentColor proves `Card.MostProminentColor <color>`
+// (CardProperty.java:694-707): with two black permanents against one red,
+// black is the most prominent color and red is not.
+func TestDestroyAllMostProminentColor(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(creatureDefManaCost(t, "B"), p, engine.Battlefield)
+	g.NewCard(creatureDefManaCost(t, "B"), p, engine.Battlefield)
+	red := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Battlefield)
+
+	c := engine.NewScriptedController()
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Prominent", "DB$ DestroyAll | ValidCards$ Card.MostProminentColor red"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(red).Zone; z != engine.Battlefield {
+		t.Errorf("red creature zone = %v, want Battlefield (red is not the most prominent)", z)
+	}
+}

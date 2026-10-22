@@ -521,7 +521,7 @@ func TestDealDamageRejectsUnportedParams(t *testing.T) {
 		{"ReplaceDyingDefined$ Bogus", "ReplaceDyingDefined$"},
 		{"DividerOnResolution$ You", "DividerOnResolution$"},
 		{"DivideEvenly$ RoundedDown", "DivideEvenly$"},
-		{"CardChoices$ Creature", "CardChoices$"},
+		{"Random$ True", "Random$"},
 		{"RememberAmount$ True", "RememberAmount$"},
 		{"NoRedirection$ True", "NoRedirection$"},
 		{"DamageMap$ True | RememberDamaged$ True", "RememberDamaged$"},
@@ -541,5 +541,27 @@ func TestDealDamageRejectsUnportedParams(t *testing.T) {
 		"DB$ DealDamage | ValidTgts$ Any.NotDefinedParentTarget,Player | NumDmg$ 1")
 	if err == nil || !strings.Contains(err.Error(), "NotDefined") {
 		t.Errorf("NotDefined ValidTgts$: err = %v, want one naming it", err)
+	}
+}
+
+// TestDealDamageCardAndPlayerChoicesLetTheActivatorPick proves
+// DamageDealEffect.java:150-175 (Comet, Stellar Pup): the activator chooses
+// the recipient among the creatures and players on offer, untargeted.
+func TestDealDamageCardAndPlayerChoicesLetTheActivatorPick(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	bear := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueEntityChoice([]engine.EntityID{engine.CardEntity(bear)})
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ DealDamage | NumDmg$ 5 | CardChoices$ Creature | PlayerChoices$ Player"); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if z := g.Card(bear).Zone; z != engine.Graveyard {
+		t.Errorf("chosen creature zone = %v, want Graveyard", z)
+	}
+	if g.Player(other).Life != 20 {
+		t.Errorf("opponent life = %d, want 20 (the creature was chosen)", g.Player(other).Life)
 	}
 }

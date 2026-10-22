@@ -330,7 +330,9 @@ func entryUpdatedShape(sub *compile.Ability) bool {
 // putEnterCounters): B.O.B.'s tokens, Urborg Lhurgoyf's mill, Wood
 // Elemental's sacrifice, Dungeon Master's die. An ability that would change
 // the entering card itself (Animate, AlterAttribute, Tap, SetState) is not
-// here: Game.Move rebuilds what such an effect writes, so it would be lost.
+// here: Game.Move rebuilds what such an effect writes, so it would be lost
+// (an Animate of the card itself runs just after the move instead,
+// applyEnterAnimate).
 // A param an effect does not resolve is that effect's own error (ChooseColor's
 // Random$ on Rainbow Knights), which runReplacementChain records (GO-7).
 var entryChainAPIs = [...]string{
@@ -419,6 +421,8 @@ func enterShapeHandledAfterMove(sub *compile.Ability) bool {
 		defined, ok := sub.Param("Defined")
 		return ok && strings.EqualFold(defined, "ReplacedCard") && onlyParamsOf(sub, "db", "defined", "etb")
 	case strings.EqualFold(sub.Name, "DayTime"):
+		return true
+	case entryAnimateChain(sub):
 		return true
 	case strings.EqualFold(sub.Name, "PutCounter"):
 		_, etb := sub.Param("ETB")

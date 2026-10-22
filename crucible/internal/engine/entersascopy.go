@@ -31,6 +31,7 @@ func (g *Game) enterBattlefieldReplacements(controller PlayerController, moved C
 	g.applyEnterCounters(controller, moved, origin)
 	g.applySagaCounter(controller, moved)
 	g.checkMovedReplacement(controller, moved, origin)
+	g.applyEnterAnimate(controller, moved, origin)
 }
 
 // copyReplacement is one Copy-layer replacement that applies to an entry:

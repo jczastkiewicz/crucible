@@ -68,6 +68,7 @@
       "replacementfaces.go",
       "replacementamounts.go",
       "replacemententry.go",
+      "enteranimate.go",
       "replacementcost.go",
       "replacementdiscard.go"
     ],

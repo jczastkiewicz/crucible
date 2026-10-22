@@ -174,3 +174,52 @@ func TestRainbowKnightsRandomColorIsChosenAsItEnters(t *testing.T) {
 		t.Errorf("chosen colors = %v, want %v", got, want)
 	}
 }
+
+// "As this enters, roll a six-sided die twice. Its base power becomes the
+// first result and its base toughness the second" (Vedalken Squirrel-Whacker):
+// the roll and the Animate run as the card arrives, so its own enters trigger
+// already reads the rolled power.
+func TestAsEntersRollsThenAnimatesBaseStats(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	def := scriptDef(t, "Dice Keeper", "Creature Elf",
+		"K:ETBReplacement:Other:TrigRoll",
+		"SVar:TrigRoll:DB$ RollDice | ResultSVar$ SetPwr | SubAbility$ RollTough",
+		"SVar:RollTough:DB$ RollDice | ResultSVar$ SetTgn | SubAbility$ DBAnimate",
+		"SVar:DBAnimate:DB$ Animate | Defined$ Self | Power$ SetPwr | Toughness$ SetTgn | Duration$ Permanent",
+		"T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"SVar:X:Count$CardPower")
+	keeper := g.NewCard(def, p, engine.Hand)
+	if err := castEntrant(t, g, p, keeper, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	power, ok := g.Card(keeper).Power()
+	toughness, tok := g.Card(keeper).Toughness()
+	if !ok || !tok || power < 1 || power > 6 || toughness < 1 || toughness > 6 {
+		t.Fatalf("base stats = %d/%d, want each a six-sided result", power, toughness)
+	}
+	if got := g.Player(p).Life; got != 20+power {
+		t.Errorf("life = %d, want %d (the enters trigger read the rolled power %d)", got, 20+power, power)
+	}
+}
+
+// "As this enters, it becomes ..." with no dice (Lydari Elephant's random 3-7,
+// here a fixed 4/5): a permanent Animate of the entering card itself.
+func TestAsEntersAnimatesTheEnteringCard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	def := scriptDef(t, "Shape Keeper", "Creature Elf",
+		"K:ETBReplacement:Other:Shape",
+		"SVar:Shape:DB$ Animate | Defined$ Self | Power$ 4 | Toughness$ 5 | Duration$ Permanent")
+	keeper := g.NewCard(def, p, engine.Hand)
+	if err := castEntrant(t, g, p, keeper, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if power, _ := g.Card(keeper).Power(); power != 4 {
+		t.Errorf("power = %d, want 4", power)
+	}
+	if toughness, _ := g.Card(keeper).Toughness(); toughness != 5 {
+		t.Errorf("toughness = %d, want 5", toughness)
+	}
+}

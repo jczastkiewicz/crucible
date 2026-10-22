@@ -12,7 +12,7 @@ part	Exile	81
 part	ExileAnyGrave	17
 part	ExileCtrlOrGrave	1
 part	ExileFromGrave	227
-part	ExileFromHand	53
+part	ExileFromHand	54
 part	ExileFromStack	2
 part	ExileFromTop	8
 part	ExileSameGrave	1
@@ -34,9 +34,9 @@ part	RevealChosen	4
 part	RevealFromExile	1
 part	RevealOrChoose	2
 part	RollDice	1
-part	Sac	2256
+part	Sac	2257
 part	SubCounter	947
-part	T	5571
+part	T	5575
 part	Unattach	9
 part	Waterbend	25
 part	tapXType	233

@@ -42,6 +42,8 @@ type animateRecord struct {
 	AddKeywords    []string
 	RemoveKeywords []string
 	RemoveAllKW    bool
+	// CantHave is CantHaveKeyword$ (AnimateEffectBase.java:139-141).
+	CantHave []string
 	// Name is Name$ (AnimateEffect.java:178-180, addChangedName): the card's
 	// name on the battlefield, applied after the Layer 3 statics' (applyContinuousNames).
 	Name string
@@ -153,10 +155,10 @@ func animateColors(g *Game) {
 // animateKeywords is applyAnimateEffects' Layer 6 half.
 func animateKeywords(g *Game) {
 	liveAnimates(g, func(c *Card, r *animateRecord) {
-		if len(r.AddKeywords) > 0 || len(r.RemoveKeywords) > 0 || r.RemoveAllKW {
+		if len(r.AddKeywords) > 0 || len(r.RemoveKeywords) > 0 || r.RemoveAllKW || len(r.CantHave) > 0 {
 			c.KeywordMod.Add(KeywordEffect{
 				Timestamp: r.Timestamp, AddKeywords: r.AddKeywords,
-				RemoveKeywords: r.RemoveKeywords, RemoveAll: r.RemoveAllKW,
+				RemoveKeywords: r.RemoveKeywords, RemoveAll: r.RemoveAllKW, CantHave: r.CantHave,
 			})
 		}
 	})
@@ -281,7 +283,6 @@ func subtypeCategoryDrop(g *Game, land, creature, artifact, enchantment bool) (f
 // (rejectUnreadCondition, then subAbilityConditionMet).
 var animateUnresolvedParams = [...]string{
 	"TransferActivator",
-	"CantHaveKeyword",
 }
 
 // animateDuration reads Duration$ for an Animate-shaped record: absent ends at
@@ -453,6 +454,10 @@ func buildAnimateCharacteristics(g *Game, a *Ability, api string, r animateRecor
 	}
 	if raw, ok := a.Params.Param("RemoveKeywords"); ok {
 		r.RemoveKeywords = strings.Split(raw, " & ")
+	}
+	if raw, ok := a.Params.Param("CantHaveKeyword"); ok {
+		// AnimateEffectBase.java:139-141: Keyword.setValueOf, " & " list.
+		r.CantHave = strings.Split(raw, " & ")
 	}
 	r.Name, _ = a.Params.Param("Name")
 	if raw, ok := a.Params.Param("HiddenKeywords"); ok {

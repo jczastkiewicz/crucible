@@ -51,3 +51,24 @@ func TestLicidBecomesAnAuraAndRevertsForItsRevertCost(t *testing.T) {
 		t.Errorf("Licid is still an Aura after the revert")
 	}
 }
+
+// Arcane Lighthouse's AnimateAll CantHaveKeyword$ (AnimateEffectBase.java:
+// 139-141): the opponent's creatures lose hexproof and cannot have it, even
+// from a later grant.
+func TestAnimateAllCantHaveKeywordStripsLaterGrants(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	bear := g.NewCard(creatureDefPTKeywords(t, "2", "2", "Hexproof"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ AnimateAll | ValidCards$ Creature.OppCtrl | RemoveKeywords$ Hexproof & Shroud | CantHaveKeyword$ Hexproof & Shroud"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveNow(t, g, other, c, []engine.EntityID{engine.CardEntity(bear)}, "DB$ Pump | ValidTgts$ Creature | KW$ Hexproof"); err != nil {
+		t.Fatal(err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if g.Card(bear).HasKeyword("Hexproof") {
+		t.Error("the creature has Hexproof despite CantHaveKeyword$")
+	}
+}

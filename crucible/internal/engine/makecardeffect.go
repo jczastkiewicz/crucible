@@ -37,10 +37,6 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err != nil {
 		return fmt.Errorf("engine: MakeCard: %w", err)
 	}
-	amount, err := optionalAmount(g, a, "MakeCard", "Amount", 1)
-	if err != nil {
-		return err
-	}
 	zone := Library
 	if raw, ok := a.Params.Param("Zone"); ok {
 		z, ok := ZoneByName(raw)
@@ -54,6 +50,11 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			return nil
 		}
 		names, err := makeCardNames(g, a, controller, source, p)
+		if err != nil {
+			return err
+		}
+		// Amount is read inside the player loop (MakeCardEffect.java:129-130).
+		amount, err := optionalAmount(g, a, "MakeCard", "Amount", 1)
 		if err != nil {
 			return err
 		}
@@ -81,18 +82,19 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 		}
 		counterKind, withCounter := a.Params.Param("WithCounter")
-		counterNum := 0
-		if withCounter {
-			if counterNum, err = optionalAmount(g, a, "MakeCard", "WithCounterNum", 1); err != nil {
-				return err
-			}
-		}
 		counterType := CounterType(strings.ToUpper(counterKind))
 		for _, id := range made {
 			// The counters go through AddCounter replacements and a Mode$
 			// CantPutCounter static either way (GameEntityCounterTable
 			// .replaceCounterEffect): entering with them on the battlefield, put
 			// on the card where it landed anywhere else.
+			// WithCounterNum is read per made card (MakeCardEffect.java:180, :205).
+			counterNum := 0
+			if withCounter {
+				if counterNum, err = optionalAmount(g, a, "MakeCard", "WithCounterNum", 1); err != nil {
+					return err
+				}
+			}
 			var enter []enterCounters
 			if withCounter && zone == Battlefield {
 				enter = append(enter, enterCounters{kind: counterType, n: counterNum, placer: p})

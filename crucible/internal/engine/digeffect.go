@@ -18,8 +18,7 @@ var digUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 	"WithCounters", "WithCountersAmount",
 	"DefinedExiler", "StaticEffect",
-	"Pawprint", "Boast", "UnlessResolveSubs",
-	"Ultimate",
+	"Boast",
 }
 
 // digEffect is DigEffect.java: each Defined$/ValidTgts$ player (default

@@ -244,3 +244,18 @@ func TestDigEffectFromBottomLooksAtTheBottomCards(t *testing.T) {
 		}
 	}
 }
+
+// TestDigEffectIgnoresParamsItNeverReads proves Pawprint$, Ultimate$ and
+// UnlessResolveSubs$ do not block a Dig: DigEffect.java reads none of them
+// (CharmEffect, AchievementTracker and AbilityUtils do).
+func TestDigEffectIgnoresParamsItNeverReads(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 3)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(nil)
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Dig Unread", "DB$ Dig | DigNum$ 2 | Optional$ True | SkipReorder$ True | Pawprint$ 1 | Ultimate$ True | UnlessResolveSubs$ Always"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+}

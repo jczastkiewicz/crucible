@@ -64,6 +64,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/CamouflageEffect.java` | Pool filter uses `removeIf`: removing inside the for-each threw `ConcurrentModificationException` | PR [#12370](https://github.com/Card-Forge/forge/pull/12370), branch `upstream-pr/crash-guards-iteration` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/CountersPutEffect.java` | `DividedRandomly` removes through the iterator, not `tgtObjects.remove` inside the for-each | PR [#12370](https://github.com/Card-Forge/forge/pull/12370), branch `upstream-pr/crash-guards-iteration` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChooseColorEffect.java` | `Choices$` list copied into an `ArrayList`: `Arrays.asList` is fixed-size, so `Exclude$`/`Random$` threw | PR [#12370](https://github.com/Card-Forge/forge/pull/12370), branch `upstream-pr/crash-guards-iteration` |
+| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/AbilityUtils.java` | `playerXCount` Highest/Lowest pass `l[0]`, not `s`, to `playerXProperty` (operator applied twice); `doXMath` `Mod` by zero returns 0 | PR [#12371](https://github.com/Card-Forge/forge/pull/12371), branch `upstream-pr/xmath-hardening` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

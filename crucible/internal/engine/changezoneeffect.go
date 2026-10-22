@@ -1177,7 +1177,9 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			moved[from] = append(moved[from], id)
 			movedAll = append(movedAll, id)
 			g.changeZoneMoved(a, source, id)
-			if dest != Battlefield {
+			if dest == Exile {
+				// ChangeZoneEffect.java:1508-1514 reads WithCountersType$ for an Exile
+				// destination alone; any other non-battlefield one drops it.
 				// ChangeZoneEffect.java:1508-1514: the fetcher, not the
 				// activator, places them (the known path uses the activator).
 				late, err := changeZoneEnter(g, a, dest, true)

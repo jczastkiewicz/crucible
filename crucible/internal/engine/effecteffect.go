@@ -12,13 +12,16 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
+// ExileOnLost$ is accepted and does nothing: the trigger it adds sits on an
+// effect card its loser both owns and controls, which Game.java:897-902 never
+// walks (quirks.md).
+//
 // effectUnresolvedParams are EffectEffect params this port does not model,
 // each its own further mechanic: granted activated abilities (Abilities$),
 // remembering a spell, a last-known copy or keywords rather than objects
 // (RememberSpell$/RememberLKI$/RememberKeywords$ and its SharedKeywordsZone$/
 // SharedRestrictions$), the counter-driven forget/exile triggers
-// (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), the loses-the-game
-// exile trigger (ExileOnLost$), a
+// (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), a
 // standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
 // Boon one-shot (Boon$, TriggerHandler removes the effect after its first
 // trigger), imprinting the effect
@@ -27,7 +30,7 @@ import (
 // (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
 var effectUnresolvedParams = [...]string{
 	"RememberSpell", "RememberLKI", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
-	"ExileOnCounter", "NoteCounterDefined", "ExileOnLost",
+	"ExileOnCounter", "NoteCounterDefined",
 	"Adventure",
 }
 

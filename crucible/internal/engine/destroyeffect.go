@@ -74,6 +74,10 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	// destroyed after the targets.
 	cards = append(cards, g.radianceCards(a)...)
 	_, remember := a.Params.Param("RememberDestroyed")
+	if remember {
+		// DestroyEffect.java:50-52: the host forgets what it remembered first.
+		g.Card(a.Source).Memory.ClearRemembered()
+	}
 	_, noRegen := a.Params.Param("NoRegen")
 	_, rememberLKI := a.Params.Param("RememberLKI")
 	_, alwaysRemember := a.Params.Param("AlwaysRemember")

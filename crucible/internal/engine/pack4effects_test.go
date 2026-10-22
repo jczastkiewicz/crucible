@@ -161,7 +161,7 @@ func TestChooseSourceRejectsUnresolvableShapes(t *testing.T) {
 
 	for _, line := range []string{
 		"DB$ ChooseSource | Choices$ Card | Amount$ 2",
-		"DB$ ChooseSource | Choices$ Card.SharesColorWith Imprinted",
+		"DB$ ChooseSource | Choices$ Card.SharesColorWith MostProminentColor",
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		_, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, line)
@@ -348,5 +348,43 @@ func TestChooseSourceStopsWhenThePoolRunsDry(t *testing.T) {
 	}
 	if got := g.Card(host).Memory.Chosen(); len(got) != 0 {
 		t.Errorf("chosen = %v, want nothing: the second chooser's empty pick replaces the first's", got)
+	}
+}
+
+// TestChooseSourceSharesColorWithImprinted proves Mourner's Shield's
+// Choices$ Card.SharesColorWith Imprinted: only permanents that share a color
+// with the host's imprinted card are offered (CardProperty.java:687-691), a
+// colorless one never (:638-640).
+func TestChooseSourceSharesColorWithImprinted(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	red := g.NewCard(creatureDefManaCost(t, "1 R"), other, engine.Battlefield)
+	g.NewCard(creatureDefManaCost(t, "1 B"), other, engine.Battlefield)
+	imprinted := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Exile)
+	rec := &offerRecorder{ScriptedController: engine.NewScriptedController()}
+	rec.QueueCardChoice([]engine.CardID{red})
+	host := pushPlayLine(t, g, p, nil, "DB$ ChooseSource | Choices$ Card.SharesColorWith Imprinted | RememberChosen$ True")
+	g.Card(host).Memory.Imprint(imprinted)
+	if err := g.ResolveStack(engine.NewRegistry(), rec); err != nil {
+		t.Fatalf("ChooseSource: %v", err)
+	}
+	if len(rec.offers) != 1 || !slices.Contains(rec.offers[0], red) || len(rec.offers[0]) != 1 {
+		t.Errorf("offers = %v, want only the red creature", rec.offers)
+	}
+	if got := g.Card(host).Memory.Chosen(); !slices.Equal(got, []engine.CardID{red}) {
+		t.Errorf("chosen = %v, want [%d]", got, red)
+	}
+}
+
+// TestChooseSourceSharesColorWithOtherFormsRefused proves a suffixed
+// SharesColorWith this port cannot read still refuses instead of emptying
+// the pool.
+func TestChooseSourceSharesColorWithOtherFormsRefused(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ ChooseSource | Choices$ Card.SharesColorWith MostProminentColor"); err == nil {
+		t.Error("an unreadable SharesColorWith form resolved, want an error")
 	}
 }

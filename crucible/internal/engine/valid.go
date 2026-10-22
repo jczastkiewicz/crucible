@@ -251,6 +251,18 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	case name == "nonChosenCard":
 		sc, ok := sourceCard(g, source)
 		return ok && !containsCard(sc.Memory.Chosen(), c.ID)
+	case name == "NotedType":
+		// CardStateProperty.java:107-115: the card has any type the source noted.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		for _, t := range sc.Memory.NotedTypes() {
+			if c.Type().HasStringType(t) {
+				return true
+			}
+		}
+		return false
 	case name == "ChosenType" || name == "IsNotChosenType" || name == "ChosenType2":
 		// CardStateProperty: a chosen "Non<Type>" inverts ChosenType; an
 		// unset choice matches no type.
@@ -808,6 +820,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// own cantBlockByKeywords).
 		sc, ok := sourceCard(g, source)
 		return ok && c.Colors().HasAny(sc.Colors())
+	}
+	if rest, ok := strings.CutPrefix(name, "SharesColorWith "); ok {
+		return sharesColorWithRestriction(g, c, source, strings.TrimSpace(rest))
 	}
 	if matched, handled := turnHistoryMatches(g, c, name, sourceController, source); handled {
 		return matched
@@ -1945,4 +1960,57 @@ func playerRelationMatches(g *Game, pid, sourceController PlayerID, source CardI
 		return err == nil && slices.Contains(players, pid)
 	}
 	return ok && matched
+}
+
+// sharesColorWithRestriction is CardProperty.java:636-691's suffixed
+// SharesColorWith <restriction>: a colorless card shares none (:638-640);
+// ActivationColor is the color of the first mana the resolving ability paid
+// (:667-677, payingMana.get(0)); any other restriction is a Defined$ list
+// whose cards c shares a color with (:687-691). The forms this matcher
+// cannot answer are recorded as a pending error, not read as false (GO-7).
+func sharesColorWithRestriction(g *Game, c *Card, source CardID, restriction string) bool {
+	if c.Colors().IsColorless() {
+		return false
+	}
+	sc, ok := sourceCard(g, source)
+	if !ok {
+		return false
+	}
+	switch restriction {
+	case "Imprinted":
+		for _, id := range sc.Memory.Imprinted() {
+			if c.Colors().HasAny(g.Card(id).Colors()) {
+				return true
+			}
+		}
+		return false
+	case "ActivationColor":
+		// Java reads the ChooseSource ability's instance on the stack; no
+		// paid mana, or a colorless first unit, shares nothing.
+		a := g.resolving
+		if a == nil || a.Source != source || !a.paid.manaRecorded {
+			return false
+		}
+		kinds, total := 0, 0
+		var first mana.Colors
+		for i, n := range a.paid.colors {
+			if n > 0 {
+				kinds++
+				total += n
+				first = mana.Colors(1) << i
+			}
+		}
+		switch {
+		case len(a.paid.mana) == 0 || total == 0:
+			return false
+		case len(a.paid.mana) == 1 || kinds == 1 && total == len(a.paid.mana):
+			return c.Colors().HasAny(first)
+		}
+		// Several units of different colors: which one was paid first is not
+		// recorded.
+		g.recordPendingError(fmt.Errorf("engine: SharesColorWith ActivationColor: the first mana paid is not recorded for a mixed payment"))
+		return false
+	}
+	g.recordPendingError(fmt.Errorf("engine: SharesColorWith %s: restriction not evaluable in a valid string", restriction))
+	return false
 }

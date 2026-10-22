@@ -152,6 +152,18 @@ type unlessCost struct {
 	libN    int
 	libSpec string
 	libPos  int
+	// gainN/gainSpec are GainControl<N/Type>: the payer gains control of N
+	// permanents of the type, any player's (CostGainControl). sameParts/sameN/
+	// sameSpec/samePos are PutCardToLibFromSameGrave<N/Pos/Type> repeated
+	// sameParts times: each part is its own pick of a graveyard and sameN of its
+	// cards (PlaySpellAbility.java:279-310), so a Cost.mergeTo repeat is not an
+	// amount multiplied.
+	gainN     int
+	gainSpec  string
+	sameParts int
+	sameN     int
+	sameSpec  string
+	samePos   int
 	// removeAnyN/removeAnyKind/removeAnySpec are RemoveAnyCounter<N/Kind/Type>:
 	// N counters (of the kind, or "Any") removed from among the payer's
 	// permanents of the type (CostRemoveAnyCounter).
@@ -253,6 +265,13 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.discardTypeN, uc.discardTypeSpec = n, p.Field(1)
 		case p.Name == "SubCounter" && uc.subCounterN == 0 && p.Field(1) != "" && (p.Field(2) == "" || p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME"):
 			uc.subCounterN, uc.subCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
+		case p.Name == "GainControl" && uc.gainN == 0 && chosenCardSpecResolvable(p.Field(1)):
+			uc.gainN, uc.gainSpec = n, p.Field(1)
+		case p.Name == "PutCardToLibFromSameGrave" && uc.sameParts == 0 && (p.Field(1) == "0" || p.Field(1) == "-1") && chosenCardSpecResolvable(p.Field(2)):
+			uc.sameParts, uc.sameN, uc.sameSpec, uc.samePos = 1, n, p.Field(2), 0
+			if p.Field(1) == "-1" {
+				uc.samePos = libraryBottom
+			}
 		case p.Name == "RemoveAnyCounter" && uc.removeAnyN == 0 && p.Field(1) != "" && (p.Field(2) == "CARDNAME" || p.Field(2) == "NICKNAME"):
 			uc.removeAnyN, uc.removeAnyKind, uc.removeAnySelf = n, p.Field(1), true
 		case p.Name == "ExiledMoveToGrave" && uc.movedToGraveN == 0 && chosenCardSpecResolvable(p.Field(1)):
@@ -648,6 +667,12 @@ func (g *Game) unlessCardsPayable(pid PlayerID, source CardID, uc unlessCost) bo
 	if uc.libN > 0 && len(g.costCandidates(pid, source, false, Graveyard, uc.libSpec)) < uc.libN {
 		return false
 	}
+	if uc.gainN > 0 && len(g.gainControlCandidates(pid, source, uc.gainSpec)) < uc.gainN {
+		return false
+	}
+	if uc.sameParts > 0 && g.sameGraveParts(pid, source, uc) < uc.sameParts {
+		return false
+	}
 	if uc.removeAnyN > 0 && g.removableCounters(pid, source, uc) < uc.removeAnyN {
 		return false
 	}
@@ -890,6 +915,16 @@ func (g *Game) payUnlessPartsInto(controller PlayerController, a *Ability, pid P
 			g.moveByEffect(controller, id, Library, uc.libPos, NoPlayer, false)
 		}
 	}
+	if uc.gainN > 0 {
+		// CostGainControl.doPayment: addTempController(payer, timestamp), the
+		// payer picking from the type's permanents.
+		for _, id := range g.chosenUnlessCards(controller, pid, a.Source, g.gainControlCandidates(pid, a.Source, uc.gainSpec), uc.gainN, uc.gainN) {
+			g.changeController(controller, id, pid)
+		}
+	}
+	for range uc.sameParts {
+		g.paySameGraveLibrary(controller, pid, a.Source, uc)
+	}
 	if uc.removeAnyN > 0 {
 		g.removeAnyCounters(controller, pid, a.Source, uc)
 	}
@@ -1037,6 +1072,8 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.waterbendN *= n
 	uc.evidenceN *= n
 	uc.libN *= n
+	uc.gainN *= n
+	uc.sameParts *= n
 	uc.removeAnyN *= n
 	uc.youCounterN *= n
 	uc.subCounterN *= n
@@ -1353,4 +1390,71 @@ func (g *Game) exileGraveOptions(pid PlayerID, source CardID, uc unlessCost) []C
 		return options[len(options)-1:]
 	}
 	return options
+}
+
+// gainControlCandidates are the permanents a GainControl<N/Type> cost part may
+// take: every phased-in battlefield card of the type, whoever controls it,
+// read from the payer's side (CostGainControl.canPay, :76-86).
+func (g *Game) gainControlCandidates(pid PlayerID, source CardID, spec string) []CardID {
+	parsed := valid.Parse(strings.ReplaceAll(spec, ";", ","))
+	var out []CardID
+	for _, owner := range g.Players() {
+		for _, id := range g.Zone(Battlefield, owner).Cards() {
+			c := g.Card(id)
+			if !c.IsPhasedOut() && !g.Player(pid).Lost && Matches(g, c, parsed, pid, source) {
+				out = append(out, id)
+			}
+		}
+	}
+	return out
+}
+
+// sameGraveCandidates are the cards of the PutCardToLibFromSameGrave type in
+// owner's graveyard.
+func (g *Game) sameGraveCandidates(pid PlayerID, source CardID, owner PlayerID, spec string) []CardID {
+	parsed := valid.Parse(strings.ReplaceAll(spec, ";", ","))
+	var out []CardID
+	for _, id := range g.Zone(Graveyard, owner).Cards() {
+		if Matches(g, g.Card(id), parsed, pid, source) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// sameGraveParts is how many PutCardToLibFromSameGrave parts the graveyards
+// can pay: each part takes sameN cards from one graveyard.
+func (g *Game) sameGraveParts(pid PlayerID, source CardID, uc unlessCost) int {
+	parts := 0
+	for _, owner := range g.Players() {
+		parts += len(g.sameGraveCandidates(pid, source, owner, uc.sameSpec)) / uc.sameN
+	}
+	return parts
+}
+
+// paySameGraveLibrary pays one PutCardToLibFromSameGrave part
+// (PlaySpellAbility.java:279-310): the payer picks among the graveyards that
+// still hold sameN matching cards, then sameN of that graveyard's, which go to
+// their owner's library.
+func (g *Game) paySameGraveLibrary(controller PlayerController, pid PlayerID, source CardID, uc unlessCost) {
+	var owners []PlayerID
+	for _, owner := range g.Players() {
+		if len(g.sameGraveCandidates(pid, source, owner, uc.sameSpec)) >= uc.sameN {
+			owners = append(owners, owner)
+		}
+	}
+	if len(owners) == 0 {
+		return
+	}
+	owner := owners[0]
+	if len(owners) > 1 {
+		owner = controller.ChoosePlayerForEffect(g, pid, source, owners)
+		if !slices.Contains(owners, owner) {
+			owner = owners[0]
+		}
+	}
+	options := g.sameGraveCandidates(pid, source, owner, uc.sameSpec)
+	for _, id := range g.chosenUnlessCards(controller, pid, source, options, uc.sameN, uc.sameN) {
+		g.moveByEffect(controller, id, Library, uc.samePos, NoPlayer, false)
+	}
 }

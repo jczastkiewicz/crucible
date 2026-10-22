@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -165,5 +166,72 @@ func TestCumulativeUpkeepLibraryLifeAndManaParts(t *testing.T) {
 			}
 			tc.check(t, g, p, other, libBefore)
 		})
+	}
+}
+
+// Herald of Leshrac's cumulative upkeep is GainControl<1/Land.YouDontCtrl>: the
+// payer picks a land they do not control and gains control of it
+// (CostGainControl); unpaid, the Herald is sacrificed.
+func TestCumulativeUpkeepGainControlTakesALand(t *testing.T) {
+	t.Parallel()
+
+	for _, pay := range []bool{true, false} {
+		g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+		libraryCards(t, g, p, 8)
+		libraryCards(t, g, other, 8)
+		herald := g.NewCard(corpusCard(t, "Herald of Leshrac"), p, engine.Battlefield)
+		land := g.NewCard(corpusCard(t, "Swamp"), other, engine.Battlefield)
+		g.SetTurnState(2, p, engine.Untap)
+		c := engine.NewScriptedController()
+		c.QueueConfirmPayCost(pay)
+		c.QueueCardChoice([]engine.CardID{land})
+		toStep(t, g, c, p, engine.Upkeep, nil)
+		heraldZone, controller := g.Card(herald).Zone, g.Card(land).Controller()
+		if pay && (heraldZone != engine.Battlefield || controller != p) {
+			t.Errorf("paid: Herald in %v, land controlled by %v, want the battlefield and %v", heraldZone, controller, p)
+		}
+		if !pay && (heraldZone != engine.Graveyard || controller != other) {
+			t.Errorf("unpaid: Herald in %v, land controlled by %v, want the graveyard and %v", heraldZone, controller, other)
+		}
+	}
+}
+
+// Jötun Grunt's cumulative upkeep is PutCardToLibFromSameGrave<2/-1/Card>: two
+// cards of one graveyard go to the bottom of their owner's library.
+func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 8)
+	libraryCards(t, g, other, 8)
+	g.NewCard(corpusCard(t, "Jötun Grunt"), p, engine.Battlefield)
+	a := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Graveyard)
+	b := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Graveyard)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	g.SetTurnState(2, p, engine.Untap)
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	c.QueuePlayerChoice(other)
+	c.QueueCardChoice([]engine.CardID{a, b})
+	toStep(t, g, c, p, engine.Upkeep, nil)
+	lib := g.Zone(engine.Library, other).Cards()
+	if len(lib) != 10 || lib[len(lib)-2] != a && lib[len(lib)-1] != a || lib[len(lib)-2] != b && lib[len(lib)-1] != b {
+		t.Errorf("opponent library = %v, want %v and %v on the bottom", lib, a, b)
+	}
+	if n := g.Zone(engine.Graveyard, p).Len(); n != 1 {
+		t.Errorf("own graveyard holds %d cards, want it untouched", n)
+	}
+}
+
+// XColor$ restricts the colors an announced X may be paid with; nothing here
+// enforces it, so an ability naming it fails loudly instead (GO-7).
+func TestXColorIsRefused(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	pushPlayLine(t, g, p, nil, "DB$ GainLife | LifeAmount$ 1 | XColor$ Black")
+	err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController())
+	if err == nil || !strings.Contains(err.Error(), "XColor$") {
+		t.Fatalf("ResolveStack = %v, want the XColor$ refusal", err)
 	}
 }

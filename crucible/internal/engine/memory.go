@@ -67,6 +67,7 @@ type Memory struct {
 	chosenDirection string
 	chosenType      string
 	chosenType2     string
+	notedTypes      []string
 	namedCards      []string
 
 	// chosenSector is Card's setChosenSector (Card.java:2348): the sector
@@ -300,6 +301,13 @@ func (m *Memory) ChosenType(second bool) string {
 	return m.chosenType
 }
 
+// AddNotedType records ChooseType's Note$ pick (Card.addNotedType); a card
+// never forgets one (Card.java has no clear).
+func (m *Memory) AddNotedType(v string) { m.notedTypes = append(m.notedTypes, v) }
+
+// NotedTypes are the types ChooseType noted, in order.
+func (m *Memory) NotedTypes() []string { return m.notedTypes }
+
 // AddNamedCard records one NameCard pick; NamedCards lists them in order.
 func (m *Memory) AddNamedCard(name string) { m.namedCards = append(m.namedCards, name) }
 
@@ -337,6 +345,9 @@ func (m *Memory) copyChoicesFrom(src *Memory) {
 	if len(src.namedCards) > 0 {
 		m.namedCards = append([]string(nil), src.namedCards...)
 	}
+	if len(src.notedTypes) > 0 {
+		m.notedTypes = append([]string(nil), src.notedTypes...)
+	}
 	if src.hasChosenNumber {
 		m.chosenNumber, m.hasChosenNumber = src.chosenNumber, true
 	}
@@ -354,6 +365,7 @@ func (m Memory) clone() Memory {
 		chosenType2:     m.chosenType2,
 		chosenSector:    m.chosenSector,
 		namedCards:      append([]string(nil), m.namedCards...),
+		notedTypes:      append([]string(nil), m.notedTypes...),
 	}
 	if m.remembered != nil {
 		out.remembered = m.remembered.Clone()

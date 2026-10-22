@@ -1,9 +1,10 @@
 package engine
 
-//enginelint:allow control game ability effecthelpers card condition defined parts choosecardeffect
+//enginelint:allow control game ability effecthelpers card condition defined parts choosecardeffect amount zone zonemove
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -26,8 +27,7 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "ChooseType", "TypesFromDefined", "MostPrevalentInDefinedZone",
-		"Note", "ChooseNoted"); err != nil {
+	if err := rejectParams(a, "ChooseType"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -36,8 +36,19 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	kind, _ := a.Params.Param("Type")
 	var types []string
+	_, fromDefined := a.Params.Param("TypesFromDefined")
 	if raw, ok := a.Params.Param("ValidTypes"); ok {
 		types = strings.Split(raw, ",")
+	} else if fromDefined {
+		var err error
+		if types, err = chooseTypesFromDefined(g, a, kind); err != nil {
+			return err
+		}
+	} else if raw, ok := a.Params.Param("MostPrevalentInDefinedZone"); ok && kind == "Creature" {
+		var err error
+		if types, err = g.mostPrevalentCreatureTypes(a, raw); err != nil {
+			return err
+		}
 	} else {
 		if hasParam(a, "AtRandom") && kind != "Basic Land" {
 			// Creature and Land lists are CardType's HashSets (CREATURE_TYPES,
@@ -61,7 +72,20 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 		types = kept
 	}
+	if hasParam(a, "Note") {
+		// :117-121: each already noted type leaves the list once, before the
+		// players choose, so two choosers may pick the same one (PORT-7).
+		for _, noted := range source.Memory.NotedTypes() {
+			if i := slices.Index(types, noted); i >= 0 {
+				types = slices.Delete(slices.Clone(types), i, i+1)
+			}
+		}
+	}
 	if len(types) == 0 {
+		if fromDefined {
+			// :123-124: nothing to choose from the defined cards is a no-op.
+			return nil
+		}
 		return fmt.Errorf("engine: ChooseType: no types to choose from")
 	}
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
@@ -79,9 +103,102 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 				return fmt.Errorf("engine: ChooseType: choice %d out of range", i)
 			}
 		}
+		if hasParam(a, "Note") {
+			source.Memory.AddNotedType(types[i])
+			if !hasParam(a, "ChooseNoted") {
+				// :140-142: a noted type is not the chosen type unless asked.
+				continue
+			}
+		}
 		source.Memory.SetChosenType(types[i], second)
 	}
 	return nil
+}
+
+// chooseTypesFromDefined is ChooseTypeEffect.java:52-55 and :94-96: the
+// creature types of the Defined$ cards, concatenated with duplicates kept, or
+// for Type$ Shared the core types every defined card has (two cards at least).
+func chooseTypesFromDefined(g *Game, a *Ability, kind string) ([]string, error) {
+	spec, _ := a.Params.Param("TypesFromDefined")
+	cards, err := definedCards(g.Card(a.Source), spec, a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: ChooseType: TypesFromDefined$: %w", err)
+	}
+	switch kind {
+	case "Creature":
+		reg := g.db.Types()
+		if reg == nil {
+			return nil, fmt.Errorf("engine: ChooseType: TypesFromDefined$ needs the type vocabulary")
+		}
+		var out []string
+		for _, id := range cards {
+			out = append(out, creatureTypesOf(g.Card(id).Type(), reg)...)
+		}
+		return out, nil
+	case "Shared":
+		if len(cards) < 2 {
+			return nil, nil
+		}
+		var out []string
+		for t := cardtype.Kindred; t <= cardtype.Vanguard; t++ {
+			shared := true
+			for _, id := range cards {
+				if !g.Card(id).Type().HasStringType(t.String()) {
+					shared = false
+					break
+				}
+			}
+			if shared {
+				out = append(out, t.String())
+			}
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf("engine: ChooseType: TypesFromDefined$ with Type$ %q not resolvable yet", kind)
+}
+
+// mostPrevalentCreatureTypes is MostPrevalentInDefinedZone$ <Defined>_<Zone>
+// (ChooseTypeEffect.java:56-63, CardFactoryUtil.getMostProminentCreatureType):
+// the creature types held by the most cards of the first defined player's
+// zone, every tied one, sorted. No such type leaves the list empty.
+func (g *Game) mostPrevalentCreatureTypes(a *Ability, raw string) ([]string, error) {
+	who, zoneName, _ := strings.Cut(raw, "_")
+	players, err := definedPlayers(g, a.Controller, a.Source, who, a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: ChooseType: MostPrevalentInDefinedZone$: %w", err)
+	}
+	if len(players) == 0 {
+		// :58 takes get(0) of an empty list: a crash in Java (PORT-8).
+		return nil, fmt.Errorf("engine: ChooseType: MostPrevalentInDefinedZone$ %q names no player", who)
+	}
+	zone := Battlefield
+	if zoneName != "" {
+		zones, err := parseZoneList(zoneName)
+		if err != nil || len(zones) != 1 {
+			return nil, fmt.Errorf("engine: ChooseType: MostPrevalentInDefinedZone$ zone %q", zoneName)
+		}
+		zone = zones[0]
+	}
+	reg := g.db.Types()
+	if reg == nil {
+		return nil, fmt.Errorf("engine: ChooseType: MostPrevalentInDefinedZone$ needs the type vocabulary")
+	}
+	counts := map[string]int{}
+	most := 0
+	for _, id := range g.Zone(zone, players[0]).Cards() {
+		for _, t := range creatureTypesOf(g.Card(id).Type(), reg) {
+			counts[t]++
+			most = max(most, counts[t])
+		}
+	}
+	var out []string
+	for t, n := range counts {
+		if n == most && most > 0 {
+			out = append(out, t)
+		}
+	}
+	slices.Sort(out)
+	return out, nil
 }
 
 // chooseTypeOptions is ChooseTypeEffect's Type$ switch for the lists it

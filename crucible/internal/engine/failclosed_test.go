@@ -167,7 +167,6 @@ func TestFiftyPackFailsClosed(t *testing.T) {
 		"DB$ VillainousChoice | Defined$ You | Amount$ Bogus | Choices$ DBX",
 		"DB$ TwoPiles | Defined$ You | Zone$ Nowhere",
 		"DB$ TwoPiles | Defined$ You | DefinedPiles$ Self",
-		"DB$ ChooseType | Defined$ You | Type$ Creature | Note$ True",
 		"DB$ ChooseType | Defined$ You | Type$ Creature | AtRandom$ True",
 		"DB$ ChooseType | Defined$ You | Type$ Bogus",
 		"DB$ ChooseType | Defined$ You | Type$ Card | ValidTypes$ Artifact | InvalidTypes$ Artifact",

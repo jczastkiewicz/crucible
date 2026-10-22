@@ -110,6 +110,15 @@ func (r *Registry) resolve(g *Game, a *Ability, controller PlayerController) err
 		// GO-7).
 		return fmt.Errorf("engine: %s: RememberTargets$ off the stack's own ability never reaches AbilityUtils.handleRemembering (MagicStack.java:646), a script defect", a.API)
 	}
+	if a.Params != nil && a.stackRoot {
+		// SpellAbility.getXColor restricts the colors the announced X may be
+		// paid with (PlaySpellAbility.java:458, Soul Burn, Drain Life, Crypt
+		// Rats); no cost path here reads it, so an X paid with any mana would
+		// pass as legal (GO-7).
+		if _, ok := a.Params.Param("XColor"); ok {
+			return fmt.Errorf("engine: %s: XColor$ not resolvable yet", a.API)
+		}
+	}
 	if a.evolve != NoCard && !g.Card(a.Source).evolvedBy(g.Card(a.evolve)) {
 		return nil
 	}

@@ -18,9 +18,9 @@ var chooseSourceUnresolvedParams = [...]string{"Amount"}
 // chooseSourceUnresolvedChoices are the Choices$ properties Matches has no
 // evaluator for yet: each would otherwise read false for every card and
 // leave an empty pool, a silent no-op rather than a failed game (GO-7).
-// SharesColorWith's own suffixed forms (Imprinted, ActivationColor -- 1
-// line each) need a remembered-list or cast-time color comparison.
-var chooseSourceUnresolvedChoices = [...]string{"SharesColorWith "}
+// SharesColorWith's suffixed forms other than Imprinted and ActivationColor
+// (valid.go sharesColorWithRestriction) are not among the corpus's.
+var chooseSourceUnresolvedChoices = [...]string{"SharesColorWith ", "SharesColorWithOther"}
 
 // chooseSourceEffect is ChooseSourceEffect.java: each chooser (Defined$/
 // ValidTgts$, default You) picks one source -- a permanent, a spell or
@@ -40,7 +40,7 @@ func (chooseSourceEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	}
 	choicesParam, hasChoices := a.Params.Param("Choices")
 	for _, prop := range chooseSourceUnresolvedChoices {
-		if hasChoices && strings.Contains(choicesParam, prop) {
+		if hasChoices && strings.Contains(choicesParam, prop) && !chooseSourceColorForm(choicesParam) {
 			return fmt.Errorf("engine: ChooseSource: Choices$ %q not resolvable yet", choicesParam)
 		}
 	}
@@ -174,4 +174,17 @@ func stackTargetCard(a *Ability) (CardID, bool) {
 		return a.Target, true
 	}
 	return NoCard, false
+}
+
+// chooseSourceColorForm reports whether every SharesColorWith suffix in
+// choices is one sharesColorWithRestriction answers.
+func chooseSourceColorForm(choices string) bool {
+	for _, part := range strings.Split(choices, "SharesColorWith ")[1:] {
+		word, _, _ := strings.Cut(part, "+")
+		word, _, _ = strings.Cut(word, ",")
+		if word != "Imprinted" && word != "ActivationColor" {
+			return false
+		}
+	}
+	return !strings.Contains(choices, "SharesColorWithOther")
 }

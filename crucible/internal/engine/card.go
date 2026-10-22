@@ -27,6 +27,10 @@ type castSnapshot struct {
 
 // untapNextStepKeyword is the hidden line Card.canUntap reads
 // (Card.java:4817) and Untap.doUntap removes once read (Untap.java:160).
+// noRedirectKeyword is the hidden keyword ReplaceDamage.java:100 reads on the
+// damaged card to refuse a redirecting replacement (Whippoorwill).
+const noRedirectKeyword = "Damage that would be dealt to CARDNAME can't be redirected."
+
 const untapNextStepKeyword = "This card doesn't untap during your next untap step."
 
 // Card is one card in one game.

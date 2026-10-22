@@ -2290,7 +2290,7 @@ func damageRedirectAllowed(g *Game, r *compile.Ability, h *Card, affected Entity
 	if !ok {
 		return true
 	}
-	if cid, ok := affected.AsCard(); ok && g.Card(cid).HasKeyword("Damage that would be dealt to CARDNAME can't be redirected.") {
+	if cid, ok := affected.AsCard(); ok && g.Card(cid).hasKeywordText(noRedirectKeyword) {
 		return false
 	}
 	switch def {

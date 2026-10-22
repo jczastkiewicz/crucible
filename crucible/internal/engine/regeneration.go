@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -39,6 +40,13 @@ func (g *Game) regenerate(controller PlayerController, id CardID) bool {
 		return false
 	}
 	c := g.Card(id)
+	if c.Type().Has(cardtype.Creature) {
+		// ReplaceDestroy.java:60-63: a creature with no toughness left cannot
+		// regenerate, by shield or by static replacement.
+		if toughness, known := c.Toughness(); known && toughness <= 0 {
+			return false
+		}
+	}
 	if destroyReplacedByRegeneration(g, controller, c) {
 		return true
 	}

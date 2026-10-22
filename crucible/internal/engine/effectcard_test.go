@@ -466,3 +466,24 @@ func TestEffectRejectsUnportedParams(t *testing.T) {
 		}
 	}
 }
+
+// TestEffectRememberLKIRemembersALastKnownCopy proves RememberLKI$ on Effect
+// (EffectEffect.java:99-112): the effect card remembers the targeted
+// creature as a last-known copy rather than as a live object.
+func TestEffectRememberLKIRemembersALastKnownCopy(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	victim := g.NewCard(creatureDef(t), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
+	resolveLine(t, g, p, c, "DB$ Effect | ValidTgts$ Creature | RememberLKI$ Targeted | Duration$ Permanent")
+	effects := commandEffects(g, p)
+	if len(effects) != 1 {
+		t.Fatalf("command zone holds %d effects, want 1", len(effects))
+	}
+	mem := g.Card(effects[0]).Memory
+	if len(mem.Remembered()) != 1 || !mem.IsRememberedLKI(victim) {
+		t.Errorf("remembered %v, want the victim as a last-known copy", mem.Remembered())
+	}
+}

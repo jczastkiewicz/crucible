@@ -188,8 +188,8 @@ func TestPumpEffectChainsIntoSubAbility(t *testing.T) {
 }
 
 // TestPumpEffectRejectsUnreadHiddenKeyword proves a KW$ "HIDDEN" line nothing
-// in this port reads (Whippoorwill's no-redirection line, ReplaceDamage.java:100)
-// fails loudly, naming the line, rather than being granted and ignored.
+// in this port reads fails loudly, naming the line, rather than being granted
+// and ignored.
 func TestPumpEffectRejectsUnreadHiddenKeyword(t *testing.T) {
 	t.Parallel()
 
@@ -199,16 +199,36 @@ func TestPumpEffectRejectsUnreadHiddenKeyword(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	def := etbPumpTriggerDefParams(t, "Test Hidden Keyword",
-		`Defined$ Self | KW$ Flying & HIDDEN Damage that would be dealt to CARDNAME can't be redirected.`, nil)
+		`Defined$ Self | KW$ Flying & HIDDEN Damage that would be dealt to CARDNAME can't be bluffed.`, nil)
 	creature, err := castETBPump(t, g, p, def)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming KW")
 	}
-	if !strings.Contains(err.Error(), "KW$ hidden keyword") || !strings.Contains(err.Error(), "can't be redirected") {
+	if !strings.Contains(err.Error(), "KW$ hidden keyword") || !strings.Contains(err.Error(), "can't be bluffed") {
 		t.Errorf("ResolveStack error = %q, want it to name the hidden KW$ line", err.Error())
 	}
 	if g.Card(creature).HasKeyword("Flying") {
 		t.Error("creature has Flying: a rejected line must grant nothing")
+	}
+}
+
+// TestPumpEffectGrantsTheNoRedirectKeyword proves Whippoorwill's line is read:
+// the Pump grants Flying and the hidden keyword ReplaceDamage.java:100 checks.
+func TestPumpEffectGrantsTheNoRedirectKeyword(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+
+	def := etbPumpTriggerDefParams(t, "Test Hidden Keyword",
+		`Defined$ Self | KW$ Flying & HIDDEN Damage that would be dealt to CARDNAME can't be redirected.`, nil)
+	creature, err := castETBPump(t, g, p, def)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.Card(creature).HasKeyword("Flying") {
+		t.Error("creature lacks Flying")
 	}
 }
 

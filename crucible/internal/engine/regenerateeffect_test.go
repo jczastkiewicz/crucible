@@ -104,3 +104,23 @@ func TestRegenerateEffectShieldEndsAtCleanup(t *testing.T) {
 		t.Errorf("shields after cleanup = %d, want 0", n)
 	}
 }
+
+// TestRegenerateEffectShieldDoesNotSaveAZeroToughnessCreature proves
+// ReplaceDestroy.java:60-63: a creature whose toughness is 0 or less is
+// destroyed whatever shield it carries.
+func TestRegenerateEffectShieldDoesNotSaveAZeroToughnessCreature(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Regen Zero", "DB$ Regenerate | Defined$ Self | SubAbility$ DBShrink",
+		"DBShrink", "DB$ Pump | Defined$ Self | NumDef$ -1 | SubAbility$ DBDestroy",
+		"DBDestroy", "DB$ Destroy | Defined$ Self")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Errorf("host zone = %v, want Graveyard: a shield cannot save a 0-toughness creature", z)
+	}
+}

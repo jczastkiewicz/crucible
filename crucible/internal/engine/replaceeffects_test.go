@@ -35,6 +35,27 @@ func TestReplaceSplitDamageRedirectsTheNextOneDamage(t *testing.T) {
 	t.Error("no removed effect card, want the spent redirection gone")
 }
 
+// TestReplaceSplitDamageSkipsACreatureThatCannotBeRedirected proves
+// ReplaceDamage.java:100: a creature carrying Whippoorwill's hidden keyword
+// keeps all the damage, so Eladamri's redirection does not apply.
+func TestReplaceSplitDamageSkipsACreatureThatCannotBeRedirected(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Effect | RememberObjects$ Self | ReplacementEffects$ RedirectDamage | ExileOnMoved$ Battlefield | Duration$ Permanent | SubAbility$ DBPump",
+		"RedirectDamage", "Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ RedirectDmg | DamageTarget$ You | Description$ The next 1 damage is dealt to you instead.",
+		"RedirectDmg", "DB$ ReplaceSplitDamage | DamageTarget$ You",
+		"DBPump", "DB$ Pump | Defined$ Self | KW$ HIDDEN Damage that would be dealt to CARDNAME can't be redirected. | SubAbility$ DBDamage",
+		"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3")
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("controller life = %d, want 20 -- nothing redirected", got)
+	}
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Errorf("creature zone = %v, want Graveyard", z)
+	}
+}
+
 // TestReplaceDamageShieldDepletes proves ReplaceDamage's Number$ shield on
 // an effect card: 3 points of prevention absorb a 2-damage hit whole, then
 // the first 1 of the next, and the spent effect is exiled.

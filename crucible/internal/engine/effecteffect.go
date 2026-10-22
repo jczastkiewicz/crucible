@@ -19,7 +19,7 @@ import (
 // effectUnresolvedParams are EffectEffect params this port does not model,
 // each its own further mechanic: granted activated abilities (Abilities$),
 // remembering a spell, a last-known copy or keywords rather than objects
-// (RememberSpell$/RememberLKI$/RememberKeywords$ and its SharedKeywordsZone$/
+// (RememberSpell$/RememberKeywords$ and its SharedKeywordsZone$/
 // SharedRestrictions$), the counter-driven forget/exile triggers
 // (ForgetCounter$/ExileOnCounter$/NoteCounterDefined$), a
 // standalone forget-on-cast (ForgetOnCast$ without RememberObjects$), the
@@ -29,7 +29,7 @@ import (
 // SpellAbilityCondition shapes subAbilityConditionMet does not cover
 // (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
 var effectUnresolvedParams = [...]string{
-	"RememberSpell", "RememberLKI", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
+	"RememberSpell", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
 	"ExileOnCounter", "NoteCounterDefined",
 	"Adventure",
 }
@@ -113,6 +113,26 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			}
 		}
 	}
+	// RememberLKI$ replaces the list with last-known copies of the defined
+	// cards (EffectEffect.java:99-112).
+	lki := map[CardID]bool{}
+	if spec, ok := a.Params.Param("RememberLKI"); ok {
+		hasRemember = true
+		remember = nil
+		for _, part := range strings.Split(spec, ",") {
+			cards, err := definedCards(source, strings.TrimSpace(part), a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: Effect: RememberLKI$: %w", err)
+			}
+			for _, c := range cards {
+				remember = append(remember, CardEntity(c))
+				lki[c] = true
+			}
+		}
+		if len(remember) == 0 && (hasParam(a, "ForgetOnMoved") || hasParam(a, "ExileOnMoved")) {
+			return nil
+		}
+	}
 	if !hasRemember && (hasParam(a, "ForgetOnMoved") || hasParam(a, "ExileOnMoved")) {
 		// Java only arms either watch on a remembered list.
 		life.exileOnMoved, life.forgetOnMoved, life.forgetOnCast = 0, 0, false
@@ -194,6 +214,10 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 			}
 		}
 		for _, e := range remember {
+			if id, ok := e.AsCard(); ok && lki[id] {
+				eff.Memory.RememberLKI(id)
+				continue
+			}
 			eff.Memory.Remember(e)
 		}
 		for _, c := range imprint {

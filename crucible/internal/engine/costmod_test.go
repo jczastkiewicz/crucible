@@ -37,6 +37,8 @@ func TestSpellCostStatics(t *testing.T) {
 		{"reduction never goes below the colored part", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 9"}, 0, 1},
 		{"MinMana keeps the floor", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 9 | MinMana$ 2"}, 0, 2},
 		{"raise by one", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1"}, 0, 4},
+		{"a raise without Type$ reaches a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Amount$ 1"}, 0, 4},
+		{"a raise for activated abilities does not touch a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Activated | Amount$ 1"}, 0, 3},
 		{"raise a noncreature does not touch a creature", []string{"S:Mode$ RaiseCost | ValidCard$ Card.nonCreature | Type$ Spell | Amount$ 1"}, 0, 3},
 		{"raise then reduce", []string{
 			"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2",

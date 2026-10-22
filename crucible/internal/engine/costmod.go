@@ -153,7 +153,13 @@ const (
 // when everything is evaluable; with an unlisted param it is
 // costModUnresolvable.
 func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability) costModResult {
-	if t, ok := s.Param("Type"); !ok || t != "Spell" {
+	// An absent Type$ gates nothing (CostAdjustment.java:535-576): the line
+	// reaches spells and activations alike. ValidSpell$ Activated[.props] never
+	// holds for a spell (SpellAbility.java:2232).
+	if t, ok := s.Param("Type"); ok && t != "Spell" {
+		return costModSkips
+	}
+	if v, ok := s.Param("ValidSpell"); ok && strings.HasPrefix(v, "Activated") {
 		return costModSkips
 	}
 	if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), host.Controller(), host.ID) {

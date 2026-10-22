@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control amount parts event zone
+//enginelint:allow id card game ability defined condition control amount parts event zone effecthelpers
 
 import (
 	"fmt"
@@ -26,6 +26,9 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if liveReplacementEvent(g, "Explore") {
+		return fmt.Errorf("engine: Explore: Explore replacement effects not resolvable yet")
 	}
 	amount := 1
 	if raw, ok := a.Params.Param("Num"); ok {

@@ -20,12 +20,12 @@
 // one: which physical card's own draw-then-discard happens first never
 // changes any of their own outcomes, since each only ever reads its own
 // controller's hand. ReplacementType.Connive (a replacement effect keyed to
-// this API specifically) is not ported -- no real corpus card defines one,
-// so NotReplaced is the only real outcome regardless.
+// this API specifically) is not ported; the effect fails while one is live
+// (liveReplacementEvent), Leader Super-Genius being the one corpus line.
 
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount parts event zone turn discardeffect
+//enginelint:allow id card game player ability defined condition control amount parts event zone turn discardeffect effecthelpers
 
 import (
 	"fmt"
@@ -46,6 +46,9 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if liveReplacementEvent(g, "Connive") {
+		return fmt.Errorf("engine: Connive: Connive replacement effects not resolvable yet")
 	}
 
 	numParam, ok := a.Params.Param("ConniveNum")

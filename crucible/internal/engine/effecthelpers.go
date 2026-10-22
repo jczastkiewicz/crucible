@@ -205,6 +205,29 @@ func battlefieldReplacementEvent(g *Game, event string) bool {
 	return false
 }
 
+// liveReplacementEvent reports whether a permanent, or a card in a graveyard
+// or the command zone (ActiveZones$ Graveyard, Retriever Phoenix), has a
+// replacement effect for Event$ event.
+func liveReplacementEvent(g *Game, event string) bool {
+	if battlefieldReplacementEvent(g, event) {
+		return true
+	}
+	for _, pid := range g.Players() {
+		for _, z := range []ZoneType{Graveyard, Command} {
+			for _, id := range g.Zone(z, pid).Cards() {
+				for _, face := range g.Card(id).traitFaces() {
+					for _, r := range face.Replacements {
+						if v, ok := r.Param("Event"); ok && v == event {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // containsString reports whether list holds s.
 func containsString(list []string, s string) bool {
 	for _, v := range list {

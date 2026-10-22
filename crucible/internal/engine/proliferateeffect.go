@@ -24,6 +24,9 @@ func (proliferateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	if liveReplacementEvent(g, "Proliferate") {
+		return fmt.Errorf("engine: Proliferate: Proliferate replacement effects not resolvable yet")
+	}
 	num := 1
 	if raw, ok := a.Params.Param("Amount"); ok {
 		n, ok := resolveNamedAmount(g, a.Amounts, source, raw)

@@ -24,7 +24,7 @@ func (learnEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if battlefieldReplacementEvent(g, "Learn") {
+	if liveReplacementEvent(g, "Learn") {
 		return fmt.Errorf("engine: Learn: Learn replacement effects not resolvable yet")
 	}
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())

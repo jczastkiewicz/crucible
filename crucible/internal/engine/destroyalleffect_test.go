@@ -164,3 +164,37 @@ func TestDestroyAllMostProminentColor(t *testing.T) {
 		t.Errorf("red creature zone = %v, want Battlefield (red is not the most prominent)", z)
 	}
 }
+
+// TestSharesNameWithTargeted proves `sharesNameWith Targeted`
+// (CardProperty.java:818, AbilityUtils.java:146-151) as Winnow reads it: the
+// target is destroyed only when another permanent shares its name.
+func TestSharesNameWithTargeted(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		twin     bool
+		wantZone engine.ZoneType
+	}{{"twin in play", true, engine.Graveyard}, {"alone", false, engine.Battlefield}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			def := creatureDefPT(t, "2", "2")
+			target := g.NewCard(def, p, engine.Battlefield)
+			if tc.twin {
+				g.NewCard(def, p, engine.Battlefield)
+			}
+			c := engine.NewScriptedController()
+			_, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(target)},
+				"DB$ Destroy | ValidTgts$ Permanent | ConditionCheckSVar$ Check | ConditionSVarCompare$ GE2",
+				"Check", "Count$Valid Permanent.sharesNameWith Targeted")
+			if err != nil {
+				t.Fatal(err)
+			}
+			engine.CheckStateBasedActions(g, c)
+			if z := g.Card(target).Zone; z != tc.wantZone {
+				t.Errorf("target zone = %v, want %v", z, tc.wantZone)
+			}
+		})
+	}
+}

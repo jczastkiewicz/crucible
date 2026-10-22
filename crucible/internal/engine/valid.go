@@ -1840,6 +1840,21 @@ func (g *Game) sharesNameWithAny(c *Card, restriction string, sourceController P
 		return anyShares(cards)
 	case "Imprinted":
 		return anyShares(sc.Memory.Imprinted())
+	case "Targeted":
+		// AbilityUtils.java:146-151: every target of the chain
+		// (getAllTargetChoices), the resolving ability's own then its
+		// ancestors'.
+		a := g.resolving
+		if a == nil || a.Source != source {
+			break
+		}
+		var cards []CardID
+		for _, e := range append(append([]EntityID(nil), a.Targets...), a.parentTargets...) {
+			if id, isCard := e.AsCard(); isCard {
+				cards = append(cards, id)
+			}
+		}
+		return anyShares(cards)
 	}
 	// A Defined$ form this matcher cannot answer: matching nothing would hide
 	// the card's filter being ignored (GO-7).

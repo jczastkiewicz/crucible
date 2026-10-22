@@ -195,6 +195,8 @@ func expressionValue(g *Game, amounts map[string]expr.Amount, sourceController P
 		return namedAmount(g, amounts, sourceController, source, amt.Body, depth)
 	case amt.Head == "TriggerCount":
 		return g.triggerCount(source, amt.Body)
+	case amt.Head == "TriggerCountMax":
+		return g.triggerCountMax(source, amt.Body)
 	}
 	return 0, false
 }

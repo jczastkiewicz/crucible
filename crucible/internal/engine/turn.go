@@ -691,6 +691,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		// take this turn's before they reset.
 		p.drawnLastTurn, p.lifeLostLastTurn = p.CardsDrawnThisTurn, p.LifeLostThisTurn
 		p.scryThisTurn = 0
+		p.RollsThisTurn = 0
 		p.librarySearched = 0
 		p.CardsDrawnThisTurn = 0
 		p.DescendedThisTurn, p.descended = false, 0

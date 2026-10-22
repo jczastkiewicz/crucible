@@ -465,6 +465,15 @@ func (g *Game) triggerCount(source CardID, key string) (int, bool) {
 	return a.triggered.counts.count(key)
 }
 
+// triggerCountMax is `TriggerCountMax$<Key>`: triggerCount's largest value.
+func (g *Game) triggerCountMax(source CardID, key string) (int, bool) {
+	a := g.resolving
+	if a == nil || source == NoCard || a.Source != source {
+		return 0, false
+	}
+	return a.triggered.counts.countMax(key)
+}
+
 // optionalList is the paid list head names in rec: "Collected" or "Revealed".
 func optionalList(rec castOptional, head string) []CardID {
 	if head == "Collected" {

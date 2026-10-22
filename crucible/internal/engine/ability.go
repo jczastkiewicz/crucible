@@ -652,7 +652,10 @@ type triggeredObjects struct {
 type triggerCounts struct {
 	damage, life, amount, storm int
 	scryNum, scryBottom         int
-	set                         triggerCountKeys
+	// results are the dice a Mode$ RolledDie (one) or RolledDieOnce (all) saw:
+	// TriggerCount$Result sums them, TriggerCountMax$Result takes the highest.
+	results []int
+	set     triggerCountKeys
 }
 
 // triggerCountKeys is which triggerCounts fields were recorded.
@@ -664,6 +667,7 @@ const (
 	countAmount
 	countStorm
 	countScry
+	countResult
 )
 
 // count is the value of the AbilityKey name, and whether the trigger recorded
@@ -682,8 +686,29 @@ func (c triggerCounts) count(name string) (int, bool) {
 		return c.scryNum, c.set&countScry != 0
 	case "ScryBottom":
 		return c.scryBottom, c.set&countScry != 0
+	case "Result":
+		sum := 0
+		for _, r := range c.results {
+			sum += r
+		}
+		return sum, c.set&countResult != 0
 	}
 	return 0, false
+}
+
+// countMax is TriggerCountMax$<key> (AbilityUtils.java:645-648): the largest
+// of a recorded list, 0 for an empty one.
+func (c triggerCounts) countMax(name string) (int, bool) {
+	if name != "Result" {
+		return 0, false
+	}
+	top := 0
+	for i, r := range c.results {
+		if i == 0 || r > top {
+			top = r
+		}
+	}
+	return top, c.set&countResult != 0
 }
 
 // targetStamp is one card target's zoneStamp as recorded by stampTargets.

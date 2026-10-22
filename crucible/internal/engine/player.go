@@ -101,7 +101,10 @@ type Player struct {
 	// 305.2's own scope: any player who played a land this turn, and every
 	// game player's Game.onCleanupPhase in Java runs the same reset over
 	// every registered player).
-	LandsPlayed         int
+	LandsPlayed int
+	// RollsThisTurn is the dice this player has rolled this turn
+	// (Player.getNumRollsThisTurn), read by a RolledDie trigger's Number$.
+	RollsThisTurn       int
 	LandsPlayedLastTurn int
 	// CardsDrawnThisTurn is how many cards this player has drawn this turn
 	// (Java's own numDrawnThisTurn, Player.java), read by checkDrawnTriggers

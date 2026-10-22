@@ -30,8 +30,9 @@ var rollDiceUnresolvedParams = [...]string{
 // Every card that could change a roll -- a Monitor Monitor reroll,
 // Xenosquirrels/Night Shift increments, a RollDice replacement (roll twice
 // and ignore one, Vedalken exchange) -- fails the roll closed rather than
-// letting it land unmodified; Mode$ RolledDie/RolledDieOnce triggers are
-// not ported.
+// letting it land unmodified. Mode$ RolledDie/RolledDieOnce fire after the
+// dice are settled (rolleddie.go); a line with a param it does not read
+// (ValidSA$) refuses the roll.
 type rollDiceEffect struct{}
 
 func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -48,7 +49,7 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if diceModifierInPlay(g) {
 		return fmt.Errorf("engine: RollDice: a card that changes die rolls is in play, not resolvable yet")
 	}
-	if name, mode, found := g.rolledDieTriggerHost(); found {
+	if name, mode, found := g.rolledDieTriggerHost(true); found {
 		return fmt.Errorf("engine: RollDice: %q's Mode$ %s trigger not resolvable yet", name, mode)
 	}
 	amount, err := optionalAmount(g, a, "RollDice", "Amount", 1)
@@ -111,6 +112,7 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 	var rolls []int
 	for i := 0; i < amount; i++ {
 		rolls = append(rolls, int(g.rand.Int32n(int32(sides)))+1)
+		g.Player(pid).RollsThisTurn++
 	}
 	sort.Ints(rolls)
 	if ignore > len(rolls) {
@@ -155,6 +157,7 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 	if hasParam(a, "UseDifferenceBetweenRolls") && len(final) > 0 {
 		total = final[len(final)-1] - final[0]
 	}
+	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final)
 	bind := func(name string, v int) { a.Amounts = withAmount(a.Amounts, name, v) }
 	if hasParam(a, "EvenOddResults") {
 		bind("EvenResults", even)

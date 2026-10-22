@@ -3,7 +3,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability condition control zone trigger replacement effecthelpers statictrigger valid becomemonarcheffect
+//enginelint:allow id card game player ability condition control zone trigger replacement effecthelpers statictrigger valid becomemonarcheffect rolleddie
 
 import (
 	"fmt"
@@ -118,7 +118,7 @@ func (g *Game) planarDieRollResolvable() error {
 			return fmt.Errorf("engine: RollPlanarDice: %q's Event$ %s replacement not resolvable yet", name, event)
 		}
 	}
-	if name, mode, found := g.rolledDieTriggerHost(); found {
+	if name, mode, found := g.rolledDieTriggerHost(false); found {
 		return fmt.Errorf("engine: RollPlanarDice: %q's Mode$ %s trigger not resolvable yet", name, mode)
 	}
 	return nil
@@ -133,7 +133,7 @@ var rolledDieZones = [...]ZoneType{Battlefield, Command, Graveyard, Exile, Hand}
 // line is live where the card is: PlanarDice.roll runs both after
 // Mode$ PlanarDice (PlanarDice.java:77-88), neither is ported, and firing
 // neither would silently drop them.
-func (g *Game) rolledDieTriggerHost() (name, mode string, found bool) {
+func (g *Game) rolledDieTriggerHost(unsupportedOnly bool) (name, mode string, found bool) {
 	for _, pid := range g.Players() {
 		for _, z := range rolledDieZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -144,6 +144,9 @@ func (g *Game) rolledDieTriggerHost() (name, mode string, found bool) {
 				for face := range h.triggerFaces {
 					for _, t := range face.Triggers {
 						if !strings.EqualFold(t.Name, "RolledDie") && !strings.EqualFold(t.Name, "RolledDieOnce") {
+							continue
+						}
+						if unsupportedOnly && rolledDieTriggerSupported(t) {
 							continue
 						}
 						if rolledDieTriggerLiveIn(h, t, z) {

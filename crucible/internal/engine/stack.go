@@ -336,6 +336,9 @@ func (g *Game) moveResolvedSpellToGraveyard(controller PlayerController, a Abili
 	g.moveToGraveyard(controller, a.Source)
 	if a.spell {
 		g.checkSpellToGraveyardTriggers(controller, a.Source, fizzled)
+		if !g.Card(a.Source).IsCopiedSpell {
+			g.checkLeftZoneTriggers(controller, []CardID{a.Source}, Stack)
+		}
 	}
 }
 

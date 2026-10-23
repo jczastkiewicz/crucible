@@ -220,6 +220,12 @@ func TestNameCardAndNamedCard(t *testing.T) {
 	if got := g.Card(host2).Memory.NamedCards(); len(got) != 1 {
 		t.Errorf("random named = %v", got)
 	}
+	// AtRandom$ over the whole database (the Discord, Lord of Disharmony
+	// shape): the pool is every face passing ValidCards$, here the one nonland.
+	host3 := resolveLine(t, g, p, engine.NewScriptedController(), "DB$ NameCard | Defined$ You | ValidCards$ Card.nonLand | AtRandom$ True")
+	if got := g.Card(host3).Memory.NamedCards(); len(got) != 1 || got[0] != "Grizzly Bears" {
+		t.Errorf("whole-pool random named = %v, want Grizzly Bears", got)
+	}
 }
 
 func TestPreventDamageShield(t *testing.T) {

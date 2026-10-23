@@ -38,6 +38,7 @@ func (nameCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	}
 	_, random := a.Params.Param("AtRandom")
 	var names []string
+	wholePool := false
 	if raw, ok := a.Params.Param("ChooseFromDefinedCards"); ok {
 		if random {
 			// Java's defined branch ignores AtRandom$ for the pick yet skips
@@ -58,15 +59,17 @@ func (nameCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			names = append(names, n)
 		}
 	} else {
-		if random {
-			return fmt.Errorf("engine: NameCard: AtRandom$ over every card not resolvable yet")
-		}
 		spec, ok := a.Params.Param("ValidCards")
 		if !ok {
 			spec = "Card"
 		}
 		var err error
-		names, err = nameableCards(g, a, source, spec)
+		if random {
+			names, err = nameableFaces(g, a, source, spec)
+			wholePool = true
+		} else {
+			names, err = nameableCards(g, a, source, spec)
+		}
 		if err != nil {
 			return err
 		}
@@ -82,6 +85,8 @@ func (nameCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		chosen := ""
 		switch {
 		case len(names) == 0:
+		case random && wholePool:
+			chosen = g.reservoirName(names)
 		case random:
 			chosen = names[g.randomIndex(len(names))]
 		default:
@@ -206,4 +211,81 @@ func faceHasProperty(f *compile.Face, v string) bool {
 		return !faceHasProperty(f, rest)
 	}
 	return f.Type.HasStringType(v)
+}
+
+// nameableFaces is the whole-database pool of ChooseCardNameEffect.java:124-127
+// under AtRandom$: every face of every card (a back or split half too) passing
+// spec, in the case-insensitive name order CardDb.facesByName keeps
+// (CardDb.java:57, :1293). A primary face wins a name two cards share.
+// ExcludeChosen$ drops the host's earlier picks (:119-122).
+func nameableFaces(g *Game, a *Ability, source *Card, spec string) ([]string, error) {
+	if g.db.Len() == 0 {
+		return nil, fmt.Errorf("engine: NameCard: no card database to name from")
+	}
+	if strings.Contains(spec, "ManaCost=") {
+		return nil, fmt.Errorf("engine: NameCard: ValidCards$ %q not resolvable yet", spec)
+	}
+	if before, operand, ok := strings.Cut(spec, "cmcEQ"); ok {
+		if _, err := strconv.Atoi(operand); err != nil {
+			n, ok := resolveNamedAmount(g, a.Amounts, source, operand)
+			if !ok {
+				return nil, fmt.Errorf("engine: NameCard: cmcEQ%s not resolvable", operand)
+			}
+			spec = before + "cmcEQ" + strconv.Itoa(n)
+		}
+	}
+	faces := map[string]*compile.Face{}
+	primary := map[string]bool{}
+	var order []string
+	for _, cardName := range g.db.Names() {
+		c, _ := g.db.Card(cardName)
+		for i := range c.Faces {
+			f := &c.Faces[i]
+			fname := f.Name
+			if i == 0 && fname == "" {
+				fname = cardName
+			}
+			if fname == "" {
+				continue
+			}
+			key := strings.ToLower(fname)
+			isPrimary := i == 0
+			if _, seen := faces[key]; seen && (primary[key] || !isPrimary) {
+				continue
+			}
+			if _, seen := faces[key]; !seen {
+				order = append(order, fname)
+			}
+			faces[key], primary[key] = f, isPrimary
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool { return strings.ToLower(order[i]) < strings.ToLower(order[j]) })
+	_, exclude := a.Params.Param("ExcludeChosen")
+	var out []string
+	for _, name := range order {
+		if exclude && containsString(source.Memory.NamedCards(), name) {
+			continue
+		}
+		ok, err := faceValid(faces[strings.ToLower(name)], spec)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+// reservoirName is StreamUtil.random's size-one reservoir (StreamUtil.java:
+// 101-122): the first name is kept without a draw, the k-th later one replaces
+// it when nextInt(k) is zero, so a pool of n names costs n-1 draws.
+func (g *Game) reservoirName(names []string) string {
+	chosen := ""
+	for i, name := range names {
+		if i == 0 || g.rand.Int32n(int32(i+1)) == 0 {
+			chosen = name
+		}
+	}
+	return chosen
 }

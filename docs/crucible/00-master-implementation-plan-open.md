@@ -8,15 +8,15 @@ M0-M4 are done; M5-M6 are in progress, their landed work recorded per topic in
 
 ## Current state
 
-Measured with `crucible card-smoke -all` on 2026-10-23: 33,422 of 33,597 judged cards play (99.5%), 175 refuse, 0 panic, 0 hang; precons 99.7% of 8,651. All work happens in one session on `master`, pushed straight to `origin/master` through the commit hook; parallel `forge-oracle` research feeds the ports (CLAUDE.md, Subagents). Reason: two sessions on one backlog ported the same causes twice (Protection `Choser$`).
+Measured with `crucible card-smoke -all` on 2026-10-23: 33,431 of 33,597 judged cards play (99.5%), 166 refuse, 0 panic, 0 hang; precons 99.7% of 8,651. All work happens in one session on `master`, pushed straight to `origin/master` through the commit hook; parallel `forge-oracle` research feeds the ports (CLAUDE.md, Subagents). Reason: two sessions on one backlog ported the same causes twice (Protection `Choser$`).
 
-The 175 refusals by cause (154 distinct causes, most with one card):
+The 166 refusals by cause (145 distinct causes, most with one card):
 
 | Cards | Cause | Pack |
 | ---: | --- | --- |
 | 21 | `RaiseCost` statics with a non-mana `Cost$` (Behold, Sac, ExileFromHand, PayLife, Waterbend, Discard; 18 share one message) and the single lines that need the spell's `ValidTarget$`, `Flashback` or `ForEachShard$` | B3 |
 | 2 | `TgtZone$` on an API that never read it: GainOwnership (Ante, Darkpact), Airbend (Stack, Aang) | B2 |
-| 13 | ChangeZone params: `Foretold$` (2), `RandomOrder$`, `ImprintLast$`, `ReturnAbility$`, `StaticEffect$` forms, `Destination$`, `FaceDown$` with a hidden Origin | B4 |
+| 12 | ChangeZone params: `Foretold$` (2), `ImprintLast$`, `ReturnAbility$`, `StaticEffect$` forms, `Destination$`, `FaceDown$` with a hidden Origin | B4 |
 | 13 | as-it-enters replacement chains (Sacrifice, Discard, Draft, Effect, SetState, ChooseCard, GenericChoice, Animate): `Game.Move` rebuilds what an Animate or SetState wrote before the move, where Java keeps the same card object | B4 |
 | 13 | amounts that stay unresolved (`NumDmg$`, `LifeAmount$`, `TokenAmount$`, `ReduceCost` `TargetedController`, `DigNum$`) | B5 |
 | 4 | restrictions a valid string cannot evaluate (`sharesNameWith`, `SharesColorWith` forms) | B5 |

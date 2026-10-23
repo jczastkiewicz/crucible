@@ -1857,6 +1857,13 @@ func (g *Game) sharesNameWithAny(c *Card, restriction string, sourceController P
 		return anyShares(cards)
 	case "Imprinted":
 		return anyShares(sc.Memory.Imprinted())
+	case "Self":
+		// CardProperty.java:864-869 reads Defined$ Self, the host: the bare
+		// form's own test (Marvin, Murderous Mimic).
+		return anyShares([]CardID{sc.ID})
+	case "ChosenCard":
+		// AbilityUtils.java:276-279: the host's chosen cards (Stroke of Luck).
+		return anyShares(sc.Memory.Chosen())
 	case "Targeted":
 		// AbilityUtils.java:146-151: every target of the chain
 		// (getAllTargetChoices), the resolving ability's own then its
@@ -2077,6 +2084,13 @@ func sharesColorWithRestriction(g *Game, c *Card, source CardID, restriction str
 		// recorded.
 		g.recordPendingError(fmt.Errorf("engine: SharesColorWith ActivationColor: the first mana paid is not recorded for a mixed payment"))
 		return false
+	}
+	if restriction == "Equipped" {
+		// CardProperty.java:687-691 over Defined$ Equipped (AbilityUtils.java:
+		// 96-97, 315-317): the creature the host equips, itself included (no
+		// Other exclusion, Konda's Banner); an unattached host gives none.
+		id, attached := sc.AttachedTo()
+		return attached && c.Colors().HasAny(g.Card(id).Colors())
 	}
 	if restriction == "MostProminentColor" {
 		// CardProperty.java:656-660.

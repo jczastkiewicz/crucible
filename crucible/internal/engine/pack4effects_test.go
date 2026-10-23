@@ -388,3 +388,82 @@ func TestChooseSourceSharesColorWithOtherFormsRefused(t *testing.T) {
 		t.Error("an unreadable SharesColorWith form resolved, want an error")
 	}
 }
+
+// renamedCreature is a creature card whose name is name, for the sharesNameWith
+// tests.
+func renamedCreature(t *testing.T, name string) *compile.Card {
+	t.Helper()
+	def := creatureDefPT(t, "1", "1")
+	def.Name = name
+	def.Faces[0].Name = name
+	return def
+}
+
+// TestValidSharesNameWithSelfAndChosenCard proves the two Defined$ forms a
+// valid string answers from the host alone: `sharesNameWith Self` (Marvin,
+// Murderous Mimic) is the bare form's own test against the host
+// (CardProperty.java:864-869, AbilityUtils.java:82-83), and `sharesNameWith
+// ChosenCard` reads the host's chosen cards (Stroke of Luck,
+// AbilityUtils.java:276-279).
+func TestValidSharesNameWithSelfAndChosenCard(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, spec string
+		choose     bool
+	}{
+		{"self", "Creature.sharesNameWith Self", false},
+		{"chosen card", "Creature.sharesNameWith ChosenCard", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			host := pushPlayLine(t, g, p, nil, "DB$ DestroyAll | ValidCards$ "+tc.spec)
+			sameName := g.NewCard(renamedCreature(t, "Test Play Host"), p, engine.Battlefield)
+			other := g.NewCard(renamedCreature(t, "Someone Else"), p, engine.Battlefield)
+			if tc.choose {
+				chosen := g.NewCard(renamedCreature(t, "Test Play Host"), p, engine.Exile)
+				g.Card(host).Memory.Choose(chosen)
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+				t.Fatal(err)
+			}
+			if g.Card(sameName).Zone != engine.Graveyard {
+				t.Errorf("the creature sharing the name is in %v, want the graveyard", g.Card(sameName).Zone)
+			}
+			if g.Card(other).Zone != engine.Battlefield {
+				t.Errorf("the creature with another name is in %v, want the battlefield", g.Card(other).Zone)
+			}
+		})
+	}
+}
+
+// TestValidSharesColorWithEquippedIncludesTheEquippedCreature proves
+// `SharesColorWith Equipped` (Konda's Banner): the creatures sharing a color
+// with the host's equipped creature, the equipped one included
+// (CardProperty.java:687-691, AbilityUtils.java:96-97); an unattached host
+// matches none.
+func TestValidSharesColorWithEquippedIncludesTheEquippedCreature(t *testing.T) {
+	t.Parallel()
+
+	for _, attached := range []bool{true, false} {
+		g, p, other := newTwoPlayerGame(t)
+		host := pushPlayLine(t, g, p, nil, "DB$ DestroyAll | ValidCards$ Creature.SharesColorWith Equipped")
+		equipped := g.NewCard(creatureDefManaCost(t, "1 R"), p, engine.Battlefield)
+		red := g.NewCard(creatureDefManaCost(t, "R R"), other, engine.Battlefield)
+		blue := g.NewCard(creatureDefManaCost(t, "U"), other, engine.Battlefield)
+		if attached {
+			g.Attach(host, equipped)
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+			t.Fatal(err)
+		}
+		wantRedDead := attached
+		if (g.Card(equipped).Zone == engine.Graveyard) != wantRedDead || (g.Card(red).Zone == engine.Graveyard) != wantRedDead {
+			t.Errorf("attached %v: equipped in %v, red in %v, want both destroyed only when attached", attached, g.Card(equipped).Zone, g.Card(red).Zone)
+		}
+		if g.Card(blue).Zone != engine.Battlefield {
+			t.Errorf("attached %v: the blue creature is in %v, want the battlefield", attached, g.Card(blue).Zone)
+		}
+	}
+}

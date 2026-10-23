@@ -304,3 +304,48 @@ func TestDigEffectWithTotalCMCStopsAtTheBudget(t *testing.T) {
 		t.Errorf("a card beyond the budget entered the battlefield")
 	}
 }
+
+// TestDigEffectWithCountersAndStaticEffectOnTheCardPutOntoTheBattlefield
+// proves WithCounters$ and StaticEffect$ (Arbiter of the Ideal): the dug card
+// enters with the counter and takes the static the SVar names.
+func TestDigEffectWithCountersAndStaticEffectOnTheCardPutOntoTheBattlefield(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	top := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{top})
+	def := etbChainDef(t, "Test Dig Counters",
+		"DB$ Dig | DigNum$ 1 | ChangeValid$ Creature | DestinationZone$ Battlefield | WithCounters$ MANIFESTATION | StaticEffect$ Anim",
+		"Anim", "Mode$ Continuous | Affected$ Card.IsRemembered | SetPower$ 5 | SetToughness$ 5")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(top).Counters.Count("MANIFESTATION"); got != 1 {
+		t.Errorf("MANIFESTATION counters = %d, want 1", got)
+	}
+	if pw, _ := g.Card(top).Power(); pw != 5 {
+		t.Errorf("power = %d, want 5 from the static", pw)
+	}
+}
+
+// TestDigEffectSourceZoneReadsThatZoneInsteadOfTheLibrary proves SourceZone$
+// (Susan Foreman's planar deck): the top cards come from the named zone.
+func TestDigEffectSourceZoneReadsThatZoneInsteadOfTheLibrary(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	libraryCards(t, g, p, 2)
+	planar := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Graveyard)
+
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{planar})
+	def := etbChainDef(t, "Test Dig Source", "DB$ Dig | DigNum$ 1 | SourceZone$ Graveyard | ChangeValid$ Creature | DestinationZone$ Hand")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(planar).Zone; z != engine.Hand {
+		t.Errorf("zone = %v, want Hand", z)
+	}
+}

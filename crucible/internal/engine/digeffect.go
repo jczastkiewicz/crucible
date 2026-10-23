@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove
+//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove changezonestatic
 
 import (
 	"fmt"
@@ -14,11 +14,9 @@ import (
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"SourceZone",
 	"ForEachColorPair", "WithDifferentPowers", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCounters", "WithCountersAmount",
-	"DefinedExiler", "StaticEffect",
+	"DefinedExiler",
 }
 
 // digEffect is DigEffect.java: each Defined$/ValidTgts$ player (default
@@ -53,6 +51,10 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		return fmt.Errorf("engine: Dig: DigNum$ %q not resolvable yet", digRaw)
 	}
 	dest1, err := digZoneParam(a, "DestinationZone", Hand)
+	if err != nil {
+		return err
+	}
+	srcZone, err := digZoneParam(a, "SourceZone", Library)
 	if err != nil {
 		return err
 	}
@@ -99,6 +101,25 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		return fmt.Errorf("engine: Dig: %w", err)
 	}
 	var moved1, moved2 []CardID
+	// StaticEffect$ is applied by the moves themselves (GameAction.setupStaticEffect,
+	// :679-730); WithCounters$ puts counters on a card entering the battlefield
+	// (DigEffect.java:389-405), the activator placing them.
+	staticTmpl, err := changeZoneStaticTemplate(g, a)
+	if err != nil {
+		return err
+	}
+	var enter []enterCounters
+	if kind, ok := a.Params.Param("WithCounters"); ok {
+		n := 1
+		if raw, ok := a.Params.Param("WithCountersAmount"); ok {
+			if n, ok = resolveNamedAmount(g, a.Amounts, source, raw); !ok {
+				return fmt.Errorf("engine: Dig: WithCountersAmount$ %q not resolvable yet", raw)
+			}
+		}
+		if dest1 == Battlefield {
+			enter = []enterCounters{{kind: CounterType(strings.ToUpper(strings.TrimSpace(kind))), n: n, placer: a.Controller}}
+		}
+	}
 	// ExileWithCounters$ (DigEffect.java:414, :472): one counter of the named
 	// kind on each card exiled, placed by the activator through the dig's
 	// counter table, which is flushed once every card has moved (:490).
@@ -109,7 +130,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		if g.Player(p).Lost {
 			continue
 		}
-		library := g.Zone(Library, p).Cards()
+		library := g.Zone(srcZone, p).Cards()
 		n := digNum
 		if n > len(library) {
 			n = len(library)
@@ -240,8 +261,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			if err != nil {
 				return fmt.Errorf("engine: Dig: %w", err)
 			}
-			melded := g.moveByEffect(controller, id, dest1, libPos1, NoPlayer, tapped)
+			melded := g.moveByEffect(controller, id, dest1, libPos1, NoPlayer, tapped, enter...)
 			g.changeZoneLeftCombat(id, joined)
+			g.applyChangeZoneStatic(staticTmpl, id)
 			if dest1 == Exile {
 				g.markExiledWith(id, a.Source)
 				if hasExileCounter {
@@ -288,6 +310,7 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 		}
 		for _, id := range rest {
 			melded := g.moveByEffect(controller, id, dest2, libPos2, NoPlayer, false)
+			g.applyChangeZoneStatic(staticTmpl, id)
 			if dest2 == Exile {
 				g.markExiledWith(id, a.Source)
 				if hasExileCounter {
@@ -303,8 +326,8 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			}
 		}
 	}
-	g.checkChangesZoneAllTriggers(controller, moved1, Library, dest1)
-	g.checkChangesZoneAllTriggers(controller, moved2, Library, dest2)
+	g.checkChangesZoneAllTriggers(controller, moved1, srcZone, dest1)
+	g.checkChangesZoneAllTriggers(controller, moved2, srcZone, dest2)
 	for _, id := range counterTable {
 		g.addCardCounters(controller, a.Controller, a.Source, id, CounterType(strings.ToUpper(exileCounter)), 1)
 	}

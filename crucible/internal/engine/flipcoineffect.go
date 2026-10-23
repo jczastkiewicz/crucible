@@ -20,17 +20,17 @@ import (
 // RememberResult$ (NoCall$ only) records each flipper's result for Defined$
 // FlippedHeads/FlippedTails until Cleanup's ClearCoinFlips$; RememberNumber$
 // Wins/Losses remembers the count as a number once the sub-abilities ran.
-// ForEachPlayer$ fails closed, as does
-// any flip while a FlipCoinMod/FlipCoinDoubler static (Krark's Thumb, a
+// ForEachPlayer$ (without NoCall$) makes each flipper flip once per player
+// it names, Amount$ unread, and resolves WinSubAbility$/LoseSubAbility$ once
+// with Remembered set to the players won or lost for (SVar Wins/Losses the
+// counts). A flip
+// fails closed while while a FlipCoinMod/FlipCoinDoubler static (Krark's Thumb, a
 // fixed result) is in play: this port evaluates neither static's
 // conditions nor the chooseFlipResult decision a doubled flip needs.
 type flipCoinEffect struct{}
 
 func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "FlipCoin", "ForEachPlayer"); err != nil {
 		return err
 	}
 	if flipCoinModInPlay(g) {
@@ -59,7 +59,14 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		varName = "X"
 	}
 
+	forEach, hasForEach := a.Params.Param("ForEachPlayer")
 	for _, flipper := range flippers {
+		if hasForEach && !noCall {
+			if err := g.flipForEachPlayer(a, controller, flipper, forEach); err != nil {
+				return err
+			}
+			continue
+		}
 		wins := 0
 		for {
 			won := false
@@ -128,6 +135,52 @@ func (flipCoinEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		}
 		if amount > 0 {
 			g.checkFlippedCoinOnceTriggers(controller, flipper)
+		}
+	}
+	return nil
+}
+
+// flipForEachPlayer is FlipCoinEffect.java:92-129: flipper calls and flips
+// once for each ForEachPlayer$ player; the win sub-ability runs with the
+// players won for as the host's only Remembered, the lose one with those
+// lost for, then the host's own memory comes back.
+func (g *Game) flipForEachPlayer(a *Ability, controller PlayerController, flipper PlayerID, spec string) error {
+	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: FlipCoin: %w", err)
+	}
+	var wonFor, lostFor []PlayerID
+	for _, p := range players {
+		call := controller.CallCoinFlip(g, flipper, a.Source)
+		won := g.rand.Bool() == call
+		g.checkFlippedCoinTriggers(controller, flipper, won)
+		g.checkFlippedCoinOnceTriggers(controller, flipper)
+		if won {
+			wonFor = append(wonFor, p)
+		} else {
+			lostFor = append(lostFor, p)
+		}
+	}
+	source := g.Card(a.Source)
+	for _, side := range [...]struct {
+		key, name string
+		set       []PlayerID
+	}{{"WinSubAbility", "Wins", wonFor}, {"LoseSubAbility", "Losses", lostFor}} {
+		if len(side.set) == 0 {
+			continue
+		}
+		saved := source.Memory.Remembered()
+		source.Memory.ClearRemembered()
+		for _, p := range side.set {
+			source.Memory.Remember(PlayerEntity(p))
+		}
+		err := g.resolveFlipSub(a, controller, side.key, side.name, len(side.set))
+		source.Memory.ClearRemembered()
+		for _, e := range saved {
+			source.Memory.Remember(e)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil

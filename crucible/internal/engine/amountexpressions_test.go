@@ -678,3 +678,35 @@ func TestUniqueManaColorsProducedCountsUntappedSources(t *testing.T) {
 		})
 	}
 }
+
+// TestListChromaSourceNamesAColor proves the per-card measure
+// ChromaSource.<Color> (Fiery Bombardment's Sacrificed$ChromaSource.Red): the
+// named color's symbols in each listed card's own cost, summed; the bare form
+// counts every color (AbilityUtils.java:2703-2720).
+func TestListChromaSourceNamesAColor(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		x    string
+		want int
+	}{
+		{"Remembered$ChromaSource.Red", 3},
+		{"Remembered$ChromaSource.Green", 1},
+		{"Remembered$ChromaSource", 4},
+	} {
+		t.Run(tc.x, func(t *testing.T) {
+			t.Parallel()
+			g, p, other := newTwoPlayerGame(t)
+			g.NewCard(creatureDefManaCost(t, "1 R R"), other, engine.Battlefield)
+			g.NewCard(creatureDefManaCost(t, "R G"), other, engine.Battlefield)
+			g.NewCard(creatureDefManaCost(t, "2"), other, engine.Battlefield)
+			before := g.Player(p).Life
+			resolveLine(t, g, p, engine.NewScriptedController(),
+				"DB$ DestroyAll | ValidCards$ Creature.OppCtrl | RememberDestroyed$ True | SubAbility$ DBGain",
+				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X", "X", tc.x)
+			if got := g.Player(p).Life - before; got != tc.want {
+				t.Errorf("gained %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

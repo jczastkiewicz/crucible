@@ -480,19 +480,15 @@ func liveCardMeasure(head string) (func(*Card) (int, bool), bool) {
 	case "CardNumColors":
 		return func(c *Card) (int, bool) { return c.Colors().Count(), true }, true
 	case "ChromaSource":
-		// AbilityUtils.java:2703-2720 with the card itself as the list and no
-		// color named (ManaAtom.ALL_MANA_COLORS): its colored mana symbols.
-		return func(c *Card) (int, bool) {
-			n := 0
-			if c.Def != nil {
-				for _, s := range c.manaCost().Shards() {
-					if s.Colors().HasAny(mana.AllColors) {
-						n++
-					}
-				}
-			}
-			return n, true
-		}, true
+		return chromaSourceMeasure(mana.AllColors), true
+	}
+	// ChromaSource.<Color>: the same with one named color (ManaAtom.fromName).
+	if name, ok := strings.CutPrefix(head, "ChromaSource."); ok {
+		color, ok := manaAtomColor(name)
+		if !ok {
+			return nil, false
+		}
+		return chromaSourceMeasure(color), true
 	}
 	if m, ok := perCardMeasure(head); ok {
 		return func(c *Card) (int, bool) { return m(c), true }, true
@@ -621,4 +617,21 @@ func (g *Game) presenceCount(sourceController PlayerID, source CardID, typ strin
 		}
 	}
 	return no, true
+}
+
+// chromaSourceMeasure is AbilityUtils.java:2703-2720 with the card itself as
+// the list: the mana symbols of its own cost whose colors intersect mask
+// (ManaAtom.ALL_MANA_COLORS when no color is named).
+func chromaSourceMeasure(mask mana.Colors) func(*Card) (int, bool) {
+	return func(c *Card) (int, bool) {
+		n := 0
+		if c.Def != nil {
+			for _, s := range c.manaCost().Shards() {
+				if s.Colors().HasAny(mask) {
+					n++
+				}
+			}
+		}
+		return n, true
+	}
 }

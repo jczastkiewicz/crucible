@@ -217,6 +217,9 @@ type Game struct {
 	// came off, waiting for the next state-based action check to stack them
 	// (counterremoved.go).
 	pendingCounterRemoved []Ability
+	// crewedThisTurn lists the host of every Crew ability resolved this turn
+	// (Card.timesCrewedThisTurn, FirstTimeCrewed$ counts it).
+	crewedThisTurn []CardID
 	// enteredThisTurn is every zone change this turn, as the card stood in
 	// the zone it entered (a battlefield entry) or left (any other), and
 	// countersAddedThisTurn every counter placement (castrecord.go); both

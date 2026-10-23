@@ -8,7 +8,7 @@ import (
 )
 
 // TestEffectsRefuseWhileTheirReplacementEventIsLive proves Connive, Explore,
-// Proliferate and Learn fail while a replacement for their event is in
+// Proliferate, Learn, AssembleContraption and Tap fail while a replacement for their event is in
 // play, instead of ignoring it (GO-7). Learn's host sits in a graveyard
 // (ActiveZones$ Graveyard, Retriever Phoenix).
 func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
@@ -22,6 +22,8 @@ func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 		{"Explore", "DB$ Explore | Defined$ Self", engine.Battlefield},
 		{"Proliferate", "DB$ Proliferate", engine.Battlefield},
 		{"Learn", "DB$ Learn", engine.Graveyard},
+		{"AssembleContraption", "DB$ AssembleContraption", engine.Battlefield},
+		{"Tap", "DB$ Tap | Defined$ Self", engine.Battlefield},
 	}
 	for _, tt := range tests {
 		t.Run(tt.event, func(t *testing.T) {

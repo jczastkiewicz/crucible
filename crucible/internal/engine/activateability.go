@@ -385,6 +385,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		Params: ability, Amounts: c.abilityAmounts(ability), costPaid: true, activated: true,
 		activationIndex: index + 1,
 	}
+	activated.crew = keyword.Parse(ability.Keyword).Name == "Crew"
 	// CR 602.2b / 601.2c: modes and targets are chosen before any cost is paid
 	// (PlaySpellAbility.java:675-683 runs setupTargets ahead of CostPayment), so
 	// an ability with no legal target costs nothing. Feasibility of every cost
@@ -526,6 +527,11 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	case "Saddle":
 		if c.Type().HasSubtype("Mount") {
 			held = append(held, g.crewedMatches(&activated, "Saddled")...)
+		}
+	case "Station":
+		// MagicStack.java:420-427.
+		if c.Type().HasSubtype("Spacecraft") || c.Type().HasSubtype("Planet") {
+			held = append(held, g.crewedMatches(&activated, "Stationed")...)
 		}
 	}
 	g.pushTriggeredAbilities(controller, held)

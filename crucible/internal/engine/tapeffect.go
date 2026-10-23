@@ -70,6 +70,11 @@ func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
+	// Ood Sphere's Event$ Tap | Layer$ CantHappen replacement (Card.java:4787)
+	// is not dispatched: refuse, GO-7.
+	if liveReplacementEvent(g, "Tap") {
+		return fmt.Errorf("engine: Tap: Tap replacement effects not resolvable yet")
+	}
 	for _, key := range tapUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Tap: %s$ not resolvable yet", key)

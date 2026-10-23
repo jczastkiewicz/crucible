@@ -173,3 +173,59 @@ func TestManaExpendFiresAsSpentManaCrossesAmount(t *testing.T) {
 	}
 	_ = other
 }
+
+// Mode$ BecomesCrewed fires once as the Crew ability resolves (not per
+// crewer); FirstTimeCrewed$ holds only for the first crew of the turn.
+func TestBecomesCrewedFiresOncePerCrewAndFirstTimeOnlyFirst(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	vehicle := g.NewCard(scriptDef(t, "Test Vehicle", "Artifact Vehicle", "K:Crew:1",
+		"T:Mode$ BecomesCrewed | ValidCard$ Card.Self | Execute$ TrigEach | TriggerZones$ Battlefield",
+		"T:Mode$ BecomesCrewed | ValidCard$ Card.Self | FirstTimeCrewed$ True | Execute$ TrigFirst | TriggerZones$ Battlefield",
+		"SVar:TrigEach:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+		"SVar:TrigFirst:DB$ GainLife | Defined$ You | LifeAmount$ 10"), p, engine.Battlefield)
+	crewers := tappedCreatures(t, g, p, 2)
+	for _, id := range crewers {
+		g.Card(id).Tapped = false
+	}
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	for i, id := range crewers {
+		c.QueueCardChoice([]engine.CardID{id})
+		if !g.ActivateAbility(p, vehicle, 0, c) {
+			t.Fatalf("Crew %d could not be activated", i)
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+	}
+
+	// Crew 1: 1 + 10; crew 2: 1.
+	if got := g.Player(p).Life - before; got != 12 {
+		t.Errorf("gained %d, want 12", got)
+	}
+}
+
+// Mode$ UntapAll fires once for the permanents the untap step untapped.
+func TestUntapAllFiresOnceForTheUntapStep(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(scriptDef(t, "Test Calendar", "Artifact",
+		"T:Mode$ UntapAll | ValidCards$ Permanent | ValidPlayer$ You | Phase$ Untap | PlayerTurn$ True | TriggerZones$ Battlefield | Execute$ TrigGain",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 7"), p, engine.Battlefield)
+	tappedCreatures(t, g, p, 3)
+	c := engine.NewScriptedController()
+	before := g.Player(p).Life
+
+	g.StartTurn(p, c)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life - before; got != 7 {
+		t.Errorf("gained %d, want 7 (one run for three untapped creatures)", got)
+	}
+}

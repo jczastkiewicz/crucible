@@ -57,6 +57,10 @@ func (animateEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := g.incorporateInto(a, "Animate", cards); err != nil {
 		return err
 	}
+	if a.crew {
+		// AnimateEffect.java:203-205.
+		g.becomesCrewed(controller, a)
+	}
 	// AnimateEffect.java:194-201: each animated card remembers RememberObjects$'
 	// objects and imprints ImprintCards$' cards, read with the host as source.
 	remember, hasRemember := a.Params.Param("RememberObjects")

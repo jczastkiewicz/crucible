@@ -323,6 +323,9 @@ type Ability struct {
 	// pushes through pushTriggeredAbilities for its targets: it is not a
 	// trigger (isTrigger stays false).
 	activated bool
+	// crew marks the activation of a Crew keyword ability (SpellAbility.isCrew),
+	// whose resolution fires BecomesCrewed.
+	crew bool
 	// targetsChosen marks an ability whose modes and targets were chosen before
 	// its costs were paid (chooseAbilityTargets): pushTriggeredAbilities pushes
 	// it as is.

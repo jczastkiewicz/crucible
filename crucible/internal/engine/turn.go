@@ -123,6 +123,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.castThisTurn = nil
 			// MagicStack.java:968: thisTurnActivated.clear().
 			g.activatedThisTurn = nil
+			g.crewedThisTurn = nil
 			g.resetCharmModesTurn()
 			for _, pid := range g.Players() {
 				g.Player(pid).SpellsCastThisTurn = 0
@@ -458,6 +459,7 @@ func (g *Game) untapStep(controller PlayerController) {
 			canUntap = append(canUntap, id)
 		}
 	}
+	var untapped []CardID
 	for _, id := range g.untapCandidates(controller, g.activePlayer, canUntap) {
 		c := g.Card(id)
 		wasTapped := c.Tapped
@@ -468,6 +470,7 @@ func (g *Game) untapStep(controller PlayerController) {
 		}
 		if untaps && wasTapped {
 			g.untapCard(controller, id)
+			untapped = append(untapped, id)
 		}
 	}
 	// Untap.java:154-157: another player's tapped permanent a Mode$
@@ -482,9 +485,12 @@ func (g *Game) untapStep(controller PlayerController) {
 			c := g.Card(id)
 			if c.Tapped && g.untapOtherPlayerAllows(c, g.activePlayer) && !g.untapReplaceBlocked(c, g.activePlayer) {
 				g.untapCard(controller, id)
+				untapped = append(untapped, id)
 			}
 		}
 	}
+	// Untap.java:170-173: UntapAll once for the whole step.
+	g.pushTriggeredAbilities(controller, g.untapAllMatches(g.activePlayer, untapped))
 	g.endNextUntapStepKeyword()
 }
 

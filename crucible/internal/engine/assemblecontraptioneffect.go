@@ -41,6 +41,11 @@ func (assembleContraptionEffect) Resolve(g *Game, a *Ability, controller PlayerC
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
+	// Steamflogger Boss's Event$ AssembleContraption replacement
+	// (AssembleContraptionEffect.java:135) is not dispatched: refuse, GO-7.
+	if liveReplacementEvent(g, "AssembleContraption") {
+		return fmt.Errorf("engine: AssembleContraption: AssembleContraption replacement effects not resolvable yet")
+	}
 
 	amount := 1
 	if v, ok := a.Params.Param("Amount"); ok {

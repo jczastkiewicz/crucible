@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // TestDomainCountUsesControllerNotOwner is a regression test for a bug the
@@ -89,5 +90,26 @@ func TestDevotionAndChromaCountUseControllerNotOwner(t *testing.T) {
 		t.Errorf("P/T after steal = (%d,%v)/(%d,%v), want (4,true)/(4,true) -- p now controls the stolen BB "+
 			"creature, still owned by other, and Count$Devotion/Count$Chroma must count what p controls, not "+
 			"what p owns", pw, pok, tw, tok)
+	}
+}
+
+// TestDevotionChosenReadsTheHostsChosenColor proves Count$Devotion.Chosen
+// (Nykthos, Shrine to Nyx): the chosen color's symbols among what the
+// controller controls, so ChooseColor red then Mana Amount$ X makes one {R}
+// per red symbol (AbilityUtils.java:1924-1941).
+func TestDevotionChosenReadsTheHostsChosenColor(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(creatureDefManaCost(t, "1 R R"), p, engine.Battlefield)
+	g.NewCard(creatureDefManaCost(t, "B R"), p, engine.Battlefield)
+	g.NewCard(creatureDefManaCost(t, "G G"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueColorChoice(mana.Red)
+	resolveLine(t, g, p, c,
+		"DB$ ChooseColor | Defined$ You | SubAbility$ DBMana",
+		"DBMana", "DB$ Mana | Produced$ Chosen | Amount$ X", "X", "Count$Devotion.Chosen")
+	if got := g.Player(p).ManaPool.Breakdown()[3]; got != 3 {
+		t.Errorf("red mana = %d, want 3 (one per red symbol)", got)
 	}
 }

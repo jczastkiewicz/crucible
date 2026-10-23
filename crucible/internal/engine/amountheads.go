@@ -532,7 +532,7 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	case "DomainActivePlayer":
 		return domainCount(g, g.ActivePlayer()), true
 	case "Devotion", "DevotionDual":
-		return devotionCount(g, sourceController, count)
+		return devotionCount(g, sourceController, source, count)
 	case "Chroma":
 		return chromaCount(battlefieldControlledBy(g, sourceController), g, count.Parameters)
 	case "ChromaInGrave":
@@ -583,10 +583,10 @@ func domainCount(g *Game, pid PlayerID) int {
 // symbol of the named color(s) in the mana costs of permanents pid controls
 // (ManaCostShard.isColor -- a symbol counts once if any of its colors is in
 // the mask, so a hybrid symbol counts once even toward a dual devotion),
-// plus Player.getDevotionMod (devotionMod). A color written as "Chosen..."
-// (the host's own chosen color) or one ManaAtom.fromName would not read as a
-// color at all reports false.
-func devotionCount(g *Game, pid PlayerID, count expr.Count) (int, bool) {
+// plus Player.getDevotionMod (devotionMod). "Chosen" is the host's own chosen
+// color; an unset one, or a color ManaAtom.fromName would not read as a color
+// at all, reports false.
+func devotionCount(g *Game, pid PlayerID, source CardID, count expr.Count) (int, bool) {
 	want := 2
 	if count.Head == "Devotion" {
 		want = 1
@@ -596,6 +596,15 @@ func devotionCount(g *Game, pid PlayerID, count expr.Count) (int, bool) {
 	}
 	var mask mana.Colors
 	for _, name := range count.Parameters[:want] {
+		if name == "Chosen" {
+			// AbilityUtils.java:1927-1929: the host's chosen color. Java reads
+			// an unset one as {C} (toShortString of ""); this port refuses.
+			if source == NoCard || g.Card(source).Memory.ChosenColors().IsColorless() {
+				return 0, false
+			}
+			mask |= g.Card(source).Memory.ChosenColors()
+			continue
+		}
 		c, ok := manaAtomColor(name)
 		if !ok {
 			return 0, false

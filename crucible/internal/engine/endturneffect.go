@@ -44,6 +44,7 @@ func (endTurnEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	g.endCombat()
 	CheckStateBasedActions(g, controller)
 	g.extraPhases = [numPhaseTypes][]extraPhase{}
+	g.endingPhase = g.activePhase
 	g.activePhase = Cleanup
 	priority, err := g.beginStep(controller, false)
 	if err != nil {

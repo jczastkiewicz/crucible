@@ -58,6 +58,9 @@ type poolUnit struct {
 	// restrict is the mana ability's RestrictValid$ (ADR-0046): what the unit
 	// may pay for, "" for none.
 	restrict string
+	// combat marks mana from a CombatMana$ ability: it survives every phase
+	// end but COMBAT_END (ManaPool.clearPool, ManaPool.java:151-158).
+	combat bool
 }
 
 // Pool buckets, the index order of counters and SnowBreakdown.
@@ -255,6 +258,24 @@ func (p *Pool) convertTo(color mana.Colors, colorless bool) {
 			p.units[i].bucket = uint8(to)
 		}
 	}
+}
+
+// emptyKeepingCombat is Empty for a phase end that spares combat mana
+// (ManaPool.clearPool, ManaPool.java:151-158: isCombatMana units stay while
+// the phase is not COMBAT_END). The kept units keep their order; the
+// counters are rebuilt from them.
+func (p *Pool) emptyKeepingCombat() {
+	var kept []poolUnit
+	for _, u := range p.units {
+		if u.combat {
+			kept = append(kept, u)
+		}
+	}
+	*p = Pool{}
+	for _, u := range kept {
+		*p.counters()[u.bucket]++
+	}
+	p.units = kept
 }
 
 // Empty clears the pool -- CR 500.4, run once per phase/step transition

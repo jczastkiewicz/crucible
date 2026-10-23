@@ -161,6 +161,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.sink.Emit(Event{Kind: TurnBegan, Active: g.activePlayer, Turn: uint16(g.turn)})
 		}
 	}
+	g.endingPhase = g.activePhase
 	g.activePhase = next
 	// Event$ BeginPhase replacements (replacementevents.go) before the
 	// one-shot skips, so a static skip leaves a SkipPhase effect unspent.
@@ -399,7 +400,11 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 			pool.convertTo(color, colorless)
 			continue
 		}
-		pool.Empty()
+		if g.endingPhase == CombatEnd || g.endingPhase == Cleanup {
+			pool.Empty()
+		} else {
+			pool.emptyKeepingCombat()
+		}
 	}
 }
 

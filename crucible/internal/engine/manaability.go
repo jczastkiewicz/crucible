@@ -108,6 +108,11 @@ func (p *Pool) addProduced(m producedMana, src manaSource) {
 		b += bucketSnow
 	}
 	p.addRestrictedUnits(b, m.amount, src, m.restrict)
+	if m.combat {
+		for i := len(p.units) - m.amount; i < len(p.units); i++ {
+			p.units[i].combat = true
+		}
+	}
 }
 
 // manaSourceOf is card as the source of mana its ability is about to make:

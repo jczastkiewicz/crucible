@@ -25,6 +25,7 @@ func (endCombatPhaseEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 	g.exileStack(controller)
 	g.endCombat()
 	CheckStateBasedActions(g, controller)
+	g.endingPhase = g.activePhase
 	g.activePhase = CombatEnd
 	g.AdvancePhase(controller)
 	return nil

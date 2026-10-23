@@ -689,3 +689,33 @@ func TestPlayCopyFromChosenNameCastsATokenCopyOfTheNamedCard(t *testing.T) {
 		t.Errorf("life %d, want 23 from the copy of the named card", g.Player(p).Life)
 	}
 }
+
+// TestCombatManaSurvivesPhaseEndsUntilEndOfCombat proves CombatMana$: the
+// mana stays through the phase ends of combat and into the next phase, and
+// empties as COMBAT_END ends (ManaPool.java:151-158); plain mana empties at
+// the first phase end.
+func TestCombatManaSurvivesPhaseEndsUntilEndOfCombat(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	g.SetTurnState(1, p, engine.CombatBegin)
+	pushPlayLine(t, g, p, nil, "DB$ Mana | Produced$ R | Amount$ 3 | CombatMana$ True")
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	g.Player(p).ManaPool.AddColorless(2)
+	g.AdvancePhase(c)
+	if got := g.Player(p).ManaPool.Total(); got != 3 {
+		t.Fatalf("pool %d after the first phase end, want the 3 combat mana only", got)
+	}
+	for g.ActivePhase() != engine.CombatEnd {
+		g.AdvancePhase(c)
+		if got := g.Player(p).ManaPool.Total(); got != 3 {
+			t.Fatalf("pool %d in %v, want 3", got, g.ActivePhase())
+		}
+	}
+	g.AdvancePhase(c)
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool %d once COMBAT_END ended, want 0", got)
+	}
+}

@@ -90,6 +90,9 @@ type producedMana struct {
 	amount    int
 	// restrict is the producing ability's RestrictValid$ (ADR-0046).
 	restrict string
+	// combat is CombatMana$ (AbilityManaPart.java:115): the mana lasts to
+	// the end of combat.
+	combat bool
 }
 
 // replaceEffectFor is the effect behind a Replace* API, for the

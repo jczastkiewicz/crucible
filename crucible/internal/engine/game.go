@@ -172,6 +172,9 @@ type Game struct {
 	turn         int
 	activePlayer PlayerID
 	activePhase  PhaseType
+	// endingPhase is the phase whose end empties the mana pools, read by
+	// emptyManaPools (combat mana outlives every phase but CombatEnd).
+	endingPhase PhaseType
 
 	// castThisTurn is every spell cast this turn, in order, with who cast it
 	// and from where (Count$ThisTurnCast_<valid>, castrecord.go); cleared when

@@ -516,3 +516,31 @@ func TestAnimateTgtZoneStackRecolorsASpellOnTheStack(t *testing.T) {
 		t.Errorf("colors after leaving the stack = %v, want white again", got)
 	}
 }
+
+// TestBranchTgtZoneStackCountersTheTargetedSpell proves Branch's TgtZone$
+// Stack (Anticognition): the spell on the stack is chosen as the target and
+// the chosen sub-ability reads it as Targeted (BranchEffect.java:11-35,
+// SpellAbility.java:1592-1594).
+func TestBranchTgtZoneStackCountersTheTargetedSpell(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	gain := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	castOn(t, g, p, gain, c)
+	anti := g.NewCard(spellDefWith(t, "Test Anticognition", "Instant", "U",
+		"SP$ Branch | BranchConditionSVar$ X | TargetType$ Spell | TgtZone$ Stack | ValidTgts$ Card | BranchConditionSVarCompare$ GE8 | TrueSubAbility$ Nope | FalseSubAbility$ CounterIt",
+		"CounterIt", "DB$ Counter | Defined$ Targeted",
+		"Nope", "DB$ GainLife | Defined$ You | LifeAmount$ 1",
+		"X", "Count$Valid Card.YouCtrl"), other, engine.Hand)
+	g.Player(other).ManaPool.Add(mana.Blue, 1)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(gain)})
+	if !g.CastSpell(other, anti, c) {
+		t.Fatal("CastSpell(Test Anticognition) failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if g.Player(p).Life != 20 || g.Card(gain).Zone != engine.Graveyard {
+		t.Errorf("life %d, Gain in %v: want the spell countered (life unchanged, graveyard)", g.Player(p).Life, g.Card(gain).Zone)
+	}
+}

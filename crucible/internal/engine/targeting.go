@@ -535,7 +535,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				if err != nil {
 					return targetChoice{min: targetMin, max: targetMax, err: fmt.Errorf("TgtZone$: %w", err)}, true, true
 				}
-				if zoneIn(Stack, parsed) && a.API != APIEffect && a.API != APIAnimate {
+				if zoneIn(Stack, parsed) && a.API != APIEffect && a.API != APIAnimate && a.API != APIRepeatEach && a.API != APIBranch {
 					// No real Play line names the stack, and Play's Resolve
 					// is unaudited against a spell target: fail closed
 					// rather than guess. Animate takes a spell as its card on
@@ -1717,14 +1717,15 @@ func (g *Game) radianceCards(a *Ability) []CardID {
 // ChangeZone pair (Origin$, handled beside it), and the APIs whose Java never
 // reads the target's zone at resolve: MakeCard (DefinedName$ reads the
 // target's name), ChooseCard (the targets are the choice made at cast time),
-// PutCounter (Defined$ names the counters' recipient), Branch (its sub-ability
-// reads the target). Every other API's Resolve is unaudited against a target
+// PutCounter (Defined$ names the counters' recipient), Branch and RepeatEach
+// (their sub-abilities read the target, a spell on the stack for Tempt with
+// Mayhem and Anticognition). Every other API's Resolve is unaudited against a target
 // outside the battlefield, so the line refuses (GO-7).
 func readsTgtZone(api APIType) bool {
 	switch api {
 	case APIPlay, APIDelayedTrigger, APIRemoveCounter, APIPump, APIEffect, APIClone, APICopyPermanent,
 		APIAnimate, APIAssimilate, APIChangeZone, APIChangeZoneAll,
-		APIMakeCard, APIChooseCard, APIPutCounter, APIBranch:
+		APIMakeCard, APIChooseCard, APIPutCounter, APIBranch, APIRepeatEach:
 		return true
 	}
 	return false

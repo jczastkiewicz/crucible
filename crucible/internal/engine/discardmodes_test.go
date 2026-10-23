@@ -433,9 +433,9 @@ func TestDiscardRejectsUnportedShapes(t *testing.T) {
 		want    string
 	}{
 		{"DB$ Discard | Defined$ You | Mode$ YouChoose | NumCards$ 2 | UnlessType$ Land", false, "UnlessType"},
-		{"DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 2 | UnlessType$ Card.SharesColorWith Sacrificed", false, "SharesColorWith"},
+		{"DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 2 | UnlessType$ Card.SharesColorWith Targeted", false, "SharesColorWith"},
 		{"DB$ Discard | Defined$ You | Mode$ Bogus", false, `Mode$ "Bogus"`},
-		{"DB$ Discard | Defined$ You | Mode$ RevealDiscardAll | DiscardValid$ Card.SharesColorWith Sacrificed", false, "SharesColorWith"},
+		{"DB$ Discard | Defined$ You | Mode$ RevealDiscardAll | DiscardValid$ Card.SharesColorWith Targeted", false, "SharesColorWith"},
 		{"DB$ Discard | Defined$ You | Mode$ RevealDiscardAll | DiscardValid$ Card.cmcEQZ", false, "operand"},
 		{"DB$ Discard | Defined$ You | Mode$ Defined", false, "DefinedCards"},
 		{"DB$ Discard | Defined$ You | Mode$ Random | NumCards$ Bogus", false, "NumCards"},

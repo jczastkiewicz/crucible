@@ -326,7 +326,8 @@ func discardUnlessType(g *Game, a *Ability, controller PlayerController, p Playe
 // discardValidResolvable fails a DiscardValid$ string Matches would answer
 // wrongly. Every property the corpus's DiscardValid$ values name has a case
 // in Matches (valid.go) except CardProperty's suffixed "SharesColorWith
-// <defined>" (Mind Extraction), which reads false for every card. A numeric
+// <defined>" forms other than Sacrificed (Mind Extraction), which read false
+// for every card. A numeric
 // comparison whose operand (cmcEQX's X) does not resolve reads false too, and
 // ChosenColor is exact only for a single chosen color (valid.go's own case).
 func discardValidResolvable(g *Game, spec string, controller PlayerID, source CardID) error {
@@ -337,7 +338,7 @@ func discardValidResolvable(g *Game, spec string, controller PlayerID, source Ca
 				if _, ok := compareOperand(g, p.Compare.Operand, controller, source); !ok {
 					return fmt.Errorf("operand %q not resolvable yet", p.Compare.Operand)
 				}
-			case strings.HasPrefix(p.Name, "SharesColorWith "):
+			case strings.HasPrefix(p.Name, "SharesColorWith ") && p.Name != "SharesColorWith Sacrificed":
 				return fmt.Errorf("property %q not resolvable yet", p.Name)
 			case strings.HasPrefix(p.Name, "ChosenColor"):
 				if g.Card(source).Memory.ChosenColors().Count() > 1 {

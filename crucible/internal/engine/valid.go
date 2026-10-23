@@ -2033,6 +2033,19 @@ func sharesColorWithRestriction(g *Game, c *Card, source CardID, restriction str
 			}
 		}
 		return false
+	case "Sacrificed":
+		// CardProperty.java:687-691 -> AbilityUtils.getPaidCards: the
+		// resolving spell's own sacrificed list (Mind Extraction).
+		a := g.resolving
+		if a == nil || a.Source != source || !a.paid.recorded {
+			return false
+		}
+		for _, id := range a.paid.sacrificed {
+			if c.Colors().HasAny(g.Card(id).Colors()) {
+				return true
+			}
+		}
+		return false
 	case "ActivationColor":
 		// Java reads the ChooseSource ability's instance on the stack; no
 		// paid mana, or a colorless first unit, shares nothing.

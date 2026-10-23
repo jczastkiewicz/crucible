@@ -336,3 +336,31 @@ func TestChangeZoneDefinedParentOutsideASpell(t *testing.T) {
 		t.Errorf("Defined$ Parent from the graveyard: err = %v, want the refusal", err)
 	}
 }
+
+// DiscardValid$ Card.SharesColorWith Sacrificed (Mind Extraction) reads the
+// colors of the creature the spell's own cost sacrificed: the opponent
+// discards the green card from hand, not the colorless one.
+func TestDiscardValidSharesColorWithSacrificed(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	fodder := g.NewCard(copyTestDef(t, "Test Green Fodder", "Creature", "1", "1"), p, engine.Battlefield)
+	green := g.NewCard(copyTestDef(t, "Test Green Card", "Creature", "1", "1"), other, engine.Hand)
+	plain := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Hand)
+	spell := g.NewCard(corpusCard(t, "Mind Extraction"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Black, 3)
+	c := engine.NewScriptedController()
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueuePayGeneric(mana.ShardB)
+	c.QueueSacrificeChoice([]engine.CardID{fodder})
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	castThenResolve(t, g, p, spell, c)
+	if got := g.Card(green).Zone; got != engine.Graveyard {
+		t.Errorf("green card is in %v, want the graveyard", got)
+	}
+	if got := g.Card(plain).Zone; got != engine.Hand {
+		t.Errorf("colorless card is in %v, want the hand", got)
+	}
+	if err := g.TakePendingError(); err != nil {
+		t.Errorf("pending error %v", err)
+	}
+}

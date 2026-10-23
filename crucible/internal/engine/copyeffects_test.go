@@ -931,3 +931,25 @@ func TestCloneDefinedExiledWithCopiesWhatTheHostExiled(t *testing.T) {
 		t.Errorf("host is %q, want a copy of %q", got, g.Card(giant).Def.Name)
 	}
 }
+
+// TestTokenWithCountersTypeEntersWithCounters proves Token's WithCountersType$
+// P1P1 (Incubob): the token enters with WithCountersAmount$ +1/+1 counters
+// (TokenEffectBase.java:140-146).
+func TestTokenWithCountersTypeEntersWithCounters(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTokenGame(t)
+	c := engine.NewScriptedController()
+	src := resolveLine(t, g, p, c,
+		"DB$ Token | TokenScript$ w_1_1_soldier | WithCountersType$ P1P1 | WithCountersAmount$ 2 | RememberTokens$ True")
+	tok, _ := g.Card(src).Memory.Remembered()[0].AsCard()
+	if got := g.Card(tok).Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("counters = %d, want 2", got)
+	}
+	if err := func() error {
+		_, err := castETBChain(t, g, p, etbChainDef(t, "Test Bad Counters", "DB$ Token | TokenScript$ w_1_1_soldier | WithCountersType$ CHARGE"), c)
+		return err
+	}(); err == nil {
+		t.Error("an unread WithCountersType$ resolved, want an error")
+	}
+}

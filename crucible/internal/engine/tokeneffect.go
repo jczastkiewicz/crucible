@@ -12,14 +12,12 @@ import (
 
 // tokenUnresolvedParams are TokenEffect/TokenEffectBase params this port
 // does not model (TokenAttacking$ and TokenBlocking$ resolve,
-// addToCombatAttacking and addToCombatBlocking): a counter table on entry
-// (WithCountersType$), copied triggers (AddTriggersFrom$), what the token remembers
+// addToCombatAttacking and addToCombatBlocking): copied triggers (AddTriggersFrom$), what the token remembers
 // (TokenRemembered$/CleanupForEach$), a shared zone
 // table (ChangeZoneTable$) and the end-of-turn delayed sacrifice/exile
 // (AtEOT$/AtEOTTrig$).
 var tokenUnresolvedParams = [...]string{
-	"WithCountersType",
-	"WithCountersAmount", "AddTriggersFrom", "TokenRemembered",
+	"AddTriggersFrom", "TokenRemembered",
 	"CleanupForEach", "ChangeZoneTable"}
 
 // tokenEffect is TokenEffect.java: TokenAmount$ (default 1) of every
@@ -60,6 +58,17 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 	}
 	if base.HasToughness = hasParam(a, "TokenToughness"); base.HasToughness {
 		if base.Toughness, err = optionalAmount(g, a, "Token", "TokenToughness", 0); err != nil {
+			return err
+		}
+	}
+	if kind, ok := a.Params.Param("WithCountersType"); ok {
+		// TokenEffectBase.java:140-146: the counter table the token enters with,
+		// WithCountersAmount$ (default 1) of the type. Only +1/+1 counters are
+		// read here (Incubob, Printlifter Ooze).
+		if kind != "P1P1" {
+			return fmt.Errorf("engine: Token: WithCountersType$ %q not resolvable yet", kind)
+		}
+		if base.P1P1, err = optionalAmount(g, a, "Token", "WithCountersAmount", 1); err != nil {
 			return err
 		}
 	}

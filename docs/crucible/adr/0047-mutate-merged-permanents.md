@@ -1,6 +1,6 @@
 # ADR-0047 — A Mutated Permanent Is One Card With a Component List
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-23
 - **Deciders:** Crucible session (B6 oracle wave)
 

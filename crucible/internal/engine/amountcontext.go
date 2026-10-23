@@ -28,7 +28,7 @@ import (
 // contextHeads are the ability-context amount heads that name a list of cards
 // (AbilityUtils.java:672-719), read only while that ability resolves.
 var contextHeads = map[string]bool{
-	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
+	"Targeted": true, "ParentTargeted": true, "TriggeredCard": true, "TriggeredCardLKI": true, "TriggeredAttacker": true, "TriggeredBlocker": true,
 	"TriggeredSource": true, "TriggerRemembered": true, "Sacrificed": true, "Exiled": true, "Discarded": true, "Tapped": true,
 	"Collected": true, "Revealed": true, "TriggerObjectsAttackers": true, "TriggeredExploited": true,
 	"TriggeredDevoured": true, "CardTriggeredTarget": true,
@@ -168,8 +168,21 @@ func (g *Game) contextCards(source CardID, head string) ([]*Card, bool) {
 	// replaced with a copy (GameAction.java:207).
 	lki := head == "Sacrificed" || head == "Exiled" || head == "TriggeredCard" || head == "TriggerRemembered" ||
 		head == "TriggerObjectsAttackers" || head == "TriggeredExploited" || head == "TriggeredDevoured" ||
-		head == "CardTriggeredTarget"
-	return g.cardsOf(ids, lki), true
+		head == "CardTriggeredTarget" || head == "TriggeredCardLKI"
+	cards := g.cardsOf(ids, lki)
+	if head == "TriggeredCardLKI" {
+		// AbilityKey.CardLKI is the card as it was before the move
+		// (GameAction.java:603, TriggerChangesZone.java:196), so an entering
+		// card is read in the zone it came from (Fblthp's inZoneLibrary).
+		for i, c := range cards {
+			if c.Zone == Battlefield && c.zoneEntered {
+				snap := *c
+				snap.Zone = c.zoneEntryFrom
+				cards[i] = &snap
+			}
+		}
+	}
+	return cards, true
 }
 
 // abilityListIDs is the cards of the list head names that the resolving
@@ -198,7 +211,7 @@ func (g *Game) abilityListIDs(source CardID, head string) ([]CardID, bool) {
 				ids = append(ids, id)
 			}
 		}
-	case "TriggeredCard":
+	case "TriggeredCard", "TriggeredCardLKI":
 		ids = nonNone(a.triggered.card)
 	case "TriggeredAttacker":
 		ids = nonNone(a.triggered.attacker)

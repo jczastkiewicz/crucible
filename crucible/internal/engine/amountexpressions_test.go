@@ -594,3 +594,87 @@ func TestSecondMostProminentColorOverChosenPlayersPermanents(t *testing.T) {
 		t.Errorf("gained %d, want 2 (red 3, green 2)", got)
 	}
 }
+
+// Fblthp, the Lost: TriggeredCardLKI$Valid Card.inZoneLibrary reads the
+// entering card in the zone it came from (AbilityUtils.java:703-706), so a
+// card that enters from the library draws two cards (LibNum2 adds 1 to the
+// 1 of Count$wasCastFromYourLibrary's false branch), one from anywhere else.
+func TestTriggeredCardLKIValidReadsEntryZone(t *testing.T) {
+	t.Parallel()
+
+	fblthp := func(t *testing.T) *compile.Card {
+		return scriptDef(t, "Test Fblthp", "Creature Homunculus",
+			"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ DBDraw",
+			"SVar:DBDraw:DB$ Draw | NumCards$ DrawNum",
+			"SVar:DrawNum:SVar$LibNum1/LimitMax.2",
+			"SVar:LibNum1:Count$wasCastFromYourLibrary.2.1/Plus.LibNum2",
+			"SVar:LibNum2:TriggeredCardLKI$Valid Card.inZoneLibrary")
+	}
+	for _, tc := range []struct {
+		name   string
+		origin engine.ZoneType
+		want   int
+	}{{"Library", engine.Library, 2}, {"Graveyard", engine.Graveyard, 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			libraryCards(t, g, p, 4)
+			id := g.NewCard(fblthp(t), p, tc.origin)
+			c := engine.NewScriptedController()
+			c.QueueCardChoice([]engine.CardID{id})
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(id)})
+			line := "DB$ ChangeZone | Origin$ " + tc.name + " | Destination$ Battlefield | ChangeType$ Card | Mandatory$ True"
+			if tc.origin != engine.Library {
+				line = "DB$ ChangeZone | Origin$ " + tc.name + " | Destination$ Battlefield | ValidTgts$ Card"
+			}
+			before := len(g.Zone(engine.Hand, p).Cards())
+			resolveLine(t, g, p, c, line)
+			if z := g.Card(id).Zone; z != engine.Battlefield {
+				t.Fatalf("card in %v, not moved", z)
+			}
+			if got := len(g.Zone(engine.Hand, p).Cards()) - before; got != tc.want {
+				t.Errorf("drew %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Count$UniqueManaColorsProduced.ByUntappedSources (AbilityUtils.java:2662-2676)
+// counts the colors an untapped permanent's mana ability can make: a basic
+// land type counts, Produced$ Any offers all five, a tapped source none.
+func TestUniqueManaColorsProducedCountsUntappedSources(t *testing.T) {
+	t.Parallel()
+
+	const x = "Count$UniqueManaColorsProduced.ByUntappedSources"
+	for _, tc := range []struct {
+		name  string
+		setup func(g *engine.Game, p, other engine.PlayerID)
+		want  int
+	}{
+		{"basic types", func(g *engine.Game, p, _ engine.PlayerID) {
+			g.NewCard(landDef(t, "Test Forest", "Land Forest"), p, engine.Battlefield)
+			g.NewCard(landDef(t, "Test Island", "Land Island"), p, engine.Battlefield)
+			g.NewCard(landDef(t, "Test Island", "Land Island"), p, engine.Battlefield)
+		}, 2},
+		{"tapped skipped", func(g *engine.Game, p, _ engine.PlayerID) {
+			g.NewCard(landDef(t, "Test Forest", "Land Forest"), p, engine.Battlefield)
+			g.Card(g.NewCard(landDef(t, "Test Island", "Land Island"), p, engine.Battlefield)).Tapped = true
+		}, 1},
+		{"any", func(g *engine.Game, p, _ engine.PlayerID) {
+			g.NewCard(creatureDefWithAbility(t, "Test Any", "AB$ Mana | Cost$ T | Produced$ Any"), p, engine.Battlefield)
+		}, 5},
+		{"combo and opponent ignored", func(g *engine.Game, p, other engine.PlayerID) {
+			g.NewCard(creatureDefWithAbility(t, "Test Combo", "AB$ Mana | Cost$ T | Produced$ Combo W U"), p, engine.Battlefield)
+			g.NewCard(landDef(t, "Test Forest", "Land Forest"), other, engine.Battlefield)
+		}, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := gainedFrom(t, tc.setup, x); got != tc.want {
+				t.Errorf("gained %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

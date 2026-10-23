@@ -54,6 +54,9 @@ func (g *Game) recordCountValue(sourceController PlayerID, source CardID, count 
 	case strings.HasPrefix(count.Head, "MostCardName"):
 		n, ok = g.mostCardName(sourceController, source, count)
 		return n, ok, true
+	case strings.HasPrefix(count.Head, "UniqueManaColorsProduced"):
+		n, ok = g.uniqueManaColorsProduced(sourceController, count)
+		return n, ok, true
 	case count.Head == "SecondMostProminentColor":
 		n, ok = g.secondMostProminentColor(sourceController, source, count.Argument)
 		return n, ok, true
@@ -613,4 +616,58 @@ func (g *Game) werewolfConditionsMet(transform, untransform bool) bool {
 		}
 	}
 	return false
+}
+
+// uniqueManaColorsProduced is Count$UniqueManaColorsProduced.ByUntappedSources
+// (AbilityUtils.java:2662-2676): how many of W, U, B, R, G some mana ability of
+// the controller's battlefield permanents can produce. No cost, summoning
+// sickness or activation check applies; ByUntappedSources skips tapped
+// permanents. A basic land type is Java's intrinsic mana ability; Produced$ Any
+// offers every color. A Produced$ this port cannot read (Chosen, a reflected
+// or ColorIdentity set) leaves the count unresolved (GO-7).
+func (g *Game) uniqueManaColorsProduced(sourceController PlayerID, count expr.Count) (int, bool) {
+	if sourceController == NoPlayer || !strings.Contains(countText(count), "ByUntappedSources") {
+		// Java reads sq[1] unconditionally (AbilityUtils.java:2663); without
+		// the suffix it throws, which no corpus line does.
+		return 0, false
+	}
+	var offered mana.Colors
+	for _, id := range g.Zone(Battlefield, sourceController).Cards() {
+		c := g.Card(id)
+		if c.Tapped {
+			continue
+		}
+		for _, color := range []mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+			if c.Type().HasSubtype(basicLandType[color]) {
+				offered |= color
+			}
+		}
+		if c.Def == nil {
+			continue
+		}
+		for i := range c.abilityCount() {
+			ab, _, ok := c.abilityAt(i)
+			if !ok || ab.Record != compile.Activated || ab.Name != "Mana" {
+				continue
+			}
+			produced, _ := ab.Param("Produced")
+			switch {
+			case produced == "Any" || produced == "Combo Any":
+				offered |= mana.White | mana.Blue | mana.Black | mana.Red | mana.Green
+			case strings.HasPrefix(produced, "Combo "):
+				colors, ok := parseComboColors(produced)
+				if !ok {
+					return 0, false
+				}
+				offered |= colors
+			default:
+				color, _, ok := producedManaColor(produced)
+				if !ok {
+					return 0, false
+				}
+				offered |= color
+			}
+		}
+	}
+	return offered.Count(), true
 }

@@ -482,6 +482,7 @@
     ],
     "amount": [
       "id",
+      "manaability",
       "zone",
       "card",
       "game",

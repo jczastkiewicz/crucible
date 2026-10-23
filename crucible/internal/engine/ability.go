@@ -332,6 +332,9 @@ type Ability struct {
 	// (pushTriggeredAbilities hands it to resolveStaticTriggers, ADR-0020). Only
 	// the trigger checks that set it get that treatment.
 	staticTrigger bool
+	// recheck is a Mode$ Always trigger's ResolvingCheck$ condition, tested
+	// again as it resolves (alwaystrigger.go); nil for every other ability.
+	recheck *compile.Ability
 }
 
 // chainTarget is the targets chosen for one sub-ability of a chain

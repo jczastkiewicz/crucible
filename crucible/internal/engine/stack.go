@@ -172,6 +172,9 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 	g.stack = g.stack[:n]
 
 	fizzled := !g.targetsStillLegal(&a)
+	if g.recheckFails(&a) {
+		fizzled = true
+	}
 	if !fizzled {
 		// Captured before Resolve, not read fresh after: EndTurn/
 		// EndCombatPhase (and any future effect touching turn state

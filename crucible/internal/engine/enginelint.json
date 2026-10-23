@@ -210,6 +210,7 @@
     "match": ["id", "zone", "game", "control"],
     "stack": [
       "id",
+      "alwaystrigger",
       "ability",
       "game",
       "effect",

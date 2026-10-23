@@ -334,7 +334,7 @@
       "excessdamage",
       "removecountereffect"
     ],
-    "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict"],
+    "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict", "amount"],
     "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],
     "manaability": [
       "manarestrict",

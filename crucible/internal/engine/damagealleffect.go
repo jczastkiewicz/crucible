@@ -45,7 +45,7 @@ import (
 // a card naming either, dealDamageEffect's own identical reasoning.
 var damageAllUnresolvedParams = [...]string{
 	"TargetUnique",
-	"Ultimate", "Remembered", "SVar", "XColor", "TriggeredSpellAbility"}
+	"Ultimate", "Remembered", "SVar", "TriggeredSpellAbility"}
 
 // damageAllEffect resolves Mode$/DB$/AB$ DamageAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved

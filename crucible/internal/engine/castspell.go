@@ -761,7 +761,11 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN)
 	g.snowAnyColor = opts.snowAnyColor
 	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
+	if sp := firstSpellAbility(c); sp != nil {
+		g.xColor = xColorMask(sp)
+	}
 	x, paid := g.payManaCostX(pid, total, controller)
+	g.xColor = 0
 	restore()
 	g.snowAnyColor = false
 	if paid {

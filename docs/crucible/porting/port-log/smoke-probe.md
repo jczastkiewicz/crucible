@@ -78,7 +78,7 @@ Largest refusal causes over the full corpus (cards blocked):
 | 2 | `PutCounter: RememberCostMana$ not resolvable` |
 | 2 | `Regenerate: RegenerationAbility$ not resolvable` |
 | 2 | `RollDice: ToVisitYourAttractions$ not resolvable` |
-| 2 | `StoreSVar: XColor$ not resolvable` |
+| 2 | `StoreSVar: Expression$ CardToughness` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

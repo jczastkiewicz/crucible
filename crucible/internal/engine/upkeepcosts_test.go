@@ -1,7 +1,6 @@
 package engine_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -223,15 +222,39 @@ func TestCumulativeUpkeepPutsTwoCardsFromOneGraveyardOnTheBottom(t *testing.T) {
 	}
 }
 
-// XColor$ restricts the colors an announced X may be paid with; nothing here
-// enforces it, so an ability naming it fails loudly instead (GO-7).
-func TestXColorIsRefused(t *testing.T) {
+// XColor$ restricts the colors the announced X is paid with (Drain Life):
+// red mana cannot pay it, black mana can (SpellAbility.getXColor).
+func TestXColorLimitsTheManaThatPaysX(t *testing.T) {
 	t.Parallel()
 
-	g, p, _ := newTwoPlayerGame(t)
-	pushPlayLine(t, g, p, nil, "DB$ GainLife | LifeAmount$ 1 | XColor$ Black")
-	err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "XColor$") {
-		t.Fatalf("ResolveStack = %v, want the XColor$ refusal", err)
+	for _, tc := range []struct {
+		name string
+		pool mana.Colors
+		want int
+	}{
+		{"black pays", mana.Black, 22},
+		{"red cannot", mana.Red, 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+			spell := g.NewCard(copyTestDef(t, "Test Drain", "Sorcery", "", "", "Cost:X",
+				"A:SP$ GainLife | Cost$ X | XColor$ Black | Defined$ You | LifeAmount$ 2"), p, engine.Hand)
+			g.Player(p).ManaPool.Add(tc.pool, 2)
+			c := engine.NewScriptedController()
+			c.QueuePayX(2)
+			cast := g.CastSpell(p, spell, c)
+			if cast != (tc.want == 22) {
+				t.Fatalf("CastSpell = %v, want success only for black", cast)
+			}
+			if cast {
+				if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := g.Player(p).Life; got != tc.want {
+				t.Errorf("life = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

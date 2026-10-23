@@ -5,7 +5,12 @@
 
 package engine
 
-import "github.com/jczastkiewicz/crucible/internal/mana"
+import (
+	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/mana"
+)
 
 // PayManaCost pays cost from decider's mana pool, asking controller the
 // value of X if the cost carries one (CR 601.2b), which color of snow mana
@@ -78,7 +83,24 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		if n < 0 {
 			return xAnnounced{}, false
 		}
-		generic += n * countX
+		if mask := g.xColor; mask != 0 {
+			// SpellAbility.getXColor (SpellAbility.java:2563-2576): each X unit is
+			// paid with mana of the named colors, a hybrid of them when several
+			// (ManaCostBeingPaid.setXManaCostPaid, ManaCostBeingPaid.java:240-253).
+			for range n * countX {
+				color := mask
+				if mask.Count() > 1 {
+					color = controller.ChooseHybridManaColor(g, decider, mask)
+				}
+				pure, ok := mana.PureShard(color)
+				if !ok {
+					return xAnnounced{}, false
+				}
+				resolved = append(resolved, pure)
+			}
+		} else {
+			generic += n * countX
+		}
 		x = xAnnounced{value: n, announced: true}
 	}
 
@@ -226,4 +248,21 @@ func isSingleColorPhyrexian(s mana.Shard) bool {
 // predicates never both match the same shard.
 func isHybridPhyrexian(s mana.Shard) bool {
 	return s.Colors().Count() == 2 && s.IsPhyrexian()
+}
+
+// xColorMask is SpellAbility.getXColor as a color set: XColor$'s comma-separated
+// colors, each a color name or letter (SpellAbility.java:2563-2576); 0 for an
+// ability without the param.
+func xColorMask(ab *compile.Ability) mana.Colors {
+	raw, ok := ab.Param("XColor")
+	if !ok {
+		return 0
+	}
+	var mask mana.Colors
+	for _, word := range strings.Split(raw, ",") {
+		if c, ok := manaAtomColor(strings.TrimSpace(word)); ok {
+			mask |= c
+		}
+	}
+	return mask
 }

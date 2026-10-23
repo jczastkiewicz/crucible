@@ -22,6 +22,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/expr"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/pkg/collect"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
@@ -220,6 +221,10 @@ type Game struct {
 	// crewedThisTurn lists the host of every Crew ability resolved this turn
 	// (Card.timesCrewedThisTurn, FirstTimeCrewed$ counts it).
 	crewedThisTurn []CardID
+	// xColor is the colors the X of the cost being paid must be paid with,
+	// set by the cast and activation paths from XColor$ for the one
+	// payManaCostX call that follows (SpellAbility.getXColor).
+	xColor mana.Colors
 	// enteredThisTurn is every zone change this turn, as the card stood in
 	// the zone it entered (a battlefield entry) or left (any other), and
 	// countersAddedThisTurn every counter placement (castrecord.go); both

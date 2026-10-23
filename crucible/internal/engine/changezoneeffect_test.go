@@ -714,3 +714,34 @@ func TestChangeZoneEffectDifferentCMCAndPowerOfferOnlyUnsharedValues(t *testing.
 		})
 	}
 }
+
+// TestChangeZoneRandomOrderMovesEveryCardToTheLibrary proves RandomOrder$ on a
+// known-origin move into the library (ChangeZoneEffect.java:540-544): every
+// card lands in the library, in an order the game's generator chose; a deck
+// zone other than the library is refused rather than left in pick order.
+func TestChangeZoneRandomOrderMovesEveryCardToTheLibrary(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	ids := []engine.CardID{
+		g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard),
+		g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Graveyard),
+		g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Graveyard),
+	}
+	host := pushPlayLine(t, g, p, nil,
+		"DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True")
+	for _, id := range ids {
+		g.Card(host).Memory.Remember(engine.CardEntity(id))
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(g.Zone(engine.Library, p).Cards()); got != 3 {
+		t.Errorf("library holds %d cards, want 3", got)
+	}
+	for _, id := range ids {
+		if z := g.Card(id).Zone; z != engine.Library {
+			t.Errorf("card %d is in %v, want the library", id, z)
+		}
+	}
+}

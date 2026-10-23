@@ -519,3 +519,31 @@ func TestStoreSVarTypeCountEvaluatesTheExpression(t *testing.T) {
 		})
 	}
 }
+
+// TestDigMultipleChangeLaterLeavesThePicksAndImprintsTheRest proves ChangeLater$
+// with ImprintRest$ and RememberChanged$ (Green Sun's Twilight,
+// DigMultipleEffect.java:122, :147-150, :155, :184-186): nothing moves, the
+// picks are remembered and the cards not picked imprinted.
+func TestDigMultipleChangeLaterLeavesThePicksAndImprintsTheRest(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	land := g.NewCard(landDef(t, "Test Plains", "Basic Land Plains"), p, engine.Library)
+	other := g.NewCard(creatureDefPT(t, "5", "5"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{land})
+	host := resolveLine(t, g, p, c,
+		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Land | ChangeLater$ True | RememberChanged$ True | ImprintRest$ True")
+	for _, id := range []engine.CardID{land, other} {
+		if z := g.Card(id).Zone; z != engine.Library {
+			t.Errorf("card %d is in %v, want it left in the library", id, z)
+		}
+	}
+	rem := g.Card(host).Memory.Remembered()
+	if len(rem) != 1 || rem[0] != engine.CardEntity(land) {
+		t.Errorf("remembered = %v, want the land", rem)
+	}
+	if im := g.Card(host).Memory.Imprinted(); len(im) != 1 || im[0] != other {
+		t.Errorf("imprinted = %v, want the card not picked", im)
+	}
+}

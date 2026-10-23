@@ -37,7 +37,7 @@ var changeZoneUnresolvedParams = [...]string{
 	"WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter",
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
-	"RandomOrder",
+
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
 	"ImprintLast", "Unearth",
 	"Ultimate",
@@ -496,7 +496,21 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	if _, ok := a.Params.Param("ShuffleNonMandatory"); ok && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 		return nil
 	}
-	if dest == Library && len(cards) > 1 && !shuffle {
+	if hasParam(a, "RandomOrder") && !shuffle {
+		// ChangeZoneEffect.java:540-544: a deck destination with more than one
+		// card, not shuffled afterwards, takes the cards in a random order
+		// (CardLists.shuffle, Collections.shuffle on the game's generator,
+		// 3 corpus lines); any other destination reads nothing.
+		switch dest {
+		case Library:
+			if len(cards) > 1 {
+				cards = append([]CardID(nil), cards...)
+				g.rand.Shuffle(len(cards), func(i, j int) { cards[i], cards[j] = cards[j], cards[i] })
+			}
+		case SchemeDeck, PlanarDeck, AttractionDeck, ContraptionDeck:
+			return fmt.Errorf("engine: ChangeZone: RandomOrder$ into %v not resolvable yet", dest)
+		}
+	} else if dest == Library && len(cards) > 1 && !shuffle {
 		if hasChooser {
 			ordered := controller.OrderCardsForZone(g, chooser, cards, dest)
 			if err := checkChoice(ordered, cards, len(cards), len(cards)); err != nil {
@@ -763,6 +777,11 @@ func (g *Game) changeZoneAtRandom(fetchList []CardID, changeNum int) []CardID {
 // ControlOpponentsSearchingLibrary$ grant applies only to a fetcher deciding
 // their own search (:1071).
 func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *Card, origin []ZoneType, dest ZoneType, newController PlayerID, until bool) error {
+	// RandomOrder$ is read by changeKnownOriginResolve alone (ChangeZoneEffect.
+	// java:541), and an Origin$ Library line is hidden even with a Defined$
+	// (SpellAbility.isHidden), so Hurkyl, Master Wizard's and Green Sun's
+	// Twilight's RandomOrder$ reaches nothing in Java (forge-java-defects.md):
+	// ignored here the same way (PORT-7).
 	if hasParam(a, "FaceDown") {
 		// The hidden Exile branch never reads FaceDown$ (Tezzeret's
 		// Reckoning, forge-java-defects.md) and the battlefield branch

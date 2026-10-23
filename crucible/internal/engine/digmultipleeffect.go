@@ -25,8 +25,8 @@ func (digMultipleEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "DigMultiple", "ChooseAmount", "ChosenZone", "ChangeLater",
-		"ExileFaceDown", "Imprint", "ForgetOtherRemembered", "Tapped"); err != nil {
+	if err := rejectParams(a, "DigMultiple", "ChooseAmount", "ChosenZone",
+		"ExileFaceDown", "ForgetOtherRemembered", "Tapped"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -87,6 +87,13 @@ func (digMultipleEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	_, optional := a.Params.Param("Optional")
 	_, remember := a.Params.Param("RememberChanged")
 	_, random := a.Params.Param("RestRandomOrder")
+	// ChangeLater$ leaves the picks and the rest where they are for a later
+	// sub-ability to move (DigMultipleEffect.java:122, :155); Imprint$ and
+	// ImprintRest$ imprint the picks and the cards not picked on the host
+	// (:140-142, :184-186).
+	changeLater := hasParam(a, "ChangeLater")
+	imprint := hasParam(a, "Imprint")
+	imprintRest := hasParam(a, "ImprintRest")
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: DigMultiple: %w", err)
@@ -135,13 +142,26 @@ func (digMultipleEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			}
 		}
 		for _, id := range chosen {
-			g.moveByEffect(controller, id, dest1, pos1, NoPlayer, false)
-			moved = append(moved, id)
+			if !changeLater {
+				g.moveByEffect(controller, id, dest1, pos1, NoPlayer, false)
+				moved = append(moved, id)
+			}
+			if imprint {
+				source.Memory.Imprint(id)
+			}
 			if remember {
 				source.Memory.Remember(CardEntity(id))
 			}
 		}
 		rest := withoutCards(top, chosen)
+		if imprintRest {
+			for _, id := range rest {
+				source.Memory.Imprint(id)
+			}
+		}
+		if changeLater {
+			continue
+		}
 		if dest2 == Library || dest2 == Graveyard {
 			if random {
 				g.rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })

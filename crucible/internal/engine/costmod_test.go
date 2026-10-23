@@ -235,3 +235,20 @@ func TestUnresolvableRaiseCostRefusesTheCast(t *testing.T) {
 		t.Error("a spell was cast under a RaiseCost the engine cannot evaluate")
 	}
 }
+
+// A RaiseCost whose Cost$ is not plain mana (Thran Portal's PayLife<1>) is not
+// charged here: the cast is refused and the reason is kept, not dropped.
+func TestNonManaRaiseCostRefusesTheCastLoudly(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(scriptDef(t, "Test Portal", "Enchantment",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<1>"), p, engine.Battlefield)
+	card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
+	if castWithGreen(g, p, card, 3) {
+		t.Fatal("the spell was cast without paying the life raise")
+	}
+	if err := g.TakePendingError(); err == nil {
+		t.Error("no pending error: the refusal was silent")
+	}
+}

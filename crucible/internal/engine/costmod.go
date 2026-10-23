@@ -84,7 +84,10 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 					case costModUnresolvable:
 						// A raise this port cannot evaluate: casting for less
 						// than Java would charge is wrong, so the cast is
-						// refused (GO-7).
+						// refused (GO-7), and why is kept once the cost is being paid.
+						if paying {
+							g.recordPendingError(fmt.Errorf("engine: RaiseCost on %s: line not resolvable yet", h.Def.Name))
+						}
 						return base, false
 					}
 				case strings.EqualFold(s.Name, "ReduceCost") && g.costModStatus(pid, c, h, s, act) == costModApplies:
@@ -108,6 +111,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		}
 		add, err := mana.Parse(text)
 		if err != nil || add.CountX() > 0 {
+			// A non-mana or X-bearing raise (Cost$ PayLife<1>, Discard<X/...>) is
+			// not charged here: the cast is refused, and why is kept (GO-7).
+			if paying {
+				g.recordPendingError(fmt.Errorf("engine: RaiseCost: Cost$ %q is not a plain mana cost, not resolvable yet", text))
+			}
 			return base, false
 		}
 		for range max(count, 0) {

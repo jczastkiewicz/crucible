@@ -58,14 +58,14 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,410 |
-| refused      |    187 |
+| plays        | 33,422 |
+| refused      |    175 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    451 |
 | inconclusive |     52 |
 
-99.4% of the 33,597 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.5% of the 33,597 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.7% of 8,651 judged.
 

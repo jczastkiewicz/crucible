@@ -8,18 +8,18 @@ M0-M4 are done; M5-M6 are in progress, their landed work recorded per topic in
 
 ## Current state
 
-Measured with `crucible card-smoke -all` on 2026-10-23: 33,410 of 33,597 judged cards play (99.4%), 187 refuse, 0 panic, 0 hang; precons 99.7% of 8,651. All work happens in one session on `master`, pushed straight to `origin/master` through the commit hook; parallel `forge-oracle` research feeds the ports (CLAUDE.md, Subagents). Reason: two sessions on one backlog ported the same causes twice (Protection `Choser$`).
+Measured with `crucible card-smoke -all` on 2026-10-23: 33,422 of 33,597 judged cards play (99.5%), 175 refuse, 0 panic, 0 hang; precons 99.7% of 8,651. All work happens in one session on `master`, pushed straight to `origin/master` through the commit hook; parallel `forge-oracle` research feeds the ports (CLAUDE.md, Subagents). Reason: two sessions on one backlog ported the same causes twice (Protection `Choser$`).
 
-The 187 refusals by cause (166 distinct causes, most with one card):
+The 175 refusals by cause (154 distinct causes, most with one card):
 
 | Cards | Cause | Pack |
 | ---: | --- | --- |
 | 21 | `RaiseCost` statics with a non-mana `Cost$` (Behold, Sac, ExileFromHand, PayLife, Waterbend, Discard; 18 share one message) and the single lines that need the spell's `ValidTarget$`, `Flashback` or `ForEachShard$` | B3 |
-| 10 | `TgtZone$` on an API that never read it: MakeCard (3), ChooseCard (2), RepeatEach, PutCounter, Branch, GainOwnership, Airbend | B2 |
-| 15 | ChangeZone params: `DifferentCMC$`, `DifferentPower$`, `Foretold$`, `ImprintLast$`, `ReturnAbility$`, `RandomOrder$`, `StaticEffect$` forms, `Destination$` | B4 |
+| 2 | `TgtZone$` on an API that never read it: GainOwnership (Ante, Darkpact), Airbend (Stack, Aang) | B2 |
+| 13 | ChangeZone params: `Foretold$` (2), `RandomOrder$`, `ImprintLast$`, `ReturnAbility$`, `StaticEffect$` forms, `Destination$`, `FaceDown$` with a hidden Origin | B4 |
 | 13 | as-it-enters replacement chains (Sacrifice, Discard, Draft, Effect, SetState, ChooseCard, GenericChoice, Animate): `Game.Move` rebuilds what an Animate or SetState wrote before the move, where Java keeps the same card object | B4 |
 | 13 | amounts that stay unresolved (`NumDmg$`, `LifeAmount$`, `TokenAmount$`, `ReduceCost` `TargetedController`, `DigNum$`) | B5 |
-| 7 | restrictions a valid string cannot evaluate (`sharesNameWith`, `SharesColorWith` forms) | B5 |
+| 4 | restrictions a valid string cannot evaluate (`sharesNameWith`, `SharesColorWith` forms) | B5 |
 | 7 | Play: `AnySupportedCard$`, `CastFaceDown$`, `WithTotalCMC$` (waits on the upstream decision for `PlayEffect.java:493`), `ControlledByPlayer$`, `Valid$` | B5 |
 | 101 | one-card causes (Regenerate `RegenerationAbility$`, `RememberCostMana$`, Attractions, Unyaro, Undercellar Sweep, `ExploredThisTurn`, `NoteCounterDefined$`, and the rest) | B1-B6 |
 
@@ -33,7 +33,7 @@ Sizes: **S** under a day, one sitting. **M** one porter batch, 1-3 days. **L** 1
 batches. No row is larger. Within a size the order is by value per effort. `R` numbers are this list's own; `B1`-`B5`
 are packs that absorb the small refusal and findings rows (their old `R` ids stay inside, so references still resolve);
 milestone items keep their numbers (24-41). The refusal figures come from `crucible card-smoke -all`
-([`smoke-probe.md`](porting/port-log/smoke-probe.md)): 99.4% of the 33,597 judged corpus cards play, an upper bound,
+([`smoke-probe.md`](porting/port-log/smoke-probe.md)): 99.5% of the 33,597 judged corpus cards play, an upper bound,
 since silent misses are invisible. Re-rank with the command before starting any M item, because the counts move with
 every port.
 

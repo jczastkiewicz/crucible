@@ -2810,6 +2810,9 @@ type triggerFace struct {
 	Amounts  map[string]expr.Amount
 	slot     int
 	grant    uint64
+	// origin is the card whose static granted these triggers (traitGrant.origin),
+	// NoCard for a printed trigger or a grant row.
+	origin CardID
 }
 
 // objects returns o stamped with the grant the face's triggers came from:
@@ -2817,6 +2820,7 @@ type triggerFace struct {
 // which grant fired (triggeredObjects.grant).
 func (f triggerFace) objects(o triggeredObjects) triggeredObjects {
 	o.grant = f.grant
+	o.originalHost = f.origin
 	return o
 }
 
@@ -2868,7 +2872,7 @@ func (c *Card) triggerFaces(yield func(triggerFace) bool) {
 		if len(g.triggers) == 0 {
 			continue
 		}
-		if !yield(triggerFace{Triggers: g.triggers, Amounts: g.amounts, slot: -1}) {
+		if !yield(triggerFace{Triggers: g.triggers, Amounts: g.amounts, slot: -1, origin: g.origin}) {
 			return
 		}
 	}

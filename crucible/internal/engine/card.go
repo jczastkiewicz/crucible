@@ -661,6 +661,10 @@ type traitGrant struct {
 	// (TransferActivator$, AnimateEffectBase.java:165-167).
 	activatorFor []*compile.Ability
 	activator    PlayerID
+	// origin is the card whose static granted these traits: the host of a
+	// granted trigger's ability (SpellAbility.getOriginalHost, the card state
+	// the granting StaticAbility holds), read by Defined$/Object$ OriginalHost.
+	origin CardID
 }
 
 // Name is Card.getName: the printed name, or the one a Layer 3 SetName$ gave a

@@ -284,12 +284,12 @@ func TestDealDamageEffectRejectsUnresolvableDamageSource(t *testing.T) {
 	g.SetTurnState(1, p, engine.Main1)
 	g.Player(p).Life, g.Player(other).Life = 20, 20
 
-	def := etbDealDamageTriggerDefParams(t, "Test DamageSource", "Defined$ You | NumDmg$ 1 | DamageSource$ OriginalHost", nil)
+	def := etbDealDamageTriggerDefParams(t, "Test DamageSource", "Defined$ You | NumDmg$ 1 | DamageSource$ Bogus", nil)
 	err := castETBDealDamage(t, g, p, def)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming DamageSource")
 	}
-	if !strings.Contains(err.Error(), "DamageSource$") || !strings.Contains(err.Error(), "OriginalHost") {
+	if !strings.Contains(err.Error(), "DamageSource$") || !strings.Contains(err.Error(), "Bogus") {
 		t.Errorf("ResolveStack error = %q, want it to name DamageSource$ and its value", err.Error())
 	}
 	if g.Player(p).Life != 20 {

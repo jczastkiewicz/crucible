@@ -48,3 +48,37 @@ func TestDamageAllRecordsFilteredTargets(t *testing.T) {
 		t.Errorf("life = %d, want 21 (one opponent damaged, X = 1)", got)
 	}
 }
+
+// TestOriginalHostIsTheAuraThatGrantedTheTrigger proves Object$ OriginalHost
+// (SpellAbility.getOriginalHost): Nettlevine Blight grants its enchanted
+// permanent "at the beginning of your end step, sacrifice this permanent and
+// attach Nettlevine Blight to a creature or land you control" -- "you" is the
+// permanent's controller. The granted
+// trigger's Attach moves the Aura, not the sacrificed permanent that holds it.
+func TestOriginalHostIsTheAuraThatGrantedTheTrigger(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 5)
+	libraryCards(t, g, other, 5)
+	cursed := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	theirs := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	blight := g.NewCard(corpusCard(t, "Nettlevine Blight"), p, engine.Battlefield)
+	g.Attach(blight, cursed)
+	g.SetTurnState(1, other, engine.Main1)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{theirs})
+	advanceUntil(t, g, c, func() bool { return g.ActivePhase() == engine.EndOfTurn })
+	if err := g.TakePendingError(); err != nil {
+		t.Fatalf("pending error: %v", err)
+	}
+	if z := g.Card(cursed).Zone; z != engine.Graveyard {
+		t.Errorf("enchanted creature zone = %v, want Graveyard (sacrificed)", z)
+	}
+	if z := g.Card(blight).Zone; z != engine.Battlefield {
+		t.Fatalf("Nettlevine Blight zone = %v, want Battlefield", z)
+	}
+	if host, _ := g.Card(blight).AttachedTo(); host != theirs {
+		t.Errorf("Nettlevine Blight attached to %v, want %v", host, theirs)
+	}
+}

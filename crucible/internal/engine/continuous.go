@@ -1610,6 +1610,7 @@ func applyOneContinuousTraits(g *Game, host *Card, amounts map[string]expr.Amoun
 		return nil
 	}
 	grant.amounts = amounts
+	grant.origin = host.ID
 	var added []layerStatic
 	for _, id := range affected {
 		c := g.Card(id)

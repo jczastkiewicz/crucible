@@ -733,6 +733,14 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 		return nil, err
 	}
 	switch defined {
+	case "OriginalHost":
+		// SpellAbility.getOriginalHost (AbilityUtils.java:86-90, the root
+		// ability): the card holding the static that granted the trigger, the
+		// host itself for a printed one.
+		if refs.triggered.originalHost != NoCard {
+			return []CardID{refs.triggered.originalHost}, nil
+		}
+		return []CardID{host.ID}, nil
 	case "Self", "CorrectedSelf":
 		// CorrectedSelf is game.getCardState(host) (AbilityUtils.java:84-85): the
 		// host as it is now, the same CardID.

@@ -597,6 +597,10 @@ type triggeredObjects struct {
 	// chain with the rest of the triggering objects, as Java's getTrigger
 	// walks up getParent to the root (SpellAbility.java:1354-1359).
 	grant uint64
+	// originalHost is the card whose static granted the trigger that put this
+	// ability on the stack (Defined$/Object$ OriginalHost); NoCard for a
+	// printed trigger, whose original host is the card itself.
+	originalHost CardID
 	// counts are the integers the trigger mode recorded, read by
 	// TriggerCount$<Key> (AbilityUtils.java:638).
 	counts triggerCounts

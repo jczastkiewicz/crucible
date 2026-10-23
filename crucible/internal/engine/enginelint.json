@@ -34,7 +34,7 @@
     "combat": ["combat.go"],
     "attack": ["attack.go"],
     "block": ["block.go"],
-    "attackconstraints": ["attackconstraints.go"],
+    "attackconstraints": ["attackconstraints.go", "attackrestrict.go"],
     "blockvalidation": ["blockvalidation.go"],
     "staticability": ["staticability.go"],
     "presentcheck": ["presentcheck.go"],
@@ -285,6 +285,7 @@
     ],
     "attackconstraints": [
       "presentcheck",
+      "amount",
       "id",
       "zone",
       "card",

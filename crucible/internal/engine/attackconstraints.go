@@ -10,8 +10,9 @@
 // Java's AttackConstraints also carries restrictions this port has no
 // source for: AttackRestriction's types (NEED_TWO_OTHERS, NOT_ALONE,
 // ONLY_ALONE, NEED_BLACK_OR_GREEN, NEED_GREATER_POWER -- "can't attack
-// alone" keywords and Mode$ CantAttack statics), GlobalAttackRestrictions'
-// maximum attacker counts. Mode$ AttackRequirement (causesToAttack) and
+// alone" keywords and Mode$ CantAttack statics). GlobalAttackRestrictions'
+// maximum attacker counts (Mode$ AttackRestrict, attackrestrict.go), Mode$
+// AttackRequirement (causesToAttack) and
 // Mode$ PlayerMustAttack (playerRequirements) are ported. Attack costs (Propaganda, Mode$
 // CantAttackUnless, attackcost.go) are ported: legalAttack skips a costed
 // pair. With the rest absent, getLegalAttackers' search collapses
@@ -290,6 +291,8 @@ type attackConstraints struct {
 	// static: the defenders it names. Attacking any of them meets it.
 	playerRequirements [][]EntityID
 	defenders          []EntityID
+	// limits are the Mode$ AttackRestrict caps (attackrestrict.go).
+	limits attackLimits
 }
 
 // newAttackConstraints is AttackConstraints' constructor. Every creature
@@ -301,6 +304,9 @@ func (g *Game) newAttackConstraints() (attackConstraints, error) {
 	defenders := g.eligibleAttackTargets()
 	ac := attackConstraints{defenders: defenders}
 	var err error
+	if ac.limits, err = g.attackLimitsFor(defenders); err != nil {
+		return attackConstraints{}, err
+	}
 	if ac.playerRequirements, err = g.mustAttackSpecific(defenders); err != nil {
 		return attackConstraints{}, err
 	}
@@ -472,6 +478,14 @@ func (g *Game) legalAttack(ac attackConstraints, options []attackOption) (map[Ca
 		if costed {
 			continue
 		}
+		// AttackConstraints.java:78-81: an attacker that would break a maximum
+		// stays home.
+		attack[o.attacker] = o.defender
+		withinLimits := ac.limits.legal(attack)
+		delete(attack, o.attacker)
+		if !withinLimits {
+			continue
+		}
 		// AttackConstraints.java:218-224: a creature that forces others to
 		// attack adds the statics forcing each to every option the forced one
 		// still has. The list is not re-sorted (Java sorts only after the
@@ -530,6 +544,11 @@ func (g *Game) checkAttackers(v attackValidation, attackers []CardID, targets ma
 	declared := make(map[CardID]EntityID, len(attackers))
 	for _, id := range attackers {
 		declared[id] = targets[id]
+	}
+	// CombatUtil.validateAttackers: a declaration beyond an AttackRestrict
+	// maximum is illegal outright (countViolations' -1).
+	if !ac.limits.legal(declared) {
+		return illegal("CR 508.1c", "attackers exceed a Mode$ AttackRestrict maximum", attackers...)
 	}
 	best, err := g.legalAttack(ac, v.options)
 	if err != nil {
@@ -616,7 +635,7 @@ func (g *Game) eachCombatStatic(mode string, f func(h *Card, face *compile.Face,
 // PresentPlayer$ (isPresentMatches), and MinMaxBlocker's Min$/Max$.
 var staticCombatParams = [...]string{
 	"Mode", "ValidCreature", "ValidCard", "ValidAttacker", "ValidPlayer", "MustAttack", "Description", "Secondary", "AffectedZone",
-	"Condition", "IsPresent", "PresentCompare", "PresentZone", "PresentPlayer", "Min", "Max",
+	"Condition", "IsPresent", "PresentCompare", "PresentZone", "PresentPlayer", "Min", "Max", "MaxAttackers", "ValidDefender", "EffectZone",
 }
 
 // combatStaticConditionsMet is StaticAbility.checkConditions for the
@@ -634,7 +653,8 @@ func combatStaticConditionsMet(g *Game, h *Card, face *compile.Face, s *compile.
 		// ValidAttacker$ is read by Mode$ AttackRequirement alone, ValidPlayer$
 		// by Mode$ PlayerMustAttack alone (StaticAbilityMustAttack.java).
 		if strings.EqualFold(p.Key, "ValidAttacker") && !strings.EqualFold(s.Name, "AttackRequirement") ||
-			strings.EqualFold(p.Key, "ValidPlayer") && !strings.EqualFold(s.Name, "PlayerMustAttack") {
+			strings.EqualFold(p.Key, "ValidPlayer") && !strings.EqualFold(s.Name, "PlayerMustAttack") ||
+			(strings.EqualFold(p.Key, "MaxAttackers") || strings.EqualFold(p.Key, "ValidDefender")) && !strings.EqualFold(s.Name, "AttackRestrict") {
 			known = false
 		}
 		if !known {

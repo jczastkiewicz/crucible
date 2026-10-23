@@ -151,3 +151,42 @@ func TestCantAttachStaticRefusesTheHost(t *testing.T) {
 		})
 	}
 }
+
+// Mode$ AttackRestrict (StaticAbilityAttackRestrict.java, GlobalAttackRestrictions
+// .java:31-76): MaxAttackers$ caps the whole attack, or with ValidDefender$ the
+// creatures attacking the defender it names. A declaration over a cap is illegal.
+func TestAttackRestrictCapsTheDeclaration(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		line     string
+		attacked int
+		wantErr  bool
+	}{
+		{"global cap of one, two attack", "S:Mode$ AttackRestrict | MaxAttackers$ 1", 2, true},
+		{"global cap of one, one attacks", "S:Mode$ AttackRestrict | MaxAttackers$ 1", 1, false},
+		{"global cap of two, two attack", "S:Mode$ AttackRestrict | MaxAttackers$ 2", 2, false},
+		{"cap on attacks against the host's controller", "S:Mode$ AttackRestrict | MaxAttackers$ 1 | ValidDefender$ You", 2, true},
+		{"cap for a defender other than the target", "S:Mode$ AttackRestrict | MaxAttackers$ 1 | ValidDefender$ You", 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, a, b := combatGame(t)
+			g.NewCard(scriptDef(t, "Test Arena", "Enchantment", tc.line), b, engine.Battlefield)
+			var attackers []engine.CardID
+			for range tc.attacked {
+				attackers = append(attackers, g.NewCard(creatureDefPT(t, "1", "1"), a, engine.Battlefield))
+			}
+			c := engine.NewScriptedController()
+			c.QueueAttackers(attackers)
+
+			_, err := g.DeclareCombatAttackers(c)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("DeclareCombatAttackers error = %v, want error %v", err, tc.wantErr)
+			}
+		})
+	}
+}

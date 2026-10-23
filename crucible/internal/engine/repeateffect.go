@@ -1,14 +1,12 @@
 package engine
 
-//enginelint:allow card game ability condition control amount trigger presentcheck
+//enginelint:allow card game ability condition control amount trigger presentcheck defined
 
 import "fmt"
 
-// repeatUnresolvedParams: RepeatOptionalDecider$ hands the "again?" question
-// to another player.
-var repeatUnresolvedParams = [...]string{
-	"RepeatOptionalDecider",
-}
+// repeatUnresolvedParams: none; RepeatOptionalDecider$ names the player asked
+// "again?" (RepeatEffect.java:110-115).
+var repeatUnresolvedParams = [...]string{}
 
 // repeatEffect is RepeatEffect.java: RepeatSubAbility$ resolves at least
 // once, then again while the repeat conditions hold -- RepeatPresent$/
@@ -58,8 +56,24 @@ func (repeatEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 			!checkSVarMatches(g, source, a.Amounts, a.Params, "RepeatCheckSVar", "RepeatSVarCompare", "") {
 			return nil
 		}
-		if _, ok := a.Params.Param("RepeatOptional"); ok && !controller.ConfirmEffect(g, a.Controller, a.Source) {
-			return nil
+		if _, ok := a.Params.Param("RepeatOptional"); ok {
+			// RepeatEffect.java:110-115: the first RepeatOptionalDecider$ player,
+			// else the activator, confirms.
+			decider := a.Controller
+			if raw, ok := a.Params.Param("RepeatOptionalDecider"); ok {
+				players, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+				if err != nil {
+					return fmt.Errorf("engine: Repeat: RepeatOptionalDecider$: %w", err)
+				}
+				if len(players) == 0 {
+					// Java's getDefinedPlayers(...).get(0) throws here.
+					return fmt.Errorf("engine: Repeat: RepeatOptionalDecider$ %q names no player", raw)
+				}
+				decider = players[0]
+			}
+			if !controller.ConfirmEffect(g, decider, a.Source) {
+				return nil
+			}
 		}
 	}
 }

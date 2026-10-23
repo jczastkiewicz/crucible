@@ -492,3 +492,30 @@ func TestPutCounterTgtZoneGraveyardTargetsACardForItsSubAbility(t *testing.T) {
 		t.Errorf("energy = %d, want 2", got)
 	}
 }
+
+// TestStoreSVarTypeCountEvaluatesTheExpression proves StoreSVar Type$ Count
+// (To the Slaughter's Delirium.1.0): the expression is read as Count$<expr>
+// and its value stored under the SVar (StoreSVarEffect.java:42-44).
+func TestStoreSVarTypeCountEvaluatesTheExpression(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		kinds []string
+		want  int
+	}{
+		{"no delirium", nil, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g, p, _ := newTwoPlayerGame(t)
+			before := g.Player(p).Life
+			resolveLine(t, g, p, engine.NewScriptedController(),
+				"DB$ StoreSVar | SVar$ XD | Type$ Count | Expression$ Delirium.7.3 | SubAbility$ DBGain",
+				"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ XD", "XD", "Number$0")
+			if got := g.Player(p).Life - before; got != 3 {
+				t.Errorf("gained %d, want 3 (no delirium: the .3 branch)", got)
+			}
+		})
+	}
+}

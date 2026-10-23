@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
 // storeSVarEffect is StoreSVarEffect.java: computes a number and stores it
@@ -48,6 +50,10 @@ func (storeSVarEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		value, ok = n, err == nil
 	case kind == "Calculate":
 		value, ok = resolveNamedAmount(g, a.Amounts, source, expression)
+	case kind == "Count":
+		// StoreSVarEffect.java:42-44: xCount of the expression, as if written
+		// Count$<expression> (To the Slaughter's Delirium.1.0).
+		value, ok = resolveAmount(g, a.Amounts, a.Controller, a.Source, expr.Parse("Count$"+expression))
 	case kind == "CountSVar":
 		value, ok = countSVar(g, a, source, expression)
 	case strings.HasPrefix(kind, "AdditiveForEach"):

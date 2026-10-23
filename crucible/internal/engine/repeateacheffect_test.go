@@ -246,3 +246,33 @@ func TestRepeatEachEffectPlayersStartAtTheActivePlayer(t *testing.T) {
 		t.Errorf("life = %d/%d, want 19/20", g.Player(p).Life, g.Player(other).Life)
 	}
 }
+
+// repeatDeciderAsker records the player each ConfirmEffect question is for.
+type repeatDeciderAsker struct {
+	*engine.ScriptedController
+	asked []engine.PlayerID
+}
+
+func (c *repeatDeciderAsker) ConfirmEffect(g *engine.Game, p engine.PlayerID, src engine.CardID) bool {
+	c.asked = append(c.asked, p)
+	return false
+}
+
+// TestRepeatOptionalDeciderAsksThatPlayer proves RepeatOptionalDecider$ (Game
+// of Chaos): the named player, not the activator, is asked whether to repeat
+// (RepeatEffect.java:110-115).
+func TestRepeatOptionalDeciderAsksThatPlayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	host := pushPlayLine(t, g, p, nil,
+		"DB$ Repeat | RepeatOptional$ True | RepeatOptionalDecider$ Remembered | RepeatSubAbility$ DBNothing", "DBNothing", "DB$ GainLife | Defined$ You | LifeAmount$ 1")
+	g.Card(host).Memory.Remember(engine.PlayerEntity(other))
+	c := &repeatDeciderAsker{ScriptedController: engine.NewScriptedController()}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.asked) != 1 || c.asked[0] != other {
+		t.Errorf("asked %v, want [%v], the remembered player", c.asked, other)
+	}
+}

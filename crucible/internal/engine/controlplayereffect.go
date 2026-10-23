@@ -25,11 +25,9 @@ func (controlPlayerEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 	// Condition$ OptionalCost/ConditionOptionalPaid$ (Secret of
 	// Bloodbending) reads the optional-cost record (optionalcost.go) in
 	// subAbilityConditionMet; any other Condition$ value is refused.
-	// TargetUnique$ (Cruel Entertainment) is a target-set rule targeting.go
-	// does not enforce, and fails loudly (PORT-8, GO-7).
-	if err := rejectParams(a, "ControlPlayer", "TargetUnique"); err != nil {
-		return err
-	}
+	// TargetUnique$ (Cruel Entertainment) is a target-set rule: it is read
+	// where the target is chosen (targeting.go, SpellAbility.canTarget), not
+	// by this effect (ControlPlayerEffect.java never reads it).
 	if err := rejectUnreadCondition(a, "ControlPlayer"); err != nil {
 		return err
 	}

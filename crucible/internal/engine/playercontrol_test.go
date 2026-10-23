@@ -321,14 +321,14 @@ func TestControlPlayerSurvivesCloneIndependently(t *testing.T) {
 // TestControlPlayerRejectsUnportedShapes proves the corpus params this
 // port cannot resolve fail loudly rather than being skipped: a Condition$
 // value subAbilityConditionMet does not read, Cruel Entertainment's
-// TargetUnique$ and Controller$ ParentTarget/Player.Chosen, plus a
+// Controller$ ParentTarget/Player.Chosen, plus a
 // Controller$ naming nobody (Java's .get(0) on an empty list).
 func TestControlPlayerRejectsUnportedShapes(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct{ line, want string }{
 		{"DB$ ControlPlayer | ValidTgts$ Opponent | Condition$ Teamwork | Combat$ True", "Condition$ \"Teamwork\" not resolvable yet"},
-		{"DB$ ControlPlayer | ValidTgts$ Player | TargetUnique$ True | Controller$ Player.Chosen", "TargetUnique$ not resolvable yet"},
+		{"DB$ ControlPlayer | ValidTgts$ Player | TargetUnique$ True | Controller$ Player.Chosen", "Controller$"},
 		{"DB$ ControlPlayer | Defined$ Opponent | Controller$ ParentTarget", "Controller$"},
 		{"DB$ ControlPlayer | Defined$ Opponent | Controller$ Player.Chosen", "Controller$"},
 		{"DB$ ControlPlayer | Defined$ Opponent | Controller$ ChosenPlayer", "names no player"},

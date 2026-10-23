@@ -53,7 +53,6 @@ func TestEffectsFailClosedOnUnresolvedShapes(t *testing.T) {
 		"DB$ GenericChoice | Defined$ You | ChoiceAmount$ Bogus",
 		"DB$ GenericChoice | Defined$ TriggeredPlayer",
 		"DB$ Repeat | MaxRepeat$ Bogus",
-		"DB$ Repeat | RepeatOptionalDecider$ You",
 		"DB$ RepeatEach | RepeatCards$ Creature | Zone$ Nowhere",
 		"DB$ RepeatEach | DefinedCards$ TriggeredTarget",
 		"DB$ RepeatEach | RepeatPlayers$ TriggeredPlayer",

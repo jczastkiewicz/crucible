@@ -26,6 +26,8 @@ func TestActivationReadsRaiseAndReduceCostStatics(t *testing.T) {
 		{"raise for spells only", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2", 1},
 		{"raise for activated ValidSpell$", "S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Activated | Amount$ 1", 2},
 		{"raise for mana abilities only", "S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Activated.ManaAbility | Amount$ 1", 1},
+		{"ValidSpell$ Spell does not touch an activation", "S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell | Amount$ 1", 1},
+		{"ValidSpell$ Spell,Activated raises an activation", "S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell,Activated.!ManaAbility | Amount$ 1", 2},
 		{"reduce for abilities", "S:Mode$ ReduceCost | ValidCard$ Card | Type$ Ability | Amount$ 1", 0},
 		{"non-mana raise refuses", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Ability | Cost$ PayLife<1>", -1},
 	} {

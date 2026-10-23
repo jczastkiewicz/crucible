@@ -44,6 +44,11 @@ func TestSpellCostStatics(t *testing.T) {
 			"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2",
 			"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1"}, 0, 4},
 		{"opponent's reduction does not apply to me", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ Opponent | Amount$ 1"}, 0, 3},
+		{"ValidSpell$ Spell raises a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell | Amount$ 1"}, 0, 4},
+		{"ValidSpell$ Spell alternatives raise a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell,Activated.!ManaAbility | Amount$ 1"}, 0, 4},
+		{"ValidSpell$ Static does not touch a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Static.MorphUp | Amount$ 2"}, 0, 3},
+		{"Affected$ is read by no cost code and changes nothing", []string{"S:Mode$ RaiseCost | Affected$ Card.Self | Type$ Spell | Amount$ 1"}, 0, 4},
+		{"a failed Condition$ skips before an unevaluable param", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Condition$ NotPlayerTurn | ValidTarget$ Creature | Amount$ 1"}, 0, 3},
 		{"an unresolvable line is not applied", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ValidTarget$ Creature.tapped"}, 0, 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

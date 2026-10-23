@@ -19,13 +19,16 @@ import (
 // costModParams are the params a RaiseCost/ReduceCost line may carry that this
 // port evaluates (Relative$ on the spell's own line only, costModStatus); any
 // other (ValidTarget$, Color$, UpTo$,
-// OnlyFirstSpell$, ValidSpell$, ForEachShard$, a keyword Amount$ ...) makes the
-// line unresolvable and it is not applied (GO-7).
+// OnlyFirstSpell$, ForEachShard$, a keyword Amount$ ...) makes the
+// line unresolvable and it is not applied (GO-7). Affected$ is listed because
+// no cost-modification code in Java reads it (Hurkyl's Final Meditation's
+// `Affected$ Card.Self` never reaches its effect, forge-java-defects.md); the
+// line is evaluated as Java does, without it.
 var costModParams = map[string]bool{
 	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
-	"validspell": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"validspell": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
 
 // spellCost is base, the printed (or alternative) mana cost of casting card as
@@ -173,6 +176,12 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	// An absent Type$ gates nothing (CostAdjustment.java:535-576): the line
 	// reaches spells and activations alike. ValidSpell$ Activated[.props] never
 	// holds for a spell (SpellAbility.java:2232).
+	// checkRequirement tests the static's conditions first
+	// (CostAdjustment.java:514-516), so a line whose condition fails skips
+	// before any param this port cannot evaluate refuses the cast.
+	if !g.staticConditionsMet(host, s) {
+		return costModSkips
+	}
 	wantType := "Spell"
 	if act != nil {
 		wantType = "Ability"
@@ -182,13 +191,17 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	}
 	if v, ok := s.Param("ValidSpell"); ok {
 		switch {
-		case act == nil && strings.HasPrefix(v, "Activated"):
-			return costModSkips
 		case act == nil:
-			return costModUnresolvable
+			matched, recognized := validSpellForSpell(v)
+			if !recognized {
+				return costModUnresolvable
+			}
+			if !matched {
+				return costModSkips
+			}
 		case act != nil:
 			_, loyalty := act.Param("Planeswalker")
-			matched, recognized := validActivatedSA(v, act.Name == "Mana", loyalty)
+			matched, recognized := validSpecForActivation(v, act.Name == "Mana", loyalty)
 			if !recognized {
 				return costModUnresolvable
 			}
@@ -222,10 +235,29 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	if !paramsResolvable(s, costModParams) {
 		return costModUnresolvable
 	}
-	if !g.staticConditionsMet(host, s) {
-		return costModSkips
-	}
 	return costModApplies
+}
+
+// validSpellForSpell evaluates a ValidSpell$ spec against a spell being cast
+// (SpellAbility.isValid, SpellAbility.java:2200-2250): comma-separated
+// alternatives, of which "Spell" matches and "Activated", "Static" and
+// "Triggered" never do. A property on Spell (Flashback, ...) or any other base
+// is not evaluated here: recognized is false and the line stays unresolvable.
+func validSpellForSpell(spec string) (matched, recognized bool) {
+	for _, alt := range strings.Split(spec, ",") {
+		base, props, _ := strings.Cut(alt, ".")
+		switch base {
+		case "Spell":
+			if props != "" {
+				return false, false
+			}
+			matched = true
+		case "Activated", "Static", "Triggered":
+		default:
+			return false, false
+		}
+	}
+	return matched, true
 }
 
 // costModAmount is a line's Amount$: a plain number, or an SVar of the host's
@@ -235,4 +267,25 @@ func costModAmount(g *Game, face *compile.Face, host *Card, raw string) (int, bo
 		return n, true
 	}
 	return resolveNamedAmount(g, face.Amounts, host, raw)
+}
+
+// validSpecForActivation evaluates a ValidSpell$ spec against an activated
+// ability: comma-separated alternatives (SpellAbility.isValid), of which the
+// Activated ones go through validActivatedSA and "Spell", "Static" and
+// "Triggered" (with any properties) never match an activation. An Activated
+// alternative validActivatedSA does not know leaves the line unresolvable.
+func validSpecForActivation(spec string, isMana, isLoyalty bool) (matched, recognized bool) {
+	for _, alt := range strings.Split(spec, ",") {
+		base, _, _ := strings.Cut(alt, ".")
+		switch base {
+		case "Spell", "Static", "Triggered":
+			continue
+		}
+		m, ok := validActivatedSA(alt, isMana, isLoyalty)
+		if !ok {
+			return false, false
+		}
+		matched = matched || m
+	}
+	return matched, true
 }

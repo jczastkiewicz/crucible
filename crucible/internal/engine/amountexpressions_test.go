@@ -567,3 +567,30 @@ func TestPowerMeasureOfACardWithoutPTIsZero(t *testing.T) {
 		})
 	}
 }
+
+// Count$SecondMostProminentColor (AbilityUtils.java:2870-2874) is the second
+// largest of the five per-color counts, and ChosenCtrl limits the permanents to
+// the player the source chose (Call to Arms).
+func TestSecondMostProminentColorOverChosenPlayersPermanents(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	for _, colors := range []mana.Colors{mana.Red, mana.Red, mana.Red, mana.Green, mana.Green} {
+		def := creatureDefPT(t, "1", "1")
+		def.Faces[0].Colors, def.Faces[0].HasColors = colors, true
+		g.NewCard(def, other, engine.Battlefield)
+	}
+	red := creatureDefPT(t, "1", "1")
+	red.Faces[0].Colors, red.Faces[0].HasColors = mana.Red, true
+	g.NewCard(red, p, engine.Battlefield) // not the chosen player's: left out
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueuePlayerChoice(other)
+	resolveLine(t, g, p, c,
+		"DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | SubAbility$ DBG",
+		"DBG", "DB$ GainLife | Defined$ You | LifeAmount$ Y",
+		"Y", "Count$SecondMostProminentColor Permanent.!token+ChosenCtrl")
+	if got := g.Player(p).Life - before; got != 2 {
+		t.Errorf("gained %d, want 2 (red 3, green 2)", got)
+	}
+}

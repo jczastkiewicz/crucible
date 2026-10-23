@@ -177,6 +177,10 @@ type Card struct {
 	// getCloneStates): the copy's own printed state lost Legendary, so Type()
 	// folds a first-timestamp removal under every continuous effect.
 	copyNonLegendary bool
+	// copyLoyalty is CopySpellAbility SetLoyalty$ (CardFactory.java:614): the
+	// copy's starting loyalty, set when copyHasLoyalty.
+	copyLoyalty    int
+	copyHasLoyalty bool
 	// IsEffect marks an effect card (GamePieceType.EFFECT): the Command-zone
 	// object an Effect ability creates to carry its triggers, continuous
 	// effects and replacement effects (effecteffect.go). Its traits are
@@ -978,6 +982,9 @@ func (c *Card) BaseToughness() (int, bool) {
 func (c *Card) BaseLoyalty() (int, bool) {
 	if c.Def == nil {
 		return 0, false
+	}
+	if c.copyHasLoyalty {
+		return c.copyLoyalty, true
 	}
 	n, err := strconv.Atoi(c.Def.Faces[0].Loyalty)
 	return n, err == nil

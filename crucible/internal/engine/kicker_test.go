@@ -313,3 +313,41 @@ func TestKeywordRepeatsPayNonManaPartsEachTime(t *testing.T) {
 		})
 	}
 }
+
+// Casualty X (GameActionUtil.java:633-651, CardFactory.java:580,614): X is
+// chosen up to the greatest power among the caster's creatures before the
+// yes or no, the cost sacrifices a creature with at least that power, and the
+// copy of a planeswalker spell is nonlegendary with X starting loyalty (Ob
+// Nixilis, the Adversary).
+func TestCasualtyXCopiesWithLoyaltyX(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	def := scriptDef(t, "Test Nixilis", "Legendary Planeswalker Nixilis",
+		"K:Casualty:X:NonLegendary$ True | SetLoyalty$ Casualty:The copy is not legendary and has starting loyalty X.")
+	def.Faces[0].ManaCost = mana.MustParse("G")
+	def.Faces[0].Loyalty = "3"
+	card := g.NewCard(def, p, engine.Hand)
+	big := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	c := engine.NewScriptedController()
+	c.QueueNumberChoice(2)
+	c.QueueConfirmPayCost(true)
+	c.QueueSacrificeChoice([]engine.CardID{big})
+	c.QueuePayGeneric(mana.ShardG)
+	if !g.CastSpell(p, card, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	loyalties := map[int]int{}
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if k := g.Card(id); k.Counters.Count(engine.Loyalty) > 0 {
+			loyalties[k.Counters.Count(engine.Loyalty)]++
+		}
+	}
+	if loyalties[3] != 1 || loyalties[2] != 1 {
+		t.Errorf("planeswalker loyalties = %v, want one of 3 and one of 2", loyalties)
+	}
+}

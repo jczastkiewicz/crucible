@@ -51,6 +51,9 @@ type optionalCostOption struct {
 	// records (SpellAbility.setOptionalKeywordAmount).
 	kwName   string
 	kwAmount int
+	// casualtyX marks Casualty X: the power asked of the sacrifice is chosen
+	// when the option is offered (GameActionUtil.java:635-640).
+	casualtyX bool
 }
 
 // optionalChoice is what the optional costs a cast pays add to it: kinds for
@@ -171,6 +174,12 @@ func (g *Game) optionalCostOptions(pid PlayerID, card CardID) ([]optionalCostOpt
 			// least N, or tap two untapped creatures that share a color with
 			// the spell; a Casualty X is not read.
 			amount, text := 1, "tapXType<2/Creature.SharesColorWith/creature that shares a color with "+c.Def.Name+">"
+			if k.Name == "Casualty" && k.Args()[0] == "X" {
+				// X is chosen as the spell is cast (chooseOptionalCosts), before
+				// the yes or no.
+				out = append(out, optionalCostOption{kwName: k.Name, casualtyX: true})
+				continue
+			}
 			if k.Name == "Casualty" {
 				n, err := strconv.Atoi(k.Args()[0])
 				if len(k.Args()) < 1 || err != nil {
@@ -269,6 +278,12 @@ func (g *Game) chooseOptionalCosts(controller PlayerController, pid PlayerID, ca
 	}
 	var choice optionalChoice
 	for _, o := range options {
+		if o.casualtyX {
+			var ok bool
+			if o, ok = g.casualtyXOption(controller, pid, card, o); !ok {
+				continue
+			}
+		}
 		if !g.optionalOptionPayable(pid, card, o) || !controller.ConfirmPayCost(g, pid, cost.Parse(o.text), card) {
 			continue
 		}
@@ -487,4 +502,34 @@ func (g *Game) waterbendCast(controller PlayerController, pid PlayerID, card Car
 		return total, nil
 	}
 	return g.waterbendReduce(controller, pid, card, unlessCost{mana: total, hasMana: true, waterbendN: n})
+}
+
+// casualtyXOption is Casualty X (GameActionUtil.java:633-651): the caster
+// chooses X up to the greatest power among their creatures, and the cost is a
+// sacrifice of a creature with at least that power. X is asked before the
+// yes or no, so a declined option has still asked it. ok is false with no
+// creature to sacrifice.
+func (g *Game) casualtyXOption(controller PlayerController, pid PlayerID, card CardID, o optionalCostOption) (optionalCostOption, bool) {
+	best, found := 0, false
+	for _, id := range g.Zone(Battlefield, pid).Cards() {
+		c := g.Card(id)
+		if !c.Type().Has(cardtype.Creature) {
+			continue
+		}
+		if p, ok := c.Power(); ok && (!found || p > best) {
+			best, found = p, true
+		}
+	}
+	if !found {
+		return o, false
+	}
+	x := controller.ChooseNumber(g, pid, card, 0, max(best, 0))
+	text := "Sac<1/Creature.powerGE" + strconv.Itoa(x) + "/creature with power " + strconv.Itoa(x) + " or greater>"
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		g.recordPendingError(fmt.Errorf("engine: %q: Casualty cost %q not resolvable yet", g.Card(card).Def.Name, text))
+		return o, false
+	}
+	o.text, o.uc, o.kwAmount = text, uc, x
+	return o, true
 }

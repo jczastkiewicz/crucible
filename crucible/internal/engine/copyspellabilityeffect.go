@@ -106,6 +106,15 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 				if err != nil {
 					return err
 				}
+				if raw, ok := a.Params.Param("SetLoyalty"); ok && host != NoCard {
+					// CardFactory.java:614-615: a planeswalker copy starts with
+					// this loyalty (Casualty X's amount).
+					n, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
+					if !ok {
+						return fmt.Errorf("engine: CopySpellAbility: SetLoyalty$ %q is not resolvable", raw)
+					}
+					g.Card(host).copyLoyalty, g.Card(host).copyHasLoyalty = n, true
+				}
 				if len(tg.targets) > 0 {
 					targeted = append(targeted, tg)
 				}

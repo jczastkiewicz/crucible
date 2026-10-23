@@ -19,6 +19,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,9 @@ func (g *Game) recordCountValue(sourceController PlayerID, source CardID, count 
 		return n, ok, true
 	case strings.HasPrefix(count.Head, "MostCardName"):
 		n, ok = g.mostCardName(sourceController, source, count)
+		return n, ok, true
+	case count.Head == "SecondMostProminentColor":
+		n, ok = g.secondMostProminentColor(sourceController, source, count.Argument)
 		return n, ok, true
 	case count.Head == "MostProminentCreatureType":
 		n, ok = g.mostProminentCreatureType(sourceController, source, count.Argument)
@@ -362,6 +366,35 @@ func (g *Game) mostCardName(sourceController PlayerID, source CardID, count expr
 		}
 	}
 	return most, true
+}
+
+// secondMostProminentColor is Count$SecondMostProminentColor <valid>
+// (AbilityUtils.java:2870-2874, CardFactoryUtil.SortColorsFromList): the five
+// per-color counts of the matching battlefield permanents sorted ascending,
+// the second largest. A multicolor permanent counts once per color, a
+// colorless one for none, and a tie for first gives the same value twice.
+func (g *Game) secondMostProminentColor(sourceController PlayerID, source CardID, spec string) (int, bool) {
+	if spec == "" {
+		return 0, false
+	}
+	parsed := valid.Parse(spec)
+	var counts [5]int
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if !Matches(g, c, parsed, sourceController, source) {
+				continue
+			}
+			col := c.Colors()
+			for i := range counts {
+				if col.HasAny(mana.Colors(1) << uint(i)) {
+					counts[i]++
+				}
+			}
+		}
+	}
+	slices.Sort(counts[:])
+	return counts[3], true
 }
 
 // mostProminentCreatureType is Count$MostProminentCreatureType <valid>: the

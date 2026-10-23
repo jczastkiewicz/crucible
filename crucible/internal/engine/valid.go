@@ -752,6 +752,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return c.Controller() != sourceController
 	case strings.HasPrefix(name, "OppCtrl"):
 		return c.Controller() != sourceController
+	case strings.HasPrefix(name, "ChosenCtrl"):
+		// CardProperty.java:194-196: c is controlled by the player source chose;
+		// no choice matches nothing (Java's equals(null) is false).
+		sc, ok := sourceCard(g, source)
+		return ok && sc.Memory.ChosenPlayer() != NoPlayer && c.Controller() == sc.Memory.ChosenPlayer()
 	case strings.HasPrefix(name, "YouDontOwn"):
 		return c.Owner != sourceController
 	case strings.HasPrefix(name, "YouOwn"):

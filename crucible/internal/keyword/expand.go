@@ -310,16 +310,21 @@ func Expand(k Keyword) (Expansion, bool) {
 		}, true
 	case "Casualty", "Conspire":
 		// CardFactoryUtil.java:795-810, :851-860: when you cast it having paid
-		// the keyword's cost, copy it. Casualty X (one card, with its own
-		// trailing params) has no template.
+		// the keyword's cost, copy it. Casualty X carries trailing copy params
+		// (K:Casualty:X:NonLegendary$ True | SetLoyalty$ Casualty:text, k[2]),
+		// whose SetLoyalty$ reads the amount recorded under the keyword's name.
+		extra := ""
 		if k.Name == "Casualty" {
-			if n, ok := amountDetail(k); !ok || n == "X" {
+			n, ok := amountDetail(k)
+			if args := k.Args(); !ok && len(args) >= 2 && args[0] == "X" && args[1] != "" {
+				extra = " | " + strings.ReplaceAll(args[1], "SetLoyalty$ Casualty", "SetLoyalty$ KWCasualty"+Slot)
+			} else if !ok || n == "X" {
 				return Expansion{}, false
 			}
 		}
 		return Expansion{
 			Triggers: []string{"Mode$ SpellCast | ValidCard$ Card.Self | CheckSVar$ KW" + k.Name + Slot + " | Secondary$ True | Execute$ KW" + k.Name + "Copy" + Slot},
-			SVars:    []SVarDef{{"KW" + k.Name + "Copy" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True"}},
+			SVars:    []SVarDef{{"KW" + k.Name + "Copy" + Slot, "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True" + extra}},
 			Amounts:  []SVarDef{{"KW" + k.Name + Slot, "Count$OptionalKeywordAmount." + k.Name}},
 		}, true
 	case "Offspring":

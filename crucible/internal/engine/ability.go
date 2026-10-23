@@ -218,6 +218,9 @@ type Ability struct {
 	// zone is not enough to tell: a "when you cast this spell" trigger's
 	// Source is that same card, sitting above it (spellItemOf, stack.go).
 	spell bool
+	// mutate marks the creature spell cast for its Mutate cost (mutate.go):
+	// Target is the creature it merges with, if it is still legal.
+	mutate bool
 	// rootSpell marks a sub-ability or additional ability whose root ability
 	// is a spell (SpellAbility.getRootAbility().isSpell()): set as the chain is
 	// built (resolveSubAbility, resolveAdditional). ChangeZone's Defined$

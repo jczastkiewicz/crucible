@@ -133,6 +133,14 @@ type Card struct {
 	// Move clears both with kicker.
 	sneaked       bool
 	sneakDefender EntityID
+	// merged is Card.mergedCards (mutate.go): the components of a mutated
+	// permanent, top first, the permanent itself among them; empty for a card
+	// nothing merged into. mergedTo is Card.mergedTo on a component in the
+	// Merged zone: the permanent it is part of. timesMutated is
+	// Card.getTimesMutated.
+	merged       []CardID
+	mergedTo     CardID
+	timesMutated int
 	// castOpt is what the card's cast paid of its optional costs beyond Kicker
 	// (optionalcost.go): the OptionalCost kinds and the paid lists its effects
 	// read back. Kept and cleared with kicker.

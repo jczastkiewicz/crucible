@@ -169,6 +169,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		opts.withoutManaCost, opts.anyType, opts.anyColor = way.withoutMana, way.anyType, way.anyColor
 		opts.snowAnyColor = way.snowAnyColor
 		opts.sneak = way.sneak
+		opts.mutate = way.mutate
 		opts.emerge = way.emerge
 		if way.altStatic {
 			// The static's cost past its mana is paid as Escape's other parts
@@ -508,6 +509,9 @@ type castOpts struct {
 	// (PlayEffect.java:420-422, AlternativeCost.Madness): altCost is that cost,
 	// and the cast records it (castOptional.madness, Count$Madness).
 	madness bool
+	// mutate is a cast for the card's Mutate cost (mutate.go): altCost is that
+	// cost, and the spell targets a creature its owner owns.
+	mutate bool
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -593,6 +597,9 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	}
 	if castableAsInstantOrSorcery(c) {
 		return g.castInstantOrSorcery(pid, card, c, controller, opts)
+	}
+	if opts.mutate {
+		return g.castMutate(pid, card, c, controller, opts)
 	}
 	if !castableAsPermanent(c) {
 		return false
@@ -1156,6 +1163,12 @@ func (g *Game) enchantTargets(spec valid.Spec, controller PlayerID, self CardID,
 type permanentEffect struct{}
 
 func (permanentEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if a.mutate {
+		merged, err := g.resolveMutate(a, controller)
+		if merged || err != nil {
+			return err
+		}
+	}
 	origin := g.Card(a.Source).Zone
 	door, castRoom := g.Card(a.Source).castRoomDoor()
 	copyBecomesToken(g.Card(a.Source))

@@ -43,6 +43,8 @@ type castOption struct {
 	// sneak is the Sneak alternative cost (sneak.go): alt is its mana, an
 	// unblocked attacker returns to hand, and the spell has instant speed.
 	sneak bool
+	// mutate is the Mutate alternative cost (mutate.go): alt is its mana.
+	mutate bool
 	// emerge, when not "", is the Emerge alternative cost (emerge.go): alt is
 	// its mana, and a permanent of this valid type is sacrificed, its mana
 	// value off the generic part.
@@ -62,7 +64,7 @@ type castOption struct {
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
-		o.sneak == p.sneak && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText
+		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -120,6 +122,10 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		if mc, ok := g.sneakAvailable(pid, c); ok {
 			out = append(out, castOption{hasAlt: true, alt: mc, flash: true, sneak: true})
 		}
+		// Mutate's own spell (CardFactoryUtil.java:3144-3159).
+		if o, ok := g.mutateOption(pid, c); ok {
+			out = append(out, o)
+		}
 		// Emerge's own spell (CardFactoryUtil.java:2808-2821), offered while
 		// something can be sacrificed for it.
 		if o, ok := g.emergeOption(pid, c); ok {
@@ -154,6 +160,8 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 func (o castOption) describe(name string) string {
 	base := "Cast " + name
 	switch {
+	case o.mutate:
+		return "Cast " + name + " for its mutate cost " + o.alt.String() + ", merging with a non-Human creature you own"
 	case o.sneak:
 		return "Cast " + name + " for its sneak cost " + o.alt.String() + ", returning an unblocked attacker you control to hand"
 	case o.sacAtCleanup:

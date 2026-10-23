@@ -1013,6 +1013,9 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	}
 	c := g.Card(id)
 	from := c.Zone
+	if from == Battlefield && kind != Battlefield && len(c.merged) > 1 {
+		return g.moveMerged(id, kind, owner)
+	}
 	if from == Battlefield && kind != Battlefield && c.prepared != NoCard {
 		// The prepared creature's leaves-play command
 		// (AlterAttributeEffect.java:87, prepare.go).

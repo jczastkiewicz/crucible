@@ -710,3 +710,22 @@ func TestListChromaSourceNamesAColor(t *testing.T) {
 		})
 	}
 }
+
+// TestAbilityYouCtrlCountsEachListedAbilityOnce proves Count$AbilityYouCtrl
+// (Odric, Blood-Cursed): one per listed ability some creature the controller
+// controls has, however many have it (AbilityUtils.java:2587-2596).
+func TestAbilityYouCtrlCountsEachListedAbilityOnce(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(creatureDefPTKeywords(t, "1", "1", "Flying", "First Strike"), p, engine.Battlefield)
+	g.NewCard(creatureDefPTKeywords(t, "1", "1", "Flying"), p, engine.Battlefield)
+	g.NewCard(creatureDefPTKeywords(t, "1", "1", "Haste"), other, engine.Battlefield)
+	before := g.Player(p).Life
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$AbilityYouCtrl Flying,First Strike,Double Strike,Haste")
+	if got := g.Player(p).Life - before; got != 2 {
+		t.Errorf("gained %d, want 2 (Flying and First Strike; the opponent's Haste is not yours)", got)
+	}
+}

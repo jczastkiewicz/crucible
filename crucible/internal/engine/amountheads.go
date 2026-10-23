@@ -143,6 +143,24 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return c.Counters.Total(), true
 		}
 		return c.Counters.Count(CounterType(strings.ToUpper(count.Parameters[0]))), true
+	case "AbilityYouCtrl":
+		// AbilityUtils.java:2587-2596: how many of the listed abilities (the
+		// comma list after the head) some creature the source's controller
+		// controls has, each counted once (Odric, Blood-Cursed).
+		if sourceController == NoPlayer || count.Argument == "" {
+			return 0, false
+		}
+		n := 0
+		for _, ab := range strings.Split(count.Argument, ",") {
+			spec := valid.Parse("Creature.with" + ab)
+			for _, id := range g.Zone(Battlefield, sourceController).Cards() {
+				if Matches(g, g.Card(id), spec, sourceController, source) {
+					n++
+					break
+				}
+			}
+		}
+		return n, true
 	case "xPaid":
 		// AbilityUtils.java:1631: the root ability's announced X when it has
 		// one, else the source card's own (Card.getXManaCostPaid).

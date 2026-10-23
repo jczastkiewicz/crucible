@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability action amount card castspell condition control defined effecthelpers game id parts player stack targeting trigger triggerpack zone
+//enginelint:allow ability action amount card castspell condition control defined effecthelpers game id parts player stack targeting trigger triggerpack zone copypermanenteffect
 
 import (
 	"fmt"
@@ -34,15 +34,18 @@ type copySpellAbilityEffect struct{}
 // copySpellUnresolvedParams are CopySpellAbilityEffect params this port does
 // not resolve, each rejected before anything is copied (PORT-8, GO-7):
 // CopyForEachCanTarget$/ChooseOnlyOne$ (CR 707.10d, one copy per other
-// legal target), DefinedTarget$ (CR 707.10e), SingleChoice$, the copy's
-// Layer 1 changes (SetPower$, SetToughness$, SetColor$, AddTypes$), Epic$,
-// UseOriginalHost$, RememberCopies$ (remembers SpellAbility objects, which
-// Memory cannot hold),
+// legal target), DefinedTarget$ (CR 707.10e), SingleChoice$, Epic$,
+// UseOriginalHost$,
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
-// never met, silently.
+// never met, silently. The copy's Layer 1 changes (SetColor$, SetPower$,
+// SetToughness$, AddTypes$) go through copyExceptDef (CardFactory.
+// getCloneStates, :480-612). RememberCopies$ is read nowhere in Java
+// (CopySpellAbilityEffect.java:208-210 writes SpellAbility objects no
+// Remembered reader accepts, forge-java-defects.md): it is accepted and does
+// nothing here, since Memory holds no SpellAbility.
 var copySpellUnresolvedParams = [...]string{
-	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice", "SetPower",
-	"SetToughness", "SetColor", "AddTypes", "Epic", "UseOriginalHost", "RememberCopies"}
+	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice",
+	"Epic", "UseOriginalHost"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
@@ -97,7 +100,7 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 				return fmt.Errorf("engine: CopySpellAbility: RememberNewCard$ over a copied ability not resolvable yet")
 			}
 			for i := 0; i < amount; i++ {
-				host, tg, err := g.copySpell(controller, orig, copier, mayChoose)
+				host, tg, err := g.copySpell(controller, a, orig, copier, mayChoose)
 				if err == nil && host != NoCard && hasParam(a, "NonLegendary") {
 					// CardFactory.java:580, read from the CopySpellAbility, only
 					// for a spell copy: the copy's host loses Legendary.
@@ -286,7 +289,7 @@ func (g *Game) copyTriggerWatching() bool {
 // The original's card never carries a Layer 1 copy effect here: copy
 // effects end when a permanent leaves the battlefield (endCopiesOnLeave), so
 // its printed Def is its copiable values.
-func (g *Game) copySpell(controller PlayerController, orig Ability, copier PlayerID, mayChoose bool) (CardID, copiedTargets, error) {
+func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, copier PlayerID, mayChoose bool) (CardID, copiedTargets, error) {
 	if !orig.spell {
 		return g.copyStackAbility(controller, orig, copier, mayChoose)
 	}
@@ -302,7 +305,11 @@ func (g *Game) copySpell(controller PlayerController, orig Ability, copier Playe
 		// silently building a corrupted copy (GO-7/PORT-8).
 		return NoCard, copiedTargets{}, fmt.Errorf("engine: CopySpellAbility: copying a Room spell not resolvable yet")
 	}
-	host := g.NewCard(source.Def, copier, Stack)
+	def, err := copyExceptDef(g, a, source.Def)
+	if err != nil {
+		return NoCard, copiedTargets{}, fmt.Errorf("engine: CopySpellAbility: %w", err)
+	}
+	host := g.NewCard(def, copier, Stack)
 	g.Card(host).IsCopiedSpell = true
 	cp := orig
 	cp.ID = NoStackItem

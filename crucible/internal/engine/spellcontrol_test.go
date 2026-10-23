@@ -544,3 +544,43 @@ func TestBranchTgtZoneStackCountersTheTargetedSpell(t *testing.T) {
 		t.Errorf("life %d, Gain in %v: want the spell countered (life unchanged, graveyard)", g.Player(p).Life, g.Card(gain).Zone)
 	}
 }
+
+// sourceColorProbe records the colors of the card whose effect asks for a
+// color choice, each time it is asked.
+type sourceColorProbe struct {
+	*engine.ScriptedController
+	g    *engine.Game
+	seen []mana.Colors
+}
+
+func (c *sourceColorProbe) ChooseColors(g *engine.Game, p engine.PlayerID, src engine.CardID, from mana.Colors, lo, hi int) mana.Colors {
+	c.seen = append(c.seen, c.g.Card(src).Colors())
+	return c.ScriptedController.ChooseColors(g, p, src, from, lo, hi)
+}
+
+// TestCopySpellAbilitySetColorRecolorsTheCopy proves SetColor$ (Fork): the
+// copy of the spell is red while the original keeps its color
+// (CardFactory.java:505-507, :576-577), and RememberCopies$ changes nothing
+// (CopySpellAbilityEffect.java:208-210).
+func TestCopySpellAbilitySetColorRecolorsTheCopy(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	orig := g.NewCard(spellDefWith(t, "Colored Spell", "Instant", "W", "SP$ ChooseColor | Defined$ You"), p, engine.Hand)
+	c := &sourceColorProbe{ScriptedController: engine.NewScriptedController(), g: g}
+	c.QueueColorChoice(mana.Green)
+	c.QueueColorChoice(mana.Green)
+	castOn(t, g, p, orig, c.ScriptedController)
+	fork := g.NewCard(spellDefWith(t, "Test Fork", "Instant", "R",
+		"SP$ CopySpellAbility | ValidTgts$ Instant,Sorcery | TgtZone$ Stack | TargetType$ Spell | SetColor$ Red | RememberCopies$ True"), other, engine.Hand)
+	g.Player(other).ManaPool.Add(mana.Red, 1)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(orig)})
+	if !g.CastSpell(other, fork, c) {
+		t.Fatal("CastSpell(Test Fork) failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.seen) != 2 || c.seen[0] != mana.Red || c.seen[1] != mana.White {
+		t.Errorf("colors at the two resolutions = %v, want [red (the copy) white (the original)]", c.seen)
+	}
+}

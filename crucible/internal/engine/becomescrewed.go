@@ -91,3 +91,27 @@ func (g *Game) untapAllMatches(pid PlayerID, untapped []CardID) []Ability {
 		return triggeredObjects{player: pid, cards: kept, counts: triggerCounts{amount: len(kept), set: countAmount}}, true
 	})
 }
+
+// becomesSaddledParams are the params a BecomesSaddled trigger may carry that
+// are evaluated.
+var becomesSaddledParams = map[string]bool{
+	"mode": true, "execute": true, "triggerdescription": true, "triggerzones": true, "optionaldecider": true,
+	"secondary": true, "validsaddled": true, "firsttimesaddled": true, "playerturn": true, "phase": true,
+}
+
+// becomesSaddled is AlterAttributeEffect.java:104-113's BecomesSaddled run for
+// the Mount host: FirstTimeSaddled$ holds when it has been saddled once this
+// turn (Card.getTimesSaddledThisTurn, already counted).
+func (g *Game) becomesSaddled(controller PlayerController, host CardID, _ []CardID) {
+	times := g.Card(host).timesSaddled
+	matches := g.scanTriggers([]string{"BecomesSaddled"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, becomesSaddledParams) || !g.triggerCardMatches(h, t, "ValidSaddled", g.Card(host)) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("FirstTimeSaddled"); ok && times != 1 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: host}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}

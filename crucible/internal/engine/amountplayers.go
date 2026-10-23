@@ -192,7 +192,7 @@ func (g *Game) playerCountPlayers(amounts map[string]expr.Amount, controller Pla
 			return nil, false
 		}
 		switch hType {
-		case "Remembered", "RememberedController", "RememberedOwner":
+		case "Remembered", "RememberedPlayer", "RememberedController", "RememberedOwner":
 		default:
 			return nil, false
 		}

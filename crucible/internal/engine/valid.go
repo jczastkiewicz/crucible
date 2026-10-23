@@ -311,6 +311,13 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:123: c is not in the source's own sector.
 		sc, ok := sourceCard(g, source)
 		return ok && sc.Sector != c.Sector
+	case name == "IsSaddled":
+		return c.Saddled
+	case name == "SaddledThisTurn":
+		// CardProperty.java:1854-1855: c is one of the creatures tapped to saddle
+		// the source this turn.
+		sc, ok := sourceCard(g, source)
+		return ok && slices.Contains(sc.saddledBy, c.ID)
 	case name == "IsSuspected":
 		return c.Suspected
 	case name == "IsRingbearer":

@@ -229,3 +229,39 @@ func TestUntapAllFiresOnceForTheUntapStep(t *testing.T) {
 		t.Errorf("gained %d, want 7 (one run for three untapped creatures)", got)
 	}
 }
+
+// K:Saddle:N taps creatures of total power N to saddle a Mount: it becomes
+// saddled (IsSaddled), the Saddled trigger fires for the creature tapped and
+// BecomesSaddled once, FirstTimeSaddled$ only for the first saddle.
+func TestSaddleSaddlesTheMountAndFiresTriggers(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	mount := g.NewCard(scriptDef(t, "Test Mount", "Creature Mount", "K:Saddle:1",
+		"T:Mode$ BecomesSaddled | ValidSaddled$ Card.Self | Execute$ TrigEach | TriggerZones$ Battlefield",
+		"T:Mode$ BecomesSaddled | ValidSaddled$ Card.Self | FirstTimeSaddled$ True | Execute$ TrigFirst | TriggerZones$ Battlefield",
+		"T:Mode$ Saddled | ValidCard$ Card.Self | ValidCrew$ Creature | Execute$ TrigPer | TriggerZones$ Battlefield",
+		"SVar:TrigEach:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+		"SVar:TrigFirst:DB$ GainLife | Defined$ You | LifeAmount$ 10",
+		"SVar:TrigPer:DB$ GainLife | Defined$ You | LifeAmount$ 100"), p, engine.Battlefield)
+	riders := tappedCreatures(t, g, p, 1)
+	g.Card(riders[0]).Tapped = false
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{riders[0]})
+
+	if !g.ActivateAbility(p, mount, 0, c) {
+		t.Fatal("Saddle could not be activated")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if !g.Card(mount).Saddled {
+		t.Error("the Mount is not saddled")
+	}
+	if got := g.Player(p).Life - before; got != 111 {
+		t.Errorf("gained %d, want 111 (Saddled 100 + BecomesSaddled 1 + first time 10)", got)
+	}
+}

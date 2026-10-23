@@ -500,6 +500,14 @@ type Card struct {
 	Suspected, Solved, Harnessed, Plotted bool
 	suspectedTS                           uint64
 
+	// Saddled is Card.isSaddled (CR 702.171): saddled until end of turn.
+	// saddledBy is Card.getSaddledByThisTurn, the creatures tapped for the
+	// saddle, and timesSaddled getTimesSaddledThisTurn; all clear at cleanup
+	// and as the card changes zones (Card.resetSaddled, Card.java:6628-6634).
+	Saddled      bool
+	saddledBy    []CardID
+	timesSaddled int
+
 	// faceUpDef is the card's own definition while it is face down (CR
 	// 708): Def then holds the face-down characteristics. Manifested and
 	// Cloaked record how it turned face down.

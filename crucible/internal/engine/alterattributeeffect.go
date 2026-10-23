@@ -14,9 +14,9 @@ import (
 // Plotted, each a flag on the card, and Prepared (prepare.go: an exiled copy
 // of its prepare spell its controller may cast; never "altered", so never
 // remembered, AlterAttributeEffect.java:65-90). Optional$ lets the activator
-// decline first. Saddled (reads the saddle cost's tapped creatures) and
-// Commander are not resolved, nor is Suspected while a CantBeSuspected
-// static is out.
+// decline first. Saddle(d) reads the saddle cost's tapped creatures.
+// Commander is not resolved, nor is Suspected while a CantBeSuspected static is
+// out.
 type alterAttributeEffect struct{}
 
 func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -35,7 +35,7 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 	for i, attr := range attrs {
 		attr = strings.TrimSpace(attr)
 		switch attr {
-		case "Suspect", "Suspected", "Solve", "Solved", "Harnessed", "Plotted", "Prepared":
+		case "Suspect", "Suspected", "Solve", "Solved", "Harnessed", "Plotted", "Prepared", "Saddle", "Saddled":
 		default:
 			return fmt.Errorf("engine: AlterAttribute: attribute %q not resolvable yet", attr)
 		}
@@ -73,6 +73,16 @@ func (alterAttributeEffect) Resolve(g *Game, a *Ability, controller PlayerContro
 				g.setSuspected(id, activate)
 			case "Solve", "Solved":
 				c.Solved = activate
+			case "Saddle", "Saddled":
+				// Card.setSaddled always reports a change (Card.java:6638-6642), so
+				// the trigger fires even for Activate$ False (AlterAttributeEffect.
+				// java:107-113); the saddlers are the cost's tapped creatures.
+				c.Saddled = activate
+				if activate {
+					c.timesSaddled++
+				}
+				c.saddledBy = append(c.saddledBy, a.paid.tapped...)
+				g.becomesSaddled(controller, id, a.paid.tapped)
 			case "Harnessed":
 				c.Harnessed = activate
 			case "Plotted":

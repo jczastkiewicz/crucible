@@ -58,6 +58,15 @@ func Expand(k Keyword) (Expansion, bool) {
 			line += " | " + args[1]
 		}
 		return Expansion{Abilities: []string{line}}, true
+	case "Saddle":
+		// Saddle:<power>, CardFactoryUtil.java:3415-3421: tap any number of other
+		// creatures with total power N or more to make it saddled until end of
+		// turn, as a sorcery.
+		args := k.Args()
+		if len(args) < 1 || strings.Trim(args[0], "0123456789") != "" || args[0] == "" {
+			return Expansion{}, false
+		}
+		return Expansion{Abilities: []string{"AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + args[0] + "> | Attributes$ Saddled | Defined$ Self | SorcerySpeed$ True"}}, true
 	case "Affinity":
 		// Affinity:<type>, CardFactoryUtil.java:3753: this spell costs {1} less
 		// for each <type> you control.

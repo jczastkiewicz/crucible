@@ -224,7 +224,7 @@
       "additional"
     ],
     "priority": ["id", "card", "game", "phase", "control", "effect", "action", "player", "room"],
-    "driver": ["id", "game", "phase", "control", "effect", "mulligan"],
+    "driver": ["id", "game", "phase", "control", "effect", "mulligan", "openinghand", "registry"],
     "valid": [
       "id",
       "zone",

@@ -125,6 +125,7 @@ advance [n]                   Game.AdvancePhase(controller), n times (default 1)
 concede <player>              Game.Concede(player): a loss no replacement stops (Player.concede)
 dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+openinghandactions <first>    RunOpeningHandActions(game, registry, controller, first)
 resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
 expecterror <text> <verb...>  runs <verb...>, which must fail with an error containing <text> (its own, or one left on the Game: an illegal combat declaration, ADR-0024) and changes nothing, so a legal one can follow; a success or another error fails the scenario
 declareattackers              Game.DeclareCombatAttackers(controller)

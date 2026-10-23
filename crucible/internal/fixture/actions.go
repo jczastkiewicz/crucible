@@ -39,6 +39,7 @@ import (
 //	dealopeninghands              DealOpeningHands(game, controller), starting player discarded
 //	dealopeninghands after <p>    DealOpeningHandsAfter(game, controller, p), p lost the last game of the match
 //	mulligan <firstplayer>        PerformMulligans(game, controller, firstplayer)
+//	openinghandactions <firstplayer> RunOpeningHandActions(game, registry, controller, firstplayer)
 //	expecterror <text> <verb...>  run <verb...>; it must fail with an error containing <text>
 //	resumerestart                 Game.ResumeAfterRestart(controller), after a RestartGame (ADR-0034)
 //	declareattackers              Game.DeclareCombatAttackers(controller)
@@ -254,6 +255,17 @@ func runAction(line string, l *Loaded, c *engine.ScriptedController) error {
 			return err
 		}
 		engine.PerformMulligans(l.Game, c, pid)
+
+	case "openinghandactions":
+		// GameAction.runOpeningHandActions, between the mulligans and the
+		// first turn; the named player is the one who goes first.
+		pid, err := resolveActionPlayer(l, args, 1)
+		if err != nil {
+			return err
+		}
+		if _, err := engine.RunOpeningHandActions(l.Game, engine.NewRegistry(), c, pid); err != nil {
+			return fmt.Errorf("openinghandactions: %w", err)
+		}
 
 	case "declareattackers":
 		if _, err := l.Game.DeclareCombatAttackers(c); err != nil {

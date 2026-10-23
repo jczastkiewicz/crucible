@@ -139,7 +139,7 @@ func (g *Game) RestartedBy() PlayerID { return g.restartedBy }
 // controller calls Java's restart does not make.
 //
 // Not ported, same as a normal game start (DealOpeningHands):
-// runPreOpeningHandActions/runOpeningHandActions and the NewGame trigger.
+// runPreOpeningHandActions and the NewGame trigger.
 // The restart itself refuses any Command-zone card a NewGame trigger could
 // be on (restartgameeffect.go), so skipping the trigger drops nothing.
 func (g *Game) ResumeAfterRestart(controller PlayerController) error {
@@ -156,6 +156,11 @@ func (g *Game) ResumeAfterRestart(controller PlayerController) error {
 	g.restarted, g.restartedBy = false, NoPlayer
 	if g.over {
 		return nil
+	}
+	// GameAction.java:2388: the loop body runs the opening-hand actions again.
+	first, err := RunOpeningHandActions(g, NewRegistry(), controller, first)
+	if err != nil {
+		return err
 	}
 	g.StartTurn(first, controller)
 	return nil

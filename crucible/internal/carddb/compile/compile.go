@@ -215,6 +215,10 @@ type Face struct {
 	Statics      []*Ability
 	Replacements []*Ability
 
+	// OpeningHand is the `K:MayEffectFromOpeningHand` keywords' abilities, in
+	// keyword order (openinghand.go); nil on every other face.
+	OpeningHand []OpeningHand
+
 	// Stickers is a sticker sheet's slots, in `K:StickerSheet:` order
 	// (sticker.go); nil on every other face.
 	Stickers []Sticker
@@ -347,6 +351,12 @@ func (c *faceCompiler) expandKeywords(out *Face) error {
 		}
 		if keyword.Parse(line).Name == "Class" {
 			if err := c.expandClass(out, line); err != nil {
+				return err
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "MayEffectFromOpeningHand") {
+			if err := c.expandOpeningHand(out, line); err != nil {
 				return err
 			}
 			continue

@@ -15,7 +15,7 @@
 
 package engine
 
-//enginelint:allow id card game player ability condition control zone parts mulligan turn driver effecthelpers effect
+//enginelint:allow id card game player ability condition control zone parts mulligan turn driver effecthelpers effect openinghand
 
 import (
 	"fmt"
@@ -273,8 +273,8 @@ func copyCardsInto(g, sub *Game, from []CardID, owner PlayerID, kind ZoneType) [
 // (determineFirstTurnPlayer's isFirstGame branch, Aggregates.random over the
 // players), opening hands drawn with no further shuffle (buildSubgame
 // already shuffled), London mulligans, then the whole game through the turn
-// driver. runOpeningHandActions and the NewGame trigger have no port in the
-// main game's own start either (DealOpeningHands), so neither runs here.
+// driver. The NewGame trigger has no port in the main game's own start
+// either (DealOpeningHands), so it does not run here.
 func startSubgame(sub *Game, reg *Registry, c PlayerController) error {
 	players := sub.Players()
 	decider := players[sub.rand.Int32n(int32(len(players)))]
@@ -289,6 +289,10 @@ func startSubgame(sub *Game, reg *Registry, c PlayerController) error {
 	// nothing in this port concedes, and an ended game's turn driver
 	// returns at once anyway.
 	PerformMulligans(sub, c, first)
+	first, err := RunOpeningHandActions(sub, reg, c, first)
+	if err != nil {
+		return err
+	}
 	sub.StartTurn(first, c)
 	// GameAction.startGame's own do-while(RestartedByKarn): a RestartGame
 	// resolved inside the subgame restarts the subgame (ADR-0034).

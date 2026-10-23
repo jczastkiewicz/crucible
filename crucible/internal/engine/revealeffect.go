@@ -5,9 +5,10 @@ package engine
 import "fmt"
 
 // revealUnresolvedParams are RevealEffect.java's params this port cannot
-// honour yet: OptionalDecider$ and BecomeStartingPlayer$ (1 line each).
-var revealUnresolvedParams = [...]string{
-	"OptionalDecider", "BecomeStartingPlayer"}
+// honour yet: OptionalDecider$ (1 line). BecomeStartingPlayer$ is not read here
+// in Java either: only GameAction.runOpeningHandActions reads it
+// (openinghand.go).
+var revealUnresolvedParams = [...]string{"OptionalDecider"}
 
 // revealEffect is RevealEffect.java: each player (Defined$/ValidTgts$,
 // default You) with a non-empty hand reveals RevealDefined$'s cards,

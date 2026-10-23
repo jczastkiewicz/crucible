@@ -107,3 +107,30 @@ func TestRevealLandEntersTappedUnlessItsControllerRevealsAMatchingCard(t *testin
 		}
 	}
 }
+
+// "As this enters, you may reveal a Soldier card from your hand. It enters
+// tapped unless you revealed one or you control a Soldier" (Fortified
+// Beachhead): the Reveal-then-Tap chain runs as the land arrives, so a Soldier
+// on the battlefield keeps it untapped and none taps it.
+func TestRevealThenEntersTappedChain(t *testing.T) {
+	t.Parallel()
+
+	for _, soldier := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+		g.SetTurnState(1, p, engine.Main1)
+		if soldier {
+			g.NewCard(corpusCard(t, "Auriok Steelshaper"), p, engine.Battlefield)
+		}
+		land := g.NewCard(corpusCard(t, "Fortified Beachhead"), p, engine.Hand)
+		sba(g)
+		if !g.PlayLand(p, land, engine.NewScriptedController()) {
+			t.Fatalf("soldier %v: PlayLand failed", soldier)
+		}
+		if err := g.TakePendingError(); err != nil {
+			t.Fatalf("soldier %v: %v", soldier, err)
+		}
+		if got := g.Card(land).Tapped; got == soldier {
+			t.Errorf("soldier %v: Fortified Beachhead tapped = %v, want %v", soldier, got, !soldier)
+		}
+	}
+}

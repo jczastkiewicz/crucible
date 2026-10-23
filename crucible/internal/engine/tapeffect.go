@@ -19,9 +19,12 @@
 
 package engine
 
-//enginelint:allow id card game ability defined condition control zone parts amount effecthelpers resolvechoice
+//enginelint:allow id card game ability defined condition control zone parts amount effecthelpers resolvechoice replacement
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // tapUnresolvedParams names TapEffect's own params this port does not
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
@@ -42,6 +45,28 @@ var tapUnresolvedParams = [...]string{
 type tapEffect struct{}
 
 func (tapEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if _, etb := a.Params.Param("ETB"); etb && a.replacing != nil {
+		// The tail of an as-it-enters chain, run right after the move
+		// (applyEnterAnimate): "enters tapped unless ..." taps the arrived
+		// permanent without a Taps trigger, as the replacement shape does.
+		// The chain's SubAbility$ (a Cleanup) runs after this effect resolves.
+		shape := *a.Params
+		kept := shape.Params[:0:0]
+		for _, p := range shape.Params {
+			if !strings.EqualFold(p.Key, "SubAbility") {
+				kept = append(kept, p)
+			}
+		}
+		shape.Params = kept
+		shouldTap, recognized := tapAbilityResolvesTap(g, controller, &shape, g.Card(a.Source), a.Amounts)
+		if !recognized {
+			return fmt.Errorf("engine: Tap: ETB$ shape not resolvable yet")
+		}
+		if c := g.Card(a.Source); shouldTap && c.Zone == Battlefield {
+			c.Tapped = true
+		}
+		return nil
+	}
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}

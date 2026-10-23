@@ -1,7 +1,8 @@
 // "As CARDNAME enters, it becomes ...": a Moved replacement whose
-// ReplaceWith$ chain is RollDice then Animate of the entering card itself
-// (Vedalken Squirrel-Whacker, Elvish Impersonators) or an Animate alone
-// (Lydari Elephant, the Volvers' kicker keywords). Java runs the chain before
+// ReplaceWith$ chain acts on the entering card itself after some choices or
+// dice: RollDice then Animate (Vedalken Squirrel-Whacker, Elvish
+// Impersonators), an Animate alone (Lydari Elephant), an Attach (Grifter's
+// Blade), a Reveal then "enters tapped unless" (Fortified Beachhead). Java runs the chain before
 // the card lands and keeps its effect on the permanent; Game.Move rebuilds
 // what an effect writes on a card that is still in its old zone, so this port
 // runs the chain just after the move, before any ETB trigger or state-based
@@ -18,11 +19,19 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
-// entryAnimateChain reports whether sub's whole chain is RollDice
-// (ResultSVar$ only) and Animate of Defined$ Self, ending in at least one
-// Animate: the shape applyEnterAnimate runs.
+// entryAnimateChain reports whether sub's whole chain is one applyEnterAnimate
+// runs after the move: every node is either a before-move kind
+// (entryChainAPIs: the choices, reveals, dice, cleanup around it) or one that
+// acts on the entering card itself (Animate or Attach of Defined$/Object$
+// Self, Tap with ETB$ of Defined$ Self), with at least one of the latter. A
+// chain headed by Tap is checkMovedReplacement's. Sacrifice is left out when
+// an Animate of Self follows: run after the move, the entering creature
+// would be a legal sacrifice (Dracoplasm).
 func entryAnimateChain(sub *compile.Ability) bool {
-	animates := 0
+	if strings.EqualFold(sub.Name, "Tap") {
+		return false
+	}
+	acts, sacrifices := 0, false
 	for a, n := sub, 0; a != nil; a, n = chainNext(a), n+1 {
 		if n > 32 || len(a.Subs) > 1 {
 			return false
@@ -32,13 +41,42 @@ func entryAnimateChain(sub *compile.Ability) bool {
 			if d, ok := a.Param("Defined"); !ok || !strings.EqualFold(d, "Self") {
 				return false
 			}
-			animates++
-		case strings.EqualFold(a.Name, "RollDice"):
+			acts++
+		case strings.EqualFold(a.Name, "Attach"):
+			if d, ok := a.Param("Object"); !ok || !strings.EqualFold(d, "Self") {
+				return false
+			}
+			acts++
+		case strings.EqualFold(a.Name, "Tap"):
+			if _, etb := a.Param("ETB"); !etb {
+				return false
+			}
+			if d, ok := a.Param("Defined"); !ok || !strings.EqualFold(d, "Self") {
+				return false
+			}
+			acts++
 		default:
-			return false
+			known := false
+			for _, api := range entryChainAPIs {
+				known = known || strings.EqualFold(a.Name, api)
+			}
+			if !known {
+				return false
+			}
+			sacrifices = sacrifices || strings.HasPrefix(strings.ToLower(a.Name), "sacrifice")
 		}
 	}
-	return animates > 0
+	return acts > 0 && (!sacrifices || !hasAnimateSelf(sub))
+}
+
+// hasAnimateSelf reports whether the chain from sub has an Animate node.
+func hasAnimateSelf(sub *compile.Ability) bool {
+	for a := sub; a != nil; a = chainNext(a) {
+		if strings.EqualFold(a.Name, "Animate") {
+			return true
+		}
+	}
+	return false
 }
 
 // applyEnterAnimate runs moved's own "as it enters, it becomes" lines

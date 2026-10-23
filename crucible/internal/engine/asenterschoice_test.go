@@ -124,7 +124,7 @@ func TestAsEntersChosenCardGetsItsCounter(t *testing.T) {
 }
 
 // A choice chain that goes on to change the entering card itself (an
-// Animate) is refused whole; a DelayedTrigger in the chain is not walked into
+// Animate) runs after the move; a DelayedTrigger in the chain is not walked into
 // and runs before the move.
 func TestAsEntersChainShapes(t *testing.T) {
 	t.Parallel()
@@ -134,9 +134,13 @@ func TestAsEntersChainShapes(t *testing.T) {
 		"K:ETBReplacement:Other:ChooseColor",
 		"SVar:ChooseColor:DB$ ChooseColor | Defined$ You | SubAbility$ DBAnimate",
 		"SVar:DBAnimate:DB$ Animate | Defined$ Self | Power$ 5 | Duration$ Permanent"), p, engine.Hand)
-	err := castEntrant(t, g, p, animated, engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "as-it-enters replacement ReplaceWith$ ChooseColor") {
-		t.Errorf("err = %v, want the Animate chain refused", err)
+	ac := engine.NewScriptedController()
+	ac.QueueColorChoice(mana.Red)
+	if err := castEntrant(t, g, p, animated, ac); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got, _ := g.Card(animated).Power(); got != 5 {
+		t.Errorf("power = %d, want 5 (the chain's Animate ran after the move)", got)
 	}
 
 	g2, p2, other2 := newTwoPlayerGameOn(t, scenarioDB(t))

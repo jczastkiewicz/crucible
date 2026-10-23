@@ -107,7 +107,6 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ Animate | Defined$ Self | Keywords$ HIDDEN CARDNAME can't block.",
 		"DB$ AnimateAll | ValidCards$ Creature | Zone$ Bogus | Power$ 1",
 		"DB$ Protection | Defined$ Self | Gains$ TargetedCardColor",
-		"DB$ Protection | Defined$ Self | Gains$ Choice | Choices$ AnyColor | Choser$ Controller",
 		"DB$ ProtectionAll | ValidCards$ Creature | Gains$ TargetedCardColor",
 		"DB$ DelayedTrigger | Mode$ ChangesZone | Execute$ DBX",
 		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep",

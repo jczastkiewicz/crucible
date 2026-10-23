@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability animate card condition control defined effecthelpers game parts
+//enginelint:allow ability animate card condition control defined effecthelpers game id parts
 
 import (
 	"fmt"
@@ -15,16 +15,13 @@ import (
 // Duration$ Permanent) -- "Protection from <color>" for a color,
 // "Protection:<type>" for a card type (CardType.isACardType). Gains$ is a
 // comma list, ChosenColor (the host's chosen colors), or Choice: the
-// activator picks one of Choices$ (AnyColor expands to the five colors,
-// CardType to every card type). Choser$ and Gains$ Defined... fail
+// activator (or, with Choser$ Controller, the first target's controller) picks one of Choices$ (AnyColor expands to the five colors,
+// CardType to every card type). Gains$ Defined... fails
 // closed. Radiance$ adds the permanents sharing a color with a target.
 type protectionEffect struct{}
 
 func (protectionEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "Protection", "Choser"); err != nil {
 		return err
 	}
 	permanent, until, err := animateDuration(a, "Protection")
@@ -35,13 +32,20 @@ func (protectionEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	gains, err := protectionGains(g, a, controller, "Protection")
-	if err != nil || len(gains) == 0 {
-		return err
-	}
 	cards, err := targetedOrDefinedCards(source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Protection: %w", err)
+	}
+	// ProtectEffect.java:110-113: the activator chooses, unless Choser$
+	// Controller and there is a target, whose controller does. Any other
+	// Choser$ value leaves the activator (Java reads only "Controller").
+	chooser := a.Controller
+	if raw, ok := a.Params.Param("Choser"); ok && raw == "Controller" && len(cards) > 0 {
+		chooser = g.Card(cards[0]).Controller()
+	}
+	gains, err := protectionGains(g, a, controller, chooser, "Protection")
+	if err != nil || len(gains) == 0 {
+		return err
 	}
 	// Radiance$ (ProtectEffect.java:141).
 	cards = append(cards, g.radianceCards(a)...)
@@ -53,7 +57,7 @@ func (protectionEffect) Resolve(g *Game, a *Ability, controller PlayerController
 
 // protectionGains is the Gains$ half both Protect effects share: nil (and
 // no error) when a Choice finds nothing to choose.
-func protectionGains(g *Game, a *Ability, controller PlayerController, api string) ([]string, error) {
+func protectionGains(g *Game, a *Ability, controller PlayerController, chooser PlayerID, api string) ([]string, error) {
 	raw, ok := a.Params.Param("Gains")
 	if !ok {
 		return nil, fmt.Errorf("engine: %s: no Gains$", api)
@@ -64,7 +68,7 @@ func protectionGains(g *Game, a *Ability, controller PlayerController, api strin
 		if len(choices) == 0 {
 			return nil, nil
 		}
-		i := controller.ChooseProtectionType(g, a.Controller, a.Source, choices)
+		i := controller.ChooseProtectionType(g, chooser, a.Source, choices)
 		if i < 0 || i >= len(choices) {
 			return nil, fmt.Errorf("engine: %s: protection choice %d out of %d", api, i, len(choices))
 		}

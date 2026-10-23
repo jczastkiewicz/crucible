@@ -233,3 +233,50 @@ func TestProtectionAllEffectCoversValidCards(t *testing.T) {
 		t.Error("ally lacks Protection from black")
 	}
 }
+
+// protectionAsker records who ChooseProtectionType was asked for.
+type protectionAsker struct {
+	*engine.ScriptedController
+	asked []engine.PlayerID
+}
+
+func (c *protectionAsker) ChooseProtectionType(g *engine.Game, p engine.PlayerID, src engine.CardID, choices []string) int {
+	c.asked = append(c.asked, p)
+	return c.ScriptedController.ChooseProtectionType(g, p, src, choices)
+}
+
+// TestProtectionChoserControllerAsksTheTargetsController proves Choser$
+// Controller: the target's controller chooses the color, not the activator
+// (ProtectEffect.java:110-113); without it the activator chooses.
+func TestProtectionChoserControllerAsksTheTargetsController(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, params string
+		wantOpp      bool
+	}{
+		{"choser controller", " | Choser$ Controller", true},
+		{"activator", "", false},
+	} {
+		g, p, opp := newTwoPlayerGame(t)
+		target := g.NewCard(creatureDefPT(t, "1", "1"), opp, engine.Battlefield)
+		c := &protectionAsker{ScriptedController: engine.NewScriptedController()}
+		c.QueueProtectionChoice(3)
+		host := pushPlayLine(t, g, p, []engine.EntityID{engine.CardEntity(target)},
+			"DB$ Protection | ValidTgts$ Creature | Gains$ Choice | Choices$ AnyColor"+tc.params)
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		_ = host
+		want := p
+		if tc.wantOpp {
+			want = opp
+		}
+		if len(c.asked) != 1 || c.asked[0] != want {
+			t.Errorf("%s: asked %v, want [%v]", tc.name, c.asked, want)
+		}
+		if !strings.Contains(strings.Join(g.Card(target).KeywordLines(), "|"), "Protection from red") {
+			t.Errorf("%s: target lacks Protection from red", tc.name)
+		}
+	}
+}

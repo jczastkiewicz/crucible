@@ -23,7 +23,7 @@ func (protectionAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	gains, err := protectionGains(g, a, controller, "ProtectionAll")
+	gains, err := protectionGains(g, a, controller, a.Controller, "ProtectionAll")
 	if err != nil || len(gains) == 0 {
 		return err
 	}

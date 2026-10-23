@@ -73,12 +73,12 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 4 | `Play: CopyFromChosenName$ not resolvable` |
-| 3 | `NameCard: AtRandom$ over every card not resolvable` |
+| 6 | `Animate: TgtZone$: Stack not resolvable through this path` |
 | 2 | `PutCounter: RememberCostMana$ not resolvable` |
 | 2 | `Regenerate: RegenerationAbility$ not resolvable` |
 | 2 | `RollDice: ToVisitYourAttractions$ not resolvable` |
 | 2 | `CheckSVar$ is not resolvable` |
+| 1 | `Animate: TgtZone$: Stack not resolvable through this path` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

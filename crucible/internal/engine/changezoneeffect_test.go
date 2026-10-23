@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
@@ -658,5 +659,58 @@ func TestChangeZoneHiddenCommandOriginWithoutACommanderMovesNothing(t *testing.T
 	}
 	if n := g.Zone(engine.Hand, p).Len(); n != 0 {
 		t.Errorf("hand = %d cards, want 0", n)
+	}
+}
+
+// TestChangeZoneEffectDifferentCMCAndPowerOfferOnlyUnsharedValues proves
+// DifferentCMC$ and DifferentPower$ (Seasons Past, Threats Undetected;
+// ChangeZoneEffect.java:1168-1178): the search is one pick at a time and
+// leaves out every card whose mana value, or net power, an earlier pick has.
+func TestChangeZoneEffectDifferentCMCAndPowerOfferOnlyUnsharedValues(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, param string
+		defs        [3]*compile.Card
+	}{
+		{"mana value", "DifferentCMC$ True", [3]*compile.Card{
+			creatureDefManaCost(t, "1 R"), creatureDefManaCost(t, "R R"), creatureDefManaCost(t, "3")}},
+		{"power", "DifferentPower$ True", [3]*compile.Card{
+			creatureDefPT(t, "2", "1"), creatureDefPT(t, "2", "2"), creatureDefPT(t, "3", "1")}},
+	} {
+		line := "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Creature | ChangeNum$ 2 | " + tc.param
+		setup := func() (*engine.Game, engine.PlayerID, [3]engine.CardID) {
+			g, p, _ := newTwoPlayerGame(t)
+			var ids [3]engine.CardID
+			for i, d := range tc.defs {
+				ids[i] = g.NewCard(d, p, engine.Library)
+			}
+			return g, p, ids
+		}
+		t.Run(tc.name+": two different values", func(t *testing.T) {
+			t.Parallel()
+			g, p, ids := setup()
+			c := engine.NewScriptedController()
+			c.QueueCardChoice([]engine.CardID{ids[0]})
+			c.QueueCardChoice([]engine.CardID{ids[2]})
+			if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Different", line), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			for i, want := range []engine.ZoneType{engine.Hand, engine.Library, engine.Hand} {
+				if z := g.Card(ids[i]).Zone; z != want {
+					t.Errorf("card %d zone = %v, want %v", i, z, want)
+				}
+			}
+		})
+		t.Run(tc.name+": a shared value is not offered", func(t *testing.T) {
+			t.Parallel()
+			g, p, ids := setup()
+			c := engine.NewScriptedController()
+			c.QueueCardChoice([]engine.CardID{ids[0]})
+			c.QueueCardChoice([]engine.CardID{ids[1]})
+			if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Different", line), c); err == nil {
+				t.Fatal("choosing a card sharing the first pick's value succeeded")
+			}
+		})
 	}
 }

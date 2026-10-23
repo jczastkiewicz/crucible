@@ -280,3 +280,23 @@ func TestProtectionChoserControllerAsksTheTargetsController(t *testing.T) {
 		}
 	}
 }
+
+// TestAnimateTgtZoneGraveyardTargetsACardInTheGraveyard proves TgtZone$ on
+// Animate (Assemble from Parts): the target is a graveyard card, not a
+// battlefield one, and the perpetual grant is recorded for it.
+func TestAnimateTgtZoneGraveyardTargetsACardInTheGraveyard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	dead := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	pushPlayLine(t, g, p, []engine.EntityID{engine.EntityID(dead)},
+		"DB$ Animate | TgtZone$ Graveyard | ValidTgts$ Creature.YouOwn | Power$ 7 | Toughness$ 7 | Duration$ Perpetual")
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	g.Move(dead, engine.Battlefield, p)
+	sba(g)
+	if pw, _ := g.Card(dead).Power(); pw != 7 {
+		t.Errorf("power = %d, want the perpetual 7 on the battlefield", pw)
+	}
+}

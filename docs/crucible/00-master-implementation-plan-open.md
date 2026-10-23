@@ -6,6 +6,27 @@ M0-M4 are done; M5-M6 are in progress, their landed work recorded per topic in
 
 ---
 
+## Current state
+
+Measured with `crucible card-smoke -all` on 2026-10-23: 33,396 of 33,597 judged cards play (99.4%), 201 refuse, 0 panic, 0 hang; precons 99.6% of 8,651. All work happens in one session on `master`, pushed straight to `origin/master` through the commit hook; parallel `forge-oracle` research feeds the ports (CLAUDE.md, Subagents). Reason: two sessions on one backlog ported the same causes twice (Protection `Choser$`).
+
+The 201 refusals by cause (175 distinct causes, most with one card):
+
+| Cards | Cause | Pack |
+| ---: | --- | --- |
+| 27 | `RaiseCost` statics with a non-mana `Cost$` (18 share one message, 9 name their own line) | B3 |
+| 19 | `TgtZone$` on an API that never read it: Animate `Stack` (8), MakeCard, ChooseCard, RepeatEach, PutCounter, Branch, GainOwnership, Assimilate, Airbend | B2 |
+| 15 | ChangeZone params: `DifferentCMC$`, `DifferentPower$`, `Foretold$`, `ImprintLast$`, `ReturnAbility$`, `RandomOrder$`, `StaticEffect$` forms, `Destination$` | B4 |
+| 13 | as-it-enters replacement chains (Sacrifice, Discard, Draft, Effect, SetState, ChooseCard, GenericChoice, Animate): `Game.Move` rebuilds what an Animate or SetState wrote before the move, where Java keeps the same card object | B4 |
+| 12 | amounts that stay unresolved (`NumDmg$`, `LifeAmount$`, `TokenAmount$`, `ReduceCost` `TargetedController`, `DigNum$`) | B5 |
+| 7 | restrictions a valid string cannot evaluate (`sharesNameWith`, `SharesColorWith` forms) | B5 |
+| 7 | Play: `AnySupportedCard$`, `CastFaceDown$`, `WithTotalCMC$` (waits on the upstream decision for `PlayEffect.java:493`), `ControlledByPlayer$`, `Valid$` | B5 |
+| 101 | one-card causes (Regenerate `RegenerationAbility$`, `RememberCostMana$`, Attractions, Unyaro, Undercellar Sweep, `ExploredThisTurn`, `NoteCounterDefined$`, and the rest) | B1-B6 |
+
+New Forge defects found while researching them are rows in [`porting/forge-java-defects.md`](porting/forge-java-defects.md), "Not filed": R3 files them.
+
+---
+
 ## Remaining work, easiest first
 
 Sizes: **S** under a day, one sitting. **M** one porter batch, 1-3 days. **L** 1-2 weeks, a design call or several

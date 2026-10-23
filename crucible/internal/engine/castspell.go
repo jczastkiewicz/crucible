@@ -552,6 +552,14 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 		return false
 	}
 	g.Card(card).castOpt.keywordAmounts = opts.keywordAmounts
+	if keywordParts, err := keywordAmountParts(g.Card(card), chosen); err != nil {
+		g.recordPendingError(err)
+		g.Card(card).kicker, g.Card(card).castOpt = 0, castOptional{}
+		g.Card(card).wasCast = false
+		return false
+	} else if len(keywordParts) > 0 {
+		opts.optional.parts = append(slices.Clone(opts.optional.parts), keywordParts...)
+	}
 	g.Card(card).sneaked = opts.sneak
 	if !g.castSpellChosen(controller, pid, card, opts) {
 		g.Card(card).kicker = 0

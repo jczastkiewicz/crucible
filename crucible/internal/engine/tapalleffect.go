@@ -29,16 +29,14 @@ import (
 
 // tapAllUnresolvedParams names TapAllEffect's own params this port does not
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7):
-// TapperController$ (3) -- tapEffect's own identical Tapper$ gap, "tapped
-// by" attribution nothing downstream reads yet; Ultimate$
+// Ultimate$
 // (2) -- a planeswalker-ultimate-specific flag worth not guessing at
 // (Planeswalker$ is the loyalty-cost flag activateability.go reads); Condition$/
 // ConditionDefined$ (0/0, defensive) -- condition.go's own
 // subAbilityConditionMet would otherwise silently no-op a card naming
 // either without ConditionPresent$ alongside it, dealDamageEffect's own
 // identical reasoning.
-var tapAllUnresolvedParams = [...]string{
-	"TapperController", "Ultimate"}
+var tapAllUnresolvedParams = [...]string{"Ultimate"}
 
 // tapAllEffect resolves Mode$/DB$/AB$ TapAll. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -78,6 +76,10 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 	}
 
 	_, remTapped := a.Params.Param("RememberTapped")
+	// TapAllEffect.java:47-56: the tapper is the activator, or with
+	// TapperController$ each card's own controller; it is the Player of the
+	// Taps trigger (ValidPlayer$).
+	_, perCard := a.Params.Param("TapperController")
 	for _, pid := range players {
 		for _, cid := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(cid)
@@ -88,7 +90,11 @@ func (tapAllEffect) Resolve(g *Game, a *Ability, controller PlayerController) er
 			if remTapped {
 				source.Memory.Remember(CardEntity(cid))
 			}
-			g.checkTapsTriggers(controller, cid, c.Controller(), false)
+			tapper := a.Controller
+			if perCard {
+				tapper = c.Controller()
+			}
+			g.checkTapsTriggers(controller, cid, tapper, false)
 		}
 	}
 	return nil

@@ -415,6 +415,18 @@ func nonNone(id CardID) []CardID {
 	return []CardID{id}
 }
 
+// zeroWithoutPT is Java's power or toughness of a card with none: Card's
+// getNetPower is 0 for a land or an instant, not unreadable. A value that is
+// unknown for another reason (a */* not yet resolved) stays unreadable.
+func zeroWithoutPT(c *Card) func(int, bool) (int, bool) {
+	return func(v int, ok bool) (int, bool) {
+		if _, hasPT := c.BasePower(); !hasPT && !ok && !c.starUnresolved(false) && !c.starUnresolved(true) {
+			return 0, true
+		}
+		return v, ok
+	}
+}
+
 // liveCardMeasure is the per-card xCount of a card read outside a layer pass
 // (handlePaid, amountpaid.go): power and toughness too (perCardMeasure refuses
 // them, for it serves the layer pass, where Layer 7 is being rebuilt), mana
@@ -422,13 +434,15 @@ func nonNone(id CardID) []CardID {
 func liveCardMeasure(head string) (func(*Card) (int, bool), bool) {
 	switch head {
 	case "CardPower":
-		return func(c *Card) (int, bool) { return c.Power() }, true
+		return func(c *Card) (int, bool) { return zeroWithoutPT(c)(c.Power()) }, true
 	case "CardToughness":
-		return func(c *Card) (int, bool) { return c.Toughness() }, true
+		return func(c *Card) (int, bool) { return zeroWithoutPT(c)(c.Toughness()) }, true
+	case "CardBasePower":
+		return func(c *Card) (int, bool) { return zeroWithoutPT(c)(c.layer7Power()) }, true
 	case "CardSumPT":
 		return func(c *Card) (int, bool) {
-			p, okP := c.Power()
-			t, okT := c.Toughness()
+			p, okP := zeroWithoutPT(c)(c.Power())
+			t, okT := zeroWithoutPT(c)(c.Toughness())
 			return p + t, okP && okT
 		}, true
 	case "CardNumColors":

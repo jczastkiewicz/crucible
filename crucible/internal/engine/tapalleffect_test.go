@@ -142,3 +142,34 @@ func TestTapAllEffectRejectsUnresolvedParam(t *testing.T) {
 		t.Fatal("ResolveStack succeeded, want an error for unresolved Ultimate$")
 	}
 }
+
+// TestTapAllEffectTapperIsTheTapsTriggersPlayer proves the Player a "whenever
+// an opponent taps" trigger sees: the activator by default, each tapped
+// card's own controller with TapperController$ (TapAllEffect.java:47-56).
+func TestTapAllEffectTapperIsTheTapsTriggersPlayer(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, line string
+		wantLife   int
+	}{
+		{"activator taps", "DB$ TapAll | ValidCards$ Creature.OppCtrl", 20},
+		{"controller taps", "DB$ TapAll | ValidCards$ Creature.OppCtrl | TapperController$ True", 23},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, other := newTwoPlayerGame(t)
+			g.NewCard(scriptDef(t, "Tap Watcher", "Enchantment",
+				"T:Mode$ Taps | ValidCard$ Creature | ValidPlayer$ Opponent | Execute$ TrigGain | TriggerZones$ Battlefield",
+				"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 3"), p, engine.Battlefield)
+			g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+			if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, tc.line); err != nil {
+				t.Fatal(err)
+			}
+			if got := g.Player(p).Life; got != tc.wantLife {
+				t.Errorf("life = %d, want %d", got, tc.wantLife)
+			}
+		})
+	}
+}

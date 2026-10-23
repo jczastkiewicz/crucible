@@ -255,3 +255,61 @@ func TestCasualtyAndConspireCopyTheSpell(t *testing.T) {
 		})
 	}
 }
+
+// Squad and Replicate with a cost past mana (GameActionUtil.java:705-733): the
+// whole cost is added to the spell once per repetition, so the discard or
+// energy part is paid that many times too.
+func TestKeywordRepeatsPayNonManaPartsEachTime(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, keyword string
+		hand, energy  int
+		choice        int
+		wantHand      int
+		wantEnergy    int
+		wantCreatures int
+	}{
+		{"squad discards twice", "K:Squad:1 Discard<1/Card>", 3, 0, 2, 1, 0, 3},
+		{"squad capped by the hand", "K:Squad:1 Discard<1/Card>", 1, 0, 1, 0, 0, 2},
+		{"squad pays energy twice", "K:Squad:PayEnergy<2>", 0, 5, 2, 0, 1, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			def := scriptDef(t, "Test Costly Copier", "Creature Elf", tc.keyword)
+			def.Faces[0].ManaCost = mana.MustParse("G")
+			card := g.NewCard(def, p, engine.Hand)
+			var others []engine.CardID
+			for range tc.hand {
+				others = append(others, g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand))
+			}
+			g.Player(p).Counters.Add(engine.Energy, tc.energy)
+			g.Player(p).ManaPool.Add(mana.Green, 3)
+			c := engine.NewScriptedController()
+			c.QueueNumberChoice(tc.choice)
+			if tc.hand > 0 {
+				c.QueueDiscardChoice(others[:tc.choice])
+			}
+			for range 4 {
+				c.QueuePayGeneric(mana.ShardG)
+			}
+			if !g.CastSpell(p, card, c) {
+				t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := len(g.Zone(engine.Hand, p).Cards()); got != tc.wantHand {
+				t.Errorf("hand = %d, want %d", got, tc.wantHand)
+			}
+			if got := g.Player(p).Counters.Count(engine.Energy); got != tc.wantEnergy {
+				t.Errorf("energy = %d, want %d", got, tc.wantEnergy)
+			}
+			if got := len(g.Zone(engine.Battlefield, p).Cards()); got != tc.wantCreatures {
+				t.Errorf("creatures = %d, want %d", got, tc.wantCreatures)
+			}
+		})
+	}
+}

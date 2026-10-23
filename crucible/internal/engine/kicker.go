@@ -4,12 +4,14 @@
 // SpellAbility.isKicked, the `kicked` valid property, Count$Kicked and
 // Condition$ Kicked.
 
-//enginelint:allow id card game control mana zone ability
+//enginelint:allow id card game control mana zone ability unlesscost
 
 package engine
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
@@ -83,19 +85,97 @@ func withKicker(c *Card, bits uint8, base mana.Cost) mana.Cost {
 	return mana.FromShards(shards, generic)
 }
 
-// keywordManaCost is the plain mana cost of the keyword line k
-// (K:<Name>:<cost>). A cost that is not plain mana is an error, never
-// half-paid (GO-7).
+// keywordManaCost is the mana part of the keyword line k (K:<Name>:<cost>).
+// A cost with a Tap, Untap, Mandatory or XMin token, or an X in its mana, is
+// an error, never half-paid (GO-7); the named parts it carries come from
+// keywordPartsText.
 func keywordManaCost(c *Card, k keyword.Keyword) (mana.Cost, error) {
 	args := k.Args()
-	if len(args) == 0 || !cost.Parse(args[0]).IsPureMana() {
+	if len(args) == 0 {
 		return mana.Cost{}, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, k.Details)
 	}
-	mc, err := mana.Parse(args[0])
+	parsed := cost.Parse(args[0])
+	if parsed.Tap || parsed.Untap || parsed.Mandatory || parsed.XMin != "" {
+		return mana.Cost{}, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, k.Details)
+	}
+	if len(parsed.Mana) == 0 {
+		return mana.Cost{}, nil
+	}
+	mc, err := mana.Parse(strings.Join(parsed.Mana, " "))
 	if err != nil || mc.CountX() > 0 {
 		return mana.Cost{}, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, args[0])
 	}
 	return mc, nil
+}
+
+// keywordPartsText is the named, non-mana parts of the keyword line k paid n
+// times at once: GameActionUtil.addExtraKeywordCost (:675-681, :707-713,
+// :725-731) adds the Cost to the spell's cost n times, which this writes as
+// one part with its amount multiplied (tapXType<1/Horror> twice is
+// tapXType<2/Horror>), so one payability check covers the shared resources.
+// ok is false for a part whose amount is not a number (an X).
+func keywordPartsText(k keyword.Keyword, n int) (text string, ok bool) {
+	args := k.Args()
+	if len(args) == 0 {
+		return "", true
+	}
+	var parts []string
+	for _, p := range cost.Parse(args[0]).Parts {
+		if len(p.Fields) == 0 {
+			parts = append(parts, p.Text)
+			continue
+		}
+		amount, err := strconv.Atoi(p.Fields[0])
+		if err != nil || amount < 0 {
+			return "", false
+		}
+		fields := append([]string{strconv.Itoa(amount * n)}, p.Fields[1:]...)
+		parts = append(parts, p.Name+"<"+strings.Join(fields, "/")+">")
+	}
+	return strings.Join(parts, " "), true
+}
+
+// keywordHasParts reports whether the keyword line k names a part past mana.
+func keywordHasParts(k keyword.Keyword) bool {
+	args := k.Args()
+	return len(args) > 0 && len(cost.Parse(args[0]).Parts) > 0
+}
+
+// keywordPartsPayable reports whether pid can pay k's non-mana parts n times
+// at once.
+func (g *Game) keywordPartsPayable(pid PlayerID, c *Card, k keyword.Keyword, n int) bool {
+	text, ok := keywordPartsText(k, n)
+	if !ok {
+		return false
+	}
+	uc, ok := parseUnlessCost(text)
+	return ok && g.unlessPayable(pid, c.ID, uc)
+}
+
+// keywordAmountParts is the non-mana parts the chosen keyword amounts add to
+// the cast, each keyword's parts once for all its repetitions, paid after the
+// mana (payOptionalParts).
+func keywordAmountParts(c *Card, amounts []keywordAmount) ([]unlessCost, error) {
+	var out []unlessCost
+	for _, a := range amounts {
+		for _, line := range c.KeywordLines() {
+			k := keyword.Parse(line)
+			if k.Name != a.name || !keywordHasParts(k) {
+				continue
+			}
+			text, ok := keywordPartsText(k, a.n)
+			if !ok {
+				return nil, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, k.Details)
+			}
+			uc, ok := parseUnlessCost(text)
+			if !ok {
+				return nil, fmt.Errorf("engine: %q: %s %q not resolvable yet", c.Def.Name, k.Name, k.Details)
+			}
+			out = append(out, uc)
+			break
+		}
+	}
+	return out, nil
 }
 
 // chooseKeywordAmounts is GameActionUtil.addExtraKeywordCost
@@ -124,11 +204,18 @@ func (g *Game) chooseKeywordAmounts(controller PlayerController, pid PlayerID, c
 				n = 1
 			}
 		} else {
-			per := each.Generic() + len(each.Shards())
-			if per == 0 {
-				per = 1
+			// Bounded by the mana pid can make and by the non-mana parts pid can
+			// pay that many times at once.
+			limit := keywordRepeatCap
+			if per := each.Generic() + len(each.Shards()); per > 0 {
+				limit = g.manaCapacity(pid) / per
 			}
-			n = controller.ChooseNumber(g, pid, c.ID, 0, g.manaCapacity(pid)/per)
+			if keywordHasParts(k) {
+				for limit > 0 && !g.keywordPartsPayable(pid, c, k, limit) {
+					limit--
+				}
+			}
+			n = controller.ChooseNumber(g, pid, c.ID, 0, limit)
 		}
 		if n > 0 {
 			out = append(out, keywordAmount{name: k.Name, n: n})
@@ -136,6 +223,10 @@ func (g *Game) chooseKeywordAmounts(controller PlayerController, pid PlayerID, c
 	}
 	return out, true
 }
+
+// keywordRepeatCap bounds a repeated keyword cost with no mana in it, which
+// manaCapacity cannot bound; Java offers Integer.MAX_VALUE.
+const keywordRepeatCap = 20
 
 // manaCapacity is an upper bound on the mana pid could still make: what is in
 // the pool plus one for each untapped land or permanent with a mana ability.

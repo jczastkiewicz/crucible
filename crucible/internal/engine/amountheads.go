@@ -193,10 +193,17 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		if source == NoCard {
 			return 0, false
 		}
-		if count.Head == "CardPower" {
-			return g.Card(source).Power()
+		m, _ := liveCardMeasure(count.Head)
+		return m(g.Card(source))
+	case "CardBasePower":
+		// AbilityUtils.java:2076-2077 reads Card.getCurrentPower
+		// (Card.java:4437-4445): the printed power overridden by Layer 7a-7b,
+		// without pumps or counters, and not swapped by Layer 7d.
+		if source == NoCard {
+			return 0, false
 		}
-		return g.Card(source).Toughness()
+		m, _ := liveCardMeasure(count.Head)
+		return m(g.Card(source))
 	case "Kicked":
 		// Count$Kicked.<n if kicked>.<n if not> (AbilityUtils.java:1691).
 		if source == NoCard || len(count.Parameters) != 2 {

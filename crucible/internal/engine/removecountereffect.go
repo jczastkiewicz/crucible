@@ -35,10 +35,9 @@ import (
 // Self/Enchanted/Equipped/You shape. ConditionPresent$/ConditionCompare$/
 // ConditionCheckSVar$/ConditionSVarCompare$ are resolved through
 // subAbilityConditionMet (condition.go), the identical way every other M6
-// effect's own does. This port has no `canRemoveCounters` check
-// (CountersRemoveEffect.java's own guard against a static ability
-// forbidding removal) -- no such static ability is built anywhere in this
-// port, so the check would always pass, a real, narrow simplification.
+// effect's own does. canRemoveCounters is the Event$ RemoveCounter
+// Layer$ CantHappen check in removeCountersOfKind (removecounterreplace.go);
+// a Mode$ CantRemoveCounter static is not built.
 type removeCounterEffect struct{}
 
 func (removeCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -194,10 +193,7 @@ func (removeCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 func removeCounters(g *Game, source CardID, target EntityID, counters *Counters, counterType CounterType, allKinds, allAmount bool, amount int) (total int) {
 	if allKinds {
 		for _, kind := range counters.Kinds() {
-			n := counters.Count(kind)
-			counters.Add(kind, -n)
-			emitCounterChanged(g, source, target, kind, -n)
-			total += n
+			total += removeCountersOfKind(g, source, target, counters, kind, counters.Count(kind), false)
 		}
 		return total
 	}
@@ -208,12 +204,26 @@ func removeCounters(g *Game, source CardID, target EntityID, counters *Counters,
 	if n <= 0 {
 		return 0
 	}
-	// Card.subtractCounter's delta is what was there less what is left
-	// (Card.java:1910-1911): "remove two" from one removes one, from none
-	// removes nothing.
-	removed := counters.Count(counterType) - counters.Add(counterType, -n)
+	return removeCountersOfKind(g, source, target, counters, counterType, n, false)
+}
+
+// removeCountersOfKind takes up to n counters of kind. Card.subtractCounter's
+// delta is what was there less what is left (Card.java:1910-1911): "remove
+// two" from one removes one, from none removes nothing. A card's counters go
+// through its Event$ RemoveCounter replacements first (removecounterreplace.go);
+// isDamage is a planeswalker or battle losing them to damage.
+func removeCountersOfKind(g *Game, source CardID, target EntityID, counters *Counters, kind CounterType, n int, isDamage bool) int {
+	had := counters.Count(kind)
+	left := max(had-n, 0)
+	if cid, isCard := target.AsCard(); isCard {
+		if g.removeCounterBlocked(cid, kind) {
+			return 0
+		}
+		left = min(max(g.removeCounterReplaced(nil, cid, kind, left, isDamage), 0), had)
+	}
+	removed := had - counters.Add(kind, left-had)
 	if removed > 0 {
-		emitCounterChanged(g, source, target, counterType, -removed)
+		emitCounterChanged(g, source, target, kind, -removed)
 	}
 	return max(removed, 0)
 }

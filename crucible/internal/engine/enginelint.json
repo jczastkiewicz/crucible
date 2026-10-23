@@ -329,7 +329,8 @@
       "trigger",
       "valid",
       "staticability",
-      "excessdamage"
+      "excessdamage",
+      "removecountereffect"
     ],
     "manapay": ["id", "game", "player", "control", "event", "mana", "manarestrict"],
     "manarestrict": ["id", "game", "card", "ability", "mana", "targeting", "zone", "valid"],

@@ -520,3 +520,50 @@ func TestTargetedPlayerWithoutAPlayerTarget(t *testing.T) {
 		t.Error("TargetedPlayer$ under a card-targeting parent resolved, want an error")
 	}
 }
+
+// Count$CardBasePower is Card.getCurrentPower: the power before pumps and
+// counters (AbilityUtils.java:2076-2077), which Count$CardPower includes. The
+// probe's host (power 1) and the counted elf (power 2, two +1/+1 counters).
+func TestCardBasePowerLeavesOutCounters(t *testing.T) {
+	t.Parallel()
+
+	withCounter := func(g *engine.Game, p, _ engine.PlayerID) {
+		for _, id := range addN(t, g, p, engine.Battlefield, 1, "Creature Elf") {
+			g.Card(id).Counters.Add(engine.P1P1, 2)
+		}
+	}
+	for _, tc := range []struct {
+		x    string
+		want int
+	}{
+		{"Count$Valid Creature.YouCtrl$CardPower", 5},
+		{"Count$Valid Creature.YouCtrl$CardBasePower", 3},
+		{"Count$ValidSelf Creature$CardBasePower", 1},
+	} {
+		t.Run(tc.x, func(t *testing.T) {
+			t.Parallel()
+			if got := gainedFrom(t, withCounter, tc.x); got != tc.want {
+				t.Errorf("gained %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// A card with no power or toughness measures 0, not unreadable
+// (Card.getNetPower of a land): Nissa's Revelation draws X cards for a revealed
+// land.
+func TestPowerMeasureOfACardWithoutPTIsZero(t *testing.T) {
+	t.Parallel()
+
+	withLand := func(g *engine.Game, p, _ engine.PlayerID) {
+		g.NewCard(scriptDef(t, "Test Land", "Land"), p, engine.Battlefield)
+	}
+	for _, x := range []string{"CardPower", "CardToughness", "CardBasePower", "CardSumPT"} {
+		t.Run(x, func(t *testing.T) {
+			t.Parallel()
+			if got := gainedFrom(t, withLand, "Count$Valid Land.YouCtrl$"+x+"/Plus.1"); got != 1 {
+				t.Errorf("gained %d, want 1", got)
+			}
+		})
+	}
+}

@@ -149,4 +149,6 @@ output dictates.
 
 Work happens in the main session; only `forge-oracle` is used as a subagent, for Java research. **Parallel oracles:** before a batch, pick the next several refusal causes from `card-smoke -all`, launch one `forge-oracle` per cause in a single message (background, one call each), and port from their reports as they arrive. Reason: Java reads are independent and dominate the wait, the Go port and tests stay serial in the main session.
 
+**Batches run back to back:** when a batch is done (committed, pushed, `landporter reconcile` run), start the next one at once — re-rank with `card-smoke -all`, launch the next parallel oracles, port — without waiting for the owner's go-ahead. Stop only for a design decision that needs an ADR, a Forge defect that needs the owner (R3 publishes), or an input Claude must not invent (R20a decklists). Reason: the owner's standing instruction; each wait costs a full session turn.
+
 **Branches:** work on `master` and push straight to `origin/master` (the owner's standing consent); no work branches, no PRs unless asked. The commit hook (`gates.sh full`) is the gate, never bypass it. Reason: one linear history, the hook already guards every commit. Exception: upstream Java fixes stay on their `upstream-pr/<slug>` branches (PORT-8).

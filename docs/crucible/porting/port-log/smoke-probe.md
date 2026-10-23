@@ -58,16 +58,16 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,379 |
-| refused      |    197 |
+| plays        | 33,387 |
+| refused      |    184 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    450 |
-| inconclusive |     74 |
+| inconclusive |     79 |
 
-99.4% of the 33,577 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.5% of the 33,571 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
-[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.6% of 8,654 judged.
+[`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 99.6% of 8,650 judged.
 
 Largest refusal causes over the full corpus (cards blocked):
 
@@ -78,7 +78,7 @@ Largest refusal causes over the full corpus (cards blocked):
 | 2 | `PutCounter: RememberCostMana$ not resolvable` |
 | 2 | `Regenerate: RegenerationAbility$ not resolvable` |
 | 2 | `RollDice: ToVisitYourAttractions$ not resolvable` |
-| 2 | `StoreSVar: Expression$ CardToughness` |
+| 2 | `CheckSVar$ is not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

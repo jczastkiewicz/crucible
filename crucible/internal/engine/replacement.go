@@ -595,16 +595,12 @@ var replacementZones = [...]ZoneType{Battlefield, Command}
 // (blocked) no matter which is picked, the same reasoning this file's own
 // doc comment already gives for checkMovedReplacement.
 //
-// ValidStepTurnToController$ (154 of 156 real lines, always "You") is not
-// checked: the one caller, untapStep (turn.go), only ever considers cards
-// g.activePlayer already controls, so "the untapping player is this card's
-// own controller" already holds by construction for every real value this
-// param carries -- Java's own Untap.doUntap loop has the identical
-// invariant for its own "self" untap pass (the only one this port models;
-// doUntap's own "untap a card you don't control" branch,
-// StaticAbilityUntapOtherPlayer, is not built, no card grants that
-// permission yet).
-func (g *Game) untapBlocked(card *Card) bool {
+// ValidStepTurnToController$ (154 of 156 real lines, always "You") is matched
+// against the untapping player from the card controller's side
+// (ReplaceUntap.java:46-52), so a line naming "You" blocks a permanent only in
+// its own controller's untap step; Mode$ UntapOtherPlayer (untapstep.go) is
+// the one way another player's step untaps it.
+func (g *Game) untapBlocked(card *Card, untapper PlayerID) bool {
 	// Card.canUntap (Card.java:4699): the hidden keyword AddHiddenKeyword$
 	// grants, printed or hidden. The grant is rebuilt from the live static each
 	// pass, so it holds exactly as long as the static (an Effect card exiled by
@@ -612,6 +608,14 @@ func (g *Game) untapBlocked(card *Card) bool {
 	if card.hasKeywordText(untapNextStepKeyword) {
 		return true
 	}
+	return g.untapReplaceBlocked(card, untapper)
+}
+
+// untapReplaceBlocked is the Event$ Untap Layer$ CantHappen half of
+// Card.canUntap: untapper is the player whose untap step it is (the Player
+// ReplaceUntap.canReplace compares to ValidStepTurnToController$ from the
+// card controller's side, ReplaceUntap.java:46-52).
+func (g *Game) untapReplaceBlocked(card *Card, untapper PlayerID) bool {
 	for _, pid := range g.Players() {
 		for _, z := range replacementZones {
 			for _, host := range g.Zone(z, pid).Cards() {
@@ -621,7 +625,7 @@ func (g *Game) untapBlocked(card *Card) bool {
 				}
 				for _, face := range h.traitFaces() {
 					for _, r := range face.Replacements {
-						if untapReplacementMatches(g, r, card, h.Controller(), host, z, face.Amounts) {
+						if untapReplacementMatches(g, r, card, untapper, h.Controller(), host, z, face.Amounts) {
 							return true
 						}
 					}
@@ -646,7 +650,7 @@ func (g *Game) untapBlocked(card *Card) bool {
 // itself reads) still skips the whole line rather than guessing (GO-7):
 // EnduringStory$/AddSVar$ carry the remaining 2 of 156, each its own further
 // restriction this file cannot evaluate.
-func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostController PlayerID, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
+func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, untapper, hostController PlayerID, host CardID, hostZone ZoneType, amounts map[string]expr.Amount) bool {
 	if !strings.EqualFold(r.Name, "Untap") {
 		return false
 	}
@@ -671,6 +675,11 @@ func untapReplacementMatches(g *Game, r *compile.Ability, card *Card, hostContro
 	}
 	if !Matches(g, card, valid.Parse(validCard), hostController, host) {
 		return false
+	}
+	if step, ok := r.Param("ValidStepTurnToController"); ok {
+		if matched, recognized := matchesPlayerSpec(g, untapper, card.Controller(), host, step); !matched || !recognized {
+			return false
+		}
 	}
 	return replacementRequirementsCheck(g, g.Card(host), amounts, r)
 }

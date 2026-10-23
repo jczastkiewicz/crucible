@@ -444,28 +444,55 @@ func (g *Game) emptyManaPools(controller PlayerController) {
 func (g *Game) untapStep(controller PlayerController) {
 	g.untapStepPhasing(controller)
 	g.dayTimeAtUntap(controller)
+	// Exert and summoning sickness clear for every permanent the active player
+	// controls, whether or not it untaps (Untap.java:167-169).
+	exerted := map[CardID]bool{}
+	var canUntap []CardID
 	for _, id := range g.Zone(Battlefield, g.activePlayer).Cards() {
 		c := g.Card(id)
-		wasTapped := c.Tapped
-		exerted := c.Exerted
+		exerted[id] = c.Exerted
 		c.Exerted = false
-		untaps := !exerted && !g.untapBlocked(c)
-		if untaps && wasTapped && c.hasKeywordText(optionalUntapKeyword) {
+		c.SummonSick = false
+		if !exerted[id] && !g.untapBlocked(c, g.activePlayer) {
+			canUntap = append(canUntap, id)
+		}
+	}
+	for _, id := range g.untapCandidates(controller, g.activePlayer, canUntap) {
+		c := g.Card(id)
+		wasTapped := c.Tapped
+		untaps := true
+		if wasTapped && c.hasKeywordText(optionalUntapKeyword) {
 			// Untap.optionalUntap (Untap.java:174-196): the controller may leave it.
 			untaps = controller.ChooseBinary(g, c.Controller(), id, UntapOrLeaveTapped)
 		}
-		if untaps {
-			if wasTapped {
-				g.runUntapCommands(controller, id)
-			}
-			c.Tapped = false
-			if wasTapped {
-				g.checkUntapsTriggers(controller, id)
+		if untaps && wasTapped {
+			g.untapCard(controller, id)
+		}
+	}
+	// Untap.java:154-157: another player's tapped permanent a Mode$
+	// UntapOtherPlayer static names untaps in this player's step too, with no
+	// optional prompt and no UntapAdjust; only the Untap replacement can stop
+	// it (Card.untap(Player)).
+	for _, pid := range g.Players() {
+		if pid == g.activePlayer {
+			continue
+		}
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if c.Tapped && g.untapOtherPlayerAllows(c, g.activePlayer) && !g.untapReplaceBlocked(c, g.activePlayer) {
+				g.untapCard(controller, id)
 			}
 		}
-		c.SummonSick = false
 	}
 	g.endNextUntapStepKeyword()
+}
+
+// untapCard untaps a tapped permanent: its untap commands, then the tapped
+// flag, then the Untaps triggers (Go runs them after the flag; Java before).
+func (g *Game) untapCard(controller PlayerController, id CardID) {
+	g.runUntapCommands(controller, id)
+	g.Card(id).Tapped = false
+	g.checkUntapsTriggers(controller, id)
 }
 
 // drawStep draws one card for the active player, ported from

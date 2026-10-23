@@ -161,7 +161,6 @@ func (g *Game) flipForEachPlayer(a *Ability, controller PlayerController, flippe
 			lostFor = append(lostFor, p)
 		}
 	}
-	source := g.Card(a.Source)
 	for _, side := range [...]struct {
 		key, name string
 		set       []PlayerID
@@ -169,15 +168,17 @@ func (g *Game) flipForEachPlayer(a *Ability, controller PlayerController, flippe
 		if len(side.set) == 0 {
 			continue
 		}
-		saved := source.Memory.Remembered()
-		source.Memory.ClearRemembered()
+		// Re-read the host around the sub-ability: it may grow the card arena
+		// and leave an earlier *Card stale (playRecord's note).
+		saved := g.Card(a.Source).Memory.Remembered()
+		g.Card(a.Source).Memory.ClearRemembered()
 		for _, p := range side.set {
-			source.Memory.Remember(PlayerEntity(p))
+			g.Card(a.Source).Memory.Remember(PlayerEntity(p))
 		}
 		err := g.resolveFlipSub(a, controller, side.key, side.name, len(side.set))
-		source.Memory.ClearRemembered()
+		g.Card(a.Source).Memory.ClearRemembered()
 		for _, e := range saved {
-			source.Memory.Remember(e)
+			g.Card(a.Source).Memory.Remember(e)
 		}
 		if err != nil {
 			return err

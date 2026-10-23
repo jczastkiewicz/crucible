@@ -509,7 +509,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 		}
 	default:
 		zones := []ZoneType{Battlefield}
-		if a.API == APIPlay || a.API == APIDelayedTrigger || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect || a.API == APIClone || a.API == APICopyPermanent || a.API == APIAnimate || a.API == APIAssimilate {
+		if readsTgtZone(a.API) && a.API != APIChangeZone && a.API != APIChangeZoneAll {
 			// Scoped to the APIs whose Resolve reads a target in any zone: Play
 			// (Pass the Torch's own TrigPlay, 27 real DB$ Play | TgtZone$ Graveyard
 			// lines), RemoveCounter (counters off a suspended card in exile), Pump
@@ -548,8 +548,7 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				zones = parsed
 			}
 		}
-		if raw, ok := a.Params.Param("TgtZone"); ok && zones[0] == Battlefield && len(zones) == 1 && !strings.Contains(raw, "Battlefield") &&
-			a.API != APIPlay && a.API != APIRemoveCounter && a.API != APIPump && a.API != APIEffect && a.API != APIClone && a.API != APICopyPermanent && a.API != APIAnimate && a.API != APIAssimilate && a.API != APIChangeZone && a.API != APIChangeZoneAll {
+		if raw, ok := a.Params.Param("TgtZone"); ok && !readsTgtZone(a.API) && !strings.Contains(raw, "Battlefield") {
 			// An API outside the list above would target on the battlefield
 			// while the script names another zone: a silent wrong target,
 			// refused instead (GO-7). Its Resolve is unaudited against one.
@@ -1706,4 +1705,27 @@ func (g *Game) radianceCards(a *Ability) []CardID {
 		}
 	}
 	return out
+}
+
+// readsTgtZone reports whether api's targeting reads TgtZone$ and its Resolve
+// is written against a target in any zone: Play (Pass the Torch's own TrigPlay,
+// 27 real DB$ Play | TgtZone$ Graveyard lines), RemoveCounter (counters off a
+// suspended card in exile), Pump (PumpZone$ Graveyard: Flashback, Recoup),
+// Effect (RememberObjects$ Targeted over a graveyard card), Clone and
+// CopyPermanent (the target's printed card whatever its zone), Animate and
+// Assimilate (a card in any zone, a spell on the stack for Animate), the
+// ChangeZone pair (Origin$, handled beside it), and the APIs whose Java never
+// reads the target's zone at resolve: MakeCard (DefinedName$ reads the
+// target's name), ChooseCard (the targets are the choice made at cast time),
+// PutCounter (Defined$ names the counters' recipient), Branch (its sub-ability
+// reads the target). Every other API's Resolve is unaudited against a target
+// outside the battlefield, so the line refuses (GO-7).
+func readsTgtZone(api APIType) bool {
+	switch api {
+	case APIPlay, APIDelayedTrigger, APIRemoveCounter, APIPump, APIEffect, APIClone, APICopyPermanent,
+		APIAnimate, APIAssimilate, APIChangeZone, APIChangeZoneAll,
+		APIMakeCard, APIChooseCard, APIPutCounter, APIBranch:
+		return true
+	}
+	return false
 }

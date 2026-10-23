@@ -467,3 +467,28 @@ func TestValidSharesColorWithEquippedIncludesTheEquippedCreature(t *testing.T) {
 		}
 	}
 }
+
+// TestPutCounterTgtZoneGraveyardTargetsACardForItsSubAbility proves
+// PutCounter's TgtZone$ (Jolted Awake): the graveyard card is chosen as the
+// ability's target, the counters go to Defined$ You, and the sub-ability moves
+// the target (CountersPutEffect.java:244, TargetRestrictions.java:152-154).
+func TestPutCounterTgtZoneGraveyardTargetsACardForItsSubAbility(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	dead := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(dead)})
+	def := etbChainDef(t, "Test Awake",
+		"DB$ PutCounter | Defined$ You | CounterType$ ENERGY | CounterNum$ 2 | ValidTgts$ Creature.YouOwn | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ 1 | SubAbility$ DBChange",
+		"DBChange", "DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Battlefield")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(dead).Zone; got != engine.Battlefield {
+		t.Errorf("the targeted card is in %v, want the battlefield", got)
+	}
+	if got := g.Player(p).Counters.Count(engine.Energy); got != 2 {
+		t.Errorf("energy = %d, want 2", got)
+	}
+}

@@ -208,9 +208,9 @@ func (g *Game) attachObjectToChoice(a *Ability, controller PlayerController, att
 // never onto itself, not a creature (Reconfigure is not ported), neither one
 // phased out; an Aura needs an Enchant keyword whose type the host is (a
 // player Aura's is not a card's); Equipment a creature host; Fortification a
-// land host and not itself a land. Of StaticAbilityCantAttach only the
-// host's Protection is read (hostRefusesAttach); no other CantAttach static
-// is modelled.
+// land host and not itself a land. StaticAbilityCantAttach is
+// hostRefusesAttach: the host's Protection and a hand-written Mode$ CantAttach
+// line.
 func (g *Game) canBeAttached(attachment *Card, host CardID) bool {
 	h := g.Card(host)
 	t := attachment.Type()

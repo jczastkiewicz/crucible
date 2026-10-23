@@ -516,6 +516,18 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		pl.CyclingThisTurn++
 		held = append(held, g.cycledMatches(card, pid, pl.CyclingThisTurn == 1)...)
 	}
+	// MagicStack.java:400-418: a Crew ability of a Vehicle and a Saddle ability
+	// of a Mount fire Crewed / Saddled once per creature tapped for it.
+	switch keyword.Parse(ability.Keyword).Name {
+	case "Crew":
+		if c.Type().HasSubtype("Vehicle") {
+			held = append(held, g.crewedMatches(&activated, "Crewed")...)
+		}
+	case "Saddle":
+		if c.Type().HasSubtype("Mount") {
+			held = append(held, g.crewedMatches(&activated, "Saddled")...)
+		}
+	}
 	g.pushTriggeredAbilities(controller, held)
 	return true
 }

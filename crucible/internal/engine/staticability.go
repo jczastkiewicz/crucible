@@ -381,7 +381,61 @@ func hostRefusesAttach(g *Game, aura *Card, host CardID) bool {
 	refused, _ := protectionEach(h.KeywordLines(), func(vb string, hasVB bool) bool {
 		return !hasVB || Matches(g, aura, valid.Parse(vb), h.Controller(), h.ID)
 	})
-	return refused
+	return refused || cantAttachStatic(g, aura, host)
+}
+
+// cantAttachParams are the params of a Mode$ CantAttach static this port
+// evaluates; Exceptions$ and ExceptionSBA$ (only Protection's generated lines
+// carry them) are not, so a hand-written line naming either never applies.
+var cantAttachParams = map[string]bool{
+	"mode": true, "validcard": true, "target": true, "validcardtotarget": true, "description": true,
+	"secondary": true, "effectzone": true, "ispresent": true, "presentzone": true, "presentcompare": true,
+	"presentplayer": true,
+}
+
+// cantAttachStatic is StaticAbilityCantAttach.cantAttach
+// (StaticAbilityCantAttach.java:9-49): some Mode$ CantAttach static whose
+// conditions hold refuses attaching attachment to host. ValidCard$ matches the
+// attachment and Target$ the host, each from the static host's side;
+// ValidCardToTarget$ matches the attachment with the host as the reference card
+// (Java passes the target as srcCard, so "You" there means the host's
+// controller).
+func cantAttachStatic(g *Game, attachment *Card, host CardID) bool {
+	target := g.Card(host)
+	// Java scans the Stack zone too (ZoneType.STATIC_ABILITIES_SOURCE_ZONES): an
+	// Aura being cast carries its own restriction, though this port still holds
+	// it in the hand while it picks its target.
+	var hosts []CardID
+	for _, pid := range g.Players() {
+		hosts = append(hosts, g.traitHosts(pid)...)
+	}
+	if attachment.Zone == Hand || attachment.Zone == Stack {
+		hosts = append(hosts, attachment.ID)
+	}
+	for _, sh := range hosts {
+		h := g.Card(sh)
+		if h.Def == nil {
+			continue
+		}
+		for _, face := range h.traitFaces() {
+			for _, s := range face.Statics {
+				if !strings.EqualFold(s.Name, "CantAttach") || !paramsResolvable(s, cantAttachParams) || !g.staticConditionsMet(h, s) {
+					continue
+				}
+				if v, ok := s.Param("ValidCard"); ok && !Matches(g, attachment, valid.Parse(v), h.Controller(), h.ID) {
+					continue
+				}
+				if v, ok := s.Param("Target"); ok && !Matches(g, target, valid.Parse(v), h.Controller(), h.ID) {
+					continue
+				}
+				if v, ok := s.Param("ValidCardToTarget"); ok && !Matches(g, attachment, valid.Parse(v), target.Controller(), target.ID) {
+					continue
+				}
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // cardCantBeTargetedBy reports whether target refuses to be the target of
@@ -828,6 +882,37 @@ func combatDamageStatic(g *Game, c *Card, mode string) bool {
 					if !ok || Matches(g, c, valid.Parse(validCard), h.Controller(), h.ID) {
 						return true
 					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// assignsAsUnblocked is StaticAbilityAssignCombatDamageAsUnblocked
+// (StaticAbilityAssignCombatDamageAsUnblocked.java:13-31): some Mode$
+// AssignCombatDamageAsUnblocked static whose conditions hold and whose
+// ValidCard$ names c, among those that carry Optional$ (any value, presence
+// only) when optional is set and those that do not otherwise.
+func assignsAsUnblocked(g *Game, c *Card, optional bool) bool {
+	for _, pid := range g.Players() {
+		for _, host := range g.traitHosts(pid) {
+			h := g.Card(host)
+			if h.Def == nil {
+				continue
+			}
+			for _, face := range h.traitFaces() {
+				for _, s := range face.Statics {
+					if !strings.EqualFold(s.Name, "AssignCombatDamageAsUnblocked") || !g.staticConditionsMet(h, s) {
+						continue
+					}
+					if _, has := s.Param("Optional"); has != optional {
+						continue
+					}
+					if v, ok := s.Param("ValidCard"); ok && !Matches(g, c, valid.Parse(v), h.Controller(), h.ID) {
+						continue
+					}
+					return true
 				}
 			}
 		}

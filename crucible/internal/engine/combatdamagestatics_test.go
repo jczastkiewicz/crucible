@@ -67,3 +67,87 @@ func TestStaticCombatDamageModesChangeWhatACreatureAssigns(t *testing.T) {
 		})
 	}
 }
+
+// Combat.assignAttackersDamage (Combat.java:805-812): a blocked attacker whose
+// Optional$ AssignCombatDamageAsUnblocked static its controller accepts
+// assigns all its damage to the player it attacks; a mandatory one does so
+// unasked; declining leaves the blocker taking it.
+func TestAssignCombatDamageAsUnblocked(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name         string
+		line         string
+		answers      []bool
+		wantDefender int
+		wantBlocker  int
+	}{
+		{"optional accepted", "S:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self | Optional$ True", []bool{true}, 3, 0},
+		{"optional declined", "S:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self | Optional$ True", []bool{false}, 0, 3},
+		{"mandatory is not asked", "S:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self", nil, 3, 0},
+		{"another creature's static", "S:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Creature.Other", nil, 0, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, a, b := combatGame(t)
+			def := scriptDef(t, "Test Attacker", "Creature Elf", tc.line)
+			def.Faces[0].Power, def.Faces[0].Toughness = "3", "5"
+			attacker := g.NewCard(def, a, engine.Battlefield)
+			blockerDef := creatureDefPT(t, "0", "9")
+			blocker := g.NewCard(blockerDef, b, engine.Battlefield)
+			declareAttacking(t, g, attacker)
+			bc := engine.NewScriptedController()
+			bc.QueueBlocks([]engine.Block{{Blocker: blocker, Attacker: attacker}})
+			declareBlockers(t, g, bc)
+			c := engine.NewScriptedController()
+			for _, v := range tc.answers {
+				c.QueueConfirmEffect(v)
+			}
+
+			g.DealCombatDamage(c)
+
+			if got := 20 - g.Player(b).Life; got != tc.wantDefender {
+				t.Errorf("defender lost %d, want %d", got, tc.wantDefender)
+			}
+			if got := g.Card(blocker).Damage.Marked; got != tc.wantBlocker {
+				t.Errorf("blocker damage %d, want %d", got, tc.wantBlocker)
+			}
+		})
+	}
+}
+
+// StaticAbilityCantAttach (StaticAbilityCantAttach.java:24-49): an Aura with
+// "can be attached only to a creature with power 3 or greater" (Mode$
+// CantAttach, ValidCard$ Card.Self, Target$ Creature.powerLT3) does not attach
+// to a weaker creature.
+func TestCantAttachStaticRefusesTheHost(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		power string
+		want  bool
+	}{{"2", false}, {"3", true}} {
+		t.Run("power"+tc.power, func(t *testing.T) {
+			t.Parallel()
+
+			g, p, _ := newTwoPlayerGame(t)
+			host := g.NewCard(creatureDefPT(t, tc.power, "3"), p, engine.Battlefield)
+			aura := g.NewCard(scriptDef(t, "Test Naginata Aura", "Enchantment Aura",
+				"K:Enchant:Creature",
+				"S:Mode$ CantAttach | ValidCard$ Card.Self | Target$ Creature.powerLT3"), p, engine.Hand)
+			c := engine.NewScriptedController()
+			c.QueueTargets([]engine.EntityID{engine.CardEntity(host)})
+
+			if !g.CastSpell(p, aura, c) {
+				t.Fatal("CastSpell refused the Aura")
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if _, got := g.Card(aura).AttachedTo(); got != tc.want {
+				t.Errorf("attached = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

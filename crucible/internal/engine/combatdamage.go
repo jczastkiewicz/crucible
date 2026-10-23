@@ -111,7 +111,11 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 		if g.dealsInStep(atk, firstStrike) {
 			g.noteFirstStrikeDealer(atkID, firstStrike)
 			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
-				g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
+				if g.assignsToDefender(controller, atk) {
+					g.dealAttackTargetDamage(controller, atkID, power, atk.HasKeyword("Deathtouch"), &table)
+				} else {
+					g.dealAttackerDamage(controller, atkID, power, blockers, len(declaredBlockers) == 0 && !containsCard(g.combat.ForcedBlocked, atkID), &table)
+				}
 			}
 		}
 
@@ -505,4 +509,19 @@ func toxicMagnitude(c *Card) int {
 		}
 	}
 	return total
+}
+
+// assignsToDefender is Combat.assignAttackersDamage's assignToPlayer
+// (Combat.java:805-812, :857-858): a mandatory AssignCombatDamageAsUnblocked
+// static naming the attacker sends all its damage to what it attacks, as does
+// an optional one when the attacker was declared blocked and its controller
+// agrees. The question goes to the attacker's controller (Java asks the
+// assigning player, the same unless Defensive Formation or banding applies)
+// with the attacker as its source, and is asked once per damage sub-step.
+func (g *Game) assignsToDefender(controller PlayerController, atk *Card) bool {
+	if assignsAsUnblocked(g, atk, false) {
+		return true
+	}
+	return g.combat.isBlocked(atk.ID) && assignsAsUnblocked(g, atk, true) &&
+		controller.ConfirmEffect(g, atk.Controller(), atk.ID)
 }

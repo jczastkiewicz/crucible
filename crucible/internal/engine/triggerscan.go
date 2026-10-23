@@ -271,3 +271,31 @@ func (g *Game) checkDiscardedAllTriggers(controller PlayerController, pid Player
 	})
 	g.pushTriggeredAbilities(controller, matches)
 }
+
+// crewedParams are the params a Crewed or Saddled trigger may carry that are
+// evaluated; PlayerTurn$ and Phase$ are the common requirements scanTriggers
+// checks.
+var crewedParams = map[string]bool{
+	"mode": true, "execute": true, "triggerdescription": true, "triggerzones": true, "optionaldecider": true,
+	"secondary": true, "validcard": true, "validcrew": true, "playerturn": true, "phase": true,
+}
+
+// crewedMatches is MagicStack.add's Crewed and Saddled runs
+// (MagicStack.java:400-418) for the Crew or Saddle ability a just put on the
+// stack: one run per creature tapped to pay for it, in the order paid, only
+// while the host is a Vehicle (Crew) or Mount (Saddle). The triggering object is
+// the host (ValidCard$, TriggeredCard), the crewer ValidCrew$.
+func (g *Game) crewedMatches(a *Ability, mode string) []Ability {
+	host := g.Card(a.Source)
+	var out []Ability
+	for _, crewer := range a.paid.tapped {
+		out = append(out, g.scanTriggers([]string{mode}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+			if !paramsResolvable(t, crewedParams) || !g.triggerCardMatches(h, t, "ValidCard", host) ||
+				!g.triggerCardMatches(h, t, "ValidCrew", g.Card(crewer)) {
+				return triggeredObjects{}, false
+			}
+			return triggeredObjects{card: a.Source}, true
+		})...)
+	}
+	return out
+}

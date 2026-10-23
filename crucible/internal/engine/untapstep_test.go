@@ -78,3 +78,34 @@ func TestOnlyUntapChosenUntapsOnlyThePickedType(t *testing.T) {
 		t.Errorf("creature tapped = %v, artifact tapped = %v; want only the creature untapped", g.Card(creature).Tapped, g.Card(rock).Tapped)
 	}
 }
+
+// Mode$ Crewed (MagicStack.java:400-408) fires once per creature tapped for a
+// Vehicle's Crew ability, with ValidCrew$ naming the crewer: a trigger on the
+// crewer fires, one on a creature that did not crew does not.
+func TestCrewedTriggerFiresForTheCrewer(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	vehicle := g.NewCard(scriptDef(t, "Test Vehicle", "Artifact Vehicle", "K:Crew:1"), p, engine.Battlefield)
+	crewer := g.NewCard(scriptDef(t, "Test Crewer", "Creature Elf",
+		"T:Mode$ Crewed | ValidCrew$ Card.Self | Execute$ TrigGain | TriggerZones$ Battlefield",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 3"), p, engine.Battlefield)
+	g.NewCard(scriptDef(t, "Test Bystander", "Creature Elf",
+		"T:Mode$ Crewed | ValidCrew$ Card.Self | Execute$ TrigGain | TriggerZones$ Battlefield",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 100"), p, engine.Battlefield)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{crewer})
+
+	if !g.ActivateAbility(p, vehicle, 0, c) {
+		t.Fatal("Crew could not be activated")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	if got := g.Player(p).Life - before; got != 3 {
+		t.Errorf("gained %d, want 3 from the crewer's trigger only", got)
+	}
+}

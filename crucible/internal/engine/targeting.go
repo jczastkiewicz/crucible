@@ -494,13 +494,19 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 	case hasTargetType:
 		// TargetType$ Spell names spells on the stack (CR 115.1a); a spell
 		// here is a card in the Stack zone.
-		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
+		var err error
+		if candidates, err = g.spellsTargeting(a, g.stackSpellCandidates(a.Controller, a.Source, validTgts)); err != nil {
+			return targetChoice{min: targetMin, max: targetMax, err: err}, true, true
+		}
 	case a.API == APICopySpellAbility:
 		// CopySpellAbilityEffect.buildSpellAbility sets the target zone to
 		// the stack whether or not TargetType$ is named
 		// (CopySpellAbilityEffect.java:28-33): Mischievous Quanar's
 		// ValidTgts$ Instant,Sorcery names spells, not battlefield cards.
-		candidates = g.stackSpellCandidates(a.Controller, a.Source, validTgts)
+		var err error
+		if candidates, err = g.spellsTargeting(a, g.stackSpellCandidates(a.Controller, a.Source, validTgts)); err != nil {
+			return targetChoice{min: targetMin, max: targetMax, err: err}, true, true
+		}
 	default:
 		zones := []ZoneType{Battlefield}
 		if a.API == APIPlay || a.API == APIDelayedTrigger || a.API == APIRemoveCounter || a.API == APIPump || a.API == APIEffect || a.API == APIClone || a.API == APICopyPermanent {
@@ -798,6 +804,37 @@ func (g *Game) stackSpellCandidates(controller PlayerID, source CardID, spec str
 		}
 	}
 	return candidates
+}
+
+// spellsTargeting keeps the spells among candidates that a's TargetValidTargeting$
+// admits (canTargetSpellAbility, SpellAbility.java:2085-2108): some target of
+// the spell matches. Without the param every candidate stays.
+func (g *Game) spellsTargeting(a *Ability, candidates []EntityID) ([]EntityID, error) {
+	tvt, ok := a.Params.Param("TargetValidTargeting")
+	if !ok {
+		return candidates, nil
+	}
+	var kept []EntityID
+	for _, e := range candidates {
+		id, isCard := e.AsCard()
+		if !isCard {
+			continue
+		}
+		for i := len(g.stack) - 1; i >= 0; i-- {
+			if g.stack[i].Source != id {
+				continue
+			}
+			matched, err := g.stackItemTargetsMatch(&g.stack[i], tvt, a)
+			if err != nil {
+				return nil, err
+			}
+			if matched {
+				kept = append(kept, e)
+			}
+			break
+		}
+	}
+	return kept, nil
 }
 
 // stackAbilityCandidates is TargetSelection.chooseCardFromStack's offer

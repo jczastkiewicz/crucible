@@ -265,3 +265,77 @@ func TestSaddleSaddlesTheMountAndFiresTriggers(t *testing.T) {
 		t.Errorf("gained %d, want 111 (Saddled 100 + BecomesSaddled 1 + first time 10)", got)
 	}
 }
+
+// CombatMana$ mana survives the end of each step until the combat phase
+// ends, and is gone once Main2 begins.
+func TestCombatManaSurvivesUntilCombatEnds(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Empty()
+	resolveLine(t, g, p, c, "DB$ Mana | Produced$ R | Amount$ 2 | CombatMana$ True")
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+
+	sawCombat := false
+	for g.ActivePhase() != engine.Main2 {
+		g.AdvancePhase(c)
+		if g.ActivePhase() == engine.CombatEnd {
+			sawCombat = true
+			if got := g.Player(p).ManaPool.Total(); got != 2 {
+				t.Errorf("pool at EndCombat = %d, want the 2 combat mana", got)
+			}
+		}
+	}
+	if !sawCombat {
+		t.Fatal("never reached EndCombat")
+	}
+	if got := g.Player(p).ManaPool.Total(); got != 0 {
+		t.Errorf("pool at Main2 = %d, want 0", got)
+	}
+}
+
+// Sacrificed$ChromaSource.Red: the red mana symbols in each sacrificed card's
+// mana cost.
+func TestChromaSourceWithColorCountsSacrificedSymbols(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	fodder := scriptDef(t, "Test Fodder", "Creature Goblin")
+	fodder.Faces[0].ManaCost = mana.MustParse("1 R R")
+	victim := g.NewCard(fodder, p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueSacrificeChoice([]engine.CardID{victim})
+
+	resolveLine(t, g, p, c,
+		"DB$ Sacrifice | SacValid$ Creature.Goblin | RememberSacrificed$ True | SubAbility$ DBHit",
+		"DBHit", "DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ X",
+		"X", "Remembered$ChromaSource.Red")
+
+	if got := g.Player(other).Life; got != 18 {
+		t.Errorf("opponent life = %d, want 18 (two red symbols)", got)
+	}
+}
+
+// ChooseCard WithDifferentPowers$ (Sigarda's Vanguard): each pick drops every
+// creature of that power from the next offer, so the chosen creatures all have
+// different powers.
+func TestChooseCardWithDifferentPowersExcludesChosenPowers(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	b := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	d := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{a})
+	c.QueueCardChoice([]engine.CardID{d})
+
+	host := resolveLine(t, g, p, c, "DB$ ChooseCard | MinAmount$ 0 | Amount$ 5 | Choices$ Creature.YouCtrl+Other | WithDifferentPowers$ True")
+
+	chosen := g.Card(host).Memory.Chosen()
+	if len(chosen) != 2 || chosen[0] != a || chosen[1] != d {
+		t.Errorf("chosen = %v, want [%v %v] (b shares a's power)", chosen, a, d)
+	}
+	_ = b
+}

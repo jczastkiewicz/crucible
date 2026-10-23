@@ -445,6 +445,25 @@ func zeroWithoutPT(c *Card) func(int, bool) (int, bool) {
 // them, for it serves the layer pass, where Layer 7 is being rebuilt), mana
 // value, a counter count, the number of colors.
 func liveCardMeasure(head string) (func(*Card) (int, bool), bool) {
+	// ChromaSource.<Color>: the card's mana symbols of that color
+	// (AbilityUtils.java:2709-2725, colorCode = ManaAtom.fromName).
+	if color, named := strings.CutPrefix(head, "ChromaSource."); named {
+		mask, ok := manaAtomColor(color)
+		if !ok {
+			return nil, false
+		}
+		return func(c *Card) (int, bool) {
+			n := 0
+			if c.Def != nil {
+				for _, s := range c.manaCost().Shards() {
+					if s.Colors().HasAny(mask) {
+						n++
+					}
+				}
+			}
+			return n, true
+		}, true
+	}
 	switch head {
 	case "CardPower":
 		return func(c *Card) (int, bool) { return zeroWithoutPT(c)(c.Power()) }, true

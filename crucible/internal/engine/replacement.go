@@ -1395,8 +1395,9 @@ func tapAbilityResolvesTap(g *Game, controller PlayerController, a *compile.Abil
 	if !strings.EqualFold(a.Name, "Tap") {
 		return false, false
 	}
-	defined, ok := a.Param("Defined")
-	if !ok || (!strings.EqualFold(defined, "Self") && !strings.EqualFold(defined, "ReplacedCard")) {
+	// An absent Defined$ is the host (SpellAbilityEffect.getTargetCards,
+	// SpellAbilityEffect.java:291).
+	if defined, ok := a.Param("Defined"); ok && !strings.EqualFold(defined, "Self") && !strings.EqualFold(defined, "ReplacedCard") {
 		return false, false
 	}
 	for _, p := range a.Params {

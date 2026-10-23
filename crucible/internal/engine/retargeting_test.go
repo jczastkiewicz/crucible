@@ -656,3 +656,27 @@ func (r *modeRecorder) ChooseModesForAbility(g *engine.Game, p engine.PlayerID, 
 	*r.offered = append(*r.offered, options...)
 	return r.ScriptedController.ChooseModesForAbility(g, p, src, options, lo, hi)
 }
+
+// TestSpellTargetOfferHonorsTargetValidTargeting: a Counter naming
+// TargetValidTargeting$ Creature is not offered a Bolt aimed at a player
+// (canTargetSpellAbility, SpellAbility.java:2085-2108), so the Bolt resolves.
+func TestSpellTargetOfferHonorsTargetValidTargeting(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	seatRetargeter(t, g, p, "DB$ Counter | TargetType$ Spell | TargetValidTargeting$ Creature | ValidTgts$ Card")
+	bolt := boltAt(t, g, p)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	r := &targetOfferRecorder{ScriptedController: c}
+	if err := castW(t, g, p, bolt, r); err != nil {
+		t.Fatal(err)
+	}
+	for _, offer := range r.offers[1:] {
+		if len(offer) != 0 {
+			t.Errorf("a later offer = %v, want no spell offered", offer)
+		}
+	}
+	if got := g.Player(other).Life; got != 17 {
+		t.Errorf("opponent life = %d, want 17 (the Bolt was not countered)", got)
+	}
+}

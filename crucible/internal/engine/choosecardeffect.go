@@ -22,10 +22,9 @@ import (
 // order (ChooseCardEffect.java:225-228); Secretly$ only moves Reveal$'s
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
-	"WithDifferentPowers", "EachDifferentPower", "ControlAndNot",
 	"IncludeSpellsOnStack",
 	"ChosenMap",
-	"UnlessResolveSubs", "LockInText", "OrString",
+	"UnlessResolveSubs", "LockInText",
 	"ConditionGameTypes",
 }
 
@@ -103,6 +102,7 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if maxAmount <= 0 {
 		return nil
 	}
+	rawMin := minAmount
 	if _, mandatory := a.Params.Param("Mandatory"); !mandatory {
 		minAmount = 0
 	}
@@ -141,6 +141,17 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 				return err
 			}
 			all = append(all, chosen...)
+			continue
+		}
+		if chosen, handled, err := chooseCardPowerLoops(g, a, controller, pid, pChoices, rawMin, minAmount, maxAmount); handled {
+			if err != nil {
+				return err
+			}
+			for _, cid := range chosen {
+				if !slices.Contains(all, cid) {
+					all = append(all, cid)
+				}
+			}
 			continue
 		}
 		each, ok := a.Params.Param("ChooseEach")
@@ -447,4 +458,103 @@ func chooseCardPool(g *Game, a *Ability, source *Card) ([]CardID, error) {
 		}
 	}
 	return pool, nil
+}
+
+// chooseCardPowerLoops is ChooseCardEffect.java:171-224's three alternative
+// selection loops, handled false for any other shape. WithDifferentPowers$
+// asks for one creature at a time, optional once MinAmount$ are chosen, and
+// drops every creature of a chosen power from the pool; EachDifferentPower$
+// asks for one creature of each power in the pool, lowest power first;
+// ControlAndNot$ takes Amount$ of the chooser's creatures and Amount$ of the
+// others. The chosen collections are sets (FCollection), so a card picked
+// twice stays once; Java's non-Mandatory pick is optional.
+func chooseCardPowerLoops(g *Game, a *Ability, controller PlayerController, pid PlayerID, pool []CardID, rawMin, lo, hi int) ([]CardID, bool, error) {
+	pick := func(from []CardID, least, most int) ([]CardID, error) {
+		if most > len(from) {
+			most = len(from)
+		}
+		if least > most {
+			least = most
+		}
+		chosen := controller.ChooseCardsForEffect(g, pid, a.Source, from, least, most)
+		if err := checkChoice(chosen, from, least, most); err != nil {
+			return nil, fmt.Errorf("engine: ChooseCard: %w", err)
+		}
+		return chosen, nil
+	}
+	switch {
+	case hasParam(a, "WithDifferentPowers"):
+		var chosen []CardID
+		for len(pool) > 0 && len(chosen) < hi {
+			least := 1
+			if len(chosen) >= rawMin {
+				least = 0
+			}
+			got, err := pick(pool, least, 1)
+			if err != nil {
+				return nil, true, err
+			}
+			if len(got) == 0 {
+				break
+			}
+			chosen = append(chosen, got[0])
+			power := netPower(g.Card(got[0]))
+			var rest []CardID
+			for _, id := range pool {
+				if netPower(g.Card(id)) != power {
+					rest = append(rest, id)
+				}
+			}
+			pool = rest
+		}
+		return chosen, true, nil
+	case hasParam(a, "EachDifferentPower"):
+		var powers []int
+		for _, id := range pool {
+			if p := netPower(g.Card(id)); !slices.Contains(powers, p) {
+				powers = append(powers, p)
+			}
+		}
+		slices.Sort(powers)
+		var chosen []CardID
+		for _, power := range powers {
+			var valids []CardID
+			for _, id := range pool {
+				if netPower(g.Card(id)) == power {
+					valids = append(valids, id)
+				}
+			}
+			got, err := pick(valids, 1, 1)
+			if err != nil {
+				return nil, true, err
+			}
+			chosen = append(chosen, got...)
+		}
+		return chosen, true, nil
+	case hasParam(a, "ControlAndNot"):
+		var mine, theirs []CardID
+		for _, id := range pool {
+			if g.Card(id).Controller() == pid {
+				mine = append(mine, id)
+			} else {
+				theirs = append(theirs, id)
+			}
+		}
+		first, err := pick(mine, lo, hi)
+		if err != nil {
+			return nil, true, err
+		}
+		second, err := pick(theirs, lo, hi)
+		if err != nil {
+			return nil, true, err
+		}
+		return append(first, second...), true, nil
+	}
+	return nil, false, nil
+}
+
+// netPower is Card.getNetPower: the layered power, 0 for a card with none.
+func netPower(c *Card) int {
+	p, _ := c.Power()
+	return p
 }

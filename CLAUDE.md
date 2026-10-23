@@ -115,7 +115,7 @@ replacement effects, continuous effects across all eight layers (partial), targe
 
 M6 in progress: 194 of the corpus's 204 script-driven `Effect` APIs resolve (`NewRegistry`, generated into
 `registry_gen.go`); the rest return `ErrUnimplemented`, and the other 12 have no real corpus line.
-`crucible card-smoke -all` measures how many cards play: 99.3% of 33,569 judged, an upper bound; the refusal causes it
+`crucible card-smoke -all` measures how many cards play: 99.4% of 33,577 judged, an upper bound; the refusal causes it
 groups are the backlog.
 
 Everything left, easiest first: `docs/crucible/00-master-implementation-plan-open.md`. Full per-gap list:
@@ -147,5 +147,4 @@ Java quirk and deviation). No per-batch notes. Large files: find the section wit
 once before declaring a multi-file change done. Skip it for routine ports, doc edits and fixes whose next step the tool
 output dictates.
 
-Work happens in the main session: subagents cost more tokens than the same work inline (cold start, worktree one-command
-rule). Only `forge-oracle` is used, for Java research.
+Work happens in the main session; only `forge-oracle` is used as a subagent, for Java research. **Parallel oracles:** before a batch, pick the next several refusal causes from `card-smoke -all`, launch one `forge-oracle` per cause in a single message (background, one call each), and port from their reports as they arrive. Reason: Java reads are independent and dominate the wait, the Go port and tests stay serial in the main session.

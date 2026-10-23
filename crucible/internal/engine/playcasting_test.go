@@ -9,6 +9,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
 // pushPlayLine puts a host for trig on p's battlefield (no ETB fired) and
@@ -659,5 +660,32 @@ func TestPlayManaConversionLetsAnyManaPayAColoredCost(t *testing.T) {
 				t.Errorf("life = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestPlayCopyFromChosenNameCastsATokenCopyOfTheNamedCard proves
+// CopyFromChosenName$: the card the host named is built from the database
+// and cast as a token copy; with no name nothing is played.
+func TestPlayCopyFromChosenNameCastsATokenCopyOfTheNamedCard(t *testing.T) {
+	t.Parallel()
+	g := engine.NewGame(compile.NewDB(map[string]*compile.Card{"Named Gain": gainInstant(t, "Named Gain", "W", "3")}), javarand.New(1), []string{"a", "b"})
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life = 20
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | WithoutManaCost$ True | CopyFromChosenName$ True")
+	if err := resolvePlay(t, g, host, engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if g.Player(p).Life != 20 {
+		t.Fatalf("life %d with no named card, want 20", g.Player(p).Life)
+	}
+	g.Card(host).Memory.AddNamedCard("Named Gain")
+	host = pushPlayLine(t, g, p, nil, "DB$ Play | WithoutManaCost$ True | CopyFromChosenName$ True")
+	g.Card(host).Memory.AddNamedCard("Named Gain")
+	if err := resolvePlay(t, g, host, engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if g.Player(p).Life != 23 {
+		t.Errorf("life %d, want 23 from the copy of the named card", g.Player(p).Life)
 	}
 }

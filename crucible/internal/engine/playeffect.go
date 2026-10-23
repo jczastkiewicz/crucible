@@ -30,7 +30,8 @@ import (
 // Candidates are Valid$ in ValidZone$ (default Hand) across every player, or
 // else the ability's own targets / Defined$ cards (default Self). ValidSA$
 // keeps a card only if one of its play options matches (validSAMatches).
-// CopyCard$ casts a token copy of the chosen card, made in the chosen card's
+// CopyFromChosenName$ casts a token copy of the card the host named (a NameCard
+// before it), built from the card database. CopyCard$ casts a token copy of the chosen card, made in the chosen card's
 // zone, instead. RememberPlayed$/ImprintPlayed$/ForgetPlayed$/
 // ForgetRemembered$ record a successful play on the host.
 // ShowCardToActivator$ is display-only in Java (revealTo) and changes no
@@ -44,7 +45,7 @@ type playEffect struct{}
 // playUnresolvedParams are PlayEffect params this port does not resolve,
 // each rejected before anything is played (PORT-8, GO-7):
 // a card built from outside the game
-// (CopyFromChosenName$, AnySupportedCard$ and its RandomCopied$/RandomNum$/
+// (AnySupportedCard$ and its RandomCopied$/RandomNum$/
 // ChoiceNum$); alternate states (CastFaceDown$, CastTransformed$,
 // ReplaceIlluMask$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
@@ -63,7 +64,7 @@ type playEffect struct{}
 // reads straight from its own EntityID list, with no target zone of its
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
-	"CopyFromChosenName", "AnySupportedCard", "RandomCopied",
+	"AnySupportedCard", "RandomCopied",
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
 	"PlayRaiseCost", "ControlledByPlayer", "WithTotalCMC", "ShowCards", "ZoneRegardless"}
 
@@ -132,8 +133,25 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		}
 		caster = players[0]
 	}
-	cards, err := playCandidates(g, a)
-	if err != nil {
+	var cards []CardID
+	if hasParam(a, "CopyFromChosenName") {
+		// PlayEffect.java:166-177: a token copy of the card the host named,
+		// made in no zone, is the only candidate.
+		named := source.Memory.NamedCards()
+		if len(named) == 0 {
+			return nil
+		}
+		if g.db == nil {
+			return fmt.Errorf("engine: Play: CopyFromChosenName$ needs a card database")
+		}
+		def, ok := g.db.Card(named[len(named)-1])
+		if !ok {
+			return fmt.Errorf("engine: Play: no card named %q to copy", named[len(named)-1])
+		}
+		id := g.NewCard(def, a.Controller, None)
+		g.Card(id).IsToken = true
+		cards = []CardID{id}
+	} else if cards, err = playCandidates(g, a); err != nil {
 		return err
 	}
 	validSA, hasValidSA := a.Params.Param("ValidSA")

@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -139,4 +140,36 @@ func TestCounterRemovedTriggersFollowRemovedCounters(t *testing.T) {
 	if got := g.Player(p).Life - before; got != 113 {
 		t.Errorf("gained %d, want 113", got)
 	}
+}
+
+// TestManaExpendFiresAsSpentManaCrossesAmount: a four-mana spell crosses the
+// Amount$ 4 threshold of a "spend your fourth mana" permanent once; a
+// following spell spending one more mana does not fire it again.
+func TestManaExpendFiresAsSpentManaCrossesAmount(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	watcher := scriptDef(t, "Expend Watcher", "Creature Elf",
+		"T:Mode$ ManaExpend | Player$ You | Amount$ 4 | TriggerZones$ Battlefield | Execute$ TrigGain | TriggerDescription$ x",
+		"SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 3")
+	g.NewCard(watcher, p, engine.Battlefield)
+	spell := scriptDef(t, "Four Drop", "Creature Elf")
+	spell.Faces[0].ManaCost = mana.MustParse("3 G")
+	c := engine.NewScriptedController()
+	g.Player(p).ManaPool.Add(mana.Green, 8)
+	for i := 0; i < 2; i++ {
+		c.QueuePayGeneric(mana.ShardG)
+		c.QueuePayGeneric(mana.ShardG)
+		c.QueuePayGeneric(mana.ShardG)
+		if !g.CastSpell(p, g.NewCard(spell, p, engine.Hand), c) {
+			t.Fatal("CastSpell failed")
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatalf("ResolveStack: %v", err)
+		}
+	}
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 (one trigger: 4 mana spent, then 4 more crosses 8 not 4)", got)
+	}
+	_ = other
 }

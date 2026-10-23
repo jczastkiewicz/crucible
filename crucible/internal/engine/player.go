@@ -70,6 +70,9 @@ type Player struct {
 	// surveilThisTurn is Player.surveilThisTurn: how many times this player has
 	// surveiled this turn, read by Mode$ Surveil's FirstTime$ (Player.java:1084).
 	surveilThisTurn int
+	// expendThisTurn is Player.expentThisTurn (Player.java:3995-4000): the mana
+	// this player spent on spells this turn, what Mode$ ManaExpend counts.
+	expendThisTurn int
 	// attachments is what is attached to this player (GameEntity's
 	// attachedCards, for a player): the Curses enchanting them, in the order
 	// they were attached. Written only by Game.AttachToPlayer and

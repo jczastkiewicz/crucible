@@ -636,7 +636,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
-	g.checkSpellCastTriggers(controller, card, pid, g.castExitMatches())
+	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	return true
 }
 
@@ -873,7 +873,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
-	g.checkSpellCastTriggers(controller, card, pid, g.castExitMatches())
+	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{CardEntity(target)}
 	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
@@ -937,7 +937,7 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
-	g.checkSpellCastTriggers(controller, card, pid, g.castExitMatches())
+	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := []EntityID{target}
 	matches := g.checkBecomesTargetTriggers(tgts, true, pid)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)
@@ -1035,7 +1035,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 	g.PushAbility(a)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
 	g.recordSpellCast(pid, card)
-	g.checkSpellCastTriggers(controller, card, pid, g.castExitMatches())
+	g.checkSpellCastTriggers(controller, card, pid, append(g.castExitMatches(), g.expendMatches(pid, len(x.sources))...))
 	tgts := allTargetsOf(a)
 	matches := g.checkBecomesTargetTriggers(tgts, false, pid)
 	matches = append(matches, g.checkWardTriggers(tgts, card, pid)...)

@@ -535,11 +535,13 @@ func (g *Game) targetChoiceFor(a *Ability) (choice targetChoice, named, ok bool)
 				if err != nil {
 					return targetChoice{min: targetMin, max: targetMax, err: fmt.Errorf("TgtZone$: %w", err)}, true, true
 				}
-				if zoneIn(Stack, parsed) && a.API != APIEffect {
+				if zoneIn(Stack, parsed) && a.API != APIEffect && a.API != APIAnimate {
 					// No real Play line names the stack, and Play's Resolve
 					// is unaudited against a spell target: fail closed
-					// rather than guess. (ChangeZone's Origin$ Stack is
-					// scanned below, zoneListCandidates.)
+					// rather than guess. Animate takes a spell as its card on
+					// the stack (AnimateEffect.java:172 re-reads the Stack-zone
+					// card; Chaoslace's color change). (ChangeZone's Origin$
+					// Stack is scanned below, zoneListCandidates.)
 					return targetChoice{min: targetMin, max: targetMax,
 						err: fmt.Errorf("TgtZone$ %q: Stack not resolvable through this path yet", raw)}, true, true
 				}

@@ -149,12 +149,21 @@ func animateTypes(g *Game) {
 }
 
 // animateColors is applyAnimateEffects' Layer 5 half.
+//
+// A spell on the stack takes its color change here too (Chaoslace's TgtZone$
+// Stack,Battlefield): Java writes it to the Stack-zone card (AnimateEffect.
+// java:172, AnimateEffectBase.java:147-153), and the Layer 5 pass clears and
+// rebuilds every off-battlefield card's ColorMod, so re-adding does not stack.
+// The card's zone change drops the record (clearAnimates).
 func animateColors(g *Game) {
-	liveAnimates(g, func(c *Card, r *animateRecord) {
-		if r.HasColors {
-			c.ColorMod.Add(ColorEffect{Timestamp: r.Timestamp, Colors: r.Colors, Overwrite: r.OverwriteColors})
+	for i := range g.animates {
+		r := &g.animates[i]
+		c := g.Card(r.Card)
+		if !r.HasColors || c.IsPhasedOut() || (c.Zone != Battlefield && c.Zone != Stack) {
+			continue
 		}
-	})
+		c.ColorMod.Add(ColorEffect{Timestamp: r.Timestamp, Colors: r.Colors, Overwrite: r.OverwriteColors})
+	}
 }
 
 // animateKeywords is applyAnimateEffects' Layer 6 half.

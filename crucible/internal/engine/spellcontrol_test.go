@@ -471,3 +471,48 @@ func TestCounterDefinedOtherThanKnownShapesFailsClosed(t *testing.T) {
 		t.Fatalf("err = %v, want Counter's Defined$ error", err)
 	}
 }
+
+// colorProbe records the colors of card each time the engine asks for a color
+// choice, which a spell's own ChooseColor effect does while it resolves.
+type colorProbe struct {
+	*engine.ScriptedController
+	g    *engine.Game
+	card engine.CardID
+	seen []mana.Colors
+}
+
+func (c *colorProbe) ChooseColors(g *engine.Game, p engine.PlayerID, src engine.CardID, from mana.Colors, lo, hi int) mana.Colors {
+	c.seen = append(c.seen, c.g.Card(c.card).Colors())
+	return c.ScriptedController.ChooseColors(g, p, src, from, lo, hi)
+}
+
+// TestAnimateTgtZoneStackRecolorsASpellOnTheStack proves Animate's TgtZone$
+// Stack (Chaoslace): the spell is targeted as its card on the stack and its
+// color is replaced while it is there, so it is red when its own effect
+// resolves and white again once it left the stack (AnimateEffect.java:172,
+// AnimateEffectBase.java:147-153).
+func TestAnimateTgtZoneStackRecolorsASpellOnTheStack(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	gain := g.NewCard(spellDefWith(t, "Colored Spell", "Instant", "W",
+		"SP$ ChooseColor | Defined$ You"), p, engine.Hand)
+	c := &colorProbe{ScriptedController: engine.NewScriptedController(), g: g, card: gain}
+	c.QueueColorChoice(mana.Green)
+	castOn(t, g, p, gain, c.ScriptedController)
+	lace := g.NewCard(spellDefWith(t, "Test Lace", "Instant", "R",
+		"SP$ Animate | ValidTgts$ Card | TgtZone$ Stack,Battlefield | Colors$ Red | OverwriteColors$ True | Duration$ Permanent"), other, engine.Hand)
+	g.Player(other).ManaPool.Add(mana.Red, 1)
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(gain)})
+	if !g.CastSpell(other, lace, c) {
+		t.Fatal("CastSpell(Test Lace) failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.seen) != 1 || c.seen[0] != mana.Red {
+		t.Errorf("colors while the spell resolved = %v, want [red]", c.seen)
+	}
+	if got := g.Card(gain).Colors(); got != mana.White {
+		t.Errorf("colors after leaving the stack = %v, want white again", got)
+	}
+}

@@ -109,3 +109,34 @@ func TestCrewedTriggerFiresForTheCrewer(t *testing.T) {
 		t.Errorf("gained %d, want 3 from the crewer's trigger only", got)
 	}
 }
+
+// Card.subtractCounter (Card.java:1935-1945): CounterRemoved fires once per
+// counter taken off, NewCounterAmount counting down (0 on the last), and
+// CounterRemovedOnce once for the whole removal.
+func TestCounterRemovedTriggersFollowRemovedCounters(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	host := g.NewCard(scriptDef(t, "Test Hydra", "Creature Hydra",
+		"T:Mode$ CounterRemoved | ValidCard$ Card.Self | CounterType$ P1P1 | TriggerZones$ Battlefield | Execute$ TrigEach",
+		"T:Mode$ CounterRemoved | ValidCard$ Card.Self | CounterType$ P1P1 | NewCounterAmount$ 0 | TriggerZones$ Battlefield | Execute$ TrigLast",
+		"T:Mode$ CounterRemovedOnce | ValidCard$ Card.Self | CounterType$ P1P1 | TriggerZones$ Battlefield | Execute$ TrigOnce",
+		"SVar:TrigEach:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+		"SVar:TrigLast:DB$ GainLife | Defined$ You | LifeAmount$ 10",
+		"SVar:TrigOnce:DB$ GainLife | Defined$ You | LifeAmount$ 100"), p, engine.Battlefield)
+	g.Card(host).Counters.Add(engine.CounterType("P1P1"), 3)
+	engine.CheckStateBasedActions(g, engine.NewScriptedController())
+	before := g.Player(p).Life
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(host)})
+
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Remover",
+		"DB$ RemoveCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 3"), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+
+	// 3 x 1 (each counter) + 10 (the last) + 100 (the removal).
+	if got := g.Player(p).Life - before; got != 113 {
+		t.Errorf("gained %d, want 113", got)
+	}
+}

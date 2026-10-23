@@ -102,9 +102,38 @@ func (*Controller) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, dups
 	return dups[0]
 }
 
-// DeclareCombatAttackers attacks with every eligible creature.
-func (*Controller) DeclareCombatAttackers(_ *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
+// DeclareCombatAttackers attacks with every eligible creature, or with one when
+// a Mode$ AttackRestrict static is in play (its cap is at least one, and an
+// attack over it is illegal, so a probe that sent everyone would be refused
+// for the card's own restriction).
+func (*Controller) DeclareCombatAttackers(g *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
+	if len(eligible) > 1 && attackRestricted(g) {
+		return eligible[:1]
+	}
 	return eligible
+}
+
+// attackRestricted reports whether some battlefield or Command-zone card
+// carries a Mode$ AttackRestrict static.
+func attackRestricted(g *engine.Game) bool {
+	for _, pid := range g.Players() {
+		for _, z := range []engine.ZoneType{engine.Battlefield, engine.Command} {
+			for _, id := range g.Zone(z, pid).Cards() {
+				def := g.Card(id).Def
+				if def == nil {
+					continue
+				}
+				for _, face := range def.Faces {
+					for _, s := range face.Statics {
+						if s.Name == "AttackRestrict" {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // ExertAttackers exerts nothing.

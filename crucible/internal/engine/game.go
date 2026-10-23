@@ -213,6 +213,10 @@ type Game struct {
 	// Mode$ CantPutCounter static whose host is in it does not stop the
 	// counters of that same entry (StaticAbilityCantPutCounter.java:22-25).
 	enterBatch []CardID
+	// pendingCounterRemoved are the counter-removal triggers found as counters
+	// came off, waiting for the next state-based action check to stack them
+	// (counterremoved.go).
+	pendingCounterRemoved []Ability
 	// enteredThisTurn is every zone change this turn, as the card stood in
 	// the zone it entered (a battlefield entry) or left (any other), and
 	// countersAddedThisTurn every counter placement (castrecord.go); both
@@ -838,8 +842,11 @@ func (g *Game) CounterTypeOf(d CounterDetail) (CounterType, bool) {
 func emitCounterChanged(g *Game, source CardID, target EntityID, t CounterType, delta int) {
 	if delta < 0 {
 		g.recordCountersRemoved(target, t, -delta)
-		if id, ok := target.AsCard(); ok && g.Card(id).Counters.Count(t) == 0 {
-			g.effectCardsSeeCounterGone(id, t, false)
+		if id, ok := target.AsCard(); ok {
+			if g.Card(id).Counters.Count(t) == 0 {
+				g.effectCardsSeeCounterGone(id, t, false)
+			}
+			g.queueCounterRemoved(id, t, -delta)
 		}
 	}
 	g.sink.Emit(Event{Kind: CounterChanged, Source: source, Target: target, Amount: int32(delta), Detail: uint32(g.counterDetailFor(t))})

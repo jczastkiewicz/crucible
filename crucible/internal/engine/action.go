@@ -123,6 +123,7 @@ func CheckStateBasedActions(g *Game, controller PlayerController) bool {
 // GameAction.java:1437-1438). The turn driver's CR 514.3a cleanup repeat
 // reads performed (beginStep, turn.go).
 func checkStateBasedActions(g *Game, controller PlayerController) (over, performed bool) {
+	g.flushCounterRemoved(controller)
 	// CR 704.3: the check repeats until a pass does nothing. GameAction.
 	// checkStateEffects caps it at nine passes (GameAction.java:1417); each
 	// pass also rebuilds the continuous effects the last one's moves changed.
@@ -141,6 +142,7 @@ func checkStateBasedActions(g *Game, controller PlayerController) (over, perform
 	g.runPhaseCommands(controller, untilSBAChecked, NoPlayer)
 	// GameAction.java:1244: the state triggers, after the passes.
 	g.checkAlwaysTriggers(controller)
+	g.flushCounterRemoved(controller)
 	return false, performed
 }
 

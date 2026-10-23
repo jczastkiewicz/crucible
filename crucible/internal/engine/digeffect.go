@@ -12,11 +12,10 @@ import (
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
 // (ForEachColorPair$, WithDifferentPowers$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
-// bookkeeping this port has no concept of (DefinedExiler$), and GainControl$'s Cybership reorder.
+// bookkeeping, and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
 	"ForEachColorPair", "WithDifferentPowers", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"DefinedExiler",
 }
 
 // digEffect is DigEffect.java: each Defined$/ValidTgts$ player (default
@@ -44,6 +43,19 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	// SpellAbilityEffect.java:1113-1114: the first DefinedExiler$ player, else
+	// the activator (markExiledWith's default).
+	exiler, hasExiler := NoPlayer, false
+	if raw, ok := a.Params.Param("DefinedExiler"); ok {
+		ps, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: Dig: %w", err)
+		}
+		if len(ps) == 0 {
+			return fmt.Errorf("engine: Dig: DefinedExiler$ %q names no player", raw)
+		}
+		exiler, hasExiler = ps[0], true
 	}
 	digRaw, _ := a.Params.Param("DigNum")
 	digNum, ok := resolveNamedAmount(g, a.Amounts, source, digRaw)
@@ -266,6 +278,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			g.applyChangeZoneStatic(staticTmpl, id)
 			if dest1 == Exile {
 				g.markExiledWith(id, a.Source)
+				if hasExiler {
+					g.markExiledBy(id, exiler)
+				}
 				if hasExileCounter {
 					counterTable = append(counterTable, id)
 				}
@@ -313,6 +328,9 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 			g.applyChangeZoneStatic(staticTmpl, id)
 			if dest2 == Exile {
 				g.markExiledWith(id, a.Source)
+				if hasExiler {
+					g.markExiledBy(id, exiler)
+				}
 				if hasExileCounter {
 					counterTable = append(counterTable, id)
 				}

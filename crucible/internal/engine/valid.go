@@ -233,6 +233,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		stamp, _ := g.hostObjectStamp(source)
 		return ew.stamp == stamp
+	case name == "ExiledByYou":
+		// CardProperty.java:367-373: a card nothing exiled is false; otherwise
+		// its exiler must be the source's controller.
+		sc, ok := sourceCard(g, source)
+		return ok && c.exiledWith.hasExiler && c.exiledWith.exiler == sc.Controller()
 	case name == "stickered":
 		// CardProperty.java:1337-1339: Card.isStickered.
 		return len(c.stickers) > 0

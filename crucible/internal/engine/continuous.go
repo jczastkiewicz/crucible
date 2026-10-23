@@ -1410,7 +1410,12 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 		grant.Limit = n
 	}
 	grantees := []PlayerID{host.Controller()}
-	if spec, ok := s.Param("MayPlayPlayer"); ok {
+	// MayPlayPlayer$ Exiler names, per affected card, the player who exiled it
+	// (StaticAbilityContinuous.java:942-944, AbilityUtils.java:1171-1172).
+	byExiler := false
+	if spec, ok := s.Param("MayPlayPlayer"); ok && spec == "Exiler" {
+		byExiler, grantees = true, []PlayerID{NoPlayer}
+	} else if ok {
 		grantees = nil
 		for _, pid := range g.Players() {
 			if matched, recognized := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); !recognized {
@@ -1433,7 +1438,14 @@ func applyOneContinuousMayPlay(g *Game, host *Card, amounts map[string]expr.Amou
 						continue
 					}
 					gr := grant
-					gr.CardID, gr.Timestamp, gr.Grantee = id, c.Timestamp, player
+					grantee := player
+					if byExiler {
+						if !c.exiledWith.hasExiler {
+							continue
+						}
+						grantee = c.exiledWith.exiler
+					}
+					gr.CardID, gr.Timestamp, gr.Grantee = id, c.Timestamp, grantee
 					g.mayPlay = append(g.mayPlay, gr)
 				}
 			}

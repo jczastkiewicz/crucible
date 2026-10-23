@@ -229,5 +229,13 @@ func (g *Game) markExiledWith(id, host CardID) {
 		return
 	}
 	stamp, listed := g.hostObjectStamp(host)
-	c.exiledWith = exiledWithMark{host: host, stamp: stamp, listed: listed}
+	c.exiledWith = exiledWithMark{host: host, stamp: stamp, listed: listed, exiler: g.Card(host).Controller(), hasExiler: true}
+}
+
+// markExiledBy overrides the exiler of a card markExiledWith just marked:
+// DefinedExiler$ (SpellAbilityEffect.java:1113-1114).
+func (g *Game) markExiledBy(id CardID, exiler PlayerID) {
+	if c := g.Card(id); c.exiledWith.hasExiler {
+		c.exiledWith.exiler = exiler
+	}
 }

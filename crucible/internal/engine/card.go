@@ -1343,6 +1343,12 @@ type exiledWithMark struct {
 	host   CardID
 	stamp  uint64
 	listed bool
+	// exiler is Card.exiledBy (SpellAbilityEffect.java:1113-1115): the player
+	// the effect names with DefinedExiler$, else the one whose ability exiled
+	// the card, taken here as the host's controller when it was marked.
+	// hasExiler tells a mark from a card nothing exiled.
+	exiler    PlayerID
+	hasExiler bool
 }
 
 // ExiledWith is the card that exiled c, NoCard if nothing did since c last

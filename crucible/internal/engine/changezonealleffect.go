@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands
+//enginelint:allow id card game ability defined condition control parts zone effecthelpers zonemove ateot changezoneeffect controlcommands changezonestatic
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 // SpellAbility.isHidden does, for ChangeZone).
 var changeZoneAllUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCountersType", "StaticEffect", "TypeLimit", "OptionQuestion",
+	"WithCountersType", "TypeLimit", "OptionQuestion",
 	"Pawprint", "Random",
 	"Ultimate",
 }
@@ -35,6 +35,12 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: ChangeZoneAll: %s$ not resolvable yet", key)
 		}
+	}
+	// StaticEffect$ is read before anything moves (ChangeZoneAllEffect never
+	// clears StaticEffectTimestamp, GameAction.java:697-705, not modelled).
+	staticTmpl, err := changeZoneStaticTemplate(g, a)
+	if err != nil {
+		return err
 	}
 	// A Condition$ subAbilityConditionMet reads (Kicked, OptionalCost) gates
 	// the line there; any other value is refused.
@@ -147,6 +153,7 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			source.Memory.RememberLKI(id)
 		}
 		melded := g.moveByEffect(controller, id, dest, libPos, newController, tapped)
+		g.applyChangeZoneStatic(staticTmpl, id)
 		if dest == Exile {
 			g.markExiledWith(id, a.Source)
 			g.exileFaceDown(a, id)

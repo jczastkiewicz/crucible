@@ -56,3 +56,24 @@ func TestChangeZoneStaticEffectRefusesAnUnreadStatic(t *testing.T) {
 		t.Errorf("card zone = %v, want Library", z)
 	}
 }
+
+// ChangeZoneAll honours StaticEffect$ through the same moveTo path
+// (Grimoire of the Dead): every card it moves takes the static.
+func TestChangeZoneAllStaticEffectChangesEveryMovedCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	mine := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Graveyard)
+	theirs := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Graveyard)
+	line := "DB$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Battlefield | StaticEffect$ Animate"
+	def := etbChainDef(t, "Test Static All", line,
+		"Animate", "Mode$ Continuous | Affected$ Card.IsRemembered | SetPower$ 3 | SetToughness$ 4")
+	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range []engine.CardID{mine, theirs} {
+		if pw, _ := g.Card(id).Power(); pw != 3 {
+			t.Errorf("card %v power = %d, want 3", id, pw)
+		}
+	}
+}

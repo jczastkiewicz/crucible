@@ -1893,9 +1893,9 @@ Continuous	ActivationZone	1	-	-	token:1
 Continuous	AddAbilities	1	-	-	token:1
 Continuous	AddAbility	366	-	-	token:359,prose:7
 Continuous	AddAllCreatureTypes	8	-	-	bool:8
-Continuous	AddColor	12	-	-	token:12
+Continuous	AddColor	13	-	-	token:13
 Continuous	AddHiddenKeyword	53	-	-	prose:53
-Continuous	AddKeyword	1971	-	-	token:1484,prose:484,amount:3
+Continuous	AddKeyword	1972	-	-	token:1485,prose:484,amount:3
 Continuous	AddNames	1	-	-	token:1
 Continuous	AddPower	2009	-	amount:8	int:1703,token:304,amount:2
 Continuous	AddReplacementEffect	14	-	-	token:12,prose:2
@@ -1903,12 +1903,12 @@ Continuous	AddSVar	181	-	-	token:158,prose:23
 Continuous	AddStaticAbility	88	-	-	token:85,prose:3
 Continuous	AddToughness	1578	-	amount:3	int:1360,token:217,amount:1
 Continuous	AddTrigger	310	-	-	token:305,prose:5
-Continuous	AddType	322	-	-	token:249,prose:73
+Continuous	AddType	327	-	-	token:254,prose:73
 Continuous	AdditionalOptionalVote	3	-	-	int:3
 Continuous	AdditionalVillainousChoice	1	-	-	int:1
 Continuous	AdditionalVote	1	-	-	int:1
 Continuous	AdjustLandPlays	48	-	-	int:45,token:3
-Continuous	Affected	4461	-	valid:1	token:4428,prose:33
+Continuous	Affected	4466	-	valid:1	token:4433,prose:33
 Continuous	AffectedDefined	2614	-	defined:2	token:2563,prose:51
 Continuous	AffectedZone	1059	-	-	token:1059
 Continuous	CalcKeywordN	1	-	-	token:1
@@ -1962,7 +1962,7 @@ Continuous	MayPlaySnowIgnoreColor	1	-	-	bool:1
 Continuous	MayPlayText	15	-	-	token:15
 Continuous	MayPlayWithFlash	5	-	-	bool:5
 Continuous	MayPlayWithoutManaCost	68	-	-	bool:68
-Continuous	Mode	5776	-	-	token:5776
+Continuous	Mode	5781	-	-	token:5781
 Continuous	Phases	1	-	-	prose:1
 Continuous	PresentCompare	71	-	-	token:71
 Continuous	PresentZone	30	-	zone:1	token:30
@@ -1984,8 +1984,8 @@ Continuous	Secondary	67	-	-	bool:66,prose:1
 Continuous	SetColor	61	-	-	token:60,prose:1
 Continuous	SetMaxHandSize	60	-	-	token:52,int:8
 Continuous	SetName	6	-	-	prose:4,token:2
-Continuous	SetPower	405	-	amount:1	token:250,int:154,amount:1
-Continuous	SetToughness	343	-	amount:1	token:188,int:154,amount:1
+Continuous	SetPower	407	-	amount:1	token:250,int:156,amount:1
+Continuous	SetToughness	345	-	amount:1	token:188,int:156,amount:1
 Continuous	SharedKeywordsZone	8	-	-	token:8
 Continuous	SharedRestrictions	8	-	-	token:7,prose:1
 Continuous	TopCardOfLibraryIs	7	-	valid:1	token:7

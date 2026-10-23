@@ -908,8 +908,9 @@ func (c *faceCompiler) references(a *Ability, p vocab.Param) ([]string, bool) {
 	case strings.EqualFold(p.Key, "Choices") && choiceAPIs[a.Name]:
 		return splitTrim(p.Value, ","), true
 	// GameAction.setupStaticEffect (:718) parses the SVar named by a ChangeZone's
-	// `StaticEffect$` as a static ability.
-	case strings.EqualFold(p.Key, "StaticEffect") && a.Name == "ChangeZone":
+	// (or ChangeZoneAll's, Dig's: any move whose cause carries it) `StaticEffect$`
+	// as a static ability.
+	case strings.EqualFold(p.Key, "StaticEffect") && (a.Name == "ChangeZone" || a.Name == "ChangeZoneAll" || a.Name == "Dig"):
 		return []string{p.Value}, true
 	case effectTraitKeys[strings.ToLower(p.Key)] && a.Name == "Effect":
 		return splitTrim(p.Value, ","), true

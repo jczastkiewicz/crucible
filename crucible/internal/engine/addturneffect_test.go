@@ -50,15 +50,57 @@ func TestSkipTurnEffectSkipsNextTurn(t *testing.T) {
 	}
 }
 
-// TestAddTurnEffectRejectsUnresolvedParam proves SkipUntap$ fails closed.
-func TestAddTurnEffectRejectsUnresolvedParam(t *testing.T) {
+// TestAddTurnEffectSkipUntapSkipsTheExtraTurnsUntapStep proves SkipUntap$
+// (Time Bends to My Will): the extra turn's untap step does not untap, the
+// following normal turn of the same player would.
+func TestAddTurnEffectSkipUntapSkipsTheExtraTurnsUntapStep(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test Time Walk Bad", "DB$ AddTurn | Defined$ You | NumTurns$ 1 | SkipUntap$ True")
-	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved SkipUntap$")
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Time Bends", "DB$ AddTurn | Defined$ You | NumTurns$ 1 | SkipUntap$ True")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
+	bear := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	g.Card(bear).Tapped = true
+	g.SetTurnState(1, p, engine.Cleanup)
+	g.AdvancePhase(c)
+	for g.ActivePhase() != engine.Main1 {
+		g.AdvancePhase(c)
+	}
+	if !g.Card(bear).Tapped {
+		t.Error("creature untapped during the extra turn, want the untap step skipped")
+	}
+}
+
+// TestProtectionChoserControllerAsksTheTargetsController proves Choser$
+// Controller (Pale Wayfarer): the target's controller picks the protection.
+func TestProtectionChoserControllerAsksTheTargetsController(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	theirs := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	rec := &protectionDeciderRecorder{ScriptedController: engine.NewScriptedController()}
+	rec.QueueProtectionChoice(0)
+	line := "DB$ Protection | Defined$ Targeted | Gains$ Choice | Choices$ AnyColor | Choser$ Controller | ValidTgts$ Creature"
+	pushPlayLine(t, g, p, []engine.EntityID{engine.EntityID(theirs)}, line)
+	if err := g.ResolveStack(engine.NewRegistry(), rec); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if rec.decider != other {
+		t.Errorf("protection chosen by %v, want %v (the target's controller)", rec.decider, other)
+	}
+}
+
+type protectionDeciderRecorder struct {
+	*engine.ScriptedController
+	decider engine.PlayerID
+}
+
+func (r *protectionDeciderRecorder) ChooseProtectionType(g *engine.Game, decider engine.PlayerID, src engine.CardID, choices []string) int {
+	r.decider = decider
+	return r.ScriptedController.ChooseProtectionType(g, decider, src, choices)
 }
 
 // TestAddTurnEffectDelayedTriggerFiresOnTheExtraTurnOnly proves

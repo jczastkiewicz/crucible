@@ -416,7 +416,7 @@ type Game struct {
 	// last entry is the next turn taken. The bottom entry, pushed with the
 	// first extra turn, is the player whose normal turn comes next, so
 	// normal turn order resumes once the stack drains.
-	extraTurns []PlayerID
+	extraTurns []extraTurn
 	// combatDamagePrevented is Fog's "prevent all combat damage this turn",
 	// cleared at cleanup (damagePrevented/damagePreventedPlayer read it).
 	combatDamagePrevented bool
@@ -1608,7 +1608,7 @@ func (g *Game) Clone() *Game {
 		pendingSkips:   append([]pendingSkip(nil), g.pendingSkips...),
 		pendingRepeats: append([]pendingRepeat(nil), g.pendingRepeats...),
 
-		extraTurns:            append([]PlayerID(nil), g.extraTurns...),
+		extraTurns:            append([]extraTurn(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
 		upkeepsThisTurn:       g.upkeepsThisTurn,

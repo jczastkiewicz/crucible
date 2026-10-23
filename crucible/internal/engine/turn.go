@@ -214,8 +214,9 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 	for guard := 0; guard < 1000; guard++ {
 		var next PlayerID
 		fromExtra := false
+		skipUntap := false
 		if n := len(g.extraTurns); n > 0 {
-			next, fromExtra = g.extraTurns[n-1], true
+			next, skipUntap, fromExtra = g.extraTurns[n-1].player, g.extraTurns[n-1].skipUntap, true
 			g.extraTurns = g.extraTurns[:n-1]
 		} else {
 			next = g.nextPlayerAfter(cursor)
@@ -244,6 +245,11 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 			}
 			continue
 		}
+		if skipUntap {
+			// PhaseHandler.java:892-893: SkipUntap$ becomes a one-shot skip of
+			// the new turn's untap step.
+			g.skips = append(g.skips, skipPhase{Player: next, Phases: phaseSet(1 << uint(Untap))})
+		}
 		return next
 	}
 	panic("engine: nextActivePlayer found no player able to take a turn")
@@ -252,11 +258,18 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 // addExtraTurn is PhaseHandler.addExtraTurn: the first extra turn also
 // pushes the player whose normal turn comes next, so turn order resumes
 // from the right seat when the extra turns are done.
-func (g *Game) addExtraTurn(p PlayerID) {
+func (g *Game) addExtraTurn(p PlayerID, skipUntap bool) {
 	if len(g.extraTurns) == 0 {
-		g.extraTurns = append(g.extraTurns, g.nextPlayerAfter(g.activePlayer))
+		g.extraTurns = append(g.extraTurns, extraTurn{player: g.nextPlayerAfter(g.activePlayer)})
 	}
-	g.extraTurns = append(g.extraTurns, p)
+	g.extraTurns = append(g.extraTurns, extraTurn{player: p, skipUntap: skipUntap})
+}
+
+// extraTurn is one entry of the extra-turn stack; skipUntap is AddTurn's
+// SkipUntap$ (Time Bends to My Will, Savor the Moment).
+type extraTurn struct {
+	player    PlayerID
+	skipUntap bool
 }
 
 // nextPlayerAfter is turn order: seating order, skipping anyone who has

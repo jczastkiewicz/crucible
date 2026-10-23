@@ -11,7 +11,7 @@ import (
 
 // addTurnUnresolvedParams: a skipped untap step (SkipUntap$) or an Archenemy
 // scheme restriction (NoSchemes$). ExtraTurnDelayedTrigger$ is read below.
-var addTurnUnresolvedParams = [...]string{"SkipUntap", "NoSchemes", "Ultimate"}
+var addTurnUnresolvedParams = [...]string{"NoSchemes", "Ultimate"}
 
 // addTurnEffect is AddTurnEffect.java: each target player (default You)
 // takes NumTurns$ extra turns after this one (Game.addExtraTurn, turn.go).
@@ -36,6 +36,7 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if !ok {
 		return fmt.Errorf("engine: AddTurn: NumTurns$ %q not resolvable yet", raw)
 	}
+	_, skipUntap := a.Params.Param("SkipUntap") // read by presence (AddTurnEffect.java:56)
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: AddTurn: %w", err)
@@ -49,7 +50,7 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	for _, p := range players {
 		for i := 0; i < n; i++ {
-			g.addExtraTurn(p)
+			g.addExtraTurn(p, skipUntap)
 			if trigger != nil {
 				// AddTurnEffect.java:50-58 hangs the trigger on the ExtraTurn
 				// object. The extra turn follows this one at once, so a

@@ -31,9 +31,7 @@ import (
 // finishes, whether or not subAbilityConditionMet let it run at all. 31 of
 // the corpus's own 57 real SVar-defined Scry lines naming SubAbility$
 // chain to an already-built leaf ability and resolve end to end.
-var scryUnresolvedParams = [...]string{
-	"ValidTgts", "TargetMin", "TargetMax",
-}
+var scryUnresolvedParams = [...]string{}
 
 type scryEffect struct{}
 
@@ -61,11 +59,9 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return nil
 	}
 
-	defined, ok := a.Params.Param("Defined")
-	if !ok {
-		defined = "You"
-	}
-	players, err := definedPlayers(g, a.Controller, a.Source, defined, a.refs())
+	// ScryEffect.java:41: getTargetPlayers, the chosen targets when the line
+	// has ValidTgts$ (Kozilek's Command), else Defined$ (default You).
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: Scry: %w", err)
 	}
@@ -82,6 +78,10 @@ func (scryEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		players = willing
 	}
 	for _, pid := range players {
+		if g.Player(pid).Lost {
+			// ScryEffect.java:42-44: a player no longer in the game scries nothing.
+			continue
+		}
 		// Event$ Scry: Kenessos' "scry that many plus one", Eligeth's "draw
 		// that many cards instead".
 		pidNum, replaced := g.playerAmountReplaced(controller, "Scry", "Num", pid, num)

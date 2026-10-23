@@ -310,29 +310,32 @@ func TestScryEffectChainsIntoSubAbility(t *testing.T) {
 	}
 }
 
-// TestScryEffectRejectsValidTgts proves scryEffect itself still rejects a
-// real target: resolveTargets (targeting.go) now resolves ValidTgts$
-// generically before this ability is even pushed, so the target is chosen
-// without issue, but scryEffect has not been extended to consume Targeted
-// (defined.go) yet -- its own blocked-param list still names ValidTgts$,
-// and this proves that check still fires.
-func TestScryEffectRejectsValidTgts(t *testing.T) {
+// TestScryEffectValidTgtsScriesTheTargetedPlayer proves ScryEffect.java:41:
+// with ValidTgts$ the scrying player is the chosen target (Kozilek's Command),
+// not the caster.
+func TestScryEffectValidTgtsScriesTheTargetedPlayer(t *testing.T) {
 	t.Parallel()
 
 	g := newGame(t, "a", "b")
-	p := g.Players()[0]
+	p, opp := g.Players()[0], g.Players()[1]
 	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
+	g.Player(p).Life, g.Player(opp).Life = 20, 20
+	mine := g.NewCard(nil, p, engine.Library)
+	oppTop := g.NewCard(nil, opp, engine.Library)
+	oppSecond := g.NewCard(nil, opp, engine.Library)
 
 	def := etbScryTriggerDefParams(t, "Test ValidTgts", "ScryNum$ 1 | ValidTgts$ Player", nil)
 	c := engine.NewScriptedController()
-	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
-	err := castETBScry(t, g, p, def, c)
-	if err == nil {
-		t.Fatal("ResolveStack: got nil error, want one naming ValidTgts")
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(opp)})
+	c.QueueScry(nil, []engine.CardID{oppTop})
+	if err := castETBScry(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ValidTgts") {
-		t.Errorf("ResolveStack error = %q, want it to name ValidTgts$", err.Error())
+	if got := g.Zone(engine.Library, opp).Cards(); len(got) != 2 || got[0] != oppSecond || got[1] != oppTop {
+		t.Errorf("opponent's library = %v, want [%v %v]: their top card went to the bottom", got, oppSecond, oppTop)
+	}
+	if got := g.Zone(engine.Library, p).Cards(); len(got) != 1 || got[0] != mine {
+		t.Errorf("caster's library = %v, want [%v] untouched", got, mine)
 	}
 }
 

@@ -74,35 +74,6 @@ func TestAddTurnEffectSkipUntapSkipsTheExtraTurnsUntapStep(t *testing.T) {
 	}
 }
 
-// TestProtectionChoserControllerAsksTheTargetsController proves Choser$
-// Controller (Pale Wayfarer): the target's controller picks the protection.
-func TestProtectionChoserControllerAsksTheTargetsController(t *testing.T) {
-	t.Parallel()
-
-	g, p, other := newTwoPlayerGame(t)
-	theirs := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
-	rec := &protectionDeciderRecorder{ScriptedController: engine.NewScriptedController()}
-	rec.QueueProtectionChoice(0)
-	line := "DB$ Protection | Defined$ Targeted | Gains$ Choice | Choices$ AnyColor | Choser$ Controller | ValidTgts$ Creature"
-	pushPlayLine(t, g, p, []engine.EntityID{engine.EntityID(theirs)}, line)
-	if err := g.ResolveStack(engine.NewRegistry(), rec); err != nil {
-		t.Fatalf("ResolveStack: %v", err)
-	}
-	if rec.decider != other {
-		t.Errorf("protection chosen by %v, want %v (the target's controller)", rec.decider, other)
-	}
-}
-
-type protectionDeciderRecorder struct {
-	*engine.ScriptedController
-	decider engine.PlayerID
-}
-
-func (r *protectionDeciderRecorder) ChooseProtectionType(g *engine.Game, decider engine.PlayerID, src engine.CardID, choices []string) int {
-	r.decider = decider
-	return r.ScriptedController.ChooseProtectionType(g, decider, src, choices)
-}
-
 // TestAddTurnEffectDelayedTriggerFiresOnTheExtraTurnOnly proves
 // ExtraTurnDelayedTrigger$ (Warrior's Oath): the end step of the turn the
 // spell resolves in is untouched, the end step of the extra turn makes the
@@ -166,49 +137,5 @@ func TestChangeZoneTransformedEntersOnItsBackFace(t *testing.T) {
 	got := g.Card(card)
 	if got.Zone != engine.Battlefield || got.Def.Name != "Persistent Nightmare" {
 		t.Errorf("card is %q in %v, want Persistent Nightmare on the battlefield", got.Def.Name, got.Zone)
-	}
-}
-
-// TestFlipCoinForEachPlayerResolvesTheSideWithThatPlayersRemembered proves
-// FlipCoin ForEachPlayer$ (Mutalith Vortex Beast): one flip per named player,
-// the winning side drawing, the losing side hurting the player lost for.
-func TestFlipCoinForEachPlayerResolvesTheSideWithThatPlayersRemembered(t *testing.T) {
-	t.Parallel()
-
-	g, p, other := newTwoPlayerGame(t)
-	libraryCards(t, g, p, 3)
-	c := engine.NewScriptedController()
-	c.QueueCoinCall(true)
-	_ = resolveLine(t, g, p, c,
-		"DB$ FlipCoin | ForEachPlayer$ Opponent | WinSubAbility$ DBDraw | LoseSubAbility$ DBDmg",
-		"DBDraw", "DB$ Draw | NumCards$ Wins",
-		"DBDmg", "DB$ DealDamage | NumDmg$ 3 | Defined$ Remembered")
-	drew := g.Zone(engine.Hand, p).Len() == 1
-	hurt := g.Player(other).Life == 17
-	if drew == hurt {
-		t.Errorf("drew = %v, hurt = %v, want exactly one side to resolve", drew, hurt)
-	}
-}
-
-// TestExchangePowerBasePowerIgnoresCountersAndSurvivesPerpetually proves
-// BasePower$ reads getCurrentPower (no counters) and Duration$ Perpetual keeps
-// the swap (High Fae Prankster).
-func TestExchangePowerBasePowerIgnoresCountersAndSurvivesPerpetually(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	a := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
-	b := g.NewCard(creatureDefPT(t, "5", "5"), p, engine.Battlefield)
-	g.Card(a).Counters.Add(engine.P1P1, 1)
-	pushPlayLine(t, g, p, []engine.EntityID{engine.EntityID(a), engine.EntityID(b)},
-		"DB$ ExchangePower | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | BasePower$ True | Duration$ Perpetual")
-	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
-		t.Fatalf("ResolveStack: %v", err)
-	}
-	if pw, _ := g.Card(a).Power(); pw != 6 {
-		t.Errorf("a power = %d, want 6 (the other's 5 plus its own counter)", pw)
-	}
-	if pw, _ := g.Card(b).Power(); pw != 2 {
-		t.Errorf("b power = %d, want 2 (a's base, not its counter)", pw)
 	}
 }

@@ -719,3 +719,25 @@ func TestCombatManaSurvivesPhaseEndsUntilEndOfCombat(t *testing.T) {
 		t.Errorf("pool %d once COMBAT_END ended, want 0", got)
 	}
 }
+
+// A declined CopyFromChosenName$ play leaves nothing behind: the fresh card
+// Java builds in no zone is not in exile (or anywhere) once the effect ends.
+func TestPlayCopyFromChosenNameDeclinedLeavesNoCard(t *testing.T) {
+	t.Parallel()
+
+	g := engine.NewGame(compile.NewDB(map[string]*compile.Card{"Copied Giant": giantDef(t)}), javarand.New(1), []string{"a", "b"})
+	p, other := g.Players()[0], g.Players()[1]
+	g.SetTurnState(1, p, engine.Main1)
+	g.Player(p).Life, g.Player(other).Life = 20, 20
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | WithoutManaCost$ True | CopyFromChosenName$ True | Optional$ True")
+	g.Card(host).Memory.AddNamedCard("Copied Giant")
+	c := engine.NewScriptedController()
+	c.QueueConfirmEffect(false)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	sba(g)
+	if n := g.Zone(engine.Exile, p).Len(); n != 0 {
+		t.Errorf("exile holds %d cards, want the declined token gone", n)
+	}
+}

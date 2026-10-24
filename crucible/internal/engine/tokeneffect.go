@@ -8,6 +8,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/keyword"
 )
 
 // tokenUnresolvedParams are TokenEffect/TokenEffectBase params this port
@@ -100,11 +101,11 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 			}
 		}
 	}
-	attachTo := NoCard
+	attachTo, attachPlayer := NoCard, NoPlayer
 	hasAttach := false
 	if raw, ok := a.Params.Param("AttachedTo"); ok {
 		hasAttach = true
-		if attachTo, err = tokenAttachHost(g, a, source, raw); err != nil {
+		if attachTo, attachPlayer, err = tokenAttachHost(g, a, source, raw); err != nil {
 			return err
 		}
 	}
@@ -113,6 +114,9 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		// CR 303.4i: an Aura token that cannot be attached to its host is not
 		// created (TokenEffectBase.java:136).
 		if hasAttach && attachTo != NoCard && !tokenCanAttach(g, a, spec, attachTo) && isAuraDef(spec.Def) {
+			continue
+		}
+		if hasAttach && attachPlayer != NoPlayer && isAuraDef(spec.Def) && !tokenCanAttachPlayer(g, a, spec, attachPlayer) {
 			continue
 		}
 		id := g.createToken(controller, spec)
@@ -124,6 +128,9 @@ func (tokenEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		}
 		if hasAttach && attachTo != NoCard && tokenCanAttach(g, a, spec, attachTo) && g.Card(id).Zone == Battlefield {
 			g.attachTo(controller, id, attachTo)
+		}
+		if hasAttach && attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) && g.Card(id).Zone == Battlefield {
+			g.attachToPlayer(controller, id, attachPlayer)
 		}
 		if chosen != nil {
 			g.timestamp++
@@ -245,22 +252,46 @@ func tokenPumpKeywords(a *Ability, api string) (*tokenPump, error) {
 	return p, nil
 }
 
-// tokenAttachHost is the first card AttachedTo$ names (attachTokenTo reads the
-// first defined entity); NoCard when it names none. A player host (an Aura on
-// a player) is not resolvable here.
-func tokenAttachHost(g *Game, a *Ability, source *Card, raw string) (CardID, error) {
+// tokenAttachHost is the first entity AttachedTo$ names (attachTokenTo reads the
+// first defined entity): a card or a player (a Curse token on a player);
+// NoCard and NoPlayer when it names none.
+func tokenAttachHost(g *Game, a *Ability, source *Card, raw string) (CardID, PlayerID, error) {
 	objects, err := definedEntities(g, a.Controller, source, raw, a.refs())
 	if err != nil {
-		return NoCard, fmt.Errorf("engine: Token: AttachedTo$: %w", err)
+		return NoCard, NoPlayer, fmt.Errorf("engine: Token: AttachedTo$: %w", err)
 	}
 	if len(objects) == 0 {
-		return NoCard, nil
+		return NoCard, NoPlayer, nil
 	}
-	id, ok := objects[0].AsCard()
-	if !ok {
-		return NoCard, fmt.Errorf("engine: Token: AttachedTo$ %q names a player, not resolvable yet", raw)
+	if id, ok := objects[0].AsCard(); ok {
+		return id, NoPlayer, nil
 	}
-	return id, nil
+	if pid, ok := objects[0].AsPlayer(); ok {
+		return NoCard, pid, nil
+	}
+	return NoCard, NoPlayer, fmt.Errorf("engine: Token: AttachedTo$ %q names neither a card nor a player", raw)
+}
+
+// tokenCanAttachPlayer is attachTokenTo's check for a player host: the token
+// is an Aura whose Enchant keyword names Player or Opponent for its owner, the
+// player is in the game and no Protection of theirs refuses it.
+func tokenCanAttachPlayer(g *Game, a *Ability, spec tokenSpec, pid PlayerID) bool {
+	if spec.Def == nil || g.Player(pid).Lost || !isAuraDef(spec.Def) {
+		return false
+	}
+	for _, line := range spec.Def.Faces[0].Keywords {
+		k := keyword.Parse(line)
+		if k.Name != "Enchant" {
+			continue
+		}
+		kind, _, _ := strings.Cut(k.Details, ":")
+		if kind != "Player" && kind != "Opponent" {
+			return false
+		}
+		matched, _ := matchesPlayerSpec(g, pid, spec.Owner, a.Source, kind)
+		return matched
+	}
+	return false
 }
 
 // isAuraDef reports whether def is an Aura.

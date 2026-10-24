@@ -22,7 +22,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "MakeCard", "Booster", "Filter", "AttachedTo", "FaceDown"); err != nil {
+	if err := rejectParams(a, "MakeCard", "Booster", "Filter", "FaceDown"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -45,6 +45,19 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		}
 		zone = z
 	}
+	// AttachedTo$ (MakeCardEffect.java:122-142): the cards enter the battlefield,
+	// each attached to every host named, a Defined$ card list or else the
+	// battlefield cards the spec matches. No host ends the effect.
+	var hosts []CardID
+	if spec, ok := a.Params.Param("AttachedTo"); ok {
+		zone = Battlefield
+		if hosts, err = definedCards(source, spec, a.refs()); err != nil || len(hosts) == 0 {
+			hosts = g.battlefieldMatching(spec, a.Controller, a.Source)
+		}
+		if len(hosts) == 0 {
+			return nil
+		}
+	}
 	for _, p := range players {
 		if hasParam(a, "Optional") && hasParam(a, "OptionPrompt") && !controller.ConfirmEffect(g, p, a.Source) {
 			return nil
@@ -59,6 +72,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			return err
 		}
 		var made []CardID
+		var attachHosts []CardID
 		for _, name := range names {
 			if name == "" {
 				continue
@@ -81,9 +95,27 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				made = append(made, id)
 			}
 		}
+		if len(hosts) > 0 {
+			// One card per host: the made card for the first, a fresh copy for
+			// each other (MakeCardEffect.java:186-194).
+			var perHost []CardID
+			var hostOf []CardID
+			for _, id := range made {
+				for i, h := range hosts {
+					copyID := id
+					if i > 0 {
+						copyID = g.NewCard(g.Card(id).Def, p, None)
+					}
+					perHost = append(perHost, copyID)
+					hostOf = append(hostOf, h)
+				}
+			}
+			made = perHost
+			attachHosts = hostOf
+		}
 		counterKind, withCounter := a.Params.Param("WithCounter")
 		counterType := CounterType(strings.ToUpper(counterKind))
-		for _, id := range made {
+		for madeIdx, id := range made {
 			// The counters go through AddCounter replacements and a Mode$
 			// CantPutCounter static either way (GameEntityCounterTable
 			// .replaceCounterEffect): entering with them on the battlefield, put
@@ -113,6 +145,9 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 				if n := g.countersReplaced(controller, p, CardEntity(id), counterType, counterNum); n > 0 {
 					g.addCardCounters(controller, p, id, id, counterType, n)
 				}
+			}
+			if attachHosts != nil && g.Card(id).Zone == Battlefield && g.Card(attachHosts[madeIdx]).Zone == Battlefield {
+				g.attachTo(controller, id, attachHosts[madeIdx])
 			}
 			if hasParam(a, "RememberMade") {
 				source.Memory.Remember(CardEntity(id))

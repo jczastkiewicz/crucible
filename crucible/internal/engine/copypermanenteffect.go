@@ -33,7 +33,7 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		return err
 	}
 	if err := rejectParams(a, "CopyPermanent",
-		"AttachedTo", "ValidSupportedCopy",
+		"ValidSupportedCopy",
 		"RandomNum", "RandomCopied", "ForEach", "OptionalForEach", "WithDifferentNames",
 		"ChangeZoneTable", "ChosenMapIndex",
 		"RemoveCreatureTypes", "SetCardTypes", "GainThisAbility", "AddTypesTo",
@@ -78,6 +78,18 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	if err != nil {
 		return err
 	}
+	// AttachedTo$ (TokenEffectBase.java:136-137, :228-266): the first entity it
+	// names hosts every copy that can be attached to it; an Aura copy that
+	// cannot is not created, any other stays unattached.
+	attachCard, attachPlayer := NoCard, NoPlayer
+	hasAttach := false
+	if raw, ok := a.Params.Param("AttachedTo"); ok {
+		hasAttach = true
+		var err error
+		if attachCard, attachPlayer, err = tokenAttachHost(g, a, source, raw); err != nil {
+			return err
+		}
+	}
 	var created []CardID
 	for _, owner := range controllers {
 		if g.Player(owner).Lost {
@@ -108,8 +120,21 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 				spec.Toughness, spec.HasToughness = setTough, true
 			}
 			for i := 0; i < num; i++ {
+				if hasAttach && isAuraDef(spec.Def) &&
+					(attachCard != NoCard && !tokenCanAttach(g, a, spec, attachCard) ||
+						attachPlayer != NoPlayer && !tokenCanAttachPlayer(g, a, spec, attachPlayer)) {
+					continue
+				}
 				id := g.createToken(controller, spec)
 				created = append(created, id)
+				if hasAttach && g.Card(id).Zone == Battlefield {
+					if attachCard != NoCard && tokenCanAttach(g, a, spec, attachCard) {
+						g.attachTo(controller, id, attachCard)
+					}
+					if attachPlayer != NoPlayer && tokenCanAttachPlayer(g, a, spec, attachPlayer) {
+						g.attachToPlayer(controller, id, attachPlayer)
+					}
+				}
 				if loc, ok := a.Params.Param("AtEOTTrig"); ok {
 					if err := g.addSelfTrigger(a, loc, id); err != nil {
 						return err

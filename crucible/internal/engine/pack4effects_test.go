@@ -692,3 +692,44 @@ func TestDealDamageRememberAmount(t *testing.T) {
 		t.Errorf("opponent life = %d, want 17", got)
 	}
 }
+
+// MakeCard AttachedTo$ (Perforator Crocodile, MakeCardEffect.java:122-142): the
+// card enters the battlefield attached to each host named, one copy per host.
+func TestMakeCardAttachedToMakesOneCardPerHost(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	first := g.NewCard(creatureDefPT(t, "5", "5"), other, engine.Battlefield)
+	second := g.NewCard(creatureDefPT(t, "5", "5"), other, engine.Battlefield)
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ MakeCard | Conjure$ True | Name$ Stab Wound | AttachedTo$ Creature.OppCtrl")
+	for _, host := range []engine.CardID{first, second} {
+		attached := 0
+		for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+			if h, ok := g.Card(id).AttachedTo(); ok && h == host {
+				attached++
+			}
+		}
+		if attached != 1 {
+			t.Errorf("host %v has %d conjured auras attached, want 1", host, attached)
+		}
+	}
+}
+
+// A Curse token's AttachedTo$ naming a player (Celestine, Cave Witch) enchants
+// that player (TokenEffectBase.java:228-266).
+func TestTokenAttachedToAPlayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Token | TokenScript$ b_aura_curse_life | TokenOwner$ You | AttachedTo$ Player.Opponent")
+	attached := 0
+	for _, id := range g.Zone(engine.Battlefield, p).Cards() {
+		if pid, ok := g.Card(id).AttachedToPlayer(); ok && pid == other {
+			attached++
+		}
+	}
+	if attached != 1 {
+		t.Errorf("curse tokens attached to the opponent = %d, want 1", attached)
+	}
+}

@@ -757,6 +757,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.VenturedThisTurn = 0
 		p.LifeGainedTimesThisTurn = 0
 		p.LifeLostThisTurn = 0
+		p.exploredThisTurn = 0
 		p.LifeGainedThisTurn = 0
 		p.attackedThisTurn = nil
 		p.CyclingThisTurn = 0

@@ -143,8 +143,9 @@ func nameableCards(g *Game, a *Ability, source *Card, spec string) ([]string, er
 	if g.db.Len() == 0 {
 		return nil, fmt.Errorf("engine: NameCard: no card database to name from")
 	}
-	if strings.Contains(spec, "ManaCost=") {
-		return nil, fmt.Errorf("engine: NameCard: ValidCards$ %q not resolvable yet", spec)
+	spec, err := nameableSpec(g, source, spec)
+	if err != nil {
+		return nil, err
 	}
 	if before, operand, ok := strings.Cut(spec, "cmcEQ"); ok {
 		if _, err := strconv.Atoi(operand); err != nil {
@@ -167,6 +168,25 @@ func nameableCards(g *Game, a *Ability, source *Card, spec string) ([]string, er
 		}
 	}
 	return out, nil
+}
+
+// nameableSpec is ChooseCardNameEffect.java:106-109: "=Equipped" becomes the
+// short mana cost string of the creature the host equips, so
+// Creature.ManaCost=Equipped reads Creature.ManaCost1 {G} and faceValid compares
+// it. A host that equips nothing, or any other ManaCost= operand, is an error
+// (Java dereferences a null equipping card).
+func nameableSpec(g *Game, source *Card, spec string) (string, error) {
+	if !strings.Contains(spec, "ManaCost=") {
+		return spec, nil
+	}
+	if !strings.Contains(spec, "=Equipped") {
+		return "", fmt.Errorf("engine: NameCard: ValidCards$ %q not resolvable yet", spec)
+	}
+	target, ok := source.AttachedTo()
+	if !ok {
+		return "", fmt.Errorf("engine: NameCard: ValidCards$ %q: the host equips nothing", spec)
+	}
+	return strings.Replace(spec, "=Equipped", g.Card(target).manaCost().ShortString(), 1), nil
 }
 
 // faceValid is CardFacePredicates.ValidPredicate.test: the base is Card,
@@ -199,6 +219,13 @@ func faceValid(f *compile.Face, spec string) (bool, error) {
 			}
 			continue
 		}
+		if rest, ok := strings.CutPrefix(m, "ManaCost"); ok {
+			// CardFacePredicates.java:98-100, :121-122.
+			if f.ManaCost.ShortString() != rest {
+				return false, nil
+			}
+			continue
+		}
 		if !faceHasProperty(f, m) {
 			return false, nil
 		}
@@ -222,8 +249,9 @@ func nameableFaces(g *Game, a *Ability, source *Card, spec string) ([]string, er
 	if g.db.Len() == 0 {
 		return nil, fmt.Errorf("engine: NameCard: no card database to name from")
 	}
-	if strings.Contains(spec, "ManaCost=") {
-		return nil, fmt.Errorf("engine: NameCard: ValidCards$ %q not resolvable yet", spec)
+	spec, err := nameableSpec(g, source, spec)
+	if err != nil {
+		return nil, err
 	}
 	if before, operand, ok := strings.Cut(spec, "cmcEQ"); ok {
 		if _, err := strconv.Atoi(operand); err != nil {

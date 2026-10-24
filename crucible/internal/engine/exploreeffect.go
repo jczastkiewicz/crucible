@@ -14,8 +14,7 @@ import (
 // otherwise the controller may put it into the graveyard (ConfirmEffect)
 // and the explorer, if still on the battlefield, gets a +1/+1 counter.
 //
-// Not ported: the Explore replacement family and the per-player "explored this
-// turn" count -- neither exists yet. Triggered objects: the Explorer is the
+// Not ported: the Explore replacement family. Triggered objects: the Explorer is the
 // triggered card; Defined$ TriggeredExplored is not recorded (no corpus line).
 type exploreEffect struct{}
 
@@ -67,6 +66,7 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 				// The explorer's controller places (ExploreEffect.java:63, :98).
 				g.addCardCounters(controller, pl, a.Source, id, P1P1, 1)
 			}
+			g.Player(pl).exploredThisTurn++
 			g.pushTriggeredAbilities(controller, g.exploresMatches(id, top))
 		}
 	}

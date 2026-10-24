@@ -381,6 +381,12 @@ func resolveNamedAmount(g *Game, amounts map[string]expr.Amount, host *Card, val
 	}
 	amt, ok := amounts[strings.ToLower(value)]
 	if !ok {
+		if i := strings.Index(value, "$"); i > 0 {
+			// calculateAmount reads a value with a '$' past its first
+			// character as the expression itself, not an SVar name
+			// (AbilityUtils.java:402-404).
+			return resolveAmount(g, amounts, host.Controller(), host.ID, expr.Parse(value))
+		}
 		return 0, false
 	}
 	return resolveAmount(g, amounts, host.Controller(), host.ID, amt)

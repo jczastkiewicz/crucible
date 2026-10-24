@@ -918,3 +918,24 @@ func TestMakeCardConjureFiresConjureAllOnce(t *testing.T) {
 		}
 	}
 }
+
+// ValidCards$ names a card by its short mana cost (CardFacePredicates.java:
+// 98-100): Creature.ManaCost=Equipped substitutes the equipped creature's cost
+// first (ChooseCardNameEffect.java:106-109), so a host that equips nothing is an
+// error and any other ManaCost= operand is refused.
+func TestNameCardValidCardsByManaCost(t *testing.T) {
+	t.Parallel()
+	bear := namedCreature(t, "Grizzly Bears", "1 G")
+	g, p, _ := newPackGame(t, bear, namedLand(t, "Forest Land"))
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ NameCard | Defined$ You | ValidCards$ Creature.ManaCost1 {G} | AtRandom$ True")
+	if got := g.Card(host).Memory.NamedCards(); len(got) != 1 || got[0] != "Grizzly Bears" {
+		t.Errorf("named = %v, want Grizzly Bears", got)
+	}
+	for _, spec := range []string{"Creature.ManaCost=Equipped", "Card.ManaCost=Imprinted"} {
+		def := etbChainDef(t, "Test Name Cost", "DB$ NameCard | Defined$ You | ValidCards$ "+spec+" | AtRandom$ True")
+		if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
+			t.Errorf("ValidCards$ %s: no error, want a refusal", spec)
+		}
+	}
+}

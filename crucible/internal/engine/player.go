@@ -176,6 +176,10 @@ type Player struct {
 	// :2493). Read by the LifeLostLastTurn player measure and
 	// Count$YouDrewLastTurn.
 	lifeLostLastTurn, drawnLastTurn int
+	// exploredThisTurn is Player.getNumExploredThisTurn: the explores this
+	// player's permanents made this turn, counted even when the explorer left
+	// the battlefield (ExploreEffect.java:103).
+	exploredThisTurn int
 	// scryThisTurn is Player.scryThisTurn: how many times this player scried
 	// this turn (GameAction.java:2684, once per scrying player), reset at
 	// cleanup (Player.java:2486). Read by Count$YouScryThisTurn.

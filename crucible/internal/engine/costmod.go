@@ -2,7 +2,7 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost
 
 package engine
 
@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -44,8 +45,8 @@ var costModParams = map[string]bool{
 // that does not resolve then refuses the cast. The probe before the announce
 // (announceXFor, which only asks whether an X is left) skips such a line: a
 // reduction never touches the X.
-func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying bool) (mana.Cost, bool) {
-	return g.costStatics(pid, card, nil, base, paying)
+func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
+	return g.costStatics(pid, card, nil, base, paying, extras)
 }
 
 // costStatics is spellCost for a spell (act nil) or for the activation of
@@ -53,7 +54,7 @@ func (g *Game) spellCost(pid PlayerID, card CardID, base mana.Cost, paying bool)
 // from CostPayment.payCost): Type$ Ability and an absent Type$ reach it, and
 // ValidSpell$ Activated[.props] is read against act. A cost with no mana
 // part still takes a raise, so its base is never "no cost" there.
-func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying bool) (mana.Cost, bool) {
+func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base mana.Cost, paying, extras bool) (mana.Cost, bool) {
 	if act == nil && base.IsNoCost() {
 		return base, true
 	}
@@ -113,6 +114,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			text = raw
 		}
 		add, err := mana.Parse(text)
+		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && raiseExtraShape(text) {
+			// A non-mana raise on a spell is the spell's additional cost,
+			// paid with the rest (castExtraCost, staticRaiseExtra).
+			continue
+		}
 		if err != nil || add.CountX() > 0 {
 			// A non-mana or X-bearing raise (Cost$ PayLife<1>, Discard<X/...>) is
 			// not charged here: the cast is refused, and why is kept (GO-7).
@@ -288,4 +294,65 @@ func validSpecForActivation(spec string, isMana, isLoyalty bool) (matched, recog
 		matched = matched || m
 	}
 	return matched, true
+}
+
+// raiseHasAmount reports whether a RaiseCost line carries Amount$.
+func raiseHasAmount(s *compile.Ability) bool {
+	_, ok := s.Param("Amount")
+	return ok
+}
+
+// raiseExtraShape reports whether text is a non-mana RaiseCost Cost$ this port
+// pays as a spell's additional cost: every part's amount a plain number and
+// the whole thing a shape parseUnlessCost reads without any mana. X-bearing
+// amounts (announced after the legality check in Java), Waterbend (a mana-side
+// merge) and mixed mana-plus-part raises stay refused.
+func raiseExtraShape(text string) bool {
+	parsed := cost.Parse(text)
+	if len(parsed.Parts) == 0 {
+		return false
+	}
+	for _, p := range parsed.Parts {
+		if _, err := strconv.Atoi(p.Field(0)); err != nil || p.Name == "Waterbend" {
+			return false
+		}
+	}
+	uc, ok := parseUnlessCost(text)
+	return ok && !uc.hasMana
+}
+
+// staticRaiseExtra is the additional cost the RaiseCost statics with a
+// non-mana Cost$ put on casting c (CostAdjustment.applyRaiseCostAbility,
+// Cost.mergeTo: a separate cost part). ok is false for a shape this port does
+// not pay or when two such lines apply (one extra cost is modelled), so the
+// spell is not cast cheaper than Java charges it (GO-7).
+func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok bool) {
+	for _, host := range g.staticHostsWith(c.ID) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		live := h.liveTraitFaces()
+		for i := range live {
+			for _, s := range live[i].Statics {
+				if !strings.EqualFold(s.Name, "RaiseCost") {
+					continue
+				}
+				text, hasCost := s.Param("Cost")
+				if !hasCost {
+					continue
+				}
+				if _, err := mana.Parse(text); err == nil || g.costModStatus(pid, c, h, s, nil) != costModApplies {
+					continue
+				}
+				if has || raiseHasAmount(s) || !raiseExtraShape(text) {
+					g.recordPendingError(fmt.Errorf("engine: RaiseCost: Cost$ %q is not a plain mana cost, not resolvable yet", text))
+					return unlessCost{}, false, false
+				}
+				uc, _ = parseUnlessCost(text)
+				has = true
+			}
+		}
+	}
+	return uc, has, true
 }

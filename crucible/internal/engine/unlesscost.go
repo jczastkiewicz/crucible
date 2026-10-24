@@ -57,6 +57,9 @@ type unlessCost struct {
 	// (CostBehold.java:19-32), a plain reveal never does.
 	revealBattlefield bool
 	revealBehold      bool
+	// beholdExile is BeholdExile<N/Type> (CostBeholdExile): a Behold whose
+	// chosen cards are then exiled and marked exiled with the source.
+	beholdExile bool
 	// chooseCreatureType is ChooseCreatureType<1> (CostChooseCreatureType):
 	// always payable (:51-53), the payer names a creature type and the host
 	// records it as its chosen type (:56-58).
@@ -294,6 +297,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.returnN, uc.returnSpec = n, p.Field(1)
 		case p.Name == "Reveal" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec = n, p.Field(1)
+		case p.Name == "BeholdExile" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
+			uc.revealN, uc.revealSpec, uc.revealBattlefield, uc.revealBehold, uc.beholdExile = n, p.Field(1), true, true, true
 		case p.Name == "Behold" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			// CostBehold is a CostReveal over the hand and the battlefield.
 			uc.revealN, uc.revealSpec, uc.revealBattlefield, uc.revealBehold = n, p.Field(1), true, true

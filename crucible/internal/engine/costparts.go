@@ -372,6 +372,13 @@ func (g *Game) payChoiceParts(controller PlayerController, a *Ability, pid Playe
 		lki = append(lki, g.Card(id).frozenCopy())
 	}
 	rec.revealedLKI = lki
+	if uc.beholdExile {
+		// CostBeholdExile.doListPayment exiles each beheld card; each is
+		// marked exiled with the spell once it is on the stack
+		// (putSpellOnStack), which the permanent it becomes keeps
+		// (relinkExiledWith).
+		rec.exiled = append(rec.exiled, g.exileCostCards(controller, a.Source, revealed)...)
+	}
 	return true
 }
 

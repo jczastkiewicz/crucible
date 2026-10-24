@@ -668,7 +668,9 @@ func (g *Game) castCost(pid PlayerID, c *Card, opts castOpts, paying bool) (mana
 	if opts.hasRaiseMana {
 		base = withExtraMana(base, opts.raiseMana)
 	}
-	total, ok := g.spellCost(pid, c.ID, base, paying)
+	// extras: a non-mana RaiseCost is paid as the spell's additional cost
+	// (castExtraCost) on every path but Mutate's, which does not pay it.
+	total, ok := g.spellCost(pid, c.ID, base, paying, !opts.mutate)
 	total = opts.optional.reduced(total)
 	staticType, staticColor := g.manaConvertForSpell(pid, c.ID)
 	switch {
@@ -867,11 +869,15 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, Target: target, spell: true})) {
 		return false
 	}
-	if !g.optionalPartsPayable(pid, card, opts.optional) {
+	extra, hasExtra, ok := g.castExtraCost(pid, c, nil, opts)
+	if !ok || !g.optionalPartsPayable(pid, card, opts.optional) {
 		return false
 	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
+		return false
+	}
+	if hasExtra && !g.payUnlessParts(controller, &Ability{Source: card, Controller: pid, spell: true}, pid, extra) {
 		return false
 	}
 	if !g.payOptionalParts(controller, pid, card, opts.optional) {
@@ -931,11 +937,15 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 		!g.flashDecided(pid, card, opts, Ability{Source: card, Controller: pid, Targets: []EntityID{target}, spell: true})) {
 		return false
 	}
-	if !g.optionalPartsPayable(pid, card, opts.optional) {
+	extra, hasExtra, ok := g.castExtraCost(pid, c, nil, opts)
+	if !ok || !g.optionalPartsPayable(pid, card, opts.optional) {
 		return false
 	}
 	x, paid := g.payCastCost(pid, c, controller, opts)
 	if !paid {
+		return false
+	}
+	if hasExtra && !g.payUnlessParts(controller, &Ability{Source: card, Controller: pid, spell: true}, pid, extra) {
 		return false
 	}
 	if !g.payOptionalParts(controller, pid, card, opts.optional) {
@@ -1083,6 +1093,15 @@ func (g *Game) castExtraCost(pid PlayerID, c *Card, line *compile.Ability, opts 
 		if extra, has, ok = g.spellAdditionalCost(pid, c, line); !ok {
 			return unlessCost{}, false, false
 		}
+	}
+	// A RaiseCost static's non-mana part is one more additional cost: it may
+	// not meet another (paying two is not modelled).
+	raise, hasRaise, ok := g.staticRaiseExtra(pid, c)
+	if !ok || hasRaise && (has || opts.hasExtra || !g.unlessPayable(pid, c.ID, raise)) {
+		return unlessCost{}, false, false
+	}
+	if hasRaise {
+		extra, has = raise, true
 	}
 	if !opts.hasExtra {
 		return extra, has, true

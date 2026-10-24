@@ -241,19 +241,126 @@ func TestUnresolvableRaiseCostRefusesTheCast(t *testing.T) {
 	}
 }
 
-// A RaiseCost whose Cost$ is not plain mana (Thran Portal's PayLife<1>) is not
-// charged here: the cast is refused and the reason is kept, not dropped.
+// A RaiseCost whose Cost$ is a non-mana shape this port does not pay as an
+// additional cost (Waterbend, an X amount, Amount$) is not charged here: the
+// cast is refused and the reason is kept, not dropped.
 func TestNonManaRaiseCostRefusesTheCastLoudly(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range []string{
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ Waterbend<2>",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<X>",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<1> | Amount$ 2",
+	} {
+		g, p, _ := newTwoPlayerGame(t)
+		g.NewCard(scriptDef(t, "Test Portal", "Enchantment", line), p, engine.Battlefield)
+		card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
+		if castWithGreen(g, p, card, 3) {
+			t.Fatalf("%s: the spell was cast without paying the raise", line)
+		}
+		if err := g.TakePendingError(); err == nil {
+			t.Errorf("%s: no pending error: the refusal was silent", line)
+		}
+	}
+}
+
+// A static RaiseCost with PayLife<1> (Thran Portal's shape on a spell) makes
+// the caster pay the life as the spell is cast.
+func TestStaticRaiseCostPayLifeIsPaidWithTheSpell(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	g.NewCard(scriptDef(t, "Test Portal", "Enchantment",
 		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<1>"), p, engine.Battlefield)
 	card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
-	if castWithGreen(g, p, card, 3) {
-		t.Fatal("the spell was cast without paying the life raise")
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	g.Player(p).ManaPool.Add(mana.Green, 3)
+	for range 2 {
+		c.QueuePayGeneric(mana.ShardG)
 	}
-	if err := g.TakePendingError(); err == nil {
-		t.Error("no pending error: the refusal was silent")
+	if !g.CastSpell(p, card, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if got := g.Player(p).Life; got != 19 {
+		t.Errorf("life = %d, want 19", got)
+	}
+}
+
+// A RaiseCost static with a non-mana Cost$ is one more additional cost of the
+// spell (CostAdjustment.applyRaiseCostAbility, Cost.mergeTo). Champion of the
+// Clachan's BeholdExile<1/Kithkin> beholds a Kithkin and exiles it; the card
+// leaves the battlefield and the exiled one returns to its owner's hand
+// (ExiledWith, kept through the permanent the spell becomes).
+func TestStaticRaiseCostBeholdExileIsAnAdditionalCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	kithkin := g.NewCard(corpusCard(t, "Goldmeadow Harrier"), p, engine.Hand)
+	champion := g.NewCard(corpusCard(t, "Champion of the Clachan"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 4)
+	c := engine.NewScriptedController()
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardW)
+	}
+	c.QueueCardChoice([]engine.CardID{kithkin})
+	if !g.CastSpell(p, champion, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if z := g.Card(kithkin).Zone; z != engine.Exile {
+		t.Fatalf("beheld Kithkin zone = %v, want Exile", z)
+	}
+	if z := g.Card(champion).Zone; z != engine.Battlefield {
+		t.Fatalf("Champion zone = %v, want Battlefield", z)
+	}
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ DestroyAll | ValidCards$ Creature.Knight")
+	if z := g.Card(kithkin).Zone; z != engine.Hand {
+		t.Errorf("exiled Kithkin zone = %v, want Hand once Champion left", z)
+	}
+}
+
+// With nothing to behold, the raise cannot be paid and the spell is not cast.
+func TestStaticRaiseCostBeholdExileNeedsACandidate(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	champion := g.NewCard(corpusCard(t, "Champion of the Clachan"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 4)
+	c := engine.NewScriptedController()
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardW)
+	}
+	if g.CastSpell(p, champion, c) {
+		t.Fatal("cast with no Kithkin to behold")
+	}
+	if z := g.Card(champion).Zone; z != engine.Hand {
+		t.Errorf("Champion zone = %v, want Hand", z)
+	}
+}
+
+// Grafted Identity's Sac<1/Creature> raise: the caster sacrifices a creature
+// as the spell is cast.
+func TestStaticRaiseCostSacrificeIsAnAdditionalCost(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	fodder := g.NewCard(corpusCard(t, "Grizzly Bears"), p, engine.Battlefield)
+	victim := g.NewCard(corpusCard(t, "Shivan Dragon"), other, engine.Battlefield)
+	aura := g.NewCard(corpusCard(t, "Grafted Identity"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 4)
+	c := engine.NewScriptedController()
+	for range 4 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	c.QueueSacrificeChoice([]engine.CardID{fodder})
+	c.QueueEnchantTarget(victim)
+	if !g.CastSpell(p, aura, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if z := g.Card(fodder).Zone; z != engine.Graveyard {
+		t.Errorf("sacrificed creature zone = %v, want Graveyard", z)
 	}
 }

@@ -6,13 +6,13 @@ import "fmt"
 
 // choosePlayerUnresolvedParams are ChoosePlayerEffect.java's params this
 // port cannot honour yet: Protect$ (battle protector reassignment),
-// Optional$, and the ChooseSubAbility$/CantChooseSubAbility$
+// and the ChooseSubAbility$/CantChooseSubAbility$
 // AdditionalAbility dispatch no effect in this port has yet. Random$ picks
 // with Aggregates.random over Choices$ (ChoosePlayerEffect.java:47-48);
 // Secretly$ writes the same chosen-player slot, only without updating the
 // view (Card.setSecretChosenPlayer, Card.java:2127-2129).
 var choosePlayerUnresolvedParams = [...]string{
-	"Protect", "Optional",
+	"Protect",
 	"ChooseSubAbility", "CantChooseSubAbility",
 	"OrOtherConditionSVarCompare",
 }
@@ -59,6 +59,12 @@ func (choosePlayerEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 			chosen = choices[g.randomIndex(len(choices))]
 		} else {
 			chosen = controller.ChoosePlayerForEffect(g, pid, a.Source, choices)
+			if chosen == NoPlayer && hasParam(a, "Optional") {
+				// ChoosePlayerEffect.java:50-59: Optional$ lets the chooser decline
+				// (presence only), and a decline sets nothing: an earlier chosen
+				// player stays.
+				continue
+			}
 			if err := checkChoice([]PlayerID{chosen}, choices, 1, 1); err != nil {
 				return fmt.Errorf("engine: ChoosePlayer: %w", err)
 			}

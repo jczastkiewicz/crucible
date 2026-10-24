@@ -592,3 +592,60 @@ func TestPumpSharedRestrictionsIsRememberedReadsTheHostsList(t *testing.T) {
 		t.Errorf("host keywords = %v, want Flying only (the remembered card's)", g.Card(host).KeywordLines())
 	}
 }
+
+// orderAsker records who OrderCardsForZone asked.
+type orderAsker struct {
+	*engine.ScriptedController
+	asked []engine.PlayerID
+}
+
+func (c *orderAsker) OrderCardsForZone(g *engine.Game, p engine.PlayerID, cards []engine.CardID, z engine.ZoneType) []engine.CardID {
+	c.asked = append(c.asked, p)
+	return c.ScriptedController.OrderCardsForZone(g, p, cards, z)
+}
+
+// TestRearrangePlayerOrdersTheCasterLibraryForTheNamedPlayer proves
+// RearrangePlayer$ (Tahngarth's Glare, RearrangeTopOfLibraryEffect.java:96-104):
+// the named player, not the activator, orders the library's top cards.
+func TestRearrangePlayerOrdersTheCasterLibraryForTheNamedPlayer(t *testing.T) {
+	t.Parallel()
+
+	g, p, opp := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	b := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+	c := &orderAsker{ScriptedController: engine.NewScriptedController()}
+	c.QueueCardOrder([]engine.CardID{a, b})
+	host := pushPlayLine(t, g, p, nil, "DB$ RearrangeTopOfLibrary | Defined$ You | RearrangePlayer$ Remembered | NumCards$ 2")
+	g.Card(host).Memory.Remember(engine.PlayerEntity(opp))
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.asked) != 1 || c.asked[0] != opp {
+		t.Errorf("order asked of %v, want [%v], the named player", c.asked, opp)
+	}
+}
+
+// TestChoosePlayerOptionalLetsTheChooserDecline proves Optional$ on ChoosePlayer
+// (Multiple Choice, ChoosePlayerEffect.java:50-59): a decline sets no chosen
+// player.
+func TestChoosePlayerOptionalLetsTheChooserDecline(t *testing.T) {
+	t.Parallel()
+
+	for _, decline := range []bool{true, false} {
+		g, p, opp := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		if decline {
+			c.QueuePlayerChoice(engine.NoPlayer)
+		} else {
+			c.QueuePlayerChoice(opp)
+		}
+		host := resolveLine(t, g, p, c, "DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | Optional$ True")
+		got := g.Card(host).Memory.ChosenPlayer()
+		if decline && got != engine.NoPlayer {
+			t.Errorf("declined, yet the host chose %v", got)
+		}
+		if !decline && got != opp {
+			t.Errorf("chose %v, want %v", got, opp)
+		}
+	}
+}

@@ -257,3 +257,28 @@ func TestAssembleContraptionEffectRejectsUnresolvedParams(t *testing.T) {
 		}
 	}
 }
+
+// TestAssembleContraptionAmountResultReadsTheRollDiceTotal proves Steamfloggery's
+// `Amount$ Result` (AssembleContraptionEffect.java:122): the sub-ability
+// reads the ResultSVar$ the RollDice before it stored, so two dice that must
+// total 2 assemble two Contraptions.
+func TestAssembleContraptionAmountResultReadsTheRollDiceTotal(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	deck := deckCards(t, g, p, engine.ContraptionDeck, 3)
+	c := engine.NewScriptedController()
+	c.QueueNumberChoice(1)
+	c.QueueNumberChoice(2)
+	resolveLine(t, g, p, c, "DB$ RollDice | Amount$ 2 | Sides$ 1 | ResultSVar$ Result | SubAbility$ DBAssemble",
+		"DBAssemble", "DB$ AssembleContraption | Amount$ Result")
+	assembled := 0
+	for _, id := range deck {
+		if g.Card(id).Zone == engine.Battlefield {
+			assembled++
+		}
+	}
+	if assembled != 2 {
+		t.Errorf("assembled %d Contraptions, want 2 (the dice total)", assembled)
+	}
+}

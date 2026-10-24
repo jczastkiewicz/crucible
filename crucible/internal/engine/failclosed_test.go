@@ -41,7 +41,6 @@ func TestEffectsFailClosedOnUnresolvedShapes(t *testing.T) {
 		"DB$ DigUntil | Valid$ Card | Defined$ TriggeredPlayer",
 		"DB$ DigUntil | Valid$ Creature | FoundDestination$ Hand | Shuffle$ True | ShuffleCondition$ Always",
 		"DB$ RearrangeTopOfLibrary | NumCards$ Bogus",
-		"DB$ RearrangeTopOfLibrary | NumCards$ 2 | RearrangePlayer$ Opponent",
 		"DB$ RearrangeTopOfLibrary | NumCards$ 2 | Defined$ TriggeredPlayer",
 		"DB$ Explore | Num$ Bogus",
 		"DB$ Explore | Defined$ TriggeredTarget",

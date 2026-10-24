@@ -49,9 +49,6 @@ func (assembleContraptionEffect) Resolve(g *Game, a *Ability, controller PlayerC
 
 	amount := 1
 	if v, ok := a.Params.Param("Amount"); ok {
-		if v == "Result" {
-			return fmt.Errorf("engine: AssembleContraption: Amount$ Result not resolvable yet")
-		}
 		parsed, ok := resolveNamedAmount(g, a.Amounts, source, v)
 		if !ok {
 			return fmt.Errorf("engine: AssembleContraption: Amount$ %q is not resolvable", v)

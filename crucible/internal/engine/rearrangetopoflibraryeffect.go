@@ -4,14 +4,13 @@ package engine
 
 import "fmt"
 
-// rearrangeTopOfLibraryUnresolvedParams: RearrangePlayer$ (1 real line) has
-// someone other than the activator order the cards.
-var rearrangeTopOfLibraryUnresolvedParams = [...]string{
-	"RearrangePlayer"}
+// rearrangeTopOfLibraryUnresolvedParams: none; RearrangePlayer$ names who
+// orders the cards (RearrangeTopOfLibraryEffect.java:96-100).
+var rearrangeTopOfLibraryUnresolvedParams = [...]string{}
 
 // rearrangeTopOfLibraryEffect is RearrangeTopOfLibraryEffect.java: for each
-// target player (default You) the activator orders the top NumCards$ cards
-// of that library (OrderCardsForZone) and each is put back on top in that
+// target player (default You) the activator (or the RearrangePlayer$ player)
+// orders the top NumCards$ cards of that library (OrderCardsForZone) and each is put back on top in that
 // order, so the last one ends up on top -- Java's own moveToLibrary(next, 0)
 // loop. MayShuffle$ then offers a shuffle (ConfirmEffect).
 type rearrangeTopOfLibraryEffect struct{}
@@ -39,6 +38,21 @@ func (rearrangeTopOfLibraryEffect) Resolve(g *Game, a *Ability, controller Playe
 		return fmt.Errorf("engine: RearrangeTopOfLibrary: %w", err)
 	}
 	_, mayShuffle := a.Params.Param("MayShuffle")
+	// RearrangeTopOfLibraryEffect.java:96-100: the first RearrangePlayer$
+	// player, else the activator, orders the cards and answers MayShuffle$
+	// (Tahngarth's Glare: the targeted opponent orders the caster's library);
+	// none resolving returns silently.
+	orderer := a.Controller
+	if raw, ok := a.Params.Param("RearrangePlayer"); ok {
+		named, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: RearrangeTopOfLibrary: RearrangePlayer$: %w", err)
+		}
+		if len(named) == 0 {
+			return nil
+		}
+		orderer = named[0]
+	}
 	for _, p := range players {
 		if g.Player(p).Lost {
 			continue
@@ -50,7 +64,7 @@ func (rearrangeTopOfLibraryEffect) Resolve(g *Game, a *Ability, controller Playe
 		}
 		top := append([]CardID(nil), library[:n]...)
 		if len(top) > 0 {
-			ordered := controller.OrderCardsForZone(g, a.Controller, top, Library)
+			ordered := controller.OrderCardsForZone(g, orderer, top, Library)
 			if err := checkChoice(ordered, top, len(top), len(top)); err != nil {
 				return fmt.Errorf("engine: RearrangeTopOfLibrary: %w", err)
 			}
@@ -58,7 +72,7 @@ func (rearrangeTopOfLibraryEffect) Resolve(g *Game, a *Ability, controller Playe
 				g.MoveToLibraryTop(id, p)
 			}
 		}
-		if mayShuffle && controller.ConfirmEffect(g, a.Controller, a.Source) {
+		if mayShuffle && controller.ConfirmEffect(g, orderer, a.Source) {
 			g.Shuffle(Library, p)
 		}
 	}

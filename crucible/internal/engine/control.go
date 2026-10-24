@@ -435,6 +435,7 @@ type PlayerController interface {
 
 	// ChoosePlayerForEffect picks one player out of options -- Java's
 	// chooseSingleEntityForEffect as ChoosePlayer calls it.
+	// An effect with Optional$ accepts NoPlayer as a decline.
 	ChoosePlayerForEffect(g *Game, decider PlayerID, source CardID, options []PlayerID) PlayerID
 
 	// ChooseColors picks between lo and hi colors out of options -- Java's

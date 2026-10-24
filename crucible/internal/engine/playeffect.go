@@ -66,7 +66,7 @@ type playEffect struct{}
 var playUnresolvedParams = [...]string{
 	"AnySupportedCard", "RandomCopied",
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
-	"PlayRaiseCost", "ControlledByPlayer", "WithTotalCMC", "ShowCards", "ZoneRegardless"}
+	"PlayRaiseCost", "ControlledByPlayer", "ShowCards", "ZoneRegardless"}
 
 // playUnportedProperties are card-property prefixes in the corpus's Play
 // valid strings that Matches (valid.go) has no case for and would read as
@@ -183,7 +183,31 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	allowRepeats := hasParam(a, "AllowRepeats")
 	withoutMana := opts.withoutManaCost
 
-	for len(cards) > 0 && amount > 0 {
+	// WithTotalCMC$ is a running mana-value budget (PlayEffect.java:215-216,
+	// :230): the loop ends once it is negative, cards no spell of which fits
+	// leave the candidates before each pick (:232-241), and every card played
+	// or declined (not skipped) spends its printed mana value (:493-494).
+	budget, hasBudget := 0, false
+	if raw, ok := a.Params.Param("WithTotalCMC"); ok {
+		n, ok := resolveNamedAmount(g, a.Amounts, g.Card(a.Source), raw)
+		if !ok {
+			return fmt.Errorf("engine: Play: WithTotalCMC$ %q not resolvable yet", raw)
+		}
+		budget, hasBudget = n, true
+	}
+
+	for len(cards) > 0 && amount > 0 && (!hasBudget || budget >= 0) {
+		if hasBudget {
+			var fits []CardID
+			for _, id := range cards {
+				if g.Card(id).manaCost().CMC() <= budget {
+					fits = append(fits, id)
+				}
+			}
+			if cards = fits; len(cards) == 0 {
+				break
+			}
+		}
 		// chooseSingleEntityForEffect, optional unless this is the single
 		// option (which is confirmed below instead).
 		lo := 1
@@ -227,6 +251,10 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		if err != nil {
 			return err
 		}
+		pickCMC := g.Card(pick).manaCost().CMC()
+		if ok && hasBudget && !opt.land && pickCMC > budget {
+			ok = false // PlayEffect.java:306-311: no spell fits what is left
+		}
 		if !ok {
 			// PlayEffect.java:312's `continue`: nothing to play, and amount is
 			// not spent.
@@ -264,6 +292,7 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
 		}
 		amount--
+		budget -= pickCMC
 	}
 	return nil
 }

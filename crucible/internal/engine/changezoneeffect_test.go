@@ -745,3 +745,23 @@ func TestChangeZoneRandomOrderMovesEveryCardToTheLibrary(t *testing.T) {
 		}
 	}
 }
+
+// ImprintLast$ reads nothing for a card that is not a merged permanent
+// (ChangeZoneEffect.java:831-846, Duplicant): the moved card is imprinted
+// as Imprint$ alone does.
+func TestChangeZoneImprintLastImprintsAnOrdinaryCard(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	target := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	host := pushPlayLine(t, g, p, nil, "DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Exile | Unimprint$ True | Imprint$ True | ImprintLast$ True")
+	if err := resolvePlay(t, g, host, engine.NewScriptedController(), target); err != nil {
+		t.Fatal(err)
+	}
+	if z := g.Card(target).Zone; z != engine.Exile {
+		t.Errorf("target zone = %v, want Exile", z)
+	}
+	if got := g.Card(host).Memory.Imprinted(); len(got) != 1 || got[0] != target {
+		t.Errorf("imprinted = %v, want the exiled card", got)
+	}
+}

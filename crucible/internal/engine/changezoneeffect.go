@@ -39,7 +39,7 @@ var changeZoneUnresolvedParams = [...]string{
 	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
 
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
-	"ImprintLast", "Unearth",
+	"Unearth",
 	"Ultimate",
 	// ExiledWithEffectSource$ marks the effect card's own source as the
 	// exiler instead of the host (SpellAbilityEffect.java:1092-1094).
@@ -489,6 +489,17 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	cards, err := changeZoneKnownCards(a, source, origin)
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
+	}
+	if hasParam(a, "ImprintLast") {
+		// ImprintLast$ is read only inside Java's hasMergedCard() branch
+		// (ChangeZoneEffect.java:831-846), which re-picks the pile's last card
+		// in the destination zone; for any other card it reads nothing
+		// (Duplicant). A merged permanent is refused rather than guessed.
+		for _, id := range cards {
+			if len(g.Card(id).merged) > 0 {
+				return fmt.Errorf("engine: ChangeZone: ImprintLast$ on a merged permanent not resolvable yet")
+			}
+		}
 	}
 	changeZonePreMemory(a, source)
 	shuffleParam, _ := a.Params.Param("Shuffle")

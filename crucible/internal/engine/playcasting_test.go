@@ -741,3 +741,25 @@ func TestPlayCopyFromChosenNameDeclinedLeavesNoCard(t *testing.T) {
 		t.Errorf("exile holds %d cards, want the declined token gone", n)
 	}
 }
+
+// WithTotalCMC$ is a running mana-value budget (PlayEffect.java:215-216, :230,
+// :493-494): a card played spends its mana value, and a card whose spell no
+// longer fits leaves the candidates, so the second spell here is never offered.
+func TestPlayWithTotalCMCStopsWhenTheBudgetIsSpent(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	big := g.NewCard(gainInstant(t, "Big", "2 W", "4"), p, engine.Exile)
+	small := g.NewCard(gainInstant(t, "Small", "W", "7"), p, engine.Exile)
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | Defined$ Remembered | Amount$ All | WithTotalCMC$ 3 | WithoutManaCost$ True")
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{big})
+	if err := resolvePlay(t, g, host, c, big, small); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("life = %d, want 24: only the three-mana spell fits the budget of 3", got)
+	}
+	if got := g.Card(small).Zone; got != engine.Exile {
+		t.Errorf("small spell zone = %v, want Exile", got)
+	}
+}

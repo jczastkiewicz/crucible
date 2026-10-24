@@ -15,6 +15,7 @@ package engine
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/expr"
@@ -218,10 +219,19 @@ func (g *Game) playerCountPlayers(amounts map[string]expr.Amount, controller Pla
 		return out, true
 	case strings.HasPrefix(hType, "Defined"):
 		var refs abilityRefs
+		own := false
 		if a := g.resolving; a != nil && source != NoCard && a.Source == source {
-			refs = a.refs()
+			refs, own = a.refs(), true
 		}
-		players, err := definedPlayers(g, controller, source, strings.TrimPrefix(hType, "Defined"), refs)
+		key := strings.TrimPrefix(hType, "Defined")
+		if key == "TriggeredAttackedTargetAndYou" && !own {
+			// A trigger's CheckSVar$ reads this off the Trigger, not a
+			// SpellAbility, so Java's Triggered* branch is skipped and the
+			// player list falls through to every player, turn order
+			// (AbilityUtils.java:1013, :1191-1193; quirks.md, PORT-7).
+			return g.playersInTurnOrder(), true
+		}
+		players, err := definedPlayers(g, controller, source, key, refs)
 		return players, err == nil
 	}
 	return nil, false
@@ -324,7 +334,8 @@ func playerXCount(g *Game, amounts map[string]expr.Amount, controller PlayerID, 
 // conditionPlayerCount is playerXCount's Condition branch
 // (AbilityUtils.java:3447-3468): how many players' property compares true
 // against an amount, `Condition<op><amount> <property>` (bare Condition is
-// GE1). An amount written per player (RelativePlayerUID) is not resolved.
+// GE1). An amount written per player (RelativePlayerUID) is read once, for the
+// first player (Java's own caching).
 func conditionPlayerCount(g *Game, amounts map[string]expr.Amount, controller PlayerID, source CardID, players []PlayerID, body string, op *expr.Op, depth int) (int, bool) {
 	head, prop, ok := strings.Cut(body, " ")
 	if !ok {
@@ -337,10 +348,16 @@ func conditionPlayerCount(g *Game, amounts map[string]expr.Amount, controller Pl
 		}
 		comparator, calc = head[9:11], head[11:]
 	}
+	var y int
 	if amt, named := amounts[strings.ToLower(calc)]; named && strings.Contains(amt.Text, "RelativePlayerUID") {
-		return 0, false
+		// Java substitutes the id of the first player it iterates and never
+		// recomputes it, so every later player is compared against the first
+		// player's value (AbilityUtils.java:3461-3468; quirks.md).
+		text := strings.ReplaceAll(amt.Text, "RelativePlayerUID", strconv.Itoa(int(players[0])))
+		y, ok = resolveAmount(g, amounts, controller, source, expr.Parse(text))
+	} else {
+		y, ok = branchAmount(g, amounts, controller, source, calc, depth)
 	}
-	y, ok := branchAmount(g, amounts, controller, source, calc, depth)
 	if !ok {
 		return 0, false
 	}

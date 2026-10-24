@@ -186,3 +186,30 @@ func TestUnrecordedAttackersStayUnresolved(t *testing.T) {
 		})
 	}
 }
+
+// A trigger's CheckSVar$ is evaluated off the Trigger, not a SpellAbility, so
+// PlayerCountDefinedTriggeredAttackedTargetAndYou reads every player
+// (AbilityUtils.java:1013, :1191-1193; Undercellar Sweep).
+func TestTriggerCheckSVarTriggeredAttackedTargetAndYouReadsEveryPlayer(t *testing.T) {
+	t.Parallel()
+
+	for _, hasInitiative := range []bool{true, false} {
+		g, p, other := newTwoPlayerGame(t)
+		a1 := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+		g.NewCard(triggerWatcherDef(t, "Test Initiative Watcher",
+			"Mode$ AttackersDeclared | AttackingPlayer$ You | CheckSVar$ X | TriggerZones$ Battlefield | Execute$ TrigGain",
+			"TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 5",
+			"X", "PlayerCountDefinedTriggeredAttackedTargetAndYou$HasPropertyhasInitiative"), p, engine.Battlefield)
+		if hasInitiative {
+			g.SetInitiative(other)
+		}
+		attackAndResolve(t, g, a1)
+		want := 20
+		if hasInitiative {
+			want = 25
+		}
+		if got := g.Player(p).Life; got != want {
+			t.Errorf("initiative=%v: life = %d, want %d", hasInitiative, got, want)
+		}
+	}
+}

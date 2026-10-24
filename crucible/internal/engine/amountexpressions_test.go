@@ -729,3 +729,20 @@ func TestAbilityYouCtrlCountsEachListedAbilityOnce(t *testing.T) {
 		t.Errorf("gained %d, want 2 (Flying and First Strike; the opponent's Haste is not yours)", got)
 	}
 }
+
+// PlayerCount Condition with an SVar written per player (RelativePlayerUID,
+// Game Over): Java substitutes the first player's id once and compares every
+// player against that single value (AbilityUtils.java:3461-3468).
+func TestPlayerCountConditionReadsAPerPlayerAmountOnce(t *testing.T) {
+	t.Parallel()
+
+	lives := func(g *engine.Game, p, other engine.PlayerID) {
+		g.Player(p).Life = 10
+		g.Player(other).Life = 12
+	}
+	got := gainedFrom(t, lives, "PlayerCountPlayers$ConditionLEY LifeTotal",
+		"Y", "PlayerCountDefinedPlayer.PlayerUID_RelativePlayerUID$StartingLife/HalfDown")
+	if got != 1 {
+		t.Errorf("players at or below half of starting life = %d, want 1", got)
+	}
+}

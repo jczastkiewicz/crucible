@@ -40,16 +40,13 @@ import (
 // evaluate. Every one fails the whole line loudly (PORT-8/GO-7). RestrictValid$
 // is read: each unit made carries it (ADR-0046) when manaRestrictionSupported
 // can judge it, else the line errors:
-// Each$ (1) -- isComboMana's own
-// per-iteration-color-count shape, a further branch past the single-choice
-// dispatch this file resolves; Optional$ (1) -- an interactive
+// Optional$ (1) -- an interactive
 // "would you like to add mana" confirm, the identical gap Sacrifice's/
 // Discard's/Mill's own Optional$ already document; Condition$/
 // ConditionDefined$ (0/6) -- condition.go's own subAbilityConditionMet
 // would otherwise silently no-op a card naming either, dealDamageEffect's
 // own identical reasoning.
-var manaUnresolvedParams = [...]string{
-	"Each"}
+var manaUnresolvedParams = [...]string{}
 
 // manaEffect resolves Mode$/DB$/SP$ Mana. ConditionPresent$/
 // ConditionCompare$/ConditionCheckSVar$/ConditionSVarCompare$ are resolved
@@ -117,7 +114,10 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			pool.addProduced(producedMana{color: color, amount: amount, restrict: restrict, combat: combat}, src)
 		case strings.HasPrefix(produced, "Combo "):
 			options, comboOK := parseComboColors(produced)
-			if produced == "Combo Any" {
+			// ManaEffect.java:85: "Different" in Produced$ removes each chosen
+			// color from the options for the next pick.
+			different := strings.Contains(produced, "Different")
+			if produced == "Combo Any" || produced == "Combo AnyDifferent" {
 				// AbilityManaPart.getComboColors: isAnyMana answers "W U B R G".
 				options, comboOK = mana.AllColors, true
 			}
@@ -127,12 +127,25 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			// ManaEffect.java:113-139: one color choice per mana. Java's
 			// specifyManaCombo answers the whole Amount$ at once when it is
 			// above 1; this port has the one prompt, asked amount times.
+			// ManaEffect.java:72, :130-138: Each$ (default 1) units of each chosen color.
+			each := 1
+			if raw, ok := a.Params.Param("Each"); ok {
+				if each, ok = resolveNamedAmount(g, a.Amounts, source, raw); !ok {
+					return fmt.Errorf("engine: Mana: Each$ %q is not resolvable", raw)
+				}
+			}
+			if each <= 0 {
+				continue
+			}
 			for range amount {
 				color := controller.ChooseManaColor(g, pid, a.Source, options)
 				if color.Count() != 1 || !options.Has(color) {
 					return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color from the offered set")
 				}
-				pool.addProduced(producedMana{color: color, amount: 1, restrict: restrict, combat: combat}, src)
+				if different {
+					options &^= color
+				}
+				pool.addProduced(producedMana{color: color, amount: each, restrict: restrict, combat: combat}, src)
 			}
 		default:
 			// "R G" is one mana of each color named, Amount$ times over

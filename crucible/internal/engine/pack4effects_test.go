@@ -649,3 +649,28 @@ func TestChoosePlayerOptionalLetsTheChooserDecline(t *testing.T) {
 		}
 	}
 }
+
+// TestManaEachMakesEachUnitOfEveryDifferentColorChosen proves Each$ with
+// Produced$ Combo AnyDifferent (Open the Omenpaths, ManaEffect.java:72, :85,
+// :107-139): Amount$ 2 color choices, each color chosen once, Each$ 2 mana of each.
+func TestManaEachMakesEachUnitOfEveryDifferentColorChosen(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueManaColor(mana.Red)
+	c.QueueManaColor(mana.Blue)
+	resolveLine(t, g, p, c, "DB$ Mana | Amount$ 2 | Each$ 2 | Produced$ Combo AnyDifferent")
+	pool := g.Player(p).ManaPool.Breakdown()
+	if pool[3] != 2 || pool[1] != 2 || g.Player(p).ManaPool.Total() != 4 {
+		t.Errorf("pool = %v, want two red and two blue", pool)
+	}
+
+	g2, p2, _ := newTwoPlayerGame(t)
+	c2 := engine.NewScriptedController()
+	c2.QueueManaColor(mana.Red)
+	c2.QueueManaColor(mana.Red)
+	if _, err := resolveNow(t, g2, p2, c2, nil, "DB$ Mana | Amount$ 2 | Each$ 2 | Produced$ Combo AnyDifferent"); err == nil {
+		t.Error("the same color twice under AnyDifferent resolved, want an error")
+	}
+}

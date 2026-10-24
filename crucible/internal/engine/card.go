@@ -448,6 +448,9 @@ type Card struct {
 	// (Game.regenerate) and all of them end at cleanup or when it leaves the
 	// battlefield -- Java's one-shot Regeneration effect per Regenerate call.
 	RegenShields int
+	// regenFollows are the shields among RegenShields that carry a
+	// RegenerationAbility$ follow-up, spent after the plain ones.
+	regenFollows []regenFollow
 
 	// detainedBy is Card.detainedBy (CR 701.35): the players who detained
 	// this permanent. While any remain it can't attack or block and its

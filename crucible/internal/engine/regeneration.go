@@ -55,7 +55,36 @@ func (g *Game) regenerate(controller PlayerController, id CardID) bool {
 	}
 	c.RegenShields--
 	g.regenerateBody(controller, id)
+	if c.RegenShields < len(c.regenFollows) {
+		f := c.regenFollows[0]
+		c.regenFollows = c.regenFollows[1:]
+		g.runRegenFollow(controller, f)
+	}
 	return true
+}
+
+// runRegenFollow is the RegenerationAbility$ follow-up of a spent shield: an
+// ImmediateTrigger run from the shield's effect card, which remembers what
+// RememberObjects$ named (the regenerated card is removed from it,
+// RegenerationEffect.java:51-54), so Defined$ EffectSource is the shield's
+// source (AbilityUtils.java:92-95, :342-351). A follow-up that cannot be put
+// on the stack is kept as a pending error (GO-7).
+func (g *Game) runRegenFollow(controller PlayerController, f regenFollow) {
+	src := g.Card(f.source)
+	def := &compile.Card{Name: effectHostName(src) + "'s Effect"}
+	def.Faces[0].Name = def.Name
+	def.Faces[0].Amounts = f.amounts
+	id := g.NewCard(def, f.controller, Command)
+	eff := g.Card(id)
+	eff.IsEffect = true
+	eff.effectLife = effectLifetime{duration: effectUntilEndOfTurn, player: f.controller, host: f.source}
+	for _, e := range f.remember {
+		eff.Memory.Remember(e)
+	}
+	child := Ability{API: APIImmediateTrigger, Source: id, Controller: f.controller, Params: f.follow.Ability, Amounts: f.amounts}
+	if err := (immediateTriggerEffect{}).Resolve(g, &child, controller); err != nil {
+		g.recordPendingError(err)
+	}
 }
 
 // cardCantRegenerate reports whether any Mode$ CantRegenerate static

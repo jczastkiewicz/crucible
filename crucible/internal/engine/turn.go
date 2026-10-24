@@ -747,7 +747,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 			g.Card(id).blockedThisTurn = nil
 			g.Card(id).attackedThisTurn = nil
 			g.Card(id).LoyaltyAbilityActivated = false
-			g.Card(id).RegenShields = 0
+			g.Card(id).RegenShields, g.Card(id).regenFollows = 0, nil
 			g.Card(id).Saddled, g.Card(id).saddledBy, g.Card(id).timesSaddled = false, nil, 0
 			// Card.onCleanupPhase (Card.java:7275).
 			g.Card(id).regeneratedThisTurn = 0

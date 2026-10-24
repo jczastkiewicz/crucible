@@ -124,3 +124,31 @@ func TestRegenerateEffectShieldDoesNotSaveAZeroToughnessCreature(t *testing.T) {
 		t.Errorf("host zone = %v, want Graveyard: a shield cannot save a 0-toughness creature", z)
 	}
 }
+
+// RegenerationAbility$ (Matopi Golem): when the shield is spent the follow-up
+// runs from the shield's effect card, so Defined$ EffectSource is the golem.
+func TestRegenerateEffectFollowUpRunsWhenTheShieldIsSpent(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Regen Counter",
+		"DB$ Regenerate | Defined$ Self | RegenerationAbility$ DBImm | SubAbility$ DBDestroy",
+		"DBDestroy", "DB$ Destroy | Defined$ Self",
+		"DBImm", "DB$ ImmediateTrigger | Execute$ TrigPut",
+		"TrigPut", "DB$ PutCounter | Defined$ EffectSource | CounterType$ P1P1 | CounterNum$ 1")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	card := g.Card(host)
+	if card.Zone != engine.Battlefield || !card.Tapped {
+		t.Fatalf("host zone %v tapped %v, want a tapped survivor", card.Zone, card.Tapped)
+	}
+	if got := card.Counters.Count(engine.P1P1); got != 1 {
+		t.Errorf("+1/+1 counters = %d, want 1", got)
+	}
+}

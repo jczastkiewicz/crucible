@@ -1147,7 +1147,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 		// no controller. applyContinuousControl rebuilds rows for battlefield
 		// cards only, so a row left here would outlive the move for good.
 		c.ControlMod.Clear()
-		c.RegenShields, c.regeneratedThisTurn = 0, 0
+		c.RegenShields, c.regenFollows, c.regeneratedThisTurn = 0, nil, 0
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.mustBlock = nil
@@ -1288,7 +1288,7 @@ func (g *Game) MoveToLibraryTop(id CardID, owner PlayerID) CardID {
 		c.controller = c.Owner
 		c.tempControllers = nil
 		c.ControlMod.Clear() // Move's own reason
-		c.RegenShields, c.regeneratedThisTurn = 0, 0
+		c.RegenShields, c.regenFollows, c.regeneratedThisTurn = 0, nil, 0
 		c.detainedBy = nil
 		c.goadedBy = nil
 		c.mustBlock = nil

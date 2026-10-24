@@ -6,6 +6,7 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // TestChangeZoneEffectBouncesTargetToHand proves the known-origin path's
@@ -762,5 +763,35 @@ func TestChangeZoneImprintLastImprintsAnOrdinaryCard(t *testing.T) {
 	}
 	if got := g.Card(host).Memory.Imprinted(); len(got) != 1 || got[0] != target {
 		t.Errorf("imprinted = %v, want the exiled card", got)
+	}
+}
+
+// Defined$ TriggeredSpellAbility on a ChangeZone from the stack (Rory
+// Williams) exiles the spell the trigger recorded, with counters.
+func TestChangeZoneTriggeredSpellAbilityExilesTheSpell(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.NewCard(triggerWatcherDef(t, "Test Rory",
+		"Mode$ SpellCast | ValidActivatingPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ TrigExile",
+		"TrigExile", "DB$ ChangeZone | Defined$ TriggeredSpellAbility | Origin$ Stack | Destination$ Exile | WithCountersType$ TIME | WithCountersAmount$ 3"), p, engine.Battlefield)
+	spell := g.NewCard(gainInstant(t, "Theirs", "W", "4"), other, engine.Hand)
+	g.SetTurnState(1, other, engine.Main1)
+	g.Player(other).ManaPool.Add(mana.White, 1)
+	c := engine.NewScriptedController()
+	if !g.CastSpell(other, spell, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if z := g.Card(spell).Zone; z != engine.Exile {
+		t.Fatalf("spell zone = %v, want Exile", z)
+	}
+	if n := g.Card(spell).Counters.Count(engine.CounterType("TIME")); n != 3 {
+		t.Errorf("time counters = %d, want 3", n)
+	}
+	if got := g.Player(other).Life; got != 20 {
+		t.Errorf("opponent life = %d, want 20: the spell never resolved", got)
 	}
 }

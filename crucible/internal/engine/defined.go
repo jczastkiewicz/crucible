@@ -1041,6 +1041,11 @@ func definedCards(host *Card, defined string, refs abilityRefs) ([]CardID, error
 				// AbilityUtils.java:304-305 (startsWith): the cards the host exiled.
 				return refs.game.exiledWithCards(host.ID), nil
 			}
+			if defined == "RevealedCards" {
+				// AbilityUtils.java:309 getPaidCards: the "Revealed" list a Reveal
+				// or Behold cost recorded on the spell (CostReveal.java:173).
+				return append([]CardID(nil), refs.game.Card(host.ID).castOpt.revealed...), nil
+			}
 			if cards, ok, err := refs.game.definedAttachCards(host, defined, refs); ok {
 				return cards, err
 			}

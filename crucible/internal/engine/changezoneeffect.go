@@ -443,13 +443,26 @@ func changeZoneMemory(a *Ability, source *Card, id CardID) {
 // Pulse of the Forge's "return CARDNAME to its owner's hand". That loop reads
 // no Origin$; a Parent line whose Origin$ does not name the stack is refused
 // rather than filtered by it.
-func changeZoneKnownCards(a *Ability, source *Card, origin []ZoneType) ([]CardID, error) {
+func changeZoneKnownCards(g *Game, a *Ability, source *Card, origin []ZoneType) ([]CardID, error) {
 	if defined, ok := a.Params.Param("Defined"); ok && defined == "Parent" && !hasParam(a, "ValidTgts") {
 		if !zoneIn(Stack, origin) {
 			return nil, fmt.Errorf("a Defined$ Parent line without Origin$ Stack not resolvable yet")
 		}
 		if (a.spell || a.rootSpell) && source.Zone == Stack {
 			return []CardID{source.ID}, nil
+		}
+		return nil, nil
+	}
+	if defined, ok := a.Params.Param("Defined"); ok && defined == "TriggeredSpellAbility" && !hasParam(a, "ValidTgts") {
+		// AbilityUtils.java:1258-1262 (getDefinedSpellAbilities): the spell the
+		// trigger recorded moves off the stack (removeFromStack,
+		// ChangeZoneEffect.java:1604-1660); an ability on the stack moves no
+		// card, and one that left the stack is skipped.
+		if a.triggered.spellAbility == NoStackItem {
+			return nil, fmt.Errorf("the trigger recorded no spell for Defined$ TriggeredSpellAbility")
+		}
+		if item, ok := g.stackItem(a.triggered.spellAbility); ok && item.spell {
+			return []CardID{item.Source}, nil
 		}
 		return nil, nil
 	}
@@ -494,7 +507,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	if err != nil {
 		return err
 	}
-	cards, err := changeZoneKnownCards(a, source, origin)
+	cards, err := changeZoneKnownCards(g, a, source, origin)
 	if err != nil {
 		return fmt.Errorf("engine: ChangeZone: %w", err)
 	}

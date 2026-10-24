@@ -1,16 +1,15 @@
 package engine
 
-//enginelint:allow id card game ability condition control parts
+//enginelint:allow id card game ability condition control parts defined
 
 import "fmt"
 
 // cleanupUnresolvedParams are CleanUpEffect.java's params this port cannot
-// honour yet. ForgetDefined$ needs getDefinedEntities' mixed
-// card-and-player reading. Log$ (CleanUpEffect.java:31-33, :70-72) only
+// honour yet. Log$ (CleanUpEffect.java:31-33, :70-72) only
 // emits a UI event with the text of what is about to be cleared, so it is
 // accepted and changes no state.
 var cleanupUnresolvedParams = [...]string{
-	"Defined", "ForgetDefined"}
+	"Defined"}
 
 // cleanupEffect is CleanUpEffect.java: it wipes the host card's own Memory
 // lists (memory.go) at the end of a chain that wrote to them. 3,011 real
@@ -30,6 +29,17 @@ func (cleanupEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
+	}
+	if spec, ok := a.Params.Param("ForgetDefined"); ok {
+		// CleanUpEffect.java: every card or player Defined$ names leaves the
+		// host's remembered list.
+		entities, err := definedEntities(g, a.Controller, source, spec, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: Cleanup: ForgetDefined$: %w", err)
+		}
+		for _, e := range entities {
+			source.Memory.Forget(e)
+		}
 	}
 	if _, ok := a.Params.Param("ClearTriggered"); ok {
 		// TriggerHandler.clearDelayedTrigger(card): every delayed trigger

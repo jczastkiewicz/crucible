@@ -85,6 +85,7 @@ func (delayedTriggerEffect) Resolve(g *Game, a *Ability, _ PlayerController) err
 		Trigger: a.Params, Host: a.Source, Controller: a.Controller, Amounts: a.Amounts,
 		ThisTurn:       hasParam(a, "ThisTurn") || hasParam(a, "NextTurn"),
 		HostTransforms: source.Transforms,
+		Spawner:        a.triggered,
 	}
 	if raw, ok := a.Params.Param("RememberObjects"); ok {
 		for _, def := range strings.Split(raw, " & ") {

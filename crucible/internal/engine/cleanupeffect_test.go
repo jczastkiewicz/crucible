@@ -64,7 +64,7 @@ func TestCleanupEffectLeavesUnnamedListsAlone(t *testing.T) {
 	}
 }
 
-// TestCleanupEffectRejectsUnresolvedParam proves ForgetDefined$ fails closed
+// TestCleanupEffectRejectsUnresolvedParam proves Defined$ fails closed
 // rather than being dropped (PORT-8), and Log$ (a UI-only event in Java) is
 // accepted.
 func TestCleanupEffectRejectsUnresolvedParam(t *testing.T) {
@@ -72,9 +72,9 @@ func TestCleanupEffectRejectsUnresolvedParam(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test Cleanup Forget", "DB$ Cleanup | ClearRemembered$ True | ForgetDefined$ Self")
+	def := etbChainDef(t, "Test Cleanup Forget", "DB$ Cleanup | ClearRemembered$ True | Defined$ Self")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ForgetDefined$")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved Defined$")
 	}
 	g, p, _ = newTwoPlayerGame(t)
 	def = etbChainDef(t, "Test Cleanup Log", "DB$ Cleanup | ClearRemembered$ True | Log$ True")
@@ -116,5 +116,23 @@ func TestCleanupEffectClearsChosenColor(t *testing.T) {
 	}
 	if got := g.Card(host).Memory.ChosenColors(); got != 0 {
 		t.Errorf("ChosenColors = %v, want cleared", got)
+	}
+}
+
+// ForgetDefined$ removes just what Defined$ names from the host's remembered
+// list (CleanUpEffect.java), Arboria's per-player forget.
+func TestCleanupForgetDefinedForgetsOnlyThoseNamed(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	def := etbChainDef(t, "Test Forget", "DB$ Pump | Defined$ Self | RememberObjects$ You & Opponent | SubAbility$ DBForget",
+		"DBForget", "DB$ Cleanup | ForgetDefined$ Opponent")
+	host, err := castETBChain(t, g, p, def, engine.NewScriptedController())
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	rem := g.Card(host).Memory.Remembered()
+	if len(rem) != 1 || rem[0] != engine.PlayerEntity(p) {
+		t.Errorf("remembered = %v, want only the activator (the opponent %v forgotten)", rem, other)
 	}
 }

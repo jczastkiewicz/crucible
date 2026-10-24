@@ -37,6 +37,10 @@ type delayedTrigger struct {
 	ForPlayer PlayerID
 	// HostTransforms is the host's transform count as the trigger was made.
 	HostTransforms int
+	// Spawner is the triggering objects of the ability that registered the
+	// trigger (DelayedTriggerEffect.java:49, setSpawningAbility), which
+	// Defined$ Spawner> reads in the fired Execute$ (AbilityUtils.java:4024-4031).
+	Spawner triggeredObjects
 }
 
 func (d *delayedTrigger) active() bool { return !d.AtCleanup && d.ForPlayer == NoPlayer }
@@ -103,7 +107,7 @@ func (g *Game) delayedPhaseTriggerMatches() []Ability {
 		// (PhaseHandler.java:438), as for a card's own Mode$ Phase line.
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{player: g.activePlayer},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -139,7 +143,7 @@ func (g *Game) delayedChangesControllerMatches(card CardID, original PlayerID) [
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{card: card, originalController: original},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -171,7 +175,7 @@ func (g *Game) delayedSpellCastMatches(c *Card, activator PlayerID, spellID Stac
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
 			triggered: triggeredObjects{spellAbility: spellID,
 				counts: triggerCounts{storm: g.spellsCastThisTurn(), set: countStorm}},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
@@ -204,7 +208,7 @@ func (g *Game) delayedAbilityCastMatches(a *Ability, spellID StackItemID) []Abil
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
 			triggered:      triggeredObjects{spellAbility: spellID},
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -328,7 +332,7 @@ func (g *Game) delayedLeftBattlefieldMatches(left CardID, dest ZoneType) []Abili
 		}
 		matches = append(matches, Ability{
 			API: api, Source: d.Host, Controller: d.Controller, Params: sub,
-			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
+			Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered, spawnerTriggered: d.spawner(),
 			triggered:      objs,
 			hostTransforms: d.HostTransforms, hasHostTransforms: true,
 			staticTrigger: isStaticTrigger(d.Trigger),
@@ -398,7 +402,7 @@ func (g *Game) delayedFire(d delayedTrigger, objs triggeredObjects) (Ability, bo
 	return Ability{
 		API: api, Source: d.Host, Controller: d.Controller, Params: sub,
 		Amounts: d.Amounts, Optional: optional, TriggerRemembered: d.Remembered,
-		triggered:      objs,
+		triggered: objs, spawnerTriggered: d.spawner(),
 		hostTransforms: d.HostTransforms, hasHostTransforms: true,
 		staticTrigger: isStaticTrigger(d.Trigger),
 	}, true
@@ -524,4 +528,11 @@ func (g *Game) delayedEnteredSatisfied(d delayedTrigger, entered CardID) bool {
 		return containsEntity(d.Remembered, CardEntity(entered))
 	}
 	return Matches(g, g.Card(entered), valid.Parse(v), d.Controller, d.Host)
+}
+
+// spawner is a copy of the triggering objects of the ability that registered d,
+// for Defined$ Spawner> in the fired Execute$.
+func (d delayedTrigger) spawner() *triggeredObjects {
+	s := d.Spawner
+	return &s
 }

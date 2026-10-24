@@ -756,6 +756,7 @@ func TestMultiplePilesRandomChosen(t *testing.T) {
 	a := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 	b := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
 	c := engine.NewScriptedController()
+	c.KeepCardOrder()
 	c.QueueCardChoice(nil)
 	c.QueueCardChoice(nil)
 	resolveLine(t, g, p, c, "DB$ MultiplePiles | Defined$ Player | Zone$ Battlefield | ValidCards$ Permanent.powerEQ1 | RandomChosen$ True | Piles$ 2 | ChosenPile$ DBSac",

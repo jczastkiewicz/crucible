@@ -58,7 +58,9 @@ func TestPlayerCountSacrificedPermanentTypesThisTurn(t *testing.T) {
 	g, p, _ := newTwoPlayerGame(t)
 	g.NewCard(fillerDef(t, "A", "Artifact Creature Golem", "1", "1"), p, engine.Battlefield)
 	g.NewCard(fillerDef(t, "B", "Land", "", ""), p, engine.Battlefield)
-	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, "DB$ SacrificeAll | ValidCards$ Permanent.YouCtrl"); err != nil {
+	keep := engine.NewScriptedController()
+	keep.KeepCardOrder()
+	if _, err := resolveNow(t, g, p, keep, nil, "DB$ SacrificeAll | ValidCards$ Permanent.YouCtrl"); err != nil {
 		t.Fatal(err)
 	}
 	before := g.Player(p).Life

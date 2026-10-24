@@ -120,6 +120,23 @@ func (sacrificeAllEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 		cards = filtered
 	}
 
-	sacrificeCards(g, controller, a, cards)
+	if hasParam(a, "RememberSacrificed") {
+		// SacrificeAllEffect.java:55-58: the host forgets what it remembered
+		// before the batch is remembered.
+		source.Memory.ClearRemembered()
+	}
+	// SacrificeAllEffect.java:60-63, :80: the cards a CantSacrifice static covers
+	// are dropped, and each owner orders the rest into the graveyard.
+	var sacrificeable []CardID
+	for _, id := range cards {
+		if c := g.Card(id); !g.cantSacrifice(c, true, a) {
+			sacrificeable = append(sacrificeable, id)
+		}
+	}
+	ordered, err := g.orderCardsByTheirOwners(controller, sacrificeable, Graveyard)
+	if err != nil {
+		return fmt.Errorf("engine: SacrificeAll: %w", err)
+	}
+	sacrificeCards(g, controller, a, ordered)
 	return nil
 }

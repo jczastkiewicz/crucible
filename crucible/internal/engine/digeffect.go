@@ -30,7 +30,10 @@ var digUnresolvedParams = [...]string{
 // their owners for a battlefield or library destination; the rest are
 // ordered by the chooser (or by their owners into a graveyard) unless
 // SkipReorder$ or RestRandomOrder$, which shuffles them with the game's own
-// RNG. 813 real lines.
+// RNG. 813 real lines. Reveal$, NoReveal$, ForceReveal$, ForceRevealToController$,
+// WithMayLook$ and NoLooking$ only decide what Java shows which player (a
+// reveal event, a DelayedReveal view, a look-at grant on the view); the
+// engine is omniscient, so they are accepted and read nothing (quirks.md).
 type digEffect struct{}
 
 func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {

@@ -185,3 +185,33 @@ func TestTokenRememberOriginalTokensRemembersEachToken(t *testing.T) {
 		t.Errorf("remembered %d tokens, want 2", got)
 	}
 }
+
+// ImprintTokens$ and WithCountersType$ P1P1 reach a copy as they reach a token
+// (TokenEffectBase.java:140-146, :205-207); another counter type is refused.
+func TestCopyPermanentImprintsTheCopyAndEntersWithCounters(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTokenGame(t)
+	c := engine.NewScriptedController()
+	src := resolveLine(t, g, p, c,
+		"DB$ Token | TokenScript$ w_1_1_soldier | RememberTokens$ True")
+	tok, _ := g.Card(src).Memory.Remembered()[0].AsCard()
+	c.QueueCardChoice([]engine.CardID{tok})
+	made := resolveLine(t, g, p, c,
+		"DB$ CopyPermanent | Populate$ True | ImprintTokens$ True | WithCountersType$ P1P1 | WithCountersAmount$ 2")
+	imprinted := g.Card(made).Memory.Imprinted()
+	if len(imprinted) != 1 {
+		t.Fatalf("imprinted = %v, want the copy", imprinted)
+	}
+	if got := g.Card(imprinted[0]).Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("+1/+1 counters on the copy = %d, want 2", got)
+	}
+	g2, p2, _ := newTokenGame(t)
+	src2 := resolveLine(t, g2, p2, c, "DB$ Token | TokenScript$ w_1_1_soldier | RememberTokens$ True")
+	tok2, _ := g2.Card(src2).Memory.Remembered()[0].AsCard()
+	c.QueueCardChoice([]engine.CardID{tok2})
+	if _, err := castETBChain(t, g2, p2, etbChainDef(t, "Loyal Copy",
+		"DB$ CopyPermanent | Populate$ True | WithCountersType$ LOYALTY"), c); err == nil {
+		t.Error("a LOYALTY copy counter was accepted")
+	}
+}

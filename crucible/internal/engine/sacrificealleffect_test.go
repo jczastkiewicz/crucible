@@ -232,6 +232,7 @@ func TestSacrificeAllEffectRememberSacrificedWritesMemoryForEveryCard(t *testing
 	other2 := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
+	c.KeepCardOrder()
 	def := etbSacrificeAllTriggerDefParams(t, "Test Remember Every Card", "ValidCards$ Creature.Other | RememberSacrificed$ True", nil)
 	host, err := castETBSacrifice(t, g, p, def, c)
 	if err != nil {
@@ -279,6 +280,7 @@ func TestSacrificeAllEffectFiresSacrificedTriggerPerCard(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
+	c.KeepCardOrder()
 	def := etbSacrificeAllTriggerDefParams(t, "Test Trigger Per Card", "ValidCards$ Creature.Other", nil)
 	if _, err := castETBSacrifice(t, g, p, def, c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)

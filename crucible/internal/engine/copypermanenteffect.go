@@ -37,7 +37,7 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		"RandomNum", "RandomCopied", "ForEach", "OptionalForEach", "WithDifferentNames",
 		"ChangeZoneTable", "ChosenMapIndex",
 		"RemoveCreatureTypes", "SetCardTypes", "GainThisAbility", "AddTypesTo",
-		"CopyIsColor", "SetManaCost", "SetImageKey"); err != nil {
+		"CopyIsColor", "SetManaCost", "SetImageKey", "TokenRemembered"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -113,6 +113,17 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			}
 			spec := tokenSpec{Def: def, Owner: owner, Tapped: hasParam(a, "TokenTapped"),
 				Power: orig.power, HasPower: orig.hasPower, Toughness: orig.toughness, HasToughness: orig.hasToughness}
+			if kind, ok := a.Params.Param("WithCountersType"); ok {
+				// TokenEffectBase.java:140-146, inherited: the copy enters with
+				// WithCountersAmount$ (default 1) counters; only +1/+1 are read
+				// (Ochre Jelly), as Token does.
+				if kind != "P1P1" {
+					return fmt.Errorf("engine: CopyPermanent: WithCountersType$ %q not resolvable yet", kind)
+				}
+				if spec.P1P1, err = optionalAmount(g, a, "CopyPermanent", "WithCountersAmount", 1); err != nil {
+					return err
+				}
+			}
 			if hasSetPower {
 				spec.Power, spec.HasPower = setPower, true
 			}
@@ -156,6 +167,10 @@ func (copyPermanentEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 				}
 				if hasParam(a, "RememberTokens") {
 					source.Memory.Remember(CardEntity(id))
+				}
+				if hasParam(a, "ImprintTokens") {
+					// TokenEffectBase.java:205-207, inherited.
+					source.Memory.Imprint(id)
 				}
 			}
 		}

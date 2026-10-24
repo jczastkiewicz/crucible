@@ -662,6 +662,7 @@ type ScriptedController struct {
 	confirmReveal      []bool
 	confirmEffect      []bool
 	cardOrders         [][]CardID
+	keepOrder          bool
 	abilityChoices     [][]int
 	modeChoices        [][]int
 	protectionChoice   []int
@@ -1283,8 +1284,17 @@ func (c *ScriptedController) ConfirmEffect(_ *Game, _ PlayerID, _ CardID) bool {
 // QueueCardOrder appends the answer to the next OrderCardsForZone call.
 func (c *ScriptedController) QueueCardOrder(ids []CardID) { c.cardOrders = append(c.cardOrders, ids) }
 
-// OrderCardsForZone returns the next answer QueueCardOrder queued.
-func (c *ScriptedController) OrderCardsForZone(_ *Game, _ PlayerID, _ []CardID, _ ZoneType) []CardID {
+// KeepCardOrder makes OrderCardsForZone keep the order it is given once no
+// QueueCardOrder answer is left, for a scenario whose subject is not the order
+// (a mass sacrifice whose owners are each asked to order their cards).
+func (c *ScriptedController) KeepCardOrder() { c.keepOrder = true }
+
+// OrderCardsForZone returns the next answer QueueCardOrder queued, or the
+// order it was given under KeepCardOrder.
+func (c *ScriptedController) OrderCardsForZone(_ *Game, _ PlayerID, cards []CardID, _ ZoneType) []CardID {
+	if c.keepOrder && len(c.cardOrders) == 0 {
+		return cards
+	}
 	return popQueue(&c.cardOrders, "card order")
 }
 

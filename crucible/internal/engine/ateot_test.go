@@ -17,6 +17,7 @@ func TestAtEOTSacrificesTokensAtTheNextEndStep(t *testing.T) {
 	libraryCards(t, g, p, 5)
 	libraryCards(t, g, other, 5)
 	c := engine.NewScriptedController()
+	c.KeepCardOrder()
 	def := etbChainDef(t, "Test Eot Maker",
 		"DB$ Token | TokenAmount$ 2 | TokenScript$ w_1_1_soldier | TokenOwner$ You | AtEOT$ Sacrifice")
 	if _, err := castETBChain(t, g, p, def, c); err != nil {

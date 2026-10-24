@@ -13,10 +13,10 @@
 // resolve. Not ported: TriggerType.UntapAll (the batch trigger) --
 // checkUntapsTriggers already firing per card below covers every real
 // corpus T: line, untapEffect.go's own identical reasoning for the same
-// trigger reached from a script-driven Untap instead. ControllerUntaps$,
-// the identical "who untaps attribution" TapperController$ leaves
-// unresolved on TapAll, appears on zero real UntapAll lines -- not even
-// listed below, nothing to guard against.
+// trigger reached from a script-driven Untap instead. ControllerUntaps$
+// (Early Harvest), the "who untaps" attribution of the batch trigger, is not
+// read: the only Mode$ UntapAll consumer (The Millennium Calendar) listens in
+// the untap step, where no UntapAll effect can resolve (quirks.md).
 
 package engine
 

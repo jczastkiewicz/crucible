@@ -318,6 +318,20 @@ func changeZoneEnter(g *Game, a *Ability, dest ZoneType, known bool) ([]enterCou
 		}
 		n = v
 	}
+	// WithCountersPlacer$ (ChangeZoneEffect.java:1640-1643): the first player it
+	// names places the counters, the activator by default (Ertai's Meddling's
+	// TargetedController).
+	placer := a.Controller
+	if def, ok := a.Params.Param("WithCountersPlacer"); ok {
+		players, err := definedPlayers(g, a.Controller, a.Source, def, a.refs())
+		if err != nil {
+			return nil, fmt.Errorf("engine: ChangeZone: WithCountersPlacer$: %w", err)
+		}
+		if len(players) == 0 {
+			return nil, fmt.Errorf("engine: ChangeZone: WithCountersPlacer$ %q names no player", def)
+		}
+		placer = players[0]
+	}
 	var out []enterCounters
 	for _, kind := range strings.Split(raw, ",") {
 		kind = strings.TrimSpace(kind)
@@ -325,7 +339,7 @@ func changeZoneEnter(g *Game, a *Ability, dest ZoneType, known bool) ([]enterCou
 			return nil, fmt.Errorf("engine: ChangeZone: WithCountersType$ %q not resolvable yet", raw)
 		}
 		// The activator places them (ChangeZoneEffect.java:617, table.put(activator, ...)).
-		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(kind)), n: n, placer: a.Controller})
+		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(kind)), n: n, placer: placer})
 	}
 	return out, nil
 }

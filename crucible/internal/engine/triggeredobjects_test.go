@@ -337,6 +337,7 @@ func TestChangesZoneAllRecordsTheBatch(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
 
 	c := engine.NewScriptedController()
+	c.KeepCardOrder()
 	def := etbSacrificeAllTriggerDefParams(t, "Test SacAll", "ValidCards$ Creature.Other", nil)
 	if _, err := castETBSacrifice(t, g, p, def, c); err != nil {
 		t.Fatalf("ResolveStack: %v", err)

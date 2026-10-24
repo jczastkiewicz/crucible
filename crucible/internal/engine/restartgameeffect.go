@@ -193,6 +193,7 @@ func (g *Game) resetForRestart() {
 	g.combatDamagePrevented = false
 	g.combat = Combat{}
 	g.combatsThisTurn = 0
+	g.mainsThisTurn = 0
 	g.skipDamageSteps = false
 	g.stack = nil
 	g.monarch, g.monarchBeginTurn = NoPlayer, NoPlayer

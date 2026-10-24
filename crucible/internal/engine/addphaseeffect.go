@@ -14,18 +14,21 @@ import (
 // running first (PhaseHandler.addExtraPhase). ExtraPhaseDelayedTrigger$
 // (AddPhaseEffect.java:70-76) hangs a delayed trigger on the first phase of
 // each insertion, registered when that phase is entered.
-// BeforeFirstPostCombatMainEnd$ fails closed.
+// BeforeFirstPostCombatMainEnd$ (World at War) adds nothing after the first
+// post-combat main phase.
 type addPhaseEffect struct{}
 
 func (addPhaseEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "AddPhase", "BeforeFirstPostCombatMainEnd"); err != nil {
-		return err
-	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	if hasParam(a, "BeforeFirstPostCombatMainEnd") && !g.beforeFirstPostCombatMainEnd() {
+		// AddPhaseEffect.java:34-38: presence only; no extra phase once more
+		// than the first post-combat main has begun.
 		return nil
 	}
 	after := g.activePhase
@@ -99,4 +102,15 @@ func (g *Game) addExtraPhase(after PhaseType, list []PhaseType, next PhaseType, 
 		}
 	}
 	g.extraPhases[after] = append(g.extraPhases[after], extraPhase{phase: list[0], trigger: trigger})
+}
+
+// beforeFirstPostCombatMainEnd is PhaseHandler.beforeFirstPostCombatMainEnd
+// (PhaseHandler.java:1000-1002): at most one main begun, or two while the
+// current phase is a second main.
+func (g *Game) beforeFirstPostCombatMainEnd() bool {
+	limit := 1
+	if g.activePhase == Main2 {
+		limit = 2
+	}
+	return g.mainsThisTurn <= limit
 }

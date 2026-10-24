@@ -332,3 +332,53 @@ func TestActivateManaAbilityHonoursPlayerTurn(t *testing.T) {
 		}
 	}
 }
+
+// TestAddPhaseBeforeFirstPostCombatMainEndGate proves World at War's gate
+// (AddPhaseEffect.java:34-38, PhaseHandler.java:1000-1002): in the first
+// post-combat main the extra combat is added; in a main phase added after it
+// (three mains begun) nothing is.
+func TestAddPhaseBeforeFirstPostCombatMainEndGate(t *testing.T) {
+	t.Parallel()
+
+	for _, extraMain := range []bool{false, true} {
+		g, p, _ := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		gated := g.NewCard(creatureDefWithAbility(t, "Test World At War",
+			"AB$ AddPhase | Cost$ 0 | ExtraPhase$ Combat | AfterPhase$ Main2 | FollowedBy$ Main2 | BeforeFirstPostCombatMainEnd$ True"), p, engine.Battlefield)
+		more := g.NewCard(creatureDefWithAbility(t, "Test Extra Main",
+			"AB$ AddPhase | Cost$ 0 | ExtraPhase$ Main2 | AfterPhase$ Main2"), p, engine.Battlefield)
+		// From Upkeep, so Main1 begins and counts (SetTurnState begins nothing).
+		g.SetTurnState(1, p, engine.Upkeep)
+		for g.ActivePhase() != engine.Main2 {
+			g.AdvancePhase(c)
+		}
+		if extraMain {
+			if !g.ActivateAbility(p, more, 0, c) {
+				t.Fatal("activating the extra-main ability failed")
+			}
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatal(err)
+			}
+			g.AdvancePhase(c)
+			if g.ActivePhase() != engine.Main2 {
+				t.Fatalf("phase after the extra main was added = %v, want the extra Main2", g.ActivePhase())
+			}
+		}
+		if !g.ActivateAbility(p, gated, 0, c) {
+			t.Fatal("activating the gated ability failed")
+		}
+		if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+			t.Fatal(err)
+		}
+		combats := 0
+		for g.ActivePhase() != engine.Cleanup {
+			g.AdvancePhase(c)
+			if g.ActivePhase() == engine.CombatBegin {
+				combats++
+			}
+		}
+		if want := map[bool]int{false: 1, true: 0}[extraMain]; combats != want {
+			t.Errorf("extra main %v: %d combats began after the gate, want %d", extraMain, combats, want)
+		}
+	}
+}

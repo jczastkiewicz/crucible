@@ -369,6 +369,10 @@ type Game struct {
 	// (PhaseHandler.java:416) -- what FirstCombat$ reads once AddPhase can add
 	// a second combat.
 	combatsThisTurn int
+	// mainsThisTurn is PhaseHandler.nMainsThisTurn: main phases begun this
+	// turn, zeroed as cleanup begins (PhaseHandler.java:418) -- what
+	// AddPhase's BeforeFirstPostCombatMainEnd$ reads.
+	mainsThisTurn int
 	// upkeepsThisTurn is PhaseHandler.nUpkeepsThisTurn: upkeep steps begun
 	// this turn, counted as one begins (PhaseHandler.java:257, the non-skipped
 	// branch only) and zeroed as cleanup begins (:415, cleanupStep). Count$
@@ -1614,6 +1618,7 @@ func (g *Game) Clone() *Game {
 		extraTurns:            append([]extraTurn(nil), g.extraTurns...),
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
+		mainsThisTurn:         g.mainsThisTurn,
 		upkeepsThisTurn:       g.upkeepsThisTurn,
 		skipDamageSteps:       g.skipDamageSteps,
 		turnOrderReversed:     g.turnOrderReversed,

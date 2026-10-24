@@ -343,7 +343,12 @@ func (g *Game) beginStep(controller PlayerController, driven bool) (bool, error)
 		g.runPhaseCommands(controller, untilEndStepAt, NoPlayer)
 	case Draw:
 		g.drawStep(controller)
+	case Main2:
+		// PhaseHandler.java:358.
+		g.mainsThisTurn++
 	case Main1:
+		// PhaseHandler.java:277.
+		g.mainsThisTurn++
 		g.archenemyMain1(controller)
 		g.sagaLoreCounters(controller)
 	case CombatBegin:
@@ -768,6 +773,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	// finished and the next turn starts from none.
 	g.upkeepsThisTurn = 0
 	g.combatsThisTurn = 0
+	g.mainsThisTurn = 0
 	g.endOfTurnsThisTurn = 0
 	g.countersAddedThisTurn = nil
 	g.countersRemoved = nil

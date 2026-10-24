@@ -607,7 +607,18 @@
       "unlesscost"
     ],
     "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability"],
-    "playerproperty": ["id", "zone", "card", "game", "player", "valid", "amount", "combat", "castrecord", "excessdamage"],
+    "playerproperty": [
+      "id",
+      "zone",
+      "card",
+      "game",
+      "player",
+      "valid",
+      "amount",
+      "combat",
+      "castrecord",
+      "excessdamage"
+    ],
     "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability"],
     "lifelost": [
       "id",

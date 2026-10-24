@@ -980,3 +980,56 @@ func TestGenericChoiceGuessCountsPiledGuesses(t *testing.T) {
 		t.Errorf("life = %d, want 22 (one guess, twice)", got)
 	}
 }
+
+// RepeatEach RepeatSpellAbilities$ (Whirlwind Denial): each opposing spell on
+// the stack is remembered in turn and "countered unless its controller pays
+// {4}"; with no mana to pay, both are countered and the caster's own spell is
+// not touched.
+func TestRepeatEachSpellAbilitiesCountersUnlessItsControllerPays(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	var spells []engine.CardID
+	for range 2 {
+		bolt := boltAt(t, g, other)
+		c := engine.NewScriptedController()
+		c.QueueTargets([]engine.EntityID{engine.PlayerEntity(p)})
+		castOn(t, g, other, bolt, c)
+		spells = append(spells, bolt)
+	}
+	def := etbChainDef(t, "Denial", "DB$ RepeatEach | RepeatSpellAbilities$ Spell.OppCtrl | RepeatSubAbility$ DBC",
+		"DBC", "DB$ Counter | Defined$ Remembered | UnlessCost$ 4 | UnlessPayer$ RememberedController")
+	host := g.NewCard(def, p, engine.Battlefield)
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	g.PushAbility(engine.Ability{API: engine.APIRepeatEach, Source: host, Controller: p, Params: sub})
+	decline := engine.NewScriptedController()
+	decline.QueueConfirmPayCost(false)
+	decline.QueueConfirmPayCost(false)
+	if err := g.ResolveStack(engine.NewRegistry(), decline); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range spells {
+		if z := g.Card(s).Zone; z != engine.Graveyard {
+			t.Errorf("spell %d zone = %v, want Graveyard", s, z)
+		}
+	}
+}
+
+// StoreSVar SVar$ EachPlayer (Plague of Vermin) stores under the remembered
+// player's name, and Count PlayerCountRemembered$SVarAmount reads it back.
+func TestStoreSVarEachPlayerIsReadBySVarAmount(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	def := etbChainDef(t, "Storer", "DB$ StoreSVar | SVar$ EachPlayer | Type$ Number | Expression$ 4 | SubAbility$ DBG",
+		"DBG", "DB$ GainLife | Defined$ You | LifeAmount$ Amt",
+		"Amt", "PlayerCountRemembered$SVarAmount")
+	host := g.NewCard(def, p, engine.Battlefield)
+	g.Card(host).Memory.Remember(engine.PlayerEntity(p))
+	sub := def.Faces[0].Triggers[0].Subs[0].Ability
+	g.PushAbility(engine.Ability{API: engine.APIStoreSVar, Source: host, Controller: p, Params: sub, Amounts: def.Faces[0].Amounts})
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Player(p).Life; got != 24 {
+		t.Errorf("life = %d, want 24", got)
+	}
+}

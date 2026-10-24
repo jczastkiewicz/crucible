@@ -12,14 +12,12 @@ import (
 )
 
 // repeatEachUnresolvedParams are RepeatEachEffect.java's params this port
-// cannot honour yet: the stack-object loop
-// (RepeatSpellAbilities$), a delayed per-player loop
+// cannot honour yet: a delayed per-player loop
 // (NextTurnForEachPlayer$), the batched
 // life table (LoseLifeMap$). ChooseOrder$ orders a card loop and names
 // RepeatTypesFrom$'s chooser; the player loop, which Java also reads it
 // for, stays as it is.
 var repeatEachUnresolvedParams = [...]string{
-	"RepeatSpellAbilities",
 	"LoseLifeMap",
 	"Ultimate",
 }
@@ -139,6 +137,34 @@ func (repeatEachEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	if _, ok := a.Params.Param("RepeatTargeted"); ok {
 		for _, e := range a.Targets {
+			m.Remember(e)
+			if err := g.resolveAdditionalKey(a, controller, "RepeatSubAbility"); err != nil {
+				return err
+			}
+			m.Forget(e)
+		}
+	}
+	if spec, ok := a.Params.Param("RepeatSpellAbilities"); ok {
+		// RepeatEachEffect.java:61-70, :115-121: the stack's spells and
+		// abilities valid for the comma list, top first, are collected before
+		// the loop; each is remembered while RepeatSubAbility$ resolves.
+		var items []EntityID
+		for i := len(g.stack) - 1; i >= 0; i-- {
+			item := &g.stack[i]
+			matched, err := g.stackItemMatches(item, spec, a)
+			if err != nil {
+				return fmt.Errorf("engine: RepeatEach: RepeatSpellAbilities$: %w", err)
+			}
+			if !matched {
+				continue
+			}
+			if item.spell {
+				items = append(items, CardEntity(item.Source))
+			} else {
+				items = append(items, StackItemEntity(item.ID))
+			}
+		}
+		for _, e := range items {
 			m.Remember(e)
 			if err := g.resolveAdditionalKey(a, controller, "RepeatSubAbility"); err != nil {
 				return err

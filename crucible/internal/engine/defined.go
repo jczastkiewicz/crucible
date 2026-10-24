@@ -680,6 +680,16 @@ func rememberedPlayers(g *Game, defined string, remembered []EntityID, recurse b
 			out = append(out, pid)
 			continue
 		}
+		if sid, ok := e.AsStackItem(); ok {
+			// A remembered ability on the stack: its controller, or owner as
+			// the source's.
+			if item, onStack := g.stackItem(sid); onStack && defined == "RememberedController" {
+				out = append(out, item.Controller)
+			} else if onStack && defined == "RememberedOwner" {
+				out = append(out, g.Card(item.Source).Owner)
+			}
+			continue
+		}
 		cid, ok := e.AsCard()
 		if !ok {
 			continue

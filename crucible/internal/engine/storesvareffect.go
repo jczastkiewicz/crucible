@@ -40,7 +40,13 @@ func (storeSVarEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return fmt.Errorf("engine: StoreSVar: SVar$, Type$ and Expression$ are required")
 	}
 	if key == "EachPlayer" {
-		return fmt.Errorf("engine: StoreSVar: SVar$ EachPlayer not resolvable yet")
+		// StoreSVarEffect.java:21-25: the first remembered player's name is the
+		// SVar's name (GameEntity.toString), read back by Count SVarAmount.
+		players := rememberedPlayerIDs(source)
+		if len(players) == 0 {
+			return fmt.Errorf("engine: StoreSVar: SVar$ EachPlayer with no remembered player")
+		}
+		key = g.Player(players[0]).Name
 	}
 	var value int
 	var ok bool
@@ -103,4 +109,15 @@ func countSVar(g *Game, a *Ability, host *Card, expression string) (int, bool) {
 		return v - n, true
 	}
 	return 0, false
+}
+
+// rememberedPlayerIDs is the host's remembered players, in order.
+func rememberedPlayerIDs(host *Card) []PlayerID {
+	var out []PlayerID
+	for _, e := range host.Memory.Remembered() {
+		if pid, ok := e.AsPlayer(); ok {
+			out = append(out, pid)
+		}
+	}
+	return out
 }

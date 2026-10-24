@@ -521,6 +521,11 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 	}
 	sq := strings.Split(body, ".")
 	value := sq[0]
+	if value == "SVarAmount" {
+		// AbilityUtils.java:3623: the host's SVar named by the player (the
+		// key StoreSVar SVar$ EachPlayer writes); 0 when never stored.
+		return math(g.Card(source).svars[strings.ToLower(g.Player(pid).Name)])
+	}
 	if n, ok, found := playerPropertyMeasure(g, pid, value, sq); found {
 		if !ok {
 			return 0, false

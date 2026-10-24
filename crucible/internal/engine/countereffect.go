@@ -234,6 +234,20 @@ func counterDefinedTargets(g *Game, a *Ability, defined string) ([]EntityID, err
 	switch defined {
 	case "Targeted":
 		return a.Targets, nil
+	case "Remembered":
+		// The spells and abilities the host remembers (RepeatEach
+		// RepeatSpellAbilities$); one that left the stack is dropped.
+		var out []EntityID
+		for _, e := range g.Card(a.Source).Memory.Remembered() {
+			if sid, ok := e.AsStackItem(); ok {
+				if _, onStack := g.stackItem(sid); onStack {
+					out = append(out, e)
+				}
+			} else if cid, ok := e.AsCard(); ok && g.Card(cid).Zone == Stack {
+				out = append(out, e)
+			}
+		}
+		return out, nil
 	case "TriggeredSpellAbility":
 		if a.triggered.spellAbility == NoStackItem {
 			return nil, fmt.Errorf("engine: Counter: Defined$ TriggeredSpellAbility: no triggering spell recorded")

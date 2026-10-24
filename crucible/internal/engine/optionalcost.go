@@ -464,7 +464,7 @@ func (g *Game) payOptionalParts(controller PlayerController, pid PlayerID, card 
 		candidates := g.teamworkCandidates(pid)
 		picks := controller.ChooseCardsForEffect(g, pid, card, candidates, 1, len(candidates))
 		if !isSubset(picks, candidates) || hasDuplicate(picks) || totalPower(g, picks) < choice.teamworkN {
-			g.recordPendingError(fmt.Errorf("engine: Teamwork: tapped creatures %v cannot pay %d power", picks, choice.teamworkN))
+			g.recordPendingError(fmt.Errorf("engine: Teamwork: the chosen creatures %v cannot pay %d power (not among the untapped candidates, repeated, or too little total power)", picks, choice.teamworkN))
 			return false
 		}
 		tapChosenPermanents(g, controller, picks)

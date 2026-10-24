@@ -23,7 +23,6 @@ import (
 // display to after every chooser (:275-288), no state.
 var chooseCardUnresolvedParams = [...]string{
 	"IncludeSpellsOnStack",
-	"ChosenMap",
 	"UnlessResolveSubs", "LockInText",
 	"ConditionGameTypes",
 }
@@ -113,7 +112,18 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 
 	var all []CardID
+	// ChosenMap$ (ChooseCardEffect.java:281-283): each chooser's own picks are
+	// stored per chooser as that chooser finishes.
+	chosenMap := hasParam(a, "ChosenMap")
+	mapPid, mapStart := NoPlayer, -1
+	flushMap := func() {
+		if chosenMap && mapStart >= 0 {
+			source.Memory.SetChosenMap(mapPid, slices.Clone(all[mapStart:]))
+		}
+	}
 	for _, pid := range choosers {
+		flushMap()
+		mapPid, mapStart = pid, len(all)
 		pChoices := choices
 		if by, ok := a.Params.Param("ControlledByPlayer"); ok {
 			var owners []PlayerID
@@ -219,6 +229,7 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		all = append(all, chosen...)
 	}
 
+	flushMap()
 	m := &source.Memory
 	m.ClearChosen()
 	for _, cid := range all {

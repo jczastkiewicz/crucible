@@ -50,6 +50,11 @@ type Memory struct {
 	// FlippedHeads/FlippedTails and cleared by Cleanup's ClearCoinFlips$.
 	flipResults map[PlayerID]string
 
+	// chosenMap is Card.chosenMap: the cards each chooser picked in the last
+	// ChooseCard ChosenMap$ (Card.addToChosenMap overwrites a chooser's entry),
+	// read by MakeCard DefinedName$ ChosenMap. Only read by key, so a plain map.
+	chosenMap map[PlayerID][]CardID
+
 	// chosenPlayer, chosenColors and chosenNumber are Java Card's own
 	// setChosenPlayer/setChosenColors/setChosenNumber: single values, each
 	// overwritten by the next ChoosePlayer/ChooseColor/ChooseNumber and
@@ -379,6 +384,9 @@ func (m Memory) clone() Memory {
 	if m.imprinted != nil {
 		out.imprinted = m.imprinted.Clone()
 	}
+	if len(m.chosenMap) > 0 {
+		out.chosenMap = maps.Clone(m.chosenMap)
+	}
 	if len(m.flipResults) > 0 {
 		out.flipResults = maps.Clone(m.flipResults)
 	}
@@ -386,4 +394,18 @@ func (m Memory) clone() Memory {
 		out.chosen = m.chosen.Clone()
 	}
 	return out
+}
+
+// SetChosenMap records the cards p chose, replacing p's earlier entry.
+func (m *Memory) SetChosenMap(p PlayerID, cards []CardID) {
+	if m.chosenMap == nil {
+		m.chosenMap = make(map[PlayerID][]CardID, 2)
+	}
+	m.chosenMap[p] = cards
+}
+
+// ChosenMapFor is the cards p chose into the map, false when p has no entry.
+func (m *Memory) ChosenMapFor(p PlayerID) ([]CardID, bool) {
+	cards, ok := m.chosenMap[p]
+	return cards, ok
 }

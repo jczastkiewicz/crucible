@@ -184,9 +184,18 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 		return out, nil
 	}
 	if def, ok := a.Params.Param("DefinedName"); ok {
-		cards, err := definedCards(source, def, a.refs())
-		if err != nil {
-			return nil, fmt.Errorf("engine: MakeCard: %w", err)
+		var cards []CardID
+		if def == "ChosenMap" {
+			// MakeCardEffect.java:68-69: the cards p chose into the host's map.
+			var has bool
+			if cards, has = source.Memory.ChosenMapFor(p); !has {
+				return nil, fmt.Errorf("engine: MakeCard: DefinedName$ ChosenMap: player %d chose nothing into the map", p)
+			}
+		} else {
+			var err error
+			if cards, err = definedCards(source, def, a.refs()); err != nil {
+				return nil, fmt.Errorf("engine: MakeCard: %w", err)
+			}
 		}
 		var out []string
 		for _, id := range cards {

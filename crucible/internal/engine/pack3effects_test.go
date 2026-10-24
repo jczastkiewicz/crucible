@@ -1033,3 +1033,21 @@ func TestStoreSVarEachPlayerIsReadBySVarAmount(t *testing.T) {
 		t.Errorf("life = %d, want 24", got)
 	}
 }
+
+// ChooseCard ChosenMap$ stores each chooser's picks and MakeCard DefinedName$
+// ChosenMap makes a card of that name for the chooser (Juggle the Performance).
+func TestChooseCardChosenMapFeedsMakeCard(t *testing.T) {
+	t.Parallel()
+	bear := namedCreature(t, "Grizzly Bears", "1 G")
+	g, p, _ := newPackGame(t, bear)
+	for range 3 {
+		g.NewCard(bear, p, engine.Library)
+	}
+	before := len(g.Zone(engine.Hand, p).Cards())
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ ChooseCard | Defined$ You | Amount$ 1 | AtRandom$ True | ChoiceZone$ Library | ChosenMap$ True | SubAbility$ DBM",
+		"DBM", "DB$ MakeCard | Defined$ You | DefinedName$ ChosenMap | Zone$ Hand")
+	if got := len(g.Zone(engine.Hand, p).Cards()); got != before+1 {
+		t.Errorf("hand = %d cards, want %d", got, before+1)
+	}
+}

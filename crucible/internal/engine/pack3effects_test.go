@@ -9,6 +9,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 	"github.com/jczastkiewicz/crucible/pkg/javarand"
 )
 
@@ -1049,5 +1050,32 @@ func TestChooseCardChosenMapFeedsMakeCard(t *testing.T) {
 		"DBM", "DB$ MakeCard | Defined$ You | DefinedName$ ChosenMap | Zone$ Hand")
 	if got := len(g.Zone(engine.Hand, p).Cards()); got != before+1 {
 		t.Errorf("hand = %d cards, want %d", got, before+1)
+	}
+}
+
+// Permanent.sharesCardTypeWith <restriction> (CardProperty.java:761-785): a
+// core type in common with the cards the host remembers, as they last were for
+// RememberedLKI; the bare form compares with the host itself.
+func TestSharesCardTypeWithRestrictions(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newPackGame(t, namedCreature(t, "Grizzly Bears", "1 G"), namedLand(t, "Forest Land"))
+	host := g.NewCard(namedCreature(t, "Host Bear", "1 G"), p, engine.Battlefield)
+	bear := g.NewCard(namedCreature(t, "Other Bear", "1 G"), p, engine.Battlefield)
+	land := g.NewCard(namedLand(t, "Plain Land"), p, engine.Battlefield)
+	g.Card(host).Memory.Remember(engine.CardEntity(bear))
+	for _, tc := range []struct {
+		spec string
+		card engine.CardID
+		want bool
+	}{
+		{"Permanent.sharesCardTypeWith", bear, true},
+		{"Permanent.sharesCardTypeWith", land, false},
+		{"Permanent.sharesCardTypeWith Remembered", host, true},
+		{"Permanent.sharesCardTypeWith RememberedLKI", land, false},
+		{"Permanent.sharesCardTypeWith RememberedLKI", host, true},
+	} {
+		if got := engine.Matches(g, g.Card(tc.card), valid.Parse(tc.spec), p, host); got != tc.want {
+			t.Errorf("%s on card %d = %v, want %v", tc.spec, tc.card, got, tc.want)
+		}
 	}
 }

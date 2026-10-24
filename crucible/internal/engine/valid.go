@@ -1882,6 +1882,24 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 			break
 		}
 		return anyShares([]CardID{a.refs().triggered.card})
+	case "Sacrificed", "TriggeredCards":
+		// AbilityUtils.java:154-166 and the trigger's recorded cards: what the
+		// root ability's cost sacrificed (Fatal Grudge), what its trigger
+		// recorded (Diviner of Fates).
+		a := g.resolving
+		if a == nil || a.Source != source {
+			break
+		}
+		if restriction == "Sacrificed" {
+			if !a.refs().paid.recorded {
+				break
+			}
+			return anyShares(a.refs().paid.sacrificed)
+		}
+		if len(a.refs().triggered.cards) == 0 {
+			break
+		}
+		return anyShares(a.refs().triggered.cards)
 	case "Remembered":
 		var cards []CardID
 		for _, e := range sc.Memory.Remembered() {
@@ -1890,6 +1908,23 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 			}
 		}
 		return anyShares(cards)
+	case "RememberedCard", "RememberedLKI":
+		// AbilityUtils.java: the host's remembered cards; RememberedLKI reads each
+		// as it last was (the sacrificed permanent's types on the battlefield).
+		for _, e := range sc.Memory.Remembered() {
+			id, isCard := e.AsCard()
+			if !isCard {
+				continue
+			}
+			other := g.Card(id)
+			if restriction == "RememberedLKI" {
+				other = g.lkiOrLive(id)
+			}
+			if shares(other, c) {
+				return true
+			}
+		}
+		return false
 	case "Imprinted":
 		return anyShares(sc.Memory.Imprinted())
 	case "Self":

@@ -113,6 +113,12 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		if raw, ok := r.s.Param("Cost"); ok {
 			text = raw
 		}
+		if n, ok := raiseWaterbend(text); ok && act == nil && extras && !raiseHasAmount(r.s) {
+			// Waterbend<N> merges into the spell's mana as N generic the caster
+			// may tap artifacts and creatures to pay (staticRaiseWaterbend).
+			generic += n * count
+			continue
+		}
 		add, err := mana.Parse(text)
 		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && raiseExtraShape(text) {
 			// A non-mana raise on a spell is the spell's additional cost,
@@ -321,6 +327,46 @@ func raiseExtraShape(text string) bool {
 	return ok && !uc.hasMana
 }
 
+// raiseWaterbend reads a RaiseCost Cost$ that is exactly Waterbend<N> with a
+// plain N (CostWaterbend, a mana part: Cost.mergeTo folds it into the mana).
+func raiseWaterbend(text string) (int, bool) {
+	parsed := cost.Parse(text)
+	if len(parsed.Parts) != 1 || parsed.Parts[0].Name != "Waterbend" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(parsed.Parts[0].Field(0))
+	return n, err == nil && n > 0
+}
+
+// staticRaiseWaterbend is the total Waterbend amount the RaiseCost statics put
+// on casting c: the caster may tap that many artifacts and creatures for the
+// generic mana (waterbendCast).
+func (g *Game) staticRaiseWaterbend(pid PlayerID, c *Card) int {
+	total := 0
+	for _, host := range g.staticHostsWith(c.ID) {
+		h := g.Card(host)
+		if h.Def == nil {
+			continue
+		}
+		live := h.liveTraitFaces()
+		for i := range live {
+			for _, s := range live[i].Statics {
+				if !strings.EqualFold(s.Name, "RaiseCost") || raiseHasAmount(s) {
+					continue
+				}
+				text, hasCost := s.Param("Cost")
+				if !hasCost || g.costModStatus(pid, c, h, s, nil) != costModApplies {
+					continue
+				}
+				if n, ok := raiseWaterbend(text); ok {
+					total += n
+				}
+			}
+		}
+	}
+	return total
+}
+
 // staticRaiseExtra is the additional cost the RaiseCost statics with a
 // non-mana Cost$ put on casting c (CostAdjustment.applyRaiseCostAbility,
 // Cost.mergeTo: a separate cost part). ok is false for a shape this port does
@@ -343,6 +389,9 @@ func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok b
 					continue
 				}
 				if _, err := mana.Parse(text); err == nil || g.costModStatus(pid, c, h, s, nil) != costModApplies {
+					continue
+				}
+				if _, ok := raiseWaterbend(text); ok && !raiseHasAmount(s) {
 					continue
 				}
 				if has || raiseHasAmount(s) || !raiseExtraShape(text) {

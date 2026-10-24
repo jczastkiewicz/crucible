@@ -248,7 +248,7 @@ func TestNonManaRaiseCostRefusesTheCastLoudly(t *testing.T) {
 	t.Parallel()
 
 	for _, line := range []string{
-		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ Waterbend<2>",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ Waterbend<X>",
 		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<X>",
 		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ PayLife<1> | Amount$ 2",
 	} {
@@ -260,6 +260,33 @@ func TestNonManaRaiseCostRefusesTheCastLoudly(t *testing.T) {
 		}
 		if err := g.TakePendingError(); err == nil {
 			t.Errorf("%s: no pending error: the refusal was silent", line)
+		}
+	}
+}
+
+// A RaiseCost static of Waterbend<2> (Benevolent River Spirit's shape) adds {2}
+// to the spell and lets the caster tap two creatures or artifacts for it.
+func TestStaticRaiseCostWaterbendIsPaidByTapping(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	g.NewCard(scriptDef(t, "Test Portal", "Enchantment",
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Cost$ Waterbend<2>"), p, engine.Battlefield)
+	helpers := []engine.CardID{
+		g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield),
+		g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield),
+	}
+	card := g.NewCard(creatureDefCost(t, "Costly", "G"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(helpers)
+	c.QueuePayGeneric(mana.ShardG)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	if !g.CastSpell(p, card, c) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	for _, id := range helpers {
+		if !g.Card(id).Tapped {
+			t.Errorf("card %d was not tapped for the waterbend", id)
 		}
 	}
 }

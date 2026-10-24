@@ -767,7 +767,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		total = reducedByEmerge(g, total, emerged)
 	}
 	total, assist := g.assistCost(controller, pid, c, total)
-	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN)
+	total, waterbent := g.waterbendCast(controller, pid, c.ID, total, opts.optional.waterbendN+g.staticRaiseWaterbend(pid, c))
 	g.snowAnyColor = opts.snowAnyColor
 	restore := g.payingFor(&payContext{item: &Ability{Source: c.ID, Controller: pid, spell: true}, cost: total})
 	if sp := firstSpellAbility(c); sp != nil {

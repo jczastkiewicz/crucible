@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game ability card animate valid effecthelpers id zone
+//enginelint:allow game ability card animate valid effecthelpers id zone presentcheck
 
 import (
 	"fmt"
@@ -21,14 +21,18 @@ import (
 // Only the Affected$ and characteristic params every corpus line writes
 // (AddType, AddColor, SetColor, SetPower, SetToughness, AddKeyword,
 // RemoveCardTypes, RemoveCreatureTypes, RemoveAllAbilities) are read; any
-// other is refused by name (GO-7), as are StaticEffectCheckSVar$ and
-// StaticEffectSVarCompare$ (:683-690).
+// other is refused by name (GO-7); StaticEffectCheckSVar$ and
+// StaticEffectSVarCompare$ gate the static (GameAction.java:686-694).
 func changeZoneStaticTemplate(g *Game, a *Ability) (*animateRecord, error) {
 	if _, ok := a.Params.Param("StaticEffect"); !ok {
 		return nil, nil
 	}
-	if err := rejectParams(a, "ChangeZone", "StaticEffectCheckSVar", "StaticEffectSVarCompare"); err != nil {
-		return nil, err
+	// GameAction.java:686-694: StaticEffectCheckSVar$ against StaticEffectSVarCompare$
+	// (default GE1) gates the whole static, read once before any card moves
+	// (Dance of the Manse: X of 6 or more makes the cards creatures); a failed
+	// check applies no static.
+	if !checkSVarMatches(g, g.Card(a.Source), a.Amounts, a.Params, "StaticEffectCheckSVar", "StaticEffectSVarCompare", "") {
+		return nil, nil
 	}
 	var st *compile.Ability
 	for _, sub := range a.Params.Subs {

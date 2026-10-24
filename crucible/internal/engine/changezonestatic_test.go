@@ -77,3 +77,30 @@ func TestChangeZoneAllStaticEffectChangesEveryMovedCard(t *testing.T) {
 		}
 	}
 }
+
+// StaticEffectCheckSVar$ with StaticEffectSVarCompare$ (Dance of the Manse,
+// GameAction.java:686-694) gates the static: the moved card takes it only when
+// the check holds.
+func TestChangeZoneStaticEffectCheckSVarGatesTheStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		x     string
+		power int
+	}{{"Number$6", 3}, {"Number$5", 1}} {
+		g, p, _ := newTwoPlayerGame(t)
+		moved := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+		c := engine.NewScriptedController()
+		c.QueueCardChoice([]engine.CardID{moved})
+		line := "DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Card | Mandatory$ True | StaticEffect$ Animate | StaticEffectCheckSVar$ X | StaticEffectSVarCompare$ GE6"
+		def := etbChainDef(t, "Test Static Check", line,
+			"Animate", "Mode$ Continuous | Affected$ Card.IsRemembered | SetPower$ 3 | SetToughness$ 4",
+			"X", tc.x)
+		if _, err := castETBChain(t, g, p, def, c); err != nil {
+			t.Fatalf("X %s: ResolveStack: %v", tc.x, err)
+		}
+		if pw, _ := g.Card(moved).Power(); pw != tc.power {
+			t.Errorf("X %s: moved power = %d, want %d", tc.x, pw, tc.power)
+		}
+	}
+}

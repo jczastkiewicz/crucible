@@ -23,6 +23,8 @@ The 166 refusals by cause (145 distinct causes, most with one card):
 | 7 | Play: `AnySupportedCard$`, `CastFaceDown$`, `WithTotalCMC$` (waits on the upstream decision for `PlayEffect.java:493`), `ControlledByPlayer$`, `Valid$` | B5 |
 | 101 | one-card causes (Regenerate `RegenerationAbility$`, `RememberCostMana$`, Attractions, Unyaro, Undercellar Sweep, `ExploredThisTurn`, `NoteCounterDefined$`, and the rest) | B1-B6 |
 
+CI cost: `go test -race` takes about 15 minutes on the runner (`-timeout 45m`); `TestCorpusSampleNeverPanicsOrHangs` alone is about 17 minutes under load, and the smoke prober needs 37 s for Surge of Righteousness under `-race` even by itself (26 s of it system time, from allocation): the prober, not the engine, is the cost, and its hang limit is 3 minutes. Profile `internal/smoke` before the sweep grows again.
+
 New Forge defects found while researching them are rows in [`porting/forge-java-defects.md`](porting/forge-java-defects.md), "Not filed": R3 files them.
 
 ---

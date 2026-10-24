@@ -29,14 +29,14 @@ func TestPumpAllSharedKeywordsGrantsWhatTheZoneHas(t *testing.T) {
 	}
 }
 
-// Pump with SharedKeywordsZone$ on a restriction naming a remembered or
-// triggering card is refused, not guessed.
-func TestPumpSharedKeywordsRefusesARememberedRestriction(t *testing.T) {
+// Pump with SharedKeywordsZone$ on a restriction naming the triggering card is
+// refused, not guessed (IsRemembered reads the host's list and resolves).
+func TestPumpSharedKeywordsRefusesATriggeredCardRestriction(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
-		"DB$ Pump | Defined$ Self | KW$ Flying | SharedKeywordsZone$ Library | SharedRestrictions$ Card.IsRemembered"); err == nil {
+		"DB$ Pump | Defined$ Self | KW$ Flying | SharedKeywordsZone$ Library | SharedRestrictions$ Card.TriggeredCard"); err == nil {
 		t.Fatal("registered, want an error")
 	}
 }

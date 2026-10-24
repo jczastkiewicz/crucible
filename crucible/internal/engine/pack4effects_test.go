@@ -571,3 +571,24 @@ func TestDigForEachColorPairTakesOneCardPerPair(t *testing.T) {
 		}
 	}
 }
+
+// TestPumpSharedRestrictionsIsRememberedReadsTheHostsList proves
+// SharedRestrictions$ Card.IsRemembered (Priest of Possibility,
+// PumpEffect.java:312-316): only the keywords the host's remembered cards in the
+// zone carry are granted.
+func TestPumpSharedRestrictionsIsRememberedReadsTheHostsList(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	flier := g.NewCard(creatureDefPTKeywords(t, "1", "1", "Flying"), p, engine.Library)
+	g.NewCard(creatureDefPTKeywords(t, "1", "1", "Haste"), p, engine.Library)
+	host := pushPlayLine(t, g, p, nil,
+		"DB$ Pump | Defined$ Self | KW$ Flying & Haste | SharedKeywordsZone$ Library | SharedRestrictions$ Card.IsRemembered")
+	g.Card(host).Memory.Remember(engine.CardEntity(flier))
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatal(err)
+	}
+	if !g.Card(host).HasKeyword("Flying") || g.Card(host).HasKeyword("Haste") {
+		t.Errorf("host keywords = %v, want Flying only (the remembered card's)", g.Card(host).KeywordLines())
+	}
+}

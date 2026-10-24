@@ -610,13 +610,15 @@ func pumpKeywords(effect string, a *compile.Ability) (pumpGrant, error) {
 // SharedKeywordsZone$ keeps, of the granted keywords, the ones a card in those
 // zones that SharedRestrictions$ accepts carries (layerSharedKeywords, the
 // static layer's CardFactoryUtil.sharedKeywords). A restriction naming the
-// trigger's or the line's remembered card is not resolvable here (GO-7).
+// trigger's card is not resolvable here (GO-7); IsRemembered reads the host's
+// own remembered list (Priest of Possibility's PeekAndReveal), as
+// CardFactoryUtil.sharedKeywords passes the host.
 func pumpSharedKeywords(effect string, g *Game, host *Card, a *compile.Ability, keywords []string) ([]string, error) {
 	zones, ok := a.Param("SharedKeywordsZone")
 	if !ok {
 		return keywords, nil
 	}
-	if r, _ := a.Param("SharedRestrictions"); strings.Contains(r, "IsRemembered") || strings.Contains(r, "TriggeredCard") {
+	if r, _ := a.Param("SharedRestrictions"); strings.Contains(r, "TriggeredCard") {
 		return nil, fmt.Errorf("engine: %s: SharedRestrictions$ %q not resolvable yet", effect, r)
 	}
 	shared, ok := layerSharedKeywords(g, host, a, keywords, zones)

@@ -385,3 +385,31 @@ func TestMoveCounterTypeAnyAsksForTheKind(t *testing.T) {
 		}
 	}
 }
+
+// ValidDefined$ (Forgotten Ancient): the source gives counters to the
+// battlefield cards the spec names, the activator choosing how many each gets
+// (CountersMoveEffect.java:164-226).
+func TestMoveCounterValidDefinedGivesChosenAmounts(t *testing.T) {
+	t.Parallel()
+
+	g := newGame(t, "a", "b")
+	p := g.Players()[0]
+	g.SetTurnState(1, p, engine.Main1)
+	dest := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	def := etbMoveCounterTriggerDefParams(t, "Test Move Valid", "Source$ Self | ValidDefined$ Creature.Other | CounterType$ P1P1 | CounterNum$ Any")
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{dest})
+	c.QueueNumberChoice(2)
+	g.Player(p).ManaPool.Add(mana.Green, 1)
+	host := g.NewCard(def, p, engine.Hand)
+	g.Card(host).Counters.Add(engine.P1P1, 3)
+	if !g.CastSpell(p, host, c) {
+		t.Fatal("CastSpell failed")
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(dest).Counters.Count(engine.P1P1); got != 2 {
+		t.Errorf("receiver counters = %d, want 2", got)
+	}
+}

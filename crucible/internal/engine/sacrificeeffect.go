@@ -76,13 +76,14 @@ import (
 // ChangeNum$ and ValidCard$ are not on the list: SacrificeEffect.java reads
 // neither (Amount$ and SacValid$ drive it), so ignoring them is the Java
 // behavior (PORT-8, dead script params).
-var sacrificeUnresolvedParams = [...]string{
-	"Random",
-}
+var sacrificeUnresolvedParams = [...]string{}
 
 type sacrificeEffect struct{}
 
 func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if hasParam(a, "Random") && hasParam(a, "Optional") {
+		return fmt.Errorf("engine: Sacrifice: Random$ with Optional$ not resolvable yet")
+	}
 	for _, key := range sacrificeUnresolvedParams {
 		if _, ok := a.Params.Param(key); ok {
 			return fmt.Errorf("engine: Sacrifice: %s$ not resolvable yet", key)
@@ -179,6 +180,21 @@ func (sacrificeEffect) Resolve(g *Game, a *Ability, controller PlayerController)
 			n = len(candidates)
 		}
 		if n == 0 {
+			continue
+		}
+		if hasParam(a, "Random") {
+			// SacrificeEffect.java:141-142: Aggregates.random(candidates, n), no
+			// decision. Java draws from the process-global RNG; the game's own
+			// stream stands in (forge-java-defects.md).
+			var picked []CardID
+			for _, i := range g.randomSample(len(candidates), n) {
+				picked = append(picked, candidates[i])
+			}
+			if destroy {
+				g.destroyChosen(controller, a, picked)
+				continue
+			}
+			sacrificeCards(g, controller, a, picked)
 			continue
 		}
 		if !optional || strict {

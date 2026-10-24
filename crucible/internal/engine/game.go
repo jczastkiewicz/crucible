@@ -1037,7 +1037,7 @@ func (g *Game) Move(id CardID, kind ZoneType, owner PlayerID) CardID {
 	before := *c
 	g.clearTextRecords(id)
 	if from == Exile && kind != Exile {
-		c.foretold = false
+		c.foretold, c.foretoldByEffect = false, false
 	}
 	if kind != Stack && kind != Battlefield {
 		c.wasCast, c.castManaSpent, c.castSnow, c.castPaidSources = false, 0, 0, nil

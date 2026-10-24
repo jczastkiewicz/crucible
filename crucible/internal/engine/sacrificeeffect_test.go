@@ -414,3 +414,18 @@ func TestSacrificeEffectIgnoresChangeNumAndValidCard(t *testing.T) {
 		t.Errorf("host zone = %v, want Graveyard", z)
 	}
 }
+
+// Random$ sacrifices Amount$ of the candidates with no decision
+// (SacrificeEffect.java:141-142, Tyrant of Discord).
+func TestSacrificeRandomTakesNoDecision(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	for range 3 {
+		g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Battlefield)
+	}
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ Sacrifice | Defined$ You | SacValid$ Creature | Amount$ 1 | Random$ True")
+	if got := len(g.Zone(engine.Graveyard, p).Cards()); got != 1 {
+		t.Errorf("graveyard = %d cards, want 1 sacrificed at random", got)
+	}
+}

@@ -117,6 +117,9 @@ type Card struct {
 	// foretoldTurn the turn it happened (foretell.go).
 	foretold     bool
 	foretoldTurn int
+	// foretoldByEffect is Card.foretoldCostByEffect: the cast from exile costs
+	// the mana cost less up to {2} (GameActionUtil.java:229-239).
+	foretoldByEffect bool
 
 	// kicker is which of the card's kicker costs were paid casting it (kicker.go),
 	// read while it is on the stack or the battlefield; Move clears it when the

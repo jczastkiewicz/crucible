@@ -581,7 +581,8 @@
       "devour",
       "taptype",
       "chosencosts",
-      "destroyeffect"
+      "destroyeffect",
+      "effecthelpers"
     ],
     "exile": ["id", "zone", "card", "game", "control", "valid", "trigger", "ability", "statictrigger"],
     "exilefromgrave": ["id", "zone", "card", "game", "control", "leftto"],
@@ -606,7 +607,7 @@
       "unlesscost"
     ],
     "castrecord": ["id", "zone", "card", "game", "valid", "parts", "ability"],
-    "playerproperty": ["id", "zone", "card", "game", "player", "valid", "amount", "combat", "castrecord"],
+    "playerproperty": ["id", "zone", "card", "game", "player", "valid", "amount", "combat", "castrecord", "excessdamage"],
     "foretell": ["id", "zone", "card", "game", "control", "parts", "mana", "manarestrict", "ability"],
     "lifelost": [
       "id",

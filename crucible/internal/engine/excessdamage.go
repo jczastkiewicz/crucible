@@ -323,7 +323,11 @@ func matchesWithTargetedBy(g *Game, a *Ability, c *Card, spec valid.Spec) bool {
 // no ExcessSVarCondition$ line in the corpus sits under two targeting
 // ancestors.
 func chainTargeted(a *Ability, id CardID) bool {
-	want := CardEntity(id)
+	return chainTargetsEntity(a, CardEntity(id))
+}
+
+// chainTargetsEntity is chainTargeted for any entity.
+func chainTargetsEntity(a *Ability, want EntityID) bool {
 	if slices.Contains(a.Targets, want) || slices.Contains(a.parentTargets, want) {
 		return true
 	}

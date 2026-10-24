@@ -30,12 +30,9 @@ import (
 
 // moveCounterUnresolvedParams names CountersMoveEffect's own params this
 // port does not evaluate. Every one fails the whole line loudly (PORT-8/
-// GO-7): ValidDefined$ (0, defensive) -- the "one source to many
-// destinations" branch, listed even at zero real lines rather than silently
-// misreading it as a plain Source$ value; NonZero$ (1) -- CounterNum$ Any's own "at least one"
-// floor, moot on its own since CounterNum$ Any already fails below.
+// GO-7): NonZero$ (1) -- CounterNum$ Any's own "at least one" floor.
 var moveCounterUnresolvedParams = [...]string{
-	"ValidDefined", "NonZero",
+	"NonZero",
 }
 
 // moveCounterEffect resolves Mode$/DB$/AB$ MoveCounter for the one-source,
@@ -126,6 +123,9 @@ func (moveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			}
 		}
 		return nil
+	}
+	if spec, ok := a.Params.Param("ValidDefined"); ok {
+		return g.moveCountersToValid(controller, a, source, spec, counterType, allKinds || chooseKind, anyAmount)
 	}
 	var src CardID
 	_, targeting := a.Params.Param("ValidTgts")
@@ -230,4 +230,49 @@ func moveOneCounterKind(g *Game, controller PlayerController, placer PlayerID, s
 	srcCounters.Add(kind, -n)
 	emitCounterChanged(g, source, CardEntity(src), kind, -n)
 	g.addCardCounters(controller, placer, source, dest, kind, n)
+}
+
+// moveCountersToValid is CountersMoveEffect.java:164-226, ValidDefined$ (Forgotten
+// Ancient): one Source$ card (Self by default) gives counters of the named kind
+// to the battlefield cards ValidDefined$ names, the activator choosing how many
+// each receives (0 to every counter it holds). CounterNum$ is read only for
+// Any, which first lets the activator pick the receivers; any other value never
+// limits the amounts (a Forge quirk, PORT-7).
+func (g *Game) moveCountersToValid(controller PlayerController, a *Ability, host *Card, spec string, kind CounterType, kindUnnamed, anyNum bool) error {
+	if kindUnnamed {
+		return fmt.Errorf("engine: MoveCounter: ValidDefined$ needs a named CounterType$")
+	}
+	sourceParam, ok := a.Params.Param("Source")
+	if !ok {
+		sourceParam = "Self"
+	}
+	srcCards, err := definedCards(host, sourceParam, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: MoveCounter: Source$: %w", err)
+	}
+	if len(srcCards) == 0 {
+		return nil
+	}
+	src := srcCards[0]
+	if g.Card(src).Counters.Count(kind) <= 0 {
+		return nil
+	}
+	dests, err := phasesValidCards(g, a, spec, false)
+	if err != nil {
+		return fmt.Errorf("engine: MoveCounter: ValidDefined$: %w", err)
+	}
+	if anyNum {
+		all := dests
+		dests = controller.ChooseCardsForEffect(g, a.Controller, a.Source, all, 0, len(all))
+		if err := checkChoice(dests, all, 0, len(all)); err != nil {
+			return fmt.Errorf("engine: MoveCounter: receivers: %w", err)
+		}
+	}
+	for _, dest := range dests {
+		if dest == src {
+			continue
+		}
+		moveOneCounterKind(g, controller, a.Controller, a.Source, src, dest, &g.Card(src).Counters, kind, false, true, 0)
+	}
+	return nil
 }

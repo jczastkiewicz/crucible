@@ -74,6 +74,15 @@ func (g *Game) foretellCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 	if c.Zone != Exile || c.Owner != pid || c.Def == nil || !c.foretold || c.foretoldTurn >= g.turn {
 		return mana.Cost{}, false
 	}
+	if c.foretoldByEffect {
+		// GameActionUtil.java:229-239: the card's mana cost less up to {2}
+		// of its generic part, no cost at all for a card without one.
+		base := c.manaCost()
+		if base.IsNoCost() {
+			return mana.Cost{}, false
+		}
+		return mana.FromShards(base.Shards(), max(base.Generic()-2, 0)), true
+	}
 	for _, line := range c.KeywordLines() {
 		k := keyword.Parse(line)
 		if k.Name != "Foretell" || k.Details == "" {

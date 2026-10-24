@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined amount control valid discardeffect effecthelpers zone
+//enginelint:allow id card game ability defined amount control valid discardeffect effecthelpers zone excessdamage
 
 import (
 	"fmt"
@@ -58,10 +58,14 @@ func choiceCandidates(g *Game, a *Ability, api string, zones []ZoneType, spec st
 	if err := discardValidResolvable(g, spec, a.Controller, a.Source); err != nil {
 		return nil, fmt.Errorf("engine: %s: Choices$ %q: %w", api, spec, err)
 	}
+	targetedBy := false
 	for _, alt := range valid.Parse(spec).Alternatives {
 		for _, p := range alt.Properties {
 			if strings.HasPrefix(p.Name, "targetedBy") {
-				return nil, fmt.Errorf("engine: %s: Choices$ property %q not resolvable yet", api, p.Name)
+				if p.Name != "targetedBy" || p.Negated {
+					return nil, fmt.Errorf("engine: %s: Choices$ property %q not resolvable yet", api, p.Name)
+				}
+				targetedBy = true
 			}
 		}
 	}
@@ -70,7 +74,8 @@ func choiceCandidates(g *Game, a *Ability, api string, zones []ZoneType, spec st
 	for _, z := range zones {
 		for _, pid := range g.Players() {
 			for _, cid := range g.Zone(z, pid).Cards() {
-				if Matches(g, g.Card(cid), parsed, a.Controller, a.Source) {
+				// targetedBy (CardProperty.java:271-277) needs the ability.
+				if targetedBy && matchesWithTargetedBy(g, a, g.Card(cid), parsed) || !targetedBy && Matches(g, g.Card(cid), parsed, a.Controller, a.Source) {
 					out = append(out, cid)
 				}
 			}

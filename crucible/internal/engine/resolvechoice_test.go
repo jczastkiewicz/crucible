@@ -178,3 +178,24 @@ func TestRemoveCounterOptionalDeclined(t *testing.T) {
 		t.Errorf("counters = %d, want 2", got)
 	}
 }
+
+// Choices$ Card.targetedBy (Wicked Slumber, CardProperty.java:271-277) offers
+// the cards the root ability's chain targets.
+func TestPutCounterChoicesTargetedBy(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	aimed := g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{aimed})
+	_, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(aimed)},
+		"DB$ Tap | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBPut",
+		"DBPut", "DB$ PutCounter | Choices$ Card.targetedBy | CounterType$ STUN | CounterNum$ 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(aimed).Counters.Count(engine.CounterType("STUN")); got != 1 {
+		t.Errorf("stun counters on the targeted card = %d, want 1", got)
+	}
+}

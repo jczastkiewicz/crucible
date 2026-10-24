@@ -231,6 +231,14 @@ func playerProperty(g *Game, candidate, host PlayerID, source CardID, property s
 		return true, true
 	}
 	switch {
+	case property == "targetedBy":
+		// PlayerProperty.java:289-295: the root ability targets the player
+		// (the chain's targets stand in for isTargeting).
+		a := g.resolving
+		if a == nil || a.Source != source {
+			return false, false
+		}
+		return chainTargetsEntity(a, PlayerEntity(candidate)), true
 	case strings.HasPrefix(property, "wasDealtCombatDamageThisCombatBy "),
 		strings.HasPrefix(property, "wasDealtDamageThisGameBy "):
 		// :112-139: per-combat and per-game damage records are not kept.

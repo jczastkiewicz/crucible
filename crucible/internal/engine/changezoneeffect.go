@@ -36,7 +36,7 @@ import (
 var changeZoneUnresolvedParams = [...]string{
 	"WithNotedCounters", "ReturnAbility", "ReturnValid",
 	"AttachAfter",
-	"Champion", "Foretold", "ForetoldCost", "WithMayLook",
+	"Champion",
 
 	"ShareLandType", "WithTotalPower", "WithTotalCardTypes",
 	"Unearth",
@@ -402,6 +402,14 @@ func changeZoneGainControl(g *Game, a *Ability) (PlayerID, error) {
 // moved: changeZoneMemory, then the StaticEffect$ static it takes.
 func (g *Game) changeZoneMoved(a *Ability, source *Card, id CardID) {
 	changeZoneMemory(a, source, id)
+	if c := g.Card(id); c.Zone == Exile && hasParam(a, "Foretold") {
+		// ChangeZoneEffect.java:761-772: Foretold$ marks the exiled card
+		// foretold; ForetoldCost$ makes it castable for its mana cost less up
+		// to {2} (GameActionUtil.java:229-239). WithMayLook$ only lets the
+		// owner look at it, which this omniscient engine never hides.
+		c.foretold, c.foretoldTurn = true, g.turn
+		c.foretoldByEffect = hasParam(a, "ForetoldCost")
+	}
 	tmpl, _ := changeZoneStaticTemplate(g, a) // validated in Resolve
 	g.applyChangeZoneStatic(tmpl, id)
 }

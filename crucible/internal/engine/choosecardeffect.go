@@ -251,14 +251,21 @@ func (chooseCardEffect) Resolve(g *Game, a *Ability, controller PlayerController
 // adds them.
 const basicTypesHashOrder = "Mountain & Swamp & Forest & Plains & Island"
 
+// partyTypesHashOrder is the iteration order of CardType.Constant.PARTY_TYPES,
+// Sets.newHashSet("Cleric", "Rogue", "Warrior", "Wizard"): Guava sizes the set
+// for four elements (Maps.capacity(4) = 6, a table of 8), so the buckets are 2
+// (Warrior), 5 (Rogue, then Wizard: insertion order) and 6 (Cleric). Computed
+// from String.hashCode, not observed in a JVM (quirks.md).
+const partyTypesHashOrder = "Warrior & Rogue & Wizard & Cleric"
+
 // chooseEachCards is ChooseEach$ (ChooseCardEffect.java:131-146): for each
 // " & "-separated type, in order, the chooser picks one of their cards of
 // that type (optional unless Mandatory$; a type with none is skipped). One
 // card can fill two types and is chosen once. "Party" walks Java's HashSet
-// of the four party creature types, an order this port does not reproduce.
+// of the four party creature types (partyTypesHashOrder).
 func chooseEachCards(g *Game, a *Ability, controller PlayerController, pid PlayerID, pool []CardID, each string, mandatoryPick bool) ([]CardID, error) {
 	if each == "Party" {
-		return nil, fmt.Errorf("engine: ChooseCard: ChooseEach$ Party not resolvable yet (CardType.Constant.PARTY_TYPES is a HashSet)")
+		each = partyTypesHashOrder
 	}
 	lo := 0
 	if mandatoryPick || hasParam(a, "Mandatory") {

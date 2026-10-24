@@ -287,7 +287,6 @@ func TestSubAbilityConditionsFailLoudly(t *testing.T) {
 		want  string
 	}{
 		{"ConditionSorcerySpeed$ True", nil, "ConditionSorcerySpeed$"},
-		{"ConditionTargetsSingleTarget$ True", nil, "ConditionTargetsSingleTarget$"},
 		{"ConditionManaSpent$ Purple", nil, "not resolvable"},
 		{"ConditionLifeTotal$ Player.bogusProperty", nil, "names no player"},
 		{"ConditionLifeTotal$ You | ConditionLifeAmount$ GEY", nil, "not resolvable"},

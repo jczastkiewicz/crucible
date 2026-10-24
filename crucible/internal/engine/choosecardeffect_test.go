@@ -148,9 +148,9 @@ func TestChooseCardEffectRejectsUnresolvedParam(t *testing.T) {
 	g.NewCard(creatureDefPT(t, "2", "2"), other, engine.Battlefield)
 
 	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test ChooseCard Each", "DB$ ChooseCard | Choices$ Creature.OppCtrl | ChooseEach$ Party")
+	def := etbChainDef(t, "Test ChooseCard Each", "DB$ ChooseCard | Choices$ Creature.OppCtrl | ChosenMap$ True")
 	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ChooseEach$ Party")
+		t.Fatal("ResolveStack succeeded, want an error for unresolved ChosenMap$ True")
 	}
 }
 

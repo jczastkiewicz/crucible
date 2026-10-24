@@ -49,6 +49,11 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if types, err = g.mostPrevalentCreatureTypes(a, raw); err != nil {
 			return err
 		}
+	} else if kind == "CreatureInTargetedDeck" {
+		var err error
+		if types, err = g.creatureTypesInTargetedDeck(a); err != nil {
+			return err
+		}
 	} else {
 		if hasParam(a, "AtRandom") && kind != "Basic Land" {
 			// Creature and Land lists are CardType's HashSets (CREATURE_TYPES,
@@ -230,4 +235,32 @@ func chooseTypeOptions(g *Game, kind string) ([]string, error) {
 		return reg.Members(cardtype.CategoryPlaneswalker), nil
 	}
 	return nil, fmt.Errorf("engine: ChooseType: Type$ %q not resolvable yet", kind)
+}
+
+// creatureTypesInTargetedDeck is ChooseTypeEffect.java:80-92, Type$
+// CreatureInTargetedDeck: the creature types of every card of each target
+// player (Player.getAllCards: battlefield, library, graveyard, hand, exile,
+// command, then the stack), first seen first, each once.
+func (g *Game) creatureTypesInTargetedDeck(a *Ability) ([]string, error) {
+	reg := g.db.Types()
+	if reg == nil {
+		return nil, fmt.Errorf("engine: ChooseType: Type$ CreatureInTargetedDeck needs the type vocabulary")
+	}
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
+	if err != nil {
+		return nil, fmt.Errorf("engine: ChooseType: %w", err)
+	}
+	var out []string
+	for _, pid := range players {
+		for _, z := range [...]ZoneType{Battlefield, Library, Graveyard, Hand, Exile, Command, Stack} {
+			for _, id := range g.Zone(z, pid).Cards() {
+				for _, t := range creatureTypesOf(g.Card(id).Type(), reg) {
+					if !containsString(out, t) {
+						out = append(out, t)
+					}
+				}
+			}
+		}
+	}
+	return out, nil
 }

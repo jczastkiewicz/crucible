@@ -443,7 +443,6 @@ func TestChangeTargetsRefusesUnbuiltShapes(t *testing.T) {
 		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility | RandomTarget$ True", "RandomTarget$ not resolvable yet"},
 		{"DB$ ChangeTargets | Defined$ Remembered", `Defined$ "Remembered" not resolvable yet`},
 		{"DB$ ChangeTargets | Defined$ TriggeredSourceSA", `Defined$ "TriggeredSourceSA" not resolvable yet`},
-		{"DB$ ChangeTargets | Defined$ Targeted | ConditionTargetsSingleTarget$ True", "ConditionTargetsSingleTarget$ not resolvable yet"},
 		{"DB$ ChangeTargets | Defined$ Targeted | ChangeSingleTarget$ True", "ChangeSingleTarget$ without DefinedMagnet$"},
 		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility", "no triggering spell recorded"},
 	}
@@ -678,5 +677,25 @@ func TestSpellTargetOfferHonorsTargetValidTargeting(t *testing.T) {
 	}
 	if got := g.Player(other).Life; got != 17 {
 		t.Errorf("opponent life = %d, want 17 (the Bolt was not countered)", got)
+	}
+}
+
+// ConditionTargetValidTargeting$ and ConditionTargetsSingleTarget$ (Meddle,
+// SpellAbilityCondition.java:430-473) gate the retarget on the first targeted
+// spell: a Bolt at a player is neither at a creature nor ruled out as having
+// one target, so the retargeter does nothing and the Bolt keeps its target.
+func TestChangeTargetsConditionTargetValidTargetingGate(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	seatRetargeter(t, g, p, "DB$ ChangeTargets | TargetType$ Spell | ValidTgts$ Card | ConditionTargetValidTargeting$ Creature.inZoneBattlefield | ConditionTargetsSingleTarget$ True")
+	bolt := boltAt(t, g, p)
+	c := engine.NewScriptedController()
+	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
+	c.QueueTargets([]engine.EntityID{engine.CardEntity(bolt)})
+	if err := castW(t, g, p, bolt, c); err != nil {
+		t.Fatal(err)
+	}
+	if g.Player(other).Life != 17 {
+		t.Errorf("other's life = %d, want 17: the gate failed and the Bolt kept its target", g.Player(other).Life)
 	}
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // subAbilityUnresolvedParams names SpellAbilityCondition's own remaining
@@ -46,8 +47,7 @@ import (
 // (SpellAbilityCondition.java:184-185, :354).
 var subAbilityUnresolvedParams = [...]string{
 	"Condition",
-	"ConditionGameTypes", "ConditionSorcerySpeed", "ConditionTargetValidTargeting",
-	"ConditionTargetsSingleTarget",
+	"ConditionGameTypes", "ConditionSorcerySpeed",
 }
 
 // subAbilityConditionMet reports whether a's own SpellAbilityCondition gate
@@ -85,6 +85,16 @@ func subAbilityConditionMet(g *Game, host *Card, amounts map[string]expr.Amount,
 		}
 		turn, _ := host.activations.of(g.resolving.activationIndex - 1)
 		if !compareOp(turn, v[:2], right) {
+			return false
+		}
+	}
+	if spec, ok := a.Param("ConditionTargetValidTargeting"); ok {
+		if !g.firstTargetedSpellHasTarget(host, spec) {
+			return false
+		}
+	}
+	if _, ok := a.Param("ConditionTargetsSingleTarget"); ok {
+		if !g.firstTargetedSpellHasOnlyOneTarget() {
 			return false
 		}
 	}
@@ -414,4 +424,68 @@ func kickedConditionMet(host *Card, value string) bool {
 		return host.kicker&kicker2 != 0
 	}
 	return false
+}
+
+// firstTargetedSpell is the stack item of the first spell or ability the
+// resolving ability targets (TargetChoices.getFirstTargetedSpell), and whether
+// it is still on the stack.
+func (g *Game) firstTargetedSpell() (Ability, bool) {
+	a := g.resolving
+	if a == nil {
+		return Ability{}, false
+	}
+	for _, e := range a.Targets {
+		if id, ok := e.AsStackItem(); ok {
+			if item, ok := g.stackItem(id); ok {
+				return *item, true
+			}
+			return Ability{}, false
+		}
+		if card, ok := e.AsCard(); ok {
+			if id, ok := g.spellItemOf(card); ok {
+				item, _ := g.stackItem(id)
+				return *item, true
+			}
+		}
+	}
+	return Ability{}, false
+}
+
+// firstTargetedSpellHasTarget is SpellAbilityCondition.java:430-455,
+// ConditionTargetValidTargeting$: some target of the first targeted spell
+// (or of its sub-abilities) is valid for spec, from the host's point of view.
+func (g *Game) firstTargetedSpellHasTarget(host *Card, spec string) bool {
+	item, ok := g.firstTargetedSpell()
+	if !ok {
+		return false
+	}
+	parsed := valid.Parse(spec)
+	for _, e := range allTargetsOf(item) {
+		if id, ok := e.AsCard(); ok && Matches(g, g.Card(id), parsed, host.Controller(), host.ID) {
+			return true
+		}
+		if pid, ok := e.AsPlayer(); ok {
+			if matched, known := matchesPlayerSpec(g, pid, host.Controller(), host.ID, spec); known && matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// firstTargetedSpellHasOnlyOneTarget is SpellAbilityCondition.java:456-473,
+// ConditionTargetsSingleTarget$: the first targeted spell's whole chain
+// targets exactly one distinct object.
+func (g *Game) firstTargetedSpellHasOnlyOneTarget() bool {
+	item, ok := g.firstTargetedSpell()
+	if !ok {
+		return false
+	}
+	var distinct []EntityID
+	for _, e := range allTargetsOf(item) {
+		if !slices.Contains(distinct, e) {
+			distinct = append(distinct, e)
+		}
+	}
+	return len(distinct) == 1
 }

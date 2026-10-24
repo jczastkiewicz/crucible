@@ -53,7 +53,6 @@ type changeTargetsEffect struct{}
 // stackAbilityCandidates does not read.
 var changeTargetsUnresolvedParams = [...]string{
 	"Chooser", "RandomTarget", "RandomTargetRestriction",
-	"ConditionTargetValidTargeting", "ConditionTargetsSingleTarget",
 	"ConditionPlayerDefined", "ConditionPlayerContains", "TargetsWithControllerProperty",
 }
 

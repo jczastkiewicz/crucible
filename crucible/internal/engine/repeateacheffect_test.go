@@ -253,7 +253,7 @@ type repeatDeciderAsker struct {
 	asked []engine.PlayerID
 }
 
-func (c *repeatDeciderAsker) ConfirmEffect(g *engine.Game, p engine.PlayerID, src engine.CardID) bool {
+func (c *repeatDeciderAsker) ConfirmEffect(_ *engine.Game, p engine.PlayerID, _ engine.CardID) bool {
 	c.asked = append(c.asked, p)
 	return false
 }

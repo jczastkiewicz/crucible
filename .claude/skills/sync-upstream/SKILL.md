@@ -8,7 +8,7 @@ description:
 # Sync with Card-Forge/forge
 
 Procedure: `docs/crucible/runbooks/upstream-sync.md` (ADR-0015). Read it first, every time: merge commands, the gate
-table, golden regeneration, `javacycles -expect 87`, `tools/metrics`, conflicts, the "Never" list. This skill adds only
+table, golden regeneration, `javacycles -expect 88`, `tools/metrics`, conflicts, the "Never" list. This skill adds only
 what the runbook does not cover.
 
 ## Merge

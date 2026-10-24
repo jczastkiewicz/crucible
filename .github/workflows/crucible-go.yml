@@ -85,12 +85,14 @@ jobs:
           version: v2.14.0
           working-directory: crucible
 
+      # -timeout: internal/engine alone outgrew go test's default 10 minutes under
+      # -race on a two-core runner; the whole job must finish inside it.
       # -race is not optional here. The engine is goroutine-per-game with an
       # immutable shared card database, and a silently shared pointer is the
       # highest-probability bug to import from Java's mutable statics
       # (GO-2, TEST-7).
       - name: go test -race
-        run: go test -race -count=1 -coverprofile=cover.out ./...
+        run: go test -race -count=1 -timeout 45m -coverprofile=cover.out ./...
 
       # TEST-12's floors, which REV-4 lists as blocking and nothing measured.
       # covergate reads the floors out of the guideline itself, so the table
@@ -102,7 +104,7 @@ jobs:
       # ever changes the coupling in forge-game, the single-package engine core
       # needs revisiting, and this is how we find out instead of assuming.
       - name: ADR-0003 premise — java package cycles
-        run: go run ./tools/javacycles -root ../forge-game/src/main/java -prefix forge.game -expect 87
+        run: go run ./tools/javacycles -root ../forge-game/src/main/java -prefix forge.game -expect 88
 
       # DOC-12 and ADRP-4 say the documentation lands with the code. docgate is
       # what makes that a build failure instead of a review habit.

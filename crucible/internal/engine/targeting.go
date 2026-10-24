@@ -245,16 +245,6 @@ func (g *Game) trimTargetSet(a *Ability, chosen []EntityID) []EntityID {
 	return kept
 }
 
-// sharesCardType is Card.sharesCardTypeWith: a core type in common.
-func sharesCardType(a, b *Card) bool {
-	for _, t := range a.Type().CoreTypes() {
-		if b.Type().Has(t) {
-			return true
-		}
-	}
-	return false
-}
-
 // sharesCreatureType is Card.sharesCreatureTypeWith (CardType.java:704-735):
 // both are creatures or Kindred and have a creature type in common. A card with
 // Changeling carries every creature type already (applyChangelings), which is

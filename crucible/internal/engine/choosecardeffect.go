@@ -570,9 +570,3 @@ func chooseCardPowerLoops(g *Game, a *Ability, controller PlayerController, pid 
 	}
 	return nil, false, nil
 }
-
-// netPower is Card.getNetPower: the layered power, 0 for a card with none.
-func netPower(c *Card) int {
-	p, _ := c.Power()
-	return p
-}

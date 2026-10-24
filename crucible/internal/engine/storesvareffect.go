@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card condition control effecthelpers game
+//enginelint:allow id ability amount card condition control effecthelpers game
 
 import (
 	"fmt"

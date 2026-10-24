@@ -1620,3 +1620,30 @@ type enterPile struct {
 	source CardID
 	placer PlayerID
 }
+
+// regenFollow is a shield's RegenerationAbility$ (RegenerateEffect.java:92-95)
+// and the objects RememberObjects$ put on the shield's effect card
+// (:102-104): used when the shield is spent (Game.runRegenFollow).
+type regenFollow struct {
+	follow     compile.SubRef
+	remember   []EntityID
+	controller PlayerID
+	source     CardID
+	amounts    map[string]expr.Amount
+}
+
+// sharesCardType is Card.sharesCardTypeWith: a core type in common.
+func sharesCardType(a, b *Card) bool {
+	for _, t := range a.Type().CoreTypes() {
+		if b.Type().Has(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// netPower is Card.getNetPower: the layered power, 0 for a card with none.
+func netPower(c *Card) int {
+	p, _ := c.Power()
+	return p
+}

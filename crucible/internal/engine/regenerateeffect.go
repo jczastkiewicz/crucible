@@ -1,25 +1,11 @@
 package engine
 
-//enginelint:allow card game ability additional defined condition control zone
+//enginelint:allow id card game ability additional defined condition control zone
 
 import (
 	"fmt"
 	"strings"
-
-	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
-	"github.com/jczastkiewicz/crucible/internal/expr"
 )
-
-// regenFollow is a shield's RegenerationAbility$ (RegenerateEffect.java:92-95)
-// and the objects RememberObjects$ put on the shield's effect card
-// (:102-104): used when the shield is spent (Game.runRegenFollow).
-type regenFollow struct {
-	follow     compile.SubRef
-	remember   []EntityID
-	controller PlayerID
-	source     CardID
-	amounts    map[string]expr.Amount
-}
 
 // regenerateEffect is RegenerateEffect.java: each targeted or Defined$
 // permanent (default Self) still on the battlefield gets one regeneration

@@ -676,7 +676,9 @@
       "replacement",
       "ability",
       "zone",
-      "regenerationeffect"
+      "regenerationeffect",
+      "effecteffect",
+      "immediatetriggereffect"
     ],
     "effecthelpers": ["id", "card", "game", "valid", "parts", "ability", "zone", "amount"],
     "animate": [

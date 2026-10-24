@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // digUnresolvedParams are DigEffect.java's params this port cannot honour
 // yet: a non-library or bottom-up dig (SourceZone$, FromBottom$), the alternative selection loops
-// (ForEachColorPair$, WithDifferentPowers$),
+// (WithDifferentPowers$),
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping, and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"ForEachColorPair", "WithDifferentPowers", "GainControl",
+	"WithDifferentPowers", "GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 }
 
@@ -239,6 +241,31 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				valid = withoutCards(valid, pick)
 				budget -= g.Card(pick[0]).CMC()
 				valid = filterValid(g, valid, fmt.Sprintf("Card.cmcLE%d", budget), source.Controller(), a.Source)
+			}
+		case hasParam(a, "ForEachColorPair"):
+			// DigEffect.java:290-306: one card per two-color pair, in
+			// MagicColor.COLORPAIR order (WU UB BR RG GW WB UR BG RW GU), each
+			// exactly those two colors (Niv-Mizzet Reborn); a pair with no
+			// match is skipped without a question, ChangeNum$ is not read.
+			for _, pair := range [...]mana.Colors{
+				mana.White | mana.Blue, mana.Blue | mana.Black, mana.Black | mana.Red,
+				mana.Red | mana.Green, mana.Green | mana.White, mana.White | mana.Black,
+				mana.Blue | mana.Red, mana.Black | mana.Green, mana.Red | mana.White,
+				mana.Green | mana.Blue} {
+				var list []CardID
+				for _, id := range valid {
+					if g.Card(id).Colors() == pair {
+						list = append(list, id)
+					}
+				}
+				if len(list) == 0 {
+					continue
+				}
+				pick := controller.ChooseCardsForEffect(g, chooser, a.Source, list, 1, 1)
+				if err := checkChoice(pick, list, 1, 1); err != nil {
+					return fmt.Errorf("engine: Dig: %w", err)
+				}
+				chosen = append(chosen, pick...)
 			}
 		case len(valid) > 0:
 			hi := changeNum

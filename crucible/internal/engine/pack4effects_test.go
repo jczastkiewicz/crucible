@@ -547,3 +547,27 @@ func TestDigMultipleChangeLaterLeavesThePicksAndImprintsTheRest(t *testing.T) {
 		t.Errorf("imprinted = %v, want the card not picked", im)
 	}
 }
+
+// TestDigForEachColorPairTakesOneCardPerPair proves ForEachColorPair$ (Niv-Mizzet
+// Reborn, DigEffect.java:290-306): one card per two-color pair, each exactly
+// those two colors, a pair with no match skipped without a question.
+func TestDigForEachColorPairTakesOneCardPerPair(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	wu1 := g.NewCard(creatureDefManaCost(t, "W U"), p, engine.Library)
+	wu2 := g.NewCard(creatureDefManaCost(t, "1 W U"), p, engine.Library)
+	br := g.NewCard(creatureDefManaCost(t, "B R"), p, engine.Library)
+	mono := g.NewCard(creatureDefManaCost(t, "R"), p, engine.Library)
+	three := g.NewCard(creatureDefManaCost(t, "W U B"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{wu2})
+	c.QueueCardChoice([]engine.CardID{br})
+	c.QueueCardOrder([]engine.CardID{wu1, mono, three})
+	resolveLine(t, g, p, c, "DB$ Dig | DigNum$ 10 | ForEachColorPair$ True | DestinationZone$ Hand")
+	for id, want := range map[engine.CardID]engine.ZoneType{wu1: engine.Library, wu2: engine.Hand, br: engine.Hand, mono: engine.Library, three: engine.Library} {
+		if z := g.Card(id).Zone; z != want {
+			t.Errorf("card %d is in %v, want %v", id, z, want)
+		}
+	}
+}

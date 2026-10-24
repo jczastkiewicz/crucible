@@ -1184,8 +1184,10 @@ func controlsMatches(g *Game, candidate, host PlayerID, source CardID, property 
 		if len(parts[1]) < 3 {
 			return false, false
 		}
-		n, err := strconv.Atoi(parts[1][2:])
-		if err != nil {
+		// A non-numeric operand is an SVar of the host (AbilityUtils.
+		// calculateAmount, Gor Muldrak's controlsCreature_EQX).
+		n, resolved := compareOperand(g, parts[1][2:], host, source)
+		if !resolved {
 			return false, false
 		}
 		op, operand = parts[1][:2], n

@@ -56,10 +56,24 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		return validFamilyValue(g, sourceController, source, count)
 	}
 	if spec, ok := strings.CutPrefix(count.Head, "ThisTurnCast_"); ok {
+		if len(count.Parameters) > 0 {
+			spec += "." + strings.Join(count.Parameters, ".")
+		}
 		if count.Argument != "" {
 			spec += " " + count.Argument // a valid string with a space in it (ControlledBy Player.Active)
 		}
 		return g.thisTurnCastCount(source, spec)
+	}
+	if spec, ok := strings.CutPrefix(count.Head, "CastSinceBeginningOfYourLastTurn_"); ok {
+		// ParseCount cuts the head at the first `.`; the valid string is the
+		// whole text after the underscore.
+		if len(count.Parameters) > 0 {
+			spec += "." + strings.Join(count.Parameters, ".")
+		}
+		if count.Argument != "" {
+			spec += " " + count.Argument
+		}
+		return g.castSinceYourLastTurnCount(sourceController, source, spec)
 	}
 	if strings.HasPrefix(count.Head, "ThisTurnEntered_") {
 		if sourceController == NoPlayer {

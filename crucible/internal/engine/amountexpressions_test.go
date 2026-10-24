@@ -746,3 +746,42 @@ func TestPlayerCountConditionReadsAPerPlayerAmountOnce(t *testing.T) {
 		t.Errorf("players at or below half of starting life = %d, want 1", got)
 	}
 }
+
+// A player property comparing against an SVar operand (Gor Muldrak's
+// controlsCreature_EQX) resolves the SVar on the host. The resolving host is a
+// creature of the activator, so both players control exactly one.
+func TestControlsPropertyOperandIsAnSVar(t *testing.T) {
+	t.Parallel()
+
+	one := func(g *engine.Game, _, other engine.PlayerID) {
+		addN(t, g, other, engine.Battlefield, 1, "Creature Elf")
+	}
+	if got := gainedFrom(t, one, "PlayerCountPlayers$HasPropertycontrolsCreature_EQY", "Y", "Number$1"); got != 2 {
+		t.Errorf("players controlling exactly Y creatures = %d, want 2", got)
+	}
+}
+
+// Count$CastSinceBeginningOfYourLastTurn_<spec> counts the spells cast this
+// turn and since the player's own last turn began (MagicStack.onNextTurn,
+// AbilityUtils.java:2796-2806): Concert Kaboomist.
+func TestCastSinceBeginningOfYourLastTurnCounts(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.SetTurnState(1, p, engine.Main1)
+	spell := g.NewCard(gainInstant(t, "Gain", "W", "1"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.White, 1)
+	if !g.CastSpell(p, spell, engine.NewScriptedController()) {
+		t.Fatalf("CastSpell failed: %v", g.TakePendingError())
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), engine.NewScriptedController()); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	before := g.Player(p).Life
+	resolveLine(t, g, p, engine.NewScriptedController(), "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$CastSinceBeginningOfYourLastTurn_Card.namedGain+YouCtrl")
+	_ = other
+	if got := g.Player(p).Life - before; got != 1 {
+		t.Errorf("spells cast since your last turn began = %d, want 1", got)
+	}
+}

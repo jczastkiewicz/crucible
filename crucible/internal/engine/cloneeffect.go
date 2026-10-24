@@ -486,7 +486,7 @@ func cloneChoice(g *Game, a *Ability, controller PlayerController) (CardID, bool
 		zone = z
 	}
 	raw, _ := a.Params.Param("Choices")
-	spec, err := cloneSpec(raw)
+	spec, err := cloneSpec(raw, g.Card(a.Source))
 	if err != nil {
 		return NoCard, false, err
 	}
@@ -574,7 +574,7 @@ func cloneDefinedCards(g *Game, a *Ability, source *Card, raw string) ([]CardID,
 		alt.Properties = props
 		parsed.Alternatives = []valid.Alternative{alt}
 	}
-	spec, err := cloneSpecChecked(parsed, rest)
+	spec, err := cloneSpecChecked(parsed, rest, source)
 	if err != nil {
 		return nil, err
 	}
@@ -597,13 +597,13 @@ var cloneUnportedProperties = [...]string{"NotDefinedTargeted", "TriggeredCards"
 // cloneSpec parses a Choices$/Valid spec, rejecting the properties
 // Matches cannot answer: cloneUnportedProperties, a ThisTurnEntered* name
 // naming no zone, and a comparison against anything but a literal number.
-func cloneSpec(raw string) (valid.Spec, error) {
-	return cloneSpecChecked(valid.Parse(raw), raw)
+func cloneSpec(raw string, host *Card) (valid.Spec, error) {
+	return cloneSpecChecked(valid.Parse(raw), raw, host)
 }
 
 // cloneSpecChecked is cloneSpec over an already parsed spec; raw names it in
 // the error.
-func cloneSpecChecked(spec valid.Spec, raw string) (valid.Spec, error) {
+func cloneSpecChecked(spec valid.Spec, raw string, host *Card) (valid.Spec, error) {
 	for _, alt := range spec.Alternatives {
 		for _, p := range alt.Properties {
 			// ThisTurnEntered, ThisTurnEntered[Your]<Zone> and
@@ -614,7 +614,9 @@ func cloneSpecChecked(spec valid.Spec, raw string) (valid.Spec, error) {
 				unported = unported || p.Name == name
 			}
 			if p.Compare != nil {
-				if _, err := strconv.Atoi(p.Compare.Operand); err != nil {
+				// A numeric operand, or an SVar the host's faces name that
+				// compareOperand resolves (Mockingbird's cmcLEY).
+				if _, err := strconv.Atoi(p.Compare.Operand); err != nil && !hostNamesAmount(host, p.Compare.Operand) {
 					unported = true
 				}
 			}
@@ -1021,4 +1023,18 @@ func addGainedTraits(f *compile.Face, a *Ability) {
 			f.Statics = append(append([]*compile.Ability(nil), f.Statics...), sub.Ability)
 		}
 	}
+}
+
+// hostNamesAmount reports whether one of host's live faces defines the SVar
+// amount name.
+func hostNamesAmount(host *Card, name string) bool {
+	if host == nil || host.Def == nil {
+		return false
+	}
+	for i := range host.Def.Faces[:liveFaces(host.Def)] {
+		if _, ok := host.Def.Faces[i].Amounts[strings.ToLower(name)]; ok {
+			return true
+		}
+	}
+	return false
 }

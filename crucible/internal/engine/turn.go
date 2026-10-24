@@ -119,6 +119,15 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.previousPlayerSpells = g.Player(g.activePlayer).SpellsCastThisTurn
 			// MagicStack.onNextTurn (MagicStack.java:965-979): this turn's
 			// spells become last turn's, an empty turn leaving none.
+			delete(g.castSinceOwnTurn, g.activePlayer)
+			if len(g.castThisTurn) > 0 {
+				if g.castSinceOwnTurn == nil {
+					g.castSinceOwnTurn = map[PlayerID][]castRecord{}
+				}
+				for _, pid := range g.Players() {
+					g.castSinceOwnTurn[pid] = append(g.castSinceOwnTurn[pid], g.castThisTurn...)
+				}
+			}
 			g.castLastTurn = g.castThisTurn
 			g.castThisTurn = nil
 			// MagicStack.java:968: thisTurnActivated.clear().

@@ -185,6 +185,11 @@ type Game struct {
 	// previous turn's castThisTurn, rotated as a new turn starts. The
 	// Werewolf trigger conditions read it (amountrecords.go).
 	castLastTurn []castRecord
+	// castSinceOwnTurn is Player.spellsCastSinceBeginningOfLastTurn per
+	// player: the spells cast since that player's last turn began, other than
+	// this turn's (MagicStack.onNextTurn, MagicStack.java:958-974). Looked up by
+	// player, never iterated.
+	castSinceOwnTurn map[PlayerID][]castRecord
 	// enterLast is the battlefield and graveyards as an entering permanent's
 	// counters are put (applyEnterCounters): the LastStateBattlefield and
 	// LastStateGraveyard its replacement ability reads, nil outside one.
@@ -1634,6 +1639,7 @@ func (g *Game) Clone() *Game {
 		charmModes:            cloneCharmModes(g.charmModes),
 		castThisTurn:          append([]castRecord(nil), g.castThisTurn...),
 		castLastTurn:          append([]castRecord(nil), g.castLastTurn...),
+		castSinceOwnTurn:      cloneCastSince(g.castSinceOwnTurn),
 		startingPlayer:        g.startingPlayer,
 		leftGraveyardThisTurn: append([]Card(nil), g.leftGraveyardThisTurn...),
 		endOfTurnsThisTurn:    g.endOfTurnsThisTurn,
@@ -1905,4 +1911,16 @@ type layerKey struct {
 type extraPhase struct {
 	phase   PhaseType
 	trigger *delayedTrigger
+}
+
+// cloneCastSince copies the per-player cast records Game.Clone carries.
+func cloneCastSince(m map[PlayerID][]castRecord) map[PlayerID][]castRecord {
+	if m == nil {
+		return nil
+	}
+	out := make(map[PlayerID][]castRecord, len(m))
+	for pid, recs := range m {
+		out[pid] = append([]castRecord(nil), recs...)
+	}
+	return out
 }

@@ -674,3 +674,21 @@ func TestManaEachMakesEachUnitOfEveryDifferentColorChosen(t *testing.T) {
 		t.Error("the same color twice under AnyDifferent resolved, want an error")
 	}
 }
+
+// RememberAmount$ remembers the batch's total damage as an Integer
+// (GameAction.java:2795-2796), Creeping Bloodsucker's Count$RememberedNumber.
+func TestDealDamageRememberAmount(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	before := g.Player(p).Life
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 3 | RememberAmount$ True | SubAbility$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$RememberedNumber")
+	if got := g.Player(p).Life - before; got != 3 {
+		t.Errorf("gained %d, want 3", got)
+	}
+	if got := g.Player(other).Life; got != 17 {
+		t.Errorf("opponent life = %d, want 17", got)
+	}
+}

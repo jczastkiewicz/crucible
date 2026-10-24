@@ -425,3 +425,24 @@ func (g *Game) unlockedDoorNames(pid PlayerID) []string {
 	}
 	return names
 }
+
+// castSinceYourLastTurnCount is Count$CastSinceBeginningOfYourLastTurn_<spec>
+// (AbilityUtils.java:2796-2806, CardUtil.getCastSinceBeginningOfYourLastTurn):
+// the spells cast this turn plus those the player's own record holds, read as
+// their casters controlled them, matching spec for the controller.
+func (g *Game) castSinceYourLastTurnCount(controller PlayerID, source CardID, spec string) (int, bool) {
+	if source == NoCard || controller == NoPlayer {
+		return 0, false
+	}
+	parsed := valid.Parse(strings.TrimSpace(spec))
+	n := 0
+	records := append(append([]castRecord(nil), g.castThisTurn...), g.castSinceOwnTurn[controller]...)
+	for _, rec := range records {
+		view := *g.Card(rec.card)
+		view.controller = rec.controller
+		if Matches(g, &view, parsed, controller, source) {
+			n++
+		}
+	}
+	return n, true
+}

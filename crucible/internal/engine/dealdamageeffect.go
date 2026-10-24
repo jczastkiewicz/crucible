@@ -93,7 +93,7 @@ var dealDamageUnresolvedParams = [...]string{
 	"NoRedirection",
 	"DivideEvenly", "DividerOnResolution",
 	"Random",
-	"RememberAmount", "RememberRedirectedExcess",
+	"RememberRedirectedExcess",
 }
 
 func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -140,6 +140,9 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	if hasParam(a, "DamageMap") && a.damageMap == nil {
 		a.damageMap = &pendingDamage{}
+	}
+	if a.damageMap != nil && hasParam(a, "RememberAmount") {
+		return fmt.Errorf("engine: DealDamage: RememberAmount$ under DamageMap$ not resolvable yet")
 	}
 	if a.damageMap != nil && hasParam(a, "RememberDamaged") {
 		// GameAction.dealDamage remembers for the ability that deals the
@@ -229,6 +232,15 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	}
 	bindExcessSVar(g, a, table)
 	g.checkDamageTableTriggers(controller, table, false)
+	if hasParam(a, "RememberAmount") {
+		// GameAction.java:2795-2796: the batch's total, an Integer read by
+		// Count$RememberedNumber.
+		total := 0
+		for _, e := range table {
+			total += e.Amount
+		}
+		g.Card(a.Source).Memory.RememberNumber(total)
+	}
 	return g.replaceDying(a, "DealDamage")
 }
 

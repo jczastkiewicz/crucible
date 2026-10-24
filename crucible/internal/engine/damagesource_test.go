@@ -522,7 +522,6 @@ func TestDealDamageRejectsUnportedParams(t *testing.T) {
 		{"DividerOnResolution$ You", "DividerOnResolution$"},
 		{"DivideEvenly$ RoundedDown", "DivideEvenly$"},
 		{"Random$ True", "Random$"},
-		{"RememberAmount$ True", "RememberAmount$"},
 		{"NoRedirection$ True", "NoRedirection$"},
 		{"DamageMap$ True | RememberDamaged$ True", "RememberDamaged$"},
 	} {

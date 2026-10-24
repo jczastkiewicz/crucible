@@ -349,3 +349,29 @@ func TestDigEffectSourceZoneReadsThatZoneInsteadOfTheLibrary(t *testing.T) {
 		t.Errorf("zone = %v, want Hand", z)
 	}
 }
+
+// WithDifferentPowers$ (Rip, Spawn Hunter): each optional pick drops every
+// card of its power from the pool, so the second 2-power card cannot follow.
+func TestDigEffectWithDifferentPowers(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	a := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+	b := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+	c3 := g.NewCard(creatureDefPT(t, "3", "3"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{a})
+	c.QueueCardChoice([]engine.CardID{c3})
+	line := "DB$ Dig | DigNum$ 3 | ChangeNum$ Any | WithDifferentPowers$ True | ChangeValid$ Creature"
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test Dig Powers", line), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	for _, id := range []engine.CardID{a, c3} {
+		if z := g.Card(id).Zone; z != engine.Hand {
+			t.Errorf("card %d zone = %v, want Hand", id, z)
+		}
+	}
+	if z := g.Card(b).Zone; z != engine.Library {
+		t.Errorf("same-power card zone = %v, want Library", z)
+	}
+}

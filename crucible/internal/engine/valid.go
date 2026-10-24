@@ -410,6 +410,12 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// CardProperty.java:819-822: c shares a name with the source itself.
 		sc, ok := sourceCard(g, source)
 		return ok && g.sharesNameWith(c.ID, sc.ID)
+	case name == "sharesCardTypeWith":
+		// CardProperty.java:748-751: a core type in common with the source.
+		sc, ok := sourceCard(g, source)
+		return ok && sharesCardType(c, sc)
+	case strings.HasPrefix(name, "sharesCardTypeWith "):
+		return g.sharesCardTypeWithAny(c, strings.TrimPrefix(name, "sharesCardTypeWith "), sourceController, source)
 	case strings.HasPrefix(name, "sharesNameWith "):
 		return g.sharesNameWithAny(c, strings.TrimPrefix(name, "sharesNameWith "), sourceController, source)
 	case strings.HasPrefix(name, "AttachedTo "):
@@ -1815,9 +1821,20 @@ func sharesName(c *Card, name string) bool {
 // ThisTurnCast, MovedToGrave, TriggeredCard and the other Defined$ forms need
 // that ability: they match nothing and leave a pending error.
 func (g *Game) sharesNameWithAny(c *Card, restriction string, sourceController PlayerID, source CardID) bool {
+	return g.sharesWithAny(c, restriction, sourceController, source, func(other, c *Card) bool { return g.sharesNameWith(other.ID, c.ID) })
+}
+
+// sharesCardTypeWithAny is CardProperty.java:761-784, `sharesCardTypeWith
+// <restriction>`: the same restriction forms as sharesNameWith, with a core
+// type in common (Card.sharesCardTypeWith) as the test.
+func (g *Game) sharesCardTypeWithAny(c *Card, restriction string, sourceController PlayerID, source CardID) bool {
+	return g.sharesWithAny(c, restriction, sourceController, source, sharesCardType)
+}
+
+func (g *Game) sharesWithAny(c *Card, restriction string, sourceController PlayerID, source CardID, shares func(other, c *Card) bool) bool {
 	anyShares := func(ids []CardID) bool {
 		for _, id := range ids {
-			if g.sharesNameWith(id, c.ID) {
+			if shares(g.Card(id), c) {
 				return true
 			}
 		}
@@ -1826,7 +1843,7 @@ func (g *Game) sharesNameWithAny(c *Card, restriction string, sourceController P
 	inZone := func(z ZoneType, players []PlayerID, keep func(*Card) bool) bool {
 		for _, pid := range players {
 			for _, id := range g.Zone(z, pid).Cards() {
-				if keep(g.Card(id)) && g.sharesNameWith(id, c.ID) {
+				if keep(g.Card(id)) && shares(g.Card(id), c) {
 					return true
 				}
 			}

@@ -78,7 +78,7 @@ var playUnresolvedParams = [...]string{
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
 // use only ThisTurnCast and TriggeredCard, which stay refused.
 var playUnportedProperties = [...]string{
-	"ExiledWith", "sharesCardTypeWith", "CanPayManaCost",
+	"ExiledWith", "CanPayManaCost",
 }
 
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions

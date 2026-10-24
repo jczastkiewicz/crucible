@@ -16,7 +16,7 @@ import (
 // entering-state modifiers (FaceDown*$, WithCounters$), exile
 // bookkeeping, and GainControl$'s Cybership reorder.
 var digUnresolvedParams = [...]string{
-	"WithDifferentPowers", "GainControl",
+	"GainControl",
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
 }
 
@@ -241,6 +241,28 @@ func (digEffect) Resolve(g *Game, a *Ability, controller PlayerController) error
 				valid = withoutCards(valid, pick)
 				budget -= g.Card(pick[0]).CMC()
 				valid = filterValid(g, valid, fmt.Sprintf("Card.cmcLE%d", budget), source.Controller(), a.Source)
+			}
+		case hasParam(a, "WithDifferentPowers"):
+			// DigEffect.java:307-316: one optional pick at a time; each pick
+			// drops every card of its power. Unlike ChooseCard's loop, a pick
+			// is added once.
+			for len(valid) > 0 && (anyNumber || len(chosen) < changeNum) {
+				pick := controller.ChooseCardsForEffect(g, chooser, a.Source, valid, 0, 1)
+				if err := checkChoice(pick, valid, 0, 1); err != nil {
+					return fmt.Errorf("engine: Dig: %w", err)
+				}
+				if len(pick) == 0 {
+					break
+				}
+				chosen = append(chosen, pick[0])
+				power := netPower(g.Card(pick[0]))
+				var rest []CardID
+				for _, id := range valid {
+					if netPower(g.Card(id)) != power {
+						rest = append(rest, id)
+					}
+				}
+				valid = rest
 			}
 		case hasParam(a, "ForEachColorPair"):
 			// DigEffect.java:290-306: one card per two-color pair, in

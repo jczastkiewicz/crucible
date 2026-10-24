@@ -35,6 +35,25 @@ func TestReplaceSplitDamageRedirectsTheNextOneDamage(t *testing.T) {
 	t.Error("no removed effect card, want the spent redirection gone")
 }
 
+// TestDealDamageNoRedirectionSkipsTheRedirect proves the cause's NoRedirection$
+// (Lava Burst, ReplaceDamage.java:96-101): the damage lands on the creature.
+func TestDealDamageNoRedirectionSkipsTheRedirect(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	host := resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ Effect | RememberObjects$ Self | ReplacementEffects$ RedirectDamage | ExileOnMoved$ Battlefield | Duration$ Permanent | SubAbility$ DBDamage",
+		"RedirectDamage", "Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ RedirectDmg | DamageTarget$ You | Description$ The next 1 damage is dealt to you instead.",
+		"RedirectDmg", "DB$ ReplaceSplitDamage | DamageTarget$ You",
+		"DBDamage", "DB$ DealDamage | Defined$ Self | NumDmg$ 3 | NoRedirection$ True")
+	if got := g.Player(p).Life; got != 20 {
+		t.Errorf("controller life = %d, want 20 -- nothing redirected", got)
+	}
+	if z := g.Card(host).Zone; z != engine.Graveyard {
+		t.Errorf("creature zone = %v, want Graveyard", z)
+	}
+}
+
 // TestReplaceSplitDamageSkipsACreatureThatCannotBeRedirected proves
 // ReplaceDamage.java:100: a creature carrying Whippoorwill's hidden keyword
 // keeps all the damage, so Eladamri's redirection does not apply.

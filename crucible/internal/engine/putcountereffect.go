@@ -29,6 +29,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/keyword"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -70,7 +71,7 @@ import (
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
 	"DividedRandomly",
-	"ForColor", "SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
+	"SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
 }
 
@@ -81,7 +82,27 @@ var putCounterUnresolvedParams = [...]string{
 // DealDamage's/GainLife's/Pump's own do.
 type putCounterEffect struct{}
 
-func (putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+func (e putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if !hasParam(a, "ForColor") {
+		return e.resolve(g, a, controller)
+	}
+	// ForColor$ (CountersPutEffect.java:633-641, Call the Spirit Dragons): the
+	// effect runs once per color with the host's chosen color set to it, the
+	// old choice restored afterwards. The Choices$ ChosenColor property reads
+	// the color, so each color asks its own question.
+	host := &g.Card(a.Source).Memory
+	old := host.ChosenColors()
+	defer host.SetChosenColors(old)
+	for _, color := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+		host.SetChosenColors(color)
+		if err := e.resolve(g, a, controller); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, "PutCounter"); err != nil {
 		return err
 	}

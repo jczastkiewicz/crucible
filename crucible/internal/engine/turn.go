@@ -132,6 +132,7 @@ func (g *Game) advanceStep(controller PlayerController, driven bool) (bool, erro
 			g.castThisTurn = nil
 			// MagicStack.java:968: thisTurnActivated.clear().
 			g.activatedThisTurn = nil
+			g.singleMaxDamage = 0
 			g.crewedThisTurn = nil
 			g.resetCharmModesTurn()
 			for _, pid := range g.Players() {

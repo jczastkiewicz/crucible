@@ -332,6 +332,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		return
 	}
 	g.Card(source).damageDealtThisTurn += amount
+	g.singleMaxDamage = max(g.singleMaxDamage, amount)
 	c := g.Card(target)
 	// GameAction.java:2750-2752: what was lethal before this damage, for the
 	// batch's excess (bindExcessSVar).
@@ -423,6 +424,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		return
 	}
 	g.Card(source).damageDealtThisTurn += amount
+	g.singleMaxDamage = max(g.singleMaxDamage, amount)
 	g.Player(target).DamageReceivedThisTurn += amount
 	kind := 0
 	if isCombat {

@@ -438,6 +438,14 @@ type Game struct {
 	// (ReplacementHandler.java:407), it skips prevention shields and every
 	// Prevent$ / PreventionEffect$ replacement (:344-352).
 	noPreventDamage bool
+	// noRedirectDamage is the cause's NoRedirection$ (Lava Burst), read by a
+	// redirecting replacement's canReplace (ReplaceDamage.java:96-101) while the
+	// batch is dealt.
+	noRedirectDamage bool
+	// singleMaxDamage is Game.getSingleMaxDamageDoneThisTurn: the largest single
+	// damage instance dealt this turn (Count$SingleMaxDamageThisTurn), zeroed as
+	// a turn begins.
+	singleMaxDamage int
 
 	// lki is CR 603.6d's "look back in time": each CardID's own frozen copy
 	// of itself from the instant before Move's own battlefield-leaving branch
@@ -1629,6 +1637,7 @@ func (g *Game) Clone() *Game {
 		combatsThisTurn:       g.combatsThisTurn,
 		mainsThisTurn:         g.mainsThisTurn,
 		piledGuessedSA:        g.piledGuessedSA,
+		singleMaxDamage:       g.singleMaxDamage,
 		upkeepsThisTurn:       g.upkeepsThisTurn,
 		skipDamageSteps:       g.skipDamageSteps,
 		turnOrderReversed:     g.turnOrderReversed,

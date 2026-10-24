@@ -114,7 +114,6 @@ func TestDamageThisTurnUnreadableShapesFail(t *testing.T) {
 
 	for _, body := range []string{
 		"TotalDamageThisTurn Card Player",
-		"SingleMaxDamageThisTurn",
 		"DamageThisTurn Card",
 		"DamageThisTurn Card Player.Bogus",
 	} {

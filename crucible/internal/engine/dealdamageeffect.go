@@ -66,8 +66,8 @@ type dealDamageEffect struct{}
 //   - Condition$ (SpellAbilityCondition's flag switch; subAbilityConditionMet
 //     would otherwise silently no-op it), TriggeredSpellAbility$, CounterNum$,
 //     Optional$ -- each its own further mechanic;
-//   - NoRedirection$ -- the redirect would apply where Java says not to;
-//     NoPrevention$ resolves (Game.noPreventDamage) except under DamageMap$,
+//   - NoPrevention$ and NoRedirection$ resolve (Game.noPreventDamage,
+//     Game.noRedirectDamage); NoPrevention$ except under DamageMap$,
 //     where Java itself drops it (the DamageResolve that deals the batch is
 //     the cause, ReplacementHandler.java:407; forge-java-defects.md);
 //   - DivideEvenly$/DividerOnResolution$ -- Fireball's even split and
@@ -90,7 +90,6 @@ type dealDamageEffect struct{}
 // cause), not on this ability.
 var dealDamageUnresolvedParams = [...]string{
 	"TriggeredSpellAbility", "CounterNum", "Optional",
-	"NoRedirection",
 	"DivideEvenly", "DividerOnResolution",
 	"Random",
 	"RememberRedirectedExcess",
@@ -224,9 +223,9 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		// ReplaceDying effect is made now (DamageDealEffect.java:269-272).
 		return g.replaceDying(a, "DealDamage")
 	}
-	g.noPreventDamage = hasParam(a, "NoPrevention")
+	g.noPreventDamage, g.noRedirectDamage = hasParam(a, "NoPrevention"), hasParam(a, "NoRedirection")
 	table := g.dealPendingDamage(controller, batch.entries)
-	g.noPreventDamage = false
+	g.noPreventDamage, g.noRedirectDamage = false, false
 	if hasParam(a, "RememberDamaged") {
 		rememberDamaged(g, a.Source, table)
 	}

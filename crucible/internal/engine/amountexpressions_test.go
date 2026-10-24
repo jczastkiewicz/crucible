@@ -785,3 +785,19 @@ func TestCastSinceBeginningOfYourLastTurnCounts(t *testing.T) {
 		t.Errorf("spells cast since your last turn began = %d, want 1", got)
 	}
 }
+
+// Count$SingleMaxDamageThisTurn is the largest single damage instance dealt this
+// turn (Game.getSingleMaxDamageDoneThisTurn, Impact Resonance).
+func TestSingleMaxDamageThisTurnIsTheLargestInstance(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 3 | SubAbility$ DBTwo",
+		"DBTwo", "DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 2 | SubAbility$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$SingleMaxDamageThisTurn")
+	if got := g.Player(p).Life; got != 23 {
+		t.Errorf("life = %d, want 23 (the 3-damage instance)", got)
+	}
+}

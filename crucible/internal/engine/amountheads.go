@@ -132,6 +132,11 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 	if n, ok, handled := g.recordCountValue(sourceController, source, count); handled {
 		return n, ok
 	}
+	if count.Head == "SingleMaxDamageThisTurn" {
+		// AbilityUtils.java:2434-2436, ahead of the DamageThisTurn branch: the
+		// largest single damage instance dealt this turn.
+		return g.singleMaxDamage, true
+	}
 	if strings.Contains(count.Head, "DamageThisTurn") {
 		return g.damageThisTurnCount(sourceController, source, count)
 	}

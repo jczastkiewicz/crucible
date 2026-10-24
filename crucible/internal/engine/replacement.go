@@ -2293,12 +2293,15 @@ func (g *Game) manaReplaced(controller PlayerController, activator PlayerID, sou
 // CARDNAME can't be redirected.", every player DamageTarget$ names must
 // still be in the game, and every card must be a creature, planeswalker or
 // battle on the battlefield. The Replaced* spellings are allowed as Java
-// allows them. Not modeled: the cause's NoRedirection$ (Lava Burst), since
-// this dispatch is not handed the causing ability.
+// allows them. The cause's NoRedirection$ (Lava Burst) is
+// Game.noRedirectDamage, set around the batch.
 func damageRedirectAllowed(g *Game, r *compile.Ability, h *Card, affected EntityID) bool {
 	def, ok := r.Param("DamageTarget")
 	if !ok {
 		return true
+	}
+	if g.noRedirectDamage {
+		return false
 	}
 	if cid, ok := affected.AsCard(); ok && g.Card(cid).hasKeywordText(noRedirectKeyword) {
 		return false

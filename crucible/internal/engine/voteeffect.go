@@ -48,9 +48,6 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Vote", "UpTo"); err != nil {
-		return err
-	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
@@ -152,6 +149,9 @@ func (voteEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			pick, err := castVote(g, controller, realVoter, a, choices, options, opts)
 			if err != nil {
 				return err
+			}
+			if pick < 0 {
+				continue // UpTo$: the voter abstained
 			}
 			counts[pick]++
 			ballots = append(ballots, struct {
@@ -283,9 +283,18 @@ func castVote(g *Game, controller PlayerController, p PlayerID, a *Ability, choi
 	for i, o := range opts {
 		ents[i] = options[o].entity
 	}
-	chosen := controller.ChooseEntitiesForEffect(g, p, a.Source, ents, 1, 1)
-	if err := checkChoice(chosen, ents, 1, 1); err != nil {
+	// UpTo$ is the optional flag of PlayerController.vote
+	// (VoteEffect.java:104): a card or player vote may be declined.
+	lo := 1
+	if hasParam(a, "UpTo") {
+		lo = 0
+	}
+	chosen := controller.ChooseEntitiesForEffect(g, p, a.Source, ents, lo, 1)
+	if err := checkChoice(chosen, ents, lo, 1); err != nil {
 		return 0, fmt.Errorf("engine: Vote: %w", err)
+	}
+	if len(chosen) == 0 {
+		return -1, nil
 	}
 	for i, e := range ents {
 		if e == chosen[0] {

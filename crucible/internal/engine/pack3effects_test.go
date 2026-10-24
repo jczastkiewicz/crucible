@@ -939,3 +939,44 @@ func TestNameCardValidCardsByManaCost(t *testing.T) {
 		}
 	}
 }
+
+// ChoosePlayer's ChooseSubAbility$ runs when a player is chosen and
+// CantChooseSubAbility$ when the chooser declines (ChoosePlayerEffect.java:
+// 72-88).
+func TestChoosePlayerSubAbilities(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		decline bool
+		want    int
+	}{{false, 25}, {true, 22}} {
+		g, p, other := newTwoPlayerGame(t)
+		c := engine.NewScriptedController()
+		if tc.decline {
+			c.QueuePlayerChoice(engine.NoPlayer)
+		} else {
+			c.QueuePlayerChoice(other)
+		}
+		resolveLine(t, g, p, c, "DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | Optional$ True | ChooseSubAbility$ DBA | CantChooseSubAbility$ DBB",
+			"DBA", "DB$ GainLife | Defined$ You | LifeAmount$ 5",
+			"DBB", "DB$ GainLife | Defined$ You | LifeAmount$ 2")
+		if got := g.Player(p).Life; got != tc.want {
+			t.Errorf("decline=%v: life = %d, want %d", tc.decline, got, tc.want)
+		}
+	}
+}
+
+// GenericChoice Guess$ counts one guess per resolution (ChooseGenericEffect.
+// java:152-154), read by Count$NumPiledGuessedSA (The Celestial Toymaker).
+func TestGenericChoiceGuessCountsPiledGuesses(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueAbilityChoice([]int{0})
+	resolveLine(t, g, p, c, "DB$ GenericChoice | Defined$ You | Guess$ True | Choices$ DBA | SubAbility$ DBGain",
+		"DBA", "DB$ Draw | Defined$ You | NumCards$ 0",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$NumPiledGuessedSA/Twice")
+	if got := g.Player(p).Life; got != 22 {
+		t.Errorf("life = %d, want 22 (one guess, twice)", got)
+	}
+}

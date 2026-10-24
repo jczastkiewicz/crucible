@@ -147,3 +147,19 @@ func TestAdditionalVillainousChoiceFacesItTwice(t *testing.T) {
 		t.Errorf("life = %d/%d, want 29/16: both picks resolve", g.Player(p).Life, g.Player(other).Life)
 	}
 }
+
+// UpTo$ lets a voter decline a card or player vote (VoteEffect.java:104): both
+// players abstain, so nobody receives a vote and the sub-ability remembers
+// nobody.
+func TestVoteUpToLetsVotersAbstain(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	c.QueueEntityChoice(nil)
+	c.QueueEntityChoice([]engine.EntityID{engine.PlayerEntity(other)})
+	resolveLine(t, g, p, c, "DB$ Vote | Defined$ Player | VotePlayer$ Player | UpTo$ True | VoteSubAbility$ DBHit",
+		"DBHit", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 3")
+	if g.Player(other).Life != 17 || g.Player(p).Life != 20 {
+		t.Errorf("life = %d/%d, want 20/17: one abstained, one voted for the opponent", g.Player(p).Life, g.Player(other).Life)
+	}
+}

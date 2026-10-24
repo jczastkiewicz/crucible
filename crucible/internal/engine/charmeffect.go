@@ -10,23 +10,23 @@
 
 package engine
 
-//enginelint:allow ability amount card control game id
+//enginelint:allow ability amount card control game id valid
 
 import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 // charmUnresolvedParams are CharmEffect params this port does not model:
-// Random$ Compare
-// Compare, Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
+// Defined$ (never read by CharmEffect, 40 corpus lines of `Defined$ You`: a
 // dead script param, forge-java-defects.md and card-script-defects.md; refused until
 // the scripts drop it, PORT-8). ActivationLimit$/GameActivationLimit$ are enforced at
 // activation (activationLimitsMet, activateability.go).
 var charmUnresolvedParams = [...]string{
-	"RandomCompare", "RandomCompareSVar", "Defined",
+	"Defined",
 }
 
 // chooseCharmModes is makeChoices, run from pushTriggeredAbilities before
@@ -106,7 +106,25 @@ func (g *Game) chooseCharmModes(controller PlayerController, a *Ability) (bool, 
 		return false, nil
 	}
 	var chosen []int
-	if random, ok := a.Params.Param("Random"); ok {
+	random, hasRandom := a.Params.Param("Random")
+	if hasRandom && random == "Compare" {
+		// CharmEffect.java:247-251: Random$ Compare picks at random only when
+		// RandomCompareSVar$ compares true against RandomCompare$.
+		compare, svar := "", ""
+		if v, ok := a.Params.Param("RandomCompare"); ok {
+			compare = v
+		}
+		if v, ok := a.Params.Param("RandomCompareSVar"); ok {
+			svar = v
+		}
+		value, ok := resolveNamedAmount(g, a.Amounts, host, svar)
+		right, err := strconv.Atoi(strings.TrimSpace(compare[min(2, len(compare)):]))
+		if len(compare) < 3 || !ok || err != nil {
+			return false, fmt.Errorf("engine: Charm: RandomCompare$ %q over %q not resolvable", compare, svar)
+		}
+		hasRandom, random = compareOp(value, compare[:2], right), "True"
+	}
+	if hasRandom {
 		if random != "True" || repeat {
 			return false, fmt.Errorf("engine: Charm: Random$ %q not resolvable yet", random)
 		}

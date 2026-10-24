@@ -279,6 +279,9 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			return len(m.Imprinted()), true
 		}
 		return len(m.Chosen()), true
+	case "NumPiledGuessedSA":
+		// AbilityUtils.java:2364-2365: the guess-style choices made this turn.
+		return g.piledGuessedSA, true
 	case "RememberedNumber":
 		// AbilityUtils.java:1991-1999: the sum of the integers the host
 		// remembers (PutCounter's RememberAmount$), 0 when it remembers none.

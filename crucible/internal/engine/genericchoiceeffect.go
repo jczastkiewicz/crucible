@@ -5,7 +5,7 @@ package engine
 import "fmt"
 
 // genericChoiceUnresolvedParams are ChooseGenericEffect.java's params this
-// port cannot honour yet: NumRandomChoices$ (a random subset first), Guess$,
+// port cannot honour yet: NumRandomChoices$ (a random subset first),
 // and the batched damage/zone tables (DamageMap$, ChangeZoneTable$).
 // SetChosenMode$ records the pick on the host (ChooseGenericEffect.java:
 // 120-122); LockInText$ is display text the statics also carry; Secretly$
@@ -14,7 +14,7 @@ import "fmt"
 // AtRandom$ Urza re-draws targeting choices with no candidates (:91-100) and
 // is refused.
 var genericChoiceUnresolvedParams = [...]string{
-	"NumRandomChoices", "Guess",
+	"NumRandomChoices",
 	"DamageMap", "ChangeZoneTable",
 	"Ultimate",
 }
@@ -135,6 +135,11 @@ func (genericChoiceEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		if tempRem {
 			restoreRememberedPlayers(&source.Memory, p, oldRem)
 		}
+	}
+	if hasParam(a, "Guess") {
+		// ChooseGenericEffect.java:152-154, once after every chooser, even
+		// when nothing was chosen.
+		g.piledGuessedSA++
 	}
 	return nil
 }

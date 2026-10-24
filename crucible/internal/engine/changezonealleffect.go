@@ -15,7 +15,7 @@ import (
 // SpellAbility.isHidden does, for ChangeZone).
 var changeZoneAllUnresolvedParams = [...]string{
 	"FaceDown", "FaceDownPower", "FaceDownToughness", "FaceDownSetType",
-	"WithCountersType", "TypeLimit", "OptionQuestion",
+	"WithCountersType", "TypeLimit",
 	"Pawprint", "Random",
 	"Ultimate",
 }

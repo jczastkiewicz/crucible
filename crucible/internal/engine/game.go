@@ -373,6 +373,10 @@ type Game struct {
 	// turn, zeroed as cleanup begins (PhaseHandler.java:418) -- what
 	// AddPhase's BeforeFirstPostCombatMainEnd$ reads.
 	mainsThisTurn int
+	// piledGuessedSA is Game.piledGuessedSA: how many guess-style choices
+	// (GenericChoice Guess$) were made this turn, zeroed in cleanup
+	// (Game.java:1222-1233); Count$NumPiledGuessedSA reads it.
+	piledGuessedSA int
 	// upkeepsThisTurn is PhaseHandler.nUpkeepsThisTurn: upkeep steps begun
 	// this turn, counted as one begins (PhaseHandler.java:257, the non-skipped
 	// branch only) and zeroed as cleanup begins (:415, cleanupStep). Count$
@@ -1619,6 +1623,7 @@ func (g *Game) Clone() *Game {
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
 		mainsThisTurn:         g.mainsThisTurn,
+		piledGuessedSA:        g.piledGuessedSA,
 		upkeepsThisTurn:       g.upkeepsThisTurn,
 		skipDamageSteps:       g.skipDamageSteps,
 		turnOrderReversed:     g.turnOrderReversed,

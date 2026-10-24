@@ -270,3 +270,23 @@ func TestUnlessCostMillMillsFromTheTop(t *testing.T) {
 		})
 	}
 }
+
+// An unless cost's discards are the ability's paid list: RememberDiscarded$
+// remembers them on the host (Player.java:1451-1453), and a sub-ability reads
+// them back (Ill-Timed Explosion, Argentum Masticore).
+func TestUnlessCostDiscardsAreRememberedAndRecorded(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	pitched := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Hand)
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	c.QueueDiscardChoice([]engine.CardID{pitched})
+	host := resolveLine(t, g, p, c,
+		"DB$ GainLife | Defined$ You | LifeAmount$ 0 | UnlessCost$ Discard<1/Card> | UnlessPayer$ You | RememberDiscarded$ True | UnlessSwitched$ True")
+	rem := g.Card(host).Memory.Remembered()
+	if len(rem) != 1 || rem[0] != engine.CardEntity(pitched) {
+		t.Errorf("remembered = %v, want the discarded card", rem)
+	}
+}

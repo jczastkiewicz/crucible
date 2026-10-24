@@ -5,16 +5,14 @@ package engine
 import "fmt"
 
 // choosePlayerUnresolvedParams are ChoosePlayerEffect.java's params this
-// port cannot honour yet: Protect$ (battle protector reassignment),
-// and the ChooseSubAbility$/CantChooseSubAbility$
-// AdditionalAbility dispatch no effect in this port has yet. Random$ picks
+// port cannot honour yet: Protect$ (battle protector reassignment).
+// ChooseSubAbility$/CantChooseSubAbility$ run after a player is, or is not,
+// chosen (ChoosePlayerEffect.java:72-88). Random$ picks
 // with Aggregates.random over Choices$ (ChoosePlayerEffect.java:47-48);
 // Secretly$ writes the same chosen-player slot, only without updating the
 // view (Card.setSecretChosenPlayer, Card.java:2127-2129).
 var choosePlayerUnresolvedParams = [...]string{
 	"Protect",
-	"ChooseSubAbility", "CantChooseSubAbility",
-	"OrOtherConditionSVarCompare",
 }
 
 // choosePlayerEffect is ChoosePlayerEffect.java: each chooser
@@ -49,25 +47,34 @@ func (choosePlayerEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 	if err != nil {
 		return fmt.Errorf("engine: ChoosePlayer: Choices$: %w", err)
 	}
-	if len(choices) == 0 {
-		return nil
-	}
 	_, random := a.Params.Param("Random")
 	for _, pid := range choosers {
-		var chosen PlayerID
-		if random {
+		if g.Player(pid).Lost {
+			continue
+		}
+		chosen := NoPlayer
+		switch {
+		case len(choices) == 0:
+		case random:
 			chosen = choices[g.randomIndex(len(choices))]
-		} else {
+		default:
 			chosen = controller.ChoosePlayerForEffect(g, pid, a.Source, choices)
 			if chosen == NoPlayer && hasParam(a, "Optional") {
 				// ChoosePlayerEffect.java:50-59: Optional$ lets the chooser decline
 				// (presence only), and a decline sets nothing: an earlier chosen
 				// player stays.
-				continue
+				break
 			}
 			if err := checkChoice([]PlayerID{chosen}, choices, 1, 1); err != nil {
 				return fmt.Errorf("engine: ChoosePlayer: %w", err)
 			}
+		}
+		if chosen == NoPlayer {
+			// The sub-ability that only fires when no player is chosen.
+			if err := g.resolveAdditionalKey(a, controller, "CantChooseSubAbility"); err != nil {
+				return err
+			}
+			continue
 		}
 		source.Memory.SetChosenPlayer(chosen)
 		if _, ok := a.Params.Param("ForgetOtherRemembered"); ok {
@@ -75,6 +82,10 @@ func (choosePlayerEffect) Resolve(g *Game, a *Ability, controller PlayerControll
 		}
 		if _, ok := a.Params.Param("RememberChosen"); ok {
 			source.Memory.Remember(PlayerEntity(chosen))
+		}
+		// The sub-ability that only fires when a player is chosen.
+		if err := g.resolveAdditionalKey(a, controller, "ChooseSubAbility"); err != nil {
+			return err
 		}
 	}
 	return nil

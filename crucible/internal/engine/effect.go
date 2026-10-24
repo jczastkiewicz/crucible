@@ -316,8 +316,19 @@ func (r *Registry) resolveUnlessCost(g *Game, a *Ability, controller PlayerContr
 		if !ok {
 			continue
 		}
-		if (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, a.Source)) && g.payUnlessCost(controller, a, pid, uc) {
+		// The cards the cost used up are the ability's paid list, which a
+		// sub-ability reads back (Defined$ Discarded, CostPartWithList into
+		// SpellAbility.paidLists, SpellAbility.java:958-963).
+		if (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, a.Source)) && g.payUnlessCostInto(controller, a, pid, uc, &a.paid) {
 			paid = true
+		}
+	}
+	// An unpaid cost leaves empty paid lists, which Java reads as no cards.
+	a.paid.recorded = true
+	if _, ok := a.Params.Param("RememberDiscarded"); ok && paid {
+		// Player.java:1451-1453: each discarded card is remembered on the host.
+		for _, id := range a.paid.discarded {
+			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
 	}
 

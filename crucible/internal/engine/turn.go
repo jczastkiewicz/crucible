@@ -775,6 +775,7 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	g.upkeepsThisTurn = 0
 	g.combatsThisTurn = 0
 	g.mainsThisTurn = 0
+	g.piledGuessedSA = 0
 	g.endOfTurnsThisTurn = 0
 	g.countersAddedThisTurn = nil
 	g.countersRemoved = nil

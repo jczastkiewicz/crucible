@@ -25,7 +25,7 @@ func (immediateTriggerEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "ImmediateTrigger", "Static", "AfterReplacement", "RememberDiscarded"); err != nil {
+	if err := rejectParams(a, "ImmediateTrigger", "Static", "AfterReplacement"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

@@ -70,7 +70,6 @@ import (
 // end to end.
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
-	"DividedRandomly",
 	"SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
 	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
 }
@@ -275,7 +274,23 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 	// Each card's amount, worked out before any counter is placed so a
 	// missing share fails the line before it acts (GO-7).
 	amounts := make([]int, len(cards))
+	_, dividedRandomly := a.Params.Param("DividedRandomly")
+	if dividedRandomly {
+		// CountersPutEffect.java:248-291: each counter goes to one random
+		// object, Aggregates.random drawing only for two or more (randomIndex).
+		if len(players) > 0 || hasChoices || divided {
+			return fmt.Errorf("engine: PutCounter: DividedRandomly$ with players, Choices$ or DividedAsYouChoose$ not resolvable yet")
+		}
+		for range max(amount, 0) {
+			if idx := g.randomIndex(len(cards)); idx >= 0 {
+				amounts[idx]++
+			}
+		}
+	}
 	for i, cid := range cards {
+		if dividedRandomly {
+			continue
+		}
 		amounts[i] = amount
 		if hasChoices && divided {
 			amounts[i] = choiceShares[i]

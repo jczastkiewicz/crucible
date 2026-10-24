@@ -152,3 +152,21 @@ func TestRegenerateEffectFollowUpRunsWhenTheShieldIsSpent(t *testing.T) {
 		t.Errorf("+1/+1 counters = %d, want 1", got)
 	}
 }
+
+// DividedRandomly$ (Faerie Dragon's shape) with one object puts every counter
+// on it, drawing nothing (Aggregates.random of a one-element list).
+func TestPutCounterDividedRandomlyOnOneObject(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	c := engine.NewScriptedController()
+	def := etbChainDef(t, "Test Random Counters",
+		"DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 3 | DividedRandomly$ True")
+	host, err := castETBChain(t, g, p, def, c)
+	if err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(host).Counters.Count(engine.P1P1); got != 3 {
+		t.Errorf("+1/+1 counters = %d, want 3", got)
+	}
+}

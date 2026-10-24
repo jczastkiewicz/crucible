@@ -227,3 +227,26 @@ func TestAsEntersAnimatesTheEnteringCard(t *testing.T) {
 		t.Errorf("toughness = %d, want 5", toughness)
 	}
 }
+
+// Ixidron's "turn all other nontoken creatures face down" runs as it enters
+// (SetState of Valid ...Other, which never names the entering card itself).
+func TestAsEntersSetStateTurnsOtherCreaturesFaceDown(t *testing.T) {
+	t.Parallel()
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	bear := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
+	ixidron := g.NewCard(corpusCard(t, "Ixidron"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 9)
+	c := engine.NewScriptedController()
+	for range 5 {
+		c.QueuePayGeneric(mana.ShardU)
+	}
+	if err := castEntrant(t, g, p, ixidron, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if !g.Card(bear).IsFaceDown() {
+		t.Error("the other creature was not turned face down")
+	}
+	if g.Card(ixidron).IsFaceDown() {
+		t.Error("Ixidron turned itself face down")
+	}
+}

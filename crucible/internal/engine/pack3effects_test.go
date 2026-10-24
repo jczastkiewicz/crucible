@@ -298,6 +298,28 @@ func TestDigMultipleOnePerCategory(t *testing.T) {
 	}
 }
 
+// DigMultiple ChooseAmount$/ChosenZone$ (Selective Adaptation): one of the
+// category picks goes to ChosenZone$, the other to DestinationZone$.
+func TestDigMultipleChooseAmountSendsOnePickToTheChosenZone(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGame(t)
+	cr := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	ld := g.NewCard(namedLand(t, "L"), p, engine.Library)
+	g.MoveToLibraryTop(ld, p)
+	g.MoveToLibraryTop(cr, p)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{cr})
+	c.QueueCardChoice([]engine.CardID{ld})
+	c.QueueCardChoice([]engine.CardID{cr})
+	resolveLine(t, g, p, c, "DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Creature,Land | ChooseAmount$ 1 | ChosenZone$ Battlefield")
+	if g.Card(cr).Zone != engine.Battlefield {
+		t.Errorf("chosen card zone = %v, want Battlefield", g.Card(cr).Zone)
+	}
+	if g.Card(ld).Zone != engine.Hand {
+		t.Errorf("other pick zone = %v, want Hand", g.Card(ld).Zone)
+	}
+}
+
 func TestRecruitMakesSoldierForNonland(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newPackGame(t)

@@ -25,7 +25,7 @@ func (digMultipleEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "DigMultiple", "ChooseAmount", "ChosenZone",
+	if err := rejectParams(a, "DigMultiple",
 		"ExileFaceDown", "ForgetOtherRemembered", "Tapped"); err != nil {
 		return err
 	}
@@ -140,6 +140,31 @@ func (digMultipleEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 			if anyValid && !optional {
 				return fmt.Errorf("engine: DigMultiple: a card must be chosen")
 			}
+		}
+		if rawN, ok := a.Params.Param("ChooseAmount"); ok && len(chosen) > 0 {
+			// DigMultipleEffect.java:97-104: exactly ChooseAmount$ of the
+			// chosen cards (default 1) go to ChosenZone$ (default Battlefield)
+			// instead, and leave the list that goes to DestinationZone$.
+			n, ok := resolveNamedAmount(g, a.Amounts, source, rawN)
+			if !ok {
+				return fmt.Errorf("engine: DigMultiple: ChooseAmount$ %q not resolvable", rawN)
+			}
+			n = min(n, len(chosen))
+			chosenZone := Battlefield
+			if raw, ok := a.Params.Param("ChosenZone"); ok {
+				if chosenZone, ok = ZoneByName(raw); !ok {
+					return fmt.Errorf("engine: DigMultiple: ChosenZone$ %q not resolvable", raw)
+				}
+			}
+			extra := controller.ChooseCardsForEffect(g, p, a.Source, chosen, n, n)
+			if err := checkChoice(extra, chosen, n, n); err != nil {
+				return fmt.Errorf("engine: DigMultiple: %w", err)
+			}
+			for _, id := range extra {
+				g.moveByEffect(controller, id, chosenZone, -1, NoPlayer, false)
+			}
+			chosen = withoutCards(chosen, extra)
+			top = withoutCards(top, extra)
 		}
 		for _, id := range chosen {
 			if !changeLater {

@@ -169,7 +169,6 @@ func TestFiftyPackFailsClosed(t *testing.T) {
 		"DB$ PreventDamage | Defined$ You | Amount$ 1 | DividedAsYouChoose$ True",
 		"DB$ PreventDamage | Defined$ You",
 		"DB$ PreventDamage | Defined$ You | Amount$ Bogus",
-		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | ChooseAmount$ 1",
 		"DB$ DigMultiple | ChangeValid$ Card",
 		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | SourceZone$ Nowhere",
 		"DB$ DigMultiple | DigNum$ 2 | ChangeValid$ Card | LibraryPosition$ 3",

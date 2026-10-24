@@ -362,6 +362,9 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 	for _, api := range entryChainAPIs {
 		ok = ok || strings.EqualFold(a.Name, api)
 	}
+	if actsOnOthersBeforeEntry(a) {
+		ok = true
+	}
 	if strings.EqualFold(a.Name, "ChangeZone") {
 		// A graveyard search or exile that acts on other cards (Dermotaxi
 		// imprinting a creature card from a graveyard); a move of the entering
@@ -369,6 +372,9 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 		origin, _ := a.Param("Origin")
 		defined, hasDefined := a.Param("Defined")
 		ok = strings.EqualFold(origin, "Graveyard") && !hasDefined || hasDefined && !strings.EqualFold(defined, "Self") && !strings.HasPrefix(defined, "Replaced") && strings.EqualFold(origin, "Graveyard")
+		// Protean War Engine's drafted card, exiled from hand: Remembered is
+		// what the Draft just made, never the entering card.
+		ok = ok || strings.EqualFold(origin, "Hand") && defined == "Remembered"
 	}
 	if !ok {
 		return false
@@ -382,6 +388,25 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 		}
 	}
 	return true
+}
+
+// actsOnOthersBeforeEntry reports whether a is an Effect (an emblem or effect
+// card of the entering permanent's host, Valki's emblem), a Draft (the
+// controller's, Protean War Engine) or a SetState of other cards (Ixidron's
+// "turn all other nontoken creatures face down": a Valid Defined$ naming Other)
+// -- none changes the entering card itself, so they run before the move like
+// entryChainAPIs.
+func actsOnOthersBeforeEntry(a *compile.Ability) bool {
+	defined, hasDefined := a.Param("Defined")
+	switch {
+	case strings.EqualFold(a.Name, "Effect"):
+		return !hasDefined
+	case strings.EqualFold(a.Name, "Draft"):
+		return !hasDefined
+	case strings.EqualFold(a.Name, "SetState"):
+		return hasDefined && strings.HasPrefix(defined, "Valid ") && strings.Contains(defined, "Other")
+	}
+	return false
 }
 
 // entersPrepared reports whether a is "this creature enters prepared": an

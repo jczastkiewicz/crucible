@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,494 |
-| refused      |     98 |
+| plays        | 33,499 |
+| refused      |     93 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    451 |
@@ -73,12 +73,12 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 12 | `RaiseCost: Cost$ is not a plain mana cost, not resolvable` |
+| 10 | `RaiseCost: Cost$ is not a plain mana cost, not resolvable` |
 | 2 | `PutCounter: RememberCostMana$ not resolvable` |
-| 2 | `Regenerate: RegenerationAbility$ not resolvable` |
 | 2 | `RollDice: ToVisitYourAttractions$ not resolvable` |
 | 1 | `Effect: NoteCounterDefined$ not resolvable` |
 | 1 | `GenericChoice: AtRandom$ Urza not resolvable` |
+| 1 | `Play: AnySupportedCard$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

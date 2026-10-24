@@ -64,7 +64,6 @@ func tree(t *testing.T) string {
 			"90.0% of the 33,000 judged cards play. On the 8,000 distinct cards of the 500 quest\n" +
 			"preconstructed decks it is 92.0% of 8,000\njudged.\n\n" +
 			"| Cards | Refusal |\n| ----: | ------- |\n|     1 | old     |\n\nRun it.\n",
-		claudeMD: "plays: 90.0% of 33,000\njudged, an upper bound.\n",
 		"docs/crucible/00-master-implementation-plan-open.md": "90.0% of the 33,000 judged corpus\n",
 	}
 	for rel, s := range files {
@@ -88,7 +87,7 @@ func TestReconcileRewritesEveryQuotedNumber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(changed) != 3 || before["plays"] != 30000 {
+	if len(changed) != 2 || before["plays"] != 30000 {
 		t.Fatalf("changed %v before %v", changed, before)
 	}
 	read := func(rel string) string {
@@ -97,7 +96,6 @@ func TestReconcileRewritesEveryQuotedNumber(t *testing.T) {
 	}
 	for rel, want := range map[string]string{
 		smokeDoc: "| plays        | 30,618 |",
-		claudeMD: "91.4% of 33,513\njudged",
 	} {
 		if !strings.Contains(read(rel), want) {
 			t.Errorf("%s lacks %q:\n%s", rel, want, read(rel))
@@ -117,13 +115,13 @@ func TestReconcileRewritesEveryQuotedNumber(t *testing.T) {
 func TestReconcileFailsWhenADocDrifts(t *testing.T) {
 	t.Parallel()
 	root := tree(t)
-	if err := os.WriteFile(filepath.Join(root, claudeMD), []byte("no percentage here\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, planDoc), []byte("no percentage here\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	all, _ := ParseSmoke(allOut)
 	pre, _ := ParseSmoke(preOut)
-	if _, _, err := Reconcile(root, all, pre); err == nil || !strings.Contains(err.Error(), claudeMD) {
-		t.Fatalf("want an error naming CLAUDE.md, got %v", err)
+	if _, _, err := Reconcile(root, all, pre); err == nil || !strings.Contains(err.Error(), planDoc) {
+		t.Fatalf("want an error naming the plan, got %v", err)
 	}
 }
 

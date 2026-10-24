@@ -11,13 +11,13 @@ import (
 
 const (
 	smokeDoc = "docs/crucible/porting/port-log/smoke-probe.md"
-	claudeMD = "CLAUDE.md"
+	planDoc  = "docs/crucible/00-master-implementation-plan-open.md"
 )
 
-// proseDocs quote the whole-corpus percentage in prose.
+// proseDocs quote the whole-corpus percentage in prose. CLAUDE.md quotes no
+// measurement: it loads every session and is not rewritten by a batch.
 var proseDocs = []string{
-	claudeMD,
-	"docs/crucible/00-master-implementation-plan-open.md",
+	planDoc,
 }
 
 var (

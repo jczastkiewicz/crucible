@@ -65,14 +65,14 @@ func TestTapOrUntapEffectToggleSkipsDecision(t *testing.T) {
 	}
 }
 
-// TestTapOrUntapEffectRejectsUnresolvedParam proves Tapper$ fails closed.
+// TestTapOrUntapEffectRejectsUnresolvedParam proves PresentCompare$ fails closed.
 func TestTapOrUntapEffectRejectsUnresolvedParam(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
 	c := engine.NewScriptedController()
-	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test TapOrUntap Tapper", "DB$ TapOrUntap | Defined$ Self | Tapper$ Opponent"), c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Tapper$")
+	if _, err := castETBChain(t, g, p, etbChainDef(t, "Test TapOrUntap Compare", "DB$ TapOrUntap | Defined$ Self | PresentCompare$ GE1"), c); err == nil {
+		t.Fatal("ResolveStack succeeded, want an error for unresolved PresentCompare$")
 	}
 }
 

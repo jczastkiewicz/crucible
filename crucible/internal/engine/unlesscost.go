@@ -191,7 +191,9 @@ type unlessCost struct {
 	// (CostAddMana). oppGainN is GainLife<N/Player.Opponent>: each opponent of
 	// the payer gains N life (CostGainLife).
 	exileTopN, addManaN, oppGainN int
-	addManaColor                  mana.Colors
+	// millN is Mill<N> (CostMill): the payer mills N cards from the top.
+	millN        int
+	addManaColor mana.Colors
 	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
 	manaTokens []string
 }
@@ -330,6 +332,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.evidenceN = n
 		case p.Name == "AddCounterYou" && uc.youCounterN == 0 && p.Field(1) != "":
 			uc.youCounterN, uc.youCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
+		case p.Name == "Mill" && uc.millN == 0:
+			uc.millN = n
 		case p.Name == "ExileFromTop" && uc.exileTopN == 0 && p.Field(1) == "Card":
 			uc.exileTopN = n
 		case p.Name == "AddMana" && uc.addManaN == 0 && addManaColorOf(p.Field(1)) != 0:
@@ -1095,6 +1099,7 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.movedToGraveN *= n
 	uc.exileEitherN *= n
 	uc.exileTopN *= n
+	uc.millN *= n
 	uc.addManaN *= n
 	uc.oppGainN *= n
 	if uc.hasMana {

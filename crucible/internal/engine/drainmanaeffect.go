@@ -6,19 +6,14 @@ import "fmt"
 
 // drainManaEffect is DrainManaEffect.java: each target player (default You)
 // empties their mana pool; with DrainMana$ the activator gets it all.
-// RememberDrainedMana$ remembers an Integer, which Memory cannot hold, so
-// that line fails closed. Mana burn (StaticAbilityUnspentMana) has no
+// RememberDrainedMana$ remembers the count of units drained as an Integer.
+// Mana burn (StaticAbilityUnspentMana) has no
 // static in this port to switch it on.
 type drainManaEffect struct{}
 
 func (drainManaEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range [...]string{"RememberDrainedMana"} {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: DrainMana: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -35,6 +30,10 @@ func (drainManaEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		}
 		drained.merge(g.Player(p).ManaPool)
 		g.Player(p).ManaPool.Empty()
+	}
+	if hasParam(a, "RememberDrainedMana") {
+		// DrainManaEffect.java:59-61 remembers how many units were drained.
+		source.Memory.RememberNumber(drained.Total())
 	}
 	if hasParam(a, "DrainMana") {
 		g.Player(a.Controller).ManaPool.merge(drained)

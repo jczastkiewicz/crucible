@@ -377,7 +377,6 @@ func TestControlSpellGainOnASpellThatLeftTheStackFails(t *testing.T) {
 func TestControlSpellFailsClosed(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ line, want string }{
-		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Gain | TargetValidTargeting$ Player", "TargetValidTargeting$ not resolvable yet"},
 		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Exchange | DefinedExchange$ Self", "DefinedExchange$ not resolvable yet"},
 		{"DB$ ControlSpell | Defined$ Targeted", "Mode$ is required"},
 		{"DB$ ControlSpell | Defined$ Targeted | Mode$ Lose", `Mode$ "Lose" not resolvable yet`},
@@ -397,21 +396,19 @@ func TestControlSpellFailsClosed(t *testing.T) {
 	}
 }
 
-// TestControlSpellTargetValidTargetingFailsClosed proves ControlSpell's
-// TargetValidTargeting$ is refused when it resolves. The spell must still be a
-// legal target then (it targets a player), since the fizzle check re-reads
-// TargetValidTargeting$ for a spell target (canTargetStackItem).
-func TestControlSpellTargetValidTargetingFailsClosed(t *testing.T) {
+// TestControlSpellTargetValidTargetingIsReadByTargeting proves ControlSpell's
+// TargetValidTargeting$ is no longer refused: the effect never reads it
+// (ControlSpellEffect.java:54-101); targeting does (SpellAbility.java:2049).
+func TestControlSpellTargetValidTargetingIsReadByTargeting(t *testing.T) {
 	t.Parallel()
 	g, p, other := newTwoPlayerGame(t)
 	bolt := boltAt(t, g, p)
 	c := engine.NewScriptedController()
 	c.QueueTargets([]engine.EntityID{engine.PlayerEntity(other)})
 	castOn(t, g, p, bolt, c)
-	_, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(bolt)},
-		"DB$ ControlSpell | ValidTgts$ Card | TargetType$ Spell | Mode$ Gain | TargetValidTargeting$ Player")
-	if err == nil || !strings.Contains(err.Error(), "TargetValidTargeting$ not resolvable yet") {
-		t.Errorf("err = %v, want the TargetValidTargeting$ refusal", err)
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(bolt)},
+		"DB$ ControlSpell | ValidTgts$ Card | TargetType$ Spell | Mode$ Gain | TargetValidTargeting$ Player"); err != nil {
+		t.Errorf("err = %v, want none", err)
 	}
 }
 

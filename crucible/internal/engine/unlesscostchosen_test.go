@@ -228,3 +228,45 @@ func TestUnlessCostPartAmountIsAnSVar(t *testing.T) {
 		t.Errorf("creature %v, life %d, want Battlefield and 16", g.Card(creature).Zone, g.Player(p).Life)
 	}
 }
+
+// Mill<N> as an unless cost (Deep Spawn's upkeep): the payer mills N cards to
+// keep the permanent. CostMill.canPay is `amount < library size`
+// (CostMill.java:66-67), so a library of exactly N cannot pay it.
+func TestUnlessCostMillMillsFromTheTop(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		library int
+		milled  int
+	}{{"enough cards", 5, 2}, {"exactly N cards cannot pay", 2, 0}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := newGame(t, "a", "b")
+			p := g.Players()[0]
+			g.SetTurnState(1, p, engine.Main1)
+			libraryCards(t, g, p, tc.library)
+			c := engine.NewScriptedController()
+			def := etbSacrificeTriggerDefParams(t, "Test Unless Mill", "UnlessCost$ Mill<2> | UnlessPayer$ You", nil)
+			creature := g.NewCard(def, p, engine.Hand)
+			g.Player(p).ManaPool.Add(mana.Green, 1)
+			if !g.CastSpell(p, creature, c) {
+				t.Fatal("CastSpell failed")
+			}
+			c.QueueConfirmPayCost(true)
+			if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			wantZone, wantGrave := engine.Battlefield, tc.milled
+			if tc.milled == 0 {
+				wantZone, wantGrave = engine.Graveyard, 1 // the sacrificed creature
+			}
+			if got := len(g.Zone(engine.Graveyard, p).Cards()); got != wantGrave {
+				t.Errorf("graveyard = %d cards, want %d", got, wantGrave)
+			}
+			if z := g.Card(creature).Zone; z != wantZone {
+				t.Errorf("creature zone = %v, want %v", z, wantZone)
+			}
+		})
+	}
+}

@@ -83,18 +83,6 @@ func TestDrainManaEffectMovesPool(t *testing.T) {
 	}
 }
 
-// TestDrainManaEffectRejectsRememberAmount proves RememberDrainedMana$
-// fails closed.
-func TestDrainManaEffectRejectsRememberAmount(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test Drain Bad", "DB$ DrainMana | Defined$ Player | RememberDrainedMana$ True")
-	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error")
-	}
-}
-
 // TestEachDamageEffectTargetShapes proves the other target readings:
 // ValidTgts$ targets, a Defined$ card list, EachToItself$, and a
 // DefinedDamagers$ source list.

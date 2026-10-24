@@ -1846,7 +1846,23 @@ func (g *Game) sharesNameWithAny(c *Card, restriction string, sourceController P
 	if !ok {
 		return false
 	}
+	if spec, isValid := strings.CutPrefix(restriction, "Valid "); isValid {
+		// AbilityUtils.java:287-297: the battlefield cards the spec names.
+		return anyShares(g.battlefieldMatching(spec, sourceController, source))
+	}
 	switch restriction {
+	case "Equipped":
+		// AbilityUtils.java:96-97: the card the host equips.
+		id, attached := sc.AttachedTo()
+		return attached && anyShares([]CardID{id})
+	case "TriggeredCard":
+		// CardProperty.java:854-865: the card the root ability's trigger
+		// recorded.
+		a := g.resolving
+		if a == nil || a.Source != source || a.refs().triggered.card == NoCard {
+			break
+		}
+		return anyShares([]CardID{a.refs().triggered.card})
 	case "Remembered":
 		var cards []CardID
 		for _, e := range sc.Memory.Remembered() {
@@ -2085,6 +2101,16 @@ func sharesColorWithRestriction(g *Game, c *Card, source CardID, restriction str
 		g.recordPendingError(fmt.Errorf("engine: SharesColorWith ActivationColor: the first mana paid is not recorded for a mixed payment"))
 		return false
 	}
+	if spec, isValid := strings.CutPrefix(restriction, "Valid "); isValid {
+		// CardProperty.java:687-691 over AbilityUtils.java:287-297's Valid
+		// list: the battlefield cards the spec names.
+		for _, id := range g.battlefieldMatching(spec, g.Card(source).Controller(), source) {
+			if c.Colors().HasAny(g.Card(id).Colors()) {
+				return true
+			}
+		}
+		return false
+	}
 	if restriction == "Equipped" {
 		// CardProperty.java:687-691 over Defined$ Equipped (AbilityUtils.java:
 		// 96-97, 315-317): the creature the host equips, itself included (no
@@ -2131,4 +2157,19 @@ func (g *Game) mostProminentColors() mana.Colors {
 		nMax = n
 	}
 	return mask
+}
+
+// battlefieldMatching is the battlefield cards spec names for a Defined$ Valid
+// list (AbilityUtils.getDefinedCards, "Valid "), in seat order.
+func (g *Game) battlefieldMatching(spec string, controller PlayerID, source CardID) []CardID {
+	parsed := valid.Parse(spec)
+	var out []CardID
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			if Matches(g, g.Card(id), parsed, controller, source) {
+				out = append(out, id)
+			}
+		}
+	}
+	return out
 }

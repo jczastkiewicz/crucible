@@ -5,10 +5,10 @@ package engine
 import "fmt"
 
 // tapOrUntapUnresolvedParams are TapOrUntapEffect.java's params this port
-// cannot honour yet: Tapper$ (1 real line, a non-activator decider).
+// cannot honour yet.
 // TargetingPlayer$ is targeting.go's (targetingPlayerOf).
 var tapOrUntapUnresolvedParams = [...]string{
-	"Tapper", "PresentCompare"}
+	"PresentCompare"}
 
 // tapOrUntapEffect is TapOrUntapEffect.java: for each target
 // (targetedOrDefinedCards -- 38 of 41 real lines name ValidTgts$) still on
@@ -36,6 +36,19 @@ func (tapOrUntapEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		return fmt.Errorf("engine: TapOrUntap: %w", err)
 	}
 	_, toggle := a.Params.Param("Toggle")
+	// Tapper$ names the player who decides (TapOrUntapEffect.java:38-42),
+	// the activator when absent.
+	decider := a.Controller
+	if spec, ok := a.Params.Param("Tapper"); ok {
+		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: TapOrUntap: Tapper$: %w", err)
+		}
+		if len(players) == 0 {
+			return nil
+		}
+		decider = players[0]
+	}
 	for _, id := range cards {
 		c := g.Card(id)
 		if c.Zone != Battlefield {
@@ -43,7 +56,7 @@ func (tapOrUntapEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 		tap := !c.Tapped
 		if !toggle {
-			tap = controller.ChooseTapOrUntap(g, a.Controller, id)
+			tap = controller.ChooseTapOrUntap(g, decider, id)
 		}
 		switch {
 		case tap && !c.Tapped:

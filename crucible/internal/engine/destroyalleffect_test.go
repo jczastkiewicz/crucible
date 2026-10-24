@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
+	"github.com/jczastkiewicz/crucible/internal/mana"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // TestDestroyAllEffectDestroysEveryMatch proves the one shape all 238 real
@@ -196,5 +198,60 @@ func TestSharesNameWithTargeted(t *testing.T) {
 				t.Errorf("target zone = %v, want %v", z, tc.wantZone)
 			}
 		})
+	}
+}
+
+// `sharesNameWith Valid <spec>` (Pattern Matcher, AbilityUtils.java:287-297)
+// matches a card that shares a name with a battlefield card the spec names.
+func TestSharesNameWithValidList(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	def := creatureDefPT(t, "2", "2")
+	twinned := g.NewCard(def, other, engine.Hand)
+	host := g.NewCard(def, p, engine.Battlefield)
+	loner := g.NewCard(namedCreature(t, "Loner", "1 G"), other, engine.Hand)
+	spec := valid.Parse("Card.sharesNameWith Valid Creature.YouCtrl")
+	for _, tc := range []struct {
+		card engine.CardID
+		want bool
+	}{{twinned, true}, {loner, false}} {
+		if got := engine.Matches(g, g.Card(tc.card), spec, p, host); got != tc.want {
+			t.Errorf("card %v: matches = %v, want %v", tc.card, got, tc.want)
+		}
+	}
+}
+
+// RememberDrainedMana$ remembers how many units the drain emptied
+// (DrainManaEffect.java:59-61), Pygmy Hippo's Count$RememberedNumber.
+func TestDrainManaRemembersTheDrainedAmount(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	g.Player(other).ManaPool.Add(mana.Red, 3)
+	before := g.Player(p).Life
+	resolveLine(t, g, p, engine.NewScriptedController(),
+		"DB$ DrainMana | Defined$ Player.Opponent | RememberDrainedMana$ True | SubAbility$ DBGain",
+		"DBGain", "DB$ GainLife | Defined$ You | LifeAmount$ X",
+		"X", "Count$RememberedNumber")
+	if got := g.Player(p).Life - before; got != 3 {
+		t.Errorf("gained %d, want 3", got)
+	}
+}
+
+// Tapper$ names the player who decides tap or untap (TapOrUntapEffect.java:
+// 38-42); the opponent here taps the creature the activator targets.
+func TestTapOrUntapTapperDecides(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	victim := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueTapOrUntap(true)
+	c.QueueTapOrUntap(true) // the resolving host is a creature of the activator too
+	resolveLine(t, g, p, c, "DB$ TapOrUntap | Defined$ Valid Creature.YouCtrl | Tapper$ Player.Opponent")
+	_ = other
+	if !g.Card(victim).Tapped {
+		t.Error("creature untapped, want tapped by the Tapper's decision")
 	}
 }

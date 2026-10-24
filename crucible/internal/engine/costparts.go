@@ -236,6 +236,11 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.exileTopN > 0 && g.Zone(Library, pid).Len() < uc.exileTopN {
 		return false
 	}
+	if uc.millN > 0 && uc.millN >= g.Zone(Library, pid).Len() {
+		// CostMill.canPay is `amount < library size` (CostMill.java:66-67): a
+		// library of exactly N cards cannot pay Mill<N> (PORT-7).
+		return false
+	}
 	return true
 }
 
@@ -332,6 +337,15 @@ func (g *Game) payExtraParts(controller PlayerController, a *Ability, pid Player
 				}
 			}
 		}
+	}
+	if uc.millN > 0 {
+		var milled []CardID
+		for _, id := range slices.Clone(g.Zone(Library, pid).Cards()[:min(uc.millN, g.Zone(Library, pid).Len())]) {
+			g.moveToGraveyard(controller, id)
+			milled = append(milled, id)
+		}
+		g.checkLeftZoneTriggers(controller, milled, Library)
+		g.checkChangesZoneAllTriggers(controller, milled, Library, Graveyard)
 	}
 	if uc.addManaN > 0 {
 		g.Player(pid).ManaPool.Add(uc.addManaColor, uc.addManaN)

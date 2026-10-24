@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,431 |
-| refused      |    166 |
+| plays        | 33,440 |
+| refused      |    157 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    451 |
@@ -77,8 +77,8 @@ Largest refusal causes over the full corpus (cards blocked):
 | 2 | `PutCounter: RememberCostMana$ not resolvable` |
 | 2 | `Regenerate: RegenerationAbility$ not resolvable` |
 | 2 | `RollDice: ToVisitYourAttractions$ not resolvable` |
-| 2 | `CheckSVar$ is not resolvable` |
 | 1 | `Effect: NoteCounterDefined$ not resolvable` |
+| 1 | `GenericChoice: AtRandom$ Urza not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

@@ -83,6 +83,7 @@ func (planeswalkEffect) Resolve(g *Game, a *Ability, c PlayerController) error {
 	top := g.Zone(PlanarDeck, activator).Cards()[0]
 	g.Move(top, Command, activator)
 	g.activePlane = top
+	g.Player(activator).planeswalkedToThisTurn = append(g.Player(activator).planeswalkedToThisTurn, top)
 	g.checkPlaneswalkedToTriggers(c, []CardID{top})
 	return g.TakePendingError()
 }

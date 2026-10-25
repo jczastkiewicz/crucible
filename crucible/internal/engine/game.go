@@ -1701,6 +1701,7 @@ func (g *Game) Clone() *Game {
 		out.players[i].attackedPlayersThisTurn = append([]PlayerID(nil), g.players[i].attackedPlayersThisTurn...)
 		out.players[i].attackedPlayersLastTurn = append([]PlayerID(nil), g.players[i].attackedPlayersLastTurn...)
 		out.players[i].attackedPlayersThisCombat = append([]PlayerID(nil), g.players[i].attackedPlayersThisCombat...)
+		out.players[i].planeswalkedToThisTurn = append([]CardID(nil), g.players[i].planeswalkedToThisTurn...)
 	}
 
 	copy(out.cards, g.cards)

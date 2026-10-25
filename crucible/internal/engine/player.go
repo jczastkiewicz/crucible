@@ -205,6 +205,10 @@ type Player struct {
 	// Both are rotated at the cleanup of this player's own turn
 	// (playerproperty.go, rotateAttackedPlayers).
 	attackedPlayersThisTurn, attackedPlayersLastTurn []PlayerID
+	// planeswalkedToThisTurn is Player.getPlaneswalkedToThisTurn: the planes
+	// this player planeswalked to this turn, cleared at every player's cleanup
+	// (Player.java:2516).
+	planeswalkedToThisTurn []CardID
 	// lastTurnNr is Player.getLastTurnNr (Player.java:130, :2514-2519): the
 	// game turn number of this player's own most recent turn, set as its
 	// cleanup ends it (cleanupPlayerRecords), 0 before the first. Read by the

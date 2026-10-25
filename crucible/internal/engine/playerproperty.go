@@ -97,6 +97,7 @@ func (g *Game) cleanupPlayerRecords(pid PlayerID) {
 	}
 	g.sacrificedThisTurn = kept
 	p.tappedLandForManaThisTurn = false
+	p.planeswalkedToThisTurn = nil
 	if pid == g.activePlayer {
 		p.attackedPlayersLastTurn = p.attackedPlayersThisTurn
 		p.attackedPlayersThisTurn = nil

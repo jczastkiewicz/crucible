@@ -519,6 +519,21 @@ func playerXProperty(g *Game, amounts map[string]expr.Amount, controller PlayerI
 		}
 		return math(n)
 	}
+	if strings.HasPrefix(body, "PlaneswalkedToThisTurn") {
+		// AbilityUtils.java:3695-3706: 1 when this player planeswalked to a
+		// plane of that name this turn. Java reads value.split(" ")[1], so
+		// only the first word of a plane's name is compared (PORT-7).
+		_, name, _ := strings.Cut(strings.Split(body, ".")[0], " ")
+		name, _, _ = strings.Cut(name, " ")
+		found := 0
+		for _, id := range g.Player(pid).planeswalkedToThisTurn {
+			if g.Card(id).Def.Name == name {
+				found = 1
+				break
+			}
+		}
+		return math(found)
+	}
 	sq := strings.Split(body, ".")
 	value := sq[0]
 	if value == "SVarAmount" {

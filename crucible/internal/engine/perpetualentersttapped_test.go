@@ -56,7 +56,7 @@ func TestPerpetualReplacementOfAnotherShapeFailsClosed(t *testing.T) {
 	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
 	err := resolveWith(t, g, p, engine.NewScriptedController(),
 		"DB$ Animate | Defined$ Self | Duration$ Perpetual | Replacements$ Rep",
-		"Rep", "Event$ DamageDone | ValidSource$ Card.Self | ReplaceWith$ Exiled",
+		"Rep", "Event$ Draw | ValidPlayer$ You | ReplaceWith$ Exiled",
 		"Exiled", "DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Plus.2")
 	if err == nil {
 		t.Error("granted a perpetual replacement no consumer reads")

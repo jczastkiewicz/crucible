@@ -108,8 +108,14 @@ func (g *Game) entryCandidates(controller PlayerController, moved *Card, origin 
 			if updated {
 				result = replacementUpdated
 			}
-			if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: result, card: moved.ID}); err != nil {
+			ev := &replacementEvent{result: result, card: moved.ID}
+			if err := g.runReplacementChain(controller, h, amounts, sub, ev); err != nil {
 				g.recordPendingError(err)
+			}
+			if !updated && chainGatesEntry(sub) {
+				// The ReplaceEffect's result decides: updated, the card enters;
+				// otherwise the chain put it elsewhere (ReplacementHandler.java:388-392).
+				return ev.result
 			}
 			return result
 		}})
@@ -175,7 +181,9 @@ func (g *Game) entryShape(r *compile.Ability, moved *Card, origin ZoneType, h *C
 		if !chainMovesSelf(sub) {
 			return nil, false, false
 		}
-		unmoved = true
+		// A chain that moves the card itself and ends in a bare ReplaceEffect
+		// (Frankenstein's Monster) lets the entry go on only when that effect ran.
+		unmoved = !chainGatesEntry(sub)
 	}
 	// A self line reads off the card's battlefield-bound copy whatever
 	// ActiveZones$ says (getReplacementList's affectedLKI).
@@ -465,6 +473,23 @@ func enterShapeHandledAfterMove(sub *compile.Ability) bool {
 	case strings.EqualFold(sub.Name, "PutCounter"):
 		_, etb := sub.Param("ETB")
 		return etb
+	}
+	return false
+}
+
+// chainGatesEntry reports whether sub's chain moves the entering card itself and
+// holds a ReplaceEffect with no VarName$ (Frankenstein's Monster: success runs
+// it, failure leaves the card in the graveyard).
+func chainGatesEntry(sub *compile.Ability) bool {
+	if !chainMovesSelf(sub) {
+		return false
+	}
+	for a := sub; a != nil; a = chainNext(a) {
+		if strings.EqualFold(a.Name, "ReplaceEffect") {
+			if _, ok := a.Param("VarName"); !ok {
+				return true
+			}
+		}
 	}
 	return false
 }

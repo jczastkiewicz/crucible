@@ -180,7 +180,7 @@ func (g *Game) runEnterChain(controller PlayerController, moved CardID, host *Ca
 // kinds of counters as" the named cards (Dominion Saboteur): one pile per
 // kind each of them has, CounterNum$ overriding the count. placer is the
 // PutCounter's placer (putCounterPlacer), each pile's table key.
-func (g *Game) putEnterCounters(a *Ability, source *Card, placer PlayerID) error {
+func (g *Game) putEnterCounters(controller PlayerController, a *Ability, source *Card, placer PlayerID) error {
 	moved := a.replacedCard()
 	defined := "Self"
 	if d, ok := a.Params.Param("Defined"); ok {
@@ -232,6 +232,18 @@ func (g *Game) putEnterCounters(a *Ability, source *Card, placer PlayerID) error
 					put(ct, c.Counters.Count(ct))
 				}
 			}
+		}
+		return nil
+	}
+	if hasParam(a, "CounterTypes") {
+		// CounterTypes$ (Frankenstein's Monster: P2P0,P1P1,P0P2 with SplitAmount$): the
+		// kinds and the shares the placer chooses, as for any PutCounter.
+		kinds, err := g.counterKindPlan(controller, a, "")(CardEntity(moved), n)
+		if err != nil {
+			return err
+		}
+		for _, k := range kinds {
+			put(k.kind, k.n)
 		}
 		return nil
 	}

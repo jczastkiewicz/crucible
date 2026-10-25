@@ -657,7 +657,7 @@ func animateStaticGrants(a *Ability, api string) ([]*compile.Ability, error) {
 // holds a grant's row) and Event$ Untap (the untap step's CantHappen).
 // Any other event would be granted and never read, so it is refused (GO-7).
 func grantedReplacementSupported(r *compile.Ability) bool {
-	return strings.EqualFold(r.Name, "Moved") || strings.EqualFold(r.Name, "Untap")
+	return strings.EqualFold(r.Name, "Moved") || strings.EqualFold(r.Name, "Untap") || strings.EqualFold(r.Name, "DamageDone")
 }
 
 // grantPerpetualTriggers gives each of cards one grant row holding triggers,

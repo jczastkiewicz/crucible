@@ -1171,7 +1171,7 @@ func (c *Card) unswitchedPower() (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return v + c.modifyPT(func(e PTEffect) int { return e.Power }) + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+	return v + c.modifyPT(func(e PTEffect) int { return e.Power }) + c.powerBonusFromCounters(), true
 }
 
 func (c *Card) unswitchedToughness() (int, bool) {
@@ -1179,7 +1179,7 @@ func (c *Card) unswitchedToughness() (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return v + c.modifyPT(func(e PTEffect) int { return e.Toughness }) + c.Counters.Count(P1P1) - c.Counters.Count(M1M1), true
+	return v + c.modifyPT(func(e PTEffect) int { return e.Toughness }) + c.toughnessBonusFromCounters(), true
 }
 
 // layer7Power and layer7Toughness are Java's getCurrentPower and
@@ -1662,4 +1662,18 @@ func netPower(c *Card) int {
 type damagedCard struct {
 	id    CardID
 	stamp uint64
+}
+
+// powerBonusFromCounters is Card.getPowerBonusFromCounters (Card.java:4458-4465):
+// the +N/+M and -N/-M counter kinds, each at its own power.
+func (c *Card) powerBonusFromCounters() int {
+	n := c.Counters.Count
+	return n(P1P1) + n("P1P2") + n("P1P0") - n(M1M1) + 2*n("P2P2") - 2*n("M2M1") - 2*n("M2M2") - n("M1M0") + 2*n("P2P0")
+}
+
+// toughnessBonusFromCounters is Card.getToughnessBonusFromCounters (Card.java:
+// 4522-4531).
+func (c *Card) toughnessBonusFromCounters() int {
+	n := c.Counters.Count
+	return n(P1P1) + 2*n("P1P2") - n(M1M1) + n("P0P1") - 2*n("M0M2") + 2*n("P2P2") - n("M0M1") - n("M2M1") - 2*n("M2M2") + 2*n("P0P2")
 }

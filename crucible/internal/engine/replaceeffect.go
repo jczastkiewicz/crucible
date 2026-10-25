@@ -159,8 +159,14 @@ func (replaceEffectEffect) Resolve(g *Game, a *Ability, _ PlayerController) erro
 	if t, ok := a.Params.Param("VarType"); ok && t != "amount" {
 		return fmt.Errorf("engine: ReplaceEffect: VarType$ %q not resolvable yet", t)
 	}
-	varName, _ := a.Params.Param("VarName")
+	varName, hasVarName := a.Params.Param("VarName")
 	varValue, ok := a.Params.Param("VarValue")
+	if !ok && !hasVarName {
+		// ReplaceEffect.java:62 with no VarName$: only the result changes, the event
+		// goes on as it is (Frankenstein's Monster's DBUpdate).
+		ev.result = replacementUpdated
+		return nil
+	}
 	if !ok {
 		return fmt.Errorf("engine: ReplaceEffect: no VarValue$")
 	}

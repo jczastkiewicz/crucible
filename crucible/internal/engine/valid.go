@@ -758,6 +758,12 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// in context, Java's empty list.
 		attackers, _ := g.resolvingAttackers(source, name)
 		return !containsCard(attackers, c.ID)
+	case name == "NotDefinedReplacedSimultaneousETB":
+		// CardProperty.java:2067-2071 over Defined$ ReplacedSimultaneousETB: the cards
+		// entering at the same time as the replaced one (moveParams.SimultaneousETB).
+		// A permanent spell entering alone has none, so every card passes; this port
+		// keeps no such set for a batch of entries.
+		return true
 	case name == "NotDefinedParentTarget":
 		// CardProperty.java:2067-2071: getDefinedCards(source, "ParentTarget", sa)
 		// does not contain c -- the targets the ability being targeted inherits

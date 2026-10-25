@@ -145,7 +145,7 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 		return nil
 	}
 	if enter {
-		return g.putEnterCounters(a, source, placer)
+		return g.putEnterCounters(controller, a, source, placer)
 	}
 
 	// Monstrosity$, Adapt$ and Support$ rewrite the ability into +1/+1

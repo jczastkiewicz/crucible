@@ -158,4 +158,29 @@ func (g *Game) eachReplacementRule(fn func(h *Card, zone ZoneType, amounts map[s
 			}
 		}
 	}
+	// Event$ DamageDone lines a card perpetually gained (Conductive Current's
+	// "it perpetually gains ..."), whichever zone the card is in: a granted
+	// replacement has no ActiveZones$ to restrict it (parseReplacement with
+	// intrinsic false leaves the host zones null, ReplacementHandler.java:845-847).
+	// The card is offered as if on the battlefield when the line names no
+	// ActiveZones$ of its own. The other events' grants are read where they are
+	// used (entry, untap).
+	for i := range g.cards {
+		h := &g.cards[i]
+		if h.Def == nil || len(h.grants) == 0 {
+			continue
+		}
+		for _, grant := range h.grants {
+			for _, r := range grant.replacements {
+				if !strings.EqualFold(r.Name, "DamageDone") {
+					continue
+				}
+				zone := h.Zone
+				if _, has := r.Param("ActiveZones"); !has {
+					zone = Battlefield
+				}
+				fn(h, zone, grant.amounts, r)
+			}
+		}
+	}
 }

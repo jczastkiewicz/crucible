@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
@@ -34,7 +35,7 @@ import (
 // accepted and changes nothing a port reads; whoever ports either adds the
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
-	"WithNotedCounters", "ReturnAbility", "ReturnValid",
+	"WithNotedCounters",
 	"AttachAfter",
 	"Champion",
 
@@ -175,13 +176,25 @@ func changeZoneDuration(a *Ability, api string) (bool, error) {
 // exiled and never returns (SpellAbilityEffect.java:840-841). Cards are kept
 // wherever the move put them, the way Java's CardZoneTable holds them: a
 // redirected one is recorded at its actual zone, not filtered.
-func (g *Game) untilReturns(cmds []cardCommand, host CardID, from ZoneType, ids []CardID) []cardCommand {
+func (g *Game) untilReturns(cmds []cardCommand, a *Ability, from ZoneType, ids []CardID) []cardCommand {
+	// ReturnAbility$ runs when the card comes back (SpellAbilityEffect.java:
+	// 878-902): ReturnValid$ (default Card.IsTriggerRemembered) is the filter
+	// of the delayed ChangesZone trigger registered just before the return.
+	var ret *compile.Ability
+	if subs := additionalAbilities(a.Params, "ReturnAbility"); len(subs) > 0 {
+		ret = subs[0].Ability
+	}
+	validRet := "Card.IsTriggerRemembered"
+	if v, ok := a.Params.Param("ReturnValid"); ok {
+		validRet = v
+	}
 	for _, id := range ids {
 		c := g.Card(id)
 		if c.IsToken || c.Zone == from {
 			continue
 		}
-		cmds = append(cmds, cardCommand{Kind: commandReturnExiled, Target: id, Timestamp: c.zoneStamp, Host: host, Zone: from})
+		cmds = append(cmds, cardCommand{Kind: commandReturnExiled, Target: id, Timestamp: c.zoneStamp, Host: a.Source, Zone: from,
+			Return: ret, ReturnValid: validRet, ReturnAmounts: a.Amounts, ReturnController: a.Controller})
 	}
 	return cmds
 }
@@ -681,7 +694,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 	if until {
 		var cmds []cardCommand
 		for _, from := range movedOrigins {
-			cmds = g.untilReturns(cmds, a.Source, from, moved[from])
+			cmds = g.untilReturns(cmds, a, from, moved[from])
 		}
 		g.armUntilHostLeaves(controller, a.Source, cmds)
 	}
@@ -1245,7 +1258,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				}
 				g.changeZoneMoved(a, source, id)
 				if until {
-					returns = g.untilReturns(returns, a.Source, from, []CardID{id})
+					returns = g.untilReturns(returns, a, from, []CardID{id})
 				}
 				continue
 			}
@@ -1285,7 +1298,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		for _, from := range movedOrigins {
 			g.checkChangesZoneAllTriggers(controller, moved[from], from, dest)
 			if until {
-				returns = g.untilReturns(returns, a.Source, from, moved[from])
+				returns = g.untilReturns(returns, a, from, moved[from])
 			}
 		}
 		// ChangeZoneEffect.java:1527-1528: per fetcher, after its moves.

@@ -192,7 +192,7 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		// :206, changeZoneUntilCommand.
 		var cmds []cardCommand
 		for _, from := range movedOrigins {
-			cmds = g.untilReturns(cmds, a.Source, from, moved[from])
+			cmds = g.untilReturns(cmds, a, from, moved[from])
 		}
 		g.armUntilHostLeaves(controller, a.Source, cmds)
 	}

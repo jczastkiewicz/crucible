@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+	"github.com/jczastkiewicz/crucible/internal/carddb/vocab"
 	"github.com/jczastkiewicz/crucible/internal/expr"
 )
 
@@ -67,6 +69,15 @@ type cardCommand struct {
 	Timestamp uint64
 	Host      CardID
 	Zone      ZoneType
+	// Return, ReturnValid, ReturnAmounts and ReturnController are a
+	// commandReturnExiled's ReturnAbility$ (Lagrella, the Magpie): the ability
+	// the delayed trigger registered as the card returns executes, the
+	// trigger's ValidCard$, and the amounts and controller of the line that
+	// exiled it. Return is nil without one.
+	Return           *compile.Ability
+	ReturnValid      string
+	ReturnAmounts    map[string]expr.Amount
+	ReturnController PlayerID
 }
 
 // playerCommand is a command that waits for a player's next turn to end
@@ -202,6 +213,9 @@ func (g *Game) returnUntilCards(controller PlayerController) bool {
 			continue
 		}
 		from := c.Zone
+		if cmd.Return != nil {
+			g.registerReturnTrigger(cmd, from)
+		}
 		g.moveByEffect(controller, cmd.Target, cmd.Zone, 0, NoPlayer, false)
 		to := g.Card(cmd.Target).Zone
 		if to == from {
@@ -488,4 +502,26 @@ type pendingRepeat struct {
 	ID      uint64
 	Ability Ability
 	Player  PlayerID
+}
+
+// registerReturnTrigger is SpellAbilityEffect.java:878-902: before the card
+// comes back, a this-turn delayed Mode$ ChangesZone trigger from the zone it is
+// in to the one it returns to, ValidCard$ the line's ReturnValid$, remembering
+// that card, executes the ReturnAbility$. It fires once, when the return move
+// satisfies it. A return anywhere but the battlefield has no matcher here and
+// the trigger would never fire, so it is left unregistered with a pending
+// error (GO-7).
+func (g *Game) registerReturnTrigger(cmd cardCommand, from ZoneType) {
+	if cmd.Zone != Battlefield {
+		g.recordPendingError(fmt.Errorf("engine: ChangeZone: ReturnAbility$ for a return to %s not resolvable yet", cmd.Zone))
+		return
+	}
+	trig := &compile.Ability{Name: "ChangesZone", Params: []vocab.Param{
+		{Key: "Mode", Value: "ChangesZone"}, {Key: "Origin", Value: from.String()},
+		{Key: "Destination", Value: cmd.Zone.String()}, {Key: "ValidCard", Value: cmd.ReturnValid},
+	}, Subs: []compile.SubRef{{Key: "Execute", Ability: cmd.Return}}}
+	g.delayed = append(g.delayed, delayedTrigger{
+		Trigger: trig, Host: cmd.Host, Controller: cmd.ReturnController, Amounts: cmd.ReturnAmounts,
+		Remembered: []EntityID{CardEntity(cmd.Target)}, ThisTurn: true,
+	})
 }

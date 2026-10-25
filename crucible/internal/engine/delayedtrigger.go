@@ -524,8 +524,13 @@ func (g *Game) delayedEnteredSatisfied(d delayedTrigger, entered CardID) bool {
 	if !ok {
 		return false
 	}
-	if v == "Card.IsTriggerRemembered" {
-		return containsEntity(d.Remembered, CardEntity(entered))
+	if rest, ok := strings.CutPrefix(v, "Card.IsTriggerRemembered"); ok && (rest == "" || rest[0] == '+') {
+		// IsTriggerRemembered, with the properties after it ("+YouCtrl",
+		// Lagrella's ReturnValid$) tested against the entering card.
+		if !containsEntity(d.Remembered, CardEntity(entered)) {
+			return false
+		}
+		return rest == "" || Matches(g, g.Card(entered), valid.Parse("Card."+rest[1:]), d.Controller, d.Host)
 	}
 	return Matches(g, g.Card(entered), valid.Parse(v), d.Controller, d.Host)
 }

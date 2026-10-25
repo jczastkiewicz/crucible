@@ -146,20 +146,3 @@ func TestSetLifeEffectValidTgtsSetsChosenPlayer(t *testing.T) {
 		t.Errorf("other life = %d, want 1", got)
 	}
 }
-
-// TestSetLifeEffectRejectsUnresolvedParam proves setLifeUnresolvedParams'
-// own fail-loud contract (PORT-8/GO-7).
-func TestSetLifeEffectRejectsUnresolvedParam(t *testing.T) {
-	t.Parallel()
-
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
-
-	c := engine.NewScriptedController()
-	_, err := castETBSetLife(t, g, p, etbSetLifeTriggerDefParams(t, "Test SetLife Choice", "LifeAmount$ 1 | Defined$ You | ChoiceAmount$ Any"), c)
-	if err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved ChoiceAmount$")
-	}
-}

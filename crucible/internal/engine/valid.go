@@ -745,6 +745,16 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		// in context, Java's empty list.
 		attackers, _ := g.resolvingAttackers(source, name)
 		return !containsCard(attackers, c.ID)
+	case name == "NotDefinedParentTarget":
+		// CardProperty.java:2067-2071: getDefinedCards(source, "ParentTarget", sa)
+		// does not contain c -- the targets the ability being targeted inherits
+		// from its nearest targeting ancestor (Special Move). True with no
+		// ability of source's in context, Java's empty list.
+		a := g.resolving
+		if a == nil || source == NoCard || a.Source != source {
+			return true
+		}
+		return !containsEntity(a.parentTargets, CardEntity(c.ID))
 	case name == "TargetedPlayerCtrl":
 		return g.targetsPlayer(source, c.Controller())
 	case name == "TargetedPlayerOwn":

@@ -536,7 +536,7 @@ func TestDealDamageRejectsUnportedParams(t *testing.T) {
 
 	g, p, other := newTwoPlayerGame(t)
 	_, err := resolveNow(t, g, p, engine.NewScriptedController(), []engine.EntityID{engine.PlayerEntity(other)},
-		"DB$ DealDamage | ValidTgts$ Any.NotDefinedParentTarget,Player | NumDmg$ 1")
+		"DB$ DealDamage | ValidTgts$ Any.NotDefinedTargeted,Player | NumDmg$ 1")
 	if err == nil || !strings.Contains(err.Error(), "NotDefined") {
 		t.Errorf("NotDefined ValidTgts$: err = %v, want one naming it", err)
 	}

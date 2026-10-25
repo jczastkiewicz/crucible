@@ -103,18 +103,6 @@ func TestRepeatEachEffectStartingWithOrdersPlayers(t *testing.T) {
 	}
 }
 
-// TestRepeatEachEffectRejectsUnresolvedParam proves LoseLifeMap$ fails closed.
-func TestRepeatEachEffectRejectsUnresolvedParam(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	def := etbChainDef(t, "Test RepeatEach Bad", "DB$ RepeatEach | RepeatPlayers$ Player | LoseLifeMap$ True | RepeatSubAbility$ DBLose",
-		"DBLose", "DB$ LoseLife | Defined$ Remembered | LifeAmount$ 1")
-	if _, err := castETBChain(t, g, p, def, engine.NewScriptedController()); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved LoseLifeMap$")
-	}
-}
-
 // TestRepeatEachEffectDamageMapDealsOnceAfterTheLoop proves DamageMap$: each
 // iteration's DealDamage records into the loop's table and the RepeatEach
 // itself deals the whole batch afterwards (RepeatEachEffect.java:199-201).

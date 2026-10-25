@@ -13,12 +13,13 @@ import (
 
 // repeatEachUnresolvedParams are RepeatEachEffect.java's params this port
 // cannot honour yet: a delayed per-player loop
-// (NextTurnForEachPlayer$), the batched
-// life table (LoseLifeMap$). ChooseOrder$ orders a card loop and names
+// (NextTurnForEachPlayer$). LoseLifeMap$ only batches the loop's life paid
+// into one LifeLostAll event after it (RepeatEachEffect.java:87-89, :206-213),
+// which has no matcher in this port (lifelost.go), so it changes nothing here
+// (Killing Wave). ChooseOrder$ orders a card loop and names
 // RepeatTypesFrom$'s chooser; the player loop, which Java also reads it
 // for, stays as it is.
 var repeatEachUnresolvedParams = [...]string{
-	"LoseLifeMap",
 	"Ultimate",
 }
 

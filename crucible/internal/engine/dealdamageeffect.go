@@ -102,10 +102,11 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if err := rejectParams(a, "DealDamage", dealDamageUnresolvedParams[:]...); err != nil {
 		return err
 	}
-	if tgts, ok := a.Params.Param("ValidTgts"); ok && strings.Contains(tgts, "NotDefined") {
+	if tgts, ok := a.Params.Param("ValidTgts"); ok && strings.Contains(strings.ReplaceAll(tgts, "NotDefinedParentTarget", ""), "NotDefined") {
 		// CardProperty's NotDefined<Defined> (CardProperty.java:2064-2068)
-		// needs the targeting ability's own references, which Matches has
-		// no access to: it would read false for every card (GO-7).
+		// needs the targeting ability's own references; only ParentTarget is
+		// read from Game.resolving (valid.go), the rest would read false for
+		// every card (GO-7).
 		return fmt.Errorf("engine: DealDamage: ValidTgts$ %q: NotDefined property not resolvable yet", tgts)
 	}
 	if err := checkReplaceDying(g, a, "DealDamage"); err != nil {

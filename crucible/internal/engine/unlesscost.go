@@ -192,10 +192,10 @@ type unlessCost struct {
 	// the payer gains N life (CostGainLife).
 	exileTopN, addManaN, oppGainN int
 	// millN is Mill<N> (CostMill): the payer mills N cards from the top.
-	millN        int
+	millN int
 	// flipN is FlipCoin<N> (CostFlipCoin): the payer flips N coins, always
 	// payable (Karplusan Minotaur's cumulative upkeep).
-	flipN int
+	flipN        int
 	addManaColor mana.Colors
 	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
 	manaTokens []string

@@ -750,6 +750,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 	defer func() { g.castPending = NoCard }()
 	c.castManaSpent, c.castPaid, c.castSnow, c.castPaidSources = 0, [5]int{}, 0, nil
 	c.castColorless = 0
+	c.castXPaid = [5]int{}
 	if opts.paysNoMana() {
 		return xAnnounced{}, true
 	}
@@ -788,6 +789,7 @@ func (g *Game) payCastCost(pid PlayerID, c *Card, controller PlayerController, o
 		// and Adamant read only the caster's.
 		c.castPaid, c.castSnow, c.castPaidSources = x.paid, x.snow, x.sources
 		c.castColorless = x.colorless
+		c.castXPaid = x.xPaid
 		if emerged != NoCard {
 			g.payEmergeSacrifice(controller, pid, c.ID, emerged)
 		}

@@ -184,6 +184,20 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		// AbilityUtils.java:2763-2765: the turn's high-water mark, not the
 		// stack as it stands.
 		return g.maxDistinctSources, true
+	case "xColorPaid":
+		// AbilityUtils.java:2682-2688: Card.getXManaCostPaidCount of the colors
+		// named, read off the host card (a Java TODO notes it should be the
+		// ability's). Soul Burn.
+		if source == NoCard || count.Argument == "" {
+			return 0, false
+		}
+		n := 0
+		for i, letter := range [...]string{"W", "U", "B", "R", "G"} {
+			if strings.Contains(count.Argument, letter) {
+				n += g.Card(source).castXPaid[i]
+			}
+		}
+		return n, true
 	case "xPaid":
 		// AbilityUtils.java:1631: the root ability's announced X when it has
 		// one, else the source card's own (Card.getXManaCostPaid).

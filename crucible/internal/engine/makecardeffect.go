@@ -22,7 +22,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "MakeCard", "Booster", "Filter"); err != nil {
+	if err := rejectParams(a, "MakeCard", "Booster"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -65,6 +65,11 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		names, err := makeCardNames(g, a, controller, source, p)
 		if err != nil {
 			return err
+		}
+		if hasParam(a, "Filter") && len(names) == 0 {
+			// MakeCardEffect.java:102: a filter that keeps no face ends this
+			// player's turn at it, with no move, trigger or shuffle.
+			continue
 		}
 		// Amount is read inside the player loop (MakeCardEffect.java:129-130).
 		amount, err := optionalAmount(g, a, "MakeCard", "Amount", 1)
@@ -227,6 +232,12 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 	for _, s := range strings.Split(raw, ",") {
 		faces = append(faces, strings.ReplaceAll(strings.TrimSpace(s), ";", ","))
 	}
+	if filter, ok := a.Params.Param("Filter"); ok {
+		var err error
+		if faces, err = filterMakeCardFaces(g, a, source, faces, filter); err != nil {
+			return nil, err
+		}
+	}
 	times, err := optionalAmount(g, a, "MakeCard", "SpellbookAmount", 1)
 	if err != nil {
 		return nil, err
@@ -246,4 +257,33 @@ func makeCardNames(g *Game, a *Ability, controller PlayerController, source *Car
 		faces = append(faces[:i:i], faces[i+1:]...)
 	}
 	return out, nil
+}
+
+// filterMakeCardFaces is MakeCardEffect.java:94-103: the faces whose card
+// passes Filter$, evaluated by Card.isValid against a fresh card of that name
+// with the host as source. Only "Card.cmc<OP><amount>" is read (both corpus
+// lines, Brazen Boarding and Tajic); the amount is calculated against the host
+// (CardProperty.java:1450-1477). Filter$ is never read on the Name$ paths in
+// Java, so they ignore it here too (PORT-7).
+func filterMakeCardFaces(g *Game, a *Ability, source *Card, faces []string, filter string) ([]string, error) {
+	rest, ok := strings.CutPrefix(filter, "Card.cmc")
+	if !ok || len(rest) < 3 {
+		return nil, fmt.Errorf("engine: MakeCard: Filter$ %q not resolvable yet", filter)
+	}
+	op, rhs := rest[:2], rest[2:]
+	want, ok := resolveNamedAmount(g, a.Amounts, source, rhs)
+	if !ok {
+		return nil, fmt.Errorf("engine: MakeCard: Filter$ %q: %q is not resolvable", filter, rhs)
+	}
+	var kept []string
+	for _, name := range faces {
+		def, ok := g.db.Card(name)
+		if !ok {
+			return nil, fmt.Errorf("engine: MakeCard: no card named %q", name)
+		}
+		if compareOp(def.Faces[0].ManaCost.CMC(), op, want) {
+			kept = append(kept, name)
+		}
+	}
+	return kept, nil
 }

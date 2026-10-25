@@ -45,6 +45,9 @@ type xAnnounced struct {
 	// (SpellAbility.getPayingMana by color): what Count$Converge and
 	// Count$Adamant read off a cast.
 	paid [5]int
+	// xPaid is the part of paid that paid X, white to green
+	// (Card.getXManaCostPaidCount, Count$xColorPaid).
+	xPaid [5]int
 	// colorless is the colorless mana ({C}) the payment spent, kept apart
 	// from paid so a color count never sees it (Count$Adamant.Colorless).
 	colorless int
@@ -104,6 +107,14 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 		x = xAnnounced{value: n, announced: true}
 	}
 
+	var xPaid [5]int
+	for _, pure := range resolved {
+		for i, col := range [...]mana.Colors{mana.White, mana.Blue, mana.Black, mana.Red, mana.Green} {
+			if pure.Colors().HasAny(col) {
+				xPaid[i]++
+			}
+		}
+	}
 	for _, s := range cost.Shards() {
 		switch {
 		case s.IsX():
@@ -211,6 +222,7 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 			}
 		}
 	}
+	x.xPaid = xPaid
 	if life > 0 {
 		g.Player(decider).Life -= life
 		g.sink.Emit(Event{Kind: LifeChanged, Source: NoCard, Target: PlayerEntity(decider), Amount: int32(-life)})

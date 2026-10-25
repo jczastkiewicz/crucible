@@ -96,7 +96,9 @@ type Card struct {
 	// that cast's mana was snow mana (xAnnounced.snow), read by
 	// Count$CastTotalManaSpent Snow; cleared with castManaSpent.
 	castPaid [5]int
-	castSnow int
+	// castXPaid is the part of castPaid that paid X (Count$xColorPaid).
+	castXPaid [5]int
+	castSnow  int
 	// castColorless is the colorless mana ({C}) that cast spent, castPaid's
 	// sixth bucket kept apart so Count$Converge, which counts castPaid's
 	// colors, never counts it: Count$Adamant.Colorless and

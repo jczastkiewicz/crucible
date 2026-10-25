@@ -565,7 +565,7 @@ func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok b
 					continue
 				}
 				text = raiseScaledByShards(c, s, text)
-				if has || raiseHasAmount(s) || !(raiseExtraShape(text) || raiseXAnnounceLater(h, c, text)) {
+				if has || raiseHasAmount(s) || (!raiseExtraShape(text) && !raiseXAnnounceLater(h, c, text)) {
 					g.recordPendingError(fmt.Errorf("engine: RaiseCost: Cost$ %q is not a plain mana cost, not resolvable yet", text))
 					return unlessCost{}, false, false
 				}

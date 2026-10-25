@@ -296,6 +296,17 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.exileEitherN, uc.exileEitherSpec = n, p.Field(1)
 		case p.Name == "RevealOrChoose" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
 			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, p.Field(1), true
+		case p.Name == "ChooseCard" && uc.revealN == 0 && revealSpecResolvable(p.Field(1)):
+			// CostChooseCard: the payer names cards, listed as revealed for
+			// Revealed$ (Close Encounter). A "warped" alternative never holds:
+			// this port casts nothing with Warp, so no card is warped.
+			var alts []string
+			for _, alt := range strings.Split(p.Field(1), ";") {
+				if !strings.Contains(alt, "+warped") {
+					alts = append(alts, alt)
+				}
+			}
+			uc.revealN, uc.revealSpec, uc.revealBattlefield = n, strings.Join(alts, ";"), true
 		case p.Name == "Sac" && uc.sacN == 0 && p.Field(1) != "":
 			uc.sacN, uc.sacSpec = n, p.Field(1)
 		case p.Name == "Return" && uc.returnN == 0 && p.Field(1) != "":

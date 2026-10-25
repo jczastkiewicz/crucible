@@ -266,6 +266,9 @@ func (m *Memory) ChosenColors() mana.Colors { return m.chosenColors }
 // SetChosenNumber records the number a ChooseNumber picked.
 func (m *Memory) SetChosenNumber(n int) { m.chosenNumber, m.hasChosenNumber = n, true }
 
+// ClearChosenNumber is Card.clearChosenNumber.
+func (m *Memory) ClearChosenNumber() { m.chosenNumber, m.hasChosenNumber = 0, false }
+
 // ChosenNumber is the number last recorded by SetChosenNumber; ok is false
 // when none was, since zero is a legal choice.
 func (m *Memory) ChosenNumber() (n int, ok bool) { return m.chosenNumber, m.hasChosenNumber }

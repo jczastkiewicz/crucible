@@ -86,18 +86,6 @@ func TestChooseNumberEffectSecretlyMatchedWhenAllTie(t *testing.T) {
 	}
 }
 
-// TestChooseNumberEffectRejectsUnresolvedParam proves Guesser$ fails closed.
-func TestChooseNumberEffectRejectsUnresolvedParam(t *testing.T) {
-	t.Parallel()
-
-	g, p, _ := newTwoPlayerGame(t)
-	c := engine.NewScriptedController()
-	def := etbChainDef(t, "Test ChooseNumber Secret", "DB$ ChooseNumber | Defined$ You | Guesser$ Opponent")
-	if _, err := castETBChain(t, g, p, def, c); err == nil {
-		t.Fatal("ResolveStack succeeded, want an error for unresolved Guesser$")
-	}
-}
-
 // TestChooseNumberEffectRejectsBadBounds proves an unresolvable Min$/Max$
 // or Defined$ fails closed.
 func TestChooseNumberEffectRejectsBadBounds(t *testing.T) {

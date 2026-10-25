@@ -519,6 +519,12 @@ type triggeredObjects struct {
 	// CardID is stable across zone changes, so the LKI spelling names the
 	// same card. NoCard when unset.
 	blocker CardID
+	// defendingPlayer is AbilityKey.DefendingPlayer of Mode$ DamageDone
+	// (Card.java:6343): the player defending against the damage source when
+	// the damage was dealt, NoPlayer when none did. hasDefendingPlayer marks
+	// the key as recorded.
+	defendingPlayer    PlayerID
+	hasDefendingPlayer bool
 	// attacker is AbilityKey.Attacker for Mode$ Attacks
 	// (TriggerAttacks.setTriggeringObjects), read by Defined$
 	// TriggeredAttacker/TriggeredAttackerLKICopy (definedCards). NoCard when

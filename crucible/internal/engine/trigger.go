@@ -1024,7 +1024,21 @@ func damageAmountMatches(param string, amount, toughness int, hasToughness bool)
 // Specter's "that player discards a card").
 func damageSourceObjects(g *Game, source CardID, target EntityID, amount int) triggeredObjects {
 	return triggeredObjects{source: CardEntity(source), sourceController: g.Card(source).Controller(), target: target,
+		defendingPlayer: g.defendingPlayerRelatedTo(source), hasDefendingPlayer: true,
 		counts: triggerCounts{damage: amount, set: countDamage}}
+}
+
+// defendingPlayerRelatedTo is Combat.getDefendingPlayerRelatedTo
+// (Combat.java:452-463) as Card.java:6343 records it for a damage trigger:
+// the player defending against source, or against what source enchants or
+// equips; NoPlayer when nothing attacks it (the attack map is empty outside
+// combat).
+func (g *Game) defendingPlayerRelatedTo(source CardID) PlayerID {
+	attacker := source
+	if to, ok := g.Card(source).AttachedTo(); ok {
+		attacker = to
+	}
+	return g.defenderOf(attacker)
 }
 
 // isDamageDoneTrigger reports whether t is CR 603's "deals damage" shape:

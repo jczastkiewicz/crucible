@@ -451,6 +451,12 @@ func definedPlayers(g *Game, controller PlayerID, host CardID, defined string, r
 	case "TriggeredDefendingPlayer":
 		// AbilityKey.DefendingPlayer of Mode$ Attacks: the player defending
 		// against the attacker the trigger recorded (defenderOf).
+		if refs.triggered.hasDefendingPlayer {
+			if d := refs.triggered.defendingPlayer; d != NoPlayer {
+				candidates = []PlayerID{d}
+			}
+			break
+		}
 		if refs.triggered.attacker == NoCard {
 			return nil, fmt.Errorf("engine: Defined$ %q: the trigger recorded no attacker", defined)
 		}

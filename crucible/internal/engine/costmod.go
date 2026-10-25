@@ -2,7 +2,7 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability castspell
 
 package engine
 
@@ -113,7 +113,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		}
 		text := "1"
 		if raw, ok := r.s.Param("Cost"); ok {
-			text = raw
+			text = raiseXFromSVar(g, r.host, c, r.face, raw)
 		}
 		if n, ok := raiseWaterbend(text); ok && act == nil && extras && !raiseHasAmount(r.s) {
 			// Waterbend<N> merges into the spell's mana as N generic the caster
@@ -122,7 +122,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			continue
 		}
 		add, err := mana.Parse(text)
-		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && raiseExtraShape(raiseXFromSVar(g, r.host, r.face, text)) {
+		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && (raiseExtraShape(raiseXFromSVar(g, r.host, c, r.face, text)) || raiseXAnnounceLater(r.host, c, text)) {
 			// A non-mana raise on a spell is the spell's additional cost,
 			// paid with the rest (castExtraCost, staticRaiseExtra).
 			continue
@@ -460,16 +460,24 @@ func raiseExtraShape(text string) bool {
 // SVar as the part is paid (CostPart.java:154-156). An announced X, or an SVar
 // this port cannot evaluate, leaves the text as it was, so the line stays
 // refused.
-func raiseXFromSVar(g *Game, host *Card, face *compile.Face, text string) string {
+func raiseXFromSVar(g *Game, host *Card, c *Card, face *compile.Face, text string) string {
 	if !strings.Contains(text, "<X/") && !strings.Contains(text, "<X>") {
 		return text
 	}
+	var n int
 	if amt, ok := face.Amounts["x"]; !ok || (amt.Kind == expr.Expression && amt.Head == "Count" && strings.EqualFold(amt.Body, "xPaid")) {
-		return text
-	}
-	n, ok := resolveNamedAmount(g, face.Amounts, host, "X")
-	if !ok || n < 0 {
-		return text
+		// An announced X: the X the spell being cast announced before its
+		// targets (announceXFor), for the card's own static (Soul Immolation's
+		// Blight<X>, Foggy Swamp Visions' Waterbend<X>).
+		if host.ID != c.ID || !g.hasPreX {
+			return text
+		}
+		n = g.preX
+	} else {
+		var ok bool
+		if n, ok = resolveNamedAmount(g, face.Amounts, host, "X"); !ok || n < 0 {
+			return text
+		}
 	}
 	v := strconv.Itoa(n)
 	return strings.ReplaceAll(strings.ReplaceAll(text, "<X/", "<"+v+"/"), "<X>", "<"+v+">")
@@ -506,7 +514,7 @@ func (g *Game) staticRaiseWaterbend(pid PlayerID, c *Card) int {
 				if !hasCost || g.costModStatus(pid, c, h, s, nil) != costModApplies {
 					continue
 				}
-				if n, ok := raiseWaterbend(text); ok {
+				if n, ok := raiseWaterbend(raiseXFromSVar(g, h, c, &live[i], text)); ok {
 					total += n
 				}
 			}
@@ -539,12 +547,12 @@ func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok b
 				if _, err := mana.Parse(text); err == nil || g.costModStatus(pid, c, h, s, nil) != costModApplies {
 					continue
 				}
+				text = raiseXFromSVar(g, h, c, &live[i], text)
 				if _, ok := raiseWaterbend(text); ok && !raiseHasAmount(s) {
 					continue
 				}
-				text = raiseXFromSVar(g, h, &live[i], text)
 				text = raiseScaledByShards(c, s, text)
-				if has || raiseHasAmount(s) || !raiseExtraShape(text) {
+				if has || raiseHasAmount(s) || !(raiseExtraShape(text) || raiseXAnnounceLater(h, c, text)) {
 					g.recordPendingError(fmt.Errorf("engine: RaiseCost: Cost$ %q is not a plain mana cost, not resolvable yet", text))
 					return unlessCost{}, false, false
 				}
@@ -554,4 +562,42 @@ func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok b
 		}
 	}
 	return uc, has, true
+}
+
+// raiseAnnouncedXText is the Cost$ text of a RaiseCost static that applies to
+// casting c and names an announced X in a part past mana (Soul Immolation's
+// Blight<X>, Foggy Swamp Visions' Waterbend<X>), or "" for none: the X is asked
+// before the targets like any other announced X (announceXFor).
+func (g *Game) raiseAnnouncedXText(pid PlayerID, c *Card) string {
+	if !xIsPaid(c) {
+		return ""
+	}
+	for _, host := range g.staticHostsWith(c.ID) {
+		h := g.Card(host)
+		if h.Def == nil || h.ID != c.ID {
+			continue
+		}
+		live := h.liveTraitFaces()
+		for i := range live {
+			for _, s := range live[i].Statics {
+				if !strings.EqualFold(s.Name, "RaiseCost") || raiseHasAmount(s) {
+					continue
+				}
+				text, ok := s.Param("Cost")
+				if !ok || !costNamesX(text) || g.costModStatus(pid, c, h, s, nil) != costModApplies {
+					continue
+				}
+				return text
+			}
+		}
+	}
+	return ""
+}
+
+// raiseXAnnounceLater reports a RaiseCost text naming an X that has not been
+// announced yet: the card's own static (host is c) with X unresolved. The cost
+// is worked out once before the announcement (announceXFor) and once after, and
+// the first pass must not refuse it.
+func raiseXAnnounceLater(host, c *Card, text string) bool {
+	return host.ID == c.ID && costNamesX(text) && xIsPaid(c)
 }

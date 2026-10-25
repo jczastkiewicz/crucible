@@ -718,7 +718,11 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 			partsText = text
 		}
 	}
-	if total.CountX() == 0 && partsText == "" {
+	raiseText := ""
+	if partsText == "" {
+		raiseText = g.raiseAnnouncedXText(pid, c)
+	}
+	if total.CountX() == 0 && partsText == "" && raiseText == "" {
 		return true
 	}
 	n := controller.ChoosePayX(g, pid, total)
@@ -727,6 +731,19 @@ func (g *Game) announceXFor(pid PlayerID, c *Card, controller PlayerController, 
 	}
 	if partsText != "" {
 		n = min(n, g.nonManaXMax(pid, c.ID, partsText))
+	}
+	if raiseText != "" && !strings.Contains(raiseText, "Waterbend") {
+		// A Waterbend part is paid with mana and taps, which Java's cap does not
+		// count either (Cost.getMaxForNonManaX).
+		n = min(n, g.nonManaXMax(pid, c.ID, raiseText))
+	}
+	if line != nil {
+		if raw, ok := line.Param("XMax"); ok {
+			// AbilityUtils.getAnnouncementBounds: the line's XMax$ caps X.
+			if m, ok := resolveNamedAmount(g, c.Def.Faces[0].Amounts, c, raw); ok {
+				n = min(n, max(m, 0))
+			}
+		}
 	}
 	g.preX, g.hasPreX = n, true
 	return true

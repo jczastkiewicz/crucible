@@ -41,10 +41,7 @@ import (
 type changeTargetsEffect struct{}
 
 // changeTargetsUnresolvedParams are rejected before anything changes
-// (PORT-8, GO-7): Chooser$ (another player chooses), RandomTarget$/
-// RandomTargetRestriction$ (a random legal target, Chef's Kiss and Grip of
-// Chaos, both of which also need a Defined$ or trigger mode this port does
-// not build), and the
+// (PORT-8, GO-7): the
 // condition params subAbilityConditionMet reads as never met, silently:
 // ConditionTargetValidTargeting$/ConditionTargetsSingleTarget$ (Meddle,
 // Quicksilver Dragon) and ConditionPlayerDefined$/ConditionPlayerContains$
@@ -52,7 +49,6 @@ type changeTargetsEffect struct{}
 // TargetsWithControllerProperty$ is a canTargetSpellAbility filter
 // stackAbilityCandidates does not read.
 var changeTargetsUnresolvedParams = [...]string{
-	"Chooser", "RandomTarget", "RandomTargetRestriction",
 	"ConditionPlayerDefined", "ConditionPlayerContains", "TargetsWithControllerProperty",
 }
 
@@ -96,6 +92,20 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		return fmt.Errorf("engine: ChangeTargets: ChangeSingleTarget$ without DefinedMagnet$ not resolvable yet")
 	}
 
+	// Chooser$ (ChangeTargetsEffect.java:52-56): the players who decide, the
+	// activator by default; naming nobody ends the effect. The first one decides
+	// (no corpus line names two).
+	chooser := a.Controller
+	if spec, ok := a.Params.Param("Chooser"); ok {
+		players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: ChangeTargets: Chooser$: %w", err)
+		}
+		if len(players) == 0 {
+			return nil
+		}
+		chooser = players[0]
+	}
 	var fired []retargeted
 	for _, id := range ids {
 		item, ok := g.stackItem(id)
@@ -103,7 +113,7 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			// "If there isn't a Stack Instance, there isn't really a target."
 			continue
 		}
-		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
+		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, chooser, a.Source) {
 			continue
 		}
 		parts, err := retargetParts(item)
@@ -117,8 +127,10 @@ func (changeTargetsEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			changed, stop, err = g.changeSingleTarget(controller, a, item, parts, magnet)
 		case hasMagnet:
 			changed, err = g.changeToMagnet(item, parts, magnet)
+		case hasParam(a, "RandomTarget"):
+			changed, err = g.randomNewTargets(a, item, parts)
 		default:
-			changed, err = g.chooseNewTargets(controller, a, item, parts)
+			changed, err = g.chooseNewTargets(controller, a, chooser, item, parts)
 		}
 		if err != nil {
 			return err
@@ -157,6 +169,19 @@ func changeTargetsSpells(g *Game, a *Ability) ([]StackItemID, error) {
 		defined, _ := a.Params.Param("Defined")
 		switch defined {
 		case "Targeted":
+		case "Remembered":
+			// AbilityUtils.java:1235-1241: each remembered card's spell abilities
+			// (a spell on the stack is its card's one) -- a copy is remembered as its
+			// card (CopySpellAbility RememberCopies$).
+			var ids []StackItemID
+			for _, e := range g.Card(a.Source).Memory.Remembered() {
+				if card, ok := e.AsCard(); ok {
+					if id, ok := g.spellItemOf(card); ok {
+						ids = append(ids, id)
+					}
+				}
+			}
+			return ids, nil
 		case "TriggeredSpellAbility":
 			if a.triggered.spellAbility == NoStackItem {
 				return nil, fmt.Errorf("engine: ChangeTargets: Defined$ TriggeredSpellAbility: no triggering spell recorded")
@@ -353,7 +378,7 @@ func (g *Game) changeToMagnet(item *Ability, parts []*Ability, magnet CardID) ([
 // part with no targets, or fewer candidates than it had, keeps its own.
 // Keeping a target is allowed: nothing in Forge's selection forces a
 // different one.
-func (g *Game) chooseNewTargets(controller PlayerController, a *Ability, item *Ability, parts []*Ability) ([]EntityID, error) {
+func (g *Game) chooseNewTargets(controller PlayerController, a *Ability, chooser PlayerID, item *Ability, parts []*Ability) ([]EntityID, error) {
 	restriction, hasRestriction := a.Params.Param("TargetRestriction")
 	var parsed valid.Spec
 	if hasRestriction {
@@ -388,7 +413,7 @@ func (g *Game) chooseNewTargets(controller PlayerController, a *Ability, item *A
 		if len(candidates) < n {
 			continue
 		}
-		chosen := controller.ChooseTargets(g, a.Controller, candidates, n, n)
+		chosen := controller.ChooseTargets(g, chooser, candidates, n, n)
 		if err := checkChoice(chosen, candidates, n, n); err != nil {
 			return nil, fmt.Errorf("engine: ChangeTargets: new targets: %w", err)
 		}
@@ -398,6 +423,55 @@ func (g *Game) chooseNewTargets(controller PlayerController, a *Ability, item *A
 			if !containsEntity(old, t) && !containsEntity(changed, t) {
 				changed = append(changed, t)
 			}
+		}
+	}
+	return changed, nil
+}
+
+// randomNewTargets is ChangeTargetsEffect.java:111-152 (RandomTarget$): each
+// targeting part gets one random legal target from what it could target now,
+// RandomTargetRestriction$ (read for the activator and the host) narrowing the
+// offer. A part with nothing left to pick aborts the whole change; the picks
+// are applied once every part has one. Aggregates.random draws nothing for a
+// single candidate (Chef's Kiss).
+func (g *Game) randomNewTargets(a *Ability, item *Ability, parts []*Ability) ([]EntityID, error) {
+	restriction, hasRestriction := a.Params.Param("RandomTargetRestriction")
+	var parsed valid.Spec
+	if hasRestriction {
+		parsed = valid.Parse(restriction)
+	}
+	picks := make([]EntityID, len(parts))
+	for i, p := range parts {
+		if len(p.Targets) == 0 {
+			continue
+		}
+		candidates, err := g.partCandidates(item, p)
+		if err != nil {
+			return nil, err
+		}
+		if hasRestriction {
+			var kept []EntityID
+			for _, c := range candidates {
+				if g.entityMatches(c, restriction, parsed, a.Controller, a.Source) {
+					kept = append(kept, c)
+				}
+			}
+			candidates = kept
+		}
+		if len(candidates) == 0 {
+			return nil, nil
+		}
+		picks[i] = candidates[g.randomIndex(len(candidates))]
+	}
+	var changed []EntityID
+	for i, p := range parts {
+		if picks[i] == NoEntity {
+			continue
+		}
+		old := p.Targets
+		p.Targets = []EntityID{picks[i]}
+		if !containsEntity(old, picks[i]) && !containsEntity(changed, picks[i]) {
+			changed = append(changed, picks[i])
 		}
 	}
 	return changed, nil

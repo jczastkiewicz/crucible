@@ -177,6 +177,11 @@ func controlSpellTargets(g *Game, a *Ability) ([]namedSpell, error) {
 		if !ok {
 			id = NoStackItem
 		}
+		if id == NoStackItem && !hasParam(a, "ValidTgts") {
+			// Defined$ Targeted keeps only the spells with a stack instance
+			// (AbilityUtils.java:1266-1276): one that left is not named, no error.
+			continue
+		}
 		spells = append(spells, namedSpell{id: id, card: card})
 	}
 	return spells, nil

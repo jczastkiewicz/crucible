@@ -121,7 +121,10 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 				if len(tg.targets) > 0 {
 					targeted = append(targeted, tg)
 				}
-				if hasParam(a, "RememberNewCard") {
+				if hasParam(a, "RememberNewCard") || hasParam(a, "RememberCopies") && host != NoCard {
+					// RememberCopies$ remembers the copy's SpellAbility in Java; its
+					// card stands for it here (a reader of Remembered spells,
+					// ChangeTargets, finds the copy's stack item from the card).
 					// Re-read: NewCard (inside copySpell) may have grown the
 					// arena and moved g.cards, so source (taken before the
 					// loop) can point into a stale backing array whose

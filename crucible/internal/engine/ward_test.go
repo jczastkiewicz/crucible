@@ -44,7 +44,7 @@ func TestCastSpellWardDoesNotFireForAnUnsupportedCost(t *testing.T) {
 
 	g := newGame(t, "a", "b")
 	p, opp := g.Players()[0], g.Players()[1]
-	target := g.NewCard(creatureDefPTKeywords(t, "3", "1", "Ward:Unattach<1>"), p, engine.Battlefield)
+	target := g.NewCard(creatureDefPTKeywords(t, "3", "1", "Ward:"+unsupportedCost1), p, engine.Battlefield)
 	spell := g.NewCard(instantDefWithAbility(t, "Test Bolt", "0", "SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3"), opp, engine.Hand)
 	g.SetTurnState(1, p, engine.Main1)
 
@@ -54,7 +54,7 @@ func TestCastSpellWardDoesNotFireForAnUnsupportedCost(t *testing.T) {
 		t.Fatal("CastSpell failed")
 	}
 	if got := g.StackLen(); got != 1 {
-		t.Errorf("StackLen() = %d, want 1 (the spell alone, Unattach<1> not resolvable)", got)
+		t.Errorf("StackLen() = %d, want 1 (the spell alone, unsupported cost not resolvable)", got)
 	}
 }
 

@@ -252,7 +252,7 @@ func TestSacrificeEffectRejectsUnlessCost(t *testing.T) {
 	g.Player(p).Life, g.Player(g.Players()[1]).Life = 20, 20
 
 	c := engine.NewScriptedController()
-	_, err := castETBSacrifice(t, g, p, etbSacrificeTriggerDefParams(t, "Test UnlessCost", "UnlessCost$ Unattach<1> | UnlessPayer$ You", nil), c)
+	_, err := castETBSacrifice(t, g, p, etbSacrificeTriggerDefParams(t, "Test UnlessCost", "UnlessCost$ "+unsupportedCost1+" | UnlessPayer$ You", nil), c)
 	if err == nil {
 		t.Fatal("ResolveStack: got nil error, want one naming UnlessCost")
 	}

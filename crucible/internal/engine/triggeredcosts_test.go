@@ -407,12 +407,12 @@ func TestTriggeredCostUnreadShapesFail(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, svar, want string
 	}{
-		{"Unattach", "AB$ GainLife | Cost$ Unattach<4> | Defined$ You | LifeAmount$ 5", "SVar:Y:1", "Unattach<4>"},
+		{"unsupported", "AB$ GainLife | Cost$ " + unsupportedCost4 + " | Defined$ You | LifeAmount$ 5", "SVar:Y:1", unsupportedCost4},
 		{"XMin", "AB$ GainLife | Cost$ X | XMin$ 1 | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "XMin$"},
 		{"XMax", "AB$ GainLife | Cost$ X | XMax$ Nope | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "XMax$"},
-		{"announced X shape", "AB$ GainLife | Cost$ X Unattach<4> | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "not resolvable"},
+		{"announced X shape", "AB$ GainLife | Cost$ X " + unsupportedCost4 + " | Defined$ You | LifeAmount$ X", "SVar:X:Count$xPaid", "not resolvable"},
 		{"computed X", "AB$ GainLife | Cost$ PayLife<X> | Defined$ You | LifeAmount$ 1", "SVar:X:TriggeredPlayersTargets$Amount", "SVar X"},
-		{"computed X shape", "AB$ GainLife | Cost$ PayLife<X> Unattach<4> | Defined$ You | LifeAmount$ 1", "SVar:X:Count$CardPower", "not resolvable"},
+		{"computed X shape", "AB$ GainLife | Cost$ PayLife<X> " + unsupportedCost4 + " | Defined$ You | LifeAmount$ 1", "SVar:X:Count$CardPower", "not resolvable"},
 		{"NumTimes", "AB$ GainLife | Cost$ Mana<1 W\\Times> | Announce$ NumTimes | Defined$ You | LifeAmount$ 1", "SVar:NumTimes:Number$0", "not resolvable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

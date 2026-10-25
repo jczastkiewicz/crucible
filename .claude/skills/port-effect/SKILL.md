@@ -26,12 +26,14 @@ stack/casting mechanic, a Layer 1 copy, synthetic Command-zone cards with their 
 `PlayerController` decision loop, or changes a documented contract (e.g. `DeclareCombatBlockers`' "not re-checked") --
 that last one needs an ADR first (ADRP-4). Do them inline; ADR first when a contract changes.
 
-Then delegate to the `forge-oracle` subagent: "forge-oracle: <Api>". Its answer gives the params the Java reads,
+Then delegate to the `forge-oracle` subagent: "forge-oracle: <Api>, max 30 lines, no tables" (only when the Java is non-trivial; a one-param addition is a `rg` and one `Read` with `offset`/`limit`). Its answer gives the params the Java reads,
 resolution order, controller decisions, corpus shapes and PORT-8 bugs. Do not read `forge-game/` inline unless it left a
 gap.
 
 Pick which params to resolve by corpus count. Everything else is rejected with an `error` (step 1), never silently
 ignored.
+
+Test helpers and `ScriptedController` queues: `test-helpers.md` next to this file. Quirks rows: `crucible/scripts/addquirk.sh "<quirk>" "<java cite>" "<cards>"` (pads the aligned table).
 
 ## 1. Write `crucible/internal/engine/<api>effect.go`
 

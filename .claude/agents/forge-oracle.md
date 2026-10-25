@@ -43,3 +43,7 @@ Answer in this shape, compressed, no preamble:
    which it rejects.
 
 Cite every claim with `path:line`. If you did not read it, do not claim it. Say "not found" rather than guess.
+
+**Length:** the report is capped at 30 lines unless the caller asks for more: no tables, no "not traced" lists, no
+description-only params, no params the corpus never uses. Reason: the main session pays for every line twice (reading
+it, then keeping it in context).

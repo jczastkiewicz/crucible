@@ -1015,7 +1015,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 		return false
 	}
 	a := Ability{API: apiType, Source: card, Controller: pid, Params: spellAbility, Amounts: c.Def.Faces[0].Amounts, spell: true, casting: true}
-	if !g.announceXFor(pid, c, controller, opts, spellAbility) {
+	if !g.announceSVarsFor(pid, c, controller, spellAbility) || !g.announceXFor(pid, c, controller, opts, spellAbility) {
 		return false
 	}
 	if a.API == APICharm {

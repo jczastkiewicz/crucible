@@ -2,12 +2,13 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability castspell
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability castspell control
 
 package engine
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -141,6 +142,11 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		}
 	}
 	cmc := mana.FromShards(shards, generic).CMC()
+	// A cost with X can be reduced past its printed generic part: the announced
+	// X is generic mana too once it is paid (payManaCostX takes the leftover).
+	if paying && act == nil && base.CountX() > 0 {
+		cmc += 1000
+	}
 	reduced := 0
 	for _, r := range reduces {
 		raw, ok := r.s.Param("Amount")
@@ -164,6 +170,12 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 		}
 		if maxReduction := cmc - minMana - reduced; maxReduction > 0 {
 			reduced += min(value, maxReduction)
+		}
+	}
+	if paying && act == nil {
+		g.xReduce = 0
+		if base.CountX() > 0 && reduced > generic {
+			g.xReduce = reduced - generic
 		}
 	}
 	return mana.FromShards(shards, max(generic-reduced, 0)), true
@@ -461,6 +473,7 @@ func raiseExtraShape(text string) bool {
 // this port cannot evaluate, leaves the text as it was, so the line stays
 // refused.
 func raiseXFromSVar(g *Game, host *Card, c *Card, face *compile.Face, text string) string {
+	text = raiseNamedFromSVars(g, host, face, text)
 	if !strings.Contains(text, "<X/") && !strings.Contains(text, "<X>") {
 		return text
 	}
@@ -600,4 +613,81 @@ func (g *Game) raiseAnnouncedXText(pid PlayerID, c *Card) string {
 // the first pass must not refuse it.
 func raiseXAnnounceLater(host, c *Card, text string) bool {
 	return host.ID == c.ID && costNamesX(text) && xIsPaid(c)
+}
+
+// raiseNamedAmount matches a part amount that is an SVar name other than X:
+// "<Y/" or "<Y>".
+var raiseNamedAmount = regexp.MustCompile(`<([A-WYZ][A-Za-z]*)([/>])`)
+
+// raiseNamedFromSVars writes the value of each SVar a RaiseCost Cost$ part
+// amount names (March of Reckless Joy's ExileFromHand<Y/...>, Y = SVar$Exiled,
+// the count announced with Announce$) into the text, as CostPart.
+// getAbilityAmount reads the SVar when the part is paid. A name that does not
+// resolve stays, so the line is refused.
+func raiseNamedFromSVars(g *Game, host *Card, face *compile.Face, text string) string {
+	return raiseNamedAmount.ReplaceAllStringFunc(text, func(m string) string {
+		sub := raiseNamedAmount.FindStringSubmatch(m)
+		n, ok := resolveNamedAmount(g, face.Amounts, host, sub[1])
+		if !ok || n < 0 {
+			return m
+		}
+		return "<" + strconv.Itoa(n) + sub[2]
+	})
+}
+
+// announceSVarsFor is PlaySpellAbility.announceValuesLikeX for the spell line's
+// Announce$ <SVar> (March of Reckless Joy's "how many red cards to exile"):
+// the caster names a number from 0 to what the card's own RaiseCost part, with
+// that count in its amount, can still pay, and it is stored as the SVar on the
+// card (Card.setSVar) for the cost, the cost reduction and the effect to read.
+// An X announcement is announceXFor's. false when the caster declines.
+func (g *Game) announceSVarsFor(pid PlayerID, c *Card, controller PlayerController, line *compile.Ability) bool {
+	raw, ok := line.Param("Announce")
+	if !ok {
+		return true
+	}
+	for _, name := range strings.Split(raw, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" || name == "X" || name == "NumTimes" {
+			continue
+		}
+		key := strings.ToLower(name)
+		text := ""
+		for _, host := range g.staticHostsWith(c.ID) {
+			h := g.Card(host)
+			if h.ID != c.ID || h.Def == nil {
+				continue
+			}
+			for _, s := range h.liveTraitFaces()[0].Statics {
+				if t, has := s.Param("Cost"); has && strings.EqualFold(s.Name, "RaiseCost") && raiseNamedAmount.MatchString(t) {
+					text = t
+				}
+			}
+		}
+		if text == "" {
+			return true
+		}
+		face := &c.Def.Faces[0]
+		best := 0
+		for n := 1; n <= 200; n++ {
+			if c.svars == nil {
+				c.svars = map[string]int{}
+			}
+			c.svars[key] = n
+			uc, ok := parseUnlessCost(raiseNamedFromSVars(g, c, face, text))
+			if !ok || !g.unlessPayable(pid, c.ID, uc) {
+				break
+			}
+			best = n
+		}
+		if c.svars == nil {
+			c.svars = map[string]int{}
+		}
+		n := controller.ChooseNumber(g, pid, c.ID, 0, best)
+		if n < 0 || n > best {
+			return false
+		}
+		c.svars[key] = n
+	}
+	return true
 }

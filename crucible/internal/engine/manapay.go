@@ -102,8 +102,12 @@ func (g *Game) payManaCostX(decider PlayerID, cost mana.Cost, controller PlayerC
 				resolved = append(resolved, pure)
 			}
 		} else {
-			generic += n * countX
+			// A ReduceCost past the printed generic mana takes it off the X
+			// (CostAdjustment reduces the whole generic part once X is set).
+			absorbed := min(g.xReduce, n*countX)
+			generic += n*countX - absorbed
 		}
+		g.xReduce = 0
 		x = xAnnounced{value: n, announced: true}
 	}
 

@@ -110,6 +110,10 @@ type Game struct {
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID
+	// xReduce is the part of a ReduceCost past the printed generic mana of a
+	// cost with X, which the announced X absorbs when it is paid (March of
+	// Reckless Joy); costStatics sets it, payManaCostX spends it.
+	xReduce int
 	// maxDistinctSources is MagicStack.maxDistinctSources: the most spells
 	// plus distinct non-spell sources the stack held after any push this turn
 	// (Count$MaxDistinctOnStack), reset when a turn's cleanup begins.

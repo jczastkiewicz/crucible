@@ -404,3 +404,9 @@ Stroke of Luck (`stroke_of_luck.txt:10`, `SVar:Y:4-X`): `AbilityUtils.calculateA
 token that is not numeric and has no `$` (`AbilityUtils.java:426-438`), so Java returns 0 and `LoseLife | LifeAmount$ Y`
 loses no life although the card says one per card. The script needs an SVar in a form Java evaluates (`Count$` or
 `SVar$`). Crucible refuses the amount rather than add a special case for the minus form (PORT-8).
+
+Kathril, Aspect Warper (`k/kathril_aspect_warper.txt:6-9`): `RememberAmount$ True` adds each pass's amount to the host's
+remembered objects, a `LinkedHashSet` (`Card.java:194`), so equal amounts collapse: two keyword counters (1 and 1)
+remember one `1`, and `Count$RememberedNumber` sums to 1 where the card says one +1/+1 counter per counter put. Crucible
+reproduces Java (the memory is an ordered set too) rather than count correctly (PORT-8). Fix upstream: a counting
+mechanism that does not dedupe, e.g. a per-pass `RememberAmount` into a multiset.

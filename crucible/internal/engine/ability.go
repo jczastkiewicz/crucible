@@ -150,6 +150,9 @@ type Ability struct {
 	// parentTargets are the targets of the nearest ancestor ability that chose
 	// some (Defined$ ParentTarget); a sub-ability that chooses its own keeps
 	// the parent's here while Targets holds its own.
+	// counterOverride is the one counter kind a SharedKeywords$ PutCounter puts
+	// on this pass (putCounterEffect.resolveSharedKeywords); empty otherwise.
+	counterOverride CounterType
 	parentTargets []EntityID
 	// ancestorTargeting is SpellAbility.usesTargeting on some ancestor of this
 	// sub-ability: one of them names ValidTgts$. An empty parentTargets then

@@ -70,8 +70,7 @@ import (
 // end to end.
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
-	"SharedKeywords", "SharedKeywordsDefined", "SharedKeywordsZone",
-	"SharedRestrictions", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
+	"SharedKeywordsDefined", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
 }
 
 // putCounterEffect resolves Mode$/DB$/AB$ PutCounter for the Defined$
@@ -82,6 +81,9 @@ var putCounterUnresolvedParams = [...]string{
 type putCounterEffect struct{}
 
 func (e putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if raw, ok := a.Params.Param("SharedKeywords"); ok {
+		return e.resolveSharedKeywords(g, a, controller, raw)
+	}
 	if !hasParam(a, "ForColor") {
 		return e.resolve(g, a, controller)
 	}
@@ -164,7 +166,9 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 	default:
 		// CounterTypes$, ExistingCounter and the per-object type choices pick the
 		// kind per target (counterKindPlan); no single kind is read here.
-		if !counterKindsPerObject(a.Params) && !hasParam(a, "EachFromSource") {
+		if a.counterOverride != "" {
+			counterType = a.counterOverride
+		} else if !counterKindsPerObject(a.Params) && !hasParam(a, "EachFromSource") {
 			var err error
 			if counterType, err = g.putCounterTypeChosen(controller, a, placer); err != nil {
 				return err
@@ -882,4 +886,32 @@ func (g *Game) delayRemoveCounter(a *Ability, phase string, card CardID, kind Co
 		Host: a.Source, Controller: a.Controller, Amounts: a.Amounts, HostTransforms: g.Card(a.Source).Transforms,
 		Remembered: []EntityID{CardEntity(card)},
 	})
+}
+
+// resolveSharedKeywords is CountersPutEffect.java:606-621: of the " & "-separated
+// keywords, the ones some card in SharedKeywordsZone$ matching
+// SharedRestrictions$ (default Card) carries (layerSharedKeywords, the same
+// CardFactoryUtil.sharedKeywords port) each get one resolvePerType, a counter
+// named for the keyword. SharedKeywordsDefined$ (the cards named, not a zone)
+// is not read.
+func (e putCounterEffect) resolveSharedKeywords(g *Game, a *Ability, controller PlayerController, raw string) error {
+	if hasParam(a, "SharedKeywordsDefined") {
+		return fmt.Errorf("engine: PutCounter: SharedKeywordsDefined$ not resolvable yet")
+	}
+	zones, ok := a.Params.Param("SharedKeywordsZone")
+	if !ok {
+		return fmt.Errorf("engine: PutCounter: SharedKeywords$ without SharedKeywordsZone$ not resolvable yet")
+	}
+	keywords, ok := layerSharedKeywords(g, g.Card(a.Source), a.Params, strings.Split(raw, " & "), zones)
+	if !ok {
+		return fmt.Errorf("engine: PutCounter: SharedKeywordsZone$ %q is not a zone list", zones)
+	}
+	for _, k := range keywords {
+		per := *a
+		per.counterOverride = CounterType(strings.ToUpper(k))
+		if err := e.resolve(g, &per, controller); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -227,7 +227,7 @@ func TestManaReflectedRejectsUnportedShapes(t *testing.T) {
 	}{
 		{"ColorOrType$ Color | ReflectProperty$ Produce | Valid$ Land.YouCtrl", "Valid$ not resolvable yet"},
 		{"ColorOrType$ Color | ReflectProperty$ Produce", `ReflectProperty$ "Produce" not resolvable yet`},
-		{"ColorOrType$ Color | ReflectProperty$ Is", `ReflectProperty$ "Is" not resolvable yet`},
+		{"ColorOrType$ Color | ReflectProperty$ Is", `ReflectProperty$ Is with Produced$ "" not resolvable yet`},
 		{"ColorOrType$ Combo | ReflectProperty$ Produced", `ColorOrType$ "Combo" not resolvable`},
 		{"ColorOrType$ Type | ReflectProperty$ Produced | Produced$ Combo", "Produced$ not resolvable yet"},
 		{"ColorOrType$ Type | ReflectProperty$ Produced | Amount$ Bogus", `Amount$ "Bogus" is not resolvable`},

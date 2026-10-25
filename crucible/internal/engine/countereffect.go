@@ -30,7 +30,7 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Counter", "RememberSplicedOntoCounteredSpell", "ConditionWouldDestroy"); err != nil {
+	if err := rejectParams(a, "Counter", "ConditionWouldDestroy"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)

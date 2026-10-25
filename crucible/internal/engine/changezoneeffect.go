@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic additional
+//enginelint:allow effecteffect id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic additional
 
 import (
 	"fmt"
@@ -35,7 +35,6 @@ import (
 // accepted and changes nothing a port reads; whoever ports either adds the
 // flag here and at the discard sites.
 var changeZoneUnresolvedParams = [...]string{
-	"WithNotedCounters",
 	"AttachAfter",
 	"Champion",
 
@@ -326,6 +325,9 @@ func alternativeOrigin(g *Game, a *Ability, controller PlayerController, decider
 func changeZoneEnter(g *Game, a *Ability, dest ZoneType, known bool) ([]enterCounters, error) {
 	raw, ok := a.Params.Param("WithCountersType")
 	if !ok {
+		if hasParam(a, "WithNotedCounters") {
+			return notedEnterCounters(g, a), nil
+		}
 		return nil, nil
 	}
 	if dest != Battlefield && !known {
@@ -1484,4 +1486,25 @@ func (g *Game) changeZoneAttach(controller PlayerController, id CardID, plan att
 		return
 	}
 	g.attachToPlayer(controller, id, plan.player)
+}
+
+// notedEnterCounters is CountersNoteEffect.loadCounters (ChangeZoneEffect.java:
+// 622-623): the counters a ChangeZone host noted on an Effect card, each kind
+// with its count, placed by the activator. The SVars are never removed after
+// use (a Java TODO), so a second return would get them again. Java walks a
+// map of SVars; here the kinds go in name order.
+func notedEnterCounters(g *Game, a *Ability) []enterCounters {
+	host := g.Card(a.Source)
+	var keys []string
+	for k := range host.svars {
+		if strings.HasPrefix(k, notedCountersPrefix) {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	var out []enterCounters
+	for _, k := range keys {
+		out = append(out, enterCounters{kind: CounterType(strings.ToUpper(strings.TrimPrefix(k, notedCountersPrefix))), n: host.svars[k], placer: a.Controller})
+	}
+	return out
 }

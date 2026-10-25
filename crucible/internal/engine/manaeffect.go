@@ -112,6 +112,46 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with exactly one color")
 			}
 			pool.addProduced(producedMana{color: color, amount: amount, restrict: restrict, combat: combat}, src)
+		case produced == "Special EnchantedManaCost":
+			// ManaEffect.java:204-236: one mana per symbol of the enchanted card's
+			// mana cost -- its color for a one-color symbol, the player's choice
+			// for a multicolor one or for a {2/C} symbol (a color or two colorless),
+			// the generic part as colorless. Nothing when it enchants nothing.
+			host, ok := g.Card(a.Source).AttachedTo()
+			if !ok {
+				continue
+			}
+			cost := g.Card(host).manaCost()
+			for range amount {
+				colorless := cost.Generic()
+				var chosen []mana.Colors
+				for _, sh := range cost.Shards() {
+					switch {
+					case sh.IsX() || sh.IsColorless() && sh.Colors() == 0:
+						continue
+					case sh.IsOr2Generic():
+						if controller.ChoosePayMonocoloredHybrid(g, pid, sh.Colors(), 2) {
+							chosen = append(chosen, sh.Colors())
+						} else {
+							colorless += 2
+						}
+					case sh.Colors().Count() == 1:
+						chosen = append(chosen, sh.Colors())
+					default:
+						color := controller.ChooseManaColor(g, pid, a.Source, sh.Colors())
+						if color.Count() != 1 || !sh.Colors().Has(color) {
+							return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with one color of the symbol")
+						}
+						chosen = append(chosen, color)
+					}
+				}
+				for _, c := range chosen {
+					pool.addProduced(producedMana{color: c, amount: 1, restrict: restrict, combat: combat}, src)
+				}
+				if colorless > 0 {
+					pool.addProduced(producedMana{colorless: true, amount: colorless, restrict: restrict, combat: combat}, src)
+				}
+			}
 		case strings.HasPrefix(produced, "Combo "):
 			options, comboOK := parseComboColors(produced)
 			// ManaEffect.java:85: "Different" in Produced$ removes each chosen

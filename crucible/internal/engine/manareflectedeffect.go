@@ -1,12 +1,13 @@
 package engine
 
-//enginelint:allow card game ability defined control amount replaceeffect id
+//enginelint:allow card game ability defined control amount replaceeffect id condition effecthelpers
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cardtype"
+	"github.com/jczastkiewicz/crucible/internal/mana"
 )
 
 // manaReflectedAllowedParams names every key ManaReflected resolves or can
@@ -22,6 +23,8 @@ import (
 var manaReflectedAllowedParams = map[string]bool{
 	"db": true, "colorortype": true, "reflectproperty": true, "defined": true, "amount": true,
 	"subability": true, "spelldescription": true, "stackdescription": true,
+	// The ReflectProperty$ Is Combo shape (Omnath, Locus of All).
+	"produced": true, "valid": true, "conditiondefined": true, "conditionpresent": true,
 }
 
 // manaReflectedEffect is ManaReflectedEffect.java: add one mana of a type
@@ -57,10 +60,19 @@ var manaReflectedAllowedParams = map[string]bool{
 // reflecting host is (Mana.isSnow reads the source card).
 type manaReflectedEffect struct{}
 
-func (manaReflectedEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
+func (manaReflectedEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	for _, p := range a.Params.Params {
 		if !manaReflectedAllowedParams[strings.ToLower(p.Key)] {
 			return fmt.Errorf("engine: ManaReflected: %s$ not resolvable yet", p.Key)
+		}
+	}
+	if property, _ := a.Params.Param("ReflectProperty"); property == "Is" {
+		return g.reflectIsCombo(a, controller)
+	}
+	for _, key := range [...]string{"Produced", "Valid", "ConditionDefined", "ConditionPresent"} {
+		// Only the Is Combo shape reads these.
+		if hasParam(a, key) {
+			return fmt.Errorf("engine: ManaReflected: %s$ not resolvable yet", key)
 		}
 	}
 	if property, _ := a.Params.Param("ReflectProperty"); property != "Produced" {
@@ -122,4 +134,56 @@ func reflectedProducedMana(produced producedMana, withColorless bool) (producedM
 		return producedMana{colorless: true}, withColorless
 	}
 	return producedMana{color: produced.color}, true
+}
+
+// reflectIsCombo is the ReflectProperty$ Is, Produced$ Combo, Valid$
+// Defined.Imprinted shape (Omnath, Locus of All: "add three mana in any
+// combination of the colors of the revealed card", ManaReflectedEffect.java:
+// 66-84, CardUtil.java:283-294). The colors are every color an imprinted card
+// has; a colorless one gives none and nothing is added. Java's specifyManaCombo
+// answers the whole Amount$ at once; here the one color prompt is asked per
+// mana, as Mana Combo does (manaeffect.go).
+func (g *Game) reflectIsCombo(a *Ability, controller PlayerController) error {
+	if produced, _ := a.Params.Param("Produced"); produced != "Combo" {
+		return fmt.Errorf("engine: ManaReflected: ReflectProperty$ Is with Produced$ %q not resolvable yet", produced)
+	}
+	if valid, _ := a.Params.Param("Valid"); valid != "Defined.Imprinted" {
+		return fmt.Errorf("engine: ManaReflected: ReflectProperty$ Is with Valid$ %q not resolvable yet", valid)
+	}
+	if ct, _ := a.Params.Param("ColorOrType"); ct != "Color" {
+		return fmt.Errorf("engine: ManaReflected: ColorOrType$ %q not resolvable", ct)
+	}
+	source := g.Card(a.Source)
+	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
+		return nil
+	}
+	amount := 1
+	if amountText, ok := a.Params.Param("Amount"); ok {
+		n, resolved := resolveNamedAmount(g, a.Amounts, source, amountText)
+		if !resolved {
+			return fmt.Errorf("engine: ManaReflected: Amount$ %q is not resolvable", amountText)
+		}
+		amount = n
+	}
+	var options mana.Colors
+	for _, id := range source.Memory.Imprinted() {
+		options |= g.Card(id).Colors()
+	}
+	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: ManaReflected: %w", err)
+	}
+	if options.IsColorless() {
+		return nil
+	}
+	for _, pid := range players {
+		for range max(amount, 0) {
+			color := controller.ChooseManaColor(g, pid, a.Source, options)
+			if color.Count() != 1 || !options.Has(color) {
+				return fmt.Errorf("engine: ManaReflected: ChooseManaColor did not answer with one color of the card")
+			}
+			g.addProducedMana(pid, producedMana{color: color, amount: 1, snow: source.Type().HasSupertype(cardtype.Snow)}, g.manaSourceOf(a.Source))
+		}
+	}
+	return nil
 }

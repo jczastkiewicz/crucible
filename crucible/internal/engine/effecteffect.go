@@ -30,7 +30,7 @@ import (
 // (ConditionZone$, and a Condition$ value rejectUnreadCondition refuses).
 var effectUnresolvedParams = [...]string{
 	"RememberSpell", "RememberKeywords", "SharedKeywordsZone", "SharedRestrictions",
-	"ExileOnCounter", "NoteCounterDefined",
+	"ExileOnCounter",
 	"Adventure",
 }
 
@@ -138,6 +138,12 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		life.exileOnMoved, life.forgetOnMoved, life.forgetOnCast = 0, 0, false
 	}
 
+	var noted []CardID
+	if spec, ok := a.Params.Param("NoteCounterDefined"); ok {
+		if noted, err = definedCards(source, spec, a.refs()); err != nil {
+			return fmt.Errorf("engine: Effect: NoteCounterDefined$: %w", err)
+		}
+	}
 	var imprint []CardID
 	if spec, ok := a.Params.Param("ImprintCards"); ok {
 		if imprint, err = definedCards(source, spec, a.refs()); err != nil {
@@ -222,6 +228,19 @@ func (effectEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		}
 		for _, c := range imprint {
 			eff.Memory.Imprint(c)
+		}
+		// CountersNoteEffect.noteCounters: one SVar per counter kind on each noted
+		// card, on the effect card, read back by ChangeZone WithNotedCounters$.
+		for _, c := range noted {
+			counters := &g.Card(c).Counters
+			for _, kind := range counters.Kinds() {
+				if n := counters.Count(kind); n > 0 {
+					if eff.svars == nil {
+						eff.svars = map[string]int{}
+					}
+					eff.svars[notedCountersPrefix+strings.ToLower(string(kind))] = n
+				}
+			}
 		}
 		// Re-read: NewCard may have grown the arena under source.
 		eff.Memory.copyChoicesFrom(&g.Card(a.Source).Memory)
@@ -626,3 +645,8 @@ func (g *Game) effectCardsSeeCounterGone(id CardID, kind CounterType, phasedOut 
 		}
 	}
 }
+
+// notedCountersPrefix starts the SVar names CountersNoteEffect.noteCounters
+// writes on the effect card ("NoteCounters<Kind>"), lowercased like every
+// runtime SVar key.
+const notedCountersPrefix = "notecounters"

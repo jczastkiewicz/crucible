@@ -5,6 +5,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // changeZoneAllUnresolvedParams are ChangeZoneAllEffect.java's params this
@@ -90,7 +91,29 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		return nil
 	}
 	if changeType, ok := a.Params.Param("ChangeType"); ok {
-		cards = filterValid(g, cards, changeType, a.Controller, a.Source)
+		if strings.HasPrefix(changeType, "Targeted") {
+			// AbilityUtils.filterListByType (:834-847): the first targeted card
+			// becomes the source and "Targeted(Card)" reads "Card" in the valid
+			// string, every occurrence (Tawnos's Coffin: "Targeted.Self,Aura.
+			// AttachedTo Card.Self" is the creature and its Auras). No target, no
+			// cards.
+			targeted, err := definedCards(source, "Targeted", a.refs())
+			if err != nil {
+				return fmt.Errorf("engine: ChangeZoneAll: %w", err)
+			}
+			if len(targeted) == 0 {
+				cards = nil
+			} else {
+				if strings.HasPrefix(changeType, "TargetedCard") {
+					changeType = strings.ReplaceAll(changeType, "TargetedCard", "Card")
+				} else {
+					changeType = strings.ReplaceAll(changeType, "Targeted", "Card")
+				}
+				cards = filterValid(g, cards, changeType, a.Controller, targeted[0])
+			}
+		} else {
+			cards = filterValid(g, cards, changeType, a.Controller, a.Source)
+		}
 	}
 	if _, ok := a.Params.Param("ForgetOtherRemembered"); ok {
 		source.Memory.ClearRemembered()

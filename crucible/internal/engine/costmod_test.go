@@ -48,8 +48,8 @@ func TestSpellCostStatics(t *testing.T) {
 		{"ValidSpell$ Spell alternatives raise a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell,Activated.!ManaAbility | Amount$ 1"}, 0, 4},
 		{"ValidSpell$ Static does not touch a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Static.MorphUp | Amount$ 2"}, 0, 3},
 		{"Affected$ is read by no cost code and changes nothing", []string{"S:Mode$ RaiseCost | Affected$ Card.Self | Type$ Spell | Amount$ 1"}, 0, 4},
-		{"a failed Condition$ skips before an unevaluable param", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Condition$ NotPlayerTurn | ValidTarget$ Creature | Amount$ 1"}, 0, 3},
-		{"an unresolvable line is not applied", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ValidTarget$ Creature.tapped"}, 0, 3},
+		{"a failed Condition$ skips before an unevaluable param", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Condition$ NotPlayerTurn | ForEachShard$ Black | Amount$ 1"}, 0, 3},
+		{"an unresolvable line is not applied", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ForEachShard$ Black"}, 0, 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -234,7 +234,7 @@ func TestUnresolvableRaiseCostRefusesTheCast(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	g.NewCard(scriptDef(t, "Test Tax", "Enchantment",
-		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ValidTarget$ Creature"), p, engine.Battlefield)
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ForEachShard$ Black"), p, engine.Battlefield)
 	card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
 	if castWithGreen(g, p, card, 9) {
 		t.Error("a spell was cast under a RaiseCost the engine cannot evaluate")
@@ -389,5 +389,46 @@ func TestStaticRaiseCostSacrificeIsAnAdditionalCost(t *testing.T) {
 	}
 	if z := g.Card(fodder).Zone; z != engine.Graveyard {
 		t.Errorf("sacrificed creature zone = %v, want Graveyard", z)
+	}
+}
+
+// RaiseCost with ValidTarget$ (Dragon's Prey, Vanish into Eternity) charges
+// only when a chosen target is valid, and UnlessValidTarget$ inverts it
+// (CostAdjustment.checkRequirement).
+func TestRaiseCostValidTargetReadsTheChosenTargets(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		line   string
+		target string // subtype of the creature targeted
+		cost   int
+	}{
+		{"valid target raises", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2 | ValidTarget$ Creature.Dragon", "Dragon", 3},
+		{"other target does not", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2 | ValidTarget$ Creature.Dragon", "Bear", 1},
+		{"unless valid target skips", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2 | ValidTarget$ Creature.Dragon | UnlessValidTarget$ True", "Dragon", 1},
+		{"unless other target raises", "S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 2 | ValidTarget$ Creature.Dragon | UnlessValidTarget$ True", "Bear", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, extra := range []int{-1, 0} {
+				g, p, _ := newTwoPlayerGame(t)
+				g.SetTurnState(1, p, engine.Main1)
+				g.NewCard(scriptDef(t, "Test Rule", "Enchantment", tc.line), p, engine.Battlefield)
+				victim := g.NewCard(scriptDef(t, "Victim", "Creature "+tc.target), p, engine.Battlefield)
+				spell := g.NewCard(instantDefWithAbility(t, "Test Prey", "R", "SP$ Destroy | ValidTgts$ Creature"), p, engine.Hand)
+				have := tc.cost + extra
+				g.Player(p).ManaPool.Add(mana.Red, have)
+				c := engine.NewScriptedController()
+				c.QueueTargets([]engine.EntityID{engine.CardEntity(victim)})
+				for range have {
+					c.QueuePayGeneric(mana.ShardR)
+				}
+				if got := g.CastSpell(p, spell, c); got != (extra == 0) {
+					t.Errorf("casting with %d mana = %v, want %v (cost %d)", have, got, extra == 0, tc.cost)
+				}
+			}
+		})
 	}
 }

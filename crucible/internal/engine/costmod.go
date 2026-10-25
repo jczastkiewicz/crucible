@@ -18,8 +18,9 @@ import (
 )
 
 // costModParams are the params a RaiseCost/ReduceCost line may carry that this
-// port evaluates (Relative$ on the spell's own line only, costModStatus); any
-// other (ValidTarget$, Color$, UpTo$,
+// port evaluates (Relative$ on the spell's own line only, ValidTarget$ and
+// UnlessValidTarget$ on a spell, costModStatus); any
+// other (Color$, UpTo$,
 // OnlyFirstSpell$, ForEachShard$, a keyword Amount$ ...) makes the
 // line unresolvable and it is not applied (GO-7). Affected$ is listed because
 // no cost-modification code in Java reads it (Hurkyl's Final Meditation's
@@ -29,7 +30,7 @@ var costModParams = map[string]bool{
 	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
-	"validspell": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"validspell": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
 
 // spellCost is base, the printed (or alternative) mana cost of casting card as
@@ -243,6 +244,28 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 	// on Crime's Count$OptionalGenericCostPaid); another host's is not read.
 	if _, relative := s.Param("Relative"); relative && host.ID != c.ID {
 		return costModUnresolvable
+	}
+	// ValidTarget$ holds when some target of the spell being cast is valid
+	// (CostAdjustment.java:590-612); UnlessValidTarget$ flips it. Before the
+	// targets are chosen (the affordability probe) there are none, so the line
+	// does not raise, as Java's does not.
+	if v, ok := s.Param("ValidTarget"); ok {
+		if act != nil {
+			return costModUnresolvable
+		}
+		targetValid := false
+		if g.castTargetsFor == c.ID {
+			parsed := valid.Parse(v)
+			for _, e := range g.castTargets {
+				if g.entityMatches(e, v, parsed, host.Controller(), host.ID) {
+					targetValid = true
+					break
+				}
+			}
+		}
+		if _, unless := s.Param("UnlessValidTarget"); targetValid == unless {
+			return costModSkips
+		}
 	}
 	if !paramsResolvable(s, costModParams) {
 		return costModUnresolvable

@@ -110,6 +110,11 @@ type Game struct {
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID
+	// castTargets are the targets castTargetsFor has chosen while it is being
+	// cast, which a RaiseCost/ReduceCost ValidTarget$ reads when the cost is
+	// worked out after targeting (CostAdjustment.checkRequirement).
+	castTargets    []EntityID
+	castTargetsFor CardID
 	// preX is the X a spell announced before its targets (castspell.go
 	// announceX), waiting for payManaCostX.
 	preX    int

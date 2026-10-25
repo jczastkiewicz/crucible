@@ -16,8 +16,9 @@ import (
 // Expression$; Calculate resolves it as an amount (calculateAmount);
 // CountSVar is xCount on "SVar$<Expression$>" -- an SVar with at most the
 // Plus/Minus/Twice suffix; AdditiveForEach adds Expression$ to the SVar's
-// current value. Type$ Count/Targeted/Triggered and SVar$ EachPlayer read
-// shapes this port has no evaluator for and fail closed. Java also copies
+// current value. Count (xCount) and Targeted (handlePaid over the targeted
+// cards) read their measure. Type$ Triggered has no evaluator in this port
+// and fails closed. Java also copies
 // the value onto the resolving ability chain's own SVars; the host's copy
 // is the one every later read in this port goes through.
 type storeSVarEffect struct{}
@@ -62,6 +63,10 @@ func (storeSVarEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		value, ok = resolveAmount(g, a.Amounts, a.Controller, a.Source, expr.Parse("Count$"+expression))
 	case kind == "CountSVar":
 		value, ok = countSVar(g, a, source, expression)
+	case kind == "Targeted":
+		// StoreSVarEffect.java:55-57: handlePaid of the targeted cards, the
+		// measure Expression$ names (CardToughness, CardCounters.LOYALTY).
+		value, ok = handlePaid(g, a.Amounts, a.Controller, a.Source, g.targetedCards(a), expression, nil, 0)
 	case strings.HasPrefix(kind, "AdditiveForEach"):
 		current, _ := resolveNamedAmount(g, a.Amounts, source, key)
 		var add int

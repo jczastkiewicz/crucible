@@ -581,6 +581,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	g.holdingCastExits = true
 	defer func() {
 		g.castPending, g.preX, g.hasPreX = NoCard, 0, false
+		g.castTargets, g.castTargetsFor = nil, NoCard
 		// A cast that went on the stack released the hold (castExitMatches).
 		// One that failed after a cost part already fired a trigger (a
 		// sacrifice before a later part could not be paid) still owes it: the
@@ -1017,7 +1018,9 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 		return false
 	}
 	// Targets are chosen: from here the spell is "on the stack" for an
-	// EffectZone$ Stack CantTarget line (targetAsk.casting).
+	// EffectZone$ Stack CantTarget line (targetAsk.casting), and its cost is
+	// worked out against them (costModStatus ValidTarget$).
+	g.castTargets, g.castTargetsFor = allTargetsOf(a), card
 	a.casting = false
 	for i := range a.Modes {
 		a.Modes[i].casting = false

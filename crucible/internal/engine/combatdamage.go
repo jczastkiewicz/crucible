@@ -376,6 +376,7 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 		flags |= FlagDeathtouch
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: CardEntity(target), Amount: int32(amount), Flags: flags})
+	g.noteDamagedThisGame(source, CardEntity(target))
 	// CardDamageHistory.registerDamage (GameAction.java:2757): logged after
 	// the damage is applied, with copies of source and target as they are now.
 	record := g.logCardDamage(source, target, amount, isCombat)
@@ -453,6 +454,7 @@ func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, targ
 		poison += toxicMagnitude(g.Card(source))
 	}
 	g.sink.Emit(Event{Kind: DamageDealt, Source: source, Target: PlayerEntity(target), Amount: int32(amount), Flags: flags})
+	g.noteDamagedThisGame(source, PlayerEntity(target))
 	if !g.Card(source).HasKeyword("Infect") && lost > 0 {
 		g.sink.Emit(Event{Kind: LifeChanged, Source: source, Target: PlayerEntity(target), Amount: int32(-lost), Flags: flags})
 		g.noteLifeLost(controller, target, lost)

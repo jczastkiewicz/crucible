@@ -74,7 +74,7 @@ var playUnresolvedParams = [...]string{
 // CanPayManaCost.
 // sharesNameWith is answered in the forms Matches evaluates without the
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
-// use only ThisTurnCast and TriggeredCard, which stay refused.
+// use only ThisTurnCast (answered from the turn's cast record) and TriggeredCard, which stays refused.
 var playUnportedProperties = [...]string{
 	"ExiledWith", "CanPayManaCost",
 }
@@ -82,7 +82,7 @@ var playUnportedProperties = [...]string{
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions
 // valid.go answers from the game and the source's memory alone (CardProperty.java:
 // 823-869): the zone forms, and the cards the host remembered or imprinted.
-var playSharesNameWithForms = [...]string{"YourGraveyard", "Graveyard", "Battlefield", "NonToken", "Remembered", "Imprinted"}
+var playSharesNameWithForms = [...]string{"YourGraveyard", "Graveyard", "Battlefield", "NonToken", "ThisTurnCast", "Remembered", "Imprinted"}
 
 func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {

@@ -240,9 +240,17 @@ func playerProperty(g *Game, candidate, host PlayerID, source CardID, property s
 			return false, false
 		}
 		return chainTargetsEntity(a, PlayerEntity(candidate)), true
+	case property == "wasDealtDamageThisGameBy Self":
+		// PlayerProperty.java:126-139: the source card has dealt damage to the
+		// candidate this game. Only the host itself (Self) is read; the other
+		// Defined$ spellings are no corpus line.
+		if source == NoCard {
+			return false, true
+		}
+		return slices.Contains(g.Card(source).damagedPlayers, candidate), true
 	case strings.HasPrefix(property, "wasDealtCombatDamageThisCombatBy "),
 		strings.HasPrefix(property, "wasDealtDamageThisGameBy "):
-		// :112-139: per-combat and per-game damage records are not kept.
+		// :112-139: per-combat records are not kept, nor Defined$ other than Self.
 		return false, false
 	case strings.HasPrefix(property, "wasDealt"):
 		return wasDealtThisTurn(g, candidate, host, source, property, amounts, depth)
@@ -541,4 +549,27 @@ func (g *Game) inGamePlayers() []PlayerID {
 		}
 	}
 	return out
+}
+
+// noteDamagedThisGame is CardDamageHistory.registerDamage's per-game list
+// (getThisGameDamaged): source has dealt damage to target.
+func (g *Game) noteDamagedThisGame(source CardID, target EntityID) {
+	c := g.Card(source)
+	if pid, ok := target.AsPlayer(); ok {
+		if !slices.Contains(c.damagedPlayers, pid) {
+			c.damagedPlayers = append(slices.Clone(c.damagedPlayers), pid)
+		}
+		return
+	}
+	id, ok := target.AsCard()
+	if !ok {
+		return
+	}
+	stamp := g.Card(id).zoneStamp
+	for _, d := range c.damagedCards {
+		if d.id == id && d.stamp == stamp {
+			return
+		}
+	}
+	c.damagedCards = append(slices.Clone(c.damagedCards), damagedCard{id, stamp})
 }

@@ -713,6 +713,19 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 	// canBeBeamedUp: no CantBeBeamedUp static covers c (Marooned).
 	case name == "canBeBeamedUp":
 		return !g.cantBeBeamedUp(c)
+	case name == "wasDealtDamageByThisGame":
+		// CardProperty.java:1168-1176: the source has dealt this very card (same
+		// zoneStamp) damage this game.
+		sc, ok := sourceCard(g, source)
+		if !ok {
+			return false
+		}
+		for _, d := range sc.damagedCards {
+			if d.id == c.ID && d.stamp == c.zoneStamp {
+				return true
+			}
+		}
+		return false
 	case strings.HasPrefix(name, "wasDealtExcessDamageThisTurn"):
 		// CardProperty.java:1164-1167: Card.hasBeenDealtExcessDamageThisTurn.
 		return c.Damage.ExcessThisTurn
@@ -1870,6 +1883,14 @@ func (g *Game) sharesWithAny(c *Card, restriction string, sourceController Playe
 		return inZone(Battlefield, g.Players(), all)
 	case "NonToken":
 		return inZone(Battlefield, g.Players(), func(o *Card) bool { return !o.IsToken })
+	case "ThisTurnCast":
+		// CardProperty.java:831-832: CardUtil.getThisTurnCast("Card"), every spell
+		// cast this turn by anyone (Twinning Glass).
+		cast := make([]CardID, len(g.castThisTurn))
+		for i, r := range g.castThisTurn {
+			cast[i] = r.card
+		}
+		return anyShares(cast)
 	}
 	sc, ok := sourceCard(g, source)
 	if !ok {

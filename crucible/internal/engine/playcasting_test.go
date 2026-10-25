@@ -531,10 +531,10 @@ func TestPlayValidSharesNameWithAZone(t *testing.T) {
 
 	g, p, _ = newTwoPlayerGame(t)
 	g.NewCard(gainInstant(t, "Twin", "R", "1"), p, engine.Hand)
-	host := pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ Card.nonLand+sharesNameWith ThisTurnCast | ValidZone$ Hand | ValidSA$ Spell")
+	host := pushPlayLine(t, g, p, nil, "DB$ Play | Valid$ Card.nonLand+sharesNameWith TriggeredCard | ValidZone$ Hand | ValidSA$ Spell")
 	err := resolvePlay(t, g, host, engine.NewScriptedController())
-	if err == nil || !strings.Contains(err.Error(), "sharesNameWith ThisTurnCast") {
-		t.Errorf("err = %v, want a refusal naming sharesNameWith ThisTurnCast", err)
+	if err == nil || !strings.Contains(err.Error(), "sharesNameWith TriggeredCard") {
+		t.Errorf("err = %v, want a refusal naming sharesNameWith TriggeredCard", err)
 	}
 }
 

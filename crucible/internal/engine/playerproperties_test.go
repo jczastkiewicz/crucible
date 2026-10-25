@@ -443,7 +443,7 @@ func TestPlayerPropertiesRefuseWhatTheyCannotRead(t *testing.T) {
 	t.Parallel()
 
 	for _, x := range []string{
-		"PlayerCountOpponents$HasPropertywasDealtDamageThisGameBy Self",
+		"PlayerCountOpponents$HasPropertywasDealtDamageThisGameBy Remembered",
 		"PlayerCountOpponents$HasPropertywasDealtCombatDamageThisCombatBy Self",
 		"PlayerCountOpponents$HasPropertywasDealtDamageLastTurn GE2",
 		"PlayerCountOpponents$HasPropertywasDealtDamage",

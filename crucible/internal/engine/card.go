@@ -98,6 +98,11 @@ type Card struct {
 	castPaid [5]int
 	// castXPaid is the part of castPaid that paid X (Count$xColorPaid).
 	castXPaid [5]int
+	// damagedPlayers and damagedCards are what this card has dealt damage to this
+	// game (CardDamageHistory.getThisGameDamaged), each card with the zoneStamp it
+	// had then; rebuilt, never appended in place (Clone shares them).
+	damagedPlayers []PlayerID
+	damagedCards   []damagedCard
 	// storedRolls are the RollDice StoreResults$ results kept on this card,
 	// ascending (Card.storedRolls), read by Count$MaxSameStoredRolls.
 	storedRolls []int
@@ -1651,4 +1656,10 @@ func sharesCardType(a, b *Card) bool {
 func netPower(c *Card) int {
 	p, _ := c.Power()
 	return p
+}
+
+// damagedCard is a card some source dealt damage to this game, as of its zoneStamp.
+type damagedCard struct {
+	id    CardID
+	stamp uint64
 }

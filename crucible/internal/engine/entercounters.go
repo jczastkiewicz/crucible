@@ -251,8 +251,17 @@ func (g *Game) putEnterCounters(a *Ability, source *Card, placer PlayerID) error
 // (CountersPutEffect.java:292-314, :620-629).
 func (g *Game) enterCounterKinds(controller PlayerController, moved CardID, host *Card, amounts map[string]expr.Amount, sub *compile.Ability) ([]counterKind, error) {
 	name := host.Def.Name
-	if !onlyKeys(sub, "DB", "Defined", "CounterType", "CounterNum", "ETB", "SpellDescription", "UpTo", "ChooseDifferent") {
+	if !onlyKeys(sub, "DB", "Defined", "CounterType", "CounterNum", "ETB", "SpellDescription", "UpTo", "ChooseDifferent", "UnlessCost", "UnlessSwitched", "UnlessPayer") {
 		return nil, fmt.Errorf("engine: %q: ETB$ PutCounter: a param past Defined$/CounterType$/CounterNum$ not resolvable yet", name)
+	}
+	if text, ok := sub.Param("UnlessCost"); ok {
+		paid, err := g.enterUnlessCostPaid(controller, host, amounts, sub, text)
+		if err != nil {
+			return nil, err
+		}
+		if !paid {
+			return nil, nil
+		}
 	}
 	defined, ok := sub.Param("Defined")
 	if !ok {
@@ -318,4 +327,24 @@ func (g *Game) enterKindChoice(controller PlayerController, decider PlayerID, so
 		return nil, err
 	}
 	return []counterKind{{ct, amount}}, nil
+}
+
+// enterUnlessCostPaid is the UnlessCost$ + UnlessSwitched$ + UnlessPayer$ You
+// shape of an as-it-enters PutCounter ("you may return a nonland permanent;
+// if you do, it enters with a +1/+1 counter", Rescuer Sphinx): the host's
+// controller is asked to pay, and the counters go on only when they did
+// (Registry.resolveUnlessCost's `paid == switched`). Any other payer, a missing
+// UnlessSwitched$ or a cost parseUnlessCost does not read is an error (GO-7).
+func (g *Game) enterUnlessCostPaid(controller PlayerController, host *Card, amounts map[string]expr.Amount, sub *compile.Ability, text string) (bool, error) {
+	_, switched := sub.Param("UnlessSwitched")
+	if payer, _ := sub.Param("UnlessPayer"); !switched || payer != "You" {
+		return false, fmt.Errorf("engine: %q: ETB$ PutCounter: UnlessCost$ without UnlessSwitched$ and UnlessPayer$ You not resolvable yet", host.Def.Name)
+	}
+	uc, ok := parseUnlessCost(text)
+	if !ok {
+		return false, fmt.Errorf("engine: %q: ETB$ PutCounter: UnlessCost$ %q not resolvable yet", host.Def.Name, text)
+	}
+	a := &Ability{API: APIPutCounter, Source: host.ID, Controller: host.Controller(), Params: sub, Amounts: amounts}
+	pid := host.Controller()
+	return (uc.mandatory || controller.ConfirmPayCost(g, pid, uc.parsed, host.ID)) && g.payUnlessCost(controller, a, pid, uc), nil
 }

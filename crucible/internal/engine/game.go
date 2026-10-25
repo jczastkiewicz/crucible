@@ -110,6 +110,14 @@ type Game struct {
 	// castPending is the spell whose cast is in progress and whose X has not
 	// been announced yet, NoCard otherwise: Count$xPaid is unresolved for it.
 	castPending CardID
+	// maxDistinctSources is MagicStack.maxDistinctSources: the most spells
+	// plus distinct non-spell sources the stack held after any push this turn
+	// (Count$MaxDistinctOnStack), reset when a turn's cleanup begins.
+	maxDistinctSources int
+	// noSchemesThisTurn is the SetInMotion CantHappen effect AddTurn's
+	// NoSchemes$ creates for the extra turn (AddTurnEffect.java:69-80), which
+	// ends with it.
+	noSchemesThisTurn bool
 	// castTargets are the targets castTargetsFor has chosen while it is being
 	// cast, which a RaiseCost/ReduceCost ValidTarget$ reads when the cost is
 	// worked out after targeting (CostAdjustment.checkRequirement).
@@ -1638,6 +1646,8 @@ func (g *Game) Clone() *Game {
 		pendingRepeats: append([]pendingRepeat(nil), g.pendingRepeats...),
 
 		extraTurns:            append([]extraTurn(nil), g.extraTurns...),
+		maxDistinctSources:    g.maxDistinctSources,
+		noSchemesThisTurn:     g.noSchemesThisTurn,
 		combatDamagePrevented: g.combatDamagePrevented,
 		combatsThisTurn:       g.combatsThisTurn,
 		mainsThisTurn:         g.mainsThisTurn,

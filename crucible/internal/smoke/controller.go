@@ -13,6 +13,7 @@ package smoke
 
 import (
 	"math/bits"
+	"slices"
 
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -105,10 +106,19 @@ func (*Controller) ChooseLegendaryToKeep(_ *engine.Game, _ engine.PlayerID, dups
 // DeclareCombatAttackers attacks with every eligible creature, or with one when
 // a Mode$ AttackRestrict static is in play (its cap is at least one, and an
 // attack over it is illegal, so a probe that sent everyone would be refused
-// for the card's own restriction).
+// for the card's own restriction) or an eligible creature "can only attack
+// alone" (Master of Cruelties; AttackRestriction.java:49-50 counts the whole
+// declared attack).
 func (*Controller) DeclareCombatAttackers(g *engine.Game, _ engine.PlayerID, eligible []engine.CardID) []engine.CardID {
-	if len(eligible) > 1 && attackRestricted(g) {
-		return eligible[:1]
+	if len(eligible) > 1 {
+		for _, id := range eligible {
+			if slices.Contains(g.Card(id).KeywordLines(), "CARDNAME can only attack alone.") {
+				return []engine.CardID{id}
+			}
+		}
+		if attackRestricted(g) {
+			return eligible[:1]
+		}
 	}
 	return eligible
 }

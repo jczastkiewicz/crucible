@@ -88,6 +88,11 @@ func (setInMotionEffect) Resolve(g *Game, a *Ability, c PlayerController) error 
 // anything moves (setInMotionReplacement), and an empty SchemeDeck is an
 // error where Java's get(0) would throw.
 func (g *Game) setSchemeInMotion(c PlayerController, player PlayerID, scheme CardID) error {
+	if g.noSchemesThisTurn {
+		// Player.java:275-277: the CantHappen replacement of AddTurn's NoSchemes$
+		// returns before anything moves.
+		return nil
+	}
 	if name, ok := g.setInMotionReplacement(); ok {
 		return fmt.Errorf("engine: SetInMotion: %q's Event$ SetInMotion replacement not resolvable yet", name)
 	}

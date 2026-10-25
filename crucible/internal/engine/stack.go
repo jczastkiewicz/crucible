@@ -16,7 +16,10 @@
 
 package engine
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // PushAbility puts an ability on the stack (CR 405.1, 601.2i, 603.3b) and
 // emits AbilityActivated. It does not itself decide who is entitled to push
@@ -33,8 +36,25 @@ func (g *Game) PushAbility(a Ability) {
 	a.ID = g.nextStackItemID
 	g.stampTargets(&a)
 	g.stack = append(g.stack, a)
+	g.noteDistinctSources()
 	g.sink.Emit(Event{Kind: AbilityActivated, Phase: g.activePhase, Active: g.activePlayer, Actor: a.Controller, Turn: uint16(g.turn), Source: a.Source})
 	g.noteCrime(a)
+}
+
+// noteDistinctSources is MagicStack.java:324-334: after a push the stack is
+// counted, one per spell and one per distinct source card of every other
+// entry, and the turn's high-water mark is raised if that is more.
+func (g *Game) noteDistinctSources() {
+	n := 0
+	var sources []CardID
+	for _, s := range g.stack {
+		if s.spell {
+			n++
+		} else if !slices.Contains(sources, s.Source) {
+			sources = append(sources, s.Source)
+		}
+	}
+	g.maxDistinctSources = max(g.maxDistinctSources, n+len(sources))
 }
 
 // noteCrime is MagicStack.add's crime check (MagicStack.java:449-451,

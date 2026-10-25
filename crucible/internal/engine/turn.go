@@ -224,9 +224,10 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 	for guard := 0; guard < 1000; guard++ {
 		var next PlayerID
 		fromExtra := false
-		skipUntap := false
+		skipUntap, noSchemes := false, false
 		if n := len(g.extraTurns); n > 0 {
 			next, skipUntap, fromExtra = g.extraTurns[n-1].player, g.extraTurns[n-1].skipUntap, true
+			noSchemes = g.extraTurns[n-1].noSchemes
 			g.extraTurns = g.extraTurns[:n-1]
 		} else {
 			next = g.nextPlayerAfter(cursor)
@@ -255,6 +256,9 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 			}
 			continue
 		}
+		// PhaseHandler.java:895-897: AddTurn's NoSchemes$ turn sets no scheme in
+		// motion until its cleanup (createCantSetSchemesInMotionEffect).
+		g.noSchemesThisTurn = noSchemes
 		if skipUntap {
 			// PhaseHandler.java:892-893: SkipUntap$ becomes a one-shot skip of
 			// the new turn's untap step.
@@ -268,11 +272,11 @@ func (g *Game) nextActivePlayer(controller PlayerController) PlayerID {
 // addExtraTurn is PhaseHandler.addExtraTurn: the first extra turn also
 // pushes the player whose normal turn comes next, so turn order resumes
 // from the right seat when the extra turns are done.
-func (g *Game) addExtraTurn(p PlayerID, skipUntap bool) {
+func (g *Game) addExtraTurn(p PlayerID, skipUntap, noSchemes bool) {
 	if len(g.extraTurns) == 0 {
 		g.extraTurns = append(g.extraTurns, extraTurn{player: g.nextPlayerAfter(g.activePlayer)})
 	}
-	g.extraTurns = append(g.extraTurns, extraTurn{player: p, skipUntap: skipUntap})
+	g.extraTurns = append(g.extraTurns, extraTurn{player: p, skipUntap: skipUntap, noSchemes: noSchemes})
 }
 
 // extraTurn is one entry of the extra-turn stack; skipUntap is AddTurn's
@@ -280,6 +284,9 @@ func (g *Game) addExtraTurn(p PlayerID, skipUntap bool) {
 type extraTurn struct {
 	player    PlayerID
 	skipUntap bool
+	// noSchemes is AddTurn's NoSchemes$ (All in Good Time): no scheme is set
+	// in motion during that turn.
+	noSchemes bool
 }
 
 // nextPlayerAfter is turn order: seating order, skipping anyone who has
@@ -778,6 +785,9 @@ func (g *Game) cleanupStep(controller PlayerController) {
 	// Game.clearCountersThisTurn and Game.clearGlobalDamageHistory
 	// (Game.onCleanupPhase).
 	g.enteredLastTurn, g.enteredThisTurn = g.enteredThisTurn, nil
+	// PhaseHandler.java:420: MagicStack.resetMaxDistinctSources.
+	g.maxDistinctSources = 0
+	g.noSchemesThisTurn = false
 	g.leftGraveyardThisTurn = nil
 	// PhaseHandler.java:415-418: the CLEANUP case of onPhaseBegin zeroes the
 	// upkeeps, combats and end steps begun, so cleanup itself reads none

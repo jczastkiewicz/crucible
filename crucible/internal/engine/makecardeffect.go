@@ -22,7 +22,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "MakeCard", "Booster", "Filter", "FaceDown"); err != nil {
+	if err := rejectParams(a, "MakeCard", "Booster", "Filter"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -148,6 +148,16 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			}
 			if attachHosts != nil && g.Card(id).Zone == Battlefield && g.Card(attachHosts[madeIdx]).Zone == Battlefield {
 				g.attachTo(controller, id, attachHosts[madeIdx])
+			}
+			if hasParam(a, "FaceDown") {
+				// finishMaking (MakeCardEffect.java:246-247) turns the card face
+				// down after the move and its counters, so a trigger on the
+				// arrival saw it face up (PORT-7).
+				if g.Card(id).Zone == Exile {
+					g.turnFaceDownInExile(id)
+				} else {
+					g.turnFaceDown(id)
+				}
 			}
 			if hasParam(a, "RememberMade") {
 				source.Memory.Remember(CardEntity(id))

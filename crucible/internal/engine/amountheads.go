@@ -180,6 +180,10 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 			}
 		}
 		return n, true
+	case "MaxDistinctOnStack":
+		// AbilityUtils.java:2763-2765: the turn's high-water mark, not the
+		// stack as it stands.
+		return g.maxDistinctSources, true
 	case "xPaid":
 		// AbilityUtils.java:1631: the root ability's announced X when it has
 		// one, else the source card's own (Card.getXManaCostPaid).

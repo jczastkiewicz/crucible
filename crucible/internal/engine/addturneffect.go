@@ -9,10 +9,6 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 )
 
-// addTurnUnresolvedParams: a skipped untap step (SkipUntap$) or an Archenemy
-// scheme restriction (NoSchemes$). ExtraTurnDelayedTrigger$ is read below.
-var addTurnUnresolvedParams = [...]string{"NoSchemes", "Ultimate"}
-
 // addTurnEffect is AddTurnEffect.java: each target player (default You)
 // takes NumTurns$ extra turns after this one (Game.addExtraTurn, turn.go).
 // Extra turns stack: the most recently added is taken first (CR 500.7).
@@ -21,11 +17,6 @@ type addTurnEffect struct{}
 func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
-	}
-	for _, key := range addTurnUnresolvedParams {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: AddTurn: %s$ not resolvable yet", key)
-		}
 	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
@@ -37,6 +28,7 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 		return fmt.Errorf("engine: AddTurn: NumTurns$ %q not resolvable yet", raw)
 	}
 	_, skipUntap := a.Params.Param("SkipUntap") // read by presence (AddTurnEffect.java:56)
+	_, noSchemes := a.Params.Param("NoSchemes") // by presence (AddTurnEffect.java:59-61)
 	players, err := targetedOrDefinedPlayers(g, a.Controller, a.Source, a.Params, a.refs())
 	if err != nil {
 		return fmt.Errorf("engine: AddTurn: %w", err)
@@ -50,7 +42,7 @@ func (addTurnEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	for _, p := range players {
 		for i := 0; i < n; i++ {
-			g.addExtraTurn(p, skipUntap)
+			g.addExtraTurn(p, skipUntap, noSchemes)
 			if trigger != nil {
 				// AddTurnEffect.java:50-58 hangs the trigger on the ExtraTurn
 				// object. The extra turn follows this one at once, so a

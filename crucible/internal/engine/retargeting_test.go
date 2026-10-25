@@ -439,9 +439,7 @@ func TestChangeTargetsRetargetsAnAbilityOnTheStack(t *testing.T) {
 func TestChangeTargetsRefusesUnbuiltShapes(t *testing.T) {
 	t.Parallel()
 	cases := []struct{ line, want string }{
-		{"DB$ ChangeTargets | Defined$ Targeted | Chooser$ Opponent", "Chooser$ not resolvable yet"},
-		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility | RandomTarget$ True", "RandomTarget$ not resolvable yet"},
-		{"DB$ ChangeTargets | Defined$ Remembered", `Defined$ "Remembered" not resolvable yet`},
+		{"DB$ ChangeTargets | Defined$ ValidStack", `Defined$ "ValidStack" not resolvable yet`},
 		{"DB$ ChangeTargets | Defined$ TriggeredSourceSA", `Defined$ "TriggeredSourceSA" not resolvable yet`},
 		{"DB$ ChangeTargets | Defined$ Targeted | ChangeSingleTarget$ True", "ChangeSingleTarget$ without DefinedMagnet$"},
 		{"DB$ ChangeTargets | Defined$ TriggeredSpellAbility", "no triggering spell recorded"},

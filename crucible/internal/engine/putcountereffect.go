@@ -70,7 +70,7 @@ import (
 // end to end.
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
-	"SharedKeywordsDefined", "TriggeredCounterMap", "CounterMapValues", "SpecifyCounter",
+	"SharedKeywordsDefined", "TriggeredCounterMap", "CounterMapValues",
 }
 
 // putCounterEffect resolves Mode$/DB$/AB$ PutCounter for the Defined$
@@ -81,6 +81,9 @@ var putCounterUnresolvedParams = [...]string{
 type putCounterEffect struct{}
 
 func (e putCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
+	if hasParam(a, "SpecifyCounter") {
+		return e.resolveSpecified(g, a, controller)
+	}
 	if raw, ok := a.Params.Param("SharedKeywords"); ok {
 		return e.resolveSharedKeywords(g, a, controller, raw)
 	}
@@ -632,6 +635,9 @@ func (g *Game) counterKindPlan(controller PlayerController, a *Ability, counterT
 		return choices[pick], true
 	}
 	return func(target EntityID, amount int) ([]counterKind, error) {
+		if a.counterOverride != "" {
+			return []counterKind{{a.counterOverride, amount}}, nil
+		}
 		card, isCard := target.AsCard()
 		if raw, ok := a.Params.Param("CounterNumPerDefined"); ok && isCard {
 			n, ok := resolveNamedAmount(g, a.Amounts, g.Card(card), raw)
@@ -671,6 +677,23 @@ func (g *Game) counterKindPlan(controller PlayerController, a *Ability, counterT
 			}
 			for _, word := range strings.Split(list, ",") {
 				if word == "" {
+					continue
+				}
+				if spec, ok := strings.CutPrefix(word, "EachType_"); ok {
+					// CountersPutEffect.java:326-340: each kind on the battlefield
+					// cards the spec names, first seen first (a LinkedHashSet over
+					// a HashMultiset: the order within one card is unspecified in
+					// Java, here the card's own), optionally swapped for the
+					// AltChoiceForEach$ kind by the placer's choice.
+					for _, ct := range g.eachCounterKind(a, spec) {
+						if alt, ok := a.Params.Param("AltChoiceForEach"); ok {
+							var picked CounterType
+							if picked, ok = listChoice(alt+","+string(ct), target); ok {
+								ct = picked
+							}
+						}
+						kinds = append(kinds, ct)
+					}
 					continue
 				}
 				if strings.Contains(word, "EachType") {
@@ -909,6 +932,47 @@ func (e putCounterEffect) resolveSharedKeywords(g *Game, a *Ability, controller 
 	for _, k := range keywords {
 		per := *a
 		per.counterOverride = CounterType(strings.ToUpper(k))
+		if err := e.resolve(g, &per, controller); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// eachCounterKind is the EachType_<spec> kinds: those of the counters on the
+// battlefield cards matching spec, each once, in the order first met.
+func (g *Game) eachCounterKind(a *Ability, spec string) []CounterType {
+	parsed := valid.Parse(spec)
+	var kinds []CounterType
+	for _, pid := range g.Players() {
+		for _, id := range g.Zone(Battlefield, pid).Cards() {
+			c := g.Card(id)
+			if !Matches(g, c, parsed, a.Controller, a.Source) {
+				continue
+			}
+			for _, ct := range c.Counters.Kinds() {
+				if c.Counters.Count(ct) > 0 && !slices.Contains(kinds, ct) {
+					kinds = append(kinds, ct)
+				}
+			}
+		}
+	}
+	return kinds
+}
+
+// resolveSpecified is SpecifyCounter$ with CounterTypes$ EachType_<spec>
+// (Exotic Pets): one pass per kind in play, the Choices$ question asked for
+// that kind ("(kind)" in its title) and the counter put on the card chosen.
+// Any other SpecifyCounter$ shape is refused.
+func (e putCounterEffect) resolveSpecified(g *Game, a *Ability, controller PlayerController) error {
+	list, _ := a.Params.Param("CounterTypes")
+	spec, ok := strings.CutPrefix(list, "EachType_")
+	if !ok || !hasParam(a, "Choices") {
+		return fmt.Errorf("engine: PutCounter: SpecifyCounter$ not resolvable yet")
+	}
+	for _, ct := range g.eachCounterKind(a, spec) {
+		per := *a
+		per.counterOverride = ct
 		if err := e.resolve(g, &per, controller); err != nil {
 			return err
 		}

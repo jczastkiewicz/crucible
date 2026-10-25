@@ -221,3 +221,42 @@ func (g *Game) destroyInstead(controller PlayerController, id CardID) bool {
 	})
 	return res == replacementReplaced
 }
+
+// exploreReplaced is ExploreEffect's and ConniveEffect's Event$ Explore /
+// Event$ Connive replacement for id, which is about to explore or connive: a
+// line whose ValidExplorer$ (Explore) or ValidCard$ (Connive) matches id
+// replaces it with its ReplaceWith$ ability, Defined$ ReplacedCard naming id
+// (Leader, Super-Genius; Twists and Turns; Topography Tracker). The nested
+// Explore or Connive the chain runs is not replaced again by the same line
+// (runReplacements' hasRun guard). Reports whether a line replaced it.
+func (g *Game) exploreReplaced(controller PlayerController, event, validParam string, id CardID) bool {
+	card := g.Card(id)
+	res := g.runReplacements(controller, card.Controller(), func() []replacementCandidate {
+		var out []replacementCandidate
+		g.eachReplacementRule(func(h *Card, z ZoneType, amounts map[string]expr.Amount, r *compile.Ability) {
+			sub := replaceWithSub(r)
+			if sub == nil || !strings.EqualFold(r.Name, event) || !hostInActiveZones(h, r, z) {
+				return
+			}
+			if !onlyParams(r, strings.ToLower(validParam), "optional", "optionaldecider") {
+				g.recordPendingError(fmt.Errorf("engine: %q: Event$ %s: a param is not resolvable yet", h.Def.Name, event))
+				return
+			}
+			if v, ok := r.Param(validParam); ok && !Matches(g, card, valid.Parse(v), h.Controller(), h.ID) {
+				return
+			}
+			if !replacementRequirementsCheck(g, h, amounts, r) {
+				return
+			}
+			out = append(out, replacementCandidate{host: h, rule: r, apply: func() replacementResult {
+				if err := g.runReplacementChain(controller, h, amounts, sub, &replacementEvent{result: replacementReplaced, card: id}); err != nil {
+					g.recordPendingError(err)
+					return replacementNotReplaced
+				}
+				return replacementReplaced
+			}})
+		})
+		return out
+	})
+	return res == replacementReplaced
+}

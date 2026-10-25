@@ -19,9 +19,8 @@
 // targetedOrDefinedPlayers) applied to a card list rather than a player
 // one: which physical card's own draw-then-discard happens first never
 // changes any of their own outcomes, since each only ever reads its own
-// controller's hand. ReplacementType.Connive (a replacement effect keyed to
-// this API specifically) is not ported; the effect fails while one is live
-// (liveReplacementEvent), Leader Super-Genius being the one corpus line.
+// controller's hand. Event$ Connive replacements run per conniver
+// (exploreReplaced), Leader Super-Genius being the one corpus line.
 
 package engine
 
@@ -47,9 +46,6 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
 	}
-	if liveReplacementEvent(g, "Connive") {
-		return fmt.Errorf("engine: Connive: Connive replacement effects not resolvable yet")
-	}
 
 	numParam, ok := a.Params.Param("ConniveNum")
 	if !ok {
@@ -66,6 +62,9 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	}
 
 	for _, id := range connivers {
+		if g.exploreReplaced(controller, "Connive", "ValidCard", id) {
+			continue
+		}
 		pid := g.Card(id).Controller()
 		g.DrawCards(pid, num, controller)
 

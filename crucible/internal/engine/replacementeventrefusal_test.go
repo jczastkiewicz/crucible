@@ -7,7 +7,7 @@ import (
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
-// TestEffectsRefuseWhileTheirReplacementEventIsLive proves Connive, Explore,
+// TestEffectsRefuseWhileTheirReplacementEventIsLive proves
 // Proliferate, Learn, AssembleContraption and Tap fail while a replacement for their event is in
 // play, instead of ignoring it (GO-7). Learn's host sits in a graveyard
 // (ActiveZones$ Graveyard, Retriever Phoenix).
@@ -18,8 +18,6 @@ func TestEffectsRefuseWhileTheirReplacementEventIsLive(t *testing.T) {
 		event, line string
 		zone        engine.ZoneType
 	}{
-		{"Connive", "DB$ Connive | Defined$ Self", engine.Battlefield},
-		{"Explore", "DB$ Explore | Defined$ Self", engine.Battlefield},
 		{"Proliferate", "DB$ Proliferate", engine.Battlefield},
 		{"Learn", "DB$ Learn", engine.Graveyard},
 		{"AssembleContraption", "DB$ AssembleContraption", engine.Battlefield},

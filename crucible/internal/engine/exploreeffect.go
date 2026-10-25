@@ -14,7 +14,7 @@ import (
 // otherwise the controller may put it into the graveyard (ConfirmEffect)
 // and the explorer, if still on the battlefield, gets a +1/+1 counter.
 //
-// Not ported: the Explore replacement family. Triggered objects: the Explorer is the
+// Event$ Explore replacements run per explore (exploreReplaced). Triggered objects: the Explorer is the
 // triggered card; Defined$ TriggeredExplored is not recorded (no corpus line).
 type exploreEffect struct{}
 
@@ -25,9 +25,6 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil
-	}
-	if liveReplacementEvent(g, "Explore") {
-		return fmt.Errorf("engine: Explore: Explore replacement effects not resolvable yet")
 	}
 	amount := 1
 	if raw, ok := a.Params.Param("Num"); ok {
@@ -49,6 +46,9 @@ func (exploreEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		c := g.Card(id)
 		pl := c.Controller()
 		for i := 0; i < amount; i++ {
+			if g.exploreReplaced(controller, "Explore", "ValidExplorer", id) {
+				continue
+			}
 			revealedLand := false
 			top := NoCard
 			if library := g.Zone(Library, pl).Cards(); len(library) > 0 {

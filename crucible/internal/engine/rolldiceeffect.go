@@ -11,8 +11,12 @@ import (
 )
 
 // rollDiceUnresolvedParams are RollDiceEffect params this port does not
-// model: attraction visits.
-var rollDiceUnresolvedParams = [...]string{"ToVisitYourAttractions"}
+// model; none is left. ToVisitYourAttractions$ only flags the roll as made to visit
+// Attractions (RolledDie triggers naming RolledToVisitAttractions$ read it,
+// RollDiceEffect.java:325, :334); the effect itself visits nothing -- the visit is
+// Player.visitAttractions (Player.java:4016-4023), reached from rollToVisitAttractions,
+// which this port does not run (Line Cutter, Command Performance).
+var rollDiceUnresolvedParams = [...]string{}
 
 // rollDiceEffect is RollDiceEffect.java (CR 706): each target or Defined$
 // player (default You) rolls Amount$ (default 1) Sides$-sided dice (default
@@ -163,7 +167,7 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 		// RollDiceEffect.java:495-497: the kept natural results, on the host.
 		g.Card(a.Source).addStoredRolls(natural)
 	}
-	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final)
+	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final, hasParam(a, "ToVisitYourAttractions"))
 	bind := func(name string, v int) { a.Amounts = withAmount(a.Amounts, name, v) }
 	if hasParam(a, "EvenOddResults") {
 		bind("EvenResults", even)

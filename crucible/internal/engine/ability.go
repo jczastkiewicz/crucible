@@ -158,8 +158,8 @@ type Ability struct {
 	forcedTarget    EntityID
 	hasForcedTarget bool
 	// controlledBy is Play's ControlledByPlayer$ carried by the cast spell.
-	controlledBy controlRef
-	parentTargets   []EntityID
+	controlledBy  controlRef
+	parentTargets []EntityID
 	// ancestorTargeting is SpellAbility.usesTargeting on some ancestor of this
 	// sub-ability: one of them names ValidTgts$. An empty parentTargets then
 	// is Java's empty getParentTargetingCard answer -- the targets were

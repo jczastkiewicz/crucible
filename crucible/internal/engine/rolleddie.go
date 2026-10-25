@@ -30,15 +30,16 @@ func rolledDieTriggerSupported(t *compile.Ability) bool {
 // checkRolledDieTriggers runs RollDiceEffect.java:320-336 for one player's
 // roll: natural and modified are the kept dice (after IgnoreLower$), rolled
 // is how many were rolled (Number$ counts from the player's running total
-// minus them). RolledToVisitAttractions$ lines never fire: an ordinary roll
-// carries the flag false (TriggerRolledDie.java:27-30, presence only).
-func (g *Game) checkRolledDieTriggers(controller PlayerController, pid PlayerID, sides, rolled int, natural, modified []int) {
+// minus them). A RolledToVisitAttractions$ line fires only for a roll made to visit
+// Attractions (RollDice ToVisitYourAttractions$, visit true); an ordinary roll
+// carries the flag false (TriggerRolledDie.java:27-30).
+func (g *Game) checkRolledDieTriggers(controller PlayerController, pid PlayerID, sides, rolled int, natural, modified []int, visit bool) {
 	var matches []Ability
 	for i := range modified {
 		number := g.Player(pid).RollsThisTurn - rolled + i + 1
 		result, nat := modified[i], natural[i]
 		matches = append(matches, g.scanTriggers([]string{"RolledDie"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
-			if !rolledDieTriggerSupported(t) || hasTriggerParam(t, "RolledToVisitAttractions") ||
+			if !rolledDieTriggerSupported(t) || hasTriggerParam(t, "RolledToVisitAttractions") && !visit ||
 				!g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
 				return triggeredObjects{}, false
 			}
@@ -61,7 +62,7 @@ func (g *Game) checkRolledDieTriggers(controller PlayerController, pid PlayerID,
 		})...)
 	}
 	matches = append(matches, g.scanTriggers([]string{"RolledDieOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
-		if !rolledDieTriggerSupported(t) || hasTriggerParam(t, "RolledToVisitAttractions") ||
+		if !rolledDieTriggerSupported(t) || hasTriggerParam(t, "RolledToVisitAttractions") && !visit ||
 			!g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
 			return triggeredObjects{}, false
 		}

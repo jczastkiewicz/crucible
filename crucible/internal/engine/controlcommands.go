@@ -14,7 +14,7 @@
 
 package engine
 
-//enginelint:allow id card game zone player control ability amount valid untilcommand
+//enginelint:allow id card game zone player control ability amount valid untilcommand delayedtrigger
 
 import (
 	"fmt"

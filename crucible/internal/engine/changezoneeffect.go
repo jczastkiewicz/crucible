@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic
+//enginelint:allow id card game player ability defined condition control amount parts zone effecthelpers zonemove scheduledaction replacement controlcommands changecombatantseffect combat valid ateot changezonestatic additional
 
 import (
 	"fmt"

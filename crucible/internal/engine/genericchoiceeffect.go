@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow id card game ability defined condition control amount parts additional effecthelpers unlesscost
+//enginelint:allow id card game ability defined condition control amount parts additional effecthelpers unlesscost subability
 
 import (
 	"fmt"

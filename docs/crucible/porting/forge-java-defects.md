@@ -106,7 +106,6 @@ Rows start with the ChooseSource/Empower batch. Bugs noted before it are only in
 | `AbilityUtils.java:3461-3468`, `:1013`, `:1191-1193`                   | `playerXCount` `Condition` computes the per-player amount once from the first player and compares everyone to it (Game Over); a trigger's `CheckSVar$` reaching a `Triggered*` defined player gets every player because the branch needs a `SpellAbility`                                                                                                                          | Reproduced (PORT-7): same single value, same widened player list                                               | Not filed                                                                                                                                               |
 | `____________trespasser.txt:7` (`KW$ HIDDEN Unblockable`)              | No Java code reads a hidden keyword `Unblockable` (only a comment in `CombatUtil.java:533`), so the Pump's "can't be blocked this turn" never happens: a param that never reaches its effect                                                                                                                                                                                       | `KW$ HIDDEN Unblockable` refused                                                                               | Not filed                                                                                                                                               |
 | `ChangeZoneEffect.java:541`, `SpellAbility.java:2638`                  | `RandomOrder$` is read only by `changeKnownOriginResolve`, but `Origin$ Library` makes a line hidden even with `Defined$`, so Hurkyl, Master Wizard and Green Sun's Twilight (Library to Library) never reach it: a param that never reaches its effect                                                                                                                            | `RandomOrder$` ignored on a hidden path                                                                        | Not filed                                                                                                                                               |
-| `CopySpellAbilityEffect.java:208-210`                                  | `RememberCopies$` adds SpellAbility objects to the host's remembered list, and no Remembered reader (`AbilityUtils.java:213-241`) accepts them: a param nothing reads (Tempt with Mayhem)                                                                                                                                                                                          | Accepted, stores nothing                                                                                       | Not filed                                                                                                                                               |
 | `DamageDealEffect.java` (`Optional$`)                                  | `Optional$ True` on a DealDamage line is read by nothing (only `OptionalDecider$` is): Elektra, Femme Fatale's "may" is lost and the damage always happens                                                                                                                                                                                                                         | `Optional$` refused                                                                                            | Not filed                                                                                                                                               |
 | `hurkyls_final_meditation.txt:4`, `CostAdjustment.java`                | `Affected$ Card.Self` on a `Mode$ RaiseCost` static is read by no cost-modification code; the line applies through its host alone (matters only with a second copy on the stack)                                                                                                                                                                                                   | `Affected$` accepted and ignored                                                                               | Not filed                                                                                                                                               |
 | `GameAction.java:207`, `CardCopyService.java:313`                      | A Permanent color from Animate on a spell on the stack looks to survive the spell's zone change: the stack card is copied on every zone change, `copyFrom` carries `changedCardColors` and `setColor` bakes it into the new base (CR 400.7 ends it); unverified by running                                                                                                         | `TgtZone$ Stack` on Animate refused                                                                            | Not filed                                                                                                                                               |
@@ -580,7 +579,43 @@ Lore's mode has `TargetMin$ 0`; all four `ChoosingPlayer` lines sit in Charm mod
 ### `TargetRestrictions.java:526-528` — `hasCandidates` ignores `ValidTgts$` on the stack
 
 `hasCandidates` short-circuits to true as soon as the target zone list holds the stack, before the `isValid` loop the
-other zones go through. A line with `TgtZone$ Stack` (Aang, Swift Savior; Lifelace) is therefore offered to the player
-even when no spell on the stack matches its `ValidTgts$`. `getNumCandidates` (:556-563) does test
-`canTargetSpellAbility`, so the two disagree. Crucible refuses a stack `TgtZone$` on these APIs instead of reproducing
-the offer.
+other zones go through. Its one caller is `ChooseGenericEffect.java:94` (`AtRandom$ Urza`), so a targeting choice with no
+spell on the stack to hit counts as having candidates there. `getNumCandidates` (:556-563) does test
+`canTargetSpellAbility`, so the two disagree. Airbend's own prompt goes through `getAllCandidates` (:571-590), which
+tests `canTarget` per card, so Aang, Swift Savior is offered only legal targets; Crucible still refuses a stack
+`TgtZone$` on Airbend until the stack path is ported.
+
+### Found porting the hidden-keyword, attach and choose gaps
+
+`CostAdjustment.java:120-121` counts `ForEachShard$` shards in the host's printed mana cost even when the spell is cast
+for an alternative cost, and `:123` has a TODO for the same on abilities. `applyReduceCostAbility` (`:459-511`) never
+reads `ForEachShard$`. Only Drought uses it, on RaiseCost, so Crucible follows the printed-cost rule.
+
+`StaticAbilityContinuous.java:358` reads `AddAbility$` only; `AddAbilities$` is read for Clone and CopyPermanent
+(`CardFactory.java:649`) and never on a continuous static. Supper for Spiders' Food sacrifice ability is therefore never
+granted. Crucible refuses the `StaticEffect$` line that carries it.
+
+`AbilityUtils.java:162` recognises `ParentTarget` in `getDefinedCards` but not `ParentTargeted`, so Captain's Maneuver's
+`ChooseCard | DefinedCards$ ParentTargeted` falls through to `getPaidCards` and yields an empty list;
+`ChooseCardEffect.java:273` then chooses nothing and the creature half of the replacement never applies. Crucible
+refuses `Defined$ ParentTargeted`.
+
+`CombatUtil.java:533-535` tests only `StaticAbilityCantAttackBlock.cantBlockBy`; nothing in `forge-game` reads an
+`Unblockable` keyword, so `KW$ HIDDEN Unblockable` (the `_____ _____ _____ Trespasser`) grants nothing. Crucible stores
+the hidden keyword and reads none, the same no-op.
+
+`AttachEffect.java:83-89` removes from the `FCollection` it iterates (`FCollection.java:231-233`, `:288-298`), so a
+`PlayerChoices$` entry that cannot be attached throws `ConcurrentModificationException` unless it is the second to last.
+Lynde, Cheerful Tormentor with one opponent always hits it. Crucible refuses `PlayerChoices$` with `Object$`.
+
+`SpellAbilityEffect.java:304-306` adds `getAllComponentCards(false)` to the collection it loops over for
+`IncludeAllComponentCards$`: a merged or melded target throws `ConcurrentModificationException`. You're in Command
+(also gated on a commander model Crucible lacks) is the only line.
+
+`PlaySpellAbility.announceValuesLikeX` (`:766-767`) reads the printed cost, not the adjusted one, so Crashing Wave's
+static-merged `Waterbend<X>` is never announced; `TargetMax$ X` reads 0 and the tapping cap is 0. Foggy Swamp Visions
+and Waterbender's Restoration say `Announce$ X` and work. Crucible keeps refusing the three.
+
+`AbilityUtils.java:426-438` reads `SVar:Y:4-X` (Stroke of Luck) as a non-numeric single token and returns 0, so
+`LoseLife | LifeAmount$ Y` loses nothing; the script needs a `Count$`/`SVar$` form. Crucible refuses the unresolvable
+amount ([card-script-defects.md](card-script-defects.md)).

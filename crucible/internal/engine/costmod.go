@@ -2,7 +2,7 @@
 // statics, CostAdjustment.getSpellCostChange (raise) and CostAdjustment.adjust
 // (reduce) for Type$ Spell lines.
 
-//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost
+//enginelint:allow id zone card game valid player staticability amount parts zonemove cantbecast unlesscost ability
 
 package engine
 
@@ -13,13 +13,14 @@ import (
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/cost"
+	"github.com/jczastkiewicz/crucible/internal/expr"
 	"github.com/jczastkiewicz/crucible/internal/mana"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
 
 // costModParams are the params a RaiseCost/ReduceCost line may carry that this
-// port evaluates (Relative$ on the spell's own line only, ValidTarget$ and
-// UnlessValidTarget$ on a spell, costModStatus); any
+// port evaluates (Relative$ on the spell's own line only, ValidTarget$,
+// UnlessValidTarget$ and ForEachShard$ on a spell, costModStatus); any
 // other (Color$, UpTo$,
 // OnlyFirstSpell$, ForEachShard$, a keyword Amount$ ...) makes the
 // line unresolvable and it is not applied (GO-7). Affected$ is listed because
@@ -30,7 +31,7 @@ var costModParams = map[string]bool{
 	"mode": true, "validcard": true, "activator": true, "type": true, "affectedzone": true,
 	"amount": true, "cost": true, "minmana": true, "effectzone": true,
 	"condition": true, "phases": true, "playerturn": true, "relative": true,
-	"validspell": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
+	"validspell": true, "foreachshard": true, "validtarget": true, "unlessvalidtarget": true, "affected": true, "description": true, "secondary": true, "spelldescription": true, "stackdescription": true,
 }
 
 // spellCost is base, the printed (or alternative) mana cost of casting card as
@@ -104,7 +105,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 	for _, r := range raises {
 		count := 1
 		if raw, ok := r.s.Param("Amount"); ok {
-			n, ok := costModAmount(g, r.face, r.host, raw)
+			n, ok := g.costModAmountFor(c, pid, act, r.face, r.host, raw)
 			if !ok {
 				return base, false
 			}
@@ -121,7 +122,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			continue
 		}
 		add, err := mana.Parse(text)
-		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && raiseExtraShape(text) {
+		if err != nil && act == nil && extras && !raiseHasAmount(r.s) && raiseExtraShape(raiseXFromSVar(g, r.host, r.face, text)) {
 			// A non-mana raise on a spell is the spell's additional cost,
 			// paid with the rest (castExtraCost, staticRaiseExtra).
 			continue
@@ -147,7 +148,7 @@ func (g *Game) costStatics(pid PlayerID, card CardID, act *compile.Ability, base
 			// calculateAmount of no Amount$ is 0 (CostAdjustment.java:466-479).
 			continue
 		}
-		value, ok := costModAmount(g, r.face, r.host, raw)
+		value, ok := g.costModAmountFor(c, pid, act, r.face, r.host, raw)
 		if !ok && !paying {
 			continue
 		}
@@ -267,10 +268,99 @@ func (g *Game) costModStatus(pid PlayerID, c, host *Card, s *compile.Ability, ac
 			return costModSkips
 		}
 	}
+	// ForEachShard$ repeats the raise once per shard of that color in the
+	// card's printed mana cost (CostAdjustment.java:118-131); none is no raise.
+	// An activation's count is read off a cost this port does not look into.
+	if v, ok := s.Param("ForEachShard"); ok {
+		n, known := raiseShardCount(c, act, v)
+		switch {
+		case !known:
+			return costModUnresolvable
+		case n == 0:
+			return costModSkips
+		case act != nil:
+			// An activation owing such a raise would need its extra cost
+			// paid with it; only the zero count is answered (GO-7).
+			return costModUnresolvable
+		}
+	}
 	if !paramsResolvable(s, costModParams) {
 		return costModUnresolvable
 	}
 	return costModApplies
+}
+
+// raiseShardCount is the number of shards of the named color (ForEachShard$
+// Black) in the mana cost of the spell c (its printed cost, CostAdjustment.java:
+// 120-121) or of the activation act (its Cost$ mana part, :122-124): any shard
+// whose color mask holds it counts, hybrid, Phyrexian and {2/B} alike, an X
+// shard does not. known is false for a name that is not one of the five colors
+// (ManaAtom.fromName) or a mana part that does not parse.
+func raiseShardCount(c *Card, act *compile.Ability, name string) (n int, known bool) {
+	var color mana.Colors
+	switch strings.ToLower(name) {
+	case "white":
+		color = mana.White
+	case "blue":
+		color = mana.Blue
+	case "black":
+		color = mana.Black
+	case "red":
+		color = mana.Red
+	case "green":
+		color = mana.Green
+	default:
+		return 0, false
+	}
+	mc := c.manaCost()
+	if act != nil {
+		mc = mana.Cost{}
+		if text, ok := act.Param("Cost"); ok {
+			if m := cost.Parse(text).Mana; len(m) > 0 {
+				parsed, err := mana.Parse(strings.Join(m, " "))
+				if err != nil {
+					return 0, false
+				}
+				mc = parsed
+			}
+		}
+	}
+	for _, sh := range mc.Shards() {
+		if sh.Colors()&color != 0 {
+			n++
+		}
+	}
+	return n, true
+}
+
+// raiseScaledByShards repeats a RaiseCost Cost$ once per ForEachShard$ shard:
+// Cost.mergeTo adds the part n times and same-type parts sum (Cost.java:982-994,
+// :1021-1025), so Sac<1/Swamp> becomes Sac<n/Swamp>.
+func raiseScaledByShards(c *Card, s *compile.Ability, text string) string {
+	name, ok := s.Param("ForEachShard")
+	if !ok {
+		return text
+	}
+	n, _ := raiseShardCount(c, nil, name)
+	var out strings.Builder
+	for i := 0; i < len(text); {
+		out.WriteByte(text[i])
+		i++
+		if text[i-1] != '<' {
+			continue
+		}
+		j := i
+		for j < len(text) && text[j] >= '0' && text[j] <= '9' {
+			j++
+		}
+		if j == i || j >= len(text) || (text[j] != '/' && text[j] != '>') {
+			continue
+		}
+		k, _ := strconv.Atoi(text[i:j])
+		out.WriteString(strconv.Itoa(k * n))
+		i = j
+	}
+	return out.String()
 }
 
 // validSpellForSpell evaluates a ValidSpell$ spec against a spell being cast
@@ -293,6 +383,19 @@ func validSpellForSpell(spec string) (matched, recognized bool) {
 		}
 	}
 	return matched, true
+}
+
+// costModAmountFor is costModAmount read against the spell being cast, whose
+// chosen targets a Count$Compare / TargetedController amount reads (Lullmage's
+// Domination's XGrave, CostAdjustment.java:466-479 passes the spell's sa):
+// g.resolving is a spell Ability carrying them while the amount is worked out.
+func (g *Game) costModAmountFor(c *Card, pid PlayerID, act *compile.Ability, face *compile.Face, host *Card, raw string) (int, bool) {
+	if act == nil && g.castTargetsFor == c.ID {
+		saved := g.resolving
+		g.resolving = &Ability{Source: c.ID, Controller: pid, Targets: g.castTargets, spell: true}
+		defer func() { g.resolving = saved }()
+	}
+	return costModAmount(g, face, host, raw)
 }
 
 // costModAmount is a line's Amount$: a plain number, or an SVar of the host's
@@ -348,6 +451,28 @@ func raiseExtraShape(text string) bool {
 	}
 	uc, ok := parseUnlessCost(text)
 	return ok && !uc.hasMana
+}
+
+// raiseXFromSVar writes the value of the host's SVar X into a RaiseCost Cost$
+// whose part amounts name X (Tectonic Split's Sac<X/Land/land(s)>). Such an X is
+// not announced: PlaySpellAbility.announceValuesLikeX asks only when the SVar
+// is Count$xPaid or absent (:766-771), and CostPart.getAbilityAmount reads the
+// SVar as the part is paid (CostPart.java:154-156). An announced X, or an SVar
+// this port cannot evaluate, leaves the text as it was, so the line stays
+// refused.
+func raiseXFromSVar(g *Game, host *Card, face *compile.Face, text string) string {
+	if !strings.Contains(text, "<X/") && !strings.Contains(text, "<X>") {
+		return text
+	}
+	if amt, ok := face.Amounts["x"]; !ok || (amt.Kind == expr.Expression && amt.Head == "Count" && strings.EqualFold(amt.Body, "xPaid")) {
+		return text
+	}
+	n, ok := resolveNamedAmount(g, face.Amounts, host, "X")
+	if !ok || n < 0 {
+		return text
+	}
+	v := strconv.Itoa(n)
+	return strings.ReplaceAll(strings.ReplaceAll(text, "<X/", "<"+v+"/"), "<X>", "<"+v+">")
 }
 
 // raiseWaterbend reads a RaiseCost Cost$ that is exactly Waterbend<N> with a
@@ -417,6 +542,8 @@ func (g *Game) staticRaiseExtra(pid PlayerID, c *Card) (uc unlessCost, has, ok b
 				if _, ok := raiseWaterbend(text); ok && !raiseHasAmount(s) {
 					continue
 				}
+				text = raiseXFromSVar(g, h, &live[i], text)
+				text = raiseScaledByShards(c, s, text)
 				if has || raiseHasAmount(s) || !raiseExtraShape(text) {
 					g.recordPendingError(fmt.Errorf("engine: RaiseCost: Cost$ %q is not a plain mana cost, not resolvable yet", text))
 					return unlessCost{}, false, false

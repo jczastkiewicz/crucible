@@ -39,10 +39,10 @@ type copySpellAbilityEffect struct{}
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // never met, silently. The copy's Layer 1 changes (SetColor$, SetPower$,
 // SetToughness$, AddTypes$) go through copyExceptDef (CardFactory.
-// getCloneStates, :480-612). RememberCopies$ is read nowhere in Java
-// (CopySpellAbilityEffect.java:208-210 writes SpellAbility objects no
-// Remembered reader accepts, forge-java-defects.md): it is accepted and does
-// nothing here, since Memory holds no SpellAbility.
+// getCloneStates, :480-612). RememberCopies$ writes SpellAbility objects
+// (CopySpellAbilityEffect.java:208-210) that only a spell reader takes
+// (ChangeTargets Defined$ Remembered, AbilityUtils.java:1230-1238): it is
+// accepted and does nothing here, since Memory holds no SpellAbility.
 var copySpellUnresolvedParams = [...]string{
 	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice",
 	"Epic", "UseOriginalHost"}

@@ -2,7 +2,11 @@ package engine
 
 //enginelint:allow id card game ability defined condition control amount parts additional effecthelpers unlesscost
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
+)
 
 // genericChoiceUnresolvedParams are ChooseGenericEffect.java's params this
 // port cannot honour yet: NumRandomChoices$ (a random subset first),
@@ -11,13 +15,18 @@ import "fmt"
 // 120-122); LockInText$ is display text the statics also carry; Secretly$
 // only gathers the picks into one notification (:116-119, :143-145).
 // AtRandom$ True picks with Aggregates.random(choices, ChoiceAmount$) (:86-89);
-// AtRandom$ Urza re-draws targeting choices with no candidates (:91-100) and
-// is refused.
+// AtRandom$ Urza then re-draws, from the whole Choices$ list, every pick that
+// targets with no candidate (:91-100). Ultimate$ feeds only AchievementTracker
+// (AchievementTracker.java:23), no game state, and is not rejected.
 var genericChoiceUnresolvedParams = [...]string{
 	"NumRandomChoices",
 	"DamageMap", "ChangeZoneTable",
-	"Ultimate",
 }
+
+// urzaRedrawCap bounds the re-draw loop of AtRandom$ Urza. Java's loop ends with
+// probability 1 while any choice does not target or has a candidate, and spins
+// forever otherwise; the port refuses after this many draws (GO-7).
+const urzaRedrawCap = 10000
 
 // genericChoiceEffect is ChooseGenericEffect.java: each Defined$/ValidTgts$
 // player (default You) picks ChoiceAmount$ (default 1) of the Choices$
@@ -43,7 +52,7 @@ func (genericChoiceEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		}
 	}
 	random, atRandom := a.Params.Param("AtRandom")
-	if atRandom && random != "True" {
+	if atRandom && random != "True" && random != "Urza" {
 		return fmt.Errorf("engine: GenericChoice: AtRandom$ %s not resolvable yet", random)
 	}
 	source := g.Card(a.Source)
@@ -108,6 +117,11 @@ func (genericChoiceEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 			for k, i := range picked {
 				picked[k] = avail[i]
 			}
+			if random == "Urza" {
+				if err := g.urzaRedraw(a, choices, picked); err != nil {
+					return err
+				}
+			}
 		}
 		if len(picked) == 0 {
 			// ChooseGenericEffect.java:128-137: nothing chosen resolves the
@@ -142,4 +156,45 @@ func (genericChoiceEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 		g.piledGuessedSA++
 	}
 	return nil
+}
+
+// urzaRedraw is ChooseGenericEffect.java:91-100 over the picked choice
+// indices: a pick that does not target stays, one that targets with some
+// candidate stays (its targets are chosen when it resolves), and one that
+// targets with none is replaced by Aggregates.random of the whole Choices$ list,
+// unfiltered and not checked against UnlessCost$ or earlier picks, then looked
+// at again (PORT-7).
+func (g *Game) urzaRedraw(a *Ability, choices []compile.SubRef, picked []int) error {
+	for k := 0; k < len(picked); {
+		if g.choiceHasCandidates(a, choices[picked[k]]) {
+			k++
+			continue
+		}
+		for draws := 0; ; draws++ {
+			if draws == urzaRedrawCap {
+				return fmt.Errorf("engine: GenericChoice: AtRandom$ Urza found no choice that can be taken in %d draws", urzaRedrawCap)
+			}
+			picked[k] = g.randomIndex(len(choices))
+			if g.choiceHasCandidates(a, choices[picked[k]]) {
+				break
+			}
+		}
+		k++
+	}
+	return nil
+}
+
+// choiceHasCandidates is true for a choice that does not target and for one
+// whose targets have at least one candidate (TargetRestrictions.hasCandidates).
+func (g *Game) choiceHasCandidates(a *Ability, c compile.SubRef) bool {
+	if !linkUsesTargeting(c.Ability) {
+		return true
+	}
+	api, ok := APIByName(c.Ability.Name)
+	if !ok {
+		return true
+	}
+	probe := Ability{API: api, Source: a.Source, Controller: a.Controller, Params: c.Ability, Amounts: a.Amounts}
+	choice, named, ok := g.targetChoiceFor(&probe)
+	return !named || (ok && choice.err == nil && len(choice.candidates) > 0)
 }

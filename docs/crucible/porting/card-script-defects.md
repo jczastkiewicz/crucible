@@ -399,3 +399,8 @@ nothing. Tales of the Ancestors (`RepeatPlayers$ Player.HasCardsInHand_Card_LTX`
 branch of `PlayerProperty` matches `HasCardsInHand`, and an unknown property passes (`PlayerProperty.java:512-516`), so
 every player is repeated for. Crucible does not reproduce either intent: a workaround would make it disagree with the
 oracle for a reason no diff explains (PORT-8). Fix upstream in the scripts.
+
+Stroke of Luck (`stroke_of_luck.txt:10`, `SVar:Y:4-X`): `AbilityUtils.calculateAmount` reads the SVar text as a single
+token that is not numeric and has no `$` (`AbilityUtils.java:426-438`), so Java returns 0 and `LoseLife | LifeAmount$ Y`
+loses no life although the card says one per card. The script needs an SVar in a form Java evaluates (`Count$` or
+`SVar$`). Crucible refuses the amount rather than add a special case for the minus form (PORT-8).

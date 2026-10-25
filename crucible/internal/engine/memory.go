@@ -36,6 +36,10 @@ type Memory struct {
 	// the two kinds, every reader of Remembered filters by type the way Java's
 	// instanceof checks do.
 	rememberedNumbers *collect.OrderedSet[int]
+	// rememberedStrings are the Strings in the same set: RememberCostMana$'s
+	// "G G R" (AbilityUtils.java:1554), read by Mana Produced$ Special
+	// LastNotedType.
+	rememberedStrings *collect.OrderedSet[string]
 	// rememberedRemovals are the Pair<CounterType, Integer> objects
 	// RemoveCounter's RememberRemoved$ adds, one per counter taken off a card
 	// (CountersRemoveEffect.java:187-192). A set like Java's, so removals of
@@ -184,6 +188,9 @@ func (m *Memory) RememberedCount() int {
 	if m.rememberedRemovals != nil {
 		n += m.rememberedRemovals.Len()
 	}
+	if m.rememberedStrings != nil {
+		n += m.rememberedStrings.Len()
+	}
 	return n
 }
 
@@ -191,6 +198,23 @@ func (m *Memory) RememberedCount() int {
 // what `ClearRemembered$ True` does (Card.clearRemembered).
 func (m *Memory) ClearRemembered() {
 	m.remembered, m.rememberedNumbers, m.rememberedRemovals, m.rememberedLKI = nil, nil, nil, nil
+	m.rememberedStrings = nil
+}
+
+// RememberString adds a String to the remembered set and reports whether it was new.
+func (m *Memory) RememberString(s string) bool {
+	if m.rememberedStrings == nil {
+		m.rememberedStrings = collect.NewOrderedSet[string](1)
+	}
+	return m.rememberedStrings.Add(s)
+}
+
+// RememberedStrings returns the Strings the card remembers, in order.
+func (m *Memory) RememberedStrings() []string {
+	if m.rememberedStrings == nil {
+		return nil
+	}
+	return m.rememberedStrings.All()
 }
 
 // Imprint adds a card to the imprinted list.
@@ -383,6 +407,9 @@ func (m Memory) clone() Memory {
 	}
 	if m.rememberedRemovals != nil {
 		out.rememberedRemovals = m.rememberedRemovals.Clone()
+	}
+	if m.rememberedStrings != nil {
+		out.rememberedStrings = m.rememberedStrings.Clone()
 	}
 	if m.imprinted != nil {
 		out.imprinted = m.imprinted.Clone()

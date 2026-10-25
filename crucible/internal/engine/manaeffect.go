@@ -112,6 +112,20 @@ func (manaEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				return fmt.Errorf("engine: Mana: ChooseManaColor did not answer with exactly one color")
 			}
 			pool.addProduced(producedMana{color: color, amount: amount, restrict: restrict, combat: combat}, src)
+		case produced == "Special LastNotedType":
+			// ManaEffect.java:262-274: the Strings the host remembered
+			// (RememberCostMana$), concatenated, one mana per token; none produces
+			// nothing. Jeweled Amulet's "G" is one green, Ice Cauldron's "G G R"
+			// three.
+			for _, str := range g.Card(a.Source).Memory.RememberedStrings() {
+				for _, tok := range strings.Fields(str) {
+					color, colorless, ok := producedManaColor(tok)
+					if !ok {
+						return fmt.Errorf("engine: Mana: remembered mana %q is not a mana symbol", tok)
+					}
+					pool.addProduced(producedMana{color: color, colorless: colorless, amount: 1, restrict: restrict, combat: combat}, src)
+				}
+			}
 		case produced == "Special EnchantedManaCost":
 			// ManaEffect.java:204-236: one mana per symbol of the enchanted card's
 			// mana cost -- its color for a one-color symbol, the player's choice

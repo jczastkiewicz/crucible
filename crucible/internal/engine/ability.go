@@ -795,6 +795,8 @@ type paidLists struct {
 	// colors is the colored mana the activation spent, white to green
 	// (xAnnounced.paid): SpellAbility.getPayingColors, Count$ManaColorsPaid.
 	colors [5]int
+	// colorless is the colorless mana the activation spent (xAnnounced.colorless).
+	colorless int
 }
 
 // voteCount is one option's vote total, the VoteNum<option> SVar of

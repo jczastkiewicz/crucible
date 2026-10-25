@@ -350,7 +350,19 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	}
 	var color mana.Colors
 	var colorless bool
+	var noted []string
 	switch {
+	case produced == "Special LastNotedType":
+		// ManaEffect.java:262-274: the Strings the host remembered (Ice Cauldron,
+		// Jeweled Amulet), one mana per token.
+		for _, str := range c.Memory.RememberedStrings() {
+			noted = append(noted, strings.Fields(str)...)
+		}
+		for _, tok := range noted {
+			if _, _, ok := producedManaColor(tok); !ok {
+				return false
+			}
+		}
 	case produced == "Any":
 		color = controller.ChooseManaColor(g, pid, card, mana.AllColors)
 		if color.Count() != 1 {
@@ -450,11 +462,27 @@ func (g *Game) ActivateManaAbility(pid PlayerID, card CardID, index int, control
 	// it resolves.
 	g.recordActivation(&Ability{API: APIMana, Source: card, Controller: pid, Params: ability, activated: true}, &before)
 
-	made := g.manaReplaced(controller, pid, card, producedMana{
-		color: color, colorless: colorless, snow: c.Type().HasSupertype(cardtype.Snow), amount: amount,
-	})
-	made.restrict, _ = ability.Param("RestrictValid")
-	g.addProducedMana(pid, made, src)
+	var made producedMana
+	if produced == "Special LastNotedType" {
+		restrict, _ := ability.Param("RestrictValid")
+		for i, tok := range noted {
+			col, none, _ := producedManaColor(tok)
+			unit := g.manaReplaced(controller, pid, card, producedMana{
+				color: col, colorless: none, snow: c.Type().HasSupertype(cardtype.Snow), amount: 1,
+			})
+			unit.restrict = restrict
+			g.addProducedMana(pid, unit, src)
+			if i == 0 {
+				made = unit
+			}
+		}
+	} else {
+		made = g.manaReplaced(controller, pid, card, producedMana{
+			color: color, colorless: colorless, snow: c.Type().HasSupertype(cardtype.Snow), amount: amount,
+		})
+		made.restrict, _ = ability.Param("RestrictValid")
+		g.addProducedMana(pid, made, src)
+	}
 
 	if shape.Tap {
 		g.noteTapsForMana(card, pid)

@@ -19,6 +19,7 @@ package engine
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // PushAbility puts an ability on the stack (CR 405.1, 601.2i, 603.3b) and
@@ -256,7 +257,24 @@ func (g *Game) rememberTargets(a *Ability) error {
 		return nil
 	}
 	if _, ok := a.Params.Param("RememberCostMana"); ok {
-		return fmt.Errorf("engine: %s: RememberCostMana$ not resolvable yet", a.API)
+		// AbilityUtils.java:1534-1554: the host forgets everything and remembers the
+		// mana the activation was paid with as one String, "G G R" (Ice Cauldron,
+		// Jeweled Amulet). Only an activation records its paying mana here.
+		if !a.paid.recorded {
+			return fmt.Errorf("engine: %s: RememberCostMana$ on an ability that was not paid with mana not resolvable yet", a.API)
+		}
+		host := g.Card(a.Source)
+		host.Memory.ClearRemembered()
+		var parts []string
+		for i, letter := range [...]string{"W", "U", "B", "R", "G"} {
+			for range a.paid.colors[i] {
+				parts = append(parts, letter)
+			}
+		}
+		for range a.paid.colorless {
+			parts = append(parts, "C")
+		}
+		host.Memory.RememberString(strings.Join(parts, " "))
 	}
 	if !rememberTargetsLine(a.Params) {
 		return nil

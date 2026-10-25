@@ -1083,7 +1083,7 @@ func hostCardProperty(prop string) bool {
 	if _, ok := colorFromName(word); ok || word == "Colorless" {
 		return true
 	}
-	return prop == "MultiColor" || prop == "YouDontCtrl"
+	return prop == "MultiColor" || prop == "YouDontCtrl" || prop == "IsRemembered"
 }
 
 // stackItemTargetsMatch is canTargetSpellAbility's TargetValidTargeting$

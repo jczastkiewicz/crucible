@@ -4,16 +4,15 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 )
 
 // rollDiceUnresolvedParams are RollDiceEffect params this port does not
-// model: rerolls, attraction visits, stored rolls and
-// the per-roll sub-abilities.
-var rollDiceUnresolvedParams = [...]string{
-	"RerollResults", "ToVisitYourAttractions", "StoreResults"}
+// model: attraction visits.
+var rollDiceUnresolvedParams = [...]string{"ToVisitYourAttractions"}
 
 // rollDiceEffect is RollDiceEffect.java (CR 706): each target or Defined$
 // player (default You) rolls Amount$ (default 1) Sides$-sided dice (default
@@ -76,6 +75,9 @@ func (rollDiceEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 		return err
 	}
 	players = g.inAPNAPOrder(players)
+	if hasParam(a, "RerollResults") {
+		return g.rerollStoredRolls(a, controller, sides)
+	}
 	var totals []int
 	for _, pid := range players {
 		total, err := g.rollDiceFor(a, controller, pid, amount, sides, ignore, modifier)
@@ -156,6 +158,10 @@ func (g *Game) rollDiceFor(a *Ability, controller PlayerController, pid PlayerID
 	}
 	if hasParam(a, "UseDifferenceBetweenRolls") && len(final) > 0 {
 		total = final[len(final)-1] - final[0]
+	}
+	if hasParam(a, "StoreResults") {
+		// RollDiceEffect.java:495-497: the kept natural results, on the host.
+		g.Card(a.Source).addStoredRolls(natural)
 	}
 	g.checkRolledDieTriggers(controller, pid, sides, amount, natural, final)
 	bind := func(name string, v int) { a.Amounts = withAmount(a.Amounts, name, v) }
@@ -356,4 +362,49 @@ func (g *Game) swapDiceRolls(controller PlayerController, pid PlayerID, source C
 		}
 	}
 	return nil
+}
+
+// rerollStoredRolls is RollDiceEffect.rerollDice (:578-594): for each stored
+// result in ascending order the roller is asked whether to reroll it, a yes
+// rolls one die like any roll (triggers included, nothing stored again), and
+// the stored list is edited through a map keyed by the old value. Equal stored
+// values collapse in that map, so of k copies rerolled one is replaced and the
+// other k-1 rerolls are lost, a Forge defect reproduced (PORT-7/8, quirks.md).
+func (g *Game) rerollStoredRolls(a *Ability, controller PlayerController, sides int) error {
+	host := g.Card(a.Source)
+	replace := map[int]int{}
+	for _, old := range slices.Clone(host.storedRolls) {
+		if !controller.ConfirmEffect(g, a.Controller, a.Source) {
+			continue
+		}
+		total, err := g.rollDiceFor(a, controller, a.Controller, 1, sides, 0, 0)
+		if err != nil {
+			return err
+		}
+		replace[old] = total
+	}
+	host.replaceStoredRolls(replace)
+	return nil
+}
+
+// addStoredRolls is Card.addStoredRolls: appended, then sorted ascending. The
+// list is rebuilt, never appended in place (Game.Clone shares it).
+func (c *Card) addStoredRolls(rolls []int) {
+	next := append(slices.Clone(c.storedRolls), rolls...)
+	slices.Sort(next)
+	c.storedRolls = next
+}
+
+// replaceStoredRolls is Card.replaceStoredRoll: for each (old, new) in the map
+// one copy of old goes and new is added, then the list is sorted again.
+func (c *Card) replaceStoredRolls(m map[int]int) {
+	next := slices.Clone(c.storedRolls)
+	for old, v := range m {
+		if i := slices.Index(next, old); i >= 0 {
+			next = slices.Delete(next, i, i+1)
+		}
+		next = append(next, v)
+	}
+	slices.Sort(next)
+	c.storedRolls = next
 }

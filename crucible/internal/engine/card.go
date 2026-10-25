@@ -98,7 +98,10 @@ type Card struct {
 	castPaid [5]int
 	// castXPaid is the part of castPaid that paid X (Count$xColorPaid).
 	castXPaid [5]int
-	castSnow  int
+	// storedRolls are the RollDice StoreResults$ results kept on this card,
+	// ascending (Card.storedRolls), read by Count$MaxSameStoredRolls.
+	storedRolls []int
+	castSnow    int
 	// castColorless is the colorless mana ({C}) that cast spent, castPaid's
 	// sixth bucket kept apart so Count$Converge, which counts castPaid's
 	// colors, never counts it: Count$Adamant.Colorless and

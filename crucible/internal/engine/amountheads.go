@@ -184,6 +184,18 @@ func countValue(g *Game, sourceController PlayerID, source CardID, count expr.Co
 		// AbilityUtils.java:2763-2765: the turn's high-water mark, not the
 		// stack as it stands.
 		return g.maxDistinctSources, true
+	case "MaxSameStoredRolls":
+		// AbilityUtils.java:2767-2781: the highest tally of one face among the
+		// results stored on the host, 0 with none.
+		if source == NoCard {
+			return 0, false
+		}
+		best := 0
+		rolls := g.Card(source).storedRolls
+		for _, v := range rolls {
+			best = max(best, countInts(rolls, v))
+		}
+		return best, true
 	case "xColorPaid":
 		// AbilityUtils.java:2682-2688: Card.getXManaCostPaidCount of the colors
 		// named, read off the host card (a Java TODO notes it should be the
@@ -1092,4 +1104,15 @@ func (g *Game) exactManaCostCount(sourceController PlayerID, source CardID, zone
 		}
 	}
 	return len(seen), true
+}
+
+// countInts is Collections.frequency over ints.
+func countInts(list []int, v int) int {
+	n := 0
+	for _, x := range list {
+		if x == v {
+			n++
+		}
+	}
+	return n
 }

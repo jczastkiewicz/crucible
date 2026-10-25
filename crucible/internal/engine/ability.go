@@ -153,7 +153,7 @@ type Ability struct {
 	// counterOverride is the one counter kind a SharedKeywords$ PutCounter puts
 	// on this pass (putCounterEffect.resolveSharedKeywords); empty otherwise.
 	counterOverride CounterType
-	parentTargets []EntityID
+	parentTargets   []EntityID
 	// ancestorTargeting is SpellAbility.usesTargeting on some ancestor of this
 	// sub-ability: one of them names ValidTgts$. An empty parentTargets then
 	// is Java's empty getParentTargetingCard answer -- the targets were

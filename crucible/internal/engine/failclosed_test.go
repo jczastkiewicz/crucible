@@ -109,7 +109,6 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep",
 		"DB$ ImmediateTrigger | RememberSVarAmount$ X | Execute$ DBX",
 		"DB$ ImmediateTrigger | TriggerAmount$ Bogus | Execute$ DBX",
-		"DB$ RollDice | Sides$ 6 | RerollResults$ True",
 		"DB$ Clash | Defined$ TriggeredPlayer",
 		"DB$ Seek | DefinedCards$ Bogus",
 		"DB$ StoreSVar | SVar$ X | Type$ Triggered | Expression$ CardPower",

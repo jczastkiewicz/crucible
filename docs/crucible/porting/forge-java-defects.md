@@ -619,3 +619,10 @@ and Waterbender's Restoration say `Announce$ X` and work. Crucible keeps refusin
 `AbilityUtils.java:426-438` reads `SVar:Y:4-X` (Stroke of Luck) as a non-numeric single token and returns 0, so
 `LoseLife | LifeAmount$ Y` loses nothing; the script needs a `Count$`/`SVar$` form. Crucible refuses the unresolvable
 amount ([card-script-defects.md](card-script-defects.md)).
+
+## RollDice RerollResults: equal stored values lose rerolls
+
+`RollDiceEffect.rerollDice` (`RollDiceEffect.java:578-594`) keys its `replaceMap` by the old stored value, and
+`Card.replaceStoredRoll` (`Card.java:1604-1610`) removes one copy per key. With k equal stored values all rerolled, k
+dice are rolled (their triggers fire) but one copy is replaced and k-1 rerolls vanish. Centaur of Attention is the only
+card. Crucible reproduces the map (PORT-8); fix upstream by keying by index.

@@ -410,3 +410,5 @@ remembered objects, a `LinkedHashSet` (`Card.java:194`), so equal amounts collap
 remember one `1`, and `Count$RememberedNumber` sums to 1 where the card says one +1/+1 counter per counter put. Crucible
 reproduces Java (the memory is an ordered set too) rather than count correctly (PORT-8). Fix upstream: a counting
 mechanism that does not dedupe, e.g. a per-pass `RememberAmount` into a multiset.
+
+Indominus Rex, Alpha (`i/indominus_rex_alpha.txt:5-7`): the replacement's `DBPutCounters` has no `ETB$ True`, so the counters go on the card while it is still in its old zone, and `GameAction.changeZone` clears the counters of a card moving to the battlefield (`GameAction.java:170-180`, `copied.clearCounters()`) unless a CountersRemain static says otherwise. Java enters it with no keyword counters; the card says "enters with a flying counter on it". Crucible refuses the line rather than reproduce a counter that vanishes or place one Java does not (PORT-8). Fix: add `ETB$ True` to `DBPutCounters`.

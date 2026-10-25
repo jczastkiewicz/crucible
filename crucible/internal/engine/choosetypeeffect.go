@@ -87,8 +87,9 @@ func (chooseTypeEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		}
 	}
 	if len(types) == 0 {
-		if fromDefined {
-			// :123-124: nothing to choose from the defined cards is a no-op.
+		if _, prevalent := a.Params.Param("MostPrevalentInDefinedZone"); fromDefined || prevalent {
+			// :123-124: nothing to choose from is a no-op (a zone with no
+			// creature has no most prevalent type, Favored Enemy's empty library).
 			return nil
 		}
 		return fmt.Errorf("engine: ChooseType: no types to choose from")

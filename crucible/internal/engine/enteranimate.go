@@ -28,31 +28,82 @@ import (
 // an Animate of Self follows: run after the move, the entering creature
 // would be a legal sacrifice (Dracoplasm).
 func entryAnimateChain(sub *compile.Ability) bool {
-	if strings.EqualFold(sub.Name, "Tap") {
-		return false
+	shape, sacrifices := entryAnimateShape(sub)
+	return shape && (!sacrifices || !hasAnimateSelf(sub))
+}
+
+// entrySplitChain is an entryAnimateShape with a sacrifice before its Animate
+// of Self (Dracoplasm: "sacrifice any number of creatures, its power becomes
+// their total"): the sacrifice must run before the move, the Animate after it,
+// so the chain is cut in two (splitHead, splitTail).
+func entrySplitChain(sub *compile.Ability) bool {
+	shape, sacrifices := entryAnimateShape(sub)
+	return shape && sacrifices && hasAnimateSelf(sub)
+}
+
+// splitHead is the chain up to, not including, its first Animate: copies of the
+// nodes on the way with the last one's SubAbility$ link cut.
+func splitHead(a *compile.Ability) *compile.Ability {
+	next := chainNext(a)
+	c := *a
+	c.Subs = nil
+	for _, s := range a.Subs {
+		switch {
+		case !strings.EqualFold(s.Key, "SubAbility"):
+			c.Subs = append(c.Subs, s)
+		case next != nil && !strings.EqualFold(next.Name, "Animate"):
+			s.Ability = splitHead(next)
+			c.Subs = append(c.Subs, s)
+		}
 	}
-	acts, sacrifices := 0, false
+	return &c
+}
+
+// splitTail is the chain from its first Animate on.
+func splitTail(a *compile.Ability) *compile.Ability {
+	for ; a != nil; a = chainNext(a) {
+		if strings.EqualFold(a.Name, "Animate") {
+			return a
+		}
+	}
+	return nil
+}
+
+// entryAnimateShape reports whether sub's chain is made of before-move kinds
+// and nodes acting on the entering card, with at least one of the latter, and
+// whether it holds a Sacrifice.
+func entryAnimateShape(sub *compile.Ability) (shape, sacrifices bool) {
+	if strings.EqualFold(sub.Name, "Tap") {
+		return false, false
+	}
+	acts := 0
 	for a, n := sub, 0; a != nil; a, n = chainNext(a), n+1 {
 		if n > 32 || len(a.Subs) > 1 {
-			return false
+			return false, false
 		}
 		switch {
 		case strings.EqualFold(a.Name, "Animate"):
 			if d, ok := a.Param("Defined"); !ok || !strings.EqualFold(d, "Self") {
-				return false
+				return false, false
+			}
+			acts++
+		case strings.EqualFold(a.Name, "ExchangeTextBox"):
+			// "Self & ChosenCard" (Deadpool): the entering card swaps text boxes.
+			if d, ok := a.Param("Defined"); !ok || !strings.Contains(d, "Self") {
+				return false, false
 			}
 			acts++
 		case strings.EqualFold(a.Name, "Attach"):
 			if d, ok := a.Param("Object"); !ok || !strings.EqualFold(d, "Self") {
-				return false
+				return false, false
 			}
 			acts++
 		case strings.EqualFold(a.Name, "Tap"):
 			if _, etb := a.Param("ETB"); !etb {
-				return false
+				return false, false
 			}
 			if d, ok := a.Param("Defined"); !ok || !strings.EqualFold(d, "Self") {
-				return false
+				return false, false
 			}
 			acts++
 		default:
@@ -61,12 +112,12 @@ func entryAnimateChain(sub *compile.Ability) bool {
 				known = known || strings.EqualFold(a.Name, api)
 			}
 			if !known {
-				return false
+				return false, false
 			}
 			sacrifices = sacrifices || strings.HasPrefix(strings.ToLower(a.Name), "sacrifice")
 		}
 	}
-	return acts > 0 && (!sacrifices || !hasAnimateSelf(sub))
+	return acts > 0, sacrifices
 }
 
 // hasAnimateSelf reports whether the chain from sub has an Animate node.
@@ -97,8 +148,11 @@ func (g *Game) applyEnterAnimate(controller PlayerController, moved CardID, orig
 			return
 		}
 		sub := replaceWithSub(r)
-		if sub == nil || !entryAnimateChain(sub) {
+		if sub == nil || !entryAnimateChain(sub) && !entrySplitChain(sub) {
 			return
+		}
+		if entrySplitChain(sub) {
+			sub = splitTail(sub)
 		}
 		if validCard, ok := r.Param("ValidCard"); !ok || !Matches(g, card, valid.Parse(validCard), card.Controller(), card.ID) {
 			return

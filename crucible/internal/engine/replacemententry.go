@@ -200,6 +200,9 @@ func (g *Game) entryShape(r *compile.Ability, moved *Card, origin ZoneType, h *C
 		g.recordPendingError(fmt.Errorf("engine: %q: as-it-enters replacement ReplaceWith$ %s not resolvable yet", h.Def.Name, sub.Name))
 		return nil, false, false
 	}
+	if updated && entrySplitChain(sub) {
+		sub = splitHead(sub)
+	}
 	return sub, updated, true
 }
 
@@ -315,7 +318,7 @@ func entryUpdatedShape(sub *compile.Ability) bool {
 		// A chain headed by its counters is applyEnterCounters', after the move.
 		return false
 	}
-	return strings.EqualFold(sub.Name, "LoseLife") || isDevourChain(sub) || entryChainRunsBeforeMove(sub, 0)
+	return strings.EqualFold(sub.Name, "LoseLife") || isDevourChain(sub) || entryChainRunsBeforeMove(sub, 0) || entrySplitChain(sub)
 }
 
 // entryChainAPIs are the abilities an "as CARDNAME enters" chain may be made
@@ -380,7 +383,10 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 		return false
 	}
 	for _, s := range a.Subs {
-		if delayed && !strings.EqualFold(s.Key, "SubAbility") {
+		if (delayed || strings.EqualFold(a.Name, "Effect")) && !strings.EqualFold(s.Key, "SubAbility") {
+			// A DelayedTrigger's Execute$ runs later, an Effect's StaticAbilities$,
+			// Triggers$ and Replacements$ are the effect card's own traits (Tibalt,
+			// Cosmic Impostor's emblem).
 			continue
 		}
 		if s.Ability != nil && !entryChainRunsBeforeMove(s.Ability, depth+1) {
@@ -454,7 +460,7 @@ func enterShapeHandledAfterMove(sub *compile.Ability) bool {
 		return ok && strings.EqualFold(defined, "ReplacedCard") && onlyParamsOf(sub, "db", "defined", "etb")
 	case strings.EqualFold(sub.Name, "DayTime"):
 		return true
-	case entryAnimateChain(sub):
+	case entryAnimateChain(sub), entrySplitChain(sub):
 		return true
 	case strings.EqualFold(sub.Name, "PutCounter"):
 		_, etb := sub.Param("ETB")

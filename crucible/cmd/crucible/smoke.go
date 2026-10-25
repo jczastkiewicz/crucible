@@ -29,7 +29,7 @@ func cardSmoke(args []string) error {
 	tokens := fs.String("tokens", "../forge-gui/res/tokenscripts", "token script directory")
 	types := fs.String("types", "../forge-gui/res/lists/TypeLists.txt", "subtype vocabulary")
 	decks := fs.String("decks", "", "decklist file, or a directory searched for .dck files")
-	cards := fs.String("cards", "", "comma-separated card names")
+	cards := fs.String("cards", "", "comma-separated card names (a comma inside a name is written as a semicolon)")
 	all := fs.Bool("all", false, "probe every card in the corpus")
 	workers := fs.Int("workers", 4, "games probed in parallel")
 	top := fs.Int("top", 25, "refusal causes to print")
@@ -80,7 +80,7 @@ func smokeCards(db *compile.DB, decks, cards string, all bool) (names []string, 
 		return db.Names(), "the whole corpus", nil
 	case cards != "":
 		for _, n := range strings.Split(cards, ",") {
-			if r, ok := resolve(strings.TrimSpace(n)); ok {
+			if r, ok := resolve(strings.ReplaceAll(strings.TrimSpace(n), ";", ",")); ok {
 				names = append(names, r)
 			} else {
 				return nil, "", fmt.Errorf("no card named %q", n)

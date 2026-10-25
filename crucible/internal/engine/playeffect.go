@@ -48,9 +48,7 @@ type playEffect struct{}
 // RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); alternate states (CastFaceDown$, CastTransformed$,
 // ReplaceIlluMask$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
-// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ControlledByPlayer$
-// (Mindslaver control of the caster), WithTotalCMC$ (a running mana-value
-// budget), ShowCards$ (a second, display-only list), ZoneRegardless$
+// PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list), ZoneRegardless$
 // (equalsWithGameTimestamp, which this port cannot tell apart);
 // Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // "never met" rather than evaluating.
@@ -64,7 +62,7 @@ type playEffect struct{}
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
-	"PlayRaiseCost", "ControlledByPlayer", "ShowCards", "ZoneRegardless"}
+	"PlayRaiseCost", "ShowCards", "ZoneRegardless"}
 
 // playUnportedProperties are card-property prefixes in the corpus's Play
 // valid strings that Matches (valid.go) has no case for and would read as
@@ -174,6 +172,19 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		return nil
 	}
 
+	if raw, ok := a.Params.Param("ControlledByPlayer"); ok {
+		// PlayEffect.java:104-107, :219-221: once the candidates are known, the
+		// named player (first of the list) controls the caster's decisions for the
+		// whole play and for each spell cast until it resolves (the grant rides the
+		// spell, MagicStack.java:617-653).
+		players, err := definedPlayers(g, a.Controller, a.Source, raw, a.refs())
+		if err != nil || len(players) == 0 {
+			return fmt.Errorf("engine: Play: ControlledByPlayer$ %q names no player", raw)
+		}
+		ts := g.addControlGrant(caster, players[0])
+		defer g.removeControlGrant(caster, ts)
+		opts.control = controlRef{player: players[0], ts: ts, set: true}
+	}
 	var amount int
 	if raw, ok := a.Params.Param("Amount"); ok && raw == "All" {
 		amount = len(cards)

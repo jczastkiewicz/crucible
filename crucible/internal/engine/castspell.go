@@ -437,6 +437,8 @@ func (g *Game) flashbackCost(pid PlayerID, c *Card) (mana.Cost, bool) {
 // castOpts is how an effect's "cast it" differs from casting it normally
 // (PlayEffect.java's tgtSA adjustments before playSaFromPlayEffect).
 type castOpts struct {
+	// control is Play's ControlledByPlayer$: the spell carries the grant (applyControl).
+	control controlRef
 	// withoutManaCost is WithoutManaCost$ (SpellAbility.copyWithNoManaCost):
 	// no mana is paid, and an X in the cost is 0, so ChoosePayX is never
 	// asked (CR 107.3b).
@@ -640,6 +642,7 @@ func (g *Game) castSpellChosen(controller PlayerController, pid PlayerID, card C
 	}
 	cast := Ability{API: api, Source: card, Controller: pid, spell: true}
 	x.setOn(&cast)
+	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
@@ -906,6 +909,7 @@ func (g *Game) castAura(pid PlayerID, card CardID, c *Card, controller PlayerCon
 	g.putSpellOnStack(card, pid)
 	cast := Ability{API: APIAttach, Source: card, Controller: pid, Target: target, spell: true}
 	x.setOn(&cast)
+	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
@@ -974,6 +978,7 @@ func (g *Game) castPlayerAura(pid PlayerID, card CardID, c *Card, controller Pla
 	g.putSpellOnStack(card, pid)
 	cast := Ability{API: APIAttach, Source: card, Controller: pid, Targets: []EntityID{target}, spell: true}
 	x.setOn(&cast)
+	cast.controlledBy = opts.control
 	g.Card(card).castX = x.value
 	g.PushAbility(cast)
 	g.sink.Emit(Event{Kind: SpellCast, Phase: g.activePhase, Active: g.activePlayer, Actor: pid, Turn: uint16(g.turn), Source: card})
@@ -1073,6 +1078,7 @@ func (g *Game) castInstantOrSorcery(pid PlayerID, card CardID, c *Card, controll
 		return false
 	}
 	x.setOn(&a)
+	a.controlledBy = opts.control
 	g.putSpellOnStack(card, pid)
 	g.Card(card).castX = x.value
 	g.PushAbility(a)

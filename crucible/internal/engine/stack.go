@@ -192,6 +192,12 @@ func (g *Game) resolveTop(reg *Registry, controller PlayerController) error {
 	g.stack[n] = Ability{}
 	g.stack = g.stack[:n]
 
+	if a.controlledBy.set {
+		// MagicStack.java:617-618, :650-653: the player who controls the caster
+		// for this spell decides for it while it resolves, then the grant ends.
+		g.addControlGrantAt(a.Controller, a.controlledBy.player, a.controlledBy.ts)
+		defer g.removeControlGrant(a.Controller, a.controlledBy.ts)
+	}
 	fizzled := !g.targetsStillLegal(&a)
 	if g.recheckFails(&a) {
 		fizzled = true

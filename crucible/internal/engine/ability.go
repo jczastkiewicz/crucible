@@ -153,6 +153,8 @@ type Ability struct {
 	// counterOverride is the one counter kind a SharedKeywords$ PutCounter puts
 	// on this pass (putCounterEffect.resolveSharedKeywords); empty otherwise.
 	counterOverride CounterType
+	// controlledBy is Play's ControlledByPlayer$ carried by the cast spell.
+	controlledBy controlRef
 	parentTargets   []EntityID
 	// ancestorTargeting is SpellAbility.usesTargeting on some ancestor of this
 	// sub-ability: one of them names ValidTgts$. An empty parentTargets then
@@ -778,6 +780,15 @@ func (a *Ability) stampOf(card CardID) (uint64, bool) {
 // SpellAbility.getPayingMana, which Count$TotalManaSpent <valid> reads
 // (AbilityUtils.java:1856-1865). manaRecorded marks an activation that wrote
 // it; replaced, never written in place.
+// controlRef is a control grant a spell carries with it (Play's ControlledByPlayer$,
+// SpellAbility.getControlledByPlayer): who controls the caster's decisions and
+// the grant's timestamp, re-applied while the spell resolves.
+type controlRef struct {
+	player PlayerID
+	ts     uint64
+	set    bool
+}
+
 type paidLists struct {
 	sacrificed, exiled, discarded []CardID
 	// sacrificedMoved is Defined$ SacrificedCards: the cards the cost really

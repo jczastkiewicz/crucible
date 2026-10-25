@@ -153,6 +153,10 @@ type Ability struct {
 	// counterOverride is the one counter kind a SharedKeywords$ PutCounter puts
 	// on this pass (putCounterEffect.resolveSharedKeywords); empty otherwise.
 	counterOverride CounterType
+	// forcedTarget is the one entity every targeting part of a spell copy takes
+	// (CopySpellAbility CopyForEachCanTarget$, resetFirstTargetOnCopy).
+	forcedTarget    EntityID
+	hasForcedTarget bool
 	// controlledBy is Play's ControlledByPlayer$ carried by the cast spell.
 	controlledBy controlRef
 	parentTargets   []EntityID

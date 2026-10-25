@@ -57,17 +57,15 @@ func (g *Game) MayPlayFromExile(p PlayerID, card CardID) (ExilePlayGrant, bool) 
 // ChangesZoneAll fires once for the batch, then, when anything moved, the
 // activator's ElementalBend trigger (CR 701.65b, Player.triggerElementalBend).
 //
-// Only battlefield cards are exiled: every real line targets a permanent,
-// except the one reaching the stack through TgtZone$ (a spell target), which
-// fails closed, as does Airbend of a card already gone (Java's
-// equalsWithGameTimestamp skip).
+// Battlefield cards and spells on the stack are exiled; Airbend of a card
+// already gone is skipped (Java's equalsWithGameTimestamp skip).
 type airbendEffect struct{}
 
 func (airbendEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
 		return err
 	}
-	if err := rejectParams(a, "Airbend", "TgtZone"); err != nil {
+	if err := rejectParams(a, "Airbend"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -81,7 +79,11 @@ func (airbendEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 	var moved []CardID
 	for _, id := range cards {
 		c := g.Card(id)
-		if c.Zone != Battlefield {
+		if c.Zone == Stack {
+			// AirbendEffect.java:65-79: a spell on the stack is exiled and its stack
+			// instance removed (Aang's "up to one other target creature or spell").
+			g.removeSpellFromStack(id)
+		} else if c.Zone != Battlefield {
 			continue
 		}
 		melded := g.moveByEffect(controller, id, Exile, 0, NoPlayer, false)

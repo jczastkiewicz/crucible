@@ -1,9 +1,10 @@
 package engine
 
-//enginelint:allow ability action amount card castspell condition control defined effecthelpers game id parts player stack targeting trigger triggerpack zone copypermanenteffect
+//enginelint:allow ability action amount card castspell condition control defined effecthelpers game id parts player stack targeting trigger triggerpack zone copypermanenteffect changetargetseffect valid
 
 import (
 	"fmt"
+	"github.com/jczastkiewicz/crucible/internal/valid"
 	"strings"
 )
 
@@ -33,8 +34,8 @@ type copySpellAbilityEffect struct{}
 
 // copySpellUnresolvedParams are CopySpellAbilityEffect params this port does
 // not resolve, each rejected before anything is copied (PORT-8, GO-7):
-// CopyForEachCanTarget$/ChooseOnlyOne$ (CR 707.10d, one copy per other
-// legal target), DefinedTarget$ (CR 707.10e), SingleChoice$, Epic$,
+// ChooseOnlyOne$ (CR 707.10d, one copy for a chosen other legal target;
+// CopyForEachCanTarget$ without it resolves, copyForEachTarget), DefinedTarget$ (CR 707.10e), SingleChoice$, Epic$,
 // UseOriginalHost$,
 // and Condition$/ConditionDefined$, which subAbilityConditionMet reads as
 // never met, silently. The copy's Layer 1 changes (SetColor$, SetPower$,
@@ -44,7 +45,7 @@ type copySpellAbilityEffect struct{}
 // (ChangeTargets Defined$ Remembered, AbilityUtils.java:1230-1238): it is
 // accepted and does nothing here, since Memory holds no SpellAbility.
 var copySpellUnresolvedParams = [...]string{
-	"CopyForEachCanTarget", "ChooseOnlyOne", "DefinedTarget", "SingleChoice",
+	"ChooseOnlyOne", "DefinedTarget", "SingleChoice",
 	"Epic", "UseOriginalHost"}
 
 func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -71,6 +72,10 @@ func (copySpellAbilityEffect) Resolve(g *Game, a *Ability, controller PlayerCont
 	}
 	if battlefieldReplacementEvent(g, "CopySpell") || battlefieldStaticMode(g, "CantBeCopied") {
 		return fmt.Errorf("engine: CopySpellAbility: CopySpell replacements or CantBeCopied statics not resolvable yet")
+	}
+	_, forEach := a.Params.Param("CopyForEachCanTarget")
+	if forEach {
+		return g.copyForEachTarget(controller, a, spells)
 	}
 	if g.copyTriggerWatching() {
 		return fmt.Errorf("engine: CopySpellAbility: Mode$ SpellCopy/SpellCastOrCopy/SpellAbilityCopy triggers not resolvable yet")
@@ -325,6 +330,9 @@ func (g *Game) copySpell(controller PlayerController, a *Ability, orig Ability, 
 	// copies the whole chain, TargetChoices included), on arrays of their own
 	// so stamping or retargeting the copy never writes the original's.
 	cp.chainTargets = clonedChainTargets(orig.chainTargets)
+	if a.hasForcedTarget {
+		forceCopyTargets(&cp, a.forcedTarget)
+	}
 	if orig.Modes != nil {
 		cp.Modes = make([]Ability, len(orig.Modes))
 		for i, m := range orig.Modes {
@@ -466,5 +474,90 @@ func (g *Game) chooseCopyTargets(controller PlayerController, m *Ability) error 
 		return fmt.Errorf("engine: CopySpellAbility: new targets: %w", err)
 	}
 	m.Targets = chosen
+	return nil
+}
+
+// forceCopyTargets is resetFirstTargetOnCopy (CopySpellAbilityEffect.java:226-232,
+// SpellAbility.java:1855-1867): every targeting link of the copy's chain takes e
+// alone.
+func forceCopyTargets(p *Ability, e EntityID) {
+	if partUsesTargeting(p) {
+		p.Targets = []EntityID{e}
+	}
+	for i := range p.chainTargets {
+		if p.chainTargets[i].Err == nil && len(p.chainTargets[i].Targets) > 0 {
+			p.chainTargets[i].Targets = []EntityID{e}
+		}
+	}
+}
+
+// copyForEachTarget is CopyForEachCanTarget$ (CopySpellAbilityEffect.java:103-125,
+// CR 707.10d; Radiate): for each named spell, one copy for each object it
+// could target that CopyForEachCanTarget$ accepts and it does not already
+// target, the copy's targets all that object. The candidates are what the spell's
+// first targeting part could target now, players then the rest. The copies go on
+// the stack under the Controller$ player in that order.
+func (g *Game) copyForEachTarget(controller PlayerController, a *Ability, spells []Ability) error {
+	if battlefieldReplacementEvent(g, "CopySpell") || battlefieldStaticMode(g, "CantBeCopied") {
+		return fmt.Errorf("engine: CopySpellAbility: CopySpell replacements or CantBeCopied statics not resolvable yet")
+	}
+	if g.copyTriggerWatching() {
+		return fmt.Errorf("engine: CopySpellAbility: Mode$ SpellCopy/SpellCastOrCopy/SpellAbilityCopy triggers not resolvable yet")
+	}
+	spec, _ := a.Params.Param("CopyForEachCanTarget")
+	parsed := valid.Parse(spec)
+	copierSpec, ok := a.Params.Param("Controller")
+	if !ok {
+		copierSpec = "You"
+	}
+	copiers, err := definedPlayers(g, a.Controller, a.Source, copierSpec, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: CopySpellAbility: Controller$: %w", err)
+	}
+	var targeted []copiedTargets
+	for _, copier := range copiers {
+		for _, orig := range spells {
+			item, ok := g.stackItem(orig.ID)
+			if !ok {
+				continue
+			}
+			parts, err := retargetParts(item)
+			if err != nil {
+				return err
+			}
+			if len(parts) == 0 {
+				continue
+			}
+			candidates, err := g.partCandidates(item, parts[0])
+			if err != nil {
+				return err
+			}
+			var all []EntityID
+			for _, c := range candidates {
+				if !containsEntity(parts[0].Targets, c) && g.entityMatches(c, spec, parsed, a.Controller, a.Source) {
+					all = append(all, c)
+				}
+			}
+			for _, e := range all {
+				per := *a
+				per.forcedTarget, per.hasForcedTarget = e, true
+				host, tg, err := g.copySpell(controller, &per, orig, copier, false)
+				if err != nil {
+					return err
+				}
+				_ = host
+				targeted = append(targeted, tg)
+			}
+		}
+	}
+	for _, tg := range targeted {
+		matches := g.checkBecomesTargetTriggers(tg.targets, tg.aura, tg.copier)
+		if tg.item != NoStackItem {
+			matches = append(matches, g.checkWardTriggersForAbility(tg.targets, tg.item, tg.source, tg.copier)...)
+		} else {
+			matches = append(matches, g.checkWardTriggers(tg.targets, tg.host, tg.copier)...)
+		}
+		g.pushTriggeredAbilities(controller, matches)
+	}
 	return nil
 }

@@ -138,10 +138,6 @@ func TestAirbendExilesWithACastForTwoPermission(t *testing.T) {
 	if _, ok := g.MayPlayFromExile(other, victim); ok {
 		t.Error("permission outlived the card leaving exile")
 	}
-	if _, err := resolveNow(t, g, p, engine.NewScriptedController(), nil,
-		"DB$ Airbend | ValidTgts$ Card | TgtZone$ Stack"); err == nil || !strings.Contains(err.Error(), "TgtZone$ not resolvable yet") {
-		t.Errorf("TgtZone$ err = %v, want not resolvable yet", err)
-	}
 }
 
 // TestEmpowerCreatesThenGrowsTheToken proves the first Empower creates the

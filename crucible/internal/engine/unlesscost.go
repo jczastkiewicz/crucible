@@ -193,6 +193,9 @@ type unlessCost struct {
 	exileTopN, addManaN, oppGainN int
 	// millN is Mill<N> (CostMill): the payer mills N cards from the top.
 	millN        int
+	// flipN is FlipCoin<N> (CostFlipCoin): the payer flips N coins, always
+	// payable (Karplusan Minotaur's cumulative upkeep).
+	flipN int
 	addManaColor mana.Colors
 	// manaTokens are the cost's mana symbols, Waterbend's included, for times.
 	manaTokens []string
@@ -334,6 +337,8 @@ func parseUnlessCostX(text string, x int, hasX bool) (unlessCost, bool) {
 			uc.youCounterN, uc.youCounterType = n, CounterType(strings.ToUpper(p.Field(1)))
 		case p.Name == "Mill" && uc.millN == 0:
 			uc.millN = n
+		case p.Name == "FlipCoin" && uc.flipN == 0:
+			uc.flipN = n
 		case p.Name == "ExileFromTop" && uc.exileTopN == 0 && p.Field(1) == "Card":
 			uc.exileTopN = n
 		case p.Name == "AddMana" && uc.addManaN == 0 && addManaColorOf(p.Field(1)) != 0:
@@ -1100,6 +1105,7 @@ func (uc unlessCost) times(n int) (unlessCost, bool) {
 	uc.exileEitherN *= n
 	uc.exileTopN *= n
 	uc.millN *= n
+	uc.flipN *= n
 	uc.addManaN *= n
 	uc.oppGainN *= n
 	if uc.hasMana {
@@ -1175,6 +1181,9 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 	}
 	if !ok {
 		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q not resolvable yet", text)
+	}
+	if uc.flipN > 0 && flipCoinModInPlay(g) {
+		return false, fmt.Errorf("engine: Sacrifice: upkeep cost %q: a FlipCoinMod static is in play, not resolvable yet", text)
 	}
 	paid := (uc.mandatory || controller.ConfirmPayCost(g, a.Controller, uc.parsed, a.Source)) &&
 		g.payUnlessCost(controller, a, a.Controller, uc)

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
@@ -58,7 +59,7 @@ func (g *Game) regenerate(controller PlayerController, id CardID) bool {
 	if c.RegenShields < len(c.regenFollows) {
 		f := c.regenFollows[0]
 		c.regenFollows = c.regenFollows[1:]
-		g.runRegenFollow(controller, f)
+		g.runRegenFollow(controller, f, id)
 	}
 	return true
 }
@@ -69,7 +70,7 @@ func (g *Game) regenerate(controller PlayerController, id CardID) bool {
 // RegenerationEffect.java:51-54), so Defined$ EffectSource is the shield's
 // source (AbilityUtils.java:92-95, :342-351). A follow-up that cannot be put
 // on the stack is kept as a pending error (GO-7).
-func (g *Game) runRegenFollow(controller PlayerController, f regenFollow) {
+func (g *Game) runRegenFollow(controller PlayerController, f regenFollow, regenerated CardID) {
 	src := g.Card(f.source)
 	def := &compile.Card{Name: effectHostName(src) + "'s Effect"}
 	def.Faces[0].Name = def.Name
@@ -80,6 +81,21 @@ func (g *Game) runRegenFollow(controller PlayerController, f regenFollow) {
 	eff.effectLife = effectLifetime{duration: effectUntilEndOfTurn, player: f.controller, host: f.source}
 	for _, e := range f.remember {
 		eff.Memory.Remember(e)
+	}
+	if !strings.EqualFold(f.follow.Ability.Name, "ImmediateTrigger") {
+		// Any other follow-up is a sub-ability of the shield's replacement
+		// (RegenerateEffect.java:92-95), so Defined$ ReplacedCard names the
+		// regenerated card (Debt of Loyalty's GainControl).
+		api, ok := APIByName(f.follow.Ability.Name)
+		if !ok {
+			g.recordPendingError(fmt.Errorf("engine: Regenerate: RegenerationAbility$ names unknown API %q", f.follow.Ability.Name))
+			return
+		}
+		child := Ability{API: api, Source: id, Controller: f.controller, Params: f.follow.Ability, Amounts: f.amounts, replacing: &replacementEvent{result: replacementReplaced, card: regenerated}}
+		if err := g.registry.Resolve(g, &child, controller); err != nil {
+			g.recordPendingError(fmt.Errorf("engine: Regenerate: RegenerationAbility$ %s: %w", f.follow.SVar, err))
+		}
+		return
 	}
 	child := Ability{API: APIImmediateTrigger, Source: id, Controller: f.controller, Params: f.follow.Ability, Amounts: f.amounts}
 	if err := (immediateTriggerEffect{}).Resolve(g, &child, controller); err != nil {

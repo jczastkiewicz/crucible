@@ -37,9 +37,6 @@ func (regenerateEffect) Resolve(g *Game, a *Ability, _ PlayerController) error {
 	}
 	var follow *regenFollow
 	if subs := additionalAbilities(a.Params, "RegenerationAbility"); len(subs) > 0 {
-		if !strings.EqualFold(subs[0].Ability.Name, "ImmediateTrigger") {
-			return fmt.Errorf("engine: Regenerate: RegenerationAbility$ %s: only an ImmediateTrigger follow-up is resolvable yet", subs[0].SVar)
-		}
 		follow = &regenFollow{follow: subs[0], controller: a.Controller, source: a.Source, amounts: a.Amounts}
 		if raw, ok := a.Params.Param("RememberObjects"); ok {
 			for _, def := range strings.Split(raw, " & ") {

@@ -55,7 +55,6 @@ func TestEffectsFailClosedOnUnresolvedShapes(t *testing.T) {
 		"DB$ RepeatEach | RepeatCards$ Creature | Zone$ Nowhere",
 		"DB$ RepeatEach | DefinedCards$ TriggeredTarget",
 		"DB$ RepeatEach | RepeatPlayers$ TriggeredPlayer",
-		"DB$ Regenerate | Defined$ Self | RegenerationAbility$ DBX",
 		"DB$ Regenerate | Defined$ TriggeredTarget",
 		"DB$ Fog | Condition$ Teamwork",
 		"DB$ AddTurn | Defined$ You | NumTurns$ Bogus",

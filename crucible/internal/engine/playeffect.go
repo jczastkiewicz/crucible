@@ -44,9 +44,8 @@ type playEffect struct{}
 
 // playUnresolvedParams are PlayEffect params this port does not resolve,
 // each rejected before anything is played (PORT-8, GO-7):
-// a card built from outside the game
-// (AnySupportedCard$ and its RandomCopied$/RandomNum$/
-// ChoiceNum$); alternate states (CastFaceDown$, CastTransformed$,
+// a card built from outside the game past AnySupportedCard$ Names: with
+// RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); alternate states (CastFaceDown$, CastTransformed$,
 // ReplaceIlluMask$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
 // PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ControlledByPlayer$
@@ -64,7 +63,6 @@ type playEffect struct{}
 // reads straight from its own EntityID list, with no target zone of its
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
-	"AnySupportedCard", "RandomCopied",
 	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
 	"PlayRaiseCost", "ControlledByPlayer", "ShowCards", "ZoneRegardless"}
 
@@ -151,6 +149,10 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		id := g.NewCard(def, a.Controller, None)
 		g.Card(id).IsToken = true
 		cards = []CardID{id}
+	} else if hasParam(a, "AnySupportedCard") {
+		if cards, err = g.anySupportedCard(a); err != nil {
+			return err
+		}
 	} else if cards, err = playCandidates(g, a); err != nil {
 		return err
 	}
@@ -660,4 +662,28 @@ func (g *Game) playReplaceGraveyard(a *Ability, id CardID) {
 		return
 	}
 	g.Card(id).graveyardToExile = true
+}
+
+// anySupportedCard is PlayEffect.java:118-150 for AnySupportedCard$ Names:<list>
+// with RandomCopied$ (Tibalt the Chaotic): one name of the list drawn at random,
+// built as a card in no zone owned by the activator; CopyCard$ then casts a token
+// copy of it. The sorcery and instant lists, RandomNum$ and ChoiceNum$ are
+// refused. Java samples with StreamUtil.random; a single draw is one uniform index
+// here, not the same stream position (quirks.md).
+func (g *Game) anySupportedCard(a *Ability) ([]CardID, error) {
+	raw, _ := a.Params.Param("AnySupportedCard")
+	list, ok := strings.CutPrefix(raw, "Names:")
+	if !ok || !hasParam(a, "RandomCopied") {
+		return nil, fmt.Errorf("engine: Play: AnySupportedCard$ %q not resolvable yet", raw)
+	}
+	if g.db == nil {
+		return nil, fmt.Errorf("engine: Play: AnySupportedCard$ needs a card database")
+	}
+	names := strings.Split(list, ",")
+	name := strings.ReplaceAll(names[g.randomIndex(len(names))], ";", ",")
+	def, ok := g.db.Card(name)
+	if !ok {
+		return nil, fmt.Errorf("engine: Play: no card named %q", name)
+	}
+	return []CardID{g.NewCard(def, a.Controller, None)}, nil
 }

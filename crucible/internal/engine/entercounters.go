@@ -10,7 +10,7 @@
 // at the permanent (enterBattlefieldReplacements), through countersReplaced so
 // an AddCounter replacement (Hardened Scales) still changes them.
 
-//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event parts effecthelpers defined continuouslayers
+//enginelint:allow id zone card game valid ability replacement replaceeffect amount putcountereffect control event parts effecthelpers defined continuouslayers unlesscost
 
 package engine
 

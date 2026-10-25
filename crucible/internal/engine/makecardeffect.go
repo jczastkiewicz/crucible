@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game control ability effecthelpers card condition defined zone id parts zonemove event putcountereffect
+//enginelint:allow game control ability effecthelpers card condition defined zone id parts zonemove event putcountereffect amount valid
 
 import (
 	"fmt"

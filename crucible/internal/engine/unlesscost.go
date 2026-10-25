@@ -5,7 +5,7 @@
 // Return<N/Type> beside mana tokens are the shapes that need no mid-payment
 // decision beyond which cards; costparts.go holds the parts added since.
 
-//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile
+//enginelint:allow manarestrict id zone card game player ability control event manapay discardeffect sacrificeeffect valid parts returncost combatdamage turn trigger taptype chosencosts exilefromgrave amount zonemove removecountereffect defined exile flipcoineffect
 
 package engine
 

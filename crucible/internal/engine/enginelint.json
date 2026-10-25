@@ -129,7 +129,7 @@
       "controlcommands"
     ],
     "player": ["id", "parts", "mana", "playernotes"],
-    "ability": ["id", "mana", "damageresolveeffect", "replaceeffect", "game"],
+    "ability": ["id", "mana", "damageresolveeffect", "replaceeffect", "game", "parts"],
     "combat": ["id", "game", "valid", "effecthelpers", "card"],
     "game": [
       "manarestrict",
@@ -668,6 +668,7 @@
     "additional": ["game", "ability", "control", "subability"],
     "regeneration": [
       "id",
+      "replaceeffect",
       "card",
       "game",
       "control",

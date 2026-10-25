@@ -242,7 +242,7 @@ func TestExileUntilHostLeavesRejectsOtherDurations(t *testing.T) {
 
 	for _, tc := range []struct{ line, want string }{
 		{"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Exile | Duration$ UntilYourNextTurn", `Duration$ "UntilYourNextTurn" not resolvable yet`},
-		{"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay | ReturnAbility$ DBX", "ReturnAbility$ not resolvable yet"},
+		{"DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay | ReturnAbility$ DBX", "ReturnAbility$ on Defined$ Self not resolvable yet"},
 	} {
 		g, p, _ := newTwoPlayerGame(t)
 		host, err := resolveNow(t, g, p, engine.NewScriptedController(), nil, tc.line, "DBX", "DB$ BlankLine")

@@ -69,6 +69,14 @@ func (changeZoneEffect) Resolve(g *Game, a *Ability, controller PlayerController
 			return fmt.Errorf("engine: ChangeZone: %s$ not resolvable yet", key)
 		}
 	}
+	if _, ok := a.Params.Param("ReturnAbility"); ok {
+		// The host exiling itself would register the return trigger for the
+		// host's own return, which the until-host-leaves bookkeeping runs
+		// again and again; no corpus line does it (Lagrella exiles others).
+		if defined, ok := a.Params.Param("Defined"); ok && defined == "Self" {
+			return fmt.Errorf("engine: ChangeZone: ReturnAbility$ on Defined$ Self not resolvable yet")
+		}
+	}
 	source := g.Card(a.Source)
 	if !subAbilityConditionMet(g, source, a.Amounts, a.Params) {
 		return nil

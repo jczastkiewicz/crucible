@@ -265,7 +265,9 @@ func applyOneContinuousPT(g *Game, host *Card, amounts map[string]expr.Amount, s
 	if !strings.EqualFold(s.Name, "Continuous") {
 		return
 	}
-	if _, ok := s.Param("AffectedZone"); ok {
+	if zone, ok := s.Param("AffectedZone"); ok && zone != "Battlefield" {
+		// A card outside the battlefield; "Battlefield" alone is the default
+		// set (Archangel of Strife's war and peace lines).
 		return
 	}
 	if !layerStaticApplies(g, host, amounts, s) {

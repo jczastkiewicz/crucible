@@ -48,8 +48,8 @@ func TestSpellCostStatics(t *testing.T) {
 		{"ValidSpell$ Spell alternatives raise a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Spell,Activated.!ManaAbility | Amount$ 1"}, 0, 4},
 		{"ValidSpell$ Static does not touch a spell", []string{"S:Mode$ RaiseCost | ValidCard$ Card | ValidSpell$ Static.MorphUp | Amount$ 2"}, 0, 3},
 		{"Affected$ is read by no cost code and changes nothing", []string{"S:Mode$ RaiseCost | Affected$ Card.Self | Type$ Spell | Amount$ 1"}, 0, 4},
-		{"a failed Condition$ skips before an unevaluable param", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Condition$ NotPlayerTurn | ForEachShard$ Black | Amount$ 1"}, 0, 3},
-		{"an unresolvable line is not applied", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ForEachShard$ Black"}, 0, 3},
+		{"a failed Condition$ skips before an unevaluable param", []string{"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Condition$ NotPlayerTurn | OnlyFirstSpell$ True | Amount$ 1"}, 0, 3},
+		{"an unresolvable line is not applied", []string{"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | OnlyFirstSpell$ True"}, 0, 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -234,7 +234,7 @@ func TestUnresolvableRaiseCostRefusesTheCast(t *testing.T) {
 
 	g, p, _ := newTwoPlayerGame(t)
 	g.NewCard(scriptDef(t, "Test Tax", "Enchantment",
-		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | ForEachShard$ Black"), p, engine.Battlefield)
+		"S:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | OnlyFirstSpell$ True"), p, engine.Battlefield)
 	card := g.NewCard(creatureDefCost(t, "Costly", "2 G"), p, engine.Hand)
 	if castWithGreen(g, p, card, 9) {
 		t.Error("a spell was cast under a RaiseCost the engine cannot evaluate")

@@ -69,19 +69,31 @@ func TestSiegeChosenModeGrantsThatModesTrigger(t *testing.T) {
 	}
 }
 
-// Archangel of Strife's choices are Pumps that note cards for players
-// (NoteCards$), which the entry chain does not run: refused, not skipped.
-func TestArchangelOfStrifeChoiceStaysRefused(t *testing.T) {
+// Archangel of Strife: each player chooses war or peace as it enters (a
+// GenericChoice with TempRemember$ whose Pumps note the card for the chooser,
+// NoteCards$), and the creatures of the players who chose war get +3/+0 while
+// the peace ones get +0/+3.
+func TestArchangelOfStrifeNotesEachPlayersChoice(t *testing.T) {
 	t.Parallel()
 
-	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	angel := g.NewCard(corpusCard(t, "Archangel of Strife"), p, engine.Hand)
+	bears := g.NewCard(corpusCard(t, "Grizzly Bears"), other, engine.Battlefield)
 	g.Player(p).ManaPool.Add(mana.White, 7)
 	c := engine.NewScriptedController()
-	for range 5 {
+	for range 7 {
 		c.QueuePayGeneric(mana.ShardW)
 	}
-	if err := castEntrant(t, g, p, angel, c); err == nil {
-		t.Error("Archangel of Strife's war-or-peace choice resolved; its NoteCards$ Pumps are not ported")
+	c.QueueAbilityChoice([]int{0}) // the caster chooses war
+	c.QueueAbilityChoice([]int{1}) // the opponent chooses peace
+	if err := castEntrant(t, g, p, angel, c); err != nil {
+		t.Fatalf("Archangel of Strife: %v", err)
+	}
+	engine.CheckStateBasedActions(g, c)
+	if got, ok := g.Card(angel).Power(); !ok || got != 9 {
+		t.Errorf("Archangel of Strife power = %d (%v), want 9: its controller chose war", got, ok)
+	}
+	if got, ok := g.Card(bears).Toughness(); !ok || got != 5 {
+		t.Errorf("the opponent's Grizzly Bears toughness = %d (%v), want 5: its controller chose peace", got, ok)
 	}
 }

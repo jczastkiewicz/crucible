@@ -113,7 +113,7 @@ func TestTokenAnimateTriggerPackFailsClosed(t *testing.T) {
 		"DB$ RollDice | Sides$ 6 | RerollResults$ True",
 		"DB$ Clash | Defined$ TriggeredPlayer",
 		"DB$ Seek | DefinedCards$ Bogus",
-		"DB$ StoreSVar | SVar$ X | Type$ Targeted | Expression$ CardPower",
+		"DB$ StoreSVar | SVar$ X | Type$ Triggered | Expression$ CardPower",
 		"DB$ StoreSVar | SVar$ EachPlayer | Type$ Number | Expression$ 1",
 		"DB$ StoreSVar | SVar$ X | Type$ Calculate | Expression$ Bogus",
 		"DB$ Balance | Valid$ Creature | Zone$ Graveyard",

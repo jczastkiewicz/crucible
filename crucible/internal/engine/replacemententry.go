@@ -426,9 +426,16 @@ func entersPrepared(a *compile.Ability) bool {
 
 // modeOnlyPump reports whether a is a Pump that changes nothing, only names a
 // mode: the Sieges' "DB$ Pump | SpellDescription$ Khans" choices of a
-// SetChosenMode$ GenericChoice, whose description is all that is kept.
+// SetChosenMode$ GenericChoice, whose description is all that is kept, or notes
+// the entering card for the players that chose it (Archangel of Strife's war
+// and peace: Defined$ Remembered, NoteCards$ Self, NoteCardsFor$ the name,
+// PumpEffect.java:405-425), which pumpNotes records before the move.
 func modeOnlyPump(a *compile.Ability) bool {
-	return strings.EqualFold(a.Name, "Pump") && onlyParamsOf(a, "db", "spelldescription")
+	if !strings.EqualFold(a.Name, "Pump") {
+		return false
+	}
+	return onlyParamsOf(a, "db", "spelldescription") ||
+		onlyParamsOf(a, "db", "defined", "notecards", "notecardsfor", "spelldescription")
 }
 
 // enterShapeHandledAfterMove reports whether sub, an "as it enters" Moved

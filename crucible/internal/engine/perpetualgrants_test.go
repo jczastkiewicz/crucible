@@ -209,7 +209,7 @@ func TestAnimateTriggerGrantShapesThatFail(t *testing.T) {
 		{
 			name:  "a replacement of an event nothing reads",
 			line:  "DB$ Animate | Defined$ Self | Replacements$ Grant",
-			svars: []string{"Grant", "Event$ DamageDone | ValidSource$ Card.Self | ReplaceWith$ DBTap", "DBTap", "DB$ Tap | Defined$ Self"},
+			svars: []string{"Grant", "Event$ Draw | ValidPlayer$ You | ReplaceWith$ DBTap", "DBTap", "DB$ Tap | Defined$ Self"},
 			want:  "not a replacement a granted card is read for",
 		},
 		{

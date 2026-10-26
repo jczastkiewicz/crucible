@@ -1435,6 +1435,10 @@ const (
 	// optBuyback is OptionalCost.Buyback: the spell's Buyback cost was paid
 	// (SpellAbility.isBuyback, CR 702.27).
 	optBuyback
+	// optSurge and optFreerunning are the casts for the card's Surge and
+	// Freerunning cost (altkeywords.go).
+	optSurge
+	optFreerunning
 )
 
 // keywordAmount is the amount SpellAbility.setOptionalKeywordAmount records

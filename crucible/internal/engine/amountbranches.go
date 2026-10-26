@@ -29,8 +29,7 @@ import (
 // (castrecord.go: Void, Revolt; Player.committedCrimes); Adamant reads the
 // spell's own paid mana (adamantValue), StartingPlayer the game's first-turn
 // player (Game.startingPlayer) and IsPrime a primality test (isPrimeValue).
-// Not resolved: Freerunning (the card's own keyword or static is a cast
-// this port does not make, so the branch would only hide that). Random is
+// Freerunning reads the cast's way (altkeywords.go). Random is
 // randomCountValue's, a draw per read.
 func branchCountValue(g *Game, amounts map[string]expr.Amount, sourceController PlayerID, source CardID, count expr.Count, depth int) (n int, ok, handled bool) {
 	branch := func(yes bool) (int, bool, bool) {
@@ -169,6 +168,14 @@ func branchCountValue(g *Game, amounts map[string]expr.Amount, sourceController 
 			return 0, false, true
 		}
 		return branch(g.Card(source).castEmerged())
+	case count.Head == "Freerunning":
+		// AbilityUtils.java:1717-1718: the first branch when the spell was cast
+		// for its freerunning cost, else the second.
+		if source == NoCard {
+			return 0, false, true
+		}
+		c := g.Card(source)
+		return branch(c.wasCast && c.castOpt.has(optFreerunning))
 	case strings.HasPrefix(count.Head, "AltCost"):
 		// AbilityUtils.java:2064-2066: Card.isOptionalCostPaid(OptionalCost.
 		// AltCost), set by the card's own AlternativeCost static (altcost.go;

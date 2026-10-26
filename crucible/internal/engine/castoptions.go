@@ -15,6 +15,7 @@ package engine
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/mana"
 )
@@ -57,6 +58,9 @@ type castOption struct {
 	altExtra    unlessCost
 	hasAltExtra bool
 	altText     string
+	// altKeyword is "Surge" or "Freerunning" for those keyword casts
+	// (altkeywords.go): alt is the keyword's cost.
+	altKeyword string
 }
 
 // sameWay reports whether two options differ only in flash and limits, which
@@ -64,7 +68,7 @@ type castOption struct {
 func (o castOption) sameWay(p castOption) bool {
 	return o.withoutMana == p.withoutMana && o.hasAlt == p.hasAlt && o.alt.Equal(p.alt) && o.anyType == p.anyType &&
 		o.anyColor == p.anyColor && o.snowAnyColor == p.snowAnyColor && o.raise == p.raise && o.replaceExile == p.replaceExile && o.sacAtCleanup == p.sacAtCleanup &&
-		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText
+		o.sneak == p.sneak && o.mutate == p.mutate && o.emerge == p.emerge && o.altStatic == p.altStatic && o.altText == p.altText && o.altKeyword == p.altKeyword
 }
 
 // castOptions is every way pid may cast card now from its zone: the normal
@@ -133,6 +137,7 @@ func (g *Game) castOptions(pid PlayerID, card CardID, fromHand bool) []castOptio
 		}
 		// The card's own Mode$ AlternativeCost statics (altcost.go).
 		out = append(out, g.altCostOptions(pid, c)...)
+		out = append(out, g.altKeywordOptions(pid, c)...)
 	}
 	for _, o := range grants {
 		merged := false
@@ -168,6 +173,8 @@ func (o castOption) describe(name string) string {
 		return "Cast " + name + " with flash, sacrificing it at the next cleanup step"
 	case o.emerge != "":
 		return emergeLabel(name, o.alt, o.emerge)
+	case o.altKeyword != "":
+		return "Cast " + name + " for its " + strings.ToLower(o.altKeyword) + " cost " + o.alt.String()
 	case o.altStatic:
 		return "Cast " + name + " for its alternative cost " + o.altText
 	case o.withoutMana:

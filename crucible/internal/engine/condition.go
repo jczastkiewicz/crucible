@@ -365,6 +365,9 @@ func conditionValueMet(g *Game, host *Card, a *compile.Ability, value string) bo
 		// SpellAbilityCondition.java:122-123, :280: the spell was cast for its
 		// foretell cost.
 		return g.spellOptional(host.ID).foretold
+	case "Surge":
+		// :121-122: the spell was cast for its surge cost.
+		return g.spellOptional(host.ID).has(optSurge)
 	case "AltCost":
 		// :119-120, :278: the spell's own Mode$ AlternativeCost was paid.
 		return g.spellOptional(host.ID).has(optAltCost)
@@ -394,7 +397,7 @@ func conditionValueMet(g *Game, host *Card, a *compile.Ability, value string) bo
 // conditionValueRead reports whether conditionValueMet evaluates value.
 func conditionValueRead(value string) bool {
 	switch value {
-	case "Kicked", "Kicked 1", "Kicked 2", "OptionalCost", "Bargain", "Foretold", "AltCost",
+	case "Kicked", "Kicked 1", "Kicked 2", "OptionalCost", "Bargain", "Foretold", "AltCost", "Surge",
 		"Threshold", "Metalcraft", "Delirium", "Hellbent", "Revolt", "Blessing", "EnduringStory":
 		return true
 	}

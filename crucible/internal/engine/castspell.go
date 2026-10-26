@@ -171,6 +171,7 @@ func (g *Game) castFromHand(pid PlayerID, card CardID, d Door, controller Player
 		opts.sneak = way.sneak
 		opts.mutate = way.mutate
 		opts.emerge = way.emerge
+		opts.altKeyword = way.altKeyword
 		if way.altStatic {
 			// The static's cost past its mana is paid as Escape's other parts
 			// are (altcost.go).
@@ -514,6 +515,9 @@ type castOpts struct {
 	// mutate is a cast for the card's Mutate cost (mutate.go): altCost is that
 	// cost, and the spell targets a creature its owner owns.
 	mutate bool
+	// altKeyword is "Surge" or "Freerunning" for a cast for that keyword's
+	// cost (altkeywords.go): altCost is that cost.
+	altKeyword string
 }
 
 // castSpell is CastSpell past its timing and hand gates: the three spell
@@ -547,6 +551,7 @@ func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID,
 	if opts.altStatic {
 		kinds |= optAltCost
 	}
+	kinds |= altKeywordKind(opts.altKeyword)
 	g.Card(card).castOpt = castOptional{kinds: kinds, promised: optional.promised, foretold: opts.foretold, escaped: opts.escape, madness: opts.madness}
 	opts.kickers = g.chooseKicker(controller, pid, g.Card(card))
 	g.Card(card).kicker = opts.kickers

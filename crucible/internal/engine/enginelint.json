@@ -86,7 +86,7 @@
     "exploit": ["exploit.go"],
     "sticker": ["sticker.go"],
     "gameloss": ["gameloss.go"],
-    "castoptions": ["castoptions.go"],
+    "castoptions": ["castoptions.go", "altkeywords.go"],
     "castrecord": ["castrecord.go"],
     "playerproperty": ["playerproperty.go"],
     "foretell": ["foretell.go"],

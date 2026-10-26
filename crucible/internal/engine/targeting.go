@@ -1709,13 +1709,14 @@ func (g *Game) radianceCards(a *Ability) []CardID {
 // target's name), ChooseCard (the targets are the choice made at cast time),
 // PutCounter (Defined$ names the counters' recipient), Branch and RepeatEach
 // (their sub-abilities read the target, a spell on the stack for Tempt with
-// Mayhem and Anticognition). Every other API's Resolve is unaudited against a target
+// Mayhem and Anticognition), and GainOwnership (OwnershipGainEffect.java:13-22
+// takes the target's owner whatever its zone: Darkpact's card in the ante). Every other API's Resolve is unaudited against a target
 // outside the battlefield, so the line refuses (GO-7).
 func readsTgtZone(api APIType) bool {
 	switch api {
 	case APIPlay, APIDelayedTrigger, APIRemoveCounter, APIPump, APIEffect, APIClone, APICopyPermanent,
 		APIAnimate, APIAssimilate, APIChangeZone, APIChangeZoneAll,
-		APIMakeCard, APIChooseCard, APIPutCounter, APIBranch, APIRepeatEach:
+		APIMakeCard, APIChooseCard, APIPutCounter, APIBranch, APIRepeatEach, APIGainOwnership:
 		return true
 	}
 	return false

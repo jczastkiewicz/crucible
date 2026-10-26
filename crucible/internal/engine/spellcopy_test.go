@@ -513,22 +513,25 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 	}
 }
 
-// TestCopySpellOfASpellThatLeftIsAnError proves a triggering spell no
-// longer on the stack (countered above its trigger) is an error, not a
-// silent no-op: Java would copy it from last-known information.
-func TestCopySpellOfASpellThatLeftIsAnError(t *testing.T) {
+// TestCopySpellOfACounteredSpellUsesItsLastKnownItem proves a triggering spell
+// countered above its trigger is still copied, as Java copies the spell object
+// it holds: the original does nothing, the copy gains the 3 life.
+func TestCopySpellOfACounteredSpellUsesItsLastKnownItem(t *testing.T) {
 	t.Parallel()
 	g, p, _ := newTwoPlayerGame(t)
 	spell := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
 	g.NewCard(copyWatcher(t, "Instant", "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility"), p, engine.Battlefield)
 	g.Player(p).ManaPool.Add(mana.White, 1)
 	c := engine.NewScriptedController()
+	before := g.Player(p).Life
 	if !g.CastSpell(p, spell, c) {
 		t.Fatal("CastSpell failed")
 	}
 	pushPlayLine(t, g, p, []engine.EntityID{engine.CardEntity(spell)}, "DB$ Counter | TargetType$ Spell")
-	err := g.ResolveStack(engine.NewRegistry(), c)
-	if err == nil || !strings.Contains(err.Error(), "no longer on the stack") {
-		t.Errorf("err = %v, want the gone spell rejected", err)
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Player(p).Life - before; got != 3 {
+		t.Errorf("life gained = %d, want 3 from the copy alone", got)
 	}
 }

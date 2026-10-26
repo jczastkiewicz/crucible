@@ -11,7 +11,6 @@
 
 package engine
 
-
 import (
 	"strings"
 

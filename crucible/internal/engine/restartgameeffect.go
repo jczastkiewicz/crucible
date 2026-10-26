@@ -195,7 +195,7 @@ func (g *Game) resetForRestart() {
 	g.combatsThisTurn = 0
 	g.mainsThisTurn = 0
 	g.skipDamageSteps = false
-	g.stack = nil
+	g.stack, g.stackLKI = nil, nil
 	g.monarch, g.monarchBeginTurn = NoPlayer, NoPlayer
 	g.initiative = NoPlayer
 	g.dayTime = DayNeither

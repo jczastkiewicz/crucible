@@ -306,6 +306,13 @@ type Game struct {
 	// (stack.go). A spell is the item marked spell whose Source is its card.
 	stack []Ability
 
+	// stackLKI holds, by item ID, the items removeSpellFromStack and
+	// removeStackItem took off the stack: Java copies a spell from the object
+	// it still holds after the spell was countered (CopySpellAbilityEffect
+	// resolves a Casualty trigger against it), so a copy reads the item as it
+	// was. Per-game, written and read by one goroutine, never iterated.
+	stackLKI map[StackItemID]Ability
+
 	// triggerBatch holds the triggered abilities found while a batch is open
 	// (triggerBatchDepth > 0, beginTriggerBatch, trigger.go): the matches of
 	// every mode one event runs, put on the stack together in one APNAP pass

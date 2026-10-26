@@ -217,6 +217,8 @@ func (g *Game) removeStackItem(id StackItemID) {
 	for _, s := range g.stack {
 		if s.ID != id {
 			kept = append(kept, s)
+		} else {
+			g.recordStackLKI(s)
 		}
 	}
 	clear(g.stack[len(kept):])

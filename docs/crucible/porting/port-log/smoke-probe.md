@@ -58,14 +58,14 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,568 |
-| refused      |     23 |
+| plays        | 33,572 |
+| refused      |     18 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
-| inconclusive |     55 |
+| inconclusive |     56 |
 
-99.9% of the 33,591 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
+99.9% of the 33,590 judged cards play. On the 8,668 distinct cards of the 505 quest preconstructed decks under
 `forge-gui/res/quest/precons` (a proxy, not a metagame: the real gauntlet decklists are not supplied,
 [`meta-gauntlet.md`](../../research/meta-gauntlet.md)) it is 100.0% of 8,651 judged.
 
@@ -75,10 +75,10 @@ Largest refusal causes over the full corpus (cards blocked):
 | ---: | --- |
 | 1 | `Play: CastFaceDown$ not resolvable` |
 | 1 | `Pump: KW$ hidden keyword not resolvable` |
-| 1 | `Teamwork: the chosen creatures [N] cannot pay N power (not among the untapped candidates, repeated, or too little total power)` |
 | 1 | `"_": ReplaceWith$ ChangeZone: ChangeZone: DefinedPlayer$: Defined$ outside a replacement that records it` |
 | 1 | `"_": as-it-enters replacement ReplaceWith$ Discard not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
+| 1 | `ChangeZone: FaceDown$ with a hidden Origin$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

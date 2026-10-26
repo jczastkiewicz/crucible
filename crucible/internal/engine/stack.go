@@ -406,10 +406,32 @@ func (g *Game) removeSpellFromStack(card CardID) {
 	for _, s := range g.stack {
 		if !s.spell || s.Source != card {
 			kept = append(kept, s)
+		} else {
+			g.recordStackLKI(s)
 		}
 	}
 	clear(g.stack[len(kept):])
 	g.stack = kept
+}
+
+// recordStackLKI keeps item as it left the stack (stackLKI).
+func (g *Game) recordStackLKI(item Ability) {
+	if g.stackLKI == nil {
+		g.stackLKI = map[StackItemID]Ability{}
+	}
+	g.stackLKI[item.ID] = item
+}
+
+// stackItemLKI is the item whose ID is id: on the stack, else as it left it by
+// being countered or removed, and whether either holds it.
+func (g *Game) stackItemLKI(id StackItemID) (*Ability, bool) {
+	if item, ok := g.stackItem(id); ok {
+		return item, true
+	}
+	if item, ok := g.stackLKI[id]; ok {
+		return &item, true
+	}
+	return nil, false
 }
 
 // stackItem is the item on the stack whose ID is id, and whether one is --

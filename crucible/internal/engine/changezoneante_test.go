@@ -56,3 +56,28 @@ func TestChangeZoneFaceDownEntersFaceDown(t *testing.T) {
 		t.Error("hidden FaceDown$ resolved, want a refusal")
 	}
 }
+
+// Darkpact: GainOwnership names TgtZone$ Ante at targeting only, then
+// ExchangeZone swaps the ante card, now owned by the caster, with the top card
+// of their library (OwnershipGainEffect.java:13-22, ZoneExchangeEffect.java:
+// 35-103).
+func TestGainOwnershipOfAnteCardThenExchangeWithLibraryTop(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	anted := g.NewCard(creatureDefPT(t, "3", "3"), other, engine.Ante)
+	top := g.NewCard(creatureDefPT(t, "2", "2"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{top})
+	if _, err := resolveNow(t, g, p, c, []engine.EntityID{engine.CardEntity(anted)},
+		"DB$ GainOwnership | ValidTgts$ Card | TgtZone$ Ante | SubAbility$ ExchangeAnte",
+		"ExchangeAnte", "DB$ ExchangeZone | Zone1$ Ante | Zone2$ Library | Object$ ParentTarget | ValidExchange$ Card.TopLibrary | Mandatory$ True"); err != nil {
+		t.Fatalf("Darkpact chain: %v", err)
+	}
+	if got := g.Card(anted); got.Owner != p || got.Zone != engine.Library {
+		t.Errorf("ante card: owner %v zone %v, want the caster's, in the library", got.Owner, got.Zone)
+	}
+	if z := g.Card(top).Zone; z != engine.Ante {
+		t.Errorf("library top zone = %v, want Ante", z)
+	}
+}

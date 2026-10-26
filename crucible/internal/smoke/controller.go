@@ -14,6 +14,8 @@ package smoke
 import (
 	"math/bits"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/jczastkiewicz/crucible/internal/cost"
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -351,8 +353,36 @@ func (*Controller) ChooseManaColor(_ *engine.Game, _ engine.PlayerID, _ engine.C
 }
 
 // ChooseCardsForEffect takes the first options, at least one when the choice allows it.
-func (*Controller) ChooseCardsForEffect(_ *engine.Game, _ engine.PlayerID, _ engine.CardID, options []engine.CardID, lo, hi int) []engine.CardID {
+func (*Controller) ChooseCardsForEffect(g *engine.Game, _ engine.PlayerID, source engine.CardID, options []engine.CardID, lo, hi int) []engine.CardID {
+	if n := teamworkPower(g, source); n > 0 {
+		// Teamwork asks for creatures of total power N, a count the choice
+		// does not carry: take options until the power is met.
+		total := 0
+		for i, id := range options {
+			if p, ok := g.Card(id).Power(); ok && p > 0 {
+				total += p
+			}
+			if total >= n {
+				return options[:i+1]
+			}
+		}
+		return options
+	}
 	return options[:pick(lo, hi, len(options))]
+}
+
+// teamworkPower is N of the card's Teamwork:N keyword, or 0 for a card without.
+func teamworkPower(g *engine.Game, source engine.CardID) int {
+	if source == engine.NoCard {
+		return 0
+	}
+	for _, line := range g.Card(source).KeywordLines() {
+		if rest, ok := strings.CutPrefix(line, "Teamwork:"); ok {
+			n, _ := strconv.Atoi(rest)
+			return n
+		}
+	}
+	return 0
 }
 
 // ChoosePlayerForEffect picks the first player.

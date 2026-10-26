@@ -137,7 +137,6 @@ func TestFiftyPackFailsClosed(t *testing.T) {
 	for _, line := range []string{
 		"DB$ GameDrawn | Condition$ Teamwork",
 		"DB$ ChangeSpeed | Defined$ You | Mode$ Sideways",
-		"DB$ GainOwnership | Defined$ Self | TgtZone$ Ante",
 		"DB$ ReorderZone | Zone$ Nowhere | Defined$ You",
 		"DB$ ReorderZone | Defined$ You",
 		"DB$ EndTurn | Condition$ Teamwork",

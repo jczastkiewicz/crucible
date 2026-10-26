@@ -219,11 +219,12 @@ func copySpellTargets(g *Game, a *Ability) ([]Ability, error) {
 	}
 	var out []Ability
 	for _, id := range ids {
-		item, ok := g.stackItem(id)
+		// Java copies from the spell object it still holds (last-known
+		// information), so a countered spell is still copied; one that
+		// resolved is not kept (stackLKI).
+		item, ok := g.stackItemLKI(id)
 		if !ok {
-			// Java copies from the spell object it still holds (last-known
-			// information); this port keeps no stack item past its leaving.
-			return nil, fmt.Errorf("engine: CopySpellAbility: copying a spell no longer on the stack not resolvable yet")
+			return nil, fmt.Errorf("engine: CopySpellAbility: copying a spell that resolved not resolvable yet")
 		}
 		if item.Params != nil {
 			if _, ok := item.Params.Param("CantCopy"); ok {

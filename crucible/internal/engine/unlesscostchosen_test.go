@@ -230,8 +230,8 @@ func TestUnlessCostPartAmountIsAnSVar(t *testing.T) {
 }
 
 // Mill<N> as an unless cost (Deep Spawn's upkeep): the payer mills N cards to
-// keep the permanent. CostMill.canPay is `amount < library size`
-// (CostMill.java:66-67), so a library of exactly N cannot pay it.
+// keep the permanent. CostMill.canPay is `amount <= library size`
+// (CostMill.java:67, CR 701.17b), so only a library shorter than N cannot pay.
 func TestUnlessCostMillMillsFromTheTop(t *testing.T) {
 	t.Parallel()
 
@@ -239,7 +239,7 @@ func TestUnlessCostMillMillsFromTheTop(t *testing.T) {
 		name    string
 		library int
 		milled  int
-	}{{"enough cards", 5, 2}, {"exactly N cards cannot pay", 2, 0}} {
+	}{{"enough cards", 5, 2}, {"exactly N cards pays", 2, 2}, {"fewer than N cards cannot pay", 1, 0}} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			g := newGame(t, "a", "b")

@@ -236,9 +236,9 @@ func (g *Game) extraPartsPayable(pid PlayerID, source CardID, uc unlessCost) boo
 	if uc.exileTopN > 0 && g.Zone(Library, pid).Len() < uc.exileTopN {
 		return false
 	}
-	if uc.millN > 0 && uc.millN >= g.Zone(Library, pid).Len() {
-		// CostMill.canPay is `amount < library size` (CostMill.java:66-67): a
-		// library of exactly N cards cannot pay Mill<N> (PORT-7).
+	if uc.millN > 0 && uc.millN > g.Zone(Library, pid).Len() {
+		// CostMill.canPay is `amount <= library size` (CostMill.java:67, PR
+		// 12456, CR 701.17b): only a library shorter than N cannot pay Mill<N>.
 		return false
 	}
 	return true

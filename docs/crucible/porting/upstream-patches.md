@@ -85,6 +85,9 @@ merges it and a sync brings the identical content back.
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/RestartGameEffect.java` | Clears `getBeginOfCombat()` commands with the other phases' | PR [#12380](https://github.com/Card-Forge/forge/pull/12380), branch `upstream-pr/small-rules-fixes` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/ChooseCardEffect.java` | `QuasiLibrarySearch$` ends the search-control grant before a declined pick returns; offers only the cards searched under `LimitSearchLibrary`/`CantSearchLibrary` | PR [#12381](https://github.com/Card-Forge/forge/pull/12381), branch `upstream-pr/quasi-library-search` |
 | 2026-10-26 | `forge-game/src/main/java/forge/game/cost/CostMill.java` | `canPay` tests `amount <= library size`: a library of exactly N cards can pay `Mill<N>` (CR 701.17b) | PR [#12456](https://github.com/Card-Forge/forge/pull/12456), branch `upstream-pr/mill-cost-whole-library` |
+| 2026-10-26 | `forge-gui/res/cardsfolder/s/stroke_of_luck.txt` | `Y` is `SVar$X/NMinus.4`: `4-X` is neither a number nor `Object$Property`, so the life loss read 0 | PR [#12457](https://github.com/Card-Forge/forge/pull/12457), branch `upstream-pr/card-script-slips` |
+| 2026-10-26 | `forge-gui/res/cardsfolder/c/captains_maneuver.txt` | `DefinedCards$ ParentTarget`: `getDefinedCards` does not know `ParentTargeted` | PR [#12457](https://github.com/Card-Forge/forge/pull/12457), branch `upstream-pr/card-script-slips` |
+| 2026-10-26 | `forge-gui/res/cardsfolder/b/____________trespasser.txt` | `CantBlockBy` Effect instead of `KW$ HIDDEN Unblockable`, which no Java reads | PR [#12457](https://github.com/Card-Forge/forge/pull/12457), branch `upstream-pr/card-script-slips` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

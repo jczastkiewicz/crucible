@@ -20,10 +20,8 @@ import (
 // attachment that left the battlefield is skipped; the equipment legality
 // checks are the activated shape's (a creature host, Protection).
 func (g *Game) attachObject(a *Ability, controller PlayerController) error {
-	for _, key := range [...]string{"PlayerChoices", "Chooser"} {
-		if _, ok := a.Params.Param(key); ok {
-			return fmt.Errorf("engine: Attach: %s$ with Object$ not resolvable yet", key)
-		}
+	if _, ok := a.Params.Param("Chooser"); ok {
+		return fmt.Errorf("engine: Attach: Chooser$ with Object$ not resolvable yet")
 	}
 	if z, ok := a.Params.Param("ChoiceZone"); ok && z != "Battlefield" {
 		return fmt.Errorf("engine: Attach: ChoiceZone$ %q with Object$ not resolvable yet", z)
@@ -40,6 +38,9 @@ func (g *Game) attachObject(a *Ability, controller PlayerController) error {
 	}
 	if hasChoices {
 		return g.attachObjectToChoice(a, controller, attachments)
+	}
+	if spec, ok := a.Params.Param("PlayerChoices"); ok {
+		return g.attachObjectToPlayerChoice(a, controller, attachments, spec)
 	}
 	targets, err := targetedOrDefinedEntities(g, a)
 	if err != nil {
@@ -196,6 +197,55 @@ func (g *Game) attachObjectToChoice(a *Ability, controller PlayerController, att
 		// AttachEffect.java:149-151: RememberAttached$ remembers an attachment
 		// that did end up on the host.
 		if cur, ok := g.Card(id).AttachedTo(); ok && cur == host && hasParam(a, "RememberAttached") {
+			g.Card(a.Source).Memory.Remember(CardEntity(id))
+		}
+	}
+	return nil
+}
+
+// attachObjectToPlayerChoice is AttachEffect.java:81-152 for Object$ with
+// PlayerChoices$ (Lynde, Cheerful Tormentor): the activator picks one of the
+// players PlayerChoices$ names, and each attachment still on the battlefield
+// is attached to them after an Optional$ confirm; RememberAttached$ remembers
+// an attachment that did end up on the player.
+//
+// Java first drops every player an attachment cannot be attached to from the
+// list it is iterating (:83-89, FCollection's live iterator), which throws
+// ConcurrentModificationException for the last (or only) entry removed. That
+// is a Forge defect (forge-java-defects.md), not reproduced as a value: a
+// player no attachment can enchant is refused by name (GO-7) instead of
+// guessed at.
+func (g *Game) attachObjectToPlayerChoice(a *Ability, controller PlayerController, attachments []CardID, spec string) error {
+	if len(attachments) == 0 {
+		return nil
+	}
+	players, err := definedPlayers(g, a.Controller, a.Source, spec, a.refs())
+	if err != nil {
+		return fmt.Errorf("engine: Attach: PlayerChoices$: %w", err)
+	}
+	for _, att := range attachments {
+		for _, pid := range players {
+			if !g.playerEnchantLegal(g.Card(att), att, pid) {
+				return fmt.Errorf("engine: Attach: PlayerChoices$ %q holds a player %v cannot enchant, which Java's AttachEffect.java:83-88 turns into a ConcurrentModificationException", spec, att)
+			}
+		}
+	}
+	if len(players) == 0 {
+		return nil
+	}
+	host := players[0]
+	if len(players) > 1 {
+		host = controller.ChoosePlayerForEffect(g, a.Controller, a.Source, players)
+	}
+	for _, id := range attachments {
+		if g.Card(id).Zone != Battlefield {
+			continue
+		}
+		if hasParam(a, "Optional") && !controller.ConfirmEffect(g, a.Controller, a.Source) {
+			continue
+		}
+		g.attachToPlayer(controller, id, host)
+		if cur, ok := g.Card(id).AttachedToPlayer(); ok && cur == host && hasParam(a, "RememberAttached") {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
 	}

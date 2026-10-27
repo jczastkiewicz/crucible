@@ -567,9 +567,10 @@ The three corpus lines all use equal destinations, so only the sequential shape 
 `CardFactoryUtil.setFaceDownState` but not `FaceDownKeyword$`, which `CardFactoryUtil.java:4147` handles: the param
 never reaches its effect. No corpus line carries it, so Crucible ignores it the same way.
 
-`ChangeZoneEffect.java:1416-1431` (hidden origin, Destination Exile) reads `ExileFaceDown$` only; `FaceDown$` is read
-for a battlefield destination (`:1396`) and on the known path (`:757`). Tezzeret's Reckoning (`FaceDown$ True`, Origin
-Library) exiles its three cards face up. Crucible refuses `FaceDown$` on ChangeZone until this is fixed upstream.
+`ChangeZoneEffect.java:1450` (hidden origin, Destination Exile) reads `ExileFaceDown$` only; `FaceDown$` is read for a
+battlefield destination (`:1417`) and on the known path (`:757`). Tezzeret's Reckoning spelt it `FaceDown$` with Origin
+Library and exiled its three cards face up; the script now says `ExileFaceDown$` (branch
+`upstream-pr/card-script-slips-4`, carried on master). Crucible still refuses `FaceDown$` on a hidden origin.
 
 `CharmEffect.java:43-44` judges a mode's `getNumCandidates` before `setChoosingPlayer` (`:273`), so a mode whose
 `ValidTgts$` names `ChoosingPlayer` with `TargetMin > 0` is filtered with no chooser. `AbilityUtils.java:1131-1132` adds

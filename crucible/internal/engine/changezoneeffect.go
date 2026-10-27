@@ -852,8 +852,8 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	// Twilight's RandomOrder$ reaches nothing in Java (forge-java-defects.md):
 	// ignored here the same way (PORT-7).
 	if hasParam(a, "FaceDown") {
-		// The hidden Exile branch never reads FaceDown$ (Tezzeret's
-		// Reckoning, forge-java-defects.md) and the battlefield branch
+		// The hidden Exile branch reads ExileFaceDown$ only (:1450; Tezzeret's
+		// Reckoning's script now says so) and the battlefield branch
 		// (:1396-1398) has no corpus line: refused, not guessed.
 		return fmt.Errorf("engine: ChangeZone: FaceDown$ with a hidden Origin$ not resolvable yet")
 	}

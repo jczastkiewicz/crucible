@@ -1186,6 +1186,15 @@ func (g *Game) upkeepCostPaid(controller PlayerController, a *Ability, source *C
 			return false, nil
 		}
 	}
+	if text == "X" {
+		// "Echo:X" (Volcano Hellion, X = your life total): the cost is X generic
+		// mana, X read off the card's own X SVar when the cost is built.
+		x, ok := resolveNamedAmount(g, a.Amounts, source, "X")
+		if !ok {
+			return false, fmt.Errorf("engine: Sacrifice: upkeep cost X: the X SVar is not resolvable")
+		}
+		text = strconv.Itoa(x)
+	}
 	uc, ok := parseUnlessCost(text)
 	if ok && n > 1 {
 		uc, ok = uc.times(n)

@@ -538,10 +538,11 @@ it (`triggerPhasesCheck` answers false). Fix upstream: compare against 1, or rea
 
 `ReplacementHandler.java:407` reads `NoPrevention$` from the `cause` that finalizes the damage. `DamageDealEffect`
 defers the deal under `DamageMap$` (`:210-214`), so the cause is the later `DamageResolve`
-(`DamageResolveEffect.java:29`) or `RepeatEach` (`RepeatEachEffect.java:199-201`), neither of which carries the param.
-Volcano Hellion's damage ("can't be prevented") stays preventable. Crucible keeps the line refused
-(`DealDamage: NoPrevention$ under DamageMap$`) rather than reproduce it. Fix upstream: copy the flag onto the damage map
-or read it per source SA.
+(`DamageResolveEffect.java:28`) or `RepeatEach` (`RepeatEachEffect.java:199-201`), neither of which carried the param
+in Volcano Hellion's script. Its "can't be prevented" stayed preventable. The script now puts `NoPrevention$ True` on
+`DmgResolve` (branch `upstream-pr/card-script-slips-4`, carried on master); Crucible reads the param off `DamageResolve`
+and ignores it on the `DealDamage` lines under `DamageMap$`, as Java does. A Java-side fix (copy the flag onto the
+damage map or read it per source SA) is not needed for any corpus line.
 
 ## `Transformed$` on a known-origin `ChangeZone` still moves a card that cannot transform
 

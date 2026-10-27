@@ -67,9 +67,10 @@ type dealDamageEffect struct{}
 //     would otherwise silently no-op it), TriggeredSpellAbility$, CounterNum$,
 //     Optional$ -- each its own further mechanic;
 //   - NoPrevention$ and NoRedirection$ resolve (Game.noPreventDamage,
-//     Game.noRedirectDamage); NoPrevention$ except under DamageMap$,
-//     where Java itself drops it (the DamageResolve that deals the batch is
-//     the cause, ReplacementHandler.java:407; forge-java-defects.md);
+//     Game.noRedirectDamage); NoPrevention$ is not read under
+//     DamageMap$, as in Java: the DamageResolve that deals the batch is the
+//     cause (ReplacementHandler.java:407), so the param lives there
+//     (damageresolveeffect.go);
 //   - DivideEvenly$/DividerOnResolution$ -- Fireball's even split and
 //     Master of the Wild Hunt's assignCombatDamage at resolution
 //     (:188-193, :220-241). DividedAsYouChoose$ resolves: each target takes
@@ -134,9 +135,6 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	dmg, ok := resolveNamedAmount(g, a.Amounts, source, numDmg)
 	if !ok {
 		return fmt.Errorf("engine: DealDamage: NumDmg$ %q is not resolvable", numDmg)
-	}
-	if hasParam(a, "NoPrevention") && (a.damageMap != nil || hasParam(a, "DamageMap")) {
-		return fmt.Errorf("engine: DealDamage: NoPrevention$ under DamageMap$ not resolvable yet")
 	}
 	if hasParam(a, "DamageMap") && a.damageMap == nil {
 		a.damageMap = &pendingDamage{}

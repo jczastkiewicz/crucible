@@ -23,7 +23,12 @@ func (damageResolveEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	}
 	entries := a.damageMap.entries
 	a.damageMap.entries = nil
+	// ReplacementHandler.java:407 reads NoPrevention$ off the cause, which here
+	// is this ability: the DealDamage lines that recorded the damage have no
+	// say (Volcano Hellion's script puts it here).
+	g.noPreventDamage = hasParam(a, "NoPrevention")
 	table := g.dealPendingDamage(controller, entries)
+	g.noPreventDamage = false
 	if hasParam(a, "RememberDamaged") {
 		rememberDamaged(g, a.Source, table)
 	}

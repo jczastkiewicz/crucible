@@ -418,17 +418,39 @@ func TestDealDamageEffectNoPreventionIgnoresPrevention(t *testing.T) {
 	}
 }
 
-// TestDealDamageEffectNoPreventionUnderDamageMapIsRefused proves the
-// combination Java drops (forge-java-defects.md) fails by name.
-func TestDealDamageEffectNoPreventionUnderDamageMapIsRefused(t *testing.T) {
+// TestDealDamageEffectNoPreventionUnderDamageMapIsReadOffDamageResolve proves
+// Java's reading (ReplacementHandler.java:407): under DamageMap$ the cause is
+// the DamageResolve that deals the batch, so NoPrevention$ counts there and
+// is ignored on the DealDamage line that recorded the damage (Volcano
+// Hellion's script puts it on DamageResolve).
+func TestDealDamageEffectNoPreventionUnderDamageMapIsReadOffDamageResolve(t *testing.T) {
 	t.Parallel()
 
-	g := newGame(t, "a", "b")
-	p := g.Players()[0]
-	g.SetTurnState(1, p, engine.Main1)
-	err := castETBDealDamage(t, g, p, etbDealDamageTriggerDefParams(t, "Test NoPrevention Map", "Defined$ You | NumDmg$ 1 | NoPrevention$ True | DamageMap$ True", nil))
-	if err == nil || !strings.Contains(err.Error(), "NoPrevention$") {
-		t.Fatalf("ResolveStack error = %v, want one naming NoPrevention$", err)
+	for _, tc := range []struct {
+		name, resolve string
+		want          int
+	}{
+		{"on DamageResolve it deals", "DB$ DamageResolve | NoPrevention$ True", 15},
+		{"on the DealDamage line alone it is prevented", "DB$ DamageResolve", 20},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := newGame(t, "a", "b")
+			p, other := g.Players()[0], g.Players()[1]
+			g.SetTurnState(1, p, engine.Main1)
+			g.Player(p).Life, g.Player(other).Life = 20, 20
+			g.NewCard(replacementEnchantmentDef(t, "Test Damage Shield",
+				"Event$ DamageDone | ValidTarget$ You | Prevent$ True | Description$ Prevent all damage that would be dealt to you."), other, engine.Battlefield)
+			def := etbDealDamageTriggerDefParams(t, "Test NoPrevention Map",
+				"Defined$ Player.Opponent | NumDmg$ 5 | NoPrevention$ True | DamageMap$ True | SubAbility$ Res",
+				map[string]string{"Res": tc.resolve})
+			if err := castETBDealDamage(t, g, p, def); err != nil {
+				t.Fatalf("ResolveStack: %v", err)
+			}
+			if got := g.Player(other).Life; got != tc.want {
+				t.Errorf("other's life = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -258,3 +258,28 @@ func TestXColorLimitsTheManaThatPaysX(t *testing.T) {
 		})
 	}
 }
+
+// Echo:X (Volcano Hellion, X = your life total): the echo cost is X generic
+// mana, so paying it takes one mana per life point.
+func TestEchoXCostsYourLifeTotal(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
+	libraryCards(t, g, p, 8)
+	libraryCards(t, g, other, 8)
+	g.Player(p).Life = 3
+	hellion := g.NewCard(corpusCard(t, "Volcano Hellion"), p, engine.Battlefield)
+	g.SetTurnState(2, p, engine.Untap)
+	c := engine.NewScriptedController()
+	c.QueueConfirmPayCost(true)
+	for range 3 {
+		c.QueuePayGeneric(mana.ShardR)
+	}
+	toUpkeep(t, g, c, p, mana.Red, 3)
+	if got := g.Card(hellion).Zone; got != engine.Battlefield {
+		t.Errorf("after paying {3} the Hellion is in %v, want Battlefield", got)
+	}
+	if left := g.Player(p).ManaPool.Total(); left != 0 {
+		t.Errorf("mana left = %d, want 0: the echo cost was X = 3", left)
+	}
+}

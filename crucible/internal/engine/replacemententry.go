@@ -368,7 +368,9 @@ func entryChainRunsBeforeMove(a *compile.Ability, depth int) bool {
 	if strings.EqualFold(a.Name, "PutCounter") {
 		_, etb := a.Param("ETB")
 		defined, hasDefined := a.Param("Defined")
-		ok = etb || (hasDefined && !strings.EqualFold(defined, "Self") && !strings.HasPrefix(defined, "Replaced"))
+		// No Defined$ is the entering card itself: its counters survive the
+		// replacement (putcountereffect.go, implicit ETB$).
+		ok = etb || !hasDefined || (!strings.EqualFold(defined, "Self") && !strings.HasPrefix(defined, "Replaced"))
 	}
 	for _, api := range entryChainAPIs {
 		ok = ok || strings.EqualFold(a.Name, api)

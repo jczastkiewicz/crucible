@@ -659,35 +659,45 @@ func layerSharedKeywords(g *Game, host *Card, s *compile.Ability, add []string, 
 		restrictions = v
 	}
 	spec := valid.Parse(restrictions)
-	var land, protection, protectionColor, hexproof, trample []string
-	all := map[string]bool{}
+	var cards []*Card
 	for _, z := range zones {
 		for _, pid := range g.Players() {
 			for _, id := range g.Zone(z, pid).Cards() {
-				c := g.Card(id)
-				if !Matches(g, c, spec, host.Controller(), host.ID) {
-					continue
+				if c := g.Card(id); Matches(g, c, spec, host.Controller(), host.ID) {
+					cards = append(cards, c)
 				}
-				for _, line := range c.KeywordLines() {
-					switch keyword.Parse(line).Name {
-					case "Landwalk":
-						land = append(land, line)
-					case "Protection":
-						protection = append(protection, line)
-						for _, col := range layerColorNames {
-							long := "Protection from " + col.name
-							if line == long || strings.Contains(line, strings.ToUpper(col.name[:1])+col.name[1:]+":"+col.name) {
-								protectionColor = append(protectionColor, long)
-							}
-						}
-					case "Hexproof":
-						hexproof = append(hexproof, line)
-					case "Trample":
-						trample = append(trample, line)
-					default:
-						all[strings.ToLower(line)] = true
+			}
+		}
+	}
+	return sharedKeywordsOf(cards, add), true
+}
+
+// sharedKeywordsOf is CardFactoryUtil.getSharedKeywords (:408-460): of the
+// tokens in add, the keywords some card of cards carries, with the bare
+// Protection, ProtectionColor, Landwalk, Hexproof and Trample tokens standing
+// for the whole lines of that kind.
+func sharedKeywordsOf(cards []*Card, add []string) []string {
+	var land, protection, protectionColor, hexproof, trample []string
+	all := map[string]bool{}
+	for _, c := range cards {
+		for _, line := range c.KeywordLines() {
+			switch keyword.Parse(line).Name {
+			case "Landwalk":
+				land = append(land, line)
+			case "Protection":
+				protection = append(protection, line)
+				for _, col := range layerColorNames {
+					long := "Protection from " + col.name
+					if line == long || strings.Contains(line, strings.ToUpper(col.name[:1])+col.name[1:]+":"+col.name) {
+						protectionColor = append(protectionColor, long)
 					}
 				}
+			case "Hexproof":
+				hexproof = append(hexproof, line)
+			case "Trample":
+				trample = append(trample, line)
+			default:
+				all[strings.ToLower(line)] = true
 			}
 		}
 	}
@@ -710,7 +720,7 @@ func layerSharedKeywords(g *Game, host *Card, s *compile.Ability, add []string, 
 			}
 		}
 	}
-	return out, true
+	return out
 }
 
 // layerExpandKeyword is one token's pass through Java's removeIf: keep is

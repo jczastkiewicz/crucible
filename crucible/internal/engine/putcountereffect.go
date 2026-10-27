@@ -70,7 +70,7 @@ import (
 // end to end.
 var putCounterUnresolvedParams = [...]string{
 	"ETB",
-	"SharedKeywordsDefined", "TriggeredCounterMap", "CounterMapValues",
+	"TriggeredCounterMap", "CounterMapValues",
 }
 
 // putCounterEffect resolves Mode$/DB$/AB$ PutCounter for the Defined$
@@ -114,7 +114,13 @@ func (putCounterEffect) resolve(g *Game, a *Ability, controller PlayerController
 	// entry itself (putEnterCounters); anywhere else it is still the counter
 	// table this port does not batch.
 	_, etb := a.Params.Param("ETB")
-	enter := etb && a.replacedCard() != NoCard
+	// A PutCounter on the entering card itself with no ETB$ (Indominus Rex,
+	// Alpha's DBPutCounters after its Discard) still ends with the counters on
+	// the card as it enters: GameAction.changeZone clears a card's counters
+	// (GameAction.java:179) before it runs the Moved replacement (:330), so
+	// counters put during it survive. It takes the entry's table the same way.
+	implicit := !etb && a.replacedCard() != NoCard && !hasParam(a, "Defined")
+	enter := (etb || implicit) && a.replacedCard() != NoCard
 	for _, key := range putCounterUnresolvedParams {
 		if enter && key == "ETB" {
 			continue
@@ -915,19 +921,29 @@ func (g *Game) delayRemoveCounter(a *Ability, phase string, card CardID, kind Co
 // keywords, the ones some card in SharedKeywordsZone$ matching
 // SharedRestrictions$ (default Card) carries (layerSharedKeywords, the same
 // CardFactoryUtil.sharedKeywords port) each get one resolvePerType, a counter
-// named for the keyword. SharedKeywordsDefined$ (the cards named, not a zone)
-// is not read.
+// named for the keyword. SharedKeywordsDefined$ names the cards instead of
+// a zone (CountersPutEffect.java:608-611, CardFactoryUtil.getSharedKeywords).
 func (e putCounterEffect) resolveSharedKeywords(g *Game, a *Ability, controller PlayerController, raw string) error {
-	if hasParam(a, "SharedKeywordsDefined") {
-		return fmt.Errorf("engine: PutCounter: SharedKeywordsDefined$ not resolvable yet")
-	}
-	zones, ok := a.Params.Param("SharedKeywordsZone")
-	if !ok {
-		return fmt.Errorf("engine: PutCounter: SharedKeywords$ without SharedKeywordsZone$ not resolvable yet")
-	}
-	keywords, ok := layerSharedKeywords(g, g.Card(a.Source), a.Params, strings.Split(raw, " & "), zones)
-	if !ok {
-		return fmt.Errorf("engine: PutCounter: SharedKeywordsZone$ %q is not a zone list", zones)
+	var keywords []string
+	if spec, ok := a.Params.Param("SharedKeywordsDefined"); ok {
+		ids, err := definedCards(g.Card(a.Source), spec, a.refs())
+		if err != nil {
+			return fmt.Errorf("engine: PutCounter: SharedKeywordsDefined$: %w", err)
+		}
+		cards := make([]*Card, len(ids))
+		for i, id := range ids {
+			cards[i] = g.Card(id)
+		}
+		keywords = sharedKeywordsOf(cards, strings.Split(raw, " & "))
+	} else {
+		zones, ok := a.Params.Param("SharedKeywordsZone")
+		if !ok {
+			return fmt.Errorf("engine: PutCounter: SharedKeywords$ without SharedKeywordsZone$ not resolvable yet")
+		}
+		keywords, ok = layerSharedKeywords(g, g.Card(a.Source), a.Params, strings.Split(raw, " & "), zones)
+		if !ok {
+			return fmt.Errorf("engine: PutCounter: SharedKeywordsZone$ %q is not a zone list", zones)
+		}
 	}
 	for _, k := range keywords {
 		per := *a

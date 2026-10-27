@@ -247,6 +247,11 @@ func (g *Game) putEnterCounters(controller PlayerController, a *Ability, source 
 		}
 		return nil
 	}
+	if a.counterOverride != "" {
+		// One SharedKeywords$ pass: the counter is named for the keyword.
+		put(a.counterOverride, n)
+		return nil
+	}
 	ct, err := putCounterType(a.Params)
 	if err != nil {
 		return err

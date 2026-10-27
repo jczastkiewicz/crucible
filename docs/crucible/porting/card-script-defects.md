@@ -408,5 +408,3 @@ remembered objects, a `LinkedHashSet` (`Card.java:194`), so equal amounts collap
 remember one `1`, and `Count$RememberedNumber` sums to 1 where the card says one +1/+1 counter per counter put. Crucible
 reproduces Java (the memory is an ordered set too) rather than count correctly (PORT-8). Fix upstream: a counting
 mechanism that does not dedupe, e.g. a per-pass `RememberAmount` into a multiset.
-
-Indominus Rex, Alpha (`i/indominus_rex_alpha.txt:5-7`): not a defect. `DBPutCounters` has no `ETB$ True`, but `GameAction.changeZone` clears a card's counters (`copied.clearCounters()`, `GameAction.java:179`) before it runs the Moved replacement (`:330`), so the counters the chain puts on the card survive: a JUnit test on `upstream/master` (Serra Angel discarded, Rex put onto the battlefield with `moveToPlay`) passes with the script unchanged. Crucible still refuses the line (`entryChainRunsBeforeMove` accepts a `PutCounter` only with `ETB$` or a `Defined$` other than Self); the Go side is a port task, plan row B11.

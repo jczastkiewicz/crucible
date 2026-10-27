@@ -20,7 +20,8 @@ import (
 //
 // Only the Affected$ and characteristic params every corpus line writes
 // (AddType, AddColor, SetColor, SetPower, SetToughness, AddKeyword,
-// RemoveCardTypes, RemoveCreatureTypes, RemoveAllAbilities) are read; any
+// RemoveCardTypes, RemoveSubTypes, RemoveCreatureTypes, RemoveAllAbilities,
+// AddAbility) are read; any
 // other is refused by name (GO-7); StaticEffectCheckSVar$ and
 // StaticEffectSVarCompare$ gate the static (GameAction.java:686-694).
 func changeZoneStaticTemplate(g *Game, a *Ability) (*animateRecord, error) {
@@ -88,6 +89,21 @@ func changeZoneStaticTemplate(g *Game, a *Ability) (*animateRecord, error) {
 			r.AddKeywords = append(r.AddKeywords, strings.Split(p.Value, " & ")...)
 		case "removecardtypes":
 			r.Types.RemoveCardTypes = true
+		case "removesubtypes":
+			r.Types.RemoveSubTypes = true
+		case "addability":
+			// Supper for Spiders' "Food artifacts with {2},{T}, Sacrifice": each
+			// named SVar is a granted activated ability (Layer 6).
+			var granted int
+			for _, sub := range st.Subs {
+				if strings.EqualFold(sub.Key, "AddAbility") {
+					r.abilities = append(r.abilities, sub.Ability)
+					granted++
+				}
+			}
+			if granted != len(strings.Split(p.Value, " & ")) {
+				return nil, fmt.Errorf("engine: ChangeZone: StaticEffect$ AddAbility$ %q names an SVar that is not an ability", p.Value)
+			}
 		case "removecreaturetypes":
 			removeCreature = true
 		case "removeallabilities":

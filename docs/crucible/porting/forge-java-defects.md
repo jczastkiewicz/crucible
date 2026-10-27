@@ -592,8 +592,9 @@ for an alternative cost, and `:123` has a TODO for the same on abilities. `apply
 reads `ForEachShard$`. Only Drought uses it, on RaiseCost, so Crucible follows the printed-cost rule.
 
 `StaticAbilityContinuous.java:358` reads `AddAbility$` only; `AddAbilities$` is read for Clone and CopyPermanent
-(`CardFactory.java:649`) and never on a continuous static. Supper for Spiders' Food sacrifice ability is therefore never
-granted. Crucible refuses the `StaticEffect$` line that carries it.
+(`CardFactory.java:649`) and never on a continuous static. Supper for Spiders' script spelt it `AddAbilities$`, so its Food
+sacrifice ability was never granted. The script now says `AddAbility$` (PR
+[#12474](https://github.com/Card-Forge/forge/pull/12474), carried on master).
 
 `AbilityUtils.java:162` recognises `ParentTarget` in `getDefinedCards` but not `ParentTargeted`, which is a script
 mistake, not a Java one: Captain's Maneuver spelt it `ParentTargeted`, so `ChooseCard` chose from an empty list. The

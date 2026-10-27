@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jczastkiewicz/crucible/internal/cardtype"
 	"github.com/jczastkiewicz/crucible/internal/engine"
 )
 
@@ -102,5 +103,34 @@ func TestChangeZoneStaticEffectCheckSVarGatesTheStatic(t *testing.T) {
 		if pw, _ := g.Card(moved).Power(); pw != tc.power {
 			t.Errorf("X %s: moved power = %d, want %d", tc.x, pw, tc.power)
 		}
+	}
+}
+
+// Supper for Spiders: "They are Food artifacts with {2},{T},Sacrifice: gain 3
+// life. (They lose all other types and subtypes.)" RemoveCardTypes$ and
+// RemoveSubTypes$ run before AddType$, and AddAbility$ grants the ability.
+func TestChangeZoneStaticEffectRemovesTypesAndGrantsAbilities(t *testing.T) {
+	t.Parallel()
+
+	g, p, _ := newTwoPlayerGame(t)
+	moved := g.NewCard(creatureDefPT(t, "1", "1"), p, engine.Library)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice([]engine.CardID{moved})
+	line := "DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Card | Mandatory$ True | StaticEffect$ Animate"
+	def := etbChainDef(t, "Test Static Food", line,
+		"Animate", "Mode$ Continuous | Affected$ Card.IsRemembered | AddType$ Artifact & Food | RemoveCardTypes$ True | RemoveSubTypes$ True | AddAbility$ FoodSac",
+		"FoodSac", "AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 3")
+	if _, err := castETBChain(t, g, p, def, c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	ty := g.Card(moved).Type()
+	if ty.Has(cardtype.Creature) || !ty.Has(cardtype.Artifact) || !ty.HasSubtype("Food") {
+		t.Errorf("type = %v, want Artifact - Food only", ty)
+	}
+	if ty.HasSubtype("Bear") {
+		t.Errorf("type = %v, want the old subtype gone", ty)
+	}
+	if !canActivateGrant(t, g, p, moved) {
+		t.Error("the granted ability cannot be activated")
 	}
 }

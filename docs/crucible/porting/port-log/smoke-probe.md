@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,578 |
-| refused      |     12 |
+| plays        | 33,581 |
+| refused      |      9 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -76,9 +76,9 @@ Largest refusal causes over the full corpus (cards blocked):
 | 1 | `Play: CastFaceDown$ not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
 | 1 | `ChangeZone: FaceDown$ with a hidden Origin$ not resolvable` |
-| 1 | `ChangeZone: StaticEffect$ RemoveSubTypes$ not resolvable` |
 | 1 | `DealDamage: NoPrevention$ under DamageMap$ not resolvable` |
 | 1 | `DealDamage: Optional$ not resolvable` |
+| 1 | `MakeCard: Booster$ not resolvable` |
 
 Run `crucible card-smoke -all` for the current table; these counts move with every port.
 

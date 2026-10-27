@@ -95,6 +95,7 @@ merges it and a sync brings the identical content back.
 | 2026-10-27 | `forge-gui/res/cardsfolder/v/volcanic_offering.txt` | `DBDestroyLand` remembers with `RememberObjects$ ThisTargetedCard`: `RememberTargets$` on a sub-ability is never read | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/u/urza_academy_headmaster.txt` | `Destroy11U` is a Pump that remembers its targets, then `DBDestroy11U` destroys `Targeted` | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/s/supper_for_spiders.txt` | `Animate` grants the Food ability with `AddAbility$`: `StaticAbilityContinuous` never reads `AddAbilities$` | PR [#12474](https://github.com/Card-Forge/forge/pull/12474), branch `upstream-pr/card-script-slips-3` |
+| 2026-10-27 | `forge-gui/res/cardsfolder/e/elektra_femme_fatale.txt` | `TrigDamage1` uses `OptionalDecider$ You`: `Optional$` on a DealDamage line is read by nothing | Branch `upstream-pr/card-script-slips-4` (no PR yet) |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

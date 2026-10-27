@@ -515,6 +515,11 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		}
 		origin, ok := ZoneByName(strings.SplitN(rest, "_", 2)[0])
 		return ok && c.zoneEntered && c.zoneEntryTurn == g.turn && c.zoneEntryFrom == origin
+	case name == "attackedOrBlockedSinceYourLastUpkeep":
+		// CardProperty.java:1087-1091: attacked or blocked since the end of
+		// the source controller's last upkeep.
+		bit := uint32(1) << sourceController
+		return c.notAttacked&bit == 0 || c.notBlocked&bit == 0
 	case strings.HasPrefix(name, "cameUnderControlSinceLastUpkeep"):
 		// CardProperty.java:1082.
 		return c.cameUnderControl

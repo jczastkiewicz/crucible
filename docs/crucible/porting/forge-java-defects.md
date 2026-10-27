@@ -610,6 +610,11 @@ It throws only when a listed player cannot be enchanted by the attachment; Lynde
 attached to an opponent never hits it. Crucible resolves `PlayerChoices$` with `Object$` and refuses the throwing shape
 by name (`attachObjectToPlayerChoice`).
 
+`CountersPutOrRemoveEffect.java:93-95` adds the counter at once when the card holds no counter of any kind and never reads
+`RemoveConditionSVar$`, so Shape of the Wiitigo's creature gains a +1/+1 counter at the upkeep after it ran out of
+counters although it did not attack or block. Crucible resolves the normal case (a counter present) and refuses the
+zero-counter case by name. Not filed.
+
 `SpellAbilityEffect.java:304-306` adds `getAllComponentCards(false)` to the collection it loops over for
 `IncludeAllComponentCards$`: a merged or melded target throws `ConcurrentModificationException`. You're in Command
 (also gated on a commander model Crucible lacks) is the only line.

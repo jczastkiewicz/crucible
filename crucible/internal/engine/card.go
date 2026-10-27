@@ -164,7 +164,13 @@ type Card struct {
 	// battlefield (Card.getTurnInZone), which keeps that upkeep from clearing
 	// the flag on the turn the permanent arrived.
 	cameUnderControl bool
-	enteredTurn      int
+	// notAttacked and notBlocked are CardDamageHistory's
+	// NotAttackedSinceLastUpkeepOf / NotBlockedSinceLastUpkeepOf as bitmasks
+	// over PlayerID: the end of a player's upkeep sets that player's bit on
+	// every permanent, and the card attacking (blocking) clears the whole set
+	// (PhaseHandler.java:477-481, CombatUtil.java:387, PhaseHandler.java:783).
+	notAttacked, notBlocked uint32
+	enteredTurn             int
 	// embalmed is Card.isEmbalmed: the token Embalm makes. Embalm is not
 	// ported, so nothing sets it; Clone's Embalm$ reads it (CardFactory.java:555).
 	embalmed bool

@@ -91,6 +91,9 @@ func (g *Game) DeclareCombatAttackers(controller PlayerController) ([]CardID, er
 
 	prev := g.combat
 	g.combat.Attackers = attackers
+	for _, id := range attackers {
+		g.Card(id).notAttacked = 0
+	}
 	g.combat.AttackTargets = targets
 	// One batch for every mode the declaration runs (Taps, Exerted, Attacks,
 	// AttackersDeclared...): Java collects them all before any reaches the

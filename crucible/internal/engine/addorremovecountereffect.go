@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow game ability control effecthelpers card condition parts defined id event
+//enginelint:allow game ability control effecthelpers card condition parts defined id event presentcheck
 
 import (
 	"fmt"
@@ -20,9 +20,6 @@ type addOrRemoveCounterEffect struct{}
 
 func (addOrRemoveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
 	if err := rejectUnreadCondition(a, a.Params.Name); err != nil {
-		return err
-	}
-	if err := rejectParams(a, "AddOrRemoveCounter", "RemoveConditionSVar"); err != nil {
 		return err
 	}
 	source := g.Card(a.Source)
@@ -63,6 +60,13 @@ func (addOrRemoveCounterEffect) Resolve(g *Game, a *Ability, controller PlayerCo
 			continue
 		}
 		if !c.Counters.Any() {
+			// CountersPutOrRemoveEffect.java:93-95 adds with no look at
+			// RemoveConditionSVar$ when the card holds no counter, so Shape of
+			// the Wiitigo grows a creature that did not attack or block: a
+			// Forge defect (forge-java-defects.md), refused by name.
+			if hasParam(a, "RemoveConditionSVar") {
+				return fmt.Errorf("engine: AddOrRemoveCounter: RemoveConditionSVar$ on a card with no counter, where Java adds one regardless (CountersPutOrRemoveEffect.java:93-95)")
+			}
 			if !each && ctype != "" {
 				c.Counters.Add(ctype, n)
 				emitCounterChanged(g, a.Source, CardEntity(id), ctype, n)
@@ -102,7 +106,11 @@ func addOrRemoveCounter(g *Game, a *Ability, controller PlayerController, decide
 		}
 		kind = kinds[i]
 	}
-	if controller.ChooseBinary(g, decider, a.Source, AddOrRemove) {
+	add, err := g.addOrRemoveDecision(a, controller, decider)
+	if err != nil {
+		return err
+	}
+	if add {
 		c.Counters.Add(kind, n)
 		emitCounterChanged(g, a.Source, CardEntity(id), kind, n)
 		return nil
@@ -116,4 +124,17 @@ func addOrRemoveCounter(g *Game, a *Ability, controller PlayerController, decide
 		g.Card(a.Source).Memory.Remember(CardEntity(id))
 	}
 	return nil
+}
+
+// addOrRemoveDecision is CountersPutOrRemoveEffect.java:116-138: with
+// RemoveConditionSVar$ the player is never asked; the counter is removed when
+// the inline expression (an "AbilityUtils.calculateAmount" string with a '$',
+// not an SVar name) reaches RemoveConditionSVarCompare$ (default GE1) and added
+// otherwise. Without it the decider chooses.
+func (g *Game) addOrRemoveDecision(a *Ability, controller PlayerController, decider PlayerID) (bool, error) {
+	if !hasParam(a, "RemoveConditionSVar") {
+		return controller.ChooseBinary(g, decider, a.Source, AddOrRemove), nil
+	}
+	remove := checkSVarMatches(g, g.Card(a.Source), a.Amounts, a.Params, "RemoveConditionSVar", "RemoveConditionSVarCompare", "")
+	return !remove, nil
 }

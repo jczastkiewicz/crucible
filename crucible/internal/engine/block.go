@@ -240,6 +240,7 @@ func (g *Game) recordBlockedBy(blk Block) {
 	a.blockedByThisTurn = append(a.blockedByThisTurn, blk.Blocker)
 	b := g.Card(blk.Blocker)
 	b.blockedThisTurn = append(b.blockedThisTurn, blk.Attacker)
+	b.notBlocked = 0
 }
 
 // checkBlockPairing is DeclareCombatBlockers' per-pair pass (its doc

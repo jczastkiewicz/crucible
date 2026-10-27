@@ -880,6 +880,8 @@ func (g *Game) endUpkeep() {
 	for _, pid := range g.Players() {
 		for _, id := range g.Zone(Battlefield, pid).Cards() {
 			c := g.Card(id)
+			c.notAttacked |= 1 << g.activePlayer
+			c.notBlocked |= 1 << g.activePlayer
 			if c.Controller() == g.activePlayer && c.enteredTurn < g.turn {
 				c.cameUnderControl = false
 			}

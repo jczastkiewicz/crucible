@@ -1,7 +1,6 @@
 package engine_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/jczastkiewicz/crucible/internal/engine"
@@ -98,19 +97,20 @@ func TestAttackingAloneCountsTheLoneAttacker(t *testing.T) {
 	}
 }
 
-// attackingBattle reads the source's defender (CardProperty.java:1522), a
-// Forge bug for Rampaging Geoderm: refused with a pending error, never read
-// off the card.
-func TestAttackingBattleIsRefused(t *testing.T) {
+// attackingBattle reads the tested creature's defender (CardProperty.java:1525,
+// the upstream-pr/attacking-battle fix): Rampaging Geoderm's "if it's attacking a battle".
+func TestAttackingBattleReadsTheTestedCreature(t *testing.T) {
 	t.Parallel()
 
 	w := newThreeWayAttack(t)
-	if propMatches(w.g, w.toBattle, "Card.attackingBattle", w.a, w.toPlayer) {
-		t.Errorf("attackingBattle matched, want it refused")
+	if !propMatches(w.g, w.toBattle, "Card.attackingBattle", w.a, w.toPlayer) {
+		t.Errorf("the creature attacking the battle did not match")
 	}
-	err := w.g.TakePendingError()
-	if err == nil || !strings.Contains(err.Error(), "attackingBattle") {
-		t.Errorf("pending error = %v, want one naming attackingBattle", err)
+	if propMatches(w.g, w.toPlayer, "Card.attackingBattle", w.a, w.toBattle) {
+		t.Errorf("the creature attacking the player matched")
+	}
+	if propMatches(w.g, w.toWalker, "Card.attackingBattle", w.a, w.toBattle) {
+		t.Errorf("the creature attacking the planeswalker matched")
 	}
 }
 

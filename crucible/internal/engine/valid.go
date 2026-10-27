@@ -1451,10 +1451,9 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 //   - "attackingYouOrYourPW", with or without LKI (:1530-1542): c attacks the
 //     source's controller or a planeswalker they control. A battle defender
 //     never matches (Java's "planeswalker that was removed from combat" guard).
-//   - "attackingBattle" (:1521-1529) is refused: Java reads the source's
-//     defender (combat.getDefenderByAttacker(source)), not c's, so Rampaging
-//     Geoderm's "if it's attacking a battle" asks whether the Geoderm is. A
-//     Forge bug (PORT-8): recorded as a pending error, never compensated.
+//   - "attackingBattle" (:1521-1529): c attacks a battle. Java read the
+//     source's defender until the fix on branch upstream-pr/attacking-battle (carried on master), so Rampaging
+//     Geoderm's "if it's attacking a battle" asked whether the Geoderm was.
 //   - Any other suffix reads as "attacking", Java's fall-through.
 //
 // LKI spellings read c itself: a CardID is the card across zone changes and
@@ -1475,8 +1474,8 @@ func attackingSuffixMatches(g *Game, c *Card, name string, sourceController Play
 		attacked, ok := g.combat.AttackTargets[source]
 		return ok && containsCard(g.combat.Attackers, source) && g.combat.AttackTargets[c.ID] == attacked
 	case name == "attackingBattle":
-		g.recordPendingError(fmt.Errorf("engine: valid property attackingBattle reads the source's defender (CardProperty.java:1522, a Forge bug); not resolvable"))
-		return false
+		id, ok := g.combat.AttackTargets[c.ID].AsCard()
+		return ok && g.Card(id).Type().Has(cardtype.Battle)
 	case strings.HasPrefix(name, "attackingYouOrYourPW"):
 		target := g.combat.AttackTargets[c.ID]
 		if pid, ok := target.AsPlayer(); ok {

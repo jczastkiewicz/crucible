@@ -12,10 +12,10 @@ Agent's controller. Java:
 - `StaticAbilityContinuous.java:531-534` stores `getDefinedPlayers(...).getFirst()` in the affected player's
   timestamp-keyed `controlledWhileSearching` map (`Player.java:2575-2587`, newest timestamp wins);
   `StaticEffect.java:198` removes it when the effect ends.
-- `ChangeZoneEffect.java:1070-1076` (and `ChooseCardEffect.java:243-251` for `QuasiLibrarySearch$`): when the searching
-  player is the decider, `player.addController(controlTimestamp, searchControlPlayer.getValue())` pushes a **real
-  control grant** keyed by the static's timestamp; `:1268-1269` pops it after the choice. For that window
-  `getController()` is the Agent controller's brain, which sees the library and picks the card.
+- `ChangeZoneEffect.java:1070-1076`: when the searching player is the decider,
+  `player.addController(controlTimestamp, searchControlPlayer.getValue())` pushes a **real control grant** keyed by the
+  static's timestamp; `:1268-1269` pops it after the choice. For that window `getController()` is the Agent controller's
+  brain, which sees the library and picks the card.
 
 ADR-0030 fixed the principle (a redirect changes whose brain answers, never who acts) and built the grant stack
 `Player.controlledBy` read by `Game.ControllingPlayer`. ADR-0036 fixed the shape for a static that names a player: a
@@ -54,8 +54,7 @@ State option 1, window option 1. `rulesEffect` reads `ControlOpponentsSearchingL
 after the fetch list is built (so `isControlled`'s Wish exclusion, read before, is unaffected, `:987-991`) and pops it
 after the choice, only when the library was searched: `Library` in `Origin$`, no `NoLooking$`, the decider passes
 `canSearchLibraryWith`, or `Searched$`. The grant is inserted in timestamp order, not appended, so `controlledBy[len-1]`
-stays the newest grant and a later Mindslaver grant outranks it. `ChooseCard`'s `QuasiLibrarySearch$` takes the same
-grant (`m5-t-replace-search.md` (git `624d87dba16`)).
+stays the newest grant and a later Mindslaver grant outranks it.
 
 ## Consequences
 

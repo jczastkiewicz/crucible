@@ -900,6 +900,12 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	if strings.HasPrefix(changeType, "EACH") && !each || each && (hasAlt || defined) {
 		return fmt.Errorf("engine: ChangeZone: ChangeType$ %q not resolvable yet", changeType)
 	}
+	// SameNameAsEach$ (ChangeZoneEffect.java, PR 12381): one search that picks a
+	// card with the same name as each named card, like EACH's pick per type.
+	sameNameSpec, sameName := a.Params.Param("SameNameAsEach")
+	if sameName && (each || defined || hasAlt) {
+		return fmt.Errorf("engine: ChangeZone: SameNameAsEach$ with EACH, Defined$ or OriginAlternative$ not resolvable yet")
+	}
 	_, mandatory := a.Params.Param("Mandatory")
 	_, optional := a.Params.Param("Optional")
 	_, noShuffle := a.Params.Param("NoShuffle")
@@ -968,6 +974,17 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			changeNum = n
 		}
 
+		var named []CardID
+		if sameName {
+			if named, err = definedCards(source, sameNameSpec, a.refs()); err != nil {
+				return fmt.Errorf("engine: ChangeZone: SameNameAsEach$: %w", err)
+			}
+		}
+		// With nothing to name no search takes place: none is counted and the
+		// library is neither blocked nor revealed (the old RepeatEach scripts
+		// never searched then either).
+		nothingToName := sameName && len(named) == 0
+
 		var fetchList []CardID
 		fetcherShuffle, searchedLibrary, blocked := shuffleMandatory, false, false
 		switch {
@@ -994,7 +1011,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			// not make (CantSearchLibrary) offers nothing from the library, and
 			// the shuffle then follows ShuffleNonMandatory$.
 			_, noLooking := a.Params.Param("NoLooking")
-			if zoneIn(Library, searched) && !noLooking {
+			if zoneIn(Library, searched) && !noLooking && !nothingToName {
 				searchedLibrary = true
 				if !g.canSearchLibraryWith(decider, player, a.Controller) {
 					blocked = true
@@ -1058,6 +1075,29 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 					return fmt.Errorf("engine: ChangeZone: AtRandom$ with Defined$ not resolvable yet")
 				}
 				chosen = g.changeZoneAtRandom(fetchList, changeNum)
+			} else if sameName {
+				// One optional pick per named card from the cards sharing its
+				// name and not yet chosen; a declined or empty pick moves on.
+				lo := 0
+				if mandatory {
+					lo = 1
+				}
+				for _, n := range named {
+					var rest []CardID
+					for _, id := range fetchList {
+						if g.sharesNameWith(id, n) && !slices.Contains(chosen, id) {
+							rest = append(rest, id)
+						}
+					}
+					if len(rest) == 0 {
+						continue
+					}
+					got, err := pickFrom(rest, lo, 1)
+					if err != nil {
+						return err
+					}
+					chosen = append(chosen, got...)
+				}
 			} else if each {
 				// One optional pick per type and repetition from the cards
 				// matching that type and not yet chosen (:1119-1135); a

@@ -22,7 +22,7 @@ One package is one pull request: one theme, small enough to review in one sittin
 | 7   | SwitchBlockEffect                                   | `:22-25`, `:97/103/151/157`, `:88`                                                                                                               | S    | One class, three defects                                |
 | 8   | Small rules fixes                                   | `VoteEffect:93`, `GameAction:2568` (takeInitiative), `RestartGameEffect:47`, `FlipOntoBattlefieldEffect:109`, `StaticAbilityCantAttackBlock:269` | S    | Independent, 1-5 lines each                             |
 | 9   | xCount/doXMath hardening                            | `AbilityUtils:3257`, `:1584`, `:3310/3321`, `Game:1430`                                                                                          | XS   | All latent                                              |
-| 12  | QuasiLibrarySearch and Searched                     | `ChooseCardEffect:262-269` and `:243-260`, `ChangeZoneEffect:1090`                                                                               | S    | The last is only suspected                              |
+| 12  | Searched                                            | `ChangeZoneEffect:1090` (the QuasiLibrarySearch sites left with PR 12381)                                                                        | S    | Only suspected                                          |
 
 Order: 3, 4, 1, 2, 9 (plain crashes, easiest to accept), then 5-8, then 12.
 

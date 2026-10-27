@@ -1,0 +1,28 @@
+# Dichotomancy: ChangeZone | ValidTgts$ Opponent | SameNameAsEach$ Valid
+# Permanent.nonLand+TargetedPlayerCtrl+tapped -- only the tapped Grizzly Bears
+# is named, the untapped Elves are skipped. The search of the opponent's
+# library offers the cards sharing its name, the library Bears is picked and
+# GainControl$ True puts it onto the battlefield under the caster's control;
+# the opponent's library is shuffled (one card left, so the order is fixed).
+startturn human
+advance 3
+tapformana human 1 U
+tapformana human 2 U
+tapformana human 3 U
+tapformana human 4 U
+tapformana human 5 U
+tapformana human 6 U
+tapformana human 7 U
+tapformana human 8 U
+tapformana human 9 U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue paygeneric U
+queue targets ai
+castspell human 10
+queue cardchoice 13
+resolvestack

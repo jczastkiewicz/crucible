@@ -695,7 +695,6 @@ paramKey	PumpKeywords
 paramKey	PumpZone
 paramKey	PutOnDefined
 paramKey	PutOnEachOther
-paramKey	QuasiLibrarySearch
 paramKey	Radiance
 paramKey	RaiseCost
 paramKey	RaiseMaxHandSize
@@ -888,9 +887,9 @@ paramKey	SVarCompare
 paramKey	SacEachValid
 paramKey	SacMessage
 paramKey	SacValid
+paramKey	SameNameAsEach
 paramKey	ScryNum
 paramKey	SearchOwnLibrary
-paramKey	Searched
 paramKey	SecondSVarCompare
 paramKey	Secondary
 paramKey	SecondaryType

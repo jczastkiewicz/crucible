@@ -1,0 +1,21 @@
+# Doubling Chant: one ChangeZone | ChangeType$ Creature | SameNameAsEach$ Valid
+# Creature.YouCtrl searches the library once and offers, for the Bears, the
+# cards sharing its name (ChangeZoneEffect.java, PR 12381). Only the library
+# Grizzly Bears shares the Bears' name: it is the one card offered, and it
+# enters; Llanowar Elves stays in the library.
+startturn human
+advance 3
+tapformana human 1 G
+tapformana human 2 G
+tapformana human 3 G
+tapformana human 4 G
+tapformana human 5 G
+tapformana human 6 G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+queue paygeneric G
+castspell human 8
+queue cardchoice 10
+resolvestack

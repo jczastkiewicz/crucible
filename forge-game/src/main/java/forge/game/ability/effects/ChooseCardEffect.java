@@ -4,8 +4,6 @@ import java.util.*;
 
 import com.google.common.collect.Lists;
 import forge.game.Direction;
-import forge.game.player.DelayedReveal;
-import forge.game.player.PlayerView;
 
 import forge.card.CardType;
 import forge.game.Game;
@@ -240,39 +238,8 @@ public class ChooseCardEffect extends SpellAbilityEffect {
                         title = title + " (" + tag +")";
                     }
                 }
-                if (sa.hasParam("QuasiLibrarySearch")) {
-                    Long controlTimestamp = null;
-                    if (activator.equals(p)) {
-                        Map.Entry<Long, Player> searchControlPlayer = p.getControlledWhileSearching();
-                        if (searchControlPlayer != null) {
-                            controlTimestamp = searchControlPlayer.getKey();
-                            p.addController(controlTimestamp, searchControlPlayer.getValue());
-                        }
-                    }
-
-                    final Player searched = AbilityUtils.getDefinedPlayers(host, sa.getParam("QuasiLibrarySearch"), sa).get(0);
-                    final int fetchNum = Math.min(searched.getCardsIn(ZoneType.Library).size(), 4);
-                    CardCollectionView shown = !p.hasKeyword("LimitSearchLibrary")
-                            ? searched.getCardsIn(ZoneType.Library) : searched.getCardsIn(ZoneType.Library, fetchNum);
-                    // only the cards actually searched can be found (Aven Mindcensor), none if searching is not allowed (Leonin Arbiter)
-                    final CardCollection searchable = p.canSearchLibraryWith(sa, searched) ? new CardCollection(shown) : new CardCollection();
-                    pChoices = CardLists.filter(pChoices, searchable::contains);
-                    DelayedReveal delayedReveal = new DelayedReveal(shown, ZoneType.Library, PlayerView.get(searched),
-                            host.getTranslatedName() + " - " +
-                                    Localizer.getInstance().getMessage("lblLookingCardIn") + " ");
-                    Card choice = p.getController().chooseSingleEntityForEffect(pChoices, delayedReveal, sa, title,
-                            !sa.hasParam("Mandatory"), p, null);
-                    if (controlTimestamp != null) {
-                        p.removeController(controlTimestamp);
-                    }
-                    if (choice == null) {
-                        return;
-                    }
-                    chosen.add(choice);
-                } else {
-                    chosen.addAll(p.getController().chooseCardsForEffect(pChoices, sa, title, minAmount, validAmount,
-                            !sa.hasParam("Mandatory"), null));
-                }
+                chosen.addAll(p.getController().chooseCardsForEffect(pChoices, sa, title, minAmount, validAmount,
+                        !sa.hasParam("Mandatory"), null));
             }
             if (sa.hasParam("Reveal") && !sa.hasParam("Secretly")) {
                 game.getAction().reveal(chosen, p, dontRevealToOwner, revealTitle ? sa.getParam("RevealTitle") : 

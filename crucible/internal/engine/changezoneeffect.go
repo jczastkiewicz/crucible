@@ -1020,11 +1020,22 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 					fetcherShuffle = !nonMandatory && !noShuffle && shuffleParam != "False"
 				}
 			}
+			// ChangeZoneEffect.java:1023-1031: a decider under Aven Mindcensor's
+			// LimitSearchLibrary searches the top four cards of the library
+			// only; with none, nothing was searched.
+			limited := searchedLibrary && g.Player(decider).HasKeyword("LimitSearchLibrary")
 			for _, z := range searched {
 				if z == Library && blocked {
 					continue
 				}
-				fetchList = append(fetchList, g.Zone(z, player).Cards()...)
+				cards := g.Zone(z, player).Cards()
+				if z == Library && limited {
+					cards = cards[:min(len(cards), 4)]
+					if len(cards) == 0 {
+						searchedLibrary = false
+					}
+				}
+				fetchList = append(fetchList, cards...)
 			}
 		}
 		// ChangeZoneEffect.java:1067-1079: a search of the decider's own

@@ -386,12 +386,6 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		// mana cost less on the turn the host entered.
 		manaCost = subtractManaCost(manaCost, c.Def.Faces[0].ManaCost)
 	}
-	// CostAdjustment.adjust over the activation (CostPayment.payCost): the cost
-	// statics that reach an activated ability. One this port cannot evaluate, or
-	// a raise with a non-mana Cost$, refuses the activation (GO-7).
-	if manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false); !ok {
-		return false
-	}
 	apiType, ok := APIByName(ability.Name)
 	isRevert := ability.Name == "InternalAnimateRevert"
 	if isRevert {
@@ -412,6 +406,17 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	// an ability with no legal target costs nothing. Feasibility of every cost
 	// part, and the cost cards' own choice, come first, as canPlay does.
 	if !g.chooseAbilityTargets(controller, &activated) {
+		return false
+	}
+	// CostAdjustment.adjust over the activation (CostPayment.payCost, after the
+	// targets): the cost statics that reach an activated ability, and its own
+	// ReduceCost$, which may read the targets. One this port cannot evaluate, or
+	// a raise with a non-mana Cost$, refuses the activation (GO-7).
+	savedResolving := g.resolving
+	g.resolving = &activated
+	manaCost, ok = g.costStatics(pid, card, ability, manaCost, true, false)
+	g.resolving = savedResolving
+	if !ok {
 		return false
 	}
 	// The host before any cost moves it, for the activation record.

@@ -112,4 +112,4 @@ When asked to fix (PORT-8 - never compensate in Go):
 1. Record it: `docs/crucible/porting/card-script-defects.md` (script) or `forge-java-defects.md` (Java).
 2. If Crucible's gates need it now: carry the edit in the fork and add a row to `upstream-patches.md`, "Pending upstream
    fixes", in the same commit (REV-1).
-3. Upstream branch `upstream-pr/<slug>`, cards only, from `upstream/master` (never the fork's `master`); commit message cites the Java file:line that proves it; push to `origin`. Do not open the PR; record the branch in the pending row.
+3. Upstream branch `upstream-pr/<slug>`, cards only, from a freshly fetched `upstream/master` (never the fork's `master`; a maintainer may have fixed the card already); commit message cites the Java file:line that proves it; push to `origin`. **No test** for a script change (CONTRIBUTING; reviewers reject them), and look for a param the effect already reads before writing a multi-line workaround. PR text: a few sentences per card. Do not open the PR; record the branch in the pending row.

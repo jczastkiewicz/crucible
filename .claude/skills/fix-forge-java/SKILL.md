@@ -12,6 +12,11 @@ PORT-8: the bug is fixed in Forge, never compensated in Go. The plan and the pac
 `docs/crucible/porting/java-fix-plan.md`; the rows are `docs/crucible/porting/forge-java-defects.md`. Work in the main
 session: only research for a doubtful site goes to `forge-oracle`.
 
+0. **Read `CONTRIBUTING.md` first, from `upstream/master`** (`git show upstream/master:CONTRIBUTING.md`), every time:
+   it is upstream's rulebook and it changes. It binds this skill: the "Using AI coding agents" section (identify the
+   agent as co-author or in the PR body; no unnecessary unit or wiring tests), the build and code-style notes, and the
+   project hierarchy that says which module a change belongs in. If it contradicts a step below, CONTRIBUTING.md wins
+   and the step gets fixed in this file.
 1. **Pick the package** the user named (or the next in the plan's order). A row under "Issues first" is never a pull
    request: draft an issue text and stop.
 2. **Rules first, for every row, before reading code.** Establish how Magic itself behaves in the situation the row
@@ -67,7 +72,7 @@ session: only research for a doubtful site goes to `forge-oracle`.
 
 ## What reviewers have asked for
 
-Collected from reviews of our pull requests; apply them before showing a package to the user.
+Collected from reviews of our pull requests, on top of `CONTRIBUTING.md` (step 0); apply them before showing a package to the user.
 
 | Reviewer said | Do |
 | --- | --- |

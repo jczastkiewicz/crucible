@@ -13,6 +13,8 @@ A script is correct when every Oracle clause maps to script lines that Forge's J
 the clause needs, and nothing in the script is dead. "Parses" is not "correct": Forge silently ignores unknown params,
 so a misspelled or misplaced param fails no build (PORT-8).
 
+Before any fix or upstream PR, read upstream's `CONTRIBUTING.md` (`git show upstream/master:CONTRIBUTING.md`): it forbids unnecessary tests for simple changes and requires identifying a coding agent in the PR. It wins over this file.
+
 Read-only until step 7. Cite every claim as `File.java:line` or `script line`; "probably" is not a verdict.
 
 ## 1. Find the script

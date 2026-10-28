@@ -1,6 +1,6 @@
 package engine
 
-//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger unlesscost valid zone zonemove
+//enginelint:allow ability amount card castspell condition control defined effecthelpers game id land parts player trigger unlesscost valid zone zonemove illusionarymask
 
 import (
 	"fmt"
@@ -45,8 +45,7 @@ type playEffect struct{}
 // playUnresolvedParams are PlayEffect params this port does not resolve,
 // each rejected before anything is played (PORT-8, GO-7):
 // a card built from outside the game past AnySupportedCard$ Names: with
-// RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); alternate states (CastFaceDown$, CastTransformed$,
-// ReplaceIlluMask$); alternative or modified costs past a plain mana
+// RandomCopied$ (RandomNum$, ChoiceNum$, the sorcery and instant lists); an alternate state (CastTransformed$); alternative or modified costs past a plain mana
 // PlayCost$ (playCost: ManaCost, SuspendCost and the non-mana ones;
 // PlayReduceCost$, PlayRaiseCost$, ManaConversion$); ShowCards$ (a second, display-only list), ZoneRegardless$
 // (equalsWithGameTimestamp, which this port cannot tell apart);
@@ -61,20 +60,19 @@ type playEffect struct{}
 // reads straight from its own EntityID list, with no target zone of its
 // own for a bare TgtZone$ to restrict.
 var playUnresolvedParams = [...]string{
-	"RandomNum", "ChoiceNum", "CastFaceDown", "CastTransformed", "ReplaceIlluMask", "PlayReduceCost",
+	"RandomNum", "ChoiceNum", "CastTransformed", "PlayReduceCost",
 	"PlayRaiseCost", "ShowCards", "ZoneRegardless"}
 
 // playUnportedProperties are card-property prefixes in the corpus's Play
 // valid strings that Matches (valid.go) has no case for and would read as
 // false for every card, silently emptying the pool (GO-7): ExiledWith and
 // its ExiledWithSourceLKI/ExiledWithEffectSource forms -- the exact
-// ExiledWithSource is answered (playSpecGap) --, sharesCardTypeWith,
-// CanPayManaCost.
+// ExiledWithSource is answered (playSpecGap) --, sharesCardTypeWith.
 // sharesNameWith is answered in the forms Matches evaluates without the
 // ability that names them (playSharesNameWithForms); the corpus's Play lines
 // use only ThisTurnCast (answered from the turn's cast record) and TriggeredCard, which stays refused.
 var playUnportedProperties = [...]string{
-	"ExiledWith", "CanPayManaCost",
+	"ExiledWith",
 }
 
 // playSharesNameWithForms are the `sharesNameWith <restriction>` restrictions
@@ -294,12 +292,25 @@ func (playEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 			continue
 		}
 		cast := opts
+		if hasParam(a, "CastFaceDown") {
+			// PlayEffect.java:321-324: the Morph ability, {3} unless
+			// WithoutManaCost$ strips it.
+			cast.faceDown = true
+			if !withoutMana && !cast.hasAltCost {
+				cast.altCost, cast.hasAltCost = mana.FromShards(nil, 3), true
+			}
+		}
 		if extraCost != "" {
 			if cast, err = playExtraCost(opts, extraCost, g.Card(pick)); err != nil {
 				return err
 			}
 		}
 		if g.castSpell(controller, caster, pick, cast) {
+			if hasParam(a, "ReplaceIlluMask") {
+				// PlayEffect.java:458-459 makes the effect before the cast and drops
+				// it when the cast fails; only a cast that stood needs the flag.
+				g.Card(pick).illuMask = true
+			}
 			g.playReplaceGraveyard(a, pick)
 			playRecord(g, a, pick, chosenCard)
 			g.checkChangesZoneAllTriggers(controller, []CardID{pick}, origin, Stack)
@@ -421,6 +432,24 @@ func playCandidates(g *Game, a *Ability) ([]CardID, error) {
 				all = append(all, g.Zone(zone, pid).Cards()...)
 			}
 		}
+		// CanPayManaCost reads the mana the Play ability's own activation spent
+		// (CardProperty.java:2072-2128), which Matches cannot see.
+		if rest, found := strings.CutSuffix(spec, "+CanPayManaCost"); found {
+			if strings.Contains(rest, ",") {
+				return nil, fmt.Errorf("engine: Play: Valid$ %q: CanPayManaCost beside a second alternative not resolvable yet", spec)
+			}
+			var payable []CardID
+			for _, id := range filterValid(g, all, rest, a.Controller, a.Source) {
+				ok, err := canPayManaCostWith(g.Card(id), a.paid)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					payable = append(payable, id)
+				}
+			}
+			return payable, nil
+		}
 		return filterValid(g, all, spec, a.Controller, a.Source), nil
 	}
 	cards, err := targetedOrDefinedCards(g.Card(a.Source), a.Params, a.refs())
@@ -445,7 +474,7 @@ func playSpecGap(spec string, amounts map[string]expr.Amount) (string, bool) {
 				}
 				continue
 			}
-			if p.Name == "ExiledWithSource" {
+			if p.Name == "ExiledWithSource" || p.Name == "CanPayManaCost" {
 				continue
 			}
 			if rest, ok := strings.CutPrefix(p.Name, "sharesNameWith"); ok {

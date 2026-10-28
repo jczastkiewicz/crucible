@@ -1,4 +1,4 @@
-# ADR-0048 — A Spell Cast Face Down Is a Flag on the Stack Object; Face-Down Triggers Live on a Command-Zone Host
+# ADR-0048 — A Spell Cast Face Down Is the Card Turned Face Down Before the Cast; Mask's Replacements Are a Creature Flag
 
 - **Status:** Accepted
 - **Date:** 2026-10-28
@@ -37,33 +37,37 @@ leaves when the creature leaves the battlefield or is countered.
 
 Option 1.
 
-**Cast.** `castspell.go` gains `castFaceDown`: the spell's characteristics are `faceDownDef(false)` (colorless 2/2, no
-name, no text, no mana cost, so mana value 0), not the card's (CR 708.2, 708.2a, 708.4: the spell is turned face down
-before it goes on the stack, so every effect sees only those characteristics). The {3} a Morph cast pays is a cost paid,
-not a mana cost the spell has. The flag lives on the stack object so a copy of the spell, a counter, or a fizzle never
-touches the card in the hand. **Leaving the stack.** A face-down spell that goes anywhere but the battlefield
+**Cast.** `castOpts.faceDown` makes `castSpell` turn the card face down in its zone before anything else
+(`turnFaceDownForCast`): its definition becomes `faceDownDef(false)` (colorless 2/2, no name, no text, no mana cost, so
+mana value 0), as Java does (`Card.java:7476-7478`, `CostAdjustment.java:50-52`; CR 708.2, 708.2a, 708.4: the spell is
+turned face down before it goes on the stack, so every choice, cost and effect sees only those characteristics). A cast
+that does not happen turns it face up again. The {3} a Morph cast pays is a cost paid, not a mana cost the spell has.
+Option 1's flag on the stack object is rejected: every cost, kicker and restriction read between the announcement and
+the stack would see the face-up card. **Leaving the stack.** A face-down spell that goes anywhere but the battlefield
 (countered, fizzled) is revealed to every player by its owner (CR 708.9). A spell cannot be turned face up (CR 708.7).
-**Resolution.** A face-down creature spell enters through `moveToPlay` with `setFaceDownState`, as manifest does
-(`changezoneeffect.go:654-667`). `MagicStack.java:263` is the reference: face down is kept only when the flag is set.
-**Turning up.** A creature cast by Mask has no turn-up special action unless the card itself has Morph; only the three
-replacements flip it (Gatherer ruling, Illusionary Mask). Its enters-the-battlefield abilities neither trigger on entry
-nor when it turns up (CR 708.3). The host does not depend on the Mask: the effect keeps applying after the Mask leaves
-the battlefield (same ruling) and ends only when the creature leaves or the spell is countered. **Hosts.** The Mask's
-Effect card is an `effecteffect` host in Command whose three replacements are compiled from the script's
-`Triggers$`/`ReplacementEffects$` and bound to the remembered `CardID`; it is removed by the same "remembered card left"
-check other Effect hosts use (`EffectEffect.java` `ExileOnMoved`). **Morph, Megamorph, Disguise.** The keyword's
-turn-face-up cost is a separate follow-up that reuses `turnFaceUp`; this ADR only fixes the cast path and the host.
+**Resolution.** A face-down creature spell enters the battlefield with the definition it already has; no ETB trigger
+exists on it (CR 708.3). A copy of a face-down spell copies that definition. **Turning up.** A creature cast by Mask has
+no turn-up special action unless the card itself has Morph; only the three replacements flip it (Gatherer ruling,
+Illusionary Mask). Its enters-the-battlefield abilities neither trigger on entry nor when it turns up (CR 708.3). The
+effect keeps applying after the Mask leaves the battlefield (same ruling) and ends when the creature turns up or leaves.
+**Replacements.** Java makes an Effect card in Command with three `Updated` replacements (`AssignDealDamage`,
+`DealtDamage`, `Tap`) remembered on the creature. The card has no other observable behaviour, so `Card.illuMask` stands
+for it: set when the cast stands, cleared by `turnFaceUp`, read by `maskTurnUp` at the three events (combat and effect
+damage sources, damage to a creature, the Taps check). Reason: the engine has no `AssignDealDamage` or `DealtDamage`
+replacement events and Mask is the only corpus user of both. **Morph, Megamorph, Disguise.** The keyword's turn-face-up
+cost is a separate follow-up that reuses `turnFaceUp`; this ADR only fixes the cast path and the Mask's replacements.
 Disguise's face-down form also has ward {2} (CR 702.168), so `faceDownDef` needs a variant for it in that follow-up.
 
 ## Consequences
 
 **Good:** one cast path serves Mask now and 231 keyword cards later; a countered face-down spell is revealed as CR 708.9
-requires. A copy of a face-down spell copies its face-down characteristics (CR 707.2: copiable values are modified by
-face-down status; CR 707.10: a copy is put on the stack, not cast), so the stack object's flag is copied with it.
+requires. A copy of a face-down spell copies its face-down definition (CR 707.2: copiable values are modified by
+face-down status; CR 707.10: a copy is put on the stack, not cast).
 
-**Bad:** the stack object grows a field every cast path must carry (copy, split, adventure).
+**Bad:** the card's own definition is swapped while it sits in hand, so every reader between the announcement and the
+stack must tolerate a face-down card in hand; `castSpell` undoes it on every failed cast.
 
-**Neutral:** the {3} description on the stack stays wrong-looking on purpose (PORT-7).
+**Neutral:** the Morph stack text stays unreproduced (the port has no spell text).
 
 ## Related
 

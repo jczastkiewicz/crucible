@@ -110,6 +110,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 
 		if g.dealsInStep(atk, firstStrike) {
 			g.noteFirstStrikeDealer(atkID, firstStrike)
+			g.maskTurnUp(controller, atkID) // Combat.java:778, Event$ AssignDealDamage
 			if power, ok := netCombatDamage(g, atk); ok && power > 0 {
 				if g.assignsToDefender(controller, atk) {
 					g.dealAttackTargetDamage(controller, atkID, power, atk.HasKeyword("Deathtouch"), &table)
@@ -123,6 +124,7 @@ func (g *Game) dealCombatDamageStep(controller PlayerController, firstStrike boo
 			blk := g.Card(blkID)
 			if g.dealsInStep(blk, firstStrike) {
 				g.noteFirstStrikeDealer(blkID, firstStrike)
+				g.maskTurnUp(controller, blkID) // Combat.java:720
 				if bp, ok := netCombatDamage(g, blk); ok && bp > 0 {
 					g.dealPermanentDamage(controller, blkID, atkID, bp, blk.HasKeyword("Deathtouch"), true, &table)
 				}
@@ -334,6 +336,9 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	g.Card(source).damageDealtThisTurn += amount
 	g.singleMaxDamage = max(g.singleMaxDamage, amount)
 	c := g.Card(target)
+	if tt := c.Type(); c.Zone == Battlefield && (tt.Has(cardtype.Creature) || tt.Has(cardtype.Planeswalker) || tt.Has(cardtype.Battle)) {
+		g.maskTurnUp(controller, target) // Card.java:6334, Event$ DealtDamage
+	}
 	// GameAction.java:2750-2752: what was lethal before this damage, for the
 	// batch's excess (bindExcessSVar).
 	lethal := excessDamageValue(c, false)

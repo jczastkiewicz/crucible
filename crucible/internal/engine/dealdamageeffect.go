@@ -128,6 +128,9 @@ func (dealDamageEffect) Resolve(g *Game, a *Ability, controller PlayerController
 	if len(sources) == 0 {
 		return nil
 	}
+	for _, src := range sources {
+		g.maskTurnUp(controller, src) // DamageDealEffect.java:142, Event$ AssignDealDamage
+	}
 	numDmg, ok := a.Params.Param("NumDmg")
 	if !ok {
 		return fmt.Errorf("engine: DealDamage: NumDmg$ missing")

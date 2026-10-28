@@ -58,8 +58,8 @@ Measured on the full corpus (34,078 cards):
 
 | Outcome      |  Cards |
 | ------------ | -----: |
-| plays        | 33,585 |
-| refused      |      5 |
+| plays        | 33,586 |
+| refused      |      4 |
 | panicked     |      0 |
 | hung         |      0 |
 | placed       |    454 |
@@ -73,7 +73,6 @@ Largest refusal causes over the full corpus (cards blocked):
 
 | Cards | Refusal |
 | ---: | --- |
-| 1 | `Play: CastFaceDown$ not resolvable` |
 | 1 | `AlterAttribute: IncludeAllComponentCards$ not resolvable` |
 | 1 | `MakeCard: Booster$ not resolvable` |
 | 1 | `Effect: Abilities$ grants an ability that regrants itself, not resolvable` |

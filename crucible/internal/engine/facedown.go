@@ -50,6 +50,7 @@ func (c *Card) turnFaceUp() {
 	c.Def = c.faceUpDef
 	c.faceUpDef = nil
 	c.Manifested, c.Cloaked = false, false
+	c.illuMask = false
 }
 
 // turnFrontFaceUp returns a transformed card to its front face as it leaves

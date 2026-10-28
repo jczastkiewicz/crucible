@@ -542,6 +542,11 @@ type Card struct {
 	// 708): Def then holds the face-down characteristics. Manifested and
 	// Cloaked record how it turned face down.
 	faceUpDef *compile.Card
+	// illuMask marks a face-down creature Illusionary Mask's Play put onto the
+	// stack: while it is face down, the first time it would assign or deal
+	// damage, be dealt damage or become tapped, it turns face up instead
+	// (illusionarymask.go). turnFaceUp clears it.
+	illuMask bool
 	// faceDownEntry marks a face-down card ChangeZone FaceDown$ is moving
 	// from exile to the battlefield, which Move would turn face up as it
 	// leaves exile (Heist); Move clears it.

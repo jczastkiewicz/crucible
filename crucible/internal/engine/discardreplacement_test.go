@@ -157,20 +157,19 @@ func TestTwoMadnessLinesExileOnce(t *testing.T) {
 	}
 }
 
-// Wilt-Leaf Liege's chain names DefinedPlayer$ ReplacedPlayer, which a Moved
-// replacement does not record (ReplaceMoved.setReplacingObjects): refused,
-// and the card goes on to the graveyard.
-func TestWiltLeafLiegeReplacedPlayerIsRefused(t *testing.T) {
+// Wilt-Leaf Liege's chain no longer names DefinedPlayer$ ReplacedPlayer (PR
+// 12471 dropped it, the Moved replacement never records a player): an
+// opponent's discard puts it onto the battlefield instead (CR 614.1).
+func TestWiltLeafLiegeEntersWhenAnOpponentMakesYouDiscardIt(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGameOn(t, scenarioDB(t))
 	liege := g.NewCard(corpusCard(t, "Wilt-Leaf Liege"), p, engine.Hand)
-	_, err := resolveNow(t, g, other, engine.NewScriptedController(), nil, "DB$ Discard | Defined$ Opponent | Mode$ Hand")
-	if err == nil || !strings.Contains(err.Error(), "ReplacedPlayer") {
-		t.Errorf("err = %v, want DefinedPlayer$ ReplacedPlayer refused", err)
+	if _, err := resolveNow(t, g, other, engine.NewScriptedController(), nil, "DB$ Discard | Defined$ Opponent | Mode$ Hand"); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
 	}
-	if got := g.Card(liege).Zone; got != engine.Graveyard {
-		t.Errorf("Wilt-Leaf Liege is in %v, want the graveyard", got)
+	if got := g.Card(liege).Zone; got != engine.Battlefield {
+		t.Errorf("Wilt-Leaf Liege is in %v, want the battlefield", got)
 	}
 }
 

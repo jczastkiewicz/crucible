@@ -1814,6 +1814,8 @@ func isChangesZoneAllTrigger(t *compile.Ability) bool {
 // AbilityKey.Attacker. 173 of 177 real lines carry none of the three
 // skipped params.
 func (g *Game) checkTapsTriggers(controller PlayerController, card CardID, player PlayerID, isAttacker bool) {
+	// Illusionary Mask's Event$ Tap replacement runs before the tap's own triggers.
+	g.maskTurnUp(controller, card)
 	var matches []Ability
 	c := g.Card(card)
 	for _, pid := range g.Players() {

@@ -67,6 +67,8 @@ func (fightEffect) Resolve(g *Game, a *Ability, controller PlayerController) err
 		return nil
 	}
 	fighterA, fighterB := g.Card(fighters[0]), g.Card(fighters[1])
+	g.maskTurnUp(controller, fighterA.ID) // FightEffect.java:156-157, Event$ AssignDealDamage
+	g.maskTurnUp(controller, fighterB.ID)
 
 	var table damageTable
 	powerA, ok := fighterA.Power()

@@ -515,6 +515,10 @@ type castOpts struct {
 	// mutate is a cast for the card's Mutate cost (mutate.go): altCost is that
 	// cost, and the spell targets a creature its owner owns.
 	mutate bool
+	// faceDown is a cast face down (CastFaceDown$, the Morph ability
+	// CardFactoryUtil.abilityCastFaceDown builds): the spell is the face-down
+	// 2/2 of CR 708.2a.
+	faceDown bool
 	// altKeyword is "Surge" or "Freerunning" for a cast for that keyword's
 	// cost (altkeywords.go): altCost is that cost.
 	altKeyword string
@@ -528,6 +532,20 @@ type castOpts struct {
 // castWithoutPaying) calls it with timing ignored (CR 608.2g). Reports false
 // for every legal-but-declined case the three branches name.
 func (g *Game) castSpell(controller PlayerController, pid PlayerID, card CardID, opts castOpts) bool {
+	if opts.faceDown {
+		// CR 708.4: the card is turned face down before it is cast, so every
+		// choice and cost below sees the face-down 2/2; a cast that does not
+		// happen turns it face up again.
+		opts.faceDown = false
+		g.turnFaceDownForCast(card)
+		if !g.castSpell(controller, pid, card, opts) {
+			if now := g.Card(card); now.Zone != Stack {
+				now.turnFaceUp()
+			}
+			return false
+		}
+		return true
+	}
 	if g.cantBeCast(pid, card) || (opts.sneak && !g.sneakPayable(pid, card)) {
 		return false
 	}

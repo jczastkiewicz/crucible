@@ -558,6 +558,10 @@ type Card struct {
 	// transformations, Java's transformedTimestamp.
 	frontDef   *compile.Card
 	Transforms int
+	// specializedFrom is the card's own definition before it specialized (ADR-0050,
+	// Card.isSpecialized): Def then holds the chosen face and stays through
+	// every zone change. nil for a card that has not specialized.
+	specializedFrom *compile.Card
 	// flipped is Card.flipped (Card.java:1170): the permanent has flipped
 	// (CR 709.4, one-way). For a flip card Def then holds the flipped face
 	// and frontDef the unflipped one, the transform mechanism's own swap;

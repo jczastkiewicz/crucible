@@ -41,6 +41,7 @@ var (
 	flippedCoinOnceParams = effectEventParams("validplayer")
 	transformedParams     = effectEventParams("validcard")
 	turnedFaceUpParams    = effectEventParams("validcard", "validcause")
+	specializesParams     = effectEventParams("validcard")
 )
 
 // checkScryTriggers is Mode$ Scry (TriggerScry.performTest, 24 real lines),
@@ -119,6 +120,13 @@ func (g *Game) playerEventMatches(mode string, params map[string]bool, pid Playe
 // lines): ValidCard$ against the permanent that just transformed.
 func (g *Game) checkTransformedTriggers(controller PlayerController, card CardID) {
 	g.pushTriggeredAbilities(controller, g.cardEventMatches("Transformed", transformedParams, card))
+}
+
+// checkSpecializesTriggers is Mode$ Specializes (TriggerSpecializes, 47 real
+// lines): ValidCard$ against the card that just specialized
+// (SetStateEffect.java:213-215, TriggerSpecializes.java:46-64).
+func (g *Game) checkSpecializesTriggers(controller PlayerController, card CardID) {
+	g.pushTriggeredAbilities(controller, g.cardEventMatches("Specializes", specializesParams, card))
 }
 
 // checkTurnedFaceUpTriggers is Mode$ TurnFaceUp (TriggerTurnFaceUp, 126 real

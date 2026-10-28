@@ -1,6 +1,6 @@
 # ADR-0050 — Specialize Is a Persistent Face Swap on the Card
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-28
 - **Deciders:** Crucible session (B12)
 

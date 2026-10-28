@@ -1,6 +1,6 @@
 # ADR-0048 — A Spell Cast Face Down Is a Flag on the Stack Object; Face-Down Triggers Live on a Command-Zone Host
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-28
 - **Deciders:** Crucible session (B7)
 

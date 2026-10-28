@@ -34,7 +34,7 @@ var saKeywordProperties = map[string][]string{
 var saUnresolvedPrefixes = []string{
 	"CountersRemovedToPay", "Bargain", "Backup", "Bestow", "Blitz", "Craft", "Dash",
 	"Disturb", "Embalm", "Eternalize", "BeamMeUp", "Flashback", "Harmonize", "Jumpstart", "Kicked", "Aftermath",
-	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem", "Mutate",
+	"MorphUp", "ManifestUp", "Unlock", "isTurnFaceUp", "isCastFaceDown", "Mayhem",
 	"Ninjutsu", "Sneak", "Foretelling", "Foretold", "Plotting", "Modal", "ClassLevelUp", "Daybound",
 	"Nightbound", "Warp", "Ward", "CumulativeUpkeep", "SameKeyword", "ChapterNotLore", "EffectSourceAbility",
 	"LastChapter", "paidPhyrexianMana", "ManaSpent", "ManaFrom", "MayPlaySource",
@@ -141,6 +141,10 @@ func (g *Game) spellAbilityHasProperty(a *Ability, source *Card, prop string, ho
 	case prop == "OppCtrl":
 		matched, _ := matchesPlayerSpec(g, a.Controller, hostController, host.ID, "Opponent")
 		return matched, true
+	case prop == "Mutate":
+		// SpellAbilityProperty.java:115-116, SpellAbility.isMutate: the spell
+		// cast for its mutate cost.
+		return a.mutate, true
 	case prop == "singleTarget":
 		return len(a.Targets) == 1, true
 	case prop == "Buyback":

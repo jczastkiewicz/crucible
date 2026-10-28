@@ -636,6 +636,29 @@ var spellCastModes = []string{"SpellAbilityCast", "SpellCast", "SpellCastOrCopy"
 // SpellCastOrCopy (a spell copy only).
 var spellCopyModes = []string{"SpellCopy", "SpellAbilityCopy", "SpellCastOrCopy"}
 
+// copyTriggerWatching reports whether any trait host has a copy trigger
+// (SpellCopy, SpellAbilityCopy, SpellCastOrCopy) carrying a param
+// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams: Grip of
+// Chaos's IsSingleTarget$), which would silently never fire.
+func (g *Game) copyTriggerWatching() bool {
+	for _, pid := range g.Players() {
+		for _, id := range g.traitHosts(pid) {
+			h := g.Card(id)
+			if h.Def == nil {
+				continue
+			}
+			for face := range h.triggerFaces {
+				for _, t := range face.Triggers {
+					if modeIn(t, spellCopyModes) && hasAnyParam(t, spellCastUnresolvedParams[:]...) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // checkSpellCopyTriggers fires the copy modes for one copy just put on the
 // stack (MagicStack.add, before the copy's BecomesTarget triggers). c is the
 // copy's host card (a spell copy's new card, an ability copy's original host),

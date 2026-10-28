@@ -259,29 +259,6 @@ func stackItemsOf(g *Game, targets []EntityID) []StackItemID {
 	return ids
 }
 
-// copyTriggerWatching reports whether any trait host has a copy trigger
-// (SpellCopy, SpellAbilityCopy, SpellCastOrCopy) carrying a param
-// checkSpellCopyTriggers cannot resolve (spellCastUnresolvedParams: Grip of
-// Chaos's IsSingleTarget$), which would silently never fire.
-func (g *Game) copyTriggerWatching() bool {
-	for _, pid := range g.Players() {
-		for _, id := range g.traitHosts(pid) {
-			h := g.Card(id)
-			if h.Def == nil {
-				continue
-			}
-			for face := range h.triggerFaces {
-				for _, t := range face.Triggers {
-					if modeIn(t, spellCopyModes) && hasAnyParam(t, spellCastUnresolvedParams[:]...) {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 // copySpell is CardFactory.copySpellAbilityAndPossiblyHost plus
 // orderAndPlaySimultaneousSa's stack add, for one copy of orig under
 // copier: a new card from the original's definition, owned by copier,

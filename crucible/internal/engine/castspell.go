@@ -1132,7 +1132,9 @@ func (g *Game) spellAdditionalCost(pid PlayerID, c *Card, line *compile.Ability)
 	if !parsed || !g.unlessPayable(pid, c.ID, uc) || (uc.hasMana && !uc.mana.Equal(c.Def.Faces[0].ManaCost)) {
 		return unlessCost{}, false, false
 	}
-	return uc, true, true
+	// A line whose Cost$ is only the printed mana (Aether Tide's "X U") adds
+	// no additional cost: a RaiseCost static's part is then the only one.
+	return uc, uc.hasParts() || uc.waterbendN > 0, true
 }
 
 // castExtraCost is the additional cost casting c under opts pays beyond its

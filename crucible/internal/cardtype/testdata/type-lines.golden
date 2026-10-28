@@ -2070,6 +2070,7 @@ Creature Treefolk Soldier	Creature - Treefolk Soldier
 Creature Treefolk Spirit	Creature - Treefolk Spirit
 Creature Treefolk Warlock	Creature - Treefolk Warlock
 Creature Treefolk Warrior	Creature - Treefolk Warrior
+Creature Tribble	Creature - Tribble
 Creature Trilobite	Creature - Trilobite
 Creature Trilobite Beast	Creature - Trilobite Beast
 Creature Troll	Creature - Troll
@@ -2550,6 +2551,7 @@ Legendary Artifact Creature Alien Scientist	Legendary Artifact Creature - Alien 
 Legendary Artifact Creature Android Rogue	Legendary Artifact Creature - Android Rogue
 Legendary Artifact Creature Artificer	Legendary Artifact Creature - Artificer
 Legendary Artifact Creature Book Construct	Legendary Artifact Creature - Book Construct
+Legendary Artifact Creature Borg	Legendary Artifact Creature - Borg
 Legendary Artifact Creature Borg Noble	Legendary Artifact Creature - Borg Noble
 Legendary Artifact Creature Cat Moogle	Legendary Artifact Creature - Cat Moogle
 Legendary Artifact Creature Construct	Legendary Artifact Creature - Construct
@@ -2620,6 +2622,7 @@ Legendary Artifact Planeswalker Equipment	Legendary Artifact Planeswalker - Equi
 Legendary Artifact Powerstone	Legendary Artifact - Powerstone
 Legendary Artifact Spacecraft	Legendary Artifact - Spacecraft
 Legendary Artifact Vehicle	Legendary Artifact - Vehicle
+Legendary Creature Aenar Artificer	Legendary Creature - Aenar Artificer
 Legendary Creature Aetherborn Rogue	Legendary Creature - Aetherborn Rogue
 Legendary Creature Aetherborn Vampire	Legendary Creature - Aetherborn Vampire
 Legendary Creature Alien	Legendary Creature - Alien
@@ -2712,6 +2715,7 @@ Legendary Creature Boar God	Legendary Creature - Boar God
 Legendary Creature Boar Mutant	Legendary Creature - Boar Mutant
 Legendary Creature Boar Mutant Warrior	Legendary Creature - Boar Mutant Warrior
 Legendary Creature Boar Rhino Mutant	Legendary Creature - Boar Rhino Mutant
+Legendary Creature Cat	Legendary Creature - Cat
 Legendary Creature Cat Advisor	Legendary Creature - Cat Advisor
 Legendary Creature Cat Archer	Legendary Creature - Cat Archer
 Legendary Creature Cat Artificer	Legendary Creature - Cat Artificer
@@ -3140,6 +3144,7 @@ Legendary Creature Human Monk	Legendary Creature - Human Monk
 Legendary Creature Human Monk Ally	Legendary Creature - Human Monk Ally
 Legendary Creature Human Monk Hero	Legendary Creature - Human Monk Hero
 Legendary Creature Human Mutant	Legendary Creature - Human Mutant
+Legendary Creature Human Mutant Rogue	Legendary Creature - Human Mutant Rogue
 Legendary Creature Human Mutant Scout	Legendary Creature - Human Mutant Scout
 Legendary Creature Human Mutant Shapeshifter	Legendary Creature - Human Mutant Shapeshifter
 Legendary Creature Human Mutant Wizard	Legendary Creature - Human Mutant Wizard
@@ -3160,6 +3165,7 @@ Legendary Creature Human Noble Warrior	Legendary Creature - Human Noble Warrior
 Legendary Creature Human Noble Wizard	Legendary Creature - Human Noble Wizard
 Legendary Creature Human Nomad	Legendary Creature - Human Nomad
 Legendary Creature Human Officer	Legendary Creature - Human Officer
+Legendary Creature Human Officer Scout	Legendary Creature - Human Officer Scout
 Legendary Creature Human Peasant	Legendary Creature - Human Peasant
 Legendary Creature Human Peasant Ally	Legendary Creature - Human Peasant Ally
 Legendary Creature Human Performer	Legendary Creature - Human Performer
@@ -3183,6 +3189,7 @@ Legendary Creature Human Rogue Ally	Legendary Creature - Human Rogue Ally
 Legendary Creature Human Rogue Bard	Legendary Creature - Human Rogue Bard
 Legendary Creature Human Rogue Hero	Legendary Creature - Human Rogue Hero
 Legendary Creature Human Rogue Pilot	Legendary Creature - Human Rogue Pilot
+Legendary Creature Human Rogue Scientist	Legendary Creature - Human Rogue Scientist
 Legendary Creature Human Rogue Villain	Legendary Creature - Human Rogue Villain
 Legendary Creature Human Rogue Wizard	Legendary Creature - Human Rogue Wizard
 Legendary Creature Human Samurai	Legendary Creature - Human Samurai
@@ -3267,6 +3274,7 @@ Legendary Creature Kithkin Archer	Legendary Creature - Kithkin Archer
 Legendary Creature Kithkin Soldier	Legendary Creature - Kithkin Soldier
 Legendary Creature Kithkin Warrior	Legendary Creature - Kithkin Warrior
 Legendary Creature Klingon Officer	Legendary Creature - Klingon Officer
+Legendary Creature Klingon Warrior	Legendary Creature - Klingon Warrior
 Legendary Creature Klingon Warrior Officer	Legendary Creature - Klingon Warrior Officer
 Legendary Creature Kobold	Legendary Creature - Kobold
 Legendary Creature Kobold Shaman	Legendary Creature - Kobold Shaman
@@ -3402,6 +3410,7 @@ Legendary Creature Orc Soldier	Legendary Creature - Orc Soldier
 Legendary Creature Orc Sorcerer	Legendary Creature - Orc Sorcerer
 Legendary Creature Orc Warrior	Legendary Creature - Orc Warrior
 Legendary Creature Orc Wizard	Legendary Creature - Orc Wizard
+Legendary Creature Orion Scientist	Legendary Creature - Orion Scientist
 Legendary Creature Otter	Legendary Creature - Otter
 Legendary Creature Otter Incarnation	Legendary Creature - Otter Incarnation
 Legendary Creature Otter Rogue	Legendary Creature - Otter Rogue
@@ -3593,6 +3602,7 @@ Legendary Creature Treefolk Druid	Legendary Creature - Treefolk Druid
 Legendary Creature Treefolk Mutant	Legendary Creature - Treefolk Mutant
 Legendary Creature Treefolk Shaman	Legendary Creature - Treefolk Shaman
 Legendary Creature Treefolk Wizard	Legendary Creature - Treefolk Wizard
+Legendary Creature Trill Human Officer	Legendary Creature - Trill Human Officer
 Legendary Creature Troll	Legendary Creature - Troll
 Legendary Creature Troll Shaman	Legendary Creature - Troll Shaman
 Legendary Creature Troll Warlock	Legendary Creature - Troll Warlock

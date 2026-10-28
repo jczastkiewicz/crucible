@@ -42,7 +42,7 @@ func TestSameNameAsEachPicksOneCardPerNamedCardInOneSearch(t *testing.T) {
 	}
 }
 
-func TestSameNameAsEachDeclineAndNothingToName(t *testing.T) {
+func TestSameNameAsEachDecline(t *testing.T) {
 	t.Parallel()
 
 	t.Run("decline", func(t *testing.T) {
@@ -55,20 +55,6 @@ func TestSameNameAsEachDeclineAndNothingToName(t *testing.T) {
 		resolveLine(t, g, p, c, sameNameSearch)
 		if z := g.Card(lib[0]).Zone; z != engine.Library {
 			t.Errorf("zone = %v, want Library: the search was declined", z)
-		}
-	})
-
-	t.Run("nothing to name", func(t *testing.T) {
-		t.Parallel()
-		g, p, _ := newTwoPlayerGame(t)
-		lib := libraryCards(t, g, p, 2)
-		resolveLine(t, g, p, engine.NewScriptedController(), sameNameSearch)
-		if z := g.Card(lib[0]).Zone; z != engine.Library {
-			t.Errorf("zone = %v, want Library", z)
-		}
-		// ChangeZoneEffect.java: with nothing to name no search takes place.
-		if got := measure(t, g, p, "Count$SearchedLibrary.You"); got != 0 {
-			t.Errorf("searches counted = %d, want 0", got)
 		}
 	})
 }

@@ -1,11 +1,11 @@
-kind	Unknown	1512
-kind	Simple	9784
-kind	Amount	652
+kind	Unknown	1513
+kind	Simple	9785
+kind	Amount	654
 kind	Cost	1884
 kind	Type	1339
 kind	CostAndAmount	32
 kind	CostAndType	136
-kind	Special	3133
+kind	Special	3135
 used	Affinity	Special
 used	Afflict	Amount
 used	Afterlife	Amount
@@ -206,7 +206,7 @@ used	Warp	Cost
 used	Web-slinging	Cost
 used	Wither	Simple
 pseudo	AlternateAdditionalCost	44
-pseudo	Chapter	237
+pseudo	Chapter	238
 pseudo	Class	76
 pseudo	DeckLimit	5
 pseudo	ETBReplacement	422

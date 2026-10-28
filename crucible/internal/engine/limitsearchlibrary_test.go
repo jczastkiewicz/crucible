@@ -33,7 +33,7 @@ func TestLimitSearchLibraryOffersTheTopFourCardsOnly(t *testing.T) {
 	}
 }
 
-func TestLimitSearchLibraryWithAnEmptyLibraryIsNoSearch(t *testing.T) {
+func TestLimitSearchLibraryWithAnEmptyLibraryIsStillASearch(t *testing.T) {
 	t.Parallel()
 
 	g, p, other := newTwoPlayerGame(t)
@@ -43,8 +43,8 @@ func TestLimitSearchLibraryWithAnEmptyLibraryIsNoSearch(t *testing.T) {
 	rec := &offerRecorder{ScriptedController: engine.NewScriptedController()}
 	resolveRecorded(t, g, p, rec, "DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card")
 
-	if got := measure(t, g, p, "Count$SearchedLibrary.You"); got != 0 {
-		t.Errorf("searches counted = %d, want 0: an empty library is not searched", got)
+	if got := measure(t, g, p, "Count$SearchedLibrary.You"); got != 1 {
+		t.Errorf("searches counted = %d, want 1: getSearchableLibrary returns an empty list, not null", got)
 	}
 }
 

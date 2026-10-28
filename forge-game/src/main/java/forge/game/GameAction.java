@@ -360,6 +360,7 @@ public class GameAction {
                     }
                 } else if (toBattlefield && !c.isInPlay()) {
                     // was replaced with another Zone Change
+                    cleanStaticEffect(staticEff, copied);
                     if (c.removeChangedState()) {
                         c.updateStateForView();
                     }
@@ -2623,10 +2624,9 @@ public class GameAction {
             switch (game.getReplacementHandler().run(ReplacementType.Scry, repParams)) {
                 case NotReplaced:
                     break;
-                case Updated: {
+                case Updated:
                     playerScry = (int) repParams.get(AbilityKey.Num);
                     break;
-                }
                 default:
                     continue;
             }

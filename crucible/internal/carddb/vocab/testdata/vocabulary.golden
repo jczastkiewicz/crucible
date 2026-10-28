@@ -790,7 +790,7 @@ paramKey	RememberRevealed
 paramKey	RememberRevealedPlayer
 paramKey	RememberSVarAmount
 paramKey	RememberSacrificed
-paramKey	RememberSearched
+paramKey	RememberSearcher
 paramKey	RememberSource
 paramKey	RememberSpell
 paramKey	RememberSplicedOntoCounteredSpell
@@ -1159,6 +1159,7 @@ paramKey	WithCounters
 paramKey	WithCountersAmount
 paramKey	WithCountersPlacer
 paramKey	WithCountersType
+paramKey	WithDifferentManaValues
 paramKey	WithDifferentNames
 paramKey	WithDifferentPowers
 paramKey	WithMayLook
@@ -1819,7 +1820,6 @@ countHead	Random.0.8
 countHead	RegeneratedThisTurn
 countHead	RememberedNumber
 countHead	RememberedSize
-countHead	RememberedWithSharedCardType
 countHead	ResolvedThisTurn
 countHead	Result
 countHead	Revolt
@@ -1925,6 +1925,7 @@ countHead	YouCastThisGame
 countHead	YouDescendedThisTurn
 countHead	YouDrewLastTurn
 countHead	YouDrewThisTurn
+countHead	YouFaceDilemmaThisTurn
 countHead	YouFlipThisTurn
 countHead	YouRollThisTurn
 countHead	YouRolledThisTurn6
@@ -2098,6 +2099,7 @@ validBase	Contraption
 validBase	Coward
 validBase	Crab
 validBase	Creature
+validBase	Creature$DifferentCardManaCost
 validBase	Creature$DifferentCardPower
 validBase	Creature$GreatestCardPower
 validBase	Curse
@@ -2198,6 +2200,7 @@ validBase	Nephilim
 validBase	Nightmare
 validBase	Ninja
 validBase	Octopus
+validBase	Officer
 validBase	Omen
 validBase	Ongoing
 validBase	Ooze
@@ -2281,6 +2284,7 @@ validBase	Time Lord
 validBase	Town
 validBase	Treasure
 validBase	Treefolk
+validBase	Tribble
 validBase	Triggered
 validBase	TriggeredAttacker
 validBase	TriggeredCard
@@ -2654,6 +2658,7 @@ validProperty	IsUnearthed
 validProperty	Island
 validProperty	Jace
 validProperty	Kavu
+validProperty	KeywordSource
 validProperty	Kicked
 validProperty	Kithkin
 validProperty	Knight
@@ -4145,6 +4150,7 @@ svarProperty	SacrificedThisTurn Permanent
 svarProperty	SacrificedThisTurn Permanent.!token
 svarProperty	ScryBottom
 svarProperty	ScryNum
+svarProperty	SharesCardTypes
 svarProperty	SpellsCastThisTurn
 svarProperty	StartingLife
 svarProperty	Sum

@@ -135,6 +135,24 @@ func TestGainControlChoicesTakesTheChosenPermanent(t *testing.T) {
 	}
 }
 
+// Optional$ with Choices$ makes the pick itself optional and asks no
+// confirmation of its own (ControlGainEffect.java:127, :141): a declined pick
+// takes nothing.
+func TestGainControlChoicesOptionalIsDeclinedAtThePick(t *testing.T) {
+	t.Parallel()
+
+	g, p, other := newTwoPlayerGame(t)
+	theirs := g.NewCard(creatureDefPT(t, "1", "1"), other, engine.Battlefield)
+	c := engine.NewScriptedController()
+	c.QueueCardChoice(nil)
+	if _, err := resolveNow(t, g, p, c, nil, "DB$ GainControl | Choices$ Creature.OppCtrl | Optional$ True"); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Card(theirs).Controller(); got != other {
+		t.Errorf("controller = %v, want %v: the pick was declined", got, other)
+	}
+}
+
 // RememberRemoved$ remembers one (kind, index) pair per counter taken off a
 // card, RememberAmount$ the total (CountersRemoveEffect.java:187-192, :217-219);
 // the pairs of two cards collapse onto the indices of the larger, as Java's set

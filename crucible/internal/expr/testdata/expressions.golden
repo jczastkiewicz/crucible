@@ -111,14 +111,14 @@ operator	LimitMax	84
 operator	LimitMin	10
 operator	Minus	118
 operator	Mod	3
-operator	NMinus	14
+operator	NMinus	15
 operator	Negative	1
 operator	Plus	318
 operator	Pow	1
 operator	ThirdUp	5
 operator	Thrice	9
 operator	Times	183
-operator	Twice	166
+operator	Twice	167
 countHead	AbilityYouCtrl
 countHead	Adamant
 countHead	Adamant_7
@@ -229,7 +229,6 @@ countHead	Random
 countHead	RegeneratedThisTurn
 countHead	RememberedNumber
 countHead	RememberedSize
-countHead	RememberedWithSharedCardType
 countHead	ResolvedThisTurn
 countHead	Revolt
 countHead	SearchedLibrary
@@ -329,6 +328,7 @@ countHead	YouCastThisGame
 countHead	YouDescendedThisTurn
 countHead	YouDrewLastTurn
 countHead	YouDrewThisTurn
+countHead	YouFaceDilemmaThisTurn
 countHead	YouFlipThisTurn
 countHead	YouRollThisTurn
 countHead	YouRolledThisTurn6

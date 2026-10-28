@@ -79,8 +79,7 @@ func TestOppositionAgentExilesWhatAnOpponentFindsAndLetsItsControllerPlayIt(t *t
 
 // TestOppositionAgentLeavesMovesThatFoundNothingAlone proves the run param
 // gate: a library card moved without a search (a Defined$ ChangeZone, a
-// NoLooking$ one, a Searched$ one -- Java turns its flag back off at
-// ChangeZoneEffect.java:1090-1092) or found by the Agent's own controller is
+// NoLooking$ one) or found by the Agent's own controller is
 // not exiled.
 func TestOppositionAgentLeavesMovesThatFoundNothingAlone(t *testing.T) {
 	t.Parallel()
@@ -92,7 +91,6 @@ func TestOppositionAgentLeavesMovesThatFoundNothingAlone(t *testing.T) {
 	}{
 		"defined imprinted":         {line: "DB$ ChooseCard | ChoiceZone$ Library | Choices$ Land | Mandatory$ True | ImprintChosen$ True | SubAbility$ DBMove", choose: true},
 		"no looking":                {line: "DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land | NoLooking$ True", choose: true},
-		"searched param":            {line: "DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land | Searched$ True", choose: true},
 		"the controller's own find": {line: "DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land", ownerIsP: true, choose: true},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -104,6 +104,7 @@ func (destroyEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			// destroyed card (the live card's snapshot is frozen as it moves).
 			g.Card(a.Source).Memory.RememberLKI(id)
 		}
+		g.checkDestroyedTriggers(controller, id, a.Controller)
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		destroyed = append(destroyed, id)

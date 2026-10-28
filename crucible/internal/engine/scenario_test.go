@@ -72,6 +72,13 @@ func runScenario(t *testing.T, db *compile.DB, dir string) {
 		t.Fatalf("read actions.log: %v", err)
 	}
 
+	if os.Getenv("SCENARIO_DUMP") != "" {
+		// Authoring aid: the post-state, to copy into expect.state once read.
+		var buf bytes.Buffer
+		if err := fixture.Write(&buf, fixture.Dump(setup)); err == nil {
+			t.Logf("post-state of %s:\n%s", filepath.Base(dir), buf.String())
+		}
+	}
 	want := loadScenarioFile(t, db, filepath.Join(dir, "expect.state"))
 	compareGames(t, setup.Game, want.Game)
 }

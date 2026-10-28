@@ -241,6 +241,12 @@ type Player struct {
 	// CyclingThisTurn is how many Cycling or TypeCycling abilities the player
 	// has activated this turn (FirstTime$ of Mode$ Cycled).
 	CyclingThisTurn int
+	// InvestigatedThisTurn is how many times the player investigated this turn
+	// (Player.addInvestigatedThisTurn): Mode$ Investigated's FirstTime$.
+	InvestigatedThisTurn int
+	// TokensCreatedThisTurn is how many tokens the player created this turn
+	// (Player.numTokenCreatedThisTurn): Mode$ TokenCreated's OnlyFirst$.
+	TokensCreatedThisTurn int
 	// discardedThisTurn is every card the player has discarded this turn, in
 	// order (Player.discardedThisTurn): TriggerDiscardedAll's FirstTime$ looks
 	// at what came before the batch.

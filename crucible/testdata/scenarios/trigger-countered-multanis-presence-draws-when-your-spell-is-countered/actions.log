@@ -1,0 +1,15 @@
+# Countered: Counterspell counters the player's own Grizzly Bears (a spell they
+# cast), so Multani's Presence draws a card. The countered card goes to the
+# graveyard.
+startturn human
+advance 3
+tapformana human 3 G
+tapformana human 4 G
+queue paygeneric G
+queue paygeneric G
+castspell human 1
+tapformana human 5 U
+tapformana human 6 U
+queue targets 1
+castspell human 2
+resolvestack

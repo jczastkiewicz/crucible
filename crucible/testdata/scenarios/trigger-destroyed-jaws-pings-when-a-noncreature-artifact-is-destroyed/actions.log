@@ -1,0 +1,10 @@
+# Destroyed: Shatter destroys the opponent's Sol Ring; Jaws deals 1 damage to each
+# opponent (the trigger fires while the artifact is still on the battlefield).
+startturn human
+advance 3
+tapformana human 2 R
+tapformana human 3 R
+queue paygeneric R
+queue targets 5
+castspell human 1
+resolvestack

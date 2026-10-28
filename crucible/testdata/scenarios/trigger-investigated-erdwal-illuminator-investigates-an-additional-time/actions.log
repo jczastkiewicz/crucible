@@ -1,0 +1,8 @@
+# Investigated: Thraben Inspector's ETB investigates (first time this turn), so
+# Erdwal Illuminator adds a second investigate: two Clue tokens.
+startturn human
+advance 3
+tapformana human 2 W
+queue paygeneric W
+castspell human 1
+resolvestack

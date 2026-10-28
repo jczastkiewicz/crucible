@@ -1,0 +1,8 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Plains|Tapped;Iron Monger, Sadistic Tycoon|Counters:P1P1=1;Raffine's Informant|SummonSick|Counters:P1P1=1
+humangraveyard=Grizzly Bears
+humanlibrary=Plains
+ailife=20

@@ -79,6 +79,154 @@ func (g *Game) checkSurveilTriggers(controller PlayerController, pid PlayerID, f
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+var investigatedParams = effectEventParams("validplayer", "firsttime")
+
+// checkInvestigatedTriggers is Mode$ Investigated (TriggerInvestigated.
+// performTest, 2 real lines, Player.java:2284-2289): ValidPlayer$ against the
+// investigating player; FirstTime$ needs first, their first investigate this turn.
+func (g *Game) checkInvestigatedTriggers(controller PlayerController, pid PlayerID, first bool) {
+	matches := g.scanTriggers([]string{"Investigated"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, investigatedParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("FirstTime"); ok && !first {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var connivesParams = effectEventParams("validcard")
+
+// checkConnivesTriggers is Mode$ Connives (TriggerConnives.performTest, 3 real
+// lines, ConniveEffect.java:109): ValidCard$ against the conniver, once per
+// conniver the Connive replacement did not stop, after its discard.
+func (g *Game) checkConnivesTriggers(controller PlayerController, card CardID) {
+	g.pushTriggeredAbilities(controller, g.cardEventMatches("Connives", connivesParams, card))
+}
+
+var counteredParams = effectEventParams("validcard", "validcause", "validsa")
+
+// counteredMatches is Mode$ Countered (TriggerCountered.performTest, 4 real
+// lines, CounterEffect.java:301): once per countered spell or ability, after the
+// spell moved; the caller works the matches out while the spell is still on the
+// stack, as Java tests the card it passes (still cast), and pushes them after
+// the move. ValidCard$ against the host card, ValidCause$ against the
+// countering ability, ValidSA$ against the countered one. A spec the port
+// cannot evaluate leaves the line unfired (GO-7).
+func (g *Game) counteredMatches(card CardID, countered, cause *Ability) []Ability {
+	if countered == nil || cause == nil {
+		return nil
+	}
+	c := g.Card(card)
+	return g.scanTriggers([]string{"Countered"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, counteredParams) || !g.triggerCardMatches(h, t, "ValidCard", c) {
+			return triggeredObjects{}, false
+		}
+		for key, a := range map[string]*Ability{"ValidCause": cause, "ValidSA": countered} {
+			if spec, ok := t.Param(key); ok {
+				if m, known := g.spellAbilityMatches(a, spec, h, h.Controller(), face.Amounts); !known || !m {
+					return triggeredObjects{}, false
+				}
+			}
+		}
+		return triggeredObjects{card: card}, true
+	})
+}
+
+var destroyedParams = effectEventParams("validcard", "validcauser")
+
+// checkDestroyedTriggers is Mode$ Destroyed (TriggerDestroyed.performTest, 3 real
+// lines, GameAction.java:2170-2189): once per card the Destroy replacement and
+// regeneration let through, while it is still on the battlefield. ValidCard$
+// against it, ValidCauser$ against the player whose ability destroyed it;
+// causer is NoPlayer for state-based destruction, which matches no ValidCauser$.
+func (g *Game) checkDestroyedTriggers(controller PlayerController, card CardID, causer PlayerID) {
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{"Destroyed"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, destroyedParams) || !g.triggerCardMatches(h, t, "ValidCard", c) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ValidCauser"); ok && (causer == NoPlayer || !g.triggerPlayerMatches(h, t, "ValidCauser", causer)) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: card}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var tokenCreatedParams = effectEventParams("validplayer", "validtoken", "onlyfirst")
+
+// checkTokenCreatedTriggers is Mode$ TokenCreated (TriggerTokenCreated.
+// performTest, 3 real lines, Player.java:1475-1481): once per token that
+// entered, for its creator. ValidPlayer$ against the creator, ValidToken$
+// against the token, OnlyFirst$ needing it to be the creator's first this turn
+// (num is the creator's running count).
+func (g *Game) checkTokenCreatedTriggers(controller PlayerController, creator PlayerID, token CardID, num int) {
+	c := g.Card(token)
+	matches := g.scanTriggers([]string{"TokenCreated"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, tokenCreatedParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", creator) || !g.triggerCardMatches(h, t, "ValidToken", c) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("OnlyFirst"); ok && num != 1 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: creator, card: token}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var tokenCreatedOnceParams = effectEventParams("validtoken", "onlyfirst")
+
+// checkTokenCreatedOnceTriggers is Mode$ TokenCreatedOnce (TriggerTokenCreatedOnce.
+// performTest, 2 real lines, CardZoneTable.java:146-152): once per batch of
+// tokens created together, before the ChangesZoneAll triggers. ValidToken$
+// needs one token of the batch to match; OnlyFirst$ names players (You) of
+// whom at least one created their first token this turn in the batch.
+func (g *Game) checkTokenCreatedOnceTriggers(controller PlayerController, cards []CardID) {
+	var tokens []CardID
+	firsts := map[PlayerID]bool{}
+	for _, id := range cards {
+		if c := g.Card(id); c.IsToken {
+			tokens = append(tokens, id)
+			if c.firstOfCreator {
+				firsts[c.Owner] = true
+			}
+		}
+	}
+	if len(tokens) == 0 {
+		return
+	}
+	matches := g.scanTriggers([]string{"TokenCreatedOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, tokenCreatedOnceParams) {
+			return triggeredObjects{}, false
+		}
+		var kept []CardID
+		for _, id := range tokens {
+			if g.triggerCardMatches(h, t, "ValidToken", g.Card(id)) {
+				kept = append(kept, id)
+			}
+		}
+		if len(kept) == 0 {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("OnlyFirst"); ok {
+			hit := false
+			for p := range firsts {
+				if m, rec := matchesPlayerSpec(g, p, h.Controller(), h.ID, spec); rec && m {
+					hit = true
+				}
+			}
+			if !hit {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{card: kept[0]}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
 var collectEvidenceParams = effectEventParams("validplayer")
 
 // checkCollectEvidenceTriggers is Mode$ CollectEvidence

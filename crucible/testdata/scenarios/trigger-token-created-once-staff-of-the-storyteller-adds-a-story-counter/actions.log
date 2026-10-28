@@ -1,0 +1,11 @@
+# TokenCreatedOnce: the Staff enters and its own trigger creates a 1/1 Spirit
+# creature token; the Staff, on the battlefield, sees "one or more creature
+# tokens" created and gets a story counter.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+queue paygeneric W
+castspell human 1
+resolvestack

@@ -1,0 +1,7 @@
+turn=1
+activeplayer=human
+activephase=Main1
+humanlife=20
+humanbattlefield=Plains|Tapped;Mirkwood Bats;Thraben Inspector|SummonSick;T:c_a_clue_draw|SummonSick
+humanlibrary=Plains
+ailife=19

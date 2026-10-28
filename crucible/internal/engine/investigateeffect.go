@@ -5,8 +5,8 @@ package engine
 // investigateEffect is InvestigateEffect.java: Num$ times (default 1), each
 // target or Defined$ player (default You) creates a Clue (c_a_clue_draw),
 // ChangesZoneAll firing once per round. Optional$ (a per-player "may")
-// fails closed; InvestigatedThisTurn is not tracked, since nothing in this
-// port reads it.
+// fails closed. Each investigating player fires Mode$ Investigated after the
+// token (Player.addInvestigatedThisTurn, Player.java:2284-2289).
 type investigateEffect struct{}
 
 func (investigateEffect) Resolve(g *Game, a *Ability, controller PlayerController) error {
@@ -48,6 +48,8 @@ func (investigateEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 				continue
 			}
 			created = append(created, g.createToken(controller, tokenSpec{Def: clue, Owner: p}))
+			g.Player(p).InvestigatedThisTurn++
+			g.checkInvestigatedTriggers(controller, p, g.Player(p).InvestigatedThisTurn == 1)
 			if hasParam(a, "RememberInvestigatingPlayers") {
 				source.Memory.Remember(PlayerEntity(p))
 			}

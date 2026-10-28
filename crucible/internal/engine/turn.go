@@ -778,6 +778,8 @@ func (g *Game) cleanupStep(controller PlayerController) {
 		p.LifeGainedThisTurn = 0
 		p.attackedThisTurn = nil
 		p.CyclingThisTurn = 0
+		p.InvestigatedThisTurn = 0
+		p.TokensCreatedThisTurn = 0
 		p.discardedThisTurn = nil
 		g.cleanupPlayerRecords(pid)
 	}

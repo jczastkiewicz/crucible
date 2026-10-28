@@ -80,6 +80,9 @@ type Card struct {
 	// (CR 400.7: the card is a new object). castManaSpent is the mana paid for
 	// that cast (SpellAbility.getTotalManaSpent), 0 for a free one.
 	wasCast bool
+	// firstOfCreator marks a token that was its creator's first this turn
+	// (CardZoneTable.addToken's firstTime), which TokenCreatedOnce's OnlyFirst$ reads.
+	firstOfCreator bool
 	// castLast is the battlefield and graveyards as the spell was put on the
 	// stack (SpellAbility.getLastStateBattlefield/Graveyard of its cast
 	// ability), what Count$LastState...WithFallback counts. The slices are

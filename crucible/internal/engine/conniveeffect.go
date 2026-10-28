@@ -74,6 +74,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			amt = len(hand)
 		}
 		if amt == 0 {
+			g.checkConnivesTriggers(controller, id)
 			continue
 		}
 		chosen := controller.ChooseCardsToDiscard(g, pid, hand, amt)
@@ -89,6 +90,7 @@ func (conniveEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 			// The conniver's controller places (ConniveEffect.java:64, :99).
 			g.addCardCounters(controller, pid, a.Source, id, P1P1, nonLands)
 		}
+		g.checkConnivesTriggers(controller, id)
 	}
 	return nil
 }

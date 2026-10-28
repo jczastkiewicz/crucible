@@ -57,6 +57,14 @@ func (g *Game) createToken(controller PlayerController, spec tokenSpec) CardID {
 		enter = append(enter, enterCounters{kind: P1P1, n: spec.P1P1, placer: spec.Owner})
 	}
 	g.moveByEffect(controller, id, Battlefield, 0, NoPlayer, spec.Tapped, enter...)
+	if g.Card(id).Zone == Battlefield {
+		// TokenEffectBase.java:171-173: the token entered, so its creator's
+		// count moves and Mode$ TokenCreated fires for it.
+		pl := g.Player(spec.Owner)
+		g.Card(id).firstOfCreator = pl.TokensCreatedThisTurn == 0
+		pl.TokensCreatedThisTurn++
+		g.checkTokenCreatedTriggers(controller, spec.Owner, id, pl.TokensCreatedThisTurn)
+	}
 	return id
 }
 

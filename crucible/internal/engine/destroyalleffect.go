@@ -107,6 +107,7 @@ func (destroyAllEffect) Resolve(g *Game, a *Ability, controller PlayerController
 		if g.destroyInstead(controller, id) || (!cantRegen && g.regenerate(controller, id)) {
 			continue
 		}
+		g.checkDestroyedTriggers(controller, id, a.Controller)
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		if remember {

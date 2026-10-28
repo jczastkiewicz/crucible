@@ -1,0 +1,11 @@
+# Connives: Raffine's Informant connives on entering (draws Grizzly Bears, discards
+# it, a nonland card, so it gets a +1/+1 counter). Iron Monger, a Villain, puts a
+# +1/+1 counter on each Villain its controller controls: only itself.
+startturn human
+advance 3
+tapformana human 2 W
+tapformana human 3 W
+queue paygeneric W
+castspell human 1
+queue discardchoice 5
+resolvestack

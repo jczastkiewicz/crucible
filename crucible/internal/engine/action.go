@@ -529,6 +529,7 @@ func destroyDamagedCreatures(g *Game, controller PlayerController) bool {
 		if g.destroyInstead(controller, id) || g.regenerate(controller, id) {
 			continue
 		}
+		g.checkDestroyedTriggers(controller, id, NoPlayer)
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		died = append(died, id)

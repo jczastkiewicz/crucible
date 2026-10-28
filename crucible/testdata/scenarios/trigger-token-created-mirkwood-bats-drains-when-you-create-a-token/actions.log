@@ -1,0 +1,8 @@
+# TokenCreated: Thraben Inspector investigates on entering, creating a Clue token
+# for its controller, so Mirkwood Bats makes each opponent lose 1 life.
+startturn human
+advance 3
+tapformana human 2 W
+queue paygeneric W
+castspell human 1
+resolvestack

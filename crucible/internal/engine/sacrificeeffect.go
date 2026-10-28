@@ -305,6 +305,7 @@ func (g *Game) destroyChosen(controller PlayerController, a *Ability, ids []Card
 		if remember {
 			g.Card(a.Source).Memory.Remember(CardEntity(id))
 		}
+		g.checkDestroyedTriggers(controller, id, a.Controller)
 		g.moveToGraveyard(controller, id)
 		g.checkDiesTriggers(controller, id)
 		destroyed = append(destroyed, id)

@@ -1743,6 +1743,10 @@ func (g *Game) checkChangesZoneAllTriggers(controller PlayerController, cards []
 	if len(cards) == 0 {
 		return
 	}
+	if origin == None && destination == Battlefield {
+		// CardZoneTable.triggerChangesZoneAll runs TokenCreatedOnce first.
+		g.checkTokenCreatedOnceTriggers(controller, cards)
+	}
 	// A card sent to "the graveyard" that a Moved replacement put elsewhere
 	// (Rest in Peace's exile, Gravebane Zombie's library top) changed zones
 	// to that zone, so the batch names it, not the graveyard.

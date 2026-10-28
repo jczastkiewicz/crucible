@@ -1,0 +1,5 @@
+humanlife=20
+ailife=20
+humanhand=Shatter|Id:1
+humanbattlefield=Mountain|Id:2;Mountain|Id:3;Jaws, Relentless Predator|Id:4
+aibattlefield=Sol Ring|Id:5

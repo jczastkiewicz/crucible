@@ -871,6 +871,9 @@ func propertyMatches(g *Game, c *Card, p valid.Property, sourceController Player
 		return !strings.HasSuffix(name, "With") || c.PairedWith() == source
 	case name == "tapped":
 		return c.Tapped
+	case name == "wasCastByYou":
+		// CardProperty.java:1953-1959: wasCast, and cast by the source's controller.
+		return c.wasCast && c.castBy == sourceController
 	case name == "wasCast":
 		// CardProperty.java:1936: Card.wasCast, a cast spell's card.
 		return c.wasCast

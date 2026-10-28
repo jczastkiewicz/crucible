@@ -127,6 +127,15 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		// nothing else -- a cast trigger whose source is the spell's card stays
 		// and still resolves (MagicStack.remove(Card), MagicStack.java:799-805,
 		// keeps abilities the same way).
+		var countered *Ability
+		if sid, ok := g.spellItemOf(id); ok {
+			countered, _ = g.stackItem(sid)
+			if countered != nil {
+				snapshot := *countered
+				countered = &snapshot
+			}
+		}
+		counteredMatches := g.counteredMatches(id, countered, a)
 		g.removeSpellFromStack(id)
 		spellDest, err := counterDestination(g, a, controller, dest)
 		if err != nil {
@@ -146,6 +155,7 @@ func (counterEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		default:
 			return fmt.Errorf("engine: Counter: Destination$ %q not resolvable", spellDest)
 		}
+		g.pushTriggeredAbilities(controller, counteredMatches)
 		if hasParam(a, "RememberCountered") || hasParam(a, "RememberCounteredSA") {
 			// RememberCounteredSA$ remembers the countered SpellAbility
 			// (CounterEffect.java:112); a stack object has one entity here.
@@ -187,10 +197,13 @@ func counterAbility(g *Game, a *Ability, controller PlayerController, t EntityID
 	if cant || g.counterReplaced(controller, a, host, kind) {
 		return nil
 	}
+	countered := *item
+	counteredMatches := g.counteredMatches(host, &countered, a)
 	g.removeStackItem(id)
 	if _, err := counterDestination(g, a, controller, ""); err != nil {
 		return err
 	}
+	g.pushTriggeredAbilities(controller, counteredMatches)
 	if hasParam(a, "RememberCounteredSA") {
 		g.Card(a.Source).Memory.Remember(t)
 	}
@@ -199,6 +212,7 @@ func counterAbility(g *Game, a *Ability, controller PlayerController, t EntityID
 		// runs per card (destroyeffect.go).
 		if c := g.Card(host); c.Zone == Battlefield && canBeDestroyed(c) &&
 			!g.destroyInstead(controller, host) && !g.regenerate(controller, host) {
+			g.checkDestroyedTriggers(controller, host, a.Controller)
 			g.moveToGraveyard(controller, host)
 			g.checkDiesTriggers(controller, host)
 			g.checkChangesZoneAllTriggers(controller, []CardID{host}, Battlefield, Graveyard)

@@ -130,7 +130,7 @@ func (g *Game) withPanharmonicon(matches []Ability) []Ability {
 		host := g.Card(m.Source)
 		t := ownTrigger(host, m.Params)
 		extra := 0
-		if t != nil && !hasAnyParam(t, "ActivationLimit", "GameActivationLimit", "ResolvedLimit") {
+		if t != nil && !panharmoniconHasParam(t, "ActivationLimit", "GameActivationLimit", "ResolvedLimit") {
 			for _, l := range lines {
 				if g.panharmoniconGenericApplies(l.host, l.s, host, t.Name, &m) {
 					extra++
@@ -211,9 +211,9 @@ func (g *Game) panharmoniconEventMatches(sh *Card, s *compile.Ability, mode stri
 	o := m.triggered
 	switch strings.ToLower(mode) {
 	case "changeszone", "changeszoneall":
-		return !hasAnyParam(s, "ValidCause", "Origin", "Destination")
+		return !panharmoniconHasParam(s, "ValidCause", "Origin", "Destination")
 	case "damagedone", "damagedoneonce", "damageall", "damagedealtonce":
-		return !hasAnyParam(s, "CombatDamage", "ValidSource", "ValidTarget")
+		return !panharmoniconHasParam(s, "CombatDamage", "ValidSource", "ValidTarget")
 	case "attacks":
 		return cardOK("ValidCause", o.attacker)
 	case "attackersdeclared", "attackersdeclaredonetarget":
@@ -232,4 +232,14 @@ func (g *Game) panharmoniconEventMatches(sh *Card, s *compile.Ability, mode stri
 		return playerOK("ValidPlayer", o.player)
 	}
 	return true
+}
+
+// panharmoniconHasParam reports whether t carries any of keys.
+func panharmoniconHasParam(t *compile.Ability, keys ...string) bool {
+	for _, k := range keys {
+		if _, ok := t.Param(k); ok {
+			return true
+		}
+	}
+	return false
 }

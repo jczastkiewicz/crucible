@@ -1183,7 +1183,7 @@ ChangeZone	CostDesc	22	-	text:1	prose:19,token:3
 ChangeZone	DB	4747	-	-	token:4747
 ChangeZone	Defined	1976	-	defined:68	token:1951,prose:25
 ChangeZone	DefinedDesc	4	text:1	-	prose:3,token:1
-ChangeZone	DefinedPlayer	330	defined:2	defined:1	token:330
+ChangeZone	DefinedPlayer	331	defined:2	defined:1	token:331
 ChangeZone	DestAltSVar	6	-	-	amount:3,prose:2,token:1
 ChangeZone	DestAltSVarCompare	1	-	-	token:1
 ChangeZone	Destination	7115	zone:3	zone:10	token:7115
@@ -1224,7 +1224,7 @@ ChangeZone	MaxTotalTargetPower	2	-	-	int:2
 ChangeZone	ModeCost	13	-	-	int:11,prose:2
 ChangeZone	NoLooking	53	-	-	bool:53
 ChangeZone	NoReveal	10	-	-	bool:10
-ChangeZone	NoShuffle	32	-	-	bool:32
+ChangeZone	NoShuffle	34	-	-	bool:34
 ChangeZone	NonBasicSpell	3	-	-	bool:3
 ChangeZone	NumCards	2	-	amount:6	int:2
 ChangeZone	OpponentTurn	1	-	-	bool:1

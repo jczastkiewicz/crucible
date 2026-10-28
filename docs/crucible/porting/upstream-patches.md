@@ -72,6 +72,10 @@ merges it and a sync brings the identical content back.
 | 2026-10-26 | `forge-gui/res/cardsfolder/c/captains_maneuver.txt` | `DefinedCards$ ParentTarget`: `getDefinedCards` does not know `ParentTargeted` | PR [#12457](https://github.com/Card-Forge/forge/pull/12457), branch `upstream-pr/card-script-slips` |
 | 2026-10-26 | `forge-gui/res/cardsfolder/b/____________trespasser.txt` | `CantBlockBy` Effect instead of `KW$ HIDDEN Unblockable`, which no Java reads | PR [#12457](https://github.com/Card-Forge/forge/pull/12457), branch `upstream-pr/card-script-slips` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/u/urza_academy_headmaster.txt` | `Destroy11U` remembers with `RememberDestroyed$`: `RememberTargets$` on a `GenericChoice` choice is never read | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
+| 2026-10-28 | `forge-gui/res/cardsfolder/t/teyo_aegis_adept.txt` | Adds `SVar:X:Remembered$CardToughness`: the emblem's `LifeAmount$ X` had no `X`, gaining 0 life | PR [#12491](https://github.com/Card-Forge/forge/pull/12491), branch `upstream-pr/card-script-slips-5` |
+| 2026-10-28 | `forge-gui/res/cardsfolder/t/turtle_tracks.txt` | `DefinedPlayer$ Targeted`: without it `ChangeZoneEffect` lets only the first targeted player search | PR [#12491](https://github.com/Card-Forge/forge/pull/12491), branch `upstream-pr/card-script-slips-5` |
+| 2026-10-28 | `forge-gui/res/cardsfolder/l/library_of_leng.txt` | `NoShuffle$ True`: `Origin$ All` includes Library, so the discard to the top shuffled the library first | PR [#12491](https://github.com/Card-Forge/forge/pull/12491), branch `upstream-pr/card-script-slips-5` |
+| 2026-10-28 | `forge-gui/res/cardsfolder/n/nephalia_academy.txt` | `NoShuffle$ True`: same shuffle as Library of Leng | PR [#12491](https://github.com/Card-Forge/forge/pull/12491), branch `upstream-pr/card-script-slips-5` |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

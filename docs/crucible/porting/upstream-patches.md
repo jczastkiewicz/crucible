@@ -95,10 +95,10 @@ merges it and a sync brings the identical content back.
 | 2026-10-27 | `forge-gui/res/cardsfolder/v/volcanic_offering.txt` | `DBDestroyLand` remembers with `RememberObjects$ ThisTargetedCard`: `RememberTargets$` on a sub-ability is never read | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/u/urza_academy_headmaster.txt` | `Destroy11U` is a Pump that remembers its targets, then `DBDestroy11U` destroys `Targeted` | PR [#12471](https://github.com/Card-Forge/forge/pull/12471), branch `upstream-pr/card-script-slips-2` |
 | 2026-10-27 | `forge-gui/res/cardsfolder/s/supper_for_spiders.txt` | `Animate` grants the Food ability with `AddAbility$`: `StaticAbilityContinuous` never reads `AddAbilities$` | PR [#12474](https://github.com/Card-Forge/forge/pull/12474), branch `upstream-pr/card-script-slips-3` |
-| 2026-10-27 | `forge-gui/res/cardsfolder/e/elektra_femme_fatale.txt` | `TrigDamage1` uses `OptionalDecider$ You`: `Optional$` on a DealDamage line is read by nothing | Branch `upstream-pr/card-script-slips-4` (no PR yet) |
-| 2026-10-27 | `forge-gui/res/cardsfolder/t/tezzerets_reckoning.txt` | Exiles with `ExileFaceDown$`: the hidden-origin branch never reads `FaceDown$` | Branch `upstream-pr/card-script-slips-4` (no PR yet) |
-| 2026-10-27 | `forge-gui/res/cardsfolder/v/volcano_hellion.txt` | `DmgResolve` carries `NoPrevention$ True`: the cause that deals a `DamageMap$` batch is the DamageResolve | Branch `upstream-pr/card-script-slips-4` (no PR yet) |
-| 2026-10-27 | `forge-game/src/main/java/forge/game/card/CardProperty.java` | `attackingBattle` reads the tested creature's defender, not the source's (Rampaging Geoderm) | Branch `upstream-pr/attacking-battle` (no PR yet) |
+| 2026-10-27 | `forge-gui/res/cardsfolder/e/elektra_femme_fatale.txt` | `TrigDamage1` uses `OptionalDecider$ You`: `Optional$` on a DealDamage line is read by nothing | PR #12483 |
+| 2026-10-27 | `forge-gui/res/cardsfolder/t/tezzerets_reckoning.txt` | Exiles with `ExileFaceDown$`: the hidden-origin branch never reads `FaceDown$` | PR #12483 |
+| 2026-10-27 | `forge-gui/res/cardsfolder/v/volcano_hellion.txt` | `DmgResolve` carries `NoPrevention$ True`: the cause that deals a `DamageMap$` batch is the DamageResolve | PR #12483 |
+| 2026-10-27 | `forge-game/src/main/java/forge/game/card/CardProperty.java` | `attackingBattle` reads the tested creature's defender, not the source's (Rampaging Geoderm) | PR #12484 |
 
 Carried edits exist because the corpus gates run against the fork's own tree: a card the parser rejects fails the build
 whoever wrote it, and waiting for a merge would mean disabling a gate in the meantime.

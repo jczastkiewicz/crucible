@@ -98,7 +98,7 @@ func TestAttackingAloneCountsTheLoneAttacker(t *testing.T) {
 }
 
 // attackingBattle reads the tested creature's defender (CardProperty.java:1525,
-// the upstream-pr/attacking-battle fix): Rampaging Geoderm's "if it's attacking a battle".
+// the Forge fix, PR #12484): Rampaging Geoderm's "if it's attacking a battle".
 func TestAttackingBattleReadsTheTestedCreature(t *testing.T) {
 	t.Parallel()
 

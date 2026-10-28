@@ -221,6 +221,10 @@ type ActivationShape struct {
 	// exile graveyard cards with total mana value N or more), 0 when the cost
 	// names no such part. Cryptex's "{T}, Collect evidence 3".
 	CollectEvidenceN int
+	// ChooseColor is ChooseColor<1>: the payer names a color before the other
+	// parts are paid, kept on the host as its chosen color (CostChooseColor).
+	// Specialize's "Discard<1/Card.ChosenColor;...>" reads it.
+	ChooseColor bool
 }
 
 // chosenCardSpec reports whether field names a type to pick cards of: not the
@@ -362,6 +366,8 @@ func (c Cost) ActivationShape() (ActivationShape, bool) {
 			shape.SelfExileFromGrave = true
 		case p.Name == "ExileFromHand" && !shape.SelfExileFromHand && p.Field(0) == "1" && isSelfReferenceField(p.Field(1)):
 			shape.SelfExileFromHand = true
+		case p.Name == "ChooseColor" && !shape.ChooseColor && p.Field(0) == "1":
+			shape.ChooseColor = true
 		case p.Name == "CollectEvidence" && shape.CollectEvidenceN == 0:
 			n, err := strconv.Atoi(p.Field(0))
 			if err != nil || n <= 0 {

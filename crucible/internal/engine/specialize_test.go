@@ -67,3 +67,67 @@ func TestSpecializesTriggerFiresForTheSpecializedCard(t *testing.T) {
 		t.Errorf("life gained = %d, want 2 from the Specializes trigger", got)
 	}
 }
+
+// K:Specialize (ADR-0050): from the hand, at sorcery speed, the cost names a
+// color, discards a card of it or of its associated basic land type, and the
+// card takes that color's face; the host keeps no chosen color afterwards.
+func TestSpecializeActivatesFromHandAndDiscardsTheAssociatedLand(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	alora := g.NewCard(corpusCard(t, "Alora, Rogue Companion"), p, engine.Hand)
+	island := g.NewCard(corpusCard(t, "Island"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 2)
+	c := engine.NewScriptedController()
+	c.QueueColorChoice(mana.Blue)
+	c.QueueDiscardChoice([]engine.CardID{island})
+	c.QueuePayGeneric(mana.ShardU)
+	c.QueuePayGeneric(mana.ShardU)
+	if !g.ActivateAbility(p, alora, 0, c) {
+		t.Fatalf("ActivateAbility failed: %v", g.TakePendingError())
+	}
+	if got := g.Card(island).Zone; got != engine.Graveyard {
+		t.Errorf("Island zone = %v, want Graveyard (discarded as the cost)", got)
+	}
+	if err := g.ResolveStack(engine.NewRegistry(), c); err != nil {
+		t.Fatalf("ResolveStack: %v", err)
+	}
+	if got := g.Card(alora).Name(); got != "Alora, Cheerful Thief" {
+		t.Errorf("name = %q, want the blue face", got)
+	}
+	if got := g.Card(alora).Memory.ChosenColors(); got != 0 {
+		t.Errorf("chosen color = %v after the change, want none", got)
+	}
+}
+
+// A discard that is neither of the chosen color nor its land type makes the
+// activation impossible, and the named color is not left on the host.
+func TestSpecializeRefusesWithoutAMatchingDiscard(t *testing.T) {
+	t.Parallel()
+	g, p, _ := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, p, engine.Main1)
+	alora := g.NewCard(corpusCard(t, "Alora, Rogue Companion"), p, engine.Hand)
+	g.NewCard(corpusCard(t, "Plains"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 2)
+	c := engine.NewScriptedController()
+	c.QueueColorChoice(mana.Blue)
+	if g.ActivateAbility(p, alora, 0, c) {
+		t.Fatal("Specialize activated with only a Plains to discard for blue")
+	}
+	if got := g.Card(alora).Memory.ChosenColors(); got != 0 {
+		t.Errorf("chosen color = %v after the refusal, want none", got)
+	}
+}
+
+// SorcerySpeed$ True: not on the opponent's turn.
+func TestSpecializeIsSorcerySpeed(t *testing.T) {
+	t.Parallel()
+	g, p, opp := newTwoPlayerGameOn(t, scenarioDB(t))
+	g.SetTurnState(1, opp, engine.Main1)
+	alora := g.NewCard(corpusCard(t, "Alora, Rogue Companion"), p, engine.Hand)
+	g.NewCard(corpusCard(t, "Island"), p, engine.Hand)
+	g.Player(p).ManaPool.Add(mana.Blue, 2)
+	if g.ActivateAbility(p, alora, 0, engine.NewScriptedController()) {
+		t.Fatal("Specialize activated on the opponent's turn")
+	}
+}

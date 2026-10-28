@@ -210,7 +210,7 @@ import (
 // "activates an ability" trigger mode exists to check afterward
 // (CR 603's own remaining gap, game-state.md); this port has none built to
 // fire.
-func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller PlayerController) bool {
+func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller PlayerController) (done bool) {
 	c := g.Card(card)
 	if c.isDetained() {
 		return false
@@ -240,7 +240,13 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		return false
 	}
 	fromGraveyard, fromHand := false, false
-	switch zone, _ := ability.Param("ActivationZone"); zone {
+	zone, _ := ability.Param("ActivationZone")
+	if extra, ok := ability.Param("AdditionalActivationZone"); ok && extra == c.Zone.String() {
+		// SpellAbilityRestriction.java:217: one more zone the host may
+		// activate from (Karlach's graveyard Specialize).
+		zone = extra
+	}
+	switch zone {
 	case "", "Battlefield":
 		if !g.activatorValid(pid, c, ability) || c.Zone != Battlefield {
 			return false
@@ -285,7 +291,7 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 	if nonBattlefield && (shape.Tap || shape.SelfSac || shape.SelfExile || shape.SelfReturn || shape.SelfExert ||
 		shape.DiscardN > 0 || shape.PayLifeN > 0 || shape.PayEnergyN > 0 || shape.TapTypeN > 0 || shape.ReturnTypeN > 0 ||
 		shape.AddCounterType != "" || shape.SubCounterType != "" ||
-		shape.SacTypeN > 0 || shape.ExileTypeN > 0 || shape.ExileGraveN > 0 || shape.DiscardTypeN > 0) {
+		shape.SacTypeN > 0 || shape.ExileTypeN > 0 || shape.ExileGraveN > 0) {
 		return false
 	}
 	if !fromGraveyard && shape.SelfExileFromGrave {
@@ -351,6 +357,21 @@ func (g *Game) ActivateAbility(pid PlayerID, card CardID, index int, controller 
 		if len(returnCandidates) < shape.ReturnTypeN {
 			return false
 		}
+	}
+	if shape.ChooseColor {
+		// CostChooseColor: the color is named first and stays on the host for
+		// the cost's own type (Discard<1/Card.ChosenColor>) and the effect;
+		// it is dropped again when the activation does not go through.
+		picked := controller.ChooseColors(g, pid, card, mana.AllColors, 1, 1)
+		if picked.Count() != 1 {
+			return false
+		}
+		c.Memory.SetChosenColors(picked)
+		defer func() {
+			if !done {
+				c.Memory.SetChosenColors(0)
+			}
+		}()
 	}
 	chosen, ok := g.chooseCostCards(controller, pid, card, shape)
 	if !ok {

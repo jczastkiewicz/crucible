@@ -1452,7 +1452,7 @@ func matchesPlayerPropertyIn(g *Game, candidate, host PlayerID, source CardID, p
 //     source's controller or a planeswalker they control. A battle defender
 //     never matches (Java's "planeswalker that was removed from combat" guard).
 //   - "attackingBattle" (:1521-1529): c attacks a battle. Java read the
-//     source's defender until the fix in PR #12484 (carried on master), so Rampaging
+//     source's defender until the fix in PR #12484, so Rampaging
 //     Geoderm's "if it's attacking a battle" asked whether the Geoderm was.
 //   - Any other suffix reads as "attacking", Java's fall-through.
 //

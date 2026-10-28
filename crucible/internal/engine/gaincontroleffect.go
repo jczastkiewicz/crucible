@@ -41,7 +41,8 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		}
 	} else if spec, ok := a.Params.Param("Choices"); ok {
 		// ControlGainEffect.java:106-120: Chooser$ (the activator) picks one
-		// battlefield permanent, never optionally; none to pick ends the effect.
+		// battlefield permanent, optionally under Optional$ (which then asks
+		// no confirmation of its own, :141); none to pick ends the effect.
 		chooser, err := choiceChooser(g, a, "GainControl")
 		if err != nil {
 			return err
@@ -50,7 +51,11 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 		if err != nil {
 			return err
 		}
-		if cards, err = askChoiceCards(g, controller, a, "GainControl", chooser, offer, 1, 1); err != nil || len(cards) == 0 {
+		lo := 1
+		if _, optional := a.Params.Param("Optional"); optional {
+			lo = 0
+		}
+		if cards, err = askChoiceCards(g, controller, a, "GainControl", chooser, offer, lo, 1); err != nil || len(cards) == 0 {
 			return err
 		}
 	} else {
@@ -61,6 +66,8 @@ func (gainControlEffect) Resolve(g *Game, a *Ability, controller PlayerControlle
 	}
 	_, untap := a.Params.Param("Untap")
 	_, optional := a.Params.Param("Optional")
+	_, chosen := a.Params.Param("Choices")
+	optional = optional && !chosen
 	_, remember := a.Params.Param("RememberControlled")
 	_, forget := a.Params.Param("ForgetControlled")
 	var keywords []string

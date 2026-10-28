@@ -599,11 +599,11 @@ func TestChangeZoneEffectWithTotalCMCOffersOnlyWhatTheTotalLeaves(t *testing.T) 
 	})
 }
 
-// TestChangeZoneEffectRememberSearchedAndShuffleChangedPile proves
-// RememberSearched$ (ChangeZoneEffect.java:1083-1085: the searched player is
+// TestChangeZoneEffectRememberSearcherAndShuffleChangedPile proves
+// RememberSearcher$ (ChangeZoneEffect.java:1083-1085: the searched player is
 // remembered, whoever searches) and ShuffleChangedPile$ (:1248-1250: the
 // chosen cards are shuffled before they move; every one still moves).
-func TestChangeZoneEffectRememberSearchedAndShuffleChangedPile(t *testing.T) {
+func TestChangeZoneEffectRememberSearcherAndShuffleChangedPile(t *testing.T) {
 	t.Parallel()
 
 	g, p, _ := newTwoPlayerGame(t)
@@ -611,7 +611,7 @@ func TestChangeZoneEffectRememberSearchedAndShuffleChangedPile(t *testing.T) {
 	c := engine.NewScriptedController()
 	c.QueueCardChoice(lib[:2])
 	host, err := castETBChain(t, g, p, etbChainDef(t, "Test Searched Pile",
-		"DB$ ChangeZone | Origin$ Library | Destination$ Exile | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True | ShuffleChangedPile$ True | RememberSearched$ True"), c)
+		"DB$ ChangeZone | Origin$ Library | Destination$ Exile | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True | ShuffleChangedPile$ True | RememberSearcher$ True"), c)
 	if err != nil {
 		t.Fatalf("ResolveStack: %v", err)
 	}

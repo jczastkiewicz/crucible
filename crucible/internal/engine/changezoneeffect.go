@@ -767,8 +767,7 @@ type hiddenChoice struct {
 	// found is HiddenOriginChoices.searchedLibrary, the FoundSearchingLibrary
 	// run param every move of this fetcher's cards carries
 	// (ChangeZoneEffect.java:1277, :1308): the library was really searched --
-	// not blocked, not NoLooking$, and not a Searched$ ability, which Java
-	// turns back to false once its grant is made (:1090-1092).
+	// not blocked and not NoLooking$.
 	found bool
 	// origin is HiddenOriginChoices.origin: the zones this fetcher searched,
 	// which OriginAlternative$ can narrow or widen from Origin$ -- "if you
@@ -909,7 +908,6 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 	_, mandatory := a.Params.Param("Mandatory")
 	_, optional := a.Params.Param("Optional")
 	_, noShuffle := a.Params.Param("NoShuffle")
-	_, searchedParam := a.Params.Param("Searched")
 	shuffleParam, _ := a.Params.Param("Shuffle")
 	shuffleMandatory := !noShuffle && shuffleParam != "False"
 	libPos, err := libraryPosition(g, a, source)
@@ -980,10 +978,6 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				return fmt.Errorf("engine: ChangeZone: SameNameAsEach$: %w", err)
 			}
 		}
-		// With nothing to name no search takes place: none is counted and the
-		// library is neither blocked nor revealed (the old RepeatEach scripts
-		// never searched then either).
-		nothingToName := sameName && len(named) == 0
 
 		var fetchList []CardID
 		fetcherShuffle, searchedLibrary, blocked := shuffleMandatory, false, false
@@ -1011,7 +1005,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			// not make (CantSearchLibrary) offers nothing from the library, and
 			// the shuffle then follows ShuffleNonMandatory$.
 			_, noLooking := a.Params.Param("NoLooking")
-			if zoneIn(Library, searched) && !noLooking && !nothingToName {
+			if zoneIn(Library, searched) && !noLooking {
 				searchedLibrary = true
 				if !g.canSearchLibraryWith(decider, player, a.Controller) {
 					blocked = true
@@ -1022,7 +1016,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			}
 			// ChangeZoneEffect.java:1023-1031: a decider under Aven Mindcensor's
 			// LimitSearchLibrary searches the top four cards of the library
-			// only; with none, nothing was searched.
+			// only (getSearchableLibrary).
 			limited := searchedLibrary && g.Player(decider).HasKeyword("LimitSearchLibrary")
 			for _, z := range searched {
 				if z == Library && blocked {
@@ -1031,20 +1025,17 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 				cards := g.Zone(z, player).Cards()
 				if z == Library && limited {
 					cards = cards[:min(len(cards), 4)]
-					if len(cards) == 0 {
-						searchedLibrary = false
-					}
 				}
 				fetchList = append(fetchList, cards...)
 			}
 		}
 		// ChangeZoneEffect.java:1067-1079: a search of the decider's own
-		// library (Searched$ counts as one) is counted on them, whether or not
+		// library is counted on them, whether or not
 		// anything is found (Count$SearchedLibrary).
-		if (searchedLibrary || searchedParam) && decider == player {
+		if searchedLibrary && decider == player {
 			g.Player(decider).librarySearched++
 		}
-		if (searchedLibrary || searchedParam) && hasParam(a, "RememberSearched") {
+		if searchedLibrary && hasParam(a, "RememberSearcher") {
 			// ChangeZoneEffect.java:1083-1085, ahead of ForgetOtherRemembered$'s
 			// clear (:1106): the searched player, whoever searches.
 			source.Memory.Remember(PlayerEntity(player))
@@ -1065,11 +1056,10 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 		} else {
 			// ChangeZoneEffect.java:1070-1076, 1268: a searched library is
 			// searched under the control grant ControlOpponentsSearching-
-			// Library$ gives (ADR-0040), popped after the pick. Searched$
-			// counts as a search for the grant (:1067-1069).
+			// Library$ gives (ADR-0040), popped after the pick.
 			pickFrom := func(list []CardID, lo, hi int) ([]CardID, error) {
 				var end func()
-				if (searchedLibrary || searchedParam) && decider == player {
+				if searchedLibrary && decider == player {
 					end = g.beginSearchControl(player)
 				}
 				got := controller.ChooseCardsForEffect(g, decider, a.Source, list, lo, hi)
@@ -1273,7 +1263,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			continue
 		}
 		picks = append(picks, hiddenChoice{player: player, chosen: chosen, shuffleMandatory: fetcherShuffle,
-			found: searchedLibrary && !searchedParam, origin: searched, dest: dest, libPos: libPos})
+			found: searchedLibrary, origin: searched, dest: dest, libPos: libPos})
 	}
 
 	_, tapped := a.Params.Param("Tapped")

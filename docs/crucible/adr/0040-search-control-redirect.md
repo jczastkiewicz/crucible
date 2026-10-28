@@ -53,8 +53,8 @@ State option 1, window option 1. `rulesEffect` reads `ControlOpponentsSearchingL
 `Game.SearchController(pid)` returns the controller and the static's timestamp. `changeZoneHidden` pushes the grant
 after the fetch list is built (so `isControlled`'s Wish exclusion, read before, is unaffected, `:987-991`) and pops it
 after the choice, only when the library was searched: `Library` in `Origin$`, no `NoLooking$`, the decider passes
-`canSearchLibraryWith`, or `Searched$`. The grant is inserted in timestamp order, not appended, so `controlledBy[len-1]`
-stays the newest grant and a later Mindslaver grant outranks it.
+`canSearchLibraryWith`. The grant is inserted in timestamp order, not appended, so `controlledBy[len-1]` stays the
+newest grant and a later Mindslaver grant outranks it.
 
 ## Consequences
 

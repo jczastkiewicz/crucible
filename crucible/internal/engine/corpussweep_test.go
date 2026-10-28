@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"slices"
 	"sort"
 	"sync"
 	"testing"
@@ -28,7 +29,8 @@ const corpusSweepHangLimit = 3 * time.Minute
 func TestCorpusSampleNeverPanicsOrHangs(t *testing.T) {
 	t.Parallel()
 
-	names := scenarioDB(t).Names()
+	// A copy: Names() is the shared DB's own slice, read by parallel tests.
+	names := slices.Clone(scenarioDB(t).Names())
 	sort.Strings(names)
 	var sample []string
 	for i := 0; i < len(names); i += corpusSweepStride {

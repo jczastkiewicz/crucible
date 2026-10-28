@@ -1127,9 +1127,7 @@ public class AbilityUtils {
                 players.add(game.getCombat().getAttackingPlayer());
             }
         } else if (defined.equals("DefendingPlayer")) {
-            if (game.getPhaseHandler().inCombat()) {
-                players.add(game.getCombat().getDefendingPlayerRelatedTo(card));
-            }
+            players.add(game.getCombat().getDefendingPlayerRelatedTo(card));
         } else if (defined.equals("ChoosingPlayer")) {
             players.add(((SpellAbility) sa).getRootAbility().getChoosingPlayer());
         } else if (defined.equals("ChosenPlayer")) {

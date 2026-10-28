@@ -13,7 +13,7 @@ One package is one pull request: one theme, small enough to review in one sittin
 
 | #   | Package                                             | Sites                                                                                                                                            | Size | Notes                                                   |
 | --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------------------------------------------------------- |
-| 1   | Null and empty-list guards: combat and zones        | `SpellAbilityEffect:797`, `CombatUtil:70`, `Player:2642` (planeswalk), `ChangeZoneEffect:532`, `AbilityUtils:1129` (DefendingPlayer)             | S    | One line each; some latent                              |
+| 1   | Null and empty-list guards: combat and zones        | `SpellAbilityEffect:797`, `Player:2642` (planeswalk), `ChangeZoneEffect:532`                                                                     | S    | One line each                                           |
 | 2   | Null guards: effect params                          | `ChangeTargetsEffect:52`, `PumpEffect:387`, `SpellAbility:2153`, `SetStateEffect:31`                                                             | S    | Four of the seven rows; the rest are issues below       |
 | 6   | ChangeTargets and CopySpell                         | `ChangeTargetsEffect:71-106/152`, `CopySpellAbilityEffect:87/176/195`                                                                            | S    | `copies` is shared across spells (Twinning Staff)       |
 

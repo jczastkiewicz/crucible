@@ -22,6 +22,8 @@ var panharmoniconParams = map[string]bool{
 	"mode": true, "validmode": true, "validcard": true, "validzone": true, "validcause": true,
 	"origin": true, "destination": true, "description": true, "secondary": true,
 	"ispresent": true, "presentcompare": true, "condition": true, "effectzone": true,
+	"validactivator": true, "validtarget": true, "validsource": true, "validturned": true,
+	"validplayer": true, "combatdamage": true,
 }
 
 // panharmoniconExtra is countPanharmonicon for a ChangesZone trigger t of host
@@ -88,13 +90,6 @@ func withExtraCopies(matches []Ability, m Ability, extra int) []Ability {
 	return matches
 }
 
-// panharmoniconEventParams are the params of a Panharmonicon line that test
-// the event (the cause, the actor, the target, the damage): withPanharmonicon
-// has no event to test them against, so a line carrying one is left to the
-// sites that do (panharmoniconExtra).
-var panharmoniconEventParams = [...]string{"ValidCause", "ValidActivator", "ValidTarget", "ValidSource",
-	"ValidTurned", "ValidPlayer", "CombatDamage", "Origin", "Destination"}
-
 // withPanharmonicon is handlePanharmonicon (StaticAbilityPanharmonicon.java:
 // 31-83) for every trigger match that no site counted: each match whose
 // host's trigger a Panharmonicon line covers (ValidMode$ naming the trigger's
@@ -137,7 +132,7 @@ func (g *Game) withPanharmonicon(matches []Ability) []Ability {
 		extra := 0
 		if t != nil && !hasAnyParam(t, "ActivationLimit", "GameActivationLimit", "ResolvedLimit") {
 			for _, l := range lines {
-				if g.panharmoniconGenericApplies(l.host, l.s, host, t.Name) {
+				if g.panharmoniconGenericApplies(l.host, l.s, host, t.Name, &m) {
 					extra++
 				}
 			}
@@ -165,8 +160,8 @@ func ownTrigger(host *Card, execute *compile.Ability) *compile.Ability {
 	return nil
 }
 
-func (g *Game) panharmoniconGenericApplies(sh *Card, s *compile.Ability, host *Card, mode string) bool {
-	if !paramsResolvable(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) || hasAnyParam(s, panharmoniconEventParams[:]...) {
+func (g *Game) panharmoniconGenericApplies(sh *Card, s *compile.Ability, host *Card, mode string, m *Ability) bool {
+	if !paramsResolvable(s, panharmoniconParams) || !g.staticConditionsMet(sh, s) {
 		return false
 	}
 	if v, ok := s.Param("ValidMode"); ok && !containsString(strings.Split(v, ","), mode) {
@@ -179,5 +174,62 @@ func (g *Game) panharmoniconGenericApplies(sh *Card, s *compile.Ability, host *C
 	if v, ok := s.Param("ValidZone"); ok {
 		zones = v
 	}
-	return containsString(strings.Split(zones, ","), host.Zone.String())
+	if !containsString(strings.Split(zones, ","), host.Zone.String()) {
+		return false
+	}
+	return g.panharmoniconEventMatches(sh, s, mode, m)
+}
+
+// panharmoniconEventMatches is applyPanharmoniconAbility's mode branches
+// (StaticAbilityPanharmonicon.java:106-217) over what the trigger recorded:
+// each mode tests only the params it reads, an absent param passes, and a
+// param whose event this port does not record fails the line (ChangesZone and
+// the damage modes, whose events only the enter paths and damage sites hold).
+func (g *Game) panharmoniconEventMatches(sh *Card, s *compile.Ability, mode string, m *Ability) bool {
+	ctrl := sh.Controller()
+	cardOK := func(key string, ids ...CardID) bool {
+		v, ok := s.Param(key)
+		if !ok {
+			return true
+		}
+		spec := valid.Parse(v)
+		for _, id := range ids {
+			if id != NoCard && Matches(g, g.Card(id), spec, ctrl, sh.ID) {
+				return true
+			}
+		}
+		return false
+	}
+	playerOK := func(key string, pid PlayerID) bool {
+		v, ok := s.Param(key)
+		if !ok {
+			return true
+		}
+		matched, recognized := matchesPlayerSpec(g, pid, ctrl, sh.ID, v)
+		return recognized && matched
+	}
+	o := m.triggered
+	switch strings.ToLower(mode) {
+	case "changeszone", "changeszoneall":
+		return !hasAnyParam(s, "ValidCause", "Origin", "Destination")
+	case "damagedone", "damagedoneonce", "damageall", "damagedealtonce":
+		return !hasAnyParam(s, "CombatDamage", "ValidSource", "ValidTarget")
+	case "attacks":
+		return cardOK("ValidCause", o.attacker)
+	case "attackersdeclared", "attackersdeclaredonetarget":
+		return cardOK("ValidCause", o.attackers...)
+	case "spellcast", "spellcopy", "spellcastorcopy":
+		return cardOK("ValidCause", o.card) && playerOK("ValidActivator", o.activator)
+	case "becomestarget", "becomestargetonce":
+		v, ok := s.Param("ValidTarget")
+		if !ok {
+			return true
+		}
+		return o.target != NoEntity && g.entityMatches(o.target, v, valid.Parse(v), ctrl, sh.ID)
+	case "turnfaceup":
+		return cardOK("ValidTurned", o.card)
+	case "lifegained":
+		return playerOK("ValidPlayer", o.player)
+	}
+	return true
 }

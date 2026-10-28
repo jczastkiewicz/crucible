@@ -9,8 +9,8 @@ import (
 
 // A Panharmonicon line with no ValidMode$ covers every mode
 // (StaticAbilityPanharmonicon.java:61-83): a SpellCast trigger of a permanent
-// it matches goes on the stack twice, and a line naming an event param
-// (ValidCause$) is not applied outside the sites that read the event.
+// it matches goes on the stack twice, and ValidCause$ and ValidActivator$ are
+// tested against the cast (:150-158).
 func TestPanharmoniconDoublesAnyModeByHost(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -21,7 +21,11 @@ func TestPanharmoniconDoublesAnyModeByHost(t *testing.T) {
 		{"ValidMode names the mode", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidCard$ Permanent.YouCtrl", 2},
 		{"ValidMode names another mode", "Mode$ Panharmonicon | ValidMode$ Drawn | ValidCard$ Permanent.YouCtrl", 1},
 		{"ValidCard does not match the host", "Mode$ Panharmonicon | ValidCard$ Permanent.YouDontCtrl", 1},
-		{"an event param is left to its own site", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidCause$ Instant | ValidCard$ Permanent.YouCtrl", 1},
+		{"ValidCause matches the cast spell", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidCause$ Instant | ValidCard$ Permanent.YouCtrl", 2},
+		{"ValidCause does not match the cast spell", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidCause$ Creature | ValidCard$ Permanent.YouCtrl", 1},
+		{"ValidActivator matches the caster", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidActivator$ You | ValidCard$ Permanent.YouCtrl", 2},
+		{"ValidActivator does not match the caster", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidActivator$ Opponent | ValidCard$ Permanent.YouCtrl", 1},
+		{"an unrelated event param is ignored by the mode", "Mode$ Panharmonicon | ValidMode$ SpellCast | ValidTarget$ Creature | ValidCard$ Permanent.YouCtrl", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

@@ -592,7 +592,7 @@ func (g *Game) appendSpellCastMatches(matches []Ability, host CardID, c *Card, a
 			}
 			if sub, api, optional, ok := triggerEffectAPI(g, h, face.Amounts, t); ok {
 				matches = append(matches, Ability{API: api, Source: host, Controller: h.Controller(), Params: sub, Amounts: face.Amounts, Optional: optional,
-					triggered: face.objects(triggeredObjects{spellAbility: spellID, card: c.ID,
+					triggered: face.objects(triggeredObjects{spellAbility: spellID, card: c.ID, activator: activator,
 						counts: counts}), staticTrigger: isStaticTrigger(t)})
 			}
 		}

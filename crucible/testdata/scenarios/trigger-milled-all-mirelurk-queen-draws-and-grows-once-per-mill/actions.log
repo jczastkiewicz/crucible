@@ -1,0 +1,8 @@
+# MilledAll: the nonland cards milled by one Tome Scour trigger Mirelurk Queen
+# once: it draws a card (the last Plains) and gets a +1/+1 counter.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets human
+castspell human 1
+resolvestack

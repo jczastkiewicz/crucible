@@ -251,7 +251,7 @@ func (digUntilEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			g.checkChangesZoneAllTriggers(controller, revealed, Library, finalDest)
 		}
 		if pShuffle {
-			g.Shuffle(Library, p)
+			g.shuffleLibrary(controller, p, a)
 		}
 	}
 	return nil

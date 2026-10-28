@@ -1,0 +1,8 @@
+# MilledOnce: an opponent milling any number of cards puts one +1/+1 counter on
+# each Advisor Lo and Li's controller has (Lo and Li itself), once for the mill.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets ai
+castspell human 1
+resolvestack

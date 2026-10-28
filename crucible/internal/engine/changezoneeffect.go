@@ -714,7 +714,7 @@ func changeZoneKnown(g *Game, a *Ability, controller PlayerController, source *C
 			return err
 		}
 		for _, pid := range owners {
-			g.Shuffle(Library, pid)
+			g.shuffleLibrary(controller, pid, a)
 		}
 	}
 	return nil
@@ -1236,7 +1236,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			}
 		}
 		if zoneIn(Library, searched) && dest == Library && fetcherShuffle {
-			g.Shuffle(Library, player)
+			g.shuffleLibrary(controller, player, a)
 		}
 		if _, ok := a.Params.Param("Reorder"); ok {
 			// ChangeZoneEffect.java:1263-1265: the decider orders the chosen
@@ -1357,7 +1357,7 @@ func changeZoneHidden(g *Game, a *Ability, controller PlayerController, source *
 			return err
 		}
 		if (zoneIn(Library, pick.origin) && dest != Library && !defined && pick.shuffleMandatory) || shuffleParam == "True" {
-			g.Shuffle(Library, pick.player)
+			g.shuffleLibrary(controller, pick.player, a)
 		}
 	}
 	g.armUntilHostLeaves(controller, a.Source, returns)

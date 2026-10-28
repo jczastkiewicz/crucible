@@ -46,7 +46,15 @@ func (shuffleEffect) Resolve(g *Game, a *Ability, controller PlayerController) e
 		if optional && !controller.ConfirmEffect(g, a.Controller, a.Source) {
 			continue
 		}
-		g.Shuffle(Library, pid)
+		g.shuffleLibrary(controller, pid, a)
 	}
 	return nil
+}
+
+// shuffleLibrary is Player.shuffle(sa) (Player.java:1630-1645): the shuffle,
+// then Mode$ Shuffled, always -- cause is the spell or ability that shuffles
+// (nil for the rules' own shuffles, which a ShuffleFromEffect$ line skips).
+func (g *Game) shuffleLibrary(controller PlayerController, owner PlayerID, cause *Ability) {
+	g.Shuffle(Library, owner)
+	g.checkShuffledTriggers(controller, owner, cause)
 }

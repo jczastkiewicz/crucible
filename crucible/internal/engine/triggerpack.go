@@ -227,6 +227,98 @@ func (g *Game) checkTokenCreatedOnceTriggers(controller PlayerController, cards 
 	g.pushTriggeredAbilities(controller, matches)
 }
 
+var shuffledParams = effectEventParams("validplayer", "shufflefromeffect", "shufflebyselfcontrolled")
+
+// checkShuffledTriggers is Mode$ Shuffled (TriggerShuffled.performTest, 4 real
+// lines, Player.java:1645): ValidPlayer$ against the shuffling player;
+// ShuffleFromEffect$ needs a spell or ability behind the shuffle,
+// ShuffleBySelfControlled$ that its activator is the shuffling player.
+func (g *Game) checkShuffledTriggers(controller PlayerController, pid PlayerID, cause *Ability) {
+	matches := g.scanTriggers([]string{"Shuffled"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, shuffledParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ShuffleFromEffect"); ok && cause == nil {
+			return triggeredObjects{}, false
+		}
+		if _, ok := t.Param("ShuffleBySelfControlled"); ok && (cause == nil || cause.Controller != pid) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var milledParams = effectEventParams("validplayer", "validcard")
+
+// checkMilledTriggers is Mode$ Milled (TriggerMilled.performTest, 2 real lines,
+// Player.java:1603-1607): once per milled card, after it moved. ValidPlayer$
+// against the milling player, ValidCard$ against the card.
+func (g *Game) checkMilledTriggers(controller PlayerController, pid PlayerID, card CardID) {
+	c := g.Card(card)
+	matches := g.scanTriggers([]string{"Milled"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, milledParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) || !g.triggerCardMatches(h, t, "ValidCard", c) {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid, card: card}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// milledCardsMatching is the cards of one mill batch a ValidCard$ spec admits;
+// a trigger with none does not fire (matchesValidParam over a collection is
+// true when any member matches, and the Cards it hands on are the matching ones).
+func (g *Game) milledCardsMatching(h *Card, t *compile.Ability, cards []CardID) []CardID {
+	var kept []CardID
+	for _, id := range cards {
+		if g.triggerCardMatches(h, t, "ValidCard", g.Card(id)) {
+			kept = append(kept, id)
+		}
+	}
+	return kept
+}
+
+// checkMilledOnceTriggers is Mode$ MilledOnce (TriggerMilledOnce.performTest, 2
+// real lines, Player.java:1609-1613): once per player's mill, if it milled any.
+func (g *Game) checkMilledOnceTriggers(controller PlayerController, pid PlayerID, cards []CardID) {
+	if len(cards) == 0 {
+		return
+	}
+	matches := g.scanTriggers([]string{"MilledOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, milledParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		kept := g.milledCardsMatching(h, t, cards)
+		if len(kept) == 0 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid, card: kept[0]}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+// checkMilledAllTriggers is Mode$ MilledAll (TriggerMilledAll.performTest, 3
+// real lines, GameAction.java:2715-2718): once per mill effect, if any card was
+// milled. ValidCard$ against the whole batch; ValidPlayer$ is carried by the
+// corpus lines but never read by Java (TriggerMilledAll.java:36-42), so it is
+// accepted and ignored.
+func (g *Game) checkMilledAllTriggers(controller PlayerController, cards []CardID) {
+	if len(cards) == 0 {
+		return
+	}
+	matches := g.scanTriggers([]string{"MilledAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, milledParams) {
+			return triggeredObjects{}, false
+		}
+		kept := g.milledCardsMatching(h, t, cards)
+		if len(kept) == 0 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{card: kept[0]}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
 var collectEvidenceParams = effectEventParams("validplayer")
 
 // checkCollectEvidenceTriggers is Mode$ CollectEvidence

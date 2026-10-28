@@ -103,6 +103,7 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 		topN := append([]CardID(nil), lib[:n]...)
 		for _, id := range topN {
 			g.moveToGraveyard(controller, id)
+			g.checkMilledTriggers(controller, pid, id)
 			milled = append(milled, id)
 			if remember {
 				source.Memory.Remember(CardEntity(id))
@@ -111,7 +112,9 @@ func (millEffect) Resolve(g *Game, a *Ability, controller PlayerController) erro
 				source.Memory.Imprint(id)
 			}
 		}
+		g.checkMilledOnceTriggers(controller, pid, topN)
 	}
+	g.checkMilledAllTriggers(controller, milled)
 	g.checkLeftZoneTriggers(controller, milled, Library)
 	g.checkChangesZoneAllTriggers(controller, milled, Library, Graveyard)
 	return nil

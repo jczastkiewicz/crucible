@@ -1,0 +1,9 @@
+# Shuffled: Visions makes the opponent shuffle their library (a spell causes the
+# shuffle), so Psychogenic Probe deals 2 damage to that player.
+startturn human
+advance 3
+tapformana human 2 W
+queue targets ai
+queue confirmeffect true
+castspell human 1
+resolvestack

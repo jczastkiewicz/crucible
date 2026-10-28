@@ -221,7 +221,7 @@ func (changeZoneAllEffect) Resolve(g *Game, a *Ability, controller PlayerControl
 	}
 	if shuffle {
 		for _, pid := range players {
-			g.Shuffle(Library, pid)
+			g.shuffleLibrary(controller, pid, a)
 		}
 	}
 	return nil

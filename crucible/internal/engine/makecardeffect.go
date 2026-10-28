@@ -177,7 +177,7 @@ func (makeCardEffect) Resolve(g *Game, a *Ability, controller PlayerController) 
 			g.checkConjureAllTriggers(controller, p, made)
 		}
 		if zone == Library && !hasParam(a, "LibraryPosition") {
-			g.Shuffle(Library, p)
+			g.shuffleLibrary(controller, p, a)
 		}
 	}
 	return nil

@@ -1,0 +1,8 @@
+# Milled: Tome Scour mills five cards, one of them nonland (Grizzly Bears), so
+# Glowing One's controller gains 1 life.
+startturn human
+advance 3
+tapformana human 2 U
+queue targets human
+castspell human 1
+resolvestack

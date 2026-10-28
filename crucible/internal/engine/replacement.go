@@ -267,7 +267,7 @@ func (g *Game) moveToGraveyard(controller PlayerController, id CardID) (ZoneType
 func (g *Game) finishMoved(controller PlayerController, id CardID, owner PlayerID, post *movedPost, melded CardID) {
 	if post != nil {
 		if post.shuffle {
-			g.Shuffle(Library, owner)
+			g.shuffleLibrary(controller, owner, nil)
 		}
 		if post.exiledWith != NoCard {
 			g.markExiledWith(id, post.exiledWith)

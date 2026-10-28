@@ -73,7 +73,7 @@ func (rearrangeTopOfLibraryEffect) Resolve(g *Game, a *Ability, controller Playe
 			}
 		}
 		if mayShuffle && controller.ConfirmEffect(g, orderer, a.Source) {
-			g.Shuffle(Library, p)
+			g.shuffleLibrary(controller, p, a)
 		}
 	}
 	return nil

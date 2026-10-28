@@ -457,6 +457,11 @@ type Game struct {
 	// combatDamagePrevented is Fog's "prevent all combat damage this turn",
 	// cleared at cleanup (damagePrevented/damagePreventedPlayer read it).
 	combatDamagePrevented bool
+
+	// preventedDamage is the damage the current damage-dealing action prevented,
+	// per target in first-seen order: CardDamageTable.preventMap's role for Mode$
+	// DamagePreventedOnce, consumed by checkDamageTableTriggers.
+	preventedDamage []preventedEntry
 	// noPreventDamage is AbilityKey.NoPreventDamage for the damage batch being
 	// dealt: set by a DealDamage with NoPrevention$ around dealPendingDamage
 	// (ReplacementHandler.java:407), it skips prevention shields and every
@@ -1962,4 +1967,10 @@ func cloneCastSince(m map[PlayerID][]castRecord) map[PlayerID][]castRecord {
 		out[pid] = append([]castRecord(nil), recs...)
 	}
 	return out
+}
+
+// preventedEntry is one prevention: amount damage to target did not happen.
+type preventedEntry struct {
+	target EntityID
+	amount int
 }

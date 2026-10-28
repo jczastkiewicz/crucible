@@ -71,4 +71,5 @@ func (g *Game) noteLifeLost(controller PlayerController, pid PlayerID, amount in
 		}
 	}
 	g.pushTriggeredAbilities(controller, matches)
+	g.checkLifeLostAllTriggers(controller, pid, amount)
 }

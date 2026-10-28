@@ -1,0 +1,11 @@
+# SacrificedOnce: sacrificing Golden Egg (a Food) to its own gain-3-life cost
+# fires Camellia once, which creates a 1/1 Squirrel.
+startturn human
+advance 3
+tapformana human 1 G
+tapformana human 2 G
+queue paygeneric G
+queue paygeneric G
+queue action human activate 3 1
+passpriority
+resolvestack

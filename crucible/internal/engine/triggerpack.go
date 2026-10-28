@@ -7,6 +7,9 @@ package engine
 //enginelint:allow id card ability trigger staticability triggerscan game control valid stack
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/jczastkiewicz/crucible/internal/carddb/compile"
 	"github.com/jczastkiewicz/crucible/internal/valid"
 )
@@ -532,4 +535,112 @@ func (g *Game) checkLosesGameTriggers(controller PlayerController, loser PlayerI
 		return triggeredObjects{player: loser}, true
 	})
 	g.pushTriggeredAbilities(controller, matches)
+}
+
+var sacrificedOnceParams = effectEventParams("validplayer", "validcard", "validcause")
+
+// checkSacrificedOnceTriggers is Mode$ SacrificedOnce (TriggerSacrificedOnce,
+// 2 real lines, GameAction.java:2154-2159): once per sacrificing player for
+// one sacrifice action, after the cards moved. ValidCard$ matches when any of
+// the batch does (matchesValidParam on a collection); ValidCause$ against the
+// ability that sacrificed (a cost payment has one too).
+func (g *Game) checkSacrificedOnceTriggers(controller PlayerController, pid PlayerID, cards []CardID, cause *Ability) {
+	if len(cards) == 0 {
+		return
+	}
+	matches := g.scanTriggers([]string{"SacrificedOnce"}, func(h *Card, face triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, sacrificedOnceParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if spec, ok := t.Param("ValidCause"); ok {
+			if cause == nil {
+				return triggeredObjects{}, false
+			}
+			if m, known := g.spellAbilityMatches(cause, spec, h, h.Controller(), face.Amounts); !known || !m {
+				return triggeredObjects{}, false
+			}
+		}
+		kept := g.milledCardsMatching(h, t, cards)
+		if len(kept) == 0 {
+			return triggeredObjects{}, false
+		}
+		return triggeredObjects{player: pid, card: kept[0]}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var lifeLostAllParams = effectEventParams("validplayer", "validamounteach")
+
+// checkLifeLostAllTriggers is Mode$ LifeLostAll (TriggerLifeLostAll, 2 real
+// lines plus the speed designation), the batched sibling of LifeLost. Java
+// fires it once per effect or damage event over a map of every player that
+// lost life together (LifeLoseEffect.java:64, GameAction.java:2784, ...); this
+// port fires it per player from noteLifeLost, a one-entry map, so a trigger
+// that counts "one or more" players fires once per player in a simultaneous
+// multi-player loss (see quirks). ValidAmountEach$ compares that player's loss.
+func (g *Game) checkLifeLostAllTriggers(controller PlayerController, pid PlayerID, amount int) {
+	matches := g.scanTriggers([]string{"LifeLostAll"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+		if !paramsResolvable(t, lifeLostAllParams) || !g.triggerPlayerMatches(h, t, "ValidPlayer", pid) {
+			return triggeredObjects{}, false
+		}
+		if cmp, ok := t.Param("ValidAmountEach"); ok {
+			operand, err := strconv.Atoi(cmp[min(2, len(cmp)):])
+			if err != nil || len(cmp) < 3 || !compareOp(amount, cmp[:2], operand) {
+				return triggeredObjects{}, false
+			}
+		}
+		return triggeredObjects{player: pid, counts: triggerCounts{life: amount, set: countLife}}, true
+	})
+	g.pushTriggeredAbilities(controller, matches)
+}
+
+var damagePreventedOnceParams = effectEventParams("validtarget", "combatdamage", "damageamount")
+
+// notePrevented records that amount damage to target was prevented in the
+// damage action under way (CardDamageTable.java's preventMap, filled by
+// DamageDealEffect's prevention). Nothing to record for a zero amount.
+func (g *Game) notePrevented(target EntityID, amount int) {
+	if amount > 0 {
+		g.preventedDamage = append(g.preventedDamage, preventedEntry{target, amount})
+	}
+}
+
+// checkDamagePreventedOnceTriggers is Mode$ DamagePreventedOnce
+// (TriggerDamagePreventedOnce, 1 real line, CardDamageTable.java:36-55): once
+// per target of one damage action that had damage prevented, with the summed
+// prevented amount as DamageAmount. The batch is consumed here.
+func (g *Game) checkDamagePreventedOnceTriggers(controller PlayerController, isCombat bool) {
+	batch := g.preventedDamage
+	g.preventedDamage = nil
+	var order []EntityID
+	sums := map[EntityID]int{}
+	for _, e := range batch {
+		if _, ok := sums[e.target]; !ok {
+			order = append(order, e.target)
+		}
+		sums[e.target] += e.amount
+	}
+	for _, target := range order {
+		sum := sums[target]
+		toughness, hasToughness := 0, false
+		if cid, ok := target.AsCard(); ok {
+			toughness, hasToughness = g.Card(cid).Toughness()
+		}
+		matches := g.scanTriggers([]string{"DamagePreventedOnce"}, func(h *Card, _ triggerFace, t *compile.Ability) (triggeredObjects, bool) {
+			if !paramsResolvable(t, damagePreventedOnceParams) {
+				return triggeredObjects{}, false
+			}
+			if v, ok := t.Param("ValidTarget"); ok && !attackedTargetMatches(g, h, []EntityID{target}, v) {
+				return triggeredObjects{}, false
+			}
+			if v, ok := t.Param("CombatDamage"); ok && strings.EqualFold(v, "True") != isCombat {
+				return triggeredObjects{}, false
+			}
+			if v, ok := t.Param("DamageAmount"); ok && !damageAmountMatches(v, sum, toughness, hasToughness) {
+				return triggeredObjects{}, false
+			}
+			return triggeredObjects{counts: triggerCounts{damage: sum, set: countDamage}}, true
+		})
+		g.pushTriggeredAbilities(controller, matches)
+	}
 }

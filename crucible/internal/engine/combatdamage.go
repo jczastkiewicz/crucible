@@ -321,10 +321,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 	}
 	preventable := !g.noPreventDamage && g.canDamagePrevented(source, isCombat)
 	if preventable && g.damagePrevented(source, target, isCombat, amount) {
+		g.notePrevented(CardEntity(target), amount)
 		return
 	}
 	if preventable {
-		if amount = g.applyPreventShields(controller, CardEntity(target), amount); amount <= 0 {
+		before := amount
+		amount = g.applyPreventShields(controller, CardEntity(target), amount)
+		g.notePrevented(CardEntity(target), before-amount)
+		if amount <= 0 {
 			return
 		}
 	}
@@ -417,10 +421,14 @@ func (g *Game) dealPermanentDamage(controller PlayerController, source, target C
 func (g *Game) dealPlayerDamage(controller PlayerController, source CardID, target PlayerID, amount int, isCombat bool, table *damageTable) {
 	preventable := !g.noPreventDamage && g.canDamagePrevented(source, isCombat)
 	if preventable && g.damagePreventedPlayer(source, target, isCombat, amount) {
+		g.notePrevented(PlayerEntity(target), amount)
 		return
 	}
 	if preventable {
-		if amount = g.applyPreventShields(controller, PlayerEntity(target), amount); amount <= 0 {
+		before := amount
+		amount = g.applyPreventShields(controller, PlayerEntity(target), amount)
+		g.notePrevented(PlayerEntity(target), before-amount)
+		if amount <= 0 {
 			return
 		}
 	}

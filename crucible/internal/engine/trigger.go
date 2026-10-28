@@ -1138,6 +1138,7 @@ func (g *Game) checkDamageTableTriggers(controller PlayerController, table damag
 	// GameAction.java:2766-2767: the excess record and its triggers come
 	// before the DamageDoneOnce family (:2803).
 	g.triggerExcessDamage(controller, table, isCombat)
+	g.checkDamagePreventedOnceTriggers(controller, isCombat)
 	g.checkDamageDoneOnceTriggers(controller, table, isCombat)
 	g.checkDamageDoneOnceByControllerTriggers(controller, table, isCombat)
 	g.checkDamageDealtOnceTriggers(controller, table, isCombat)

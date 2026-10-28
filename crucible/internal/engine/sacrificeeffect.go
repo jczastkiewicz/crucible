@@ -350,12 +350,18 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 		imprint = imprint && a.API == APISacrificeAll
 	}
 	var sacrificed []CardID
+	var sacrificers []PlayerID
+	byPlayer := map[PlayerID][]CardID{}
 	for _, id := range ids {
 		c := g.Card(id)
 		if c.Zone != Battlefield || c.IsPhasedOut() || g.cantSacrifice(c, effect, a) {
 			continue
 		}
 		pid := c.Controller()
+		if _, seen := byPlayer[pid]; !seen {
+			sacrificers = append(sacrificers, pid)
+		}
+		byPlayer[pid] = append(byPlayer[pid], id)
 		g.recordSacrificed(pid, id)
 		g.checkSacrificedTriggers(controller, id, pid)
 		if remember {
@@ -373,6 +379,9 @@ func sacrificeCardsFor(g *Game, controller PlayerController, a *Ability, ids []C
 		if isExploitAbility(a) {
 			g.checkExploitedTriggers(controller, a.Source, id)
 		}
+	}
+	for _, pid := range sacrificers {
+		g.checkSacrificedOnceTriggers(controller, pid, byPlayer[pid], a)
 	}
 	g.checkChangesZoneAllTriggers(controller, sacrificed, Battlefield, Graveyard)
 	return sacrificed

@@ -490,24 +490,18 @@ func TestCopySpellRejectsUnbuiltShapes(t *testing.T) {
 		t.Errorf("no recorded spell: err = %v", err)
 	}
 
-	for _, tc := range []struct {
-		name, trigger, want string
-	}{
-		{"copy trigger", "Mode$ SpellCopy | ValidCard$ Card | Execute$ TrigGain", "SpellCopy"},
-		{"cast-or-copy trigger", "Mode$ SpellCastOrCopy | ValidCard$ Card | Execute$ TrigGain", "SpellCopy"},
-	} {
-		g, p, _ := newTwoPlayerGame(t)
-		g.NewCard(triggerWatcherDef(t, tc.name, tc.trigger, "TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
-		spell := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
-		err := castWithCopyWatcher(t, g, p, spell, engine.NewScriptedController(), "Instant", "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility")
-		if err == nil || !strings.Contains(err.Error(), tc.want) {
-			t.Errorf("%s: err = %v, want one naming %s", tc.name, err, tc.want)
-		}
+	// A copy trigger carrying a param nothing resolves would silently never
+	// fire (Grip of Chaos's IsSingleTarget$): the copy is refused instead.
+	g, p, _ = newTwoPlayerGame(t)
+	g.NewCard(triggerWatcherDef(t, "Grip", "Mode$ SpellAbilityCopy | IsSingleTarget$ True | Execute$ TrigGain", "TrigGain", "DB$ GainLife | Defined$ You | LifeAmount$ 1"), p, engine.Battlefield)
+	spell := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
+	if err := castWithCopyWatcher(t, g, p, spell, engine.NewScriptedController(), "Instant", "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility"); err == nil || !strings.Contains(err.Error(), "triggers not resolvable") {
+		t.Errorf("unresolvable copy trigger: err = %v", err)
 	}
 
 	g, p, _ = newTwoPlayerGame(t)
 	g.NewCard(continuousDef(t, "No Copies", "Mode$ CantBeCopied | ValidCard$ Card"), p, engine.Battlefield)
-	spell := g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
+	spell = g.NewCard(gainInstant(t, "Gain", "W", "3"), p, engine.Hand)
 	if err := castWithCopyWatcher(t, g, p, spell, engine.NewScriptedController(), "Instant", "DB$ CopySpellAbility | Defined$ TriggeredSpellAbility"); err == nil || !strings.Contains(err.Error(), "CantBeCopied") {
 		t.Errorf("CantBeCopied static: err = %v", err)
 	}

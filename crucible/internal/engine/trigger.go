@@ -2310,6 +2310,7 @@ func isPhaseTrigger(t *compile.Ability) bool {
 // ability's own chosen targets are exactly as real a "becomes the target of
 // a spell or ability" event as a spell's are, CR 115 draws no distinction.
 func (g *Game) pushTriggeredAbilities(controller PlayerController, matches []Ability) {
+	matches = g.withPanharmonicon(matches)
 	// Static$ True triggers run first, inline, in the order found
 	// (TriggerHandler.runWaitingTrigger, TriggerHandler.java:300-309); the rest
 	// go to the stack.

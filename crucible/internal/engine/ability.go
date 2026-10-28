@@ -347,6 +347,9 @@ type Ability struct {
 	// (pushTriggeredAbilities hands it to resolveStaticTriggers, ADR-0020). Only
 	// the trigger checks that set it get that treatment.
 	staticTrigger bool
+	// panhDone marks a trigger match whose Panharmonicon copies were counted
+	// already, at its own site or by withPanharmonicon (panharmonicon.go).
+	panhDone bool
 	// recheck is a Mode$ Always trigger's ResolvingCheck$ condition, tested
 	// again as it resolves (alwaystrigger.go); nil for every other ability.
 	recheck *compile.Ability

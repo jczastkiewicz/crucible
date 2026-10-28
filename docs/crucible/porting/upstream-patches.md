@@ -60,8 +60,6 @@ merges it and a sync brings the identical content back.
 
 | Date | Path | Change | Upstream |
 | --- | --- | --- | --- |
-| 2026-10-22 | `forge-game/src/main/java/forge/game/phase/Untap.java` | `break` when the `UntapAdjust` choice is declined (the loop asked forever) | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
-| 2026-10-22 | `forge-game/src/main/java/forge/game/ability/effects/PlayEffect.java` | `amount--` before the three `continue`s that skip a play under `AllowRepeats$` | PR [#12373](https://github.com/Card-Forge/forge/pull/12373), branch `upstream-pr/infinite-loops` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/ability/SpellAbilityEffect.java` | `addToCombat` compares from the controller: `getDefenderPlayerByAttacker` is null for an attacker that left combat | PR [#12376](https://github.com/Card-Forge/forge/pull/12376), branch `upstream-pr/null-guards-combat-zones` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/combat/CombatUtil.java` | `getAllPossibleDefenders` skips a battle with no protector | PR [#12376](https://github.com/Card-Forge/forge/pull/12376), branch `upstream-pr/null-guards-combat-zones` |
 | 2026-10-22 | `forge-game/src/main/java/forge/game/player/Player.java` | `planeswalk` returns on an empty planar deck | PR [#12376](https://github.com/Card-Forge/forge/pull/12376), branch `upstream-pr/null-guards-combat-zones` |

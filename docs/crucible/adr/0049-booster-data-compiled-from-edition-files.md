@@ -14,6 +14,12 @@ a min-scan (strict less-than, TreeMap order of edition code plus affix, case-ins
 count whose result is unused, the foil chance, then every slot pick. `carddb` has no edition or print-sheet data
 (`forge-gui/res/editions` has 685 files).
 
+The card's rules are physical: the player opens a sealed booster pack they have not seen, any pack works including ones
+illegal in the format, and the chosen card leaves the deck before the next game (Gatherer ruling of 2020-02-29,
+[mirror](https://www.mtg.wtf/card/und/33/Booster-Tutor)). Forge approximates that with a random edition template; the
+approximation is reproduced because parity depends on it (PORT-7), not because it models the rules. The "remove from
+your deck before the next game" clause has no Java implementation and none here.
+
 ## Decision Drivers
 
 - GO-12 and ADR-0006: draws must follow Java's order or a replay diverges after the first booster.
@@ -40,8 +46,11 @@ fixture whose expected pack is produced by the Java oracle for a fixed seed.
 
 ## Consequences
 
-**Good:** closes the last data-driven refusal; the generator can serve later draft or sealed work. **Bad:** a parser and
-a few MB of immutable data load per process for one card. **Neutral:** `card-smoke` gains one playable card.
+**Good:** closes the last data-driven refusal; the generator can serve later draft or sealed work.
+
+**Bad:** a parser and a few MB of immutable data load per process for one card.
+
+**Neutral:** `card-smoke` gains one playable card.
 
 ## Related
 

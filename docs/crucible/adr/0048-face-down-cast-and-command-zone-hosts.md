@@ -38,21 +38,35 @@ leaves when the creature leaves the battlefield or is countered.
 Option 1.
 
 **Cast.** `castspell.go` gains `castFaceDown`: the spell's characteristics are `faceDownDef(false)` (colorless 2/2, no
-name, no abilities, cost {3} replaced by the alternative the cast supplies), not the card's. The flag lives on the stack
-object so a copy of the spell, a counter, or a fizzle never touches the card in the hand. **Resolution.** A face-down
-creature spell enters through `moveToPlay` with `setFaceDownState`, as manifest does (`changezoneeffect.go:654-667`).
-`MagicStack.java:263` is the reference: face down is kept only when the flag is set. **Hosts.** The Mask's Effect card
-is an `effecteffect` host in Command whose three replacements are compiled from the script's
+name, no text, no mana cost, so mana value 0), not the card's (CR 708.2, 708.2a, 708.4: the spell is turned face down
+before it goes on the stack, so every effect sees only those characteristics). The {3} a Morph cast pays is a cost paid,
+not a mana cost the spell has. The flag lives on the stack object so a copy of the spell, a counter, or a fizzle never
+touches the card in the hand. **Leaving the stack.** A face-down spell that goes anywhere but the battlefield
+(countered, fizzled) is revealed to every player by its owner (CR 708.9). A spell cannot be turned face up (CR 708.7).
+**Resolution.** A face-down creature spell enters through `moveToPlay` with `setFaceDownState`, as manifest does
+(`changezoneeffect.go:654-667`). `MagicStack.java:263` is the reference: face down is kept only when the flag is set.
+**Turning up.** A creature cast by Mask has no turn-up special action unless the card itself has Morph; only the three
+replacements flip it (Gatherer ruling, Illusionary Mask). Its enters-the-battlefield abilities neither trigger on entry
+nor when it turns up (CR 708.3). The host does not depend on the Mask: the effect keeps applying after the Mask leaves
+the battlefield (same ruling) and ends only when the creature leaves or the spell is countered. **Hosts.** The Mask's
+Effect card is an `effecteffect` host in Command whose three replacements are compiled from the script's
 `Triggers$`/`ReplacementEffects$` and bound to the remembered `CardID`; it is removed by the same "remembered card left"
 check other Effect hosts use (`EffectEffect.java` `ExileOnMoved`). **Morph, Megamorph, Disguise.** The keyword's
 turn-face-up cost is a separate follow-up that reuses `turnFaceUp`; this ADR only fixes the cast path and the host.
+Disguise's face-down form also has ward {2} (CR 702.168), so `faceDownDef` needs a variant for it in that follow-up.
 
 ## Consequences
 
-**Good:** one cast path serves Mask now and 231 keyword cards later; copies and counters behave per CR 708. **Bad:** the
-stack object grows a field every cast path must carry (copy, split, adventure). **Neutral:** the {3} description on the
-stack stays wrong-looking on purpose (PORT-7).
+**Good:** one cast path serves Mask now and 231 keyword cards later; a countered face-down spell is revealed as CR 708.9
+requires. A copy of a face-down spell copies its face-down characteristics (CR 707.2: copiable values are modified by
+face-down status; CR 707.10: a copy is put on the stack, not cast), so the stack object's flag is copied with it.
+
+**Bad:** the stack object grows a field every cast path must carry (copy, split, adventure).
+
+**Neutral:** the {3} description on the stack stays wrong-looking on purpose (PORT-7).
 
 ## Related
 
-ADR-0009, ADR-0017, [game-state.md](../porting/port-log/game-state.md), open plan row B7
+CR 708 ([ancestral.vision](https://ancestral.vision/additional-rules/face-down-spells-and-permanents.html)),
+[Illusionary Mask rulings](https://gatherer.wizards.com/ME3/en-us/197/illusionary-mask), ADR-0009, ADR-0017,
+[game-state.md](../porting/port-log/game-state.md), open plan row B7
